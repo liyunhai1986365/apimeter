@@ -36,8 +36,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { TableEmpty } from '@/components/data-table'
-import { SectionPageLayout } from '@/components/layout'
+import { formatTimestampToDate } from '@/lib/format'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -47,7 +46,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -61,7 +59,8 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { formatTimestampToDate } from '@/lib/format'
+import { TableEmpty } from '@/components/data-table'
+import { SectionPageLayout } from '@/components/layout'
 import {
   bindAdminAgentUser,
   completeAdminAgentWithdrawal,
@@ -72,6 +71,9 @@ import {
   listAdminAgents,
   listAdminAgentUsers,
   listAdminAgentWithdrawals,
+  parseAgentBranding,
+  stringifyAgentBranding,
+  updateAdminAgent,
   updateAdminAgentDomainStatus,
   upsertAdminAgentPricingRule,
 } from './api'
@@ -93,13 +95,17 @@ function domainStatusLabel(status: number) {
   return 'Pending'
 }
 
-function domainStatusVariant(status: number): 'default' | 'outline' | 'secondary' {
+function domainStatusVariant(
+  status: number
+): 'default' | 'outline' | 'secondary' {
   if (status === AGENT_DOMAIN_STATUS_ACTIVE) return 'default'
   if (status === AGENT_DOMAIN_STATUS_DISABLED) return 'secondary'
   return 'outline'
 }
 
-function withdrawalVariant(status: string): 'default' | 'outline' | 'secondary' | 'destructive' {
+function withdrawalVariant(
+  status: string
+): 'default' | 'outline' | 'secondary' | 'destructive' {
   if (status === 'paid') return 'default'
   if (status === 'approved') return 'secondary'
   if (status === 'rejected') return 'destructive'
@@ -117,6 +123,10 @@ export function AgentManagement() {
   const [newAgentName, setNewAgentName] = useState('')
   const [newAgentSlug, setNewAgentSlug] = useState('')
   const [newAgentMarkup, setNewAgentMarkup] = useState('1')
+  const [newAgentSiteName, setNewAgentSiteName] = useState('')
+  const [newAgentLogo, setNewAgentLogo] = useState('')
+  const [brandSiteName, setBrandSiteName] = useState('')
+  const [brandLogo, setBrandLogo] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [bindUserId, setBindUserId] = useState('')
   const [ruleModelPattern, setRuleModelPattern] = useState('*')
@@ -169,6 +179,13 @@ export function AgentManagement() {
     (withdrawal) => withdrawal.status === 'pending'
   ).length
   const totalAgentUsers = selectedUsersQuery.data?.data.total
+  const openAgentDetail = (agent: Agent) => {
+    const branding = parseAgentBranding(agent.branding)
+    setBrandSiteName(branding.site_name ?? '')
+    setBrandLogo(branding.logo ?? '')
+    setSelectedAgentId(agent.id)
+    setDetailAgentId(agent.id)
+  }
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] })
@@ -188,17 +205,34 @@ export function AgentManagement() {
     onSuccess: (res) => {
       toast.success(t('Agent created'))
       setCreatedAgent(res.data)
-      setSelectedAgentId(res.data.id)
-      setDetailAgentId(res.data.id)
+      openAgentDetail(res.data)
       setNewAgentOwnerId('')
       setNewAgentName('')
       setNewAgentSlug('')
       setNewAgentMarkup('1')
+      setNewAgentSiteName('')
+      setNewAgentLogo('')
       setCreateDialogOpen(false)
       refresh()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
+  const saveBrandingMutation = useMutation({
+    mutationFn: updateAdminAgent,
+    onSuccess: (res) => {
+      toast.success(t('Branding saved'))
+      setCreatedAgent(res.data)
+      refresh()
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -210,7 +244,9 @@ export function AgentManagement() {
       refreshSelectedAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -222,7 +258,9 @@ export function AgentManagement() {
       refreshSelectedAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -233,7 +271,9 @@ export function AgentManagement() {
       refreshSelectedAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -244,7 +284,9 @@ export function AgentManagement() {
       refreshSelectedAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -256,7 +298,9 @@ export function AgentManagement() {
       refresh()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -272,325 +316,350 @@ export function AgentManagement() {
     Number(ruleMarkup) > 0
 
   return (
-    <SectionPageLayout>
-      <SectionPageLayout.Title>{t('Agent Management')}</SectionPageLayout.Title>
-      <SectionPageLayout.Actions>
-        <Button variant='outline' onClick={refresh}>
-          <RefreshCcw />
-          {t('Refresh')}
-        </Button>
-        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-          <DialogTrigger
-            render={
-              <Button type='button'>
-                <Plus />
-                {t('Create Agent')}
-              </Button>
-            }
-          />
-        </Dialog>
-      </SectionPageLayout.Actions>
-      <SectionPageLayout.Content>
-        <div className='space-y-4'>
-          <div className='grid gap-3 md:grid-cols-4'>
-            <MetricCard
-              label={t('Total Agents')}
-              value={formatQuota(agentsQuery.data?.data.total)}
-              icon={<Store className='size-4' />}
-            />
-            <MetricCard
-              label={t('Selected Agent')}
-              value={selectedAgent?.name ?? '-'}
-              icon={<Settings2 className='size-4' />}
-            />
-            <MetricCard
-              label={t('Agent Users')}
-              value={selectedAgentId == null ? '-' : formatQuota(totalAgentUsers)}
-              icon={<Users className='size-4' />}
-            />
-            <MetricCard
-              label={t('Pending Withdrawal')}
-              value={formatQuota(pendingWithdrawalCount)}
-              icon={<WalletCards className='size-4' />}
-            />
-          </div>
+    <>
+      <SectionPageLayout>
+        <SectionPageLayout.Title>
+          {t('Agent Management')}
+        </SectionPageLayout.Title>
+        <SectionPageLayout.Actions>
+          <Button variant='outline' onClick={refresh}>
+            <RefreshCcw />
+            {t('Refresh')}
+          </Button>
+          <Button type='button' onClick={() => setCreateDialogOpen(true)}>
+            <Plus />
+            {t('Create Agent')}
+          </Button>
+        </SectionPageLayout.Actions>
+        <SectionPageLayout.Content>
+          <div className='space-y-4'>
+            <div className='grid gap-3 md:grid-cols-4'>
+              <MetricCard
+                label={t('Total Agents')}
+                value={formatQuota(agentsQuery.data?.data.total)}
+                icon={<Store className='size-4' />}
+              />
+              <MetricCard
+                label={t('Selected Agent')}
+                value={selectedAgent?.name ?? '-'}
+                icon={<Settings2 className='size-4' />}
+              />
+              <MetricCard
+                label={t('Agent Users')}
+                value={
+                  selectedAgentId == null ? '-' : formatQuota(totalAgentUsers)
+                }
+                icon={<Users className='size-4' />}
+              />
+              <MetricCard
+                label={t('Pending Withdrawal')}
+                value={formatQuota(pendingWithdrawalCount)}
+                icon={<WalletCards className='size-4' />}
+              />
+            </div>
 
-          <Tabs defaultValue='agents'>
-            <TabsList>
-              <TabsTrigger value='agents'>
-                <Store className='size-4' />
-                {t('Agents')}
-              </TabsTrigger>
-              <TabsTrigger value='users'>
-                <Users className='size-4' />
-                {t('Agent Users')}
-              </TabsTrigger>
-              <TabsTrigger value='withdrawals'>
-                <BadgeDollarSign className='size-4' />
-                {t('Withdrawal Processing')}
-              </TabsTrigger>
-            </TabsList>
+            <Tabs defaultValue='agents'>
+              <TabsList>
+                <TabsTrigger value='agents'>
+                  <Store className='size-4' />
+                  {t('Agents')}
+                </TabsTrigger>
+                <TabsTrigger value='users'>
+                  <Users className='size-4' />
+                  {t('Agent Users')}
+                </TabsTrigger>
+                <TabsTrigger value='withdrawals'>
+                  <BadgeDollarSign className='size-4' />
+                  {t('Withdrawal Processing')}
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value='agents'>
-              <section className='rounded-lg border p-3'>
-                <div className='mb-3 flex items-center justify-between gap-2'>
-                  <div>
-                    <h3 className='text-sm font-semibold'>{t('Agents')}</h3>
-                    <p className='text-muted-foreground mt-1 text-xs'>
-                      {t('Admins create agents, bind users, and manage configuration here.')}
-                    </p>
+              <TabsContent value='agents'>
+                <section className='rounded-lg border p-3'>
+                  <div className='mb-3 flex items-center justify-between gap-2'>
+                    <div>
+                      <h3 className='text-sm font-semibold'>{t('Agents')}</h3>
+                      <p className='text-muted-foreground mt-1 text-xs'>
+                        {t(
+                          'Admins create agents, bind users, and manage configuration here.'
+                        )}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('Agent Name')}</TableHead>
-                      <TableHead>{t('Owner User ID')}</TableHead>
-                      <TableHead>{t('Slug')}</TableHead>
-                      <TableHead>{t('Status')}</TableHead>
-                      <TableHead>{t('Markup')}</TableHead>
-                      <TableHead>{t('Created At')}</TableHead>
-                      <TableHead className='text-right'>{t('Actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {agentsQuery.isLoading ? (
-                      <LoadingRow colSpan={7} />
-                    ) : agents.length === 0 ? (
-                      <TableEmpty
-                        colSpan={7}
-                        title={t('No Agents')}
-                        description={t('Agent records will appear here.')}
-                        icon={<Store className='size-6' />}
-                      />
-                    ) : (
-                      agents.map((agent) => (
-                        <TableRow
-                          key={agent.id}
-                          data-state={
-                            selectedAgentId === agent.id ? 'selected' : undefined
-                          }
-                        >
-                          <TableCell className='font-medium'>
-                            {agent.name}
-                          </TableCell>
-                          <TableCell>{agent.owner_user_id}</TableCell>
-                          <TableCell className='font-mono text-xs'>
-                            {agent.slug}
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                agent.status === AGENT_STATUS_ENABLED
-                                  ? 'default'
-                                  : 'outline'
-                              }
-                            >
-                              {t(agentStatusLabel(agent.status))}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>{agent.default_markup}</TableCell>
-                          <TableCell>
-                            {formatTimestampToDate(agent.created_at)}
-                          </TableCell>
-                          <TableCell className='text-right'>
-                            <div className='inline-flex gap-2'>
-                              <Button
-                                size='sm'
-                                variant='outline'
-                                onClick={() => setSelectedAgentId(agent.id)}
-                              >
-                                {t('Select')}
-                              </Button>
-                              <Button
-                                size='sm'
-                                onClick={() => {
-                                  setSelectedAgentId(agent.id)
-                                  setDetailAgentId(agent.id)
-                                }}
-                              >
-                                <Settings2 />
-                                {t('Manage')}
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </section>
-            </TabsContent>
-
-            <TabsContent value='users'>
-              <section className='rounded-lg border p-3'>
-                <div className='mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]'>
-                  <div>
-                    <h3 className='text-sm font-semibold'>{t('Agent Users')}</h3>
-                    <p className='text-muted-foreground mt-1 text-xs'>
-                      {selectedAgent
-                        ? t('Only bound users can access the agent console.')
-                        : t('Select an agent before binding users.')}
-                    </p>
-                  </div>
-                  <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
-                    <Input
-                      value={bindUserId}
-                      onChange={(event) => setBindUserId(event.target.value)}
-                      disabled={selectedAgentId == null}
-                      type='number'
-                      min='1'
-                      placeholder={t('User ID')}
-                    />
-                    <Button
-                      disabled={!canBindUser || bindUserMutation.isPending}
-                      onClick={() =>
-                        selectedAgentId != null &&
-                        bindUserMutation.mutate({
-                          agentId: selectedAgentId,
-                          userId: Number(bindUserId),
-                        })
-                      }
-                    >
-                      <UserPlus />
-                      {t('Bind User')}
-                    </Button>
-                  </div>
-                </div>
-                {selectedAgentId == null ? (
-                  <EmptySelection message={t('Select an agent to manage users.')} />
-                ) : (
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('User ID')}</TableHead>
-                        <TableHead>{t('Source')}</TableHead>
+                        <TableHead>{t('Agent Name')}</TableHead>
+                        <TableHead>{t('Owner User ID')}</TableHead>
+                        <TableHead>{t('Slug')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
+                        <TableHead>{t('Markup')}</TableHead>
                         <TableHead>{t('Created At')}</TableHead>
+                        <TableHead className='text-right'>
+                          {t('Actions')}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {selectedUsersQuery.isLoading ? (
-                        <LoadingRow colSpan={4} />
-                      ) : selectedUsers.length === 0 ? (
+                      {agentsQuery.isLoading ? (
+                        <LoadingRow colSpan={7} />
+                      ) : agents.length === 0 ? (
                         <TableEmpty
-                          colSpan={4}
-                          title={t('No Agent Users')}
-                          description={t('Bind users to open the agent console for them.')}
-                          icon={<Users className='size-6' />}
+                          colSpan={7}
+                          title={t('No Agents')}
+                          description={t('Agent records will appear here.')}
+                          icon={<Store className='size-6' />}
                         />
                       ) : (
-                        selectedUsers.map((user) => (
-                          <TableRow key={user.id}>
-                            <TableCell>{user.user_id}</TableCell>
-                            <TableCell>{user.source}</TableCell>
-                            <TableCell>
-                              <Badge variant='outline'>
-                                {t(domainStatusLabel(user.status))}
-                              </Badge>
+                        agents.map((agent) => (
+                          <TableRow
+                            key={agent.id}
+                            data-state={
+                              selectedAgentId === agent.id
+                                ? 'selected'
+                                : undefined
+                            }
+                          >
+                            <TableCell className='font-medium'>
+                              {agent.name}
+                            </TableCell>
+                            <TableCell>{agent.owner_user_id}</TableCell>
+                            <TableCell className='font-mono text-xs'>
+                              {agent.slug}
                             </TableCell>
                             <TableCell>
-                              {formatTimestampToDate(user.created_at)}
+                              <Badge
+                                variant={
+                                  agent.status === AGENT_STATUS_ENABLED
+                                    ? 'default'
+                                    : 'outline'
+                                }
+                              >
+                                {t(agentStatusLabel(agent.status))}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{agent.default_markup}</TableCell>
+                            <TableCell>
+                              {formatTimestampToDate(agent.created_at)}
+                            </TableCell>
+                            <TableCell className='text-right'>
+                              <div className='inline-flex gap-2'>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={() => setSelectedAgentId(agent.id)}
+                                >
+                                  {t('Select')}
+                                </Button>
+                                <Button
+                                  size='sm'
+                                  onClick={() => {
+                                    openAgentDetail(agent)
+                                  }}
+                                >
+                                  <Settings2 />
+                                  {t('Manage')}
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         ))
                       )}
                     </TableBody>
                   </Table>
-                )}
-              </section>
-            </TabsContent>
+                </section>
+              </TabsContent>
 
-            <TabsContent value='withdrawals'>
-              <section className='rounded-lg border p-3'>
-                <div className='mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]'>
-                  <div>
-                    <h3 className='text-sm font-semibold'>
-                      {t('Withdrawal Processing')}
-                    </h3>
-                    <p className='text-muted-foreground mt-1 text-xs'>
-                      {t('Approve, reject, or mark agent withdrawals as paid.')}
-                    </p>
-                  </div>
-                  <Textarea
-                    value={withdrawalRemark}
-                    onChange={(event) => setWithdrawalRemark(event.target.value)}
-                    placeholder={t('Admin Remark')}
-                    className='min-h-20'
-                  />
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('Agent ID')}</TableHead>
-                      <TableHead>{t('Quota Amount')}</TableHead>
-                      <TableHead>{t('Money Amount')}</TableHead>
-                      <TableHead>{t('Status')}</TableHead>
-                      <TableHead>{t('Created At')}</TableHead>
-                      <TableHead className='text-right'>{t('Actions')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {withdrawalsQuery.isLoading ? (
-                      <LoadingRow colSpan={6} />
-                    ) : withdrawals.length === 0 ? (
-                      <TableEmpty
-                        colSpan={6}
-                        title={t('No Withdrawals')}
-                        description={t('Agent withdrawal requests will appear here.')}
-                        icon={<CircleDollarSign className='size-6' />}
+              <TabsContent value='users'>
+                <section className='rounded-lg border p-3'>
+                  <div className='mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]'>
+                    <div>
+                      <h3 className='text-sm font-semibold'>
+                        {t('Agent Users')}
+                      </h3>
+                      <p className='text-muted-foreground mt-1 text-xs'>
+                        {selectedAgent
+                          ? t('Only bound users can access the agent console.')
+                          : t('Select an agent before binding users.')}
+                      </p>
+                    </div>
+                    <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
+                      <Input
+                        value={bindUserId}
+                        onChange={(event) => setBindUserId(event.target.value)}
+                        disabled={selectedAgentId == null}
+                        type='number'
+                        min='1'
+                        placeholder={t('User ID')}
                       />
-                    ) : (
-                      withdrawals.map((withdrawal) => (
-                        <TableRow key={withdrawal.id}>
-                          <TableCell>{withdrawal.agent_id}</TableCell>
-                          <TableCell>
-                            {formatQuota(withdrawal.amount_quota)}
-                          </TableCell>
-                          <TableCell>{withdrawal.amount_money}</TableCell>
-                          <TableCell>
-                            <Badge variant={withdrawalVariant(withdrawal.status)}>
-                              {t(withdrawal.status)}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {formatTimestampToDate(withdrawal.created_at)}
-                          </TableCell>
-                          <TableCell className='text-right'>
-                            <WithdrawalActions
-                              withdrawal={withdrawal}
-                              disabled={completeWithdrawalMutation.isPending}
-                              onUpdate={(status) =>
-                                completeWithdrawalMutation.mutate({
-                                  withdrawalId: withdrawal.id,
-                                  status,
-                                  admin_remark: withdrawalRemark,
-                                })
-                              }
-                            />
-                          </TableCell>
+                      <Button
+                        disabled={!canBindUser || bindUserMutation.isPending}
+                        onClick={() =>
+                          selectedAgentId != null &&
+                          bindUserMutation.mutate({
+                            agentId: selectedAgentId,
+                            userId: Number(bindUserId),
+                          })
+                        }
+                      >
+                        <UserPlus />
+                        {t('Bind User')}
+                      </Button>
+                    </div>
+                  </div>
+                  {selectedAgentId == null ? (
+                    <EmptySelection
+                      message={t('Select an agent to manage users.')}
+                    />
+                  ) : (
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>{t('User ID')}</TableHead>
+                          <TableHead>{t('Source')}</TableHead>
+                          <TableHead>{t('Status')}</TableHead>
+                          <TableHead>{t('Created At')}</TableHead>
                         </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </section>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </SectionPageLayout.Content>
+                      </TableHeader>
+                      <TableBody>
+                        {selectedUsersQuery.isLoading ? (
+                          <LoadingRow colSpan={4} />
+                        ) : selectedUsers.length === 0 ? (
+                          <TableEmpty
+                            colSpan={4}
+                            title={t('No Agent Users')}
+                            description={t(
+                              'Bind users to open the agent console for them.'
+                            )}
+                            icon={<Users className='size-6' />}
+                          />
+                        ) : (
+                          selectedUsers.map((user) => (
+                            <TableRow key={user.id}>
+                              <TableCell>{user.user_id}</TableCell>
+                              <TableCell>{user.source}</TableCell>
+                              <TableCell>
+                                <Badge variant='outline'>
+                                  {t(domainStatusLabel(user.status))}
+                                </Badge>
+                              </TableCell>
+                              <TableCell>
+                                {formatTimestampToDate(user.created_at)}
+                              </TableCell>
+                            </TableRow>
+                          ))
+                        )}
+                      </TableBody>
+                    </Table>
+                  )}
+                </section>
+              </TabsContent>
+
+              <TabsContent value='withdrawals'>
+                <section className='rounded-lg border p-3'>
+                  <div className='mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]'>
+                    <div>
+                      <h3 className='text-sm font-semibold'>
+                        {t('Withdrawal Processing')}
+                      </h3>
+                      <p className='text-muted-foreground mt-1 text-xs'>
+                        {t(
+                          'Approve, reject, or mark agent withdrawals as paid.'
+                        )}
+                      </p>
+                    </div>
+                    <Textarea
+                      value={withdrawalRemark}
+                      onChange={(event) =>
+                        setWithdrawalRemark(event.target.value)
+                      }
+                      placeholder={t('Admin Remark')}
+                      className='min-h-20'
+                    />
+                  </div>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t('Agent ID')}</TableHead>
+                        <TableHead>{t('Quota Amount')}</TableHead>
+                        <TableHead>{t('Money Amount')}</TableHead>
+                        <TableHead>{t('Status')}</TableHead>
+                        <TableHead>{t('Created At')}</TableHead>
+                        <TableHead className='text-right'>
+                          {t('Actions')}
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {withdrawalsQuery.isLoading ? (
+                        <LoadingRow colSpan={6} />
+                      ) : withdrawals.length === 0 ? (
+                        <TableEmpty
+                          colSpan={6}
+                          title={t('No Withdrawals')}
+                          description={t(
+                            'Agent withdrawal requests will appear here.'
+                          )}
+                          icon={<CircleDollarSign className='size-6' />}
+                        />
+                      ) : (
+                        withdrawals.map((withdrawal) => (
+                          <TableRow key={withdrawal.id}>
+                            <TableCell>{withdrawal.agent_id}</TableCell>
+                            <TableCell>
+                              {formatQuota(withdrawal.amount_quota)}
+                            </TableCell>
+                            <TableCell>{withdrawal.amount_money}</TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={withdrawalVariant(withdrawal.status)}
+                              >
+                                {t(withdrawal.status)}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {formatTimestampToDate(withdrawal.created_at)}
+                            </TableCell>
+                            <TableCell className='text-right'>
+                              <WithdrawalActions
+                                withdrawal={withdrawal}
+                                disabled={completeWithdrawalMutation.isPending}
+                                onUpdate={(status) =>
+                                  completeWithdrawalMutation.mutate({
+                                    withdrawalId: withdrawal.id,
+                                    status,
+                                    admin_remark: withdrawalRemark,
+                                  })
+                                }
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </section>
+              </TabsContent>
+            </Tabs>
+          </div>
+        </SectionPageLayout.Content>
+      </SectionPageLayout>
 
       <CreateAgentDialog
         ownerUserId={newAgentOwnerId}
         name={newAgentName}
         slug={newAgentSlug}
         markup={newAgentMarkup}
+        siteName={newAgentSiteName}
+        logo={newAgentLogo}
         isPending={createAgentMutation.isPending}
         canSubmit={canCreateAgent}
         onOwnerUserIdChange={setNewAgentOwnerId}
         onNameChange={setNewAgentName}
         onSlugChange={setNewAgentSlug}
         onMarkupChange={setNewAgentMarkup}
+        onSiteNameChange={setNewAgentSiteName}
+        onLogoChange={setNewAgentLogo}
         onSubmit={() =>
           createAgentMutation.mutate({
             owner_user_id: Number(newAgentOwnerId),
@@ -598,6 +667,10 @@ export function AgentManagement() {
             slug: newAgentSlug.trim(),
             status: AGENT_STATUS_ENABLED,
             default_markup: Number(newAgentMarkup) || 1,
+            branding: stringifyAgentBranding({
+              site_name: newAgentSiteName,
+              logo: newAgentLogo,
+            }),
           })
         }
         open={createDialogOpen}
@@ -613,6 +686,8 @@ export function AgentManagement() {
         domains={selectedDomains}
         pricingRules={selectedPricingRules}
         users={selectedUsers}
+        brandSiteName={brandSiteName}
+        brandLogo={brandLogo}
         newDomain={newDomain}
         bindUserId={bindUserId}
         ruleModelPattern={ruleModelPattern}
@@ -630,6 +705,24 @@ export function AgentManagement() {
         onRuleModelPatternChange={setRuleModelPattern}
         onRuleMarkupChange={setRuleMarkup}
         onRuleEnabledChange={setRuleEnabled}
+        onBrandSiteNameChange={setBrandSiteName}
+        onBrandLogoChange={setBrandLogo}
+        isBrandingPending={saveBrandingMutation.isPending}
+        onSaveBranding={() =>
+          detailAgent &&
+          saveBrandingMutation.mutate({
+            id: detailAgent.id,
+            owner_user_id: detailAgent.owner_user_id,
+            name: detailAgent.name,
+            slug: detailAgent.slug,
+            status: detailAgent.status,
+            default_markup: detailAgent.default_markup,
+            branding: stringifyAgentBranding({
+              site_name: brandSiteName,
+              logo: brandLogo,
+            }),
+          })
+        }
         onCreateDomain={() =>
           selectedAgentId != null &&
           createDomainMutation.mutate({
@@ -661,7 +754,7 @@ export function AgentManagement() {
           })
         }
       />
-    </SectionPageLayout>
+    </>
   )
 }
 
@@ -691,6 +784,8 @@ function CreateAgentDialog(props: {
   name: string
   slug: string
   markup: string
+  siteName: string
+  logo: string
   isPending: boolean
   canSubmit: boolean
   onOpenChange: (open: boolean) => void
@@ -698,6 +793,8 @@ function CreateAgentDialog(props: {
   onNameChange: (value: string) => void
   onSlugChange: (value: string) => void
   onMarkupChange: (value: string) => void
+  onSiteNameChange: (value: string) => void
+  onLogoChange: (value: string) => void
   onSubmit: () => void
 }) {
   const { t } = useTranslation()
@@ -737,6 +834,16 @@ function CreateAgentDialog(props: {
             step='0.01'
             placeholder={t('Markup')}
           />
+          <Input
+            value={props.siteName}
+            onChange={(event) => props.onSiteNameChange(event.target.value)}
+            placeholder={t('Agent site name')}
+          />
+          <Input
+            value={props.logo}
+            onChange={(event) => props.onLogoChange(event.target.value)}
+            placeholder={t('Logo URL')}
+          />
         </div>
         <DialogFooter>
           <Button
@@ -763,8 +870,15 @@ function AgentDetailDialog(props: {
   agent?: Agent | null
   open: boolean
   domains: AgentDomain[]
-  pricingRules: Array<{ id: number; model_pattern: string; markup: number; enabled: boolean }>
+  pricingRules: Array<{
+    id: number
+    model_pattern: string
+    markup: number
+    enabled: boolean
+  }>
   users: Array<{ id: number; user_id: number; source: string; status: number }>
+  brandSiteName: string
+  brandLogo: string
   newDomain: string
   bindUserId: string
   ruleModelPattern: string
@@ -774,6 +888,7 @@ function AgentDetailDialog(props: {
   isBindPending: boolean
   isPricingPending: boolean
   isDomainStatusPending: boolean
+  isBrandingPending: boolean
   canCreateDomain: boolean
   canBindUser: boolean
   canSavePricing: boolean
@@ -783,6 +898,9 @@ function AgentDetailDialog(props: {
   onRuleModelPatternChange: (value: string) => void
   onRuleMarkupChange: (value: string) => void
   onRuleEnabledChange: (value: boolean) => void
+  onBrandSiteNameChange: (value: string) => void
+  onBrandLogoChange: (value: string) => void
+  onSaveBranding: () => void
   onCreateDomain: () => void
   onBindUser: () => void
   onSavePricing: () => void
@@ -797,7 +915,9 @@ function AgentDetailDialog(props: {
           <DialogTitle>{props.agent?.name ?? t('Agent Detail')}</DialogTitle>
           <DialogDescription>
             {props.agent
-              ? t('Agent created. Review its identity, users, domains, and pricing.')
+              ? t(
+                  'Agent created. Review its identity, users, domains, and pricing.'
+                )
               : t('Loading...')}
           </DialogDescription>
         </DialogHeader>
@@ -816,6 +936,44 @@ function AgentDetailDialog(props: {
                 value={String(props.agent.default_markup)}
               />
             </div>
+
+            <section className='rounded-lg border p-3'>
+              <div className='mb-3 flex items-center justify-between gap-2'>
+                <div>
+                  <h3 className='text-sm font-semibold'>
+                    {t('Agent Branding')}
+                  </h3>
+                  <p className='text-muted-foreground mt-1 text-xs'>
+                    {t(
+                      'Branding is applied when users visit an active agent domain.'
+                    )}
+                  </p>
+                </div>
+                <Button
+                  disabled={props.isBrandingPending}
+                  onClick={props.onSaveBranding}
+                >
+                  <Save />
+                  {t('Save Branding')}
+                </Button>
+              </div>
+              <div className='grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'>
+                <Input
+                  value={props.brandSiteName}
+                  onChange={(event) =>
+                    props.onBrandSiteNameChange(event.target.value)
+                  }
+                  placeholder={t('Agent site name')}
+                />
+                <Input
+                  value={props.brandLogo}
+                  onChange={(event) =>
+                    props.onBrandLogoChange(event.target.value)
+                  }
+                  placeholder={t('Logo URL')}
+                />
+              </div>
+            </section>
 
             <div className='grid gap-4 xl:grid-cols-2'>
               <section className='rounded-lg border p-3'>
@@ -837,9 +995,7 @@ function AgentDetailDialog(props: {
                       placeholder={t('agent.example.com')}
                     />
                     <Button
-                      disabled={
-                        !props.canCreateDomain || props.isDomainPending
-                      }
+                      disabled={!props.canCreateDomain || props.isDomainPending}
                       onClick={props.onCreateDomain}
                     >
                       <Plus />
@@ -862,7 +1018,9 @@ function AgentDetailDialog(props: {
                       <TableEmpty
                         colSpan={3}
                         title={t('No Domains')}
-                        description={t('Add a domain before using this agent site.')}
+                        description={t(
+                          'Add a domain before using this agent site.'
+                        )}
                         icon={<Globe2 className='size-6' />}
                       />
                     ) : (
@@ -905,7 +1063,9 @@ function AgentDetailDialog(props: {
               <section className='rounded-lg border p-3'>
                 <div className='mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
                   <div>
-                    <h3 className='text-sm font-semibold'>{t('Agent Users')}</h3>
+                    <h3 className='text-sm font-semibold'>
+                      {t('Agent Users')}
+                    </h3>
                     <p className='text-muted-foreground mt-1 text-xs'>
                       {t('Only bound users can access the agent console.')}
                     </p>
@@ -942,7 +1102,9 @@ function AgentDetailDialog(props: {
                       <TableEmpty
                         colSpan={3}
                         title={t('No Agent Users')}
-                        description={t('Bind users to open the agent console for them.')}
+                        description={t(
+                          'Bind users to open the agent console for them.'
+                        )}
                         icon={<Users className='size-6' />}
                       />
                     ) : (
@@ -966,7 +1128,9 @@ function AgentDetailDialog(props: {
             <section className='rounded-lg border p-3'>
               <div className='mb-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]'>
                 <div>
-                  <h3 className='text-sm font-semibold'>{t('Pricing Rules')}</h3>
+                  <h3 className='text-sm font-semibold'>
+                    {t('Pricing Rules')}
+                  </h3>
                   <p className='text-muted-foreground mt-1 text-xs'>
                     {t('Configure agent markup by model pattern.')}
                   </p>
@@ -1020,7 +1184,9 @@ function AgentDetailDialog(props: {
                     <TableEmpty
                       colSpan={3}
                       title={t('No Pricing Rules')}
-                      description={t('Default markup is used when no rule matches.')}
+                      description={t(
+                        'Default markup is used when no rule matches.'
+                      )}
                       icon={<BadgeDollarSign className='size-6' />}
                     />
                   ) : (

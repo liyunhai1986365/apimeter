@@ -47,13 +47,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { formatTimestampToDate } from '@/lib/format'
 import {
+  createAgentDomain,
   getAgentSelf,
   listAgentDomains,
   listAgentLedger,
   listAgentPricingRules,
   listAgentUsers,
   listAgentWithdrawals,
+  parseAgentBranding,
+  stringifyAgentBranding,
   submitAgentWithdrawal,
+  updateAgentBranding,
   upsertAgentPricingRule,
 } from './api'
 
@@ -75,6 +79,9 @@ function withdrawalVariant(status: string): 'default' | 'outline' | 'secondary' 
 export function Agents() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [siteName, setSiteName] = useState('')
+  const [logo, setLogo] = useState('')
+  const [newDomain, setNewDomain] = useState('')
   const [modelPattern, setModelPattern] = useState('*')
   const [markup, setMarkup] = useState('1.2')
   const [withdrawQuota, setWithdrawQuota] = useState('')
@@ -84,6 +91,11 @@ export function Agents() {
   const selfQuery = useQuery({
     queryKey: ['agent', 'self'],
     queryFn: getAgentSelf,
+    onSuccess: (res) => {
+      const branding = parseAgentBranding(res.data.agent.branding)
+      setSiteName(branding.site_name ?? '')
+      setLogo(branding.logo ?? '')
+    },
   })
   const domainsQuery = useQuery({
     queryKey: ['agent', 'domains'],
@@ -109,6 +121,29 @@ export function Agents() {
   const refreshAgent = () => {
     queryClient.invalidateQueries({ queryKey: ['agent'] })
   }
+
+  const saveBrandingMutation = useMutation({
+    mutationFn: updateAgentBranding,
+    onSuccess: () => {
+      toast.success(t('Branding saved'))
+      refreshAgent()
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+    },
+  })
+
+  const createDomainMutation = useMutation({
+    mutationFn: createAgentDomain,
+    onSuccess: () => {
+      toast.success(t('Domain added'))
+      setNewDomain('')
+      refreshAgent()
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+    },
+  })
 
   const saveRuleMutation = useMutation({
     mutationFn: upsertAgentPricingRule,
@@ -143,6 +178,7 @@ export function Agents() {
   const rules = rulesQuery.data?.data.items ?? []
   const ledger = ledgerQuery.data?.data.items ?? []
   const withdrawals = withdrawalsQuery.data?.data.items ?? []
+  const canCreateDomain = newDomain.trim() !== ''
   const canSaveRule = modelPattern.trim() !== '' && Number(markup) > 0
   const canSubmitWithdrawal =
     Number(withdrawQuota) > 0 &&
@@ -206,13 +242,43 @@ export function Agents() {
             <TabsContent value='overview'>
               <div className='grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]'>
                 <section className='rounded-lg border p-3'>
-                  <div className='mb-3'>
-                    <h3 className='text-sm font-semibold'>
-                      {t('Agent Identity')}
-                    </h3>
-                    <p className='text-muted-foreground mt-1 text-xs'>
-                      {t('Domains are configured by admins only.')}
-                    </p>
+                  <div className='mb-3 flex items-center justify-between gap-2'>
+                    <div>
+                      <h3 className='text-sm font-semibold'>
+                        {t('Agent Branding')}
+                      </h3>
+                      <p className='text-muted-foreground mt-1 text-xs'>
+                        {t(
+                          'Branding is applied when users visit an active agent domain.'
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      disabled={saveBrandingMutation.isPending}
+                      onClick={() =>
+                        saveBrandingMutation.mutate({
+                          branding: stringifyAgentBranding({
+                            site_name: siteName,
+                            logo,
+                          }),
+                        })
+                      }
+                    >
+                      <Save />
+                      {t('Save Branding')}
+                    </Button>
+                  </div>
+                  <div className='mb-3 grid gap-2'>
+                    <Input
+                      value={siteName}
+                      onChange={(event) => setSiteName(event.target.value)}
+                      placeholder={t('Agent site name')}
+                    />
+                    <Input
+                      value={logo}
+                      onChange={(event) => setLogo(event.target.value)}
+                      placeholder={t('Logo URL')}
+                    />
                   </div>
                   <div className='grid gap-3 sm:grid-cols-2'>
                     <InfoItem
@@ -235,9 +301,38 @@ export function Agents() {
                 </section>
 
                 <section className='rounded-lg border p-3'>
-                  <h3 className='mb-3 text-sm font-semibold'>
-                    {t('Agent Domains')}
-                  </h3>
+                  <div className='mb-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]'>
+                    <div>
+                      <h3 className='text-sm font-semibold'>
+                        {t('Agent Domains')}
+                      </h3>
+                      <p className='text-muted-foreground mt-1 text-xs'>
+                        {t(
+                          'Add a custom domain, then wait for admin verification.'
+                        )}
+                      </p>
+                    </div>
+                    <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
+                      <Input
+                        value={newDomain}
+                        onChange={(event) => setNewDomain(event.target.value)}
+                        placeholder={t('agent.example.com')}
+                      />
+                      <Button
+                        disabled={
+                          !canCreateDomain || createDomainMutation.isPending
+                        }
+                        onClick={() =>
+                          createDomainMutation.mutate({
+                            domain: newDomain.trim(),
+                          })
+                        }
+                      >
+                        <Globe2 />
+                        {t('Add Domain')}
+                      </Button>
+                    </div>
+                  </div>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -251,7 +346,9 @@ export function Agents() {
                         <TableEmpty
                           colSpan={3}
                           title={t('No Domains')}
-                          description={t('Contact an admin to configure agent domains.')}
+                          description={t(
+                            'Add a domain before using this agent site.'
+                          )}
                           icon={<Globe2 className='size-6' />}
                         />
                       ) : (

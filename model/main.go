@@ -254,6 +254,9 @@ func migrateDB() error {
 	if err := migrateTokenModelLimitsToText(); err != nil {
 		return err
 	}
+	if err := normalizeAgentDecimalTablesForSQLite(); err != nil {
+		return err
+	}
 
 	err := DB.AutoMigrate(
 		&Channel{},
@@ -390,6 +393,106 @@ func migrateLOGDB() error {
 type sqliteColumnDef struct {
 	Name string
 	DDL  string
+}
+
+func normalizeAgentDecimalTablesForSQLite() error {
+	if !common.UsingSQLite {
+		return nil
+	}
+	tables := map[string]map[string]string{
+		"agents": {
+			"default_markup":    "real DEFAULT 1",
+			"withdraw_fee_rate": "real DEFAULT 0",
+		},
+		"agent_pricing_rules": {
+			"markup": "real DEFAULT 1",
+		},
+		"agent_withdrawals": {
+			"amount_money": "real DEFAULT 0",
+			"fee":          "real DEFAULT 0",
+		},
+	}
+	for tableName, replacements := range tables {
+		if err := normalizeSQLiteDecimalColumns(tableName, replacements); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func normalizeSQLiteDecimalColumns(tableName string, replacements map[string]string) error {
+	if !DB.Migrator().HasTable(tableName) {
+		return nil
+	}
+	var createSQL string
+	if err := DB.Raw("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", tableName).Scan(&createSQL).Error; err != nil {
+		return err
+	}
+	if !strings.Contains(strings.ToLower(createSQL), "decimal(") {
+		return nil
+	}
+
+	var cols []struct {
+		Cid       int    `gorm:"column:cid"`
+		Name      string `gorm:"column:name"`
+		Type      string `gorm:"column:type"`
+		NotNull   int    `gorm:"column:notnull"`
+		DfltValue string `gorm:"column:dflt_value"`
+		PK        int    `gorm:"column:pk"`
+	}
+	if err := DB.Raw("PRAGMA table_info(`" + tableName + "`)").Scan(&cols).Error; err != nil {
+		return err
+	}
+	if len(cols) == 0 {
+		return nil
+	}
+
+	tempTable := tableName + "__decimal_fix"
+	columnDefs := make([]string, 0, len(cols))
+	columnNames := make([]string, 0, len(cols))
+	primaryKeys := make([]string, 0)
+	for _, col := range cols {
+		quotedName := "`" + col.Name + "`"
+		columnType := col.Type
+		if replacement, ok := replacements[col.Name]; ok {
+			columnType = replacement
+		}
+		def := quotedName + " " + columnType
+		if col.NotNull != 0 {
+			def += " NOT NULL"
+		}
+		if col.DfltValue != "" && !strings.Contains(strings.ToLower(columnType), " default ") {
+			def += " DEFAULT " + col.DfltValue
+		}
+		if col.PK > 0 {
+			primaryKeys = append(primaryKeys, quotedName)
+		}
+		columnDefs = append(columnDefs, def)
+		columnNames = append(columnNames, quotedName)
+	}
+	if len(primaryKeys) > 0 {
+		columnDefs = append(columnDefs, "PRIMARY KEY ("+strings.Join(primaryKeys, ",")+")")
+	}
+
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Exec("DROP TABLE IF EXISTS `" + tempTable + "`").Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("CREATE TABLE `" + tempTable + "` (" + strings.Join(columnDefs, ",") + ")").Error; err != nil {
+			return err
+		}
+		columns := strings.Join(columnNames, ",")
+		if err := tx.Exec("INSERT INTO `" + tempTable + "` (" + columns + ") SELECT " + columns + " FROM `" + tableName + "`").Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DROP TABLE `" + tableName + "`").Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("ALTER TABLE `" + tempTable + "` RENAME TO `" + tableName + "`").Error; err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 func ensureSubscriptionPlanTableSQLite() error {

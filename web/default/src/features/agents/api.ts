@@ -21,6 +21,7 @@ import type {
   AdminAgentDomain,
   Agent,
   AgentBalance,
+  AgentBranding,
   AgentDomain,
   AgentLedger,
   AgentPage,
@@ -45,12 +46,29 @@ export async function listAgentDomains(page = 1, pageSize = 20) {
   return res.data
 }
 
+export async function createAgentDomain(input: { domain: string }) {
+  const res = await api.post<{ success: boolean; data: AgentDomain }>(
+    '/api/agent/domains',
+    input
+  )
+  return res.data
+}
+
+export async function updateAgentBranding(input: { branding: string }) {
+  const res = await api.put<{ success: boolean; data: Agent }>(
+    '/api/agent/self/branding',
+    input
+  )
+  return res.data
+}
+
 export async function createAdminAgent(input: {
   owner_user_id: number
   name: string
   slug: string
   status: number
   default_markup: number
+  branding?: string
 }) {
   const res = await api.post<{ success: boolean; data: Agent }>(
     '/api/agents/',
@@ -61,6 +79,56 @@ export async function createAdminAgent(input: {
     }
   )
   return res.data
+}
+
+export async function updateAdminAgent(input: {
+  id: number
+  owner_user_id: number
+  name: string
+  slug: string
+  status: number
+  default_markup: number
+  branding?: string
+}) {
+  const res = await api.put<{ success: boolean; data: Agent }>(
+    `/api/agents/${input.id}`,
+    {
+      price_mode: 'multiplier',
+      settlement_currency: 'USD',
+      owner_user_id: input.owner_user_id,
+      name: input.name,
+      slug: input.slug,
+      status: input.status,
+      default_markup: input.default_markup,
+      branding: input.branding ?? '',
+    }
+  )
+  return res.data
+}
+
+export function parseAgentBranding(branding?: string): AgentBranding {
+  if (!branding?.trim()) return {}
+  try {
+    const parsed = JSON.parse(branding)
+    if (!parsed || typeof parsed !== 'object') return {}
+    return {
+      site_name:
+        typeof parsed.site_name === 'string' ? parsed.site_name : undefined,
+      logo: typeof parsed.logo === 'string' ? parsed.logo : undefined,
+    }
+  } catch {
+    return {}
+  }
+}
+
+export function stringifyAgentBranding(input: AgentBranding) {
+  const siteName = input.site_name?.trim() ?? ''
+  const logo = input.logo?.trim() ?? ''
+  if (!siteName && !logo) return ''
+  return JSON.stringify({
+    site_name: siteName,
+    logo,
+  })
 }
 
 export async function createAdminAgentDomain(input: {

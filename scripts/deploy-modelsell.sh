@@ -43,12 +43,17 @@ build_frontend() {
 }
 
 ssh_base_args=()
+scp_base_args=()
 
 remote_ssh() {
   if [[ -n "${DEPLOY_SSH_KEY:-}" ]]; then
     ssh "${ssh_base_args[@]}" -i "$DEPLOY_SSH_KEY" "$DEPLOY_USER@$DEPLOY_HOST" "$@"
   elif [[ -n "${DEPLOY_PASSWORD:-}" ]]; then
-    SSHPASS="$DEPLOY_PASSWORD" sshpass -e ssh "${ssh_base_args[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "$@"
+    SSHPASS="$DEPLOY_PASSWORD" sshpass -e ssh "${ssh_base_args[@]}" \
+      -o PreferredAuthentications=password \
+      -o PubkeyAuthentication=no \
+      -o NumberOfPasswordPrompts=1 \
+      "$DEPLOY_USER@$DEPLOY_HOST" "$@"
   else
     ssh "${ssh_base_args[@]}" "$DEPLOY_USER@$DEPLOY_HOST" "$@"
   fi
@@ -56,9 +61,13 @@ remote_ssh() {
 
 remote_scp() {
   if [[ -n "${DEPLOY_SSH_KEY:-}" ]]; then
-    scp "${ssh_base_args[@]}" -i "$DEPLOY_SSH_KEY" "$@"
+    scp "${scp_base_args[@]}" -i "$DEPLOY_SSH_KEY" "$@"
   elif [[ -n "${DEPLOY_PASSWORD:-}" ]]; then
-    SSHPASS="$DEPLOY_PASSWORD" sshpass -e scp "${ssh_base_args[@]}" "$@"
+    SSHPASS="$DEPLOY_PASSWORD" sshpass -e scp "${scp_base_args[@]}" \
+      -o PreferredAuthentications=password \
+      -o PubkeyAuthentication=no \
+      -o NumberOfPasswordPrompts=1 \
+      "$@"
   else
     scp "${ssh_base_args[@]}" "$@"
   fi
@@ -73,12 +82,19 @@ DEPLOY_SERVICE_NAME="${DEPLOY_SERVICE_NAME:-modelsell}"
 DEPLOY_BINARY_NAME="${DEPLOY_BINARY_NAME:-new-api}"
 DEPLOY_APP_PORT="${DEPLOY_APP_PORT:-3000}"
 DEPLOY_APP_ENV_FILE="${DEPLOY_APP_ENV_FILE:-.env.production}"
+DEPLOY_GOOS="${DEPLOY_GOOS:-linux}"
+DEPLOY_GOARCH="${DEPLOY_GOARCH:-amd64}"
+DEPLOY_GOAMD64="${DEPLOY_GOAMD64:-v1}"
+DEPLOY_ARCH_LABEL="${DEPLOY_ARCH_LABEL:-x86_64}"
 
 require_var DEPLOY_HOST
 require_var DEPLOY_REMOTE_DIR
 require_var DEPLOY_SERVICE_NAME
 require_var DEPLOY_BINARY_NAME
 require_var DEPLOY_APP_PORT
+require_var DEPLOY_GOOS
+require_var DEPLOY_GOARCH
+require_var DEPLOY_ARCH_LABEL
 
 APP_ENV_PATH="$ROOT_DIR/$DEPLOY_APP_ENV_FILE"
 [[ -f "$APP_ENV_PATH" ]] || fail "Missing app env file: $APP_ENV_PATH. Copy .env.production.example to $DEPLOY_APP_ENV_FILE first."
@@ -94,6 +110,7 @@ if [[ -n "${DEPLOY_PASSWORD:-}" && -z "${DEPLOY_SSH_KEY:-}" ]]; then
 fi
 
 ssh_base_args=(-p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
+scp_base_args=(-P "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
 
 VERSION_FILE="$ROOT_DIR/VERSION"
 APP_VERSION="$(cat "$VERSION_FILE" 2>/dev/null || true)"
@@ -102,7 +119,7 @@ if [[ -z "$APP_VERSION" ]]; then
 fi
 
 BUILD_DIR="$ROOT_DIR/build/modelsell"
-ARCHIVE_NAME="new-api-linux-amd64.tar.gz"
+ARCHIVE_NAME="${DEPLOY_BINARY_NAME}-${DEPLOY_GOOS}-${DEPLOY_ARCH_LABEL}.tar.gz"
 ARCHIVE_PATH="$BUILD_DIR/$ARCHIVE_NAME"
 BINARY_PATH="$BUILD_DIR/$DEPLOY_BINARY_NAME"
 
@@ -112,13 +129,18 @@ mkdir -p "$BUILD_DIR"
 build_frontend "$ROOT_DIR/web/default" "DISABLE_ESLINT_PLUGIN=true"
 build_frontend "$ROOT_DIR/web/classic" ""
 
-log "Build linux binary"
+log "Build binary: GOOS=$DEPLOY_GOOS GOARCH=$DEPLOY_GOARCH GOAMD64=${DEPLOY_GOAMD64:-}"
 (
   cd "$ROOT_DIR"
-  CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+  build_env=(CGO_ENABLED=0 GOOS="$DEPLOY_GOOS" GOARCH="$DEPLOY_GOARCH")
+  if [[ "$DEPLOY_GOARCH" == "amd64" && -n "${DEPLOY_GOAMD64:-}" ]]; then
+    build_env+=(GOAMD64="$DEPLOY_GOAMD64")
+  fi
+  env "${build_env[@]}" go build \
     -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$APP_VERSION'" \
     -o "$BINARY_PATH"
 )
+file "$BINARY_PATH"
 
 log "Package artifact: $ARCHIVE_PATH"
 (

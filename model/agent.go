@@ -47,9 +47,9 @@ type Agent struct {
 	Slug               string  `json:"slug" gorm:"type:varchar(64);uniqueIndex"`
 	Status             int     `json:"status" gorm:"type:int;index"`
 	PriceMode          string  `json:"price_mode" gorm:"type:varchar(32);default:'multiplier'"`
-	DefaultMarkup      float64 `json:"default_markup" gorm:"type:decimal(10,6);default:1"`
+	DefaultMarkup      float64 `json:"default_markup" gorm:"precision:10;scale:6;default:1"`
 	MinWithdrawAmount  int     `json:"min_withdraw_amount" gorm:"type:int;default:0"`
-	WithdrawFeeRate    float64 `json:"withdraw_fee_rate" gorm:"type:decimal(10,6);default:0"`
+	WithdrawFeeRate    float64 `json:"withdraw_fee_rate" gorm:"precision:10;scale:6;default:0"`
 	SettlementCurrency string  `json:"settlement_currency" gorm:"type:varchar(16);default:'USD'"`
 	Branding           string  `json:"branding" gorm:"type:text"`
 	CreatedAt          int64   `json:"created_at" gorm:"autoCreateTime;column:created_at"`
@@ -81,7 +81,7 @@ type AgentPricingRule struct {
 	Id           int     `json:"id"`
 	AgentId      int     `json:"agent_id" gorm:"index:idx_agent_pricing_agent_model,priority:1;column:agent_id"`
 	ModelPattern string  `json:"model_pattern" gorm:"type:varchar(128);index:idx_agent_pricing_agent_model,priority:2"`
-	Markup       float64 `json:"markup" gorm:"type:decimal(10,6);default:1"`
+	Markup       float64 `json:"markup" gorm:"precision:10;scale:6;default:1"`
 	Enabled      bool    `json:"enabled" gorm:"index"`
 	CreatedAt    int64   `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	UpdatedAt    int64   `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
@@ -104,8 +104,8 @@ type AgentWithdrawal struct {
 	Id          int     `json:"id"`
 	AgentId     int     `json:"agent_id" gorm:"index;column:agent_id"`
 	AmountQuota int     `json:"amount_quota" gorm:"type:int;default:0;column:amount_quota"`
-	AmountMoney float64 `json:"amount_money" gorm:"type:decimal(18,6);default:0;column:amount_money"`
-	Fee         float64 `json:"fee" gorm:"type:decimal(18,6);default:0"`
+	AmountMoney float64 `json:"amount_money" gorm:"precision:18;scale:6;default:0;column:amount_money"`
+	Fee         float64 `json:"fee" gorm:"precision:18;scale:6;default:0"`
 	Status      string  `json:"status" gorm:"type:varchar(32);default:'pending';index"`
 	AccountInfo string  `json:"account_info" gorm:"type:text;column:account_info"`
 	AdminRemark string  `json:"admin_remark" gorm:"type:varchar(255);column:admin_remark"`

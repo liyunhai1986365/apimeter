@@ -93,6 +93,16 @@ func UpdateDomainStatus(agentID int, domainID int, status int) error {
 		Update("status", status).Error
 }
 
+func UpdateBranding(agentID int, branding string) (*model.Agent, error) {
+	branding = strings.TrimSpace(branding)
+	if err := model.DB.Model(&model.Agent{}).
+		Where("id = ?", agentID).
+		Update("branding", branding).Error; err != nil {
+		return nil, err
+	}
+	return model.GetAgentById(agentID)
+}
+
 func UpsertPricingRule(agentID int, modelPattern string, markup float64, enabled bool) (*model.AgentPricingRule, error) {
 	modelPattern = strings.TrimSpace(modelPattern)
 	if modelPattern == "" {

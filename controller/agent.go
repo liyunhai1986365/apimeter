@@ -78,6 +78,24 @@ func GetAgentSelf(c *gin.Context) {
 	})
 }
 
+func UpdateAgentSelfBranding(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req agentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	agent, err := agentservice.UpdateBranding(agentID, req.Branding)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, agent)
+}
+
 func AdminListAgents(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	agents, total, err := model.ListAgents(pageInfo.GetStartIdx(), pageInfo.GetPageSize())

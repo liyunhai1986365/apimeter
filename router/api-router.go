@@ -221,7 +221,9 @@ func SetApiRouter(router *gin.Engine) {
 		agentSelfRoute.Use(middleware.AgentOwnerAuth())
 		{
 			agentSelfRoute.GET("/self", controller.GetAgentSelf)
+			agentSelfRoute.PUT("/self/branding", controller.UpdateAgentSelfBranding)
 			agentSelfRoute.GET("/domains", controller.AgentListDomains)
+			agentSelfRoute.POST("/domains", controller.AgentCreateDomain)
 			agentSelfRoute.PUT("/domains/:id/status", controller.AgentUpdateDomainStatus)
 			agentSelfRoute.GET("/pricing_rules", controller.AgentListPricingRules)
 			agentSelfRoute.POST("/pricing_rules", controller.AgentUpsertPricingRule)

@@ -30,6 +30,11 @@ export type Agent = {
   updated_at: number
 }
 
+export type AgentBranding = {
+  site_name?: string
+  logo?: string
+}
+
 export type AgentBalance = {
   profit_quota: number
   pending_withdrawal_quota: number
