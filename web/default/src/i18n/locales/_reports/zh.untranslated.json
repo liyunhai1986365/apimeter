@@ -5,6 +5,7 @@
   "/status/": "/status/",
   "/your/endpoint": "/your/endpoint",
   "AccessKey / SecretAccessKey": "AccessKey / SecretAccessKey",
+  "agent.example.com": "agent.example.com",
   "AI Proxy": "AI Proxy",
   "AIGC2D": "AIGC2D",
   "Anthropic": "Anthropic",

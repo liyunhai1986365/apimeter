@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -160,7 +161,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		println(fmt.Sprintf("model_price_helper result: %s", priceData.ToSetting()))
 	}
 	info.PriceData = priceData
-	return priceData, nil
+	return applyAgentPreConsumePricing(info, priceData)
 }
 
 // ModelPriceHelperPerCall 按次/按量计费的 PriceHelper (MJ、Task)
@@ -221,7 +222,7 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 		Quota:          quota,
 		GroupRatioInfo: groupRatioInfo,
 	}
-	return priceData, nil
+	return applyAgentPerCallPricing(info, priceData)
 }
 
 func HasModelBillingConfig(modelName string) bool {
@@ -303,6 +304,34 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		println(fmt.Sprintf("model_price_helper_tiered result: model=%s preConsume=%d quotaBeforeGroup=%.2f groupRatio=%.2f tier=%s", info.OriginModelName, preConsumedQuota, quotaBeforeGroup, groupRatioInfo.GroupRatio, trace.MatchedTier))
 	}
 
+	info.PriceData = priceData
+	return applyAgentPreConsumePricing(info, priceData)
+}
+
+func applyAgentPreConsumePricing(info *relaycommon.RelayInfo, priceData types.PriceData) (types.PriceData, error) {
+	if info == nil || info.AgentContext == nil || priceData.FreeModel {
+		return priceData, nil
+	}
+	chargedQuota, snapshot, err := agentservice.ApplyPricing(info.AgentContext, info.OriginModelName, priceData.QuotaToPreConsume)
+	if err != nil {
+		return types.PriceData{}, err
+	}
+	priceData.QuotaToPreConsume = chargedQuota
+	info.AgentBillingSnapshot = snapshot
+	info.PriceData = priceData
+	return priceData, nil
+}
+
+func applyAgentPerCallPricing(info *relaycommon.RelayInfo, priceData types.PriceData) (types.PriceData, error) {
+	if info == nil || info.AgentContext == nil || priceData.FreeModel {
+		return priceData, nil
+	}
+	chargedQuota, snapshot, err := agentservice.ApplyPricing(info.AgentContext, info.OriginModelName, priceData.Quota)
+	if err != nil {
+		return types.PriceData{}, err
+	}
+	priceData.Quota = chargedQuota
+	info.AgentBillingSnapshot = snapshot
 	info.PriceData = priceData
 	return priceData, nil
 }

@@ -120,6 +120,17 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 	if relayInfo == nil || other == nil {
 		return
 	}
+	if relayInfo.AgentContext != nil {
+		other["agent_id"] = relayInfo.AgentContext.AgentID
+		other["agent_domain"] = relayInfo.AgentContext.Domain
+	}
+	if relayInfo.AgentBillingSnapshot != nil {
+		snap := relayInfo.AgentBillingSnapshot
+		other["agent_markup"] = snap.Markup
+		other["base_quota"] = snap.BaseEstimatedQuota
+		other["charged_quota"] = snap.ChargedEstimatedQuota
+		other["agent_profit_quota"] = snap.ChargedEstimatedQuota - snap.BaseEstimatedQuota
+	}
 	// billing_source: "wallet" or "subscription"
 	if relayInfo.BillingSource != "" {
 		other["billing_source"] = relayInfo.BillingSource

@@ -32,14 +32,22 @@ import {
   MessageSquare,
   CreditCard,
   ListTodo,
+  Settings2,
   Settings,
+  Store,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/stores/auth-store'
 import { WORKSPACE_IDS } from '@/components/layout/lib/workspace-registry'
 import { type SidebarData } from '@/components/layout/types'
 
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
+  const user = useAuthStore((state) => state.auth.user)
+  const canUseAgentConsole = Boolean(
+    user &&
+      (user.has_agent === true || user.permissions?.agent_console === true)
+  )
 
   return {
     workspaces: [
@@ -114,6 +122,15 @@ export function useSidebarData(): SidebarData {
             url: '/profile',
             icon: User,
           },
+          ...(canUseAgentConsole
+            ? [
+                {
+                  title: t('Agent Console'),
+                  url: '/agents',
+                  icon: Store,
+                },
+              ]
+            : []),
         ],
       },
       {
@@ -134,6 +151,11 @@ export function useSidebarData(): SidebarData {
             title: t('Users'),
             url: '/users',
             icon: Users,
+          },
+          {
+            title: t('Agent Management'),
+            url: '/agent-management',
+            icon: Settings2,
           },
           {
             title: t('Redemption Codes'),

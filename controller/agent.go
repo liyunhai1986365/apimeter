@@ -1,0 +1,564 @@
+package controller
+
+import (
+	"errors"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
+	"github.com/QuantumNous/new-api/types"
+	"github.com/gin-gonic/gin"
+)
+
+const currentAgentIDKey = "current_agent_id"
+
+type agentRequest struct {
+	OwnerUserId        int     `json:"owner_user_id"`
+	Name               string  `json:"name"`
+	Slug               string  `json:"slug"`
+	Status             int     `json:"status"`
+	PriceMode          string  `json:"price_mode"`
+	DefaultMarkup      float64 `json:"default_markup"`
+	MinWithdrawAmount  int     `json:"min_withdraw_amount"`
+	WithdrawFeeRate    float64 `json:"withdraw_fee_rate"`
+	SettlementCurrency string  `json:"settlement_currency"`
+	Branding           string  `json:"branding"`
+}
+
+type agentDomainRequest struct {
+	Domain string `json:"domain"`
+	Status int    `json:"status"`
+}
+
+type agentPricingRuleRequest struct {
+	ModelPattern string  `json:"model_pattern"`
+	Markup       float64 `json:"markup"`
+	Enabled      bool    `json:"enabled"`
+}
+
+type agentWithdrawalRequest struct {
+	AmountQuota int     `json:"amount_quota"`
+	AmountMoney float64 `json:"amount_money"`
+	AccountInfo string  `json:"account_info"`
+	Status      string  `json:"status"`
+	AdminRemark string  `json:"admin_remark"`
+}
+
+type agentUserRequest struct {
+	UserId int    `json:"user_id"`
+	Status int    `json:"status"`
+	Source string `json:"source"`
+	Delta  int    `json:"delta"`
+}
+
+func GetAgentSelf(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	agent, err := model.GetAgentById(agentID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	balance, err := agentservice.GetBalance(agent.Id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	agentCtx, _ := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
+	common.ApiSuccess(c, gin.H{
+		"agent":   agent,
+		"context": agentCtx,
+		"balance": balance,
+	})
+}
+
+func AdminListAgents(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	agents, total, err := model.ListAgents(pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(agents)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AdminListAgentDomains(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	status := -1
+	if statusQuery := strings.TrimSpace(c.Query("status")); statusQuery != "" {
+		parsedStatus, err := strconv.Atoi(statusQuery)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		status = parsedStatus
+	}
+	domains, total, err := model.ListAgentDomainsByStatus(status, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(domains)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AdminCreateAgent(c *gin.Context) {
+	var req agentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	agent := &model.Agent{
+		OwnerUserId:        req.OwnerUserId,
+		Name:               req.Name,
+		Slug:               req.Slug,
+		Status:             req.Status,
+		PriceMode:          req.PriceMode,
+		DefaultMarkup:      req.DefaultMarkup,
+		MinWithdrawAmount:  req.MinWithdrawAmount,
+		WithdrawFeeRate:    req.WithdrawFeeRate,
+		SettlementCurrency: req.SettlementCurrency,
+		Branding:           req.Branding,
+	}
+	normalizeAgentDefaults(agent)
+	if err := model.DB.Create(agent).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, agent)
+}
+
+func AdminUpdateAgent(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	updates := map[string]interface{}{
+		"owner_user_id":       req.OwnerUserId,
+		"name":                req.Name,
+		"slug":                req.Slug,
+		"status":              req.Status,
+		"price_mode":          req.PriceMode,
+		"default_markup":      req.DefaultMarkup,
+		"min_withdraw_amount": req.MinWithdrawAmount,
+		"withdraw_fee_rate":   req.WithdrawFeeRate,
+		"settlement_currency": req.SettlementCurrency,
+		"branding":            req.Branding,
+	}
+	if updates["price_mode"] == "" {
+		updates["price_mode"] = model.AgentPriceModeMultiplier
+	}
+	if updates["default_markup"].(float64) <= 0 {
+		updates["default_markup"] = 1.0
+	}
+	if updates["settlement_currency"] == "" {
+		updates["settlement_currency"] = "USD"
+	}
+	if err := model.DB.Model(&model.Agent{}).Where("id = ?", id).Updates(updates).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	agent, err := model.GetAgentById(id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, agent)
+}
+
+func AdminUpdateAgentStatus(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.DB.Model(&model.Agent{}).Where("id = ?", id).Update("status", req.Status).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"id": id, "status": req.Status})
+}
+
+func AdminListAgentWithdrawals(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	agentID, _ := strconv.Atoi(c.Query("agent_id"))
+	withdrawals, total, err := model.ListAgentWithdrawals(agentID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(withdrawals)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AdminCompleteAgentWithdrawal(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentWithdrawalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := agentservice.CompleteWithdrawal(id, req.Status, req.AdminRemark); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"id": id, "status": req.Status})
+}
+
+func AgentListDomains(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	pageInfo := common.GetPageQuery(c)
+	domains, total, err := model.ListAgentDomains(agentID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(domains)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AgentCreateDomain(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req agentDomainRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	domain, err := agentservice.CreateDomain(agentID, req.Domain)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, domain)
+}
+
+func AgentUpdateDomainStatus(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	domainParam := c.Param("domain_id")
+	if domainParam == "" {
+		domainParam = c.Param("id")
+	}
+	id, err := strconv.Atoi(domainParam)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentDomainRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if req.Status == model.AgentDomainStatusActive {
+		err = agentservice.ActivateDomain(agentID, id)
+	} else {
+		err = agentservice.UpdateDomainStatus(agentID, id, req.Status)
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"id": id, "status": req.Status})
+}
+
+func AgentListPricingRules(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	pageInfo := common.GetPageQuery(c)
+	rules, total, err := agentservice.ListPricingRules(agentID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(rules)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AgentUpsertPricingRule(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req agentPricingRuleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	rule, err := agentservice.UpsertPricingRule(agentID, req.ModelPattern, req.Markup, req.Enabled)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, rule)
+}
+
+func AgentListUsers(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	pageInfo := common.GetPageQuery(c)
+	users, total, err := model.ListAgentUsers(agentID, c.Query("keyword"), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(users)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AgentBindUser(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req agentUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	source := req.Source
+	if source == "" {
+		source = model.AgentUserSourceAdminBind
+	}
+	if err := model.BindUserToAgent(agentID, req.UserId, source); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"user_id": req.UserId})
+}
+
+func AgentUpdateUserStatus(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	userID, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.DB.Model(&model.AgentUser{}).Where("agent_id = ? AND user_id = ?", agentID, userID).Update("status", req.Status).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"user_id": userID, "status": req.Status})
+}
+
+func AgentAdjustUserQuota(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	userID, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	inAgent, err := model.IsUserInAgent(agentID, userID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if !inAgent {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "用户不属于当前代理"})
+		return
+	}
+	if err := model.DeltaUpdateUserQuota(userID, req.Delta); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RecordLog(c.GetInt("id"), model.LogTypeManage, "代理调整用户额度")
+	common.ApiSuccess(c, gin.H{"user_id": userID, "delta": req.Delta})
+}
+
+func AgentListUserTokens(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	userID, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	inAgent, err := model.IsUserInAgent(agentID, userID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if !inAgent {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "用户不属于当前代理"})
+		return
+	}
+	pageInfo := common.GetPageQuery(c)
+	tokens, err := model.GetAllUserTokens(userID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	total, _ := model.CountUserTokens(userID)
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AgentListLedger(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	pageInfo := common.GetPageQuery(c)
+	ledgers, total, err := model.ListAgentLedger(agentID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(ledgers)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AgentListWithdrawals(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	pageInfo := common.GetPageQuery(c)
+	withdrawals, total, err := model.ListAgentWithdrawals(agentID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(withdrawals)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func AgentSubmitWithdrawal(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req agentWithdrawalRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	withdrawal, err := agentservice.SubmitWithdrawal(agentID, req.AmountQuota, req.AmountMoney, req.AccountInfo)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, withdrawal)
+}
+
+func currentAgentID(c *gin.Context) (int, bool) {
+	if id := c.GetInt(currentAgentIDKey); id > 0 {
+		return id, true
+	}
+	idParam := c.Param("agent_id")
+	if idParam == "" {
+		idParam = c.Param("id")
+	}
+	id, err := strconv.Atoi(idParam)
+	if err == nil && id > 0 {
+		return id, true
+	}
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		return agentCtx.AgentID, true
+	}
+	agent, err := ensureUserAgent(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return 0, false
+	}
+	if agent != nil {
+		c.Set(currentAgentIDKey, agent.Id)
+		return agent.Id, true
+	}
+	common.ApiErrorMsg(c, "当前域名未配置代理站点")
+	return 0, false
+}
+
+func ensureUserAgent(c *gin.Context) (*model.Agent, error) {
+	userID := c.GetInt("id")
+	role := c.GetInt("role")
+	if userID <= 0 {
+		return nil, errors.New("invalid user id")
+	}
+	agent, err := model.GetAgentByConsoleUserId(userID)
+	if err == nil {
+		return agent, nil
+	}
+	if !errors.Is(err, model.ErrAgentNotFound) {
+		return nil, err
+	}
+	if role < common.RoleAdminUser {
+		return nil, errors.New("当前用户还没有代理站点")
+	}
+	return nil, errors.New("当前管理员还没有开通代理站点，请先在代理管理中创建")
+}
+
+func normalizeAgentDefaults(agent *model.Agent) {
+	if agent.Status == 0 {
+		agent.Status = model.AgentStatusEnabled
+	}
+	if agent.PriceMode == "" {
+		agent.PriceMode = model.AgentPriceModeMultiplier
+	}
+	if agent.DefaultMarkup <= 0 {
+		agent.DefaultMarkup = 1
+	}
+	if agent.SettlementCurrency == "" {
+		agent.SettlementCurrency = "USD"
+	}
+}

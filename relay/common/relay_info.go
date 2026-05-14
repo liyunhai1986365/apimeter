@@ -160,6 +160,9 @@ type RelayInfo struct {
 	TieredBillingSnapshot *billingexpr.BillingSnapshot
 	BillingRequestInput   *billingexpr.RequestInput
 
+	AgentContext         *types.AgentContext
+	AgentBillingSnapshot *types.AgentBillingSnapshot
+
 	Request dto.Request
 
 	// RequestConversionChain records request format conversions in order, e.g.
@@ -485,6 +488,10 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 			//promptTokens: common.GetContextKeyInt(c, constant.ContextKeyPromptTokens),
 			estimatePromptTokens: common.GetContextKeyInt(c, constant.ContextKeyEstimatedTokens),
 		},
+	}
+
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok {
+		info.AgentContext = agentCtx
 	}
 
 	if info.RelayMode == relayconstant.RelayModeUnknown {

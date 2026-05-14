@@ -1,0 +1,12 @@
+services:
+  new-api:
+    profiles:
+      - app
+
+  postgres:
+    ports:
+      - "5432:5432"
+
+  redis:
+    ports:
+      - "6380:6379"

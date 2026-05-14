@@ -21,6 +21,7 @@ import { create } from 'zustand'
 export type UserPermissions = {
   sidebar_settings?: boolean
   sidebar_modules?: Record<string, unknown>
+  agent_console?: boolean
 }
 
 export interface AuthUser {
@@ -46,6 +47,7 @@ export interface AuthUser {
   linux_do_id?: string
   setting?: Record<string, unknown> | string
   stripe_customer?: string
+  has_agent?: boolean
   sidebar_modules?: string
   permissions?: UserPermissions
 }

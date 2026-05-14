@@ -16,8 +16,10 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/QuantumNous/new-api/constant"
 
@@ -64,6 +66,15 @@ func Login(c *gin.Context) {
 		}
 		return
 	}
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		if err := agentservice.RequireUserInAgent(agentCtx, user.Id); err != nil {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": "当前用户无权登录该代理站点",
+			})
+			return
+		}
+	}
 
 	// 检查是否启用2FA
 	if model.IsTwoFAEnabled(user.Id) {
@@ -104,16 +115,21 @@ func setupLogin(user *model.User, c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
 		return
 	}
+	hasAgentConsole := userHasAgentConsole(user.Id, user.Role)
+	permissions := calculateUserPermissions(user.Role)
+	permissions["agent_console"] = hasAgentConsole
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
-		"data": map[string]any{
+		"data": map[string]interface{}{
 			"id":           user.Id,
 			"username":     user.Username,
 			"display_name": user.DisplayName,
 			"role":         user.Role,
 			"status":       user.Status,
 			"group":        user.Group,
+			"has_agent":    hasAgentConsole,
+			"permissions":  permissions,
 		},
 	})
 }
@@ -196,6 +212,12 @@ func Register(c *gin.Context) {
 	if err := model.DB.Where("username = ?", cleanUser.Username).First(&insertedUser).Error; err != nil {
 		common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
 		return
+	}
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		if err := agentservice.BindUser(agentCtx, insertedUser.Id, model.AgentUserSourceDomain); err != nil {
+			common.ApiErrorI18n(c, i18n.MsgUserRegisterFailed)
+			return
+		}
 	}
 	// 生成默认令牌
 	if constant.GenerateDefaultToken {
@@ -388,7 +410,9 @@ func GetSelf(c *gin.Context) {
 	user.Remark = ""
 
 	// 计算用户权限信息
+	hasAgentConsole := userHasAgentConsole(user.Id, userRole)
 	permissions := calculateUserPermissions(userRole)
+	permissions["agent_console"] = hasAgentConsole
 
 	// 获取用户设置并提取sidebar_modules
 	userSetting := user.GetSetting()
@@ -418,6 +442,7 @@ func GetSelf(c *gin.Context) {
 		"linux_do_id":       user.LinuxDOId,
 		"setting":           user.Setting,
 		"stripe_customer":   user.StripeCustomer,
+		"has_agent":         hasAgentConsole,
 		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
 		"permissions":       permissions,                // 新增权限字段
 	}
@@ -428,6 +453,15 @@ func GetSelf(c *gin.Context) {
 		"data":    responseData,
 	})
 	return
+}
+
+func userHasAgentConsole(userId int, userRole int) bool {
+	hasAgent, err := model.UserHasAgentConsole(userId)
+	if err != nil {
+		common.SysLog(fmt.Sprintf("failed to check agent console permission for user %d: %v", userId, err))
+		return false
+	}
+	return hasAgent
 }
 
 // 计算用户权限的辅助函数
