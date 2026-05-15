@@ -61,19 +61,33 @@ import {
   createAgentDomain,
   getAgentSelf,
   listAgentDomains,
+  listAgentGroupRatios,
   listAgentLedger,
-  listAgentPricingRules,
   listAgentUsers,
   listAgentWithdrawals,
   parseAgentBranding,
   stringifyAgentBranding,
   submitAgentWithdrawal,
   updateAgentBranding,
-  upsertAgentPricingRule,
+  upsertAgentGroupRatio,
   verifyAgentDomain,
 } from './api'
 
-const formatQuota = (quota?: number) => (quota ?? 0).toLocaleString()
+function normalizeSettlementCurrency(currency?: string) {
+  const code = (currency || 'USD').toUpperCase()
+  return code === 'RMB' || code === 'CNY' ? 'RMB' : 'USD'
+}
+
+function formatSettlementAmount(amount?: number, currency?: string) {
+  const value = amount ?? 0
+  const code = normalizeSettlementCurrency(currency)
+  const symbol = code === 'RMB' ? '¥' : '$'
+  const sign = value < 0 ? '-' : ''
+  return `${sign}${symbol}${Math.abs(value).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  })} ${code}`
+}
 
 function getQuotaProgressColor(percentage: number): string {
   if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
@@ -149,9 +163,8 @@ export function Agents() {
   const [siteName, setSiteName] = useState('')
   const [logo, setLogo] = useState('')
   const [newDomain, setNewDomain] = useState('')
-  const [modelPattern, setModelPattern] = useState('*')
-  const [markup, setMarkup] = useState('1.2')
-  const [withdrawQuota, setWithdrawQuota] = useState('')
+  const [groupName, setGroupName] = useState('default')
+  const [groupRatio, setGroupRatio] = useState('1')
   const [withdrawMoney, setWithdrawMoney] = useState('')
   const [accountInfo, setAccountInfo] = useState('')
 
@@ -163,9 +176,9 @@ export function Agents() {
     queryKey: ['agent', 'domains'],
     queryFn: () => listAgentDomains(),
   })
-  const rulesQuery = useQuery({
-    queryKey: ['agent', 'pricing-rules'],
-    queryFn: () => listAgentPricingRules(),
+  const groupRatiosQuery = useQuery({
+    queryKey: ['agent', 'group-ratios'],
+    queryFn: () => listAgentGroupRatios(),
   })
   const usersQuery = useQuery({
     queryKey: ['agent', 'users'],
@@ -218,10 +231,10 @@ export function Agents() {
     },
   })
 
-  const saveRuleMutation = useMutation({
-    mutationFn: upsertAgentPricingRule,
+  const saveGroupRatioMutation = useMutation({
+    mutationFn: upsertAgentGroupRatio,
     onSuccess: () => {
-      toast.success(t('Pricing rule saved'))
+      toast.success(t('Group ratio saved'))
       refreshAgent()
     },
     onError: (error) => {
@@ -233,7 +246,6 @@ export function Agents() {
     mutationFn: submitAgentWithdrawal,
     onSuccess: () => {
       toast.success(t('Withdrawal submitted'))
-      setWithdrawQuota('')
       setWithdrawMoney('')
       setAccountInfo('')
       refreshAgent()
@@ -248,15 +260,16 @@ export function Agents() {
   const agentDomain = self?.context?.Domain || self?.agent?.slug || '-'
   const users = usersQuery.data?.data.items ?? []
   const domains = domainsQuery.data?.data.items ?? []
-  const rules = rulesQuery.data?.data.items ?? []
+  const groupRatios = groupRatiosQuery.data?.data ?? []
   const ledger = ledgerQuery.data?.data.items ?? []
   const withdrawals = withdrawalsQuery.data?.data.items ?? []
   const canCreateDomain = newDomain.trim() !== ''
-  const canSaveRule = modelPattern.trim() !== '' && Number(markup) > 0
+  const selectedGroupBaseRatio =
+    groupRatios.find((item) => item.group_name === groupName)?.system_ratio ?? 0
+  const canSaveGroupRatio =
+    groupName.trim() !== '' && Number(groupRatio) >= selectedGroupBaseRatio
   const canSubmitWithdrawal =
-    Number(withdrawQuota) > 0 &&
-    Number(withdrawMoney) >= 0 &&
-    accountInfo.trim() !== ''
+    Number(withdrawMoney) > 0 && accountInfo.trim() !== ''
 
   useEffect(() => {
     if (!self?.agent) return
@@ -302,12 +315,18 @@ export function Agents() {
             />
             <MetricCard
               label={t('Available Balance')}
-              value={formatQuota(balance?.available_quota)}
+              value={formatSettlementAmount(
+                balance?.available_amount,
+                balance?.currency
+              )}
               icon={<BadgeDollarSign className='size-4' />}
             />
             <MetricCard
               label={t('Pending Withdrawal')}
-              value={formatQuota(balance?.pending_withdrawal_quota)}
+              value={formatSettlementAmount(
+                balance?.pending_withdrawal_amount,
+                balance?.currency
+              )}
               icon={<Wallet className='size-4' />}
             />
           </div>
@@ -381,10 +400,6 @@ export function Agents() {
                     <InfoItem
                       label={t('Slug')}
                       value={self?.agent.slug ?? '-'}
-                    />
-                    <InfoItem
-                      label={t('Markup')}
-                      value={String(self?.agent.default_markup ?? '-')}
                     />
                     <InfoItem
                       label={t('Settlement Currency')}
@@ -586,32 +601,53 @@ export function Agents() {
                 <div className='mb-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]'>
                   <div>
                     <h3 className='text-sm font-semibold'>
-                      {t('Pricing Rules')}
+                      {t('Group Pricing')}
                     </h3>
                     <p className='text-muted-foreground mt-1 text-xs'>
-                      {t('Configure agent markup by model pattern.')}
+                      {t('Configure group ratios for this agent site.')}
                     </p>
                   </div>
-                  <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px_auto]'>
+                  <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px_auto]'>
+                    <select
+                      className='border-input bg-background h-8 rounded-md border px-2 text-sm'
+                      value={groupName}
+                      onChange={(event) => {
+                        const nextGroup = event.target.value
+                        setGroupName(nextGroup)
+                        const nextRatio = groupRatios.find(
+                          (item) => item.group_name === nextGroup
+                        )
+                        setGroupRatio(
+                          String(
+                            nextRatio?.effective_ratio ??
+                              nextRatio?.system_ratio ??
+                              1
+                          )
+                        )
+                      }}
+                    >
+                      {groupRatios.map((item) => (
+                        <option key={item.group_name} value={item.group_name}>
+                          {item.group_name}
+                        </option>
+                      ))}
+                    </select>
                     <Input
-                      value={modelPattern}
-                      onChange={(event) => setModelPattern(event.target.value)}
-                      placeholder={t('Model')}
-                    />
-                    <Input
-                      value={markup}
-                      onChange={(event) => setMarkup(event.target.value)}
+                      value={groupRatio}
+                      onChange={(event) => setGroupRatio(event.target.value)}
                       type='number'
                       step='0.01'
-                      min='0.01'
+                      min={selectedGroupBaseRatio}
                     />
                     <Button
-                      disabled={!canSaveRule || saveRuleMutation.isPending}
+                      disabled={
+                        !canSaveGroupRatio ||
+                        saveGroupRatioMutation.isPending
+                      }
                       onClick={() =>
-                        saveRuleMutation.mutate({
-                          model_pattern: modelPattern.trim(),
-                          markup: Number(markup),
-                          enabled: true,
+                        saveGroupRatioMutation.mutate({
+                          group_name: groupName,
+                          ratio: Number(groupRatio),
                         })
                       }
                     >
@@ -623,29 +659,35 @@ export function Agents() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('Model')}</TableHead>
-                      <TableHead>{t('Markup')}</TableHead>
+                      <TableHead>{t('Group')}</TableHead>
+                      <TableHead>{t('System Ratio')}</TableHead>
+                      <TableHead>{t('Agent Ratio')}</TableHead>
+                      <TableHead>{t('Effective Ratio')}</TableHead>
                       <TableHead>{t('Status')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {rules.length === 0 ? (
+                    {groupRatios.length === 0 ? (
                       <TableEmpty
-                        colSpan={3}
-                        title={t('No Pricing Rules')}
-                        description={t('Default markup is used when no rule matches.')}
+                        colSpan={5}
+                        title={t('No Groups')}
+                        description={t('No group ratios are configured.')}
                         icon={<BadgeDollarSign className='size-6' />}
                       />
                     ) : (
-                      rules.map((rule) => (
-                        <TableRow key={rule.id}>
+                      groupRatios.map((rule) => (
+                        <TableRow key={rule.group_name}>
                           <TableCell className='font-mono text-xs'>
-                            {rule.model_pattern}
+                            {rule.group_name}
                           </TableCell>
-                          <TableCell>{rule.markup}</TableCell>
+                          <TableCell>{rule.system_ratio}</TableCell>
                           <TableCell>
-                            <Badge variant={rule.enabled ? 'default' : 'outline'}>
-                              {rule.enabled ? t('Enabled') : t('Disabled')}
+                            {rule.configured ? rule.configured_ratio : '-'}
+                          </TableCell>
+                          <TableCell>{rule.effective_ratio}</TableCell>
+                          <TableCell>
+                            <Badge variant={rule.configured ? 'default' : 'outline'}>
+                              {rule.configured ? t('Configured') : t('System')}
                             </Badge>
                           </TableCell>
                         </TableRow>
@@ -665,19 +707,14 @@ export function Agents() {
                   </h3>
                   <div className='space-y-2'>
                     <Input
-                      value={withdrawQuota}
-                      onChange={(event) => setWithdrawQuota(event.target.value)}
-                      type='number'
-                      min='1'
-                      placeholder={t('Quota Amount')}
-                    />
-                    <Input
                       value={withdrawMoney}
                       onChange={(event) => setWithdrawMoney(event.target.value)}
                       type='number'
-                      min='0'
+                      min='0.01'
                       step='0.01'
-                      placeholder={t('Money Amount')}
+                      placeholder={`${t('Money Amount')} (${normalizeSettlementCurrency(
+                        balance?.currency ?? self?.agent.settlement_currency
+                      )})`}
                     />
                     <Textarea
                       value={accountInfo}
@@ -690,7 +727,6 @@ export function Agents() {
                       disabled={!canSubmitWithdrawal || withdrawMutation.isPending}
                       onClick={() =>
                         withdrawMutation.mutate({
-                          amount_quota: Number(withdrawQuota),
                           amount_money: Number(withdrawMoney),
                           account_info: accountInfo.trim(),
                         })
@@ -708,7 +744,6 @@ export function Agents() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>{t('Quota Amount')}</TableHead>
                         <TableHead>{t('Money Amount')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
                         <TableHead>{t('Created At')}</TableHead>
@@ -717,7 +752,7 @@ export function Agents() {
                     <TableBody>
                       {withdrawals.length === 0 ? (
                         <TableEmpty
-                          colSpan={4}
+                          colSpan={3}
                           title={t('No Withdrawals')}
                           description={t('Submitted withdrawals will appear here.')}
                           icon={<Wallet className='size-6' />}
@@ -725,8 +760,12 @@ export function Agents() {
                       ) : (
                         withdrawals.map((item) => (
                           <TableRow key={item.id}>
-                            <TableCell>{formatQuota(item.amount_quota)}</TableCell>
-                            <TableCell>{item.amount_money}</TableCell>
+                            <TableCell>
+                              {formatSettlementAmount(
+                                item.settlement_amount ?? item.amount_money,
+                                item.currency
+                              )}
+                            </TableCell>
                             <TableCell>
                               <Badge variant={withdrawalVariant(item.status)}>
                                 {t(item.status)}
@@ -766,8 +805,18 @@ export function Agents() {
                       ledger.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{item.type}</TableCell>
-                          <TableCell>{formatQuota(item.profit_quota)}</TableCell>
-                          <TableCell>{formatQuota(item.balance_after)}</TableCell>
+                          <TableCell>
+                            {formatSettlementAmount(
+                              item.profit_amount,
+                              item.currency
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {formatSettlementAmount(
+                              item.balance_after_amount,
+                              item.currency
+                            )}
+                          </TableCell>
                           <TableCell>
                             {formatTimestampToDate(item.created_at)}
                           </TableCell>

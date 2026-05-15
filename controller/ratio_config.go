@@ -17,9 +17,14 @@ func GetRatioConfig(c *gin.Context) {
 		return
 	}
 
+	data := ratio_setting.GetExposedData()
+	if groupRatios, ok := data["group_ratio"].(map[string]float64); ok {
+		data["group_ratio"] = applyAgentGroupRatios(c, groupRatios)
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    ratio_setting.GetExposedData(),
+		"data":    data,
 	})
 }

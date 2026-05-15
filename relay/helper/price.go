@@ -9,7 +9,6 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -60,6 +59,28 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 	} else {
 		// normal group ratio
 		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
+	}
+	groupRatioInfo.BaseGroupRatio = groupRatioInfo.GroupRatio
+
+	if relayInfo != nil && relayInfo.AgentContext != nil {
+		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[relayInfo.UsingGroup]; ok {
+			if agentRatio < groupRatioInfo.BaseGroupRatio {
+				agentRatio = groupRatioInfo.BaseGroupRatio
+			}
+			groupRatioInfo.GroupRatio = agentRatio
+			groupRatioInfo.AgentGroupRatio = agentRatio
+			groupRatioInfo.HasAgentRatio = true
+			if groupRatioInfo.HasSpecialRatio {
+				groupRatioInfo.GroupSpecialRatio = agentRatio
+			}
+			relayInfo.AgentBillingSnapshot = &types.AgentBillingSnapshot{
+				AgentID:           relayInfo.AgentContext.AgentID,
+				Domain:            relayInfo.AgentContext.Domain,
+				Group:             relayInfo.UsingGroup,
+				BaseGroupRatio:    groupRatioInfo.BaseGroupRatio,
+				ChargedGroupRatio: agentRatio,
+			}
+		}
 	}
 
 	return groupRatioInfo
@@ -161,7 +182,8 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		println(fmt.Sprintf("model_price_helper result: %s", priceData.ToSetting()))
 	}
 	info.PriceData = priceData
-	return applyAgentPreConsumePricing(info, priceData)
+	captureAgentQuotaSnapshot(info.AgentBillingSnapshot, preConsumedQuota)
+	return priceData, nil
 }
 
 // ModelPriceHelperPerCall 按次/按量计费的 PriceHelper (MJ、Task)
@@ -222,7 +244,10 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 		Quota:          quota,
 		GroupRatioInfo: groupRatioInfo,
 	}
-	return applyAgentPerCallPricing(info, priceData)
+	if info.AgentBillingSnapshot != nil {
+		captureAgentQuotaSnapshot(info.AgentBillingSnapshot, quota)
+	}
+	return priceData, nil
 }
 
 func HasModelBillingConfig(modelName string) bool {
@@ -305,33 +330,21 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 	}
 
 	info.PriceData = priceData
-	return applyAgentPreConsumePricing(info, priceData)
-}
-
-func applyAgentPreConsumePricing(info *relaycommon.RelayInfo, priceData types.PriceData) (types.PriceData, error) {
-	if info == nil || info.AgentContext == nil || priceData.FreeModel {
-		return priceData, nil
-	}
-	chargedQuota, snapshot, err := agentservice.ApplyPricing(info.AgentContext, info.OriginModelName, priceData.QuotaToPreConsume)
-	if err != nil {
-		return types.PriceData{}, err
-	}
-	priceData.QuotaToPreConsume = chargedQuota
-	info.AgentBillingSnapshot = snapshot
-	info.PriceData = priceData
+	captureAgentQuotaSnapshot(info.AgentBillingSnapshot, preConsumedQuota)
 	return priceData, nil
 }
 
-func applyAgentPerCallPricing(info *relaycommon.RelayInfo, priceData types.PriceData) (types.PriceData, error) {
-	if info == nil || info.AgentContext == nil || priceData.FreeModel {
-		return priceData, nil
+func captureAgentQuotaSnapshot(snapshot *types.AgentBillingSnapshot, chargedQuota int) {
+	if snapshot == nil {
+		return
 	}
-	chargedQuota, snapshot, err := agentservice.ApplyPricing(info.AgentContext, info.OriginModelName, priceData.Quota)
-	if err != nil {
-		return types.PriceData{}, err
+	snapshot.ChargedEstimatedQuota = chargedQuota
+	snapshot.BaseEstimatedQuota = baseQuotaFromCharged(snapshot, chargedQuota)
+}
+
+func baseQuotaFromCharged(snapshot *types.AgentBillingSnapshot, chargedQuota int) int {
+	if snapshot == nil || snapshot.BaseGroupRatio <= 0 || snapshot.ChargedGroupRatio <= 0 {
+		return chargedQuota
 	}
-	priceData.Quota = chargedQuota
-	info.AgentBillingSnapshot = snapshot
-	info.PriceData = priceData
-	return priceData, nil
+	return int(float64(chargedQuota)*snapshot.BaseGroupRatio/snapshot.ChargedGroupRatio + 0.5)
 }

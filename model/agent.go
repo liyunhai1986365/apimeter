@@ -116,6 +116,15 @@ type AgentPricingRule struct {
 	UpdatedAt    int64   `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
 }
 
+type AgentGroupRatio struct {
+	Id        int     `json:"id"`
+	AgentId   int     `json:"agent_id" gorm:"index:idx_agent_group_ratio_agent_group,priority:1;column:agent_id"`
+	GroupName string  `json:"group_name" gorm:"type:varchar(64);index:idx_agent_group_ratio_agent_group,priority:2"`
+	Ratio     float64 `json:"ratio" gorm:"precision:10;scale:6;default:1"`
+	CreatedAt int64   `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+	UpdatedAt int64   `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
+}
+
 type AgentLedger struct {
 	Id           int    `json:"id"`
 	AgentId      int    `json:"agent_id" gorm:"index;column:agent_id"`
@@ -248,24 +257,6 @@ func BindUserToAgent(agentId int, userId int, source string) error {
 	return DB.Create(agentUser).Error
 }
 
-func GetAgentPricingMarkup(agentId int, modelName string) (float64, bool, error) {
-	var rule AgentPricingRule
-	err := DB.Where("agent_id = ? AND model_pattern = ? AND enabled = ?", agentId, modelName, commonTrueBool()).
-		Order("id desc").
-		First(&rule).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return 0, false, nil
-		}
-		return 0, false, err
-	}
-	return rule.Markup, true, nil
-}
-
-func commonTrueBool() bool {
-	return true
-}
-
 func GetAgentById(id int) (*Agent, error) {
 	var agent Agent
 	err := DB.First(&agent, "id = ?", id).Error
@@ -323,17 +314,24 @@ func ListAgentDomainsByStatus(status int, startIdx int, num int) ([]*AgentDomain
 	return domains, total, nil
 }
 
-func ListAgentPricingRules(agentId int, startIdx int, num int) ([]*AgentPricingRule, int64, error) {
-	var rules []*AgentPricingRule
-	var total int64
-	tx := DB.Model(&AgentPricingRule{}).Where("agent_id = ?", agentId)
-	if err := tx.Count(&total).Error; err != nil {
-		return nil, 0, err
+func GetAgentGroupRatioMap(agentId int) (map[string]float64, error) {
+	ratios := make([]*AgentGroupRatio, 0)
+	if err := DB.Where("agent_id = ?", agentId).Find(&ratios).Error; err != nil {
+		return nil, err
 	}
-	if err := tx.Order("id desc").Limit(num).Offset(startIdx).Find(&rules).Error; err != nil {
-		return nil, 0, err
+	result := make(map[string]float64, len(ratios))
+	for _, ratio := range ratios {
+		result[ratio.GroupName] = ratio.Ratio
 	}
-	return rules, total, nil
+	return result, nil
+}
+
+func ListAgentGroupRatios(agentId int) ([]*AgentGroupRatio, error) {
+	ratios := make([]*AgentGroupRatio, 0)
+	if err := DB.Where("agent_id = ?", agentId).Order("group_name asc").Find(&ratios).Error; err != nil {
+		return nil, err
+	}
+	return ratios, nil
 }
 
 func ListAgentUsers(agentId int, keyword string, startIdx int, num int) ([]*AgentUserWithProfile, int64, error) {

@@ -365,10 +365,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	baseQuota := summary.Quota
 	if relayInfo.AgentBillingSnapshot != nil {
-		chargedQuota := agentservice.ApplySnapshot(relayInfo.AgentBillingSnapshot, baseQuota)
+		chargedQuota := summary.Quota
+		baseQuota = agentservice.BaseQuotaFromCharged(relayInfo.AgentBillingSnapshot, chargedQuota)
 		relayInfo.AgentBillingSnapshot.BaseEstimatedQuota = baseQuota
 		relayInfo.AgentBillingSnapshot.ChargedEstimatedQuota = chargedQuota
-		summary.Quota = chargedQuota
 	}
 
 	if summary.TotalTokens == 0 {

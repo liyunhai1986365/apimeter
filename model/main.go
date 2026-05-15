@@ -288,6 +288,7 @@ func migrateDB() error {
 		&AgentDomain{},
 		&AgentUser{},
 		&AgentPricingRule{},
+		&AgentGroupRatio{},
 		&AgentLedger{},
 		&AgentWithdrawal{},
 	)
@@ -343,6 +344,7 @@ func migrateDBFast() error {
 		{&AgentDomain{}, "AgentDomain"},
 		{&AgentUser{}, "AgentUser"},
 		{&AgentPricingRule{}, "AgentPricingRule"},
+		{&AgentGroupRatio{}, "AgentGroupRatio"},
 		{&AgentLedger{}, "AgentLedger"},
 		{&AgentWithdrawal{}, "AgentWithdrawal"},
 	}
@@ -406,6 +408,9 @@ func normalizeAgentDecimalTablesForSQLite() error {
 		},
 		"agent_pricing_rules": {
 			"markup": "real DEFAULT 1",
+		},
+		"agent_group_ratios": {
+			"ratio": "real DEFAULT 1",
 		},
 		"agent_withdrawals": {
 			"amount_money": "real DEFAULT 0",

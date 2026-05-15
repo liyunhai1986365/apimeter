@@ -122,3 +122,28 @@ func TestVerifyDomainCNAMEReturnsLookupErrors(t *testing.T) {
 	require.ErrorIs(t, err, lookupErr)
 	require.Nil(t, verified)
 }
+
+func TestTryAutoVerifyDomainCNAMEReturnsNilWhenUnverified(t *testing.T) {
+	setupAgentTestDB(t)
+
+	domain := &model.AgentDomain{
+		AgentId:     1,
+		Domain:      "api.customer.com",
+		Status:      model.AgentDomainStatusPending,
+		VerifyToken: "verify-token",
+	}
+	require.NoError(t, model.DB.Create(domain).Error)
+
+	verified, err := TryAutoVerifyDomainCNAMEWithResolver(
+		context.Background(),
+		1,
+		domain.Id,
+		"agent-cname.example.com",
+		func(ctx context.Context, host string) ([]string, error) {
+			return []string{"other-token.agent-cname.example.com"}, nil
+		},
+	)
+
+	require.NoError(t, err)
+	require.Nil(t, verified)
+}

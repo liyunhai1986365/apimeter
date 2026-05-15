@@ -40,6 +40,11 @@ export type AgentBalance = {
   pending_withdrawal_quota: number
   approved_withdrawal_quota: number
   available_quota: number
+  currency: string
+  profit_amount: number
+  pending_withdrawal_amount: number
+  approved_withdrawal_amount: number
+  available_amount: number
 }
 
 export type AgentSelfPayload = {
@@ -51,6 +56,7 @@ export type AgentSelfPayload = {
     OwnerUserID: number
     DefaultMarkup: number
     Branding: string
+    GroupRatios?: Record<string, number>
   }
 }
 
@@ -79,12 +85,12 @@ export type AdminAgentDomain = AgentDomain & {
   owner_user_id: number
 }
 
-export type AgentPricingRule = {
-  id: number
-  agent_id: number
-  model_pattern: string
-  markup: number
-  enabled: boolean
+export type AgentGroupRatio = {
+  group_name: string
+  system_ratio: number
+  configured_ratio: number
+  effective_ratio: number
+  configured: boolean
 }
 
 export type AgentUser = {
@@ -122,6 +128,11 @@ export type AgentLedger = {
   charged_quota: number
   profit_quota: number
   balance_after: number
+  currency: string
+  base_amount: number
+  charged_amount: number
+  profit_amount: number
+  balance_after_amount: number
   created_at: number
 }
 
@@ -130,6 +141,8 @@ export type AgentWithdrawal = {
   agent_id: number
   amount_quota: number
   amount_money: number
+  settlement_amount: number
+  currency: string
   fee: number
   status: string
   account_info: string

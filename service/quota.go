@@ -122,6 +122,22 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 	if ok {
 		actualGroupRatio = userGroupRatio
 	}
+	baseGroupRatio := actualGroupRatio
+	if relayInfo.AgentContext != nil {
+		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[relayInfo.UsingGroup]; ok {
+			if agentRatio < baseGroupRatio {
+				agentRatio = baseGroupRatio
+			}
+			actualGroupRatio = agentRatio
+			relayInfo.AgentBillingSnapshot = &types.AgentBillingSnapshot{
+				AgentID:           relayInfo.AgentContext.AgentID,
+				Domain:            relayInfo.AgentContext.Domain,
+				Group:             relayInfo.UsingGroup,
+				BaseGroupRatio:    baseGroupRatio,
+				ChargedGroupRatio: agentRatio,
+			}
+		}
+	}
 
 	quotaInfo := QuotaInfo{
 		InputDetails: TokenDetails{
@@ -224,9 +240,8 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, modelName, relayInfo.FinalPreConsumedQuota))
 	} else {
-		baseQuota := quota
-		quota = agentservice.ApplySnapshot(relayInfo.AgentBillingSnapshot, baseQuota)
 		if relayInfo.AgentBillingSnapshot != nil {
+			baseQuota := agentservice.BaseQuotaFromCharged(relayInfo.AgentBillingSnapshot, quota)
 			relayInfo.AgentBillingSnapshot.BaseEstimatedQuota = baseQuota
 			relayInfo.AgentBillingSnapshot.ChargedEstimatedQuota = quota
 		}
@@ -356,9 +371,8 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, "+
 			"tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, relayInfo.OriginModelName, relayInfo.FinalPreConsumedQuota))
 	} else {
-		baseQuota := quota
-		quota = agentservice.ApplySnapshot(relayInfo.AgentBillingSnapshot, baseQuota)
 		if relayInfo.AgentBillingSnapshot != nil {
+			baseQuota := agentservice.BaseQuotaFromCharged(relayInfo.AgentBillingSnapshot, quota)
 			relayInfo.AgentBillingSnapshot.BaseEstimatedQuota = baseQuota
 			relayInfo.AgentBillingSnapshot.ChargedEstimatedQuota = quota
 		}

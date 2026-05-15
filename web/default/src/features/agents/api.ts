@@ -23,9 +23,9 @@ import type {
   AgentBalance,
   AgentBranding,
   AgentDomain,
+  AgentGroupRatio,
   AgentLedger,
   AgentPage,
-  AgentPricingRule,
   AgentSelfPayload,
   AgentUser,
   AgentWithdrawal,
@@ -160,21 +160,20 @@ export async function bindAdminAgentUser(input: {
   return res.data
 }
 
-export async function listAgentPricingRules(page = 1, pageSize = 20) {
+export async function listAgentGroupRatios() {
   const res = await api.get<{
     success: boolean
-    data: AgentPage<AgentPricingRule>
-  }>('/api/agent/pricing_rules', { params: { p: page, page_size: pageSize } })
+    data: AgentGroupRatio[]
+  }>('/api/agent/group_ratios')
   return res.data
 }
 
-export async function upsertAgentPricingRule(input: {
-  model_pattern: string
-  markup: number
-  enabled: boolean
+export async function upsertAgentGroupRatio(input: {
+  group_name: string
+  ratio: number
 }) {
-  const res = await api.post<{ success: boolean; data: AgentPricingRule }>(
-    '/api/agent/pricing_rules',
+  const res = await api.post<{ success: boolean; data: AgentGroupRatio }>(
+    '/api/agent/group_ratios',
     input
   )
   return res.data
@@ -205,7 +204,6 @@ export async function listAgentWithdrawals(page = 1, pageSize = 20) {
 }
 
 export async function submitAgentWithdrawal(input: {
-  amount_quota: number
   amount_money: number
   account_info: string
 }) {
@@ -278,32 +276,24 @@ export async function listAdminAgentUsers(
   return res.data
 }
 
-export async function listAdminAgentPricingRules(
-  agentId: number,
-  page = 1,
-  pageSize = 20
-) {
+export async function listAdminAgentGroupRatios(agentId: number) {
   const res = await api.get<{
     success: boolean
-    data: AgentPage<AgentPricingRule>
-  }>(`/api/agents/${agentId}/pricing_rules`, {
-    params: { p: page, page_size: pageSize },
-  })
+    data: AgentGroupRatio[]
+  }>(`/api/agents/${agentId}/group_ratios`)
   return res.data
 }
 
-export async function upsertAdminAgentPricingRule(input: {
+export async function upsertAdminAgentGroupRatio(input: {
   agentId: number
-  model_pattern: string
-  markup: number
-  enabled: boolean
+  group_name: string
+  ratio: number
 }) {
-  const res = await api.post<{ success: boolean; data: AgentPricingRule }>(
-    `/api/agents/${input.agentId}/pricing_rules`,
+  const res = await api.post<{ success: boolean; data: AgentGroupRatio }>(
+    `/api/agents/${input.agentId}/group_ratios`,
     {
-      model_pattern: input.model_pattern,
-      markup: input.markup,
-      enabled: input.enabled,
+      group_name: input.group_name,
+      ratio: input.ratio,
     }
   )
   return res.data

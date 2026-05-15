@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"errors"
 	"math"
 	"net"
 	"strings"
@@ -49,12 +48,17 @@ func ResolveByHost(host string) (*Context, error) {
 	if err != nil || agentWithDomain == nil {
 		return nil, err
 	}
+	groupRatios, err := EffectiveGroupRatioMap(agentWithDomain.Id)
+	if err != nil {
+		return nil, err
+	}
 	return &Context{
 		AgentID:       agentWithDomain.Id,
 		Domain:        agentWithDomain.Domain,
 		OwnerUserID:   agentWithDomain.OwnerUserId,
 		DefaultMarkup: agentWithDomain.DefaultMarkup,
 		Branding:      agentWithDomain.Branding,
+		GroupRatios:   groupRatios,
 	}, nil
 }
 
@@ -79,40 +83,23 @@ func BindUser(ctx *Context, userID int, source string) error {
 	return model.BindUserToAgent(ctx.AgentID, userID, source)
 }
 
-func ApplyPricing(ctx *Context, modelName string, baseQuota int) (chargedQuota int, snapshot *BillingSnapshot, err error) {
-	if ctx == nil || ctx.AgentID == 0 {
-		return baseQuota, nil, nil
-	}
-	markup := ctx.DefaultMarkup
-	if ruleMarkup, ok, err := model.GetAgentPricingMarkup(ctx.AgentID, modelName); err != nil {
-		return 0, nil, err
-	} else if ok {
-		markup = ruleMarkup
-	}
-	if markup <= 0 {
-		return 0, nil, errors.New("agent markup must be greater than 0")
-	}
-	chargedQuota = int(math.Round(float64(baseQuota) * markup))
-	snapshot = &BillingSnapshot{
-		AgentID:               ctx.AgentID,
-		Domain:                ctx.Domain,
-		Markup:                markup,
-		BaseEstimatedQuota:    baseQuota,
-		ChargedEstimatedQuota: chargedQuota,
-	}
-	return chargedQuota, snapshot, nil
+func ApplySnapshot(snapshot *BillingSnapshot, baseQuota int) int {
+	return baseQuota
 }
 
-func ApplySnapshot(snapshot *BillingSnapshot, baseQuota int) int {
-	if snapshot == nil || snapshot.Markup <= 0 {
-		return baseQuota
+func BaseQuotaFromCharged(snapshot *BillingSnapshot, chargedQuota int) int {
+	if snapshot == nil || snapshot.AgentID == 0 || snapshot.BaseGroupRatio <= 0 || snapshot.ChargedGroupRatio <= 0 {
+		return chargedQuota
 	}
-	return int(math.Round(float64(baseQuota) * snapshot.Markup))
+	return int(math.Round(float64(chargedQuota) * snapshot.BaseGroupRatio / snapshot.ChargedGroupRatio))
 }
 
 func SettleConsume(snapshot *BillingSnapshot, userID int, logID int, baseQuota int, chargedQuota int) error {
 	if snapshot == nil || snapshot.AgentID == 0 {
 		return nil
+	}
+	if baseQuota <= 0 && chargedQuota > 0 {
+		baseQuota = BaseQuotaFromCharged(snapshot, chargedQuota)
 	}
 	profitQuota := chargedQuota - baseQuota
 	if profitQuota <= 0 {

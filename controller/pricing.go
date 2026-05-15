@@ -54,6 +54,7 @@ func GetPricing(c *gin.Context) {
 			}
 		}
 	}
+	groupRatio = applyAgentGroupRatios(c, groupRatio)
 
 	usableGroup = service.GetUserUsableGroups(group)
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)

@@ -34,10 +34,9 @@ type agentDomainRequest struct {
 	Status int    `json:"status"`
 }
 
-type agentPricingRuleRequest struct {
-	ModelPattern string  `json:"model_pattern"`
-	Markup       float64 `json:"markup"`
-	Enabled      bool    `json:"enabled"`
+type agentGroupRatioRequest struct {
+	GroupName string  `json:"group_name"`
+	Ratio     float64 `json:"ratio"`
 }
 
 type agentWithdrawalRequest struct {
@@ -228,8 +227,13 @@ func AdminListAgentWithdrawals(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	withdrawalViews, err := agentservice.BuildWithdrawalViews(withdrawals)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(withdrawals)
+	pageInfo.SetItems(withdrawalViews)
 	common.ApiSuccess(c, pageInfo)
 }
 
@@ -262,6 +266,19 @@ func AgentListDomains(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	for i, domain := range domains {
+		if domain.Status == model.AgentDomainStatusActive {
+			continue
+		}
+		verified, verifyErr := agentservice.TryAutoVerifyDomainCNAME(c.Request.Context(), agentID, domain.Id)
+		if verifyErr != nil {
+			common.ApiError(c, verifyErr)
+			return
+		}
+		if verified != nil {
+			domains[i] = verified
+		}
+	}
 	agentservice.FillDomainCNAMETargets(domains)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(domains)
@@ -282,6 +299,14 @@ func AgentCreateDomain(c *gin.Context) {
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	verified, verifyErr := agentservice.TryAutoVerifyDomainCNAME(c.Request.Context(), agentID, domain.Id)
+	if verifyErr != nil {
+		common.ApiError(c, verifyErr)
+		return
+	}
+	if verified != nil {
+		domain = verified
 	}
 	common.ApiSuccess(c, domain)
 }
@@ -357,38 +382,51 @@ func AgentUpdateDomainStatus(c *gin.Context) {
 	common.ApiSuccess(c, gin.H{"id": id, "status": req.Status})
 }
 
-func AgentListPricingRules(c *gin.Context) {
+func AgentListGroupRatios(c *gin.Context) {
 	agentID, ok := currentAgentID(c)
 	if !ok {
 		return
 	}
-	pageInfo := common.GetPageQuery(c)
-	rules, total, err := agentservice.ListPricingRules(agentID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	ratios, err := agentservice.ListGroupRatios(agentID)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(rules)
-	common.ApiSuccess(c, pageInfo)
+	common.ApiSuccess(c, ratios)
 }
 
-func AgentUpsertPricingRule(c *gin.Context) {
+func AgentUpsertGroupRatio(c *gin.Context) {
 	agentID, ok := currentAgentID(c)
 	if !ok {
 		return
 	}
-	var req agentPricingRuleRequest
+	var req agentGroupRatioRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	rule, err := agentservice.UpsertPricingRule(agentID, req.ModelPattern, req.Markup, req.Enabled)
+	ratio, err := agentservice.UpsertGroupRatio(agentID, req.GroupName, req.Ratio)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, rule)
+	views, err := agentservice.ListGroupRatios(agentID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	for _, view := range views {
+		if view.GroupName == ratio.GroupName {
+			common.ApiSuccess(c, view)
+			return
+		}
+	}
+	common.ApiSuccess(c, agentservice.GroupRatioView{
+		GroupName:       ratio.GroupName,
+		ConfiguredRatio: ratio.Ratio,
+		EffectiveRatio:  ratio.Ratio,
+		Configured:      true,
+	})
 }
 
 func AgentListUsers(c *gin.Context) {
@@ -524,8 +562,13 @@ func AgentListLedger(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	ledgerViews, err := agentservice.BuildLedgerViews(agentID, ledgers)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(ledgers)
+	pageInfo.SetItems(ledgerViews)
 	common.ApiSuccess(c, pageInfo)
 }
 
@@ -540,8 +583,13 @@ func AgentListWithdrawals(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	withdrawalViews, err := agentservice.BuildWithdrawalViews(withdrawals)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(withdrawals)
+	pageInfo.SetItems(withdrawalViews)
 	common.ApiSuccess(c, pageInfo)
 }
 
@@ -555,12 +603,23 @@ func AgentSubmitWithdrawal(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	withdrawal, err := agentservice.SubmitWithdrawal(agentID, req.AmountQuota, req.AmountMoney, req.AccountInfo)
+	var withdrawal *model.AgentWithdrawal
+	var err error
+	if req.AmountMoney > 0 {
+		withdrawal, err = agentservice.SubmitWithdrawalAmount(agentID, req.AmountMoney, req.AccountInfo)
+	} else {
+		withdrawal, err = agentservice.SubmitWithdrawal(agentID, req.AmountQuota, req.AmountMoney, req.AccountInfo)
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, withdrawal)
+	withdrawalViews, err := agentservice.BuildWithdrawalViews([]*model.AgentWithdrawal{withdrawal})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, withdrawalViews[0])
 }
 
 func currentAgentID(c *gin.Context) (int, bool) {

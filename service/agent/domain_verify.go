@@ -80,6 +80,17 @@ func VerifyDomainCNAME(ctx context.Context, agentID int, domainID int) (*model.A
 	return VerifyDomainCNAMEWithResolver(ctx, agentID, domainID, GetCNAMEBaseDomain(), LookupCNAMEChain)
 }
 
+func TryAutoVerifyDomainCNAME(ctx context.Context, agentID int, domainID int) (*model.AgentDomain, error) {
+	verified, err := VerifyDomainCNAME(ctx, agentID, domainID)
+	if err != nil {
+		if errors.Is(err, ErrAgentDomainCNAMEUnverified) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return verified, nil
+}
+
 func VerifyDomainCNAMEWithResolver(ctx context.Context, agentID int, domainID int, baseDomain string, resolver CNAMEChainResolver) (*model.AgentDomain, error) {
 	if resolver == nil {
 		resolver = LookupCNAMEChain
@@ -122,4 +133,15 @@ func VerifyDomainCNAMEWithResolver(ctx context.Context, agentID int, domainID in
 	}
 
 	return nil, ErrAgentDomainCNAMEUnverified
+}
+
+func TryAutoVerifyDomainCNAMEWithResolver(ctx context.Context, agentID int, domainID int, baseDomain string, resolver CNAMEChainResolver) (*model.AgentDomain, error) {
+	verified, err := VerifyDomainCNAMEWithResolver(ctx, agentID, domainID, baseDomain, resolver)
+	if err != nil {
+		if errors.Is(err, ErrAgentDomainCNAMEUnverified) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return verified, nil
 }

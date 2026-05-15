@@ -1,10 +1,13 @@
 package agent
 
 import (
+	"math"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -30,6 +33,7 @@ func setupAgentTestDB(t *testing.T) *gorm.DB {
 		&model.AgentDomain{},
 		&model.AgentUser{},
 		&model.AgentPricingRule{},
+		&model.AgentGroupRatio{},
 		&model.AgentLedger{},
 		&model.AgentWithdrawal{},
 	))
@@ -120,40 +124,50 @@ func TestRequireUserInAgent(t *testing.T) {
 	require.NoError(t, RequireUserInAgent(nil, 100))
 }
 
-func TestApplyPricingUsesModelRuleBeforeDefaultMarkup(t *testing.T) {
+func TestUpsertGroupRatioRejectsBelowSystemRatioAndIsolatesAgents(t *testing.T) {
 	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
 
-	require.NoError(t, model.DB.Create(&model.AgentPricingRule{
-		AgentId:      1,
-		ModelPattern: "gpt-4.1",
-		Markup:       1.5,
-		Enabled:      true,
-	}).Error)
+	_, err := UpsertGroupRatio(1, "vip", 1.2)
+	require.ErrorIs(t, err, ErrAgentGroupRatioBelowSystem)
 
-	charged, snapshot, err := ApplyPricing(&Context{AgentID: 1, Domain: "agent.example.com", DefaultMarkup: 1.2}, "gpt-4.1", 1000)
+	ratio, err := UpsertGroupRatio(1, "vip", 1.5)
 	require.NoError(t, err)
-	require.Equal(t, 1500, charged)
-	require.NotNil(t, snapshot)
-	require.Equal(t, 1.5, snapshot.Markup)
-	require.Equal(t, 1000, snapshot.BaseEstimatedQuota)
-	require.Equal(t, 1500, snapshot.ChargedEstimatedQuota)
+	require.Equal(t, "vip", ratio.GroupName)
+	require.Equal(t, 1.5, ratio.Ratio)
 
-	charged, snapshot, err = ApplyPricing(&Context{AgentID: 1, Domain: "agent.example.com", DefaultMarkup: 1.2}, "gpt-3.5", 1000)
 	require.NoError(t, err)
-	require.Equal(t, 1200, charged)
-	require.NotNil(t, snapshot)
-	require.Equal(t, 1.2, snapshot.Markup)
+	agentOneRatios, err := EffectiveGroupRatioMap(1)
+	require.NoError(t, err)
+	agentTwoRatios, err := EffectiveGroupRatioMap(2)
+	require.NoError(t, err)
 
-	charged, snapshot, err = ApplyPricing(nil, "gpt-4.1", 1000)
-	require.NoError(t, err)
-	require.Equal(t, 1000, charged)
-	require.Nil(t, snapshot)
+	require.Equal(t, 1.5, agentOneRatios["vip"])
+	require.Equal(t, 1.25, agentTwoRatios["vip"])
+}
+
+func TestBaseQuotaFromChargedScalesByAgentGroupRatio(t *testing.T) {
+	snapshot := &BillingSnapshot{
+		AgentID:           1,
+		Domain:            "agent.example.com",
+		Group:             "vip",
+		BaseGroupRatio:    1.25,
+		ChargedGroupRatio: 1.5,
+	}
+
+	require.Equal(t, 1000, BaseQuotaFromCharged(snapshot, 1200))
+	require.Equal(t, 1200, ApplySnapshot(snapshot, 1200))
+
+	require.Equal(t, 1000, ApplySnapshot(nil, 1000))
 }
 
 func TestSettleConsumeWritesProfitLedger(t *testing.T) {
 	setupAgentTestDB(t)
 
-	err := SettleConsume(&BillingSnapshot{AgentID: 1, Domain: "agent.example.com", Markup: 1.2}, 100, 200, 1000, 1200)
+	err := SettleConsume(&BillingSnapshot{AgentID: 1, Domain: "agent.example.com"}, 100, 200, 1000, 1200)
 	require.NoError(t, err)
 
 	var ledger model.AgentLedger
@@ -171,7 +185,7 @@ func TestSettleConsumeWritesProfitLedger(t *testing.T) {
 func TestWithdrawalLifecycle(t *testing.T) {
 	setupAgentTestDB(t)
 
-	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1, Domain: "agent.example.com", Markup: 1.3}, 100, 200, 1000, 1300))
+	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1, Domain: "agent.example.com"}, 100, 200, 1000, 1300))
 
 	balance, err := GetBalance(1)
 	require.NoError(t, err)
@@ -204,16 +218,112 @@ func TestWithdrawalLifecycle(t *testing.T) {
 	require.Equal(t, 100, ledger.BalanceAfter)
 }
 
+func TestGetBalanceReturnsSettlementAmounts(t *testing.T) {
+	setupAgentTestDB(t)
+	oldExchangeRate := operation_setting.USDExchangeRate
+	operation_setting.USDExchangeRate = 7
+	t.Cleanup(func() {
+		operation_setting.USDExchangeRate = oldExchangeRate
+	})
+
+	require.NoError(t, model.DB.Create(&model.Agent{
+		Id:                 1,
+		OwnerUserId:        10,
+		Name:               "RMB Agent",
+		Slug:               "rmb-agent",
+		Status:             model.AgentStatusEnabled,
+		SettlementCurrency: "RMB",
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentLedger{
+		AgentId:      1,
+		Type:         model.AgentLedgerTypeConsumeProfit,
+		ProfitQuota:  int(common.QuotaPerUnit),
+		BalanceAfter: int(common.QuotaPerUnit),
+	}).Error)
+
+	balance, err := GetBalance(1)
+	require.NoError(t, err)
+	require.Equal(t, "RMB", balance.Currency)
+	require.Equal(t, int(common.QuotaPerUnit), balance.ProfitQuota)
+	require.InDelta(t, 7, balance.ProfitAmount, 0.000001)
+	require.InDelta(t, 7, balance.AvailableAmount, 0.000001)
+}
+
+func TestBuildLedgerViewsReturnsSettlementAmounts(t *testing.T) {
+	setupAgentTestDB(t)
+	oldExchangeRate := operation_setting.USDExchangeRate
+	operation_setting.USDExchangeRate = 7
+	t.Cleanup(func() {
+		operation_setting.USDExchangeRate = oldExchangeRate
+	})
+
+	require.NoError(t, model.DB.Create(&model.Agent{
+		Id:                 1,
+		OwnerUserId:        10,
+		Name:               "RMB Agent",
+		Slug:               "rmb-agent",
+		Status:             model.AgentStatusEnabled,
+		SettlementCurrency: "RMB",
+	}).Error)
+
+	views, err := BuildLedgerViews(1, []*model.AgentLedger{{
+		AgentId:      1,
+		Type:         model.AgentLedgerTypeConsumeProfit,
+		ProfitQuota:  int(common.QuotaPerUnit),
+		BalanceAfter: int(common.QuotaPerUnit * 2),
+	}})
+	require.NoError(t, err)
+	require.Len(t, views, 1)
+	require.Equal(t, "RMB", views[0].Currency)
+	require.InDelta(t, 7, views[0].ProfitAmount, 0.000001)
+	require.InDelta(t, 14, views[0].BalanceAfterAmount, 0.000001)
+}
+
+func TestSubmitWithdrawalAmountUsesSettlementCurrency(t *testing.T) {
+	setupAgentTestDB(t)
+	oldExchangeRate := operation_setting.USDExchangeRate
+	operation_setting.USDExchangeRate = 7
+	t.Cleanup(func() {
+		operation_setting.USDExchangeRate = oldExchangeRate
+	})
+
+	require.NoError(t, model.DB.Create(&model.Agent{
+		Id:                 1,
+		OwnerUserId:        10,
+		Name:               "RMB Agent",
+		Slug:               "rmb-agent",
+		Status:             model.AgentStatusEnabled,
+		SettlementCurrency: "RMB",
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentLedger{
+		AgentId:      1,
+		Type:         model.AgentLedgerTypeConsumeProfit,
+		ProfitQuota:  int(common.QuotaPerUnit),
+		BalanceAfter: int(common.QuotaPerUnit),
+	}).Error)
+
+	withdrawal, err := SubmitWithdrawalAmount(1, 3.5, "bank account")
+	require.NoError(t, err)
+	require.Equal(t, model.AgentWithdrawalStatusPending, withdrawal.Status)
+	require.Equal(t, int(math.Ceil(3.5/7*common.QuotaPerUnit)), withdrawal.AmountQuota)
+	require.InDelta(t, 3.5, withdrawal.AmountMoney, 0.000001)
+
+	balance, err := GetBalance(1)
+	require.NoError(t, err)
+	require.InDelta(t, 3.5, balance.PendingWithdrawalAmount, 0.000001)
+	require.InDelta(t, 3.5, balance.AvailableAmount, 0.000001)
+}
+
 func TestSubmitWithdrawalRejectsOverAvailable(t *testing.T) {
 	setupAgentTestDB(t)
 
-	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1, Markup: 1.1}, 100, 200, 1000, 1100))
+	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1}, 100, 200, 1000, 1100))
 
 	_, err := SubmitWithdrawal(1, 101, 1.01, "bank account")
 	require.Error(t, err)
 }
 
-func TestAgentDomainAndPricingRuleCRUD(t *testing.T) {
+func TestAgentDomainAndGroupRatioCRUD(t *testing.T) {
 	setupAgentTestDB(t)
 
 	agent := &model.Agent{
@@ -239,12 +349,11 @@ func TestAgentDomainAndPricingRuleCRUD(t *testing.T) {
 	require.NotNil(t, ctx)
 	require.Equal(t, agent.Id, ctx.AgentID)
 
-	rule, err := UpsertPricingRule(agent.Id, "gpt-4.1", 1.45, true)
+	rule, err := UpsertGroupRatio(agent.Id, "default", 1.45)
 	require.NoError(t, err)
-	require.Equal(t, 1.45, rule.Markup)
+	require.Equal(t, 1.45, rule.Ratio)
 
-	rules, total, err := ListPricingRules(agent.Id, 0, 10)
+	rules, err := ListGroupRatios(agent.Id)
 	require.NoError(t, err)
-	require.Equal(t, int64(1), total)
-	require.Len(t, rules, 1)
+	require.NotEmpty(t, rules)
 }

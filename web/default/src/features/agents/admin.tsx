@@ -50,7 +50,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import {
   Table,
   TableBody,
@@ -69,7 +68,7 @@ import {
   createAdminAgent,
   createAdminAgentDomain,
   listAdminAgentDomainsByAgent,
-  listAdminAgentPricingRules,
+  listAdminAgentGroupRatios,
   listAdminAgents,
   listAdminAgentUsers,
   listAdminAgentWithdrawals,
@@ -77,15 +76,37 @@ import {
   stringifyAgentBranding,
   updateAdminAgent,
   updateAdminAgentDomainStatus,
-  upsertAdminAgentPricingRule,
+  upsertAdminAgentGroupRatio,
 } from './api'
-import type { Agent, AgentDomain, AgentUser, AgentWithdrawal } from './types'
+import type {
+  Agent,
+  AgentDomain,
+  AgentGroupRatio,
+  AgentUser,
+  AgentWithdrawal,
+} from './types'
 
 const AGENT_DOMAIN_STATUS_ACTIVE = 1
 const AGENT_DOMAIN_STATUS_DISABLED = 2
 const AGENT_STATUS_ENABLED = 1
 
 const formatQuota = (quota?: number) => (quota ?? 0).toLocaleString()
+
+function normalizeSettlementCurrency(currency?: string) {
+  const code = (currency || 'USD').toUpperCase()
+  return code === 'RMB' || code === 'CNY' ? 'RMB' : 'USD'
+}
+
+function formatSettlementAmount(amount?: number, currency?: string) {
+  const value = amount ?? 0
+  const code = normalizeSettlementCurrency(currency)
+  const symbol = code === 'RMB' ? '¥' : '$'
+  const sign = value < 0 ? '-' : ''
+  return `${sign}${symbol}${Math.abs(value).toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  })} ${code}`
+}
 
 function agentStatusLabel(status: number) {
   return status === AGENT_STATUS_ENABLED ? 'Enabled' : 'Disabled'
@@ -124,16 +145,14 @@ export function AgentManagement() {
   const [newAgentOwnerId, setNewAgentOwnerId] = useState('')
   const [newAgentName, setNewAgentName] = useState('')
   const [newAgentSlug, setNewAgentSlug] = useState('')
-  const [newAgentMarkup, setNewAgentMarkup] = useState('1')
   const [newAgentSiteName, setNewAgentSiteName] = useState('')
   const [newAgentLogo, setNewAgentLogo] = useState('')
   const [brandSiteName, setBrandSiteName] = useState('')
   const [brandLogo, setBrandLogo] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [bindUserId, setBindUserId] = useState('')
-  const [ruleModelPattern, setRuleModelPattern] = useState('*')
-  const [ruleMarkup, setRuleMarkup] = useState('1.2')
-  const [ruleEnabled, setRuleEnabled] = useState(true)
+  const [groupName, setGroupName] = useState('default')
+  const [groupRatio, setGroupRatio] = useState('1')
   const [withdrawalRemark, setWithdrawalRemark] = useState('')
 
   const agentsQuery = useQuery({
@@ -153,9 +172,9 @@ export function AgentManagement() {
     enabled: selectedAgentId != null,
   })
 
-  const selectedPricingQuery = useQuery({
-    queryKey: ['admin', 'agents', selectedAgentId, 'pricing-rules'],
-    queryFn: () => listAdminAgentPricingRules(selectedAgentId ?? 0, 1, 50),
+  const selectedGroupRatiosQuery = useQuery({
+    queryKey: ['admin', 'agents', selectedAgentId, 'group-ratios'],
+    queryFn: () => listAdminAgentGroupRatios(selectedAgentId ?? 0),
     enabled: selectedAgentId != null,
   })
 
@@ -175,7 +194,7 @@ export function AgentManagement() {
   )
   const selectedUsers = selectedUsersQuery.data?.data.items ?? []
   const selectedDomains = selectedDomainsQuery.data?.data.items ?? []
-  const selectedPricingRules = selectedPricingQuery.data?.data.items ?? []
+  const selectedGroupRatios = selectedGroupRatiosQuery.data?.data ?? []
   const withdrawals = withdrawalsQuery.data?.data.items ?? []
   const pendingWithdrawalCount = withdrawals.filter(
     (withdrawal) => withdrawal.status === 'pending'
@@ -211,7 +230,6 @@ export function AgentManagement() {
       setNewAgentOwnerId('')
       setNewAgentName('')
       setNewAgentSlug('')
-      setNewAgentMarkup('1')
       setNewAgentSiteName('')
       setNewAgentLogo('')
       setCreateDialogOpen(false)
@@ -267,9 +285,9 @@ export function AgentManagement() {
   })
 
   const savePricingMutation = useMutation({
-    mutationFn: upsertAdminAgentPricingRule,
+    mutationFn: upsertAdminAgentGroupRatio,
     onSuccess: () => {
-      toast.success(t('Pricing rule saved'))
+      toast.success(t('Group ratio saved'))
       refreshSelectedAgent()
     },
     onError: (error) => {
@@ -312,10 +330,13 @@ export function AgentManagement() {
     newAgentSlug.trim() !== ''
   const canCreateDomain = selectedAgentId != null && newDomain.trim() !== ''
   const canBindUser = selectedAgentId != null && Number(bindUserId) > 0
+  const selectedGroupBaseRatio =
+    selectedGroupRatios.find((item) => item.group_name === groupName)
+      ?.system_ratio ?? 0
   const canSavePricing =
     selectedAgentId != null &&
-    ruleModelPattern.trim() !== '' &&
-    Number(ruleMarkup) > 0
+    groupName.trim() !== '' &&
+    Number(groupRatio) >= selectedGroupBaseRatio
 
   return (
     <>
@@ -395,7 +416,6 @@ export function AgentManagement() {
                         <TableHead>{t('Owner User ID')}</TableHead>
                         <TableHead>{t('Slug')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
-                        <TableHead>{t('Markup')}</TableHead>
                         <TableHead>{t('Created At')}</TableHead>
                         <TableHead className='text-right'>
                           {t('Actions')}
@@ -404,10 +424,10 @@ export function AgentManagement() {
                     </TableHeader>
                     <TableBody>
                       {agentsQuery.isLoading ? (
-                        <LoadingRow colSpan={7} />
+                        <LoadingRow colSpan={6} />
                       ) : agents.length === 0 ? (
                         <TableEmpty
-                          colSpan={7}
+                          colSpan={6}
                           title={t('No Agents')}
                           description={t('Agent records will appear here.')}
                           icon={<Store className='size-6' />}
@@ -440,7 +460,6 @@ export function AgentManagement() {
                                 {t(agentStatusLabel(agent.status))}
                               </Badge>
                             </TableCell>
-                            <TableCell>{agent.default_markup}</TableCell>
                             <TableCell>
                               {formatTimestampToDate(agent.created_at)}
                             </TableCell>
@@ -598,7 +617,6 @@ export function AgentManagement() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>{t('Agent ID')}</TableHead>
-                        <TableHead>{t('Quota Amount')}</TableHead>
                         <TableHead>{t('Money Amount')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
                         <TableHead>{t('Created At')}</TableHead>
@@ -609,10 +627,10 @@ export function AgentManagement() {
                     </TableHeader>
                     <TableBody>
                       {withdrawalsQuery.isLoading ? (
-                        <LoadingRow colSpan={6} />
+                        <LoadingRow colSpan={5} />
                       ) : withdrawals.length === 0 ? (
                         <TableEmpty
-                          colSpan={6}
+                          colSpan={5}
                           title={t('No Withdrawals')}
                           description={t(
                             'Agent withdrawal requests will appear here.'
@@ -624,9 +642,12 @@ export function AgentManagement() {
                           <TableRow key={withdrawal.id}>
                             <TableCell>{withdrawal.agent_id}</TableCell>
                             <TableCell>
-                              {formatQuota(withdrawal.amount_quota)}
+                              {formatSettlementAmount(
+                                withdrawal.settlement_amount ??
+                                  withdrawal.amount_money,
+                                withdrawal.currency
+                              )}
                             </TableCell>
-                            <TableCell>{withdrawal.amount_money}</TableCell>
                             <TableCell>
                               <Badge
                                 variant={withdrawalVariant(withdrawal.status)}
@@ -666,7 +687,6 @@ export function AgentManagement() {
         ownerUserId={newAgentOwnerId}
         name={newAgentName}
         slug={newAgentSlug}
-        markup={newAgentMarkup}
         siteName={newAgentSiteName}
         logo={newAgentLogo}
         isPending={createAgentMutation.isPending}
@@ -674,7 +694,6 @@ export function AgentManagement() {
         onOwnerUserIdChange={setNewAgentOwnerId}
         onNameChange={setNewAgentName}
         onSlugChange={setNewAgentSlug}
-        onMarkupChange={setNewAgentMarkup}
         onSiteNameChange={setNewAgentSiteName}
         onLogoChange={setNewAgentLogo}
         onSubmit={() =>
@@ -683,7 +702,7 @@ export function AgentManagement() {
             name: newAgentName.trim(),
             slug: newAgentSlug.trim(),
             status: AGENT_STATUS_ENABLED,
-            default_markup: Number(newAgentMarkup) || 1,
+            default_markup: 1,
             branding: stringifyAgentBranding({
               site_name: newAgentSiteName,
               logo: newAgentLogo,
@@ -701,15 +720,14 @@ export function AgentManagement() {
           if (!open) setDetailAgentId(null)
         }}
         domains={selectedDomains}
-        pricingRules={selectedPricingRules}
+        groupRatios={selectedGroupRatios}
         users={selectedUsers}
         brandSiteName={brandSiteName}
         brandLogo={brandLogo}
         newDomain={newDomain}
         bindUserId={bindUserId}
-        ruleModelPattern={ruleModelPattern}
-        ruleMarkup={ruleMarkup}
-        ruleEnabled={ruleEnabled}
+        groupName={groupName}
+        groupRatio={groupRatio}
         isDomainPending={createDomainMutation.isPending}
         isBindPending={bindUserMutation.isPending}
         isPricingPending={savePricingMutation.isPending}
@@ -719,9 +737,16 @@ export function AgentManagement() {
         canSavePricing={canSavePricing}
         onNewDomainChange={setNewDomain}
         onBindUserIdChange={setBindUserId}
-        onRuleModelPatternChange={setRuleModelPattern}
-        onRuleMarkupChange={setRuleMarkup}
-        onRuleEnabledChange={setRuleEnabled}
+        onGroupNameChange={(nextGroup) => {
+          setGroupName(nextGroup)
+          const nextRatio = selectedGroupRatios.find(
+            (item) => item.group_name === nextGroup
+          )
+          setGroupRatio(
+            String(nextRatio?.effective_ratio ?? nextRatio?.system_ratio ?? 1)
+          )
+        }}
+        onGroupRatioChange={setGroupRatio}
         onBrandSiteNameChange={setBrandSiteName}
         onBrandLogoChange={setBrandLogo}
         isBrandingPending={saveBrandingMutation.isPending}
@@ -758,9 +783,8 @@ export function AgentManagement() {
           selectedAgentId != null &&
           savePricingMutation.mutate({
             agentId: selectedAgentId,
-            model_pattern: ruleModelPattern.trim(),
-            markup: Number(ruleMarkup),
-            enabled: ruleEnabled,
+            group_name: groupName,
+            ratio: Number(groupRatio),
           })
         }
         onDomainStatusChange={(domain, status) =>
@@ -800,7 +824,6 @@ function CreateAgentDialog(props: {
   ownerUserId: string
   name: string
   slug: string
-  markup: string
   siteName: string
   logo: string
   isPending: boolean
@@ -809,7 +832,6 @@ function CreateAgentDialog(props: {
   onOwnerUserIdChange: (value: string) => void
   onNameChange: (value: string) => void
   onSlugChange: (value: string) => void
-  onMarkupChange: (value: string) => void
   onSiteNameChange: (value: string) => void
   onLogoChange: (value: string) => void
   onSubmit: () => void
@@ -842,14 +864,6 @@ function CreateAgentDialog(props: {
             value={props.slug}
             onChange={(event) => props.onSlugChange(event.target.value)}
             placeholder={t('Slug')}
-          />
-          <Input
-            value={props.markup}
-            onChange={(event) => props.onMarkupChange(event.target.value)}
-            type='number'
-            min='0.01'
-            step='0.01'
-            placeholder={t('Markup')}
           />
           <Input
             value={props.siteName}
@@ -887,20 +901,14 @@ function AgentDetailDialog(props: {
   agent?: Agent | null
   open: boolean
   domains: AgentDomain[]
-  pricingRules: Array<{
-    id: number
-    model_pattern: string
-    markup: number
-    enabled: boolean
-  }>
+  groupRatios: AgentGroupRatio[]
   users: AgentUser[]
   brandSiteName: string
   brandLogo: string
   newDomain: string
   bindUserId: string
-  ruleModelPattern: string
-  ruleMarkup: string
-  ruleEnabled: boolean
+  groupName: string
+  groupRatio: string
   isDomainPending: boolean
   isBindPending: boolean
   isPricingPending: boolean
@@ -912,9 +920,8 @@ function AgentDetailDialog(props: {
   onOpenChange: (open: boolean) => void
   onNewDomainChange: (value: string) => void
   onBindUserIdChange: (value: string) => void
-  onRuleModelPatternChange: (value: string) => void
-  onRuleMarkupChange: (value: string) => void
-  onRuleEnabledChange: (value: boolean) => void
+  onGroupNameChange: (value: string) => void
+  onGroupRatioChange: (value: string) => void
   onBrandSiteNameChange: (value: string) => void
   onBrandLogoChange: (value: string) => void
   onSaveBranding: () => void
@@ -941,17 +948,13 @@ function AgentDetailDialog(props: {
 
         {props.agent && (
           <div className='space-y-4'>
-            <div className='grid gap-3 md:grid-cols-4'>
+            <div className='grid gap-3 md:grid-cols-3'>
               <InfoItem label={t('Agent ID')} value={String(props.agent.id)} />
               <InfoItem
                 label={t('Owner User ID')}
                 value={String(props.agent.owner_user_id)}
               />
               <InfoItem label={t('Slug')} value={props.agent.slug} />
-              <InfoItem
-                label={t('Markup')}
-                value={String(props.agent.default_markup)}
-              />
             </div>
 
             <section className='rounded-lg border p-3'>
@@ -1161,39 +1164,40 @@ function AgentDetailDialog(props: {
               <div className='mb-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]'>
                 <div>
                   <h3 className='text-sm font-semibold'>
-                    {t('Pricing Rules')}
+                    {t('Group Pricing')}
                   </h3>
                   <p className='text-muted-foreground mt-1 text-xs'>
-                    {t('Configure agent markup by model pattern.')}
+                    {t('Configure group ratios for this agent site.')}
                   </p>
                 </div>
-                <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_96px_auto_auto]'>
-                  <Input
-                    value={props.ruleModelPattern}
+                <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px_auto]'>
+                  <select
+                    className='border-input bg-background h-8 rounded-md border px-2 text-sm'
+                    value={props.groupName}
                     onChange={(event) =>
-                      props.onRuleModelPatternChange(event.target.value)
+                      props.onGroupNameChange(event.target.value)
                     }
-                    placeholder={t('Model')}
-                  />
+                  >
+                    {props.groupRatios.map((item) => (
+                      <option key={item.group_name} value={item.group_name}>
+                        {item.group_name}
+                      </option>
+                    ))}
+                  </select>
                   <Input
-                    value={props.ruleMarkup}
+                    value={props.groupRatio}
                     onChange={(event) =>
-                      props.onRuleMarkupChange(event.target.value)
+                      props.onGroupRatioChange(event.target.value)
                     }
                     type='number'
-                    min='0.01'
+                    min={
+                      props.groupRatios.find(
+                        (item) => item.group_name === props.groupName
+                      )?.system_ratio ?? 0
+                    }
                     step='0.01'
-                    placeholder={t('Markup')}
+                    placeholder={t('Ratio')}
                   />
-                  <div className='flex h-8 items-center gap-2 px-1'>
-                    <Switch
-                      checked={props.ruleEnabled}
-                      onCheckedChange={props.onRuleEnabledChange}
-                    />
-                    <span className='text-muted-foreground text-xs'>
-                      {t('Enabled')}
-                    </span>
-                  </div>
                   <Button
                     disabled={!props.canSavePricing || props.isPricingPending}
                     onClick={props.onSavePricing}
@@ -1206,31 +1210,35 @@ function AgentDetailDialog(props: {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{t('Model')}</TableHead>
-                    <TableHead>{t('Markup')}</TableHead>
+                    <TableHead>{t('Group')}</TableHead>
+                    <TableHead>{t('System Ratio')}</TableHead>
+                    <TableHead>{t('Agent Ratio')}</TableHead>
+                    <TableHead>{t('Effective Ratio')}</TableHead>
                     <TableHead>{t('Status')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {props.pricingRules.length === 0 ? (
+                  {props.groupRatios.length === 0 ? (
                     <TableEmpty
-                      colSpan={3}
-                      title={t('No Pricing Rules')}
-                      description={t(
-                        'Default markup is used when no rule matches.'
-                      )}
+                      colSpan={5}
+                      title={t('No Groups')}
+                      description={t('No group ratios are configured.')}
                       icon={<BadgeDollarSign className='size-6' />}
                     />
                   ) : (
-                    props.pricingRules.map((rule) => (
-                      <TableRow key={rule.id}>
+                    props.groupRatios.map((rule) => (
+                      <TableRow key={rule.group_name}>
                         <TableCell className='font-mono text-xs'>
-                          {rule.model_pattern}
+                          {rule.group_name}
                         </TableCell>
-                        <TableCell>{rule.markup}</TableCell>
+                        <TableCell>{rule.system_ratio}</TableCell>
                         <TableCell>
-                          <Badge variant={rule.enabled ? 'default' : 'outline'}>
-                            {rule.enabled ? t('Enabled') : t('Disabled')}
+                          {rule.configured ? rule.configured_ratio : '-'}
+                        </TableCell>
+                        <TableCell>{rule.effective_ratio}</TableCell>
+                        <TableCell>
+                          <Badge variant={rule.configured ? 'default' : 'outline'}>
+                            {rule.configured ? t('Configured') : t('System')}
                           </Badge>
                         </TableCell>
                       </TableRow>

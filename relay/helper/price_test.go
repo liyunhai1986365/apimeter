@@ -10,6 +10,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -59,4 +60,35 @@ func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	require.Equal(t, "stream", info.TieredBillingSnapshot.EstimatedTier)
 	require.Equal(t, billing_setting.BillingModeTieredExpr, info.TieredBillingSnapshot.BillingMode)
 	require.Equal(t, common.QuotaPerUnit, info.TieredBillingSnapshot.QuotaPerUnit)
+}
+
+func TestHandleGroupRatioUsesAgentConfiguredRatio(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	info := &relaycommon.RelayInfo{
+		UserGroup:  "default",
+		UsingGroup: "vip",
+		AgentContext: &types.AgentContext{
+			AgentID: 3,
+			Domain:  "agent.example.com",
+			GroupRatios: map[string]float64{
+				"vip": 1.5,
+			},
+		},
+	}
+
+	groupRatioInfo := HandleGroupRatio(ctx, info)
+	require.Equal(t, 1.5, groupRatioInfo.GroupRatio)
+	require.Equal(t, 1.25, groupRatioInfo.BaseGroupRatio)
+	require.True(t, groupRatioInfo.HasAgentRatio)
+	require.NotNil(t, info.AgentBillingSnapshot)
+	require.Equal(t, "vip", info.AgentBillingSnapshot.Group)
+	require.Equal(t, 1.25, info.AgentBillingSnapshot.BaseGroupRatio)
+	require.Equal(t, 1.5, info.AgentBillingSnapshot.ChargedGroupRatio)
 }

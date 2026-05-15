@@ -126,7 +126,9 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 	}
 	if relayInfo.AgentBillingSnapshot != nil {
 		snap := relayInfo.AgentBillingSnapshot
-		other["agent_markup"] = snap.Markup
+		other["agent_group"] = snap.Group
+		other["agent_base_group_ratio"] = snap.BaseGroupRatio
+		other["agent_group_ratio"] = snap.ChargedGroupRatio
 		other["base_quota"] = snap.BaseEstimatedQuota
 		other["charged_quota"] = snap.ChargedEstimatedQuota
 		other["agent_profit_quota"] = snap.ChargedEstimatedQuota - snap.BaseEstimatedQuota
