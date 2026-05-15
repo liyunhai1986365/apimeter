@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { memo } from 'react'
-import { ChevronRight, Copy } from 'lucide-react'
+import { Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
@@ -86,11 +86,22 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     copyToClipboard(props.model.model_name || '')
   }
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      props.onClick()
+    }
+  }
+
   return (
     <div
+      role='button'
+      tabIndex={0}
+      onClick={props.onClick}
+      onKeyDown={handleKeyDown}
       className={cn(
-        'group relative flex flex-col rounded-xl border p-3 transition-colors sm:p-5',
-        'hover:bg-muted/20'
+        'group relative flex cursor-pointer flex-col rounded-xl border p-3 transition-colors sm:p-5',
+        'hover:bg-muted/20 focus-visible:ring-ring/50 focus-visible:ring-2 focus-visible:outline-none'
       )}
     >
       {/* Header: icon + name + price + actions */}
@@ -104,7 +115,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             )}
           </div>
           <div className='min-w-0'>
-            <h3 className='text-foreground truncate font-mono text-[15px] leading-tight font-bold'>
+            <h3 className='text-foreground break-all font-mono text-[15px] leading-snug font-bold'>
               {props.model.model_name}
             </h3>
             <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs sm:mt-1 sm:gap-x-3'>
@@ -202,14 +213,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         </div>
 
         <div className='flex shrink-0 items-center gap-1.5'>
-          <button
-            type='button'
-            onClick={props.onClick}
-            className='text-muted-foreground hover:text-foreground hover:bg-muted inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs transition-colors sm:px-2.5 sm:py-1.5'
-          >
-            {t('Details')}
-            <ChevronRight className='size-3.5' />
-          </button>
           <button
             type='button'
             onClick={handleCopy}
