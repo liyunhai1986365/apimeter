@@ -124,6 +124,9 @@ func AdminListAgentDomains(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	for _, domain := range domains {
+		agentservice.FillDomainCNAMETarget(&domain.AgentDomain)
+	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(domains)
 	common.ApiSuccess(c, pageInfo)
@@ -259,6 +262,7 @@ func AgentListDomains(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	agentservice.FillDomainCNAMETargets(domains)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(domains)
 	common.ApiSuccess(c, pageInfo)
@@ -280,6 +284,46 @@ func AgentCreateDomain(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, domain)
+}
+
+func AgentVerifyDomainCNAME(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	domainParam := c.Param("domain_id")
+	if domainParam == "" {
+		domainParam = c.Param("id")
+	}
+	id, err := strconv.Atoi(domainParam)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	domain, err := agentservice.VerifyDomainCNAME(c.Request.Context(), agentID, id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, domain)
+}
+
+func AgentDomainTLSAsk(c *gin.Context) {
+	if !agentservice.AuthorizeTLSAskSecret(c.GetHeader("X-Agent-TLS-Ask-Secret"), c.Query("secret")) {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "message": "tls ask secret is invalid"})
+		return
+	}
+
+	domain := c.Query("domain")
+	if domain == "" {
+		domain = c.Query("host")
+	}
+	allowed, err := agentservice.CanIssueTLSCertificateForDomain(domain)
+	if err != nil || !allowed {
+		c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "message": "domain is not allowed for tls issuance"})
+		return
+	}
+	common.ApiSuccess(c, gin.H{"domain": agentservice.NormalizeHost(domain)})
 }
 
 func AgentUpdateDomainStatus(c *gin.Context) {

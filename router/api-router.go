@@ -216,6 +216,7 @@ func SetApiRouter(router *gin.Engine) {
 			ratioSyncRoute.GET("/channels", controller.GetSyncableChannels)
 			ratioSyncRoute.POST("/fetch", controller.FetchUpstreamRatios)
 		}
+		apiRouter.GET("/agent/domains/tls-ask", controller.AgentDomainTLSAsk)
 		agentSelfRoute := apiRouter.Group("/agent")
 		agentSelfRoute.Use(middleware.UserAuth())
 		agentSelfRoute.Use(middleware.AgentOwnerAuth())
@@ -224,6 +225,7 @@ func SetApiRouter(router *gin.Engine) {
 			agentSelfRoute.PUT("/self/branding", controller.UpdateAgentSelfBranding)
 			agentSelfRoute.GET("/domains", controller.AgentListDomains)
 			agentSelfRoute.POST("/domains", controller.AgentCreateDomain)
+			agentSelfRoute.POST("/domains/:id/verify", controller.AgentVerifyDomainCNAME)
 			agentSelfRoute.PUT("/domains/:id/status", controller.AgentUpdateDomainStatus)
 			agentSelfRoute.GET("/pricing_rules", controller.AgentListPricingRules)
 			agentSelfRoute.POST("/pricing_rules", controller.AgentUpsertPricingRule)
@@ -246,6 +248,7 @@ func SetApiRouter(router *gin.Engine) {
 			agentAdminRoute.PUT("/:id/status", controller.AdminUpdateAgentStatus)
 			agentAdminRoute.GET("/:id/domains", controller.AgentListDomains)
 			agentAdminRoute.POST("/:id/domains", controller.AgentCreateDomain)
+			agentAdminRoute.POST("/:id/domains/:domain_id/verify", controller.AgentVerifyDomainCNAME)
 			agentAdminRoute.PUT("/:id/domains/:domain_id/status", controller.AgentUpdateDomainStatus)
 			agentAdminRoute.GET("/:id/pricing_rules", controller.AgentListPricingRules)
 			agentAdminRoute.POST("/:id/pricing_rules", controller.AgentUpsertPricingRule)

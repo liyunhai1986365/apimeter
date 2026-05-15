@@ -8,9 +8,30 @@ log() {
   printf '\033[1;34m[deploy]\033[0m %s\n' "$*"
 }
 
+warn() {
+  printf '\033[1;33m[deploy:warn]\033[0m %s\n' "$*" >&2
+}
+
 fail() {
   printf '\033[1;31m[deploy:error]\033[0m %s\n' "$*" >&2
   exit 1
+}
+
+usage() {
+  cat <<'EOF'
+Usage:
+  ./scripts/deploy-modelsell.sh
+  ./scripts/deploy-modelsell.sh --full
+  ./scripts/deploy-modelsell.sh --build-only
+  ./scripts/deploy-modelsell.sh --upload-only
+  ./scripts/deploy-modelsell.sh --config-only
+
+Modes:
+  1, --full         Build, upload, update config, install systemd, restart service.
+  2, --build-only   Build frontend and Linux x86_64 package locally only.
+  3, --upload-only  Upload existing package, install binary, restart service. Does not update .env.
+  4, --config-only  Upload runtime .env, refresh systemd, restart service. Does not upload binary.
+EOF
 }
 
 load_env_file() {
@@ -69,98 +90,198 @@ remote_scp() {
       -o NumberOfPasswordPrompts=1 \
       "$@"
   else
-    scp "${ssh_base_args[@]}" "$@"
+    scp "${scp_base_args[@]}" "$@"
   fi
 }
 
-load_env_file "$DEPLOY_ENV_FILE"
+init_context() {
+  load_env_file "$DEPLOY_ENV_FILE"
 
-DEPLOY_PORT="${DEPLOY_PORT:-22}"
-DEPLOY_USER="${DEPLOY_USER:-root}"
-DEPLOY_REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/www/wwwroot/modelsell}"
-DEPLOY_SERVICE_NAME="${DEPLOY_SERVICE_NAME:-modelsell}"
-DEPLOY_BINARY_NAME="${DEPLOY_BINARY_NAME:-new-api}"
-DEPLOY_APP_PORT="${DEPLOY_APP_PORT:-3000}"
-DEPLOY_APP_ENV_FILE="${DEPLOY_APP_ENV_FILE:-.env.production}"
-DEPLOY_GOOS="${DEPLOY_GOOS:-linux}"
-DEPLOY_GOARCH="${DEPLOY_GOARCH:-amd64}"
-DEPLOY_GOAMD64="${DEPLOY_GOAMD64:-v1}"
-DEPLOY_ARCH_LABEL="${DEPLOY_ARCH_LABEL:-x86_64}"
+  DEPLOY_PORT="${DEPLOY_PORT:-22}"
+  DEPLOY_USER="${DEPLOY_USER:-root}"
+  DEPLOY_REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/www/wwwroot/modelsell}"
+  DEPLOY_SERVICE_NAME="${DEPLOY_SERVICE_NAME:-modelsell}"
+  DEPLOY_BINARY_NAME="${DEPLOY_BINARY_NAME:-new-api}"
+  DEPLOY_APP_PORT="${DEPLOY_APP_PORT:-3000}"
+  DEPLOY_APP_ENV_FILE="${DEPLOY_APP_ENV_FILE:-.env.production}"
+  DEPLOY_GOOS="${DEPLOY_GOOS:-linux}"
+  DEPLOY_GOARCH="${DEPLOY_GOARCH:-amd64}"
+  DEPLOY_GOAMD64="${DEPLOY_GOAMD64:-v1}"
+  DEPLOY_ARCH_LABEL="${DEPLOY_ARCH_LABEL:-x86_64}"
 
-require_var DEPLOY_HOST
-require_var DEPLOY_REMOTE_DIR
-require_var DEPLOY_SERVICE_NAME
-require_var DEPLOY_BINARY_NAME
-require_var DEPLOY_APP_PORT
-require_var DEPLOY_GOOS
-require_var DEPLOY_GOARCH
-require_var DEPLOY_ARCH_LABEL
+  require_var DEPLOY_HOST
+  require_var DEPLOY_REMOTE_DIR
+  require_var DEPLOY_SERVICE_NAME
+  require_var DEPLOY_BINARY_NAME
+  require_var DEPLOY_APP_PORT
+  require_var DEPLOY_GOOS
+  require_var DEPLOY_GOARCH
+  require_var DEPLOY_ARCH_LABEL
 
-APP_ENV_PATH="$ROOT_DIR/$DEPLOY_APP_ENV_FILE"
-[[ -f "$APP_ENV_PATH" ]] || fail "Missing app env file: $APP_ENV_PATH. Copy .env.production.example to $DEPLOY_APP_ENV_FILE first."
+  APP_ENV_PATH="$ROOT_DIR/$DEPLOY_APP_ENV_FILE"
+  BUILD_DIR="$ROOT_DIR/build/modelsell"
+  ARCHIVE_NAME="${DEPLOY_BINARY_NAME}-${DEPLOY_GOOS}-${DEPLOY_ARCH_LABEL}.tar.gz"
+  ARCHIVE_PATH="$BUILD_DIR/$ARCHIVE_NAME"
+  BINARY_PATH="$BUILD_DIR/$DEPLOY_BINARY_NAME"
+  REMOTE_TMP_DIR="/tmp/${DEPLOY_SERVICE_NAME}-deploy"
+  REMOTE_ARCHIVE="$REMOTE_TMP_DIR/$ARCHIVE_NAME"
+  REMOTE_ENV="$REMOTE_TMP_DIR/.env"
 
-require_cmd npx
-require_cmd go
-require_cmd tar
-require_cmd ssh
-require_cmd scp
+  ssh_base_args=(-p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
+  scp_base_args=(-P "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
 
-if [[ -n "${DEPLOY_PASSWORD:-}" && -z "${DEPLOY_SSH_KEY:-}" ]]; then
-  require_cmd sshpass
-fi
-
-ssh_base_args=(-p "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
-scp_base_args=(-P "$DEPLOY_PORT" -o StrictHostKeyChecking=accept-new)
-
-VERSION_FILE="$ROOT_DIR/VERSION"
-APP_VERSION="$(cat "$VERSION_FILE" 2>/dev/null || true)"
-if [[ -z "$APP_VERSION" ]]; then
-  APP_VERSION="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo dev)"
-fi
-
-BUILD_DIR="$ROOT_DIR/build/modelsell"
-ARCHIVE_NAME="${DEPLOY_BINARY_NAME}-${DEPLOY_GOOS}-${DEPLOY_ARCH_LABEL}.tar.gz"
-ARCHIVE_PATH="$BUILD_DIR/$ARCHIVE_NAME"
-BINARY_PATH="$BUILD_DIR/$DEPLOY_BINARY_NAME"
-
-rm -rf "$BUILD_DIR"
-mkdir -p "$BUILD_DIR"
-
-build_frontend "$ROOT_DIR/web/default" "DISABLE_ESLINT_PLUGIN=true"
-build_frontend "$ROOT_DIR/web/classic" ""
-
-log "Build binary: GOOS=$DEPLOY_GOOS GOARCH=$DEPLOY_GOARCH GOAMD64=${DEPLOY_GOAMD64:-}"
-(
-  cd "$ROOT_DIR"
-  build_env=(CGO_ENABLED=0 GOOS="$DEPLOY_GOOS" GOARCH="$DEPLOY_GOARCH")
-  if [[ "$DEPLOY_GOARCH" == "amd64" && -n "${DEPLOY_GOAMD64:-}" ]]; then
-    build_env+=(GOAMD64="$DEPLOY_GOAMD64")
+  VERSION_FILE="$ROOT_DIR/VERSION"
+  APP_VERSION="$(cat "$VERSION_FILE" 2>/dev/null || true)"
+  if [[ -z "$APP_VERSION" ]]; then
+    APP_VERSION="$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo dev)"
   fi
-  env "${build_env[@]}" go build \
-    -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$APP_VERSION'" \
-    -o "$BINARY_PATH"
-)
-file "$BINARY_PATH"
+}
 
-log "Package artifact: $ARCHIVE_PATH"
-(
-  cd "$BUILD_DIR"
-  tar -czf "$ARCHIVE_NAME" "$DEPLOY_BINARY_NAME"
-)
+require_local_build_tools() {
+  require_cmd npx
+  require_cmd go
+  require_cmd tar
+}
 
-REMOTE_TMP_DIR="/tmp/${DEPLOY_SERVICE_NAME}-deploy"
-REMOTE_ARCHIVE="$REMOTE_TMP_DIR/$ARCHIVE_NAME"
-REMOTE_ENV="$REMOTE_TMP_DIR/.env"
+require_remote_tools() {
+  require_cmd ssh
+  require_cmd scp
 
-log "Prepare remote directory: $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_REMOTE_DIR"
-remote_ssh "mkdir -p '$REMOTE_TMP_DIR' '$DEPLOY_REMOTE_DIR' '$DEPLOY_REMOTE_DIR/logs'"
+  if [[ -n "${DEPLOY_PASSWORD:-}" && -z "${DEPLOY_SSH_KEY:-}" ]]; then
+    require_cmd sshpass
+  fi
+}
 
-log "Upload package and runtime env"
-remote_scp "$ARCHIVE_PATH" "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_ARCHIVE"
-remote_scp "$APP_ENV_PATH" "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_ENV"
+require_app_env() {
+  [[ -f "$APP_ENV_PATH" ]] || fail "Missing app env file: $APP_ENV_PATH. Copy .env.production.example to $DEPLOY_APP_ENV_FILE first."
+}
 
-log "Install and restart service: $DEPLOY_SERVICE_NAME"
-remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' bash -s" <<'REMOTE_SCRIPT'
+require_artifact() {
+  [[ -f "$ARCHIVE_PATH" ]] || fail "Missing artifact: $ARCHIVE_PATH. Run option 2 first, or use option 1."
+}
+
+build_package() {
+  require_local_build_tools
+
+  rm -rf "$BUILD_DIR"
+  mkdir -p "$BUILD_DIR"
+
+  build_frontend "$ROOT_DIR/web/default" "DISABLE_ESLINT_PLUGIN=true"
+  build_frontend "$ROOT_DIR/web/classic" ""
+
+  log "Build binary: GOOS=$DEPLOY_GOOS GOARCH=$DEPLOY_GOARCH GOAMD64=${DEPLOY_GOAMD64:-}"
+  (
+    cd "$ROOT_DIR"
+    build_env=(CGO_ENABLED=0 GOOS="$DEPLOY_GOOS" GOARCH="$DEPLOY_GOARCH")
+    if [[ "$DEPLOY_GOARCH" == "amd64" && -n "${DEPLOY_GOAMD64:-}" ]]; then
+      build_env+=(GOAMD64="$DEPLOY_GOAMD64")
+    fi
+    env "${build_env[@]}" go build \
+      -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$APP_VERSION'" \
+      -o "$BINARY_PATH"
+  )
+  file "$BINARY_PATH"
+
+  log "Package artifact: $ARCHIVE_PATH"
+  (
+    cd "$BUILD_DIR"
+    tar -czf "$ARCHIVE_NAME" "$DEPLOY_BINARY_NAME"
+  )
+}
+
+prepare_remote() {
+  require_remote_tools
+  log "Prepare remote directory: $DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_REMOTE_DIR"
+  remote_ssh "mkdir -p '$REMOTE_TMP_DIR' '$DEPLOY_REMOTE_DIR' '$DEPLOY_REMOTE_DIR/logs'"
+}
+
+upload_artifact() {
+  require_artifact
+  prepare_remote
+
+  log "Upload package: $ARCHIVE_NAME"
+  remote_scp "$ARCHIVE_PATH" "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_ARCHIVE"
+
+  log "Install package and restart service: $DEPLOY_SERVICE_NAME"
+  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' ARCHIVE_PATH='$REMOTE_ARCHIVE' bash -s" <<'REMOTE_SCRIPT'
+set -Eeuo pipefail
+
+mkdir -p "$REMOTE_DIR" "$REMOTE_DIR/logs"
+tar -xzf "$ARCHIVE_PATH" -C "$REMOTE_DIR"
+chmod +x "$REMOTE_DIR/$BINARY_NAME"
+
+if systemctl list-unit-files "${SERVICE_NAME}.service" >/dev/null 2>&1; then
+  systemctl restart "$SERVICE_NAME"
+  sleep 2
+  systemctl --no-pager --full status "$SERVICE_NAME" || journalctl -u "$SERVICE_NAME" -n 100 --no-pager
+else
+  echo "Service ${SERVICE_NAME}.service does not exist. Run option 1 or option 4 to create systemd config first." >&2
+  exit 1
+fi
+REMOTE_SCRIPT
+}
+
+update_remote_config() {
+  require_remote_tools
+  require_app_env
+  prepare_remote
+
+  log "Upload runtime env: $DEPLOY_APP_ENV_FILE -> $DEPLOY_REMOTE_DIR/.env"
+  remote_scp "$APP_ENV_PATH" "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_ENV"
+
+  log "Install systemd config and restart service: $DEPLOY_SERVICE_NAME"
+  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ENV_PATH='$REMOTE_ENV' bash -s" <<'REMOTE_SCRIPT'
+set -Eeuo pipefail
+
+mkdir -p "$REMOTE_DIR" "$REMOTE_DIR/logs"
+cp "$ENV_PATH" "$REMOTE_DIR/.env"
+chmod 600 "$REMOTE_DIR/.env"
+
+cat >"/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
+[Unit]
+Description=ModelSell API Service
+After=network-online.target mysql.service mysqld.service redis.service redis-server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=${REMOTE_DIR}
+EnvironmentFile=${REMOTE_DIR}/.env
+ExecStart=${REMOTE_DIR}/${BINARY_NAME} --port ${APP_PORT} --log-dir ${REMOTE_DIR}/logs
+Restart=always
+RestartSec=5
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable "$SERVICE_NAME"
+
+if [[ -x "$REMOTE_DIR/$BINARY_NAME" ]]; then
+  systemctl restart "$SERVICE_NAME"
+  sleep 2
+  systemctl --no-pager --full status "$SERVICE_NAME" || journalctl -u "$SERVICE_NAME" -n 100 --no-pager
+else
+  echo "Config updated. Binary not found yet: $REMOTE_DIR/$BINARY_NAME"
+fi
+REMOTE_SCRIPT
+}
+
+full_deploy() {
+  build_package
+  require_artifact
+  require_app_env
+  prepare_remote
+
+  log "Upload package and runtime env"
+  remote_scp "$ARCHIVE_PATH" "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_ARCHIVE"
+  remote_scp "$APP_ENV_PATH" "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_ENV"
+
+  log "Install package, systemd config, and restart service: $DEPLOY_SERVICE_NAME"
+  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' bash -s" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 mkdir -p "$REMOTE_DIR" "$REMOTE_DIR/logs"
@@ -195,5 +316,74 @@ systemctl restart "$SERVICE_NAME"
 sleep 2
 systemctl --no-pager --full status "$SERVICE_NAME" || journalctl -u "$SERVICE_NAME" -n 100 --no-pager
 REMOTE_SCRIPT
+}
 
-log "Done. Local artifact: $ARCHIVE_PATH"
+choose_mode() {
+  cat >&2 <<EOF
+
+请选择部署操作：
+  1) 自动化打包上传并配置
+  2) 只打包
+  3) 只上传
+  4) 更新配置文件
+  q) 退出
+
+EOF
+  printf "请输入选项 [1-4/q]: " >&2
+  read -r choice || choice="q"
+  if [[ -z "$choice" ]]; then
+    choice="q"
+  fi
+  echo "$choice"
+}
+
+run_mode() {
+  local mode="$1"
+
+  case "$mode" in
+    1|full|--full)
+      full_deploy
+      log "Done. Local artifact: $ARCHIVE_PATH"
+      ;;
+    2|build|build-only|--build-only)
+      build_package
+      log "Done. Local artifact: $ARCHIVE_PATH"
+      ;;
+    3|upload|upload-only|--upload-only)
+      upload_artifact
+      log "Done. Uploaded artifact: $ARCHIVE_NAME"
+      ;;
+    4|config|config-only|--config-only)
+      update_remote_config
+      log "Done. Remote config updated: $DEPLOY_REMOTE_DIR/.env"
+      ;;
+    -h|--help|help)
+      usage
+      ;;
+    q|Q|quit|exit)
+      log "Canceled."
+      ;;
+    *)
+      usage
+      fail "Unknown option: $mode"
+      ;;
+  esac
+}
+
+main() {
+  init_context
+
+  local mode="${1:-}"
+  if [[ -z "$mode" ]]; then
+    if [[ -t 0 ]]; then
+      mode="$(choose_mode)"
+    else
+      usage
+      fail "No interactive terminal detected. Use --full, --build-only, --upload-only, or --config-only."
+    fi
+  fi
+
+  run_mode "$mode"
+}
+
+main "$@"

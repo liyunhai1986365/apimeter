@@ -25,7 +25,7 @@ import { ChevronLeft } from 'lucide-react';
 import { useSidebarCollapsed } from '../../hooks/common/useSidebarCollapsed';
 import { useSidebar } from '../../hooks/common/useSidebar';
 import { useMinimumLoadingTime } from '../../hooks/common/useMinimumLoadingTime';
-import { isAdmin, isRoot, showError } from '../../helpers';
+import { API, isAdmin, isRoot, showError } from '../../helpers';
 import SkeletonWrapper from './components/SkeletonWrapper';
 
 import { Nav, Divider, Button } from '@douyinfe/semi-ui';
@@ -45,6 +45,7 @@ const routerMap = {
   detail: '/console',
   pricing: '/pricing',
   task: '/console/task',
+  agent: '/agents',
   models: '/console/models',
   deployment: '/console/deployment',
   playground: '/console/playground',
@@ -67,6 +68,16 @@ const SiderBar = ({ onNavigate = () => {} }) => {
   const [openedKeys, setOpenedKeys] = useState([]);
   const location = useLocation();
   const [routerMapState, setRouterMapState] = useState(routerMap);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('user') || '{}');
+    } catch (error) {
+      return {};
+    }
+  });
+  const hasAgentConsole =
+    currentUser?.has_agent === true ||
+    currentUser?.permissions?.agent_console === true;
 
   const workspaceItems = useMemo(() => {
     const items = [
@@ -78,6 +89,12 @@ const SiderBar = ({ onNavigate = () => {} }) => {
           localStorage.getItem('enable_data_export') === 'true'
             ? ''
             : 'tableHiddle',
+      },
+      {
+        text: t('代理后台'),
+        itemKey: 'agent',
+        to: '/agents',
+        className: hasAgentConsole ? '' : 'tableHiddle',
       },
       {
         text: t('令牌管理'),
@@ -120,6 +137,7 @@ const SiderBar = ({ onNavigate = () => {} }) => {
     localStorage.getItem('enable_task'),
     t,
     isModuleVisible,
+    hasAgentConsole,
   ]);
 
   const financeItems = useMemo(() => {
@@ -273,6 +291,27 @@ const SiderBar = ({ onNavigate = () => {} }) => {
         showError('聊天数据解析失败');
       }
     }
+  }, []);
+
+  useEffect(() => {
+    if (!localStorage.getItem('user')) {
+      return;
+    }
+
+    API.get('/api/user/self')
+      .then((res) => {
+        if (!res.data?.success) {
+          return;
+        }
+
+        const nextUser = {
+          ...currentUser,
+          ...res.data.data,
+        };
+        setCurrentUser(nextUser);
+        localStorage.setItem('user', JSON.stringify(nextUser));
+      })
+      .catch(() => {});
   }, []);
 
   // 根据当前路径设置选中的菜单项

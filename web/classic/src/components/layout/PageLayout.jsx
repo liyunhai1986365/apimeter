@@ -64,12 +64,15 @@ const PageLayout = () => {
 
   const shouldHideFooter = cardProPages.includes(location.pathname);
 
+  const isAgentConsoleRoute = location.pathname === '/agents';
+
   const shouldInnerPadding =
-    location.pathname.includes('/console') &&
+    (location.pathname.includes('/console') || isAgentConsoleRoute) &&
     !location.pathname.startsWith('/console/chat') &&
     location.pathname !== '/console/playground';
 
-  const isConsoleRoute = location.pathname.startsWith('/console');
+  const isConsoleRoute =
+    location.pathname.startsWith('/console') || isAgentConsoleRoute;
   const showSider = isConsoleRoute && (!isMobile || drawerOpen);
 
   useEffect(() => {

@@ -463,8 +463,51 @@ available = sum(agent_ledger.profit_quota)
 
 - 代理提交域名。
 - 系统生成 `verify_token`。
-- 代理通过 TXT 或 CNAME 验证。
+- 代理通过 CNAME 验证：用户域名 CNAME 到 `<verify_token>.<AGENT_CNAME_BASE_DOMAIN>`。
 - 主站管理员可启用或禁用域名。
+
+自动 SSL：
+
+- 服务端提供 `GET /api/agent/domains/tls-ask?domain=<domain>` 供 Caddy On-Demand TLS 调用。
+- 只有 `agents.status = enabled`、`agent_domains.status = active` 且 `agent_domains.verified_at > 0` 的域名会返回 200。
+- 未绑定、未验证、已禁用域名或代理已禁用时返回 403，不做默认证书兜底。
+- 可配置 `AGENT_TLS_ASK_SECRET`，配置后 Caddy 的 ask URL 需带 `secret` 参数。
+
+推荐 Caddy 配置：
+
+```caddyfile
+{
+  email admin@example.com
+
+  on_demand_tls {
+    ask http://127.0.0.1:3000/api/agent/domains/tls-ask?secret={$AGENT_TLS_ASK_SECRET}
+    interval 2m
+    burst 20
+  }
+}
+
+:443 {
+  tls {
+    on_demand
+  }
+
+  reverse_proxy 127.0.0.1:3000 {
+    header_up Host {host}
+    header_up X-Forwarded-Host {host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Real-IP {remote_host}
+  }
+}
+
+:80 {
+  reverse_proxy 127.0.0.1:3000 {
+    header_up Host {host}
+    header_up X-Forwarded-Host {host}
+    header_up X-Forwarded-Proto {scheme}
+    header_up X-Real-IP {remote_host}
+  }
+}
+```
 
 支付回调：
 
@@ -482,6 +525,7 @@ available = sum(agent_ledger.profit_quota)
 - `PUT /api/agents/:id/status`
 - `GET /api/agents/:id/domains`
 - `POST /api/agents/:id/domains`
+- `POST /api/agents/:id/domains/:domain_id/verify`
 - `PUT /api/agents/:id/domains/:domain_id/status`
 - `GET /api/agents/:id/pricing_rules`
 - `POST /api/agents/:id/pricing_rules`
@@ -499,6 +543,7 @@ available = sum(agent_ledger.profit_quota)
 - `GET /api/agent/self`
 - `GET /api/agent/domains`
 - `POST /api/agent/domains`
+- `POST /api/agent/domains/:id/verify`
 - `PUT /api/agent/domains/:id/status`
 - `GET /api/agent/pricing_rules`
 - `POST /api/agent/pricing_rules`
@@ -510,6 +555,10 @@ available = sum(agent_ledger.profit_quota)
 - `GET /api/agent/ledger`
 - `GET /api/agent/withdrawals`
 - `POST /api/agent/withdrawals`
+
+证书签发授权接口：
+
+- `GET /api/agent/domains/tls-ask`
 
 代理后台 API：
 

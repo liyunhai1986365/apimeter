@@ -65,6 +65,7 @@ func CreateDomain(agentID int, rawDomain string) (*model.AgentDomain, error) {
 	if err != nil {
 		return nil, err
 	}
+	token = strings.ToLower(token)
 	agentDomain := &model.AgentDomain{
 		AgentId:     agentID,
 		Domain:      domain,
@@ -75,6 +76,7 @@ func CreateDomain(agentID int, rawDomain string) (*model.AgentDomain, error) {
 	if err := model.DB.Create(agentDomain).Error; err != nil {
 		return nil, err
 	}
+	FillDomainCNAMETarget(agentDomain)
 	return agentDomain, nil
 }
 

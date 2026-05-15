@@ -54,6 +54,13 @@ export async function createAgentDomain(input: { domain: string }) {
   return res.data
 }
 
+export async function verifyAgentDomain(input: { id: number }) {
+  const res = await api.post<{ success: boolean; data: AgentDomain }>(
+    `/api/agent/domains/${input.id}/verify`
+  )
+  return res.data
+}
+
 export async function updateAgentBranding(input: { branding: string }) {
   const res = await api.put<{ success: boolean; data: Agent }>(
     '/api/agent/self/branding',

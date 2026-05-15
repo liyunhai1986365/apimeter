@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
+  CheckCircle2,
+  Copy,
   Globe2,
   RefreshCcw,
   Save,
@@ -59,6 +61,7 @@ import {
   submitAgentWithdrawal,
   updateAgentBranding,
   upsertAgentPricingRule,
+  verifyAgentDomain,
 } from './api'
 
 const formatQuota = (quota?: number) => (quota ?? 0).toLocaleString()
@@ -91,11 +94,6 @@ export function Agents() {
   const selfQuery = useQuery({
     queryKey: ['agent', 'self'],
     queryFn: getAgentSelf,
-    onSuccess: (res) => {
-      const branding = parseAgentBranding(res.data.agent.branding)
-      setSiteName(branding.site_name ?? '')
-      setLogo(branding.logo ?? '')
-    },
   })
   const domainsQuery = useQuery({
     queryKey: ['agent', 'domains'],
@@ -145,6 +143,17 @@ export function Agents() {
     },
   })
 
+  const verifyDomainMutation = useMutation({
+    mutationFn: verifyAgentDomain,
+    onSuccess: () => {
+      toast.success(t('Domain verified'))
+      refreshAgent()
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+    },
+  })
+
   const saveRuleMutation = useMutation({
     mutationFn: upsertAgentPricingRule,
     onSuccess: () => {
@@ -184,6 +193,26 @@ export function Agents() {
     Number(withdrawQuota) > 0 &&
     Number(withdrawMoney) >= 0 &&
     accountInfo.trim() !== ''
+
+  useEffect(() => {
+    if (!self?.agent) return
+    const branding = parseAgentBranding(self.agent.branding)
+    setSiteName(branding.site_name ?? '')
+    setLogo(branding.logo ?? '')
+  }, [self?.agent?.branding])
+
+  const copyText = async (text?: string) => {
+    if (!text) {
+      toast.error(t('No CNAME target configured'))
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(text)
+      toast.success(t('Copied'))
+    } catch {
+      toast.error(t('Operation failed'))
+    }
+  }
 
   return (
     <SectionPageLayout>
@@ -308,7 +337,7 @@ export function Agents() {
                       </h3>
                       <p className='text-muted-foreground mt-1 text-xs'>
                         {t(
-                          'Add a custom domain, then wait for admin verification.'
+                          'Add a custom domain, point its CNAME to the target, then verify it.'
                         )}
                       </p>
                     </div>
@@ -338,13 +367,14 @@ export function Agents() {
                       <TableRow>
                         <TableHead>{t('Domain')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
-                        <TableHead>{t('Verify Token')}</TableHead>
+                        <TableHead>{t('CNAME Target')}</TableHead>
+                        <TableHead>{t('Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {domains.length === 0 ? (
                         <TableEmpty
-                          colSpan={3}
+                          colSpan={4}
                           title={t('No Domains')}
                           description={t(
                             'Add a domain before using this agent site.'
@@ -365,8 +395,37 @@ export function Agents() {
                                 {t(statusLabel(item.status))}
                               </Badge>
                             </TableCell>
-                            <TableCell className='max-w-[220px] truncate font-mono text-xs'>
-                              {item.verify_token}
+                            <TableCell className='max-w-[300px]'>
+                              <div className='flex items-center gap-2'>
+                                <span className='truncate font-mono text-xs'>
+                                  {item.cname_target || '-'}
+                                </span>
+                                {item.cname_target ? (
+                                  <Button
+                                    variant='ghost'
+                                    size='icon'
+                                    onClick={() => copyText(item.cname_target)}
+                                  >
+                                    <Copy className='size-4' />
+                                  </Button>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant='outline'
+                                size='sm'
+                                disabled={
+                                  item.status === 1 ||
+                                  verifyDomainMutation.isPending
+                                }
+                                onClick={() =>
+                                  verifyDomainMutation.mutate({ id: item.id })
+                                }
+                              >
+                                <CheckCircle2 className='size-4' />
+                                {t('Verify Domain')}
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))

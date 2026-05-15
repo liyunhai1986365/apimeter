@@ -1,6 +1,7 @@
 package model
 
 import (
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -70,6 +71,8 @@ func InitOptionMap() {
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo
 	common.OptionMap["ServerAddress"] = ""
+	common.OptionMap["AgentCNAMEBaseDomain"] = os.Getenv("AGENT_CNAME_BASE_DOMAIN")
+	common.OptionMap["AgentTLSAskSecret"] = os.Getenv("AGENT_TLS_ASK_SECRET")
 	common.OptionMap["WorkerUrl"] = system_setting.WorkerUrl
 	common.OptionMap["WorkerValidKey"] = system_setting.WorkerValidKey
 	common.OptionMap["WorkerAllowHttpImageRequestEnabled"] = strconv.FormatBool(system_setting.WorkerAllowHttpImageRequestEnabled)

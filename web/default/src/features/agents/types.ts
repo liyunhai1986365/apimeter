@@ -67,6 +67,7 @@ export type AgentDomain = {
   domain: string
   status: number
   verify_token: string
+  cname_target: string
   verified_at: number
   created_at: number
   updated_at: number
