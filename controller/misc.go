@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -133,10 +134,16 @@ func GetStatus(c *gin.Context) {
 	}
 	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
 		agentservice.ApplyBrandingToStatus(data, agentCtx.Branding)
+		agentServerAddress := buildAgentServerAddress(c, agentCtx.Domain)
+		data["server_address"] = agentServerAddress
+		if apiInfo, ok := data["api_info"].([]map[string]interface{}); ok {
+			data["api_info"] = rewriteAPIInfoURLs(apiInfo, agentServerAddress)
+		}
 		data["agent"] = gin.H{
-			"id":       agentCtx.AgentID,
-			"domain":   agentCtx.Domain,
-			"branding": agentCtx.Branding,
+			"id":             agentCtx.AgentID,
+			"domain":         agentCtx.Domain,
+			"server_address": agentServerAddress,
+			"branding":       agentCtx.Branding,
 		}
 	}
 
@@ -174,6 +181,81 @@ func GetStatus(c *gin.Context) {
 		"data":    data,
 	})
 	return
+}
+
+func buildAgentServerAddress(c *gin.Context, domain string) string {
+	domain = agentservice.NormalizeHost(domain)
+	if domain == "" {
+		return system_setting.ServerAddress
+	}
+	scheme := requestScheme(c.Request)
+	if scheme == "" {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s", scheme, domain)
+}
+
+func requestScheme(r *http.Request) string {
+	if r == nil {
+		return ""
+	}
+	if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
+		parts := strings.Split(proto, ",")
+		return strings.ToLower(strings.TrimSpace(parts[0]))
+	}
+	if proto := r.Header.Get("X-Forwarded-Protocol"); proto != "" {
+		parts := strings.Split(proto, ",")
+		return strings.ToLower(strings.TrimSpace(parts[0]))
+	}
+	if strings.EqualFold(r.Header.Get("X-Forwarded-Ssl"), "on") {
+		return "https"
+	}
+	if r.TLS != nil {
+		return "https"
+	}
+	if r.URL != nil && r.URL.Scheme != "" {
+		return strings.ToLower(r.URL.Scheme)
+	}
+	return "http"
+}
+
+func rewriteAPIInfoURLs(items []map[string]interface{}, serverAddress string) []map[string]interface{} {
+	base, err := url.Parse(serverAddress)
+	if err != nil || base.Scheme == "" || base.Host == "" {
+		return items
+	}
+	result := make([]map[string]interface{}, 0, len(items))
+	for _, item := range items {
+		next := make(map[string]interface{}, len(item))
+		for key, value := range item {
+			next[key] = value
+		}
+		if rawURL, ok := item["url"].(string); ok {
+			next["url"] = rewriteURLOrigin(rawURL, base)
+		}
+		result = append(result, next)
+	}
+	return result
+}
+
+func rewriteURLOrigin(rawURL string, base *url.URL) string {
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return rawURL
+	}
+	if parsed.IsAbs() {
+		parsed.Scheme = base.Scheme
+		parsed.Host = base.Host
+		return parsed.String()
+	}
+	if strings.HasPrefix(parsed.Path, "/") {
+		next := *base
+		next.Path = parsed.Path
+		next.RawQuery = parsed.RawQuery
+		next.Fragment = parsed.Fragment
+		return next.String()
+	}
+	return rawURL
 }
 
 func GetNotice(c *gin.Context) {
