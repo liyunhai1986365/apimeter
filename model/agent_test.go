@@ -110,7 +110,7 @@ func TestUserHasAgentConsole(t *testing.T) {
 		assert.True(t, hasConsole)
 	})
 
-	t.Run("returns true for enabled bound user", func(t *testing.T) {
+	t.Run("returns false for enabled bound user", func(t *testing.T) {
 		truncateTables(t)
 
 		agent := &Agent{
@@ -127,7 +127,7 @@ func TestUserHasAgentConsole(t *testing.T) {
 		hasConsole, err := UserHasAgentConsole(3003)
 
 		require.NoError(t, err)
-		assert.True(t, hasConsole)
+		assert.False(t, hasConsole)
 	})
 
 	t.Run("returns false for user without opened agent access", func(t *testing.T) {
@@ -141,7 +141,7 @@ func TestUserHasAgentConsole(t *testing.T) {
 }
 
 func TestGetAgentByConsoleUserId(t *testing.T) {
-	t.Run("returns agent for bound user", func(t *testing.T) {
+	t.Run("does not return agent for bound user", func(t *testing.T) {
 		truncateTables(t)
 
 		agent := &Agent{
@@ -157,8 +157,8 @@ func TestGetAgentByConsoleUserId(t *testing.T) {
 
 		got, err := GetAgentByConsoleUserId(4002)
 
-		require.NoError(t, err)
-		assert.Equal(t, agent.Id, got.Id)
+		require.ErrorIs(t, err, ErrAgentNotFound)
+		assert.Nil(t, got)
 	})
 
 	t.Run("does not return disabled agent", func(t *testing.T) {
@@ -179,4 +179,74 @@ func TestGetAgentByConsoleUserId(t *testing.T) {
 
 		require.ErrorIs(t, err, ErrAgentNotFound)
 	})
+}
+
+func TestListAgentUsersIncludesUserProfile(t *testing.T) {
+	truncateTables(t)
+
+	agent := &Agent{
+		OwnerUserId:   5001,
+		Name:          "Profile Agent",
+		Slug:          "profile-agent",
+		Status:        AgentStatusEnabled,
+		PriceMode:     AgentPriceModeMultiplier,
+		DefaultMarkup: 1,
+	}
+	otherAgent := &Agent{
+		OwnerUserId:   5002,
+		Name:          "Other Agent",
+		Slug:          "other-agent",
+		Status:        AgentStatusEnabled,
+		PriceMode:     AgentPriceModeMultiplier,
+		DefaultMarkup: 1,
+	}
+	require.NoError(t, DB.Create(agent).Error)
+	require.NoError(t, DB.Create(otherAgent).Error)
+
+	user := &User{
+		Username:     "agent-user",
+		Password:     "hashed-password",
+		DisplayName:  "Agent User",
+		Email:        "agent-user@example.com",
+		Role:         1,
+		Status:       1,
+		Group:        "default",
+		Quota:        123456,
+		UsedQuota:    6543,
+		RequestCount: 42,
+		AffCode:      "agent-user-aff",
+		CreatedAt:    1710000000,
+		LastLoginAt:  1710003600,
+	}
+	otherUser := &User{
+		Username: "other-agent-user",
+		Password: "hashed-password",
+		Role:     1,
+		Status:   1,
+		Group:    "default",
+		AffCode:  "other-agent-user-aff",
+	}
+	require.NoError(t, DB.Create(user).Error)
+	require.NoError(t, DB.Create(otherUser).Error)
+	require.NoError(t, BindUserToAgent(agent.Id, user.Id, AgentUserSourceDomain))
+	require.NoError(t, BindUserToAgent(otherAgent.Id, otherUser.Id, AgentUserSourceDomain))
+
+	users, total, err := ListAgentUsers(agent.Id, "agent-user", 0, 10)
+
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), total)
+	require.Len(t, users, 1)
+	assert.Equal(t, agent.Id, users[0].AgentId)
+	assert.Equal(t, user.Id, users[0].UserId)
+	assert.Equal(t, "agent-user", users[0].Username)
+	assert.Equal(t, "Agent User", users[0].DisplayName)
+	assert.Equal(t, "agent-user@example.com", users[0].Email)
+	assert.Equal(t, "default", users[0].Group)
+	assert.Equal(t, 123456, users[0].Quota)
+	assert.Equal(t, 6543, users[0].UsedQuota)
+	assert.Equal(t, 42, users[0].RequestCount)
+	assert.Equal(t, 1, users[0].UserStatus)
+	assert.Equal(t, 1, users[0].Role)
+	assert.Equal(t, int64(1710000000), users[0].UserCreatedAt)
+	assert.Equal(t, int64(1710003600), users[0].LastLoginAt)
 }

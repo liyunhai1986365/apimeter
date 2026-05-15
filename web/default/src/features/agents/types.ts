@@ -92,8 +92,24 @@ export type AgentUser = {
   agent_id: number
   user_id: number
   source: string
+  agent_user_status: number
+  agent_user_created_at: number
+  username: string
+  display_name: string
+  email: string
+  role: number
   status: number
+  group: string
+  quota: number
+  used_quota: number
+  request_count: number
+  aff_count?: number
+  aff_quota?: number
+  aff_history_quota?: number
+  inviter_id?: number
+  remark?: string
   created_at: number
+  last_login_at: number
 }
 
 export type AgentLedger = {

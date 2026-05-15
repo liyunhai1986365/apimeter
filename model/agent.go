@@ -2,6 +2,8 @@ package model
 
 import (
 	"errors"
+	"strconv"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -76,6 +78,32 @@ type AgentUser struct {
 	Source    string `json:"source" gorm:"type:varchar(32);default:'domain'"`
 	Status    int    `json:"status" gorm:"type:int;index"`
 	CreatedAt int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+}
+
+type AgentUserWithProfile struct {
+	Id                 int    `json:"id" gorm:"column:id"`
+	AgentId            int    `json:"agent_id" gorm:"column:agent_id"`
+	UserId             int    `json:"user_id" gorm:"column:user_id"`
+	Source             string `json:"source" gorm:"column:source"`
+	AgentUserStatus    int    `json:"agent_user_status" gorm:"column:agent_user_status"`
+	AgentUserCreatedAt int64  `json:"agent_user_created_at" gorm:"column:agent_user_created_at"`
+
+	Username        string `json:"username" gorm:"column:username"`
+	DisplayName     string `json:"display_name" gorm:"column:display_name"`
+	Email           string `json:"email" gorm:"column:email"`
+	Role            int    `json:"role" gorm:"column:role"`
+	UserStatus      int    `json:"status" gorm:"column:user_status"`
+	Group           string `json:"group" gorm:"column:user_group"`
+	Quota           int    `json:"quota" gorm:"column:quota"`
+	UsedQuota       int    `json:"used_quota" gorm:"column:used_quota"`
+	RequestCount    int    `json:"request_count" gorm:"column:request_count"`
+	AffCount        int    `json:"aff_count" gorm:"column:aff_count"`
+	AffQuota        int    `json:"aff_quota" gorm:"column:aff_quota"`
+	AffHistoryQuota int    `json:"aff_history_quota" gorm:"column:aff_history_quota"`
+	InviterId       int    `json:"inviter_id" gorm:"column:inviter_id"`
+	Remark          string `json:"remark,omitempty" gorm:"column:remark"`
+	UserCreatedAt   int64  `json:"created_at" gorm:"column:user_created_at"`
+	LastLoginAt     int64  `json:"last_login_at" gorm:"column:last_login_at"`
 }
 
 type AgentPricingRule struct {
@@ -187,16 +215,7 @@ func GetAgentByOwnerUserId(userId int) (*Agent, error) {
 }
 
 func GetAgentByConsoleUserId(userId int) (*Agent, error) {
-	var agent Agent
-	err := DB.Model(&Agent{}).
-		Joins("LEFT JOIN agent_users ON agent_users.agent_id = agents.id AND agent_users.user_id = ? AND agent_users.status = ?", userId, AgentUserStatusEnabled).
-		Where("agents.status <> ? AND (agents.owner_user_id = ? OR agent_users.id IS NOT NULL)", AgentStatusDisabled, userId).
-		Order("agents.id desc").
-		First(&agent).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrAgentNotFound
-	}
-	return &agent, err
+	return GetAgentByOwnerUserId(userId)
 }
 
 func BindUserToAgent(agentId int, userId int, source string) error {
@@ -317,24 +336,57 @@ func ListAgentPricingRules(agentId int, startIdx int, num int) ([]*AgentPricingR
 	return rules, total, nil
 }
 
-func ListAgentUsers(agentId int, keyword string, startIdx int, num int) ([]*AgentUser, int64, error) {
-	var users []*AgentUser
+func ListAgentUsers(agentId int, keyword string, startIdx int, num int) ([]*AgentUserWithProfile, int64, error) {
+	var users []*AgentUserWithProfile
 	var total int64
-	tx := DB.Model(&AgentUser{}).Where("agent_id = ?", agentId)
+	groupCol := commonGroupCol
+	if groupCol == "" {
+		groupCol = "`group`"
+	}
+	tx := DB.Model(&AgentUser{}).
+		Joins("JOIN users ON users.id = agent_users.user_id").
+		Where("agent_users.agent_id = ?", agentId)
 	if keyword != "" {
-		var userIds []int
-		if err := DB.Model(&User{}).
-			Select("id").
-			Where("username LIKE ? OR email LIKE ? OR display_name LIKE ?", "%"+keyword+"%", "%"+keyword+"%", "%"+keyword+"%").
-			Find(&userIds).Error; err != nil {
-			return nil, 0, err
+		keyword = strings.TrimSpace(keyword)
+		like := "%" + keyword + "%"
+		if userId, err := strconv.Atoi(keyword); err == nil {
+			tx = tx.Where("users.id = ? OR users.username LIKE ? OR users.email LIKE ? OR users.display_name LIKE ?", userId, like, like, like)
+		} else {
+			tx = tx.Where("users.username LIKE ? OR users.email LIKE ? OR users.display_name LIKE ?", like, like, like)
 		}
-		tx = tx.Where("user_id IN ?", userIds)
 	}
 	if err := tx.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := tx.Order("id desc").Limit(num).Offset(startIdx).Find(&users).Error; err != nil {
+	selectFields := []string{
+		"agent_users.id",
+		"agent_users.agent_id",
+		"agent_users.user_id",
+		"agent_users.source",
+		"agent_users.status AS agent_user_status",
+		"agent_users.created_at AS agent_user_created_at",
+		"users.username",
+		"users.display_name",
+		"users.email",
+		"users.role",
+		"users.status AS user_status",
+		"users." + groupCol + " AS user_group",
+		"users.quota",
+		"users.used_quota",
+		"users.request_count",
+		"users.aff_count",
+		"users.aff_quota",
+		"users.aff_history AS aff_history_quota",
+		"users.inviter_id",
+		"users.remark",
+		"users.created_at AS user_created_at",
+		"users.last_login_at",
+	}
+	if err := tx.Select(strings.Join(selectFields, ", ")).
+		Order("agent_users.id desc").
+		Limit(num).
+		Offset(startIdx).
+		Find(&users).Error; err != nil {
 		return nil, 0, err
 	}
 	return users, total, nil

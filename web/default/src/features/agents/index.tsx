@@ -33,10 +33,14 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { TableEmpty } from '@/components/data-table'
+import { GroupBadge } from '@/components/group-badge'
 import { SectionPageLayout } from '@/components/layout'
+import { LongText } from '@/components/long-text'
+import { StatusBadge } from '@/components/status-badge'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
 import {
   Table,
   TableBody,
@@ -47,7 +51,12 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
-import { formatTimestampToDate } from '@/lib/format'
+import {
+  formatQuota as formatDisplayQuota,
+  formatTimestampToDate,
+} from '@/lib/format'
+import { cn } from '@/lib/utils'
+import { USER_STATUSES } from '@/features/users/constants'
 import {
   createAgentDomain,
   getAgentSelf,
@@ -65,6 +74,61 @@ import {
 } from './api'
 
 const formatQuota = (quota?: number) => (quota ?? 0).toLocaleString()
+
+function getQuotaProgressColor(percentage: number): string {
+  if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
+  if (percentage <= 30) return '[&_[data-slot=progress-indicator]]:bg-amber-500'
+  return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
+}
+
+function AgentUserStatusBadge({ status }: { status: number }) {
+  const { t } = useTranslation()
+  const config = USER_STATUSES[status as keyof typeof USER_STATUSES]
+  if (!config) {
+    return <Badge variant='outline'>{status}</Badge>
+  }
+  return (
+    <StatusBadge
+      label={t(config.labelKey)}
+      variant={config.variant}
+      showDot={config.showDot}
+      copyable={false}
+    />
+  )
+}
+
+function UserQuotaCell(props: { quota: number; usedQuota: number }) {
+  const { t } = useTranslation()
+  const total = props.quota + props.usedQuota
+  const percentage = total > 0 ? (props.quota / total) * 100 : 0
+
+  if (total === 0) {
+    return <StatusBadge label={t('No Quota')} variant='neutral' copyable={false} />
+  }
+
+  return (
+    <div className='w-[150px] space-y-1'>
+      <div className='flex justify-between text-xs'>
+        <span className='font-medium tabular-nums'>
+          {formatDisplayQuota(props.quota)}
+        </span>
+        <span className='text-muted-foreground tabular-nums'>
+          {formatDisplayQuota(total)}
+        </span>
+      </div>
+      <Progress
+        value={percentage}
+        className={cn('h-1.5', getQuotaProgressColor(percentage))}
+      />
+      <div className='text-muted-foreground flex justify-between text-[11px]'>
+        <span>
+          {t('Used:')} {formatDisplayQuota(props.usedQuota)}
+        </span>
+        <span>{percentage.toFixed(1)}%</span>
+      </div>
+    </div>
+  )
+}
 
 function statusLabel(status: number) {
   if (status === 1) return 'Active'
@@ -447,16 +511,19 @@ export function Agents() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('User ID')}</TableHead>
-                      <TableHead>{t('Source')}</TableHead>
+                      <TableHead>{t('Username')}</TableHead>
                       <TableHead>{t('Status')}</TableHead>
-                      <TableHead>{t('Created At')}</TableHead>
+                      <TableHead>{t('Quota')}</TableHead>
+                      <TableHead>{t('Group')}</TableHead>
+                      <TableHead>{t('Email')}</TableHead>
+                      <TableHead>{t('Requests:')}</TableHead>
+                      <TableHead>{t('Last Login')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.length === 0 ? (
                       <TableEmpty
-                        colSpan={4}
+                        colSpan={7}
                         title={t('No Agent Users')}
                         description={t('Admin-bound agent users will appear here.')}
                         icon={<Users className='size-6' />}
@@ -464,15 +531,47 @@ export function Agents() {
                     ) : (
                       users.map((user) => (
                         <TableRow key={user.id}>
-                          <TableCell>{user.user_id}</TableCell>
-                          <TableCell>{user.source}</TableCell>
                           <TableCell>
-                            <Badge variant='outline'>
-                              {t(statusLabel(user.status))}
-                            </Badge>
+                            <div className='flex min-w-[160px] flex-col gap-1'>
+                              <div className='flex items-center gap-2'>
+                                <LongText className='max-w-[150px] font-medium'>
+                                  {user.username || `#${user.user_id}`}
+                                </LongText>
+                                <Badge variant='outline'>#{user.user_id}</Badge>
+                              </div>
+                              {user.display_name &&
+                              user.display_name !== user.username ? (
+                                <LongText className='text-muted-foreground max-w-[180px] text-xs'>
+                                  {user.display_name}
+                                </LongText>
+                              ) : null}
+                              <span className='text-muted-foreground text-xs'>
+                                {user.source}
+                              </span>
+                            </div>
                           </TableCell>
                           <TableCell>
-                            {formatTimestampToDate(user.created_at)}
+                            <AgentUserStatusBadge status={user.status} />
+                          </TableCell>
+                          <TableCell>
+                            <UserQuotaCell
+                              quota={user.quota}
+                              usedQuota={user.used_quota}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <GroupBadge group={user.group} />
+                          </TableCell>
+                          <TableCell>
+                            <LongText className='text-muted-foreground max-w-[180px] text-sm'>
+                              {user.email || '-'}
+                            </LongText>
+                          </TableCell>
+                          <TableCell className='tabular-nums'>
+                            {user.request_count?.toLocaleString() ?? 0}
+                          </TableCell>
+                          <TableCell>
+                            {formatTimestampToDate(user.last_login_at)}
                           </TableCell>
                         </TableRow>
                       ))

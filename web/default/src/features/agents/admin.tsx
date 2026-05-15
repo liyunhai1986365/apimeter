@@ -37,6 +37,8 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { formatTimestampToDate } from '@/lib/format'
+import { GroupBadge } from '@/components/group-badge'
+import { LongText } from '@/components/long-text'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -77,7 +79,7 @@ import {
   updateAdminAgentDomainStatus,
   upsertAdminAgentPricingRule,
 } from './api'
-import type { Agent, AgentDomain, AgentWithdrawal } from './types'
+import type { Agent, AgentDomain, AgentUser, AgentWithdrawal } from './types'
 
 const AGENT_DOMAIN_STATUS_ACTIVE = 1
 const AGENT_DOMAIN_STATUS_DISABLED = 2
@@ -515,18 +517,20 @@ export function AgentManagement() {
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>{t('User ID')}</TableHead>
+                          <TableHead>{t('Username')}</TableHead>
                           <TableHead>{t('Source')}</TableHead>
                           <TableHead>{t('Status')}</TableHead>
+                          <TableHead>{t('Group')}</TableHead>
+                          <TableHead>{t('Quota')}</TableHead>
                           <TableHead>{t('Created At')}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {selectedUsersQuery.isLoading ? (
-                          <LoadingRow colSpan={4} />
+                          <LoadingRow colSpan={6} />
                         ) : selectedUsers.length === 0 ? (
                           <TableEmpty
-                            colSpan={4}
+                            colSpan={6}
                             title={t('No Agent Users')}
                             description={t(
                               'Bind users to open the agent console for them.'
@@ -536,13 +540,26 @@ export function AgentManagement() {
                         ) : (
                           selectedUsers.map((user) => (
                             <TableRow key={user.id}>
-                              <TableCell>{user.user_id}</TableCell>
+                              <TableCell>
+                                <div className='flex min-w-[160px] flex-col gap-1'>
+                                  <LongText className='max-w-[150px] font-medium'>
+                                    {user.username || `#${user.user_id}`}
+                                  </LongText>
+                                  <span className='text-muted-foreground text-xs'>
+                                    #{user.user_id}
+                                  </span>
+                                </div>
+                              </TableCell>
                               <TableCell>{user.source}</TableCell>
                               <TableCell>
                                 <Badge variant='outline'>
-                                  {t(domainStatusLabel(user.status))}
+                                  {t(domainStatusLabel(user.agent_user_status))}
                                 </Badge>
                               </TableCell>
+                              <TableCell>
+                                <GroupBadge group={user.group} />
+                              </TableCell>
+                              <TableCell>{user.quota.toLocaleString()}</TableCell>
                               <TableCell>
                                 {formatTimestampToDate(user.created_at)}
                               </TableCell>
@@ -876,7 +893,7 @@ function AgentDetailDialog(props: {
     markup: number
     enabled: boolean
   }>
-  users: Array<{ id: number; user_id: number; source: string; status: number }>
+  users: AgentUser[]
   brandSiteName: string
   brandLogo: string
   newDomain: string
@@ -1092,15 +1109,17 @@ function AgentDetailDialog(props: {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>{t('User ID')}</TableHead>
+                      <TableHead>{t('Username')}</TableHead>
                       <TableHead>{t('Source')}</TableHead>
                       <TableHead>{t('Status')}</TableHead>
+                      <TableHead>{t('Group')}</TableHead>
+                      <TableHead>{t('Quota')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {props.users.length === 0 ? (
                       <TableEmpty
-                        colSpan={3}
+                        colSpan={5}
                         title={t('No Agent Users')}
                         description={t(
                           'Bind users to open the agent console for them.'
@@ -1110,13 +1129,26 @@ function AgentDetailDialog(props: {
                     ) : (
                       props.users.map((user) => (
                         <TableRow key={user.id}>
-                          <TableCell>{user.user_id}</TableCell>
+                          <TableCell>
+                            <div className='flex min-w-[160px] flex-col gap-1'>
+                              <LongText className='max-w-[150px] font-medium'>
+                                {user.username || `#${user.user_id}`}
+                              </LongText>
+                              <span className='text-muted-foreground text-xs'>
+                                #{user.user_id}
+                              </span>
+                            </div>
+                          </TableCell>
                           <TableCell>{user.source}</TableCell>
                           <TableCell>
                             <Badge variant='outline'>
-                              {t(domainStatusLabel(user.status))}
+                              {t(domainStatusLabel(user.agent_user_status))}
                             </Badge>
                           </TableCell>
+                          <TableCell>
+                            <GroupBadge group={user.group} />
+                          </TableCell>
+                          <TableCell>{user.quota.toLocaleString()}</TableCell>
                         </TableRow>
                       ))
                     )}
