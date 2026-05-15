@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import React, { useState, useMemo, useCallback } from 'react'
 import { ChevronsUpDown, Check, CpuIcon, LayersIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
@@ -421,10 +422,12 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
                     {(group.desc || group.description) && (
                       <div className='text-muted-foreground truncate text-[9px] leading-tight'>
                         {group.desc || group.description}
-                        {group.ratio && (
+                        {formatGroupDiscount(group.ratio) && (
                           <>
                             {' · '}
-                            {t('Ratio: {{value}}', { value: group.ratio })}
+                            {t('Discount: {{value}}', {
+                              value: formatGroupDiscount(group.ratio),
+                            })}
                           </>
                         )}
                       </div>
@@ -483,11 +486,11 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
                           {(group.desc || group.description) && (
                             <div className='text-muted-foreground mt-0.5 text-xs'>
                               {group.desc || group.description}
-                              {group.ratio && (
+                              {formatGroupDiscount(group.ratio) && (
                                 <>
                                   {' · '}
-                                  {t('Ratio: {{value}}', {
-                                    value: group.ratio,
+                                  {t('Discount: {{value}}', {
+                                    value: formatGroupDiscount(group.ratio),
                                   })}
                                 </>
                               )}

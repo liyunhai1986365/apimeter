@@ -27,6 +27,7 @@ import {
   formatLogQuota,
   formatTimestampToDate,
 } from '@/lib/format'
+import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -78,12 +79,12 @@ function getGroupRatioText(other: LogOtherData | null): string | null {
     userGroupRatio !== -1 &&
     Number.isFinite(userGroupRatio)
   ) {
-    return `${formatRatioCompact(userGroupRatio)}x`
+    return formatGroupDiscount(userGroupRatio) ?? null
   }
 
   const groupRatio = other?.group_ratio
   if (groupRatio != null && groupRatio !== 1 && Number.isFinite(groupRatio)) {
-    return `${formatRatioCompact(groupRatio)}x`
+    return formatGroupDiscount(groupRatio) ?? null
   }
 
   return null
@@ -232,12 +233,12 @@ function buildDetailSegments(
         userGroupRatio !== -1
       const effectiveRatio = isUserGroup ? userGroupRatio : groupRatio
       const ratioLabel = isUserGroup
-        ? t('User Exclusive Ratio')
-        : t('Group Ratio')
+        ? t('User Exclusive Discount')
+        : t('Group Discount')
 
       if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
         segments.push({
-          text: `${ratioLabel} ${formatRatioCompact(effectiveRatio)}x`,
+          text: `${ratioLabel} ${formatGroupDiscount(effectiveRatio) ?? formatRatioCompact(effectiveRatio)}`,
         })
       }
     }

@@ -33,6 +33,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
+import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { Button } from '@/components/ui/button'
@@ -130,11 +131,6 @@ function DetailSection(props: {
   )
 }
 
-function formatRatio(ratio: number | undefined): string {
-  if (ratio == null) return '-'
-  return ratio.toFixed(4)
-}
-
 function BillingBreakdown(props: {
   log: UsageLog
   other: LogOtherData
@@ -205,8 +201,8 @@ function BillingBreakdown(props: {
   const effectiveGR = isUserGR ? userGR : other.group_ratio
   if (effectiveGR != null && Number.isFinite(effectiveGR)) {
     rows.push({
-      label: isUserGR ? t('User Exclusive Ratio') : t('Group Ratio'),
-      value: `${formatRatio(effectiveGR)}x`,
+      label: isUserGR ? t('User Exclusive Discount') : t('Group Discount'),
+      value: formatGroupDiscount(effectiveGR) ?? '-',
     })
   }
 

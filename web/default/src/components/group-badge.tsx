@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
+import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { StatusBadge, type StatusBadgeProps } from './status-badge'
 
@@ -99,7 +100,7 @@ export function GroupBadge(props: GroupBadgeProps) {
         )}
       >
         <span className='size-1 rounded-full bg-current opacity-60' />
-        <span>{ratio}x</span>
+        <span>{formatGroupDiscount(ratio)}</span>
       </span>
     </span>
   )

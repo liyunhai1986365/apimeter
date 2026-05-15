@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo, useState } from 'react'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -51,14 +52,6 @@ type ApiKeyGroupComboboxProps = {
   disabled?: boolean
 }
 
-function formatGroupRatio(
-  ratio: ApiKeyGroupOption['ratio'],
-  ratioLabel: string
-) {
-  if (ratio === undefined || ratio === null || ratio === '') return null
-  return `${ratio}x ${ratioLabel}`
-}
-
 function getRatioBadgeClassName(ratio: ApiKeyGroupOption['ratio']) {
   if (typeof ratio !== 'number') {
     return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -78,7 +71,8 @@ function getRatioBadgeClassName(ratio: ApiKeyGroupOption['ratio']) {
 
 function GroupRatioBadge({ ratio }: { ratio: ApiKeyGroupOption['ratio'] }) {
   const { t } = useTranslation()
-  const label = formatGroupRatio(ratio, t('Ratio'))
+  const discount = formatGroupDiscount(ratio)
+  const label = discount ? t('Discount: {{value}}', { value: discount }) : null
 
   if (!label) return null
 

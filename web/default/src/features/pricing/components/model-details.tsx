@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { ArrowLeft, Code2, HeartPulse, Info, Timer } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -701,8 +702,8 @@ function GroupPricingSection(props: {
               <div key={group} className='overflow-hidden rounded-lg border'>
                 <div className='bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2'>
                   <GroupBadge group={group} size='sm' />
-                  <span className='text-muted-foreground font-mono text-xs'>
-                    {ratio}x
+                  <span className='text-muted-foreground text-xs'>
+                    {formatGroupDiscount(ratio)}
                   </span>
                 </div>
                 <div className='overflow-x-auto'>
@@ -775,7 +776,7 @@ function GroupPricingSection(props: {
           <TableHeader>
             <TableRow className='hover:bg-transparent'>
               <TableHead className={thClass}>{t('Group')}</TableHead>
-              <TableHead className={thClass}>{t('Ratio')}</TableHead>
+              <TableHead className={thClass}>{t('Discount')}</TableHead>
               {isTokenBased ? (
                 <>
                   <TableHead className={`${thClass} text-right`}>
@@ -808,8 +809,8 @@ function GroupPricingSection(props: {
                   <TableCell className='py-2.5'>
                     <GroupBadge group={group} size='sm' />
                   </TableCell>
-                  <TableCell className='text-muted-foreground py-2.5 font-mono text-xs'>
-                    {ratio}x
+                  <TableCell className='text-muted-foreground py-2.5 text-xs'>
+                    {formatGroupDiscount(ratio)}
                   </TableCell>
                   {isTokenBased ? (
                     <>
