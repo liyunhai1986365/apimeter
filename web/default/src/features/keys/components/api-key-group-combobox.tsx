@@ -21,6 +21,7 @@ import { Check, ChevronsUpDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -71,7 +72,8 @@ function getRatioBadgeClassName(ratio: ApiKeyGroupOption['ratio']) {
 
 function GroupRatioBadge({ ratio }: { ratio: ApiKeyGroupOption['ratio'] }) {
   const { t } = useTranslation()
-  const discount = formatGroupDiscount(ratio)
+  const discountLabels = useGroupDiscountLabels()
+  const discount = formatGroupDiscount(ratio, discountLabels)
   const label = discount ? t('Discount: {{value}}', { value: discount }) : null
 
   if (!label) return null

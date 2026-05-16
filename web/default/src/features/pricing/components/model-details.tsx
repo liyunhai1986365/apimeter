@@ -24,6 +24,7 @@ import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -600,6 +601,7 @@ function GroupPricingSection(props: {
   showRechargePrice?: boolean
 }) {
   const { t } = useTranslation()
+  const discountLabels = useGroupDiscountLabels()
   const showRechargePrice = props.showRechargePrice ?? false
 
   const availableGroups = useMemo(
@@ -703,7 +705,7 @@ function GroupPricingSection(props: {
                 <div className='bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2'>
                   <GroupBadge group={group} size='sm' />
                   <span className='text-muted-foreground text-xs'>
-                    {formatGroupDiscount(ratio)}
+                    {formatGroupDiscount(ratio, discountLabels)}
                   </span>
                 </div>
                 <div className='overflow-x-auto'>
@@ -810,7 +812,7 @@ function GroupPricingSection(props: {
                     <GroupBadge group={group} size='sm' />
                   </TableCell>
                   <TableCell className='text-muted-foreground py-2.5 text-xs'>
-                    {formatGroupDiscount(ratio)}
+                    {formatGroupDiscount(ratio, discountLabels)}
                   </TableCell>
                   {isTokenBased ? (
                     <>

@@ -26,24 +26,88 @@ function formatPercentNumber(value: number): string {
   return trimTrailingZeros(rounded.toFixed(3))
 }
 
+export type GroupDiscountLabels = {
+  originalPrice: string
+  fold: string
+  percentDiscount: string
+  percentPrice: string
+  startingFrom: string
+}
+
+export const defaultGroupDiscountLabels: GroupDiscountLabels = {
+  originalPrice: 'Original price',
+  fold: '{{percent}}% off',
+  percentDiscount: '{{value}}% off',
+  percentPrice: '{{value}}% price',
+  startingFrom: 'From {{value}}',
+}
+
+function formatTemplate(
+  template: string,
+  value: string,
+  percent = value
+): string {
+  return template.replace('{{value}}', value).replace('{{percent}}', percent)
+}
+
 export function formatGroupDiscount(
-  ratio: number | string | null | undefined
+  ratio: number | string | null | undefined,
+  labels: GroupDiscountLabels = defaultGroupDiscountLabels
 ): string | undefined {
   if (ratio === undefined || ratio === null || ratio === '') return undefined
 
   const value = typeof ratio === 'number' ? ratio : Number(ratio)
   if (!Number.isFinite(value)) return undefined
 
-  if (value === 1) return '原价'
+  if (value === 1) return labels.originalPrice
 
   const percent = value * 100
   if (value > 0 && value < 1 && Math.abs(percent % 10) < 1e-9) {
-    return `${formatPercentNumber(percent / 10)}折`
+    return formatTemplate(
+      labels.fold,
+      formatPercentNumber(percent / 10),
+      formatPercentNumber(percent)
+    )
   }
 
   if (value < 1) {
-    return `${formatPercentNumber(percent)}%折扣`
+    return formatTemplate(labels.percentDiscount, formatPercentNumber(percent))
   }
 
-  return `${formatPercentNumber(percent)}%价格`
+  return formatTemplate(labels.percentPrice, formatPercentNumber(percent))
+}
+
+function parseRatio(
+  ratio: number | string | null | undefined
+): number | undefined {
+  if (ratio === undefined || ratio === null || ratio === '') return undefined
+
+  const value = typeof ratio === 'number' ? ratio : Number(ratio)
+  return Number.isFinite(value) ? value : undefined
+}
+
+export function getLowestGroupDiscountSummary(
+  enableGroups: string[] | null | undefined,
+  groupRatio:
+    | Record<string, number | string | null | undefined>
+    | null
+    | undefined,
+  labels: GroupDiscountLabels = defaultGroupDiscountLabels
+): string | undefined {
+  const groups = Array.isArray(enableGroups) ? enableGroups : []
+  const ratios = groupRatio || {}
+  const candidateGroups = groups.includes('all') ? Object.keys(ratios) : groups
+  const candidates = candidateGroups
+    .map((group) => parseRatio(ratios[group]))
+    .filter((ratio): ratio is number => ratio !== undefined)
+
+  if (candidates.length === 0) return undefined
+
+  const lowestRatio = Math.min(...candidates)
+  const summary = formatGroupDiscount(lowestRatio, labels)
+  if (!summary) return undefined
+
+  return candidates.length > 1
+    ? formatTemplate(labels.startingFrom, summary)
+    : summary
 }

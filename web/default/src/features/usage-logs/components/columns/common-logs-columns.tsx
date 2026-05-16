@@ -28,7 +28,9 @@ import {
   formatTimestampToDate,
 } from '@/lib/format'
 import { formatGroupDiscount } from '@/lib/group-discount'
+import type { GroupDiscountLabels } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
   Tooltip,
@@ -72,19 +74,22 @@ function formatRatioCompact(ratio: number | undefined): string {
     : ratio.toFixed(4).replace(/\.?0+$/, '')
 }
 
-function getGroupRatioText(other: LogOtherData | null): string | null {
+function getGroupRatioText(
+  other: LogOtherData | null,
+  discountLabels: GroupDiscountLabels
+): string | null {
   const userGroupRatio = other?.user_group_ratio
   if (
     userGroupRatio != null &&
     userGroupRatio !== -1 &&
     Number.isFinite(userGroupRatio)
   ) {
-    return formatGroupDiscount(userGroupRatio) ?? null
+    return formatGroupDiscount(userGroupRatio, discountLabels) ?? null
   }
 
   const groupRatio = other?.group_ratio
   if (groupRatio != null && groupRatio !== 1 && Number.isFinite(groupRatio)) {
-    return formatGroupDiscount(groupRatio) ?? null
+    return formatGroupDiscount(groupRatio, discountLabels) ?? null
   }
 
   return null
@@ -93,7 +98,8 @@ function getGroupRatioText(other: LogOtherData | null): string | null {
 function buildDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
-  t: (key: string, opts?: Record<string, unknown>) => string
+  t: (key: string, opts?: Record<string, unknown>) => string,
+  discountLabels: GroupDiscountLabels
 ): DetailSegment[] {
   if (log.type === 6) {
     return [{ text: t('Async task refund') }]
@@ -238,7 +244,10 @@ function buildDetailSegments(
 
       if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
         segments.push({
-          text: `${ratioLabel} ${formatGroupDiscount(effectiveRatio) ?? formatRatioCompact(effectiveRatio)}`,
+          text: `${ratioLabel} ${
+            formatGroupDiscount(effectiveRatio, discountLabels) ??
+            formatRatioCompact(effectiveRatio)
+          }`,
         })
       }
     }
@@ -256,6 +265,7 @@ function buildDetailSegments(
 
 export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
   const { t } = useTranslation()
+  const discountLabels = useGroupDiscountLabels()
   const columns: ColumnDef<UsageLog>[] = [
     {
       accessorKey: 'created_at',
@@ -442,9 +452,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                     {sensitiveVisible ? log.username : '••••'}
                   </TooltipTrigger>
                   {sensitiveVisible && log.username.length > 12 && (
-                    <TooltipContent side='top'>
-                      {log.username}
-                    </TooltipContent>
+                    <TooltipContent side='top'>{log.username}</TooltipContent>
                   )}
                 </Tooltip>
               </TooltipProvider>
@@ -475,7 +483,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
       if (!group) group = other?.group || ''
 
       const metaParts: string[] = []
-      const groupRatioText = getGroupRatioText(other)
+      const groupRatioText = getGroupRatioText(other, discountLabels)
       if (group) {
         metaParts.push(sensitiveVisible ? group : '••••')
       }
@@ -485,11 +493,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         <div className='flex max-w-[200px] flex-col gap-0.5'>
           <TooltipProvider delay={300}>
             <Tooltip>
-              <TooltipTrigger
-                render={
-                  <div className='max-w-full' />
-                }
-              >
+              <TooltipTrigger render={<div className='max-w-full' />}>
                 <StatusBadge
                   label={displayName}
                   icon={KeyRound}
@@ -771,7 +775,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         const log = row.original
         const other = parseLogOther(log.other)
 
-        const segments = buildDetailSegments(log, other, t)
+        const segments = buildDetailSegments(log, other, t, discountLabels)
         const primary = segments[0]
         const hasMore = segments.length > 1
 

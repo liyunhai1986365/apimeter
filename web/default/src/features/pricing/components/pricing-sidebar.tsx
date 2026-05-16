@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -149,6 +150,7 @@ function FilterSection(props: FilterSectionProps) {
 
 export function PricingSidebar(props: PricingSidebarProps) {
   const { t } = useTranslation()
+  const discountLabels = useGroupDiscountLabels()
   const quotaTypeLabels = getQuotaTypeLabels(t)
   const endpointTypeLabels = getEndpointTypeLabels(t)
 
@@ -179,7 +181,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
     ...props.groups.map((group) => ({
       value: group,
       label: group,
-      suffix: formatGroupDiscount(props.groupRatios?.[group]),
+      suffix: formatGroupDiscount(props.groupRatios?.[group], discountLabels),
     })),
   ]
 

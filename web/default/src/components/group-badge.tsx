@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { StatusBadge, type StatusBadgeProps } from './status-badge'
 
 type GroupBadgeProps = Omit<
@@ -55,6 +56,7 @@ function getGroupLabel(params: {
 
 export function GroupBadge(props: GroupBadgeProps) {
   const { t } = useTranslation()
+  const discountLabels = useGroupDiscountLabels()
   const {
     group,
     label: labelOverride,
@@ -100,7 +102,7 @@ export function GroupBadge(props: GroupBadgeProps) {
         )}
       >
         <span className='size-1 rounded-full bg-current opacity-60' />
-        <span>{formatGroupDiscount(ratio)}</span>
+        <span>{formatGroupDiscount(ratio, discountLabels)}</span>
       </span>
     </span>
   )

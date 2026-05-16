@@ -36,6 +36,7 @@ import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -137,6 +138,7 @@ function BillingBreakdown(props: {
   isAdmin: boolean
 }) {
   const { t } = useTranslation()
+  const discountLabels = useGroupDiscountLabels()
   const { log, other, isAdmin } = props
   const isPerCall = isPerCallBilling(other.model_price)
   const isClaude = other.claude === true
@@ -202,7 +204,7 @@ function BillingBreakdown(props: {
   if (effectiveGR != null && Number.isFinite(effectiveGR)) {
     rows.push({
       label: isUserGR ? t('User Exclusive Discount') : t('Group Discount'),
-      value: formatGroupDiscount(effectiveGR) ?? '-',
+      value: formatGroupDiscount(effectiveGR, discountLabels) ?? '-',
     })
   }
 

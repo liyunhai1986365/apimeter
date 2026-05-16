@@ -19,9 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 import { memo } from 'react'
 import { Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { getLowestGroupDiscountSummary } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { StatusBadge } from '@/components/status-badge'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import {
@@ -47,6 +49,7 @@ export interface ModelCardProps {
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const { t } = useTranslation()
   const { copyToClipboard } = useCopyToClipboard()
+  const discountLabels = useGroupDiscountLabels()
   const tokenUnit = props.tokenUnit ?? DEFAULT_TOKEN_UNIT
   const priceRate = props.priceRate ?? 1
   const usdExchangeRate = props.usdExchangeRate ?? 1
@@ -74,12 +77,14 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       })
     : null
 
-  const primaryGroup = groups[0]
+  const groupDiscountSummary = getLowestGroupDiscountSummary(
+    groups,
+    props.model.group_ratio,
+    discountLabels
+  )
   const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
   const hiddenCount =
-    Math.max(groups.length - 1, 0) +
-    Math.max(endpoints.length - 2, 0) +
-    Math.max(tags.length - 2, 0)
+    Math.max(endpoints.length - 2, 0) + Math.max(tags.length - 2, 0)
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -115,7 +120,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             )}
           </div>
           <div className='min-w-0'>
-            <h3 className='text-foreground break-all font-mono text-[15px] leading-snug font-bold'>
+            <h3 className='text-foreground font-mono text-[15px] leading-snug font-bold break-all'>
               {props.model.model_name}
             </h3>
             <div className='mt-0.5 flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-xs sm:mt-1 sm:gap-x-3'>
@@ -232,9 +237,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       {/* Footer: left metadata and right performance summary share row alignment */}
       <div className='mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-2 gap-y-1 sm:mt-4'>
         <div className='flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1'>
-          {primaryGroup && (
-            <span className='text-muted-foreground text-xs font-medium'>
-              {primaryGroup} {t('Groups')}
+          {groupDiscountSummary && (
+            <span className='text-foreground text-xs font-semibold'>
+              {groupDiscountSummary}
             </span>
           )}
           <span className='text-muted-foreground text-xs font-medium'>
