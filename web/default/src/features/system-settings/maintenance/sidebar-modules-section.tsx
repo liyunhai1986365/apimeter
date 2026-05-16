@@ -124,6 +124,10 @@ export function SidebarModulesSection({
         title: t('Channels'),
         description: t('Configure upstream providers and routing.'),
       },
+      supplier: {
+        title: t('Supplier Management'),
+        description: t('Manage upstream NewAPI suppliers.'),
+      },
       models: {
         title: t('Models'),
         description: t('Manage catalog visibility and pricing.'),

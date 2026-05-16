@@ -35,6 +35,7 @@ import {
   Settings2,
   Settings,
   Store,
+  Network,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
@@ -141,6 +142,11 @@ export function useSidebarData(): SidebarData {
             title: t('Channels'),
             url: '/channels',
             icon: Radio,
+          },
+          {
+            title: t('Supplier Management'),
+            url: '/suppliers',
+            icon: Network,
           },
           {
             title: t('Models'),

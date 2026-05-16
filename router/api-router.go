@@ -394,6 +394,21 @@ func SetApiRouter(router *gin.Engine) {
 			vendorRoute.DELETE("/:id", controller.DeleteVendorMeta)
 		}
 
+		newAPISupplierRoute := apiRouter.Group("/newapi_suppliers")
+		newAPISupplierRoute.Use(middleware.AdminAuth())
+		{
+			newAPISupplierRoute.GET("/", controller.GetAllNewAPISuppliers)
+			newAPISupplierRoute.GET("/search", controller.SearchNewAPISuppliers)
+			newAPISupplierRoute.GET("/:id", controller.GetNewAPISupplier)
+			newAPISupplierRoute.POST("/", controller.CreateNewAPISupplier)
+			newAPISupplierRoute.PUT("/", controller.UpdateNewAPISupplier)
+			newAPISupplierRoute.DELETE("/:id", controller.DeleteNewAPISupplier)
+			newAPISupplierRoute.POST("/:id/balance", controller.QueryNewAPISupplierBalance)
+			newAPISupplierRoute.POST("/:id/check", controller.CheckNewAPISupplier)
+			newAPISupplierRoute.POST("/:id/configure_channels", controller.ConfigureNewAPISupplierChannels)
+			newAPISupplierRoute.GET("/:id/channels", controller.ListNewAPISupplierChannels)
+		}
+
 		modelsRoute := apiRouter.Group("/models")
 		modelsRoute.Use(middleware.AdminAuth())
 		{
