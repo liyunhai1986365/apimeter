@@ -93,6 +93,23 @@ export interface ConfiguredChannel {
   created: boolean
 }
 
+export interface TestModelRequest {
+  upstream_group: string
+  model: string
+  channel_type?: number
+  endpoint_type?: string
+  stream?: boolean
+}
+
+export interface TestModelResult {
+  success: boolean
+  message?: string
+  upstream_group: string
+  model: string
+  time: number
+  error_code?: string
+}
+
 export interface PagedResponse<T> {
   success: boolean
   message?: string

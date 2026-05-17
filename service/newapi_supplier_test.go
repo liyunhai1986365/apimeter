@@ -815,6 +815,100 @@ func TestEnsureNewAPISupplierConfigureKeysFallsBackToCreatedTokenID(t *testing.T
 	assert.Contains(t, refreshed.GroupKeysJSON, `"vip":"sk-id-vip"`)
 }
 
+func TestPrepareNewAPISupplierGroupTestChannelCreatesGroupToken(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.NewAPISupplier{}, &model.NewAPISupplierChannel{}))
+	originDB := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = originDB })
+
+	supplier := &model.NewAPISupplier{
+		Name:           "upstream-a",
+		BaseURL:        "placeholder",
+		AccessToken:    "access-token",
+		UpstreamUserID: 7,
+		ChannelType:    1,
+		Tag:            "team-a",
+		ModelSource:    "pricing",
+		GroupModelsJSON: mustJSON([]NewAPISupplierGroupSnapshot{
+			{Group: "vip", Models: []string{"gpt-4o-mini", "gpt-4o"}, Source: "pricing"},
+		}),
+	}
+	require.NoError(t, supplier.Insert())
+
+	var createdPayload map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/user/self":
+			assert.Equal(t, "access-token", r.Header.Get("Authorization"))
+			assert.Equal(t, "7", r.Header.Get("New-Api-User"))
+			_, _ = w.Write([]byte(`{
+				"success": true,
+				"data": {"id": 7, "username": "upstream", "quota": 100, "used_quota": 9}
+			}`))
+		case "/api/token/":
+			if r.Method == http.MethodGet {
+				_, _ = w.Write([]byte(`{"success": true, "data": {"items": []}}`))
+				return
+			}
+			require.Equal(t, http.MethodPost, r.Method)
+			require.NoError(t, common.DecodeJson(r.Body, &createdPayload))
+			_, _ = w.Write([]byte(`{"success": true, "data": {"id": 123, "name": "vip", "key": "vip-test-key"}}`))
+		default:
+			t.Fatalf("unexpected request path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	supplier.BaseURL = server.URL
+	require.NoError(t, supplier.Update())
+
+	result, err := PrepareNewAPISupplierGroupTestChannel(context.Background(), supplier, NewAPISupplierTestModelRequest{
+		UpstreamGroup: "vip",
+		Model:         "gpt-4o",
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, result.Channel.BaseURL)
+	assert.Equal(t, server.URL, *result.Channel.BaseURL)
+	assert.Equal(t, "sk-vip-test-key", result.Channel.Key)
+	assert.Equal(t, "gpt-4o", result.Model)
+	assert.Equal(t, "gpt-4o", result.Channel.Models)
+	assert.Equal(t, "vip", result.UpstreamGroup)
+	assert.Equal(t, "vip", result.Channel.Group)
+	assert.Equal(t, "upstream-a / vip test", result.Channel.Name)
+	require.NotNil(t, result.Channel.Tag)
+	assert.Equal(t, "team-a", *result.Channel.Tag)
+	assert.Equal(t, "vip", createdPayload["group"])
+	assert.Equal(t, "gpt-4o,gpt-4o-mini", createdPayload["model_limits"])
+	refreshed, err := model.GetNewAPISupplierByID(supplier.Id)
+	require.NoError(t, err)
+	assert.Contains(t, refreshed.GroupKeysJSON, `"vip":"sk-vip-test-key"`)
+}
+
+func TestPrepareNewAPISupplierGroupTestChannelRejectsModelOutsideGroup(t *testing.T) {
+	supplier := &model.NewAPISupplier{
+		Id:              42,
+		Name:            "upstream-a",
+		BaseURL:         "https://upstream.example.com",
+		AccessToken:     "access-token",
+		UpstreamUserID:  7,
+		ModelSource:     "pricing",
+		GroupModelsJSON: `[{"group":"vip","models":["gpt-4o"],"source":"pricing"}]`,
+	}
+
+	result, err := PrepareNewAPISupplierGroupTestChannel(context.Background(), supplier, NewAPISupplierTestModelRequest{
+		UpstreamGroup: "vip",
+		Model:         "default-only",
+	})
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	assert.Contains(t, err.Error(), "不属于供应商分组")
+}
+
 func TestConfigureNewAPISupplierChannelsRejectsStaleSnapshotBeforeTokenCreation(t *testing.T) {
 	supplier := &model.NewAPISupplier{
 		Id:              42,

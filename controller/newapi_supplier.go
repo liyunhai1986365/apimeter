@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -151,6 +153,50 @@ func ConfigureNewAPISupplierChannels(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, results)
+}
+
+func TestNewAPISupplierModel(c *gin.Context) {
+	supplier, ok := getNewAPISupplierFromParam(c)
+	if !ok {
+		return
+	}
+	var req service.NewAPISupplierTestModelRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	prepared, err := service.PrepareNewAPISupplierGroupTestChannel(c.Request.Context(), supplier, req)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	tik := time.Now()
+	result := testChannel(prepared.Channel, prepared.Model, req.EndpointType, req.Stream)
+	consumedTime := float64(time.Since(tik).Milliseconds()) / 1000.0
+	resp := gin.H{
+		"upstream_group": prepared.UpstreamGroup,
+		"model":          prepared.Model,
+		"time":           consumedTime,
+	}
+	if result.localErr != nil {
+		resp["success"] = false
+		resp["message"] = result.localErr.Error()
+		if result.newAPIError != nil {
+			resp["error_code"] = result.newAPIError.GetErrorCode()
+		}
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+	if result.newAPIError != nil {
+		resp["success"] = false
+		resp["message"] = result.newAPIError.Error()
+		resp["error_code"] = result.newAPIError.GetErrorCode()
+		c.JSON(http.StatusOK, resp)
+		return
+	}
+	resp["success"] = true
+	resp["message"] = ""
+	c.JSON(http.StatusOK, resp)
 }
 
 func ListNewAPISupplierChannels(c *gin.Context) {

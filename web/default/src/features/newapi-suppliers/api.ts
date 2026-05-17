@@ -26,6 +26,8 @@ import type {
   NewAPISupplier,
   NewAPISupplierCheckResult,
   PagedResponse,
+  TestModelRequest,
+  TestModelResult,
 } from './types'
 
 export async function listNewAPISuppliers(params?: {
@@ -78,6 +80,14 @@ export async function configureNewAPISupplierChannels(
   const res = await api.post(`/api/newapi_suppliers/${id}/configure_channels`, {
     items,
   })
+  return res.data
+}
+
+export async function testNewAPISupplierModel(
+  id: number,
+  data: TestModelRequest
+): Promise<TestModelResult> {
+  const res = await api.post(`/api/newapi_suppliers/${id}/test_model`, data)
   return res.data
 }
 

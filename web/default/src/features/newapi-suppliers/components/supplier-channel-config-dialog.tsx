@@ -16,13 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { CheckCircle2, Layers3 } from 'lucide-react'
+import { CheckCircle2, Layers3, TestTube2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -46,8 +46,15 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { CHANNEL_TYPE_OPTIONS } from '@/features/channels/constants'
 import { getChannelTypeLabel } from '@/features/channels/lib/channel-utils'
-import { cn } from '@/lib/utils'
-import { configureNewAPISupplierChannels, getLocalGroups } from '../api'
+import {
+  configureNewAPISupplierChannels,
+  getLocalGroups,
+  testNewAPISupplierModel,
+} from '../api'
+import {
+  applySupplierModelTestResults,
+  type SupplierModelTestResult,
+} from '../supplier-model-test'
 import type {
   ConfigureItem,
   NewAPISupplier,
@@ -80,6 +87,14 @@ type SupplierChannelConfigDialogProps = {
   onConfigured: () => void
 }
 
+type ModelTestStatus = 'testing' | 'success' | 'error'
+
+type ModelTestState = {
+  status: ModelTestStatus
+  time?: number
+  message?: string
+}
+
 export function SupplierChannelConfigDialog({
   open,
   supplier,
@@ -94,6 +109,10 @@ export function SupplierChannelConfigDialog({
   const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>(
     {}
   )
+  const [modelTestStates, setModelTestStates] = useState<
+    Record<string, ModelTestState>
+  >({})
+  const [isTestingModels, setIsTestingModels] = useState(false)
 
   const { data: localGroupsData } = useQuery({
     queryKey: ['groups'],
@@ -127,8 +146,7 @@ export function SupplierChannelConfigDialog({
   )
 
   const selectedModelNames = useMemo(
-    () =>
-      activeGroupModels.filter((model) => Boolean(selectedModels[model])),
+    () => activeGroupModels.filter((model) => Boolean(selectedModels[model])),
     [activeGroupModels, selectedModels]
   )
 
@@ -157,6 +175,7 @@ export function SupplierChannelConfigDialog({
     setSelectedModels(
       Object.fromEntries(firstGroup.models.map((model) => [model, true]))
     )
+    setModelTestStates({})
   }, [groups, localGroupsData, open, supplier])
 
   useEffect(() => {
@@ -164,6 +183,7 @@ export function SupplierChannelConfigDialog({
     setSelectedModels(
       Object.fromEntries(activeGroup.models.map((model) => [model, true]))
     )
+    setModelTestStates({})
   }, [activeGroup, open])
 
   const configureMutation = useMutation({
@@ -213,6 +233,96 @@ export function SupplierChannelConfigDialog({
         },
       ],
     })
+  }
+
+  const testModel = () => {
+    if (!supplier || !activeGroup) return
+    const modelsToTest = activeGroupModels
+    if (modelsToTest.length === 0) {
+      toast.error(t('No models in this group'))
+      return
+    }
+    void testSelectedModels({
+      supplierId: supplier.id,
+      upstreamGroup: activeGroup.group,
+      models: modelsToTest,
+      channelType,
+    })
+  }
+
+  const testSelectedModels = async ({
+    supplierId,
+    upstreamGroup,
+    models,
+    channelType,
+  }: {
+    supplierId: number
+    upstreamGroup: string
+    models: string[]
+    channelType: number
+  }) => {
+    setIsTestingModels(true)
+    setModelTestStates((prev) => {
+      const next = { ...prev }
+      for (const model of models) {
+        next[model] = { status: 'testing' }
+      }
+      return next
+    })
+    const results: SupplierModelTestResult[] = []
+    try {
+      for (const model of models) {
+        try {
+          const res = await testNewAPISupplierModel(supplierId, {
+            upstream_group: upstreamGroup,
+            model,
+            channel_type: channelType,
+          })
+          results.push({ model, success: res.success })
+          setModelTestStates((prev) => ({
+            ...prev,
+            [model]: {
+              status: res.success ? 'success' : 'error',
+              time: res.time,
+              message: res.success ? undefined : res.message,
+            },
+          }))
+        } catch (error) {
+          results.push({ model, success: false })
+          setModelTestStates((prev) => ({
+            ...prev,
+            [model]: {
+              status: 'error',
+              message:
+                error instanceof Error ? error.message : t('Model test failed'),
+            },
+          }))
+        }
+      }
+      setSelectedModels((prev) => applySupplierModelTestResults(prev, results))
+      const failedCount = results.filter((result) => !result.success).length
+      const passedCount = results.length - failedCount
+      if (failedCount > 0) {
+        toast.error(
+          t(
+            '{{failed}} model(s) failed and were automatically deselected. {{passed}} passed.',
+            {
+              failed: failedCount,
+              passed: passedCount,
+            }
+          )
+        )
+      } else {
+        toast.success(
+          t('All {{count}} selected model(s) passed the test.', {
+            count: passedCount,
+          })
+        )
+      }
+      onConfigured()
+    } finally {
+      setIsTestingModels(false)
+    }
   }
 
   const allChecked =
@@ -342,7 +452,9 @@ export function SupplierChannelConfigDialog({
             <div className='space-y-3'>
               <div className='flex items-center justify-between gap-3'>
                 <div>
-                  <div className='font-medium'>{t('Models in Selected Group')}</div>
+                  <div className='font-medium'>
+                    {t('Models in Selected Group')}
+                  </div>
                   <div className='text-muted-foreground text-sm'>
                     {activeGroup?.group} · {activeGroupModels.length}{' '}
                     {t('Models')}
@@ -359,7 +471,7 @@ export function SupplierChannelConfigDialog({
                 <label className='flex items-center gap-2 text-sm'>
                   <Checkbox
                     checked={allChecked}
-                    disabled={activeGroupModels.length === 0}
+                    disabled={activeGroupModels.length === 0 || isTestingModels}
                     onCheckedChange={(value) => toggleAll(Boolean(value))}
                   />
                   {t('Select all models')}
@@ -371,26 +483,58 @@ export function SupplierChannelConfigDialog({
                   key={activeGroup?.group}
                   className='grid gap-2 sm:grid-cols-2 lg:grid-cols-3'
                 >
-                  {activeGroupModels.map((model) => (
-                    <label
-                      key={model}
-                      className={cn(
-                        'border-border flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-sm',
-                        selectedModels[model] && 'border-primary'
-                      )}
-                    >
-                      <Checkbox
-                        checked={Boolean(selectedModels[model])}
-                        onCheckedChange={(value) =>
-                          setSelectedModels((prev) => ({
-                            ...prev,
-                            [model]: Boolean(value),
-                          }))
-                        }
-                      />
-                      <span className='truncate'>{model}</span>
-                    </label>
-                  ))}
+                  {activeGroupModels.map((model) =>
+                    (() => {
+                      const state = modelTestStates[model]
+                      return (
+                        <label
+                          key={model}
+                          className={cn(
+                            'border-border flex min-w-0 items-center gap-2 rounded-md border px-2 py-1.5 text-sm',
+                            selectedModels[model] && 'border-primary',
+                            state?.status === 'error' && 'border-destructive',
+                            state?.status === 'success' && 'border-emerald-500'
+                          )}
+                        >
+                          <Checkbox
+                            checked={Boolean(selectedModels[model])}
+                            disabled={isTestingModels}
+                            onCheckedChange={(value) =>
+                              setSelectedModels((prev) => ({
+                                ...prev,
+                                [model]: Boolean(value),
+                              }))
+                            }
+                          />
+                          <span className='min-w-0 flex-1 truncate'>
+                            {model}
+                          </span>
+                          {state?.status === 'testing' && (
+                            <Badge variant='outline' className='shrink-0'>
+                              {t('Testing...')}
+                            </Badge>
+                          )}
+                          {state?.status === 'success' && (
+                            <Badge variant='secondary' className='shrink-0'>
+                              {t('Passed')}
+                              {typeof state.time === 'number'
+                                ? ` · ${state.time.toFixed(2)}s`
+                                : ''}
+                            </Badge>
+                          )}
+                          {state?.status === 'error' && (
+                            <Badge
+                              variant='destructive'
+                              className='max-w-[120px] shrink-0 truncate'
+                              title={state.message}
+                            >
+                              {t('Failed')}
+                            </Badge>
+                          )}
+                        </label>
+                      )
+                    })()
+                  )}
                 </div>
               ) : (
                 <div className='border-border text-muted-foreground rounded-md border border-dashed px-4 py-8 text-center text-sm'>
@@ -402,6 +546,14 @@ export function SupplierChannelConfigDialog({
         )}
 
         <DialogFooter>
+          <Button
+            onClick={testModel}
+            variant='outline'
+            disabled={activeGroupModels.length === 0 || isTestingModels}
+          >
+            <TestTube2 className='h-4 w-4' />
+            {isTestingModels ? t('Testing...') : t('Test All Models')}
+          </Button>
           <Button
             onClick={submit}
             disabled={

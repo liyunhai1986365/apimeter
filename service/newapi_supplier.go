@@ -79,6 +79,21 @@ type NewAPISupplierConfiguredChannel struct {
 	Created       bool   `json:"created"`
 }
 
+type NewAPISupplierTestModelRequest struct {
+	UpstreamGroup string `json:"upstream_group"`
+	Model         string `json:"model"`
+	ChannelType   int    `json:"channel_type"`
+	EndpointType  string `json:"endpoint_type"`
+	Stream        bool   `json:"stream"`
+}
+
+type NewAPISupplierPreparedTestChannel struct {
+	Channel       *model.Channel `json:"-"`
+	UpstreamGroup string         `json:"upstream_group"`
+	Model         string         `json:"model"`
+	Key           string         `json:"key,omitempty"`
+}
+
 type newAPIEnvelope[T any] struct {
 	Success bool   `json:"success"`
 	Message string `json:"message"`
@@ -263,6 +278,90 @@ func ConfigureNewAPISupplierChannels(ctx context.Context, supplier *model.NewAPI
 	return results, nil
 }
 
+func PrepareNewAPISupplierGroupTestChannel(ctx context.Context, supplier *model.NewAPISupplier, req NewAPISupplierTestModelRequest) (*NewAPISupplierPreparedTestChannel, error) {
+	if supplier == nil {
+		return nil, errors.New("supplier is nil")
+	}
+	supplier.Normalize()
+	upstreamGroup := strings.TrimSpace(req.UpstreamGroup)
+	if upstreamGroup == "" {
+		return nil, errors.New("供应商分组不能为空")
+	}
+	groupModels := parseNewAPISupplierGroupSnapshots(supplier.GroupModelsJSON)
+	allowedModels, ok := groupModels[upstreamGroup]
+	if !ok || len(allowedModels) == 0 {
+		return nil, fmt.Errorf("供应商分组 %s 没有模型广场模型数据，请重新检查供应商", upstreamGroup)
+	}
+	models := mapKeys(allowedModels)
+	testModel := strings.TrimSpace(req.Model)
+	if testModel == "" {
+		testModel = models[0]
+	}
+	if _, ok := allowedModels[testModel]; !ok {
+		return nil, fmt.Errorf("模型 %s 不属于供应商分组 %s，请重新检查供应商后再测试", testModel, upstreamGroup)
+	}
+	if err := ensureNewAPISupplierConfigureKeys(ctx, supplier, NewAPISupplierConfigureRequest{
+		Items: []NewAPISupplierConfigureItem{{
+			UpstreamGroup: upstreamGroup,
+			LocalGroup:    upstreamGroup,
+			Models:        models,
+			ChannelType:   req.ChannelType,
+		}},
+	}); err != nil {
+		return nil, err
+	}
+	groupKeys := parseStringMap(supplier.GroupKeysJSON)
+	key := strings.TrimSpace(groupKeys[upstreamGroup])
+	if key == "" {
+		refreshed, err := model.GetNewAPISupplierByID(supplier.Id)
+		if err != nil {
+			return nil, err
+		}
+		*supplier = *refreshed
+		groupKeys = parseStringMap(supplier.GroupKeysJSON)
+		key = strings.TrimSpace(groupKeys[upstreamGroup])
+	}
+	if key == "" {
+		return nil, fmt.Errorf("供应商分组 %s 缺少可用令牌", upstreamGroup)
+	}
+	channelType := req.ChannelType
+	if channelType == 0 {
+		channelType = supplier.ChannelType
+	}
+	if channelType == 0 {
+		channelType = constant.ChannelTypeOpenAI
+	}
+	tag := strings.TrimSpace(supplier.Tag)
+	if tag == "" {
+		tag = supplier.Name
+	}
+	baseURL := strings.TrimRight(strings.TrimSpace(supplier.BaseURL), "/")
+	if baseURL == "" {
+		return nil, errors.New("供应商 Base URL 不能为空")
+	}
+	channel := &model.Channel{
+		Type:      channelType,
+		Key:       key,
+		Status:    common.ChannelStatusEnabled,
+		Name:      fmt.Sprintf("%s / %s test", supplier.Name, upstreamGroup),
+		BaseURL:   common.GetPointer(baseURL),
+		Models:    testModel,
+		Group:     upstreamGroup,
+		Balance:   float64(supplier.Quota),
+		Tag:       common.GetPointer(tag),
+		Weight:    supplier.Weight,
+		Priority:  supplier.Priority,
+		AutoBan:   common.GetPointer(supplier.AutoBan),
+		OtherInfo: fmt.Sprintf("newapi-supplier:%d;upstream_group:%s;test_model:true", supplier.Id, upstreamGroup),
+	}
+	return &NewAPISupplierPreparedTestChannel{
+		Channel:       channel,
+		UpstreamGroup: upstreamGroup,
+		Model:         testModel,
+		Key:           key,
+	}, nil
+}
+
 func ensureNewAPISupplierConfigureKeys(ctx context.Context, supplier *model.NewAPISupplier, req NewAPISupplierConfigureRequest) error {
 	if supplier == nil {
 		return errors.New("supplier is nil")
@@ -309,6 +408,15 @@ func ensureNewAPISupplierConfigureKeys(ctx context.Context, supplier *model.NewA
 		}
 	}
 	return model.DB.Model(&model.NewAPISupplier{}).Where("id = ?", supplier.Id).Updates(update).Error
+}
+
+func mapKeys(values map[string]struct{}) []string {
+	keys := make([]string, 0, len(values))
+	for key := range values {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func CheckNewAPISupplier(ctx context.Context, supplier *model.NewAPISupplier) (*NewAPISupplierCheckResult, error) {

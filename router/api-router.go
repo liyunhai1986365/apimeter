@@ -405,6 +405,7 @@ func SetApiRouter(router *gin.Engine) {
 			newAPISupplierRoute.DELETE("/:id", controller.DeleteNewAPISupplier)
 			newAPISupplierRoute.POST("/:id/balance", controller.QueryNewAPISupplierBalance)
 			newAPISupplierRoute.POST("/:id/check", controller.CheckNewAPISupplier)
+			newAPISupplierRoute.POST("/:id/test_model", controller.TestNewAPISupplierModel)
 			newAPISupplierRoute.POST("/:id/configure_channels", controller.ConfigureNewAPISupplierChannels)
 			newAPISupplierRoute.GET("/:id/channels", controller.ListNewAPISupplierChannels)
 		}
