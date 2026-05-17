@@ -65,6 +65,12 @@ import { Textarea } from '@/components/ui/textarea'
 import { JsonEditor } from '@/components/json-editor'
 import { TagInput } from '@/components/tag-input'
 import {
+  MODEL_CATEGORIES,
+  MODEL_CATEGORY_VALUES,
+  getModelCategoryLabels,
+} from '@/features/pricing/constants'
+import type { ModelCategory } from '@/features/pricing/types'
+import {
   useSystemOptions,
   getOptionValue,
 } from '@/features/system-settings/hooks/use-system-options'
@@ -84,6 +90,7 @@ const extendedModelFormSchema = z.object({
   description: z.string(),
   icon: z.string(),
   tags: z.array(z.string()),
+  category: z.enum(MODEL_CATEGORY_VALUES),
   vendor_id: z.number().optional(),
   endpoints: z.string(),
   name_rule: z.number(),
@@ -133,6 +140,7 @@ export function ModelMutateDrawer({
   })
 
   const vendors = vendorsData?.data?.items || []
+  const categoryLabels = getModelCategoryLabels(t)
 
   // Fetch model detail if editing
   const { data: modelData } = useQuery({
@@ -205,6 +213,7 @@ export function ModelMutateDrawer({
       description: '',
       icon: '',
       tags: [],
+      category: MODEL_CATEGORIES.TEXT,
       vendor_id: undefined,
       endpoints: '',
       name_rule: 0,
@@ -264,6 +273,7 @@ export function ModelMutateDrawer({
         description: model.description || '',
         icon: model.icon || '',
         tags: parseModelTags(model.tags),
+        category: model.category || MODEL_CATEGORIES.TEXT,
         vendor_id: model.vendor_id,
         endpoints: model.endpoints || '',
         name_rule: model.name_rule || 0,
@@ -368,6 +378,7 @@ export function ModelMutateDrawer({
         description: '',
         icon: '',
         tags: [],
+        category: MODEL_CATEGORIES.TEXT,
         vendor_id: undefined,
         endpoints: '',
         name_rule: 0,
@@ -407,10 +418,14 @@ export function ModelMutateDrawer({
           audioCompletionRatio,
           ...modelData
         } = submitData
+        const payload = {
+          ...modelData,
+          category: values.category as ModelCategory,
+        }
 
         const response = isEditing
-          ? await updateModel({ ...modelData, id: currentRow!.id })
-          : await createModel(modelData)
+          ? await updateModel({ ...payload, id: currentRow!.id })
+          : await createModel(payload)
 
         if (response.success) {
           // Handle ratio configuration updates in system settings
@@ -769,6 +784,43 @@ export function ModelMutateDrawer({
                     </FormControl>
                     <FormDescription>
                       {t('Press Enter or comma to add tags')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='category'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Model Category')}</FormLabel>
+                    <Select
+                      items={MODEL_CATEGORY_VALUES.map((category) => ({
+                        value: category,
+                        label: categoryLabels[category],
+                      }))}
+                      onValueChange={field.onChange}
+                      value={field.value || MODEL_CATEGORIES.TEXT}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={t('Select category')} />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent alignItemWithTrigger={false}>
+                        <SelectGroup>
+                          {MODEL_CATEGORY_VALUES.map((category) => (
+                            <SelectItem key={category} value={category}>
+                              {categoryLabels[category]}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>
+                      {t('Used for model square category filtering.')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

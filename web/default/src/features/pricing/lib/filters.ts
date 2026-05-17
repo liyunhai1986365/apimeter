@@ -22,6 +22,7 @@ import {
   QUOTA_TYPES,
   QUOTA_TYPE_VALUES,
   ENDPOINT_TYPES,
+  MODEL_CATEGORIES,
 } from '../constants'
 import type { PricingModel } from '../types'
 
@@ -99,6 +100,17 @@ export function filterByEndpointType(
 }
 
 /**
+ * Filter models by model category
+ */
+export function filterByCategory(
+  models: PricingModel[],
+  category: string
+): PricingModel[] {
+  if (category === MODEL_CATEGORIES.ALL) return models
+  return models.filter((m) => (m.category || MODEL_CATEGORIES.TEXT) === category)
+}
+
+/**
  * Get model price for sorting
  */
 function getModelPrice(model: PricingModel): number {
@@ -142,6 +154,7 @@ export function filterAndSortModels(
     group: string
     quotaType: string
     endpointType: string
+    category: string
     tag: string
     sortBy: string
   }
@@ -151,6 +164,7 @@ export function filterAndSortModels(
   result = filterByGroup(result, filters.group)
   result = filterByQuotaType(result, filters.quotaType)
   result = filterByEndpointType(result, filters.endpointType)
+  result = filterByCategory(result, filters.category)
   result = filterByTag(result, filters.tag)
   result = sortModels(result, filters.sortBy)
 

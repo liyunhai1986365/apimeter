@@ -69,11 +69,13 @@ export interface PricingToolbarProps {
   onViewModeChange: (value: ViewMode) => void
   quotaTypeFilter: string
   endpointTypeFilter: string
+  categoryFilter: string
   vendorFilter: string
   groupFilter: string
   tagFilter: string
   onQuotaTypeChange: (value: string) => void
   onEndpointTypeChange: (value: string) => void
+  onCategoryChange: (value: string) => void
   onVendorChange: (value: string) => void
   onGroupChange: (value: string) => void
   onTagChange: (value: string) => void
@@ -274,18 +276,22 @@ export function PricingToolbar(props: PricingToolbarProps) {
           <SheetHeader className='border-b px-4 py-3 sm:px-6 sm:py-4'>
             <SheetTitle>{t('Filter')}</SheetTitle>
             <SheetDescription>
-              {t('Filter models by provider, group, type, endpoint, and tags.')}
+              {t(
+                'Filter models by provider, group, category, type, endpoint, and tags.'
+              )}
             </SheetDescription>
           </SheetHeader>
           <div className='flex-1 overflow-y-auto p-3 sm:p-4'>
             <PricingSidebar
               quotaTypeFilter={props.quotaTypeFilter}
               endpointTypeFilter={props.endpointTypeFilter}
+              categoryFilter={props.categoryFilter}
               vendorFilter={props.vendorFilter}
               groupFilter={props.groupFilter}
               tagFilter={props.tagFilter}
               onQuotaTypeChange={props.onQuotaTypeChange}
               onEndpointTypeChange={props.onEndpointTypeChange}
+              onCategoryChange={props.onCategoryChange}
               onVendorChange={props.onVendorChange}
               onGroupChange={props.onGroupChange}
               onTagChange={props.onTagChange}

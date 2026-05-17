@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
+import { MODEL_CATEGORIES } from '@/features/pricing/constants'
+import type { ModelCategory } from '@/features/pricing/types'
 import type { Model } from '../types'
 import { parseModelTags as parseTagsFromUtils } from './model-utils'
 
@@ -33,6 +35,14 @@ export const modelFormSchema = z.object({
   description: z.string().default(''),
   icon: z.string().default(''),
   tags: z.array(z.string()).default([]),
+  category: z.enum([
+    MODEL_CATEGORIES.TEXT,
+    MODEL_CATEGORIES.VECTOR,
+    MODEL_CATEGORIES.IMAGE,
+    MODEL_CATEGORIES.AUDIO,
+    MODEL_CATEGORIES.VIDEO,
+    MODEL_CATEGORIES.OTHER,
+  ] as [ModelCategory, ...ModelCategory[]]).default(MODEL_CATEGORIES.TEXT),
   vendor_id: z.number().optional(),
   endpoints: z.string().default(''),
   name_rule: z.number().min(0).max(3).default(0),
@@ -75,6 +85,7 @@ export function transformModelToFormDefaults(model: Model): ModelFormValues {
     description: model.description || '',
     icon: model.icon || '',
     tags: parseTagsFromUtils(model.tags),
+    category: model.category || MODEL_CATEGORIES.TEXT,
     vendor_id: model.vendor_id,
     endpoints: model.endpoints || '',
     name_rule: model.name_rule || 0,
@@ -97,6 +108,7 @@ export function transformFormDataToModelPayload(
     description: formData.description || '',
     icon: formData.icon || '',
     tags: formatTagsArray(formData.tags),
+    category: formData.category,
     vendor_id: formData.vendor_id,
     endpoints: formData.endpoints || '',
     name_rule: formData.name_rule,

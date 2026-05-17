@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { type TFunction } from 'i18next'
-import type { TokenUnit } from './types'
+import type { ModelCategory, TokenUnit } from './types'
 
 // ----------------------------------------------------------------------------
 // Pricing Constants
@@ -42,6 +42,44 @@ export function getSortLabels(t: TFunction): Record<SortOption, string> {
 
 /** Filter values */
 export const FILTER_ALL = 'all'
+
+/** Model category options */
+export const MODEL_CATEGORIES = {
+  ALL: 'all',
+  TEXT: 'text',
+  VECTOR: 'vector',
+  IMAGE: 'image',
+  AUDIO: 'audio',
+  VIDEO: 'video',
+  OTHER: 'other',
+} as const
+
+export const MODEL_CATEGORY_VALUES = [
+  MODEL_CATEGORIES.TEXT,
+  MODEL_CATEGORIES.VECTOR,
+  MODEL_CATEGORIES.IMAGE,
+  MODEL_CATEGORIES.AUDIO,
+  MODEL_CATEGORIES.VIDEO,
+  MODEL_CATEGORIES.OTHER,
+] as const
+
+export type ModelCategoryOption =
+  | typeof MODEL_CATEGORIES.ALL
+  | ModelCategory
+
+export function getModelCategoryLabels(
+  t: TFunction
+): Record<ModelCategoryOption, string> {
+  return {
+    [MODEL_CATEGORIES.ALL]: t('All Categories'),
+    [MODEL_CATEGORIES.TEXT]: t('Text'),
+    [MODEL_CATEGORIES.VECTOR]: t('Vector'),
+    [MODEL_CATEGORIES.IMAGE]: t('Image'),
+    [MODEL_CATEGORIES.AUDIO]: t('Audio'),
+    [MODEL_CATEGORIES.VIDEO]: t('Video'),
+    [MODEL_CATEGORIES.OTHER]: t('Other'),
+  }
+}
 
 /** Quota type options */
 export const QUOTA_TYPES = {

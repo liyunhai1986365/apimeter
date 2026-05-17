@@ -63,6 +63,7 @@ type upstreamModel struct {
 	NameRule    int             `json:"name_rule"`
 	Status      int             `json:"status"`
 	Tags        string          `json:"tags"`
+	Category    string          `json:"category"`
 	VendorName  string          `json:"vendor_name"`
 }
 
@@ -377,6 +378,7 @@ func SyncUpstreamModels(c *gin.Context) {
 			Description: up.Description,
 			Icon:        up.Icon,
 			Tags:        up.Tags,
+			Category:    up.Category,
 			VendorID:    vendorID,
 			Status:      chooseStatus(up.Status, 1),
 			NameRule:    up.NameRule,
@@ -423,6 +425,10 @@ func SyncUpstreamModels(c *gin.Context) {
 				}
 				if containsField(ow.Fields, "tags") {
 					local.Tags = up.Tags
+					needUpdate = true
+				}
+				if containsField(ow.Fields, "category") {
+					local.Category = up.Category
 					needUpdate = true
 				}
 				if containsField(ow.Fields, "vendor") {
@@ -602,6 +608,9 @@ func SyncUpstreamPreview(c *gin.Context) {
 		}
 		if strings.TrimSpace(local.Tags) != strings.TrimSpace(up.Tags) {
 			fields = append(fields, conflictField{Field: "tags", Local: local.Tags, Upstream: up.Tags})
+		}
+		if strings.TrimSpace(local.Category) != strings.TrimSpace(up.Category) {
+			fields = append(fields, conflictField{Field: "category", Local: local.Category, Upstream: up.Category})
 		}
 		// vendor 对比使用名称
 		localVendor := idToVendorName[local.VendorID]

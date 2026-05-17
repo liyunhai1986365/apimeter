@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
+import type { ModelCategory } from '@/features/pricing/types'
 
 // ============================================================================
 // Model Types
@@ -39,6 +40,7 @@ export interface Model {
   description?: string
   icon?: string
   tags?: string
+  category?: ModelCategory
   vendor_id?: number
   endpoints?: string
   status: number

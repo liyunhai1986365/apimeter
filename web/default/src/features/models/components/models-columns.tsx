@@ -32,11 +32,13 @@ import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import {
   getModelStatusConfig,
+  getModelCategoryLabels,
   getNameRuleConfig,
   getQuotaTypeConfig,
 } from '../constants'
 import { parseModelTags, formatEndpointsDisplay } from '../lib'
 import type { Model, Vendor } from '../types'
+import type { ModelCategory } from '@/features/pricing/types'
 import { DataTableRowActions } from './data-table-row-actions'
 import { DescriptionCell } from './description-cell'
 
@@ -79,6 +81,7 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
   const NAME_RULE_CONFIG = getNameRuleConfig(t)
   const MODEL_STATUS_CONFIG = getModelStatusConfig(t)
   const QUOTA_TYPE_CONFIG = getQuotaTypeConfig(t)
+  const MODEL_CATEGORY_LABELS = getModelCategoryLabels(t)
 
   const vendorMap: Record<number, Vendor> = {}
   vendors.forEach((v) => {
@@ -354,6 +357,27 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         )
       },
       size: 150,
+      enableSorting: false,
+    },
+
+    // Category column
+    {
+      accessorKey: 'category',
+      meta: { label: t('Model Category'), mobileHidden: true },
+      header: t('Model Category'),
+      cell: ({ row }) => {
+        const category = row.getValue('category') as ModelCategory | undefined
+        const value = category || 'text'
+        return (
+          <StatusBadge
+            label={MODEL_CATEGORY_LABELS[value] || value}
+            autoColor={value}
+            size='sm'
+            copyable={false}
+          />
+        )
+      },
+      size: 130,
       enableSorting: false,
     },
 

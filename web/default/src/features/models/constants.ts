@@ -17,6 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { type TFunction } from 'i18next'
+import {
+  MODEL_CATEGORY_VALUES,
+  getModelCategoryLabels,
+} from '@/features/pricing/constants'
 import type { NameRule, ModelStatus, SyncSource } from './types'
 
 // ============================================================================
@@ -88,6 +92,12 @@ export function getModelStatusConfig(
     0: { label: t('Disabled'), variant: 'neutral' },
   }
 }
+
+// ============================================================================
+// Model Category
+// ============================================================================
+
+export { MODEL_CATEGORY_VALUES, getModelCategoryLabels }
 
 // ============================================================================
 // Sync Status Options

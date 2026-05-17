@@ -31,6 +31,7 @@ export type PricingModel = {
   id: number
   model_name: string
   description?: string
+  category?: ModelCategory
   vendor_id?: number
   vendor_name?: string
   vendor_icon?: string
@@ -70,6 +71,28 @@ export type PricingModel = {
   output_modalities?: Modality[]
   capabilities?: ModelCapability[]
 }
+
+export type PricingSearchSearch = {
+  search?: string
+  sort?: string
+  vendor?: string
+  group?: string
+  quotaType?: string
+  endpointType?: string
+  category?: string
+  tag?: string
+  tokenUnit?: TokenUnit
+  view?: string
+  rechargePrice?: boolean
+}
+
+export type ModelCategory =
+  | 'text'
+  | 'vector'
+  | 'image'
+  | 'audio'
+  | 'video'
+  | 'other'
 
 /** Input/output modalities supported by a model. */
 export type Modality = 'text' | 'image' | 'audio' | 'video' | 'file'

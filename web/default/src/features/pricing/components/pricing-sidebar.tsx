@@ -33,8 +33,10 @@ import {
 import {
   ENDPOINT_TYPES,
   FILTER_ALL,
+  MODEL_CATEGORIES,
   QUOTA_TYPES,
   getEndpointTypeLabels,
+  getModelCategoryLabels,
   getQuotaTypeLabels,
 } from '../constants'
 import { parseTags } from '../lib/filters'
@@ -58,11 +60,13 @@ type FilterSectionProps = {
 export interface PricingSidebarProps {
   quotaTypeFilter: string
   endpointTypeFilter: string
+  categoryFilter: string
   vendorFilter: string
   groupFilter: string
   tagFilter: string
   onQuotaTypeChange: (value: string) => void
   onEndpointTypeChange: (value: string) => void
+  onCategoryChange: (value: string) => void
   onVendorChange: (value: string) => void
   onGroupChange: (value: string) => void
   onTagChange: (value: string) => void
@@ -153,6 +157,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
   const discountLabels = useGroupDiscountLabels()
   const quotaTypeLabels = getQuotaTypeLabels(t)
   const endpointTypeLabels = getEndpointTypeLabels(t)
+  const categoryLabels = getModelCategoryLabels(t)
 
   const vendorOptions: FilterOption[] = [
     {
@@ -238,15 +243,27 @@ export function PricingSidebar(props: PricingSidebarProps) {
       })),
   ]
 
+  const categoryOptions: FilterOption[] = [
+    {
+      value: MODEL_CATEGORIES.ALL,
+      label: categoryLabels[MODEL_CATEGORIES.ALL],
+      count: props.models.length,
+    },
+    ...Object.entries(categoryLabels)
+      .filter(([value]) => value !== MODEL_CATEGORIES.ALL)
+      .map(([value, label]) => ({
+        value,
+        label,
+        count: countBy(
+          props.models,
+          (model) => (model.category || MODEL_CATEGORIES.TEXT) === value
+        ),
+      })),
+  ]
+
   return (
     <aside className={cn('rounded-xl border p-3', props.className)}>
-      <div className='mb-2.5 flex items-center justify-between gap-2'>
-        <div>
-          <h2 className='text-foreground text-sm font-bold'>{t('Filter')}</h2>
-          <p className='text-muted-foreground mt-1 text-xs'>
-            {t('Refine models by provider, group, type, and tags.')}
-          </p>
-        </div>
+      <div className='mb-2.5 flex items-center justify-end gap-2'>
         <Button
           type='button'
           variant='ghost'
@@ -267,6 +284,12 @@ export function PricingSidebar(props: PricingSidebarProps) {
       )}
 
       <div className='space-y-1'>
+        <FilterSection
+          title={t('Model Category')}
+          value={props.categoryFilter}
+          options={categoryOptions}
+          onChange={props.onCategoryChange}
+        />
         <FilterSection
           title={t('Groups')}
           value={props.groupFilter}
