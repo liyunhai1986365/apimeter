@@ -220,6 +220,131 @@ export interface PrefillGroupsResponse {
   data?: PrefillGroup[]
 }
 
+export interface ModelMonitorWindow {
+  window: string
+  start_timestamp: number
+  end_timestamp: number
+  window_seconds: number
+}
+
+export interface ModelMonitorSummary {
+  total_requests: number
+  success_requests: number
+  error_requests: number
+  success_rate: number
+  error_rate: number
+  health_score: number
+  avg_use_time: number
+  p95_use_time: number
+  quota: number
+  tokens: number
+  affected_channels: number
+  latest_error?: string
+  latest_error_code?: string
+  latest_error_at?: number
+}
+
+export interface ModelMonitorChannel {
+  channel_id: number
+  channel_name: string
+  channel_type: number
+  channel_status: number
+  group: string
+  priority: number
+  weight: number
+  total_requests: number
+  success_requests: number
+  error_requests: number
+  success_rate: number
+  error_rate: number
+  health_score: number
+  avg_use_time: number
+  p95_use_time: number
+  quota: number
+  tokens: number
+  latest_error?: string
+  latest_error_code?: string
+  latest_error_at?: number
+  sample_status: 'no_data' | 'insufficient' | 'enough'
+}
+
+export interface ModelMonitorErrorItem {
+  channel_id: number
+  channel_name: string
+  created_at: number
+  content: string
+  error_code?: string
+  request_id?: string
+}
+
+export interface ModelMonitorData {
+  model_id: number
+  model_name: string
+  window: ModelMonitorWindow
+  summary: ModelMonitorSummary
+  channels: ModelMonitorChannel[]
+  recent_errors: ModelMonitorErrorItem[]
+  cache_hit: boolean
+}
+
+export interface ModelMonitorResponse {
+  success: boolean
+  message?: string
+  data?: ModelMonitorData
+}
+
+export interface ModelChannelTestItem {
+  id?: number
+  model_id?: number
+  model_name?: string
+  channel_id: number
+  channel_name: string
+  channel_type: number
+  success: boolean
+  message?: string
+  error_code?: string
+  response_time: number
+  endpoint_type?: string
+  is_stream?: boolean
+  created_at?: number
+}
+
+export interface ModelChannelTestResponse {
+  success: boolean
+  message?: string
+  data?: {
+    model_id: number
+    model_name: string
+    items: ModelChannelTestItem[]
+  }
+}
+
+export interface ModelMonitorListItem {
+  model_id: number
+  model_name: string
+  description?: string
+  icon?: string
+  tags?: string
+  status: number
+  summary: ModelMonitorSummary
+  configured_channels: number
+  channels: ModelMonitorChannel[]
+  latest_tests: ModelChannelTestItem[]
+}
+
+export interface ModelMonitorListResponse {
+  success: boolean
+  message?: string
+  data?: {
+    items: ModelMonitorListItem[]
+    total: number
+    page: number
+    page_size: number
+    window: ModelMonitorWindow
+    cache_hint: string
+  }
+}
+
 // ============================================================================
 // Form Data Types
 // ============================================================================

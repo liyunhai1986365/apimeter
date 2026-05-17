@@ -132,6 +132,10 @@ export function SidebarModulesSection({
         title: t('Models'),
         description: t('Manage catalog visibility and pricing.'),
       },
+      model_monitor: {
+        title: t('Model Monitor'),
+        description: t('Monitor model health and channel test results.'),
+      },
       redemption: {
         title: t('Redeem codes'),
         description: t('Create and review invite or credit codes.'),

@@ -83,8 +83,6 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           </DropdownMenuShortcut>
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator />
-
         {/* Enable/Disable */}
         <DropdownMenuItem onClick={handleToggleStatus}>
           {isEnabled ? (

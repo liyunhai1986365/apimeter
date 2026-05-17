@@ -1,14 +1,16 @@
 package controller
 
 import (
-	"encoding/json"
+	"net/http"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 
 	"github.com/gin-gonic/gin"
 )
@@ -75,6 +77,135 @@ func GetModelMeta(c *gin.Context) {
 	}
 	enrichModels([]*model.Model{&m})
 	common.ApiSuccess(c, &m)
+}
+
+func GetModelMonitor(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	result, err := service.GetModelMonitor(id, service.ModelMonitorQuery{
+		Window:         c.Query("window"),
+		StartTimestamp: startTimestamp,
+		EndTimestamp:   endTimestamp,
+		Group:          c.Query("group"),
+	}, time.Now().Unix())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, result)
+}
+
+type modelChannelTestRequest struct {
+	ChannelIDs   []int  `json:"channel_ids"`
+	EndpointType string `json:"endpoint_type"`
+	Stream       bool   `json:"stream"`
+}
+
+func TestModelChannels(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req modelChannelTestRequest
+	_ = c.ShouldBindJSON(&req)
+
+	var m model.Model
+	if err := model.DB.First(&m, "id = ?", id).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	monitor, err := service.GetModelMonitor(id, service.ModelMonitorQuery{}, time.Now().Unix())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	channelFilter := map[int]bool{}
+	for _, channelID := range req.ChannelIDs {
+		if channelID > 0 {
+			channelFilter[channelID] = true
+		}
+	}
+
+	type channelTestItem struct {
+		ChannelID    int     `json:"channel_id"`
+		ChannelName  string  `json:"channel_name"`
+		ChannelType  int     `json:"channel_type"`
+		Success      bool    `json:"success"`
+		Message      string  `json:"message,omitempty"`
+		ErrorCode    string  `json:"error_code,omitempty"`
+		ResponseTime float64 `json:"response_time"`
+	}
+
+	items := make([]channelTestItem, 0, len(monitor.Channels))
+	persisted := make([]model.ModelChannelTestResult, 0, len(monitor.Channels))
+	for _, channelInfo := range monitor.Channels {
+		if len(channelFilter) > 0 && !channelFilter[channelInfo.ChannelID] {
+			continue
+		}
+		channel, err := model.GetChannelById(channelInfo.ChannelID, true)
+		if err != nil {
+			items = append(items, channelTestItem{
+				ChannelID:   channelInfo.ChannelID,
+				ChannelName: channelInfo.ChannelName,
+				ChannelType: channelInfo.ChannelType,
+				Success:     false,
+				Message:     err.Error(),
+			})
+			continue
+		}
+		tik := time.Now()
+		result := testChannel(channel, m.ModelName, req.EndpointType, req.Stream)
+		seconds := float64(time.Since(tik).Milliseconds()) / 1000
+		item := channelTestItem{
+			ChannelID:    channel.Id,
+			ChannelName:  channel.Name,
+			ChannelType:  channel.Type,
+			Success:      result.localErr == nil && result.newAPIError == nil,
+			ResponseTime: seconds,
+		}
+		if result.localErr != nil {
+			item.Message = result.localErr.Error()
+		}
+		if result.newAPIError != nil {
+			item.Message = result.newAPIError.Error()
+			item.ErrorCode = string(result.newAPIError.GetErrorCode())
+		}
+		items = append(items, item)
+		persisted = append(persisted, model.ModelChannelTestResult{
+			ModelID:      m.Id,
+			ModelName:    m.ModelName,
+			ChannelID:    item.ChannelID,
+			ChannelName:  item.ChannelName,
+			ChannelType:  item.ChannelType,
+			Success:      item.Success,
+			Message:      item.Message,
+			ErrorCode:    item.ErrorCode,
+			ResponseTime: item.ResponseTime,
+			EndpointType: req.EndpointType,
+			IsStream:     req.Stream,
+		})
+	}
+	if err := model.InsertModelChannelTestResults(persisted); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"model_id":   m.Id,
+			"model_name": m.ModelName,
+			"items":      items,
+		},
+	})
 }
 
 // CreateModelMeta 新建模型
@@ -192,7 +323,7 @@ func enrichModels(models []*model.Model) {
 			mm := models[idx]
 			if mm.Endpoints == "" {
 				eps := model.GetModelSupportEndpointTypes(mm.ModelName)
-				if b, err := json.Marshal(eps); err == nil {
+				if b, err := common.Marshal(eps); err == nil {
 					mm.Endpoints = string(b)
 				}
 			}
@@ -282,7 +413,7 @@ func enrichModels(models []*model.Model) {
 			for et := range es {
 				eps = append(eps, et)
 			}
-			if b, err := json.Marshal(eps); err == nil {
+			if b, err := common.Marshal(eps); err == nil {
 				mm.Endpoints = string(b)
 			}
 		}

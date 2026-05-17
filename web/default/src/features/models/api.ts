@@ -29,6 +29,10 @@ import type {
   SyncUpstreamResponse,
   PreviewUpstreamDiffResponse,
   MissingModelsResponse,
+  ModelChannelTestItem,
+  ModelChannelTestResponse,
+  ModelMonitorListResponse,
+  ModelMonitorResponse,
   PrefillGroupsResponse,
   SyncLocale,
   SyncSource,
@@ -235,6 +239,55 @@ export async function applyUpstreamOverwrite(params: {
  */
 export async function getMissingModels(): Promise<MissingModelsResponse> {
   const res = await api.get('/api/models/missing')
+  return res.data
+}
+
+export async function getModelMonitor(
+  id: number,
+  params?: {
+    window?: string
+    start_timestamp?: number
+    end_timestamp?: number
+    group?: string
+  }
+): Promise<ModelMonitorResponse> {
+  const res = await api.get(`/api/models/${id}/monitor`, { params })
+  return res.data
+}
+
+export async function listModelMonitorModels(params?: {
+  keyword?: string
+  window?: string
+  p?: number
+  page_size?: number
+  start_timestamp?: number
+  end_timestamp?: number
+  group?: string
+}): Promise<ModelMonitorListResponse> {
+  const res = await api.get('/api/models/monitor', { params })
+  return res.data
+}
+
+export async function getModelChannelTestResults(
+  id: number
+): Promise<{
+  success: boolean
+  message?: string
+  data?: ModelChannelTestItem[]
+}> {
+  const res = await api.get(`/api/models/${id}/test_channels`)
+  return res.data
+}
+
+export async function testModelChannels(
+  id: number,
+  data?: {
+    channel_ids?: number[]
+    endpoint_type?: string
+    stream?: boolean
+  }
+): Promise<ModelChannelTestResponse> {
+  const res = await api.post(`/api/models/${id}/test_channels`, data || {})
   return res.data
 }
 

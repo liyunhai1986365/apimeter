@@ -36,6 +36,7 @@ import {
   Settings,
   Store,
   Network,
+  Monitor,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
@@ -152,6 +153,11 @@ export function useSidebarData(): SidebarData {
             title: t('Models'),
             url: '/models/metadata',
             icon: Box,
+          },
+          {
+            title: t('Model Monitor'),
+            url: '/model-monitor',
+            icon: Monitor,
           },
           {
             title: t('Users'),
