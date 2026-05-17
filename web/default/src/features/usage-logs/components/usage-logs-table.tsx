@@ -160,6 +160,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   }, [pageCount, ensurePageInRange])
 
   const isCommon = logCategory === 'common'
+  const usesCompactRows =
+    logCategory === 'common' || logCategory === 'channel-operations'
 
   return (
     <DataTablePage
@@ -177,7 +179,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       toolbar={
         isCommon ? (
           <CommonLogsFilterBar table={table} />
-        ) : (
+        ) : logCategory === 'channel-operations' ? null : (
           <TaskLogsFilterBar table={table} logCategory={logCategory} />
         )
       }
@@ -191,7 +193,10 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         return (
           <TableRow key={row.id} className={cn('transition-colors', tintClass)}>
             {row.getVisibleCells().map((cell) => (
-              <TableCell key={cell.id} className={isCommon ? 'py-2' : 'py-3.5'}>
+              <TableCell
+                key={cell.id}
+                className={usesCompactRows ? 'py-2' : 'py-3.5'}
+              >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>
             ))}

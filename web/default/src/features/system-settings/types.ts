@@ -287,6 +287,9 @@ export type OperationsSettings = {
   AutomaticRetryStatusCodes: string
   'monitor_setting.auto_test_channel_enabled': boolean
   'monitor_setting.auto_test_channel_minutes': number
+  'monitor_setting.channel_auto_operation_enabled': boolean
+  'monitor_setting.channel_auto_operation_threshold': number
+  'monitor_setting.channel_auto_operation_window_minutes': number
   SMTPServer: string
   SMTPPort: string
   SMTPAccount: string

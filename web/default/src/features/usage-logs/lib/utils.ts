@@ -26,6 +26,7 @@ import {
   getUserMidjourneyLogs,
   getAllTaskLogs,
   getUserTaskLogs,
+  getChannelOperationRecords,
 } from '../api'
 import {
   LOG_TYPES,
@@ -263,6 +264,26 @@ export async function fetchLogsByCategory(
       isAdmin,
     })
     return isAdmin ? await getAllLogs(params) : await getUserLogs(params)
+  }
+
+  if (logCategory === 'channel-operations') {
+    const baseParams = buildBaseParams({
+      page,
+      pageSize,
+      searchParams,
+    })
+    return await getChannelOperationRecords({
+      p: baseParams.p,
+      page_size: baseParams.page_size,
+      channel: baseParams.channel_id
+        ? Number(baseParams.channel_id) || undefined
+        : undefined,
+      start_timestamp: baseParams.start_timestamp,
+      end_timestamp: baseParams.end_timestamp,
+      model_name: searchParams.model
+        ? String(searchParams.model)
+        : undefined,
+    })
   }
 
   // For drawing and task logs

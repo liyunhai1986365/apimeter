@@ -15,6 +15,36 @@ func formatNotifyType(channelId int, status int) string {
 	return fmt.Sprintf("%s_%d_%d", dto.NotifyTypeChannelUpdate, channelId, status)
 }
 
+func formatChannelStatusChangeContent(channelName string, channelId int, action string, reason string) string {
+	content := fmt.Sprintf("渠道状态变更：通道「%s」（#%d）已被%s", channelName, channelId, action)
+	if strings.TrimSpace(reason) != "" {
+		content += fmt.Sprintf("，原因：%s", reason)
+	}
+	return content
+}
+
+func recordChannelStatusChangeLog(channelName string, channelId int, action string, reason string, modelName string) string {
+	content := formatChannelStatusChangeContent(channelName, channelId, action, reason)
+	recordAction := model.ChannelOperationActionDisable
+	status := common.ChannelStatusAutoDisabled
+	if action == "启用" {
+		recordAction = model.ChannelOperationActionEnable
+		status = common.ChannelStatusEnabled
+	}
+	if err := model.RecordChannelOperation(model.ChannelOperationRecord{
+		ChannelID:   channelId,
+		ChannelName: channelName,
+		Action:      recordAction,
+		Source:      model.ChannelOperationSourceAuto,
+		Status:      status,
+		Reason:      reason,
+		ModelName:   modelName,
+	}); err != nil {
+		common.SysLog(fmt.Sprintf("failed to record channel operation: channel_id=%d, action=%s, error=%v", channelId, recordAction, err))
+	}
+	return content
+}
+
 // disable & notify
 func DisableChannel(channelError types.ChannelError, reason string) {
 	common.SysLog(fmt.Sprintf("通道「%s」（#%d）发生错误，准备禁用，原因：%s", channelError.ChannelName, channelError.ChannelId, reason))
@@ -28,7 +58,7 @@ func DisableChannel(channelError types.ChannelError, reason string) {
 	success := model.UpdateChannelStatus(channelError.ChannelId, channelError.UsingKey, common.ChannelStatusAutoDisabled, reason)
 	if success {
 		subject := fmt.Sprintf("通道「%s」（#%d）已被禁用", channelError.ChannelName, channelError.ChannelId)
-		content := fmt.Sprintf("通道「%s」（#%d）已被禁用，原因：%s", channelError.ChannelName, channelError.ChannelId, reason)
+		content := recordChannelStatusChangeLog(channelError.ChannelName, channelError.ChannelId, "禁用", reason, "")
 		NotifyRootUser(formatNotifyType(channelError.ChannelId, common.ChannelStatusAutoDisabled), subject, content)
 	}
 }
@@ -37,8 +67,22 @@ func EnableChannel(channelId int, usingKey string, channelName string) {
 	success := model.UpdateChannelStatus(channelId, usingKey, common.ChannelStatusEnabled, "")
 	if success {
 		subject := fmt.Sprintf("通道「%s」（#%d）已被启用", channelName, channelId)
-		content := fmt.Sprintf("通道「%s」（#%d）已被启用", channelName, channelId)
+		content := recordChannelStatusChangeLog(channelName, channelId, "启用", "", "")
 		NotifyRootUser(formatNotifyType(channelId, common.ChannelStatusEnabled), subject, content)
+	}
+}
+
+func DisableWholeChannel(channelId int, channelName string, reason string) {
+	DisableWholeChannelForModel(channelId, channelName, reason, "")
+}
+
+func DisableWholeChannelForModel(channelId int, channelName string, reason string, modelName string) {
+	common.SysLog(fmt.Sprintf("通道「%s」（#%d）触发自动运营禁用，原因：%s", channelName, channelId, reason))
+	success := model.UpdateWholeChannelStatus(channelId, common.ChannelStatusAutoDisabled, reason)
+	if success {
+		subject := fmt.Sprintf("通道「%s」（#%d）已被禁用", channelName, channelId)
+		content := recordChannelStatusChangeLog(channelName, channelId, "禁用", reason, modelName)
+		NotifyRootUser(formatNotifyType(channelId, common.ChannelStatusAutoDisabled), subject, content)
 	}
 }
 

@@ -901,6 +901,14 @@ func testAllChannels(notify bool) error {
 				continue
 			}
 			isChannelEnabled := channel.Status == common.ChannelStatusEnabled
+			if isChannelEnabled {
+				if disabled, err := disableChannelByAutoOperationIfNeeded(channel); err != nil {
+					common.SysError(fmt.Sprintf("channel auto operation check failed: channel_id=%d err=%v", channel.Id, err))
+				} else if disabled {
+					time.Sleep(common.RequestInterval)
+					continue
+				}
+			}
 			tik := time.Now()
 			result := testChannel(channel, "", "", shouldUseStreamForAutomaticChannelTest(channel))
 			tok := time.Now()
@@ -908,8 +916,8 @@ func testAllChannels(notify bool) error {
 
 			shouldBanChannel := false
 			newAPIError := result.newAPIError
-			// request error disables the channel
-			if newAPIError != nil {
+			// request error disables the channel unless model-level auto operation is taking over threshold decisions
+			if newAPIError != nil && !operation_setting.GetMonitorSetting().ChannelAutoOperationEnabled {
 				shouldBanChannel = service.ShouldDisableChannel(result.newAPIError)
 			}
 
@@ -941,6 +949,40 @@ func testAllChannels(notify bool) error {
 		}
 	})
 	return nil
+}
+
+func disableChannelByAutoOperationIfNeeded(channel *model.Channel) (bool, error) {
+	setting := operation_setting.GetMonitorSetting()
+	if !setting.ChannelAutoOperationEnabled {
+		return false, nil
+	}
+	if setting.ChannelAutoOperationThreshold <= 0 || setting.ChannelAutoOperationWindowMins <= 0 {
+		return false, nil
+	}
+	if !channel.GetAutoBan() {
+		return false, nil
+	}
+
+	windowSeconds := int64(setting.ChannelAutoOperationWindowMins) * 60
+	stats, err := service.GetChannelModelErrorStats(channel.Id, setting.ChannelAutoOperationThreshold, windowSeconds, time.Now().Unix())
+	if err != nil {
+		return false, err
+	}
+	if len(stats) == 0 {
+		return false, nil
+	}
+
+	stat := stats[0]
+	reason := fmt.Sprintf(
+		"模型 %s 在最近 %d 分钟内错误 %d 次，达到自动运营阈值 %d；最近错误：%s",
+		stat.ModelName,
+		setting.ChannelAutoOperationWindowMins,
+		stat.ErrorCount,
+		setting.ChannelAutoOperationThreshold,
+		stat.LatestError,
+	)
+	service.DisableWholeChannelForModel(channel.Id, channel.Name, reason, stat.ModelName)
+	return true, nil
 }
 
 func TestAllChannels(c *gin.Context) {

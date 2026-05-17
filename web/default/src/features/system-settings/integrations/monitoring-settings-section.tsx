@@ -61,6 +61,15 @@ const monitoringSchema = z
         .number()
         .int()
         .min(1, 'Interval must be at least 1 minute'),
+      channel_auto_operation_enabled: z.boolean(),
+      channel_auto_operation_threshold: z.coerce
+        .number()
+        .int()
+        .min(1, 'Threshold must be at least 1'),
+      channel_auto_operation_window_minutes: z.coerce
+        .number()
+        .int()
+        .min(1, 'Window must be at least 1 minute'),
     }),
   })
   .superRefine((values, ctx) => {
@@ -105,6 +114,9 @@ type MonitoringSettingsSectionProps = {
     AutomaticRetryStatusCodes: string
     'monitor_setting.auto_test_channel_enabled': boolean
     'monitor_setting.auto_test_channel_minutes': number
+    'monitor_setting.channel_auto_operation_enabled': boolean
+    'monitor_setting.channel_auto_operation_threshold': number
+    'monitor_setting.channel_auto_operation_window_minutes': number
   }
 }
 
@@ -122,6 +134,9 @@ type NormalizedMonitoringValues = {
   AutomaticRetryStatusCodes: string
   'monitor_setting.auto_test_channel_enabled': boolean
   'monitor_setting.auto_test_channel_minutes': number
+  'monitor_setting.channel_auto_operation_enabled': boolean
+  'monitor_setting.channel_auto_operation_threshold': number
+  'monitor_setting.channel_auto_operation_window_minutes': number
 }
 
 const buildFormDefaults = (
@@ -141,6 +156,12 @@ const buildFormDefaults = (
       defaults['monitor_setting.auto_test_channel_enabled'],
     auto_test_channel_minutes:
       defaults['monitor_setting.auto_test_channel_minutes'],
+    channel_auto_operation_enabled:
+      defaults['monitor_setting.channel_auto_operation_enabled'],
+    channel_auto_operation_threshold:
+      defaults['monitor_setting.channel_auto_operation_threshold'],
+    channel_auto_operation_window_minutes:
+      defaults['monitor_setting.channel_auto_operation_window_minutes'],
   },
 })
 
@@ -164,6 +185,12 @@ const normalizeDefaults = (
     defaults['monitor_setting.auto_test_channel_enabled'],
   'monitor_setting.auto_test_channel_minutes':
     defaults['monitor_setting.auto_test_channel_minutes'],
+  'monitor_setting.channel_auto_operation_enabled':
+    defaults['monitor_setting.channel_auto_operation_enabled'],
+  'monitor_setting.channel_auto_operation_threshold':
+    defaults['monitor_setting.channel_auto_operation_threshold'],
+  'monitor_setting.channel_auto_operation_window_minutes':
+    defaults['monitor_setting.channel_auto_operation_window_minutes'],
 })
 
 const normalizeFormValues = (
@@ -186,6 +213,12 @@ const normalizeFormValues = (
     values.monitor_setting.auto_test_channel_enabled,
   'monitor_setting.auto_test_channel_minutes':
     values.monitor_setting.auto_test_channel_minutes,
+  'monitor_setting.channel_auto_operation_enabled':
+    values.monitor_setting.channel_auto_operation_enabled,
+  'monitor_setting.channel_auto_operation_threshold':
+    values.monitor_setting.channel_auto_operation_threshold,
+  'monitor_setting.channel_auto_operation_window_minutes':
+    values.monitor_setting.channel_auto_operation_window_minutes,
 })
 
 export function MonitoringSettingsSection({
@@ -211,6 +244,9 @@ export function MonitoringSettingsSection({
 
   const autoDisableStatusCodes = form.watch('AutomaticDisableStatusCodes')
   const autoRetryStatusCodes = form.watch('AutomaticRetryStatusCodes')
+  const channelAutoOperationEnabled = form.watch(
+    'monitor_setting.channel_auto_operation_enabled'
+  )
   const autoDisableParsed = useMemo(
     () => parseHttpStatusCodeRules(autoDisableStatusCodes),
     [autoDisableStatusCodes]
@@ -302,6 +338,103 @@ export function MonitoringSettingsSection({
                   </FormControl>
                   <FormDescription>
                     {t('How frequently the system tests all channels')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className='grid gap-6 md:grid-cols-3'>
+            <FormField
+              control={form.control}
+              name='monitor_setting.channel_auto_operation_enabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4 md:col-span-1'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Channel auto operations')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t(
+                        'Disable channels only after repeated model errors in the selected window'
+                      )}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='monitor_setting.channel_auto_operation_threshold'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Model error threshold')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={1}
+                      step={1}
+                      disabled={!channelAutoOperationEnabled}
+                      value={
+                        typeof field.value === 'number' &&
+                        Number.isFinite(field.value)
+                          ? field.value
+                          : ''
+                      }
+                      onChange={(event) =>
+                        field.onChange(event.target.valueAsNumber)
+                      }
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Disable the channel when one model reaches this many errors'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='monitor_setting.channel_auto_operation_window_minutes'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Error window (minutes)')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={1}
+                      step={1}
+                      disabled={!channelAutoOperationEnabled}
+                      value={
+                        typeof field.value === 'number' &&
+                        Number.isFinite(field.value)
+                          ? field.value
+                          : ''
+                      }
+                      onChange={(event) =>
+                        field.onChange(event.target.valueAsNumber)
+                      }
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Only recent errors within this window are counted')}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

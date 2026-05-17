@@ -14,7 +14,7 @@ func setupModelMonitorTestDB(t *testing.T) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.Model{}, &model.Channel{}, &model.Ability{}, &model.Log{}, &model.ModelChannelTestResult{}))
+	require.NoError(t, db.AutoMigrate(&model.Model{}, &model.Channel{}, &model.Ability{}, &model.Log{}, &model.ModelChannelTestResult{}, &model.ChannelOperationRecord{}, &model.User{}))
 
 	originDB := model.DB
 	originLogDB := model.LOG_DB
@@ -169,4 +169,142 @@ func TestListModelMonitorModelsSortsByErrorRateDescendingBeforePaging(t *testing
 	require.Equal(t, "mixed-model", result.Items[1].ModelName)
 	require.InDelta(t, 50, result.Items[1].Summary.ErrorRate, 0.01)
 	require.EqualValues(t, 3, result.Total)
+}
+
+func TestGetChannelModelErrorStatsAppliesThresholdAndWindow(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	logs := []model.Log{
+		{CreatedAt: now - 60, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "first failure"},
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "second failure"},
+		{CreatedAt: now - 40, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, Content: "success is ignored"},
+		{CreatedAt: now - 30, Type: model.LogTypeError, ModelName: "other-model", ChannelId: 11, Content: "other model failure"},
+		{CreatedAt: now - 20, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 12, Content: "other channel failure"},
+		{CreatedAt: now - 3600, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "old failure"},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	stats, err := GetChannelModelErrorStats(11, 2, 10*60, now)
+	require.NoError(t, err)
+	require.Len(t, stats, 1)
+	require.Equal(t, "gpt-test", stats[0].ModelName)
+	require.EqualValues(t, 2, stats[0].ErrorCount)
+	require.Equal(t, "second failure", stats[0].LatestError)
+	require.Equal(t, now-50, stats[0].LatestErrorAt)
+}
+
+func TestChannelOperationRecordsAreStoredSeparatelyFromLogs(t *testing.T) {
+	setupModelMonitorTestDB(t)
+
+	require.NoError(t, model.RecordChannelOperation(model.ChannelOperationRecord{
+		ChannelID:   11,
+		ChannelName: "openai-a",
+		Action:      model.ChannelOperationActionDisable,
+		Source:      model.ChannelOperationSourceAuto,
+		Reason:      "model errors reached threshold",
+		Status:      3,
+		ModelName:   "gpt-test",
+	}))
+	require.NoError(t, model.RecordChannelOperation(model.ChannelOperationRecord{
+		ChannelID:   12,
+		ChannelName: "openai-b",
+		Action:      model.ChannelOperationActionEnable,
+		Source:      model.ChannelOperationSourceAuto,
+		Status:      1,
+	}))
+
+	items, total, err := model.GetChannelOperationRecords(model.ChannelOperationRecordQuery{
+		ChannelID: 11,
+		Action:    model.ChannelOperationActionDisable,
+		Page:      1,
+		PageSize:  20,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Len(t, items, 1)
+	require.Equal(t, "openai-a", items[0].ChannelName)
+	require.Equal(t, model.ChannelOperationActionDisable, items[0].Action)
+
+	var logCount int64
+	require.NoError(t, model.LOG_DB.Model(&model.Log{}).Count(&logCount).Error)
+	require.Zero(t, logCount)
+}
+
+func TestChannelStatusChangeUsesDedicatedOperationRecords(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.ChannelOperationRecord{}))
+	require.NoError(t, model.DB.Create(&model.Channel{
+		Id:     11,
+		Name:   "openai-a",
+		Type:   1,
+		Status: 1,
+		Models: "gpt-test",
+		Group:  "default",
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{
+		Group:     "default",
+		Model:     "gpt-test",
+		ChannelId: 11,
+		Enabled:   true,
+	}).Error)
+
+	DisableWholeChannel(11, "openai-a", "model errors reached threshold")
+
+	items, total, err := model.GetChannelOperationRecords(model.ChannelOperationRecordQuery{
+		ChannelID: 11,
+		Page:      1,
+		PageSize:  20,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Len(t, items, 1)
+	require.Equal(t, model.ChannelOperationActionDisable, items[0].Action)
+	require.Equal(t, model.ChannelOperationSourceAuto, items[0].Source)
+
+	var logCount int64
+	require.NoError(t, model.LOG_DB.Model(&model.Log{}).Count(&logCount).Error)
+	require.Zero(t, logCount)
+}
+
+func setupChannelOperationRecordTestDB(t *testing.T) {
+	t.Helper()
+	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.ChannelOperationRecord{}, &model.Log{}))
+
+	originDB := model.DB
+	originLogDB := model.LOG_DB
+	model.DB = db
+	model.LOG_DB = db
+	t.Cleanup(func() {
+		model.DB = originDB
+		model.LOG_DB = originLogDB
+	})
+}
+
+func TestGetChannelOperationRecordsFiltersByTimeActionAndChannel(t *testing.T) {
+	setupChannelOperationRecordTestDB(t)
+	now := time.Now().Unix()
+
+	records := []model.ChannelOperationRecord{
+		{ChannelID: 11, ChannelName: "openai-a", Action: model.ChannelOperationActionDisable, Source: model.ChannelOperationSourceAuto, Reason: "recent", Status: 3, CreatedAt: now - 60},
+		{ChannelID: 11, ChannelName: "openai-a", Action: model.ChannelOperationActionEnable, Source: model.ChannelOperationSourceAuto, Reason: "enabled", Status: 1, CreatedAt: now - 50},
+		{ChannelID: 12, ChannelName: "openai-b", Action: model.ChannelOperationActionDisable, Source: model.ChannelOperationSourceAuto, Reason: "other channel", Status: 3, CreatedAt: now - 40},
+		{ChannelID: 11, ChannelName: "openai-a", Action: model.ChannelOperationActionDisable, Source: model.ChannelOperationSourceAuto, Reason: "old", Status: 3, CreatedAt: now - 3600},
+	}
+	require.NoError(t, model.DB.Create(&records).Error)
+
+	items, total, err := model.GetChannelOperationRecords(model.ChannelOperationRecordQuery{
+		ChannelID:      11,
+		Action:         model.ChannelOperationActionDisable,
+		StartTimestamp: now - 120,
+		EndTimestamp:   now,
+		Page:           1,
+		PageSize:       20,
+	})
+	require.NoError(t, err)
+	require.EqualValues(t, 1, total)
+	require.Len(t, items, 1)
+	require.Equal(t, "recent", items[0].Reason)
 }

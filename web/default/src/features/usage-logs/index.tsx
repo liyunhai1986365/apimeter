@@ -47,6 +47,10 @@ const SECTION_META: Record<
     titleKey: 'Common Logs',
     descriptionKey: 'View and manage your API usage logs',
   },
+  'channel-operations': {
+    titleKey: 'Operation Records',
+    descriptionKey: 'Review automatic channel disable and enable records',
+  },
   drawing: {
     titleKey: 'Drawing Logs',
     descriptionKey: 'View and manage your drawing logs',
@@ -109,8 +113,7 @@ function UsageLogsContent() {
     [navigate]
   )
 
-  const pageMeta =
-    activeCategory === 'common' ? SECTION_META.common : SECTION_META.task
+  const pageMeta = SECTION_META[activeCategory]
   const showTaskSwitcher =
     activeCategory !== 'common' && visibleSections.length > 1
 

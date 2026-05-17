@@ -53,6 +53,7 @@ export const Route = createFileRoute('/_authenticated/usage-logs/$section')({
     // type 仅 common 使用，非 common 时清掉 URL 里的 type
     if (
       params.section !== 'common' &&
+      params.section !== 'channel-operations' &&
       Array.isArray(search?.type) &&
       (search?.type?.length ?? 0) > 0
     ) {

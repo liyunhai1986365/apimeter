@@ -28,7 +28,7 @@ import type { UsageLog } from './data/schema'
 /**
  * Log category for different log types
  */
-export type LogCategory = 'common' | 'drawing' | 'task'
+export type LogCategory = 'common' | 'channel-operations' | 'drawing' | 'task'
 
 // ============================================================================
 // Filter Types
@@ -271,11 +271,38 @@ export interface GetLogsParams {
   upstream_request_id?: string
 }
 
+export interface GetChannelOperationRecordsParams {
+  p?: number
+  page_size?: number
+  channel?: number
+  action?: string
+  source?: string
+  model_name?: string
+  start_timestamp?: number
+  end_timestamp?: number
+}
+
+export interface ChannelOperationRecord {
+  id: number
+  channel_id: number
+  channel_name: string
+  action: 'disable' | 'enable' | string
+  source: 'auto' | 'manual' | string
+  status: number
+  reason: string
+  model_name?: string
+  created_at: number
+}
+
 export interface GetLogsResponse {
   success: boolean
   message?: string
   data?: {
-    items: UsageLog[] | MidjourneyLog[] | TaskLog[]
+    items:
+      | UsageLog[]
+      | ChannelOperationRecord[]
+      | MidjourneyLog[]
+      | TaskLog[]
     total: number
     page: number
     page_size: number

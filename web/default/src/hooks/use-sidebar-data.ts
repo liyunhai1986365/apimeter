@@ -160,6 +160,11 @@ export function useSidebarData(): SidebarData {
             icon: Monitor,
           },
           {
+            title: t('Operation Records'),
+            url: '/usage-logs/channel-operations',
+            icon: FileText,
+          },
+          {
             title: t('Users'),
             url: '/users',
             icon: Users,

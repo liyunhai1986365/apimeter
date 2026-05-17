@@ -23,6 +23,7 @@ import type {
   GetLogsResponse,
   GetLogStatsParams,
   GetLogStatsResponse,
+  GetChannelOperationRecordsParams,
   GetMidjourneyLogsParams,
   GetTaskLogsParams,
   UserInfo,
@@ -82,6 +83,10 @@ export const getLogStats = (params: GetLogStatsParams = {}) =>
 export const getUserLogStats = (
   params: Omit<GetLogStatsParams, 'username' | 'channel'> = {}
 ) => fetchLogStats('/api/log', params, false)
+
+export const getChannelOperationRecords = (
+  params: GetChannelOperationRecordsParams = {}
+) => fetchLogs('/api/channel/operation_records', params, true)
 
 export async function getUserInfo(
   userId: number

@@ -427,6 +427,8 @@ export const STATIC_I18N_KEYS = [
   'API token management',
   'Usage Logs',
   'API usage records',
+  'Operation Records',
+  'Review automatic channel disable and enable records',
   'Drawing Logs',
   'Drawing task records',
   'Task Logs',

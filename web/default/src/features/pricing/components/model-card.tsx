@@ -30,7 +30,6 @@ import {
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
-import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
@@ -56,7 +55,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const showRechargePrice = props.showRechargePrice ?? false
   const isTokenBased = isTokenBasedModel(props.model)
   const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
-  const tags = parseTags(props.model.tags)
   const groups = props.model.enable_groups || []
   const endpoints = props.model.supported_endpoint_types || []
   const vendorIcon = props.model.vendor_icon
@@ -82,9 +80,8 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     props.model.group_ratio,
     discountLabels
   )
-  const bottomTags = [...endpoints.slice(0, 2), ...tags.slice(0, 2)]
-  const hiddenCount =
-    Math.max(endpoints.length - 2, 0) + Math.max(tags.length - 2, 0)
+  const visibleEndpoints = endpoints.slice(0, 2)
+  const hiddenEndpointCount = Math.max(endpoints.length - 2, 0)
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -257,7 +254,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         <ModelPerfBadge perf={props.perf} className='row-span-2 self-start' />
 
         <div className='flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 sm:gap-x-3 sm:gap-y-1'>
-          {bottomTags.map((item) => (
+          {visibleEndpoints.map((item) => (
             <span key={item} className='text-muted-foreground/70 text-xs'>
               {item}
             </span>
@@ -265,9 +262,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           <span className='text-muted-foreground/50 text-xs'>
             {tokenUnitLabel}
           </span>
-          {hiddenCount > 0 && (
+          {hiddenEndpointCount > 0 && (
             <span className='text-muted-foreground/40 text-xs'>
-              +{hiddenCount}
+              +{hiddenEndpointCount}
             </span>
           )}
         </div>

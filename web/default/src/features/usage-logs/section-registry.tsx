@@ -29,6 +29,12 @@ const USAGE_LOGS_SECTIONS = [
     build: () => null, // Content is rendered directly in the page component
   },
   {
+    id: 'channel-operations',
+    titleKey: 'Operation Records',
+    descriptionKey: 'Review automatic channel disable and enable records',
+    build: () => null, // Content is rendered directly in the page component
+  },
+  {
     id: 'drawing',
     titleKey: 'Drawing Logs',
     descriptionKey: 'View and manage your drawing logs',

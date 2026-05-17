@@ -655,6 +655,7 @@ func handlerMultiKeyUpdate(channel *Channel, usingKey string, status int, reason
 		}
 		if status == common.ChannelStatusEnabled {
 			delete(channel.ChannelInfo.MultiKeyStatusList, keyIndex)
+			channel.Status = common.ChannelStatusEnabled
 		} else {
 			channel.ChannelInfo.MultiKeyStatusList[keyIndex] = status
 			if channel.ChannelInfo.MultiKeyDisabledReason == nil {
@@ -743,6 +744,49 @@ func UpdateChannelStatus(channelId int, usingKey string, status int, reason stri
 			common.SysLog(fmt.Sprintf("failed to update channel status: channel_id=%d, status=%d, error=%v", channel.Id, status, err))
 			return false
 		}
+	}
+	return true
+}
+
+func UpdateWholeChannelStatus(channelId int, status int, reason string) bool {
+	if common.MemoryCacheEnabled {
+		CacheUpdateChannelStatus(channelId, status)
+	}
+
+	shouldUpdateAbilities := false
+	defer func() {
+		if shouldUpdateAbilities {
+			err := UpdateAbilityStatus(channelId, status == common.ChannelStatusEnabled)
+			if err != nil {
+				common.SysLog(fmt.Sprintf("failed to update ability status: channel_id=%d, error=%v", channelId, err))
+			}
+		}
+	}()
+
+	channel, err := GetChannelById(channelId, true)
+	if err != nil {
+		return false
+	}
+	if channel.Status == status {
+		return false
+	}
+
+	info := channel.GetOtherInfo()
+	info["status_reason"] = reason
+	info["status_time"] = common.GetTimestamp()
+	channel.SetOtherInfo(info)
+	channel.Status = status
+	if status == common.ChannelStatusEnabled && channel.ChannelInfo.IsMultiKey {
+		channel.ChannelInfo.MultiKeyStatusList = map[int]int{}
+		channel.ChannelInfo.MultiKeyDisabledReason = map[int]string{}
+		channel.ChannelInfo.MultiKeyDisabledTime = map[int]int64{}
+	}
+	shouldUpdateAbilities = true
+
+	err = channel.SaveWithoutKey()
+	if err != nil {
+		common.SysLog(fmt.Sprintf("failed to update whole channel status: channel_id=%d, status=%d, error=%v", channel.Id, status, err))
+		return false
 	}
 	return true
 }
