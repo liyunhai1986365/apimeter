@@ -103,9 +103,22 @@ export function useOperationRecordsColumns(): ColumnDef<ChannelOperationRecord>[
         <DataTableColumnHeader column={column} title={t('Reason')} />
       ),
       cell: ({ row }) => (
-        <span className='line-clamp-2 max-w-[520px] text-sm'>
-          {row.original.reason || '-'}
-        </span>
+        <div className='max-w-[560px] space-y-1 text-sm'>
+          <div className='line-clamp-2'>{row.original.reason || '-'}</div>
+          {(row.original.total_requests || row.original.error_requests) && (
+            <div className='text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-xs'>
+              <span>
+                {t('Requests')}: {row.original.total_requests || 0}
+              </span>
+              <span>
+                {t('Errors')}: {row.original.error_requests || 0}
+              </span>
+              <span>
+                {t('Error rate')}: {(row.original.error_rate || 0).toFixed(2)}%
+              </span>
+            </div>
+          )}
+        </div>
       ),
       meta: { label: t('Reason') },
     },

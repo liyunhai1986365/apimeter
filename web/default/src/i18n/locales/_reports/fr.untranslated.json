@@ -1,6 +1,7 @@
 {
   "acknowledge the related legal risks": "acknowledge the related legal risks",
   "Confirm and enable": "Confirm and enable",
+  "Disable only when the model error rate reaches this percentage": "Disable only when the model error rate reaches this percentage",
   "Each tier supports up to 2 conditions. The last tier without conditions is the fallback.": "Each tier supports up to 2 conditions. The last tier without conditions is the fallback.",
   "Failed to confirm compliance": "Failed to confirm compliance",
   "I have read and understood the above compliance reminder": "I have read and understood the above compliance reminder",

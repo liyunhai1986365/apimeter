@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -190,8 +191,107 @@ func TestGetChannelModelErrorStatsAppliesThresholdAndWindow(t *testing.T) {
 	require.Len(t, stats, 1)
 	require.Equal(t, "gpt-test", stats[0].ModelName)
 	require.EqualValues(t, 2, stats[0].ErrorCount)
+	require.EqualValues(t, 3, stats[0].TotalRequests)
+	require.InDelta(t, 66.67, stats[0].ErrorRate, 0.01)
 	require.Equal(t, "second failure", stats[0].LatestError)
 	require.Equal(t, now-50, stats[0].LatestErrorAt)
+}
+
+func TestGetChannelModelErrorStatsRequiresMinimumRequestsAndErrorRate(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	logs := []model.Log{
+		{CreatedAt: now - 60, Type: model.LogTypeError, ModelName: "low-volume", ChannelId: 11, Content: "failure"},
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "low-rate", ChannelId: 11, Content: "first failure"},
+		{CreatedAt: now - 45, Type: model.LogTypeError, ModelName: "low-rate", ChannelId: 11, Content: "second failure"},
+		{CreatedAt: now - 44, Type: model.LogTypeConsume, ModelName: "low-rate", ChannelId: 11},
+		{CreatedAt: now - 43, Type: model.LogTypeConsume, ModelName: "low-rate", ChannelId: 11},
+		{CreatedAt: now - 42, Type: model.LogTypeConsume, ModelName: "low-rate", ChannelId: 11},
+		{CreatedAt: now - 41, Type: model.LogTypeConsume, ModelName: "low-rate", ChannelId: 11},
+		{CreatedAt: now - 40, Type: model.LogTypeError, ModelName: "bad-model", ChannelId: 11, Content: "first bad failure"},
+		{CreatedAt: now - 35, Type: model.LogTypeError, ModelName: "bad-model", ChannelId: 11, Content: "second bad failure"},
+		{CreatedAt: now - 30, Type: model.LogTypeConsume, ModelName: "bad-model", ChannelId: 11},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	stats, err := GetChannelModelErrorStats(ChannelModelErrorStatsQuery{
+		ChannelID:        11,
+		Threshold:        2,
+		WindowSeconds:    10 * 60,
+		Now:              now,
+		MinRequests:      3,
+		ErrorRatePercent: 50,
+	})
+	require.NoError(t, err)
+	require.Len(t, stats, 1)
+	require.Equal(t, "bad-model", stats[0].ModelName)
+	require.EqualValues(t, 3, stats[0].TotalRequests)
+	require.InDelta(t, 66.67, stats[0].ErrorRate, 0.01)
+}
+
+func TestCanDisableChannelForModelProtectsLastAvailableChannel(t *testing.T) {
+	setupModelMonitorTestDB(t)
+
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Name: "primary", Type: 1, Status: common.ChannelStatusEnabled, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 11, Enabled: true}).Error)
+
+	ok, err := CanDisableChannelForModel(11, "gpt-test", "default")
+	require.NoError(t, err)
+	require.False(t, ok)
+
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 12, Name: "secondary", Type: 1, Status: common.ChannelStatusEnabled, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 12, Enabled: true}).Error)
+
+	ok, err = CanDisableChannelForModel(11, "gpt-test", "default")
+	require.NoError(t, err)
+	require.True(t, ok)
+}
+
+func TestCanDisableWholeChannelProtectsEveryModel(t *testing.T) {
+	setupModelMonitorTestDB(t)
+
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Name: "primary", Type: 1, Status: common.ChannelStatusEnabled, Models: "gpt-test,solo-model", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 11, Enabled: true}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "solo-model", ChannelId: 11, Enabled: true}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 12, Name: "secondary", Type: 1, Status: common.ChannelStatusEnabled, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 12, Enabled: true}).Error)
+
+	ok, missing, err := CanDisableWholeChannelPreservingModels(11)
+	require.NoError(t, err)
+	require.False(t, ok)
+	require.Equal(t, []string{"default/solo-model"}, missing)
+
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 13, Name: "solo-secondary", Type: 1, Status: common.ChannelStatusEnabled, Models: "solo-model", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "solo-model", ChannelId: 13, Enabled: true}).Error)
+
+	ok, missing, err = CanDisableWholeChannelPreservingModels(11)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Empty(t, missing)
+}
+
+func TestFindAutoEnableCandidateChannelsMatchesModelAndGroup(t *testing.T) {
+	setupModelMonitorTestDB(t)
+
+	lowPriority := int64(1)
+	highPriority := int64(10)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Name: "failed", Type: 1, Status: common.ChannelStatusEnabled, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 12, Name: "candidate-low", Type: 1, Status: common.ChannelStatusAutoDisabled, Models: "gpt-test", Group: "default", Priority: &lowPriority}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 13, Name: "wrong-model", Type: 1, Status: common.ChannelStatusAutoDisabled, Models: "other-model", Group: "default", Priority: &highPriority}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 14, Name: "manual", Type: 1, Status: common.ChannelStatusManuallyDisabled, Models: "gpt-test", Group: "default", Priority: &highPriority}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 15, Name: "wrong-group", Type: 1, Status: common.ChannelStatusAutoDisabled, Models: "gpt-test", Group: "vip", Priority: &highPriority}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 16, Name: "candidate-high", Type: 1, Status: common.ChannelStatusAutoDisabled, Models: "gpt-test", Group: "default", Priority: &highPriority}).Error)
+
+	candidates, err := FindAutoEnableCandidateChannels(AutoEnableCandidateQuery{
+		FailedChannelID: 11,
+		ModelName:       "gpt-test",
+		Group:           "default",
+	})
+	require.NoError(t, err)
+	require.Len(t, candidates, 2)
+	require.EqualValues(t, 16, candidates[0].Id)
+	require.EqualValues(t, 12, candidates[1].Id)
 }
 
 func TestChannelOperationRecordsAreStoredSeparatelyFromLogs(t *testing.T) {

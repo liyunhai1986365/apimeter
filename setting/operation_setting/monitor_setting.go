@@ -8,20 +8,26 @@ import (
 )
 
 type MonitorSetting struct {
-	AutoTestChannelEnabled         bool    `json:"auto_test_channel_enabled"`
-	AutoTestChannelMinutes         float64 `json:"auto_test_channel_minutes"`
-	ChannelAutoOperationEnabled    bool    `json:"channel_auto_operation_enabled"`
-	ChannelAutoOperationThreshold  int     `json:"channel_auto_operation_threshold"`
-	ChannelAutoOperationWindowMins int     `json:"channel_auto_operation_window_minutes"`
+	AutoTestChannelEnabled          bool    `json:"auto_test_channel_enabled"`
+	AutoTestChannelMinutes          float64 `json:"auto_test_channel_minutes"`
+	ChannelAutoOperationEnabled     bool    `json:"channel_auto_operation_enabled"`
+	ChannelAutoOperationThreshold   int     `json:"channel_auto_operation_threshold"`
+	ChannelAutoOperationWindowMins  int     `json:"channel_auto_operation_window_minutes"`
+	ChannelAutoOperationMinRequests int     `json:"channel_auto_operation_min_requests"`
+	ChannelAutoOperationErrorRate   float64 `json:"channel_auto_operation_error_rate"`
+	ChannelAutoOperationProtectLast bool    `json:"channel_auto_operation_protect_last"`
 }
 
 // 默认配置
 var monitorSetting = MonitorSetting{
-	AutoTestChannelEnabled:         false,
-	AutoTestChannelMinutes:         10,
-	ChannelAutoOperationEnabled:    false,
-	ChannelAutoOperationThreshold:  3,
-	ChannelAutoOperationWindowMins: 10,
+	AutoTestChannelEnabled:          false,
+	AutoTestChannelMinutes:          10,
+	ChannelAutoOperationEnabled:     false,
+	ChannelAutoOperationThreshold:   3,
+	ChannelAutoOperationWindowMins:  10,
+	ChannelAutoOperationMinRequests: 5,
+	ChannelAutoOperationErrorRate:   50,
+	ChannelAutoOperationProtectLast: true,
 }
 
 func init() {

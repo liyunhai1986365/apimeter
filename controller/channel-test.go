@@ -964,25 +964,154 @@ func disableChannelByAutoOperationIfNeeded(channel *model.Channel) (bool, error)
 	}
 
 	windowSeconds := int64(setting.ChannelAutoOperationWindowMins) * 60
-	stats, err := service.GetChannelModelErrorStats(channel.Id, setting.ChannelAutoOperationThreshold, windowSeconds, time.Now().Unix())
+	stats, err := service.GetChannelModelErrorStats(service.ChannelModelErrorStatsQuery{
+		ChannelID:        channel.Id,
+		Threshold:        setting.ChannelAutoOperationThreshold,
+		WindowSeconds:    windowSeconds,
+		Now:              time.Now().Unix(),
+		MinRequests:      setting.ChannelAutoOperationMinRequests,
+		ErrorRatePercent: setting.ChannelAutoOperationErrorRate,
+	})
 	if err != nil {
 		return false, err
 	}
-	if len(stats) == 0 {
-		return false, nil
+	for _, stat := range stats {
+		group := inferChannelAutoOperationGroup(channel, stat.ModelName)
+		canDisable := true
+		if setting.ChannelAutoOperationProtectLast {
+			canDisable, err = service.CanDisableChannelForModel(channel.Id, stat.ModelName, group)
+			if err != nil {
+				return false, err
+			}
+		}
+		if !canDisable {
+			operationGroupID := service.BuildChannelAutoOperationGroupID(channel.Id, stat.ModelName, stat.LatestErrorAt)
+			enabled, enableErr := tryEnableAutoOperationStandbyChannel(channel, stat, group, operationGroupID, windowSeconds)
+			if enableErr != nil {
+				common.SysError(fmt.Sprintf("channel auto operation standby check failed: channel_id=%d model=%s err=%v", channel.Id, stat.ModelName, enableErr))
+			}
+			if enabled {
+				canDisable, err = service.CanDisableChannelForModel(channel.Id, stat.ModelName, group)
+				if err != nil {
+					return false, err
+				}
+			}
+		}
+		if !canDisable {
+			common.SysLog(fmt.Sprintf("skip channel auto disable to keep model available: channel_id=%d model=%s group=%s", channel.Id, stat.ModelName, group))
+			continue
+		}
+		operationGroupID := service.BuildChannelAutoOperationGroupID(channel.Id, stat.ModelName, stat.LatestErrorAt)
+		canDisableWhole, missingKeys, err := service.CanDisableWholeChannelPreservingModels(channel.Id)
+		if err != nil {
+			return false, err
+		}
+		if !canDisableWhole {
+			tryEnableMissingModelStandbyChannels(channel, stat, missingKeys, operationGroupID, windowSeconds)
+			canDisableWhole, missingKeys, err = service.CanDisableWholeChannelPreservingModels(channel.Id)
+			if err != nil {
+				return false, err
+			}
+		}
+		if !canDisableWhole {
+			common.SysLog(fmt.Sprintf("skip channel auto disable to keep every model available: channel_id=%d missing=%s", channel.Id, strings.Join(missingKeys, ",")))
+			continue
+		}
+		reason := service.BuildChannelAutoDisableReason(stat, setting.ChannelAutoOperationWindowMins, setting.ChannelAutoOperationThreshold)
+		service.DisableWholeChannelForModelWithMeta(
+			channel.Id,
+			channel.Name,
+			reason,
+			stat.ModelName,
+			service.BuildChannelAutoOperationRecordMeta(stat, operationGroupID, 0, windowSeconds),
+		)
+		return true, nil
 	}
+	return false, nil
+}
 
-	stat := stats[0]
-	reason := fmt.Sprintf(
-		"模型 %s 在最近 %d 分钟内错误 %d 次，达到自动运营阈值 %d；最近错误：%s",
-		stat.ModelName,
-		setting.ChannelAutoOperationWindowMins,
-		stat.ErrorCount,
-		setting.ChannelAutoOperationThreshold,
-		stat.LatestError,
-	)
-	service.DisableWholeChannelForModel(channel.Id, channel.Name, reason, stat.ModelName)
-	return true, nil
+func inferChannelAutoOperationGroup(channel *model.Channel, modelName string) string {
+	groups := channel.GetGroups()
+	if len(groups) == 1 {
+		return groups[0]
+	}
+	var latest model.Log
+	err := model.LOG_DB.Model(&model.Log{}).
+		Where("channel_id = ? AND model_name = ? AND "+model.CommonLogGroupCol()+" <> ?", channel.Id, modelName, "").
+		Order("created_at DESC, id DESC").
+		First(&latest).Error
+	if err == nil {
+		return latest.Group
+	}
+	if len(groups) > 0 {
+		return groups[0]
+	}
+	return ""
+}
+
+func tryEnableMissingModelStandbyChannels(failedChannel *model.Channel, stat service.ChannelModelErrorStats, missingKeys []string, operationGroupID string, windowSeconds int64) {
+	for _, key := range missingKeys {
+		group, modelName := service.ParseModelGroupKey(key)
+		if strings.TrimSpace(modelName) == "" {
+			continue
+		}
+		missingStat := stat
+		missingStat.ModelName = modelName
+		if _, err := tryEnableAutoOperationStandbyChannel(failedChannel, missingStat, group, operationGroupID, windowSeconds); err != nil {
+			common.SysError(fmt.Sprintf("channel auto operation missing model standby check failed: channel_id=%d model=%s group=%s err=%v", failedChannel.Id, modelName, group, err))
+		}
+	}
+}
+
+func tryEnableAutoOperationStandbyChannel(failedChannel *model.Channel, stat service.ChannelModelErrorStats, group string, operationGroupID string, windowSeconds int64) (bool, error) {
+	candidates, err := service.FindAutoEnableCandidateChannels(service.AutoEnableCandidateQuery{
+		FailedChannelID: failedChannel.Id,
+		ModelName:       stat.ModelName,
+		Group:           group,
+	})
+	if err != nil {
+		return false, err
+	}
+	for _, candidate := range candidates {
+		result := testChannel(candidate, stat.ModelName, "", shouldUseStreamForAutomaticChannelTest(candidate))
+		if result.newAPIError != nil || result.localErr != nil {
+			reason := fmt.Sprintf("备用渠道测试失败，模型 %s 未自动启用", stat.ModelName)
+			if result.localErr != nil {
+				reason += "：" + result.localErr.Error()
+			}
+			if result.newAPIError != nil {
+				reason += "：" + result.newAPIError.Error()
+			}
+			common.SysLog(fmt.Sprintf("channel auto operation standby test failed: channel_id=%d model=%s reason=%s", candidate.Id, stat.ModelName, reason))
+			success := false
+			_ = model.RecordChannelOperation(model.ChannelOperationRecord{
+				ChannelID:        candidate.Id,
+				ChannelName:      candidate.Name,
+				Action:           model.ChannelOperationActionEnable,
+				Source:           model.ChannelOperationSourceAuto,
+				Status:           candidate.Status,
+				Reason:           reason,
+				ModelName:        stat.ModelName,
+				TargetChannelID:  failedChannel.Id,
+				OperationGroupID: operationGroupID,
+				WindowSeconds:    windowSeconds,
+				TotalRequests:    stat.TotalRequests,
+				ErrorRequests:    stat.ErrorCount,
+				ErrorRate:        stat.ErrorRate,
+				Success:          success,
+			})
+			continue
+		}
+		service.EnableChannelForModel(
+			candidate.Id,
+			common.GetContextKeyString(result.context, constant.ContextKeyChannelKey),
+			candidate.Name,
+			stat.ModelName,
+			service.BuildChannelAutoOperationRecordMeta(stat, operationGroupID, failedChannel.Id, windowSeconds),
+		)
+		return true, nil
+	}
+	return false, nil
 }
 
 func TestAllChannels(c *gin.Context) {

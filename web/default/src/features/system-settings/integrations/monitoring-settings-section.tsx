@@ -70,6 +70,15 @@ const monitoringSchema = z
         .number()
         .int()
         .min(1, 'Window must be at least 1 minute'),
+      channel_auto_operation_min_requests: z.coerce
+        .number()
+        .int()
+        .min(1, 'Minimum requests must be at least 1'),
+      channel_auto_operation_error_rate: z.coerce
+        .number()
+        .min(1, 'Error rate must be at least 1')
+        .max(100, 'Error rate cannot exceed 100'),
+      channel_auto_operation_protect_last: z.boolean(),
     }),
   })
   .superRefine((values, ctx) => {
@@ -117,6 +126,9 @@ type MonitoringSettingsSectionProps = {
     'monitor_setting.channel_auto_operation_enabled': boolean
     'monitor_setting.channel_auto_operation_threshold': number
     'monitor_setting.channel_auto_operation_window_minutes': number
+    'monitor_setting.channel_auto_operation_min_requests': number
+    'monitor_setting.channel_auto_operation_error_rate': number
+    'monitor_setting.channel_auto_operation_protect_last': boolean
   }
 }
 
@@ -137,6 +149,9 @@ type NormalizedMonitoringValues = {
   'monitor_setting.channel_auto_operation_enabled': boolean
   'monitor_setting.channel_auto_operation_threshold': number
   'monitor_setting.channel_auto_operation_window_minutes': number
+  'monitor_setting.channel_auto_operation_min_requests': number
+  'monitor_setting.channel_auto_operation_error_rate': number
+  'monitor_setting.channel_auto_operation_protect_last': boolean
 }
 
 const buildFormDefaults = (
@@ -162,6 +177,12 @@ const buildFormDefaults = (
       defaults['monitor_setting.channel_auto_operation_threshold'],
     channel_auto_operation_window_minutes:
       defaults['monitor_setting.channel_auto_operation_window_minutes'],
+    channel_auto_operation_min_requests:
+      defaults['monitor_setting.channel_auto_operation_min_requests'],
+    channel_auto_operation_error_rate:
+      defaults['monitor_setting.channel_auto_operation_error_rate'],
+    channel_auto_operation_protect_last:
+      defaults['monitor_setting.channel_auto_operation_protect_last'],
   },
 })
 
@@ -191,6 +212,12 @@ const normalizeDefaults = (
     defaults['monitor_setting.channel_auto_operation_threshold'],
   'monitor_setting.channel_auto_operation_window_minutes':
     defaults['monitor_setting.channel_auto_operation_window_minutes'],
+  'monitor_setting.channel_auto_operation_min_requests':
+    defaults['monitor_setting.channel_auto_operation_min_requests'],
+  'monitor_setting.channel_auto_operation_error_rate':
+    defaults['monitor_setting.channel_auto_operation_error_rate'],
+  'monitor_setting.channel_auto_operation_protect_last':
+    defaults['monitor_setting.channel_auto_operation_protect_last'],
 })
 
 const normalizeFormValues = (
@@ -219,6 +246,12 @@ const normalizeFormValues = (
     values.monitor_setting.channel_auto_operation_threshold,
   'monitor_setting.channel_auto_operation_window_minutes':
     values.monitor_setting.channel_auto_operation_window_minutes,
+  'monitor_setting.channel_auto_operation_min_requests':
+    values.monitor_setting.channel_auto_operation_min_requests,
+  'monitor_setting.channel_auto_operation_error_rate':
+    values.monitor_setting.channel_auto_operation_error_rate,
+  'monitor_setting.channel_auto_operation_protect_last':
+    values.monitor_setting.channel_auto_operation_protect_last,
 })
 
 export function MonitoringSettingsSection({
@@ -437,6 +470,99 @@ export function MonitoringSettingsSection({
                     {t('Only recent errors within this window are counted')}
                   </FormDescription>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='monitor_setting.channel_auto_operation_min_requests'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Minimum requests')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={1}
+                      step={1}
+                      disabled={!channelAutoOperationEnabled}
+                      value={
+                        typeof field.value === 'number' &&
+                        Number.isFinite(field.value)
+                          ? field.value
+                          : ''
+                      }
+                      onChange={(event) =>
+                        field.onChange(event.target.valueAsNumber)
+                      }
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Ignore low-volume models until this many requests exist')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='monitor_setting.channel_auto_operation_error_rate'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Error rate threshold (%)')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={1}
+                      max={100}
+                      step={1}
+                      disabled={!channelAutoOperationEnabled}
+                      value={
+                        typeof field.value === 'number' &&
+                        Number.isFinite(field.value)
+                          ? field.value
+                          : ''
+                      }
+                      onChange={(event) =>
+                        field.onChange(event.target.valueAsNumber)
+                      }
+                      name={field.name}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('Disable only when the model error rate reaches this percentage')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='monitor_setting.channel_auto_operation_protect_last'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Protect last channel')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('Keep at least one available channel for each model')}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      disabled={!channelAutoOperationEnabled}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
                 </FormItem>
               )}
             />

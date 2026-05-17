@@ -291,6 +291,14 @@ export interface ChannelOperationRecord {
   status: number
   reason: string
   model_name?: string
+  target_channel_id?: number
+  operation_group_id?: string
+  window_seconds?: number
+  total_requests?: number
+  error_requests?: number
+  error_rate?: number
+  success?: boolean
+  extra?: string
   created_at: number
 }
 

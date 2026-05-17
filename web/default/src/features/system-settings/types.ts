@@ -290,6 +290,9 @@ export type OperationsSettings = {
   'monitor_setting.channel_auto_operation_enabled': boolean
   'monitor_setting.channel_auto_operation_threshold': number
   'monitor_setting.channel_auto_operation_window_minutes': number
+  'monitor_setting.channel_auto_operation_min_requests': number
+  'monitor_setting.channel_auto_operation_error_rate': number
+  'monitor_setting.channel_auto_operation_protect_last': boolean
   SMTPServer: string
   SMTPPort: string
   SMTPAccount: string

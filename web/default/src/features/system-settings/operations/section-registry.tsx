@@ -67,6 +67,12 @@ const OPERATIONS_SECTIONS = [
             settings['monitor_setting.channel_auto_operation_threshold'],
           'monitor_setting.channel_auto_operation_window_minutes':
             settings['monitor_setting.channel_auto_operation_window_minutes'],
+          'monitor_setting.channel_auto_operation_min_requests':
+            settings['monitor_setting.channel_auto_operation_min_requests'],
+          'monitor_setting.channel_auto_operation_error_rate':
+            settings['monitor_setting.channel_auto_operation_error_rate'],
+          'monitor_setting.channel_auto_operation_protect_last':
+            settings['monitor_setting.channel_auto_operation_protect_last'],
         }}
       />
     ),

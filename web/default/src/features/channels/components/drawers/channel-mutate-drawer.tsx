@@ -2554,6 +2554,7 @@ export function ChannelMutateDrawer({
                           </FormItem>
                         )}
                       />
+
                     </div>
 
                     <div className='space-y-4 border-t pt-4'>

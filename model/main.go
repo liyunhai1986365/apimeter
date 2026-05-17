@@ -25,6 +25,26 @@ var commonFalseVal string
 var logKeyCol string
 var logGroupCol string
 
+func CommonGroupCol() string {
+	if commonGroupCol == "" {
+		if common.UsingPostgreSQL {
+			return `"group"`
+		}
+		return "`group`"
+	}
+	return commonGroupCol
+}
+
+func CommonLogGroupCol() string {
+	if logGroupCol == "" {
+		if common.LogSqlType == common.DatabaseTypePostgreSQL || (common.LogSqlType == "" && common.UsingPostgreSQL) {
+			return `"group"`
+		}
+		return "`group`"
+	}
+	return logGroupCol
+}
+
 func initCol() {
 	// init common column names
 	if common.UsingPostgreSQL {

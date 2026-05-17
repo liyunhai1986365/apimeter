@@ -15,15 +15,23 @@ const (
 )
 
 type ChannelOperationRecord struct {
-	Id          int    `json:"id"`
-	ChannelID   int    `json:"channel_id" gorm:"index"`
-	ChannelName string `json:"channel_name" gorm:"type:varchar(128)"`
-	Action      string `json:"action" gorm:"type:varchar(32);index"`
-	Source      string `json:"source" gorm:"type:varchar(32);index"`
-	Status      int    `json:"status" gorm:"index"`
-	Reason      string `json:"reason" gorm:"type:text"`
-	ModelName   string `json:"model_name" gorm:"type:varchar(128);index"`
-	CreatedAt   int64  `json:"created_at" gorm:"bigint;index"`
+	Id               int     `json:"id"`
+	ChannelID        int     `json:"channel_id" gorm:"index"`
+	ChannelName      string  `json:"channel_name" gorm:"type:varchar(128)"`
+	Action           string  `json:"action" gorm:"type:varchar(32);index"`
+	Source           string  `json:"source" gorm:"type:varchar(32);index"`
+	Status           int     `json:"status" gorm:"index"`
+	Reason           string  `json:"reason" gorm:"type:text"`
+	ModelName        string  `json:"model_name" gorm:"type:varchar(128);index"`
+	TargetChannelID  int     `json:"target_channel_id" gorm:"index"`
+	OperationGroupID string  `json:"operation_group_id" gorm:"type:varchar(64);index"`
+	WindowSeconds    int64   `json:"window_seconds" gorm:"bigint;default:0"`
+	TotalRequests    int64   `json:"total_requests" gorm:"bigint;default:0"`
+	ErrorRequests    int64   `json:"error_requests" gorm:"bigint;default:0"`
+	ErrorRate        float64 `json:"error_rate" gorm:"default:0"`
+	Success          bool    `json:"success" gorm:"default:true"`
+	Extra            string  `json:"extra" gorm:"type:text"`
+	CreatedAt        int64   `json:"created_at" gorm:"bigint;index"`
 }
 
 type ChannelOperationRecordQuery struct {
