@@ -143,6 +143,7 @@ func BuildNewAPISupplierChannelPlans(supplier *model.NewAPISupplier, req NewAPIS
 	if tag == "" {
 		tag = supplier.Name
 	}
+	groupRatios := parseNewAPISupplierGroupRatios(supplier.GroupModelsJSON)
 	plans := make([]model.Channel, 0, len(req.Items))
 	for _, item := range req.Items {
 		upstreamGroup := strings.TrimSpace(item.UpstreamGroup)
@@ -178,7 +179,7 @@ func BuildNewAPISupplierChannelPlans(supplier *model.NewAPISupplier, req NewAPIS
 			Type:        channelType,
 			Key:         key,
 			Status:      common.ChannelStatusEnabled,
-			Name:        fmt.Sprintf("%s / %s", supplier.Name, upstreamGroup),
+			Name:        formatNewAPISupplierChannelName(upstreamGroup, groupRatios[upstreamGroup], supplier.Name),
 			BaseURL:     common.GetPointer(baseURL),
 			Models:      strings.Join(models, ","),
 			Group:       localGroup,
@@ -833,6 +834,35 @@ func parseNewAPISupplierGroupSnapshots(raw string) map[string]map[string]struct{
 		}
 	}
 	return result
+}
+
+func parseNewAPISupplierGroupRatios(raw string) map[string]string {
+	result := map[string]string{}
+	if strings.TrimSpace(raw) == "" {
+		return result
+	}
+	var snapshots []NewAPISupplierGroupSnapshot
+	if err := common.Unmarshal([]byte(raw), &snapshots); err != nil {
+		return result
+	}
+	for _, snapshot := range snapshots {
+		group := strings.TrimSpace(snapshot.Group)
+		ratio := strings.TrimSpace(snapshot.Ratio)
+		if group != "" && ratio != "" {
+			result[group] = ratio
+		}
+	}
+	return result
+}
+
+func formatNewAPISupplierChannelName(group string, ratio string, channelName string) string {
+	group = strings.TrimSpace(group)
+	ratio = strings.TrimSpace(ratio)
+	channelName = strings.TrimSpace(channelName)
+	if ratio == "" {
+		ratio = "未配置倍率"
+	}
+	return fmt.Sprintf("%s - %s - %s", group, ratio, channelName)
 }
 
 func ensureNewAPIGroupToken(ctx context.Context, client *http.Client, baseURL, accessToken string, userID int, group string, models []string) (string, error) {

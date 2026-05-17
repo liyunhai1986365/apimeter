@@ -29,8 +29,8 @@ func TestBuildNewAPISupplierChannelPlans(t *testing.T) {
 		AutoBan:     1,
 		ModelSource: "pricing",
 		GroupModelsJSON: mustJSON([]NewAPISupplierGroupSnapshot{
-			{Group: "default", Models: []string{"gpt-4o", "gpt-4o-mini"}, Source: "pricing"},
-			{Group: "vip", Models: []string{"gpt-5"}, Source: "pricing"},
+			{Group: "default", Models: []string{"gpt-4o", "gpt-4o-mini"}, Source: "pricing", Ratio: "1"},
+			{Group: "vip", Models: []string{"gpt-5"}, Source: "pricing", Ratio: "1.25"},
 		}),
 	}
 	selection := NewAPISupplierConfigureRequest{
@@ -52,7 +52,7 @@ func TestBuildNewAPISupplierChannelPlans(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, plans, 2)
-	assert.Equal(t, "upstream-a / default", plans[0].Name)
+	assert.Equal(t, "default - 1 - upstream-a", plans[0].Name)
 	require.NotNil(t, plans[0].BaseURL)
 	assert.Equal(t, "https://upstream.example.com", *plans[0].BaseURL)
 	assert.Equal(t, "sk-upstream", plans[0].Key)
@@ -64,7 +64,7 @@ func TestBuildNewAPISupplierChannelPlans(t *testing.T) {
 	assert.Equal(t, weight, *plans[0].Weight)
 	assert.Equal(t, priority, *plans[0].Priority)
 
-	assert.Equal(t, "upstream-a / vip", plans[1].Name)
+	assert.Equal(t, "vip - 1.25 - upstream-a", plans[1].Name)
 	assert.Equal(t, "premium", plans[1].Group)
 	assert.Equal(t, "gpt-5", plans[1].Models)
 	assert.Equal(t, "newapi-supplier:42;upstream_group:vip", plans[1].OtherInfo)
