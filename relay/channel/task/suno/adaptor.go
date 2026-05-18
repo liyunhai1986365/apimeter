@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -25,6 +26,8 @@ type TaskAdaptor struct {
 	taskcommon.BaseBilling
 	ChannelType int
 }
+
+const duomiFetchConcurrency = 20
 
 // ParseTaskResult is not used for Suno tasks.
 // Suno polling uses a dedicated batch-fetch path (service.UpdateSunoTasks) that
@@ -182,6 +185,9 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if isDuomiUpstream(baseUrl) {
 		return fetchDuomiTasks(baseUrl, key, body, proxy)
 	}
+	if ids := extractSunoTaskIDs(body["ids"]); len(ids) > 1 {
+		return fetchStandardSunoTasks(baseUrl, key, ids, proxy)
+	}
 	requestUrl := fmt.Sprintf("%s/suno/fetch", baseUrl)
 	byteBody, err := common.Marshal(body)
 	if err != nil {
@@ -200,6 +206,28 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
 	}
 	return client.Do(req)
+}
+
+func fetchStandardSunoTasks(baseUrl, key string, taskIDs []string, proxy string) (*http.Response, error) {
+	client, err := service.GetHttpClientWithProxy(proxy)
+	if err != nil {
+		return nil, fmt.Errorf("new proxy http client failed: %w", err)
+	}
+	items, err := fetchStandardSunoTaskItems(baseUrl, key, taskIDs, client)
+	if err != nil {
+		return nil, err
+	}
+	responseBody, err := common.Marshal(dto.TaskResponse[[]dto.SunoDataResponse]{
+		Code: dto.TaskSuccessCode,
+		Data: items,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader(responseBody)),
+	}, nil
 }
 
 func actionValidate(c *gin.Context, sunoRequest *dto.SunoSubmitReq, action string, duomi bool) (err error) {
@@ -314,39 +342,14 @@ func boolToDuomiInt(v bool) int {
 }
 
 func fetchDuomiTasks(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
-	taskIDs := extractDuomiTaskIDs(body["ids"])
-	items := make([]dto.SunoDataResponse, 0, len(taskIDs))
+	taskIDs := extractSunoTaskIDs(body["ids"])
 	client, err := service.GetHttpClientWithProxy(proxy)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
 	}
-	for _, taskID := range taskIDs {
-		req, err := http.NewRequest(http.MethodGet, buildDuomiFeedURL(baseUrl, taskID), nil)
-		if err != nil {
-			return nil, err
-		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", key)
-		resp, err := client.Do(req)
-		if err != nil {
-			return nil, err
-		}
-		responseBody, readErr := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if readErr != nil {
-			return nil, readErr
-		}
-		if resp.StatusCode != http.StatusOK {
-			return &http.Response{
-				StatusCode: resp.StatusCode,
-				Body:       io.NopCloser(bytes.NewReader(responseBody)),
-			}, nil
-		}
-		parsedItems, err := parseDuomiFetchResponse(taskID, responseBody)
-		if err != nil {
-			return nil, err
-		}
-		items = append(items, parsedItems...)
+	items, err := fetchDuomiTaskItems(baseUrl, key, taskIDs, client)
+	if err != nil {
+		return nil, err
 	}
 	responseBody, err := common.Marshal(dto.TaskResponse[[]dto.SunoDataResponse]{
 		Code: dto.TaskSuccessCode,
@@ -361,7 +364,161 @@ func fetchDuomiTasks(baseUrl, key string, body map[string]any, proxy string) (*h
 	}, nil
 }
 
-func extractDuomiTaskIDs(v any) []string {
+func fetchStandardSunoTaskItems(baseUrl, key string, taskIDs []string, client *http.Client) ([]dto.SunoDataResponse, error) {
+	return fetchSunoTaskItems(taskIDs, func(taskID string) []dto.SunoDataResponse {
+		return fetchStandardSunoTaskItem(baseUrl, key, taskID, client)
+	}), nil
+}
+
+func fetchStandardSunoTaskItem(baseUrl, key, taskID string, client *http.Client) []dto.SunoDataResponse {
+	requestUrl := fmt.Sprintf("%s/suno/fetch", strings.TrimRight(baseUrl, "/"))
+	byteBody, err := common.Marshal(map[string]any{"ids": []string{taskID}})
+	if err != nil {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, err.Error())}
+	}
+	req, err := http.NewRequest(http.MethodPost, requestUrl, bytes.NewBuffer(byteBody))
+	if err != nil {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, err.Error())}
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+key)
+	resp, err := client.Do(req)
+	if err != nil {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, err.Error())}
+	}
+	responseBody, readErr := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if readErr != nil {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, readErr.Error())}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return []dto.SunoDataResponse{buildFetchFailureItem(taskID, responseBody, resp.StatusCode)}
+	}
+	var responseItems dto.TaskResponse[[]dto.SunoDataResponse]
+	if err := common.Unmarshal(responseBody, &responseItems); err != nil {
+		return []dto.SunoDataResponse{buildFetchFailureItem(taskID, responseBody, resp.StatusCode)}
+	}
+	if !responseItems.IsSuccess() {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, responseItems.Message)}
+	}
+	if len(responseItems.Data) == 0 {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, "upstream returned empty task result")}
+	}
+	return responseItems.Data
+}
+
+func fetchDuomiTaskItems(baseUrl, key string, taskIDs []string, client *http.Client) ([]dto.SunoDataResponse, error) {
+	return fetchSunoTaskItems(taskIDs, func(taskID string) []dto.SunoDataResponse {
+		return fetchDuomiTaskItem(baseUrl, key, taskID, client)
+	}), nil
+}
+
+func fetchSunoTaskItems(taskIDs []string, fetchOne func(taskID string) []dto.SunoDataResponse) []dto.SunoDataResponse {
+	if len(taskIDs) == 0 {
+		return nil
+	}
+	workerCount := duomiFetchConcurrency
+	if len(taskIDs) < workerCount {
+		workerCount = len(taskIDs)
+	}
+
+	type fetchResult struct {
+		index int
+		items []dto.SunoDataResponse
+	}
+
+	jobs := make(chan int)
+	results := make(chan fetchResult, len(taskIDs))
+	var wg sync.WaitGroup
+	for range workerCount {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for index := range jobs {
+				taskID := taskIDs[index]
+				items := fetchOne(taskID)
+				results <- fetchResult{index: index, items: items}
+			}
+		}()
+	}
+	for index := range taskIDs {
+		jobs <- index
+	}
+	close(jobs)
+	wg.Wait()
+	close(results)
+
+	itemsByIndex := make([][]dto.SunoDataResponse, len(taskIDs))
+	for result := range results {
+		itemsByIndex[result.index] = result.items
+	}
+
+	items := make([]dto.SunoDataResponse, 0, len(taskIDs))
+	for _, resultItems := range itemsByIndex {
+		items = append(items, resultItems...)
+	}
+	return items
+}
+
+func fetchDuomiTaskItem(baseUrl, key, taskID string, client *http.Client) []dto.SunoDataResponse {
+	req, err := http.NewRequest(http.MethodGet, buildDuomiFeedURL(baseUrl, taskID), nil)
+	if err != nil {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, err.Error())}
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", key)
+	resp, err := client.Do(req)
+	if err != nil {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, err.Error())}
+	}
+	responseBody, readErr := io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if readErr != nil {
+		return []dto.SunoDataResponse{fetchFailureItem(taskID, readErr.Error())}
+	}
+	if resp.StatusCode != http.StatusOK {
+		return []dto.SunoDataResponse{buildFetchFailureItem(taskID, responseBody, resp.StatusCode)}
+	}
+	parsedItems, err := parseDuomiFetchResponse(taskID, responseBody)
+	if err != nil {
+		return []dto.SunoDataResponse{buildFetchFailureItem(taskID, responseBody, resp.StatusCode)}
+	}
+	return parsedItems
+}
+
+func buildFetchFailureItem(taskID string, responseBody []byte, statusCode int) dto.SunoDataResponse {
+	var response dto.DuomiSunoFeedResponse
+	if err := common.Unmarshal(responseBody, &response); err == nil {
+		if response.Data.TaskID != "" {
+			taskID = response.Data.TaskID
+		}
+		reason := response.Msg
+		if reason == "" {
+			reason = fmt.Sprintf("suno fetch failed with status %d", statusCode)
+		}
+		return fetchFailureItem(taskID, reason)
+	}
+	reason := strings.TrimSpace(string(responseBody))
+	if reason == "" {
+		reason = fmt.Sprintf("suno fetch failed with status %d", statusCode)
+	}
+	return fetchFailureItem(taskID, reason)
+}
+
+func fetchFailureItem(taskID, reason string) dto.SunoDataResponse {
+	if reason == "" {
+		reason = "suno task failed"
+	}
+	return dto.SunoDataResponse{
+		TaskID:     taskID,
+		Action:     constant.SunoActionMusic,
+		Status:     string(model.TaskStatusFailure),
+		FailReason: reason,
+		FinishTime: time.Now().Unix(),
+	}
+}
+
+func extractSunoTaskIDs(v any) []string {
 	switch ids := v.(type) {
 	case []string:
 		return cleanDuomiTaskIDs(ids)
@@ -376,6 +533,10 @@ func extractDuomiTaskIDs(v any) []string {
 	default:
 		return nil
 	}
+}
+
+func extractDuomiTaskIDs(v any) []string {
+	return extractSunoTaskIDs(v)
 }
 
 func extractDuomiSubmitTaskIDs(data []byte) []string {

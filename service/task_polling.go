@@ -236,6 +236,10 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 
 	for _, responseItem := range responseItems.Data {
 		task := taskM[responseItem.TaskID]
+		if task == nil {
+			logger.LogWarn(ctx, fmt.Sprintf("Suno polling returned unknown task_id %s, skip", responseItem.TaskID))
+			continue
+		}
 		if !taskNeedsUpdate(task, responseItem) {
 			continue
 		}

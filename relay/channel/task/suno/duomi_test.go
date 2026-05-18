@@ -6,12 +6,17 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -251,6 +256,227 @@ func TestDuomiFeedResponseMapsNumericStatus(t *testing.T) {
 	}
 	if items[0].Status != "SUCCESS" {
 		t.Fatalf("unexpected status: %+v", items[0])
+	}
+}
+
+func TestFetchDuomiTasksKeepsBatchWhenOneTaskIsNotFound(t *testing.T) {
+	service.InitHttpClient()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		taskID := r.URL.Query().Get("task_id")
+		w.Header().Set("Content-Type", "application/json")
+		switch taskID {
+		case "upstream_ok":
+			_, _ = w.Write([]byte(`{"code":200,"msg":"ok","data":{"task_id":"upstream_ok","state":"succeeded","title":"Song","audio_url":"https://cdn.example/song.mp3"}}`))
+		case "upstream_missing":
+			_, _ = w.Write([]byte(`{"code":404,"msg":"This task was not found","data":{"task_id":"upstream_missing"}}`))
+		default:
+			t.Fatalf("unexpected task id: %s", taskID)
+		}
+	}))
+	defer server.Close()
+
+	resp, err := fetchDuomiTasks(server.URL, "duomi-key", map[string]any{
+		"ids": []string{"upstream_ok", "upstream_missing"},
+	}, "")
+	if err != nil {
+		t.Fatalf("fetchDuomiTasks error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected response status: %d", resp.StatusCode)
+	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll error: %v", err)
+	}
+	var result dto.TaskResponse[[]dto.SunoDataResponse]
+	if err := common.Unmarshal(raw, &result); err != nil {
+		t.Fatalf("Unmarshal error: %v, body: %s", err, string(raw))
+	}
+	if !result.IsSuccess() {
+		t.Fatalf("unexpected task response: %+v", result)
+	}
+	if len(result.Data) != 2 {
+		t.Fatalf("unexpected item count: %d, body: %s", len(result.Data), string(raw))
+	}
+	if result.Data[0].TaskID != "upstream_ok" || result.Data[0].Status != "SUCCESS" {
+		t.Fatalf("unexpected success item: %+v", result.Data[0])
+	}
+	if result.Data[1].TaskID != "upstream_missing" || result.Data[1].Status != "FAILURE" || result.Data[1].FailReason != "This task was not found" {
+		t.Fatalf("unexpected missing item: %+v", result.Data[1])
+	}
+}
+
+func TestFetchDuomiTasksKeepsBatchForArbitraryUpstreamErrors(t *testing.T) {
+	service.InitHttpClient()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		taskID := r.URL.Query().Get("task_id")
+		w.Header().Set("Content-Type", "application/json")
+		switch taskID {
+		case "upstream_ok":
+			_, _ = w.Write([]byte(`{"code":200,"msg":"ok","data":{"task_id":"upstream_ok","state":"succeeded","title":"Song","audio_url":"https://cdn.example/song.mp3"}}`))
+		case "upstream_500":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`internal upstream error`))
+		case "upstream_business_error":
+			_, _ = w.Write([]byte(`{"code":503,"msg":"upstream overloaded","data":{"task_id":"upstream_business_error"}}`))
+		case "upstream_bad_json":
+			_, _ = w.Write([]byte(`not-json`))
+		default:
+			t.Fatalf("unexpected task id: %s", taskID)
+		}
+	}))
+	defer server.Close()
+
+	resp, err := fetchDuomiTasks(server.URL, "duomi-key", map[string]any{
+		"ids": []string{"upstream_ok", "upstream_500", "upstream_business_error", "upstream_bad_json"},
+	}, "")
+	if err != nil {
+		t.Fatalf("fetchDuomiTasks error: %v", err)
+	}
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll error: %v", err)
+	}
+	var result dto.TaskResponse[[]dto.SunoDataResponse]
+	if err := common.Unmarshal(raw, &result); err != nil {
+		t.Fatalf("Unmarshal error: %v, body: %s", err, string(raw))
+	}
+	if len(result.Data) != 4 {
+		t.Fatalf("unexpected item count: %d, body: %s", len(result.Data), string(raw))
+	}
+	if result.Data[0].TaskID != "upstream_ok" || result.Data[0].Status != "SUCCESS" {
+		t.Fatalf("unexpected success item: %+v", result.Data[0])
+	}
+	for _, item := range result.Data[1:] {
+		if item.Status != "FAILURE" || item.TaskID == "" || item.FailReason == "" {
+			t.Fatalf("unexpected failure item: %+v", item)
+		}
+	}
+}
+
+func TestFetchDuomiTasksFetchesItemsConcurrently(t *testing.T) {
+	service.InitHttpClient()
+
+	var active int32
+	var maxActive int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current := atomic.AddInt32(&active, 1)
+		defer atomic.AddInt32(&active, -1)
+		for {
+			observed := atomic.LoadInt32(&maxActive)
+			if current <= observed || atomic.CompareAndSwapInt32(&maxActive, observed, current) {
+				break
+			}
+		}
+
+		time.Sleep(50 * time.Millisecond)
+		taskID := r.URL.Query().Get("task_id")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":200,"msg":"ok","data":{"task_id":"` + taskID + `","state":"succeeded","title":"Song","audio_url":"https://cdn.example/song.mp3"}}`))
+	}))
+	defer server.Close()
+
+	ids := make([]string, 12)
+	for i := range ids {
+		ids[i] = "upstream_" + strconv.Itoa(i)
+	}
+	startedAt := time.Now()
+	resp, err := fetchDuomiTasks(server.URL, "duomi-key", map[string]any{
+		"ids": ids,
+	}, "")
+	if err != nil {
+		t.Fatalf("fetchDuomiTasks error: %v", err)
+	}
+	if elapsed := time.Since(startedAt); elapsed > 350*time.Millisecond {
+		t.Fatalf("fetchDuomiTasks was too slow, likely sequential: %s", elapsed)
+	}
+	if atomic.LoadInt32(&maxActive) < 2 {
+		t.Fatalf("expected concurrent upstream fetches, max active: %d", maxActive)
+	}
+
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll error: %v", err)
+	}
+	var result dto.TaskResponse[[]dto.SunoDataResponse]
+	if err := common.Unmarshal(raw, &result); err != nil {
+		t.Fatalf("Unmarshal error: %v, body: %s", err, string(raw))
+	}
+	if len(result.Data) != len(ids) {
+		t.Fatalf("unexpected item count: %d", len(result.Data))
+	}
+	for i, item := range result.Data {
+		if item.TaskID != ids[i] || item.Status != "SUCCESS" {
+			t.Fatalf("unexpected item at %d: %+v", i, item)
+		}
+	}
+}
+
+func TestFetchStandardSunoTasksKeepsBatchForArbitraryUpstreamErrors(t *testing.T) {
+	service.InitHttpClient()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/suno/fetch" {
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
+		var payload struct {
+			IDs []string `json:"ids"`
+		}
+		if err := common.DecodeJson(r.Body, &payload); err != nil {
+			t.Fatalf("DecodeJson error: %v", err)
+		}
+		if len(payload.IDs) != 1 {
+			t.Fatalf("expected isolated single-id fetch, got: %#v", payload.IDs)
+		}
+		taskID := payload.IDs[0]
+		w.Header().Set("Content-Type", "application/json")
+		switch taskID {
+		case "upstream_ok":
+			_, _ = w.Write([]byte(`{"code":"success","data":[{"task_id":"upstream_ok","status":"SUCCESS","data":[{"id":"song_1","audio_url":"https://cdn.example/song.mp3"}]}]}`))
+		case "upstream_500":
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(`internal upstream error`))
+		case "upstream_business_error":
+			_, _ = w.Write([]byte(`{"code":"failed","message":"upstream overloaded"}`))
+		case "upstream_bad_json":
+			_, _ = w.Write([]byte(`not-json`))
+		default:
+			t.Fatalf("unexpected task id: %s", taskID)
+		}
+	}))
+	defer server.Close()
+
+	adaptor := &TaskAdaptor{}
+	resp, err := adaptor.FetchTask(server.URL, "suno-key", map[string]any{
+		"ids": []string{"upstream_ok", "upstream_500", "upstream_business_error", "upstream_bad_json"},
+	}, "")
+	if err != nil {
+		t.Fatalf("FetchTask error: %v", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("unexpected response status: %d", resp.StatusCode)
+	}
+	raw, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("ReadAll error: %v", err)
+	}
+	var result dto.TaskResponse[[]dto.SunoDataResponse]
+	if err := common.Unmarshal(raw, &result); err != nil {
+		t.Fatalf("Unmarshal error: %v, body: %s", err, string(raw))
+	}
+	if len(result.Data) != 4 {
+		t.Fatalf("unexpected item count: %d, body: %s", len(result.Data), string(raw))
+	}
+	if result.Data[0].TaskID != "upstream_ok" || result.Data[0].Status != "SUCCESS" {
+		t.Fatalf("unexpected success item: %+v", result.Data[0])
+	}
+	for _, item := range result.Data[1:] {
+		if item.Status != "FAILURE" || item.TaskID == "" || item.FailReason == "" {
+			t.Fatalf("unexpected failure item: %+v", item)
+		}
 	}
 }
 
