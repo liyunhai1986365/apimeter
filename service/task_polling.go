@@ -113,8 +113,10 @@ func TaskPollingLoop() {
 					nullTaskIds = append(nullTaskIds, task.ID)
 					continue
 				}
-				taskM[upstreamID] = task
-				taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], upstreamID)
+				for _, id := range splitTaskUpstreamIDs(upstreamID) {
+					taskM[id] = task
+					taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
+				}
 			}
 			if len(nullTaskIds) > 0 {
 				err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
@@ -135,6 +137,18 @@ func TaskPollingLoop() {
 		}
 		common.SysLog("任务进度轮询完成")
 	}
+}
+
+func splitTaskUpstreamIDs(upstreamID string) []string {
+	ids := strings.Split(upstreamID, ",")
+	result := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id != "" {
+			result = append(result, id)
+		}
+	}
+	return result
 }
 
 // DispatchPlatformUpdate 按平台分发轮询更新
@@ -239,7 +253,11 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		if responseItem.Status == model.TaskStatusSuccess {
 			task.Progress = "100%"
 		}
-		task.Data = responseItem.Data
+		if strings.Contains(task.GetUpstreamTaskID(), ",") {
+			task.Data = mergeSunoTaskData(task.Data, responseItem.Data)
+		} else {
+			task.Data = responseItem.Data
+		}
 
 		err = task.Update()
 		if err != nil {
@@ -285,6 +303,40 @@ func taskNeedsUpdate(oldTask *model.Task, newTask dto.SunoDataResponse) bool {
 		return true
 	}
 	return false
+}
+
+func mergeSunoTaskData(oldData, newData []byte) []byte {
+	if len(oldData) == 0 || string(oldData) == "null" {
+		return newData
+	}
+	var oldSongs []dto.SunoSong
+	var newSongs []dto.SunoSong
+	if err := common.Unmarshal(oldData, &oldSongs); err != nil {
+		return newData
+	}
+	if err := common.Unmarshal(newData, &newSongs); err != nil {
+		return newData
+	}
+	seen := make(map[string]bool, len(oldSongs)+len(newSongs))
+	merged := make([]dto.SunoSong, 0, len(oldSongs)+len(newSongs))
+	for _, song := range append(oldSongs, newSongs...) {
+		key := song.ID
+		if key == "" {
+			key = song.AudioURL
+		}
+		if key != "" && seen[key] {
+			continue
+		}
+		if key != "" {
+			seen[key] = true
+		}
+		merged = append(merged, song)
+	}
+	raw, err := common.Marshal(merged)
+	if err != nil {
+		return newData
+	}
+	return raw
 }
 
 // UpdateVideoTasks 按渠道更新所有视频任务

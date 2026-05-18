@@ -3,6 +3,7 @@ package dto
 import (
 	"encoding/json"
 	"strconv"
+	"strings"
 )
 
 type StringValue string
@@ -59,15 +60,25 @@ func (b *BoolValue) UnmarshalJSON(data []byte) error {
 		*b = BoolValue(boolean)
 		return nil
 	}
+	var number json.Number
+	if err := json.Unmarshal(data, &number); err == nil {
+		i, err := strconv.Atoi(number.String())
+		if err != nil {
+			return err
+		}
+		*b = BoolValue(i != 0)
+		return nil
+	}
 	var str string
 	if err := json.Unmarshal(data, &str); err != nil {
 		return err
 	}
-	if str == "true" {
+	switch strings.ToLower(strings.TrimSpace(str)) {
+	case "true", "1":
 		*b = BoolValue(true)
-	} else if str == "false" {
+	case "false", "0":
 		*b = BoolValue(false)
-	} else {
+	default:
 		return json.Unmarshal(data, &boolean)
 	}
 	return nil
