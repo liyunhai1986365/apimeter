@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
@@ -55,6 +55,7 @@ import {
   formatQuota as formatDisplayQuota,
   formatTimestampToDate,
 } from '@/lib/format'
+import { normalizePagedData } from '@/lib/paged-response'
 import { cn } from '@/lib/utils'
 import { USER_STATUSES } from '@/features/users/constants'
 import {
@@ -72,6 +73,7 @@ import {
   upsertAgentGroupRatio,
   verifyAgentDomain,
 } from './api'
+import type { AgentDomain, AgentLedger, AgentUser, AgentWithdrawal } from './types'
 
 function normalizeSettlementCurrency(currency?: string) {
   const code = (currency || 'USD').toUpperCase()
@@ -258,11 +260,27 @@ export function Agents() {
   const self = selfQuery.data?.data
   const balance = self?.balance
   const agentDomain = self?.context?.Domain || self?.agent?.slug || '-'
-  const users = usersQuery.data?.data.items ?? []
-  const domains = domainsQuery.data?.data.items ?? []
+  const usersPage = useMemo(
+    () => normalizePagedData<AgentUser>(usersQuery.data),
+    [usersQuery.data]
+  )
+  const domainsPage = useMemo(
+    () => normalizePagedData<AgentDomain>(domainsQuery.data),
+    [domainsQuery.data]
+  )
+  const ledgerPage = useMemo(
+    () => normalizePagedData<AgentLedger>(ledgerQuery.data),
+    [ledgerQuery.data]
+  )
+  const withdrawalsPage = useMemo(
+    () => normalizePagedData<AgentWithdrawal>(withdrawalsQuery.data),
+    [withdrawalsQuery.data]
+  )
+  const users = usersPage.items
+  const domains = domainsPage.items
   const groupRatios = groupRatiosQuery.data?.data ?? []
-  const ledger = ledgerQuery.data?.data.items ?? []
-  const withdrawals = withdrawalsQuery.data?.data.items ?? []
+  const ledger = ledgerPage.items
+  const withdrawals = withdrawalsPage.items
   const canCreateDomain = newDomain.trim() !== ''
   const selectedGroupBaseRatio =
     groupRatios.find((item) => item.group_name === groupName)?.system_ratio ?? 0

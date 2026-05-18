@@ -32,6 +32,7 @@ import {
 import { useDebounce, useMediaQuery } from '@/hooks'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
+import { normalizePagedData } from '@/lib/paged-response'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { Input } from '@/components/ui/input'
 import {
@@ -261,19 +262,21 @@ export function ChannelsTable() {
     placeholderData: (previousData) => previousData,
   })
 
+  const pagedData = useMemo(() => normalizePagedData(data), [data])
+
   // Apply tag aggregation if tag mode is enabled
   const channels = useMemo(() => {
-    const rawChannels = data?.data?.items || []
+    const rawChannels = pagedData.items
 
     if (enableTagMode && rawChannels.length > 0) {
       return aggregateChannelsByTag(rawChannels)
     }
 
     return rawChannels
-  }, [data, enableTagMode])
+  }, [pagedData.items, enableTagMode])
 
-  const totalCount = data?.data?.total || 0
-  const typeCounts = data?.data?.type_counts
+  const totalCount = pagedData.total
+  const typeCounts = pagedData.type_counts as Record<string, number> | undefined
 
   // Columns configuration
   const columns = useChannelsColumns()

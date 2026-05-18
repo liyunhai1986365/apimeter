@@ -63,6 +63,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { SectionPageLayout } from '@/components/layout'
 import { formatQuota, formatTimestamp } from '@/lib/format'
+import { normalizePagedData } from '@/lib/paged-response'
 import {
   checkNewAPISupplier,
   createNewAPISupplier,
@@ -138,7 +139,7 @@ export function NewAPISuppliers() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const suppliers = data?.data?.items ?? []
+  const suppliers = useMemo(() => normalizePagedData(data).items, [data])
   const localGroups = useMemo(() => {
     const current = form.default_local_group.trim()
     const values = localGroupsData?.data ?? []

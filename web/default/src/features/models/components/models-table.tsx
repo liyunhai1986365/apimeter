@@ -27,6 +27,7 @@ import {
 } from '@tanstack/react-table'
 import { useMediaQuery } from '@/hooks'
 import { useTranslation } from 'react-i18next'
+import { normalizePagedData } from '@/lib/paged-response'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { DataTablePage } from '@/components/data-table'
 import { getModels, searchModels, getVendors } from '../api'
@@ -95,10 +96,11 @@ export function ModelsTable() {
     queryFn: () => getVendors({ page_size: 1000 }),
   })
 
-  const vendors = useMemo(
-    () => vendorsData?.data?.items || [],
-    [vendorsData?.data?.items]
+  const vendorsPage = useMemo(
+    () => normalizePagedData(vendorsData),
+    [vendorsData]
   )
+  const vendors = useMemo(() => vendorsPage.items, [vendorsPage.items])
 
   const vendorOptions = useMemo(() => {
     return vendors.map((v) => ({
@@ -168,9 +170,12 @@ export function ModelsTable() {
     placeholderData: (previousData) => previousData,
   })
 
-  const models = data?.data?.items || []
-  const totalCount = data?.data?.total || 0
-  const vendorCounts = data?.data?.vendor_counts
+  const modelsPage = useMemo(() => normalizePagedData(data), [data])
+  const models = modelsPage.items
+  const totalCount = modelsPage.total
+  const vendorCounts = modelsPage.vendor_counts as
+    | Record<string, number>
+    | undefined
 
   // Columns configuration
   const columns = useModelsColumns(vendors)

@@ -37,6 +37,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { formatTimestampToDate } from '@/lib/format'
+import { normalizePagedData } from '@/lib/paged-response'
 import { GroupBadge } from '@/components/group-badge'
 import { LongText } from '@/components/long-text'
 import { Badge } from '@/components/ui/badge'
@@ -183,7 +184,23 @@ export function AgentManagement() {
     queryFn: () => listAdminAgentWithdrawals(undefined, 1, 50),
   })
 
-  const agents = agentsQuery.data?.data.items ?? []
+  const agentsPage = useMemo(
+    () => normalizePagedData(agentsQuery.data),
+    [agentsQuery.data]
+  )
+  const selectedUsersPage = useMemo(
+    () => normalizePagedData(selectedUsersQuery.data),
+    [selectedUsersQuery.data]
+  )
+  const selectedDomainsPage = useMemo(
+    () => normalizePagedData(selectedDomainsQuery.data),
+    [selectedDomainsQuery.data]
+  )
+  const withdrawalsPage = useMemo(
+    () => normalizePagedData(withdrawalsQuery.data),
+    [withdrawalsQuery.data]
+  )
+  const agents = agentsPage.items
   const selectedAgent = useMemo(
     () => agents.find((agent) => agent.id === selectedAgentId),
     [agents, selectedAgentId]
@@ -192,14 +209,14 @@ export function AgentManagement() {
     () => agents.find((agent) => agent.id === detailAgentId) ?? createdAgent,
     [agents, detailAgentId, createdAgent]
   )
-  const selectedUsers = selectedUsersQuery.data?.data.items ?? []
-  const selectedDomains = selectedDomainsQuery.data?.data.items ?? []
+  const selectedUsers = selectedUsersPage.items
+  const selectedDomains = selectedDomainsPage.items
   const selectedGroupRatios = selectedGroupRatiosQuery.data?.data ?? []
-  const withdrawals = withdrawalsQuery.data?.data.items ?? []
+  const withdrawals = withdrawalsPage.items
   const pendingWithdrawalCount = withdrawals.filter(
     (withdrawal) => withdrawal.status === 'pending'
   ).length
-  const totalAgentUsers = selectedUsersQuery.data?.data.total
+  const totalAgentUsers = selectedUsersPage.total
   const openAgentDetail = (agent: Agent) => {
     const branding = parseAgentBranding(agent.branding)
     setBrandSiteName(branding.site_name ?? '')
@@ -359,7 +376,7 @@ export function AgentManagement() {
             <div className='grid gap-3 md:grid-cols-4'>
               <MetricCard
                 label={t('Total Agents')}
-                value={formatQuota(agentsQuery.data?.data.total)}
+                value={formatQuota(agentsPage.total)}
                 icon={<Store className='size-4' />}
               />
               <MetricCard
