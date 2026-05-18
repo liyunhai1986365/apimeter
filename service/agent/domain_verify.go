@@ -83,7 +83,7 @@ func VerifyDomainCNAME(ctx context.Context, agentID int, domainID int) (*model.A
 func TryAutoVerifyDomainCNAME(ctx context.Context, agentID int, domainID int) (*model.AgentDomain, error) {
 	verified, err := VerifyDomainCNAME(ctx, agentID, domainID)
 	if err != nil {
-		if errors.Is(err, ErrAgentDomainCNAMEUnverified) {
+		if isAutoVerifyNonBlockingError(err) {
 			return nil, nil
 		}
 		return nil, err
@@ -138,10 +138,21 @@ func VerifyDomainCNAMEWithResolver(ctx context.Context, agentID int, domainID in
 func TryAutoVerifyDomainCNAMEWithResolver(ctx context.Context, agentID int, domainID int, baseDomain string, resolver CNAMEChainResolver) (*model.AgentDomain, error) {
 	verified, err := VerifyDomainCNAMEWithResolver(ctx, agentID, domainID, baseDomain, resolver)
 	if err != nil {
-		if errors.Is(err, ErrAgentDomainCNAMEUnverified) {
+		if isAutoVerifyNonBlockingError(err) {
 			return nil, nil
 		}
 		return nil, err
 	}
 	return verified, nil
+}
+
+func isAutoVerifyNonBlockingError(err error) bool {
+	if errors.Is(err, ErrAgentDomainCNAMEUnverified) {
+		return true
+	}
+	var dnsErr *net.DNSError
+	if errors.As(err, &dnsErr) {
+		return dnsErr.IsNotFound || dnsErr.IsTemporary
+	}
+	return false
 }

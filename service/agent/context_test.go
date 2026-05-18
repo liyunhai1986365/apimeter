@@ -2,6 +2,7 @@ package agent
 
 import (
 	"math"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -356,4 +357,27 @@ func TestAgentDomainAndGroupRatioCRUD(t *testing.T) {
 	rules, err := ListGroupRatios(agent.Id)
 	require.NoError(t, err)
 	require.NotEmpty(t, rules)
+}
+
+func TestCreateDomainReturnsBusinessErrorForDuplicateDomain(t *testing.T) {
+	setupAgentTestDB(t)
+
+	agent := &model.Agent{
+		OwnerUserId:   10,
+		Name:          "Agent One",
+		Slug:          "agent-one",
+		Status:        model.AgentStatusEnabled,
+		PriceMode:     model.AgentPriceModeMultiplier,
+		DefaultMarkup: 1.2,
+	}
+	require.NoError(t, model.DB.Create(agent).Error)
+
+	_, err := CreateDomain(agent.Id, "aiiqq.com")
+	require.NoError(t, err)
+
+	_, err = CreateDomain(agent.Id, " AIIQQ.com:443 ")
+	require.Error(t, err)
+	require.Equal(t, "agent domain already exists", err.Error())
+	require.False(t, strings.Contains(err.Error(), "UNIQUE"))
+	require.False(t, strings.Contains(err.Error(), "Duplicate entry"))
 }

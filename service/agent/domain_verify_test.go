@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	"net"
 	"testing"
 
 	"github.com/QuantumNous/new-api/model"
@@ -141,6 +142,37 @@ func TestTryAutoVerifyDomainCNAMEReturnsNilWhenUnverified(t *testing.T) {
 		"agent-cname.example.com",
 		func(ctx context.Context, host string) ([]string, error) {
 			return []string{"other-token.agent-cname.example.com"}, nil
+		},
+	)
+
+	require.NoError(t, err)
+	require.Nil(t, verified)
+}
+
+func TestTryAutoVerifyDomainCNAMEIgnoresDNSNotFoundForListDisplay(t *testing.T) {
+	setupAgentTestDB(t)
+
+	domain := &model.AgentDomain{
+		AgentId:     1,
+		Domain:      "aiiqq.com",
+		Status:      model.AgentDomainStatusPending,
+		VerifyToken: "verify-token",
+	}
+	require.NoError(t, model.DB.Create(domain).Error)
+
+	verified, err := TryAutoVerifyDomainCNAMEWithResolver(
+		context.Background(),
+		1,
+		domain.Id,
+		"agent-cname.example.com",
+		func(ctx context.Context, host string) ([]string, error) {
+			return nil, &net.DNSError{
+				Err:         "no such host",
+				Name:        host,
+				Server:      "127.0.0.53:53",
+				IsNotFound:  true,
+				IsTemporary: false,
+			}
 		},
 	)
 

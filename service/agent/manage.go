@@ -14,6 +14,7 @@ import (
 
 var (
 	ErrInvalidAgentDomain         = errors.New("invalid agent domain")
+	ErrAgentDomainAlreadyExists   = errors.New("agent domain already exists")
 	ErrInvalidAgentGroupRatio     = errors.New("agent group ratio must be not less than 0")
 	ErrAgentGroupRatioNotFound    = errors.New("agent group ratio not found")
 	ErrAgentGroupRatioBelowSystem = errors.New("agent group ratio cannot be lower than system group ratio")
@@ -122,6 +123,14 @@ func CreateDomain(agentID int, rawDomain string) (*model.AgentDomain, error) {
 	if domain == "" || !strings.Contains(domain, ".") {
 		return nil, ErrInvalidAgentDomain
 	}
+	var existing model.AgentDomain
+	err := model.DB.Where("domain = ?", domain).First(&existing).Error
+	if err == nil {
+		return nil, ErrAgentDomainAlreadyExists
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
 	token, err := common.GenerateRandomCharsKey(32)
 	if err != nil {
 		return nil, err
@@ -135,10 +144,24 @@ func CreateDomain(agentID int, rawDomain string) (*model.AgentDomain, error) {
 		ForceHttps:  true,
 	}
 	if err := model.DB.Create(agentDomain).Error; err != nil {
+		if isAgentDomainDuplicateError(err) {
+			return nil, ErrAgentDomainAlreadyExists
+		}
 		return nil, err
 	}
 	FillDomainCNAMETarget(agentDomain)
 	return agentDomain, nil
+}
+
+func isAgentDomainDuplicateError(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := err.Error()
+	return strings.Contains(message, "idx_agent_domains_domain") ||
+		strings.Contains(message, "Duplicate entry") ||
+		strings.Contains(message, "UNIQUE constraint failed: agent_domains.domain") ||
+		strings.Contains(message, "duplicate key value violates unique constraint")
 }
 
 func ActivateDomain(agentID int, domainID int) error {
