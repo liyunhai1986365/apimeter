@@ -712,6 +712,10 @@ func setMessageDeltaUsageInt(data string, path string, localValue int) string {
 }
 
 func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *dto.ChatCompletionsStreamResponse, claudeInfo *ClaudeResponseInfo) bool {
+	return formatClaudeResponseInfo(nil, claudeResponse, oaiResponse, claudeInfo)
+}
+
+func formatClaudeResponseInfo(info *relaycommon.RelayInfo, claudeResponse *dto.ClaudeResponse, oaiResponse *dto.ChatCompletionsStreamResponse, claudeInfo *ClaudeResponseInfo) bool {
 	if claudeInfo == nil {
 		return false
 	}
@@ -778,7 +782,7 @@ func FormatClaudeResponseInfo(claudeResponse *dto.ClaudeResponse, oaiResponse *d
 	if oaiResponse != nil {
 		oaiResponse.Id = claudeInfo.ResponseId
 		oaiResponse.Created = claudeInfo.Created
-		oaiResponse.Model = claudeInfo.Model
+		oaiResponse.Model = info.ResponseModel(claudeInfo.Model)
 	}
 	return true
 }
@@ -800,7 +804,7 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 		maybeMarkClaudeRefusal(c, *claudeResponse.Delta.StopReason)
 	}
 	if info.RelayFormat == types.RelayFormatClaude {
-		FormatClaudeResponseInfo(&claudeResponse, nil, claudeInfo)
+		formatClaudeResponseInfo(info, &claudeResponse, nil, claudeInfo)
 
 		if claudeResponse.Type == "message_start" {
 			// message_start, 获取usage
@@ -818,7 +822,7 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	} else if info.RelayFormat == types.RelayFormatOpenAI {
 		response := StreamResponseClaude2OpenAI(&claudeResponse)
 
-		if !FormatClaudeResponseInfo(&claudeResponse, response, claudeInfo) {
+		if !formatClaudeResponseInfo(info, &claudeResponse, response, claudeInfo) {
 			return nil
 		}
 
@@ -858,7 +862,7 @@ func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, clau
 	} else if info.RelayFormat == types.RelayFormatOpenAI {
 		if info.ShouldIncludeUsage {
 			openAIUsage := buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage)
-			response := helper.GenerateFinalUsageResponse(claudeInfo.ResponseId, claudeInfo.Created, info.UpstreamModelName, openAIUsage)
+			response := helper.GenerateFinalUsageResponse(claudeInfo.ResponseId, claudeInfo.Created, info.ResponseModel(info.UpstreamModelName), openAIUsage)
 			err := helper.ObjectData(c, response)
 			if err != nil {
 				common.SysLog("send final response failed: " + err.Error())

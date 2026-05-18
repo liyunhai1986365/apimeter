@@ -91,6 +91,23 @@ function GroupRatioBadge({ ratio }: { ratio: ApiKeyGroupOption['ratio'] }) {
   )
 }
 
+function useTranslatedGroupDescription(desc?: string) {
+  const { t } = useTranslation()
+  return desc ? t(desc) : undefined
+}
+
+function GroupDescription({ desc }: { desc?: string }) {
+  const translatedDesc = useTranslatedGroupDescription(desc)
+
+  if (!translatedDesc) return null
+
+  return (
+    <span className='text-muted-foreground block truncate text-[11px] sm:text-xs'>
+      {translatedDesc}
+    </span>
+  )
+}
+
 export function ApiKeyGroupCombobox({
   options,
   value,
@@ -102,6 +119,9 @@ export function ApiKeyGroupCombobox({
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const selectedOption = options.find((option) => option.value === value)
+  const selectedDescription = useTranslatedGroupDescription(
+    selectedOption?.desc
+  )
 
   const filteredOptions = useMemo(() => {
     const search = searchValue.trim().toLowerCase()
@@ -143,9 +163,9 @@ export function ApiKeyGroupCombobox({
             <span className='block truncate font-medium'>
               {selectedOption?.label || placeholder || t('Select a group')}
             </span>
-            {selectedOption?.desc && (
+            {selectedDescription && (
               <span className='text-muted-foreground block truncate text-[11px] sm:text-xs'>
-                {selectedOption.desc}
+                {selectedDescription}
               </span>
             )}
           </span>
@@ -187,11 +207,7 @@ export function ApiKeyGroupCombobox({
                     <span className='block truncate font-medium'>
                       {option.label}
                     </span>
-                    {option.desc && (
-                      <span className='text-muted-foreground block truncate text-xs'>
-                        {option.desc}
-                      </span>
-                    )}
+                    <GroupDescription desc={option.desc} />
                   </span>
                   <GroupRatioBadge ratio={option.ratio} />
                 </CommandItem>

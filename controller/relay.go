@@ -22,6 +22,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -178,59 +179,80 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 	}()
 
-	retryParam := &service.RetryParam{
-		Ctx:        c,
-		TokenGroup: relayInfo.TokenGroup,
-		ModelName:  relayInfo.OriginModelName,
-		Retry:      common.GetPointer(0),
-	}
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
 
-	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
-		relayInfo.RetryIndex = retryParam.GetRetry()
-		channel, channelErr := getChannel(c, relayInfo, retryParam)
-		if channelErr != nil {
-			logger.LogError(c, channelErr.Error())
-			newAPIError = channelErr
-			break
+	modelAttempts := buildModelAttempts(relayInfo)
+	for attemptIndex, attemptModel := range modelAttempts {
+		relayInfo.CurrentModelName = attemptModel
+		if attemptIndex > 0 {
+			relayInfo.ModelFallbackAttempted = true
+			relayInfo.FallbackModelName = attemptModel
+			c.Set("model_fallback_primary", relayInfo.OriginModelName)
+			c.Set("model_fallback_model", attemptModel)
+			c.Set("model_fallback_mode", relayInfo.ModelFallbackMode)
+			resetModelAttemptContext(c)
+			logger.LogInfo(c, fmt.Sprintf("模型 %s 故障后尝试备选模型 %s", relayInfo.OriginModelName, attemptModel))
 		}
-
-		addUsedChannel(c, channel.Id)
-		bodyStorage, bodyErr := common.GetBodyStorage(c)
-		if bodyErr != nil {
-			// Ensure consistent 413 for oversized bodies even when error occurs later (e.g., retry path)
-			if common.IsRequestBodyTooLargeError(bodyErr) || errors.Is(bodyErr, common.ErrRequestBodyTooLarge) {
-				newAPIError = types.NewErrorWithStatusCode(bodyErr, types.ErrorCodeReadRequestBodyFailed, http.StatusRequestEntityTooLarge, types.ErrOptionWithSkipRetry())
-			} else {
-				newAPIError = types.NewErrorWithStatusCode(bodyErr, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		retryParam := &service.RetryParam{
+			Ctx:        c,
+			TokenGroup: relayInfo.TokenGroup,
+			ModelName:  attemptModel,
+			Retry:      common.GetPointer(0),
+		}
+		shouldTryNextModel := false
+		for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+			relayInfo.RetryIndex = retryParam.GetRetry()
+			channel, channelErr := getChannel(c, relayInfo, retryParam)
+			if channelErr != nil {
+				logger.LogError(c, channelErr.Error())
+				newAPIError = channelErr
+				break
 			}
-			break
+
+			addUsedChannel(c, channel.Id)
+			bodyStorage, bodyErr := common.GetBodyStorage(c)
+			if bodyErr != nil {
+				// Ensure consistent 413 for oversized bodies even when error occurs later (e.g., retry path)
+				if common.IsRequestBodyTooLargeError(bodyErr) || errors.Is(bodyErr, common.ErrRequestBodyTooLarge) {
+					newAPIError = types.NewErrorWithStatusCode(bodyErr, types.ErrorCodeReadRequestBodyFailed, http.StatusRequestEntityTooLarge, types.ErrOptionWithSkipRetry())
+				} else {
+					newAPIError = types.NewErrorWithStatusCode(bodyErr, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+				}
+				break
+			}
+			c.Request.Body = io.NopCloser(bodyStorage)
+
+			switch relayFormat {
+			case types.RelayFormatOpenAIRealtime:
+				newAPIError = relay.WssHelper(c, relayInfo)
+			case types.RelayFormatClaude:
+				newAPIError = relay.ClaudeHelper(c, relayInfo)
+			case types.RelayFormatGemini:
+				newAPIError = geminiRelayHandler(c, relayInfo)
+			default:
+				newAPIError = relayHandler(c, relayInfo)
+			}
+
+			if newAPIError == nil {
+				relayInfo.LastError = nil
+				return
+			}
+
+			newAPIError = service.NormalizeViolationFeeError(newAPIError)
+			relayInfo.LastError = newAPIError
+
+			processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
+
+			remainingRetries := common.RetryTimes - retryParam.GetRetry()
+			if !shouldRetry(c, newAPIError, remainingRetries) {
+				if attemptIndex == 0 && len(modelAttempts) > 1 && canTryFallbackModel(c, newAPIError) {
+					shouldTryNextModel = true
+				}
+				break
+			}
 		}
-		c.Request.Body = io.NopCloser(bodyStorage)
-
-		switch relayFormat {
-		case types.RelayFormatOpenAIRealtime:
-			newAPIError = relay.WssHelper(c, relayInfo)
-		case types.RelayFormatClaude:
-			newAPIError = relay.ClaudeHelper(c, relayInfo)
-		case types.RelayFormatGemini:
-			newAPIError = geminiRelayHandler(c, relayInfo)
-		default:
-			newAPIError = relayHandler(c, relayInfo)
-		}
-
-		if newAPIError == nil {
-			relayInfo.LastError = nil
-			return
-		}
-
-		newAPIError = service.NormalizeViolationFeeError(newAPIError)
-		relayInfo.LastError = newAPIError
-
-		processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
-
-		if !shouldRetry(c, newAPIError, common.RetryTimes-retryParam.GetRetry()) {
+		if !shouldTryNextModel {
 			break
 		}
 	}
@@ -258,6 +280,92 @@ func addUsedChannel(c *gin.Context, channelId int) {
 	useChannel := c.GetStringSlice("use_channel")
 	useChannel = append(useChannel, fmt.Sprintf("%d", channelId))
 	c.Set("use_channel", useChannel)
+}
+
+func buildModelAttempts(info *relaycommon.RelayInfo) []string {
+	if info == nil {
+		return nil
+	}
+	primaryModel := info.OriginModelName
+	attempts := []string{primaryModel}
+	userFallbackSetting := model_setting.UserModelFallbackSetting{
+		Mode: model_setting.ModelFallbackModeInherit,
+	}
+	if info.UserSetting.ModelFallback != nil {
+		parsed, ok := parseUserModelFallbackSetting(info.UserSetting.ModelFallback)
+		if ok {
+			userFallbackSetting = parsed
+		}
+	}
+	rule, mode, ok := model_setting.ResolveModelFallbackRule(primaryModel, userFallbackSetting)
+	info.ModelFallbackMode = mode
+	if ok {
+		attempts = append(attempts, rule.FallbackModel)
+	}
+	return attempts
+}
+
+func parseUserModelFallbackSetting(raw any) (model_setting.UserModelFallbackSetting, bool) {
+	switch value := raw.(type) {
+	case model_setting.UserModelFallbackSetting:
+		return value, true
+	case map[string]any:
+		bytes, err := common.Marshal(value)
+		if err != nil {
+			return model_setting.UserModelFallbackSetting{}, false
+		}
+		var setting model_setting.UserModelFallbackSetting
+		if err := common.Unmarshal(bytes, &setting); err != nil {
+			return model_setting.UserModelFallbackSetting{}, false
+		}
+		return setting, true
+	default:
+		bytes, err := common.Marshal(value)
+		if err != nil {
+			return model_setting.UserModelFallbackSetting{}, false
+		}
+		var setting model_setting.UserModelFallbackSetting
+		if err := common.Unmarshal(bytes, &setting); err != nil {
+			return model_setting.UserModelFallbackSetting{}, false
+		}
+		return setting, true
+	}
+}
+
+func canTryFallbackModel(c *gin.Context, err *types.NewAPIError) bool {
+	if err == nil {
+		return false
+	}
+	if c.Writer != nil && c.Writer.Written() {
+		return false
+	}
+	if _, ok := c.Get("specific_channel_id"); ok {
+		return false
+	}
+	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) || types.IsSkipRetryError(err) {
+		return false
+	}
+	code := err.StatusCode
+	if code >= 200 && code < 300 {
+		return false
+	}
+	if code < 100 || code > 599 {
+		return true
+	}
+	if operation_setting.IsAlwaysSkipRetryCode(err.GetErrorCode()) {
+		return false
+	}
+	return model_setting.ShouldFallbackByStatusCode(code)
+}
+
+func resetModelAttemptContext(c *gin.Context) {
+	for _, key := range []constant.ContextKey{
+		constant.ContextKeyAutoGroup,
+		constant.ContextKeyAutoGroupIndex,
+		constant.ContextKeyAutoGroupRetryIndex,
+	} {
+		delete(c.Keys, string(key))
+	}
 }
 
 func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {
@@ -308,13 +416,13 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	info.PriceData.GroupRatioInfo = helper.HandleGroupRatio(c, info)
 
 	if err != nil {
-		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, info.OriginModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		return nil, types.NewError(fmt.Errorf("获取分组 %s 下模型 %s 的可用渠道失败（retry）: %s", selectGroup, retryParam.ModelName, err.Error()), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 	if channel == nil {
-		return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectGroup, info.OriginModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		return nil, types.NewError(fmt.Errorf("分组 %s 下模型 %s 的可用渠道不存在（retry）", selectGroup, retryParam.ModelName), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
 
-	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, info.OriginModelName)
+	newAPIError := middleware.SetupContextForSelectedChannel(c, channel, retryParam.ModelName)
 	if newAPIError != nil {
 		return nil, newAPIError
 	}
@@ -383,6 +491,13 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		other["channel_type"] = c.GetInt("channel_type")
 		adminInfo := make(map[string]interface{})
 		adminInfo["use_channel"] = c.GetStringSlice("use_channel")
+		if c.GetString("model_fallback_model") != "" {
+			adminInfo["model_fallback"] = map[string]interface{}{
+				"primary_model":  c.GetString("model_fallback_primary"),
+				"fallback_model": c.GetString("model_fallback_model"),
+				"mode":           c.GetString("model_fallback_mode"),
+			}
+		}
 		isMultiKey := common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey)
 		if isMultiKey {
 			adminInfo["is_multi_key"] = true

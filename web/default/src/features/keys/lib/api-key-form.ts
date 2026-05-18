@@ -21,6 +21,7 @@ import type { TFunction } from 'i18next'
 import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 import { DEFAULT_GROUP } from '../constants'
 import { type ApiKeyFormData, type ApiKey } from '../types'
+import { AUTO_GROUP_VALUE } from './api-key-groups'
 
 // ============================================================================
 // Form Schema
@@ -57,9 +58,7 @@ export function getApiKeyFormSchema(t: TFunction) {
     })
 }
 
-export type ApiKeyFormValues = z.infer<
-  ReturnType<typeof getApiKeyFormSchema>
->
+export type ApiKeyFormValues = z.infer<ReturnType<typeof getApiKeyFormSchema>>
 
 // ============================================================================
 // Form Defaults
@@ -72,18 +71,16 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   unlimited_quota: true,
   model_limits: [],
   allow_ips: '',
-  group: DEFAULT_GROUP,
+  group: AUTO_GROUP_VALUE,
   cross_group_retry: true,
   tokenCount: 1,
 }
 
-export function getApiKeyFormDefaultValues(
-  defaultUseAutoGroup: boolean
-): ApiKeyFormValues {
+export function getApiKeyFormDefaultValues(): ApiKeyFormValues {
   return {
     ...API_KEY_FORM_DEFAULT_VALUES,
-    group: defaultUseAutoGroup ? 'auto' : DEFAULT_GROUP,
-    cross_group_retry: defaultUseAutoGroup,
+    group: AUTO_GROUP_VALUE,
+    cross_group_retry: true,
   }
 }
 
@@ -110,7 +107,8 @@ export function transformFormDataToPayload(
     model_limits: data.model_limits.join(','),
     allow_ips: data.allow_ips || '',
     group: data.group || '',
-    cross_group_retry: data.group === 'auto' ? !!data.cross_group_retry : false,
+    cross_group_retry:
+      data.group === AUTO_GROUP_VALUE ? !!data.cross_group_retry : false,
   }
 }
 

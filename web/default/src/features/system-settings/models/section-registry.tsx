@@ -24,6 +24,7 @@ import { ClaudeSettingsCard } from './claude-settings-card'
 import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
 import { GrokSettingsCard } from './grok-settings-card'
+import { ModelFallbackSettingsCard } from './model-fallback-settings-card'
 
 function formatJsonForEditor(value: string, fallback: string) {
   const raw = (value ?? '').toString().trim()
@@ -141,6 +142,23 @@ const MODELS_SECTIONS = [
             settings['channel_affinity_setting.default_ttl_seconds'],
           'channel_affinity_setting.rules':
             settings['channel_affinity_setting.rules'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'model-fallback',
+    titleKey: 'Model Fallback',
+    descriptionKey: 'Configure primary and fallback model rules',
+    build: (settings: ModelSettings) => (
+      <ModelFallbackSettingsCard
+        defaultValues={{
+          'model_fallback.enabled': settings['model_fallback.enabled'],
+          'model_fallback.allow_user_override':
+            settings['model_fallback.allow_user_override'],
+          'model_fallback.failure_status_codes':
+            settings['model_fallback.failure_status_codes'],
+          'model_fallback.rules': settings['model_fallback.rules'],
         }}
       />
     ),

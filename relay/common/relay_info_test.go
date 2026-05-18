@@ -38,3 +38,26 @@ func TestRelayInfoGetFinalRequestRelayFormatNilReceiver(t *testing.T) {
 	var info *RelayInfo
 	require.Equal(t, types.RelayFormat(""), info.GetFinalRequestRelayFormat())
 }
+
+func TestRelayInfoResponseModelUsesOriginWhenFallbackAttempted(t *testing.T) {
+	info := &RelayInfo{
+		OriginModelName:        "gpt-5.5",
+		ModelFallbackAttempted: true,
+		ChannelMeta: &ChannelMeta{
+			UpstreamModelName: "qwen-3.6",
+		},
+	}
+
+	require.Equal(t, "gpt-5.5", info.ResponseModel("qwen-3.6"))
+}
+
+func TestRelayInfoResponseModelUsesUpstreamWithoutFallback(t *testing.T) {
+	info := &RelayInfo{
+		OriginModelName: "gpt-5.5",
+		ChannelMeta: &ChannelMeta{
+			UpstreamModelName: "qwen-3.6",
+		},
+	}
+
+	require.Equal(t, "qwen-3.6", info.ResponseModel("qwen-3.6"))
+}

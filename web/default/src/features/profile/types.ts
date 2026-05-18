@@ -88,6 +88,20 @@ export interface UserProfile {
  */
 export type NotifyType = 'email' | 'webhook' | 'bark' | 'gotify'
 
+export type ModelFallbackRule = {
+  primary_model: string
+  fallback_model: string
+  enabled: boolean
+}
+
+export type UserModelFallbackMode = 'inherit' | 'custom' | 'disabled'
+
+export type UserModelFallbackSetting = {
+  mode?: UserModelFallbackMode
+  enabled?: boolean
+  rules?: ModelFallbackRule[]
+}
+
 /**
  * Parsed user settings
  */
@@ -118,6 +132,8 @@ export interface UserSettings {
   upstream_model_update_notify_enabled?: boolean
   /** Preferred interface/API response language */
   language?: string
+  /** User-specific model fallback settings */
+  model_fallback?: UserModelFallbackSetting
 }
 
 /**
@@ -145,6 +161,7 @@ export interface UpdateUserSettingsRequest {
   accept_unset_model_ratio_model?: boolean
   record_ip_log?: boolean
   upstream_model_update_notify_enabled?: boolean
+  model_fallback?: UserModelFallbackSetting
 }
 
 /**

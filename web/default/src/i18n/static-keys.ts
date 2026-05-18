@@ -96,6 +96,7 @@ export const STATIC_I18N_KEYS = [
   'Successfully created {{count}} API Key(s)',
   'Successfully deleted {{count}} API key(s)',
   'Enter API key for this channel',
+  'auto 自动分组',
 
   // Users
   'Root',
@@ -208,6 +209,37 @@ export const STATIC_I18N_KEYS = [
   // Channel Affinity section
   'Channel Affinity',
   'Configure channel affinity (sticky routing) rules',
+
+  // Model fallback
+  'Model Fallback',
+  'Configure primary and fallback model rules',
+  'Automatically retry a configured fallback model when the primary model fails.',
+  'Choose how fallback models are applied to your requests',
+  'Enable Model Fallback',
+  'Fallback is only attempted after the primary model fails.',
+  'Allow User Overrides',
+  'Users can inherit, disable, or define their own rules.',
+  'Primary Failure Status Codes',
+  'Fallback Rules',
+  'Each request still starts with the primary model.',
+  'Add Rule',
+  'Primary Model',
+  'Fallback Model',
+  'Select primary model',
+  'Select fallback model',
+  'Or enter model name',
+  'No fallback rules configured',
+  'Primary and fallback models are required',
+  'Primary and fallback models cannot be the same',
+  'Failed to load models',
+  'Use Global Configuration',
+  'Use the administrator configured fallback rules.',
+  'Custom Configuration',
+  'Use my own primary and fallback model rules.',
+  'Disable Fallback',
+  'Always request the primary model only.',
+  'Enable Custom Fallback',
+  'When disabled, your custom rules are kept but not used.',
 
   // Models constants
   'Exact Match',

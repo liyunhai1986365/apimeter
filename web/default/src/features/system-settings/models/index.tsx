@@ -66,6 +66,11 @@ const defaultModelSettings: ModelSettings = {
   'channel_affinity_setting.max_entries': 100000,
   'channel_affinity_setting.default_ttl_seconds': 3600,
   'channel_affinity_setting.rules': '[]',
+  'model_fallback.enabled': false,
+  'model_fallback.allow_user_override': true,
+  'model_fallback.failure_status_codes':
+    '100-199,300-399,401-407,409-499,500-503,505-523,525-599',
+  'model_fallback.rules': '[]',
   'model_deployment.ionet.api_key': '',
   'model_deployment.ionet.enabled': false,
 }

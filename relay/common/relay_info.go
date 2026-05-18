@@ -102,6 +102,11 @@ type RelayInfo struct {
 	UsePrice               bool
 	RelayMode              int
 	OriginModelName        string
+	RequestModelName       string
+	CurrentModelName       string
+	FallbackModelName      string
+	ModelFallbackMode      string
+	ModelFallbackAttempted bool
 	RequestURLPath         string
 	RequestHeaders         map[string]string
 	ShouldIncludeUsage     bool
@@ -201,7 +206,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 		ChannelCreateTime:    c.GetInt64("channel_create_time"),
 		ParamOverride:        paramOverride,
 		HeadersOverride:      headerOverride,
-		UpstreamModelName:    common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
+		UpstreamModelName:    info.CurrentModel(),
 		IsModelMapped:        false,
 		SupportStreamOptions: false,
 	}
@@ -232,8 +237,34 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	// reset some fields based on channel meta
 	// 重置某些字段，例如模型名称等
 	if info.Request != nil {
-		info.Request.SetModelName(info.OriginModelName)
+		info.Request.SetModelName(info.CurrentModel())
 	}
+}
+
+func (info *RelayInfo) CurrentModel() string {
+	if info == nil {
+		return ""
+	}
+	if info.CurrentModelName != "" {
+		return info.CurrentModelName
+	}
+	return info.OriginModelName
+}
+
+func (info *RelayInfo) ResponseModel(upstreamModel string) string {
+	if info == nil {
+		return upstreamModel
+	}
+	if info.ModelFallbackAttempted && info.OriginModelName != "" {
+		return info.OriginModelName
+	}
+	if upstreamModel != "" {
+		return upstreamModel
+	}
+	if info.UpstreamModelName != "" {
+		return info.UpstreamModelName
+	}
+	return info.CurrentModel()
 }
 
 func (info *RelayInfo) ToString() string {
@@ -250,6 +281,7 @@ func (info *RelayInfo) ToString() string {
 	fmt.Fprintf(b, "IsPlayground: %t, ", info.IsPlayground)
 	fmt.Fprintf(b, "RequestURLPath: %q, ", info.RequestURLPath)
 	fmt.Fprintf(b, "OriginModelName: %q, ", info.OriginModelName)
+	fmt.Fprintf(b, "CurrentModelName: %q, ", info.CurrentModel())
 	fmt.Fprintf(b, "EstimatePromptTokens: %d, ", info.estimatePromptTokens)
 	fmt.Fprintf(b, "ShouldIncludeUsage: %t, ", info.ShouldIncludeUsage)
 	fmt.Fprintf(b, "DisablePing: %t, ", info.DisablePing)
@@ -465,7 +497,8 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		UserQuota:  common.GetContextKeyInt(c, constant.ContextKeyUserQuota),
 		UserEmail:  common.GetContextKeyString(c, constant.ContextKeyUserEmail),
 
-		OriginModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
+		OriginModelName:  common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
+		RequestModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 
 		TokenId:        common.GetContextKeyInt(c, constant.ContextKeyTokenId),
 		TokenKey:       common.GetContextKeyString(c, constant.ContextKeyTokenKey),

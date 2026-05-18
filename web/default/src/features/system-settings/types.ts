@@ -179,6 +179,10 @@ export type ModelSettings = {
   'channel_affinity_setting.max_entries': number
   'channel_affinity_setting.default_ttl_seconds': number
   'channel_affinity_setting.rules': string
+  'model_fallback.enabled': boolean
+  'model_fallback.allow_user_override': boolean
+  'model_fallback.failure_status_codes': string
+  'model_fallback.rules': string
   'model_deployment.ionet.api_key': string
   'model_deployment.ionet.enabled': boolean
 }

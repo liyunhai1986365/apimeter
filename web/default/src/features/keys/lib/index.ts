@@ -27,3 +27,10 @@ export {
   transformFormDataToPayload,
   transformApiKeyToFormDefaults,
 } from './api-key-form'
+export {
+  AUTO_GROUP_VALUE,
+  AUTO_GROUP_LABEL,
+  AUTO_GROUP_DESCRIPTION,
+  buildApiKeyGroupOptions,
+  shouldFallbackApiKeyGroup,
+} from './api-key-groups'

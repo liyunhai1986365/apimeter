@@ -25,6 +25,7 @@ import {
 } from '@/components/page-transition'
 import { CheckinCalendarCard } from './components/checkin-calendar-card'
 import { LanguagePreferencesCard } from './components/language-preferences-card'
+import { ModelFallbackCard } from './components/model-fallback-card'
 import { PasskeyCard } from './components/passkey-card'
 import { ProfileHeader } from './components/profile-header'
 import { ProfileSecurityCard } from './components/profile-security-card'
@@ -62,6 +63,10 @@ export function Profile() {
                   onProfileUpdate={refreshProfile}
                 />
                 <LanguagePreferencesCard
+                  profile={profile}
+                  onProfileUpdate={refreshProfile}
+                />
+                <ModelFallbackCard
                   profile={profile}
                   onProfileUpdate={refreshProfile}
                 />

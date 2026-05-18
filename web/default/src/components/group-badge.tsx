@@ -50,7 +50,7 @@ function getGroupLabel(params: {
 }): string {
   if (params.labelOverride) return params.labelOverride
   if (params.isEmptyGroup) return params.t('User Group')
-  if (params.isAutoGroup) return params.t('Auto')
+  if (params.isAutoGroup) return params.t('auto 自动分组')
   return params.groupName ?? ''
 }
 
