@@ -168,7 +168,11 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			info.RelayMode != relayconstant.RelayModeResponsesCompact {
 			return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
 		}
-		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil
+		requestURLPath := info.RequestURLPath
+		if relaycommon.ShouldUseDuomiImageAsync(info.ChannelBaseUrl, requestURLPath) {
+			requestURLPath = relaycommon.WithAsyncQuery(requestURLPath)
+		}
+		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURLPath, info.ChannelType), nil
 	}
 }
 

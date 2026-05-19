@@ -592,6 +592,12 @@ func RelayTaskFetch(c *gin.Context) {
 		})
 		return
 	}
+	if relayInfo.RelayMode == relayconstant.RelayModeImageTaskFetchByID {
+		if taskErr := relay.ImageTaskFetch(c); taskErr != nil {
+			respondTaskError(c, taskErr)
+		}
+		return
+	}
 	if taskErr := relay.RelayTaskFetch(c, relayInfo.RelayMode); taskErr != nil {
 		respondTaskError(c, taskErr)
 	}

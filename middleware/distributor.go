@@ -182,7 +182,10 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	var modelRequest ModelRequest
 	shouldSelectChannel := true
 	var err error
-	if strings.Contains(c.Request.URL.Path, "/mj/") {
+	if strings.HasPrefix(c.Request.URL.Path, "/v1/tasks/") && c.Request.Method == http.MethodGet {
+		c.Set("relay_mode", relayconstant.RelayModeImageTaskFetchByID)
+		shouldSelectChannel = false
+	} else if strings.Contains(c.Request.URL.Path, "/mj/") {
 		relayMode := relayconstant.Path2RelayModeMidjourney(c.Request.URL.Path)
 		if relayMode == relayconstant.RelayModeMidjourneyTaskFetch ||
 			relayMode == relayconstant.RelayModeMidjourneyTaskFetchByCondition ||

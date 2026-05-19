@@ -106,11 +106,28 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		}
 	}
 
+	originalWriter := c.Writer
+	responseCapture := newImageResponseCapture(originalWriter)
+	c.Writer = responseCapture
+
 	usage, newAPIError := adaptor.DoResponse(c, httpResp, info)
+	c.Writer = originalWriter
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return newAPIError
+	}
+
+	if responseCapture.HasBody() {
+		if syncBody, syncErr := waitImageAsyncSubmitResponse(c, info, responseCapture.BodyBytes()); syncErr != nil {
+			return syncErr
+		} else if len(syncBody) > 0 {
+			responseCapture.ReplaceBody(http.StatusOK, syncBody)
+		} else {
+			if asyncErr := recordImageAsyncSubmitResponse(info, responseCapture.BodyBytes()); asyncErr != nil {
+				return asyncErr
+			}
+		}
 	}
 
 	imageN := uint(1)
@@ -153,5 +170,6 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), logContent)
+	responseCapture.WriteCaptured()
 	return nil
 }

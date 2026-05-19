@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,33 @@ func GetFullRequestURL(baseURL string, requestURL string, channelType int) strin
 		}
 	}
 	return fullRequestURL
+}
+
+func ShouldUseDuomiImageAsync(baseURL, requestURL string) bool {
+	normalizedBaseURL := strings.ToLower(strings.TrimRight(strings.TrimSpace(baseURL), "/"))
+	if !strings.Contains(normalizedBaseURL, "duomiapi.com") {
+		return false
+	}
+	return strings.Split(requestURL, "?")[0] == "/v1/images/generations"
+}
+
+func WithAsyncQuery(requestURL string) string {
+	parsedURL, err := url.Parse(requestURL)
+	if err != nil {
+		if strings.Contains(requestURL, "?") {
+			return requestURL + "&async=true"
+		}
+		return requestURL + "?async=true"
+	}
+	query := parsedURL.Query()
+	query.Set("async", "true")
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
+}
+
+func IsDuomiImageAsyncUpstream(baseURL string) bool {
+	normalizedBaseURL := strings.ToLower(strings.TrimRight(strings.TrimSpace(baseURL), "/"))
+	return strings.Contains(normalizedBaseURL, "duomiapi.com")
 }
 
 func GetAPIVersion(c *gin.Context) string {

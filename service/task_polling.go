@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -96,7 +97,19 @@ func TaskPollingLoop() {
 		sweepTimedOutTasks(ctx)
 		allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
 		platformTask := make(map[constant.TaskPlatform][]*model.Task)
+		imageTaskChannelM := make(map[int][]string)
+		imageTaskM := make(map[string]*model.Task)
 		for _, t := range allTasks {
+			if isImageAsyncTask(t) {
+				upstreamID := t.GetUpstreamTaskID()
+				if upstreamID != "" {
+					imageTaskM[upstreamID] = t
+					imageTaskChannelM[t.ChannelId] = append(imageTaskChannelM[t.ChannelId], upstreamID)
+					continue
+				}
+				// Fall through to the standard grouping path so the existing
+				// null task_id repair logic marks malformed tasks as failed.
+			}
 			platformTask[t.Platform] = append(platformTask[t.Platform], t)
 		}
 		for platform, tasks := range platformTask {
@@ -134,6 +147,11 @@ func TaskPollingLoop() {
 			}
 
 			DispatchPlatformUpdate(platform, taskChannelM, taskM)
+		}
+		if len(imageTaskChannelM) > 0 {
+			if err := UpdateImageTasks(ctx, imageTaskChannelM, imageTaskM); err != nil {
+				common.SysLog(fmt.Sprintf("UpdateImageTasks fail: %s", err))
+			}
 		}
 		common.SysLog("任务进度轮询完成")
 	}
@@ -174,6 +192,34 @@ func UpdateSunoTasks(ctx context.Context, taskChannelM map[int][]string, taskM m
 		}
 	}
 	return nil
+}
+
+func isImageAsyncTask(task *model.Task) bool {
+	if task == nil {
+		return false
+	}
+	if task.PrivateData.AsyncImage {
+		return true
+	}
+	if task.TaskID == "" || task.Action != constant.TaskActionGenerate {
+		return false
+	}
+	if task.TaskID != task.GetUpstreamTaskID() {
+		return false
+	}
+	openAIPlatform := constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI))
+	openAIMaxPlatform := constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAIMax))
+	if task.Platform != openAIPlatform && task.Platform != openAIMaxPlatform {
+		return false
+	}
+	return isImageModelHint(task.Properties.OriginModelName) ||
+		isImageModelHint(task.Properties.UpstreamModelName) ||
+		(task.PrivateData.BillingContext != nil && isImageModelHint(task.PrivateData.BillingContext.OriginModelName))
+}
+
+func isImageModelHint(modelName string) bool {
+	modelName = strings.ToLower(strings.TrimSpace(modelName))
+	return strings.Contains(modelName, "image") || strings.HasPrefix(modelName, "dall-e")
 }
 
 func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM map[string]*model.Task) error {
@@ -351,6 +397,183 @@ func UpdateVideoTasks(ctx context.Context, platform constant.TaskPlatform, taskC
 		}
 	}
 	return nil
+}
+
+// UpdateImageTasks 按渠道更新所有异步图片任务
+func UpdateImageTasks(ctx context.Context, taskChannelM map[int][]string, taskM map[string]*model.Task) error {
+	for channelId, taskIds := range taskChannelM {
+		if err := updateImageTasks(ctx, channelId, taskIds, taskM); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("Channel #%d failed to update image async tasks: %s", channelId, err.Error()))
+		}
+	}
+	return nil
+}
+
+func updateImageTasks(ctx context.Context, channelId int, taskIds []string, taskM map[string]*model.Task) error {
+	logger.LogInfo(ctx, fmt.Sprintf("Channel #%d pending image tasks: %d", channelId, len(taskIds)))
+	if len(taskIds) == 0 {
+		return nil
+	}
+	cacheGetChannel, err := model.CacheGetChannel(channelId)
+	if err != nil {
+		var failedIDs []int64
+		for _, upstreamID := range taskIds {
+			if t, ok := taskM[upstreamID]; ok {
+				failedIDs = append(failedIDs, t.ID)
+			}
+		}
+		errUpdate := model.TaskBulkUpdateByID(failedIDs, map[string]any{
+			"fail_reason": fmt.Sprintf("Failed to get channel info, channel ID: %d", channelId),
+			"status":      "FAILURE",
+			"progress":    "100%",
+		})
+		if errUpdate != nil {
+			common.SysLog(fmt.Sprintf("UpdateImageTask error: %v", errUpdate))
+		}
+		return fmt.Errorf("CacheGetChannel failed: %w", err)
+	}
+	for _, taskId := range taskIds {
+		if err := updateImageSingleTask(ctx, cacheGetChannel, taskId, taskM); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("Failed to update image task %s: %s", taskId, err.Error()))
+		}
+	}
+	return nil
+}
+
+func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string, taskM map[string]*model.Task) error {
+	baseURL := constant.ChannelBaseURLs[ch.Type]
+	if ch.GetBaseURL() != "" {
+		baseURL = ch.GetBaseURL()
+	}
+	proxy := ch.GetSetting().Proxy
+
+	task := taskM[taskId]
+	if task == nil {
+		logger.LogError(ctx, fmt.Sprintf("Task %s not found in taskM", taskId))
+		return fmt.Errorf("task %s not found", taskId)
+	}
+
+	key := ch.Key
+	if privateKey := strings.TrimSpace(task.PrivateData.Key); privateKey != "" {
+		key = privateKey
+	}
+
+	body, statusCode, err := fetchImageTaskResult(baseURL, key, task.GetUpstreamTaskID(), proxy)
+	if err != nil {
+		return fmt.Errorf("fetch image task failed for task %s: %w", taskId, err)
+	}
+	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("fetch image task status code: %d, body: %s", statusCode, string(body))
+	}
+
+	var upstream dto.ImageTaskResponse
+	if err := common.Unmarshal(body, &upstream); err != nil {
+		return fmt.Errorf("unmarshal image task response failed: %w", err)
+	}
+
+	newStatus, newProgress, failReason, resultURL := normalizeImageTaskResult(upstream)
+	snap := task.Snapshot()
+	task.Status = newStatus
+	task.Progress = newProgress
+	task.FailReason = failReason
+	task.Data = body
+	if resultURL != "" {
+		task.PrivateData.ResultURL = resultURL
+	}
+	if upstream.CreateTime != 0 {
+		task.CreatedAt = upstream.CreateTime
+	}
+	if upstream.UpdateTime != 0 {
+		task.UpdatedAt = upstream.UpdateTime
+	}
+
+	if snap.Equal(task.Snapshot()) {
+		logger.LogDebug(ctx, fmt.Sprintf("No image task update needed for %s", task.TaskID))
+		return nil
+	}
+
+	if _, err := task.UpdateWithStatus(snap.Status); err != nil {
+		return fmt.Errorf("update image task failed: %w", err)
+	}
+	return nil
+}
+
+func fetchImageTaskResult(baseURL, key, upstreamTaskID, proxy string) ([]byte, int, error) {
+	requestURL := relaycommon.GetFullRequestURL(baseURL, "/v1/tasks/"+upstreamTaskID, constant.ChannelTypeOpenAI)
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	req.Header.Set("Accept", "application/json")
+	if relaycommon.IsDuomiImageAsyncUpstream(baseURL) {
+		req.Header.Set("Authorization", key)
+	} else {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+
+	client, err := GetHttpClientWithProxy(proxy)
+	if err != nil {
+		return nil, 0, err
+	}
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, err
+	}
+	return body, resp.StatusCode, nil
+}
+
+func normalizeImageTaskResult(resp dto.ImageTaskResponse) (model.TaskStatus, string, string, string) {
+	state := strings.ToLower(strings.TrimSpace(resp.State))
+	switch state {
+	case "running", "processing":
+		return model.TaskStatusInProgress, imageProgress(resp.Progress, "0%"), "", firstImageURL(resp.Data.Images)
+	case "queued", "submitted", "pending":
+		return model.TaskStatusQueued, imageProgress(resp.Progress, "0%"), "", firstImageURL(resp.Data.Images)
+	case "succeeded", "success", "done":
+		return model.TaskStatusSuccess, imageProgress(resp.Progress, "100%"), "", firstImageURL(resp.Data.Images)
+	case "failed", "failure", "error", "cancelled", "canceled":
+		return model.TaskStatusFailure, imageProgress(resp.Progress, "100%"), imageTaskFailReason(resp.Error), firstImageURL(resp.Data.Images)
+	default:
+		if len(resp.Data.Images) > 0 {
+			return model.TaskStatusSuccess, imageProgress(resp.Progress, "100%"), "", firstImageURL(resp.Data.Images)
+		}
+		return model.TaskStatusInProgress, imageProgress(resp.Progress, "0%"), "", ""
+	}
+}
+
+func imageProgress(progress int, fallback string) string {
+	if progress <= 0 {
+		return fallback
+	}
+	return fmt.Sprintf("%d%%", progress)
+}
+
+func firstImageURL(images []dto.ImageTaskImage) string {
+	if len(images) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(images[0].URL)
+}
+
+func imageTaskFailReason(errData map[string]interface{}) string {
+	if len(errData) == 0 {
+		return ""
+	}
+	if msg, ok := errData["message"].(string); ok && strings.TrimSpace(msg) != "" {
+		return msg
+	}
+	if msg, ok := errData["msg"].(string); ok && strings.TrimSpace(msg) != "" {
+		return msg
+	}
+	return ""
 }
 
 func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, channelId int, taskIds []string, taskM map[string]*model.Task) error {

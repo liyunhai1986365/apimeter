@@ -111,6 +111,7 @@ type RelayInfo struct {
 	RequestHeaders         map[string]string
 	ShouldIncludeUsage     bool
 	DisablePing            bool // 是否禁止向下游发送自定义 Ping
+	IsAsyncImageRequest    bool
 	ClientWs               *websocket.Conn
 	TargetWs               *websocket.Conn
 	InputAudioFormat       string
@@ -505,11 +506,12 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		TokenUnlimited: common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
 		TokenGroup:     tokenGroup,
 
-		isFirstResponse: true,
-		RelayMode:       relayconstant.Path2RelayMode(c.Request.URL.Path),
-		RequestURLPath:  c.Request.URL.String(),
-		RequestHeaders:  cloneRequestHeaders(c),
-		IsStream:        isStream,
+		isFirstResponse:     true,
+		RelayMode:           relayconstant.Path2RelayMode(c.Request.URL.Path),
+		RequestURLPath:      c.Request.URL.String(),
+		RequestHeaders:      cloneRequestHeaders(c),
+		IsAsyncImageRequest: strings.EqualFold(strings.TrimSpace(c.Query("async")), "true"),
+		IsStream:            isStream,
 
 		StartTime:         startTime,
 		FirstResponseTime: startTime.Add(-time.Second),

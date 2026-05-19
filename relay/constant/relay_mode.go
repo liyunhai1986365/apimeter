@@ -52,6 +52,8 @@ const (
 	RelayModeGemini
 
 	RelayModeResponsesCompact
+
+	RelayModeImageTaskFetchByID
 )
 
 func Path2RelayMode(path string) int {
@@ -68,6 +70,8 @@ func Path2RelayMode(path string) int {
 		relayMode = RelayModeModerations
 	} else if strings.HasPrefix(path, "/v1/images/generations") {
 		relayMode = RelayModeImagesGenerations
+	} else if strings.HasPrefix(path, "/v1/tasks/") {
+		relayMode = RelayModeImageTaskFetchByID
 	} else if strings.HasPrefix(path, "/v1/images/edits") {
 		relayMode = RelayModeImagesEdits
 	} else if strings.HasPrefix(path, "/v1/edits") {
