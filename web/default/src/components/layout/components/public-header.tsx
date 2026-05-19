@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/skeleton'
+import { CurrencySwitcher } from '@/components/currency-switcher'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationButton } from '@/components/notification-button'
 import { NotificationDialog } from '@/components/notification-dialog'
@@ -278,6 +279,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                 <div className='bg-border/40 mx-2 h-4 w-px' />
               )}
 
+              <CurrencySwitcher />
               {showLanguageSwitcher && <LanguageSwitcher />}
               {showThemeSwitch && <ThemeSwitch />}
               {showNotifications && (
@@ -309,6 +311,7 @@ export function PublicHeader(props: PublicHeaderProps) {
 
             {/* Mobile: compact actions + hamburger */}
             <div className='flex items-center gap-2 sm:hidden'>
+              <CurrencySwitcher className='px-1.5' />
               {showThemeSwitch && <ThemeSwitch />}
               {showAuthButtons && !loading && isAuthenticated && (
                 <ProfileDropdown />

@@ -83,6 +83,7 @@ import {
   DEFAULT_CURRENCY_CONFIG,
   type CurrencyConfig,
   type CurrencyDisplayType,
+  type UserCurrencyDisplayType,
 } from '@/stores/system-config-store'
 
 export interface CurrencyFormatOptions {
@@ -141,11 +142,16 @@ export function parseCurrencyDisplayType(
 }
 
 function getConfig(): CurrencyConfig {
-  const { config } = useSystemConfigStore.getState()
+  const { config, displayCurrency } = useSystemConfigStore.getState()
   const currency = config?.currency ?? DEFAULT_CURRENCY_CONFIG
+  const quotaDisplayType = getEffectiveQuotaDisplayType(
+    displayCurrency,
+    currency?.quotaDisplayType
+  )
   return {
     ...DEFAULT_CURRENCY_CONFIG,
     ...currency,
+    quotaDisplayType,
     quotaPerUnit:
       currency?.quotaPerUnit && currency.quotaPerUnit > 0
         ? currency.quotaPerUnit
@@ -163,6 +169,16 @@ function getConfig(): CurrencyConfig {
       currency?.customCurrencySymbol?.trim() ||
       DEFAULT_CURRENCY_CONFIG.customCurrencySymbol,
   }
+}
+
+function getEffectiveQuotaDisplayType(
+  displayCurrency: UserCurrencyDisplayType | undefined,
+  fallback: CurrencyDisplayType | undefined
+): CurrencyDisplayType {
+  if (displayCurrency === 'CNY' || displayCurrency === 'USD') {
+    return displayCurrency
+  }
+  return fallback ?? DEFAULT_CURRENCY_CONFIG.quotaDisplayType
 }
 
 function getDisplayMeta(config: CurrencyConfig): DisplayMeta {

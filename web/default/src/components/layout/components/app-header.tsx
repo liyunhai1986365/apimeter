@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useNotifications } from '@/hooks/use-notifications'
 import { useTopNavLinks } from '@/hooks/use-top-nav-links'
 import { ConfigDrawer } from '@/components/config-drawer'
+import { CurrencySwitcher } from '@/components/currency-switcher'
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { NotificationButton } from '@/components/notification-button'
 import { NotificationDialog } from '@/components/notification-dialog'
@@ -133,6 +134,7 @@ export function AppHeader({
                 onClick={() => notifications.openDialog()}
               />
             )}
+            <CurrencySwitcher />
             <LanguageSwitcher />
             {showConfigDrawer && <ConfigDrawer />}
             {showProfileDropdown && <ProfileDropdown />}

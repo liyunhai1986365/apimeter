@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState, useEffect } from 'react'
 import { Gift, ExternalLink, Loader2, Receipt, WalletCards } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatNumber } from '@/lib/format'
+import { formatCurrencyFromUSD } from '@/lib/currency'
 import { cn } from '@/lib/utils'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -68,7 +68,6 @@ interface RechargeFormCardProps {
   topupLink?: string
   loading?: boolean
   priceRatio?: number
-  usdExchangeRate?: number
   onOpenBilling?: () => void
   creemProducts?: CreemProduct[]
   enableCreemTopup?: boolean
@@ -98,7 +97,6 @@ export function RechargeFormCard({
   topupLink,
   loading,
   priceRatio = 1,
-  usdExchangeRate = 1,
   onOpenBilling,
   creemProducts,
   enableCreemTopup,
@@ -222,17 +220,12 @@ export function RechargeFormCard({
                         preset.discount ||
                         topupInfo?.discount?.[preset.value] ||
                         1.0
-                      const {
-                        displayValue,
-                        actualPrice,
-                        savedAmount,
-                        hasDiscount,
-                      } = calculatePresetPricing(
-                        preset.value,
-                        priceRatio,
-                        discount,
-                        usdExchangeRate
-                      )
+                      const { actualPrice, savedAmount, hasDiscount } =
+                        calculatePresetPricing(
+                          preset.value,
+                          priceRatio,
+                          discount
+                        )
                       return (
                         <Button
                           key={index}
@@ -247,7 +240,11 @@ export function RechargeFormCard({
                         >
                           <div className='flex w-full items-center justify-between'>
                             <div className='text-base font-semibold sm:text-lg'>
-                              {formatNumber(displayValue)}
+                              {formatCurrencyFromUSD(preset.value, {
+                                digitsLarge: 2,
+                                digitsSmall: 2,
+                                abbreviate: false,
+                              })}
                             </div>
                             {hasDiscount && (
                               <div className='text-xs font-medium text-green-600'>
