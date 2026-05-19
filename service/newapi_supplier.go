@@ -21,11 +21,12 @@ import (
 )
 
 type NewAPISupplierGroupSnapshot struct {
-	Group  string   `json:"group"`
-	Models []string `json:"models"`
-	Source string   `json:"source"`
-	Ratio  string   `json:"ratio,omitempty"`
-	Desc   string   `json:"desc,omitempty"`
+	Group          string              `json:"group"`
+	Models         []string            `json:"models"`
+	Source         string              `json:"source"`
+	Ratio          string              `json:"ratio,omitempty"`
+	Desc           string              `json:"desc,omitempty"`
+	ModelProviders map[string][]string `json:"model_providers,omitempty"`
 }
 
 type newAPISupplierGroupInfo struct {
@@ -63,6 +64,7 @@ type NewAPISupplierConfigureItem struct {
 	LocalGroup    string   `json:"local_group"`
 	Models        []string `json:"models"`
 	ChannelType   int      `json:"channel_type"`
+	ChannelName   string   `json:"channel_name"`
 }
 
 type NewAPISupplierConfigureRequest struct {
@@ -74,6 +76,7 @@ type NewAPISupplierConfiguredChannel struct {
 	ChannelID     int    `json:"channel_id"`
 	Name          string `json:"name"`
 	UpstreamGroup string `json:"upstream_group"`
+	ChannelType   int    `json:"channel_type"`
 	LocalGroup    string `json:"local_group"`
 	Models        string `json:"models"`
 	Created       bool   `json:"created"`
@@ -109,16 +112,26 @@ type newAPIUserSelf struct {
 }
 
 type newAPIPricingResponse struct {
-	Success     bool                 `json:"success"`
-	Message     string               `json:"message"`
-	Data        []newAPIPricingModel `json:"data"`
-	GroupRatio  map[string]any       `json:"group_ratio"`
-	UsableGroup map[string]any       `json:"usable_group"`
+	Success     bool                  `json:"success"`
+	Message     string                `json:"message"`
+	Data        []newAPIPricingModel  `json:"data"`
+	Vendors     []newAPIPricingVendor `json:"vendors"`
+	GroupRatio  map[string]any        `json:"group_ratio"`
+	UsableGroup map[string]any        `json:"usable_group"`
 }
 
 type newAPIPricingModel struct {
 	ModelName    string   `json:"model_name"`
+	VendorID     int      `json:"vendor_id"`
+	VendorName   string   `json:"vendor_name"`
+	Provider     string   `json:"provider"`
+	OwnerBy      string   `json:"owner_by"`
 	EnableGroups []string `json:"enable_groups"`
+}
+
+type newAPIPricingVendor struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 type newAPITokenListItem struct {
@@ -175,11 +188,15 @@ func BuildNewAPISupplierChannelPlans(supplier *model.NewAPISupplier, req NewAPIS
 		if channelType == 0 {
 			channelType = constant.ChannelTypeOpenAI
 		}
+		channelName := strings.TrimSpace(item.ChannelName)
+		if channelName == "" {
+			channelName = formatNewAPISupplierChannelName(upstreamGroup, groupRatios[upstreamGroup], supplier.Name, channelType)
+		}
 		plans = append(plans, model.Channel{
 			Type:        channelType,
 			Key:         key,
 			Status:      common.ChannelStatusEnabled,
-			Name:        formatNewAPISupplierChannelName(upstreamGroup, groupRatios[upstreamGroup], supplier.Name),
+			Name:        channelName,
 			BaseURL:     common.GetPointer(baseURL),
 			Models:      strings.Join(models, ","),
 			Group:       localGroup,
@@ -213,56 +230,36 @@ func ConfigureNewAPISupplierChannels(ctx context.Context, supplier *model.NewAPI
 	err = model.DB.Transaction(func(tx *gorm.DB) error {
 		for _, plan := range plans {
 			upstreamGroup := parseOtherInfoValue(plan.OtherInfo, "upstream_group")
-			var binding model.NewAPISupplierChannel
-			bindErr := tx.Where("supplier_id = ? AND upstream_group = ?", supplier.Id, upstreamGroup).First(&binding).Error
-			created := false
-			if bindErr == nil {
-				plan.Id = binding.ChannelID
-				if err := tx.Model(&model.Channel{}).Where("id = ?", binding.ChannelID).Updates(&plan).Error; err != nil {
-					return err
-				}
-				if err := tx.First(&plan, binding.ChannelID).Error; err != nil {
-					return err
-				}
-				if err := plan.UpdateAbilities(tx); err != nil {
-					return err
-				}
-				binding.LocalGroup = plan.Group
-				binding.Models = plan.Models
-				binding.UpdatedTime = common.GetTimestamp()
-				if err := tx.Save(&binding).Error; err != nil {
-					return err
-				}
-			} else {
-				if err := tx.Create(&plan).Error; err != nil {
-					return err
-				}
-				if err := plan.AddAbilities(tx); err != nil {
-					return err
-				}
-				now := common.GetTimestamp()
-				binding = model.NewAPISupplierChannel{
-					SupplierID:    supplier.Id,
-					ChannelID:     plan.Id,
-					UpstreamGroup: upstreamGroup,
-					LocalGroup:    plan.Group,
-					Models:        plan.Models,
-					SyncMode:      model.NewAPISupplierSyncModeManaged,
-					CreatedTime:   now,
-					UpdatedTime:   now,
-				}
-				if err := tx.Create(&binding).Error; err != nil {
-					return err
-				}
-				created = true
+			plan.Name = nextNewAPISupplierChannelName(tx, plan.Name)
+			if err := tx.Create(&plan).Error; err != nil {
+				return err
+			}
+			if err := plan.AddAbilities(tx); err != nil {
+				return err
+			}
+			now := common.GetTimestamp()
+			binding := model.NewAPISupplierChannel{
+				SupplierID:    supplier.Id,
+				ChannelID:     plan.Id,
+				UpstreamGroup: upstreamGroup,
+				ChannelType:   plan.Type,
+				LocalGroup:    plan.Group,
+				Models:        plan.Models,
+				SyncMode:      model.NewAPISupplierSyncModeManaged,
+				CreatedTime:   now,
+				UpdatedTime:   now,
+			}
+			if err := tx.Create(&binding).Error; err != nil {
+				return err
 			}
 			results = append(results, NewAPISupplierConfiguredChannel{
 				ChannelID:     plan.Id,
 				Name:          plan.Name,
 				UpstreamGroup: upstreamGroup,
+				ChannelType:   plan.Type,
 				LocalGroup:    plan.Group,
 				Models:        plan.Models,
-				Created:       created,
+				Created:       true,
 			})
 		}
 		return tx.Model(&model.NewAPISupplier{}).Where("id = ?", supplier.Id).Updates(map[string]any{
@@ -432,7 +429,7 @@ func CheckNewAPISupplier(ctx context.Context, supplier *model.NewAPISupplier) (*
 		markSupplierCheckError(supplier.Id, err)
 		return nil, err
 	}
-	groupInfos, groupModels, modelSource := fetchNewAPIModelPlazaGroups(ctx, client, supplier.BaseURL, accessToken, upstreamUserID)
+	groupInfos, groupModels, groupModelProviders, modelSource := fetchNewAPIModelPlazaGroups(ctx, client, supplier.BaseURL, accessToken, upstreamUserID)
 	groups := newAPIGroupNames(groupInfos)
 	if len(groups) == 0 {
 		err := errors.New("供应商模型广场接口未返回可用分组模型数据")
@@ -454,11 +451,12 @@ func CheckNewAPISupplier(ctx context.Context, supplier *model.NewAPISupplier) (*
 	for _, group := range groups {
 		groupInfo := groupInfoByName[group]
 		snapshots = append(snapshots, NewAPISupplierGroupSnapshot{
-			Group:  group,
-			Models: groupModels[group],
-			Source: modelSource,
-			Ratio:  groupInfo.Ratio,
-			Desc:   groupInfo.Desc,
+			Group:          group,
+			Models:         groupModels[group],
+			Source:         modelSource,
+			Ratio:          groupInfo.Ratio,
+			Desc:           groupInfo.Desc,
+			ModelProviders: groupModelProviders[group],
 		})
 	}
 	result := &NewAPISupplierCheckResult{
@@ -711,16 +709,24 @@ func newAPIGroupNames(infos []newAPISupplierGroupInfo) []string {
 	return groups
 }
 
-func fetchNewAPIModelPlazaGroups(ctx context.Context, client *http.Client, baseURL, accessToken string, userID int) ([]newAPISupplierGroupInfo, map[string][]string, string) {
+func fetchNewAPIModelPlazaGroups(ctx context.Context, client *http.Client, baseURL, accessToken string, userID int) ([]newAPISupplierGroupInfo, map[string][]string, map[string]map[string][]string, string) {
 	var response newAPIPricingResponse
 	if err := doNewAPIJSON(ctx, client, http.MethodGet, baseURL, "/api/pricing", accessToken, userID, nil, &response); err != nil {
-		return nil, nil, ""
+		return nil, nil, nil, ""
 	}
 	if !response.Success || len(response.Data) == 0 {
-		return nil, nil, ""
+		return nil, nil, nil, ""
 	}
 	groupModels := make(map[string][]string)
+	groupModelProviders := make(map[string]map[string][]string)
 	groupInfoByName := make(map[string]newAPISupplierGroupInfo)
+	vendorNames := make(map[int]string, len(response.Vendors))
+	for _, vendor := range response.Vendors {
+		if vendor.ID == 0 || strings.TrimSpace(vendor.Name) == "" {
+			continue
+		}
+		vendorNames[vendor.ID] = strings.TrimSpace(vendor.Name)
+	}
 	for group, ratio := range response.GroupRatio {
 		groupName := strings.TrimSpace(group)
 		if groupName == "" {
@@ -760,6 +766,7 @@ func fetchNewAPIModelPlazaGroups(ctx context.Context, client *http.Client, baseU
 				continue
 			}
 			groupModels[groupName] = append(groupModels[groupName], modelName)
+			addNewAPIGroupModelProvider(groupModelProviders, groupName, modelName, resolveNewAPIPricingModelProvider(item, vendorNames))
 			info := groupInfoByName[groupName]
 			if info.Name == "" {
 				info.Name = groupName
@@ -774,15 +781,66 @@ func fetchNewAPIModelPlazaGroups(ctx context.Context, client *http.Client, baseU
 			continue
 		}
 		groupModels[groupName] = models
+		groupModelProviders[groupName] = normalizeNewAPIGroupModelProviders(groupModelProviders[groupName], models)
 		groups = append(groups, info)
 	}
 	sort.Slice(groups, func(i, j int) bool {
 		return groups[i].Name < groups[j].Name
 	})
 	if len(groups) == 0 {
-		return nil, nil, ""
+		return nil, nil, nil, ""
 	}
-	return groups, groupModels, "pricing"
+	return groups, groupModels, groupModelProviders, "pricing"
+}
+
+func resolveNewAPIPricingModelProvider(item newAPIPricingModel, vendorNames map[int]string) string {
+	if strings.TrimSpace(item.VendorName) != "" {
+		return strings.TrimSpace(item.VendorName)
+	}
+	if strings.TrimSpace(item.Provider) != "" {
+		return strings.TrimSpace(item.Provider)
+	}
+	if item.VendorID != 0 {
+		if name := strings.TrimSpace(vendorNames[item.VendorID]); name != "" {
+			return name
+		}
+	}
+	return strings.TrimSpace(item.OwnerBy)
+}
+
+func addNewAPIGroupModelProvider(target map[string]map[string][]string, group string, modelName string, provider string) {
+	provider = strings.TrimSpace(provider)
+	if provider == "" {
+		return
+	}
+	if target[group] == nil {
+		target[group] = make(map[string][]string)
+	}
+	target[group][modelName] = append(target[group][modelName], provider)
+}
+
+func normalizeNewAPIGroupModelProviders(providers map[string][]string, models []string) map[string][]string {
+	if len(providers) == 0 {
+		return nil
+	}
+	modelSet := make(map[string]struct{}, len(models))
+	for _, modelName := range models {
+		modelSet[modelName] = struct{}{}
+	}
+	normalized := make(map[string][]string, len(providers))
+	for modelName, values := range providers {
+		if _, ok := modelSet[modelName]; !ok {
+			continue
+		}
+		cleanValues := normalizeStringList(values)
+		if len(cleanValues) > 0 {
+			normalized[modelName] = cleanValues
+		}
+	}
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
 }
 
 func validateNewAPISupplierConfigureRequest(supplier *model.NewAPISupplier, req NewAPISupplierConfigureRequest) error {
@@ -855,14 +913,38 @@ func parseNewAPISupplierGroupRatios(raw string) map[string]string {
 	return result
 }
 
-func formatNewAPISupplierChannelName(group string, ratio string, channelName string) string {
+func formatNewAPISupplierChannelName(group string, ratio string, channelName string, channelType int) string {
 	group = strings.TrimSpace(group)
 	ratio = strings.TrimSpace(ratio)
 	channelName = strings.TrimSpace(channelName)
 	if ratio == "" {
 		ratio = "未配置倍率"
 	}
-	return fmt.Sprintf("%s - %s - %s", group, ratio, channelName)
+	channelTypeName := strings.TrimSpace(constant.GetChannelTypeName(channelType))
+	if channelTypeName == "" || channelTypeName == "Unknown" {
+		channelTypeName = fmt.Sprintf("类型%d", channelType)
+	}
+	return fmt.Sprintf("%s - %s - %s - %s", group, ratio, channelTypeName, channelName)
+}
+
+func nextNewAPISupplierChannelName(tx *gorm.DB, baseName string) string {
+	baseName = strings.TrimSpace(baseName)
+	if baseName == "" {
+		baseName = "NewAPI Supplier Channel"
+	}
+	for suffix := 0; ; suffix++ {
+		name := baseName
+		if suffix > 0 {
+			name = fmt.Sprintf("%s %d", baseName, suffix)
+		}
+		var count int64
+		if err := tx.Model(&model.Channel{}).Where("name = ?", name).Count(&count).Error; err != nil {
+			return name
+		}
+		if count == 0 {
+			return name
+		}
+	}
 }
 
 func ensureNewAPIGroupToken(ctx context.Context, client *http.Client, baseURL, accessToken string, userID int, group string, models []string) (string, error) {
@@ -887,8 +969,7 @@ func ensureNewAPIGroupToken(ctx context.Context, client *http.Client, baseURL, a
 		"name":                 tokenName,
 		"expired_time":         -1,
 		"unlimited_quota":      true,
-		"model_limits_enabled": len(models) > 0,
-		"model_limits":         strings.Join(normalizeStringList(models), ","),
+		"model_limits_enabled": false,
 		"group":                group,
 	})
 	var createResp newAPIEnvelope[json.RawMessage]

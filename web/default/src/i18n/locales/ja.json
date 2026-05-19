@@ -4700,6 +4700,8 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Filter by model provider": "モデルプロバイダーで絞り込み",
+    "Channel Name": "チャネル名"
   }
 }

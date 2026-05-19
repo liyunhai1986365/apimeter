@@ -25,6 +25,7 @@ export interface NewAPISupplierGroupSnapshot {
   source: string
   ratio?: string
   desc?: string
+  model_providers?: Record<string, string[]>
 }
 
 export interface NewAPISupplier {
@@ -82,12 +83,14 @@ export interface ConfigureItem {
   local_group: string
   models: string[]
   channel_type?: number
+  channel_name?: string
 }
 
 export interface ConfiguredChannel {
   channel_id: number
   name: string
   upstream_group: string
+  channel_type?: number
   local_group: string
   models: string
   created: boolean

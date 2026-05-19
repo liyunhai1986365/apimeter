@@ -55,6 +55,7 @@ type NewAPISupplierChannel struct {
 	SupplierID    int    `json:"supplier_id" gorm:"index:idx_newapi_supplier_channel,unique"`
 	ChannelID     int    `json:"channel_id" gorm:"index:idx_newapi_supplier_channel,unique;index"`
 	UpstreamGroup string `json:"upstream_group" gorm:"type:varchar(64);index"`
+	ChannelType   int    `json:"channel_type" gorm:"default:1;index"`
 	LocalGroup    string `json:"local_group" gorm:"type:varchar(64)"`
 	Models        string `json:"models" gorm:"type:text"`
 	SyncMode      string `json:"sync_mode" gorm:"type:varchar(32);default:'managed'"`

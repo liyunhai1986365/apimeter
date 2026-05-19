@@ -52,7 +52,7 @@ func TestBuildNewAPISupplierChannelPlans(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Len(t, plans, 2)
-	assert.Equal(t, "default - 1 - upstream-a", plans[0].Name)
+	assert.Equal(t, "default - 1 - OpenAI - upstream-a", plans[0].Name)
 	require.NotNil(t, plans[0].BaseURL)
 	assert.Equal(t, "https://upstream.example.com", *plans[0].BaseURL)
 	assert.Equal(t, "sk-upstream", plans[0].Key)
@@ -64,7 +64,7 @@ func TestBuildNewAPISupplierChannelPlans(t *testing.T) {
 	assert.Equal(t, weight, *plans[0].Weight)
 	assert.Equal(t, priority, *plans[0].Priority)
 
-	assert.Equal(t, "vip - 1.25 - upstream-a", plans[1].Name)
+	assert.Equal(t, "vip - 1.25 - OpenAI - upstream-a", plans[1].Name)
 	assert.Equal(t, "premium", plans[1].Group)
 	assert.Equal(t, "gpt-5", plans[1].Models)
 	assert.Equal(t, "newapi-supplier:42;upstream_group:vip", plans[1].OtherInfo)
@@ -95,6 +95,166 @@ func TestBuildNewAPISupplierChannelPlansUsesRequestedChannelType(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, plans, 1)
 	assert.Equal(t, 14, plans[0].Type)
+	assert.Equal(t, "vip - 未配置倍率 - Anthropic - upstream-a", plans[0].Name)
+}
+
+func TestConfigureNewAPISupplierChannelsDoesNotReuseDifferentChannelType(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.NewAPISupplier{}, &model.NewAPISupplierChannel{}))
+	originDB := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = originDB })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/user/self":
+			assert.Equal(t, "access-token", r.Header.Get("Authorization"))
+			assert.Equal(t, "7", r.Header.Get("New-Api-User"))
+			_, _ = w.Write([]byte(`{
+				"success": true,
+				"data": {"id": 7, "username": "upstream", "quota": 100, "used_quota": 9}
+			}`))
+		default:
+			t.Fatalf("unexpected request path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	supplier := &model.NewAPISupplier{
+		Name:           "upstream-a",
+		BaseURL:        server.URL,
+		AccessToken:    "access-token",
+		UpstreamUserID: 7,
+		APIKey:         "sk-upstream",
+		ChannelType:    1,
+		ModelSource:    "pricing",
+		GroupKeysJSON: mustJSON(map[string]string{
+			"vip": "sk-vip",
+		}),
+		GroupModelsJSON: mustJSON([]NewAPISupplierGroupSnapshot{
+			{Group: "vip", Models: []string{"gpt-4o"}, Source: "pricing", Ratio: "1.25"},
+		}),
+	}
+	require.NoError(t, supplier.Insert())
+
+	openAIResults, err := ConfigureNewAPISupplierChannels(context.Background(), supplier, NewAPISupplierConfigureRequest{
+		Items: []NewAPISupplierConfigureItem{{
+			UpstreamGroup: "vip",
+			LocalGroup:    "premium",
+			ChannelType:   1,
+			Models:        []string{"gpt-4o"},
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, openAIResults, 1)
+	require.True(t, openAIResults[0].Created)
+	assert.Equal(t, 1, openAIResults[0].ChannelType)
+
+	anthropicResults, err := ConfigureNewAPISupplierChannels(context.Background(), supplier, NewAPISupplierConfigureRequest{
+		Items: []NewAPISupplierConfigureItem{{
+			UpstreamGroup: "vip",
+			LocalGroup:    "premium",
+			ChannelType:   14,
+			Models:        []string{"gpt-4o"},
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, anthropicResults, 1)
+	require.True(t, anthropicResults[0].Created)
+	assert.Equal(t, 14, anthropicResults[0].ChannelType)
+	assert.NotEqual(t, openAIResults[0].ChannelID, anthropicResults[0].ChannelID)
+
+	var channels []model.Channel
+	require.NoError(t, db.Order("id asc").Find(&channels).Error)
+	require.Len(t, channels, 2)
+	assert.Equal(t, "vip - 1.25 - OpenAI - upstream-a", channels[0].Name)
+	assert.Equal(t, "vip - 1.25 - Anthropic - upstream-a", channels[1].Name)
+
+	var bindings []model.NewAPISupplierChannel
+	require.NoError(t, db.Order("id asc").Find(&bindings).Error)
+	require.Len(t, bindings, 2)
+	assert.Equal(t, 1, bindings[0].ChannelType)
+	assert.Equal(t, 14, bindings[1].ChannelType)
+}
+
+func TestConfigureNewAPISupplierChannelsCreatesUniqueCustomNames(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}, &model.NewAPISupplier{}, &model.NewAPISupplierChannel{}))
+	originDB := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = originDB })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/user/self":
+			_, _ = w.Write([]byte(`{
+				"success": true,
+				"data": {"id": 7, "username": "upstream", "quota": 100, "used_quota": 9}
+			}`))
+		default:
+			t.Fatalf("unexpected request path: %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	supplier := &model.NewAPISupplier{
+		Name:           "upstream-a",
+		BaseURL:        server.URL,
+		AccessToken:    "access-token",
+		UpstreamUserID: 7,
+		APIKey:         "sk-upstream",
+		ChannelType:    1,
+		ModelSource:    "pricing",
+		GroupKeysJSON: mustJSON(map[string]string{
+			"vip": "sk-vip",
+		}),
+		GroupModelsJSON: mustJSON([]NewAPISupplierGroupSnapshot{
+			{Group: "vip", Models: []string{"gpt-4o", "gpt-5"}, Source: "pricing", Ratio: "1.25"},
+		}),
+	}
+	require.NoError(t, supplier.Insert())
+
+	first, err := ConfigureNewAPISupplierChannels(context.Background(), supplier, NewAPISupplierConfigureRequest{
+		Items: []NewAPISupplierConfigureItem{{
+			UpstreamGroup: "vip",
+			LocalGroup:    "premium",
+			ChannelType:   1,
+			ChannelName:   "VIP OpenAI",
+			Models:        []string{"gpt-4o"},
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+
+	second, err := ConfigureNewAPISupplierChannels(context.Background(), supplier, NewAPISupplierConfigureRequest{
+		Items: []NewAPISupplierConfigureItem{{
+			UpstreamGroup: "vip",
+			LocalGroup:    "premium",
+			ChannelType:   1,
+			ChannelName:   "VIP OpenAI",
+			Models:        []string{"gpt-5"},
+		}},
+	})
+	require.NoError(t, err)
+	require.Len(t, second, 1)
+
+	assert.True(t, first[0].Created)
+	assert.True(t, second[0].Created)
+	assert.NotEqual(t, first[0].ChannelID, second[0].ChannelID)
+	assert.Equal(t, "VIP OpenAI", first[0].Name)
+	assert.Equal(t, "VIP OpenAI 1", second[0].Name)
+
+	var channels []model.Channel
+	require.NoError(t, db.Order("id asc").Find(&channels).Error)
+	require.Len(t, channels, 2)
+	assert.Equal(t, "VIP OpenAI", channels[0].Name)
+	assert.Equal(t, "gpt-4o", channels[0].Models)
+	assert.Equal(t, "VIP OpenAI 1", channels[1].Name)
+	assert.Equal(t, "gpt-5", channels[1].Models)
 }
 
 func TestNewAPISupplierNormalizePreservesDisabledStatus(t *testing.T) {
@@ -135,20 +295,25 @@ func TestFetchNewAPIModelPlazaGroups(t *testing.T) {
 		assert.Equal(t, "/api/pricing", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
-			"success": true,
-			"group_ratio": {"default": 1, "vip": 1.25},
-			"usable_group": {"vip": {"desc": "VIP group", "ratio": 1.2}},
-			"data": [
-				{"model_name": "gpt-4o", "enable_groups": ["default", "vip"]},
-				{"model_name": "gpt-5", "enable_groups": ["vip"]},
-				{"model_name": "ignored-auto", "enable_groups": ["auto"]},
-				{"model_name": "ignored-all", "enable_groups": ["all"]}
-			]
+				"success": true,
+				"group_ratio": {"default": 1, "vip": 1.25},
+				"usable_group": {"vip": {"desc": "VIP group", "ratio": 1.2}},
+				"vendors": [
+					{"id": 1, "name": "OpenAI"},
+					{"id": 2, "name": "Anthropic"}
+				],
+				"data": [
+					{"model_name": "gpt-4o", "vendor_id": 1, "enable_groups": ["default", "vip"]},
+					{"model_name": "gpt-5", "vendor_id": 1, "enable_groups": ["vip"]},
+					{"model_name": "claude-sonnet", "vendor_id": 2, "enable_groups": ["vip"]},
+					{"model_name": "ignored-auto", "enable_groups": ["auto"]},
+					{"model_name": "ignored-all", "enable_groups": ["all"]}
+				]
 		}`))
 	}))
 	defer server.Close()
 
-	groups, groupModels, source := fetchNewAPIModelPlazaGroups(context.Background(), server.Client(), server.URL, "access", 7)
+	groups, groupModels, groupModelProviders, source := fetchNewAPIModelPlazaGroups(context.Background(), server.Client(), server.URL, "access", 7)
 
 	require.Equal(t, "pricing", source)
 	require.Len(t, groups, 2)
@@ -158,7 +323,15 @@ func TestFetchNewAPIModelPlazaGroups(t *testing.T) {
 	assert.Equal(t, "1.2", groups[1].Ratio)
 	assert.Equal(t, "VIP group", groups[1].Desc)
 	assert.Equal(t, []string{"gpt-4o"}, groupModels["default"])
-	assert.Equal(t, []string{"gpt-4o", "gpt-5"}, groupModels["vip"])
+	assert.Equal(t, []string{"claude-sonnet", "gpt-4o", "gpt-5"}, groupModels["vip"])
+	assert.Equal(t, map[string][]string{
+		"gpt-4o": {"OpenAI"},
+	}, groupModelProviders["default"])
+	assert.Equal(t, map[string][]string{
+		"claude-sonnet": {"Anthropic"},
+		"gpt-4o":        {"OpenAI"},
+		"gpt-5":         {"OpenAI"},
+	}, groupModelProviders["vip"])
 }
 
 func TestFetchNewAPIModelPlazaGroupsKeepsGroupRatioWhenUsableGroupIsName(t *testing.T) {
@@ -177,7 +350,7 @@ func TestFetchNewAPIModelPlazaGroupsKeepsGroupRatioWhenUsableGroupIsName(t *test
 	}))
 	defer server.Close()
 
-	groups, groupModels, source := fetchNewAPIModelPlazaGroups(context.Background(), server.Client(), server.URL, "access", 7)
+	groups, groupModels, _, source := fetchNewAPIModelPlazaGroups(context.Background(), server.Client(), server.URL, "access", 7)
 
 	require.Equal(t, "pricing", source)
 	require.Len(t, groups, 2)
@@ -213,7 +386,7 @@ func TestFetchNewAPIModelPlazaGroupsKeepsGroupSpecificModels(t *testing.T) {
 	}))
 	defer server.Close()
 
-	groups, groupModels, source := fetchNewAPIModelPlazaGroups(context.Background(), server.Client(), server.URL, "access", 7)
+	groups, groupModels, _, source := fetchNewAPIModelPlazaGroups(context.Background(), server.Client(), server.URL, "access", 7)
 
 	require.Equal(t, "pricing", source)
 	require.Len(t, groups, 2)
@@ -434,8 +607,8 @@ func TestEnsureNewAPISupplierConfigureKeysCreatesTokenForSelectedGroupOnly(t *te
 	assert.Equal(t, 1, createdTokens)
 	assert.Equal(t, "vip", createdPayload["name"])
 	assert.Equal(t, "vip", createdPayload["group"])
-	assert.Equal(t, true, createdPayload["model_limits_enabled"])
-	assert.Equal(t, "gpt-4o,gpt-4o-mini", createdPayload["model_limits"])
+	assert.Equal(t, false, createdPayload["model_limits_enabled"])
+	assert.NotContains(t, createdPayload, "model_limits")
 	refreshed, err := model.GetNewAPISupplierByID(supplier.Id)
 	require.NoError(t, err)
 	assert.Contains(t, refreshed.GroupKeysJSON, `"vip":"sk-vip"`)
@@ -882,7 +1055,8 @@ func TestPrepareNewAPISupplierGroupTestChannelCreatesGroupToken(t *testing.T) {
 	require.NotNil(t, result.Channel.Tag)
 	assert.Equal(t, "team-a", *result.Channel.Tag)
 	assert.Equal(t, "vip", createdPayload["group"])
-	assert.Equal(t, "gpt-4o,gpt-4o-mini", createdPayload["model_limits"])
+	assert.Equal(t, false, createdPayload["model_limits_enabled"])
+	assert.NotContains(t, createdPayload, "model_limits")
 	refreshed, err := model.GetNewAPISupplierByID(supplier.Id)
 	require.NoError(t, err)
 	assert.Contains(t, refreshed.GroupKeysJSON, `"vip":"sk-vip-test-key"`)

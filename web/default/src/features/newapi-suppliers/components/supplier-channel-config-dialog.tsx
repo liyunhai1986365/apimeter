@@ -34,6 +34,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
   Select,
@@ -55,6 +56,10 @@ import {
   applySupplierModelTestResults,
   type SupplierModelTestResult,
 } from '../supplier-model-test'
+import {
+  buildSupplierModelProviderFilters,
+  selectSupplierProviderModels,
+} from '../supplier-model-provider-filter'
 import type {
   ConfigureItem,
   NewAPISupplier,
@@ -74,6 +79,7 @@ function parseGroupModels(raw: string): NewAPISupplierGroupSnapshot[] {
         source: item.source,
         ratio: item.ratio || '',
         desc: item.desc || '',
+        model_providers: item.model_providers || {},
       }))
   } catch {
     return []
@@ -105,6 +111,8 @@ export function SupplierChannelConfigDialog({
   const [selectedGroup, setSelectedGroup] = useState('')
   const [localGroup, setLocalGroup] = useState('')
   const [channelType, setChannelType] = useState(1)
+  const [channelName, setChannelName] = useState('')
+  const [channelNameTouched, setChannelNameTouched] = useState(false)
   const initializedKeyRef = useRef('')
   const [selectedModels, setSelectedModels] = useState<Record<string, boolean>>(
     {}
@@ -150,9 +158,25 @@ export function SupplierChannelConfigDialog({
     [activeGroupModels, selectedModels]
   )
 
+  const providerFilters = useMemo(
+    () =>
+      buildSupplierModelProviderFilters(
+        activeGroupModels,
+        activeGroup?.model_providers
+      ),
+    [activeGroup, activeGroupModels]
+  )
+
+  const defaultChannelName = useMemo(() => {
+    if (!supplier || !activeGroup) return ''
+    const ratio = activeGroup.ratio || t('Not available')
+    return `${activeGroup.group} - ${ratio} - ${t(getChannelTypeLabel(channelType))} - ${supplier.name}`
+  }, [activeGroup, channelType, supplier, t])
+
   useEffect(() => {
     if (!open) {
       initializedKeyRef.current = ''
+      setChannelNameTouched(false)
       return
     }
     if (!supplier || groups.length === 0) return
@@ -162,6 +186,8 @@ export function SupplierChannelConfigDialog({
     const firstGroup = groups[0]
     setSelectedGroup(firstGroup.group)
     setChannelType(supplier?.channel_type || 1)
+    setChannelName('')
+    setChannelNameTouched(false)
     const preferred = supplier?.default_local_group?.trim()
     const availableLocalGroups = localGroupsData?.data ?? []
     const fallback =
@@ -185,6 +211,11 @@ export function SupplierChannelConfigDialog({
     )
     setModelTestStates({})
   }, [activeGroup, open])
+
+  useEffect(() => {
+    if (!open || channelNameTouched) return
+    setChannelName(defaultChannelName)
+  }, [channelNameTouched, defaultChannelName, open])
 
   const configureMutation = useMutation({
     mutationFn: ({ id, items }: { id: number; items: ConfigureItem[] }) =>
@@ -216,6 +247,11 @@ export function SupplierChannelConfigDialog({
     )
   }
 
+  const selectProviderModels = (models: string[]) => {
+    setSelectedModels(selectSupplierProviderModels(activeGroupModels, models))
+    setModelTestStates({})
+  }
+
   const submit = () => {
     if (!supplier || !activeGroup) return
     if (selectedModelNames.length === 0) {
@@ -229,6 +265,7 @@ export function SupplierChannelConfigDialog({
           upstream_group: activeGroup.group,
           local_group: localGroup.trim() || activeGroup.group,
           channel_type: channelType,
+          channel_name: channelName.trim() || defaultChannelName,
           models: selectedModelNames,
         },
       ],
@@ -426,6 +463,17 @@ export function SupplierChannelConfigDialog({
               </Field>
             </div>
 
+            <Field label={t('Channel Name')}>
+              <Input
+                value={channelName}
+                onChange={(event) => {
+                  setChannelNameTouched(true)
+                  setChannelName(event.target.value)
+                }}
+                placeholder={defaultChannelName}
+              />
+            </Field>
+
             <div className='flex flex-wrap items-center gap-2'>
               <Badge variant='outline'>
                 {t('Selected Models')}: {selectedModelNames.length}
@@ -462,24 +510,52 @@ export function SupplierChannelConfigDialog({
                       ? ` · ${t('Ratio')}: ${activeGroup.ratio}`
                       : ''}
                   </div>
-                  {activeGroup?.desc && (
-                    <div className='text-muted-foreground text-sm'>
-                      {activeGroup.desc}
-                    </div>
-                  )}
-                </div>
+	                  {activeGroup?.desc && (
+	                    <div className='text-muted-foreground text-sm'>
+	                      {activeGroup.desc}
+	                    </div>
+	                  )}
+	                </div>
                 <label className='flex items-center gap-2 text-sm'>
                   <Checkbox
                     checked={allChecked}
                     disabled={activeGroupModels.length === 0 || isTestingModels}
                     onCheckedChange={(value) => toggleAll(Boolean(value))}
                   />
-                  {t('Select all models')}
-                </label>
-              </div>
+	                  {t('Select all models')}
+	                </label>
+	              </div>
 
-              {activeGroupModels.length ? (
-                <div
+	              {providerFilters.length > 0 && (
+	                <div className='space-y-2'>
+	                  <div className='text-muted-foreground text-xs font-medium'>
+	                    {t('Filter by model provider')}
+	                  </div>
+	                  <div className='flex flex-wrap gap-2'>
+	                    {providerFilters.map((filter) => (
+	                      <Button
+	                        key={filter.provider}
+	                        type='button'
+	                        variant='outline'
+	                        size='sm'
+	                        disabled={isTestingModels}
+	                        onClick={() => selectProviderModels(filter.models)}
+	                      >
+	                        {filter.provider}
+	                        <Badge
+	                          variant='secondary'
+	                          className='ml-1 h-4 rounded px-1 text-[10px]'
+	                        >
+	                          {filter.models.length}
+	                        </Badge>
+	                      </Button>
+	                    ))}
+	                  </div>
+	                </div>
+	              )}
+
+	              {activeGroupModels.length ? (
+	                <div
                   key={activeGroup?.group}
                   className='grid gap-2 sm:grid-cols-2 lg:grid-cols-3'
                 >
@@ -506,9 +582,14 @@ export function SupplierChannelConfigDialog({
                               }))
                             }
                           />
-                          <span className='min-w-0 flex-1 truncate'>
-                            {model}
-                          </span>
+	                          <span className='min-w-0 flex-1 truncate'>
+	                            <span className='block truncate'>{model}</span>
+	                            {activeGroup?.model_providers?.[model]?.length ? (
+	                              <span className='text-muted-foreground block truncate text-xs'>
+	                                {activeGroup.model_providers[model].join(', ')}
+	                              </span>
+	                            ) : null}
+	                          </span>
                           {state?.status === 'testing' && (
                             <Badge variant='outline' className='shrink-0'>
                               {t('Testing...')}
