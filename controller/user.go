@@ -474,11 +474,13 @@ func calculateUserPermissions(userRole int) map[string]interface{} {
 		permissions["sidebar_settings"] = false
 		permissions["sidebar_modules"] = map[string]interface{}{}
 	} else if userRole == common.RoleAdminUser {
-		// 管理员可以设置边栏，但不包含系统设置功能
+		// 管理员可以设置边栏，但不包含渠道、供应商和系统设置功能
 		permissions["sidebar_settings"] = true
 		permissions["sidebar_modules"] = map[string]interface{}{
 			"admin": map[string]interface{}{
-				"setting": false, // 管理员不能访问系统设置
+				"channel":  false, // 管理员不能访问渠道
+				"supplier": false, // 管理员不能访问供应商
+				"setting":  false, // 管理员不能访问系统设置
 			},
 		}
 	} else {
@@ -523,11 +525,11 @@ func generateDefaultSidebarConfig(userRole int) string {
 
 	// 管理员区域 - 根据角色决定
 	if userRole == common.RoleAdminUser {
-		// 管理员可以访问管理员区域，但不能访问系统设置
+		// 管理员可以访问管理员区域，但不能访问渠道、供应商和系统设置
 		defaultConfig["admin"] = map[string]interface{}{
 			"enabled":    true,
-			"channel":    true,
-			"supplier":   true,
+			"channel":    false,
+			"supplier":   false,
 			"models":     true,
 			"redemption": true,
 			"user":       true,

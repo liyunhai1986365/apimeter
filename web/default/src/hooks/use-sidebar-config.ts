@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
 import { useStatus } from '@/hooks/use-status'
+import { ROLE } from '@/lib/roles'
 import type { NavGroup, NavItem } from '@/components/layout/types'
 
 type SidebarSectionConfig = {
@@ -125,8 +126,67 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/system-settings/site': { section: 'admin', module: 'setting' },
 }
 
+const REGULAR_ADMIN_HIDDEN_URLS = new Set([
+  '/channels',
+  '/suppliers',
+  '/system-settings',
+  '/system-settings/site',
+])
+
 function canUseAgentConsole(role?: number, hasAgent?: boolean, permission?: boolean): boolean {
   return Boolean(role !== undefined && (hasAgent === true || permission === true))
+}
+
+function isRestrictedForRole(item: NavItem, role?: number): boolean {
+  if (role !== ROLE.ADMIN) {
+    return false
+  }
+
+  if ('url' in item && item.url) {
+    return REGULAR_ADMIN_HIDDEN_URLS.has(item.url as string)
+  }
+
+  return false
+}
+
+export function applyRoleSidebarRestrictions(
+  navGroups: NavGroup[],
+  role?: number
+): NavGroup[] {
+  const isAdmin = role !== undefined && role >= ROLE.ADMIN
+
+  return navGroups
+    .map((group) => {
+      if (group.id === 'admin' && !isAdmin) {
+        return { ...group, items: [] }
+      }
+
+      return {
+        ...group,
+        items: group.items
+          .map((item) => {
+            if ('items' in item && item.items) {
+              return {
+                ...item,
+                items: item.items.filter(
+                  (subItem) => !isRestrictedForRole(subItem, role)
+                ),
+              }
+            }
+            return item
+          })
+          .filter((item) => {
+            if (isRestrictedForRole(item, role)) {
+              return false
+            }
+            if ('items' in item && item.items) {
+              return item.items.length > 0
+            }
+            return true
+          }),
+      }
+    })
+    .filter((group) => group.items.length > 0)
 }
 
 /**
@@ -321,8 +381,8 @@ export function useSidebarConfig(navGroups: NavGroup[]): NavGroup[] {
   )
 
   const filteredNavGroups = useMemo(
-    () =>
-      navGroups
+    () => {
+      const configFiltered = navGroups
         .map((group) => ({
           ...group,
           items: filterNavItems(
@@ -332,8 +392,11 @@ export function useSidebarConfig(navGroups: NavGroup[]): NavGroup[] {
             agentConsoleAllowed
           ),
         }))
-        .filter((group) => group.items.length > 0), // Only show navigation groups with visible items
-    [navGroups, adminConfig, userConfig, agentConsoleAllowed]
+        .filter((group) => group.items.length > 0)
+
+      return applyRoleSidebarRestrictions(configFiltered, auth?.user?.role)
+    },
+    [navGroups, adminConfig, userConfig, agentConsoleAllowed, auth?.user?.role]
   )
 
   return filteredNavGroups
