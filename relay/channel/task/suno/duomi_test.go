@@ -259,6 +259,73 @@ func TestDuomiFeedResponseMapsNumericStatus(t *testing.T) {
 	}
 }
 
+func TestDuomiFeedResponseParsesEndpointSuccessShape(t *testing.T) {
+	body := []byte(`{"code":200,"msg":"成功","data":{"status":"3","task_id":"fa421931-b29e-4a57-b409-4d14a5a6cbad","prompt":"[Verse]\nBright light shining in the sky","title":"Rays of Fire","gpt_description_prompt":"Write a song about the sun","audio_url":"https://cdn1.suno.ai/fa421931-b29e-4a57-b409-4d14a5a6cbad.mp3","image_url":"https://cdn1.suno.ai/image_fa421931-b29e-4a57-b409-4d14a5a6cbad.png","video_url":"https://cdn1.suno.ai/fa421931-b29e-4a57-b409-4d14a5a6cbad.mp4","image_large_url":"https://cdn1.suno.ai/image_large_fa421931-b29e-4a57-b409-4d14a5a6cbad.png","tags":null,"mv":"chirp-v3-0","continue_clip_id":null,"continue_at":null},"exec_time":0.554264,"ip":"117.173.160.45"}`)
+
+	items, err := parseDuomiFetchResponse("fa421931-b29e-4a57-b409-4d14a5a6cbad", body)
+	if err != nil {
+		t.Fatalf("parseDuomiFetchResponse error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("unexpected item count: %d", len(items))
+	}
+	item := items[0]
+	if item.TaskID != "fa421931-b29e-4a57-b409-4d14a5a6cbad" || item.Status != "SUCCESS" {
+		t.Fatalf("unexpected task status: %+v", item)
+	}
+
+	var songs []dto.SunoSong
+	if err := common.Unmarshal(item.Data, &songs); err != nil {
+		t.Fatalf("unmarshal song data error: %v", err)
+	}
+	if len(songs) != 1 {
+		t.Fatalf("unexpected song count: %d", len(songs))
+	}
+	song := songs[0]
+	if song.AudioURL != "https://cdn1.suno.ai/fa421931-b29e-4a57-b409-4d14a5a6cbad.mp3" ||
+		song.ImageURL != "https://cdn1.suno.ai/image_fa421931-b29e-4a57-b409-4d14a5a6cbad.png" ||
+		song.VideoURL != "https://cdn1.suno.ai/fa421931-b29e-4a57-b409-4d14a5a6cbad.mp4" ||
+		song.Title != "Rays of Fire" {
+		t.Fatalf("unexpected song data: %+v", song)
+	}
+}
+
+func TestDuomiFeedResponseDoesNotReturnContentBeforeStatusThree(t *testing.T) {
+	body := []byte(`{"code":200,"msg":"ok","data":{"task_id":"upstream_1","status":"2","title":"Song","audio_url":"https://cdn.example/song.mp3","image_url":"https://cdn.example/img.jpg","prompt":"lyrics","mv":"chirp-v4"}}`)
+
+	items, err := parseDuomiFetchResponse("upstream_1", body)
+	if err != nil {
+		t.Fatalf("parseDuomiFetchResponse error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("unexpected item count: %d", len(items))
+	}
+	if items[0].Status != "IN_PROGRESS" {
+		t.Fatalf("unexpected status: %+v", items[0])
+	}
+	if len(items[0].Data) != 0 {
+		t.Fatalf("status != 3 should not return content, got: %s", string(items[0].Data))
+	}
+}
+
+func TestDuomiFeedResponsePrefersStatusOverStateForSuccess(t *testing.T) {
+	body := []byte(`{"code":200,"msg":"ok","data":{"task_id":"upstream_1","state":"succeeded","status":"2","title":"Song","audio_url":"https://cdn.example/song.mp3","image_url":"https://cdn.example/img.jpg","prompt":"lyrics","mv":"chirp-v4"}}`)
+
+	items, err := parseDuomiFetchResponse("upstream_1", body)
+	if err != nil {
+		t.Fatalf("parseDuomiFetchResponse error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("unexpected item count: %d", len(items))
+	}
+	if items[0].Status != "IN_PROGRESS" {
+		t.Fatalf("status field should decide success when present: %+v", items[0])
+	}
+	if len(items[0].Data) != 0 {
+		t.Fatalf("status != 3 should not return content, got: %s", string(items[0].Data))
+	}
+}
+
 func TestFetchDuomiTasksKeepsBatchWhenOneTaskIsNotFound(t *testing.T) {
 	service.InitHttpClient()
 
