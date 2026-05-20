@@ -211,6 +211,20 @@ export function Footer(props: FooterProps) {
             &copy; {currentYear}.{' '}
             {props.copyright ?? t('footer.defaultCopyright')}
           </p>
+          <div className='flex items-center gap-4 text-xs'>
+            <Link
+              to='/user-agreement'
+              className='text-muted-foreground/50 hover:text-foreground transition-colors duration-200'
+            >
+              {t('User Agreement')}
+            </Link>
+            <Link
+              to='/privacy-policy'
+              className='text-muted-foreground/50 hover:text-foreground transition-colors duration-200'
+            >
+              {t('Privacy Policy')}
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

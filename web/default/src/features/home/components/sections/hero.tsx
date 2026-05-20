@@ -17,13 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, CirclePlay } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
-import { HeroTerminalDemo } from '../hero-terminal-demo'
+import { LOGO_RAIL_PROVIDERS } from '../../landing-data'
+import { ProviderLogoMarquee } from '../provider-logo-marquee'
 
 interface HeroProps {
-  className?: string
   isAuthenticated?: boolean
 }
 
@@ -31,80 +31,114 @@ export function Hero(props: HeroProps) {
   const { t } = useTranslation()
 
   return (
-    <section className='relative z-10 flex flex-col items-center overflow-hidden px-6 pt-28 pb-16 md:pt-36 md:pb-24'>
-      {/* Radial gradient background */}
+    <section className='relative z-10 overflow-hidden px-6 pt-24 pb-14 md:pt-32 md:pb-18'>
       <div
-        aria-hidden
-        className='pointer-events-none absolute inset-0 -z-10 opacity-25 dark:opacity-[0.12]'
-        style={{
-          background: [
-            'radial-gradient(ellipse 60% 50% at 20% 20%, oklch(0.72 0.18 250 / 80%) 0%, transparent 70%)',
-            'radial-gradient(ellipse 50% 40% at 80% 15%, oklch(0.65 0.15 200 / 60%) 0%, transparent 70%)',
-            'radial-gradient(ellipse 40% 35% at 40% 80%, oklch(0.70 0.12 280 / 40%) 0%, transparent 70%)',
-          ].join(', '),
-        }}
+        aria-hidden='true'
+        className='pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(14,165,233,0.13),transparent_28%),radial-gradient(circle_at_84%_8%,rgba(16,185,129,0.11),transparent_24%),linear-gradient(to_bottom,var(--background),var(--muted)_180%,var(--background))]'
       />
-      {/* Grid pattern */}
       <div
-        aria-hidden
+        aria-hidden='true'
         className='absolute inset-0 -z-10 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_30%,black_20%,transparent_100%)] bg-[size:4rem_4rem] opacity-[0.08]'
       />
 
-      <div className='flex max-w-3xl flex-col items-center text-center'>
-        <h1
-          className='landing-animate-fade-up text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight'
+      <div className='mx-auto flex max-w-5xl flex-col items-center text-center'>
+        <div
+          className='landing-animate-fade-up border-border/70 bg-background/80 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium shadow-sm'
           style={{ animationDelay: '0ms' }}
         >
-          {t('Unified API Gateway for')}
-          <br />
-          <span className='bg-gradient-to-r from-blue-400 via-violet-400 to-purple-500 bg-clip-text text-transparent'>
-            {t('All Your AI Models')}
-          </span>
-        </h1>
-        <p
-          className='landing-animate-fade-up text-muted-foreground/80 mt-5 max-w-lg text-base leading-relaxed opacity-0 md:text-lg'
+          <span className='size-2 rounded-full bg-emerald-500' />
+          {t('API platform optimized for Agents')}
+        </div>
+        <h1
+          className='landing-animate-fade-up mt-6 max-w-4xl text-[clamp(2.4rem,6.4vw,5.6rem)] leading-[1.02] font-bold tracking-tight'
           style={{ animationDelay: '80ms' }}
         >
-          {t('Power AI applications, manage digital assets, connect the Future')}
-        </p>
-        <div
-          className='landing-animate-fade-up mt-8 flex items-center gap-3 opacity-0'
+          {t('Models unified API gateway')}
+        </h1>
+        <p
+          className='landing-animate-fade-up text-muted-foreground mt-6 max-w-2xl text-base leading-relaxed opacity-0 md:text-lg'
           style={{ animationDelay: '160ms' }}
+        >
+          {t(
+            'Unify OpenAI, Claude, Gemini, DeepSeek and private channels with shared keys, billing, fallback routing, and live request visibility.'
+          )}
+        </p>
+
+        <div
+          className='landing-animate-fade-up mt-8 flex flex-col items-center justify-center gap-3 opacity-0 sm:flex-row'
+          style={{ animationDelay: '240ms' }}
         >
           {props.isAuthenticated ? (
             <Button
-              className='group rounded-lg'
+              size='lg'
+              className='group h-11'
               render={<Link to='/dashboard' />}
             >
               {t('Go to Dashboard')}
-              <ArrowRight className='ml-1 size-3.5 transition-transform duration-200 group-hover:translate-x-0.5' />
+              <ArrowRight className='size-4 transition-transform duration-200 group-hover:translate-x-0.5' />
             </Button>
           ) : (
             <>
               <Button
-                className='group rounded-lg'
+                size='lg'
+                className='group h-11'
                 render={<Link to='/sign-up' />}
               >
-                {t('Get Started')}
-                <ArrowRight className='ml-1 size-3.5 transition-transform duration-200 group-hover:translate-x-0.5' />
+                {t('Start routing now')}
+                <ArrowRight className='size-4 transition-transform duration-200 group-hover:translate-x-0.5' />
               </Button>
               <Button
+                size='lg'
                 variant='outline'
-                className='border-border/50 hover:border-border hover:bg-muted/50 rounded-lg'
+                className='h-11'
                 render={<Link to='/pricing' />}
               >
-                {t('View Pricing')}
+                <CirclePlay className='size-4' />
+                {t('Explore model pricing')}
               </Button>
             </>
           )}
         </div>
-      </div>
 
-      <div
-        className='landing-animate-fade-up w-full opacity-0'
-        style={{ animationDelay: '300ms' }}
-      >
-        <HeroTerminalDemo />
+        <div
+          className='landing-animate-fade-up mt-12 w-full opacity-0'
+          style={{ animationDelay: '320ms' }}
+        >
+          <p className='text-muted-foreground mb-6 text-xs font-medium tracking-wide uppercase'>
+            {t('Connected model providers')}
+          </p>
+          <ProviderLogoMarquee providers={LOGO_RAIL_PROVIDERS} />
+        </div>
+
+        <div
+          className='landing-animate-fade-up mt-12 grid w-full gap-3 opacity-0 sm:grid-cols-3'
+          style={{ animationDelay: '420ms' }}
+        >
+          {[
+            {
+              label: t('Channel monitor'),
+              value: t('health-aware routing'),
+            },
+            {
+              label: t('Payment ready'),
+              value: t('quota and recharge flows'),
+            },
+            {
+              label: t('Developer contract'),
+              value: t('OpenAI, Claude, Gemini compatible'),
+            },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className='border-border/70 bg-background/70 rounded-2xl border p-4 text-center shadow-sm'
+            >
+              <p className='text-muted-foreground text-xs font-medium uppercase'>
+                {item.label}
+              </p>
+              <p className='mt-1 text-sm font-semibold'>{item.value}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </section>
   )

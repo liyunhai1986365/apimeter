@@ -361,6 +361,30 @@ For commercial licensing, please contact support@quantumnous.com
   .scroll-container:hover .animate-scroll-down {
     animation-play-state: paused;
   }
+
+  @keyframes logo-marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-50%);
+    }
+  }
+
+  .animate-logo-marquee {
+    animation: logo-marquee 28s linear infinite;
+    will-change: transform;
+  }
+
+  .animate-logo-marquee-reverse {
+    animation: logo-marquee 32s linear infinite reverse;
+    will-change: transform;
+  }
+
+  .home-logo-marquee:hover .animate-logo-marquee,
+  .home-logo-marquee:hover .animate-logo-marquee-reverse {
+    animation-play-state: paused;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -368,6 +392,8 @@ For commercial licensing, please contact support@quantumnous.com
   .animate-appear-zoom,
   .animate-scroll-up,
   .animate-scroll-down,
+  .animate-logo-marquee,
+  .animate-logo-marquee-reverse,
   [data-slot='table'] tbody tr {
     animation: none !important;
     opacity: 1;
