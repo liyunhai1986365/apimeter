@@ -1,9 +1,11 @@
 package model
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -12,11 +14,6 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
-
-	"github.com/glebarez/sqlite"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 const (
@@ -30,161 +27,228 @@ const (
 var (
 	requestLogQueue      chan RequestLogRecord
 	requestLogWorkerOnce sync.Once
+	requestLogStore      RequestLogStore
 )
 
+type RequestLogStore interface {
+	WriteBatch(records []RequestLogRecord) error
+}
+
+type openObserveRequestLogConfig struct {
+	Endpoint string
+	Org      string
+	Stream   string
+	User     string
+	Password string
+	Token    string
+	Timeout  time.Duration
+}
+
+type openObserveRequestLogStore struct {
+	cfg    openObserveRequestLogConfig
+	client *http.Client
+}
+
 type RequestLogRecord struct {
-	Id                int64  `json:"id" gorm:"primaryKey"`
-	LogId             int    `json:"log_id" gorm:"index"`
-	CreatedAt         int64  `json:"created_at" gorm:"bigint;index:idx_request_logs_created_at;index:idx_request_logs_user_created,priority:2"`
-	ExpiresAt         int64  `json:"expires_at" gorm:"bigint;index"`
-	UserId            int    `json:"user_id" gorm:"index:idx_request_logs_user_created,priority:1"`
-	Username          string `json:"username" gorm:"type:varchar(128);index;default:''"`
-	UserGroup         string `json:"user_group" gorm:"type:varchar(64);index;default:''"`
-	UserEmail         string `json:"user_email" gorm:"type:varchar(255);index;default:''"`
-	TokenId           int    `json:"token_id" gorm:"index"`
-	TokenName         string `json:"token_name" gorm:"type:varchar(128);index;default:''"`
-	ChannelId         int    `json:"channel_id" gorm:"index"`
-	ChannelName       string `json:"channel_name" gorm:"type:varchar(128);index;default:''"`
-	ChannelType       int    `json:"channel_type" gorm:"index"`
-	ChannelBaseUrl    string `json:"channel_base_url" gorm:"type:varchar(512);default:''"`
-	IsMultiKey        bool   `json:"is_multi_key" gorm:"default:false"`
-	MultiKeyIndex     int    `json:"multi_key_index" gorm:"default:0"`
-	RequestIP         string `json:"request_ip" gorm:"type:varchar(64);index;default:''"`
-	RequestMethod     string `json:"request_method" gorm:"type:varchar(16);default:''"`
-	RequestPath       string `json:"request_path" gorm:"type:varchar(512);index;default:''"`
+	LogId             int    `json:"log_id"`
+	CreatedAt         int64  `json:"created_at"`
+	ExpiresAt         int64  `json:"expires_at"`
+	UserId            int    `json:"user_id"`
+	Username          string `json:"username"`
+	UserGroup         string `json:"user_group"`
+	UserEmail         string `json:"user_email"`
+	TokenId           int    `json:"token_id"`
+	TokenName         string `json:"token_name"`
+	ChannelId         int    `json:"channel_id"`
+	ChannelName       string `json:"channel_name"`
+	ChannelType       int    `json:"channel_type"`
+	ChannelBaseUrl    string `json:"channel_base_url"`
+	IsMultiKey        bool   `json:"is_multi_key"`
+	MultiKeyIndex     int    `json:"multi_key_index"`
+	RequestIP         string `json:"request_ip"`
+	RequestMethod     string `json:"request_method"`
+	RequestPath       string `json:"request_path"`
 	RequestURL        string `json:"request_url"`
 	RequestHeaders    string `json:"request_headers"`
-	RequestId         string `json:"request_id" gorm:"type:varchar(64);index"`
-	UpstreamRequestId string `json:"upstream_request_id" gorm:"type:varchar(128);index"`
-	RelayMode         int    `json:"relay_mode" gorm:"index"`
-	RelayFormat       string `json:"relay_format" gorm:"type:varchar(64);index;default:''"`
-	ModelName         string `json:"model_name" gorm:"type:varchar(128);index;default:''"`
-	UpstreamModelName string `json:"upstream_model_name" gorm:"type:varchar(128);index;default:''"`
-	IsStream          bool   `json:"is_stream" gorm:"index;default:false"`
-	Status            string `json:"status" gorm:"type:varchar(32);index;default:''"`
-	StatusCode        int    `json:"status_code" gorm:"index"`
-	ErrorCode         string `json:"error_code" gorm:"type:varchar(128);index;default:''"`
+	RequestId         string `json:"request_id"`
+	UpstreamRequestId string `json:"upstream_request_id"`
+	RelayMode         int    `json:"relay_mode"`
+	RelayFormat       string `json:"relay_format"`
+	ModelName         string `json:"model_name"`
+	UpstreamModelName string `json:"upstream_model_name"`
+	IsStream          bool   `json:"is_stream"`
+	Status            string `json:"status"`
+	StatusCode        int    `json:"status_code"`
+	ErrorCode         string `json:"error_code"`
 	ErrorMessage      string `json:"error_message"`
 	RequestBody       string `json:"request_body"`
 	ResponseBody      string `json:"response_body"`
-	RequestSize       int    `json:"request_size" gorm:"default:0"`
-	ResponseSize      int    `json:"response_size" gorm:"default:0"`
-	RequestTruncated  bool   `json:"request_truncated" gorm:"default:false"`
-	ResponseTruncated bool   `json:"response_truncated" gorm:"default:false"`
-	RequestHash       string `json:"request_hash" gorm:"type:varchar(64);index;default:''"`
-	ResponseHash      string `json:"response_hash" gorm:"type:varchar(64);index;default:''"`
+	RequestSize       int    `json:"request_size"`
+	ResponseSize      int    `json:"response_size"`
+	RequestTruncated  bool   `json:"request_truncated"`
+	ResponseTruncated bool   `json:"response_truncated"`
+	RequestHash       string `json:"request_hash"`
+	ResponseHash      string `json:"response_hash"`
 	Extra             string `json:"extra"`
 }
 
-func InitRequestLogDB() error {
-	dsn := os.Getenv("REQUEST_LOG_SQL_DSN")
-	if strings.TrimSpace(dsn) == "" || !common.RequestLogEnabled {
-		REQUEST_LOG_DB = nil
-		common.RequestLogEnabled = false
-		requestLogQueue = nil
+func InitRequestLogStore() error {
+	requestLogStore = nil
+	requestLogQueue = nil
+
+	if !common.RequestLogEnabled {
 		return nil
 	}
 
-	db, err := openRequestLogDB(dsn)
+	storage := strings.ToLower(strings.TrimSpace(common.GetEnvOrDefaultString("REQUEST_LOG_STORAGE", "openobserve")))
+	if storage != "openobserve" {
+		common.RequestLogEnabled = false
+		return fmt.Errorf("request log storage only supports openobserve")
+	}
+
+	store, err := initOpenObserveRequestLogStore()
 	if err != nil {
+		common.RequestLogEnabled = false
 		return err
 	}
-	if common.DebugEnabled {
-		db = db.Debug()
-	}
-	REQUEST_LOG_DB = db
+	requestLogStore = store
+	initRequestLogQueue()
+	common.RequestLogEnabled = true
+	common.SysLog("request log OpenObserve storage initialized")
+	return nil
+}
 
-	sqlDB, err := REQUEST_LOG_DB.DB()
-	if err != nil {
-		return err
-	}
-	sqlDB.SetMaxIdleConns(common.GetEnvOrDefault("REQUEST_LOG_SQL_MAX_IDLE_CONNS", 10))
-	sqlDB.SetMaxOpenConns(common.GetEnvOrDefault("REQUEST_LOG_SQL_MAX_OPEN_CONNS", 100))
-	sqlDB.SetConnMaxLifetime(time.Second * time.Duration(common.GetEnvOrDefault("REQUEST_LOG_SQL_MAX_LIFETIME", 60)))
-
-	if err := REQUEST_LOG_DB.AutoMigrate(&RequestLogRecord{}); err != nil {
-		return err
-	}
-	if err := ensureRequestLogLargeTextColumns(REQUEST_LOG_DB); err != nil {
-		return err
-	}
-
+func initRequestLogQueue() {
 	if common.RequestLogQueueSize <= 0 {
 		common.RequestLogQueueSize = 1000
 	}
 	requestLogQueue = make(chan RequestLogRecord, common.RequestLogQueueSize)
-	common.RequestLogEnabled = true
-	common.SysLog("request log database initialized")
-	return nil
 }
 
-func openRequestLogDB(dsn string) (*gorm.DB, error) {
-	switch {
-	case strings.HasPrefix(dsn, "postgres://"), strings.HasPrefix(dsn, "postgresql://"):
-		common.SysLog("using PostgreSQL as request log database")
-		return gorm.Open(postgres.New(postgres.Config{
-			DSN:                  dsn,
-			PreferSimpleProtocol: true,
-		}), &gorm.Config{PrepareStmt: true})
-	case strings.HasPrefix(dsn, "file:"), strings.HasSuffix(dsn, ".db"), strings.HasPrefix(dsn, "local"):
-		common.SysLog("using SQLite as request log database")
-		if strings.HasPrefix(dsn, "local") {
-			dsn = common.SQLitePath
-		}
-		return gorm.Open(sqlite.Open(dsn), &gorm.Config{PrepareStmt: true})
-	default:
-		common.SysLog("using MySQL as request log database")
-		if !strings.Contains(dsn, "parseTime") {
-			if strings.Contains(dsn, "?") {
-				dsn += "&parseTime=true"
-			} else {
-				dsn += "?parseTime=true"
-			}
-		}
-		return gorm.Open(mysql.Open(dsn), &gorm.Config{PrepareStmt: true})
+func initOpenObserveRequestLogStore() (RequestLogStore, error) {
+	cfg := openObserveRequestLogConfig{
+		Endpoint: strings.TrimSpace(os.Getenv("REQUEST_LOG_OPENOBSERVE_ENDPOINT")),
+		Org:      strings.TrimSpace(common.GetEnvOrDefaultString("REQUEST_LOG_OPENOBSERVE_ORG", "default")),
+		Stream:   strings.TrimSpace(common.GetEnvOrDefaultString("REQUEST_LOG_OPENOBSERVE_STREAM", "request_log_records")),
+		User:     strings.TrimSpace(os.Getenv("REQUEST_LOG_OPENOBSERVE_USER")),
+		Password: strings.TrimSpace(os.Getenv("REQUEST_LOG_OPENOBSERVE_PASSWORD")),
+		Token:    strings.TrimSpace(os.Getenv("REQUEST_LOG_OPENOBSERVE_TOKEN")),
+		Timeout:  time.Second * time.Duration(common.GetEnvOrDefault("REQUEST_LOG_OPENOBSERVE_TIMEOUT_SECONDS", 10)),
+	}
+	if cfg.Endpoint == "" {
+		return nil, fmt.Errorf("REQUEST_LOG_OPENOBSERVE_ENDPOINT is required when REQUEST_LOG_STORAGE=openobserve")
+	}
+	if cfg.Org == "" {
+		return nil, fmt.Errorf("REQUEST_LOG_OPENOBSERVE_ORG is required when REQUEST_LOG_STORAGE=openobserve")
+	}
+	if cfg.Stream == "" {
+		return nil, fmt.Errorf("REQUEST_LOG_OPENOBSERVE_STREAM is required when REQUEST_LOG_STORAGE=openobserve")
+	}
+	if cfg.Token == "" && (cfg.User == "" || cfg.Password == "") {
+		return nil, fmt.Errorf("REQUEST_LOG_OPENOBSERVE_TOKEN or REQUEST_LOG_OPENOBSERVE_USER/PASSWORD is required when REQUEST_LOG_STORAGE=openobserve")
+	}
+	return newOpenObserveRequestLogStore(cfg), nil
+}
+
+func newOpenObserveRequestLogStore(cfg openObserveRequestLogConfig) *openObserveRequestLogStore {
+	if cfg.Timeout <= 0 {
+		cfg.Timeout = 10 * time.Second
+	}
+	cfg.Endpoint = strings.TrimRight(strings.TrimSpace(cfg.Endpoint), "/")
+	return &openObserveRequestLogStore{
+		cfg: cfg,
+		client: &http.Client{
+			Timeout: cfg.Timeout,
+		},
 	}
 }
 
-func ensureRequestLogLargeTextColumns(db *gorm.DB) error {
-	if db == nil || db.Dialector.Name() != "mysql" {
-		return nil
+func (s *openObserveRequestLogStore) WriteBatch(records []RequestLogRecord) error {
+	if s == nil {
+		return fmt.Errorf("request log OpenObserve storage is not initialized")
 	}
-	for _, columnName := range []string{
-		"request_url",
-		"request_headers",
-		"error_message",
-		"request_body",
-		"response_body",
-		"extra",
-	} {
-		if err := ensureMySQLRequestLogMediumTextColumn(db, columnName); err != nil {
-			return err
-		}
+	payload := make([]map[string]any, 0, len(records))
+	for i := range records {
+		payload = append(payload, requestLogRecordToOpenObserveDocument(records[i]))
 	}
-	return nil
-}
-
-func ensureMySQLRequestLogMediumTextColumn(db *gorm.DB, columnName string) error {
-	var columnType string
-	err := db.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
-		WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
-		"request_log_records", columnName).Scan(&columnType).Error
+	body, err := common.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("failed to query request log column %s: %w", columnName, err)
+		return err
 	}
-	normalized := strings.ToLower(columnType)
-	if strings.Contains(normalized, "mediumtext") || strings.Contains(normalized, "longtext") {
-		return nil
+	req, err := http.NewRequest(http.MethodPost, s.ingestURL(), bytes.NewReader(body))
+	if err != nil {
+		return err
 	}
-	if err := db.Exec(fmt.Sprintf("ALTER TABLE `request_log_records` MODIFY COLUMN `%s` MEDIUMTEXT", columnName)).Error; err != nil {
-		return fmt.Errorf("failed to migrate request_log_records.%s to MEDIUMTEXT: %w", columnName, err)
+	req.Header.Set("Content-Type", "application/json")
+	if s.cfg.Token != "" {
+		req.Header.Set("Authorization", "Bearer "+s.cfg.Token)
+	} else {
+		req.SetBasicAuth(s.cfg.User, s.cfg.Password)
 	}
-	common.SysLog(fmt.Sprintf("migrated request_log_records.%s to MEDIUMTEXT", columnName))
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return fmt.Errorf("OpenObserve request log ingest failed with status %d", resp.StatusCode)
+	}
 	return nil
+}
+
+func (s *openObserveRequestLogStore) ingestURL() string {
+	return fmt.Sprintf("%s/api/%s/%s/_json", s.cfg.Endpoint, s.cfg.Org, s.cfg.Stream)
+}
+
+func requestLogRecordToOpenObserveDocument(record RequestLogRecord) map[string]any {
+	return map[string]any{
+		"_timestamp":          record.CreatedAt * 1000000,
+		"log_type":            "request_log",
+		"log_id":              record.LogId,
+		"created_at":          record.CreatedAt,
+		"expires_at":          record.ExpiresAt,
+		"user_id":             record.UserId,
+		"username":            record.Username,
+		"user_group":          record.UserGroup,
+		"user_email":          record.UserEmail,
+		"token_id":            record.TokenId,
+		"token_name":          record.TokenName,
+		"channel_id":          record.ChannelId,
+		"channel_name":        record.ChannelName,
+		"channel_type":        record.ChannelType,
+		"channel_base_url":    record.ChannelBaseUrl,
+		"is_multi_key":        record.IsMultiKey,
+		"multi_key_index":     record.MultiKeyIndex,
+		"request_ip":          record.RequestIP,
+		"request_method":      record.RequestMethod,
+		"request_path":        record.RequestPath,
+		"request_url":         record.RequestURL,
+		"request_headers":     record.RequestHeaders,
+		"request_id":          record.RequestId,
+		"upstream_request_id": record.UpstreamRequestId,
+		"relay_mode":          record.RelayMode,
+		"relay_format":        record.RelayFormat,
+		"model_name":          record.ModelName,
+		"upstream_model_name": record.UpstreamModelName,
+		"is_stream":           record.IsStream,
+		"status":              record.Status,
+		"status_code":         record.StatusCode,
+		"error_code":          record.ErrorCode,
+		"error_message":       record.ErrorMessage,
+		"request_body":        record.RequestBody,
+		"response_body":       record.ResponseBody,
+		"request_size":        record.RequestSize,
+		"response_size":       record.ResponseSize,
+		"request_truncated":   record.RequestTruncated,
+		"response_truncated":  record.ResponseTruncated,
+		"request_hash":        record.RequestHash,
+		"response_hash":       record.ResponseHash,
+		"extra":               record.Extra,
+	}
 }
 
 func StartRequestLogWorker() {
-	if !common.RequestLogEnabled || REQUEST_LOG_DB == nil || requestLogQueue == nil {
+	if !common.RequestLogEnabled || requestLogStore == nil || requestLogQueue == nil {
 		return
 	}
 	requestLogWorkerOnce.Do(func() {
@@ -204,6 +268,18 @@ func EnqueueRequestLog(record RequestLogRecord) bool {
 	}
 }
 
+func SetRequestLogStoreForTest(store RequestLogStore) {
+	requestLogStore = store
+}
+
+func ResetRequestLogQueueForTest(size int) {
+	if size <= 0 {
+		requestLogQueue = nil
+		return
+	}
+	requestLogQueue = make(chan RequestLogRecord, size)
+}
+
 func CanAcceptRequestLog() bool {
 	if !common.RequestLogEnabled || requestLogQueue == nil {
 		return false
@@ -212,11 +288,15 @@ func CanAcceptRequestLog() bool {
 }
 
 func RecordRequestLog(record RequestLogRecord) (RequestLogRecord, error) {
-	if REQUEST_LOG_DB == nil {
-		return record, fmt.Errorf("request log database is not initialized")
+	if requestLogStore == nil {
+		return record, fmt.Errorf("request log storage is not initialized")
 	}
 	prepareRequestLogRecord(&record)
-	return record, REQUEST_LOG_DB.Create(&record).Error
+	batch := []RequestLogRecord{record}
+	if err := requestLogStore.WriteBatch(batch); err != nil {
+		return record, err
+	}
+	return batch[0], nil
 }
 
 func runRequestLogWorker() {
@@ -233,16 +313,16 @@ func runRequestLogWorker() {
 	}
 	batch := make([]RequestLogRecord, 0, batchSize)
 	flush := func() {
-		if len(batch) == 0 || REQUEST_LOG_DB == nil {
+		if len(batch) == 0 || requestLogStore == nil {
 			return
 		}
 		for i := range batch {
 			prepareRequestLogRecord(&batch[i])
 		}
-		if err := REQUEST_LOG_DB.Create(&batch).Error; err != nil {
+		if err := requestLogStore.WriteBatch(batch); err != nil {
 			common.SysError("failed to batch record request logs: " + err.Error())
 			for i := range batch {
-				if singleErr := REQUEST_LOG_DB.Create(&batch[i]).Error; singleErr != nil {
+				if singleErr := requestLogStore.WriteBatch([]RequestLogRecord{batch[i]}); singleErr != nil {
 					common.SysError("failed to record request log: " + singleErr.Error())
 				}
 			}

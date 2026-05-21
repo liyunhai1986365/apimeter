@@ -31,6 +31,14 @@ services:
       - REDIS_CONN_STRING=redis://redis
       - TZ=Asia/Shanghai
       - BATCH_UPDATE_ENABLED=true
+      # Optional: store detailed relay request/response logs in OpenObserve instead of SQL.
+      # - REQUEST_LOG_ENABLED=true
+      # - REQUEST_LOG_STORAGE=openobserve
+      # - REQUEST_LOG_OPENOBSERVE_ENDPOINT=http://openobserve:5080
+      # - REQUEST_LOG_OPENOBSERVE_ORG=default
+      # - REQUEST_LOG_OPENOBSERVE_STREAM=request_log_records
+      # - REQUEST_LOG_OPENOBSERVE_USER=root@example.com
+      # - REQUEST_LOG_OPENOBSERVE_PASSWORD=Complexpass#123
     depends_on:
       redis:
         condition: service_started
@@ -64,9 +72,27 @@ services:
       timeout: 3s
       retries: 5
 
+  openobserve:
+    image: o2cr.ai/openobserve/openobserve-enterprise:latest
+    container_name: new-api-dev-openobserve
+    restart: unless-stopped
+    profiles:
+      - observability
+    ports:
+      - "5080:5080"
+    environment:
+      - ZO_DATA_DIR=/data
+      - ZO_ROOT_USER_EMAIL=root@example.com
+      - ZO_ROOT_USER_PASSWORD=Complexpass#123
+    volumes:
+      - dev_openobserve_data:/data
+    networks:
+      - dev-network
+
 volumes:
   dev_data:
   dev_pg_data:
+  dev_openobserve_data:
 
 networks:
   dev-network:

@@ -85,8 +85,6 @@ var DB *gorm.DB
 
 var LOG_DB *gorm.DB
 
-var REQUEST_LOG_DB *gorm.DB
-
 func createRootAccountIfNeed() error {
 	var user User
 	//if user.Status != common.UserStatusEnabled {
@@ -724,12 +722,6 @@ func closeDB(db *gorm.DB) error {
 }
 
 func CloseDB() error {
-	if REQUEST_LOG_DB != nil && REQUEST_LOG_DB != DB && REQUEST_LOG_DB != LOG_DB {
-		err := closeDB(REQUEST_LOG_DB)
-		if err != nil {
-			return err
-		}
-	}
 	if LOG_DB != DB {
 		err := closeDB(LOG_DB)
 		if err != nil {

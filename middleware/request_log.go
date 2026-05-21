@@ -105,6 +105,9 @@ func RequestLog() gin.HandlerFunc {
 		c.Next()
 
 		record := buildRequestLogRecord(c, writer, startTime)
+		if shouldSkipRequestLogRecord(c, record) {
+			return
+		}
 		model.EnqueueRequestLog(record)
 	}
 }
@@ -230,6 +233,97 @@ func isRelayKlingRequestLogEndpoint(method string, suffix string) bool {
 	}
 	return method == http.MethodGet &&
 		(strings.HasPrefix(suffix, "/videos/text2video/") || strings.HasPrefix(suffix, "/videos/image2video/"))
+}
+
+func shouldSkipRequestLogRecord(c *gin.Context, record model.RequestLogRecord) bool {
+	if record.Status != "success" {
+		return false
+	}
+	if !isTaskFetchRequestLogPath(c.Request.Method, c.Request.URL.Path) {
+		return false
+	}
+	return !taskFetchResponseHasTerminalStatus(record.ResponseBody)
+}
+
+func isTaskFetchRequestLogPath(method string, path string) bool {
+	if method == http.MethodGet {
+		return strings.HasPrefix(path, "/v1/tasks/") ||
+			strings.HasPrefix(path, "/v1/video/generations/") ||
+			strings.HasPrefix(path, "/v1/videos/") ||
+			strings.HasPrefix(path, "/kling/v1/videos/text2video/") ||
+			strings.HasPrefix(path, "/kling/v1/videos/image2video/") ||
+			strings.HasPrefix(path, "/suno/fetch/") ||
+			strings.HasPrefix(path, "/mj/task/") ||
+			strings.Contains(path, "/mj/task/")
+	}
+	if method == http.MethodPost {
+		return path == "/suno/fetch" ||
+			path == "/mj/task/list-by-condition" ||
+			strings.HasSuffix(path, "/mj/task/list-by-condition")
+	}
+	return false
+}
+
+func taskFetchResponseHasTerminalStatus(responseBody string) bool {
+	if strings.TrimSpace(responseBody) == "" {
+		return true
+	}
+	var payload any
+	if err := common.Unmarshal([]byte(responseBody), &payload); err != nil {
+		return true
+	}
+	statuses := collectTaskResponseStatuses(payload)
+	if len(statuses) == 0 {
+		return true
+	}
+	for _, status := range statuses {
+		if !isTerminalTaskStatus(status) {
+			return false
+		}
+	}
+	return true
+}
+
+func collectTaskResponseStatuses(value any) []string {
+	statuses := make([]string, 0, 2)
+	collectTaskResponseStatusesInto(value, &statuses)
+	return statuses
+}
+
+func collectTaskResponseStatusesInto(value any, statuses *[]string) {
+	switch typed := value.(type) {
+	case map[string]any:
+		for _, key := range []string{"status", "task_status"} {
+			if raw, ok := typed[key]; ok {
+				if status, ok := raw.(string); ok && strings.TrimSpace(status) != "" {
+					*statuses = append(*statuses, status)
+				}
+			}
+		}
+		if data, ok := typed["data"]; ok {
+			collectTaskResponseStatusesInto(data, statuses)
+		}
+		if output, ok := typed["output"]; ok {
+			collectTaskResponseStatusesInto(output, statuses)
+		}
+	case []any:
+		for _, item := range typed {
+			collectTaskResponseStatusesInto(item, statuses)
+		}
+	}
+}
+
+func isTerminalTaskStatus(status string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(status))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	normalized = strings.ReplaceAll(normalized, " ", "_")
+	switch normalized {
+	case "success", "succeeded", "completed", "complete", "done",
+		"failure", "failed", "fail", "error", "cancelled", "canceled", "expired":
+		return true
+	default:
+		return false
+	}
 }
 
 func buildRequestLogRecord(c *gin.Context, writer *requestLogResponseWriter, startTime time.Time) model.RequestLogRecord {

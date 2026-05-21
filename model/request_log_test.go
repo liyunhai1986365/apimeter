@@ -1,6 +1,8 @@
 package model
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -10,46 +12,168 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInitRequestLogDBDisabledWithoutDSN(t *testing.T) {
-	originalDB := REQUEST_LOG_DB
-	originalEnabled := common.RequestLogEnabled
-	t.Cleanup(func() {
-		REQUEST_LOG_DB = originalDB
-		common.RequestLogEnabled = originalEnabled
-	})
-
-	REQUEST_LOG_DB = nil
-	common.RequestLogEnabled = true
-	t.Setenv("REQUEST_LOG_SQL_DSN", "")
-
-	require.NoError(t, InitRequestLogDB())
-	require.Nil(t, REQUEST_LOG_DB)
-	require.False(t, common.RequestLogEnabled)
+type captureRequestLogStore struct {
+	records []RequestLogRecord
 }
 
-func TestRecordRequestLogSanitizesAndTruncatesContent(t *testing.T) {
-	originalDB := REQUEST_LOG_DB
+func (s *captureRequestLogStore) WriteBatch(records []RequestLogRecord) error {
+	s.records = append(s.records, records...)
+	return nil
+}
+
+func TestInitRequestLogStoreDisabledWithoutOpenObserveConfig(t *testing.T) {
 	originalEnabled := common.RequestLogEnabled
+	originalQueue := requestLogQueue
+	originalStore := requestLogStore
+	t.Cleanup(func() {
+		common.RequestLogEnabled = originalEnabled
+		requestLogQueue = originalQueue
+		requestLogStore = originalStore
+	})
+
+	common.RequestLogEnabled = true
+	requestLogQueue = make(chan RequestLogRecord, 1)
+	t.Setenv("REQUEST_LOG_STORAGE", "")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_ENDPOINT", "")
+
+	require.Error(t, InitRequestLogStore())
+	require.False(t, common.RequestLogEnabled)
+	require.Nil(t, requestLogQueue)
+	require.Nil(t, requestLogStore)
+}
+
+func TestInitRequestLogStoreIgnoresLegacySQLDSNWithoutOpenObserve(t *testing.T) {
+	originalEnabled := common.RequestLogEnabled
+	originalQueue := requestLogQueue
+	originalStore := requestLogStore
+	t.Cleanup(func() {
+		common.RequestLogEnabled = originalEnabled
+		requestLogQueue = originalQueue
+		requestLogStore = originalStore
+	})
+
+	common.RequestLogEnabled = true
+	requestLogQueue = make(chan RequestLogRecord, 1)
+	t.Setenv("REQUEST_LOG_LEGACY_SQL_DSN", "file:"+t.TempDir()+"/request-log.db?cache=shared")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_ENDPOINT", "")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_USER", "")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_PASSWORD", "")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_TOKEN", "")
+
+	require.Error(t, InitRequestLogStore())
+	require.False(t, common.RequestLogEnabled)
+	require.Nil(t, requestLogQueue)
+	require.Nil(t, requestLogStore)
+}
+
+func TestInitRequestLogStoreEnablesOpenObserveWithoutSQLDSN(t *testing.T) {
+	originalEnabled := common.RequestLogEnabled
+	originalQueue := requestLogQueue
+	originalQueueSize := common.RequestLogQueueSize
+	originalStore := requestLogStore
+	t.Cleanup(func() {
+		common.RequestLogEnabled = originalEnabled
+		requestLogQueue = originalQueue
+		common.RequestLogQueueSize = originalQueueSize
+		requestLogStore = originalStore
+	})
+
+	common.RequestLogEnabled = true
+	common.RequestLogQueueSize = 2
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_ENDPOINT", "http://127.0.0.1:5080")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_ORG", "default")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_STREAM", "request_log_records")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_USER", "root@example.com")
+	t.Setenv("REQUEST_LOG_OPENOBSERVE_PASSWORD", "secret")
+
+	require.NoError(t, InitRequestLogStore())
+	require.True(t, common.RequestLogEnabled)
+	require.NotNil(t, requestLogQueue)
+	require.Equal(t, 2, cap(requestLogQueue))
+}
+
+func TestOpenObserveRequestLogStoreWritesBatch(t *testing.T) {
 	originalRequestMax := common.RequestLogMaxRequestBytes
 	originalResponseMax := common.RequestLogMaxResponseBytes
 	originalRedact := common.RequestLogRedactEnabled
 	t.Cleanup(func() {
-		REQUEST_LOG_DB = originalDB
-		common.RequestLogEnabled = originalEnabled
 		common.RequestLogMaxRequestBytes = originalRequestMax
 		common.RequestLogMaxResponseBytes = originalResponseMax
 		common.RequestLogRedactEnabled = originalRedact
 	})
+	common.RequestLogMaxRequestBytes = 1024
+	common.RequestLogMaxResponseBytes = 1024
+	common.RequestLogRedactEnabled = true
 
-	dbPath := t.TempDir() + "/request-log.db"
-	t.Setenv("REQUEST_LOG_SQL_DSN", "file:"+dbPath+"?cache=shared")
+	var gotPath string
+	var gotAuth string
+	var gotContentType string
+	var records []map[string]any
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		gotAuth = r.Header.Get("Authorization")
+		gotContentType = r.Header.Get("Content-Type")
+		require.NoError(t, common.DecodeJson(r.Body, &records))
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"code":200,"status":"ok","records":1}`))
+	}))
+	defer server.Close()
+
+	store := newOpenObserveRequestLogStore(openObserveRequestLogConfig{
+		Endpoint: server.URL + "/",
+		Org:      "default",
+		Stream:   "request_log_records",
+		User:     "root@example.com",
+		Password: "secret",
+		Timeout:  time.Second,
+	})
+
+	record := RequestLogRecord{
+		CreatedAt:    1710000000,
+		UserId:       12,
+		RequestId:    "req_123",
+		RequestPath:  "/v1/chat/completions",
+		Status:       "success",
+		StatusCode:   200,
+		RequestBody:  `{"api_key":"sk-secret"}`,
+		ResponseBody: `{"ok":true}`,
+	}
+	prepareRequestLogRecord(&record)
+	err := store.WriteBatch([]RequestLogRecord{record})
+
+	require.NoError(t, err)
+	require.Equal(t, "/api/default/request_log_records/_json", gotPath)
+	require.Equal(t, "Basic cm9vdEBleGFtcGxlLmNvbTpzZWNyZXQ=", gotAuth)
+	require.Contains(t, gotContentType, "application/json")
+	require.Len(t, records, 1)
+	require.Equal(t, float64(1710000000000000), records[0]["_timestamp"])
+	require.Equal(t, "request_log", records[0]["log_type"])
+	require.Equal(t, "req_123", records[0]["request_id"])
+	require.Equal(t, "success", records[0]["status"])
+	require.NotContains(t, records[0]["request_body"], "sk-secret")
+	require.Contains(t, records[0]["request_body"], requestLogRedactedVal)
+}
+
+func TestRecordRequestLogSanitizesAndTruncatesContent(t *testing.T) {
+	originalEnabled := common.RequestLogEnabled
+	originalRequestMax := common.RequestLogMaxRequestBytes
+	originalResponseMax := common.RequestLogMaxResponseBytes
+	originalRedact := common.RequestLogRedactEnabled
+	originalStore := requestLogStore
+	t.Cleanup(func() {
+		common.RequestLogEnabled = originalEnabled
+		common.RequestLogMaxRequestBytes = originalRequestMax
+		common.RequestLogMaxResponseBytes = originalResponseMax
+		common.RequestLogRedactEnabled = originalRedact
+		requestLogStore = originalStore
+	})
+
 	common.RequestLogEnabled = true
 	common.RequestLogMaxRequestBytes = 32
 	common.RequestLogMaxResponseBytes = 24
 	common.RequestLogRedactEnabled = true
-
-	require.NoError(t, InitRequestLogDB())
-	require.NotNil(t, REQUEST_LOG_DB)
+	store := &captureRequestLogStore{}
+	requestLogStore = store
 
 	createdAt := time.Now().Unix()
 	record, err := RecordRequestLog(RequestLogRecord{
@@ -72,7 +196,6 @@ func TestRecordRequestLogSanitizesAndTruncatesContent(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.NotZero(t, record.Id)
 	require.Equal(t, createdAt, record.CreatedAt)
 	require.Equal(t, 12, record.UserId)
 	require.Equal(t, "req_123", record.RequestId)
@@ -84,33 +207,27 @@ func TestRecordRequestLogSanitizesAndTruncatesContent(t *testing.T) {
 	require.Contains(t, record.RequestBody, "[REDACTED]")
 	require.LessOrEqual(t, len(record.RequestBody), common.RequestLogMaxRequestBytes+len(truncatedSuffix))
 	require.LessOrEqual(t, len(record.ResponseBody), common.RequestLogMaxResponseBytes+len(truncatedSuffix))
-
-	var saved RequestLogRecord
-	require.NoError(t, REQUEST_LOG_DB.First(&saved, "request_id = ?", "req_123").Error)
-	require.Equal(t, record.RequestBody, saved.RequestBody)
-	require.Equal(t, record.ResponseBody, saved.ResponseBody)
+	require.Len(t, store.records, 1)
+	require.Equal(t, record.RequestBody, store.records[0].RequestBody)
+	require.Equal(t, record.ResponseBody, store.records[0].ResponseBody)
 }
 
 func TestRecordRequestLogMarksOriginalLogAsErrorWhenResponseHasMojibake(t *testing.T) {
-	originalDB := REQUEST_LOG_DB
 	originalLogDB := LOG_DB
 	originalEnabled := common.RequestLogEnabled
 	originalRedact := common.RequestLogRedactEnabled
+	originalStore := requestLogStore
 	t.Cleanup(func() {
-		REQUEST_LOG_DB = originalDB
 		LOG_DB = originalLogDB
 		common.RequestLogEnabled = originalEnabled
 		common.RequestLogRedactEnabled = originalRedact
+		requestLogStore = originalStore
 	})
 
-	dbPath := t.TempDir() + "/request-log.db"
-	t.Setenv("REQUEST_LOG_SQL_DSN", "file:"+dbPath+"?cache=shared")
 	common.RequestLogEnabled = true
 	common.RequestLogRedactEnabled = false
-
-	require.NoError(t, InitRequestLogDB())
-	LOG_DB = REQUEST_LOG_DB
-	require.NoError(t, LOG_DB.AutoMigrate(&Log{}))
+	store := &captureRequestLogStore{}
+	requestLogStore = store
 
 	origin := Log{
 		CreatedAt: common.GetTimestamp(),
@@ -142,21 +259,18 @@ func TestRecordRequestLogMarksOriginalLogAsErrorWhenResponseHasMojibake(t *testi
 }
 
 func TestRecordRequestLogNormalizesInvalidUTF8Content(t *testing.T) {
-	originalDB := REQUEST_LOG_DB
 	originalEnabled := common.RequestLogEnabled
 	originalRedact := common.RequestLogRedactEnabled
+	originalStore := requestLogStore
 	t.Cleanup(func() {
-		REQUEST_LOG_DB = originalDB
 		common.RequestLogEnabled = originalEnabled
 		common.RequestLogRedactEnabled = originalRedact
+		requestLogStore = originalStore
 	})
 
-	dbPath := t.TempDir() + "/request-log.db"
-	t.Setenv("REQUEST_LOG_SQL_DSN", "file:"+dbPath+"?cache=shared")
 	common.RequestLogEnabled = true
 	common.RequestLogRedactEnabled = false
-
-	require.NoError(t, InitRequestLogDB())
+	requestLogStore = &captureRequestLogStore{}
 
 	record, err := RecordRequestLog(RequestLogRecord{
 		RequestId:    "req_binary",
@@ -180,16 +294,15 @@ func TestTruncateContentPreservesValidUTF8(t *testing.T) {
 }
 
 func TestEnqueueRequestLogNeverBlocksWhenQueueIsFull(t *testing.T) {
-	originalDB := REQUEST_LOG_DB
 	originalEnabled := common.RequestLogEnabled
 	originalQueue := requestLogQueue
+	originalStore := requestLogStore
 	t.Cleanup(func() {
-		REQUEST_LOG_DB = originalDB
 		common.RequestLogEnabled = originalEnabled
 		requestLogQueue = originalQueue
+		requestLogStore = originalStore
 	})
 
-	REQUEST_LOG_DB = nil
 	common.RequestLogEnabled = true
 	requestLogQueue = make(chan RequestLogRecord, 1)
 	requestLogQueue <- RequestLogRecord{RequestId: "already-full"}

@@ -300,7 +300,7 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
-	err = model.InitRequestLogDB()
+	err = model.InitRequestLogStore()
 	if err != nil {
 		return err
 	}

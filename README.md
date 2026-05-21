@@ -316,6 +316,8 @@ docker run --name new-api -d --restart always \
 | `CRYPTO_SECRET` | Encryption secret (required for Redis) | - |
 | `SQL_DSN` | Database connection string | - |
 | `REDIS_CONN_STRING` | Redis connection string | - |
+| `REQUEST_LOG_STORAGE` | Request/response investigation log backend. Only `openobserve` is supported. | `openobserve` |
+| `REQUEST_LOG_OPENOBSERVE_ENDPOINT` | OpenObserve endpoint. Required when request logging is enabled. | - |
 | `STREAMING_TIMEOUT` | Streaming timeout (seconds) | `300` |
 | `STREAM_SCANNER_MAX_BUFFER_MB` | Max per-line buffer (MB) for the stream scanner; increase when upstream sends huge image/base64 payloads | `64` |
 | `MAX_REQUEST_BODY_MB` | Max request body size (MB, counted **after decompression**; prevents huge requests/zip bombs from exhausting memory). Exceeding it returns `413` | `32` |
@@ -330,6 +332,8 @@ docker run --name new-api -d --restart always \
 | `HOSTNAME` | Hostname tag for Pyroscope | `new-api` |
 
 📖 **Complete configuration:** [Environment Variables Documentation](https://docs.newapi.pro/en/docs/installation/config-maintenance/environment-variables)
+
+📖 **Request log storage:** [docs/request-log-storage.md](docs/request-log-storage.md)
 
 </details>
 

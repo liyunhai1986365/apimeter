@@ -16,6 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type captureRequestLogStore struct{}
+
+func (captureRequestLogStore) WriteBatch(records []model.RequestLogRecord) error {
+	return nil
+}
+
 func TestBuildRequestLogRecordCapturesRelayContext(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	originalRequestMax := common.RequestLogMaxRequestBytes
@@ -167,17 +173,15 @@ func TestBuildRequestLogRecordDecodesGzipResponseCapture(t *testing.T) {
 
 func TestBuildRequestLogRecordMarksMojibakeResponseAsError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	originalDB := model.REQUEST_LOG_DB
 	originalLogDB := model.LOG_DB
 	originalEnabled := common.RequestLogEnabled
 	t.Cleanup(func() {
-		model.REQUEST_LOG_DB = originalDB
 		model.LOG_DB = originalLogDB
 		common.RequestLogEnabled = originalEnabled
+		model.SetRequestLogStoreForTest(nil)
 	})
-	t.Setenv("REQUEST_LOG_SQL_DSN", "file:"+t.TempDir()+"/request-log.db?cache=shared")
 	common.RequestLogEnabled = true
-	require.NoError(t, model.InitRequestLogDB())
+	model.SetRequestLogStoreForTest(captureRequestLogStore{})
 	model.LOG_DB = nil
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-test"}`))
@@ -236,21 +240,97 @@ func TestRequestLogEndpointFilterOnlyAllowsRelayRequests(t *testing.T) {
 	}
 }
 
+func TestTaskFetchRequestLogSkipsOnlyInProgressSuccessResponses(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	cases := []struct {
+		name       string
+		method     string
+		path       string
+		statusCode int
+		body       string
+		wantSkip   bool
+	}{
+		{
+			name:       "single queued task",
+			method:     http.MethodGet,
+			path:       "/v1/videos/task_123",
+			statusCode: http.StatusOK,
+			body:       `{"id":"task_123","status":"queued"}`,
+			wantSkip:   true,
+		},
+		{
+			name:       "task response data in progress",
+			method:     http.MethodPost,
+			path:       "/suno/fetch",
+			statusCode: http.StatusOK,
+			body:       `{"code":"success","data":[{"task_id":"a","status":"IN_PROGRESS"}]}`,
+			wantSkip:   true,
+		},
+		{
+			name:       "success task",
+			method:     http.MethodGet,
+			path:       "/v1/videos/task_123",
+			statusCode: http.StatusOK,
+			body:       `{"id":"task_123","status":"completed"}`,
+			wantSkip:   false,
+		},
+		{
+			name:       "failure task",
+			method:     http.MethodGet,
+			path:       "/kling/v1/videos/text2video/task_123",
+			statusCode: http.StatusOK,
+			body:       `{"task_id":"task_123","task_status":"failed"}`,
+			wantSkip:   false,
+		},
+		{
+			name:       "http error always logs",
+			method:     http.MethodGet,
+			path:       "/v1/videos/task_123",
+			statusCode: http.StatusBadRequest,
+			body:       `{"error":"task_not_exist"}`,
+			wantSkip:   false,
+		},
+		{
+			name:       "non task endpoint always logs",
+			method:     http.MethodPost,
+			path:       "/v1/responses",
+			statusCode: http.StatusOK,
+			body:       `{"status":"queued"}`,
+			wantSkip:   false,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			req := httptest.NewRequest(tc.method, tc.path, nil)
+			resp := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(resp)
+			c.Request = req
+			writer := &requestLogResponseWriter{ResponseWriter: c.Writer, limit: 1024, enabled: true}
+			c.Writer = writer
+			c.String(tc.statusCode, tc.body)
+
+			record := buildRequestLogRecord(c, writer, time.Now())
+
+			require.Equal(t, tc.wantSkip, shouldSkipRequestLogRecord(c, record))
+		})
+	}
+}
+
 func TestRequestLogMiddlewareSkipsCaptureWhenQueueIsFull(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	originalEnabled := common.RequestLogEnabled
 	originalQueueSize := common.RequestLogQueueSize
-	originalDB := model.REQUEST_LOG_DB
 	t.Cleanup(func() {
 		common.RequestLogEnabled = originalEnabled
 		common.RequestLogQueueSize = originalQueueSize
-		model.REQUEST_LOG_DB = originalDB
+		model.SetRequestLogStoreForTest(nil)
 	})
 
-	t.Setenv("REQUEST_LOG_SQL_DSN", "file:"+t.TempDir()+"/request-log.db?cache=shared")
 	common.RequestLogEnabled = true
 	common.RequestLogQueueSize = 1
-	require.NoError(t, model.InitRequestLogDB())
+	model.SetRequestLogStoreForTest(captureRequestLogStore{})
+	model.ResetRequestLogQueueForTest(common.RequestLogQueueSize)
 	require.True(t, model.EnqueueRequestLog(model.RequestLogRecord{RequestId: "already-full"}))
 
 	router := gin.New()
