@@ -104,6 +104,15 @@ func InitEnv() {
 	RelayTimeout = GetEnvOrDefault("RELAY_TIMEOUT", 0)
 	RelayMaxIdleConns = GetEnvOrDefault("RELAY_MAX_IDLE_CONNS", 500)
 	RelayMaxIdleConnsPerHost = GetEnvOrDefault("RELAY_MAX_IDLE_CONNS_PER_HOST", 100)
+	RequestLogEnabled = GetEnvOrDefaultBool("REQUEST_LOG_ENABLED", RequestLogEnabled)
+	RequestLogRedactEnabled = GetEnvOrDefaultBool("REQUEST_LOG_REDACT_ENABLED", RequestLogRedactEnabled)
+	RequestLogCaptureResponseBodyEnabled = GetEnvOrDefaultBool("REQUEST_LOG_CAPTURE_RESPONSE_BODY_ENABLED", RequestLogCaptureResponseBodyEnabled)
+	RequestLogMaxRequestBytes = positiveEnvOrDefault("REQUEST_LOG_MAX_REQUEST_BYTES", RequestLogMaxRequestBytes)
+	RequestLogMaxResponseBytes = positiveEnvOrDefault("REQUEST_LOG_MAX_RESPONSE_BYTES", RequestLogMaxResponseBytes)
+	RequestLogQueueSize = positiveEnvOrDefault("REQUEST_LOG_QUEUE_SIZE", RequestLogQueueSize)
+	RequestLogBatchSize = positiveEnvOrDefault("REQUEST_LOG_BATCH_SIZE", RequestLogBatchSize)
+	RequestLogFlushIntervalSeconds = positiveEnvOrDefault("REQUEST_LOG_FLUSH_INTERVAL_SECONDS", RequestLogFlushIntervalSeconds)
+	RequestLogRetentionDays = GetEnvOrDefault("REQUEST_LOG_RETENTION_DAYS", RequestLogRetentionDays)
 
 	// Initialize string variables with GetEnvOrDefaultString
 	GeminiSafetySetting = GetEnvOrDefaultString("GEMINI_SAFETY_SETTING", "BLOCK_NONE")
@@ -126,6 +135,14 @@ func InitEnv() {
 	SearchRateLimitNum = GetEnvOrDefault("SEARCH_RATE_LIMIT", 10)
 	SearchRateLimitDuration = int64(GetEnvOrDefault("SEARCH_RATE_LIMIT_DURATION", 60))
 	initConstantEnv()
+}
+
+func positiveEnvOrDefault(env string, defaultValue int) int {
+	value := GetEnvOrDefault(env, defaultValue)
+	if value <= 0 {
+		return defaultValue
+	}
+	return value
 }
 
 func initConstantEnv() {

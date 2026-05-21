@@ -234,6 +234,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	}
 
 	info.ChannelMeta = channelMeta
+	c.Set("upstream_model_name", channelMeta.UpstreamModelName)
 
 	// reset some fields based on channel meta
 	// 重置某些字段，例如模型名称等
