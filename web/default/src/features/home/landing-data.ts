@@ -103,7 +103,7 @@ export const CODE_SNIPPETS: Snippet[] = [
     id: 'curl',
     label: 'curl',
     code: `curl https://your-domain.com/v1/chat/completions \\
-  -H "Authorization: Bearer $NEW_API_KEY" \\
+  -H "Authorization: Bearer $API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "model": "claude-opus-4.7",
@@ -132,7 +132,7 @@ response = client.chat.completions.create(
 
 const client = new OpenAI({
   baseURL: "https://your-domain.com/v1",
-  apiKey: process.env.NEW_API_KEY,
+  apiKey: process.env.API_KEY,
 });
 
 const response = await client.chat.completions.create({
