@@ -26,6 +26,7 @@ func TestMain(m *testing.M) {
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
+	initCol()
 
 	sqlDB, err := db.DB()
 	if err != nil {
@@ -53,6 +54,7 @@ func TestMain(m *testing.M) {
 		&AgentGroupRatio{},
 		&AgentLedger{},
 		&AgentWithdrawal{},
+		&PerfMetric{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -82,6 +84,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM agent_group_ratios")
 		DB.Exec("DELETE FROM agent_ledgers")
 		DB.Exec("DELETE FROM agent_withdrawals")
+		DB.Exec("DELETE FROM perf_metrics")
 	})
 }
 
