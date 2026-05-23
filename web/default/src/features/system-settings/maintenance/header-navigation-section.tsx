@@ -16,78 +16,90 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useMemo } from 'react'
-import * as z from 'zod'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect, useMemo, useState } from 'react'
+import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form'
 import { Switch } from '@/components/ui/switch'
+import {
+  getBuiltInHeaderNavItem,
+  getHeaderNavModuleEnabled,
+  getHeaderNavModuleNewWindow,
+  getHeaderNavModuleRequireAuth,
+  isHeaderNavBuiltInModule,
+  mergeHeaderNavOrder,
+  serializeHeaderNavModules,
+  withHeaderNavModuleEnabled,
+  withHeaderNavModuleNewWindow,
+  withHeaderNavModuleRequireAuth,
+  type HeaderNavBuiltInModule,
+  type HeaderNavCustomLink,
+  type HeaderNavModules,
+} from '@/lib/nav-modules'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
-import {
-  HEADER_NAV_DEFAULT,
-  type HeaderNavModulesConfig,
-  serializeHeaderNavModules,
-} from './config'
-
-const headerNavSchema = z.object({
-  home: z.boolean(),
-  console: z.boolean(),
-  pricingEnabled: z.boolean(),
-  pricingRequireAuth: z.boolean(),
-  rankingsEnabled: z.boolean(),
-  rankingsRequireAuth: z.boolean(),
-  docs: z.boolean(),
-  about: z.boolean(),
-})
-
-type HeaderNavFormValues = z.infer<typeof headerNavSchema>
+import { HEADER_NAV_DEFAULT } from './config'
 
 type HeaderNavigationSectionProps = {
-  config: HeaderNavModulesConfig
+  config: HeaderNavModules
   initialSerialized: string
 }
 
-const toFormValues = (config: HeaderNavModulesConfig): HeaderNavFormValues => ({
-  home:
-    config.home === undefined ? HEADER_NAV_DEFAULT.home : Boolean(config.home),
-  console:
-    config.console === undefined
-      ? HEADER_NAV_DEFAULT.console
-      : Boolean(config.console),
-  pricingEnabled:
-    config.pricing?.enabled === undefined
-      ? HEADER_NAV_DEFAULT.pricing.enabled
-      : Boolean(config.pricing.enabled),
-  pricingRequireAuth:
-    config.pricing?.requireAuth === undefined
-      ? HEADER_NAV_DEFAULT.pricing.requireAuth
-      : Boolean(config.pricing.requireAuth),
-  rankingsEnabled:
-    config.rankings?.enabled === undefined
-      ? HEADER_NAV_DEFAULT.rankings.enabled
-      : Boolean(config.rankings.enabled),
-  rankingsRequireAuth:
-    config.rankings?.requireAuth === undefined
-      ? HEADER_NAV_DEFAULT.rankings.requireAuth
-      : Boolean(config.rankings.requireAuth),
-  docs:
-    config.docs === undefined ? HEADER_NAV_DEFAULT.docs : Boolean(config.docs),
-  about:
-    config.about === undefined
-      ? HEADER_NAV_DEFAULT.about
-      : Boolean(config.about),
-})
+const BUILT_IN_DESCRIPTIONS: Record<HeaderNavBuiltInModule, string> = {
+  home: 'Landing page with system overview.',
+  agentAccess: 'Agent integration documentation and onboarding guide.',
+  console: 'User dashboard and quota controls.',
+  pricing: 'Public model catalog and pricing page.',
+  rankings: 'Public rankings page based on live usage data.',
+  docs: 'Documentation or external knowledge base.',
+  about: 'Static page describing the platform.',
+}
+
+const createCustomLinkId = (
+  title: string,
+  links: HeaderNavCustomLink[]
+): string => {
+  const base = title
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  const prefix = base || 'link'
+  let id = prefix
+  let index = 2
+  while (links.some((link) => link.id === id)) {
+    id = `${prefix}-${index}`
+    index += 1
+  }
+  return id
+}
+
+const isExternalHref = (href: string): boolean => /^https?:\/\//i.test(href)
+
+function normalizeConfig(config: HeaderNavModules): HeaderNavModules {
+  return {
+    ...config,
+    pricing: { ...config.pricing },
+    rankings: { ...config.rankings },
+    order: mergeHeaderNavOrder(config.order, config.customLinks),
+    customLinks: config.customLinks.map((link) => ({ ...link })),
+  }
+}
+
+function moveItem(order: string[], id: string, direction: -1 | 1): string[] {
+  const index = order.indexOf(id)
+  const nextIndex = index + direction
+  if (index < 0 || nextIndex < 0 || nextIndex >= order.length) return order
+
+  const next = [...order]
+  const current = next[index]
+  next[index] = next[nextIndex]
+  next[nextIndex] = current
+  return next
+}
 
 export function HeaderNavigationSection({
   config,
@@ -95,40 +107,95 @@ export function HeaderNavigationSection({
 }: HeaderNavigationSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
-  const formDefaults = useMemo(() => toFormValues(config), [config])
-
-  const form = useForm<HeaderNavFormValues>({
-    resolver: zodResolver(headerNavSchema),
-    defaultValues: formDefaults,
-  })
+  const [navConfig, setNavConfig] = useState(() => normalizeConfig(config))
+  const [newTitle, setNewTitle] = useState('')
+  const [newHref, setNewHref] = useState('')
 
   useEffect(() => {
-    form.reset(formDefaults)
-  }, [formDefaults, form])
+    setNavConfig(normalizeConfig(config))
+  }, [config])
 
-  const onSubmit = async (values: HeaderNavFormValues) => {
-    const payload: HeaderNavModulesConfig = {
-      ...config,
-      home: values.home,
-      console: values.console,
-      docs: values.docs,
-      about: values.about,
-      pricing: {
-        ...(config.pricing ?? HEADER_NAV_DEFAULT.pricing),
-        enabled: values.pricingEnabled,
-        requireAuth: values.pricingRequireAuth,
-      },
-      rankings: {
-        ...(config.rankings ?? HEADER_NAV_DEFAULT.rankings),
-        enabled: values.rankingsEnabled,
-        requireAuth: values.rankingsRequireAuth,
-      },
-    }
+  const order = useMemo(
+    () => mergeHeaderNavOrder(navConfig.order, navConfig.customLinks),
+    [navConfig.customLinks, navConfig.order]
+  )
 
-    const serialized = serializeHeaderNavModules(payload)
-    if (serialized === initialSerialized) {
+  const setBuiltInEnabled = (id: HeaderNavBuiltInModule, enabled: boolean) => {
+    setNavConfig((current) => withHeaderNavModuleEnabled(current, id, enabled))
+  }
+
+  const setBuiltInRequireAuth = (
+    id: HeaderNavBuiltInModule,
+    requireAuth: boolean
+  ) => {
+    setNavConfig((current) =>
+      withHeaderNavModuleRequireAuth(current, id, requireAuth)
+    )
+  }
+
+  const setBuiltInNewWindow = (
+    id: HeaderNavBuiltInModule,
+    newWindow: boolean
+  ) => {
+    setNavConfig((current) =>
+      withHeaderNavModuleNewWindow(current, id, newWindow)
+    )
+  }
+
+  const setCustomLink = (
+    id: string,
+    updater: (link: HeaderNavCustomLink) => HeaderNavCustomLink
+  ) => {
+    setNavConfig((current) => ({
+      ...current,
+      customLinks: current.customLinks.map((link) =>
+        link.id === id ? updater(link) : link
+      ),
+    }))
+  }
+
+  const addCustomLink = () => {
+    const title = newTitle.trim()
+    const href = newHref.trim()
+    if (!title || !href) {
+      toast.error(t('Menu title and link are required.'))
       return
     }
+
+    const id = createCustomLinkId(title, navConfig.customLinks)
+    const link: HeaderNavCustomLink = {
+      id,
+      title,
+      href,
+      enabled: true,
+      external: isExternalHref(href),
+      newWindow: isExternalHref(href),
+      requireAuth: false,
+    }
+
+    setNavConfig((current) => ({
+      ...current,
+      customLinks: [...current.customLinks, link],
+      order: mergeHeaderNavOrder(
+        [...current.order, `custom:${id}`],
+        [...current.customLinks, link]
+      ),
+    }))
+    setNewTitle('')
+    setNewHref('')
+  }
+
+  const removeCustomLink = (id: string) => {
+    setNavConfig((current) => ({
+      ...current,
+      customLinks: current.customLinks.filter((link) => link.id !== id),
+      order: current.order.filter((item) => item !== `custom:${id}`),
+    }))
+  }
+
+  const onSubmit = async () => {
+    const serialized = serializeHeaderNavModules(navConfig)
+    if (serialized === initialSerialized) return
 
     await updateOption.mutateAsync({
       key: 'HeaderNavModules',
@@ -137,166 +204,283 @@ export function HeaderNavigationSection({
   }
 
   const resetToDefault = () => {
-    form.reset(toFormValues(HEADER_NAV_DEFAULT))
+    setNavConfig(normalizeConfig(HEADER_NAV_DEFAULT))
   }
-
-  const simpleModules: Array<{
-    key: keyof HeaderNavFormValues
-    title: string
-    description: string
-  }> = [
-    {
-      key: 'home',
-      title: t('Home'),
-      description: t('Landing page with system overview.'),
-    },
-    {
-      key: 'console',
-      title: t('Console'),
-      description: t('User dashboard and quota controls.'),
-    },
-    {
-      key: 'docs',
-      title: t('Docs'),
-      description: t('Documentation or external knowledge base.'),
-    },
-    {
-      key: 'about',
-      title: t('About'),
-      description: t('Static page describing the platform.'),
-    },
-  ]
-
-  const accessModules: Array<{
-    enabledKey: keyof HeaderNavFormValues
-    requireAuthKey: keyof HeaderNavFormValues
-    requireAuthDependsOn: 'pricingEnabled' | 'rankingsEnabled'
-    title: string
-    description: string
-    requireAuthTitle: string
-    requireAuthDescription: string
-  }> = [
-    {
-      enabledKey: 'pricingEnabled',
-      requireAuthKey: 'pricingRequireAuth',
-      requireAuthDependsOn: 'pricingEnabled',
-      title: t('Model Square'),
-      description: t('Public model catalog and pricing page.'),
-      requireAuthTitle: t('Require login to view models'),
-      requireAuthDescription: t(
-        'Visitors must authenticate before accessing the pricing directory.'
-      ),
-    },
-    {
-      enabledKey: 'rankingsEnabled',
-      requireAuthKey: 'rankingsRequireAuth',
-      requireAuthDependsOn: 'rankingsEnabled',
-      title: t('Rankings'),
-      description: t('Public rankings page based on live usage data.'),
-      requireAuthTitle: t('Require login to view rankings'),
-      requireAuthDescription: t(
-        'Visitors must authenticate before accessing the rankings page.'
-      ),
-    },
-  ]
 
   return (
     <SettingsSection
       title={t('Header navigation')}
-      description={t('Enable or disable top navigation modules globally.')}
+      description={t('Enable, add, or reorder top navigation menus globally.')}
     >
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className='space-y-6'>
-          <div className='grid gap-4 md:grid-cols-2'>
-            {simpleModules.map((module) => (
-              <FormField
-                key={module.key}
-                control={form.control}
-                name={module.key}
-                render={({ field }) => (
-                  <FormItem className='flex flex-row items-start justify-between rounded-lg border p-4'>
-                    <div className='space-y-0.5 pe-4'>
-                      <FormLabel className='text-base'>
-                        {module.title}
-                      </FormLabel>
-                      <FormDescription>{module.description}</FormDescription>
+      <div className='space-y-6'>
+        <div className='space-y-3'>
+          {order.map((id, index) => {
+            const isFirst = index === 0
+            const isLast = index === order.length - 1
+
+            if (isHeaderNavBuiltInModule(id)) {
+              const item = getBuiltInHeaderNavItem(id)
+              const enabled = getHeaderNavModuleEnabled(navConfig, id)
+              const requireAuth = getHeaderNavModuleRequireAuth(navConfig, id)
+              const newWindow = getHeaderNavModuleNewWindow(navConfig, id)
+              const supportsAuth = id === 'pricing' || id === 'rankings'
+              const supportsNewWindow = item.external || id === 'docs'
+
+              return (
+                <div
+                  key={id}
+                  className='grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_auto]'
+                >
+                  <div className='min-w-0 space-y-1'>
+                    <div className='flex flex-wrap items-center gap-2'>
+                      <Label className='text-base'>{t(item.titleKey)}</Label>
+                      <span className='text-muted-foreground rounded-md border px-1.5 py-0.5 text-xs'>
+                        {item.external ? t('External') : item.href}
+                      </span>
                     </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
-          </div>
-
-          <div className='grid gap-4 lg:grid-cols-2'>
-            {accessModules.map((module) => (
-              <div key={module.enabledKey} className='rounded-lg border p-4'>
-                <FormField
-                  control={form.control}
-                  name={module.enabledKey}
-                  render={({ field }) => (
-                    <FormItem className='flex flex-row items-start justify-between rounded-lg border p-4'>
-                      <div className='space-y-0.5 pe-4'>
-                        <FormLabel className='text-base'>
-                          {module.title}
-                        </FormLabel>
-                        <FormDescription>{module.description}</FormDescription>
-                      </div>
-                      <FormControl>
+                    <p className='text-muted-foreground text-sm'>
+                      {t(BUILT_IN_DESCRIPTIONS[id])}
+                    </p>
+                    {supportsAuth ? (
+                      <div className='flex items-center gap-2 pt-2'>
                         <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
+                          checked={requireAuth}
+                          disabled={!enabled}
+                          onCheckedChange={(checked) =>
+                            setBuiltInRequireAuth(id, checked)
+                          }
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name={module.requireAuthKey}
-                  render={({ field }) => (
-                    <FormItem className='mt-4 flex flex-row items-start justify-between rounded-lg border border-dashed p-4'>
-                      <div className='space-y-0.5 pe-4'>
-                        <FormLabel className='text-base'>
-                          {module.requireAuthTitle}
-                        </FormLabel>
-                        <FormDescription>
-                          {module.requireAuthDescription}
-                        </FormDescription>
+                        <span className='text-muted-foreground text-sm'>
+                          {t('Require login')}
+                        </span>
                       </div>
-                      <FormControl>
+                    ) : null}
+                    {supportsNewWindow ? (
+                      <div className='flex items-center gap-2 pt-2'>
                         <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                          disabled={!form.watch(module.requireAuthDependsOn)}
+                          checked={newWindow}
+                          disabled={!enabled}
+                          onCheckedChange={(checked) =>
+                            setBuiltInNewWindow(id, checked)
+                          }
                         />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <span className='text-muted-foreground text-sm'>
+                          {t('Open in new window')}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <div className='flex items-center gap-2 md:justify-end'>
+                    <Switch
+                      checked={enabled}
+                      onCheckedChange={(checked) =>
+                        setBuiltInEnabled(id, checked)
+                      }
+                    />
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon-sm'
+                      disabled={isFirst}
+                      onClick={() =>
+                        setNavConfig((current) => ({
+                          ...current,
+                          order: moveItem(order, id, -1),
+                        }))
+                      }
+                      aria-label={t('Move menu up')}
+                    >
+                      <ArrowUp />
+                    </Button>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon-sm'
+                      disabled={isLast}
+                      onClick={() =>
+                        setNavConfig((current) => ({
+                          ...current,
+                          order: moveItem(order, id, 1),
+                        }))
+                      }
+                      aria-label={t('Move menu down')}
+                    >
+                      <ArrowDown />
+                    </Button>
+                  </div>
+                </div>
+              )
+            }
+
+            const customId = id.replace(/^custom:/, '')
+            const link = navConfig.customLinks.find(
+              (item) => item.id === customId
+            )
+            if (!link) return null
+
+            return (
+              <div
+                key={id}
+                className='grid gap-3 rounded-lg border p-4 md:grid-cols-[1fr_auto]'
+              >
+                <div className='grid gap-3 md:grid-cols-2'>
+                  <div className='space-y-2'>
+                    <Label htmlFor={`${id}-title`}>{t('Menu title')}</Label>
+                    <Input
+                      id={`${id}-title`}
+                      value={link.title}
+                      onChange={(event) =>
+                        setCustomLink(customId, (current) => ({
+                          ...current,
+                          title: event.target.value,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label htmlFor={`${id}-href`}>{t('Menu link')}</Label>
+                    <Input
+                      id={`${id}-href`}
+                      value={link.href}
+                      onChange={(event) =>
+                        setCustomLink(customId, (current) => ({
+                          ...current,
+                          href: event.target.value,
+                          external: isExternalHref(event.target.value),
+                          newWindow: isExternalHref(event.target.value)
+                            ? current.newWindow
+                            : false,
+                        }))
+                      }
+                    />
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <Switch
+                      checked={link.newWindow}
+                      disabled={!link.external}
+                      onCheckedChange={(checked) =>
+                        setCustomLink(customId, (current) => ({
+                          ...current,
+                          newWindow: checked,
+                        }))
+                      }
+                    />
+                    <span className='text-muted-foreground text-sm'>
+                      {t('Open in new window')}
+                    </span>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <Switch
+                      checked={link.requireAuth ?? false}
+                      onCheckedChange={(checked) =>
+                        setCustomLink(customId, (current) => ({
+                          ...current,
+                          requireAuth: checked,
+                        }))
+                      }
+                    />
+                    <span className='text-muted-foreground text-sm'>
+                      {t('Require login')}
+                    </span>
+                  </div>
+                </div>
+
+                <div className='flex items-center gap-2 md:justify-end'>
+                  <Switch
+                    checked={link.enabled}
+                    onCheckedChange={(checked) =>
+                      setCustomLink(customId, (current) => ({
+                        ...current,
+                        enabled: checked,
+                      }))
+                    }
+                  />
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='icon-sm'
+                    disabled={isFirst}
+                    onClick={() =>
+                      setNavConfig((current) => ({
+                        ...current,
+                        order: moveItem(order, id, -1),
+                      }))
+                    }
+                    aria-label={t('Move menu up')}
+                  >
+                    <ArrowUp />
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='outline'
+                    size='icon-sm'
+                    disabled={isLast}
+                    onClick={() =>
+                      setNavConfig((current) => ({
+                        ...current,
+                        order: moveItem(order, id, 1),
+                      }))
+                    }
+                    aria-label={t('Move menu down')}
+                  >
+                    <ArrowDown />
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='destructive'
+                    size='icon-sm'
+                    onClick={() => removeCustomLink(customId)}
+                    aria-label={t('Remove menu')}
+                  >
+                    <Trash2 />
+                  </Button>
+                </div>
               </div>
-            ))}
-          </div>
+            )
+          })}
+        </div>
 
-          <div className='flex flex-wrap gap-3'>
-            <Button type='button' variant='outline' onClick={resetToDefault}>
-              {t('Reset to default')}
-            </Button>
-            <Button type='submit' disabled={updateOption.isPending}>
-              {updateOption.isPending ? t('Saving...') : t('Save navigation')}
+        <div className='grid gap-3 rounded-lg border border-dashed p-4 md:grid-cols-[1fr_1fr_auto]'>
+          <div className='space-y-2'>
+            <Label htmlFor='new-menu-title'>{t('Menu title')}</Label>
+            <Input
+              id='new-menu-title'
+              value={newTitle}
+              onChange={(event) => setNewTitle(event.target.value)}
+              placeholder={t('Agent Access')}
+            />
+          </div>
+          <div className='space-y-2'>
+            <Label htmlFor='new-menu-link'>{t('Menu link')}</Label>
+            <Input
+              id='new-menu-link'
+              value={newHref}
+              onChange={(event) => setNewHref(event.target.value)}
+              placeholder='https://docs.modelsell.com'
+            />
+          </div>
+          <div className='flex items-end'>
+            <Button type='button' variant='outline' onClick={addCustomLink}>
+              <Plus />
+              {t('Add menu')}
             </Button>
           </div>
-        </form>
-      </Form>
+        </div>
+
+        <div className='flex flex-wrap gap-3'>
+          <Button type='button' variant='outline' onClick={resetToDefault}>
+            {t('Reset to default')}
+          </Button>
+          <Button
+            type='button'
+            disabled={updateOption.isPending}
+            onClick={onSubmit}
+          >
+            {updateOption.isPending ? t('Saving...') : t('Save navigation')}
+          </Button>
+        </div>
+      </div>
     </SettingsSection>
   )
 }

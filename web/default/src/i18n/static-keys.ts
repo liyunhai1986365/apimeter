@@ -21,11 +21,13 @@ For commercial licensing, please contact support@quantumnous.com
 export const STATIC_I18N_KEYS = [
   // Header navigation
   'Home',
+  'Agent Access',
   'Console',
   'Model Square',
   'Rankings',
   'Docs',
   'About',
+  'Open in new window',
 
   // Workspace
   'System Settings',
@@ -139,6 +141,13 @@ export const STATIC_I18N_KEYS = [
   // Home page (constants-driven labels)
   'Cost Tracking',
   'Model Access',
+  'Configure mainstream Agent platforms in one command',
+  'ModelSell CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.',
+  'Installation system',
+  'Copy command',
+  'View CLI docs',
+  'Browse Agent tools',
+  'ModelSell CLI interactive configuration screen',
   'Guardrails',
   'Observability',
   'Budgets',

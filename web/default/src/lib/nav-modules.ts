@@ -16,29 +16,85 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { getStatus } from '@/lib/api'
-
 export type ModuleAccess = { enabled: boolean; requireAuth: boolean }
 
 export type HeaderNavModule = 'rankings' | 'pricing'
 
+export type HeaderNavBuiltInModule =
+  | 'home'
+  | 'agentAccess'
+  | 'console'
+  | 'pricing'
+  | 'rankings'
+  | 'docs'
+  | 'about'
+
+export type HeaderNavCustomLink = {
+  id: string
+  title: string
+  href: string
+  enabled: boolean
+  external: boolean
+  newWindow: boolean
+  requireAuth?: boolean
+}
+
+export type HeaderNavItem = {
+  id: HeaderNavBuiltInModule | `custom:${string}`
+  titleKey: string
+  href: string
+  enabled: boolean
+  external: boolean
+  newWindow: boolean
+  requireAuth: boolean
+  custom?: boolean
+}
+
+export type HeaderNavNewWindow = Partial<
+  Record<HeaderNavBuiltInModule, boolean>
+>
+
 export type HeaderNavModules = {
   home: boolean
+  agentAccess: boolean
   console: boolean
   pricing: ModuleAccess
   rankings: ModuleAccess
   docs: boolean
   about: boolean
-  [key: string]: boolean | ModuleAccess
+  newWindow: HeaderNavNewWindow
+  order: string[]
+  customLinks: HeaderNavCustomLink[]
+  [key: string]:
+    | boolean
+    | ModuleAccess
+    | HeaderNavNewWindow
+    | string[]
+    | HeaderNavCustomLink[]
 }
 
 const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   home: true,
+  agentAccess: true,
   console: true,
   pricing: { enabled: true, requireAuth: false },
   rankings: { enabled: true, requireAuth: false },
   docs: true,
   about: true,
+  newWindow: {
+    agentAccess: false,
+    docs: true,
+  },
+  order: [
+    'home',
+    'agentAccess',
+    'console',
+    'pricing',
+    'rankings',
+    'docs',
+    'about',
+  ],
+  customLinks: [],
 }
 
 const DEFAULTS: Record<HeaderNavModule, ModuleAccess> = {
@@ -46,11 +102,72 @@ const DEFAULTS: Record<HeaderNavModule, ModuleAccess> = {
   rankings: DEFAULT_HEADER_NAV_MODULES.rankings,
 }
 
+const BUILT_IN_HEADER_NAV_ITEMS: Record<
+  HeaderNavBuiltInModule,
+  Omit<HeaderNavItem, 'enabled' | 'requireAuth'>
+> = {
+  home: {
+    id: 'home',
+    titleKey: 'Home',
+    href: '/',
+    external: false,
+    newWindow: false,
+  },
+  agentAccess: {
+    id: 'agentAccess',
+    titleKey: 'Agent Access',
+    href: 'https://docs.modelsell.com',
+    external: true,
+    newWindow: false,
+  },
+  console: {
+    id: 'console',
+    titleKey: 'Console',
+    href: '/dashboard',
+    external: false,
+    newWindow: false,
+  },
+  pricing: {
+    id: 'pricing',
+    titleKey: 'Model Square',
+    href: '/pricing',
+    external: false,
+    newWindow: false,
+  },
+  rankings: {
+    id: 'rankings',
+    titleKey: 'Rankings',
+    href: '/rankings',
+    external: false,
+    newWindow: false,
+  },
+  docs: {
+    id: 'docs',
+    titleKey: 'Docs',
+    href: '/docs',
+    external: false,
+    newWindow: true,
+  },
+  about: {
+    id: 'about',
+    titleKey: 'About',
+    href: '/about',
+    external: false,
+    newWindow: false,
+  },
+}
+
+export const BUILT_IN_HEADER_NAV_ORDER =
+  DEFAULT_HEADER_NAV_MODULES.order as HeaderNavBuiltInModule[]
+
 function cloneHeaderNavDefaults(): HeaderNavModules {
   return {
     ...DEFAULT_HEADER_NAV_MODULES,
     pricing: { ...DEFAULT_HEADER_NAV_MODULES.pricing },
     rankings: { ...DEFAULT_HEADER_NAV_MODULES.rankings },
+    newWindow: { ...DEFAULT_HEADER_NAV_MODULES.newWindow },
+    order: [...DEFAULT_HEADER_NAV_MODULES.order],
+    customLinks: [...DEFAULT_HEADER_NAV_MODULES.customLinks],
   }
 }
 
@@ -104,10 +221,84 @@ function parseHeaderNavRecord(raw: unknown): Record<string, unknown> | null {
   }
 }
 
+function parseStringList(raw: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(raw)) return [...fallback]
+
+  const seen = new Set<string>()
+  return raw.reduce<string[]>((acc, item) => {
+    if (typeof item !== 'string') return acc
+    const trimmed = item.trim()
+    if (!trimmed || seen.has(trimmed)) return acc
+    seen.add(trimmed)
+    acc.push(trimmed)
+    return acc
+  }, [])
+}
+
+function parseBuiltInNewWindow(
+  raw: unknown,
+  fallback: HeaderNavNewWindow
+): HeaderNavNewWindow {
+  if (!raw || typeof raw !== 'object') return { ...fallback }
+
+  const record = raw as Record<string, unknown>
+  return BUILT_IN_HEADER_NAV_ORDER.reduce<HeaderNavNewWindow>((acc, id) => {
+    const item = BUILT_IN_HEADER_NAV_ITEMS[id]
+    acc[id] = parseHeaderNavBoolean(
+      record[id],
+      fallback[id] ?? item.newWindow
+    )
+    return acc
+  }, {})
+}
+
+function normalizeCustomLinkId(raw: unknown, index: number): string {
+  if (typeof raw === 'string') {
+    const normalized = raw.trim().replace(/^custom:/, '')
+    if (normalized) return normalized
+  }
+  return `link-${index + 1}`
+}
+
+function parseCustomLinks(raw: unknown): HeaderNavCustomLink[] {
+  if (!Array.isArray(raw)) return []
+
+  return raw.reduce<HeaderNavCustomLink[]>((acc, item, index) => {
+    if (!item || typeof item !== 'object') return acc
+
+    const record = item as Record<string, unknown>
+    const title = typeof record.title === 'string' ? record.title.trim() : ''
+    const href = typeof record.href === 'string' ? record.href.trim() : ''
+    if (!title || !href) return acc
+
+    const id = normalizeCustomLinkId(record.id, index)
+    if (acc.some((link) => link.id === id)) return acc
+
+    const external = parseHeaderNavBoolean(
+      record.external,
+      /^https?:\/\//i.test(href)
+    )
+
+    acc.push({
+      id,
+      title,
+      href,
+      enabled: parseHeaderNavBoolean(record.enabled, true),
+      external,
+      newWindow: parseHeaderNavBoolean(record.newWindow, external),
+      requireAuth: parseHeaderNavBoolean(record.requireAuth, false),
+    })
+    return acc
+  }, [])
+}
+
 export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
   const result = cloneHeaderNavDefaults()
   const parsed = parseHeaderNavRecord(raw)
-  if (!parsed) return result
+  if (!parsed) {
+    result.order = mergeHeaderNavOrder(result.order, result.customLinks)
+    return result
+  }
 
   Object.entries(parsed).forEach(([key, value]) => {
     if (key === 'pricing') {
@@ -118,28 +309,225 @@ export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
       result.rankings = parseAccess(value, result.rankings)
       return
     }
+    if (key === 'order') {
+      result.order = parseStringList(value, result.order)
+      return
+    }
+    if (key === 'customLinks') {
+      result.customLinks = parseCustomLinks(value)
+      return
+    }
+    if (key === 'newWindow') {
+      result.newWindow = parseBuiltInNewWindow(value, result.newWindow)
+      return
+    }
 
     const fallback = result[key]
     if (
-      typeof fallback === 'boolean' ||
-      typeof value === 'boolean' ||
-      typeof value === 'number' ||
-      typeof value === 'string'
+      typeof fallback === 'boolean' &&
+      (typeof value === 'boolean' ||
+        typeof value === 'number' ||
+        typeof value === 'string')
     ) {
-      result[key] = parseHeaderNavBoolean(
-        value,
-        typeof fallback === 'boolean' ? fallback : true
-      )
+      result[key] = parseHeaderNavBoolean(value, fallback)
     }
   })
 
+  result.order = mergeHeaderNavOrder(result.order, result.customLinks)
   return result
+}
+
+export function isHeaderNavBuiltInModule(
+  id: string
+): id is HeaderNavBuiltInModule {
+  return id in BUILT_IN_HEADER_NAV_ITEMS
+}
+
+export function getBuiltInHeaderNavItem(
+  id: HeaderNavBuiltInModule
+): Omit<HeaderNavItem, 'enabled' | 'requireAuth'> {
+  return BUILT_IN_HEADER_NAV_ITEMS[id]
+}
+
+export function getHeaderNavModuleEnabled(
+  modules: HeaderNavModules,
+  id: HeaderNavBuiltInModule
+): boolean {
+  if (id === 'pricing' || id === 'rankings') return modules[id].enabled
+  return modules[id]
+}
+
+export function getHeaderNavModuleRequireAuth(
+  modules: HeaderNavModules,
+  id: HeaderNavBuiltInModule
+): boolean {
+  if (id === 'pricing' || id === 'rankings') return modules[id].requireAuth
+  return false
+}
+
+export function getHeaderNavModuleNewWindow(
+  modules: HeaderNavModules,
+  id: HeaderNavBuiltInModule
+): boolean {
+  return parseHeaderNavBoolean(
+    modules.newWindow[id],
+    BUILT_IN_HEADER_NAV_ITEMS[id].newWindow
+  )
+}
+
+export function withHeaderNavModuleEnabled(
+  modules: HeaderNavModules,
+  id: HeaderNavBuiltInModule,
+  enabled: boolean
+): HeaderNavModules {
+  if (id === 'pricing' || id === 'rankings') {
+    return {
+      ...modules,
+      [id]: {
+        ...modules[id],
+        enabled,
+      },
+    }
+  }
+
+  return { ...modules, [id]: enabled }
+}
+
+export function withHeaderNavModuleRequireAuth(
+  modules: HeaderNavModules,
+  id: HeaderNavBuiltInModule,
+  requireAuth: boolean
+): HeaderNavModules {
+  if (id !== 'pricing' && id !== 'rankings') return modules
+
+  return {
+    ...modules,
+    [id]: {
+      ...modules[id],
+      requireAuth,
+    },
+  }
+}
+
+export function withHeaderNavModuleNewWindow(
+  modules: HeaderNavModules,
+  id: HeaderNavBuiltInModule,
+  newWindow: boolean
+): HeaderNavModules {
+  return {
+    ...modules,
+    newWindow: {
+      ...modules.newWindow,
+      [id]: newWindow,
+    },
+  }
+}
+
+export function serializeHeaderNavModules(modules: HeaderNavModules): string {
+  const normalized: HeaderNavModules = {
+    ...modules,
+    pricing: { ...modules.pricing },
+    rankings: { ...modules.rankings },
+    newWindow: { ...modules.newWindow },
+    order: mergeHeaderNavOrder(modules.order, modules.customLinks),
+    customLinks: modules.customLinks.map((link) => ({ ...link })),
+  }
+
+  return JSON.stringify(normalized)
 }
 
 export function parseHeaderNavModulesFromStatus(
   status: Record<string, unknown> | null
 ): HeaderNavModules {
   return parseHeaderNavModules(status?.HeaderNavModules)
+}
+
+export function mergeHeaderNavOrder(
+  order: string[],
+  customLinks: HeaderNavCustomLink[] = []
+): string[] {
+  const validIds = new Set<string>([
+    ...BUILT_IN_HEADER_NAV_ORDER,
+    ...customLinks.map((link) => `custom:${link.id}`),
+  ])
+  const seen = new Set<string>()
+  const merged = order.reduce<string[]>((acc, item) => {
+    if (!validIds.has(item) || seen.has(item)) return acc
+    seen.add(item)
+    acc.push(item)
+    return acc
+  }, [])
+
+  validIds.forEach((id) => {
+    if (!seen.has(id)) merged.push(id)
+  })
+
+  return merged
+}
+
+export function getOrderedHeaderNavItems(
+  modules: HeaderNavModules,
+  docsLink?: string
+): HeaderNavItem[] {
+  const customLinkMap = new Map(
+    modules.customLinks.map((link) => [`custom:${link.id}`, link] as const)
+  )
+
+  return mergeHeaderNavOrder(modules.order, modules.customLinks).reduce<
+    HeaderNavItem[]
+  >((acc, id) => {
+    if (id.startsWith('custom:')) {
+      const customId = id as `custom:${string}`
+      const customLink = customLinkMap.get(customId)
+      if (customLink?.enabled) {
+        acc.push({
+          id: `custom:${customLink.id}`,
+          titleKey: customLink.title,
+          href: customLink.href,
+          enabled: customLink.enabled,
+          external: customLink.external,
+          newWindow: customLink.newWindow,
+          requireAuth: customLink.requireAuth ?? false,
+          custom: true,
+        })
+      }
+      return acc
+    }
+
+    const builtInId = id as HeaderNavBuiltInModule
+    const item = BUILT_IN_HEADER_NAV_ITEMS[builtInId]
+    if (!item) return acc
+
+    if (builtInId === 'pricing' || builtInId === 'rankings') {
+      const access = modules[builtInId]
+      if (access.enabled) {
+        acc.push({
+          ...item,
+          newWindow: getHeaderNavModuleNewWindow(modules, builtInId),
+          enabled: access.enabled,
+          requireAuth: access.requireAuth,
+        })
+      }
+      return acc
+    }
+
+    const enabled = modules[builtInId]
+    if (enabled === true) {
+      acc.push({
+        ...item,
+        href: builtInId === 'docs' && docsLink ? docsLink : item.href,
+        external:
+          builtInId === 'docs' && docsLink
+            ? /^https?:\/\//i.test(docsLink)
+            : item.external,
+        newWindow: getHeaderNavModuleNewWindow(modules, builtInId),
+        enabled,
+        requireAuth: false,
+      })
+    }
+
+    return acc
+  }, [])
 }
 
 function getCachedStatus(): Record<string, unknown> | null {
@@ -177,6 +565,7 @@ export async function getFreshModuleAccess(
   module: HeaderNavModule
 ): Promise<ModuleAccess> {
   try {
+    const { getStatus } = await import('./api')
     const status = (await getStatus()) as Record<string, unknown> | null
     cacheStatus(status)
     return getModuleAccessFromStatus(status, module)

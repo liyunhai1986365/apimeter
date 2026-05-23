@@ -22,6 +22,7 @@ import { Markdown } from '@/components/ui/markdown'
 import { PublicLayout } from '@/components/layout'
 import { Footer } from '@/components/layout/components/footer'
 import {
+  AgentAccess,
   CTA,
   Features,
   Hero,
@@ -71,6 +72,7 @@ export function Home() {
     <PublicLayout showMainContainer={false}>
       <Hero isAuthenticated={isAuthenticated} />
       <Stats />
+      <AgentAccess />
       <ProductConsole />
       <Features />
       <HowItWorks />
