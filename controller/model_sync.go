@@ -15,6 +15,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -24,6 +25,8 @@ import (
 const (
 	upstreamModelsURL  = "https://basellm.github.io/llm-metadata/api/newapi/models.json"
 	upstreamVendorsURL = "https://basellm.github.io/llm-metadata/api/newapi/vendors.json"
+	aihubmixSource     = "aihubmix"
+	aihubmixModelsURL  = "https://aihubmix.com/call/mdl_info_pagination"
 )
 
 func normalizeLocale(locale string) (string, bool) {
@@ -74,6 +77,33 @@ type upstreamVendor struct {
 	Status      int    `json:"status"`
 }
 
+type aihubmixModel struct {
+	BillingConfig  string  `json:"billing_config"`
+	CacheRatio     float64 `json:"cache_ratio"`
+	CompletionRate float64 `json:"completion_ratio"`
+	Desc           string  `json:"desc"`
+	DescEn         string  `json:"desc_en"`
+	Developer      string  `json:"developer"`
+	DisplayInput   string  `json:"display_input"`
+	DisplayOutput  string  `json:"display_output"`
+	Endpoints      string  `json:"endpoints"`
+	Features       string  `json:"features"`
+	Flag           int     `json:"flag"`
+	ImgPriceConfig string  `json:"img_price_config"`
+	Model          string  `json:"model"`
+	ModelName      string  `json:"model_name"`
+	ModelRatio     float64 `json:"model_ratio"`
+	Modalities     string  `json:"modalities"`
+	ContextWindow  int     `json:"context_window"`
+}
+
+type aihubmixEnvelope struct {
+	Success bool            `json:"success"`
+	Message string          `json:"message"`
+	Total   int             `json:"total"`
+	Data    []aihubmixModel `json:"data"`
+}
+
 var (
 	etagCache  = make(map[string]string)
 	bodyCache  = make(map[string][]byte)
@@ -86,8 +116,10 @@ type overwriteField struct {
 }
 
 type syncRequest struct {
-	Overwrite []overwriteField `json:"overwrite"`
-	Locale    string           `json:"locale"`
+	Overwrite    []overwriteField `json:"overwrite"`
+	OverwriteAll bool             `json:"overwrite_all"`
+	Locale       string           `json:"locale"`
+	Source       string           `json:"source"`
 }
 
 func newHTTPClient() *http.Client {
@@ -181,10 +213,10 @@ func fetchJSON[T any](ctx context.Context, url string, out *upstreamEnvelope[T])
 				cacheMutex.Unlock()
 
 				// Try decode as envelope first
-				if err := json.Unmarshal(buf, out); err != nil {
+				if err := common.Unmarshal(buf, out); err != nil {
 					// Try decode as pure array
 					var arr []T
-					if err2 := json.Unmarshal(buf, &arr); err2 != nil {
+					if err2 := common.Unmarshal(buf, &arr); err2 != nil {
 						lastErr = err
 						return
 					}
@@ -206,9 +238,9 @@ func fetchJSON[T any](ctx context.Context, url string, out *upstreamEnvelope[T])
 					lastErr = errors.New("cache miss for 304 response")
 					return
 				}
-				if err := json.Unmarshal(buf, out); err != nil {
+				if err := common.Unmarshal(buf, out); err != nil {
 					var arr []T
-					if err2 := json.Unmarshal(buf, &arr); err2 != nil {
+					if err2 := common.Unmarshal(buf, &arr); err2 != nil {
 						lastErr = err
 						return
 					}
@@ -263,13 +295,385 @@ func ensureVendorID(vendorName string, vendorByName map[string]upstreamVendor, v
 	return 0
 }
 
+func isAIHubMixSyncSource(source string) bool {
+	source = strings.ToLower(strings.TrimSpace(source))
+	return source == aihubmixSource || source == "inferera" || source == "推理时代"
+}
+
+func getAIHubMixModelsURL(page, pageSize int) string {
+	base := strings.TrimRight(common.GetEnvOrDefaultString("SYNC_AIHUBMIX_MODELS_URL", aihubmixModelsURL), "/")
+	return fmt.Sprintf("%s?p=%d&page_size=%d", base, page, pageSize)
+}
+
+func fetchAIHubMixModels(ctx context.Context) ([]aihubmixModel, string, error) {
+	pageSize := common.GetEnvOrDefault("SYNC_AIHUBMIX_PAGE_SIZE", 200)
+	if pageSize <= 0 {
+		pageSize = 200
+	}
+	maxPages := common.GetEnvOrDefault("SYNC_AIHUBMIX_MAX_PAGES", 120)
+	if maxPages <= 0 {
+		maxPages = 120
+	}
+
+	items := make([]aihubmixModel, 0)
+	firstURL := getAIHubMixModelsURL(1, pageSize)
+	for page := 1; page <= maxPages; page++ {
+		url := getAIHubMixModelsURL(page, pageSize)
+		var envelope aihubmixEnvelope
+		if err := fetchAIHubMixPage(ctx, url, &envelope); err != nil {
+			return nil, firstURL, err
+		}
+		if !envelope.Success && len(envelope.Data) == 0 {
+			return nil, firstURL, errors.New(coalesce(envelope.Message, "AIHubMix returned unsuccessful response"))
+		}
+		items = append(items, envelope.Data...)
+		if len(envelope.Data) == 0 || (envelope.Total > 0 && len(items) >= envelope.Total) {
+			break
+		}
+	}
+	return items, firstURL, nil
+}
+
+func fetchAIHubMixPage(ctx context.Context, url string, out *aihubmixEnvelope) error {
+	maxMB := common.GetEnvOrDefault("SYNC_HTTP_MAX_MB", 10)
+	maxBytes := int64(maxMB) << 20
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := getHTTPClient().Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return errors.New(resp.Status)
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBytes))
+	if err != nil {
+		return err
+	}
+	return common.Unmarshal(body, out)
+}
+
+func buildAIHubMixUpstreamModel(item aihubmixModel, locale string) upstreamModel {
+	description := strings.TrimSpace(item.Desc)
+	if strings.EqualFold(strings.TrimSpace(locale), "en") && strings.TrimSpace(item.DescEn) != "" {
+		description = strings.TrimSpace(item.DescEn)
+	}
+	tags := mergeCommaTokens(item.Features, item.Modalities, contextTag(item.ContextWindow))
+	endpoints := buildAIHubMixEndpoints(item.Endpoints)
+	return upstreamModel{
+		Description: description,
+		Endpoints:   endpoints,
+		ModelName:   strings.TrimSpace(item.Model),
+		Status:      chooseStatus(item.Flag, 1),
+		Tags:        tags,
+		Category:    aiHubMixCategory(item.Modalities),
+		VendorName:  strings.TrimSpace(item.Developer),
+	}
+}
+
+func contextTag(contextWindow int) string {
+	if contextWindow <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("context:%d", contextWindow)
+}
+
+func mergeCommaTokens(values ...string) string {
+	seen := make(map[string]struct{})
+	tokens := make([]string, 0)
+	for _, value := range values {
+		for _, token := range strings.Split(value, ",") {
+			token = strings.TrimSpace(token)
+			if token == "" {
+				continue
+			}
+			if _, ok := seen[token]; ok {
+				continue
+			}
+			seen[token] = struct{}{}
+			tokens = append(tokens, token)
+		}
+	}
+	return strings.Join(tokens, ",")
+}
+
+func buildAIHubMixEndpoints(raw string) json.RawMessage {
+	endpoints := make(map[string]bool)
+	for _, endpoint := range strings.Split(raw, ",") {
+		endpoint = strings.TrimSpace(endpoint)
+		if endpoint == "" {
+			continue
+		}
+		endpoints[endpoint] = true
+	}
+	if len(endpoints) == 0 {
+		return nil
+	}
+	bytes, err := common.Marshal(endpoints)
+	if err != nil {
+		return nil
+	}
+	return bytes
+}
+
+func aiHubMixCategory(modalities string) string {
+	for _, modality := range strings.Split(modalities, ",") {
+		switch strings.TrimSpace(modality) {
+		case "image":
+			return "image"
+		case "audio":
+			return "audio"
+		case "video":
+			return "video"
+		}
+	}
+	return "text"
+}
+
+func buildAIHubMixSyncData(items []aihubmixModel, locale string) (map[string]upstreamModel, map[string]upstreamVendor) {
+	modelByName := make(map[string]upstreamModel, len(items))
+	vendorByName := make(map[string]upstreamVendor)
+	for _, item := range items {
+		up := buildAIHubMixUpstreamModel(item, locale)
+		if up.ModelName == "" {
+			continue
+		}
+		modelByName[up.ModelName] = up
+		if up.VendorName != "" {
+			vendorByName[up.VendorName] = upstreamVendor{
+				Name:        up.VendorName,
+				Description: up.VendorName,
+				Status:      1,
+			}
+		}
+	}
+	return modelByName, vendorByName
+}
+
+func syncAIHubMixPricing(items []aihubmixModel) (int, error) {
+	modelRatios := ratio_setting.GetModelRatioCopy()
+	completionRatios := ratio_setting.GetCompletionRatioCopy()
+	cacheRatios := ratio_setting.GetCacheRatioCopy()
+
+	updated := 0
+	for _, item := range items {
+		name := strings.TrimSpace(item.Model)
+		if name == "" || item.ModelRatio <= 0 {
+			continue
+		}
+		modelRatios[name] = item.ModelRatio
+		if item.CompletionRate > 0 {
+			completionRatios[name] = item.CompletionRate
+		}
+		if item.CacheRatio > 0 {
+			cacheRatios[name] = item.CacheRatio
+		}
+		updated++
+	}
+	if updated == 0 {
+		return 0, nil
+	}
+
+	modelRatioBytes, err := common.Marshal(modelRatios)
+	if err != nil {
+		return 0, err
+	}
+	completionRatioBytes, err := common.Marshal(completionRatios)
+	if err != nil {
+		return 0, err
+	}
+	cacheRatioBytes, err := common.Marshal(cacheRatios)
+	if err != nil {
+		return 0, err
+	}
+
+	return updated, model.UpdateOptionsBulk(map[string]string{
+		"ModelRatio":      string(modelRatioBytes),
+		"CompletionRatio": string(completionRatioBytes),
+		"CacheRatio":      string(cacheRatioBytes),
+	})
+}
+
+func buildOverwriteFieldMap(overwrites []overwriteField) map[string]map[string]struct{} {
+	result := make(map[string]map[string]struct{}, len(overwrites))
+	for _, overwrite := range overwrites {
+		fields := make(map[string]struct{}, len(overwrite.Fields))
+		for _, field := range overwrite.Fields {
+			field = strings.ToLower(strings.TrimSpace(field))
+			if field == "" {
+				continue
+			}
+			fields[field] = struct{}{}
+		}
+		if len(fields) > 0 {
+			result[overwrite.ModelName] = fields
+		}
+	}
+	return result
+}
+
+func shouldApplyAIHubMixField(fields map[string]struct{}, field string, selective bool) bool {
+	if !selective {
+		return true
+	}
+	_, ok := fields[field]
+	return ok
+}
+
+func applyUpstreamModelFields(local *model.Model, up upstreamModel, vendorID int, fields map[string]struct{}, selective bool) bool {
+	changed := false
+	if shouldApplyAIHubMixField(fields, "description", selective) {
+		local.Description = up.Description
+		changed = true
+	}
+	if shouldApplyAIHubMixField(fields, "icon", selective) {
+		local.Icon = up.Icon
+		changed = true
+	}
+	if shouldApplyAIHubMixField(fields, "tags", selective) {
+		local.Tags = up.Tags
+		changed = true
+	}
+	if shouldApplyAIHubMixField(fields, "category", selective) {
+		local.Category = up.Category
+		changed = true
+	}
+	if shouldApplyAIHubMixField(fields, "vendor", selective) {
+		local.VendorID = vendorID
+		changed = true
+	}
+	if shouldApplyAIHubMixField(fields, "endpoints", selective) {
+		local.Endpoints = string(up.Endpoints)
+		changed = true
+	}
+	if shouldApplyAIHubMixField(fields, "status", selective) {
+		local.Status = chooseStatus(up.Status, local.Status)
+		changed = true
+	}
+	if shouldApplyAIHubMixField(fields, "name_rule", selective) {
+		local.NameRule = up.NameRule
+		changed = true
+	}
+	return changed
+}
+
+func applyAIHubMixModelFields(local *model.Model, up upstreamModel, vendorID int, fields map[string]struct{}, selective bool) bool {
+	return applyUpstreamModelFields(local, up, vendorID, fields, selective)
+}
+
+func syncAIHubMixModels(c *gin.Context, req syncRequest) {
+	timeoutSec := common.GetEnvOrDefault("SYNC_HTTP_TIMEOUT_SECONDS", 30)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), time.Duration(timeoutSec)*time.Second)
+	defer cancel()
+
+	items, sourceURL, err := fetchAIHubMixModels(ctx)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取推理时代模型失败: " + err.Error(), "source_urls": gin.H{"models_url": sourceURL}})
+		return
+	}
+	modelByName, vendorByName := buildAIHubMixSyncData(items, req.Locale)
+
+	createdModels := 0
+	createdVendors := 0
+	updatedModels := 0
+	skipped := make([]string, 0)
+	createdList := make([]string, 0)
+	updatedList := make([]string, 0)
+	vendorIDCache := make(map[string]int)
+	overwriteByModel := buildOverwriteFieldMap(req.Overwrite)
+	selectiveOverwrite := len(req.Overwrite) > 0 && !req.OverwriteAll
+
+	for name, up := range modelByName {
+		var local model.Model
+		if err := model.DB.Where("model_name = ?", name).First(&local).Error; err == nil {
+			fields, hasOverwrite := overwriteByModel[name]
+			if !req.OverwriteAll && !selectiveOverwrite {
+				continue
+			}
+			if local.SyncOfficial == 0 && !req.OverwriteAll {
+				skipped = append(skipped, name)
+				continue
+			}
+			if selectiveOverwrite && !hasOverwrite {
+				continue
+			}
+			vendorID := ensureVendorID(up.VendorName, vendorByName, vendorIDCache, &createdVendors)
+			if !applyAIHubMixModelFields(&local, up, vendorID, fields, selectiveOverwrite) {
+				continue
+			}
+			if err := local.Update(); err == nil {
+				updatedModels++
+				updatedList = append(updatedList, name)
+			} else {
+				skipped = append(skipped, name)
+			}
+			continue
+		}
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			skipped = append(skipped, name)
+			continue
+		}
+
+		mi := &model.Model{
+			ModelName:    name,
+			Description:  up.Description,
+			Icon:         up.Icon,
+			Tags:         up.Tags,
+			Category:     up.Category,
+			VendorID:     ensureVendorID(up.VendorName, vendorByName, vendorIDCache, &createdVendors),
+			Endpoints:    string(up.Endpoints),
+			Status:       chooseStatus(up.Status, 1),
+			SyncOfficial: 1,
+			NameRule:     up.NameRule,
+		}
+		if err := mi.Insert(); err == nil {
+			createdModels++
+			createdList = append(createdList, name)
+		} else {
+			skipped = append(skipped, name)
+		}
+	}
+
+	updatedPrices, err := syncAIHubMixPricing(items)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": "同步推理时代价格失败: " + err.Error(), "source_urls": gin.H{"models_url": sourceURL}})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data": gin.H{
+			"created_models":  createdModels,
+			"created_vendors": createdVendors,
+			"updated_models":  updatedModels,
+			"updated_prices":  updatedPrices,
+			"skipped_models":  skipped,
+			"created_list":    createdList,
+			"updated_list":    updatedList,
+			"source": gin.H{
+				"source":     aihubmixSource,
+				"locale":     req.Locale,
+				"models_url": sourceURL,
+			},
+		},
+	})
+}
+
 // SyncUpstreamModels 同步上游模型与供应商：
 // - 默认仅创建「未配置模型」
+// - 可通过 overwrite_all 覆盖所有本地已有模型字段
 // - 可通过 overwrite 选择性覆盖更新本地已有模型的字段（前提：sync_official <> 0）
 func SyncUpstreamModels(c *gin.Context) {
 	var req syncRequest
 	// 允许空体
 	_ = c.ShouldBindJSON(&req)
+	if isAIHubMixSyncSource(req.Source) {
+		syncAIHubMixModels(c, req)
+		return
+	}
 	// 1) 获取未配置模型列表
 	missing, err := model.GetMissingModels()
 	if err != nil {
@@ -279,7 +683,7 @@ func SyncUpstreamModels(c *gin.Context) {
 	}
 
 	// 若既无缺失模型需要创建，也未指定覆盖更新字段，则无需请求上游数据，直接返回
-	if len(missing) == 0 && len(req.Overwrite) == 0 {
+	if len(missing) == 0 && len(req.Overwrite) == 0 && !req.OverwriteAll {
 		modelsURL, vendorsURL := getUpstreamURLs(req.Locale)
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
@@ -342,7 +746,7 @@ func SyncUpstreamModels(c *gin.Context) {
 		}
 	}
 
-	// 3) 执行同步：仅创建缺失模型；若上游缺失该模型则跳过
+	// 3) 执行同步：覆盖已有模型并创建缺失模型；若上游缺失该模型则跳过
 	createdModels := 0
 	createdVendors := 0
 	updatedModels := 0
@@ -352,6 +756,30 @@ func SyncUpstreamModels(c *gin.Context) {
 
 	// 本地缓存：vendorName -> id
 	vendorIDCache := make(map[string]int)
+
+	if req.OverwriteAll {
+		upstreamNames := make([]string, 0, len(modelByName))
+		for name := range modelByName {
+			upstreamNames = append(upstreamNames, name)
+		}
+		var locals []model.Model
+		if len(upstreamNames) > 0 {
+			_ = model.DB.Where("model_name IN ?", upstreamNames).Find(&locals).Error
+		}
+		for _, local := range locals {
+			up := modelByName[local.ModelName]
+			vendorID := ensureVendorID(up.VendorName, vendorByName, vendorIDCache, &createdVendors)
+			if !applyUpstreamModelFields(&local, up, vendorID, nil, false) {
+				continue
+			}
+			if err := local.Update(); err == nil {
+				updatedModels++
+				updatedList = append(updatedList, local.ModelName)
+			} else {
+				skipped = append(skipped, local.ModelName)
+			}
+		}
+	}
 
 	for _, name := range missing {
 		up, ok := modelByName[name]
@@ -380,6 +808,7 @@ func SyncUpstreamModels(c *gin.Context) {
 			Tags:        up.Tags,
 			Category:    up.Category,
 			VendorID:    vendorID,
+			Endpoints:   string(up.Endpoints),
 			Status:      chooseStatus(up.Status, 1),
 			NameRule:    up.NameRule,
 		}
@@ -392,7 +821,7 @@ func SyncUpstreamModels(c *gin.Context) {
 	}
 
 	// 4) 处理可选覆盖（更新本地已有模型的差异字段）
-	if len(req.Overwrite) > 0 {
+	if len(req.Overwrite) > 0 && !req.OverwriteAll {
 		// vendorIDCache 已用于创建阶段，可复用
 		for _, ow := range req.Overwrite {
 			up, ok := modelByName[ow.ModelName]
@@ -412,38 +841,16 @@ func SyncUpstreamModels(c *gin.Context) {
 			// 映射 vendor
 			newVendorID := ensureVendorID(up.VendorName, vendorByName, vendorIDCache, &createdVendors)
 
-			// 应用字段覆盖（事务）
+			fields := make(map[string]struct{}, len(ow.Fields))
+			for _, field := range ow.Fields {
+				field = strings.ToLower(strings.TrimSpace(field))
+				if field != "" {
+					fields[field] = struct{}{}
+				}
+			}
+
 			_ = model.DB.Transaction(func(tx *gorm.DB) error {
-				needUpdate := false
-				if containsField(ow.Fields, "description") {
-					local.Description = up.Description
-					needUpdate = true
-				}
-				if containsField(ow.Fields, "icon") {
-					local.Icon = up.Icon
-					needUpdate = true
-				}
-				if containsField(ow.Fields, "tags") {
-					local.Tags = up.Tags
-					needUpdate = true
-				}
-				if containsField(ow.Fields, "category") {
-					local.Category = up.Category
-					needUpdate = true
-				}
-				if containsField(ow.Fields, "vendor") {
-					local.VendorID = newVendorID
-					needUpdate = true
-				}
-				if containsField(ow.Fields, "name_rule") {
-					local.NameRule = up.NameRule
-					needUpdate = true
-				}
-				if containsField(ow.Fields, "status") {
-					local.Status = chooseStatus(up.Status, local.Status)
-					needUpdate = true
-				}
-				if !needUpdate {
+				if !applyUpstreamModelFields(&local, up, newVendorID, fields, true) {
 					return nil
 				}
 				if err := tx.Save(&local).Error; err != nil {
@@ -509,42 +916,60 @@ func SyncUpstreamPreview(c *gin.Context) {
 	defer cancel()
 
 	locale := c.Query("locale")
-	modelsURL, vendorsURL := getUpstreamURLs(locale)
-
-	var vendorsEnv upstreamEnvelope[upstreamVendor]
-	var modelsEnv upstreamEnvelope[upstreamModel]
-	var fetchErr error
-	var wg sync.WaitGroup
-	wg.Add(2)
-	go func() {
-		defer wg.Done()
-		_ = fetchJSON(ctx, vendorsURL, &vendorsEnv)
-	}()
-	go func() {
-		defer wg.Done()
-		if err := fetchJSON(ctx, modelsURL, &modelsEnv); err != nil {
-			fetchErr = err
-		}
-	}()
-	wg.Wait()
-	if fetchErr != nil {
-		c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取上游模型失败: " + fetchErr.Error(), "locale": locale, "source_urls": gin.H{"models_url": modelsURL, "vendors_url": vendorsURL}})
-		return
-	}
-
-	vendorByName := make(map[string]upstreamVendor)
-	for _, v := range vendorsEnv.Data {
-		if v.Name != "" {
-			vendorByName[v.Name] = v
-		}
-	}
+	source := c.Query("source")
+	sourceInfo := gin.H{"locale": locale}
 	modelByName := make(map[string]upstreamModel)
-	upstreamNames := make([]string, 0, len(modelsEnv.Data))
-	for _, m := range modelsEnv.Data {
-		if m.ModelName != "" {
-			modelByName[m.ModelName] = m
-			upstreamNames = append(upstreamNames, m.ModelName)
+	vendorByName := make(map[string]upstreamVendor)
+	upstreamNames := make([]string, 0)
+
+	if isAIHubMixSyncSource(source) {
+		items, sourceURL, err := fetchAIHubMixModels(ctx)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取推理时代模型失败: " + err.Error(), "locale": locale, "source_urls": gin.H{"models_url": sourceURL}})
+			return
 		}
+		modelByName, vendorByName = buildAIHubMixSyncData(items, locale)
+		sourceInfo["source"] = aihubmixSource
+		sourceInfo["models_url"] = sourceURL
+	} else {
+		modelsURL, vendorsURL := getUpstreamURLs(locale)
+		sourceInfo["models_url"] = modelsURL
+		sourceInfo["vendors_url"] = vendorsURL
+
+		var vendorsEnv upstreamEnvelope[upstreamVendor]
+		var modelsEnv upstreamEnvelope[upstreamModel]
+		var fetchErr error
+		var wg sync.WaitGroup
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			_ = fetchJSON(ctx, vendorsURL, &vendorsEnv)
+		}()
+		go func() {
+			defer wg.Done()
+			if err := fetchJSON(ctx, modelsURL, &modelsEnv); err != nil {
+				fetchErr = err
+			}
+		}()
+		wg.Wait()
+		if fetchErr != nil {
+			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取上游模型失败: " + fetchErr.Error(), "locale": locale, "source_urls": sourceInfo})
+			return
+		}
+
+		for _, v := range vendorsEnv.Data {
+			if v.Name != "" {
+				vendorByName[v.Name] = v
+			}
+		}
+		for _, m := range modelsEnv.Data {
+			if m.ModelName != "" {
+				modelByName[m.ModelName] = m
+			}
+		}
+	}
+	for name := range modelByName {
+		upstreamNames = append(upstreamNames, name)
 	}
 
 	// 2) 本地已有模型
@@ -633,11 +1058,7 @@ func SyncUpstreamPreview(c *gin.Context) {
 		"data": gin.H{
 			"missing":   missing,
 			"conflicts": conflicts,
-			"source": gin.H{
-				"locale":      locale,
-				"models_url":  modelsURL,
-				"vendors_url": vendorsURL,
-			},
+			"source":    sourceInfo,
 		},
 	})
 }

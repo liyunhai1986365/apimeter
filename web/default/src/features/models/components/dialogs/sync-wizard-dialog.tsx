@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Loader2, RefreshCw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -32,10 +32,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { StatusBadge } from '@/components/status-badge'
-import { syncUpstream, previewUpstreamDiff } from '../../api'
+import { syncUpstream } from '../../api'
 import { getSyncLocaleOptions, getSyncSourceOptions } from '../../constants'
 import { modelsQueryKeys, vendorsQueryKeys } from '../../lib'
 import type { SyncLocale, SyncSource } from '../../types'
@@ -52,20 +53,16 @@ export function SyncWizardDialog({
 }: SyncWizardDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const {
-    setOpen,
-    setUpstreamConflicts,
-    setSyncWizardOptions,
-    syncWizardOptions,
-  } = useModels()
+  const { setSyncWizardOptions, syncWizardOptions } = useModels()
   const isMobile = useIsMobile()
   const [locale, setLocale] = useState<SyncLocale>('zh')
   const [source, setSource] = useState<SyncSource>('official')
+  const [overwriteAll, setOverwriteAll] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
 
   // Get translated options
-  const SYNC_SOURCE_OPTIONS = getSyncSourceOptions(t)
-  const SYNC_LOCALE_OPTIONS = getSyncLocaleOptions(t)
+  const SYNC_SOURCE_OPTIONS = useMemo(() => getSyncSourceOptions(t), [t])
+  const SYNC_LOCALE_OPTIONS = useMemo(() => getSyncLocaleOptions(t), [t])
 
   useEffect(() => {
     if (open) {
@@ -78,38 +75,37 @@ export function SyncWizardDialog({
           ? (preferredSource.value as SyncSource)
           : 'official'
       )
+      setOverwriteAll(false)
     }
-  }, [open, syncWizardOptions, SYNC_SOURCE_OPTIONS])
+  }, [
+    open,
+    syncWizardOptions.locale,
+    syncWizardOptions.source,
+    SYNC_SOURCE_OPTIONS,
+  ])
 
   const handleSync = async () => {
     setIsSyncing(true)
     try {
       setSyncWizardOptions({ locale, source })
-      const previewRes = await previewUpstreamDiff({ locale, source })
-
-      if (!previewRes.success) {
-        throw new Error(previewRes.message || 'Failed to preview upstream diff')
-      }
-
-      const conflicts = previewRes.data?.conflicts || []
-
-      if (conflicts.length > 0) {
-        toast.warning(
-          `Found ${conflicts.length} conflict${conflicts.length > 1 ? 's' : ''}. Please resolve them first.`
-        )
-        setUpstreamConflicts(conflicts)
-        setOpen('upstream-conflict')
-        return
-      }
-
-      // No conflicts, proceed with sync
-      const response = await syncUpstream({ locale, source })
+      const response = await syncUpstream({
+        locale,
+        source,
+        overwrite_all: overwriteAll,
+      })
 
       if (response.success) {
         const { created_models, created_vendors, updated_models } =
           response.data || {}
         toast.success(
-          `Sync completed! Created ${created_models || 0} models, updated ${updated_models || 0}, and added ${created_vendors || 0} vendors.`
+          t(
+            'Sync completed! Created {{created}} models, updated {{updated}}, and added {{vendors}} vendors.',
+            {
+              created: created_models || 0,
+              updated: updated_models || 0,
+              vendors: created_vendors || 0,
+            }
+          )
         )
         queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
         queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
@@ -226,11 +222,37 @@ export function SyncWizardDialog({
             </RadioGroup>
           </div>
 
+          <div className='flex items-start gap-3 rounded-lg border p-4'>
+            <Checkbox
+              id='sync-overwrite-all'
+              checked={overwriteAll}
+              onCheckedChange={(checked) => setOverwriteAll(checked === true)}
+              className='mt-0.5'
+            />
+            <div className='space-y-1'>
+              <Label
+                htmlFor='sync-overwrite-all'
+                className='cursor-pointer text-sm font-medium'
+              >
+                {t('Overwrite existing models')}
+              </Label>
+              <p className='text-muted-foreground text-sm'>
+                {t(
+                  'When enabled, models with the same name in the current system will be overwritten with upstream metadata.'
+                )}
+              </p>
+            </div>
+          </div>
+
           <div className='bg-muted/50 rounded-lg border p-4'>
             <p className='text-muted-foreground text-sm'>
-              {t(
-                'The sync will fetch missing models and vendors from the selected source. Existing records are updated only when you approve conflicts.'
-              )}
+              {overwriteAll
+                ? t(
+                    'The sync will overwrite existing model metadata and create missing models from the selected source.'
+                  )
+                : t(
+                    'The sync will create missing models from the selected source without overwriting existing models.'
+                  )}
             </p>
           </div>
         </div>
@@ -246,7 +268,7 @@ export function SyncWizardDialog({
           <Button onClick={handleSync} disabled={isSyncing}>
             {isSyncing && <Loader2 className='mr-2 h-4 w-4 animate-spin' />}
             <RefreshCw className='mr-2 h-4 w-4' />
-            {isSyncing ? 'Syncing...' : 'Sync Now'}
+            {isSyncing ? t('Syncing...') : t('Sync Now')}
           </Button>
         </DialogFooter>
       </DialogContent>

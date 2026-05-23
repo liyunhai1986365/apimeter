@@ -192,6 +192,7 @@ export async function syncUpstream(params?: {
   locale?: SyncLocale
   source?: SyncSource
   overwrite?: SyncOverwritePayload[]
+  overwrite_all?: boolean
 }): Promise<SyncUpstreamResponse> {
   const res = await api.post('/api/models/sync_upstream', params)
   return res.data

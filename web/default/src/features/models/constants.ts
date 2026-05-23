@@ -205,6 +205,14 @@ export function getSyncSourceOptions(t: TFunction) {
       disabled: false,
     },
     {
+      label: t('Inference Era'),
+      value: 'aihubmix' as SyncSource,
+      description: t(
+        'Sync all model metadata and basic pricing ratios from AIHubMix.'
+      ),
+      disabled: false,
+    },
+    {
       label: t('Configuration File'),
       value: 'config' as SyncSource,
       description: t('Upload or reference a local configuration file.'),
