@@ -156,6 +156,12 @@ export interface TopupInfo {
   payment_compliance_confirmed?: boolean
   /** Current compliance terms version */
   payment_compliance_terms_version?: string
+  /** Reward percentage for invited user top-ups */
+  affiliate_topup_reward_ratio?: number
+  /** Maximum rewarded top-ups per invited user, 0 means unlimited */
+  affiliate_topup_reward_limit?: number
+  /** Registration reward quota for inviters */
+  quota_for_inviter?: number
 }
 
 /**

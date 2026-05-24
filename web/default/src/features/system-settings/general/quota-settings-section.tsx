@@ -45,6 +45,8 @@ const quotaSchema = z.object({
   PreConsumedQuota: z.coerce.number().min(0),
   QuotaForInviter: z.coerce.number().min(0),
   QuotaForInvitee: z.coerce.number().min(0),
+  AffiliateTopUpRewardRatio: z.coerce.number().min(0).max(100),
+  AffiliateTopUpRewardLimit: z.coerce.number().int().min(0),
   TopUpLink: z.string(),
   general_setting: z.object({
     docs_link: z.string(),
@@ -203,6 +205,63 @@ export function QuotaSettingsSection({
                 </FormControl>
                 <FormDescription>
                   {t('Quota given to invited users')}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='AffiliateTopUpRewardRatio'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Invited Top-Up Reward Rate')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    max={100}
+                    step='0.01'
+                    value={field.value ?? ''}
+                    onChange={handleNumberChange(field.onChange)}
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Percentage of an invited user top-up awarded to the inviter after 24 hours. Set 0 to disable.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name='AffiliateTopUpRewardLimit'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Invited Top-Up Reward Count Limit')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    step='1'
+                    value={field.value ?? ''}
+                    onChange={handleNumberChange(field.onChange)}
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Maximum rewarded top-ups per invited user. Set 0 for no limit.'
+                  )}
                 </FormDescription>
                 <FormMessage />
               </FormItem>

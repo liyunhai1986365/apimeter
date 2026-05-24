@@ -64,6 +64,7 @@ export type SiteSettings = {
   Footer: string
   About: string
   HomePageContent: string
+  CustomerServiceScript: string
   ServerAddress: string
   'legal.user_agreement': string
   'legal.privacy_policy': string
@@ -192,6 +193,8 @@ export type BillingSettings = {
   PreConsumedQuota: number
   QuotaForInviter: number
   QuotaForInvitee: number
+  AffiliateTopUpRewardRatio: number
+  AffiliateTopUpRewardLimit: number
   TopUpLink: string
   'general_setting.docs_link': string
   'quota_setting.enable_free_model_pre_consume': boolean

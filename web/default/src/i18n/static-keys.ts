@@ -28,6 +28,16 @@ export const STATIC_I18N_KEYS = [
   'Docs',
   'About',
   'Open in new window',
+  'Invited Top-Up Reward Rate',
+  'Percentage of an invited user top-up awarded to the inviter after 24 hours. Set 0 to disable.',
+  'Invited Top-Up Reward Count Limit',
+  'Maximum rewarded top-ups per invited user. Set 0 for no limit.',
+  'Reward Rules',
+  'Invite a friend to register and top up. You can earn {{ratio}} of their top-up amount as a reward.',
+  'Each invited user brings you rewards for their first {{count}} top-ups.',
+  'Each invited user can bring you top-up rewards without a count limit.',
+  'Invite a friend to register and instantly receive {{amount}}.',
+  'Do not invite yourself with alternate accounts. Violations will result in reward recovery and serious cases may be banned.',
 
   // Workspace
   'System Settings',

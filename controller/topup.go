@@ -104,6 +104,9 @@ func GetTopUpInfo(c *gin.Context) {
 		"enable_redemption":                complianceConfirmed,
 		"payment_compliance_confirmed":     complianceConfirmed,
 		"payment_compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
+		"affiliate_topup_reward_ratio":     common.AffiliateTopUpRewardRatio * 100,
+		"affiliate_topup_reward_limit":     common.AffiliateTopUpRewardLimit,
+		"quota_for_inviter":                common.QuotaForInviter,
 		"waffo_pay_methods": func() interface{} {
 			if enableWaffo {
 				return setting.GetWaffoPayMethods()
@@ -402,6 +405,9 @@ func EpayNotify(c *gin.Context) {
 			if err != nil {
 				logger.LogError(c.Request.Context(), fmt.Sprintf("易支付 更新用户额度失败 trade_no=%s user_id=%d client_ip=%s quota_to_add=%d error=%q topup=%q", topUp.TradeNo, topUp.UserId, c.ClientIP(), quotaToAdd, err.Error(), common.GetJsonString(topUp)))
 				return
+			}
+			if _, err := model.CreateAffiliateTopUpReward(topUp, quotaToAdd); err != nil {
+				logger.LogError(c.Request.Context(), fmt.Sprintf("易支付 创建邀请充值奖励失败 trade_no=%s user_id=%d client_ip=%s quota_to_add=%d error=%q", topUp.TradeNo, topUp.UserId, c.ClientIP(), quotaToAdd, err.Error()))
 			}
 			logger.LogInfo(c.Request.Context(), fmt.Sprintf("易支付 充值成功 trade_no=%s user_id=%d client_ip=%s quota_to_add=%d money=%.2f topup=%q", topUp.TradeNo, topUp.UserId, c.ClientIP(), quotaToAdd, topUp.Money, common.GetJsonString(topUp)))
 			model.RecordTopupLog(topUp.UserId, fmt.Sprintf("使用在线充值成功，充值金额: %v，支付金额：%f", logger.LogQuota(quotaToAdd), topUp.Money), c.ClientIP(), topUp.PaymentMethod, "epay")

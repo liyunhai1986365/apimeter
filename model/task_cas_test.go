@@ -44,6 +44,7 @@ func TestMain(m *testing.M) {
 		&NewAPISupplier{},
 		&NewAPISupplierChannel{},
 		&TopUp{},
+		&AffiliateTopUpReward{},
 		&SubscriptionPlan{},
 		&SubscriptionOrder{},
 		&UserSubscription{},
@@ -75,6 +76,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM new_api_suppliers")
 		DB.Exec("DELETE FROM new_api_supplier_channels")
 		DB.Exec("DELETE FROM top_ups")
+		DB.Exec("DELETE FROM affiliate_top_up_rewards")
 		DB.Exec("DELETE FROM subscription_orders")
 		DB.Exec("DELETE FROM subscription_plans")
 		DB.Exec("DELETE FROM user_subscriptions")

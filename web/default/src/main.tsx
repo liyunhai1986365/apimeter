@@ -29,6 +29,7 @@ import i18next from 'i18next'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { getStatus } from '@/lib/api'
+import { applyCustomerServiceScript } from '@/lib/customer-service-script'
 import '@/lib/dayjs'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import { handleServerError } from '@/lib/handle-server-error'
@@ -127,6 +128,9 @@ const rootElement = document.getElementById('root')!
         const s = JSON.parse(saved)
         if (s?.system_name) apply(s.system_name)
         if (s?.logo) applyFaviconToDom(s.logo)
+        if (s?.customer_service_script) {
+          applyCustomerServiceScript(s.customer_service_script as string)
+        }
       }
     } catch {
       /* empty */
@@ -143,6 +147,7 @@ const rootElement = document.getElementById('root')!
           }
         }
         if (s?.logo) applyFaviconToDom(s.logo as string)
+        applyCustomerServiceScript(s?.customer_service_script as string)
       })
       .catch(() => {
         /* empty */

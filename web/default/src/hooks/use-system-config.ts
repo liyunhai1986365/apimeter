@@ -25,6 +25,7 @@ import {
   DEFAULT_CURRENCY_CONFIG,
 } from '@/stores/system-config-store'
 import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
+import { applyCustomerServiceScript } from '@/lib/customer-service-script'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 
 interface UseSystemConfigOptions {
@@ -38,6 +39,7 @@ interface StatusApiResponse {
     system_name?: string
     logo?: string
     footer_html?: string
+    customer_service_script?: string
     demo_site_enabled?: boolean
     display_token_stat_enabled?: boolean
     display_in_currency?: boolean
@@ -95,6 +97,7 @@ export function mapStatusDataToConfig(
     systemName: data.system_name || DEFAULT_SYSTEM_NAME,
     logo: data.logo || DEFAULT_LOGO,
     footerHtml: data.footer_html,
+    customerServiceScript: data.customer_service_script,
     demoSiteEnabled: data.demo_site_enabled,
     displayTokenStatEnabled: data.display_token_stat_enabled,
     currency,
@@ -168,6 +171,10 @@ export function useSystemConfig(options: UseSystemConfigOptions = {}) {
   useEffect(() => {
     if (autoLoad) loadConfig()
   }, [autoLoad, loadConfig])
+
+  useEffect(() => {
+    applyCustomerServiceScript(config.customerServiceScript)
+  }, [config.customerServiceScript])
 
   // Preload logo image when URL changes
   useEffect(() => {

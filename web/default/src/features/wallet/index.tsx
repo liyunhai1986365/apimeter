@@ -22,6 +22,7 @@ import { getSelf } from '@/lib/api'
 import { useStatus } from '@/hooks/use-status'
 import { SectionPageLayout } from '@/components/layout'
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
+import { AffiliateRulesCard } from './components/affiliate-rules-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
@@ -247,10 +248,10 @@ export function Wallet(props: WalletProps) {
           {t('Manage your balance and payment methods')}
         </SectionPageLayout.Description>
         <SectionPageLayout.Content>
-          <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
+          <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6'>
             <WalletStatsCard user={user} loading={userLoading} />
 
-            <div className='grid gap-4'>
+            <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
               <div id='wallet-add-funds' className='scroll-mt-4'>
                 <RechargeFormCard
                   topupInfo={topupInfo}
@@ -283,17 +284,23 @@ export function Wallet(props: WalletProps) {
                   }
                 />
               </div>
-            </div>
 
-            <AffiliateRewardsCard
-              user={user}
-              affiliateLink={affiliateLink}
-              onTransfer={() => setTransferDialogOpen(true)}
-              complianceConfirmed={
-                topupInfo?.payment_compliance_confirmed !== false
-              }
-              loading={affiliateLoading}
-            />
+              <div className='space-y-4 sm:space-y-5'>
+                <AffiliateRewardsCard
+                  user={user}
+                  affiliateLink={affiliateLink}
+                  onTransfer={() => setTransferDialogOpen(true)}
+                  complianceConfirmed={
+                    topupInfo?.payment_compliance_confirmed !== false
+                  }
+                  loading={affiliateLoading}
+                />
+                <AffiliateRulesCard
+                  topupInfo={topupInfo}
+                  loading={topupLoading}
+                />
+              </div>
+            </div>
           </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>

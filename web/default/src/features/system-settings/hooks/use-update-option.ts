@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import i18next from 'i18next'
 import { toast } from 'sonner'
+import { useSystemConfigStore } from '@/stores/system-config-store'
+import { applyCustomerServiceScript } from '@/lib/customer-service-script'
 import { updateSystemOption } from '../api'
 import type { UpdateOptionRequest } from '../types'
 
@@ -27,6 +29,7 @@ const STATUS_RELATED_KEYS = [
   'theme.frontend',
   'HeaderNavModules',
   'SidebarModulesAdmin',
+  'CustomerServiceScript',
   'Notice',
   'LogConsumeEnabled',
   'QuotaPerUnit',
@@ -51,6 +54,14 @@ export function useUpdateOption() {
         // If updating frontend-display-related config, also refresh status
         if (STATUS_RELATED_KEYS.includes(variables.key)) {
           queryClient.invalidateQueries({ queryKey: ['status'] })
+        }
+
+        if (variables.key === 'CustomerServiceScript') {
+          const value = String(variables.value ?? '')
+          useSystemConfigStore.getState().setConfig({
+            customerServiceScript: value,
+          })
+          applyCustomerServiceScript(value)
         }
 
         toast.success(i18next.t('Setting updated successfully'))
