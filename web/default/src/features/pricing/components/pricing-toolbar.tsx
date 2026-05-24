@@ -16,11 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useState } from 'react'
-import { ArrowUpDown, Check, Filter, Grid2X2, Table2 } from 'lucide-react'
+import { useCallback } from 'react'
+import { ArrowUpDown, Check, Grid2X2, Table2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -28,13 +27,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet'
 import {
   Tooltip,
   TooltipContent,
@@ -46,8 +38,8 @@ import {
   type SortOption,
   type ViewMode,
 } from '../constants'
-import type { PricingModel, PricingVendor, TokenUnit } from '../types'
-import { PricingSidebar } from './pricing-sidebar'
+import type { TokenUnit } from '../types'
+import { SearchBar } from './search-bar'
 
 type SegmentOption = {
   value: string
@@ -59,34 +51,16 @@ type SegmentOption = {
 export interface PricingToolbarProps {
   filteredCount: number
   totalCount?: number
+  searchValue: string
+  onSearchChange: (value: string) => void
+  onClearSearch: () => void
   sortBy: string
   onSortChange: (value: string) => void
   tokenUnit: TokenUnit
   onTokenUnitChange: (value: TokenUnit) => void
-  showRechargePrice: boolean
-  onRechargePriceChange: (value: boolean) => void
   viewMode: ViewMode
   onViewModeChange: (value: ViewMode) => void
-  quotaTypeFilter: string
-  endpointTypeFilter: string
-  categoryFilter: string
-  vendorFilter: string
-  groupFilter: string
-  tagFilter: string
-  onQuotaTypeChange: (value: string) => void
-  onEndpointTypeChange: (value: string) => void
-  onCategoryChange: (value: string) => void
-  onVendorChange: (value: string) => void
-  onGroupChange: (value: string) => void
-  onTagChange: (value: string) => void
-  vendors: PricingVendor[]
-  groups: string[]
-  groupRatios?: Record<string, number>
-  tags: string[]
-  models: PricingModel[]
   hasActiveFilters: boolean
-  activeFilterCount: number
-  onClearFilters: () => void
 }
 
 function SegmentedControl(props: {
@@ -142,7 +116,6 @@ function SegmentedControl(props: {
 
 export function PricingToolbar(props: PricingToolbarProps) {
   const { t } = useTranslation()
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const sortLabels = getSortLabels(t)
 
   const handleTokenUnitChange = useCallback(
@@ -155,32 +128,11 @@ export function PricingToolbar(props: PricingToolbarProps) {
     [props]
   )
 
-  const handleRechargePriceChange = useCallback(
-    (value: string) => props.onRechargePriceChange(value === 'recharge'),
-    [props]
-  )
-
   return (
-    <div className='rounded-xl border p-3'>
+    <div className='border-primary/15 bg-primary/5 rounded-xl border p-3 shadow-sm'>
       <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
-        <div className='flex items-center gap-2'>
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            onClick={() => setMobileFiltersOpen(true)}
-            className='gap-1.5 xl:hidden'
-          >
-            <Filter className='size-4' />
-            {t('Filter')}
-            {props.activeFilterCount > 0 && (
-              <Badge className='ml-0.5 size-5 justify-center p-0 text-[10px]'>
-                {props.activeFilterCount}
-              </Badge>
-            )}
-          </Button>
-
-          <div className='text-muted-foreground flex items-baseline gap-1 text-sm'>
+        <div className='flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center'>
+          <div className='text-muted-foreground flex shrink-0 items-baseline gap-1 text-sm'>
             <span className='text-foreground font-semibold tabular-nums'>
               {props.filteredCount.toLocaleString()}
             </span>
@@ -191,19 +143,18 @@ export function PricingToolbar(props: PricingToolbarProps) {
               </span>
             )}
           </div>
+
+          <SearchBar
+            value={props.searchValue}
+            onChange={props.onSearchChange}
+            onClear={props.onClearSearch}
+            placeholder={t('Search model name, provider, endpoint, or tag...')}
+            className='[&_input]:bg-background [&_input]:shadow-primary/10 w-full sm:w-[22rem] lg:w-[28rem] [&_input]:shadow-sm'
+          />
         </div>
 
         <div className='flex flex-wrap items-center gap-2'>
           <div className='hidden items-center gap-2 sm:flex'>
-            <SegmentedControl
-              options={[
-                { value: 'standard', label: t('Standard') },
-                { value: 'recharge', label: t('Recharge') },
-              ]}
-              value={props.showRechargePrice ? 'recharge' : 'standard'}
-              onChange={handleRechargePriceChange}
-              ariaLabel={t('Price display mode')}
-            />
             <SegmentedControl
               options={[
                 { value: 'M', label: '/1M' },
@@ -267,46 +218,6 @@ export function PricingToolbar(props: PricingToolbarProps) {
           />
         </div>
       </div>
-
-      <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-        <SheetContent
-          side='right'
-          className='flex h-dvh w-full flex-col overflow-hidden p-0 sm:max-w-md'
-        >
-          <SheetHeader className='border-b px-4 py-3 sm:px-6 sm:py-4'>
-            <SheetTitle>{t('Filter')}</SheetTitle>
-            <SheetDescription>
-              {t(
-                'Filter models by provider, group, category, type, endpoint, and tags.'
-              )}
-            </SheetDescription>
-          </SheetHeader>
-          <div className='flex-1 overflow-y-auto p-3 sm:p-4'>
-            <PricingSidebar
-              quotaTypeFilter={props.quotaTypeFilter}
-              endpointTypeFilter={props.endpointTypeFilter}
-              categoryFilter={props.categoryFilter}
-              vendorFilter={props.vendorFilter}
-              groupFilter={props.groupFilter}
-              tagFilter={props.tagFilter}
-              onQuotaTypeChange={props.onQuotaTypeChange}
-              onEndpointTypeChange={props.onEndpointTypeChange}
-              onCategoryChange={props.onCategoryChange}
-              onVendorChange={props.onVendorChange}
-              onGroupChange={props.onGroupChange}
-              onTagChange={props.onTagChange}
-              vendors={props.vendors}
-              groups={props.groups}
-              groupRatios={props.groupRatios}
-              tags={props.tags}
-              models={props.models}
-              hasActiveFilters={props.hasActiveFilters}
-              onClearFilters={props.onClearFilters}
-              className='border-0 bg-transparent p-0 shadow-none'
-            />
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   )
 }

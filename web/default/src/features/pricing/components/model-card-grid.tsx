@@ -16,11 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { Button } from '@/components/ui/button'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
 import type { PricingModel, TokenUnit } from '../types'
@@ -38,11 +36,11 @@ export interface ModelCardGridProps {
 
 export function ModelCardGrid(props: ModelCardGridProps) {
   const { t } = useTranslation()
-  const [page, setPage] = useState(1)
   const pageSize = DEFAULT_PRICING_PAGE_SIZE
+  const loadMoreRef = useRef<HTMLDivElement | null>(null)
+  const [visibleCount, setVisibleCount] = useState(pageSize)
   const tokenUnit = props.tokenUnit ?? DEFAULT_TOKEN_UNIT
-  const totalPages = Math.max(1, Math.ceil(props.models.length / pageSize))
-  const currentPage = Math.min(page, totalPages)
+  const hasMore = visibleCount < props.models.length
 
   const perfQuery = useQuery({
     queryKey: ['perf-metrics-summary', 24],
@@ -51,10 +49,10 @@ export function ModelCardGrid(props: ModelCardGridProps) {
     retry: false,
   })
 
-  const pagedModels = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return props.models.slice(start, start + pageSize)
-  }, [currentPage, pageSize, props.models])
+  const visibleModels = useMemo(
+    () => props.models.slice(0, visibleCount),
+    [props.models, visibleCount]
+  )
 
   const perfMap = useMemo(() => {
     const map = new Map<string, ModelPerfBadgeData>()
@@ -64,14 +62,36 @@ export function ModelCardGrid(props: ModelCardGridProps) {
     return map
   }, [perfQuery.data])
 
+  useEffect(() => {
+    setVisibleCount(pageSize)
+  }, [pageSize, props.models])
+
+  useEffect(() => {
+    const marker = loadMoreRef.current
+    if (!marker || !hasMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries[0]?.isIntersecting) return
+        setVisibleCount((current) =>
+          Math.min(current + pageSize, props.models.length)
+        )
+      },
+      { rootMargin: '320px 0px' }
+    )
+
+    observer.observe(marker)
+    return () => observer.disconnect()
+  }, [hasMore, pageSize, props.models.length])
+
   if (props.models.length === 0) {
     return null
   }
 
   return (
     <div className='space-y-4 sm:space-y-5'>
-      <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-3'>
-        {pagedModels.map((model) => (
+      <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 lg:grid-cols-4'>
+        {visibleModels.map((model) => (
           <ModelCard
             key={model.id ?? model.model_name}
             model={model}
@@ -85,42 +105,18 @@ export function ModelCardGrid(props: ModelCardGridProps) {
         ))}
       </div>
 
-      {totalPages > 1 && (
-        <div className='text-muted-foreground flex flex-col items-center justify-between gap-3 border-t px-4 py-3 text-sm sm:flex-row'>
-          <p className='text-muted-foreground'>
-            {t('Page {{current}} of {{total}}', {
-              current: currentPage,
-              total: totalPages,
-            })}
-          </p>
-          <div className='flex items-center gap-2'>
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-              disabled={currentPage <= 1}
-              className='gap-1.5'
-            >
-              <ChevronLeft className='size-4' />
-              {t('Previous page')}
-            </Button>
-            <Button
-              type='button'
-              variant='outline'
-              size='sm'
-              onClick={() =>
-                setPage((current) => Math.min(totalPages, current + 1))
-              }
-              disabled={currentPage >= totalPages}
-              className='gap-1.5'
-            >
-              {t('Next page')}
-              <ChevronRight className='size-4' />
-            </Button>
-          </div>
+      <div
+        ref={loadMoreRef}
+        className='text-muted-foreground flex min-h-12 items-center justify-center border-t px-4 py-3 text-center text-sm'
+      >
+        <div>
+          {hasMore ? t('Scroll to load more models') : t('All models loaded')}
+          <span className='ml-2 tabular-nums'>
+            {visibleModels.length.toLocaleString()} /{' '}
+            {props.models.length.toLocaleString()}
+          </span>
         </div>
-      )}
+      </div>
     </div>
   )
 }

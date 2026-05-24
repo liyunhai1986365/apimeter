@@ -142,7 +142,7 @@ export function usePricingColumns(
         const isTokenBased = row.original.quota_type === QUOTA_TYPE_VALUES.TOKEN
         return (
           <span className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
-            {isTokenBased ? t('Token') : t('Request')}
+            {isTokenBased ? t('Metered usage') : t('Per count')}
           </span>
         )
       },
