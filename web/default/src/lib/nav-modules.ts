@@ -18,13 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 export type ModuleAccess = { enabled: boolean; requireAuth: boolean }
 
-export type HeaderNavModule = 'rankings' | 'pricing'
+export type HeaderNavModule = 'rankings' | 'pricing' | 'subscription'
 
 export type HeaderNavBuiltInModule =
   | 'home'
   | 'agentAccess'
   | 'console'
   | 'pricing'
+  | 'subscription'
   | 'rankings'
   | 'docs'
   | 'about'
@@ -59,6 +60,7 @@ export type HeaderNavModules = {
   agentAccess: boolean
   console: boolean
   pricing: ModuleAccess
+  subscription: ModuleAccess
   rankings: ModuleAccess
   docs: boolean
   about: boolean
@@ -78,6 +80,7 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   agentAccess: true,
   console: true,
   pricing: { enabled: true, requireAuth: false },
+  subscription: { enabled: true, requireAuth: false },
   rankings: { enabled: true, requireAuth: false },
   docs: true,
   about: true,
@@ -89,6 +92,7 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
     'home',
     'agentAccess',
     'console',
+    'subscription',
     'pricing',
     'rankings',
     'docs',
@@ -99,6 +103,7 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
 
 const DEFAULTS: Record<HeaderNavModule, ModuleAccess> = {
   pricing: DEFAULT_HEADER_NAV_MODULES.pricing,
+  subscription: DEFAULT_HEADER_NAV_MODULES.subscription,
   rankings: DEFAULT_HEADER_NAV_MODULES.rankings,
 }
 
@@ -134,6 +139,13 @@ const BUILT_IN_HEADER_NAV_ITEMS: Record<
     external: false,
     newWindow: false,
   },
+  subscription: {
+    id: 'subscription',
+    titleKey: 'Subscriptions',
+    href: '/subscription',
+    external: false,
+    newWindow: false,
+  },
   rankings: {
     id: 'rankings',
     titleKey: 'Rankings',
@@ -164,6 +176,7 @@ function cloneHeaderNavDefaults(): HeaderNavModules {
   return {
     ...DEFAULT_HEADER_NAV_MODULES,
     pricing: { ...DEFAULT_HEADER_NAV_MODULES.pricing },
+    subscription: { ...DEFAULT_HEADER_NAV_MODULES.subscription },
     rankings: { ...DEFAULT_HEADER_NAV_MODULES.rankings },
     newWindow: { ...DEFAULT_HEADER_NAV_MODULES.newWindow },
     order: [...DEFAULT_HEADER_NAV_MODULES.order],
@@ -301,12 +314,8 @@ export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
   }
 
   Object.entries(parsed).forEach(([key, value]) => {
-    if (key === 'pricing') {
-      result.pricing = parseAccess(value, result.pricing)
-      return
-    }
-    if (key === 'rankings') {
-      result.rankings = parseAccess(value, result.rankings)
+    if (key === 'pricing' || key === 'subscription' || key === 'rankings') {
+      result[key] = parseAccess(value, result[key] as ModuleAccess)
       return
     }
     if (key === 'order') {
@@ -353,7 +362,9 @@ export function getHeaderNavModuleEnabled(
   modules: HeaderNavModules,
   id: HeaderNavBuiltInModule
 ): boolean {
-  if (id === 'pricing' || id === 'rankings') return modules[id].enabled
+  if (id === 'pricing' || id === 'subscription' || id === 'rankings') {
+    return modules[id].enabled
+  }
   return modules[id]
 }
 
@@ -361,7 +372,9 @@ export function getHeaderNavModuleRequireAuth(
   modules: HeaderNavModules,
   id: HeaderNavBuiltInModule
 ): boolean {
-  if (id === 'pricing' || id === 'rankings') return modules[id].requireAuth
+  if (id === 'pricing' || id === 'subscription' || id === 'rankings') {
+    return modules[id].requireAuth
+  }
   return false
 }
 
@@ -380,7 +393,7 @@ export function withHeaderNavModuleEnabled(
   id: HeaderNavBuiltInModule,
   enabled: boolean
 ): HeaderNavModules {
-  if (id === 'pricing' || id === 'rankings') {
+  if (id === 'pricing' || id === 'subscription' || id === 'rankings') {
     return {
       ...modules,
       [id]: {
@@ -398,7 +411,9 @@ export function withHeaderNavModuleRequireAuth(
   id: HeaderNavBuiltInModule,
   requireAuth: boolean
 ): HeaderNavModules {
-  if (id !== 'pricing' && id !== 'rankings') return modules
+  if (id !== 'pricing' && id !== 'subscription' && id !== 'rankings') {
+    return modules
+  }
 
   return {
     ...modules,
@@ -427,6 +442,7 @@ export function serializeHeaderNavModules(modules: HeaderNavModules): string {
   const normalized: HeaderNavModules = {
     ...modules,
     pricing: { ...modules.pricing },
+    subscription: { ...modules.subscription },
     rankings: { ...modules.rankings },
     newWindow: { ...modules.newWindow },
     order: mergeHeaderNavOrder(modules.order, modules.customLinks),
@@ -498,7 +514,11 @@ export function getOrderedHeaderNavItems(
     const item = BUILT_IN_HEADER_NAV_ITEMS[builtInId]
     if (!item) return acc
 
-    if (builtInId === 'pricing' || builtInId === 'rankings') {
+    if (
+      builtInId === 'pricing' ||
+      builtInId === 'subscription' ||
+      builtInId === 'rankings'
+    ) {
       const access = modules[builtInId]
       if (access.enabled) {
         acc.push({

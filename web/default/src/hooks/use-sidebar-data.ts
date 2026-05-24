@@ -31,6 +31,7 @@ import {
   FlaskConical,
   MessageSquare,
   CreditCard,
+  BadgeDollarSign,
   ListTodo,
   Settings2,
   Settings,
@@ -48,7 +49,7 @@ export function useSidebarData(): SidebarData {
   const user = useAuthStore((state) => state.auth.user)
   const canUseAgentConsole = Boolean(
     user &&
-      (user.has_agent === true || user.permissions?.agent_console === true)
+    (user.has_agent === true || user.permissions?.agent_console === true)
   )
 
   return {
@@ -118,6 +119,11 @@ export function useSidebarData(): SidebarData {
             title: t('Wallet'),
             url: '/wallet',
             icon: Wallet,
+          },
+          {
+            title: t('Subscription'),
+            url: '/user-subscription',
+            icon: BadgeDollarSign,
           },
           {
             title: t('Profile'),

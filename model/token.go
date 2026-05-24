@@ -27,7 +27,10 @@ type Token struct {
 	AllowIps           *string        `json:"allow_ips" gorm:"default:''"`
 	UsedQuota          int            `json:"used_quota" gorm:"default:0"` // used quota
 	Group              string         `json:"group" gorm:"default:''"`
-	CrossGroupRetry    bool           `json:"cross_group_retry"` // 跨分组重试，仅auto分组有效
+	CrossGroupRetry    bool           `json:"cross_group_retry"`                                 // 跨分组重试，仅auto分组有效
+	BillingSource      string         `json:"billing_source" gorm:"type:varchar(32);default:''"` // subscription 表示订阅专属Key
+	SubscriptionPlanId int            `json:"subscription_plan_id" gorm:"index;default:0"`
+	UserSubscriptionId int            `json:"user_subscription_id" gorm:"index;default:0"`
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
 }
 
@@ -53,6 +56,9 @@ func (token *Token) GetFullKey() string {
 }
 
 func (token *Token) GetMaskedKey() string {
+	if token.BillingSource == "subscription" || token.UserSubscriptionId > 0 {
+		return common.FormatSubscriptionKey(MaskTokenKey(token.Key))
+	}
 	return MaskTokenKey(token.Key)
 }
 
@@ -81,7 +87,8 @@ func (token *Token) GetIpLimits() []string {
 func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
 	var tokens []*Token
 	var err error
-	err = DB.Where("user_id = ?", userId).Order("id desc").Limit(num).Offset(startIdx).Find(&tokens).Error
+	err = DB.Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription").
+		Order("id desc").Limit(num).Offset(startIdx).Find(&tokens).Error
 	return tokens, err
 }
 
@@ -134,7 +141,7 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 	}
 
 	if token != "" {
-		token = strings.TrimPrefix(token, "sk-")
+		token = common.NormalizeTokenKey(token)
 	}
 
 	// 超量用户（令牌数超过上限）只允许精确搜索，禁止模糊搜索
@@ -151,7 +158,7 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 		}
 	}
 
-	baseQuery := DB.Model(&Token{}).Where("user_id = ?", userId)
+	baseQuery := DB.Model(&Token{}).Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
 
 	// 非空才加 LIKE 条件，空则跳过（不过滤该字段）
 	if keyword != "" {
@@ -186,6 +193,7 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 }
 
 func ValidateUserToken(key string) (token *Token, err error) {
+	key = common.NormalizeTokenKey(key)
 	if key == "" {
 		return nil, ErrTokenNotProvided
 	}
@@ -206,7 +214,7 @@ func ValidateUserToken(key string) (token *Token, err error) {
 			}
 			return token, ErrTokenInvalid
 		}
-		if !token.UnlimitedQuota && token.RemainQuota <= 0 {
+		if !token.UnlimitedQuota && token.RemainQuota <= 0 && token.BillingSource != "subscription" && token.UserSubscriptionId <= 0 {
 			if !common.RedisEnabled {
 				token.Status = common.TokenStatusExhausted
 				err := token.SelectUpdate()
@@ -295,7 +303,8 @@ func (token *Token) Update() (err error) {
 		}
 	}()
 	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
-		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry").Updates(token).Error
+		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry",
+		"billing_source", "subscription_plan_id", "user_subscription_id").Updates(token).Error
 	return err
 }
 
@@ -435,7 +444,7 @@ func decreaseTokenQuota(id int, quota int) (err error) {
 // CountUserTokens returns total number of tokens for the given user, used for pagination
 func CountUserTokens(userId int) (int64, error) {
 	var total int64
-	err := DB.Model(&Token{}).Where("user_id = ?", userId).Count(&total).Error
+	err := DB.Model(&Token{}).Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription").Count(&total).Error
 	return total, err
 }
 

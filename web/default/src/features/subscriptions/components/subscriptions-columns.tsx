@@ -22,7 +22,8 @@ import { useTranslation } from 'react-i18next'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
-import { formatDuration, formatResetPeriod } from '../lib'
+import { formatQuota } from '@/lib/format'
+import { formatDuration, formatResetPeriod, getResetQuota } from '../lib'
 import type { PlanRecord } from '../types'
 import { DataTableRowActions } from './data-table-row-actions'
 
@@ -99,11 +100,16 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
           <DataTableColumnHeader column={column} title={t('Quota Reset')} />
         ),
         cell: ({ row }) => (
-          <span className='text-muted-foreground'>
-            {formatResetPeriod(row.original.plan, t)}
-          </span>
+          <div className='text-muted-foreground'>
+            <div>{formatResetPeriod(row.original.plan, t)}</div>
+            <div className='text-xs'>
+              {getResetQuota(row.original.plan) > 0
+                ? formatQuota(getResetQuota(row.original.plan))
+                : t('Unlimited')}
+            </div>
+          </div>
         ),
-        size: 80,
+        size: 120,
       },
       {
         accessorFn: (row) => row.plan.sort_order,
@@ -184,7 +190,7 @@ export function useSubscriptionsColumns(): ColumnDef<PlanRecord>[] {
           const total = Number(row.original.plan.total_amount || 0)
           return (
             <span className='text-muted-foreground'>
-              {total > 0 ? total : t('Unlimited')}
+              {total > 0 ? formatQuota(total) : t('Unlimited')}
             </span>
           )
         },

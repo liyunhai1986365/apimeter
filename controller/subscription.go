@@ -3,6 +3,7 @@ package controller
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -66,6 +67,79 @@ func GetSubscriptionSelf(c *gin.Context) {
 		"subscriptions":      activeSubscriptions, // all active subscriptions
 		"all_subscriptions":  allSubscriptions,    // all subscriptions including expired
 	})
+}
+
+func GetSubscriptionTokenKey(c *gin.Context) {
+	userId := c.GetInt("id")
+	subId, _ := strconv.Atoi(c.Param("id"))
+	if subId <= 0 {
+		common.ApiErrorMsg(c, "无效的订阅ID")
+		return
+	}
+	var sub model.UserSubscription
+	if err := model.DB.Where("id = ? AND user_id = ?", subId, userId).First(&sub).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if sub.TokenId <= 0 {
+		plan, err := model.GetSubscriptionPlanById(sub.PlanId)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		token, err := model.EnsureSubscriptionTokenForSubscription(nil, &sub, plan)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		common.ApiSuccess(c, gin.H{
+			"key": common.FormatSubscriptionKey(token.GetFullKey()),
+		})
+		return
+	}
+	token, err := model.GetTokenByIds(sub.TokenId, userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if token.BillingSource != "subscription" || token.UserSubscriptionId != sub.Id {
+		common.ApiErrorMsg(c, "订阅专属Key不存在")
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"key": common.FormatSubscriptionKey(token.GetFullKey()),
+	})
+}
+
+func GetSubscriptionKeyUsage(c *gin.Context) {
+	userId := c.GetInt("id")
+	subId, _ := strconv.Atoi(c.Param("id"))
+	if subId <= 0 {
+		common.ApiErrorMsg(c, "无效的订阅ID")
+		return
+	}
+	days, _ := strconv.Atoi(c.Query("days"))
+	if days != 30 {
+		days = 7
+	}
+	var sub model.UserSubscription
+	if err := model.DB.Where("id = ? AND user_id = ?", subId, userId).First(&sub).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if sub.TokenId <= 0 {
+		common.ApiSuccess(c, model.SubscriptionKeyUsageStats{
+			Days:   days,
+			Points: []model.SubscriptionKeyUsagePoint{},
+		})
+		return
+	}
+	stats, err := model.GetSubscriptionKeyUsageStats(userId, sub.TokenId, days, time.Now())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, stats)
 }
 
 func UpdateSubscriptionPreference(c *gin.Context) {
@@ -154,10 +228,28 @@ func AdminCreateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "总额度不能为负数")
 		return
 	}
+	if req.Plan.QuotaResetAmount < 0 {
+		common.ApiErrorMsg(c, "重置额度不能为负数")
+		return
+	}
+	req.Plan.ModelLimits = strings.TrimSpace(req.Plan.ModelLimits)
+	if !req.Plan.ModelLimitsEnabled {
+		req.Plan.ModelLimits = ""
+	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
 	if req.Plan.UpgradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
 			common.ApiErrorMsg(c, "升级分组不存在")
+			return
+		}
+	}
+	req.Plan.TokenGroup = strings.TrimSpace(req.Plan.TokenGroup)
+	if req.Plan.TokenGroup == "" {
+		req.Plan.TokenGroup = "auto"
+	}
+	if req.Plan.TokenGroup != "auto" {
+		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.TokenGroup]; !ok {
+			common.ApiErrorMsg(c, "令牌默认分组不存在")
 			return
 		}
 	}
@@ -221,10 +313,28 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		common.ApiErrorMsg(c, "总额度不能为负数")
 		return
 	}
+	if req.Plan.QuotaResetAmount < 0 {
+		common.ApiErrorMsg(c, "重置额度不能为负数")
+		return
+	}
+	req.Plan.ModelLimits = strings.TrimSpace(req.Plan.ModelLimits)
+	if !req.Plan.ModelLimitsEnabled {
+		req.Plan.ModelLimits = ""
+	}
 	req.Plan.UpgradeGroup = strings.TrimSpace(req.Plan.UpgradeGroup)
 	if req.Plan.UpgradeGroup != "" {
 		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.UpgradeGroup]; !ok {
 			common.ApiErrorMsg(c, "升级分组不存在")
+			return
+		}
+	}
+	req.Plan.TokenGroup = strings.TrimSpace(req.Plan.TokenGroup)
+	if req.Plan.TokenGroup == "" {
+		req.Plan.TokenGroup = "auto"
+	}
+	if req.Plan.TokenGroup != "auto" {
+		if _, ok := ratio_setting.GetGroupRatioCopy()[req.Plan.TokenGroup]; !ok {
+			common.ApiErrorMsg(c, "令牌默认分组不存在")
 			return
 		}
 	}
@@ -251,7 +361,11 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 			"waffo_pancake_product_id":   req.Plan.WaffoPancakeProductId,
 			"max_purchase_per_user":      req.Plan.MaxPurchasePerUser,
 			"total_amount":               req.Plan.TotalAmount,
+			"quota_reset_amount":         req.Plan.QuotaResetAmount,
+			"model_limits_enabled":       req.Plan.ModelLimitsEnabled,
+			"model_limits":               req.Plan.ModelLimits,
 			"upgrade_group":              req.Plan.UpgradeGroup,
+			"token_group":                req.Plan.TokenGroup,
 			"quota_reset_period":         req.Plan.QuotaResetPeriod,
 			"quota_reset_custom_seconds": req.Plan.QuotaResetCustomSeconds,
 			"updated_at":                 common.GetTimestamp(),
@@ -259,7 +373,8 @@ func AdminUpdateSubscriptionPlan(c *gin.Context) {
 		if err := tx.Model(&model.SubscriptionPlan{}).Where("id = ?", id).Updates(updateMap).Error; err != nil {
 			return err
 		}
-		return nil
+		req.Plan.Id = id
+		return model.SyncSubscriptionTokensForPlanTx(tx, &req.Plan)
 	})
 	if err != nil {
 		common.ApiError(c, err)

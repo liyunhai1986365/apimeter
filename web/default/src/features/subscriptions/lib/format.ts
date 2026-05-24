@@ -60,6 +60,12 @@ export function formatResetPeriod(
   return t('No Reset')
 }
 
+export function getResetQuota(plan: Partial<SubscriptionPlan>): number {
+  const resetAmount = Number(plan?.quota_reset_amount || 0)
+  if (resetAmount > 0) return resetAmount
+  return Number(plan?.total_amount || 0)
+}
+
 export function formatTimestamp(ts: number): string {
   if (!ts) return '-'
   return dayjs(ts * 1000).format('YYYY-MM-DD HH:mm:ss')

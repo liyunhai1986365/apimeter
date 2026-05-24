@@ -26,6 +26,7 @@ import type {
   SubscriptionPayResponse,
   SubscriptionPayRequest,
   SelfSubscriptionData,
+  SubscriptionUsageStats,
 } from './types'
 
 // ============================================================================
@@ -187,7 +188,9 @@ export async function getSelfSubscriptionFull(): Promise<
 }
 
 export async function getPublicPlans(): Promise<ApiResponse<PlanRecord[]>> {
-  const res = await api.get('/api/subscription/plans')
+  const res = await api.get('/api/subscription/plans', {
+    skipErrorHandler: true,
+  } as Record<string, unknown>)
   return res.data
 }
 
@@ -196,6 +199,23 @@ export async function updateBillingPreference(
 ): Promise<ApiResponse<{ billing_preference?: string }>> {
   const res = await api.put('/api/subscription/self/preference', {
     billing_preference: preference,
+  })
+  return res.data
+}
+
+export async function fetchSubscriptionTokenKey(
+  subscriptionId: number
+): Promise<ApiResponse<{ key: string }>> {
+  const res = await api.post(`/api/subscription/self/${subscriptionId}/key`)
+  return res.data
+}
+
+export async function getSubscriptionKeyUsage(
+  subscriptionId: number,
+  days: 7 | 30
+): Promise<ApiResponse<SubscriptionUsageStats>> {
+  const res = await api.get(`/api/subscription/self/${subscriptionId}/usage`, {
+    params: { days },
   })
   return res.data
 }

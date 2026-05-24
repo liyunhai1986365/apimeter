@@ -16,16 +16,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-export {
-  formatDuration,
-  formatResetPeriod,
-  formatTimestamp,
-  getResetQuota,
-} from './format'
-export {
-  getPlanFormSchema,
-  PLAN_FORM_DEFAULTS,
-  planToFormValues,
-  formValuesToPlanPayload,
-  type PlanFormValues,
-} from './plan-form'
+import { createFileRoute, redirect } from '@tanstack/react-router'
+import { useAuthStore } from '@/stores/auth-store'
+import { getFreshModuleAccess } from '@/lib/nav-modules'
+import { SubscriptionStore } from '@/features/subscription-store'
+
+export const Route = createFileRoute('/subscription/')({
+  beforeLoad: async ({ location }) => {
+    const access = await getFreshModuleAccess('subscription')
+    if (!access.enabled) {
+      throw redirect({ to: '/' })
+    }
+    if (access.requireAuth) {
+      const { auth } = useAuthStore.getState()
+      if (!auth.user) {
+        throw redirect({
+          to: '/sign-in',
+          search: { redirect: location.href },
+        })
+      }
+    }
+  },
+  component: SubscriptionStore,
+})

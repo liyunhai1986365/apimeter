@@ -18,8 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
-import { useStatus } from '@/hooks/use-status'
 import { ROLE } from '@/lib/roles'
+import { useStatus } from '@/hooks/use-status'
 import type { NavGroup, NavItem } from '@/components/layout/types'
 
 type SidebarSectionConfig = {
@@ -53,6 +53,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
   personal: {
     enabled: true,
     topup: true,
+    subscription: true,
     personal: true,
     agent: true,
   },
@@ -110,6 +111,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/usage-logs/drawing': { section: 'console', module: 'midjourney' },
   '/usage-logs/task': { section: 'console', module: 'task' },
   '/wallet': { section: 'personal', module: 'topup' },
+  '/user-subscription': { section: 'personal', module: 'subscription' },
   '/profile': { section: 'personal', module: 'personal' },
   '/agents': { section: 'personal', module: 'agent' },
   '/channels': { section: 'admin', module: 'channel' },
@@ -133,8 +135,14 @@ const REGULAR_ADMIN_HIDDEN_URLS = new Set([
   '/system-settings/site',
 ])
 
-function canUseAgentConsole(role?: number, hasAgent?: boolean, permission?: boolean): boolean {
-  return Boolean(role !== undefined && (hasAgent === true || permission === true))
+function canUseAgentConsole(
+  role?: number,
+  hasAgent?: boolean,
+  permission?: boolean
+): boolean {
+  return Boolean(
+    role !== undefined && (hasAgent === true || permission === true)
+  )
 }
 
 function isRestrictedForRole(item: NavItem, role?: number): boolean {
@@ -292,7 +300,12 @@ function isNavItemVisible(
   if ('url' in item && item.url) {
     const configUrls = item.configUrls ?? [item.url]
     return configUrls.some((url) =>
-      isModuleEnabled(url as string, adminConfig, userConfig, agentConsoleAllowed)
+      isModuleEnabled(
+        url as string,
+        adminConfig,
+        userConfig,
+        agentConsoleAllowed
+      )
     )
   }
 
@@ -300,7 +313,12 @@ function isNavItemVisible(
   if ('items' in item && item.items) {
     // If has sub-items, show this collapsible item if at least one sub-item is visible
     return item.items.some((subItem) =>
-      isModuleEnabled(subItem.url as string, adminConfig, userConfig, agentConsoleAllowed)
+      isModuleEnabled(
+        subItem.url as string,
+        adminConfig,
+        userConfig,
+        agentConsoleAllowed
+      )
     )
   }
 
@@ -321,7 +339,12 @@ function filterNavItems(
       // If collapsible item, also filter its sub-items
       if ('items' in item && item.items) {
         const filteredSubItems = item.items.filter((subItem) =>
-          isModuleEnabled(subItem.url as string, adminConfig, userConfig, agentConsoleAllowed)
+          isModuleEnabled(
+            subItem.url as string,
+            adminConfig,
+            userConfig,
+            agentConsoleAllowed
+          )
         )
 
         return {
@@ -331,7 +354,9 @@ function filterNavItems(
       }
       return item
     })
-    .filter((item) => isNavItemVisible(item, adminConfig, userConfig, agentConsoleAllowed))
+    .filter((item) =>
+      isNavItemVisible(item, adminConfig, userConfig, agentConsoleAllowed)
+    )
 }
 
 /**
@@ -380,24 +405,27 @@ export function useSidebarConfig(navGroups: NavGroup[]): NavGroup[] {
     auth?.user?.permissions?.agent_console
   )
 
-  const filteredNavGroups = useMemo(
-    () => {
-      const configFiltered = navGroups
-        .map((group) => ({
-          ...group,
-          items: filterNavItems(
-            group.items,
-            adminConfig,
-            userConfig,
-            agentConsoleAllowed
-          ),
-        }))
-        .filter((group) => group.items.length > 0)
+  const filteredNavGroups = useMemo(() => {
+    const configFiltered = navGroups
+      .map((group) => ({
+        ...group,
+        items: filterNavItems(
+          group.items,
+          adminConfig,
+          userConfig,
+          agentConsoleAllowed
+        ),
+      }))
+      .filter((group) => group.items.length > 0)
 
-      return applyRoleSidebarRestrictions(configFiltered, auth?.user?.role)
-    },
-    [navGroups, adminConfig, userConfig, agentConsoleAllowed, auth?.user?.role]
-  )
+    return applyRoleSidebarRestrictions(configFiltered, auth?.user?.role)
+  }, [
+    navGroups,
+    adminConfig,
+    userConfig,
+    agentConsoleAllowed,
+    auth?.user?.role,
+  ])
 
   return filteredNavGroups
 }

@@ -35,9 +35,14 @@ export const subscriptionPlanSchema = z.object({
   quota_reset_custom_seconds: z.number().optional(),
   enabled: z.boolean(),
   sort_order: z.number(),
+  discount_description: z.string().optional(),
   max_purchase_per_user: z.number(),
   total_amount: z.number(),
+  quota_reset_amount: z.number().optional(),
+  model_limits_enabled: z.boolean().optional(),
+  model_limits: z.string().optional(),
   upgrade_group: z.string().optional(),
+  token_group: z.string().optional(),
   stripe_price_id: z.string().optional(),
   creem_product_id: z.string().optional(),
   waffo_pancake_product_id: z.string().optional(),
@@ -64,12 +69,46 @@ export const userSubscriptionSchema = z.object({
   amount_total: z.number(),
   amount_used: z.number(),
   next_reset_time: z.number().optional(),
+  token_id: z.number().optional(),
 })
 
 export type UserSubscription = z.infer<typeof userSubscriptionSchema>
 
 export interface UserSubscriptionRecord {
   subscription: UserSubscription
+  plan?: SubscriptionPlan
+  token?: {
+    id: number
+    name: string
+    key: string
+    status: number
+    remain_quota: number
+    used_quota: number
+    unlimited_quota: boolean
+    expired_time: number
+    model_limits_enabled: boolean
+    model_limits: string
+    billing_source?: string
+    subscription_plan_id?: number
+    user_subscription_id?: number
+  }
+}
+
+export interface SubscriptionUsagePoint {
+  date: string
+  label: string
+  requests: number
+  quota: number
+  tokens: number
+}
+
+export interface SubscriptionUsageStats {
+  days: number
+  total_requests: number
+  today_requests: number
+  total_quota: number
+  total_tokens: number
+  points: SubscriptionUsagePoint[]
 }
 
 // ============================================================================

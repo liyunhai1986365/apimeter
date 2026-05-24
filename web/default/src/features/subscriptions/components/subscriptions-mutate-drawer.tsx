@@ -300,47 +300,86 @@ export function SubscriptionsMutateDrawer({
                 )}
               />
 
-              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='discount_description'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Discount Description')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        placeholder={t('e.g., 4折 / 40% OFF')}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Relative discount text displayed below quota in store.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='price_amount'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Actual Amount')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        {...field}
+                        type='number'
+                        step='0.01'
+                        min={0}
+                        onChange={(e) =>
+                          field.onChange(parseFloat(e.target.value) || 0)
+                        }
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className='space-y-3 rounded-md border p-3'>
                 <FormField
                   control={form.control}
-                  name='price_amount'
+                  name='model_limits_enabled'
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>{t('Actual Amount')}</FormLabel>
+                    <FormItem className='flex flex-row items-center justify-between gap-3'>
+                      <div className='space-y-1'>
+                        <FormLabel>{t('Limit subscription models')}</FormLabel>
+                        <FormDescription>
+                          {t(
+                            'Subscription keys created from this plan can only use the listed models.'
+                          )}
+                        </FormDescription>
+                      </div>
                       <FormControl>
-                        <Input
-                          {...field}
-                          type='number'
-                          step='0.01'
-                          min={0}
-                          onChange={(e) =>
-                            field.onChange(parseFloat(e.target.value) || 0)
-                          }
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
                         />
                       </FormControl>
-                      <FormMessage />
                     </FormItem>
                   )}
                 />
-
                 <FormField
                   control={form.control}
-                  name='total_amount'
+                  name='model_limits'
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>{t('Total Quota')}</FormLabel>
+                      <FormLabel>{t('Allowed Models')}</FormLabel>
                       <FormControl>
                         <Input
                           {...field}
-                          type='number'
-                          min={0}
-                          onChange={(e) =>
-                            field.onChange(parseFloat(e.target.value) || 0)
-                          }
+                          placeholder='gpt-4.1,claude-sonnet-4'
+                          disabled={!form.watch('model_limits_enabled')}
                         />
                       </FormControl>
                       <FormDescription>
-                        {t('0 means unlimited')}
+                        {t('Separate multiple model names with commas.')}
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -383,6 +422,44 @@ export function SubscriptionsMutateDrawer({
                           </SelectGroup>
                         </SelectContent>
                       </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='token_group'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Subscription key group')}</FormLabel>
+                      <Select
+                        items={[
+                          { value: 'auto', label: 'auto' },
+                          ...groupOptions.map((g) => ({ value: g, label: g })),
+                        ]}
+                        onValueChange={(v) => field.onChange(v || 'auto')}
+                        value={field.value || 'auto'}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder='auto' />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent alignItemWithTrigger={false}>
+                          <SelectGroup>
+                            <SelectItem value='auto'>auto</SelectItem>
+                            {groupOptions.map((g) => (
+                              <SelectItem key={g} value={g}>
+                                {g}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {t('Dedicated keys created from this plan will use this group.')}
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -550,6 +627,59 @@ export function SubscriptionsMutateDrawer({
                 <RefreshCw className='h-4 w-4' />
                 {t('Quota Reset')}
               </h3>
+
+              <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
+                <FormField
+                  control={form.control}
+                  name='total_amount'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Total Quota')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          step='0.01'
+                          min={0}
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t('Enter amount in USD, 0 means unlimited')}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='quota_reset_amount'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Quota per reset')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          {...field}
+                          type='number'
+                          step='0.01'
+                          min={0}
+                          placeholder='100'
+                          onChange={(e) =>
+                            field.onChange(parseFloat(e.target.value) || 0)
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t('Enter amount in USD, 0 means use total quota')}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               <div className='grid grid-cols-1 gap-3 sm:grid-cols-2'>
                 <FormField

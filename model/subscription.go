@@ -159,6 +159,9 @@ type SubscriptionPlan struct {
 	Enabled   bool `json:"enabled" gorm:"default:true"`
 	SortOrder int  `json:"sort_order" gorm:"type:int;default:0"`
 
+	// Discount description (e.g. "4折" / "40% OFF")
+	DiscountDescription string `json:"discount_description" gorm:"type:varchar(64);default:''"`
+
 	StripePriceId         string `json:"stripe_price_id" gorm:"type:varchar(128);default:''"`
 	CreemProductId        string `json:"creem_product_id" gorm:"type:varchar(128);default:''"`
 	WaffoPancakeProductId string `json:"waffo_pancake_product_id" gorm:"type:varchar(128);default:''"`
@@ -169,8 +172,17 @@ type SubscriptionPlan struct {
 	// Upgrade user group after purchase (empty = no change)
 	UpgradeGroup string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
 
+	// Default group for the dedicated subscription token (empty = auto)
+	TokenGroup string `json:"token_group" gorm:"type:varchar(64);default:'auto'"`
+
 	// Total quota (amount in quota units, 0 = unlimited)
 	TotalAmount int64 `json:"total_amount" gorm:"type:bigint;not null;default:0"`
+
+	// Quota granted on each reset (amount in quota units, 0 = use total_amount)
+	QuotaResetAmount int64 `json:"quota_reset_amount" gorm:"type:bigint;not null;default:0"`
+
+	ModelLimitsEnabled bool   `json:"model_limits_enabled" gorm:"default:false"`
+	ModelLimits        string `json:"model_limits" gorm:"type:text"`
 
 	// Quota reset period for plan
 	QuotaResetPeriod        string `json:"quota_reset_period" gorm:"type:varchar(16);default:'never'"`
@@ -248,6 +260,7 @@ type UserSubscription struct {
 
 	LastResetTime int64 `json:"last_reset_time" gorm:"type:bigint;default:0"`
 	NextResetTime int64 `json:"next_reset_time" gorm:"type:bigint;default:0;index"`
+	TokenId       int   `json:"token_id" gorm:"index;default:0"`
 
 	UpgradeGroup  string `json:"upgrade_group" gorm:"type:varchar(64);default:''"`
 	PrevUserGroup string `json:"prev_user_group" gorm:"type:varchar(64);default:''"`
@@ -270,6 +283,8 @@ func (s *UserSubscription) BeforeUpdate(tx *gorm.DB) error {
 
 type SubscriptionSummary struct {
 	Subscription *UserSubscription `json:"subscription"`
+	Plan         *SubscriptionPlan `json:"plan,omitempty"`
+	Token        *Token            `json:"token,omitempty"`
 }
 
 func calcPlanEndTime(start time.Time, plan *SubscriptionPlan) (int64, error) {
@@ -357,7 +372,7 @@ func getSubscriptionPlanByIdTx(tx *gorm.DB, id int) (*SubscriptionPlan, error) {
 		return nil, errors.New("invalid plan id")
 	}
 	key := subscriptionPlanCacheKey(id)
-	if key != "" {
+	if tx == nil && key != "" {
 		if cached, found, err := getSubscriptionPlanCache().Get(key); err == nil && found {
 			return &cached, nil
 		}
@@ -370,7 +385,9 @@ func getSubscriptionPlanByIdTx(tx *gorm.DB, id int) (*SubscriptionPlan, error) {
 	if err := query.Where("id = ?", id).First(&plan).Error; err != nil {
 		return nil, err
 	}
-	_ = getSubscriptionPlanCache().SetWithTTL(key, plan, subscriptionPlanCacheTTL())
+	if tx == nil {
+		_ = getSubscriptionPlanCache().SetWithTTL(key, plan, subscriptionPlanCacheTTL())
+	}
 	return &plan, nil
 }
 
@@ -457,7 +474,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 			return nil, errors.New("已达到该套餐购买上限")
 		}
 	}
-	nowUnix := GetDBTimestamp()
+	nowUnix := common.GetTimestamp()
 	now := time.Unix(nowUnix, 0)
 	endUnix, err := calcPlanEndTime(now, plan)
 	if err != nil {
@@ -469,6 +486,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	if nextReset > 0 {
 		lastReset = now.Unix()
 	}
+	initialQuota, _ := subscriptionResetQuota(plan)
 	upgradeGroup := strings.TrimSpace(plan.UpgradeGroup)
 	prevGroup := ""
 	if upgradeGroup != "" {
@@ -487,7 +505,7 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	sub := &UserSubscription{
 		UserId:        userId,
 		PlanId:        plan.Id,
-		AmountTotal:   plan.TotalAmount,
+		AmountTotal:   initialQuota,
 		AmountUsed:    0,
 		StartTime:     now.Unix(),
 		EndTime:       endUnix,
@@ -503,7 +521,206 @@ func CreateUserSubscriptionFromPlanTx(tx *gorm.DB, userId int, plan *Subscriptio
 	if err := tx.Create(sub).Error; err != nil {
 		return nil, err
 	}
+	token, err := EnsureSubscriptionTokenForSubscription(tx, sub, plan)
+	if err != nil {
+		return nil, err
+	}
+	if token != nil {
+		sub.TokenId = token.Id
+	}
 	return sub, nil
+}
+
+func subscriptionTokenName(plan *SubscriptionPlan) string {
+	title := "Subscription"
+	if plan != nil && strings.TrimSpace(plan.Title) != "" {
+		title = strings.TrimSpace(plan.Title)
+	}
+	return title + " Key"
+}
+
+func subscriptionTokenGroup(plan *SubscriptionPlan) string {
+	if plan == nil {
+		return "auto"
+	}
+	group := strings.TrimSpace(plan.TokenGroup)
+	if group == "" {
+		return "auto"
+	}
+	return group
+}
+
+func subscriptionTokenQuota(plan *SubscriptionPlan) (int, bool) {
+	resetQuota, unlimited := subscriptionResetQuota(plan)
+	if unlimited {
+		return 0, true
+	}
+	return int(resetQuota), false
+}
+
+func subscriptionResetQuota(plan *SubscriptionPlan) (int64, bool) {
+	if plan == nil || plan.TotalAmount <= 0 {
+		return 0, true
+	}
+	if plan.QuotaResetAmount > 0 {
+		return plan.QuotaResetAmount, false
+	}
+	return plan.TotalAmount, false
+}
+
+func buildSubscriptionToken(userId int, sub *UserSubscription, plan *SubscriptionPlan, key string) *Token {
+	remainQuota, unlimited := subscriptionTokenQuota(plan)
+	return &Token{
+		UserId:             userId,
+		Name:               subscriptionTokenName(plan),
+		Key:                key,
+		Status:             common.TokenStatusEnabled,
+		CreatedTime:        common.GetTimestamp(),
+		AccessedTime:       common.GetTimestamp(),
+		ExpiredTime:        sub.EndTime,
+		RemainQuota:        remainQuota,
+		UnlimitedQuota:     unlimited,
+		ModelLimitsEnabled: plan != nil && plan.ModelLimitsEnabled,
+		ModelLimits:        strings.TrimSpace(plan.ModelLimits),
+		Group:              subscriptionTokenGroup(plan),
+		CrossGroupRetry:    true,
+		BillingSource:      "subscription",
+		SubscriptionPlanId: sub.PlanId,
+		UserSubscriptionId: sub.Id,
+	}
+}
+
+func EnsureSubscriptionTokenForSubscription(tx *gorm.DB, sub *UserSubscription, plan *SubscriptionPlan) (*Token, error) {
+	if sub == nil || sub.Id <= 0 || sub.UserId <= 0 {
+		return nil, errors.New("invalid subscription")
+	}
+	if plan == nil || plan.Id <= 0 {
+		return nil, errors.New("invalid subscription plan")
+	}
+	if tx == nil {
+		tx = DB
+	}
+	var existing Token
+	query := tx.Where("user_subscription_id = ?", sub.Id).Limit(1).Find(&existing)
+	if query.Error != nil {
+		return nil, query.Error
+	}
+	if query.RowsAffected > 0 {
+		remainQuota, unlimited := subscriptionTokenQuota(plan)
+		existing.Name = subscriptionTokenName(plan)
+		existing.Status = common.TokenStatusEnabled
+		existing.ExpiredTime = sub.EndTime
+		existing.RemainQuota = remainQuota - int(sub.AmountUsed)
+		if existing.RemainQuota < 0 {
+			existing.RemainQuota = 0
+		}
+		existing.UsedQuota = int(sub.AmountUsed)
+		existing.UnlimitedQuota = unlimited
+		existing.ModelLimitsEnabled = plan.ModelLimitsEnabled
+		existing.ModelLimits = strings.TrimSpace(plan.ModelLimits)
+		existing.Group = subscriptionTokenGroup(plan)
+		existing.BillingSource = "subscription"
+		existing.SubscriptionPlanId = plan.Id
+		existing.UserSubscriptionId = sub.Id
+		if err := tx.Model(&existing).Select(
+			"name", "status", "expired_time", "remain_quota", "used_quota", "unlimited_quota",
+			"model_limits_enabled", "model_limits", "group", "billing_source", "subscription_plan_id", "user_subscription_id",
+		).Updates(&existing).Error; err != nil {
+			return nil, err
+		}
+		if sub.TokenId != existing.Id {
+			if err := tx.Model(sub).Update("token_id", existing.Id).Error; err != nil {
+				return nil, err
+			}
+			sub.TokenId = existing.Id
+		}
+		return &existing, nil
+	}
+
+	key, err := common.GenerateKey()
+	if err != nil {
+		return nil, err
+	}
+	token := buildSubscriptionToken(sub.UserId, sub, plan, key)
+	if err := tx.Create(token).Error; err != nil {
+		return nil, err
+	}
+	if err := tx.Model(sub).Update("token_id", token.Id).Error; err != nil {
+		return nil, err
+	}
+	sub.TokenId = token.Id
+	return token, nil
+}
+
+func RefreshSubscriptionTokenQuotaTx(tx *gorm.DB, sub *UserSubscription, plan *SubscriptionPlan) error {
+	if tx == nil || sub == nil || plan == nil {
+		return errors.New("invalid subscription token refresh args")
+	}
+	token, err := EnsureSubscriptionTokenForSubscription(tx, sub, plan)
+	if err != nil {
+		return err
+	}
+	if token == nil {
+		return nil
+	}
+	resetQuota, unlimited := subscriptionResetQuota(plan)
+	sub.AmountTotal = resetQuota
+	sub.AmountUsed = 0
+	if err := tx.Model(sub).Select("amount_total", "amount_used").Updates(sub).Error; err != nil {
+		return err
+	}
+	return tx.Model(&Token{}).Where("id = ?", token.Id).Updates(map[string]interface{}{
+		"remain_quota":         int(resetQuota),
+		"used_quota":           0,
+		"status":               common.TokenStatusEnabled,
+		"expired_time":         sub.EndTime,
+		"unlimited_quota":      unlimited,
+		"model_limits_enabled": plan.ModelLimitsEnabled,
+		"model_limits":         strings.TrimSpace(plan.ModelLimits),
+		"accessed_time":        common.GetTimestamp(),
+	}).Error
+}
+
+func SyncSubscriptionTokensForPlanTx(tx *gorm.DB, plan *SubscriptionPlan) error {
+	if tx == nil || plan == nil || plan.Id <= 0 {
+		return errors.New("invalid subscription token sync args")
+	}
+	var subs []UserSubscription
+	if err := tx.Where("plan_id = ? AND token_id > 0", plan.Id).Find(&subs).Error; err != nil {
+		return err
+	}
+	for _, sub := range subs {
+		token, err := EnsureSubscriptionTokenForSubscription(tx, &sub, plan)
+		if err != nil {
+			return err
+		}
+		if token == nil {
+			continue
+		}
+		remainQuota, unlimited := subscriptionTokenQuota(plan)
+		if !unlimited {
+			remainQuota -= int(sub.AmountUsed)
+			if remainQuota < 0 {
+				remainQuota = 0
+			}
+		}
+		if err := tx.Model(&Token{}).Where("id = ?", token.Id).Updates(map[string]interface{}{
+			"name":                 subscriptionTokenName(plan),
+			"expired_time":         sub.EndTime,
+			"remain_quota":         remainQuota,
+			"used_quota":           int(sub.AmountUsed),
+			"unlimited_quota":      unlimited,
+			"model_limits_enabled": plan.ModelLimitsEnabled,
+			"model_limits":         strings.TrimSpace(plan.ModelLimits),
+			"group":                subscriptionTokenGroup(plan),
+			"billing_source":       "subscription",
+			"subscription_plan_id": plan.Id,
+			"user_subscription_id": sub.Id,
+		}).Error; err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Complete a subscription order (idempotent). Creates a UserSubscription snapshot from the plan.
@@ -536,7 +753,7 @@ func CompleteSubscriptionOrder(tradeNo string, providerPayload string, expectedP
 		if order.Status != common.TopUpStatusPending {
 			return ErrSubscriptionOrderStatusInvalid
 		}
-		plan, err := GetSubscriptionPlanById(order.PlanId)
+		plan, err := getSubscriptionPlanByIdTx(tx, order.PlanId)
 		if err != nil {
 			return err
 		}
@@ -719,9 +936,26 @@ func buildSubscriptionSummaries(subs []UserSubscription) []SubscriptionSummary {
 	result := make([]SubscriptionSummary, 0, len(subs))
 	for _, sub := range subs {
 		subCopy := sub
-		result = append(result, SubscriptionSummary{
-			Subscription: &subCopy,
-		})
+		summary := SubscriptionSummary{Subscription: &subCopy}
+		if plan, err := getSubscriptionPlanByIdTx(nil, sub.PlanId); err == nil && plan != nil {
+			summary.Plan = plan
+			if subCopy.TokenId <= 0 {
+				if token, err := EnsureSubscriptionTokenForSubscription(nil, &subCopy, plan); err == nil && token != nil {
+					subCopy.TokenId = token.Id
+					token.Key = token.GetMaskedKey()
+					summary.Token = token
+				}
+				summary.Subscription = &subCopy
+			}
+		}
+		if summary.Token == nil && subCopy.TokenId > 0 {
+			var token Token
+			if err := DB.Where("id = ? AND user_id = ?", subCopy.TokenId, subCopy.UserId).First(&token).Error; err == nil {
+				token.Key = token.GetMaskedKey()
+				summary.Token = &token
+			}
+		}
+		result = append(result, summary)
 	}
 	return result
 }
@@ -961,14 +1195,27 @@ func maybeResetUserSubscriptionWithPlanTx(tx *gorm.DB, sub *UserSubscription, pl
 		}
 		return nil
 	}
-	sub.AmountUsed = 0
 	sub.LastResetTime = base.Unix()
 	sub.NextResetTime = next
-	return tx.Save(sub).Error
+	if err := tx.Save(sub).Error; err != nil {
+		return err
+	}
+	return RefreshSubscriptionTokenQuotaTx(tx, sub, plan)
 }
 
 // PreConsumeUserSubscription pre-consumes from any active subscription total quota.
 func PreConsumeUserSubscription(requestId string, userId int, modelName string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
+	return preConsumeUserSubscription(requestId, userId, 0, modelName, quotaType, amount)
+}
+
+func PreConsumeUserSubscriptionForSubscription(requestId string, userId int, userSubscriptionId int, modelName string, amount int64) (*SubscriptionPreConsumeResult, error) {
+	if userSubscriptionId <= 0 {
+		return nil, errors.New("invalid userSubscriptionId")
+	}
+	return preConsumeUserSubscription(requestId, userId, userSubscriptionId, modelName, 0, amount)
+}
+
+func preConsumeUserSubscription(requestId string, userId int, userSubscriptionId int, modelName string, quotaType int, amount int64) (*SubscriptionPreConsumeResult, error) {
 	if userId <= 0 {
 		return nil, errors.New("invalid userId")
 	}
@@ -1004,11 +1251,13 @@ func PreConsumeUserSubscription(requestId string, userId int, modelName string, 
 			return nil
 		}
 
+		subQuery := tx.Set("gorm:query_option", "FOR UPDATE").
+			Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now)
+		if userSubscriptionId > 0 {
+			subQuery = subQuery.Where("id = ?", userSubscriptionId)
+		}
 		var subs []UserSubscription
-		if err := tx.Set("gorm:query_option", "FOR UPDATE").
-			Where("user_id = ? AND status = ? AND end_time > ?", userId, "active", now).
-			Order("end_time asc, id asc").
-			Find(&subs).Error; err != nil {
+		if err := subQuery.Order("end_time asc, id asc").Find(&subs).Error; err != nil {
 			return errors.New("no active subscription")
 		}
 		if len(subs) == 0 {

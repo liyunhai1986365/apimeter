@@ -137,7 +137,9 @@ type RelayInfo struct {
 	Billing BillingSettler
 	// BillingSource indicates whether this request is billed from wallet quota or subscription.
 	// "" or "wallet" => wallet; "subscription" => subscription
-	BillingSource string
+	BillingSource           string
+	TokenSubscriptionPlanId int
+	TokenUserSubscriptionId int
 	// SubscriptionId is the user_subscriptions.id used when BillingSource == "subscription"
 	SubscriptionId int
 	// SubscriptionPreConsumed is the amount pre-consumed on subscription item (quota units or 1)
@@ -510,10 +512,13 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		OriginModelName:  common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 		RequestModelName: common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
 
-		TokenId:        common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		TokenKey:       common.GetContextKeyString(c, constant.ContextKeyTokenKey),
-		TokenUnlimited: common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
-		TokenGroup:     tokenGroup,
+		TokenId:                 common.GetContextKeyInt(c, constant.ContextKeyTokenId),
+		TokenKey:                common.GetContextKeyString(c, constant.ContextKeyTokenKey),
+		TokenUnlimited:          common.GetContextKeyBool(c, constant.ContextKeyTokenUnlimited),
+		TokenGroup:              tokenGroup,
+		BillingSource:           common.GetContextKeyString(c, constant.ContextKeyTokenBillingSource),
+		TokenSubscriptionPlanId: common.GetContextKeyInt(c, constant.ContextKeyTokenSubscriptionPlanId),
+		TokenUserSubscriptionId: common.GetContextKeyInt(c, constant.ContextKeyTokenUserSubscriptionId),
 
 		isFirstResponse:     true,
 		RelayMode:           relayconstant.Path2RelayMode(c.Request.URL.Path),

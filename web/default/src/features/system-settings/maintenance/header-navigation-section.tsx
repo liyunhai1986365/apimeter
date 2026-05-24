@@ -53,6 +53,7 @@ const BUILT_IN_DESCRIPTIONS: Record<HeaderNavBuiltInModule, string> = {
   agentAccess: 'Agent integration documentation and onboarding guide.',
   console: 'User dashboard and quota controls.',
   pricing: 'Public model catalog and pricing page.',
+  subscription: 'Public subscription plan storefront and billing guide.',
   rankings: 'Public rankings page based on live usage data.',
   docs: 'Documentation or external knowledge base.',
   about: 'Static page describing the platform.',
@@ -223,7 +224,8 @@ export function HeaderNavigationSection({
               const enabled = getHeaderNavModuleEnabled(navConfig, id)
               const requireAuth = getHeaderNavModuleRequireAuth(navConfig, id)
               const newWindow = getHeaderNavModuleNewWindow(navConfig, id)
-              const supportsAuth = id === 'pricing' || id === 'rankings'
+              const supportsAuth =
+                id === 'pricing' || id === 'subscription' || id === 'rankings'
               const supportsNewWindow = item.external || id === 'docs'
 
               return (

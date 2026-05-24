@@ -2,6 +2,7 @@
   "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"": "\"default\": \"us-central1\", \"claude-3-5-sonnet-20240620\": \"europe-west1\"",
   "[{\"ChatGPT\":\"https://chat.openai.com\"},{\"Lobe Chat\":\"https://chat-preview.lobehub.com/?settings={...}\"}]": "[{\"ChatGPT\":\"https://chat.openai.com\"},{\"Lobe Chat\":\"https://chat-preview.lobehub.com/?settings={...}\"}]",
   "{\"original-model\": \"replacement-model\"}": "{\"original-model\": \"replacement-model\"}",
+  "{{quota}} / {{period}}": "{{quota}} / {{period}}",
   "/status/": "/status/",
   "/your/endpoint": "/your/endpoint",
   "AccessKey / SecretAccessKey": "AccessKey / SecretAccessKey",
@@ -57,10 +58,12 @@
   "JustSong": "JustSong",
   "LingYiWanWu": "LingYiWanWu",
   "LinuxDO": "LinuxDO",
+  "macOS / Linux": "macOS / Linux",
   "Midjourney": "Midjourney",
   "MidjourneyPlus": "MidjourneyPlus",
   "MiniMax": "MiniMax",
   "Mistral": "Mistral",
+  "Modelsell Tokens Plan": "Modelsell Tokens Plan",
   "MokaAI": "MokaAI",
   "Moonshot": "Moonshot",
   "name@example.com": "name@example.com",
@@ -98,6 +101,7 @@
   "Webhook URL:": "Webhook URL:",
   "Well-Known URL": "Well-Known URL",
   "whsec_xxx": "whsec_xxx",
+  "Windows": "Windows",
   "Worker URL": "Worker URL",
   "Xinference": "Xinference"
 }

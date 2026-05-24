@@ -81,6 +81,10 @@ func initCol() {
 	//common.SysLog("Using Log SQL Type: " + common.LogSqlType)
 }
 
+func InitColForTest() {
+	initCol()
+}
+
 var DB *gorm.DB
 
 var LOG_DB *gorm.DB
@@ -550,7 +554,11 @@ func ensureSubscriptionPlanTableSQLite() error {
 ` + "`waffo_pancake_product_id`" + ` varchar(128) DEFAULT '',
 ` + "`max_purchase_per_user`" + ` integer DEFAULT 0,
 ` + "`upgrade_group`" + ` varchar(64) DEFAULT '',
+` + "`token_group`" + ` varchar(64) DEFAULT 'auto',
 ` + "`total_amount`" + ` bigint NOT NULL DEFAULT 0,
+` + "`quota_reset_amount`" + ` bigint NOT NULL DEFAULT 0,
+` + "`model_limits_enabled`" + ` numeric DEFAULT 0,
+` + "`model_limits`" + ` text,
 ` + "`quota_reset_period`" + ` varchar(16) DEFAULT 'never',
 ` + "`quota_reset_custom_seconds`" + ` bigint DEFAULT 0,
 ` + "`created_at`" + ` bigint,
@@ -584,7 +592,11 @@ PRIMARY KEY (` + "`id`" + `)
 		{Name: "waffo_pancake_product_id", DDL: "`waffo_pancake_product_id` varchar(128) DEFAULT ''"},
 		{Name: "max_purchase_per_user", DDL: "`max_purchase_per_user` integer DEFAULT 0"},
 		{Name: "upgrade_group", DDL: "`upgrade_group` varchar(64) DEFAULT ''"},
+		{Name: "token_group", DDL: "`token_group` varchar(64) DEFAULT 'auto'"},
 		{Name: "total_amount", DDL: "`total_amount` bigint NOT NULL DEFAULT 0"},
+		{Name: "quota_reset_amount", DDL: "`quota_reset_amount` bigint NOT NULL DEFAULT 0"},
+		{Name: "model_limits_enabled", DDL: "`model_limits_enabled` numeric DEFAULT 0"},
+		{Name: "model_limits", DDL: "`model_limits` text"},
 		{Name: "quota_reset_period", DDL: "`quota_reset_period` varchar(16) DEFAULT 'never'"},
 		{Name: "quota_reset_custom_seconds", DDL: "`quota_reset_custom_seconds` bigint DEFAULT 0"},
 		{Name: "created_at", DDL: "`created_at` bigint"},

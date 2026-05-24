@@ -225,7 +225,7 @@ func TokenAuthReadOnly() func(c *gin.Context) {
 		if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 			key = strings.TrimSpace(key[7:])
 		}
-		key = strings.TrimPrefix(key, "sk-")
+		key = common.NormalizeTokenKey(key)
 		parts := strings.Split(key, "-")
 		key = parts[0]
 
@@ -321,11 +321,11 @@ func TokenAuth() func(c *gin.Context) {
 			if strings.HasPrefix(key, "Bearer ") || strings.HasPrefix(key, "bearer ") {
 				key = strings.TrimSpace(key[7:])
 			}
-			key = strings.TrimPrefix(key, "sk-")
+			key = common.NormalizeTokenKey(key)
 			parts = strings.Split(key, "-")
 			key = parts[0]
 		} else {
-			key = strings.TrimPrefix(key, "sk-")
+			key = common.NormalizeTokenKey(key)
 			parts = strings.Split(key, "-")
 			key = parts[0]
 		}
@@ -429,6 +429,9 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	}
 	common.SetContextKey(c, constant.ContextKeyTokenGroup, token.Group)
 	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, token.CrossGroupRetry)
+	common.SetContextKey(c, constant.ContextKeyTokenBillingSource, token.BillingSource)
+	common.SetContextKey(c, constant.ContextKeyTokenSubscriptionPlanId, token.SubscriptionPlanId)
+	common.SetContextKey(c, constant.ContextKeyTokenUserSubscriptionId, token.UserSubscriptionId)
 	if len(parts) > 1 {
 		if model.IsAdmin(token.UserId) {
 			c.Set("specific_channel_id", parts[1])

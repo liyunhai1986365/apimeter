@@ -445,6 +445,90 @@ type Stat struct {
 	Tpm   int `json:"tpm"`
 }
 
+type SubscriptionKeyUsagePoint struct {
+	Date     string `json:"date"`
+	Label    string `json:"label"`
+	Requests int    `json:"requests"`
+	Quota    int    `json:"quota"`
+	Tokens   int    `json:"tokens"`
+}
+
+type SubscriptionKeyUsageStats struct {
+	Days          int                         `json:"days"`
+	TotalRequests int                         `json:"total_requests"`
+	TodayRequests int                         `json:"today_requests"`
+	TotalQuota    int                         `json:"total_quota"`
+	TotalTokens   int                         `json:"total_tokens"`
+	Points        []SubscriptionKeyUsagePoint `json:"points"`
+}
+
+type subscriptionUsageLogRow struct {
+	CreatedAt        int64
+	Quota            int
+	PromptTokens     int
+	CompletionTokens int
+}
+
+func GetSubscriptionKeyUsageStats(userId int, tokenId int, days int, now time.Time) (SubscriptionKeyUsageStats, error) {
+	if days <= 0 {
+		days = 7
+	}
+	if days > 30 {
+		days = 30
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	anchor := now.UTC()
+	end := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 23, 59, 59, 0, time.UTC)
+	startDay := end.AddDate(0, 0, -(days - 1))
+	start := time.Date(startDay.Year(), startDay.Month(), startDay.Day(), 0, 0, 0, 0, time.UTC)
+	todayStart := time.Date(anchor.Year(), anchor.Month(), anchor.Day(), 0, 0, 0, 0, time.UTC)
+
+	stats := SubscriptionKeyUsageStats{
+		Days:   days,
+		Points: make([]SubscriptionKeyUsagePoint, 0, days),
+	}
+	pointByDate := make(map[string]*SubscriptionKeyUsagePoint, days)
+	for i := 0; i < days; i++ {
+		day := start.AddDate(0, 0, i)
+		date := day.Format("2006-01-02")
+		point := SubscriptionKeyUsagePoint{
+			Date:  date,
+			Label: day.Format("01-02"),
+		}
+		stats.Points = append(stats.Points, point)
+		pointByDate[date] = &stats.Points[len(stats.Points)-1]
+	}
+
+	var rows []subscriptionUsageLogRow
+	if err := LOG_DB.Model(&Log{}).
+		Select("created_at", "quota", "prompt_tokens", "completion_tokens").
+		Where("user_id = ? AND token_id = ? AND type = ? AND created_at >= ? AND created_at <= ?", userId, tokenId, LogTypeConsume, start.Unix(), end.Unix()).
+		Find(&rows).Error; err != nil {
+		return stats, err
+	}
+	for _, row := range rows {
+		t := time.Unix(row.CreatedAt, 0).UTC()
+		date := t.Format("2006-01-02")
+		point, ok := pointByDate[date]
+		if !ok {
+			continue
+		}
+		tokens := row.PromptTokens + row.CompletionTokens
+		point.Requests++
+		point.Quota += row.Quota
+		point.Tokens += tokens
+		stats.TotalRequests++
+		stats.TotalQuota += row.Quota
+		stats.TotalTokens += tokens
+		if row.CreatedAt >= todayStart.Unix() {
+			stats.TodayRequests++
+		}
+	}
+	return stats, nil
+}
+
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
 	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
 

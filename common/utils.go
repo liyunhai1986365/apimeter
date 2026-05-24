@@ -253,6 +253,24 @@ func GenerateKey() (string, error) {
 	return GenerateRandomCharsKey(48)
 }
 
+func FormatSubscriptionKey(key string) string {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return ""
+	}
+	if strings.HasPrefix(key, "sp-") {
+		return key
+	}
+	return "sp-" + key
+}
+
+func NormalizeTokenKey(key string) string {
+	key = strings.TrimSpace(key)
+	key = strings.TrimPrefix(key, "sk-")
+	key = strings.TrimPrefix(key, "sp-")
+	return key
+}
+
 func GetRandomInt(max int) int {
 	//rand.Seed(time.Now().UnixNano())
 	return rand.Intn(max)

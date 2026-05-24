@@ -18,8 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
 import type { TFunction } from 'i18next'
+import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
 import type { SubscriptionPlan, PlanPayload } from '../types'
-
 export function getPlanFormSchema(t: TFunction) {
   return z.object({
     title: z.string().min(1, t('Please enter plan title')),
@@ -38,9 +38,14 @@ export function getPlanFormSchema(t: TFunction) {
     quota_reset_custom_seconds: z.coerce.number().min(0).optional(),
     enabled: z.boolean(),
     sort_order: z.coerce.number(),
+    discount_description: z.string(),
     max_purchase_per_user: z.coerce.number().min(0),
     total_amount: z.coerce.number().min(0),
+    quota_reset_amount: z.coerce.number().min(0),
+    model_limits_enabled: z.boolean(),
+    model_limits: z.string().optional(),
     upgrade_group: z.string().optional(),
+    token_group: z.string().optional(),
     stripe_price_id: z.string().optional(),
     creem_product_id: z.string().optional(),
     waffo_pancake_product_id: z.string().optional(),
@@ -60,9 +65,14 @@ export const PLAN_FORM_DEFAULTS: PlanFormValues = {
   quota_reset_custom_seconds: 0,
   enabled: true,
   sort_order: 0,
+  discount_description: '',
   max_purchase_per_user: 0,
   total_amount: 0,
+  quota_reset_amount: 0,
+  model_limits_enabled: false,
+  model_limits: '',
   upgrade_group: '',
+  token_group: 'auto',
   stripe_price_id: '',
   creem_product_id: '',
   waffo_pancake_product_id: '',
@@ -80,9 +90,14 @@ export function planToFormValues(plan: SubscriptionPlan): PlanFormValues {
     quota_reset_custom_seconds: Number(plan.quota_reset_custom_seconds || 0),
     enabled: plan.enabled !== false,
     sort_order: Number(plan.sort_order || 0),
+    discount_description: plan.discount_description || '',
     max_purchase_per_user: Number(plan.max_purchase_per_user || 0),
-    total_amount: Number(plan.total_amount || 0),
+    total_amount: quotaUnitsToDollars(Number(plan.total_amount || 0)),
+    quota_reset_amount: quotaUnitsToDollars(Number(plan.quota_reset_amount || 0)),
+    model_limits_enabled: plan.model_limits_enabled === true,
+    model_limits: plan.model_limits || '',
     upgrade_group: plan.upgrade_group || '',
+    token_group: plan.token_group || 'auto',
     stripe_price_id: plan.stripe_price_id || '',
     creem_product_id: plan.creem_product_id || '',
     waffo_pancake_product_id: plan.waffo_pancake_product_id || '',
@@ -104,8 +119,14 @@ export function formValuesToPlanPayload(values: PlanFormValues): PlanPayload {
           : 0,
       sort_order: Number(values.sort_order || 0),
       max_purchase_per_user: Number(values.max_purchase_per_user || 0),
-      total_amount: Number(values.total_amount || 0),
+      total_amount: parseQuotaFromDollars(Number(values.total_amount || 0)),
+      quota_reset_amount: parseQuotaFromDollars(
+        Number(values.quota_reset_amount || 0)
+      ),
+      model_limits_enabled: values.model_limits_enabled === true,
+      model_limits: values.model_limits || '',
       upgrade_group: values.upgrade_group || '',
+      token_group: values.token_group || 'auto',
     },
   }
 }
