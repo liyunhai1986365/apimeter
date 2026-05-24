@@ -80,6 +80,10 @@ For commercial licensing, please contact support@quantumnous.com
 :root {
   --radius: 0.5rem;
   --app-header-height: 3rem;
+  --invite-promo-banner-height: 0px;
+  --app-shell-top-offset: calc(
+    var(--app-header-height) + var(--invite-promo-banner-height)
+  );
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);

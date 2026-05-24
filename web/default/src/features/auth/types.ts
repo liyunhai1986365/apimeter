@@ -171,6 +171,9 @@ export interface SystemStatus {
   oauth_register_enabled?: boolean
   register_enabled?: boolean
   password_register_enabled?: boolean
+  affiliate_topup_reward_ratio?: number
+  affiliate_topup_reward_limit?: number
+  quota_for_inviter?: number
   custom_oauth_providers?: CustomOAuthProviderInfo[]
   [key: string]: unknown
 }

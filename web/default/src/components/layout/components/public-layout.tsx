@@ -16,6 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  InvitePromoBanner,
+  useInvitePromoBanner,
+} from '@/features/invite/components/invite-promo-banner'
 import type { TopNavLink } from '../types'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
 
@@ -33,8 +37,23 @@ type PublicLayoutProps = {
 }
 
 export function PublicLayout(props: PublicLayoutProps) {
+  const invitePromoBanner = useInvitePromoBanner()
+
   return (
-    <div className='bg-background text-foreground relative min-h-svh overflow-x-clip'>
+    <div
+      className='bg-background text-foreground relative min-h-svh overflow-x-clip'
+      style={
+        {
+          '--invite-promo-banner-height': invitePromoBanner.visible
+            ? '2.5rem'
+            : '0px',
+        } as React.CSSProperties
+      }
+    >
+      <InvitePromoBanner
+        onDismiss={invitePromoBanner.dismiss}
+        visible={invitePromoBanner.visible}
+      />
       <PublicHeader
         navContent={props.navContent}
         navLinks={props.navLinks}
@@ -47,7 +66,7 @@ export function PublicLayout(props: PublicLayoutProps) {
       />
 
       {props.showMainContainer !== false ? (
-        <main className='container px-4 py-6 pt-20 md:px-4'>
+        <main className='container px-4 py-6 pt-[calc(var(--app-header-height)+var(--invite-promo-banner-height)+1rem)] md:px-4'>
           {props.children}
         </main>
       ) : (

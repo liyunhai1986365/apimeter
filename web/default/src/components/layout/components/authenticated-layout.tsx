@@ -46,8 +46,8 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
               <SidebarInset
                 className={cn(
                   '@container/content',
-                  'h-[calc(100svh-var(--app-header-height,0px))]',
-                  'peer-data-[variant=inset]:h-[calc(100svh-var(--app-header-height,0px)-(var(--spacing)*4))]'
+                  'h-[calc(100svh-var(--app-shell-top-offset,var(--app-header-height,0px)))]',
+                  'peer-data-[variant=inset]:h-[calc(100svh-var(--app-shell-top-offset,var(--app-header-height,0px))-(var(--spacing)*4))]'
                 )}
               >
                 {props.children ?? <AnimatedOutlet />}
