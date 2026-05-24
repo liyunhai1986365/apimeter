@@ -207,8 +207,12 @@ function PlanCard({
           period: item.resetPeriodLabel,
         })
 
+  const discountDescription = plan.discount_description?.trim()
   const rows = [
     [t('Total Quota'), item.includedLabel],
+    ...(discountDescription
+      ? [[t('Official Discount:'), discountDescription]]
+      : []),
     [t('Reset Cadence'), resetText],
     [t('Model Coverage'), item.accessLabel],
   ]
@@ -253,8 +257,6 @@ function PlanCard({
           {rows.map(([label, value]) => {
             const isModelCoverage = label === t('Model Coverage')
             const isCustomLimits = plan.model_limits_enabled && plan.model_limits?.trim()
-            const isTotalQuota = label === t('Total Quota')
-            const hasDiscount = !!plan.discount_description?.trim()
             
             return (
               <div key={label} className='space-y-1.5'>
@@ -292,13 +294,6 @@ function PlanCard({
                     </span>
                   )}
                 </div>
-                {isTotalQuota && hasDiscount && (
-                  <div className='flex justify-end'>
-                    <span className='inline-flex items-center rounded-full bg-orange-100 dark:bg-orange-950/40 text-orange-600 dark:text-orange-400 text-[10px] font-bold px-2 py-0.5 shadow-sm'>
-                      {plan.discount_description}
-                    </span>
-                  </div>
-                )}
               </div>
             )
           })}

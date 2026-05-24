@@ -1390,6 +1390,7 @@
     "Discount Rate:": "割引率:",
     "Discount ratio for cache hits.": "キャッシュヒットに対する割引率。",
     "Discount: {{value}}": "割引：{{value}}",
+    "Official Discount:": "公式割引：",
     "Discouraged": "非推奨",
     "Discover curated AI models, compare pricing and capabilities, and choose the right model for every scenario.": "厳選された AI モデルを見つけ、価格と機能を比較し、あらゆるシナリオに適したモデルを選択できます。",
     "Discover the leading models in each domain": "各分野をリードするモデルを発見",

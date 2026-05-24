@@ -517,6 +517,7 @@ export function SubscriptionPlansCard({
               const limit = Number(plan.max_purchase_per_user || 0)
               const count = planPurchaseCountMap.get(plan.id) || 0
               const reached = limit > 0 && count >= limit
+              const discountDescription = plan.discount_description?.trim()
 
               const benefits = [
                 `${t('Validity Period')}: ${formatDuration(plan, t)}`,
@@ -526,6 +527,9 @@ export function SubscriptionPlansCard({
                 totalAmount > 0
                   ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
                   : `${t('Total Quota')}: ${t('Unlimited')}`,
+                discountDescription
+                  ? `${t('Official Discount:')} ${discountDescription}`
+                  : null,
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group
                   ? `${t('Upgrade Group')}: ${plan.upgrade_group}`
