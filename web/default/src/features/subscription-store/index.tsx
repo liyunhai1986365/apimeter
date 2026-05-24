@@ -34,6 +34,7 @@ import {
   Monitor,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
@@ -55,12 +56,19 @@ import {
 } from '@/components/ui/tooltip'
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
-import { getPublicPlans } from '@/features/subscriptions/api'
+import {
+  getPublicPlans,
+  paySubscriptionStripe,
+} from '@/features/subscriptions/api'
 import {
   formatDuration,
   formatResetPeriod,
   getResetQuota,
 } from '@/features/subscriptions/lib'
+import {
+  getSubscriptionCheckoutUrl,
+  isSubscriptionPaymentSuccess,
+} from '@/features/subscriptions/lib/payment-response'
 import {
   Accordion,
   AccordionContent,
@@ -192,9 +200,11 @@ function PlanSkeleton() {
 function PlanCard({
   item,
   onChoose,
+  paying,
 }: {
   item: SellingPlan
   onChoose: (planId: number) => void
+  paying?: boolean
 }) {
   const { t } = useTranslation()
   const plan = item.plan
@@ -318,8 +328,9 @@ function PlanCard({
               : 'border border-black/10 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900'
           )}
           onClick={() => onChoose(plan.id)}
+          disabled={paying}
         >
-          {t('Subscribe Now')}
+          {paying ? t('Processing...') : t('Subscribe Now')}
           <ArrowRight className='h-4 w-4 ml-2 transition-transform group-hover/button:translate-x-1' />
         </Button>
       </CardContent>
@@ -785,14 +796,26 @@ export function SubscriptionStore() {
   const navigate = useNavigate()
   const user = useAuthStore((state) => state.auth.user)
   const { plans, isLoading } = useStorePlans()
+  const [payingPlanId, setPayingPlanId] = useState<number | null>(null)
 
-  const handleChoosePlan = (planId: number) => {
-    const target = `/user-subscription?plan=${planId}`
-    if (user) {
-      navigate({ to: '/user-subscription' })
+  const handleChoosePlan = async (planId: number) => {
+    if (!user) {
+      navigate({ to: '/sign-in', search: { redirect: '/subscription' } })
       return
     }
-    navigate({ to: '/sign-in', search: { redirect: target } })
+    setPayingPlanId(planId)
+    try {
+      const res = await paySubscriptionStripe({ plan_id: planId })
+      const paymentSucceeded = isSubscriptionPaymentSuccess(res)
+      const checkoutUrl = getSubscriptionCheckoutUrl(res)
+      if (paymentSucceeded && checkoutUrl) {
+        window.location.href = checkoutUrl
+        return
+      }
+      toast.error(res.message || t('Payment request failed'))
+    } finally {
+      setPayingPlanId(null)
+    }
   }
 
   return (
@@ -893,6 +916,7 @@ export function SubscriptionStore() {
                     key={item.plan.id}
                     item={item}
                     onChoose={handleChoosePlan}
+                    paying={payingPlanId === item.plan.id}
                   />
                 ))}
               </div>

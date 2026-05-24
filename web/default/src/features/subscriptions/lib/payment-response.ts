@@ -16,16 +16,21 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute, redirect } from '@tanstack/react-router'
-import { getFreshModuleAccess } from '@/lib/nav-modules'
-import { SubscriptionStore } from '@/features/subscription-store'
+import type { SubscriptionPayResponse } from '../types'
 
-export const Route = createFileRoute('/subscription/')({
-  beforeLoad: async () => {
-    const access = await getFreshModuleAccess('subscription')
-    if (!access.enabled) {
-      throw redirect({ to: '/' })
-    }
-  },
-  component: SubscriptionStore,
-})
+type PaymentResponseData =
+  | NonNullable<SubscriptionPayResponse['data']>
+  | string
+
+export function isSubscriptionPaymentSuccess(
+  response: SubscriptionPayResponse
+) {
+  return response.success === true || response.message === 'success'
+}
+
+export function getSubscriptionCheckoutUrl(response: SubscriptionPayResponse) {
+  const data = response.data as PaymentResponseData | undefined
+  if (response.url) return response.url
+  if (typeof data === 'string') return data
+  return data?.pay_link || data?.checkout_url || ''
+}

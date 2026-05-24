@@ -131,7 +131,7 @@ export interface SubscriptionPayRequest {
 }
 
 export interface SubscriptionPayResponse {
-  success: boolean
+  success?: boolean
   message?: string
   data?: {
     // Stripe-style hosted checkout link.

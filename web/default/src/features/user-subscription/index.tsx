@@ -17,22 +17,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { VChart } from '@visactor/react-vchart'
 import {
   ArrowUpRight,
-  CalendarClock,
   ChartNoAxesCombined,
-  Check,
-  CreditCard,
   Copy,
   Loader2,
   Monitor,
   KeyRound,
-  RefreshCw,
-  ShieldCheck,
   SquareTerminal,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import { getCurrencyDisplay } from '@/lib/currency'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
@@ -49,27 +46,19 @@ import { SectionPageLayout } from '@/components/layout'
 import {
   fetchSubscriptionTokenKey,
   getSubscriptionKeyUsage,
-  getPublicPlans,
   getSelfSubscriptionFull,
-  paySubscriptionCreem,
-  paySubscriptionEpay,
-  paySubscriptionStripe,
-  paySubscriptionWaffoPancake,
 } from '@/features/subscriptions/api'
 import {
-  formatDuration,
   getResetQuota,
   formatResetPeriod,
 } from '@/features/subscriptions/lib'
 import type {
   PlanRecord,
   SelfSubscriptionData,
-  SubscriptionPayResponse,
   SubscriptionUsageStats,
   UserSubscriptionRecord,
 } from '@/features/subscriptions/types'
 
-type PaymentProvider = 'stripe' | 'creem' | 'waffo-pancake' | 'epay'
 type UsageRange = 7 | 30
 type InstallTarget = 'unix' | 'windows'
 
@@ -77,13 +66,6 @@ const MODELSELL_CLI_INSTALL_COMMANDS: Record<InstallTarget, string> = {
   unix: 'curl -fsSL https://static.modelsell.com/modelsell-cli/install.sh | sh',
   windows:
     'powershell -ExecutionPolicy Bypass -c "irm https://static.modelsell.com/modelsell-cli/install.ps1 | iex"',
-}
-
-const PAYMENT_PROVIDER_LABEL_KEYS: Record<PaymentProvider, string> = {
-  stripe: 'Pay with Stripe',
-  creem: 'Pay with Creem',
-  'waffo-pancake': 'Pay with Waffo Pancake',
-  epay: 'Pay with EPay',
 }
 
 function quotaToUSD(quota: number) {
@@ -105,32 +87,66 @@ function formatQuotaUSD(quota: number) {
   return formatUSDAmount(quotaToUSD(quota))
 }
 
-function getAvailableProviders(plan: PlanRecord): PaymentProvider[] {
-  const providers: PaymentProvider[] = []
-  if (plan.plan.stripe_price_id) providers.push('stripe')
-  if (plan.plan.creem_product_id) providers.push('creem')
-  if (plan.plan.waffo_pancake_product_id) providers.push('waffo-pancake')
-  providers.push('epay')
-  return providers
-}
-
-function openCheckout(response: SubscriptionPayResponse) {
-  const url =
-    response.url || response.data?.pay_link || response.data?.checkout_url || ''
-  if (url) {
-    window.location.href = url
-    return true
+function getPlanAccessLabel(plan: PlanRecord['plan'] | undefined, t: TFunction) {
+  if (!plan) return t('All models')
+  if (plan.model_limits_enabled && plan.model_limits?.trim()) {
+    const count = plan.model_limits
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean).length
+    if (count > 0) {
+      return t('{{count}} selected models', { count })
+    }
   }
-  return false
+  if (plan.upgrade_group) {
+    return t('{{group}} group access', { group: plan.upgrade_group })
+  }
+  return t('All models')
 }
 
-function planModelsText(plan?: PlanRecord['plan']) {
-  if (!plan?.model_limits_enabled || !plan.model_limits) return ''
-  return plan.model_limits
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .join(', ')
+function getPlanDetailRows(plan: PlanRecord['plan'] | undefined, t: TFunction) {
+  if (!plan) return []
+  const totalAmount = Number(plan.total_amount || 0)
+  const resetAmount = getResetQuota(plan)
+  const resetPeriodLabel = formatResetPeriod(plan, t)
+  const discountDescription = plan.discount_description?.trim()
+  const resetText =
+    resetPeriodLabel === t('No Reset')
+      ? t('One-time quota')
+      : t('{{quota}} / {{period}}', {
+          quota: resetAmount > 0 ? formatQuota(resetAmount) : t('Unlimited'),
+          period: resetPeriodLabel,
+        })
+
+  return [
+    [t('Total Quota'), totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')],
+    ...(discountDescription
+      ? [[t('Official Discount:'), discountDescription]]
+      : []),
+    [t('Reset Cadence'), resetText],
+    [t('Model Coverage'), getPlanAccessLabel(plan, t)],
+  ]
+}
+
+function PlanDetailRows({ plan }: { plan?: PlanRecord['plan'] }) {
+  const { t } = useTranslation()
+  const rows = getPlanDetailRows(plan, t)
+  if (rows.length === 0) return null
+
+  return (
+    <div className='space-y-3'>
+      {rows.map(([label, value]) => (
+        <div key={label} className='flex items-center justify-between gap-4'>
+          <span className='text-muted-foreground text-sm font-medium'>
+            {label}
+          </span>
+          <span className='max-w-[62%] truncate text-right text-sm font-semibold text-foreground'>
+            {value}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function formatSubscriptionKey(key?: string) {
@@ -234,7 +250,7 @@ function SubscriptionUsagePanel({
         },
       },
     }
-  }, [chartValues])
+  }, [chartValues, t])
 
   return (
     <Card>
@@ -427,7 +443,6 @@ function ActiveSubscriptionCard({
   const remain = total > 0 ? Math.max(total - used, 0) : 0
   const percent =
     total > 0 ? Math.min(100, Math.round((used / total) * 100)) : 0
-  const models = planModelsText(plan)
   const displayKey = formatSubscriptionKey(resolvedKey || token?.key)
 
   return (
@@ -482,31 +497,8 @@ function ActiveSubscriptionCard({
                 <Progress value={percent} />
               </div>
             ) : null}
-            <div className='grid gap-3 sm:grid-cols-2'>
-              <div className='flex gap-3 rounded-md border p-3'>
-                <RefreshCw className='text-muted-foreground mt-0.5 h-4 w-4' />
-                <div>
-                  <p className='text-sm font-medium'>{t('Quota refresh')}</p>
-                  <p className='text-muted-foreground text-sm'>
-                    {plan
-                      ? `${formatResetPeriod(plan, t)} · ${
-                          getResetQuota(plan) > 0
-                            ? formatQuota(getResetQuota(plan))
-                            : t('Unlimited')
-                        }`
-                      : '-'}
-                  </p>
-                </div>
-              </div>
-              <div className='flex gap-3 rounded-md border p-3'>
-                <ShieldCheck className='text-muted-foreground mt-0.5 h-4 w-4' />
-                <div>
-                  <p className='text-sm font-medium'>{t('Allowed Models')}</p>
-                  <p className='text-muted-foreground text-sm break-words'>
-                    {models || t('All available models')}
-                  </p>
-                </div>
-              </div>
+            <div className='rounded-md border p-3'>
+              <PlanDetailRows plan={plan} />
             </div>
           </CardContent>
         </Card>
@@ -570,84 +562,53 @@ function ActiveSubscriptionCard({
   )
 }
 
-function PlanCard({
-  item,
-  paying,
-  onPay,
-}: {
-  item: PlanRecord
-  paying?: string
-  onPay: (plan: PlanRecord, provider: PaymentProvider) => void
-}) {
+function EmptySubscriptionCard() {
   const { t } = useTranslation()
-  const providers = getAvailableProviders(item)
-  const models = planModelsText(item.plan)
 
   return (
     <Card>
       <CardHeader className='pb-3'>
-        <div className='flex items-start justify-between gap-3'>
-          <div>
-            <CardTitle className='text-lg'>{item.plan.title}</CardTitle>
-            <p className='text-muted-foreground mt-1 text-sm'>
-              {item.plan.subtitle ||
-                t('Subscription quota with a dedicated API key')}
-            </p>
-          </div>
-          <div className='text-right'>
-            <p className='text-2xl font-semibold'>
-              ${Number(item.plan.price_amount || 0).toFixed(2)}
-            </p>
-            <p className='text-muted-foreground text-xs'>
-              {formatDuration(item.plan, t)}
-            </p>
-          </div>
-        </div>
+        <CardTitle className='flex items-center gap-2 text-xl'>
+          <KeyRound className='h-5 w-5' />
+          {t('No active subscription')}
+        </CardTitle>
+        <p className='text-muted-foreground mt-1 text-sm'>
+          {t(
+            'Subscribe to get recurring quota, a dedicated API key, and model access managed by the selected plan.'
+          )}
+        </p>
       </CardHeader>
       <CardContent className='space-y-4'>
-        <div className='grid gap-2 text-sm'>
-          <div className='flex items-center gap-2'>
-            <Check className='text-success h-4 w-4' />
-            <span>
-              {item.plan.total_amount > 0
-                ? formatQuota(item.plan.total_amount)
-                : t('Unlimited quota')}
-            </span>
+        <div className='bg-muted/20 grid gap-3 rounded-md border p-4 md:grid-cols-3'>
+          <div>
+            <p className='font-medium'>{t('Dedicated key')}</p>
+            <p className='text-muted-foreground mt-1 text-sm'>
+              {t(
+                'A subscription key is generated automatically after purchase.'
+              )}
+            </p>
           </div>
-          <div className='flex items-center gap-2'>
-            <RefreshCw className='text-muted-foreground h-4 w-4' />
-            <span>
-              {formatResetPeriod(item.plan, t)} ·{' '}
-              {getResetQuota(item.plan) > 0
-                ? formatQuota(getResetQuota(item.plan))
-                : t('Unlimited')}
-            </span>
+          <div>
+            <p className='font-medium'>{t('Recurring quota')}</p>
+            <p className='text-muted-foreground mt-1 text-sm'>
+              {t(
+                'Daily, weekly, or monthly refresh follows the plan settings.'
+              )}
+            </p>
           </div>
-          <div className='flex items-center gap-2'>
-            <KeyRound className='text-muted-foreground h-4 w-4' />
-            <span>{t('Dedicated API key generated after purchase')}</span>
-          </div>
-          <div className='flex items-start gap-2'>
-            <ShieldCheck className='text-muted-foreground mt-0.5 h-4 w-4' />
-            <span>{models || t('All available models')}</span>
+          <div>
+            <p className='font-medium'>{t('Plan bound')}</p>
+            <p className='text-muted-foreground mt-1 text-sm'>
+              {t(
+                'The key expires with the subscription and inherits model access.'
+              )}
+            </p>
           </div>
         </div>
-        <div className='flex flex-wrap gap-2'>
-          {providers.map((provider) => (
-            <Button
-              key={provider}
-              size='sm'
-              onClick={() => onPay(item, provider)}
-              disabled={paying === `${item.plan.id}:${provider}`}
-            >
-              <CreditCard className='h-4 w-4' />
-              {paying === `${item.plan.id}:${provider}`
-                ? t('Processing...')
-                : t(PAYMENT_PROVIDER_LABEL_KEYS[provider])}
-              <ArrowUpRight className='h-4 w-4' />
-            </Button>
-          ))}
-        </div>
+        <Button render={<Link to='/subscription' />}>
+          {t('View plans')}
+          <ArrowUpRight className='h-4 w-4' />
+        </Button>
       </CardContent>
     </Card>
   )
@@ -656,10 +617,8 @@ function PlanCard({
 export function UserSubscription() {
   const { t } = useTranslation()
   const { copyToClipboard } = useCopyToClipboard()
-  const [plans, setPlans] = useState<PlanRecord[]>([])
   const [self, setSelf] = useState<SelfSubscriptionData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [paying, setPaying] = useState<string>('')
   const [resolvedKeys, setResolvedKeys] = useState<Record<number, string>>({})
   const [copyingKeyId, setCopyingKeyId] = useState<number | null>(null)
   const [usageRange, setUsageRange] = useState<UsageRange>(7)
@@ -674,11 +633,7 @@ export function UserSubscription() {
   async function refresh() {
     setLoading(true)
     try {
-      const [plansRes, selfRes] = await Promise.all([
-        getPublicPlans(),
-        getSelfSubscriptionFull(),
-      ])
-      if (plansRes.success) setPlans(plansRes.data || [])
+      const selfRes = await getSelfSubscriptionFull()
       if (selfRes.success && selfRes.data) setSelf(selfRes.data)
     } finally {
       setLoading(false)
@@ -748,43 +703,26 @@ export function UserSubscription() {
     }
   }
 
-  async function handlePay(plan: PlanRecord, provider: PaymentProvider) {
-    const marker = `${plan.plan.id}:${provider}`
-    setPaying(marker)
-    try {
-      let res: SubscriptionPayResponse
-      if (provider === 'stripe') {
-        res = await paySubscriptionStripe({ plan_id: plan.plan.id })
-      } else if (provider === 'creem') {
-        res = await paySubscriptionCreem({ plan_id: plan.plan.id })
-      } else if (provider === 'waffo-pancake') {
-        res = await paySubscriptionWaffoPancake({ plan_id: plan.plan.id })
-      } else {
-        res = await paySubscriptionEpay({
-          plan_id: plan.plan.id,
-          payment_method: 'alipay',
-        })
-      }
-      if (res.success && openCheckout(res)) return
-      if (res.success) {
-        toast.success(t('Payment request created'))
-        await refresh()
-      }
-    } finally {
-      setPaying('')
-    }
-  }
-
   return (
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Subscription')}</SectionPageLayout.Title>
       <SectionPageLayout.Description>
         {activeSubscription
           ? t('Use your subscription API key and monitor quota refreshes.')
-          : t('Choose a plan to get recurring quota and a dedicated API key.')}
+          : t(
+              'Subscribe to get recurring quota, a dedicated API key, and model access managed by the selected plan.'
+            )}
       </SectionPageLayout.Description>
       <SectionPageLayout.Content>
         <div className='mx-auto flex w-full max-w-7xl flex-col gap-5'>
+          {activeSubscription ? (
+            <div className='flex justify-end'>
+              <Button render={<Link to='/subscription' />}>
+                {t('Upgrade / Renew')}
+                <ArrowUpRight className='h-4 w-4' />
+              </Button>
+            </div>
+          ) : null}
           {loading ? (
             <div className='grid gap-4 md:grid-cols-2'>
               <Skeleton className='h-80 rounded-md' />
@@ -803,53 +741,7 @@ export function UserSubscription() {
               onUsageRangeChange={setUsageRange}
             />
           ) : (
-            <>
-              <div className='bg-muted/20 grid gap-3 rounded-md border p-4 md:grid-cols-3'>
-                <div className='flex gap-3'>
-                  <KeyRound className='text-muted-foreground mt-0.5 h-5 w-5' />
-                  <div>
-                    <p className='font-medium'>{t('Dedicated key')}</p>
-                    <p className='text-muted-foreground text-sm'>
-                      {t(
-                        'A subscription key is generated automatically after purchase.'
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <div className='flex gap-3'>
-                  <RefreshCw className='text-muted-foreground mt-0.5 h-5 w-5' />
-                  <div>
-                    <p className='font-medium'>{t('Recurring quota')}</p>
-                    <p className='text-muted-foreground text-sm'>
-                      {t(
-                        'Daily, weekly, or monthly refresh follows the plan settings.'
-                      )}
-                    </p>
-                  </div>
-                </div>
-                <div className='flex gap-3'>
-                  <CalendarClock className='text-muted-foreground mt-0.5 h-5 w-5' />
-                  <div>
-                    <p className='font-medium'>{t('Plan bound')}</p>
-                    <p className='text-muted-foreground text-sm'>
-                      {t(
-                        'The key expires with the subscription and inherits model access.'
-                      )}
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <div className='grid gap-4 lg:grid-cols-2'>
-                {plans.map((plan) => (
-                  <PlanCard
-                    key={plan.plan.id}
-                    item={plan}
-                    paying={paying}
-                    onPay={handlePay}
-                  />
-                ))}
-              </div>
-            </>
+            <EmptySubscriptionCard />
           )}
         </div>
       </SectionPageLayout.Content>
