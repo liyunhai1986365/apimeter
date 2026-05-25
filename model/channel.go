@@ -76,6 +76,11 @@ type ChannelSortOptions struct {
 	IDSort    bool
 }
 
+type ChannelRatioFilter struct {
+	Operator string
+	Value    float64
+}
+
 var channelSortColumns = map[string]string{
 	"id":            "id",
 	"name":          "name",
@@ -160,6 +165,34 @@ func ApplyChannelGroupFilter(query *gorm.DB, group string) *gorm.DB {
 		return query
 	}
 	return query.Where(channelGroupFilterCondition(), channelGroupFilterPattern(group))
+}
+
+func NormalizeChannelRatioOperator(operator string) string {
+	switch strings.ToLower(strings.TrimSpace(operator)) {
+	case "lt", "<":
+		return "<"
+	case "lte", "<=":
+		return "<="
+	case "eq", "=":
+		return "="
+	case "gte", ">=":
+		return ">="
+	case "gt", ">":
+		return ">"
+	default:
+		return ""
+	}
+}
+
+func ApplyChannelRatioFilter(query *gorm.DB, ratioFilter *ChannelRatioFilter) *gorm.DB {
+	if ratioFilter == nil {
+		return query
+	}
+	operator := NormalizeChannelRatioOperator(ratioFilter.Operator)
+	if operator == "" {
+		return query
+	}
+	return query.Where("channel_ratio "+operator+" ?", ratioFilter.Value)
 }
 
 // Value implements driver.Valuer interface
@@ -1095,6 +1128,40 @@ func BatchSetChannelTag(ids []int, tag *string) error {
 	}
 
 	// 提交事务
+	return tx.Commit().Error
+}
+
+func BatchSetChannelGroups(ids []int, groups string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	tx := DB.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	err := tx.Model(&Channel{}).Where("id in (?)", ids).Update("group", groups).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	var channels []*Channel
+	err = tx.Where("id in (?)", ids).Find(&channels).Error
+	if err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	for _, channel := range channels {
+		err = channel.UpdateAbilities(tx)
+		if err != nil {
+			tx.Rollback()
+			return err
+		}
+	}
+
 	return tx.Commit().Error
 }
 

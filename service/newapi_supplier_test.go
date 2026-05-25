@@ -58,6 +58,8 @@ func TestBuildNewAPISupplierChannelPlans(t *testing.T) {
 	assert.Equal(t, "sk-upstream", plans[0].Key)
 	assert.Equal(t, "default", plans[0].Group)
 	assert.Equal(t, "gpt-4o,gpt-4o-mini", plans[0].Models)
+	require.NotNil(t, plans[0].ChannelRatio)
+	assert.Equal(t, 1.0, *plans[0].ChannelRatio)
 	require.NotNil(t, plans[0].Tag)
 	assert.Equal(t, "team-a", *plans[0].Tag)
 	assert.Equal(t, "newapi-supplier:42;upstream_group:default", plans[0].OtherInfo)
@@ -67,6 +69,8 @@ func TestBuildNewAPISupplierChannelPlans(t *testing.T) {
 	assert.Equal(t, "vip - 1.25 - OpenAI - upstream-a", plans[1].Name)
 	assert.Equal(t, "premium", plans[1].Group)
 	assert.Equal(t, "gpt-5", plans[1].Models)
+	require.NotNil(t, plans[1].ChannelRatio)
+	assert.Equal(t, 1.25, *plans[1].ChannelRatio)
 	assert.Equal(t, "newapi-supplier:42;upstream_group:vip", plans[1].OtherInfo)
 }
 

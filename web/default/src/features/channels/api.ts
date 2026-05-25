@@ -22,6 +22,7 @@ import { getGroups as getUserGroups } from '@/features/users/api'
 import type {
   AddChannelRequest,
   BatchDeleteParams,
+  BatchSetGroupsParams,
   BatchSetTagParams,
   Channel,
   ChannelBalanceResponse,
@@ -140,6 +141,20 @@ export async function updateChannel(
   return res.data
 }
 
+export async function removeChannelModel(
+  id: number,
+  model: string
+): Promise<{
+  success: boolean
+  message?: string
+  data?: { id: number; models: string }
+}> {
+  const res = await api.delete(`/api/channel/${id}/models`, {
+    data: { model },
+  })
+  return res.data
+}
+
 /**
  * Delete single channel
  */
@@ -167,6 +182,16 @@ export async function batchSetChannelTag(
   data: BatchSetTagParams
 ): Promise<{ success: boolean; message?: string; data?: number }> {
   const res = await api.post('/api/channel/batch/tag', data)
+  return res.data
+}
+
+/**
+ * Batch set groups for channels
+ */
+export async function batchSetChannelGroups(
+  data: BatchSetGroupsParams
+): Promise<{ success: boolean; message?: string; data?: number }> {
+  const res = await api.post('/api/channel/batch/groups', data)
   return res.data
 }
 

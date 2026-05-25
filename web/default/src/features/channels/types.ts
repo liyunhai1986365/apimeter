@@ -222,6 +222,7 @@ export type ChannelSortBy =
   | 'test_time'
 
 export type ChannelSortOrder = 'asc' | 'desc'
+export type ChannelRatioFilterOp = 'lt' | 'lte' | 'eq' | 'gte' | 'gt'
 
 export interface GetChannelsParams {
   p?: number
@@ -233,6 +234,8 @@ export interface GetChannelsParams {
   tag_mode?: boolean
   sort_by?: ChannelSortBy
   sort_order?: ChannelSortOrder
+  ratio_op?: ChannelRatioFilterOp
+  ratio_value?: number
 }
 
 export interface SearchChannelsParams {
@@ -245,6 +248,8 @@ export interface SearchChannelsParams {
   tag_mode?: boolean
   sort_by?: ChannelSortBy
   sort_order?: ChannelSortOrder
+  ratio_op?: ChannelRatioFilterOp
+  ratio_value?: number
   p?: number
   page_size?: number
 }
@@ -281,6 +286,11 @@ export interface BatchDeleteParams {
 export interface BatchSetTagParams {
   ids: number[]
   tag: string | null
+}
+
+export interface BatchSetGroupsParams {
+  ids: number[]
+  groups: string[]
 }
 
 export interface TagOperationParams {

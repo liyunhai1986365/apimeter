@@ -79,13 +79,30 @@ func applyChannelStatusFilter(query *gorm.DB, statusFilter int) *gorm.DB {
 	return query
 }
 
-func buildChannelListQuery(group string, statusFilter int, typeFilter int) *gorm.DB {
+func parseChannelRatioFilter(c *gin.Context) (*model.ChannelRatioFilter, error) {
+	operator := model.NormalizeChannelRatioOperator(c.Query("ratio_op"))
+	valueText := strings.TrimSpace(c.Query("ratio_value"))
+	if operator == "" || valueText == "" {
+		return nil, nil
+	}
+	value, err := strconv.ParseFloat(valueText, 64)
+	if err != nil {
+		return nil, fmt.Errorf("倍率筛选值格式错误")
+	}
+	return &model.ChannelRatioFilter{
+		Operator: operator,
+		Value:    value,
+	}, nil
+}
+
+func buildChannelListQuery(group string, statusFilter int, typeFilter int, ratioFilter *model.ChannelRatioFilter) *gorm.DB {
 	query := model.DB.Model(&model.Channel{})
 	query = model.ApplyChannelGroupFilter(query, group)
 	query = applyChannelStatusFilter(query, statusFilter)
 	if typeFilter >= 0 {
 		query = query.Where("type = ?", typeFilter)
 	}
+	query = model.ApplyChannelRatioFilter(query, ratioFilter)
 	return query
 }
 
@@ -107,17 +124,22 @@ func GetAllChannels(c *gin.Context) {
 			typeFilter = t
 		}
 	}
+	ratioFilter, err := parseChannelRatioFilter(c)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
 
 	var total int64
 
 	if enableTagMode {
-		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 		if err != nil {
 			common.SysError("failed to get paginated tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签失败，请稍后重试"})
 			return
 		}
-		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter))
+		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter))
 		if err != nil {
 			common.SysError("failed to count tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签数量失败，请稍后重试"})
@@ -128,7 +150,7 @@ func GetAllChannels(c *gin.Context) {
 				continue
 			}
 			var tagChannels []*model.Channel
-			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter).Where("tag = ?", *tag)).
+			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter).Where("tag = ?", *tag)).
 				Omit("key").
 				Find(&tagChannels).Error
 			if err != nil {
@@ -139,13 +161,13 @@ func GetAllChannels(c *gin.Context) {
 			channelData = append(channelData, tagChannels...)
 		}
 	} else {
-		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter).Count(&total).Error; err != nil {
+		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter).Count(&total).Error; err != nil {
 			common.SysError("failed to count channels: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道数量失败，请稍后重试"})
 			return
 		}
 
-		err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter)).
+		err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter)).
 			Limit(pageInfo.GetPageSize()).
 			Offset(pageInfo.GetStartIdx()).
 			Omit("key").
@@ -161,7 +183,7 @@ func GetAllChannels(c *gin.Context) {
 		clearChannelInfo(datum)
 	}
 
-	countQuery := buildChannelListQuery(groupFilter, statusFilter, -1)
+	countQuery := buildChannelListQuery(groupFilter, statusFilter, -1, ratioFilter)
 	var results []struct {
 		Type  int64
 		Count int64
@@ -266,6 +288,11 @@ func SearchChannels(c *gin.Context) {
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
 	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
+	ratioFilter, err := parseChannelRatioFilter(c)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
+		return
+	}
 	channelData := make([]*model.Channel, 0)
 	if enableTagMode {
 		tags, err := model.SearchTags(keyword, group, modelKeyword, idSort)
@@ -279,7 +306,7 @@ func SearchChannels(c *gin.Context) {
 		for _, tag := range tags {
 			if tag != nil && *tag != "" {
 				var tagChannels []*model.Channel
-				err := sortOptions.Apply(buildChannelListQuery(group, -1, -1).Where("tag = ?", *tag)).
+				err := sortOptions.Apply(buildChannelListQuery(group, -1, -1, ratioFilter).Where("tag = ?", *tag)).
 					Omit("key").
 					Find(&tagChannels).Error
 				if err != nil {
@@ -302,6 +329,39 @@ func SearchChannels(c *gin.Context) {
 			return
 		}
 		channelData = channels
+	}
+
+	if ratioFilter != nil && !enableTagMode {
+		filtered := make([]*model.Channel, 0, len(channelData))
+		for _, ch := range channelData {
+			if ch.ChannelRatio == nil {
+				continue
+			}
+			ratio := *ch.ChannelRatio
+			switch ratioFilter.Operator {
+			case "<":
+				if ratio < ratioFilter.Value {
+					filtered = append(filtered, ch)
+				}
+			case "<=":
+				if ratio <= ratioFilter.Value {
+					filtered = append(filtered, ch)
+				}
+			case "=":
+				if ratio == ratioFilter.Value {
+					filtered = append(filtered, ch)
+				}
+			case ">=":
+				if ratio >= ratioFilter.Value {
+					filtered = append(filtered, ch)
+				}
+			case ">":
+				if ratio > ratioFilter.Value {
+					filtered = append(filtered, ch)
+				}
+			}
+		}
+		channelData = filtered
 	}
 
 	if statusFilter == common.ChannelStatusEnabled || statusFilter == 0 {
@@ -700,6 +760,79 @@ func DeleteChannel(c *gin.Context) {
 	return
 }
 
+func RemoveChannelModel(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var request struct {
+		Model string `json:"model"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	targetModel := strings.TrimSpace(request.Model)
+	if targetModel == "" {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "模型不能为空",
+		})
+		return
+	}
+	channel, err := model.GetChannelById(id, true)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	models := make([]string, 0)
+	removed := false
+	seen := map[string]struct{}{}
+	for _, modelName := range channel.GetModels() {
+		modelName = strings.TrimSpace(modelName)
+		if modelName == "" {
+			continue
+		}
+		if modelName == targetModel {
+			removed = true
+			continue
+		}
+		if _, ok := seen[modelName]; ok {
+			continue
+		}
+		seen[modelName] = struct{}{}
+		models = append(models, modelName)
+	}
+	if !removed {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "模型不在当前渠道中",
+		})
+		return
+	}
+	channel.Models = strings.Join(models, ",")
+	if err := model.DB.Model(channel).Select("models").Update("models", channel.Models).Error; err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := channel.UpdateAbilities(nil); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.InitChannelCache()
+	service.ResetProxyClientCache()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data": gin.H{
+			"id":     channel.Id,
+			"models": channel.Models,
+		},
+	})
+	return
+}
+
 func DeleteDisabledChannel(c *gin.Context) {
 	rows, err := model.DeleteDisabledChannel()
 	if err != nil {
@@ -826,8 +959,9 @@ func EditTagChannels(c *gin.Context) {
 }
 
 type ChannelBatch struct {
-	Ids []int   `json:"ids"`
-	Tag *string `json:"tag"`
+	Ids    []int    `json:"ids"`
+	Tag    *string  `json:"tag"`
+	Groups []string `json:"groups"`
 }
 
 func DeleteChannelBatch(c *gin.Context) {
@@ -1122,6 +1256,49 @@ func BatchSetChannelTag(c *gin.Context) {
 		return
 	}
 	err = model.BatchSetChannelTag(channelBatch.Ids, channelBatch.Tag)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.InitChannelCache()
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    len(channelBatch.Ids),
+	})
+	return
+}
+
+func BatchSetChannelGroups(c *gin.Context) {
+	channelBatch := ChannelBatch{}
+	err := c.ShouldBindJSON(&channelBatch)
+	if err != nil || len(channelBatch.Ids) == 0 || len(channelBatch.Groups) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "参数错误",
+		})
+		return
+	}
+
+	cleanGroups := make([]string, 0, len(channelBatch.Groups))
+	seen := make(map[string]bool, len(channelBatch.Groups))
+	for _, group := range channelBatch.Groups {
+		group = strings.TrimSpace(group)
+		if group == "" || seen[group] {
+			continue
+		}
+		seen[group] = true
+		cleanGroups = append(cleanGroups, group)
+	}
+	if len(cleanGroups) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "分组不能为空",
+		})
+		return
+	}
+
+	err = model.BatchSetChannelGroups(channelBatch.Ids, strings.Join(cleanGroups, ","))
 	if err != nil {
 		common.ApiError(c, err)
 		return

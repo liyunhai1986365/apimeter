@@ -26,6 +26,7 @@ import {
   testChannel,
   updateChannel,
   batchDeleteChannels,
+  batchSetChannelGroups,
   batchSetChannelTag,
   enableTagChannels,
   disableTagChannels,
@@ -438,6 +439,43 @@ export async function handleBatchSetTag(
     }
   } catch (_error) {
     toast.error(i18next.t('Failed to set tag'))
+  }
+}
+
+/**
+ * Batch set groups
+ */
+export async function handleBatchSetGroups(
+  ids: number[],
+  groups: string[],
+  queryClient?: QueryClient,
+  onSuccess?: () => void
+): Promise<void> {
+  if (ids.length === 0) {
+    toast.error(i18next.t('No channels selected'))
+    return
+  }
+
+  if (groups.length === 0) {
+    toast.error(i18next.t('Please select at least one group'))
+    return
+  }
+
+  try {
+    const response = await batchSetChannelGroups({ ids, groups })
+    if (response.success) {
+      toast.success(
+        i18next.t('{{count}} channel(s) group updated', {
+          count: response.data || ids.length,
+        })
+      )
+      queryClient?.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+      onSuccess?.()
+    } else {
+      toast.error(response.message || i18next.t('Failed to set groups'))
+    }
+  } catch (_error) {
+    toast.error(i18next.t('Failed to set groups'))
   }
 }
 

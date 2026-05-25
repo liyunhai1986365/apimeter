@@ -36,6 +36,13 @@ import { normalizePagedData } from '@/lib/paged-response'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
@@ -53,7 +60,7 @@ import {
   getChannelTypeIcon,
   getChannelTypeLabel,
 } from '../lib'
-import type { Channel, ChannelSortBy } from '../types'
+import type { Channel, ChannelRatioFilterOp, ChannelSortBy } from '../types'
 import { useChannelsColumns } from './channels-columns'
 import { useChannels } from './channels-provider'
 import { DataTableBulkActions } from './data-table-bulk-actions'
@@ -68,6 +75,17 @@ const CHANNEL_SORTABLE_COLUMNS = new Set<ChannelSortBy>([
   'response_time',
   'test_time',
 ])
+
+const ratioFilterOperators: Array<{
+  value: ChannelRatioFilterOp
+  labelKey: string
+}> = [
+  { value: 'lt', labelKey: '<' },
+  { value: 'lte', labelKey: '<=' },
+  { value: 'eq', labelKey: '=' },
+  { value: 'gte', labelKey: '>=' },
+  { value: 'gt', labelKey: '>' },
+]
 
 function isDisabledChannelRow(channel: Channel) {
   return (
@@ -111,6 +129,8 @@ export function ChannelsTable() {
       { columnId: 'type', searchKey: 'type', type: 'array' },
       { columnId: 'group', searchKey: 'group', type: 'array' },
       { columnId: 'model', searchKey: 'model', type: 'string' },
+      { columnId: 'ratioOp', searchKey: 'ratioOp', type: 'string' },
+      { columnId: 'ratioValue', searchKey: 'ratioValue', type: 'string' },
     ],
   })
 
@@ -123,15 +143,28 @@ export function ChannelsTable() {
     (columnFilters.find((f) => f.id === 'group')?.value as string[]) || []
   const modelFilterFromUrl =
     (columnFilters.find((f) => f.id === 'model')?.value as string) || ''
+  const ratioOpFromUrl =
+    (columnFilters.find((f) => f.id === 'ratioOp')
+      ?.value as ChannelRatioFilterOp) || 'lt'
+  const ratioValueFromUrl =
+    (columnFilters.find((f) => f.id === 'ratioValue')?.value as string) || ''
 
   // Local state for immediate input feedback
   const [modelFilterInput, setModelFilterInput] = useState(modelFilterFromUrl)
   const debouncedModelFilter = useDebounce(modelFilterInput, 500)
+  const [ratioOpInput, setRatioOpInput] =
+    useState<ChannelRatioFilterOp>(ratioOpFromUrl)
+  const [ratioValueInput, setRatioValueInput] = useState(ratioValueFromUrl)
 
   // Sync local input with URL when URL changes (e.g., from back/forward navigation)
   useEffect(() => {
     setModelFilterInput(modelFilterFromUrl)
   }, [modelFilterFromUrl])
+
+  useEffect(() => {
+    setRatioOpInput(ratioOpFromUrl)
+    setRatioValueInput(ratioValueFromUrl)
+  }, [ratioOpFromUrl, ratioValueFromUrl])
 
   // Update URL when debounced value changes
   useEffect(() => {
@@ -146,6 +179,28 @@ export function ChannelsTable() {
   }, [debouncedModelFilter, modelFilterFromUrl, onColumnFiltersChange])
 
   const modelFilter = modelFilterFromUrl
+  const ratioValue = ratioValueFromUrl.trim()
+  const parsedRatioValue = ratioValue === '' ? undefined : Number(ratioValue)
+  const hasValidRatioFilter =
+    parsedRatioValue !== undefined && Number.isFinite(parsedRatioValue)
+
+  const commitRatioFilters = (
+    operator: ChannelRatioFilterOp,
+    value: string
+  ) => {
+    onColumnFiltersChange((prev) => {
+      const filtered = prev.filter(
+        (f) => f.id !== 'ratioOp' && f.id !== 'ratioValue'
+      )
+      const trimmedValue = value.trim()
+      if (!trimmedValue) return filtered
+      return [
+        ...filtered,
+        { id: 'ratioOp', value: operator },
+        { id: 'ratioValue', value: trimmedValue },
+      ]
+    })
+  }
 
   // Determine whether to use search or regular list API
   const shouldSearch = Boolean(globalFilter?.trim() || modelFilter.trim())
@@ -196,6 +251,8 @@ export function ChannelsTable() {
     queryKey: channelsQueryKeys.list({
       keyword: globalFilter,
       model: modelFilter,
+      ratio_op: hasValidRatioFilter ? ratioOpFromUrl : undefined,
+      ratio_value: hasValidRatioFilter ? parsedRatioValue : undefined,
       group:
         groupFilter.length > 0 && !groupFilter.includes('all')
           ? groupFilter[0]
@@ -219,6 +276,8 @@ export function ChannelsTable() {
         return searchChannels({
           keyword: globalFilter,
           model: modelFilter,
+          ratio_op: hasValidRatioFilter ? ratioOpFromUrl : undefined,
+          ratio_value: hasValidRatioFilter ? parsedRatioValue : undefined,
           group:
             groupFilter.length > 0 && !groupFilter.includes('all')
               ? groupFilter[0]
@@ -254,6 +313,8 @@ export function ChannelsTable() {
           tag_mode: enableTagMode,
           id_sort: idSort,
           ...sortParams,
+          ratio_op: hasValidRatioFilter ? ratioOpFromUrl : undefined,
+          ratio_value: hasValidRatioFilter ? parsedRatioValue : undefined,
           p: pagination.pageIndex + 1,
           page_size: pagination.pageSize,
         })
@@ -374,6 +435,42 @@ export function ChannelsTable() {
     ...groupOptions,
   ]
 
+  const ratioFilterNode = (
+    <div className='flex w-full items-center gap-1.5 sm:w-auto'>
+      <Select
+        value={ratioOpInput}
+        onValueChange={(value) =>
+          setRatioOpInput(value as ChannelRatioFilterOp)
+        }
+      >
+        <SelectTrigger
+          className='h-9 w-[74px]'
+          aria-label={t('Ratio operator')}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {ratioFilterOperators.map((operator) => (
+            <SelectItem key={operator.value} value={operator.value}>
+              {operator.labelKey}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Input
+        type='number'
+        min='0'
+        step='0.01'
+        placeholder={t('Ratio')}
+        value={ratioValueInput}
+        onChange={(e) => setRatioValueInput(e.target.value)}
+        onBlur={() => commitRatioFilters(ratioOpInput, ratioValueInput)}
+        className='w-full sm:w-[96px]'
+        aria-label={t('Ratio value')}
+      />
+    </div>
+  )
+
   return (
     <DataTablePage
       table={table}
@@ -389,13 +486,22 @@ export function ChannelsTable() {
       toolbarProps={{
         searchPlaceholder: t('Filter by name, ID, or key...'),
         additionalSearch: (
-          <Input
-            placeholder={t('Filter by model...')}
-            value={modelFilterInput}
-            onChange={(e) => setModelFilterInput(e.target.value)}
-            className='w-full sm:w-[150px] lg:w-[180px]'
-          />
+          <>
+            <Input
+              placeholder={t('Filter by model...')}
+              value={modelFilterInput}
+              onChange={(e) => setModelFilterInput(e.target.value)}
+              className='w-full sm:w-[150px] lg:w-[180px]'
+            />
+            {ratioFilterNode}
+          </>
         ),
+        hasAdditionalFilters: Boolean(ratioValue),
+        onReset: () => {
+          setModelFilterInput('')
+          setRatioOpInput('lt')
+          setRatioValueInput('')
+        },
         filters: [
           {
             columnId: 'status',

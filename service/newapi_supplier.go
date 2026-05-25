@@ -192,21 +192,23 @@ func BuildNewAPISupplierChannelPlans(supplier *model.NewAPISupplier, req NewAPIS
 		if channelName == "" {
 			channelName = formatNewAPISupplierChannelName(upstreamGroup, groupRatios[upstreamGroup], supplier.Name, channelType)
 		}
+		channelRatio := parseNewAPISupplierChannelRatio(groupRatios[upstreamGroup])
 		plans = append(plans, model.Channel{
-			Type:        channelType,
-			Key:         key,
-			Status:      common.ChannelStatusEnabled,
-			Name:        channelName,
-			BaseURL:     common.GetPointer(baseURL),
-			Models:      strings.Join(models, ","),
-			Group:       localGroup,
-			Balance:     float64(supplier.Quota),
-			Tag:         common.GetPointer(tag),
-			Weight:      supplier.Weight,
-			Priority:    supplier.Priority,
-			AutoBan:     common.GetPointer(supplier.AutoBan),
-			OtherInfo:   fmt.Sprintf("newapi-supplier:%d;upstream_group:%s", supplier.Id, upstreamGroup),
-			CreatedTime: common.GetTimestamp(),
+			Type:         channelType,
+			Key:          key,
+			Status:       common.ChannelStatusEnabled,
+			Name:         channelName,
+			BaseURL:      common.GetPointer(baseURL),
+			Models:       strings.Join(models, ","),
+			Group:        localGroup,
+			Balance:      float64(supplier.Quota),
+			Tag:          common.GetPointer(tag),
+			Weight:       supplier.Weight,
+			ChannelRatio: channelRatio,
+			Priority:     supplier.Priority,
+			AutoBan:      common.GetPointer(supplier.AutoBan),
+			OtherInfo:    fmt.Sprintf("newapi-supplier:%d;upstream_group:%s", supplier.Id, upstreamGroup),
+			CreatedTime:  common.GetTimestamp(),
 		})
 	}
 	if len(plans) == 0 {
@@ -911,6 +913,18 @@ func parseNewAPISupplierGroupRatios(raw string) map[string]string {
 		}
 	}
 	return result
+}
+
+func parseNewAPISupplierChannelRatio(ratio string) *float64 {
+	ratio = strings.TrimSpace(ratio)
+	if ratio == "" {
+		return nil
+	}
+	value, err := strconv.ParseFloat(ratio, 64)
+	if err != nil {
+		return nil
+	}
+	return common.GetPointer(value)
 }
 
 func formatNewAPISupplierChannelName(group string, ratio string, channelName string, channelType int) string {

@@ -17,10 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { type Table } from '@tanstack/react-table'
-import { Power, PowerOff, Tag, Trash2 } from 'lucide-react'
+import { FolderInput, Power, PowerOff, Tag, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { MultiSelect } from '@/components/multi-select'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -42,8 +43,10 @@ import {
   handleBatchDelete,
   handleBatchDisable,
   handleBatchEnable,
+  handleBatchSetGroups,
   handleBatchSetTag,
 } from '../lib'
+import { getGroups } from '../api'
 import type { Channel } from '../types'
 
 interface DataTableBulkActionsProps<TData> {
@@ -56,8 +59,20 @@ export function DataTableBulkActions<TData>({
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [showTagDialog, setShowTagDialog] = useState(false)
+  const [showGroupDialog, setShowGroupDialog] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [tagValue, setTagValue] = useState('')
+  const [groupValue, setGroupValue] = useState<string[]>([])
+
+  const { data: groupsData } = useQuery({
+    queryKey: ['groups'],
+    queryFn: getGroups,
+  })
+
+  const groupOptions = (groupsData?.data || []).map((group) => ({
+    label: group,
+    value: group,
+  }))
 
   const selectedRows = table.getFilteredSelectedRowModel().rows
   const selectedIds = selectedRows.reduce<number[]>((ids, row) => {
@@ -97,6 +112,14 @@ export function DataTableBulkActions<TData>({
     })
   }
 
+  const handleSetGroups = () => {
+    handleBatchSetGroups(selectedIds, groupValue, queryClient, () => {
+      setShowGroupDialog(false)
+      setGroupValue([])
+      handleClearSelection()
+    })
+  }
+
   return (
     <>
       <BulkActionsToolbar table={table} entityName='channel'>
@@ -118,6 +141,29 @@ export function DataTableBulkActions<TData>({
           </TooltipTrigger>
           <TooltipContent>
             <p>{t('Enable selected channels')}</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant='outline'
+                size='icon'
+                onClick={() => setShowGroupDialog(true)}
+                className='size-8'
+                aria-label={t('Set groups for selected channels')}
+                title={t('Set groups for selected channels')}
+              />
+            }
+          >
+            <FolderInput />
+            <span className='sr-only'>
+              {t('Set groups for selected channels')}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{t('Set groups for selected channels')}</p>
           </TooltipContent>
         </Tooltip>
 
@@ -221,6 +267,48 @@ export function DataTableBulkActions<TData>({
               {t('Cancel')}
             </Button>
             <Button onClick={handleSetTag}>{t('Set Tag')}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Set Groups Dialog */}
+      <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t('Set Groups')}</DialogTitle>
+            <DialogDescription>
+              {t(
+                'Set groups for {{count}} selected channel(s). This will replace existing groups.',
+                { count: selectedIds.length }
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className='grid gap-4 py-4'>
+            <div className='grid gap-2'>
+              <Label>{t('Groups')}</Label>
+              <MultiSelect
+                options={groupOptions}
+                selected={groupValue}
+                onChange={setGroupValue}
+                placeholder={t('Select groups')}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant='outline'
+              onClick={() => {
+                setShowGroupDialog(false)
+                setGroupValue([])
+              }}
+            >
+              {t('Cancel')}
+            </Button>
+            <Button onClick={handleSetGroups} disabled={groupValue.length === 0}>
+              {t('Set Groups')}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
