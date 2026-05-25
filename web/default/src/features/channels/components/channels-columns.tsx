@@ -975,6 +975,30 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
       enableSorting: false,
     },
 
+    // Channel cost ratio column
+    {
+      accessorKey: 'channel_ratio',
+      meta: { label: t('Ratio'), mobileHidden: true },
+      header: t('Ratio'),
+      cell: ({ row }) => {
+        if (isTagAggregateRow(row.original)) {
+          return <span className='text-muted-foreground text-xs'>-</span>
+        }
+
+        const ratio = row.getValue('channel_ratio') as number
+        return (
+          <StatusBadge
+            label={`${ratio ?? 1}x`}
+            variant='neutral'
+            size='sm'
+            copyable={false}
+          />
+        )
+      },
+      size: 120,
+      enableSorting: false,
+    },
+
     // Balance column (Used/Remaining)
     {
       accessorKey: 'balance',

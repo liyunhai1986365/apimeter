@@ -233,6 +233,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.remark?.trim() ||
     values.priority ||
     values.weight ||
+    values.channel_ratio !== 1 ||
     values.proxy?.trim() ||
     values.system_prompt?.trim() ||
     values.force_format ||
@@ -2462,7 +2463,7 @@ export function ChannelMutateDrawer({
                         title={t('Routing Strategy')}
                         icon={<Route className='h-3.5 w-3.5' />}
                       />
-                      <div className='grid gap-4 sm:grid-cols-2'>
+                      <div className='grid gap-4 sm:grid-cols-3'>
                         <FormField
                           control={form.control}
                           name='priority'
@@ -2505,6 +2506,32 @@ export function ChannelMutateDrawer({
                               </FormControl>
                               <FormDescription>
                                 {t(FIELD_DESCRIPTIONS.WEIGHT)}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+
+                        <FormField
+                          control={form.control}
+                          name='channel_ratio'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('Ratio')}</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type='number'
+                                  min='0'
+                                  step='0.01'
+                                  placeholder='1'
+                                  {...field}
+                                  onChange={(e) =>
+                                    field.onChange(Number(e.target.value))
+                                  }
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {t(FIELD_DESCRIPTIONS.CHANNEL_RATIO)}
                               </FormDescription>
                               <FormMessage />
                             </FormItem>

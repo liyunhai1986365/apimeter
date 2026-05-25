@@ -43,6 +43,7 @@ export const channelSchema = z.object({
   status: z.number(), // 1: enabled, 0: manual disabled, 2: auto disabled
   name: z.string(),
   weight: z.number().nullish(),
+  channel_ratio: z.number().default(1),
   created_time: z.number(),
   test_time: z.number(),
   response_time: z.number(), // in milliseconds
@@ -287,6 +288,7 @@ export interface TagOperationParams {
   new_tag?: string
   priority?: number
   weight?: number
+  channel_ratio?: number
   model_mapping?: string
   models?: string
   groups?: string
@@ -307,6 +309,7 @@ export interface ChannelFormData {
   model_mapping?: string
   priority?: number
   weight?: number
+  channel_ratio?: number
   test_model?: string
   auto_ban?: number
   status: number
