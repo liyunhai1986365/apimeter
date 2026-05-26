@@ -1177,7 +1177,7 @@ type UpdateUserSettingRequest struct {
 	GotifyPriority                   int     `json:"gotify_priority,omitempty"`
 	UpstreamModelUpdateNotifyEnabled *bool   `json:"upstream_model_update_notify_enabled,omitempty"`
 	AcceptUnsetModelRatioModel       bool    `json:"accept_unset_model_ratio_model"`
-	RecordIpLog                      bool    `json:"record_ip_log"`
+	RecordIpLog                      *bool   `json:"record_ip_log"`
 	ModelFallback                    any     `json:"model_fallback,omitempty"`
 }
 
@@ -1279,7 +1279,9 @@ func UpdateUserSetting(c *gin.Context) {
 	settings.QuotaWarningThreshold = req.QuotaWarningThreshold
 	settings.UpstreamModelUpdateNotifyEnabled = upstreamModelUpdateNotifyEnabled
 	settings.AcceptUnsetRatioModel = req.AcceptUnsetModelRatioModel
-	settings.RecordIpLog = req.RecordIpLog
+	if req.RecordIpLog != nil {
+		settings.RecordIpLog = req.RecordIpLog
+	}
 	if req.ModelFallback != nil {
 		settings.ModelFallback = req.ModelFallback
 	}

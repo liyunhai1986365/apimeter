@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import {
@@ -60,6 +60,17 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const isAdmin = useIsAdmin()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const searchParams = route.useSearch()
+  const [columnVisibility, setColumnVisibility] = useState<
+    Record<string, boolean>
+  >(() => (logCategory === 'common' ? { ip: false } : {}))
+
+  useEffect(() => {
+    setColumnVisibility((prev) => {
+      if (logCategory !== 'common') return prev
+      if (Object.prototype.hasOwnProperty.call(prev, 'ip')) return prev
+      return { ...prev, ip: false }
+    })
+  }, [logCategory])
 
   const {
     columnFilters,
@@ -139,8 +150,10 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     columns: columns as ColumnDef<Record<string, unknown>>[],
     state: {
       columnFilters,
+      columnVisibility,
       pagination,
     },
+    onColumnVisibilityChange: setColumnVisibility,
     enableRowSelection: false,
     onPaginationChange,
     onColumnFiltersChange,

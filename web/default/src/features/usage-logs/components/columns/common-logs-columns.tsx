@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useState } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { CircleAlert, Sparkles, KeyRound } from 'lucide-react'
+import { CircleAlert, Sparkles, KeyRound, Globe } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
@@ -765,6 +765,33 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         )
       },
       meta: { label: t('Cost') },
+    },
+
+    {
+      accessorKey: 'ip',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('IP Address')} />
+      ),
+      cell: ({ row }) => {
+        const log = row.original
+        if (!isDisplayableLogType(log.type)) return null
+
+        if (!log.ip) {
+          return <span className='text-muted-foreground/40 text-xs'>—</span>
+        }
+
+        return (
+          <span className='border-border/70 bg-muted/40 inline-flex w-fit max-w-[150px] items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs tabular-nums'>
+            <Globe
+              className='text-muted-foreground size-3 shrink-0'
+              aria-hidden='true'
+            />
+            <span className='truncate'>{log.ip}</span>
+          </span>
+        )
+      },
+      meta: { label: t('IP Address'), mobileHidden: true },
+      size: 140,
     },
 
     {
