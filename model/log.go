@@ -298,41 +298,55 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	}
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
-	var tx *gorm.DB
-	if logType == LogTypeUnknown {
-		tx = LOG_DB
-	} else {
-		tx = LOG_DB.Where("logs.type = ?", logType)
-	}
+func dedupeRepeatedErrorLogsByRequestId(tx *gorm.DB, applyFilters func(*gorm.DB, string) *gorm.DB) *gorm.DB {
+	newer := LOG_DB.Table("logs AS newer").Select("1")
+	newer = applyFilters(newer, "newer")
+	newer = newer.
+		Where("newer.type = ?", LogTypeError).
+		Where("newer.request_id = logs.request_id").
+		Where("newer.id > logs.id").
+		Limit(1)
 
-	if modelName != "" {
-		tx = tx.Where("logs.model_name like ?", modelName)
+	return tx.Where("NOT (logs.type = ? AND logs.request_id <> '' AND EXISTS (?))", LogTypeError, newer)
+}
+
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
+	applyFilters := func(tx *gorm.DB, alias string) *gorm.DB {
+		prefix := alias + "."
+		if logType != LogTypeUnknown {
+			tx = tx.Where(prefix+"type = ?", logType)
+		}
+		if modelName != "" {
+			tx = tx.Where(prefix+"model_name like ?", modelName)
+		}
+		if username != "" {
+			tx = tx.Where(prefix+"username = ?", username)
+		}
+		if tokenName != "" {
+			tx = tx.Where(prefix+"token_name = ?", tokenName)
+		}
+		if requestId != "" {
+			tx = tx.Where(prefix+"request_id = ?", requestId)
+		}
+		if upstreamRequestId != "" {
+			tx = tx.Where(prefix+"upstream_request_id = ?", upstreamRequestId)
+		}
+		if startTimestamp != 0 {
+			tx = tx.Where(prefix+"created_at >= ?", startTimestamp)
+		}
+		if endTimestamp != 0 {
+			tx = tx.Where(prefix+"created_at <= ?", endTimestamp)
+		}
+		if channel != 0 {
+			tx = tx.Where(prefix+"channel_id = ?", channel)
+		}
+		if group != "" {
+			tx = tx.Where(prefix+logGroupCol+" = ?", group)
+		}
+		return tx
 	}
-	if username != "" {
-		tx = tx.Where("logs.username = ?", username)
-	}
-	if tokenName != "" {
-		tx = tx.Where("logs.token_name = ?", tokenName)
-	}
-	if requestId != "" {
-		tx = tx.Where("logs.request_id = ?", requestId)
-	}
-	if upstreamRequestId != "" {
-		tx = tx.Where("logs.upstream_request_id = ?", upstreamRequestId)
-	}
-	if startTimestamp != 0 {
-		tx = tx.Where("logs.created_at >= ?", startTimestamp)
-	}
-	if endTimestamp != 0 {
-		tx = tx.Where("logs.created_at <= ?", endTimestamp)
-	}
-	if channel != 0 {
-		tx = tx.Where("logs.channel_id = ?", channel)
-	}
-	if group != "" {
-		tx = tx.Where("logs."+logGroupCol+" = ?", group)
-	}
+	tx := applyFilters(LOG_DB.Model(&Log{}), "logs")
+	tx = dedupeRepeatedErrorLogsByRequestId(tx, applyFilters)
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
@@ -388,38 +402,44 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 const logSearchCountLimit = 10000
 
 func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
-	var tx *gorm.DB
-	if logType == LogTypeUnknown {
-		tx = LOG_DB.Where("logs.user_id = ?", userId)
-	} else {
-		tx = LOG_DB.Where("logs.user_id = ? and logs.type = ?", userId, logType)
-	}
-
+	var modelNamePattern string
 	if modelName != "" {
-		modelNamePattern, err := sanitizeLikePattern(modelName)
+		modelNamePattern, err = sanitizeLikePattern(modelName)
 		if err != nil {
 			return nil, 0, err
 		}
-		tx = tx.Where("logs.model_name LIKE ? ESCAPE '!'", modelNamePattern)
 	}
-	if tokenName != "" {
-		tx = tx.Where("logs.token_name = ?", tokenName)
+	applyFilters := func(tx *gorm.DB, alias string) *gorm.DB {
+		prefix := alias + "."
+		tx = tx.Where(prefix+"user_id = ?", userId)
+		if logType != LogTypeUnknown {
+			tx = tx.Where(prefix+"type = ?", logType)
+		}
+		if modelName != "" {
+			tx = tx.Where(prefix+"model_name LIKE ? ESCAPE '!'", modelNamePattern)
+		}
+		if tokenName != "" {
+			tx = tx.Where(prefix+"token_name = ?", tokenName)
+		}
+		if requestId != "" {
+			tx = tx.Where(prefix+"request_id = ?", requestId)
+		}
+		if upstreamRequestId != "" {
+			tx = tx.Where(prefix+"upstream_request_id = ?", upstreamRequestId)
+		}
+		if startTimestamp != 0 {
+			tx = tx.Where(prefix+"created_at >= ?", startTimestamp)
+		}
+		if endTimestamp != 0 {
+			tx = tx.Where(prefix+"created_at <= ?", endTimestamp)
+		}
+		if group != "" {
+			tx = tx.Where(prefix+logGroupCol+" = ?", group)
+		}
+		return tx
 	}
-	if requestId != "" {
-		tx = tx.Where("logs.request_id = ?", requestId)
-	}
-	if upstreamRequestId != "" {
-		tx = tx.Where("logs.upstream_request_id = ?", upstreamRequestId)
-	}
-	if startTimestamp != 0 {
-		tx = tx.Where("logs.created_at >= ?", startTimestamp)
-	}
-	if endTimestamp != 0 {
-		tx = tx.Where("logs.created_at <= ?", endTimestamp)
-	}
-	if group != "" {
-		tx = tx.Where("logs."+logGroupCol+" = ?", group)
-	}
+	tx := applyFilters(LOG_DB.Model(&Log{}), "logs")
+	tx = dedupeRepeatedErrorLogsByRequestId(tx, applyFilters)
 	err = tx.Model(&Log{}).Limit(logSearchCountLimit).Count(&total).Error
 	if err != nil {
 		common.SysError("failed to count user logs: " + err.Error())

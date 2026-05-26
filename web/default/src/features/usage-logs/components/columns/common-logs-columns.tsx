@@ -321,6 +321,10 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             useChannel && useChannel.length > 0
               ? useChannel.join(' → ')
               : undefined
+          const retryChain =
+            useChannel && useChannel.length > 1
+              ? useChannel.join(' → ')
+              : undefined
           const channelDisplay = log.channel_name
             ? `${log.channel_name} #${log.channel}`
             : `#${log.channel}`
@@ -368,6 +372,12 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
                   {log.channel_name && (
                     <span className='text-muted-foreground/70 truncate text-[11px]'>
                       {channelName}
+                    </span>
+                  )}
+                  {retryChain && (
+                    <span className='text-muted-foreground/70 flex max-w-full items-center gap-1 truncate text-[11px]'>
+                      <span className='shrink-0'>{t('Retry')}</span>
+                      <span className='truncate font-mono'>{retryChain}</span>
                     </span>
                   )}
                 </TooltipTrigger>
