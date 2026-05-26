@@ -425,7 +425,11 @@ export function SupplierChannelConfigDialog({
                   }}
                 >
                   <SelectTrigger className='w-full'>
-                    <SelectValue placeholder={t('Select channel type')} />
+                    <SelectValue placeholder={t('Select channel type')}>
+                      {(value) =>
+                        t(getChannelTypeLabel(Number(value) || channelType))
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent alignItemWithTrigger={false}>
                     <SelectGroup>

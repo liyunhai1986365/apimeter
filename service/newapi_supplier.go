@@ -491,6 +491,11 @@ func CheckNewAPISupplier(ctx context.Context, supplier *model.NewAPISupplier) (*
 	if err := model.DB.Model(&model.NewAPISupplier{}).Where("id = ?", supplier.Id).Updates(updates).Error; err != nil {
 		return nil, err
 	}
+	if model.DB.Migrator().HasTable(&model.NewAPISupplierChannelProfile{}) {
+		if _, err := SyncNewAPISupplierChannelProfiles(supplier, snapshots); err != nil {
+			return nil, err
+		}
+	}
 	return result, nil
 }
 

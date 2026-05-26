@@ -172,6 +172,45 @@ func TestListModelMonitorModelsSortsByErrorRateDescendingBeforePaging(t *testing
 	require.EqualValues(t, 3, result.Total)
 }
 
+func TestListModelMonitorModelsFiltersLatestTestsToCurrentChannels(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	require.NoError(t, model.DB.Create(&model.Model{Id: 1, ModelName: "gpt-test", Status: 1}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Name: "openai-a", Type: 1, Status: common.ChannelStatusEnabled, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 12, Name: "openai-b", Type: 1, Status: common.ChannelStatusEnabled, Models: "other-model", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 11, Enabled: true}).Error)
+	require.NoError(t, model.InsertModelChannelTestResults([]model.ModelChannelTestResult{
+		{ModelID: 1, ModelName: "gpt-test", ChannelID: 11, ChannelName: "openai-a", Success: false, CreatedAt: now - 10},
+		{ModelID: 1, ModelName: "gpt-test", ChannelID: 12, ChannelName: "openai-b", Success: false, CreatedAt: now - 20},
+	}))
+
+	result, err := ListModelMonitorModels(0, 10, 1, "", ModelMonitorQuery{EndTimestamp: now}, now)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	require.Len(t, result.Items[0].Channels, 1)
+	require.EqualValues(t, 11, result.Items[0].Channels[0].ChannelID)
+	require.Len(t, result.Items[0].LatestTests, 1)
+	require.EqualValues(t, 11, result.Items[0].LatestTests[0].ChannelID)
+}
+
+func TestListModelMonitorModelsReturnsEmptyLatestTestsArrayWhenNoCurrentChannels(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	require.NoError(t, model.DB.Create(&model.Model{Id: 1, ModelName: "gpt-test", Status: 1}).Error)
+	require.NoError(t, model.InsertModelChannelTestResults([]model.ModelChannelTestResult{
+		{ModelID: 1, ModelName: "gpt-test", ChannelID: 12, ChannelName: "removed-channel", Success: false, CreatedAt: now - 20},
+	}))
+
+	result, err := ListModelMonitorModels(0, 10, 1, "", ModelMonitorQuery{EndTimestamp: now}, now)
+	require.NoError(t, err)
+	require.Len(t, result.Items, 1)
+	require.Empty(t, result.Items[0].Channels)
+	require.NotNil(t, result.Items[0].LatestTests)
+	require.Empty(t, result.Items[0].LatestTests)
+}
+
 func TestGetChannelModelErrorStatsAppliesThresholdAndWindow(t *testing.T) {
 	setupModelMonitorTestDB(t)
 	now := time.Now().Unix()

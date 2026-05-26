@@ -301,7 +301,7 @@ func ListModelMonitorModels(startIdx int, pageSize int, page int, keyword string
 		if err != nil {
 			return nil, err
 		}
-		pageItems[i].LatestTests = latestTests
+		pageItems[i].LatestTests = filterModelMonitorLatestTestsByChannels(latestTests, pageItems[i].Channels)
 	}
 
 	return &ModelMonitorListResult{
@@ -312,6 +312,23 @@ func ListModelMonitorModels(startIdx int, pageSize int, page int, keyword string
 		Window:    window,
 		CacheHint: "30s",
 	}, nil
+}
+
+func filterModelMonitorLatestTestsByChannels(latestTests []model.ModelChannelTestResult, channels []ModelMonitorChannel) []model.ModelChannelTestResult {
+	if len(latestTests) == 0 || len(channels) == 0 {
+		return []model.ModelChannelTestResult{}
+	}
+	channelIDs := make(map[int]struct{}, len(channels))
+	for _, channel := range channels {
+		channelIDs[channel.ChannelID] = struct{}{}
+	}
+	filtered := make([]model.ModelChannelTestResult, 0, len(latestTests))
+	for _, test := range latestTests {
+		if _, ok := channelIDs[test.ChannelID]; ok {
+			filtered = append(filtered, test)
+		}
+	}
+	return filtered
 }
 
 type modelMonitorChannelConfig struct {

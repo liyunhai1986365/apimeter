@@ -163,6 +163,25 @@ func TestSnapshot_Roundtrip(t *testing.T) {
 	assert.JSONEq(t, string(task.Data), string(snap.Data))
 }
 
+func TestGetAllUnFinishSyncTasksIncludesQueuedTaskWithCompleteProgress(t *testing.T) {
+	truncateTables(t)
+	insertTask(t, &Task{
+		TaskID:   "task_queued_progress_complete",
+		Status:   TaskStatusQueued,
+		Progress: "100%",
+	})
+	insertTask(t, &Task{
+		TaskID:   "task_success",
+		Status:   TaskStatusSuccess,
+		Progress: "100%",
+	})
+
+	tasks := GetAllUnFinishSyncTasks(10)
+
+	require.Len(t, tasks, 1)
+	assert.Equal(t, "task_queued_progress_complete", tasks[0].TaskID)
+}
+
 // ---------------------------------------------------------------------------
 // UpdateWithStatus CAS — DB integration tests
 // ---------------------------------------------------------------------------

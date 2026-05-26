@@ -94,7 +94,6 @@ func TaskPollingLoop() {
 		time.Sleep(time.Duration(15) * time.Second)
 		common.SysLog("任务进度轮询开始")
 		ctx := context.TODO()
-		sweepTimedOutTasks(ctx)
 		allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
 		platformTask := make(map[constant.TaskPlatform][]*model.Task)
 		imageTaskChannelM := make(map[int][]string)
@@ -153,6 +152,7 @@ func TaskPollingLoop() {
 				common.SysLog(fmt.Sprintf("UpdateImageTasks fail: %s", err))
 			}
 		}
+		sweepTimedOutTasks(ctx)
 		common.SysLog("任务进度轮询完成")
 	}
 }
@@ -280,10 +280,8 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		return err
 	}
 
-	for _, responseItem := range responseItems.Data {
-		task := taskM[responseItem.TaskID]
+	for task, responseItem := range aggregateSunoTaskResponses(taskM, responseItems.Data) {
 		if task == nil {
-			logger.LogWarn(ctx, fmt.Sprintf("Suno polling returned unknown task_id %s, skip", responseItem.TaskID))
 			continue
 		}
 		if !taskNeedsUpdate(task, responseItem) {
@@ -315,6 +313,93 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		}
 	}
 	return nil
+}
+
+func aggregateSunoTaskResponses(taskM map[string]*model.Task, responseItems []dto.SunoDataResponse) map[*model.Task]dto.SunoDataResponse {
+	grouped := make(map[*model.Task][]dto.SunoDataResponse)
+	for _, responseItem := range responseItems {
+		task := taskM[responseItem.TaskID]
+		if task == nil {
+			logger.LogWarn(nil, fmt.Sprintf("Suno polling returned unknown task_id %s, skip", responseItem.TaskID))
+			continue
+		}
+		grouped[task] = append(grouped[task], responseItem)
+	}
+
+	aggregated := make(map[*model.Task]dto.SunoDataResponse, len(grouped))
+	for task, items := range grouped {
+		aggregated[task] = aggregateSunoTaskResponse(task, items)
+	}
+	return aggregated
+}
+
+func aggregateSunoTaskResponse(task *model.Task, items []dto.SunoDataResponse) dto.SunoDataResponse {
+	result := dto.SunoDataResponse{
+		TaskID: task.GetUpstreamTaskID(),
+		Action: task.Action,
+		Status: string(task.Status),
+		Data:   task.Data,
+	}
+	if result.TaskID == "" && len(items) > 0 {
+		result.TaskID = items[0].TaskID
+	}
+	total := len(splitTaskUpstreamIDs(task.GetUpstreamTaskID()))
+	if total == 0 {
+		total = len(items)
+	}
+	successCount := 0
+	failureCount := 0
+	statusRank := map[string]int{
+		string(model.TaskStatusNotStart):   0,
+		string(model.TaskStatusSubmitted):  1,
+		string(model.TaskStatusQueued):     2,
+		string(model.TaskStatusInProgress): 3,
+		string(model.TaskStatusUnknown):    4,
+	}
+	currentRank := -1
+
+	for _, item := range items {
+		status := model.TaskStatus(item.Status)
+		switch status {
+		case model.TaskStatusSuccess:
+			successCount++
+			result.Data = mergeSunoTaskData(result.Data, item.Data)
+			if item.FinishTime > result.FinishTime {
+				result.FinishTime = item.FinishTime
+			}
+		case model.TaskStatusFailure:
+			failureCount++
+			result.FailReason = lo.If(item.FailReason != "", item.FailReason).Else(result.FailReason)
+			if item.FinishTime > result.FinishTime {
+				result.FinishTime = item.FinishTime
+			}
+		default:
+			rank := statusRank[item.Status]
+			if rank > currentRank {
+				currentRank = rank
+				result.Status = item.Status
+			}
+		}
+		if item.SubmitTime != 0 && (result.SubmitTime == 0 || item.SubmitTime < result.SubmitTime) {
+			result.SubmitTime = item.SubmitTime
+		}
+		if item.StartTime != 0 && (result.StartTime == 0 || item.StartTime < result.StartTime) {
+			result.StartTime = item.StartTime
+		}
+	}
+	if failureCount > 0 {
+		result.Status = string(model.TaskStatusFailure)
+		return result
+	}
+	if successCount >= total {
+		result.Status = string(model.TaskStatusSuccess)
+		return result
+	}
+	if result.Status == string(model.TaskStatusSuccess) || result.Status == string(model.TaskStatusFailure) {
+		result.Status = string(model.TaskStatusInProgress)
+	}
+	result.FinishTime = 0
+	return result
 }
 
 // taskNeedsUpdate 检查 Suno 任务是否需要更新

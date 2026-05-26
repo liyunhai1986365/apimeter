@@ -482,13 +482,13 @@ function MonitorRow({
   removingChannelID?: number
 }) {
   const { t } = useTranslation()
+  const latestTests = item.latest_tests || []
   const latestTestByChannel = useMemo(
-    () => new Map(item.latest_tests?.map((test) => [test.channel_id, test])),
-    [item.latest_tests]
+    () => new Map(latestTests.map((test) => [test.channel_id, test])),
+    [latestTests]
   )
-  const latestTest = item.latest_tests?.[0]
-  const successfulTests =
-    item.latest_tests?.filter((test) => test.success).length || 0
+  const latestTest = latestTests[0]
+  const successfulTests = latestTests.filter((test) => test.success).length
 
   return (
     <>
@@ -552,7 +552,7 @@ function MonitorRow({
           <LatestTestSummary
             latestTest={latestTest}
             successCount={successfulTests}
-            totalCount={item.latest_tests.length}
+            totalCount={latestTests.length}
           />
         </TableCell>
         <TableCell className='text-right'>
