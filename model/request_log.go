@@ -10,7 +10,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-	"unicode"
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
@@ -19,8 +18,6 @@ import (
 const (
 	truncatedSuffix       = "...[TRUNCATED]"
 	requestLogRedactedVal = "[REDACTED]"
-	mojibakeErrorCode     = "mojibake_detected"
-	mojibakeErrorMessage  = "返回结果存在乱码"
 	binaryContentPrefix   = "[BASE64_BINARY_CONTENT]"
 )
 
@@ -354,7 +351,6 @@ func prepareRequestLogRecord(record *RequestLogRecord) {
 
 	record.RequestHash = hashContent(record.RequestBody)
 	record.ResponseHash = hashContent(record.ResponseBody)
-	markMojibakeIfNeeded(record)
 	record.RequestBody = normalizeRequestLogText(record.RequestBody)
 	record.ResponseBody = normalizeRequestLogText(record.ResponseBody)
 	record.RequestHeaders = normalizeRequestLogText(record.RequestHeaders)
@@ -376,10 +372,6 @@ func prepareRequestLogRecord(record *RequestLogRecord) {
 	record.RequestHeaders, _ = truncateContent(record.RequestHeaders, common.RequestLogMaxRequestBytes)
 	record.ErrorMessage, _ = truncateContent(record.ErrorMessage, common.RequestLogMaxResponseBytes)
 	record.Extra, _ = truncateContent(record.Extra, common.RequestLogMaxResponseBytes)
-
-	if record.ErrorCode == mojibakeErrorCode {
-		markOriginalLogAsMojibake(record)
-	}
 }
 
 func hashContent(content string) string {
@@ -486,95 +478,5 @@ func isSensitiveLogKey(key string) bool {
 			strings.Contains(normalized, "password") ||
 			strings.Contains(normalized, "token") ||
 			strings.Contains(normalized, "api_key")
-	}
-}
-
-func markMojibakeIfNeeded(record *RequestLogRecord) {
-	if record == nil || record.ResponseBody == "" {
-		return
-	}
-	if !containsMojibake(record.ResponseBody) {
-		return
-	}
-	record.Status = "error"
-	record.ErrorCode = mojibakeErrorCode
-	record.ErrorMessage = mojibakeErrorMessage
-	if record.StatusCode < 400 {
-		record.StatusCode = 500
-	}
-}
-
-func containsMojibake(content string) bool {
-	if content == "" {
-		return false
-	}
-	if !utf8.ValidString(content) {
-		return true
-	}
-
-	runes := []rune(content)
-	if len(runes) == 0 {
-		return false
-	}
-
-	replacementCount := 0
-	suspiciousCount := 0
-	for i, r := range runes {
-		if r == utf8.RuneError {
-			replacementCount++
-			continue
-		}
-		if isMojibakeRune(r) {
-			suspiciousCount++
-		}
-		if i+2 < len(runes) && isCommonMojibakeTriplet(runes[i], runes[i+1], runes[i+2]) {
-			suspiciousCount += 3
-		}
-	}
-
-	if replacementCount > 0 {
-		return true
-	}
-	if suspiciousCount >= 3 {
-		return true
-	}
-	return len(runes) >= 20 && suspiciousCount*100/len(runes) >= 10
-}
-
-func isMojibakeRune(r rune) bool {
-	switch r {
-	case 'Ã', 'Â', 'ð', 'Ð', 'Ñ', 'ä', 'å', 'æ', 'ç', 'è', 'é', 'ï':
-		return true
-	default:
-		return false
-	}
-}
-
-func isCommonMojibakeTriplet(a rune, b rune, c rune) bool {
-	if !isMojibakeRune(a) {
-		return false
-	}
-	return unicode.Is(unicode.Latin, b) && unicode.Is(unicode.Latin, c)
-}
-
-func markOriginalLogAsMojibake(record *RequestLogRecord) {
-	if LOG_DB == nil {
-		return
-	}
-
-	update := map[string]any{
-		"type":    LogTypeError,
-		"content": mojibakeErrorMessage,
-	}
-	if record.LogId > 0 {
-		if err := LOG_DB.Model(&Log{}).Where("id = ?", record.LogId).Updates(update).Error; err != nil {
-			common.SysError("failed to mark original log as mojibake by log id: " + err.Error())
-		}
-		return
-	}
-	if record.RequestId != "" {
-		if err := LOG_DB.Model(&Log{}).Where("request_id = ?", record.RequestId).Updates(update).Error; err != nil {
-			common.SysError("failed to mark original log as mojibake by request id: " + err.Error())
-		}
 	}
 }

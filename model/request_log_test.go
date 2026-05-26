@@ -212,7 +212,7 @@ func TestRecordRequestLogSanitizesAndTruncatesContent(t *testing.T) {
 	require.Equal(t, record.ResponseBody, store.records[0].ResponseBody)
 }
 
-func TestRecordRequestLogMarksOriginalLogAsErrorWhenResponseHasMojibake(t *testing.T) {
+func TestRecordRequestLogPreservesStatusWhenResponseBodyContainsLatinText(t *testing.T) {
 	originalLogDB := LOG_DB
 	originalEnabled := common.RequestLogEnabled
 	originalRedact := common.RequestLogRedactEnabled
@@ -235,27 +235,27 @@ func TestRecordRequestLogMarksOriginalLogAsErrorWhenResponseHasMojibake(t *testi
 		UserId:    12,
 		Username:  "alice",
 		Content:   "normal consume",
-		RequestId: "req_mojibake",
+		RequestId: "req_latin_text",
 	}
 	require.NoError(t, LOG_DB.Create(&origin).Error)
 
 	record, err := RecordRequestLog(RequestLogRecord{
 		UserId:       12,
-		RequestId:    "req_mojibake",
+		RequestId:    "req_latin_text",
 		Status:       "success",
 		StatusCode:   200,
 		ResponseBody: `{"output":"ä½ å¥½ï¼Œè¿æ¯ä¹±ç "}`,
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, "error", record.Status)
-	require.Equal(t, "mojibake_detected", record.ErrorCode)
-	require.Contains(t, record.ErrorMessage, "乱码")
+	require.Equal(t, "success", record.Status)
+	require.Empty(t, record.ErrorCode)
+	require.Empty(t, record.ErrorMessage)
 
 	var saved Log
 	require.NoError(t, LOG_DB.First(&saved, origin.Id).Error)
-	require.Equal(t, LogTypeError, saved.Type)
-	require.Equal(t, "返回结果存在乱码", saved.Content)
+	require.Equal(t, LogTypeConsume, saved.Type)
+	require.Equal(t, "normal consume", saved.Content)
 }
 
 func TestRecordRequestLogNormalizesInvalidUTF8Content(t *testing.T) {

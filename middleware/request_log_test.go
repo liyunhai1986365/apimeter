@@ -171,7 +171,7 @@ func TestBuildRequestLogRecordDecodesGzipResponseCapture(t *testing.T) {
 	require.Contains(t, record.Extra, "response_capture_decoded")
 }
 
-func TestBuildRequestLogRecordMarksMojibakeResponseAsError(t *testing.T) {
+func TestBuildRequestLogRecordPreservesLatinTextResponseStatus(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	originalLogDB := model.LOG_DB
 	originalEnabled := common.RequestLogEnabled
@@ -196,9 +196,9 @@ func TestBuildRequestLogRecordMarksMojibakeResponseAsError(t *testing.T) {
 	record, err := model.RecordRequestLog(record)
 	require.NoError(t, err)
 
-	require.Equal(t, "error", record.Status)
-	require.Equal(t, "mojibake_detected", record.ErrorCode)
-	require.Contains(t, record.ErrorMessage, "乱码")
+	require.Equal(t, "success", record.Status)
+	require.Empty(t, record.ErrorCode)
+	require.Empty(t, record.ErrorMessage)
 }
 
 func TestRequestLogEndpointFilterOnlyAllowsRelayRequests(t *testing.T) {
