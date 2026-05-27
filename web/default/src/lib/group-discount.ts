@@ -62,16 +62,14 @@ export function formatGroupDiscount(
   if (value === 1) return labels.originalPrice
 
   const percent = value * 100
-  if (value > 0 && value < 1 && Math.abs(percent % 10) < 1e-9) {
+  if (value > 0 && value < 1) {
+    const shouldUseTenthFold = percent < 10 || Math.abs(percent % 10) < 1e-9
+    const fold = shouldUseTenthFold ? percent / 10 : percent
     return formatTemplate(
       labels.fold,
-      formatPercentNumber(percent / 10),
+      formatPercentNumber(fold),
       formatPercentNumber(percent)
     )
-  }
-
-  if (value < 1) {
-    return formatTemplate(labels.percentDiscount, formatPercentNumber(percent))
   }
 
   return formatTemplate(labels.percentPrice, formatPercentNumber(percent))

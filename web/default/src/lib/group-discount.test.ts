@@ -22,7 +22,10 @@ describe('formatGroupDiscount', () => {
 
   test('formats simple discount ratios with translated labels', () => {
     assert.equal(formatGroupDiscount(0.5, zhDiscountLabels), '5折')
+    assert.equal(formatGroupDiscount(0.4, zhDiscountLabels), '4折')
+    assert.equal(formatGroupDiscount(0.05, zhDiscountLabels), '0.5折')
     assert.equal(formatGroupDiscount(0.8, zhDiscountLabels), '8折')
+    assert.equal(formatGroupDiscount(0.85, zhDiscountLabels), '85折')
     assert.equal(formatGroupDiscount(1, zhDiscountLabels), '原价')
   })
 
