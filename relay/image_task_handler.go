@@ -105,15 +105,49 @@ type imageAsyncTaskResponse struct {
 	Error      map[string]interface{} `json:"error,omitempty"`
 }
 
+type duomiGeminiImageSubmitResponse struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data struct {
+		TaskID string `json:"task_id"`
+	} `json:"data"`
+}
+
+type duomiGeminiImageTaskEnvelope struct {
+	Code int    `json:"code"`
+	Msg  string `json:"msg"`
+	Data struct {
+		TaskID     string            `json:"task_id"`
+		State      string            `json:"state"`
+		Data       dto.ImageTaskData `json:"data"`
+		CreateTime string            `json:"create_time"`
+		UpdateTime string            `json:"update_time"`
+		Msg        string            `json:"msg"`
+		Status     string            `json:"status"`
+		Action     string            `json:"action"`
+	} `json:"data"`
+}
+
 func parseImageAsyncSubmitResponse(body []byte) (string, bool) {
 	var payload imageAsyncSubmitResponse
-	if err := common.Unmarshal(body, &payload); err != nil {
+	if err := common.Unmarshal(body, &payload); err == nil {
+		if taskID := strings.TrimSpace(payload.ID); taskID != "" {
+			return taskID, true
+		}
+	}
+
+	var duomiGeminiPayload duomiGeminiImageSubmitResponse
+	if err := common.Unmarshal(body, &duomiGeminiPayload); err != nil {
 		return "", false
 	}
-	if strings.TrimSpace(payload.ID) == "" {
+	if duomiGeminiPayload.Code < http.StatusOK || duomiGeminiPayload.Code >= http.StatusMultipleChoices {
 		return "", false
 	}
-	return payload.ID, true
+	taskID := strings.TrimSpace(duomiGeminiPayload.Data.TaskID)
+	if taskID == "" {
+		return "", false
+	}
+	return taskID, true
 }
 
 func recordImageAsyncSubmitResponse(info *relaycommon.RelayInfo, responseBody []byte) *types.NewAPIError {
@@ -172,7 +206,7 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 	key := info.ApiKey
 	proxy := info.ChannelSetting.Proxy
 
-	body, err := waitImageTaskSucceeded(c, baseURL, key, upstreamTaskID, proxy)
+	body, err := waitImageTaskSucceeded(c, baseURL, key, upstreamTaskID, proxy, info.OriginModelName)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusBadGateway)
 	}
@@ -183,11 +217,11 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 	return output, nil
 }
 
-func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy string) ([]byte, error) {
+func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy, modelName string) ([]byte, error) {
 	waitSeconds := 2 * time.Second
 	maxStep := 60
 	for step := 0; step < maxStep; step++ {
-		body, statusCode, err := fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy)
+		body, statusCode, err := fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy, modelName)
 		if err != nil {
 			return nil, err
 		}
@@ -195,14 +229,14 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy 
 			return nil, fmt.Errorf("fetch image task status code: %d, body: %s", statusCode, string(body))
 		}
 
-		var upstream dto.ImageTaskResponse
-		if err := common.Unmarshal(body, &upstream); err != nil {
+		upstream, normalizedBody, err := normalizeImageTaskResponseForRelay(modelName, upstreamTaskID, body)
+		if err != nil {
 			return nil, err
 		}
 		status, _, failReason, _ := normalizeImageTaskResultForRelay(upstream)
 		switch status {
 		case model.TaskStatusSuccess:
-			return body, nil
+			return normalizedBody, nil
 		case model.TaskStatusFailure:
 			if failReason == "" {
 				failReason = "image task failed"
@@ -219,6 +253,34 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy 
 		}
 	}
 	return nil, fmt.Errorf("image async task wait timeout")
+}
+
+func normalizeImageTaskResponseForRelay(modelName, upstreamTaskID string, body []byte) (dto.ImageTaskResponse, []byte, error) {
+	if relaycommon.IsDuomiGeminiImageModel(modelName) {
+		task := &model.Task{
+			TaskID: upstreamTaskID,
+			Action: constant.TaskActionGenerate,
+			Properties: model.Properties{
+				OriginModelName: modelName,
+			},
+		}
+		if normalized, ok, err := normalizeDuomiGeminiImageTaskResponse(task, body); ok || err != nil {
+			if err != nil {
+				return dto.ImageTaskResponse{}, nil, err
+			}
+			var upstream dto.ImageTaskResponse
+			if err := common.Unmarshal(normalized, &upstream); err != nil {
+				return dto.ImageTaskResponse{}, nil, err
+			}
+			return upstream, normalized, nil
+		}
+	}
+
+	var upstream dto.ImageTaskResponse
+	if err := common.Unmarshal(body, &upstream); err != nil {
+		return dto.ImageTaskResponse{}, nil, err
+	}
+	return upstream, body, nil
 }
 
 func convertImageAsyncResultToOpenAIResponse(info *relaycommon.RelayInfo, body []byte) ([]byte, error) {
@@ -245,8 +307,8 @@ func convertImageAsyncResultToOpenAIResponse(info *relaycommon.RelayInfo, body [
 	return common.Marshal(imageResp)
 }
 
-func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string) ([]byte, int, error) {
-	req, err := buildImageTaskFetchRequest(baseURL, key, upstreamTaskID)
+func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string, modelName ...string) ([]byte, int, error) {
+	req, err := buildImageTaskFetchRequest(baseURL, key, upstreamTaskID, modelName...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -365,7 +427,7 @@ func fetchImageTaskFromUpstream(task *model.Task) ([]byte, int, error) {
 		return nil, 0, fmt.Errorf("channel base url is empty")
 	}
 
-	req, err := buildImageTaskFetchRequest(baseURL, channelModel.Key, task.GetUpstreamTaskID())
+	req, err := buildImageTaskFetchRequest(baseURL, channelModel.Key, task.GetUpstreamTaskID(), imageTaskModelName(task))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -389,8 +451,14 @@ func fetchImageTaskFromUpstream(task *model.Task) ([]byte, int, error) {
 	return body, resp.StatusCode, nil
 }
 
-func buildImageTaskFetchRequest(baseURL, key, upstreamTaskID string) (*http.Request, error) {
-	requestURL := relaycommon.GetFullRequestURL(baseURL, "/v1/tasks/"+upstreamTaskID, constant.ChannelTypeOpenAI)
+func buildImageTaskFetchRequest(baseURL, key, upstreamTaskID string, modelName ...string) (*http.Request, error) {
+	taskPath := "/v1/tasks/" + upstreamTaskID
+	if len(modelName) > 0 {
+		if geminiPath, ok := relaycommon.DuomiGeminiImageTaskPath(baseURL, modelName[0], upstreamTaskID); ok {
+			taskPath = geminiPath
+		}
+	}
+	requestURL := relaycommon.GetFullRequestURL(baseURL, taskPath, constant.ChannelTypeOpenAI)
 	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
 	if err != nil {
 		return nil, err
@@ -405,6 +473,12 @@ func buildImageTaskFetchRequest(baseURL, key, upstreamTaskID string) (*http.Requ
 }
 
 func convertImageTaskResponse(task *model.Task, body []byte) ([]byte, error) {
+	if relaycommon.IsDuomiGeminiImageModel(imageTaskModelName(task)) {
+		if normalized, ok, err := normalizeDuomiGeminiImageTaskResponse(task, body); ok || err != nil {
+			return normalized, err
+		}
+	}
+
 	var upstream imageAsyncTaskResponse
 	if err := common.Unmarshal(body, &upstream); err != nil {
 		return nil, err
@@ -423,6 +497,85 @@ func convertImageTaskResponse(task *model.Task, body []byte) ([]byte, error) {
 		response.State = mapTaskStatusToSimple(task.Status)
 	}
 	return common.Marshal(response)
+}
+
+func normalizeDuomiGeminiImageTaskResponse(task *model.Task, body []byte) ([]byte, bool, error) {
+	var upstream duomiGeminiImageTaskEnvelope
+	if err := common.Unmarshal(body, &upstream); err != nil {
+		return nil, false, nil
+	}
+	if upstream.Code == 0 && upstream.Msg == "" && upstream.Data.TaskID == "" {
+		return nil, false, nil
+	}
+	if upstream.Code < http.StatusOK || upstream.Code >= http.StatusMultipleChoices {
+		if upstream.Msg == "" {
+			upstream.Msg = "duomi gemini image task failed"
+		}
+		return nil, true, errors.New(upstream.Msg)
+	}
+
+	createTime := parseTaskUnixTime(upstream.Data.CreateTime)
+	updateTime := parseTaskUnixTime(upstream.Data.UpdateTime)
+	response := dto.ImageTaskResponse{
+		ID:         common.GetStringIfEmpty(upstream.Data.TaskID, task.TaskID),
+		State:      upstream.Data.State,
+		CreateTime: firstNonZeroInt64(createTime, task.CreatedAt),
+		UpdateTime: firstNonZeroInt64(updateTime, task.UpdatedAt),
+		Action:     common.GetStringIfEmpty(upstream.Data.Action, task.Action),
+		Data:       upstream.Data.Data,
+	}
+	if response.State == "" {
+		response.State = mapDuomiGeminiStatus(upstream.Data.Status)
+	}
+	if response.State == "" {
+		response.State = mapTaskStatusToSimple(task.Status)
+	}
+	if response.State == "error" && strings.TrimSpace(upstream.Data.Msg) != "" {
+		response.Error = map[string]any{"message": upstream.Data.Msg}
+	}
+	normalized, err := common.Marshal(response)
+	return normalized, true, err
+}
+
+func imageTaskModelName(task *model.Task) string {
+	if task == nil {
+		return ""
+	}
+	if task.Properties.OriginModelName != "" {
+		return task.Properties.OriginModelName
+	}
+	if task.Properties.UpstreamModelName != "" {
+		return task.Properties.UpstreamModelName
+	}
+	if task.PrivateData.BillingContext != nil {
+		return task.PrivateData.BillingContext.OriginModelName
+	}
+	return ""
+}
+
+func parseTaskUnixTime(value string) int64 {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return 0
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return parsed
+}
+
+func mapDuomiGeminiStatus(status string) string {
+	switch strings.TrimSpace(status) {
+	case "1":
+		return "pending"
+	case "2":
+		return "error"
+	case "3":
+		return "succeeded"
+	default:
+		return ""
+	}
 }
 
 func firstNonZeroInt64(value int64, fallback int64) int64 {

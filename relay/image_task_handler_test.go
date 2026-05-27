@@ -1,6 +1,7 @@
 package relay
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -144,6 +145,52 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 	}`, recorder.Body.String())
 }
 
+func TestWaitImageAsyncSubmitResponseNormalizesDuomiGeminiTaskPayload(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+
+	upstreamTaskID := "f5044b53-4e32-2ee6-48b4-73bd60cd6754"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/duomiapi.com/api/gemini/nano-banana/"+upstreamTaskID, r.URL.Path)
+		require.Equal(t, "duomi-key", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":200,"msg":"success","data":{"task_id":"f5044b53-4e32-2ee6-48b4-73bd60cd6754","state":"succeeded","data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg","file_name":"output.jpeg"}],"description":"done"},"create_time":"1757061229","update_time":"1757061252","msg":"","status":"3","action":"generate"},"exec_time":0.05,"ip":"118.125.2.163"}`))
+	}))
+	defer upstream.Close()
+
+	info := &relaycommon.RelayInfo{
+		StartTime:       time.Unix(1779125700, 0),
+		OriginModelName: "gemini-3-pro-image-preview",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: upstream.URL + "/duomiapi.com",
+			ApiKey:         "duomi-key",
+		},
+	}
+
+	router := gin.New()
+	router.POST("/v1/images/generations", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 50*time.Millisecond)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
+
+		body, apiErr := waitImageAsyncSubmitResponse(c, info, []byte(`{"code":200,"msg":"success","data":{"task_id":"f5044b53-4e32-2ee6-48b4-73bd60cd6754"}}`))
+		require.Nil(t, apiErr)
+		c.Data(http.StatusOK, "application/json", body)
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{
+		"created": 1757061229,
+		"data": [{"url":"https://cdn3.dmiapi.com/output.jpeg","b64_json":"","revised_prompt":""}]
+	}`, recorder.Body.String())
+}
+
 func TestWaitImageAsyncSubmitResponseSkipsWhenClientRequestedAsync(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		IsAsyncImageRequest: true,
@@ -255,4 +302,50 @@ func TestBuildImageTaskFetchRequestUsesDuomiTaskEndpointAndRawAuthorization(t *t
 	require.Equal(t, "https://duomiapi.com/v1/tasks/7154f43c-7765-4e77-d51e-0db4eee107b0", req.URL.String())
 	require.Equal(t, "duomi-key", req.Header.Get("Authorization"))
 	require.Equal(t, "application/json", req.Header.Get("Accept"))
+}
+
+func TestBuildImageTaskFetchRequestUsesDuomiGeminiTaskEndpoint(t *testing.T) {
+	req, err := buildImageTaskFetchRequest("https://duomiapi.com", "duomi-key", "7154f43c-7765-4e77-d51e-0db4eee107b0", "gemini-3-pro-image-preview")
+	require.NoError(t, err)
+	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana/7154f43c-7765-4e77-d51e-0db4eee107b0", req.URL.String())
+	require.Equal(t, "duomi-key", req.Header.Get("Authorization"))
+}
+
+func TestConvertImageTaskResponseNormalizesDuomiGeminiPayload(t *testing.T) {
+	task := &model.Task{
+		TaskID:    "7154f43c-7765-4e77-d51e-0db4eee107b0",
+		Action:    constant.TaskActionGenerate,
+		CreatedAt: 1779125700,
+		UpdatedAt: 1779125701,
+		Properties: model.Properties{
+			OriginModelName: "gemini-3-pro-image-preview",
+		},
+	}
+
+	output, err := convertImageTaskResponse(task, []byte(`{
+		"code":200,
+		"msg":"success",
+		"data":{
+			"task_id":"7154f43c-7765-4e77-d51e-0db4eee107b0",
+			"state":"succeeded",
+			"data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg","file_name":"output.jpeg"}],"description":"done"},
+			"create_time":"1757061229",
+			"update_time":"1757061252",
+			"msg":"",
+			"status":"3",
+			"action":"generate"
+		},
+		"exec_time":0.05,
+		"ip":"118.125.2.163"
+	}`))
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"id":"7154f43c-7765-4e77-d51e-0db4eee107b0",
+		"state":"succeeded",
+		"progress":0,
+		"create_time":1757061229,
+		"update_time":1757061252,
+		"action":"generate",
+		"data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg","file_name":"output.jpeg"}]}
+	}`, string(output))
 }
