@@ -62,7 +62,9 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const searchParams = route.useSearch()
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
-  >(() => (logCategory === 'common' ? { ip: false } : {}))
+  >((): Record<string, boolean> =>
+    logCategory === 'common' ? { ip: false } : {}
+  )
 
   useEffect(() => {
     setColumnVisibility((prev) => {

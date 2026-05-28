@@ -250,6 +250,13 @@ export interface TaskLog {
   other?: string
   created_at?: number
   updated_at?: number
+  properties?: TaskLogProperties | string
+}
+
+export interface TaskLogProperties {
+  input?: string
+  upstream_model_name?: string
+  origin_model_name?: string
 }
 
 // ============================================================================
