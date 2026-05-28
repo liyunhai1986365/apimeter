@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -187,6 +188,10 @@ type RelayInfo struct {
 	// 最终请求到上游的格式。可由 adaptor 显式设置；
 	// 若为空，调用 GetFinalRequestRelayFormat 会回退到 RequestConversionChain 的最后一项或 RelayFormat。
 	FinalRequestRelayFormat types.RelayFormat
+	SourceRequestMode       string
+	TargetRequestMode       string
+	ConversionID            string
+	PreserveResponseMode    bool
 
 	StreamStatus *StreamStatus
 
@@ -546,7 +551,6 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	if info.RelayMode == relayconstant.RelayModeUnknown {
 		info.RelayMode = c.GetInt("relay_mode")
 	}
-
 	if strings.HasPrefix(c.Request.URL.Path, "/pg") {
 		info.IsPlayground = true
 		info.RequestURLPath = strings.TrimPrefix(info.RequestURLPath, "/pg")
@@ -633,9 +637,29 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 	if info == nil {
 		return nil, errors.New("failed to build relay info")
 	}
+	if conversion.ActiveConversionID(c) == conversion.ConversionOpenAIChatToImageGenerations || c.GetBool("chat_image_compat") {
+		info.RelayFormat = types.RelayFormatOpenAIImage
+		info.RelayMode = relayconstant.RelayModeImagesGenerations
+		info.RequestURLPath = "/v1/images/generations"
+	}
+	info.ApplyProtocolConversionContext(c)
 
 	info.InitRequestConversionChain()
 	return info, nil
+}
+
+func (info *RelayInfo) ApplyProtocolConversionContext(c *gin.Context) {
+	if info == nil || c == nil {
+		return
+	}
+	info.ConversionID = c.GetString(conversion.ContextKeyConversionID)
+	info.SourceRequestMode = c.GetString(conversion.ContextKeySourceRequestMode)
+	info.TargetRequestMode = c.GetString(conversion.ContextKeyTargetRequestMode)
+	info.PreserveResponseMode = c.GetBool(conversion.ContextKeyPreserveResponse)
+	if targetFormat := types.RelayFormat(c.GetString(conversion.ContextKeyTargetRelayFormat)); targetFormat != "" {
+		info.FinalRequestRelayFormat = targetFormat
+		info.RequestConversionChain = []types.RelayFormat{targetFormat}
+	}
 }
 
 func (info *RelayInfo) InitRequestConversionChain() {

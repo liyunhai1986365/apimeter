@@ -87,6 +87,10 @@ export interface ChannelSettings {
   pass_through_body_enabled?: boolean
   system_prompt?: string
   system_prompt_override?: boolean
+  protocol?: {
+    native_modes?: string[]
+    enabled_conversions?: string[]
+  }
 }
 
 export interface ChannelOtherSettings {

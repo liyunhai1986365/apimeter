@@ -128,6 +128,8 @@ import {
 } from '../../constants'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
+  CONVERSION_OPTIONS,
+  REQUEST_MODE_OPTIONS,
   channelFormSchema,
   channelsQueryKeys,
   transformChannelToFormDefaults,
@@ -240,6 +242,8 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.thinking_to_content ||
     values.pass_through_body_enabled ||
     values.system_prompt_override ||
+    (values.protocol_native_modes?.length ?? 0) > 0 ||
+    (values.protocol_enabled_conversions?.length ?? 0) > 0 ||
     values.claude_beta_query ||
     values.upstream_model_update_check_enabled ||
     values.upstream_model_update_auto_sync_enabled ||
@@ -3171,6 +3175,62 @@ export function ChannelMutateDrawer({
                                 onCheckedChange={field.onChange}
                               />
                             </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='protocol_native_modes'
+                        render={({ field }) => (
+                          <FormItem className='px-4 py-3'>
+                            <FormLabel>{t('Native Request Modes')}</FormLabel>
+                            <FormControl>
+                              <MultiSelect
+                                options={REQUEST_MODE_OPTIONS.map((option) => ({
+                                  label: t(option.label),
+                                  value: option.value,
+                                }))}
+                                selected={field.value || []}
+                                onChange={field.onChange}
+                                placeholder={t('Select native request modes')}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Leave empty to use default protocol support for this channel'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='protocol_enabled_conversions'
+                        render={({ field }) => (
+                          <FormItem className='px-4 py-3'>
+                            <FormLabel>{t('Enabled Protocol Conversions')}</FormLabel>
+                            <FormControl>
+                              <MultiSelect
+                                options={CONVERSION_OPTIONS.map((option) => ({
+                                  label: t(option.label),
+                                  value: option.value,
+                                }))}
+                                selected={field.value || []}
+                                onChange={field.onChange}
+                                placeholder={t(
+                                  'Select enabled protocol conversions'
+                                )}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Configured channels only use the selected conversions'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />

@@ -19,6 +19,7 @@ import (
 	"github.com/QuantumNous/new-api/relay"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
@@ -116,6 +117,18 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			newAPIError = types.NewError(err, types.ErrorCodeInvalidRequest)
 		}
 		return
+	}
+	relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
+	if contextRelayMode := c.GetInt("relay_mode"); contextRelayMode != 0 {
+		relayMode = contextRelayMode
+	}
+	request, conversionPlan, err := conversion.ApplyRequest(c, relayFormat, relayMode, request)
+	if err != nil {
+		newAPIError = types.NewError(err, types.ErrorCodeInvalidRequest)
+		return
+	}
+	if conversionPlan != nil {
+		conversionPlan.Store(c)
 	}
 
 	relayInfo, err := relaycommon.GenRelayInfo(c, relayFormat, request, ws)

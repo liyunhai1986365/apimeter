@@ -5238,6 +5238,20 @@
     "Supported Models": "Mô hình hỗ trợ",
     "Sync": "Đồng bộ",
     "Supplier channel synced": "Đã đồng bộ kênh nhà cung cấp",
-    "Supplier channel sync failed": "Đồng bộ kênh nhà cung cấp thất bại"
+    "Supplier channel sync failed": "Đồng bộ kênh nhà cung cấp thất bại",
+    "OpenAI Chat": "Chat OpenAI",
+    "OpenAI Image Generations": "Tạo ảnh OpenAI",
+    "OpenAI Image Edits": "Chỉnh sửa ảnh OpenAI",
+    "OpenAI Video Generations": "Tạo video OpenAI",
+    "OpenAI Responses": "OpenAI Responses",
+    "Claude Messages": "Tin nhắn Claude",
+    "Gemini Generate Content": "Tạo nội dung Gemini",
+    "OpenAI Chat to OpenAI Image Generations": "OpenAI Chat sang tạo ảnh OpenAI",
+    "Native Request Modes": "Chế độ yêu cầu gốc",
+    "Select native request modes": "Chọn chế độ yêu cầu gốc",
+    "Leave empty to use default protocol support for this channel": "Để trống để dùng hỗ trợ giao thức mặc định cho kênh này",
+    "Enabled Protocol Conversions": "Chuyển đổi giao thức đã bật",
+    "Select enabled protocol conversions": "Chọn chuyển đổi giao thức đã bật",
+    "Configured channels only use the selected conversions": "Kênh đã cấu hình chỉ dùng các chuyển đổi được chọn"
   }
 }

@@ -1,11 +1,16 @@
 package service
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -21,8 +26,9 @@ func openChannelSelectTestDB(t *testing.T) *gorm.DB {
 	common.UsingMySQL = false
 	common.UsingPostgreSQL = false
 	common.MemoryCacheEnabled = true
+	model.InitColForTest()
 
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}))
 	model.DB = db
@@ -57,6 +63,42 @@ func createChannelSelectFixture(
 	require.NoError(t, db.Create(&model.Ability{
 		Group:     group,
 		Model:     "gpt-test",
+		ChannelId: id,
+		Enabled:   true,
+		Priority:  &priority,
+		Weight:    weight,
+	}).Error)
+}
+
+func createImageChannelSelectFixture(
+	t *testing.T,
+	db *gorm.DB,
+	id int,
+	group string,
+	priority int64,
+	setting dto.ChannelSettings,
+) {
+	t.Helper()
+
+	weight := uint(100)
+	autoBan := 1
+	channel := model.Channel{
+		Id:       id,
+		Type:     1,
+		Key:      "sk-test",
+		Status:   common.ChannelStatusEnabled,
+		Name:     group,
+		Group:    group,
+		Models:   "gpt-image-2",
+		Weight:   &weight,
+		Priority: &priority,
+		AutoBan:  &autoBan,
+	}
+	channel.SetSetting(setting)
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     group,
+		Model:     "gpt-image-2",
 		ChannelId: id,
 		Enabled:   true,
 		Priority:  &priority,
@@ -105,4 +147,116 @@ func TestCacheGetRandomSatisfiedChannelAutoGroupAndCrossGroupRetry(t *testing.T)
 	require.NotNil(t, channel)
 	require.Equal(t, 1002, channel.Id)
 	require.Equal(t, "vip", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupport(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled = false
+	})
+
+	createImageChannelSelectFixture(t, db, 1001, "default", 20, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes:        []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+	createImageChannelSelectFixture(t, db, 1002, "default", 10, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{
+				string(conversion.RequestModeOpenAIChat),
+				string(conversion.RequestModeOpenAIImageGenerations),
+			},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-image-2"}`))
+
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "gpt-image-2",
+		Retry:      common.GetPointer(0),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1002, channel.Id)
+	require.Equal(t, "default", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelRejectsWhenAllImageChatChannelsUnsupported(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled = false
+	})
+
+	createImageChannelSelectFixture(t, db, 1001, "default", 20, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes:        []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+	createImageChannelSelectFixture(t, db, 1002, "default", 10, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes:        []string{string(conversion.RequestModeOpenAIChat)},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-image-2"}`))
+
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "gpt-image-2",
+		Retry:      common.GetPointer(0),
+	})
+	require.Error(t, err)
+	require.Nil(t, channel)
+	require.Equal(t, "default", selectedGroup)
+	require.Contains(t, err.Error(), string(conversion.RequestModeOpenAIChat))
+	require.Contains(t, err.Error(), string(conversion.ConversionOpenAIChatToImageGenerations))
+}
+
+func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupportWithoutMemoryCache(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled = false
+	})
+	common.MemoryCacheEnabled = false
+
+	createImageChannelSelectFixture(t, db, 1001, "default", 20, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes:        []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+	createImageChannelSelectFixture(t, db, 1002, "default", 10, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{
+				string(conversion.RequestModeOpenAIChat),
+				string(conversion.RequestModeOpenAIImageGenerations),
+			},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-image-2"}`))
+
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "gpt-image-2",
+		Retry:      common.GetPointer(0),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1002, channel.Id)
+	require.Equal(t, "default", selectedGroup)
 }

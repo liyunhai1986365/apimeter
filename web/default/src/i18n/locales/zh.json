@@ -5238,6 +5238,20 @@
     "Supported Models": "支持模型",
     "Sync": "同步",
     "Supplier channel synced": "供应商渠道已同步",
-    "Supplier channel sync failed": "供应商渠道同步失败"
+    "Supplier channel sync failed": "供应商渠道同步失败",
+    "OpenAI Chat": "OpenAI Chat",
+    "OpenAI Image Generations": "OpenAI 图片生成",
+    "OpenAI Image Edits": "OpenAI 图片编辑",
+    "OpenAI Video Generations": "OpenAI 视频生成",
+    "OpenAI Responses": "OpenAI Responses",
+    "Claude Messages": "Claude Messages",
+    "Gemini Generate Content": "Gemini Generate Content",
+    "OpenAI Chat to OpenAI Image Generations": "OpenAI Chat 转 OpenAI 图片生成",
+    "Native Request Modes": "原生请求模式",
+    "Select native request modes": "选择原生请求模式",
+    "Leave empty to use default protocol support for this channel": "留空则使用此渠道的默认协议支持",
+    "Enabled Protocol Conversions": "启用的协议转化",
+    "Select enabled protocol conversions": "选择启用的协议转化",
+    "Configured channels only use the selected conversions": "已配置协议的渠道仅使用选中的转化方式"
   }
 }

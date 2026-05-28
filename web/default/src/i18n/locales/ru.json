@@ -5238,6 +5238,20 @@
     "Supported Models": "Поддерживаемые модели",
     "Sync": "Синхронизировать",
     "Supplier channel synced": "Канал поставщика синхронизирован",
-    "Supplier channel sync failed": "Не удалось синхронизировать канал поставщика"
+    "Supplier channel sync failed": "Не удалось синхронизировать канал поставщика",
+    "OpenAI Chat": "Чат OpenAI",
+    "OpenAI Image Generations": "Генерация изображений OpenAI",
+    "OpenAI Image Edits": "Редактирование изображений OpenAI",
+    "OpenAI Video Generations": "Генерация видео OpenAI",
+    "OpenAI Responses": "OpenAI Responses",
+    "Claude Messages": "Сообщения Claude",
+    "Gemini Generate Content": "Генерация контента Gemini",
+    "OpenAI Chat to OpenAI Image Generations": "Чат OpenAI в генерацию изображений OpenAI",
+    "Native Request Modes": "Собственные режимы запросов",
+    "Select native request modes": "Выберите собственные режимы запросов",
+    "Leave empty to use default protocol support for this channel": "Оставьте пустым, чтобы использовать поддержку протоколов по умолчанию для этого канала",
+    "Enabled Protocol Conversions": "Включенные преобразования протоколов",
+    "Select enabled protocol conversions": "Выберите включенные преобразования протоколов",
+    "Configured channels only use the selected conversions": "Настроенные каналы используют только выбранные преобразования"
   }
 }

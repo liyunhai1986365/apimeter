@@ -5238,6 +5238,20 @@
     "Supported Models": "対応モデル",
     "Sync": "同期",
     "Supplier channel synced": "サプライヤーチャネルを同期しました",
-    "Supplier channel sync failed": "サプライヤーチャネルの同期に失敗しました"
+    "Supplier channel sync failed": "サプライヤーチャネルの同期に失敗しました",
+    "OpenAI Chat": "OpenAI チャット",
+    "OpenAI Image Generations": "OpenAI 画像生成",
+    "OpenAI Image Edits": "OpenAI 画像編集",
+    "OpenAI Video Generations": "OpenAI 動画生成",
+    "OpenAI Responses": "OpenAI Responses",
+    "Claude Messages": "Claude Messages",
+    "Gemini Generate Content": "Gemini コンテンツ生成",
+    "OpenAI Chat to OpenAI Image Generations": "OpenAI チャットから OpenAI 画像生成へ",
+    "Native Request Modes": "ネイティブリクエストモード",
+    "Select native request modes": "ネイティブリクエストモードを選択",
+    "Leave empty to use default protocol support for this channel": "空欄にすると、このチャネルの既定プロトコルサポートを使用します",
+    "Enabled Protocol Conversions": "有効なプロトコル変換",
+    "Select enabled protocol conversions": "有効なプロトコル変換を選択",
+    "Configured channels only use the selected conversions": "設定済みチャネルでは選択した変換のみ使用します"
   }
 }

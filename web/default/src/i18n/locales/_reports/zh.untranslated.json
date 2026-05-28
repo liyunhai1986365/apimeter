@@ -103,5 +103,9 @@
   "whsec_xxx": "whsec_xxx",
   "Windows": "Windows",
   "Worker URL": "Worker URL",
-  "Xinference": "Xinference"
+  "Xinference": "Xinference",
+  "OpenAI Chat": "OpenAI Chat",
+  "OpenAI Responses": "OpenAI Responses",
+  "Claude Messages": "Claude Messages",
+  "Gemini Generate Content": "Gemini Generate Content"
 }

@@ -103,12 +103,25 @@ func getChannelQuery(group string, model string, retry int) (*gorm.DB, error) {
 }
 
 func GetChannel(group string, model string, retry int) (*Channel, error) {
+	return GetChannelWithFilter(group, model, retry, nil)
+}
+
+func GetChannelWithFilter(group string, model string, retry int, filter ChannelFilter) (*Channel, error) {
 	var abilities []Ability
 
 	var err error = nil
-	channelQuery, err := getChannelQuery(group, model, retry)
+	channelQuery, err := getFilteredChannelQuery(group, model, filter)
 	if err != nil {
 		return nil, err
+	}
+	if retry != 0 {
+		priority, err := getPriorityFromQuery(channelQuery, retry)
+		if err != nil {
+			return nil, err
+		}
+		channelQuery = channelQuery.Where("priority = ?", priority)
+	} else {
+		channelQuery = channelQuery.Where("priority = (?)", channelQuery.Session(&gorm.Session{}).Select("MAX(priority)"))
 	}
 	if common.UsingSQLite || common.UsingPostgreSQL {
 		err = channelQuery.Order("weight DESC").Find(&abilities).Error
@@ -140,6 +153,51 @@ func GetChannel(group string, model string, retry int) (*Channel, error) {
 	}
 	err = DB.First(&channel, "id = ?", channel.Id).Error
 	return &channel, err
+}
+
+func getFilteredChannelQuery(group string, model string, filter ChannelFilter) (*gorm.DB, error) {
+	channelQuery := DB.Model(&Ability{}).Where(commonGroupCol+" = ? and model = ? and enabled = ?", group, model, true)
+	if filter == nil {
+		return channelQuery, nil
+	}
+
+	var abilities []Ability
+	if err := channelQuery.Find(&abilities).Error; err != nil {
+		return nil, err
+	}
+	channelIDs := make([]int, 0, len(abilities))
+	for _, ability := range abilities {
+		channel := Channel{}
+		if err := DB.First(&channel, "id = ?", ability.ChannelId).Error; err != nil {
+			return nil, err
+		}
+		if filter(&channel) {
+			channelIDs = append(channelIDs, ability.ChannelId)
+		}
+	}
+	if len(channelIDs) == 0 {
+		return nil, ErrNoChannelMatchedFilter
+	}
+	return DB.Model(&Ability{}).
+		Where(commonGroupCol+" = ? and model = ? and enabled = ? and channel_id IN ?", group, model, true, channelIDs), nil
+}
+
+func getPriorityFromQuery(channelQuery *gorm.DB, retry int) (int, error) {
+	var priorities []int
+	err := channelQuery.Session(&gorm.Session{}).
+		Select("DISTINCT(priority)").
+		Order("priority DESC").
+		Pluck("priority", &priorities).Error
+	if err != nil {
+		return 0, err
+	}
+	if len(priorities) == 0 {
+		return 0, errors.New("数据库一致性被破坏")
+	}
+	if retry >= len(priorities) {
+		return priorities[len(priorities)-1], nil
+	}
+	return priorities[retry], nil
 }
 
 func (channel *Channel) AddAbilities(tx *gorm.DB) error {

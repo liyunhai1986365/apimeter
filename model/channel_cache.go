@@ -19,6 +19,10 @@ var group2model2channels map[string]map[string][]int // enabled channel
 var channelsIDM map[int]*Channel                     // all channels include disabled
 var channelSyncLock sync.RWMutex
 
+var ErrNoChannelMatchedFilter = errors.New("no channel matched filter")
+
+type ChannelFilter func(*Channel) bool
+
 func InitChannelCache() {
 	if !common.MemoryCacheEnabled {
 		return
@@ -95,9 +99,16 @@ func SyncChannelCache(frequency int) {
 }
 
 func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel, error) {
+	return GetRandomSatisfiedChannelWithFilter(group, model, retry, nil)
+}
+
+func GetRandomSatisfiedChannelWithFilter(group string, model string, retry int, filter ChannelFilter) (*Channel, error) {
 	// if memory cache is disabled, get channel directly from database
 	if !common.MemoryCacheEnabled {
-		return GetChannel(group, model, retry)
+		if filter == nil {
+			return GetChannel(group, model, retry)
+		}
+		return GetChannelWithFilter(group, model, retry, filter)
 	}
 
 	channelSyncLock.RLock()
@@ -114,6 +125,14 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 
 	if len(channels) == 0 {
 		return nil, nil
+	}
+
+	channels, err := filterChannelIDs(channels, filter)
+	if err != nil {
+		return nil, err
+	}
+	if len(channels) == 0 {
+		return nil, ErrNoChannelMatchedFilter
 	}
 
 	if len(channels) == 1 {
@@ -189,6 +208,23 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 	}
 	// return null if no channel is not found
 	return nil, errors.New("channel not found")
+}
+
+func filterChannelIDs(channelIDs []int, filter ChannelFilter) ([]int, error) {
+	if filter == nil {
+		return channelIDs, nil
+	}
+	filtered := make([]int, 0, len(channelIDs))
+	for _, channelID := range channelIDs {
+		channel, ok := channelsIDM[channelID]
+		if !ok {
+			return nil, fmt.Errorf("数据库一致性错误，渠道# %d 不存在，请联系管理员修复", channelID)
+		}
+		if filter(channel) {
+			filtered = append(filtered, channelID)
+		}
+	}
+	return filtered, nil
 }
 
 func CacheGetChannel(id int) (*Channel, error) {

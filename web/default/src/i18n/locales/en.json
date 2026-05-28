@@ -5238,6 +5238,20 @@
     "Supported Models": "Supported Models",
     "Sync": "Sync",
     "Supplier channel synced": "Supplier channel synced",
-    "Supplier channel sync failed": "Supplier channel sync failed"
+    "Supplier channel sync failed": "Supplier channel sync failed",
+    "OpenAI Chat": "OpenAI Chat",
+    "OpenAI Image Generations": "OpenAI Image Generations",
+    "OpenAI Image Edits": "OpenAI Image Edits",
+    "OpenAI Video Generations": "OpenAI Video Generations",
+    "OpenAI Responses": "OpenAI Responses",
+    "Claude Messages": "Claude Messages",
+    "Gemini Generate Content": "Gemini Generate Content",
+    "OpenAI Chat to OpenAI Image Generations": "OpenAI Chat to OpenAI Image Generations",
+    "Native Request Modes": "Native Request Modes",
+    "Select native request modes": "Select native request modes",
+    "Leave empty to use default protocol support for this channel": "Leave empty to use default protocol support for this channel",
+    "Enabled Protocol Conversions": "Enabled Protocol Conversions",
+    "Select enabled protocol conversions": "Select enabled protocol conversions",
+    "Configured channels only use the selected conversions": "Configured channels only use the selected conversions"
   }
 }

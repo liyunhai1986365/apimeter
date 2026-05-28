@@ -2,11 +2,15 @@ package service
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
 )
@@ -85,6 +89,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	var err error
 	selectGroup := param.TokenGroup
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
+	filter := BuildProtocolChannelFilter(param)
 
 	if param.TokenGroup == "auto" {
 		if len(setting.GetAutoGroups()) == 0 {
@@ -115,7 +120,13 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, _ = model.GetRandomSatisfiedChannel(autoGroup, param.ModelName, priorityRetry)
+			channel, err = model.GetRandomSatisfiedChannelWithFilter(autoGroup, param.ModelName, priorityRetry, filter)
+			if err != nil && !errors.Is(err, model.ErrNoChannelMatchedFilter) {
+				return nil, autoGroup, err
+			}
+			if errors.Is(err, model.ErrNoChannelMatchedFilter) && shouldStopOnProtocolMismatch(param) {
+				return nil, autoGroup, unsupportedImageChatProtocolError(param.ModelName)
+			}
 			if channel == nil {
 				// Current group has no available channel for this model, try next group
 				// 当前分组没有该模型的可用渠道，尝试下一个分组
@@ -153,10 +164,46 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else {
-		channel, err = model.GetRandomSatisfiedChannel(param.TokenGroup, param.ModelName, param.GetRetry())
+		channel, err = model.GetRandomSatisfiedChannelWithFilter(param.TokenGroup, param.ModelName, param.GetRetry(), filter)
+		if errors.Is(err, model.ErrNoChannelMatchedFilter) {
+			return nil, param.TokenGroup, unsupportedImageChatProtocolError(param.ModelName)
+		}
 		if err != nil {
 			return nil, param.TokenGroup, err
 		}
 	}
 	return channel, selectGroup, nil
+}
+
+func shouldStopOnProtocolMismatch(param *RetryParam) bool {
+	if param == nil || param.TokenGroup != "auto" || param.Ctx == nil {
+		return true
+	}
+	return !common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+}
+
+func unsupportedImageChatProtocolError(modelName string) error {
+	return fmt.Errorf("当前模型 %s 没有可用渠道支持 %s 请求模式或 %s 转化", modelName, conversion.RequestModeOpenAIChat, conversion.ConversionOpenAIChatToImageGenerations)
+}
+
+func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
+	if param == nil || param.Ctx == nil || param.Ctx.Request == nil {
+		return nil
+	}
+	if param.Ctx.Request.Method != http.MethodPost ||
+		relayconstant.Path2RelayMode(param.Ctx.Request.URL.Path) != relayconstant.RelayModeChatCompletions ||
+		!common.IsImageGenerationModel(param.ModelName) {
+		return nil
+	}
+	return func(channel *model.Channel) bool {
+		if channel == nil {
+			return false
+		}
+		return conversion.SupportsConversion(
+			channel.GetSetting(),
+			conversion.RequestModeOpenAIChat,
+			conversion.RequestModeOpenAIImageGenerations,
+			conversion.ConversionOpenAIChatToImageGenerations,
+		)
+	}
 }

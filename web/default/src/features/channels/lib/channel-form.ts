@@ -20,6 +20,26 @@ import { z } from 'zod'
 import { CHANNEL_STATUS, MODEL_FETCHABLE_TYPES } from '../constants'
 import type { Channel } from '../types'
 
+export const REQUEST_MODE_OPTIONS = [
+  { label: 'OpenAI Chat', value: 'openai.chat' },
+  { label: 'OpenAI Image Generations', value: 'openai.image.generations' },
+  { label: 'OpenAI Image Edits', value: 'openai.image.edits' },
+  { label: 'OpenAI Video Generations', value: 'openai.video.generations' },
+  { label: 'OpenAI Responses', value: 'openai.responses' },
+  { label: 'Claude Messages', value: 'claude.messages' },
+  { label: 'Gemini Generate Content', value: 'gemini.generate_content' },
+]
+
+export const CONVERSION_OPTION_OPENAI_CHAT_TO_IMAGE_GENERATIONS =
+  'openai.chat_to_openai.image.generations'
+
+export const CONVERSION_OPTIONS = [
+  {
+    label: 'OpenAI Chat to OpenAI Image Generations',
+    value: CONVERSION_OPTION_OPENAI_CHAT_TO_IMAGE_GENERATIONS,
+  },
+]
+
 // ============================================================================
 // Form Validation Schema
 // ============================================================================
@@ -62,6 +82,8 @@ export const channelFormSchema = z.object({
   pass_through_body_enabled: z.boolean().optional(),
   system_prompt: z.string().optional(),
   system_prompt_override: z.boolean().optional(),
+  protocol_native_modes: z.array(z.string()).optional(),
+  protocol_enabled_conversions: z.array(z.string()).optional(),
   // Type-specific settings (stored in settings JSON)
   is_enterprise_account: z.boolean().optional(), // OpenRouter specific
   vertex_key_type: z.enum(['json', 'api_key']).optional(), // Vertex AI specific
@@ -121,6 +143,8 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   pass_through_body_enabled: false,
   system_prompt: '',
   system_prompt_override: false,
+  protocol_native_modes: [],
+  protocol_enabled_conversions: [],
   // Type-specific settings
   is_enterprise_account: false,
   vertex_key_type: 'json',
@@ -157,6 +181,8 @@ export function transformChannelToFormDefaults(
     pass_through_body_enabled: false,
     system_prompt: '',
     system_prompt_override: false,
+    protocol_native_modes: [] as string[],
+    protocol_enabled_conversions: [] as string[],
   }
 
   if (channel.setting) {
@@ -169,6 +195,14 @@ export function transformChannelToFormDefaults(
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
         system_prompt: parsed.system_prompt || '',
         system_prompt_override: parsed.system_prompt_override || false,
+        protocol_native_modes: Array.isArray(parsed.protocol?.native_modes)
+          ? parsed.protocol.native_modes
+          : [],
+        protocol_enabled_conversions: Array.isArray(
+          parsed.protocol?.enabled_conversions
+        )
+          ? parsed.protocol.enabled_conversions
+          : [],
       }
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -279,6 +313,10 @@ function buildSettingJSON(formData: ChannelFormValues): string {
     pass_through_body_enabled: formData.pass_through_body_enabled || false,
     system_prompt: formData.system_prompt || '',
     system_prompt_override: formData.system_prompt_override || false,
+    protocol: {
+      native_modes: formData.protocol_native_modes || [],
+      enabled_conversions: formData.protocol_enabled_conversions || [],
+    },
   }
   return JSON.stringify(settingObj)
 }

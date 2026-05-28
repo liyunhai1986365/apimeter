@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
@@ -46,7 +47,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 	var requestBody io.Reader
 
-	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled {
+	if !isConvertedImageRequest(c, info) && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
@@ -175,6 +176,18 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), logContent)
+	if wrapped, wrapErr := maybeWrapChatImageResponse(c, info, responseCapture.BodyBytes(), usage.(*dto.Usage)); wrapErr != nil {
+		return wrapErr
+	} else if wrapped {
+		return nil
+	}
 	responseCapture.WriteCaptured()
 	return nil
+}
+
+func isConvertedImageRequest(c *gin.Context, info *relaycommon.RelayInfo) bool {
+	if info != nil && info.ConversionID != "" {
+		return true
+	}
+	return conversion.ActiveConversionID(c) != "" || c.GetBool("chat_image_compat")
 }

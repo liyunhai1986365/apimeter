@@ -23,6 +23,7 @@ import (
 type imageResponseCapture struct {
 	gin.ResponseWriter
 	status int
+	header http.Header
 	body   bytes.Buffer
 }
 
@@ -30,7 +31,15 @@ func newImageResponseCapture(writer gin.ResponseWriter) *imageResponseCapture {
 	return &imageResponseCapture{
 		ResponseWriter: writer,
 		status:         http.StatusOK,
+		header:         make(http.Header),
 	}
+}
+
+func (w *imageResponseCapture) Header() http.Header {
+	if w.header == nil {
+		w.header = make(http.Header)
+	}
+	return w.header
 }
 
 func (w *imageResponseCapture) WriteHeader(code int) {
@@ -81,6 +90,12 @@ func (w *imageResponseCapture) Flush() {
 }
 
 func (w *imageResponseCapture) WriteCaptured() {
+	for k, v := range w.Header() {
+		if len(v) == 0 {
+			continue
+		}
+		w.ResponseWriter.Header()[k] = append([]string(nil), v...)
+	}
 	if w.status != 0 {
 		w.ResponseWriter.Header().Set("Content-Length", fmt.Sprintf("%d", w.body.Len()))
 		w.ResponseWriter.WriteHeader(w.status)
