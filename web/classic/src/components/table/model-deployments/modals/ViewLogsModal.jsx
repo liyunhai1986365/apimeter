@@ -37,7 +37,6 @@ import {
 import {
   FaCopy,
   FaSearch,
-  FaClock,
   FaTerminal,
   FaServer,
   FaInfoCircle,
@@ -59,7 +58,6 @@ const ALL_CONTAINERS = '__all__';
 const ViewLogsModal = ({ visible, onCancel, deployment, t }) => {
   const [logLines, setLogLines] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [following, setFollowing] = useState(false);
   const [containers, setContainers] = useState([]);
@@ -72,7 +70,6 @@ const ViewLogsModal = ({ visible, onCancel, deployment, t }) => {
   const [lastUpdatedAt, setLastUpdatedAt] = useState(null);
 
   const logContainerRef = useRef(null);
-  const autoRefreshRef = useRef(null);
 
   // Auto scroll to bottom when new logs arrive
   const scrollToBottom = () => {
@@ -315,26 +312,6 @@ const ViewLogsModal = ({ visible, onCancel, deployment, t }) => {
     }
   };
 
-  // Auto refresh functionality
-  useEffect(() => {
-    if (autoRefresh && visible) {
-      autoRefreshRef.current = setInterval(() => {
-        fetchLogs();
-      }, 5000);
-    } else {
-      if (autoRefreshRef.current) {
-        clearInterval(autoRefreshRef.current);
-        autoRefreshRef.current = null;
-      }
-    }
-
-    return () => {
-      if (autoRefreshRef.current) {
-        clearInterval(autoRefreshRef.current);
-      }
-    };
-  }, [autoRefresh, visible, selectedContainerId, streamFilter, following]);
-
   useEffect(() => {
     if (visible && deployment?.id) {
       fetchContainers();
@@ -365,12 +342,6 @@ const ViewLogsModal = ({ visible, onCancel, deployment, t }) => {
     if (visible && deployment?.id) {
       fetchLogs();
     }
-
-    return () => {
-      if (autoRefreshRef.current) {
-        clearInterval(autoRefreshRef.current);
-      }
-    };
   }, [visible, deployment?.id, streamFilter, selectedContainerId, following]);
 
   // Filter logs based on search term
@@ -471,15 +442,6 @@ const ViewLogsModal = ({ visible, onCancel, deployment, t }) => {
 
               <div className='flex items-center gap-2'>
                 <Switch
-                  checked={autoRefresh}
-                  onChange={setAutoRefresh}
-                  size='small'
-                />
-                <Text size='small'>{t('自动刷新')}</Text>
-              </div>
-
-              <div className='flex items-center gap-2'>
-                <Switch
                   checked={following}
                   onChange={setFollowing}
                   size='small'
@@ -534,12 +496,6 @@ const ViewLogsModal = ({ visible, onCancel, deployment, t }) => {
                     count: filteredLogs.length,
                   })}
                 </Text>
-              )}
-              {autoRefresh && (
-                <Tag color='green' size='small'>
-                  <FaClock className='mr-1' />
-                  {t('自动刷新中')}
-                </Tag>
               )}
             </Space>
 

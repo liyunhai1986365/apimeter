@@ -35,7 +35,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { getDeploymentLogs, listDeploymentContainers } from '../../api'
 
 interface ViewLogsDialogProps {
@@ -52,7 +51,6 @@ export function ViewLogsDialog({
   const { t } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [autoScroll, setAutoScroll] = useState(true)
-  const [autoRefresh, setAutoRefresh] = useState(false)
   const [stream, setStream] = useState<'stdout' | 'stderr' | 'all'>('stdout')
   const [containerId, setContainerId] = useState<string>('')
 
@@ -81,8 +79,6 @@ export function ViewLogsDialog({
       setStream('stdout')
 
       setAutoScroll(true)
-
-      setAutoRefresh(false)
       return
     }
 
@@ -110,7 +106,6 @@ export function ViewLogsDialog({
           })
         : null,
     enabled: open && deploymentId !== null && Boolean(containerId),
-    refetchInterval: open && autoRefresh ? 5000 : false,
   })
 
   const logsText = useMemo(() => {
@@ -181,10 +176,6 @@ export function ViewLogsDialog({
               <Download className='mr-2 h-4 w-4' />
               {t('Download')}
             </Button>
-            <div className='col-span-2 flex items-center justify-between gap-2 rounded-md border px-3 py-1.5 sm:col-span-1'>
-              <span className='text-xs'>{t('Auto refresh')}</span>
-              <Switch checked={autoRefresh} onCheckedChange={setAutoRefresh} />
-            </div>
           </div>
         </div>
 
