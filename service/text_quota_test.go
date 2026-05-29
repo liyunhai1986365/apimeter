@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 )
 
@@ -438,4 +439,50 @@ func TestComposeTieredTextQuotaErrorFallbackUsesPreConsumedQuota(t *testing.T) {
 
 	require.Equal(t, int64(12500), summary.ToolCallSurchargeQuota.Round(0).IntPart())
 	require.Equal(t, 14500, quota)
+}
+
+func TestModelBillingOriginalQuotaUsesGroupRatioForRatioBilling(t *testing.T) {
+	summary := textQuotaSummary{
+		Quota:      800,
+		GroupRatio: 0.8,
+	}
+
+	require.Equal(t, int64(1000), modelBillingOriginalQuota(summary, nil))
+}
+
+func TestModelBillingOriginalQuotaUsesTieredBeforeGroupWithToolSurcharge(t *testing.T) {
+	summary := textQuotaSummary{
+		Quota:                  14000,
+		GroupRatio:             0.8,
+		ToolCallSurchargeQuota: decimal.RequireFromString("250.4"),
+	}
+	tieredResult := &billingexpr.TieredResult{
+		ActualQuotaBeforeGroup: 1000,
+		ActualQuotaAfterGroup:  800,
+	}
+
+	require.Equal(t, int64(1313), modelBillingOriginalQuota(summary, tieredResult))
+}
+
+func TestModelBillingInputTokensExcludesCacheForOpenAIUsage(t *testing.T) {
+	summary := textQuotaSummary{
+		PromptTokens:          1000,
+		CacheTokens:           300,
+		CacheCreationTokens5m: 100,
+	}
+
+	require.Equal(t, int64(600), modelBillingInputTokens(summary))
+}
+
+func TestModelBillingInputTokensKeepsClaudeSemanticInput(t *testing.T) {
+	summary := textQuotaSummary{
+		PromptTokens:          1000,
+		CacheTokens:           300,
+		CacheCreationTokens:   200,
+		CacheCreationTokens5m: 50,
+		CacheCreationTokens1h: 100,
+		IsClaudeUsageSemantic: true,
+	}
+
+	require.Equal(t, int64(1000), modelBillingInputTokens(summary))
 }

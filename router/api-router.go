@@ -363,6 +363,11 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self", middleware.UserAuth(), controller.GetUserLogs)
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 
+		billingRoute := apiRouter.Group("/billing")
+		billingRoute.GET("/models/summary", middleware.UserAuth(), controller.GetSelfModelBillingSummary)
+		billingRoute.GET("/admin/models/summary", middleware.AdminAuth(), controller.GetAdminModelBillingSummary)
+		billingRoute.POST("/admin/models/backfill", middleware.AdminAuth(), controller.BackfillModelBillingFromLogs)
+
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)
 		dataRoute.GET("/users", middleware.AdminAuth(), controller.GetQuotaDatesByUser)
