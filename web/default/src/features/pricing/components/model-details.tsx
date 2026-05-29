@@ -88,9 +88,19 @@ import { ModelDetailsQuickStats } from './model-details-quick-stats'
 // Local UI helpers
 // ----------------------------------------------------------------------------
 
-function SectionTitle(props: { children: React.ReactNode }) {
+type ModelDetailsVariant = 'compact' | 'page'
+
+function SectionTitle(props: {
+  children: React.ReactNode
+  className?: string
+}) {
   return (
-    <h2 className='text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase'>
+    <h2
+      className={cn(
+        'text-muted-foreground mb-3 text-xs font-semibold tracking-wider uppercase',
+        props.className
+      )}
+    >
       {props.children}
     </h2>
   )
@@ -217,14 +227,17 @@ function ModelAliasesPanel(props: { aliases: string[] }) {
             aria-label={t('Expand aliases')}
           >
             <ChevronDown
-              className={cn('size-3 transition-transform', open && 'rotate-180')}
+              className={cn(
+                'size-3 transition-transform',
+                open && 'rotate-180'
+              )}
             />
           </button>
         )}
       </div>
 
       {hasMultipleAliases && open && (
-        <div className='bg-popover text-popover-foreground ring-foreground/10 absolute top-full left-0 z-50 mt-1 grid w-fit min-w-full max-w-[min(28rem,calc(100vw-2rem))] gap-1 rounded-lg p-2 shadow-md ring-1'>
+        <div className='bg-popover text-popover-foreground ring-foreground/10 absolute top-full left-0 z-50 mt-1 grid w-fit max-w-[min(28rem,calc(100vw-2rem))] min-w-full gap-1 rounded-lg p-2 shadow-md ring-1'>
           {props.aliases.map((alias) => (
             <div
               key={alias}
@@ -253,15 +266,26 @@ function ModelSignalsSection(props: {
   capabilities: ModelCapability[]
   input: Modality[]
   output: Modality[]
+  variant?: ModelDetailsVariant
 }) {
   const { t } = useTranslation()
+  const isPage = props.variant === 'page'
 
   return (
-    <section>
-      <SectionTitle>
+    <section
+      className={cn(
+        isPage && 'bg-background/70 rounded-2xl border p-5 shadow-sm md:p-6'
+      )}
+    >
+      <SectionTitle className={cn(isPage && 'mb-4')}>
         {t('Capabilities')} / {t('Supported modalities')}
       </SectionTitle>
-      <div className='grid gap-3 rounded-xl border p-3 @2xl/details:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]'>
+      <div
+        className={cn(
+          'grid gap-3 rounded-xl border p-3 @2xl/details:grid-cols-[minmax(0,1.5fr)_minmax(260px,1fr)]',
+          isPage && 'bg-muted/10 p-4'
+        )}
+      >
         <CompactCapabilityList capabilities={props.capabilities} />
         <CompactModalities input={props.input} output={props.output} />
       </div>
@@ -274,20 +298,38 @@ function OverviewMetric(props: {
   label: string
   value: React.ReactNode
   intent?: 'default' | 'warning' | 'success'
+  variant?: ModelDetailsVariant
 }) {
   const Icon = props.icon
   const intent = props.intent ?? 'default'
+  const isPage = props.variant === 'page'
 
   return (
-    <div className='flex min-w-0 items-center gap-2 px-3 py-2'>
-      <Icon className='text-muted-foreground/70 size-3.5 shrink-0' />
+    <div
+      className={cn(
+        'flex min-w-0 items-center gap-2 px-3 py-2',
+        isPage && 'gap-3 px-5 py-4'
+      )}
+    >
+      <Icon
+        className={cn(
+          'text-muted-foreground/70 size-3.5 shrink-0',
+          isPage && 'size-4'
+        )}
+      />
       <div className='min-w-0 flex-1'>
-        <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
+        <div
+          className={cn(
+            'text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase',
+            isPage && 'text-[11px]'
+          )}
+        >
           {props.label}
         </div>
         <div
           className={cn(
             'text-foreground truncate font-mono text-sm font-semibold tabular-nums',
+            isPage && 'mt-1 text-base md:text-lg',
             intent === 'warning' && 'text-amber-600 dark:text-amber-400',
             intent === 'success' && 'text-emerald-600 dark:text-emerald-400'
           )}
@@ -299,8 +341,12 @@ function OverviewMetric(props: {
   )
 }
 
-function OverviewSummaryGrid(props: { model: PricingModel }) {
+function OverviewSummaryGrid(props: {
+  model: PricingModel
+  variant?: ModelDetailsVariant
+}) {
   const { t } = useTranslation()
+  const isPage = props.variant === 'page'
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics', props.model.model_name],
     queryFn: () => getPerfMetrics(props.model.model_name, 24),
@@ -340,22 +386,30 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
       : 0
 
   return (
-    <div className='bg-muted/20 grid overflow-hidden rounded-lg border sm:grid-cols-3 sm:divide-x'>
+    <div
+      className={cn(
+        'bg-muted/20 grid overflow-hidden rounded-lg border sm:grid-cols-3 sm:divide-x',
+        isPage && 'bg-background/70 rounded-2xl shadow-sm'
+      )}
+    >
       <OverviewMetric
         icon={Timer}
         label='TPS'
         value={formatThroughput(avgTps)}
+        variant={props.variant}
       />
       <OverviewMetric
         icon={Timer}
         label={t('Average latency')}
         value={formatLatency(avgLatency)}
+        variant={props.variant}
       />
       <OverviewMetric
         icon={HeartPulse}
         label={t('Success rate')}
         value={formatUptimePct(successRate)}
         intent={successIntent}
+        variant={props.variant}
       />
     </div>
   )
@@ -365,11 +419,18 @@ function OverviewSummaryGrid(props: { model: PricingModel }) {
 // Model header (always visible above the detail sections)
 // ----------------------------------------------------------------------------
 
-function ModelHeader(props: { model: PricingModel }) {
+function ModelHeader(props: {
+  model: PricingModel
+  variant?: ModelDetailsVariant
+}) {
   const { t } = useTranslation()
+  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
+  const [descriptionExpandable, setDescriptionExpandable] = useState(false)
+  const descriptionRef = useRef<HTMLParagraphElement>(null)
   const model = props.model
+  const isPage = props.variant === 'page'
   const vendorIcon = model.vendor_icon
-    ? getLobeIcon(model.vendor_icon, 20)
+    ? getLobeIcon(model.vendor_icon, isPage ? 32 : 20)
     : null
   const description = model.description || model.vendor_description || null
   const tags = parseTags(model.tags)
@@ -379,55 +440,127 @@ function ModelHeader(props: { model: PricingModel }) {
     Boolean(model.billing_expr) &&
     getDynamicPricingTiers(model).length === 0
 
+  useEffect(() => {
+    setDescriptionExpanded(false)
+  }, [description, model.model_name])
+
+  useEffect(() => {
+    if (!isPage || !description || descriptionExpanded) return
+
+    const paragraph = descriptionRef.current
+    if (!paragraph) return
+
+    const measure = () => {
+      setDescriptionExpandable(
+        paragraph.scrollHeight > paragraph.clientHeight + 1
+      )
+    }
+
+    measure()
+
+    const resizeObserver = new ResizeObserver(measure)
+    resizeObserver.observe(paragraph)
+
+    return () => resizeObserver.disconnect()
+  }, [description, descriptionExpanded, isPage])
+
   return (
-    <header className='pb-4'>
-      <div className='flex items-center gap-2.5'>
-        {vendorIcon}
-        <h1 className='font-mono text-xl font-bold tracking-tight sm:text-2xl'>
-          {model.model_name}
-        </h1>
-        <CopyButton
-          value={model.model_name || ''}
-          className='size-6'
-          iconClassName='size-3'
-          tooltip={t('Copy model name')}
-          successTooltip={t('Copied!')}
-          aria-label={t('Copy model name')}
-        />
-      </div>
-      <ModelAliasesPanel aliases={aliasModels} />
-      <div className='mt-1 flex flex-wrap items-center gap-1.5 text-xs'>
-        {model.vendor_name && (
-          <span className='text-muted-foreground'>{model.vendor_name}</span>
+    <header className={cn('pb-4', isPage && 'pb-7')}>
+      <div
+        className={cn(
+          isPage &&
+            'grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start'
         )}
-        <span className='text-muted-foreground/30'>·</span>
-        <span className='text-muted-foreground/70'>
-          {model.quota_type === QUOTA_TYPE_VALUES.TOKEN
-            ? t('Token-based')
-            : t('Per Request')}
-        </span>
-        {model.billing_mode === 'tiered_expr' && model.billing_expr && (
-          <>
-            <span className='text-muted-foreground/30'>·</span>
-            <span className='rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'>
-              {isSpecialExpression
-                ? t('Special billing expression')
-                : t('Dynamic Pricing')}
-            </span>
-          </>
-        )}
+      >
+        <div className='min-w-0'>
+          <div
+            className={cn(
+              'flex items-center gap-2.5',
+              isPage && 'items-baseline gap-3'
+            )}
+          >
+            {vendorIcon}
+            <h1
+              className={cn(
+                'font-mono text-xl font-bold tracking-tight sm:text-2xl',
+                isPage &&
+                  'min-w-0 text-[clamp(2rem,5vw,3.75rem)] leading-[1.08] break-all'
+              )}
+            >
+              {model.model_name}
+            </h1>
+            <CopyButton
+              value={model.model_name || ''}
+              className={cn('size-6 self-baseline', isPage && 'size-8')}
+              iconClassName={cn('size-3', isPage && 'size-4')}
+              tooltip={t('Copy model name')}
+              successTooltip={t('Copied!')}
+              aria-label={t('Copy model name')}
+            />
+          </div>
+          <ModelAliasesPanel aliases={aliasModels} />
+        </div>
+
+        <div
+          className={cn(
+            'mt-1 flex flex-wrap items-center gap-1.5 text-xs',
+            isPage &&
+              'mt-0 justify-start gap-2 text-sm lg:max-w-xs lg:justify-end lg:text-right'
+          )}
+        >
+          {model.vendor_name && (
+            <span className='text-muted-foreground'>{model.vendor_name}</span>
+          )}
+          <span className='text-muted-foreground/30'>·</span>
+          <span className='text-muted-foreground/70'>
+            {model.quota_type === QUOTA_TYPE_VALUES.TOKEN
+              ? t('Token-based')
+              : t('Per Request')}
+          </span>
+          {model.billing_mode === 'tiered_expr' && model.billing_expr && (
+            <>
+              <span className='text-muted-foreground/30'>·</span>
+              <span className='rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'>
+                {isSpecialExpression
+                  ? t('Special billing expression')
+                  : t('Dynamic Pricing')}
+              </span>
+            </>
+          )}
+        </div>
       </div>
       {description && (
-        <p className='text-muted-foreground mt-2 text-sm leading-relaxed'>
-          {description}
-        </p>
+        <div className={cn('mt-2', isPage && 'mt-4 w-full')}>
+          <p
+            ref={descriptionRef}
+            className={cn(
+              'text-muted-foreground text-sm leading-relaxed',
+              isPage && !descriptionExpanded && 'line-clamp-3'
+            )}
+          >
+            {description}
+          </p>
+          {isPage && descriptionExpandable && (
+            <button
+              type='button'
+              className='text-muted-foreground hover:text-foreground mt-2 text-xs font-medium transition-colors'
+              onClick={() => setDescriptionExpanded((current) => !current)}
+              aria-expanded={descriptionExpanded}
+            >
+              {descriptionExpanded ? t('Collapse') : t('More...')}
+            </button>
+          )}
+        </div>
       )}
       {tags.length > 0 && (
-        <div className='mt-2.5 flex flex-wrap gap-1'>
+        <div className={cn('mt-2.5 flex flex-wrap gap-1', isPage && 'mt-4')}>
           {tags.map((tag) => (
             <span
               key={tag}
-              className='bg-muted text-muted-foreground rounded px-2 py-0.5 text-[11px] font-medium'
+              className={cn(
+                'bg-muted text-muted-foreground rounded px-2 py-0.5 text-[11px] font-medium',
+                isPage && 'rounded-md px-2.5 py-1 text-xs'
+              )}
             >
               {tag}
             </span>
@@ -448,8 +581,10 @@ function PriceSection(props: {
   usdExchangeRate: number
   tokenUnit: TokenUnit
   showRechargePrice: boolean
+  variant?: ModelDetailsVariant
 }) {
   const { t } = useTranslation()
+  const isPage = props.variant === 'page'
   const isTokenBased = isTokenBasedModel(props.model)
   const tokenUnitLabel = props.tokenUnit === 'K' ? '1K' : '1M'
   const baseGroupKey = '_base'
@@ -504,7 +639,9 @@ function PriceSection(props: {
     if (dynamicSummary.isSpecialExpression) {
       return (
         <section>
-          <SectionTitle>{t('Base Price')}</SectionTitle>
+          <SectionTitle className={cn(isPage && 'mb-4')}>
+            {t('Base Price')}
+          </SectionTitle>
           <div className='rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 dark:border-amber-500/20 dark:bg-amber-500/10'>
             <div className='text-sm font-medium text-amber-800 dark:text-amber-200'>
               {t('Special billing expression')}
@@ -527,18 +664,33 @@ function PriceSection(props: {
 
     return (
       <section>
-        <SectionTitle>{t('Base Price')}</SectionTitle>
+        <SectionTitle className={cn(isPage && 'mb-4')}>
+          {t('Base Price')}
+        </SectionTitle>
         {dynamicSummary.primaryEntries.length > 0 ? (
-          <div className='grid grid-cols-2 gap-2'>
+          <div className={cn('grid grid-cols-2 gap-2', isPage && 'gap-4')}>
             {dynamicSummary.primaryEntries.map((entry) => (
               <div
                 key={entry.key}
-                className='bg-muted/20 rounded-lg border p-3'
+                className={cn(
+                  'bg-muted/20 rounded-lg border p-3',
+                  isPage && 'rounded-2xl p-5'
+                )}
               >
-                <div className='text-muted-foreground text-xs'>
+                <div
+                  className={cn(
+                    'text-muted-foreground text-xs',
+                    isPage && 'text-sm'
+                  )}
+                >
                   {t(entry.shortLabel)}
                 </div>
-                <div className='text-foreground mt-1 font-mono text-base font-semibold tabular-nums'>
+                <div
+                  className={cn(
+                    'text-foreground mt-1 font-mono text-base font-semibold tabular-nums',
+                    isPage && 'mt-2 text-xl md:text-2xl'
+                  )}
+                >
                   {entry.formatted}
                   <span className='text-muted-foreground/40 ml-1 text-xs font-normal'>
                     / {tokenUnitLabel}
@@ -553,7 +705,12 @@ function PriceSection(props: {
           </p>
         )}
         {dynamicSummary.secondaryEntries.length > 0 && (
-          <div className='bg-muted/20 mt-3 rounded-lg border px-3 py-2.5'>
+          <div
+            className={cn(
+              'bg-muted/20 mt-3 rounded-lg border px-3 py-2.5',
+              isPage && 'mt-4 rounded-2xl px-5 py-4'
+            )}
+          >
             <div className='space-y-1.5'>
               {dynamicSummary.secondaryEntries.map((entry) => (
                 <div
@@ -581,12 +738,29 @@ function PriceSection(props: {
   if (!isTokenBased) {
     return (
       <section>
-        <SectionTitle>{t('Base Price')}</SectionTitle>
-        <div className='flex items-baseline justify-between'>
-          <span className='text-muted-foreground text-sm'>
+        <SectionTitle className={cn(isPage && 'mb-4')}>
+          {t('Base Price')}
+        </SectionTitle>
+        <div
+          className={cn(
+            'flex items-baseline justify-between',
+            isPage && 'bg-muted/20 rounded-2xl border p-5'
+          )}
+        >
+          <span
+            className={cn(
+              'text-muted-foreground text-sm',
+              isPage && 'text-base'
+            )}
+          >
             {t('Per request')}
           </span>
-          <span className='text-foreground font-mono text-sm font-semibold tabular-nums'>
+          <span
+            className={cn(
+              'text-foreground font-mono text-sm font-semibold tabular-nums',
+              isPage && 'text-xl md:text-2xl'
+            )}
+          >
             {formatFixedPrice(
               props.model,
               baseGroupKey,
@@ -622,20 +796,45 @@ function PriceSection(props: {
 
   return (
     <section>
-      <SectionTitle>{t('Base Price')}</SectionTitle>
-      <div className='grid grid-cols-2 gap-2'>
+      <SectionTitle className={cn(isPage && 'mb-4')}>
+        {t('Base Price')}
+      </SectionTitle>
+      <div className={cn('grid grid-cols-2 gap-2', isPage && 'gap-4')}>
         {primaryPriceTypes.map((item) => (
-          <div key={item.type} className='bg-muted/20 rounded-lg border p-3'>
-            <div className='text-muted-foreground text-xs'>{item.label}</div>
-            <div className='text-foreground mt-1 font-mono text-base font-semibold tabular-nums'>
+          <div
+            key={item.type}
+            className={cn(
+              'bg-muted/20 rounded-lg border p-3',
+              isPage && 'rounded-2xl p-5'
+            )}
+          >
+            <div
+              className={cn(
+                'text-muted-foreground text-xs',
+                isPage && 'text-sm'
+              )}
+            >
+              {item.label}
+            </div>
+            <div
+              className={cn(
+                'text-foreground mt-1 font-mono text-base font-semibold tabular-nums',
+                isPage && 'mt-2 text-xl md:text-2xl'
+              )}
+            >
               {renderPrice(item.type)}
             </div>
           </div>
         ))}
       </div>
       {secondaryItems.length > 0 && (
-        <div className='bg-muted/20 mt-3 rounded-lg border px-3 py-2.5'>
-          <div className='space-y-1.5'>
+        <div
+          className={cn(
+            'bg-muted/20 mt-3 rounded-lg border px-3 py-2.5',
+            isPage && 'mt-4 rounded-2xl px-5 py-4'
+          )}
+        >
+          <div className={cn('space-y-1.5', isPage && 'space-y-2')}>
             {secondaryItems.map((item) => (
               <div
                 key={item.type}
@@ -644,7 +843,12 @@ function PriceSection(props: {
                 <span className='text-muted-foreground/70 text-sm'>
                   {item.label}
                 </span>
-                <span className='text-muted-foreground font-mono text-sm tabular-nums'>
+                <span
+                  className={cn(
+                    'text-muted-foreground font-mono text-sm tabular-nums',
+                    isPage && 'text-base'
+                  )}
+                >
                   {renderPrice(item.type)}
                 </span>
               </div>
@@ -700,10 +904,12 @@ function GroupPricingSection(props: {
   usdExchangeRate: number
   tokenUnit: TokenUnit
   showRechargePrice?: boolean
+  variant?: ModelDetailsVariant
 }) {
   const { t } = useTranslation()
   const discountLabels = useGroupDiscountLabels()
   const showRechargePrice = props.showRechargePrice ?? false
+  const isPage = props.variant === 'page'
 
   const availableGroups = useMemo(
     () => getAvailableGroups(props.model, props.usableGroup || {}),
@@ -734,7 +940,9 @@ function GroupPricingSection(props: {
   if (availableGroups.length === 0) {
     return (
       <section>
-        <SectionTitle>{t('Pricing by Group')}</SectionTitle>
+        <SectionTitle className={cn(isPage && 'mb-4')}>
+          {t('Pricing by Group')}
+        </SectionTitle>
         <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
         <p className='text-muted-foreground text-sm'>
           {t(
@@ -754,7 +962,9 @@ function GroupPricingSection(props: {
     if (dynamicTiers.length === 0) {
       return (
         <section>
-          <SectionTitle>{t('Pricing by Group')}</SectionTitle>
+          <SectionTitle className={cn(isPage && 'mb-4')}>
+            {t('Pricing by Group')}
+          </SectionTitle>
           <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
           <div className='rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 dark:border-amber-500/20 dark:bg-amber-500/10'>
             <div className='text-sm font-medium text-amber-800 dark:text-amber-200'>
@@ -796,14 +1006,27 @@ function GroupPricingSection(props: {
 
     return (
       <section>
-        <SectionTitle>{t('Pricing by Group')}</SectionTitle>
+        <SectionTitle className={cn(isPage && 'mb-4')}>
+          {t('Pricing by Group')}
+        </SectionTitle>
         <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
-        <div className='space-y-3'>
+        <div className={cn('space-y-3', isPage && 'space-y-4')}>
           {availableGroups.map((group) => {
             const ratio = props.groupRatio[group] || 1
             return (
-              <div key={group} className='overflow-hidden rounded-lg border'>
-                <div className='bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2'>
+              <div
+                key={group}
+                className={cn(
+                  'overflow-hidden rounded-lg border',
+                  isPage && 'rounded-2xl'
+                )}
+              >
+                <div
+                  className={cn(
+                    'bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2',
+                    isPage && 'px-5 py-3'
+                  )}
+                >
                   <GroupBadge group={group} size='sm' />
                   <span className='text-muted-foreground text-xs'>
                     {formatGroupDiscount(ratio, discountLabels)}
@@ -872,9 +1095,16 @@ function GroupPricingSection(props: {
 
   return (
     <section>
-      <SectionTitle>{t('Pricing by Group')}</SectionTitle>
+      <SectionTitle className={cn(isPage && 'mb-4')}>
+        {t('Pricing by Group')}
+      </SectionTitle>
       <AutoGroupChain model={props.model} autoGroups={props.autoGroups} />
-      <div className='-mx-4 overflow-x-auto sm:mx-0'>
+      <div
+        className={cn(
+          '-mx-4 overflow-x-auto sm:mx-0',
+          isPage && 'bg-muted/10 rounded-2xl border sm:mx-0'
+        )}
+      >
         <Table className='text-sm'>
           <TableHeader>
             <TableRow className='hover:bg-transparent'>
@@ -1008,11 +1238,14 @@ export interface ModelDetailsContentProps {
   usdExchangeRate: number
   tokenUnit: TokenUnit
   showRechargePrice?: boolean
+  variant?: ModelDetailsVariant
 }
 
 export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const { t } = useTranslation()
   const showRechargePrice = props.showRechargePrice ?? false
+  const variant = props.variant ?? 'compact'
+  const isPage = variant === 'page'
   const metadata = useMemo(() => inferModelMetadata(props.model), [props.model])
 
   const isDynamic =
@@ -1020,18 +1253,26 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
     Boolean(props.model.billing_expr)
 
   return (
-    <div className='@container/details space-y-4'>
-      <ModelHeader model={props.model} />
+    <div className={cn('@container/details space-y-4', isPage && 'space-y-8')}>
+      <ModelHeader model={props.model} variant={variant} />
 
-      <Tabs defaultValue='overview' className='gap-4'>
-        <TabsList className='bg-muted/60 grid w-full grid-cols-3 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto'>
+      <Tabs defaultValue='overview' className={cn('gap-4', isPage && 'gap-6')}>
+        <TabsList
+          className={cn(
+            'bg-muted/60 grid w-full grid-cols-3 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto',
+            isPage && 'rounded-2xl p-1.5'
+          )}
+        >
           {TAB_VALUES.map((value) => {
             const Icon = TAB_META[value].icon
             return (
               <TabsTrigger
                 key={value}
                 value={value}
-                className='h-8 min-w-0 gap-1.5 rounded-md px-3 text-xs sm:text-sm'
+                className={cn(
+                  'h-8 min-w-0 gap-1.5 rounded-md px-3 text-xs sm:text-sm',
+                  isPage && 'h-10 rounded-xl text-sm'
+                )}
               >
                 <Icon className='size-3.5' />
                 <span className='truncate'>{t(TAB_META[value].labelKey)}</span>
@@ -1040,17 +1281,28 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
           })}
         </TabsList>
 
-        <TabsContent value='overview' className='space-y-6 outline-none'>
-          <OverviewSummaryGrid model={props.model} />
+        <TabsContent
+          value='overview'
+          className={cn('space-y-6 outline-none', isPage && 'space-y-8')}
+        >
+          <OverviewSummaryGrid model={props.model} variant={variant} />
 
-          <section className='bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm'>
-            <SectionTitle>{t('Pricing')}</SectionTitle>
+          <section
+            className={cn(
+              'bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm',
+              isPage && 'space-y-7 rounded-3xl p-5 md:p-6'
+            )}
+          >
+            <SectionTitle className={cn(isPage && 'mb-4')}>
+              {t('Pricing')}
+            </SectionTitle>
             <PriceSection
               model={props.model}
               priceRate={props.priceRate}
               usdExchangeRate={props.usdExchangeRate}
               tokenUnit={props.tokenUnit}
               showRechargePrice={showRechargePrice}
+              variant={variant}
             />
             {isDynamic && (
               <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
@@ -1064,6 +1316,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               usdExchangeRate={props.usdExchangeRate}
               tokenUnit={props.tokenUnit}
               showRechargePrice={showRechargePrice}
+              variant={variant}
             />
           </section>
 
@@ -1073,6 +1326,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             capabilities={metadata.capabilities}
             input={metadata.input_modalities}
             output={metadata.output_modalities}
+            variant={variant}
           />
 
           <ModelDetailsProviderInfo model={props.model} />
@@ -1161,22 +1415,22 @@ export function ModelDetails() {
 
   if (isLoading) {
     return (
-      <PublicLayout>
-        <div className='mx-auto max-w-5xl px-4 sm:px-6'>
-          <Skeleton className='mb-4 h-5 w-16' />
-          <div className='space-y-2'>
-            <Skeleton className='h-7 w-64' />
-            <Skeleton className='h-4 w-40' />
-            <Skeleton className='h-4 w-full max-w-md' />
+      <PublicLayout showMainContainer={false}>
+        <div className='mx-auto w-full max-w-6xl px-6 pt-24 pb-12 md:pt-32 md:pb-16'>
+          <Skeleton className='mb-6 h-8 w-24 rounded-full' />
+          <div className='space-y-3'>
+            <Skeleton className='h-14 w-full max-w-3xl' />
+            <Skeleton className='h-5 w-64' />
+            <Skeleton className='h-5 w-full max-w-2xl' />
           </div>
-          <div className='mt-6 grid grid-cols-2 gap-2 sm:grid-cols-4'>
-            {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className='h-16 w-full' />
+          <div className='mt-8 grid gap-4 sm:grid-cols-3'>
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className='h-24 w-full rounded-2xl' />
             ))}
           </div>
-          <div className='mt-6 space-y-3'>
+          <div className='mt-8 space-y-4'>
             {Array.from({ length: 4 }).map((_, i) => (
-              <Skeleton key={i} className='h-24 w-full' />
+              <Skeleton key={i} className='h-28 w-full rounded-2xl' />
             ))}
           </div>
         </div>
@@ -1186,12 +1440,12 @@ export function ModelDetails() {
 
   if (!model) {
     return (
-      <PublicLayout>
-        <div className='mx-auto max-w-2xl px-4 text-center sm:px-6'>
-          <h2 className='mb-1 text-base font-semibold'>
+      <PublicLayout showMainContainer={false}>
+        <div className='mx-auto flex min-h-[60vh] max-w-2xl flex-col items-center justify-center px-6 text-center'>
+          <h2 className='mb-2 text-2xl font-bold tracking-tight'>
             {t('Model not found')}
           </h2>
-          <p className='text-muted-foreground mb-4 text-sm'>
+          <p className='text-muted-foreground mb-6 text-base'>
             {t("The model you're looking for doesn't exist.")}
           </p>
           <Button onClick={handleBack} variant='outline' size='sm'>
@@ -1203,34 +1457,45 @@ export function ModelDetails() {
   }
 
   return (
-    <PublicLayout>
-      <div className='mx-auto max-w-5xl px-4 sm:px-6'>
-        <Button
-          variant='ghost'
-          size='sm'
-          onClick={handleBack}
-          className='text-muted-foreground hover:text-foreground mb-4 h-auto gap-1 px-0 py-1 text-xs'
-        >
-          <ArrowLeft className='size-3.5' />
-          {t('Back')}
-        </Button>
-
-        <ModelDetailsContent
-          model={model}
-          groupRatio={groupRatio || {}}
-          usableGroup={usableGroup || {}}
-          autoGroups={autoGroups || []}
-          priceRate={priceRate ?? 1}
-          usdExchangeRate={usdExchangeRate ?? 1}
-          tokenUnit={tokenUnit}
-          showRechargePrice={search.rechargePrice ?? false}
-          endpointMap={
-            (endpointMap as Record<
-              string,
-              { path?: string; method?: string }
-            >) || {}
-          }
+    <PublicLayout showMainContainer={false}>
+      <div className='relative overflow-hidden'>
+        <div
+          aria-hidden='true'
+          className='pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_16%_18%,rgba(14,165,233,0.13),transparent_28%),radial-gradient(circle_at_84%_8%,rgba(16,185,129,0.11),transparent_24%),linear-gradient(to_bottom,var(--background),var(--muted)_180%,var(--background))]'
         />
+        <div
+          aria-hidden='true'
+          className='absolute inset-0 -z-10 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_20%,black_20%,transparent_100%)] bg-[size:4rem_4rem] opacity-[0.08]'
+        />
+        <div className='mx-auto w-full max-w-6xl px-6 pt-24 pb-14 md:pt-32 md:pb-20'>
+          <Button
+            variant='ghost'
+            size='sm'
+            onClick={handleBack}
+            className='text-muted-foreground hover:text-foreground mb-6 h-auto gap-1 px-0 py-1 text-sm'
+          >
+            <ArrowLeft className='size-4' />
+            {t('Back')}
+          </Button>
+
+          <ModelDetailsContent
+            model={model}
+            groupRatio={groupRatio || {}}
+            usableGroup={usableGroup || {}}
+            autoGroups={autoGroups || []}
+            priceRate={priceRate ?? 1}
+            usdExchangeRate={usdExchangeRate ?? 1}
+            tokenUnit={tokenUnit}
+            showRechargePrice={search.rechargePrice ?? false}
+            variant='page'
+            endpointMap={
+              (endpointMap as Record<
+                string,
+                { path?: string; method?: string }
+              >) || {}
+            }
+          />
+        </div>
       </div>
     </PublicLayout>
   )

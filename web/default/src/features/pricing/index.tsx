@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback } from 'react'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
@@ -27,7 +28,6 @@ import {
   PricingFilterBar,
   PricingToolbar,
   ModelCardGrid,
-  ModelDetailsDrawer,
 } from './components'
 import { VIEW_MODES } from './constants'
 import { useFilters } from './hooks/use-filters'
@@ -35,21 +35,11 @@ import { usePricingData } from './hooks/use-pricing-data'
 
 export function Pricing() {
   const { t } = useTranslation()
-  const [selectedModelName, setSelectedModelName] = useState<string | null>(
-    null
-  )
+  const navigate = useNavigate()
+  const search = useSearch({ from: '/pricing/' })
 
-  const {
-    models,
-    vendors,
-    groupRatio,
-    usableGroup,
-    endpointMap,
-    autoGroups,
-    isLoading,
-    priceRate,
-    usdExchangeRate,
-  } = usePricingData()
+  const { models, vendors, isLoading, priceRate, usdExchangeRate } =
+    usePricingData()
 
   const {
     searchInput,
@@ -75,18 +65,17 @@ export function Pricing() {
     clearSearch,
   } = useFilters(models || [])
 
-  const handleModelClick = useCallback((modelName: string) => {
-    setSelectedModelName(modelName)
-  }, [])
+  const handleModelClick = useCallback(
+    (modelName: string) => {
+      if (!modelName) return
 
-  const selectedModel = useMemo(
-    () =>
-      selectedModelName
-        ? (models || []).find(
-            (model) => model.model_name === selectedModelName
-          ) || null
-        : null,
-    [models, selectedModelName]
+      navigate({
+        to: '/pricing/$modelId',
+        params: { modelId: modelName },
+        search,
+      })
+    },
+    [navigate, search]
   )
 
   const handleClearAll = useCallback(() => {
@@ -209,29 +198,6 @@ export function Pricing() {
               {renderPricingContent()}
             </main>
           </div>
-
-          {selectedModel && (
-            <ModelDetailsDrawer
-              open={Boolean(selectedModel)}
-              onOpenChange={(open) => {
-                if (!open) setSelectedModelName(null)
-              }}
-              model={selectedModel}
-              groupRatio={groupRatio || {}}
-              usableGroup={usableGroup || {}}
-              endpointMap={
-                (endpointMap as Record<
-                  string,
-                  { path?: string; method?: string }
-                >) || {}
-              }
-              autoGroups={autoGroups || []}
-              priceRate={priceRate ?? 1}
-              usdExchangeRate={usdExchangeRate ?? 1}
-              tokenUnit={tokenUnit}
-              showRechargePrice={false}
-            />
-          )}
         </PageTransition>
       </div>
     </PublicLayout>
