@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -27,6 +28,18 @@ import (
 type ModelRequest struct {
 	Model string `json:"model"`
 	Group string `json:"group,omitempty"`
+}
+
+const (
+	ContextKeyConfigurableNativeProfileID = "configurable_native_profile_id"
+)
+
+func ConfigurableNativeProfile(profileID string, relayMode int) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(ContextKeyConfigurableNativeProfileID, profileID)
+		c.Set("relay_mode", relayMode)
+		c.Next()
+	}
 }
 
 func Distribute() func(c *gin.Context) {
@@ -243,7 +256,21 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 	var modelRequest ModelRequest
 	shouldSelectChannel := true
 	var err error
-	if strings.HasPrefix(c.Request.URL.Path, "/v1/tasks/") && c.Request.Method == http.MethodGet {
+	if profileID := c.GetString(ContextKeyConfigurableNativeProfileID); profileID != "" {
+		profile, ok := configurable.GetProfile(profileID)
+		if !ok {
+			return nil, false, fmt.Errorf("configurable native profile %s not found", profileID)
+		}
+		if c.Request.Method == http.MethodGet {
+			shouldSelectChannel = false
+		} else {
+			modelName, err := configurable.ExtractNativeModel(c, profile)
+			if err != nil {
+				return nil, false, err
+			}
+			modelRequest.Model = modelName
+		}
+	} else if strings.HasPrefix(c.Request.URL.Path, "/v1/tasks/") && c.Request.Method == http.MethodGet {
 		c.Set("relay_mode", relayconstant.RelayModeImageTaskFetchByID)
 		shouldSelectChannel = false
 	} else if strings.Contains(c.Request.URL.Path, "/mj/") {

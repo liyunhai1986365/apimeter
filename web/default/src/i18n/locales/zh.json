@@ -5252,6 +5252,16 @@
     "Leave empty to use default protocol support for this channel": "留空则使用此渠道的默认协议支持",
     "Enabled Protocol Conversions": "启用的协议转化",
     "Select enabled protocol conversions": "选择启用的协议转化",
-    "Configured channels only use the selected conversions": "已配置协议的渠道仅使用选中的转化方式"
+    "Configured channels only use the selected conversions": "已配置协议的渠道仅使用选中的转化方式",
+    "Image Async Wait Timeout Seconds": "图片异步等待超时秒数",
+    "Default 120, 0 disables wait": "默认 120，0 表示不等待",
+    "Controls synchronous waiting after an async image task is submitted": "控制异步图片任务提交后的同步等待时间",
+    "Configurable Protocol": "可配置协议",
+    "Generic JSON Video Task": "通用 JSON 视频任务",
+    "HappyHorse Video": "HappyHorse 视频",
+    "Protocol Profile": "协议配置档案",
+    "Select protocol profile": "选择协议配置档案",
+    "Use channel default": "使用渠道默认值",
+    "Configurable protocol channels use this profile to map submit and fetch payloads": "可配置协议渠道使用此档案映射提交和查询载荷"
   }
 }

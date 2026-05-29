@@ -3,6 +3,8 @@ package router
 import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 
 	"github.com/gin-gonic/gin"
 )
@@ -31,6 +33,8 @@ func SetVideoRouter(router *gin.Engine) {
 		videoV1Router.GET("/videos/:task_id", controller.RelayTaskFetch)
 	}
 
+	registerConfigurableNativeRoutes(router)
+
 	klingV1Router := router.Group("/kling/v1")
 	klingV1Router.Use(middleware.RouteTag("relay"))
 	klingV1Router.Use(middleware.KlingRequestConvert(), middleware.TokenAuth(), middleware.Distribute())
@@ -49,4 +53,50 @@ func SetVideoRouter(router *gin.Engine) {
 		// Maps to: /?Action=CVSync2AsyncSubmitTask&Version=2022-08-31 and /?Action=CVSync2AsyncGetResult&Version=2022-08-31
 		jimengOfficialGroup.POST("/", controller.RelayTask)
 	}
+}
+
+func registerConfigurableNativeRoutes(router *gin.Engine) {
+	for _, profile := range configurable.ListProfiles() {
+		registerConfigurableNativeSubmitRoute(router, profile)
+		registerConfigurableNativeFetchRoute(router, profile)
+	}
+}
+
+func registerConfigurableNativeSubmitRoute(router *gin.Engine, profile *configurable.Profile) {
+	endpoint := profile.Native.Submit
+	if endpoint.Method == "" || endpoint.Path == "" {
+		return
+	}
+	router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(profile.ID, relayconstant.RelayModeVideoSubmit), middleware.TokenAuth(), middleware.Distribute(), controller.RelayTask)
+}
+
+func registerConfigurableNativeFetchRoute(router *gin.Engine, profile *configurable.Profile) {
+	endpoint := profile.Native.Fetch
+	if endpoint.Method == "" || endpoint.Path == "" {
+		return
+	}
+	router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(profile.ID, relayconstant.RelayModeVideoFetchByID), middleware.TokenAuth(), middleware.Distribute(), controller.RelayTaskFetch)
+}
+
+func ginPath(path string) string {
+	result := ""
+	inParam := false
+	paramName := ""
+	for _, r := range path {
+		switch r {
+		case '{':
+			inParam = true
+			paramName = ""
+		case '}':
+			inParam = false
+			result += ":" + paramName
+		default:
+			if inParam {
+				paramName += string(r)
+			} else {
+				result += string(r)
+			}
+		}
+	}
+	return result
 }

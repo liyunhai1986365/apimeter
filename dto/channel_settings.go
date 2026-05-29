@@ -11,8 +11,10 @@ type ChannelSettings struct {
 }
 
 type ChannelProtocolSettings struct {
-	NativeModes        []string `json:"native_modes,omitempty"`
-	EnabledConversions []string `json:"enabled_conversions,omitempty"`
+	NativeModes                  []string `json:"native_modes,omitempty"`
+	EnabledConversions           []string `json:"enabled_conversions,omitempty"`
+	ProfileID                    string   `json:"profile_id,omitempty"`
+	ImageAsyncWaitTimeoutSeconds *int     `json:"image_async_wait_timeout_seconds,omitempty"`
 }
 
 type VertexKeyType string

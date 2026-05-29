@@ -379,6 +379,10 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
 	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
+	if realtimeResp := tryConfigurableNativeFetch(c, originTask); len(realtimeResp) > 0 {
+		respBody = realtimeResp
+		return
+	}
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
@@ -427,7 +431,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		return nil
 	}
 
-	baseURL := constant.ChannelBaseURLs[channelModel.Type]
+	baseURL := constant.GetChannelBaseURL(channelModel.Type)
 	if channelModel.GetBaseURL() != "" {
 		baseURL = channelModel.GetBaseURL()
 	}
@@ -460,6 +464,11 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	// 将上游最新状态更新到 task
 	if ti.Status != "" {
 		task.Status = model.TaskStatus(ti.Status)
+	}
+	if task.Status == model.TaskStatusFailure {
+		if reason := strings.TrimSpace(ti.Reason); reason != "" {
+			task.FailReason = reason
+		}
 	}
 	if ti.Progress != "" {
 		task.Progress = ti.Progress
@@ -497,6 +506,72 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		Data: out,
 	})
 	return respBody
+}
+
+func tryConfigurableNativeFetch(c *gin.Context, task *model.Task) []byte {
+	if c == nil || task == nil || c.GetString("configurable_native_profile_id") == "" {
+		return nil
+	}
+	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	if err != nil || channelModel.Type != constant.ChannelTypeConfigurable {
+		return nil
+	}
+	baseURL := channelModel.GetBaseURL()
+	proxy := channelModel.GetSetting().Proxy
+	adaptor := GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
+	if adaptor == nil {
+		return nil
+	}
+	adaptor.Init(&relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       channelModel.Type,
+			ChannelBaseUrl:    baseURL,
+			ApiKey:            channelModel.Key,
+			ChannelSetting:    channelModel.GetSetting(),
+			UpstreamModelName: task.Properties.UpstreamModelName,
+		},
+	})
+	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, map[string]any{
+		"task_id": task.GetUpstreamTaskID(),
+		"action":  task.Action,
+	}, proxy)
+	if err != nil || resp == nil {
+		return nil
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil
+	}
+	ti, err := adaptor.ParseTaskResult(body)
+	if err == nil && ti != nil {
+		snap := task.Snapshot()
+		if ti.Status != "" {
+			task.Status = model.TaskStatus(ti.Status)
+		}
+		if task.Status == model.TaskStatusFailure {
+			if reason := strings.TrimSpace(ti.Reason); reason != "" {
+				task.FailReason = reason
+			}
+		}
+		if ti.Progress != "" {
+			task.Progress = ti.Progress
+		}
+		if ti.Url != "" && !strings.HasPrefix(ti.Url, "data:") {
+			task.PrivateData.ResultURL = ti.Url
+		}
+		if !snap.Equal(task.Snapshot()) {
+			_, _ = task.UpdateWithStatus(snap.Status)
+		}
+	}
+	if converter, ok := adaptor.(interface {
+		ConvertToNativeFetchResponse(*model.Task, []byte) ([]byte, error)
+	}); ok {
+		if nativeBody, err := converter.ConvertToNativeFetchResponse(task, body); err == nil {
+			return nativeBody
+		}
+	}
+	return body
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式

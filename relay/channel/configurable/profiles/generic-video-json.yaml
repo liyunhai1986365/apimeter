@@ -1,0 +1,57 @@
+id: generic-video-json
+name: Generic JSON Video Task
+media_type: video
+accepted_modes:
+  - openai.video.generations
+upstream_modes:
+  - generic.video.task
+submit:
+  method: POST
+  path: /v1/videos
+  body:
+    fields:
+      - to: model
+        from: upstream_model
+      - to: prompt
+        from: request.prompt
+      - to: size
+        from: request.size
+        omit_empty: true
+      - to: seconds
+        from: request.seconds
+        fallback_from: request.duration
+        omit_empty: true
+      - to: image
+        from: request.image
+        omit_empty: true
+      - to: images
+        from: request.images
+        omit_empty: true
+      - to: metadata
+        from: request.metadata
+        omit_empty: true
+  response:
+    task_id_path: id
+    status_path: status
+fetch:
+  method: GET
+  path: /v1/videos/{task_id}
+  response:
+    task_id_path: id
+    status_path: status
+    progress_path: progress
+    result_url_path: video.url
+    reason_path: error.message
+    status_map:
+      queued: QUEUED
+      pending: QUEUED
+      submitted: SUBMITTED
+      running: IN_PROGRESS
+      in_progress: IN_PROGRESS
+      processing: IN_PROGRESS
+      completed: SUCCESS
+      succeeded: SUCCESS
+      success: SUCCESS
+      failed: FAILURE
+      error: FAILURE
+      cancelled: FAILURE

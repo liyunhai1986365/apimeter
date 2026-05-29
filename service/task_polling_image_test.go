@@ -137,8 +137,119 @@ func TestUpdateImageTasksFetchesDuomiGeminiImageTaskEndpoint(t *testing.T) {
 	require.Equal(t, int64(1757061229), reloaded.CreatedAt)
 }
 
+func TestUpdateVideoTasksPollsConfigurableProfile(t *testing.T) {
+	truncate(t)
+
+	upstreamTaskID := "dashscope-task"
+	originGetTaskAdaptorFunc := GetTaskAdaptorFunc
+	adaptor := &profileAwarePollingAdaptor{}
+	GetTaskAdaptorFunc = func(platform constant.TaskPlatform) TaskPollingAdaptor {
+		require.Equal(t, constant.TaskPlatform("41"), platform)
+		return adaptor
+	}
+	t.Cleanup(func() { GetTaskAdaptorFunc = originGetTaskAdaptorFunc })
+
+	channel := model.Channel{
+		Id:      901,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "sk-upstream",
+		BaseURL: common.GetPointer("https://dashscope.aliyuncs.com"),
+		Status:  common.ChannelStatusEnabled,
+		Name:    "happyhorse",
+		Models:  "happyhorse-1.0-t2v",
+		Group:   "default",
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ProfileID: "happyhorse-video",
+		},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+
+	now := time.Now().Unix()
+	task := &model.Task{
+		TaskID:     "task_public",
+		UserId:     7,
+		ChannelId:  channel.Id,
+		Action:     constant.TaskActionGenerate,
+		Status:     model.TaskStatusSubmitted,
+		Progress:   "0%",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		SubmitTime: now,
+		Platform:   constant.TaskPlatform("41"),
+		Properties: model.Properties{
+			OriginModelName:   "happyhorse-1.0-t2v",
+			UpstreamModelName: "happyhorse-1.0-t2v",
+		},
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: upstreamTaskID,
+		},
+	}
+	require.NoError(t, model.DB.Create(task).Error)
+
+	err := UpdateVideoTasks(context.Background(), task.Platform, map[int][]string{channel.Id: []string{upstreamTaskID}}, map[string]*model.Task{upstreamTaskID: task})
+	require.NoError(t, err)
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", task.TaskID).First(&reloaded).Error)
+	require.Equal(t, model.TaskStatus(model.TaskStatusSuccess), reloaded.Status)
+	require.Equal(t, "100%", reloaded.Progress)
+	require.Equal(t, "https://dashscope-result/video.mp4", reloaded.PrivateData.ResultURL)
+	require.Contains(t, string(reloaded.Data), `"request_id":"req-1"`)
+	require.Equal(t, "happyhorse-video", adaptor.profileID)
+	require.Equal(t, constant.ChannelTypeConfigurable, adaptor.channelType)
+}
+
 type fakeSunoPollingAdaptor struct {
 	response string
+}
+
+type profileAwarePollingAdaptor struct {
+	profileID    string
+	channelType  int
+	baseURL      string
+	key          string
+	fetchTaskID  string
+	parseProfile string
+}
+
+func (a *profileAwarePollingAdaptor) Init(info *relaycommon.RelayInfo) {
+	if info != nil && info.ChannelMeta != nil {
+		a.channelType = info.ChannelMeta.ChannelType
+		a.baseURL = info.ChannelMeta.ChannelBaseUrl
+		a.key = info.ChannelMeta.ApiKey
+		if info.ChannelMeta.ChannelSetting.Protocol != nil {
+			a.profileID = info.ChannelMeta.ChannelSetting.Protocol.ProfileID
+		}
+	}
+}
+
+func (a *profileAwarePollingAdaptor) FetchTask(baseURL string, key string, body map[string]any, proxy string) (*http.Response, error) {
+	a.baseURL = baseURL
+	a.key = key
+	a.fetchTaskID, _ = body["task_id"].(string)
+	return &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`{"request_id":"req-1","output":{"task_id":"dashscope-task","task_status":"SUCCEEDED","video_url":"https://dashscope-result/video.mp4"},"usage":{"duration":5,"ratio":"16:9"}}`)),
+	}, nil
+}
+
+func (a *profileAwarePollingAdaptor) ParseTaskResult(body []byte) (*relaycommon.TaskInfo, error) {
+	a.parseProfile = a.profileID
+	if a.profileID != "happyhorse-video" {
+		return relaycommon.FailTaskInfo("missing configurable profile"), nil
+	}
+	return &relaycommon.TaskInfo{
+		TaskID:   a.fetchTaskID,
+		Status:   string(model.TaskStatusSuccess),
+		Url:      "https://dashscope-result/video.mp4",
+		Progress: "100%",
+	}, nil
+}
+
+func (a *profileAwarePollingAdaptor) AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int {
+	return 0
 }
 
 func (a fakeSunoPollingAdaptor) Init(info *relaycommon.RelayInfo) {}

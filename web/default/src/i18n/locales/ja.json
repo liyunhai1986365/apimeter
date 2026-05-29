@@ -5252,6 +5252,16 @@
     "Leave empty to use default protocol support for this channel": "空欄にすると、このチャネルの既定プロトコルサポートを使用します",
     "Enabled Protocol Conversions": "有効なプロトコル変換",
     "Select enabled protocol conversions": "有効なプロトコル変換を選択",
-    "Configured channels only use the selected conversions": "設定済みチャネルでは選択した変換のみ使用します"
+    "Configured channels only use the selected conversions": "設定済みチャネルでは選択した変換のみ使用します",
+    "Image Async Wait Timeout Seconds": "画像非同期待機タイムアウト秒数",
+    "Default 120, 0 disables wait": "既定は 120、0 で待機を無効化",
+    "Controls synchronous waiting after an async image task is submitted": "非同期画像タスク送信後の同期待機時間を制御します",
+    "Configurable Protocol": "設定可能なプロトコル",
+    "Generic JSON Video Task": "汎用 JSON 動画タスク",
+    "HappyHorse Video": "HappyHorse 動画",
+    "Protocol Profile": "プロトコルプロファイル",
+    "Select protocol profile": "プロトコルプロファイルを選択",
+    "Use channel default": "チャンネルのデフォルトを使用",
+    "Configurable protocol channels use this profile to map submit and fetch payloads": "設定可能なプロトコルチャンネルはこのプロファイルで送信と取得のペイロードをマッピングします"
   }
 }

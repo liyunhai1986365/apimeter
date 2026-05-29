@@ -2,14 +2,11 @@ package service
 
 import (
 	"errors"
-	"fmt"
-	"net/http"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
@@ -183,27 +180,31 @@ func shouldStopOnProtocolMismatch(param *RetryParam) bool {
 }
 
 func unsupportedImageChatProtocolError(modelName string) error {
-	return fmt.Errorf("当前模型 %s 没有可用渠道支持 %s 请求模式或 %s 转化", modelName, conversion.RequestModeOpenAIChat, conversion.ConversionOpenAIChatToImageGenerations)
+	req := conversion.RequirementFromMode(conversion.RequestModeOpenAIChat, modelName)
+	return req.UnsupportedError(modelName)
 }
 
 func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 	if param == nil || param.Ctx == nil || param.Ctx.Request == nil {
 		return nil
 	}
-	if param.Ctx.Request.Method != http.MethodPost ||
-		relayconstant.Path2RelayMode(param.Ctx.Request.URL.Path) != relayconstant.RelayModeChatCompletions ||
-		!common.IsImageGenerationModel(param.ModelName) {
+	if profileID := param.Ctx.GetString("configurable_native_profile_id"); profileID != "" {
+		return func(channel *model.Channel) bool {
+			if channel == nil || channel.Type != constant.ChannelTypeConfigurable {
+				return false
+			}
+			settings := channel.GetSetting()
+			return settings.Protocol != nil && settings.Protocol.ProfileID == profileID
+		}
+	}
+	req := conversion.RequirementFromHTTPRequest(param.Ctx, param.ModelName)
+	if req.Empty() || req.Conversion == "" {
 		return nil
 	}
 	return func(channel *model.Channel) bool {
 		if channel == nil {
 			return false
 		}
-		return conversion.SupportsConversion(
-			channel.GetSetting(),
-			conversion.RequestModeOpenAIChat,
-			conversion.RequestModeOpenAIImageGenerations,
-			conversion.ConversionOpenAIChatToImageGenerations,
-		)
+		return req.Supports(channel.GetSetting())
 	}
 }

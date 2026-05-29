@@ -5252,6 +5252,16 @@
     "Leave empty to use default protocol support for this channel": "Оставьте пустым, чтобы использовать поддержку протоколов по умолчанию для этого канала",
     "Enabled Protocol Conversions": "Включенные преобразования протоколов",
     "Select enabled protocol conversions": "Выберите включенные преобразования протоколов",
-    "Configured channels only use the selected conversions": "Настроенные каналы используют только выбранные преобразования"
+    "Configured channels only use the selected conversions": "Настроенные каналы используют только выбранные преобразования",
+    "Image Async Wait Timeout Seconds": "Тайм-аут ожидания async-изображения в секундах",
+    "Default 120, 0 disables wait": "По умолчанию 120, 0 отключает ожидание",
+    "Controls synchronous waiting after an async image task is submitted": "Управляет синхронным ожиданием после отправки async-задачи изображения",
+    "Configurable Protocol": "Настраиваемый протокол",
+    "Generic JSON Video Task": "Универсальная JSON-задача видео",
+    "HappyHorse Video": "Видео HappyHorse",
+    "Protocol Profile": "Профиль протокола",
+    "Select protocol profile": "Выберите профиль протокола",
+    "Use channel default": "Использовать значение канала по умолчанию",
+    "Configurable protocol channels use this profile to map submit and fetch payloads": "Каналы с настраиваемым протоколом используют этот профиль для сопоставления запросов отправки и получения"
   }
 }

@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -216,7 +217,7 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 
 	baseURL := info.ChannelBaseUrl
 	if baseURL == "" && info.ChannelType >= 0 && info.ChannelType < len(constant.ChannelBaseURLs) {
-		baseURL = constant.ChannelBaseURLs[info.ChannelType]
+		baseURL = constant.GetChannelBaseURL(info.ChannelType)
 	}
 	key := info.ApiKey
 	proxy := info.ChannelSetting.Proxy
@@ -234,8 +235,14 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 
 func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy, modelName string) ([]byte, error) {
 	waitSeconds := 2 * time.Second
-	maxStep := 60
+	maxStep := imageAsyncWaitMaxStep(c)
+	if maxStep <= 0 {
+		return nil, fmt.Errorf("image async task wait disabled")
+	}
 	for step := 0; step < maxStep; step++ {
+		if err := imageAsyncWaitContextErr(c); err != nil {
+			return nil, err
+		}
 		body, statusCode, err := fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy, modelName)
 		if err != nil {
 			return nil, err
@@ -259,15 +266,61 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy,
 			return nil, errors.New(failReason)
 		}
 
-		timer := time.NewTimer(waitSeconds)
-		select {
-		case <-c.Request.Context().Done():
-			timer.Stop()
-			return nil, c.Request.Context().Err()
-		case <-timer.C:
+		if step < maxStep-1 {
+			if err := sleepImageAsyncWait(c, waitSeconds); err != nil {
+				return nil, err
+			}
 		}
 	}
 	return nil, fmt.Errorf("image async task wait timeout")
+}
+
+func imageAsyncWaitMaxStep(c *gin.Context) int {
+	if c != nil {
+		if settings, ok := c.Get(string(constant.ContextKeyChannelSetting)); ok {
+			if channelSettings, ok := settings.(dto.ChannelSettings); ok &&
+				channelSettings.Protocol != nil &&
+				channelSettings.Protocol.ImageAsyncWaitTimeoutSeconds != nil {
+				return imageAsyncWaitSteps(*channelSettings.Protocol.ImageAsyncWaitTimeoutSeconds)
+			}
+		}
+	}
+	return imageAsyncWaitSteps(common.GetEnvOrDefault("IMAGE_ASYNC_WAIT_TIMEOUT_SECONDS", 120))
+}
+
+func imageAsyncWaitSteps(timeoutSeconds int) int {
+	if timeoutSeconds <= 0 {
+		return 0
+	}
+	return (timeoutSeconds + 1) / 2
+}
+
+func imageAsyncWaitContextErr(c *gin.Context) error {
+	if c == nil || c.Request == nil || c.Request.Context() == nil {
+		return nil
+	}
+	if err := c.Request.Context().Err(); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return err
+		}
+		return err
+	}
+	return nil
+}
+
+func sleepImageAsyncWait(c *gin.Context, d time.Duration) error {
+	if c == nil || c.Request == nil || c.Request.Context() == nil {
+		time.Sleep(d)
+		return nil
+	}
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+	select {
+	case <-c.Request.Context().Done():
+		return c.Request.Context().Err()
+	case <-timer.C:
+		return nil
+	}
 }
 
 func normalizeImageTaskResponseForRelay(modelName, upstreamTaskID string, body []byte) (dto.ImageTaskResponse, []byte, error) {
@@ -436,7 +489,7 @@ func fetchImageTaskFromUpstream(task *model.Task) ([]byte, int, error) {
 	}
 	baseURL := channelModel.GetBaseURL()
 	if baseURL == "" && channelModel.Type >= 0 && channelModel.Type < len(constant.ChannelBaseURLs) {
-		baseURL = constant.ChannelBaseURLs[channelModel.Type]
+		baseURL = constant.GetChannelBaseURL(channelModel.Type)
 	}
 	if strings.TrimSpace(baseURL) == "" {
 		return nil, 0, fmt.Errorf("channel base url is empty")

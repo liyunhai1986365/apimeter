@@ -5,13 +5,16 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -107,6 +110,7 @@ func TestRecordImageAsyncSubmitResponseSkipsTaskWhenClientDidNotRequestAsync(t *
 func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(t *testing.T) {
 	setupImageTaskTestDB(t)
 	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/v1/tasks/7154f43c-7765-4e77-d51e-0db4eee107b0", r.URL.Path)
@@ -205,6 +209,78 @@ func TestWaitImageAsyncSubmitResponseSkipsWhenClientRequestedAsync(t *testing.T)
 	require.Nil(t, body)
 }
 
+func TestWaitImageAsyncSubmitResponseUsesConfiguredWaitTimeout(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	calls := 0
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"task_wait","state":"running","progress":0,"action":"generate","data":{"images":[]}}`))
+	}))
+	defer upstream.Close()
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: upstream.URL,
+			ApiKey:         "sk-upstream",
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ImageAsyncWaitTimeoutSeconds: common.GetPointer(2),
+		},
+	})
+
+	body, apiErr := waitImageAsyncSubmitResponse(c, info, []byte(`{"id":"task_wait"}`))
+	require.NotNil(t, apiErr)
+	require.Nil(t, body)
+	require.Contains(t, apiErr.Error(), "image async task wait timeout")
+	require.Equal(t, 1, calls)
+}
+
+func TestWaitImageAsyncSubmitResponseCanDisableSyncWait(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: "https://upstream.example",
+			ApiKey:         "sk-upstream",
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ImageAsyncWaitTimeoutSeconds: common.GetPointer(0),
+		},
+	})
+
+	body, apiErr := waitImageAsyncSubmitResponse(c, info, []byte(`{"id":"task_wait"}`))
+	require.NotNil(t, apiErr)
+	require.Nil(t, body)
+	require.Contains(t, apiErr.Error(), "image async task wait disabled")
+}
+
+func TestImageAsyncWaitStepsRoundsUp(t *testing.T) {
+	require.Equal(t, 0, imageAsyncWaitSteps(0))
+	require.Equal(t, 1, imageAsyncWaitSteps(1))
+	require.Equal(t, 1, imageAsyncWaitSteps(2))
+	require.Equal(t, 2, imageAsyncWaitSteps(3))
+}
+
 func TestImageResponseCaptureDoesNotWriteBodyOnIntermediateFlush(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -294,6 +370,72 @@ func TestImageTaskFetchReturnsOpenAICompatibleTaskPayload(t *testing.T) {
 func TestImageTaskFetchUsesBearerForStandardUpstreams(t *testing.T) {
 	// Covered by the existing upstream server test; this placeholder keeps the
 	// file focused on task payload behavior.
+}
+
+func TestConfigurableNativeFetchStoresFailureReason(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/v1/tasks/upstream-task", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"output":{"task_id":"upstream-task","task_status":"FAILED","code":"InvalidParameter","message":"The parameter is invalid."},"request_id":"req-1"}`))
+	}))
+	defer upstream.Close()
+
+	channel := model.Channel{
+		Id:       901,
+		Type:     constant.ChannelTypeConfigurable,
+		Key:      "sk-upstream",
+		BaseURL:  common.GetPointer(upstream.URL),
+		Status:   common.ChannelStatusEnabled,
+		Name:     "happyhorse",
+		Models:   "happyhorse-1.0-t2v",
+		Group:    "default",
+		Priority: common.GetPointer[int64](1),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ProfileID: "happyhorse-video",
+		},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+
+	require.NoError(t, model.DB.Create(&model.Task{
+		TaskID:    "task_public",
+		UserId:    7,
+		ChannelId: channel.Id,
+		Platform:  constant.TaskPlatform(fmt.Sprintf("%d", constant.ChannelTypeConfigurable)),
+		Status:    model.TaskStatusInProgress,
+		Progress:  "30%",
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: "upstream-task",
+		},
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/tasks/task_public", nil)
+	c.Set("configurable_native_profile_id", "happyhorse-video")
+
+	body := tryConfigurableNativeFetch(c, &model.Task{
+		TaskID:    "task_public",
+		UserId:    7,
+		ChannelId: channel.Id,
+		Status:    model.TaskStatusInProgress,
+		Progress:  "30%",
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: "upstream-task",
+		},
+	})
+	require.True(t, strings.Contains(string(body), `"message":"The parameter is invalid."`), string(body))
+
+	reloaded, exists, err := model.GetByTaskId(7, "task_public")
+	require.NoError(t, err)
+	require.True(t, exists)
+	require.EqualValues(t, model.TaskStatusFailure, reloaded.Status)
+	require.Equal(t, "The parameter is invalid.", reloaded.FailReason)
 }
 
 func TestBuildImageTaskFetchRequestUsesDuomiTaskEndpointAndRawAuthorization(t *testing.T) {

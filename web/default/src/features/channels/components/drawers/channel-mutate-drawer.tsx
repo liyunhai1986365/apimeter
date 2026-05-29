@@ -129,6 +129,7 @@ import {
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
   CONVERSION_OPTIONS,
+  PROTOCOL_PROFILE_OPTIONS,
   REQUEST_MODE_OPTIONS,
   channelFormSchema,
   channelsQueryKeys,
@@ -244,6 +245,8 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.system_prompt_override ||
     (values.protocol_native_modes?.length ?? 0) > 0 ||
     (values.protocol_enabled_conversions?.length ?? 0) > 0 ||
+    values.protocol_profile_id?.trim() ||
+    values.image_async_wait_timeout_seconds !== undefined ||
     values.claude_beta_query ||
     values.upstream_model_update_check_enabled ||
     values.upstream_model_update_auto_sync_enabled ||
@@ -2875,6 +2878,38 @@ export function ChannelMutateDrawer({
                           </FormItem>
                         )}
                       />
+
+                      <FormField
+                        control={form.control}
+                        name='image_async_wait_timeout_seconds'
+                        render={({ field }) => (
+                          <FormItem className='px-4 py-3'>
+                            <FormLabel>
+                              {t('Image Async Wait Timeout Seconds')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                placeholder={t('Default 120, 0 disables wait')}
+                                value={field.value ?? ''}
+                                onChange={(event) => {
+                                  const value = event.target.value
+                                  field.onChange(
+                                    value === '' ? undefined : Number(value)
+                                  )
+                                }}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Controls synchronous waiting after an async image task is submitted'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
                   </div>
 
@@ -3175,6 +3210,49 @@ export function ChannelMutateDrawer({
                                 onCheckedChange={field.onChange}
                               />
                             </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='protocol_profile_id'
+                        render={({ field }) => (
+                          <FormItem className='px-4 py-3'>
+                            <FormLabel>{t('Protocol Profile')}</FormLabel>
+                            <Select
+                              value={field.value || 'none'}
+                              onValueChange={(value) =>
+                                field.onChange(value === 'none' ? '' : value)
+                              }
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue
+                                    placeholder={t('Select protocol profile')}
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value='none'>
+                                  {t('Use channel default')}
+                                </SelectItem>
+                                {PROTOCOL_PROFILE_OPTIONS.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    {t(option.label)}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              {t(
+                                'Configurable protocol channels use this profile to map submit and fetch payloads'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />

@@ -134,6 +134,17 @@ export const CHANNEL_TYPE_CONFIGS: Record<number, ChannelTypeConfig> = {
       baseUrl: 'Default: https://api.replicate.com',
     },
   },
+  999: {
+    id: 999,
+    name: CHANNEL_TYPES[999],
+    icon: 'openai',
+    hints: {
+      baseUrl: 'Configured profile upstream base URL',
+      key: 'Bearer token for the configured upstream',
+      models: 'Model names handled by the selected protocol profile',
+      other: 'Select a protocol profile in advanced settings',
+    },
+  },
 }
 
 /**

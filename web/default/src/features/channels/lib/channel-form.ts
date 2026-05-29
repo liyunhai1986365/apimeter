@@ -40,6 +40,17 @@ export const CONVERSION_OPTIONS = [
   },
 ]
 
+export const PROTOCOL_PROFILE_OPTIONS = [
+  {
+    label: 'Generic JSON Video Task',
+    value: 'generic-video-json',
+  },
+  {
+    label: 'HappyHorse Video',
+    value: 'happyhorse-video',
+  },
+]
+
 // ============================================================================
 // Form Validation Schema
 // ============================================================================
@@ -84,6 +95,8 @@ export const channelFormSchema = z.object({
   system_prompt_override: z.boolean().optional(),
   protocol_native_modes: z.array(z.string()).optional(),
   protocol_enabled_conversions: z.array(z.string()).optional(),
+  protocol_profile_id: z.string().optional(),
+  image_async_wait_timeout_seconds: z.number().min(0).optional(),
   // Type-specific settings (stored in settings JSON)
   is_enterprise_account: z.boolean().optional(), // OpenRouter specific
   vertex_key_type: z.enum(['json', 'api_key']).optional(), // Vertex AI specific
@@ -145,6 +158,8 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   system_prompt_override: false,
   protocol_native_modes: [],
   protocol_enabled_conversions: [],
+  protocol_profile_id: '',
+  image_async_wait_timeout_seconds: undefined,
   // Type-specific settings
   is_enterprise_account: false,
   vertex_key_type: 'json',
@@ -183,6 +198,8 @@ export function transformChannelToFormDefaults(
     system_prompt_override: false,
     protocol_native_modes: [] as string[],
     protocol_enabled_conversions: [] as string[],
+    protocol_profile_id: '',
+    image_async_wait_timeout_seconds: undefined as number | undefined,
   }
 
   if (channel.setting) {
@@ -203,6 +220,14 @@ export function transformChannelToFormDefaults(
         )
           ? parsed.protocol.enabled_conversions
           : [],
+        protocol_profile_id:
+          typeof parsed.protocol?.profile_id === 'string'
+            ? parsed.protocol.profile_id
+            : '',
+        image_async_wait_timeout_seconds:
+          typeof parsed.protocol?.image_async_wait_timeout_seconds === 'number'
+            ? parsed.protocol.image_async_wait_timeout_seconds
+            : undefined,
       }
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -306,6 +331,23 @@ export function transformChannelToFormDefaults(
  * Build the setting JSON string from form extra settings
  */
 function buildSettingJSON(formData: ChannelFormValues): string {
+  const protocol: {
+    native_modes: string[]
+    enabled_conversions: string[]
+    profile_id?: string
+    image_async_wait_timeout_seconds?: number
+  } = {
+    native_modes: formData.protocol_native_modes || [],
+    enabled_conversions: formData.protocol_enabled_conversions || [],
+  }
+  if (formData.image_async_wait_timeout_seconds !== undefined) {
+    protocol.image_async_wait_timeout_seconds =
+      formData.image_async_wait_timeout_seconds
+  }
+  if (formData.protocol_profile_id?.trim()) {
+    protocol.profile_id = formData.protocol_profile_id.trim()
+  }
+
   const settingObj = {
     force_format: formData.force_format || false,
     thinking_to_content: formData.thinking_to_content || false,
@@ -313,10 +355,7 @@ function buildSettingJSON(formData: ChannelFormValues): string {
     pass_through_body_enabled: formData.pass_through_body_enabled || false,
     system_prompt: formData.system_prompt || '',
     system_prompt_override: formData.system_prompt_override || false,
-    protocol: {
-      native_modes: formData.protocol_native_modes || [],
-      enabled_conversions: formData.protocol_enabled_conversions || [],
-    },
+    protocol,
   }
   return JSON.stringify(settingObj)
 }

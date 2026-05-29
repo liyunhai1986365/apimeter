@@ -1,0 +1,218 @@
+package configurable
+
+import (
+	"embed"
+	"fmt"
+	"io/fs"
+	"sort"
+	"strings"
+	"sync"
+
+	"gopkg.in/yaml.v3"
+)
+
+//go:embed profiles/*.yaml
+var profileFS embed.FS
+
+type Profile struct {
+	ID            string          `yaml:"id"`
+	Name          string          `yaml:"name"`
+	MediaType     string          `yaml:"media_type"`
+	AcceptedModes []string        `yaml:"accepted_modes"`
+	UpstreamModes []string        `yaml:"upstream_modes"`
+	Conversions   []ConversionRef `yaml:"conversions"`
+	Native        NativeConfig    `yaml:"native"`
+	Billing       BillingConfig   `yaml:"billing"`
+	Submit        EndpointConfig  `yaml:"submit"`
+	Fetch         EndpointConfig  `yaml:"fetch"`
+}
+
+type ConversionRef struct {
+	From string `yaml:"from"`
+	To   string `yaml:"to"`
+}
+
+type EndpointConfig struct {
+	Method         string         `yaml:"method"`
+	Path           string         `yaml:"path"`
+	Headers        []HeaderConfig `yaml:"headers"`
+	Body           BodyConfig     `yaml:"body"`
+	Response       ResponseConfig `yaml:"response"`
+	OpenAIResponse ResponseConfig `yaml:"openai_response"`
+}
+
+type NativeConfig struct {
+	Submit NativeEndpointConfig `yaml:"submit"`
+	Fetch  NativeEndpointConfig `yaml:"fetch"`
+}
+
+type NativeEndpointConfig struct {
+	Method      string         `yaml:"method"`
+	Path        string         `yaml:"path"`
+	Passthrough bool           `yaml:"passthrough"`
+	Request     BodyConfig     `yaml:"request"`
+	Response    ResponseConfig `yaml:"response"`
+}
+
+type BillingConfig struct {
+	Ratios []BillingRatioConfig `yaml:"ratios"`
+}
+
+type BillingRatioConfig struct {
+	Key      string  `yaml:"key"`
+	From     string  `yaml:"from"`
+	Value    float64 `yaml:"value"`
+	Default  float64 `yaml:"default"`
+	OmitZero bool    `yaml:"omit_zero"`
+}
+
+type HeaderConfig struct {
+	Name  string `yaml:"name"`
+	Value string `yaml:"value"`
+}
+
+type BodyConfig struct {
+	Fields []FieldMapping `yaml:"fields"`
+}
+
+type FieldMapping struct {
+	To                string `yaml:"to"`
+	From              string `yaml:"from"`
+	FallbackFrom      string `yaml:"fallback_from"`
+	Transform         string `yaml:"transform"`
+	MediaType         string `yaml:"media_type"`
+	FirstOnly         bool   `yaml:"first_only"`
+	WhenModelContains string `yaml:"when_model_contains"`
+	Append            bool   `yaml:"append"`
+	Value             any    `yaml:"value"`
+	OmitEmpty         bool   `yaml:"omit_empty"`
+}
+
+type ResponseConfig struct {
+	Passthrough   bool              `yaml:"passthrough"`
+	Fields        []FieldMapping    `yaml:"fields"`
+	TaskIDPath    string            `yaml:"task_id_path"`
+	StatusPath    string            `yaml:"status_path"`
+	ProgressPath  string            `yaml:"progress_path"`
+	ResultURLPath string            `yaml:"result_url_path"`
+	ReasonPath    string            `yaml:"reason_path"`
+	StatusMap     map[string]string `yaml:"status_map"`
+}
+
+var (
+	profilesOnce sync.Once
+	profilesByID map[string]*Profile
+	profilesErr  error
+)
+
+func ListProfiles() []*Profile {
+	profiles, err := loadProfiles()
+	if err != nil {
+		return nil
+	}
+	result := make([]*Profile, 0, len(profiles))
+	for _, profile := range profiles {
+		cp := *profile
+		result = append(result, &cp)
+	}
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
+	return result
+}
+
+func GetProfile(id string) (*Profile, bool) {
+	profiles, err := loadProfiles()
+	if err != nil {
+		return nil, false
+	}
+	profile, ok := profiles[strings.TrimSpace(id)]
+	if !ok {
+		return nil, false
+	}
+	cp := *profile
+	return &cp, true
+}
+
+func MatchNativeSubmit(method, path string) (*Profile, bool) {
+	return matchNativeEndpoint(method, path, func(profile *Profile) NativeEndpointConfig {
+		return profile.Native.Submit
+	})
+}
+
+func MatchNativeFetch(method, path string) (*Profile, bool) {
+	return matchNativeEndpoint(method, path, func(profile *Profile) NativeEndpointConfig {
+		return profile.Native.Fetch
+	})
+}
+
+func matchNativeEndpoint(method, path string, endpoint func(*Profile) NativeEndpointConfig) (*Profile, bool) {
+	profiles, err := loadProfiles()
+	if err != nil {
+		return nil, false
+	}
+	method = strings.ToUpper(strings.TrimSpace(method))
+	path = strings.TrimSpace(path)
+	for _, profile := range profiles {
+		native := endpoint(profile)
+		if strings.ToUpper(strings.TrimSpace(native.Method)) != method {
+			continue
+		}
+		if !nativePathMatches(native.Path, path) {
+			continue
+		}
+		cp := *profile
+		return &cp, true
+	}
+	return nil, false
+}
+
+func nativePathMatches(pattern, path string) bool {
+	pattern = strings.Trim(pattern, "/")
+	path = strings.Trim(path, "/")
+	if pattern == "" || path == "" {
+		return pattern == path
+	}
+	patternParts := strings.Split(pattern, "/")
+	pathParts := strings.Split(path, "/")
+	if len(patternParts) != len(pathParts) {
+		return false
+	}
+	for i, patternPart := range patternParts {
+		if strings.HasPrefix(patternPart, "{") && strings.HasSuffix(patternPart, "}") {
+			continue
+		}
+		if patternPart != pathParts[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func loadProfiles() (map[string]*Profile, error) {
+	profilesOnce.Do(func() {
+		profilesByID = make(map[string]*Profile)
+		profilesErr = fs.WalkDir(profileFS, "profiles", func(path string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return err
+			}
+			if d.IsDir() || !strings.HasSuffix(path, ".yaml") {
+				return nil
+			}
+			data, err := profileFS.ReadFile(path)
+			if err != nil {
+				return err
+			}
+			var profile Profile
+			if err := yaml.Unmarshal(data, &profile); err != nil {
+				return fmt.Errorf("unmarshal %s: %w", path, err)
+			}
+			if strings.TrimSpace(profile.ID) == "" {
+				return fmt.Errorf("profile %s missing id", path)
+			}
+			profilesByID[profile.ID] = &profile
+			return nil
+		})
+	})
+	return profilesByID, profilesErr
+}

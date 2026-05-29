@@ -21,6 +21,13 @@ import (
 func openChannelSelectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
+	originalDB := model.DB
+	originalLogDB := model.LOG_DB
+	originalMemoryCacheEnabled := common.MemoryCacheEnabled
+	originalSQLite := common.UsingSQLite
+	originalMySQL := common.UsingMySQL
+	originalPostgreSQL := common.UsingPostgreSQL
+
 	gin.SetMode(gin.TestMode)
 	common.UsingSQLite = true
 	common.UsingMySQL = false
@@ -32,6 +39,18 @@ func openChannelSelectTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}, &model.Ability{}))
 	model.DB = db
+
+	t.Cleanup(func() {
+		model.DB = originalDB
+		model.LOG_DB = originalLogDB
+		common.MemoryCacheEnabled = originalMemoryCacheEnabled
+		common.UsingSQLite = originalSQLite
+		common.UsingMySQL = originalMySQL
+		common.UsingPostgreSQL = originalPostgreSQL
+		if sqlDB, err := db.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+	})
 
 	return db
 }
@@ -185,6 +204,38 @@ func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupport(t *testin
 	require.NotNil(t, channel)
 	require.Equal(t, 1002, channel.Id)
 	require.Equal(t, "default", selectedGroup)
+}
+
+func TestBuildProtocolChannelFilterUsesConversionRequirement(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-image-2"}`))
+
+	filter := BuildProtocolChannelFilter(&RetryParam{
+		Ctx:       c,
+		ModelName: "gpt-image-2",
+	})
+	require.NotNil(t, filter)
+
+	unsupported := model.Channel{}
+	unsupported.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes:        []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+	require.False(t, filter(&unsupported))
+
+	supported := model.Channel{}
+	supported.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{
+				string(conversion.RequestModeOpenAIChat),
+				string(conversion.RequestModeOpenAIImageGenerations),
+			},
+			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+		},
+	})
+	require.True(t, filter(&supported))
 }
 
 func TestCacheGetRandomSatisfiedChannelRejectsWhenAllImageChatChannelsUnsupported(t *testing.T) {

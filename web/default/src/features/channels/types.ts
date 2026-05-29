@@ -90,6 +90,8 @@ export interface ChannelSettings {
   protocol?: {
     native_modes?: string[]
     enabled_conversions?: string[]
+    profile_id?: string
+    image_async_wait_timeout_seconds?: number
   }
 }
 

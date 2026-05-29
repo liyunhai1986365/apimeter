@@ -5252,6 +5252,16 @@
     "Leave empty to use default protocol support for this channel": "Để trống để dùng hỗ trợ giao thức mặc định cho kênh này",
     "Enabled Protocol Conversions": "Chuyển đổi giao thức đã bật",
     "Select enabled protocol conversions": "Chọn chuyển đổi giao thức đã bật",
-    "Configured channels only use the selected conversions": "Kênh đã cấu hình chỉ dùng các chuyển đổi được chọn"
+    "Configured channels only use the selected conversions": "Kênh đã cấu hình chỉ dùng các chuyển đổi được chọn",
+    "Image Async Wait Timeout Seconds": "Thời gian chờ ảnh bất đồng bộ tính bằng giây",
+    "Default 120, 0 disables wait": "Mặc định 120, 0 tắt chờ",
+    "Controls synchronous waiting after an async image task is submitted": "Điều khiển thời gian chờ đồng bộ sau khi gửi tác vụ ảnh bất đồng bộ",
+    "Configurable Protocol": "Giao thuc co the cau hinh",
+    "Generic JSON Video Task": "Tac vu video JSON chung",
+    "HappyHorse Video": "Video HappyHorse",
+    "Protocol Profile": "Ho so giao thuc",
+    "Select protocol profile": "Chon ho so giao thuc",
+    "Use channel default": "Dung mac dinh cua kenh",
+    "Configurable protocol channels use this profile to map submit and fetch payloads": "Kenh giao thuc co the cau hinh dung ho so nay de anh xa payload gui va truy van"
   }
 }

@@ -5252,6 +5252,16 @@
     "Leave empty to use default protocol support for this channel": "Laissez vide pour utiliser le support de protocole par défaut de ce canal",
     "Enabled Protocol Conversions": "Conversions de protocole activées",
     "Select enabled protocol conversions": "Sélectionner les conversions de protocole activées",
-    "Configured channels only use the selected conversions": "Les canaux configurés utilisent uniquement les conversions sélectionnées"
+    "Configured channels only use the selected conversions": "Les canaux configurés utilisent uniquement les conversions sélectionnées",
+    "Image Async Wait Timeout Seconds": "Délai d'attente async image en secondes",
+    "Default 120, 0 disables wait": "120 par défaut, 0 désactive l'attente",
+    "Controls synchronous waiting after an async image task is submitted": "Contrôle l'attente synchrone après la soumission d'une tâche d'image asynchrone",
+    "Configurable Protocol": "Protocole configurable",
+    "Generic JSON Video Task": "Tache video JSON generique",
+    "HappyHorse Video": "Video HappyHorse",
+    "Protocol Profile": "Profil de protocole",
+    "Select protocol profile": "Selectionner un profil de protocole",
+    "Use channel default": "Utiliser la valeur par defaut du canal",
+    "Configurable protocol channels use this profile to map submit and fetch payloads": "Les canaux a protocole configurable utilisent ce profil pour mapper les charges de soumission et de recuperation"
   }
 }

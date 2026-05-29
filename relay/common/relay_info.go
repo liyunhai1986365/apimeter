@@ -637,11 +637,6 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 	if info == nil {
 		return nil, errors.New("failed to build relay info")
 	}
-	if conversion.ActiveConversionID(c) == conversion.ConversionOpenAIChatToImageGenerations || c.GetBool("chat_image_compat") {
-		info.RelayFormat = types.RelayFormatOpenAIImage
-		info.RelayMode = relayconstant.RelayModeImagesGenerations
-		info.RequestURLPath = "/v1/images/generations"
-	}
 	info.ApplyProtocolConversionContext(c)
 
 	info.InitRequestConversionChain()
@@ -656,7 +651,14 @@ func (info *RelayInfo) ApplyProtocolConversionContext(c *gin.Context) {
 	info.SourceRequestMode = c.GetString(conversion.ContextKeySourceRequestMode)
 	info.TargetRequestMode = c.GetString(conversion.ContextKeyTargetRequestMode)
 	info.PreserveResponseMode = c.GetBool(conversion.ContextKeyPreserveResponse)
+	if targetMode := c.GetInt(conversion.ContextKeyTargetRelayMode); targetMode != 0 {
+		info.RelayMode = targetMode
+	}
+	if targetPath := c.GetString(conversion.ContextKeyTargetRequestURLPath); targetPath != "" {
+		info.RequestURLPath = targetPath
+	}
 	if targetFormat := types.RelayFormat(c.GetString(conversion.ContextKeyTargetRelayFormat)); targetFormat != "" {
+		info.RelayFormat = targetFormat
 		info.FinalRequestRelayFormat = targetFormat
 		info.RequestConversionChain = []types.RelayFormat{targetFormat}
 	}
