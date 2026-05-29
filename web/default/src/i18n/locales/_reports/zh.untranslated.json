@@ -16,6 +16,7 @@
   "checkout.session.completed": "checkout.session.completed",
   "checkout.session.expired": "checkout.session.expired",
   "Claude": "Claude",
+  "Claude Messages": "Claude Messages",
   "Client ID": "Client ID",
   "Client Secret": "Client Secret",
   "Cloudflare": "Cloudflare",
@@ -31,6 +32,7 @@
   "footer.columns.related.links.newApiKeyTool": "new-api-key-tool",
   "footer.columns.related.links.oneApi": "One API",
   "Gemini": "Gemini",
+  "Gemini Generate Content": "Gemini Generate Content",
   "GitHub": "GitHub",
   "gpt-3.5-turbo": "gpt-3.5-turbo",
   "gpt-3.5-turbo-0125": "gpt-3.5-turbo-0125",
@@ -75,6 +77,8 @@
   "Ollama": "Ollama",
   "One API": "One API",
   "OpenAI": "OpenAI",
+  "OpenAI Chat": "OpenAI Chat",
+  "OpenAI Responses": "OpenAI Responses",
   "OpenAIMax": "OpenAIMax",
   "OpenRouter": "OpenRouter",
   "org-...": "org-...",
@@ -103,9 +107,5 @@
   "whsec_xxx": "whsec_xxx",
   "Windows": "Windows",
   "Worker URL": "Worker URL",
-  "Xinference": "Xinference",
-  "OpenAI Chat": "OpenAI Chat",
-  "OpenAI Responses": "OpenAI Responses",
-  "Claude Messages": "Claude Messages",
-  "Gemini Generate Content": "Gemini Generate Content"
+  "Xinference": "Xinference"
 }

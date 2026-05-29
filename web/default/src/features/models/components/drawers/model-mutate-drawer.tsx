@@ -92,6 +92,7 @@ const extendedModelFormSchema = z.object({
   tags: z.array(z.string()),
   category: z.enum(MODEL_CATEGORY_VALUES),
   vendor_id: z.number().optional(),
+  alias_models: z.string(),
   endpoints: z.string(),
   name_rule: z.number(),
   status: z.boolean(),
@@ -220,6 +221,7 @@ export function ModelMutateDrawer({
       tags: [],
       category: MODEL_CATEGORIES.TEXT,
       vendor_id: undefined,
+      alias_models: '',
       endpoints: '',
       name_rule: 0,
       status: true,
@@ -280,6 +282,7 @@ export function ModelMutateDrawer({
         tags: parseModelTags(model.tags),
         category: model.category || MODEL_CATEGORIES.TEXT,
         vendor_id: model.vendor_id,
+        alias_models: model.alias_models || '',
         endpoints: model.endpoints || '',
         name_rule: model.name_rule || 0,
         status: model.status === 1,
@@ -385,6 +388,7 @@ export function ModelMutateDrawer({
         tags: [],
         category: MODEL_CATEGORIES.TEXT,
         vendor_id: undefined,
+        alias_models: '',
         endpoints: '',
         name_rule: 0,
         status: true,
@@ -874,6 +878,29 @@ export function ModelMutateDrawer({
                     </FormControl>
                     <FormDescription>
                       {t('How this model name should match requests')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='alias_models'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alias models')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder={t('One model alias per line')}
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Model square will merge these model names into the main model and show them as aliases.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

@@ -42,6 +42,7 @@ export interface Model {
   tags?: string
   category?: ModelCategory
   vendor_id?: number
+  alias_models?: string
   endpoints?: string
   status: number
   sync_official: number

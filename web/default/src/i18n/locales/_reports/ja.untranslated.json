@@ -53,6 +53,7 @@
   "Claude Code Subscription": "Claude Code Subscription",
   "Claude Code, CodeX, Open Code, OpenClaw etc.": "Claude Code, CodeX, Open Code, OpenClaw etc.",
   "Claude family only": "Claude family only",
+  "Claude Messages": "Claude Messages",
   "Claude only": "Claude only",
   "Clear guidelines ensure platform stability and budget predictability.": "Clear guidelines ensure platform stability and budget predictability.",
   "Cloudflare": "Cloudflare",
@@ -194,6 +195,7 @@
   "One-time quota": "One-time quota",
   "One-time quota pool": "One-time quota pool",
   "OpenAI": "OpenAI",
+  "OpenAI Responses": "OpenAI Responses",
   "OpenAI-compatible": "OpenAI-compatible",
   "OpenAIMax": "OpenAIMax",
   "OpenRouter": "OpenRouter",
@@ -349,7 +351,5 @@
   "You commit to using upstream APIs, accounts, keys, quotas, and service capabilities only within the scope of lawful authorization obtained from upstream service providers, model service providers, or relevant rights holders, and will not conduct unauthorized resale, trafficking, distribution, or other non-compliant commercialization.": "You commit to using upstream APIs, accounts, keys, quotas, and service capabilities only within the scope of lawful authorization obtained from upstream service providers, model service providers, or relevant rights holders, and will not conduct unauthorized resale, trafficking, distribution, or other non-compliant commercialization.",
   "You have legally obtained authorization for the connected model APIs, accounts, keys, and quotas.": "You have legally obtained authorization for the connected model APIs, accounts, keys, and quotas.",
   "You understand and independently bear legal responsibility arising from deployment, operation, and charging behavior.": "You understand and independently bear legal responsibility arising from deployment, operation, and charging behavior.",
-  "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario.": "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario.",
-  "OpenAI Responses": "OpenAI Responses",
-  "Claude Messages": "Claude Messages"
+  "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario.": "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario."
 }

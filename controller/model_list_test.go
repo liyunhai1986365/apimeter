@@ -240,3 +240,66 @@ func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 	require.NotContains(t, ids, "zz-token-tiered-missing-expr-model")
 	require.NotContains(t, ids, "zz-token-unpriced-model")
 }
+
+func TestPricingUsesModelMetaAliasesToMergePublicModels(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Channel{
+		{Id: 1, Name: "main-channel", Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Key: "sk-main"},
+		{Id: 2, Name: "alias-channel", Type: constant.ChannelTypeGemini, Status: common.ChannelStatusEnabled, Key: "sk-alias"},
+	}).Error)
+	require.NoError(t, db.Create(&model.Model{
+		ModelName:    "zz-main-model",
+		Description:  "public main model",
+		Category:     "text",
+		Status:       1,
+		SyncOfficial: 1,
+		AliasModels:  "zz-main-model-v2, zz-main-model-preview",
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-main-model", ChannelId: 1, Enabled: true},
+		{Group: "vip", Model: "zz-main-model-v2", ChannelId: 2, Enabled: true},
+		{Group: "default", Model: "zz-main-model-preview", ChannelId: 2, Enabled: true},
+	}).Error)
+
+	model.RefreshPricing()
+
+	pricingByName := pricingByModelName(model.GetPricing())
+	mainPricing, ok := pricingByName["zz-main-model"]
+	require.True(t, ok)
+	require.Equal(t, "public main model", mainPricing.Description)
+	require.ElementsMatch(t, []string{"default", "vip"}, mainPricing.EnableGroup)
+	require.ElementsMatch(t, []string{"zz-main-model-preview", "zz-main-model-v2"}, mainPricing.AliasModels)
+	require.NotEmpty(t, mainPricing.SupportedEndpointTypes)
+	require.NotContains(t, pricingByName, "zz-main-model-v2")
+	require.NotContains(t, pricingByName, "zz-main-model-preview")
+}
+
+func TestPricingUsesModelNameRulesToMergePublicModels(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Channel{
+		{Id: 1, Name: "rule-channel", Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Key: "sk-rule"},
+		{Id: 2, Name: "rule-alias-channel", Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Key: "sk-rule-alias"},
+	}).Error)
+	require.NoError(t, db.Create(&model.Model{
+		ModelName:    "zz-rule-model",
+		Description:  "rule model",
+		Category:     "text",
+		Status:       1,
+		SyncOfficial: 1,
+		NameRule:     model.NameRulePrefix,
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-rule-model", ChannelId: 1, Enabled: true},
+		{Group: "vip", Model: "zz-rule-model-fast", ChannelId: 2, Enabled: true},
+	}).Error)
+
+	model.RefreshPricing()
+
+	pricingByName := pricingByModelName(model.GetPricing())
+	mainPricing, ok := pricingByName["zz-rule-model"]
+	require.True(t, ok)
+	require.Equal(t, "rule model", mainPricing.Description)
+	require.ElementsMatch(t, []string{"default", "vip"}, mainPricing.EnableGroup)
+	require.ElementsMatch(t, []string{"zz-rule-model-fast"}, mainPricing.AliasModels)
+	require.NotContains(t, pricingByName, "zz-rule-model-fast")
+}

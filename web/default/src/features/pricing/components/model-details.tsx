@@ -16,10 +16,17 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
-import { ArrowLeft, Code2, HeartPulse, Info, Timer } from 'lucide-react'
+import {
+  ArrowLeft,
+  ChevronDown,
+  Code2,
+  HeartPulse,
+  Info,
+  Timer,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
@@ -150,6 +157,98 @@ function CompactModalities(props: { input: Modality[]; output: Modality[] }) {
   )
 }
 
+function ModelAliasesPanel(props: { aliases: string[] }) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const primaryAlias = props.aliases[0]
+  const hasMultipleAliases = props.aliases.length > 1
+
+  useEffect(() => {
+    if (!open) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const container = containerRef.current
+
+      if (container && !container.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
+  if (!primaryAlias) return null
+
+  return (
+    <div ref={containerRef} className='relative mt-1 inline-block max-w-full'>
+      <div className='flex min-w-0 items-center gap-1 text-xs'>
+        <span className='text-muted-foreground shrink-0'>{t('Alias')}:</span>
+        <code className='text-muted-foreground min-w-0 truncate font-mono'>
+          {primaryAlias}
+        </code>
+        <CopyButton
+          value={primaryAlias}
+          className='text-muted-foreground hover:text-foreground size-4 p-0'
+          iconClassName='size-3'
+          tooltip={t('Copy alias')}
+          successTooltip={t('Copied!')}
+          aria-label={t('Copy alias')}
+        />
+        {hasMultipleAliases && (
+          <button
+            type='button'
+            className='text-muted-foreground hover:text-foreground flex size-4 shrink-0 items-center justify-center rounded transition-colors'
+            onClick={() => setOpen((current) => !current)}
+            aria-expanded={open}
+            aria-label={t('Expand aliases')}
+          >
+            <ChevronDown
+              className={cn('size-3 transition-transform', open && 'rotate-180')}
+            />
+          </button>
+        )}
+      </div>
+
+      {hasMultipleAliases && open && (
+        <div className='bg-popover text-popover-foreground ring-foreground/10 absolute top-full left-0 z-50 mt-1 grid w-fit min-w-full max-w-[min(28rem,calc(100vw-2rem))] gap-1 rounded-lg p-2 shadow-md ring-1'>
+          {props.aliases.map((alias) => (
+            <div
+              key={alias}
+              className='hover:bg-muted/60 flex min-w-0 items-center gap-2 rounded-md px-2 py-1.5'
+            >
+              <code className='text-foreground min-w-0 flex-1 truncate font-mono text-xs'>
+                {alias}
+              </code>
+              <CopyButton
+                value={alias}
+                className='size-5 p-0'
+                iconClassName='size-3.5'
+                tooltip={t('Copy alias')}
+                successTooltip={t('Copied!')}
+                aria-label={t('Copy alias')}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ModelSignalsSection(props: {
   capabilities: ModelCapability[]
   input: Modality[]
@@ -274,6 +373,7 @@ function ModelHeader(props: { model: PricingModel }) {
     : null
   const description = model.description || model.vendor_description || null
   const tags = parseTags(model.tags)
+  const aliasModels = model.alias_models || []
   const isSpecialExpression =
     model.billing_mode === 'tiered_expr' &&
     Boolean(model.billing_expr) &&
@@ -295,6 +395,7 @@ function ModelHeader(props: { model: PricingModel }) {
           aria-label={t('Copy model name')}
         />
       </div>
+      <ModelAliasesPanel aliases={aliasModels} />
       <div className='mt-1 flex flex-wrap items-center gap-1.5 text-xs'>
         {model.vendor_name && (
           <span className='text-muted-foreground'>{model.vendor_name}</span>
@@ -1045,7 +1146,13 @@ export function ModelDetails() {
 
   const model = useMemo(() => {
     if (!models || !modelId) return null
-    return models.find((m) => m.model_name === modelId) || null
+    return (
+      models.find(
+        (m) =>
+          m.model_name === modelId ||
+          m.alias_models?.some((alias) => alias === modelId)
+      ) || null
+    )
   }, [models, modelId])
 
   const handleBack = () => {

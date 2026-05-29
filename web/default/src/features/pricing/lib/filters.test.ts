@@ -42,4 +42,19 @@ describe('pricing model filters', () => {
       ['embedding-model']
     )
   })
+
+  test('searches model square results by alias models', () => {
+    const main = model('main-model', 'text')
+    main.alias_models = ['preview-model', 'legacy-model']
+
+    const result = filterAndSortModels([main, model('other-model', 'text')], {
+      ...baseFilters,
+      search: 'preview',
+    })
+
+    assert.deepEqual(
+      result.map((item) => item.model_name),
+      ['main-model']
+    )
+  })
 })

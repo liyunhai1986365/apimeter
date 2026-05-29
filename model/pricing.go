@@ -21,6 +21,7 @@ type Pricing struct {
 	Tags                   string                  `json:"tags,omitempty"`
 	Category               string                  `json:"category,omitempty"`
 	VendorID               int                     `json:"vendor_id,omitempty"`
+	AliasModels            []string                `json:"alias_models,omitempty"`
 	QuotaType              int                     `json:"quota_type"`
 	ModelRatio             float64                 `json:"model_ratio"`
 	ModelPrice             float64                 `json:"model_price"`
@@ -107,6 +108,28 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 	return make([]constant.EndpointType, 0)
 }
 
+func parseAliasModels(raw string) []string {
+	if strings.TrimSpace(raw) == "" {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	aliases := make([]string, 0)
+	for _, alias := range strings.FieldsFunc(raw, func(r rune) bool {
+		return r == ',' || r == ';' || r == '|' || r == '\n' || r == '\r'
+	}) {
+		alias = strings.TrimSpace(alias)
+		if alias == "" {
+			continue
+		}
+		if _, ok := seen[alias]; ok {
+			continue
+		}
+		seen[alias] = struct{}{}
+		aliases = append(aliases, alias)
+	}
+	return aliases
+}
+
 func updatePricing() {
 	//modelRatios := common.GetModelRatios()
 	enableAbilities, err := GetAllEnableAbilityWithChannels()
@@ -118,11 +141,22 @@ func updatePricing() {
 	var allMeta []Model
 	_ = DB.Find(&allMeta).Error
 	metaMap := make(map[string]*Model)
+	primaryMetaMap := make(map[string]*Model)
+	aliasToPrimaryModel := make(map[string]string)
 	prefixList := make([]*Model, 0)
 	suffixList := make([]*Model, 0)
 	containsList := make([]*Model, 0)
 	for i := range allMeta {
 		m := &allMeta[i]
+		primaryMetaMap[m.ModelName] = m
+		for _, alias := range parseAliasModels(m.AliasModels) {
+			if alias == m.ModelName {
+				continue
+			}
+			if _, exists := aliasToPrimaryModel[alias]; !exists {
+				aliasToPrimaryModel[alias] = m.ModelName
+			}
+		}
 		if m.NameRule == NameRuleExact {
 			metaMap[m.ModelName] = m
 		} else {
@@ -144,6 +178,11 @@ func updatePricing() {
 				if _, exists := metaMap[pricingModel.Model]; !exists {
 					metaMap[pricingModel.Model] = m
 				}
+				if pricingModel.Model != m.ModelName {
+					if _, exists := aliasToPrimaryModel[pricingModel.Model]; !exists {
+						aliasToPrimaryModel[pricingModel.Model] = m.ModelName
+					}
+				}
 			}
 		}
 	}
@@ -152,6 +191,11 @@ func updatePricing() {
 			if strings.HasSuffix(pricingModel.Model, m.ModelName) {
 				if _, exists := metaMap[pricingModel.Model]; !exists {
 					metaMap[pricingModel.Model] = m
+				}
+				if pricingModel.Model != m.ModelName {
+					if _, exists := aliasToPrimaryModel[pricingModel.Model]; !exists {
+						aliasToPrimaryModel[pricingModel.Model] = m.ModelName
+					}
 				}
 			}
 		}
@@ -162,7 +206,17 @@ func updatePricing() {
 				if _, exists := metaMap[pricingModel.Model]; !exists {
 					metaMap[pricingModel.Model] = m
 				}
+				if pricingModel.Model != m.ModelName {
+					if _, exists := aliasToPrimaryModel[pricingModel.Model]; !exists {
+						aliasToPrimaryModel[pricingModel.Model] = m.ModelName
+					}
+				}
 			}
+		}
+	}
+	for alias, primary := range aliasToPrimaryModel {
+		if meta, ok := primaryMetaMap[primary]; ok {
+			metaMap[alias] = meta
 		}
 	}
 
@@ -189,12 +243,29 @@ func updatePricing() {
 	}
 
 	modelGroupsMap := make(map[string]*types.Set[string])
+	displayModelAliasesMap := make(map[string]*types.Set[string])
+	abilityDisplayModelMap := make(map[string]string)
 
 	for _, ability := range enableAbilities {
-		groups, ok := modelGroupsMap[ability.Model]
+		displayModel := ability.Model
+		if primary, ok := aliasToPrimaryModel[ability.Model]; ok {
+			displayModel = primary
+		}
+		abilityDisplayModelMap[ability.Model] = displayModel
+
+		if displayModel != ability.Model {
+			aliases, ok := displayModelAliasesMap[displayModel]
+			if !ok {
+				aliases = types.NewSet[string]()
+				displayModelAliasesMap[displayModel] = aliases
+			}
+			aliases.Add(ability.Model)
+		}
+
+		groups, ok := modelGroupsMap[displayModel]
 		if !ok {
 			groups = types.NewSet[string]()
-			modelGroupsMap[ability.Model] = groups
+			modelGroupsMap[displayModel] = groups
 		}
 		groups.Add(ability.Group)
 	}
@@ -204,14 +275,18 @@ func updatePricing() {
 
 	// 先根据已有能力填充原生端点
 	for _, ability := range enableAbilities {
-		endpoints := modelSupportEndpointsStr[ability.Model]
+		displayModel := abilityDisplayModelMap[ability.Model]
+		if displayModel == "" {
+			displayModel = ability.Model
+		}
+		endpoints := modelSupportEndpointsStr[displayModel]
 		channelTypes := common.GetEndpointTypesByChannelType(ability.ChannelType, ability.Model)
 		for _, channelType := range channelTypes {
 			if !common.StringsContains(endpoints, string(channelType)) {
 				endpoints = append(endpoints, string(channelType))
 			}
 		}
-		modelSupportEndpointsStr[ability.Model] = endpoints
+		modelSupportEndpointsStr[displayModel] = endpoints
 	}
 
 	// 再补充模型自定义端点：若配置有效则替换默认端点，不做合并
@@ -291,6 +366,9 @@ func updatePricing() {
 			ModelName:              model,
 			EnableGroup:            groups.Items(),
 			SupportedEndpointTypes: modelSupportEndpointTypes[model],
+		}
+		if aliases, ok := displayModelAliasesMap[model]; ok {
+			pricing.AliasModels = aliases.Items()
 		}
 
 		// 补充模型元数据（描述、标签、供应商、状态）
