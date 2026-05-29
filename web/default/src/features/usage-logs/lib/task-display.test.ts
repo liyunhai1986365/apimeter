@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { buildTaskLogSubtitle } from './task-display'
+import { buildTaskLogSubtitle, getTaskLogVideoPreviewUrl } from './task-display'
 import type { TaskLog } from '../types'
 
 function taskLog(overrides: Partial<TaskLog>): TaskLog {
@@ -50,5 +50,51 @@ describe('buildTaskLogSubtitle', () => {
       buildTaskLogSubtitle(log, (value) => value),
       'kling · Image to Video'
     )
+  })
+})
+
+describe('getTaskLogVideoPreviewUrl', () => {
+  test('uses result_url from successful video tasks', () => {
+    const log = taskLog({
+      result_url: 'https://cdn.example.com/result.mp4',
+    })
+
+    assert.equal(
+      getTaskLogVideoPreviewUrl(log),
+      'https://cdn.example.com/result.mp4'
+    )
+  })
+
+  test('extracts video url from task data when result_url is absent', () => {
+    const log = taskLog({
+      data: JSON.stringify({
+        output: {
+          videos: [{ url: 'https://cdn.example.com/output.mp4' }],
+        },
+      }),
+    })
+
+    assert.equal(
+      getTaskLogVideoPreviewUrl(log),
+      'https://cdn.example.com/output.mp4'
+    )
+  })
+
+  test('falls back to proxied video content for successful legacy video tasks', () => {
+    const log = taskLog({
+      task_id: 'task_legacy',
+      fail_reason: 'https://cdn.example.com/legacy.mp4',
+    })
+
+    assert.equal(getTaskLogVideoPreviewUrl(log), '/v1/videos/task_legacy/content')
+  })
+
+  test('does not expose preview url for failed video tasks', () => {
+    const log = taskLog({
+      status: 'FAILURE',
+      result_url: 'https://cdn.example.com/result.mp4',
+    })
+
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
   })
 })

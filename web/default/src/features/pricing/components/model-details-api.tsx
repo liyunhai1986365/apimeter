@@ -55,6 +55,10 @@ import {
 import { replaceModelInPath } from '../lib/model-helpers'
 import { inferApiInfo } from '../lib/model-metadata'
 import type { PricingModel } from '../types'
+import {
+  ModelDetailsGroupName,
+  type PricingUsableGroupMap,
+} from './model-details-group-name'
 
 // ---------------------------------------------------------------------------
 // Code-sample registry
@@ -660,7 +664,10 @@ function ParamRangeCell(props: { param: SupportedParameter }) {
 // Rate-limits table
 // ---------------------------------------------------------------------------
 
-function RateLimitsSection(props: { model: PricingModel }) {
+function RateLimitsSection(props: {
+  model: PricingModel
+  usableGroup: PricingUsableGroupMap
+}) {
   const { t } = useTranslation()
   const limits = useMemo(() => buildRateLimits(props.model), [props.model])
 
@@ -682,8 +689,11 @@ function RateLimitsSection(props: { model: PricingModel }) {
           <TableBody>
             {limits.map((l) => (
               <TableRow key={l.group} className='hover:bg-muted/20'>
-                <TableCell className='py-2 font-mono text-xs'>
-                  {l.group}
+                <TableCell className='py-2'>
+                  <ModelDetailsGroupName
+                    group={l.group}
+                    usableGroup={props.usableGroup}
+                  />
                 </TableCell>
                 <TableCell className='py-2 text-right font-mono text-xs'>
                   {formatRateLimit(l.rpm)}
@@ -849,13 +859,17 @@ function AuthSection() {
 export function ModelDetailsApi(props: {
   model: PricingModel
   endpointMap: Record<string, { path?: string; method?: string }>
+  usableGroup: PricingUsableGroupMap
 }) {
   return (
     <div className='space-y-6'>
       <CodeSamplesSection model={props.model} endpointMap={props.endpointMap} />
       <AuthSection />
       <SupportedParametersSection model={props.model} />
-      <RateLimitsSection model={props.model} />
+      <RateLimitsSection
+        model={props.model}
+        usableGroup={props.usableGroup}
+      />
     </div>
   )
 }

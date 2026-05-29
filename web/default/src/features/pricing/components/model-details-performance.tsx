@@ -29,7 +29,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { GroupBadge } from '@/components/group-badge'
 import { getPerfMetrics } from '@/features/performance-metrics/api'
 import {
   formatLatency,
@@ -40,6 +39,10 @@ import type { PerformanceGroup } from '@/features/performance-metrics/types'
 import { type UptimeDayPoint } from '../lib/mock-stats'
 import type { PricingModel } from '../types'
 import { LatencyTrendChart, UptimeTrendChart } from './model-details-charts'
+import {
+  ModelDetailsGroupName,
+  type PricingUsableGroupMap,
+} from './model-details-group-name'
 import { UptimeSparkline } from './model-details-uptime-sparkline'
 
 function StatCard(props: {
@@ -154,7 +157,10 @@ function average(
   )
 }
 
-export function ModelDetailsPerformance(props: { model: PricingModel }) {
+export function ModelDetailsPerformance(props: {
+  model: PricingModel
+  usableGroup: PricingUsableGroupMap
+}) {
   const { t } = useTranslation()
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics', props.model.model_name],
@@ -281,7 +287,10 @@ export function ModelDetailsPerformance(props: { model: PricingModel }) {
               {performances.map((perf) => (
                 <TableRow key={perf.group}>
                   <TableCell className='py-2.5'>
-                    <GroupBadge group={perf.group} size='sm' />
+                    <ModelDetailsGroupName
+                      group={perf.group}
+                      usableGroup={props.usableGroup}
+                    />
                   </TableCell>
                   <TableCell className='py-2.5 text-right font-mono'>
                     {formatThroughput(perf.avg_tps)}
