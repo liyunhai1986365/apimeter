@@ -1,6 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ModelBilling } from '@/features/model-billing'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
 export const Route = createFileRoute('/_authenticated/model-billing/')({
-  component: ModelBilling,
+  beforeLoad: () => {
+    throw redirect({
+      to: '/dashboard/$section',
+      params: { section: 'billing' },
+    })
+  },
 })

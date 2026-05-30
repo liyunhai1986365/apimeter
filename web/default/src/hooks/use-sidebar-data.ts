@@ -38,7 +38,6 @@ import {
   Store,
   Network,
   Monitor,
-  ReceiptText,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
@@ -125,11 +124,6 @@ export function useSidebarData(): SidebarData {
             title: t('Subscription'),
             url: '/user-subscription',
             icon: BadgeDollarSign,
-          },
-          {
-            title: t('Billing'),
-            url: '/model-billing',
-            icon: ReceiptText,
           },
           {
             title: t('Profile'),

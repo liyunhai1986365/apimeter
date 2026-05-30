@@ -95,7 +95,7 @@ function MetricCard({
   )
 }
 
-export function ModelBilling() {
+export function ModelBillingContent() {
   const { t } = useTranslation()
   const [period, setPeriod] = useState<ModelBillingPeriod>('day')
   const [startDate, setStartDate] = useState(() =>
@@ -191,13 +191,7 @@ export function ModelBilling() {
   )
 
   return (
-    <SectionPageLayout>
-      <SectionPageLayout.Title>{t('Model Billing')}</SectionPageLayout.Title>
-      <SectionPageLayout.Description>
-        {t('Review model billing grouped by day or month')}
-      </SectionPageLayout.Description>
-      <SectionPageLayout.Content>
-        <div className='space-y-4'>
+    <div className='space-y-4'>
           <div className='flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:flex-wrap md:items-end'>
             <div className='space-y-1'>
               <div className='text-muted-foreground text-xs'>{t('Period')}</div>
@@ -409,7 +403,21 @@ export function ModelBilling() {
               </Empty>
             )}
           </div>
-        </div>
+    </div>
+  )
+}
+
+export function ModelBilling() {
+  const { t } = useTranslation()
+
+  return (
+    <SectionPageLayout>
+      <SectionPageLayout.Title>{t('Billing')}</SectionPageLayout.Title>
+      <SectionPageLayout.Description>
+        {t('Review model billing grouped by day or month')}
+      </SectionPageLayout.Description>
+      <SectionPageLayout.Content>
+        <ModelBillingContent />
       </SectionPageLayout.Content>
     </SectionPageLayout>
   )

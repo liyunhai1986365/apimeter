@@ -20,6 +20,7 @@ import { useState, useCallback, useMemo, lazy, Suspense } from 'react'
 import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
+import { ModelBillingContent } from '@/features/model-billing'
 import { ROLE } from '@/lib/roles'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -145,6 +146,10 @@ const SECTION_META: Record<
   users: {
     titleKey: 'User Analytics',
     descriptionKey: 'View user consumption statistics and charts',
+  },
+  billing: {
+    titleKey: 'Billing',
+    descriptionKey: 'Review model billing grouped by day or month',
   },
 }
 
@@ -305,6 +310,11 @@ export function Dashboard() {
               <Suspense fallback={<ModelChartsFallback />}>
                 <LazyUserCharts />
               </Suspense>
+            </FadeIn>
+          )}
+          {activeSection === 'billing' && (
+            <FadeIn>
+              <ModelBillingContent />
             </FadeIn>
           )}
         </div>
