@@ -18,9 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 import { getLobeIcon } from '@/lib/lobe-icon'
+import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { Button } from '@/components/ui/button'
 import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
 import type { PricingModel, TokenUnit } from '../types'
 import { ModelCard } from './model-card'
@@ -37,6 +40,7 @@ export interface ModelCardGridProps {
 
 export function ModelCardGrid(props: ModelCardGridProps) {
   const { t } = useTranslation()
+  const { copyToClipboard } = useCopyToClipboard()
   const pageSize = DEFAULT_PRICING_PAGE_SIZE
   const loadMoreRef = useRef<HTMLDivElement | null>(null)
   const [visibleCount, setVisibleCount] = useState(pageSize)
@@ -58,6 +62,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
       icon?: string
       sortOrder: number
       models: PricingModel[]
+      allModels: PricingModel[]
       totalCount: number
     }
 
@@ -76,6 +81,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
       const existing = groups.get(key)
       if (existing) {
         existing.models.push(model)
+        existing.allModels.push(model)
         continue
       }
       groups.set(key, {
@@ -85,6 +91,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
         icon: model.vendor_icon,
         sortOrder: model.vendor_sort_order ?? Number.MAX_SAFE_INTEGER,
         models: [model],
+        allModels: [model],
         totalCount: totalCounts.get(key) || 1,
       })
     }
@@ -101,6 +108,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
       visibleGroups.push({
         ...group,
         models: group.models.slice(0, remaining),
+        allModels: group.models,
       })
       remaining -= group.models.length
     }
@@ -152,6 +160,10 @@ export function ModelCardGrid(props: ModelCardGridProps) {
       <div className='space-y-5'>
         {vendorGroups.map((group) => {
           const icon = group.icon ? getLobeIcon(group.icon, 32) : null
+          const modelNames = group.allModels
+            .map((model) => model.model_name)
+            .filter(Boolean)
+            .join(',')
           return (
             <section key={group.key} className='scroll-mt-28 space-y-3'>
               <div className='sticky top-16 z-20 -mx-1 rounded-lg border bg-background/95 px-3 py-2 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:top-20 sm:px-4 sm:py-3'>
@@ -175,8 +187,21 @@ export function ModelCardGrid(props: ModelCardGridProps) {
                       )}
                     </div>
                   </div>
-                  <div className='text-muted-foreground shrink-0 text-xs font-medium tabular-nums'>
-                    {t('{{count}} models', { count: group.totalCount })}
+                  <div className='flex shrink-0 items-center gap-2'>
+                    <div className='text-muted-foreground text-xs font-medium tabular-nums'>
+                      {t('{{count}} models', { count: group.totalCount })}
+                    </div>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='icon-sm'
+                      onClick={() => copyToClipboard(modelNames)}
+                      disabled={!modelNames}
+                      title={t('Copy model names')}
+                      aria-label={t('Copy model names')}
+                    >
+                      <Copy className='size-3.5' />
+                    </Button>
                   </div>
                 </div>
               </div>
