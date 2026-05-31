@@ -32,6 +32,7 @@ import {
   getModelCategoryLabels,
   getQuotaTypeLabels,
 } from '../constants'
+import { sortVendorsByConfiguredOrder } from '../lib/vendor-order'
 import type { PricingModel, PricingVendor } from '../types'
 
 type FilterOption = {
@@ -158,10 +159,10 @@ export function PricingFilterBar(props: PricingFilterBarProps) {
   const vendorOptions: FilterOption[] = [
     {
       value: FILTER_ALL,
-      label: t('All Vendors'),
+      label: t('All Model Square Vendors'),
       count: props.models.length,
     },
-    ...props.vendors
+    ...sortVendorsByConfiguredOrder(props.vendors)
       .map((vendor) => ({
         value: vendor.name,
         label: vendor.name,
@@ -247,7 +248,7 @@ export function PricingFilterBar(props: PricingFilterBarProps) {
           onChange={props.onCategoryChange}
         />
         <FilterGroup
-          title={t('Provider')}
+          title={t('Model Square Vendor')}
           value={props.vendorFilter}
           options={vendorOptions}
           onChange={props.onVendorChange}

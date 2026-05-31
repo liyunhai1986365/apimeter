@@ -25,6 +25,7 @@ import { getLobeIcon } from '@/lib/lobe-icon'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { Button } from '@/components/ui/button'
 import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
+import { compareVendorOrder } from '../lib/vendor-order'
 import type { PricingModel, TokenUnit } from '../types'
 import { ModelCard } from './model-card'
 import type { ModelPerfBadgeData } from './model-perf-badge'
@@ -60,6 +61,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
       name: string
       description?: string
       icon?: string
+      id: number
       sortOrder: number
       models: PricingModel[]
       allModels: PricingModel[]
@@ -89,6 +91,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
         name: vendorName,
         description: model.vendor_description,
         icon: model.vendor_icon,
+        id: model.vendor_id ?? Number.MAX_SAFE_INTEGER,
         sortOrder: model.vendor_sort_order ?? Number.MAX_SAFE_INTEGER,
         models: [model],
         allModels: [model],
@@ -96,10 +99,17 @@ export function ModelCardGrid(props: ModelCardGridProps) {
       })
     }
 
-    const sortedGroups = Array.from(groups.values()).sort((a, b) => {
-      if (a.sortOrder === b.sortOrder) return a.name.localeCompare(b.name)
-      return a.sortOrder - b.sortOrder
-    })
+    const sortedGroups = Array.from(groups.values()).sort((a, b) =>
+      compareVendorOrder({
+        id: a.id,
+        name: a.name,
+        sort_order: a.sortOrder,
+      }, {
+        id: b.id,
+        name: b.name,
+        sort_order: b.sortOrder,
+      })
+    )
 
     let remaining = visibleCount
     const visibleGroups: VendorGroup[] = []

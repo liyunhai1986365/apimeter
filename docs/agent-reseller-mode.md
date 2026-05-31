@@ -481,8 +481,6 @@ available = sum(agent_ledger.profit_quota)
 
   on_demand_tls {
     ask http://127.0.0.1:3000/api/agent/domains/tls-ask?secret={$AGENT_TLS_ASK_SECRET}
-    interval 2m
-    burst 20
   }
 }
 
