@@ -19,11 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
-import { useStatus } from '@/hooks/use-status'
 import {
   getOrderedHeaderNavItems,
   parseHeaderNavModulesFromStatus,
 } from '@/lib/nav-modules'
+import { getPublicServerAddress } from '@/lib/server-address'
+import { getAgentToolsURL } from '@/lib/site-branding'
+import { useStatus } from '@/hooks/use-status'
 
 export type TopNavLink = {
   title: string
@@ -60,14 +62,19 @@ export function useTopNavLinks(): TopNavLink[] {
 
   // Documentation link (may be external)
   const docsLink: string | undefined = status?.docs_link as string | undefined
+  const agentAccessLink = getAgentToolsURL(
+    getPublicServerAddress(status as Record<string, unknown> | null)
+  )
 
   const isAuthed = !!auth?.user
 
-  return getOrderedHeaderNavItems(modules, docsLink).map((item) => ({
-    title: item.custom ? item.titleKey : t(item.titleKey),
-    href: item.href,
-    external: item.external,
-    newWindow: item.newWindow,
-    requiresAuth: item.requireAuth && !isAuthed,
-  }))
+  return getOrderedHeaderNavItems(modules, docsLink, agentAccessLink).map(
+    (item) => ({
+      title: item.custom ? item.titleKey : t(item.titleKey),
+      href: item.href,
+      external: item.external,
+      newWindow: item.newWindow,
+      requiresAuth: item.requireAuth && !isAuthed,
+    })
+  )
 }

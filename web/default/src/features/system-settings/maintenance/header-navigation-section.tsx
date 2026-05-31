@@ -20,10 +20,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowDown, ArrowUp, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
-import { Switch } from '@/components/ui/switch'
 import {
   getBuiltInHeaderNavItem,
   getHeaderNavModuleEnabled,
@@ -39,6 +35,10 @@ import {
   type HeaderNavCustomLink,
   type HeaderNavModules,
 } from '@/lib/nav-modules'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 import { HEADER_NAV_DEFAULT } from './config'
@@ -459,7 +459,7 @@ export function HeaderNavigationSection({
               id='new-menu-link'
               value={newHref}
               onChange={(event) => setNewHref(event.target.value)}
-              placeholder='https://docs.modelsell.com'
+              placeholder='https://your-server.example.com/docs/apps'
             />
           </div>
           <div className='flex items-end'>

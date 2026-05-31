@@ -39,6 +39,15 @@ import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatQuota } from '@/lib/format'
+import {
+  formatSystemTemplate,
+  getAgentToolsURL,
+  getCliDisplayName,
+  getCliDocsURL,
+  getCliInstallCommands,
+  getSitePlanName,
+} from '@/lib/site-branding'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -90,7 +99,7 @@ type SellingPlan = PlanRecord & {
   isFeatured: boolean
 }
 
-// Modelsell Tokens anchor rate (approx 30 Tokens = $1, floating anchor).
+// Tokens anchor rate (approx 30 Tokens = $1, floating anchor).
 
 function formatPlanPrice(plan: SubscriptionPlan) {
   return formatBillingCurrencyFromUSD(Number(plan.price_amount || 0), {
@@ -446,12 +455,12 @@ function TokenPlanStrip() {
 
 function AgentAccessSection() {
   const { t } = useTranslation()
+  const { systemName, serverAddress } = useSystemConfig()
   const [installTarget, setInstallTarget] = useState<'unix' | 'windows'>('unix')
   const [copied, setCopied] = useState(false)
 
-  const macCommand = 'curl -fsSL https://static.modelsell.com/modelsell-cli/install.sh | sh'
-  const winCommand = 'irm https://static.modelsell.com/modelsell-cli/install.ps1 | iex'
-  const command = installTarget === 'unix' ? macCommand : winCommand
+  const command = getCliInstallCommands(serverAddress)[installTarget]
+  const cliName = getCliDisplayName(systemName)
 
   const handleCopy = async () => {
     await navigator.clipboard?.writeText(command)
@@ -465,20 +474,23 @@ function AgentAccessSection() {
         <div className='space-y-6'>
           <Badge variant='outline' className='rounded-full border-black/5 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-foreground px-3 py-0.5 text-xs font-semibold'>
             <SquareTerminal className='h-4 w-4 mr-1 text-black dark:text-white' />
-            ModelSell CLI
+            {cliName}
           </Badge>
           <h2 className='text-3xl font-extrabold tracking-tight text-foreground sm:text-4xl leading-tight'>
             {t('Configure mainstream Agent platforms in one command')}
           </h2>
           <p className='text-muted-foreground text-sm leading-relaxed max-w-xl'>
-            {t(
-              'ModelSell CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.'
+            {formatSystemTemplate(
+              t(
+                'ModelSell CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.'
+              ),
+              systemName
             )}
           </p>
           <div className='flex flex-wrap gap-4 pt-2'>
             <Button
               className='h-11 rounded-full text-xs font-semibold px-6 cursor-pointer bg-black text-white hover:bg-zinc-850 dark:bg-white dark:text-black dark:hover:bg-zinc-100 shadow-sm'
-              render={<a href='https://docs.modelsell.com/zh/docs/apps/modelsell-cli' />}
+              render={<a href={getCliDocsURL(serverAddress)} />}
             >
               {t('View CLI docs')}
               <ArrowRight className='h-3.5 w-3.5 ml-1.5' />
@@ -486,7 +498,7 @@ function AgentAccessSection() {
             <Button
               variant='outline'
               className='h-11 rounded-full text-xs font-semibold px-6 cursor-pointer border-black/10 dark:border-zinc-800'
-              render={<a href='https://docs.modelsell.com/zh/docs/apps' />}
+              render={<a href={getAgentToolsURL(serverAddress)} />}
             >
               <Sparkles className='h-3.5 w-3.5 mr-1.5' />
               {t('Browse Agent tools')}
@@ -639,6 +651,8 @@ function GuidelinesComparisonGrid() {
 
 function ComparisonTableSection() {
   const { t } = useTranslation()
+  const { systemName } = useSystemConfig()
+  const planName = getSitePlanName(systemName)
 
   const comparisonRows = [
     {
@@ -693,7 +707,7 @@ function ComparisonTableSection() {
     <section className='py-16 border-t border-black/5 dark:border-zinc-800 space-y-12'>
       <div className='text-center'>
         <h2 className='text-3xl font-extrabold tracking-tight text-foreground'>
-          {t('Why Choose Modelsell Tokens Plan?')}
+          {formatSystemTemplate(t('Why Choose Modelsell Tokens Plan?'), systemName)}
         </h2>
       </div>
 
@@ -703,7 +717,7 @@ function ComparisonTableSection() {
           <thead>
             <tr className='border-b border-black/5 dark:border-zinc-850 bg-zinc-50/50 dark:bg-zinc-900/10 text-xs font-semibold uppercase tracking-wider text-muted-foreground'>
               <th className='p-6 w-[25%]'>{t('Feature')}</th>
-              <th className='p-6 w-[45%] border-x border-black/5 dark:border-zinc-850'>{t('Modelsell Tokens Plan')}</th>
+              <th className='p-6 w-[45%] border-x border-black/5 dark:border-zinc-850'>{planName}</th>
               <th className='p-6 w-[30%]'>{t('Claude Code Subscription')}</th>
             </tr>
           </thead>
@@ -766,7 +780,10 @@ function ComparisonTableSection() {
         <div className='space-y-1.5'>
           <h3 className='text-xl font-extrabold text-foreground'>{t('Summary')}</h3>
           <p className='text-zinc-600 dark:text-zinc-400 text-sm font-semibold'>
-            {t('For the same $20/month, with Modelsell you can:')}
+            {formatSystemTemplate(
+              t('For the same $20/month, with Modelsell you can:'),
+              systemName
+            )}
           </p>
         </div>
         <ul className='space-y-4 pl-1'>
@@ -794,6 +811,7 @@ function ComparisonTableSection() {
 export function SubscriptionStore() {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const { systemName } = useSystemConfig()
   const user = useAuthStore((state) => state.auth.user)
   const { plans, isLoading } = useStorePlans()
   const [payingPlanId, setPayingPlanId] = useState<number | null>(null)
@@ -838,7 +856,7 @@ export function SubscriptionStore() {
           <section className='flex flex-col items-center justify-center pt-12 text-center z-10 relative space-y-8'>
             <div className='space-y-4 max-w-4xl'>
               <h1 className='text-4xl font-extrabold tracking-tight sm:text-6xl text-foreground bg-gradient-to-b from-foreground to-foreground/80 bg-clip-text'>
-                {t('Modelsell Tokens Plan')}
+                {getSitePlanName(systemName)}
               </h1>
               
               <p className='text-zinc-600 dark:text-zinc-400 text-sm font-semibold max-w-2xl mx-auto leading-relaxed'>

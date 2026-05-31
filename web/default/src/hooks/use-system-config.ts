@@ -27,6 +27,7 @@ import {
 import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
 import { applyCustomerServiceScript } from '@/lib/customer-service-script'
 import { applyFaviconToDom } from '@/lib/dom-utils'
+import { getPublicServerAddress } from '@/lib/server-address'
 
 interface UseSystemConfigOptions {
   /** Automatically fetch config from backend (use only in root component) */
@@ -38,6 +39,7 @@ interface StatusApiResponse {
   data: {
     system_name?: string
     logo?: string
+    server_address?: string
     footer_html?: string
     customer_service_script?: string
     demo_site_enabled?: boolean
@@ -60,46 +62,59 @@ function toNumber(value: unknown, fallback: number): number {
   return fallback
 }
 
+function getStatusData(
+  data: StatusApiResponse['data'] | StatusApiResponse | undefined
+): StatusApiResponse['data'] | undefined {
+  if (!data) return undefined
+  if ('data' in data && data.data && typeof data.data === 'object') {
+    return data.data
+  }
+  return data as StatusApiResponse['data']
+}
+
 /**
  * Map `/api/status` response data to our persisted system config structure
  */
 export function mapStatusDataToConfig(
-  data: StatusApiResponse['data'] | undefined
+  data: StatusApiResponse['data'] | StatusApiResponse | undefined
 ): Partial<SystemConfig> {
-  if (!data) return {}
+  const statusData = getStatusData(data)
+  if (!statusData) return {}
 
   const quotaDisplayType =
-    (data.quota_display_type as CurrencyDisplayType | undefined) ??
+    (statusData.quota_display_type as CurrencyDisplayType | undefined) ??
     DEFAULT_CURRENCY_CONFIG.quotaDisplayType
 
   const currency: CurrencyConfig = {
     displayInCurrency:
-      data.display_in_currency ?? DEFAULT_CURRENCY_CONFIG.displayInCurrency,
+      statusData.display_in_currency ??
+      DEFAULT_CURRENCY_CONFIG.displayInCurrency,
     quotaDisplayType,
     quotaPerUnit: toNumber(
-      data.quota_per_unit,
+      statusData.quota_per_unit,
       DEFAULT_CURRENCY_CONFIG.quotaPerUnit
     ),
     usdExchangeRate: toNumber(
-      data.usd_exchange_rate,
+      statusData.usd_exchange_rate,
       DEFAULT_CURRENCY_CONFIG.usdExchangeRate
     ),
     customCurrencySymbol:
-      data.custom_currency_symbol?.trim() ||
+      statusData.custom_currency_symbol?.trim() ||
       DEFAULT_CURRENCY_CONFIG.customCurrencySymbol,
     customCurrencyExchangeRate: toNumber(
-      data.custom_currency_exchange_rate,
+      statusData.custom_currency_exchange_rate,
       DEFAULT_CURRENCY_CONFIG.customCurrencyExchangeRate
     ),
   }
 
   return {
-    systemName: data.system_name || DEFAULT_SYSTEM_NAME,
-    logo: data.logo || DEFAULT_LOGO,
-    footerHtml: data.footer_html,
-    customerServiceScript: data.customer_service_script,
-    demoSiteEnabled: data.demo_site_enabled,
-    displayTokenStatEnabled: data.display_token_stat_enabled,
+    systemName: statusData.system_name || DEFAULT_SYSTEM_NAME,
+    logo: statusData.logo || DEFAULT_LOGO,
+    serverAddress: getPublicServerAddress(data as Record<string, unknown>),
+    footerHtml: statusData.footer_html,
+    customerServiceScript: statusData.customer_service_script,
+    demoSiteEnabled: statusData.demo_site_enabled,
+    displayTokenStatEnabled: statusData.display_token_stat_enabled,
     currency,
   }
 }

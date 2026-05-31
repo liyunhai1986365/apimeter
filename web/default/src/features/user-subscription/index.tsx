@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { VChart } from '@visactor/react-vchart'
+import type { TFunction } from 'i18next'
 import {
   ArrowUpRight,
   ChartNoAxesCombined,
@@ -29,13 +30,18 @@ import {
   SquareTerminal,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import type { TFunction } from 'i18next'
 import { toast } from 'sonner'
 import { getCurrencyDisplay } from '@/lib/currency'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
+import {
+  getCliDisplayName,
+  getCliInstallCommands,
+  getSiteServerAddress,
+} from '@/lib/site-branding'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { VCHART_OPTION } from '@/lib/vchart'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -48,10 +54,7 @@ import {
   getSubscriptionKeyUsage,
   getSelfSubscriptionFull,
 } from '@/features/subscriptions/api'
-import {
-  getResetQuota,
-  formatResetPeriod,
-} from '@/features/subscriptions/lib'
+import { getResetQuota, formatResetPeriod } from '@/features/subscriptions/lib'
 import type {
   PlanRecord,
   SelfSubscriptionData,
@@ -61,12 +64,6 @@ import type {
 
 type UsageRange = 7 | 30
 type InstallTarget = 'unix' | 'windows'
-
-const MODELSELL_CLI_INSTALL_COMMANDS: Record<InstallTarget, string> = {
-  unix: 'curl -fsSL https://static.modelsell.com/modelsell-cli/install.sh | sh',
-  windows:
-    'powershell -ExecutionPolicy Bypass -c "irm https://static.modelsell.com/modelsell-cli/install.ps1 | iex"',
-}
 
 function quotaToUSD(quota: number) {
   const { config } = getCurrencyDisplay()
@@ -87,7 +84,10 @@ function formatQuotaUSD(quota: number) {
   return formatUSDAmount(quotaToUSD(quota))
 }
 
-function getPlanAccessLabel(plan: PlanRecord['plan'] | undefined, t: TFunction) {
+function getPlanAccessLabel(
+  plan: PlanRecord['plan'] | undefined,
+  t: TFunction
+) {
   if (!plan) return t('All models')
   if (plan.model_limits_enabled && plan.model_limits?.trim()) {
     const count = plan.model_limits
@@ -119,7 +119,10 @@ function getPlanDetailRows(plan: PlanRecord['plan'] | undefined, t: TFunction) {
         })
 
   return [
-    [t('Total Quota'), totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited')],
+    [
+      t('Total Quota'),
+      totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited'),
+    ],
     ...(discountDescription
       ? [[t('Official Discount:'), discountDescription]]
       : []),
@@ -140,7 +143,7 @@ function PlanDetailRows({ plan }: { plan?: PlanRecord['plan'] }) {
           <span className='text-muted-foreground text-sm font-medium'>
             {label}
           </span>
-          <span className='max-w-[62%] truncate text-right text-sm font-semibold text-foreground'>
+          <span className='text-foreground max-w-[62%] truncate text-right text-sm font-semibold'>
             {value}
           </span>
         </div>
@@ -332,8 +335,11 @@ function SubscriptionUsagePanel({
 
 function ModelSellCliCard() {
   const { t } = useTranslation()
+  const { systemName, serverAddress } = useSystemConfig()
   const [target, setTarget] = useState<InstallTarget>('unix')
-  const command = MODELSELL_CLI_INSTALL_COMMANDS[target]
+  const command = getCliInstallCommands(serverAddress)[target]
+  const cliName = getCliDisplayName(systemName)
+  const publicServerAddress = getSiteServerAddress(serverAddress)
 
   return (
     <div className='bg-muted/20 space-y-3 rounded-md border p-3'>
@@ -341,7 +347,7 @@ function ModelSellCliCard() {
         <div className='min-w-0'>
           <p className='text-foreground flex items-center gap-2 text-sm font-medium'>
             <SquareTerminal className='h-4 w-4' />
-            ModelSell CLI
+            {cliName}
           </p>
           <p className='text-muted-foreground mt-1 text-sm'>
             {t('Configure mainstream Agent platforms in one click.')}
@@ -351,7 +357,7 @@ function ModelSellCliCard() {
           type='button'
           variant='outline'
           size='sm'
-          render={<a href='https://docs.modelsell.com/' target='_blank' />}
+          render={<a href={publicServerAddress} target='_blank' />}
         >
           {t('Learn more')}
           <ArrowUpRight className='h-4 w-4' />

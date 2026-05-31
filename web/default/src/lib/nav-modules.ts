@@ -121,8 +121,8 @@ const BUILT_IN_HEADER_NAV_ITEMS: Record<
   agentAccess: {
     id: 'agentAccess',
     titleKey: 'Agent Access',
-    href: 'https://docs.modelsell.com',
-    external: true,
+    href: '/docs/apps',
+    external: false,
     newWindow: false,
   },
   console: {
@@ -257,10 +257,7 @@ function parseBuiltInNewWindow(
   const record = raw as Record<string, unknown>
   return BUILT_IN_HEADER_NAV_ORDER.reduce<HeaderNavNewWindow>((acc, id) => {
     const item = BUILT_IN_HEADER_NAV_ITEMS[id]
-    acc[id] = parseHeaderNavBoolean(
-      record[id],
-      fallback[id] ?? item.newWindow
-    )
+    acc[id] = parseHeaderNavBoolean(record[id], fallback[id] ?? item.newWindow)
     return acc
   }, {})
 }
@@ -483,7 +480,8 @@ export function mergeHeaderNavOrder(
 
 export function getOrderedHeaderNavItems(
   modules: HeaderNavModules,
-  docsLink?: string
+  docsLink?: string,
+  agentAccessLink?: string
 ): HeaderNavItem[] {
   const customLinkMap = new Map(
     modules.customLinks.map((link) => [`custom:${link.id}`, link] as const)
@@ -535,11 +533,18 @@ export function getOrderedHeaderNavItems(
     if (enabled === true) {
       acc.push({
         ...item,
-        href: builtInId === 'docs' && docsLink ? docsLink : item.href,
+        href:
+          builtInId === 'agentAccess' && agentAccessLink
+            ? agentAccessLink
+            : builtInId === 'docs' && docsLink
+              ? docsLink
+              : item.href,
         external:
-          builtInId === 'docs' && docsLink
-            ? /^https?:\/\//i.test(docsLink)
-            : item.external,
+          builtInId === 'agentAccess' && agentAccessLink
+            ? /^https?:\/\//i.test(agentAccessLink)
+            : builtInId === 'docs' && docsLink
+              ? /^https?:\/\//i.test(docsLink)
+              : item.external,
         newWindow: getHeaderNavModuleNewWindow(modules, builtInId),
         enabled,
         requireAuth: false,

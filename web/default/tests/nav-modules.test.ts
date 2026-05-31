@@ -34,9 +34,23 @@ describe('header navigation modules', () => {
     ])
     expect(items.find((item) => item.id === 'agentAccess')).toMatchObject({
       titleKey: 'Agent Access',
-      href: 'https://docs.modelsell.com',
-      external: true,
+      href: '/docs/apps',
+      external: false,
       newWindow: false,
+    })
+  })
+
+  it('can build Agent Access from the configured server address', () => {
+    const modules = parseHeaderNavModules('')
+    const items = getOrderedHeaderNavItems(
+      modules,
+      undefined,
+      'https://api.example.com/docs/apps'
+    )
+
+    expect(items.find((item) => item.id === 'agentAccess')).toMatchObject({
+      href: 'https://api.example.com/docs/apps',
+      external: true,
     })
   })
 
@@ -48,6 +62,7 @@ describe('header navigation modules', () => {
       'home',
       'agentAccess',
       'console',
+      'subscription',
       'pricing',
       'rankings',
     ])
@@ -72,6 +87,7 @@ describe('header navigation modules', () => {
       console: false,
       pricing: false,
       rankings: false,
+      subscription: false,
       about: false,
     })
     const items = getOrderedHeaderNavItems(modules)
