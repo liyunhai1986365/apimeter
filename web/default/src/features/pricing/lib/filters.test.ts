@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { FILTER_ALL, MODEL_CATEGORIES, SORT_OPTIONS } from '../constants'
-import { filterAndSortModels } from './filters'
 import type { PricingModel, ModelCategory } from '../types'
+import { filterAndSortModels } from './filters'
 
 const baseFilters = {
   search: '',
@@ -69,6 +69,22 @@ describe('pricing model filters', () => {
     assert.deepEqual(
       result.map((item) => item.model_name),
       ['z-model', 'a-model']
+    )
+  })
+
+  test('sorts equal model order by newest update time first', () => {
+    const older = model('a-older-model', 'text')
+    older.sort_order = 100
+    older.updated_time = 100
+    const newer = model('z-newer-model', 'text')
+    newer.sort_order = 100
+    newer.updated_time = 200
+
+    const result = filterAndSortModels([older, newer], baseFilters)
+
+    assert.deepEqual(
+      result.map((item) => item.model_name),
+      ['z-newer-model', 'a-older-model']
     )
   })
 })

@@ -23,7 +23,16 @@ type Pricing struct {
 	Category               string                  `json:"category,omitempty"`
 	VendorID               int                     `json:"vendor_id,omitempty"`
 	SortOrder              int                     `json:"sort_order"`
+	UpdatedTime            int64                   `json:"updated_time,omitempty"`
 	AliasModels            []string                `json:"alias_models,omitempty"`
+	ContextLength          int                     `json:"context_length,omitempty"`
+	MaxOutputTokens        int                     `json:"max_output_tokens,omitempty"`
+	KnowledgeCutoff        string                  `json:"knowledge_cutoff,omitempty"`
+	ReleaseDate            string                  `json:"release_date,omitempty"`
+	ParameterCount         string                  `json:"parameter_count,omitempty"`
+	InputModalities        []string                `json:"input_modalities,omitempty"`
+	OutputModalities       []string                `json:"output_modalities,omitempty"`
+	Capabilities           []string                `json:"capabilities,omitempty"`
 	QuotaType              int                     `json:"quota_type"`
 	ModelRatio             float64                 `json:"model_ratio"`
 	ModelPrice             float64                 `json:"model_price"`
@@ -112,6 +121,10 @@ func GetModelSupportEndpointTypes(model string) []constant.EndpointType {
 }
 
 func parseAliasModels(raw string) []string {
+	return parseModelListField(raw)
+}
+
+func parseModelListField(raw string) []string {
 	if strings.TrimSpace(raw) == "" {
 		return nil
 	}
@@ -393,6 +406,15 @@ func updatePricing() {
 			pricing.Category = meta.Category
 			pricing.VendorID = meta.VendorID
 			pricing.SortOrder = meta.SortOrder
+			pricing.UpdatedTime = meta.UpdatedTime
+			pricing.ContextLength = meta.ContextLength
+			pricing.MaxOutputTokens = meta.MaxOutputTokens
+			pricing.KnowledgeCutoff = meta.KnowledgeCutoff
+			pricing.ReleaseDate = meta.ReleaseDate
+			pricing.ParameterCount = meta.ParameterCount
+			pricing.InputModalities = parseModelListField(meta.InputModalities)
+			pricing.OutputModalities = parseModelListField(meta.OutputModalities)
+			pricing.Capabilities = parseModelListField(meta.Capabilities)
 		}
 		modelPrice, findPrice := ratio_setting.GetModelPrice(model, false)
 		if findPrice {
@@ -432,6 +454,9 @@ func updatePricing() {
 
 	sort.SliceStable(pricingMap, func(i, j int) bool {
 		if pricingMap[i].SortOrder == pricingMap[j].SortOrder {
+			if pricingMap[i].UpdatedTime != pricingMap[j].UpdatedTime {
+				return pricingMap[i].UpdatedTime > pricingMap[j].UpdatedTime
+			}
 			return pricingMap[i].ModelName < pricingMap[j].ModelName
 		}
 		return pricingMap[i].SortOrder < pricingMap[j].SortOrder

@@ -248,12 +248,21 @@ func TestPricingUsesModelMetaAliasesToMergePublicModels(t *testing.T) {
 		{Id: 2, Name: "alias-channel", Type: constant.ChannelTypeGemini, Status: common.ChannelStatusEnabled, Key: "sk-alias"},
 	}).Error)
 	require.NoError(t, db.Create(&model.Model{
-		ModelName:    "zz-main-model",
-		Description:  "public main model",
-		Category:     "text",
-		Status:       1,
-		SyncOfficial: 1,
-		AliasModels:  "zz-main-model-v2, zz-main-model-preview",
+		ModelName:        "zz-main-model",
+		Description:      "public main model",
+		Category:         "text",
+		Status:           1,
+		SyncOfficial:     1,
+		AliasModels:      "zz-main-model-v2, zz-main-model-preview",
+		ContextLength:    128000,
+		MaxOutputTokens:  8192,
+		KnowledgeCutoff:  "2024-10",
+		ReleaseDate:      "2025-02-15",
+		ParameterCount:   "70B",
+		InputModalities:  "text,image",
+		OutputModalities: "text",
+		Capabilities:     "streaming,vision,tools",
+		UpdatedTime:      100,
 	}).Error)
 	require.NoError(t, db.Create(&[]model.Ability{
 		{Group: "default", Model: "zz-main-model", ChannelId: 1, Enabled: true},
@@ -267,11 +276,49 @@ func TestPricingUsesModelMetaAliasesToMergePublicModels(t *testing.T) {
 	mainPricing, ok := pricingByName["zz-main-model"]
 	require.True(t, ok)
 	require.Equal(t, "public main model", mainPricing.Description)
+	require.Equal(t, 128000, mainPricing.ContextLength)
+	require.Equal(t, 8192, mainPricing.MaxOutputTokens)
+	require.Equal(t, "2024-10", mainPricing.KnowledgeCutoff)
+	require.Equal(t, "2025-02-15", mainPricing.ReleaseDate)
+	require.Equal(t, "70B", mainPricing.ParameterCount)
+	require.Equal(t, int64(100), mainPricing.UpdatedTime)
+	require.ElementsMatch(t, []string{"text", "image"}, mainPricing.InputModalities)
+	require.ElementsMatch(t, []string{"text"}, mainPricing.OutputModalities)
+	require.ElementsMatch(t, []string{"streaming", "vision", "tools"}, mainPricing.Capabilities)
 	require.ElementsMatch(t, []string{"default", "vip"}, mainPricing.EnableGroup)
 	require.ElementsMatch(t, []string{"zz-main-model-preview", "zz-main-model-v2"}, mainPricing.AliasModels)
 	require.NotEmpty(t, mainPricing.SupportedEndpointTypes)
 	require.NotContains(t, pricingByName, "zz-main-model-v2")
 	require.NotContains(t, pricingByName, "zz-main-model-preview")
+}
+
+func TestPricingSortsModelsByOrderThenUpdatedTime(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.Channel{
+		Id: 1, Name: "sort-channel", Type: constant.ChannelTypeOpenAI, Status: common.ChannelStatusEnabled, Key: "sk-sort",
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Model{
+		{ModelName: "zz-older-model", Status: 1, SyncOfficial: 1, SortOrder: 100, UpdatedTime: 100},
+		{ModelName: "zz-newer-model", Status: 1, SyncOfficial: 1, SortOrder: 100, UpdatedTime: 200},
+		{ModelName: "zz-earlier-order-model", Status: 1, SyncOfficial: 1, SortOrder: 50, UpdatedTime: 50},
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "default", Model: "zz-older-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-newer-model", ChannelId: 1, Enabled: true},
+		{Group: "default", Model: "zz-earlier-order-model", ChannelId: 1, Enabled: true},
+	}).Error)
+
+	model.RefreshPricing()
+
+	pricings := model.GetPricing()
+	names := make([]string, 0, len(pricings))
+	for _, pricing := range pricings {
+		if strings.HasPrefix(pricing.ModelName, "zz-") {
+			names = append(names, pricing.ModelName)
+		}
+	}
+
+	require.Equal(t, []string{"zz-earlier-order-model", "zz-newer-model", "zz-older-model"}, names)
 }
 
 func TestPricingUsesModelNameRulesToMergePublicModels(t *testing.T) {

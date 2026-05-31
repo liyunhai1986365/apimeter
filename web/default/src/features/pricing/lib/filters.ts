@@ -108,7 +108,9 @@ export function filterByCategory(
   category: string
 ): PricingModel[] {
   if (category === MODEL_CATEGORIES.ALL) return models
-  return models.filter((m) => (m.category || MODEL_CATEGORIES.TEXT) === category)
+  return models.filter(
+    (m) => (m.category || MODEL_CATEGORIES.TEXT) === category
+  )
 }
 
 /**
@@ -121,6 +123,8 @@ function getModelPrice(model: PricingModel): number {
 function compareModelOrder(a: PricingModel, b: PricingModel): number {
   const orderDelta = (a.sort_order || 0) - (b.sort_order || 0)
   if (orderDelta !== 0) return orderDelta
+  const updatedDelta = (b.updated_time || 0) - (a.updated_time || 0)
+  if (updatedDelta !== 0) return updatedDelta
   return (a.model_name || '').localeCompare(b.model_name || '')
 }
 

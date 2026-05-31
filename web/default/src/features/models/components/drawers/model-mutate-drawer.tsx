@@ -63,13 +63,18 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { JsonEditor } from '@/components/json-editor'
+import { MultiSelect } from '@/components/multi-select'
 import { TagInput } from '@/components/tag-input'
 import {
   MODEL_CATEGORIES,
   MODEL_CATEGORY_VALUES,
   getModelCategoryLabels,
 } from '@/features/pricing/constants'
-import type { ModelCategory } from '@/features/pricing/types'
+import type {
+  ModelCapability,
+  ModelCategory,
+  Modality,
+} from '@/features/pricing/types'
 import {
   useSystemOptions,
   getOptionValue,
@@ -81,6 +86,7 @@ import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
 import { createModel, updateModel, getModel, getVendors } from '../../api'
 import { getNameRuleOptions, ENDPOINT_TEMPLATES } from '../../constants'
 import { modelsQueryKeys, vendorsQueryKeys, parseModelTags } from '../../lib'
+import { appendEndpointTemplate } from '../../lib/endpoint-template'
 import type { Model } from '../../types'
 
 // Extended schema for ratio configuration (internal form state only)
@@ -95,6 +101,14 @@ const extendedModelFormSchema = z.object({
   alias_models: z.string(),
   endpoints: z.string(),
   sort_order: z.number().int().min(0),
+  context_length: z.number().int().min(0),
+  max_output_tokens: z.number().int().min(0),
+  knowledge_cutoff: z.string(),
+  release_date: z.string(),
+  parameter_count: z.string(),
+  input_modalities: z.array(z.string()),
+  output_modalities: z.array(z.string()),
+  capabilities: z.array(z.string()),
   name_rule: z.number(),
   status: z.boolean(),
   sync_official: z.boolean(),
@@ -111,6 +125,58 @@ type ExtendedModelFormValues = z.infer<typeof extendedModelFormSchema>
 
 type PricingMode = 'per-token' | 'per-request'
 type PricingSubMode = 'ratio' | 'price'
+
+const MODALITY_VALUES: Modality[] = ['text', 'image', 'audio', 'video', 'file']
+const MODALITY_LABEL_KEYS: Record<Modality, string> = {
+  text: 'Text',
+  image: 'Image',
+  audio: 'Audio',
+  video: 'Video',
+  file: 'File',
+}
+const CAPABILITY_VALUES: ModelCapability[] = [
+  'streaming',
+  'function_calling',
+  'tools',
+  'json_mode',
+  'structured_output',
+  'vision',
+  'reasoning',
+  'caching',
+  'system_prompt',
+  'web_search',
+  'code_interpreter',
+  'embeddings',
+]
+const CAPABILITY_LABEL_KEYS: Record<ModelCapability, string> = {
+  function_calling: 'Function calling',
+  streaming: 'Streaming',
+  vision: 'Vision',
+  json_mode: 'JSON mode',
+  structured_output: 'Structured output',
+  reasoning: 'Reasoning',
+  tools: 'Tools',
+  system_prompt: 'System prompt',
+  web_search: 'Web search',
+  code_interpreter: 'Code interpreter',
+  caching: 'Prompt caching',
+  embeddings: 'Embeddings',
+}
+
+function parseListField(value?: string): string[] {
+  if (!value) return []
+  return value
+    .split(/[,;|\n\r]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function formatListField(values: string[]): string {
+  return values
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .join(',')
+}
 
 type ModelMutateDrawerProps = {
   open: boolean
@@ -143,6 +209,22 @@ export function ModelMutateDrawer({
 
   const vendors = vendorsData?.data?.items || []
   const categoryLabels = getModelCategoryLabels(t)
+  const modalityOptions = useMemo(
+    () =>
+      MODALITY_VALUES.map((value) => ({
+        value,
+        label: t(MODALITY_LABEL_KEYS[value]),
+      })),
+    [t]
+  )
+  const capabilityOptions = useMemo(
+    () =>
+      CAPABILITY_VALUES.map((value) => ({
+        value,
+        label: t(CAPABILITY_LABEL_KEYS[value]),
+      })),
+    [t]
+  )
 
   // Fetch model detail if editing
   const { data: modelData } = useQuery({
@@ -225,6 +307,14 @@ export function ModelMutateDrawer({
       alias_models: '',
       endpoints: '',
       sort_order: 100,
+      context_length: 0,
+      max_output_tokens: 0,
+      knowledge_cutoff: '',
+      release_date: '',
+      parameter_count: '',
+      input_modalities: [],
+      output_modalities: [],
+      capabilities: [],
       name_rule: 0,
       status: true,
       sync_official: true,
@@ -287,6 +377,14 @@ export function ModelMutateDrawer({
         alias_models: model.alias_models || '',
         endpoints: model.endpoints || '',
         sort_order: model.sort_order || 100,
+        context_length: model.context_length || 0,
+        max_output_tokens: model.max_output_tokens || 0,
+        knowledge_cutoff: model.knowledge_cutoff || '',
+        release_date: model.release_date || '',
+        parameter_count: model.parameter_count || '',
+        input_modalities: parseListField(model.input_modalities),
+        output_modalities: parseListField(model.output_modalities),
+        capabilities: parseListField(model.capabilities),
         name_rule: model.name_rule || 0,
         status: model.status === 1,
         sync_official: model.sync_official === 1,
@@ -394,6 +492,14 @@ export function ModelMutateDrawer({
         alias_models: '',
         endpoints: '',
         sort_order: 100,
+        context_length: 0,
+        max_output_tokens: 0,
+        knowledge_cutoff: '',
+        release_date: '',
+        parameter_count: '',
+        input_modalities: [],
+        output_modalities: [],
+        capabilities: [],
         name_rule: 0,
         status: true,
         sync_official: true,
@@ -416,6 +522,9 @@ export function ModelMutateDrawer({
           ...values,
           id: isEditing ? currentRow!.id : undefined,
           tags: Array.isArray(values.tags) ? values.tags.join(',') : '',
+          input_modalities: formatListField(values.input_modalities),
+          output_modalities: formatListField(values.output_modalities),
+          capabilities: formatListField(values.capabilities),
           status: values.status ? 1 : 0,
           sync_official: values.sync_official ? 1 : 0,
         }
@@ -649,8 +758,20 @@ export function ModelMutateDrawer({
   const handleFillEndpointTemplate = (templateKey: string) => {
     const template = ENDPOINT_TEMPLATES[templateKey]
     if (template) {
-      const templateJson = JSON.stringify({ [templateKey]: template }, null, 2)
-      form.setValue('endpoints', templateJson)
+      const currentEndpoints = form.getValues('endpoints') || ''
+      const nextEndpoints = appendEndpointTemplate(
+        currentEndpoints,
+        templateKey,
+        template
+      )
+      if (nextEndpoints === currentEndpoints && currentEndpoints.trim()) {
+        toast.error(t('Please fix endpoint JSON before adding a template.'))
+        return
+      }
+      form.setValue('endpoints', nextEndpoints, {
+        shouldDirty: true,
+        shouldTouch: true,
+      })
     }
   }
 
@@ -698,6 +819,29 @@ export function ModelMutateDrawer({
                     </FormControl>
                     <FormDescription>
                       {t('The unique identifier for this model')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='alias_models'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Alias models')}</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder={t('One model alias per line')}
+                        rows={3}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Model square will merge these model names into the main model and show them as aliases.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -871,6 +1015,172 @@ export function ModelMutateDrawer({
 
             <Separator />
 
+            {/* Model Square Display */}
+            <div className='space-y-4'>
+              <h3 className='text-sm font-semibold'>
+                {t('Model square display')}
+              </h3>
+
+              <div className='grid gap-4 sm:grid-cols-2'>
+                <FormField
+                  control={form.control}
+                  name='context_length'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Context length')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          min={0}
+                          step={1}
+                          value={field.value ?? 0}
+                          onChange={(event) =>
+                            field.onChange(Number(event.target.value) || 0)
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Shown in the model square details. Leave 0 to use inferred data.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='max_output_tokens'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Max output tokens')}</FormLabel>
+                      <FormControl>
+                        <Input
+                          type='number'
+                          min={0}
+                          step={1}
+                          value={field.value ?? 0}
+                          onChange={(event) =>
+                            field.onChange(Number(event.target.value) || 0)
+                          }
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        {t(
+                          'Shown in the model square details. Leave 0 to use inferred data.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className='grid gap-4 sm:grid-cols-3'>
+                <FormField
+                  control={form.control}
+                  name='knowledge_cutoff'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Knowledge cutoff')}</FormLabel>
+                      <FormControl>
+                        <Input placeholder='2024-10' {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='release_date'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Release date')}</FormLabel>
+                      <FormControl>
+                        <Input placeholder='2025-02-15' {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name='parameter_count'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Parameter count')}</FormLabel>
+                      <FormControl>
+                        <Input placeholder='70B' {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={form.control}
+                name='input_modalities'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Input modalities')}</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={modalityOptions}
+                        selected={field.value || []}
+                        onChange={field.onChange}
+                        placeholder={t('Select input modalities...')}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='output_modalities'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Output modalities')}</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={modalityOptions}
+                        selected={field.value || []}
+                        onChange={field.onChange}
+                        placeholder={t('Select output modalities...')}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='capabilities'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Capabilities')}</FormLabel>
+                    <FormControl>
+                      <MultiSelect
+                        options={capabilityOptions}
+                        selected={field.value || []}
+                        onChange={field.onChange}
+                        placeholder={t('Select capabilities...')}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <Separator />
+
             {/* Matching Configuration */}
             <div className='space-y-4'>
               <h3 className='text-sm font-semibold'>{t('Matching Rules')}</h3>
@@ -910,29 +1220,6 @@ export function ModelMutateDrawer({
                     </FormControl>
                     <FormDescription>
                       {t('How this model name should match requests')}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name='alias_models'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Alias models')}</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder={t('One model alias per line')}
-                        rows={3}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t(
-                        'Model square will merge these model names into the main model and show them as aliases.'
-                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

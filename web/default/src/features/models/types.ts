@@ -45,6 +45,14 @@ export interface Model {
   alias_models?: string
   endpoints?: string
   sort_order?: number
+  context_length?: number
+  max_output_tokens?: number
+  knowledge_cutoff?: string
+  release_date?: string
+  parameter_count?: string
+  input_modalities?: string
+  output_modalities?: string
+  capabilities?: string
   status: number
   sync_official: number
   created_time: number

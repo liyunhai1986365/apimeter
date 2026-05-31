@@ -23,15 +23,10 @@ import { hashStringToSeed, seededRandom } from './seed'
 // Model metadata inference
 // ----------------------------------------------------------------------------
 //
-// The backend does not currently return `context_length`, `max_output_tokens`,
-// `knowledge_cutoff`, `release_date`, `parameter_count`, or modality/capability
-// flags for a model. Until it does, we infer reasonable values client-side
-// from the data we already have (endpoint types, ratios, tags, model name)
-// and fall back to a deterministic mock seeded from the model name so that
-// every render of the same model shows the same numbers.
-//
-// When the backend starts returning these fields, callers should prefer the
-// explicit values on `model.*` and only fall back to the inferred ones.
+// The backend may return explicit display metadata for a model. When a field is
+// missing, we infer reasonable values client-side from endpoint types, ratios,
+// tags, and model name, then fall back to a deterministic mock seeded from the
+// model name so every render of the same model stays stable.
 
 const TEXT_INPUT_ENDPOINTS = new Set([
   'openai',
