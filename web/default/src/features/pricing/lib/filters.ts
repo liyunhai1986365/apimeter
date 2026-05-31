@@ -118,6 +118,12 @@ function getModelPrice(model: PricingModel): number {
   return model.quota_type === 0 ? model.model_ratio : model.model_price || 0
 }
 
+function compareModelOrder(a: PricingModel, b: PricingModel): number {
+  const orderDelta = (a.sort_order || 0) - (b.sort_order || 0)
+  if (orderDelta !== 0) return orderDelta
+  return (a.model_name || '').localeCompare(b.model_name || '')
+}
+
 /**
  * Sort models by specified option
  */
@@ -129,9 +135,7 @@ export function sortModels(
 
   switch (sortBy) {
     case SORT_OPTIONS.NAME:
-      sorted.sort((a, b) =>
-        (a.model_name || '').localeCompare(b.model_name || '')
-      )
+      sorted.sort(compareModelOrder)
       break
     case SORT_OPTIONS.PRICE_LOW:
       sorted.sort((a, b) => getModelPrice(a) - getModelPrice(b))

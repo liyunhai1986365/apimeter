@@ -94,6 +94,7 @@ const extendedModelFormSchema = z.object({
   vendor_id: z.number().optional(),
   alias_models: z.string(),
   endpoints: z.string(),
+  sort_order: z.number().int().min(0),
   name_rule: z.number(),
   status: z.boolean(),
   sync_official: z.boolean(),
@@ -223,6 +224,7 @@ export function ModelMutateDrawer({
       vendor_id: undefined,
       alias_models: '',
       endpoints: '',
+      sort_order: 100,
       name_rule: 0,
       status: true,
       sync_official: true,
@@ -284,6 +286,7 @@ export function ModelMutateDrawer({
         vendor_id: model.vendor_id,
         alias_models: model.alias_models || '',
         endpoints: model.endpoints || '',
+        sort_order: model.sort_order || 100,
         name_rule: model.name_rule || 0,
         status: model.status === 1,
         sync_official: model.sync_official === 1,
@@ -390,6 +393,7 @@ export function ModelMutateDrawer({
         vendor_id: undefined,
         alias_models: '',
         endpoints: '',
+        sort_order: 100,
         name_rule: 0,
         status: true,
         sync_official: true,
@@ -618,6 +622,7 @@ export function ModelMutateDrawer({
               : 'Model created successfully'
           )
           queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
+          queryClient.invalidateQueries({ queryKey: ['pricing'] })
           queryClient.invalidateQueries({ queryKey: ['system-options'] })
           onOpenChange(false)
         } else {
@@ -830,6 +835,33 @@ export function ModelMutateDrawer({
                     </Select>
                     <FormDescription>
                       {t('Used for model square category filtering.')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='sort_order'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Model sort order')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={0}
+                        step={1}
+                        value={field.value ?? 0}
+                        onChange={(event) =>
+                          field.onChange(Number(event.target.value) || 0)
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Lower values appear earlier in model management and the model square.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

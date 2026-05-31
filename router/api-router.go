@@ -409,6 +409,7 @@ func SetApiRouter(router *gin.Engine) {
 			vendorRoute.GET("/search", controller.SearchVendors)
 			vendorRoute.GET("/:id", controller.GetVendorMeta)
 			vendorRoute.POST("/", controller.CreateVendorMeta)
+			vendorRoute.PUT("/sort", controller.UpdateVendorSortOrder)
 			vendorRoute.PUT("/", controller.UpdateVendorMeta)
 			vendorRoute.DELETE("/:id", controller.DeleteVendorMeta)
 		}
@@ -451,6 +452,7 @@ func SetApiRouter(router *gin.Engine) {
 			modelsRoute.POST("/:id/test_channels", controller.TestModelChannels)
 			modelsRoute.GET("/:id", controller.GetModelMeta)
 			modelsRoute.POST("/", controller.CreateModelMeta)
+			modelsRoute.PUT("/sort", controller.UpdateModelSortOrder)
 			modelsRoute.PUT("/", controller.UpdateModelMeta)
 			modelsRoute.DELETE("/:id", controller.DeleteModelMeta)
 		}

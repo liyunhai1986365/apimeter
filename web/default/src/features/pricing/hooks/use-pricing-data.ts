@@ -55,6 +55,8 @@ export function usePricingData() {
         vendor_name: vendor?.name,
         vendor_icon: vendor?.icon,
         vendor_description: vendor?.description,
+        vendor_sort_order: vendor?.sort_order ?? Number.MAX_SAFE_INTEGER,
+        sort_order: model.sort_order ?? 0,
         group_ratio: data.group_ratio,
       }
     })

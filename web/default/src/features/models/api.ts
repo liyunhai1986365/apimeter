@@ -181,6 +181,20 @@ export async function deleteVendor(
   return res.data
 }
 
+export async function updateVendorSortOrder(
+  items: Array<{ id: number; sort_order: number }>
+): Promise<{ success: boolean; message?: string }> {
+  const res = await api.put('/api/vendors/sort', { items })
+  return res.data
+}
+
+export async function updateModelSortOrder(
+  items: Array<{ id: number; sort_order: number }>
+): Promise<{ success: boolean; message?: string }> {
+  const res = await api.put('/api/models/sort', { items })
+  return res.data
+}
+
 // ============================================================================
 // Sync Operations
 // ============================================================================

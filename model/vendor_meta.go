@@ -17,6 +17,7 @@ type Vendor struct {
 	Name        string         `json:"name" gorm:"size:128;not null;uniqueIndex:uk_vendor_name_delete_at,priority:1"`
 	Description string         `json:"description,omitempty" gorm:"type:text"`
 	Icon        string         `json:"icon,omitempty" gorm:"type:varchar(128)"`
+	SortOrder   int            `json:"sort_order" gorm:"type:int;default:100;index"`
 	Status      int            `json:"status" gorm:"default:1"`
 	CreatedTime int64          `json:"created_time" gorm:"bigint"`
 	UpdatedTime int64          `json:"updated_time" gorm:"bigint"`
@@ -28,6 +29,9 @@ func (v *Vendor) Insert() error {
 	now := common.GetTimestamp()
 	v.CreatedTime = now
 	v.UpdatedTime = now
+	if v.SortOrder == 0 {
+		v.SortOrder = DefaultSortOrder
+	}
 	return DB.Create(v).Error
 }
 
@@ -44,7 +48,9 @@ func IsVendorNameDuplicated(id int, name string) (bool, error) {
 // Update 更新供应商记录
 func (v *Vendor) Update() error {
 	v.UpdatedTime = common.GetTimestamp()
-	return DB.Save(v).Error
+	return DB.Model(&Vendor{}).Where("id = ?", v.Id).
+		Select("name", "description", "icon", "sort_order", "status", "updated_time").
+		Updates(v).Error
 }
 
 // Delete 软删除供应商
@@ -65,7 +71,7 @@ func GetVendorByID(id int) (*Vendor, error) {
 // GetAllVendors 获取全部供应商（分页）
 func GetAllVendors(offset int, limit int) ([]*Vendor, error) {
 	var vendors []*Vendor
-	err := DB.Offset(offset).Limit(limit).Find(&vendors).Error
+	err := DB.Order("sort_order ASC").Order("id ASC").Offset(offset).Limit(limit).Find(&vendors).Error
 	return vendors, err
 }
 
@@ -81,7 +87,7 @@ func SearchVendors(keyword string, offset int, limit int) ([]*Vendor, int64, err
 		return nil, 0, err
 	}
 	var vendors []*Vendor
-	if err := db.Offset(offset).Limit(limit).Order("id DESC").Find(&vendors).Error; err != nil {
+	if err := db.Offset(offset).Limit(limit).Order("sort_order ASC").Order("id ASC").Find(&vendors).Error; err != nil {
 		return nil, 0, err
 	}
 	return vendors, total, nil

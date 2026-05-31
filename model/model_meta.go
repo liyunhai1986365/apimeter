@@ -31,6 +31,7 @@ type Model struct {
 	VendorID     int            `json:"vendor_id,omitempty" gorm:"index"`
 	AliasModels  string         `json:"alias_models,omitempty" gorm:"type:text"`
 	Endpoints    string         `json:"endpoints,omitempty" gorm:"type:text"`
+	SortOrder    int            `json:"sort_order" gorm:"type:int;default:100;index"`
 	Status       int            `json:"status" gorm:"default:1"`
 	SyncOfficial int            `json:"sync_official" gorm:"default:1"`
 	CreatedTime  int64          `json:"created_time" gorm:"bigint"`
@@ -50,6 +51,9 @@ func (mi *Model) Insert() error {
 	now := common.GetTimestamp()
 	mi.CreatedTime = now
 	mi.UpdatedTime = now
+	if mi.SortOrder == 0 {
+		mi.SortOrder = DefaultSortOrder
+	}
 
 	// 保存原始值（因为 Create 后可能被 GORM 的 default 标签覆盖为 1）
 	originalStatus := mi.Status
@@ -80,7 +84,7 @@ func (mi *Model) Update() error {
 	mi.UpdatedTime = common.GetTimestamp()
 	// 使用 Select 强制更新所有字段，包括零值
 	return DB.Model(&Model{}).Where("id = ?", mi.Id).
-		Select("model_name", "description", "icon", "tags", "category", "vendor_id", "alias_models", "endpoints", "status", "sync_official", "name_rule", "updated_time").
+		Select("model_name", "description", "icon", "tags", "category", "vendor_id", "alias_models", "endpoints", "sort_order", "status", "sync_official", "name_rule", "updated_time").
 		Updates(mi).Error
 }
 
@@ -108,7 +112,7 @@ func GetVendorModelCounts() (map[int64]int64, error) {
 
 func GetAllModels(offset int, limit int) ([]*Model, error) {
 	var models []*Model
-	err := DB.Order("id DESC").Offset(offset).Limit(limit).Find(&models).Error
+	err := DB.Order("sort_order ASC").Order("id ASC").Offset(offset).Limit(limit).Find(&models).Error
 	return models, err
 }
 
@@ -212,7 +216,7 @@ func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Mode
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	if err := db.Order("models.id DESC").Offset(offset).Limit(limit).Find(&models).Error; err != nil {
+	if err := db.Order("models.sort_order ASC").Order("models.id ASC").Offset(offset).Limit(limit).Find(&models).Error; err != nil {
 		return nil, 0, err
 	}
 	return models, total, nil

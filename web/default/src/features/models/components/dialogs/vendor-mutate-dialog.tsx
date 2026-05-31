@@ -69,6 +69,7 @@ export function VendorMutateDialog({
       name: '',
       description: '',
       icon: '',
+      sort_order: 100,
       status: 1,
     },
   })
@@ -81,6 +82,7 @@ export function VendorMutateDialog({
         name: currentVendor.name,
         description: currentVendor.description || '',
         icon: currentVendor.icon || '',
+        sort_order: currentVendor.sort_order || 100,
         status: currentVendor.status || 1,
       })
     } else if (open && !isEdit) {
@@ -88,6 +90,7 @@ export function VendorMutateDialog({
         name: '',
         description: '',
         icon: '',
+        sort_order: 100,
         status: 1,
       })
     }
@@ -106,6 +109,7 @@ export function VendorMutateDialog({
         )
         queryClient.invalidateQueries({ queryKey: vendorsQueryKeys.lists() })
         queryClient.invalidateQueries({ queryKey: modelsQueryKeys.lists() })
+        queryClient.invalidateQueries({ queryKey: ['pricing'] })
         onOpenChange(false)
       } else {
         toast.error(response.message || 'Operation failed')
@@ -187,6 +191,33 @@ export function VendorMutateDialog({
                   </FormControl>
                   <FormDescription>
                     {t('@lobehub/icons key name')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='sort_order'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Vendor sort order')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type='number'
+                      min={0}
+                      step={1}
+                      value={field.value ?? 0}
+                      onChange={(event) =>
+                        field.onChange(Number(event.target.value) || 0)
+                      }
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Lower values appear earlier in model management and the model square.'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

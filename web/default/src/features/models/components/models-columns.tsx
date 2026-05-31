@@ -178,6 +178,28 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
 
     // Name Rule column
     {
+      accessorKey: 'sort_order',
+      meta: { label: t('Sort'), mobileHidden: true },
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('Sort')} />
+      ),
+      cell: ({ row }) => {
+        const sortOrder = row.getValue('sort_order') as number | undefined
+        return (
+          <StatusBadge
+            label={String(sortOrder || 0)}
+            variant='neutral'
+            size='sm'
+            copyable={false}
+            className='font-mono'
+          />
+        )
+      },
+      size: 90,
+    },
+
+    // Name Rule column
+    {
       accessorKey: 'name_rule',
       meta: { label: t('Match Type') },
       header: ({ column }) => (

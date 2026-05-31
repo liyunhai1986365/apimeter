@@ -275,6 +275,21 @@ func UpdateModelMeta(c *gin.Context) {
 	common.ApiSuccess(c, &m)
 }
 
+// UpdateModelSortOrder 批量更新模型排序
+func UpdateModelSortOrder(c *gin.Context) {
+	var req sortOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.UpdateModelSortOrders(req.Items); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RefreshPricing()
+	common.ApiSuccess(c, nil)
+}
+
 // DeleteModelMeta 删除模型
 func DeleteModelMeta(c *gin.Context) {
 	idStr := c.Param("id")

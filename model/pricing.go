@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"sync"
@@ -21,6 +22,7 @@ type Pricing struct {
 	Tags                   string                  `json:"tags,omitempty"`
 	Category               string                  `json:"category,omitempty"`
 	VendorID               int                     `json:"vendor_id,omitempty"`
+	SortOrder              int                     `json:"sort_order"`
 	AliasModels            []string                `json:"alias_models,omitempty"`
 	QuotaType              int                     `json:"quota_type"`
 	ModelRatio             float64                 `json:"model_ratio"`
@@ -44,6 +46,7 @@ type PricingVendor struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Icon        string `json:"icon,omitempty"`
+	SortOrder   int    `json:"sort_order"`
 }
 
 var (
@@ -222,7 +225,7 @@ func updatePricing() {
 
 	// 预加载供应商
 	var vendors []Vendor
-	_ = DB.Find(&vendors).Error
+	_ = DB.Order("sort_order ASC").Order("id ASC").Find(&vendors).Error
 	vendorMap := make(map[int]*Vendor)
 	for i := range vendors {
 		vendorMap[vendors[i].Id] = &vendors[i]
@@ -239,8 +242,15 @@ func updatePricing() {
 			Name:        v.Name,
 			Description: v.Description,
 			Icon:        v.Icon,
+			SortOrder:   v.SortOrder,
 		})
 	}
+	sort.SliceStable(vendorsList, func(i, j int) bool {
+		if vendorsList[i].SortOrder == vendorsList[j].SortOrder {
+			return vendorsList[i].ID < vendorsList[j].ID
+		}
+		return vendorsList[i].SortOrder < vendorsList[j].SortOrder
+	})
 
 	modelGroupsMap := make(map[string]*types.Set[string])
 	displayModelAliasesMap := make(map[string]*types.Set[string])
@@ -382,6 +392,7 @@ func updatePricing() {
 			pricing.Tags = meta.Tags
 			pricing.Category = meta.Category
 			pricing.VendorID = meta.VendorID
+			pricing.SortOrder = meta.SortOrder
 		}
 		modelPrice, findPrice := ratio_setting.GetModelPrice(model, false)
 		if findPrice {
@@ -418,6 +429,13 @@ func updatePricing() {
 		}
 		pricingMap = append(pricingMap, pricing)
 	}
+
+	sort.SliceStable(pricingMap, func(i, j int) bool {
+		if pricingMap[i].SortOrder == pricingMap[j].SortOrder {
+			return pricingMap[i].ModelName < pricingMap[j].ModelName
+		}
+		return pricingMap[i].SortOrder < pricingMap[j].SortOrder
+	})
 
 	// 防止大更新后数据不通用
 	if len(pricingMap) > 0 {

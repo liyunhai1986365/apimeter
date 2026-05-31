@@ -57,4 +57,18 @@ describe('pricing model filters', () => {
       ['main-model']
     )
   })
+
+  test('sorts model square name view by configured model order first', () => {
+    const early = model('z-model', 'text')
+    early.sort_order = 10
+    const late = model('a-model', 'text')
+    late.sort_order = 20
+
+    const result = filterAndSortModels([late, early], baseFilters)
+
+    assert.deepEqual(
+      result.map((item) => item.model_name),
+      ['z-model', 'a-model']
+    )
+  })
 })

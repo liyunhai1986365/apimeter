@@ -44,6 +44,7 @@ export interface Model {
   vendor_id?: number
   alias_models?: string
   endpoints?: string
+  sort_order?: number
   status: number
   sync_official: number
   created_time: number
@@ -65,6 +66,7 @@ export interface Vendor {
   name: string
   description?: string
   icon?: string
+  sort_order?: number
   status: number
   created_time: number
   updated_time: number
@@ -363,6 +365,7 @@ export const modelFormSchema = z.object({
   tags: z.array(z.string()).default([]),
   vendor_id: z.number().optional(),
   endpoints: z.string().default(''),
+  sort_order: z.number().default(100),
   name_rule: z.number().min(0).max(3).default(0),
   status: z.boolean().default(true),
   sync_official: z.boolean().default(true),
@@ -378,6 +381,7 @@ export const vendorFormSchema = z.object({
   name: z.string().min(1, 'Vendor name is required'),
   description: z.string().default(''),
   icon: z.string().default(''),
+  sort_order: z.number().default(100),
   status: z.number().default(1),
 })
 

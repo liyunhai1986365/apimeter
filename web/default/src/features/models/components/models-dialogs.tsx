@@ -21,6 +21,7 @@ import { MissingModelsDialog } from './dialogs/missing-models-dialog'
 import { PrefillGroupManagement } from './dialogs/prefill-group-management'
 import { SyncWizardDialog } from './dialogs/sync-wizard-dialog'
 import { UpstreamConflictDialog } from './dialogs/upstream-conflict-dialog'
+import { VendorManagementDialog } from './dialogs/vendor-management-dialog'
 import { VendorMutateDialog } from './dialogs/vendor-mutate-dialog'
 import { ModelMutateDrawer } from './drawers/model-mutate-drawer'
 import { useModels } from './models-provider'
@@ -45,6 +46,11 @@ export function ModelsDialogs() {
       />
 
       {/* Vendor Create/Update Dialog */}
+      <VendorManagementDialog
+        open={open === 'manage-vendors'}
+        onOpenChange={(v) => !v && setOpen(null)}
+      />
+
       <VendorMutateDialog
         open={open === 'create-vendor' || open === 'update-vendor'}
         onOpenChange={(v) => !v && setOpen(null)}
@@ -87,7 +93,6 @@ export function ModelsDialogs() {
         modelName={descriptionData?.modelName || ''}
         description={descriptionData?.description || ''}
       />
-
     </>
   )
 }

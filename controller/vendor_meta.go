@@ -9,6 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type sortOrderRequest struct {
+	Items []model.SortOrderUpdate `json:"items"`
+}
+
 // GetAllVendors 获取供应商列表（分页）
 func GetAllVendors(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
@@ -78,6 +82,7 @@ func CreateVendorMeta(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	model.RefreshPricing()
 	common.ApiSuccess(c, &v)
 }
 
@@ -105,7 +110,23 @@ func UpdateVendorMeta(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	model.RefreshPricing()
 	common.ApiSuccess(c, &v)
+}
+
+// UpdateVendorSortOrder 批量更新供应商排序
+func UpdateVendorSortOrder(c *gin.Context) {
+	var req sortOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.UpdateVendorSortOrders(req.Items); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RefreshPricing()
+	common.ApiSuccess(c, nil)
 }
 
 // DeleteVendorMeta 删除供应商
@@ -120,5 +141,6 @@ func DeleteVendorMeta(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	model.RefreshPricing()
 	common.ApiSuccess(c, nil)
 }
