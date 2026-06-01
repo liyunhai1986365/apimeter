@@ -41,6 +41,7 @@ import type { Model, Vendor } from '../types'
 import type { ModelCategory } from '@/features/pricing/types'
 import { DataTableRowActions } from './data-table-row-actions'
 import { DescriptionCell } from './description-cell'
+import { EditableSortOrderCell } from './editable-sort-order-cell'
 
 /**
  * Render limited items with "and X more" indicator
@@ -184,16 +185,9 @@ export function useModelsColumns(vendors: Vendor[] = []): ColumnDef<Model>[] {
         <DataTableColumnHeader column={column} title={t('Sort')} />
       ),
       cell: ({ row }) => {
+        const model = row.original
         const sortOrder = row.getValue('sort_order') as number | undefined
-        return (
-          <StatusBadge
-            label={String(sortOrder || 0)}
-            variant='neutral'
-            size='sm'
-            copyable={false}
-            className='font-mono'
-          />
-        )
+        return <EditableSortOrderCell modelId={model.id} value={sortOrder} />
       },
       size: 90,
     },
