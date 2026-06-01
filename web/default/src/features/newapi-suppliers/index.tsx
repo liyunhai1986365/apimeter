@@ -85,8 +85,11 @@ const queryKey = ['newapi-suppliers']
 const emptyForm = {
   name: '',
   base_url: '',
+  auth_mode: 'password' as 'password' | 'access_token',
   username: '',
   password: '',
+  access_token: '',
+  upstream_user_id: '',
   default_local_group: 'default',
   tag: '',
   remark: '',
@@ -152,7 +155,16 @@ export function NewAPISuppliers() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { ...form, tag: form.tag || form.name }
+      const { auth_mode: authMode, ...basePayload } = form
+      const payload = {
+        ...basePayload,
+        tag: form.tag || form.name,
+        username: authMode === 'password' ? form.username : '',
+        password: authMode === 'password' ? form.password : '',
+        access_token: authMode === 'access_token' ? form.access_token : '',
+        upstream_user_id:
+          authMode === 'access_token' ? Number(form.upstream_user_id) || 0 : 0,
+      }
       if (editing) {
         return updateNewAPISupplier({ ...payload, id: editing.id })
       }
@@ -218,8 +230,13 @@ export function NewAPISuppliers() {
     setForm({
       name: supplier.name,
       base_url: supplier.base_url,
+      auth_mode: supplier.access_token ? 'access_token' : 'password',
       username: supplier.username,
       password: '',
+      access_token: '',
+      upstream_user_id: supplier.upstream_user_id
+        ? String(supplier.upstream_user_id)
+        : '',
       default_local_group: supplier.default_local_group || 'default',
       tag: supplier.tag || supplier.name,
       remark: supplier.remark || '',
@@ -498,25 +515,82 @@ export function NewAPISuppliers() {
                 }
               />
             </Field>
-            <div className='grid gap-4 sm:grid-cols-2'>
-              <Field label={t('Username')}>
-                <Input
-                  value={form.username}
-                  onChange={(e) =>
-                    setForm({ ...form, username: e.target.value })
-                  }
-                />
-              </Field>
-              <Field label={t('Password')}>
-                <Input
-                  type='password'
-                  value={form.password}
-                  onChange={(e) =>
-                    setForm({ ...form, password: e.target.value })
-                  }
-                />
-              </Field>
-            </div>
+            <Field label={t('Authentication Method')}>
+              <Select
+                value={form.auth_mode}
+                onValueChange={(value) =>
+                  setForm({
+                    ...form,
+                    auth_mode: value as SupplierForm['auth_mode'],
+                  })
+                }
+              >
+                <SelectTrigger className='w-full'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectItem value='password'>
+                    {t('Username and password')}
+                  </SelectItem>
+                  <SelectItem value='access_token'>
+                    {t('System access token')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+            {form.auth_mode === 'password' ? (
+              <div className='grid gap-4 sm:grid-cols-2'>
+                <Field label={t('Username')}>
+                  <Input
+                    value={form.username}
+                    onChange={(e) =>
+                      setForm({ ...form, username: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field label={t('Password')}>
+                  <Input
+                    type='password'
+                    placeholder={
+                      editing
+                        ? t('Leave empty to keep existing password')
+                        : undefined
+                    }
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm({ ...form, password: e.target.value })
+                    }
+                  />
+                </Field>
+              </div>
+            ) : (
+              <div className='grid gap-4 sm:grid-cols-2'>
+                <Field label={t('System access token')}>
+                  <Input
+                    type='password'
+                    placeholder={
+                      editing
+                        ? t('Leave empty to keep existing token')
+                        : t('Paste the upstream system access token')
+                    }
+                    value={form.access_token}
+                    onChange={(e) =>
+                      setForm({ ...form, access_token: e.target.value })
+                    }
+                  />
+                </Field>
+                <Field label={t('Upstream User ID')}>
+                  <Input
+                    inputMode='numeric'
+                    placeholder={t('Enter upstream user ID')}
+                    value={form.upstream_user_id}
+                    onChange={(e) =>
+                      setForm({ ...form, upstream_user_id: e.target.value })
+                    }
+                  />
+                </Field>
+              </div>
+            )}
             <div className='grid gap-4 sm:grid-cols-2'>
               <Field label={t('Default Local Group')}>
                 <Select

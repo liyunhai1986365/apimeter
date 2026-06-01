@@ -99,6 +99,14 @@ func CreateNewAPISupplier(c *gin.Context) {
 		common.ApiErrorMsg(c, "供应商 Base URL 不能为空")
 		return
 	}
+	if supplier.AccessToken == "" && (supplier.Username == "" || supplier.Password == "") {
+		common.ApiErrorMsg(c, "供应商账号密码或系统访问令牌不能为空")
+		return
+	}
+	if supplier.AccessToken != "" && supplier.UpstreamUserID == 0 {
+		common.ApiErrorMsg(c, "使用系统访问令牌时必须填写上游用户 ID")
+		return
+	}
 	if err := supplier.Insert(); err != nil {
 		common.ApiError(c, err)
 		return
@@ -127,8 +135,20 @@ func UpdateNewAPISupplier(c *gin.Context) {
 	if supplier.AccessToken == "" {
 		supplier.AccessToken = origin.AccessToken
 	}
+	if supplier.UpstreamUserID == 0 {
+		supplier.UpstreamUserID = origin.UpstreamUserID
+	}
 	if supplier.APIKey == "" {
 		supplier.APIKey = origin.APIKey
+	}
+	supplier.Normalize()
+	if supplier.AccessToken == "" && (supplier.Username == "" || supplier.Password == "") {
+		common.ApiErrorMsg(c, "供应商账号密码或系统访问令牌不能为空")
+		return
+	}
+	if supplier.AccessToken != "" && supplier.UpstreamUserID == 0 {
+		common.ApiErrorMsg(c, "使用系统访问令牌时必须填写上游用户 ID")
+		return
 	}
 	if err := supplier.Update(); err != nil {
 		common.ApiError(c, err)

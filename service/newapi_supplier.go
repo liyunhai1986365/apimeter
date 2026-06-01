@@ -539,13 +539,15 @@ func QueryNewAPISupplierBalance(ctx context.Context, supplier *model.NewAPISuppl
 func fetchNewAPISupplierSelf(ctx context.Context, client *http.Client, supplier *model.NewAPISupplier) (newAPIUserSelf, string, int, error) {
 	accessToken := strings.TrimSpace(supplier.AccessToken)
 	upstreamUserID := supplier.UpstreamUserID
-	if accessToken == "" || upstreamUserID == 0 {
+	if accessToken == "" {
 		loginToken, userID, err := loginNewAPI(ctx, client, supplier)
 		if err != nil {
 			return newAPIUserSelf{}, "", 0, err
 		}
 		accessToken = loginToken
 		upstreamUserID = userID
+	} else if upstreamUserID == 0 {
+		return newAPIUserSelf{}, "", 0, errors.New("使用系统访问令牌时必须填写上游用户 ID")
 	}
 	self, err := fetchNewAPISelf(ctx, client, supplier.BaseURL, accessToken, upstreamUserID)
 	if err != nil {
