@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -383,16 +384,40 @@ func TokenAuth() func(c *gin.Context) {
 		userCache.WriteContext(c)
 
 		userGroup := userCache.Group
+		agentCtx, hasAgentCtx := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
+		if hasAgentCtx && agentCtx != nil {
+			agentUserGroup, err := agentservice.GetUserGroup(agentCtx, token.UserId, userGroup)
+			if err != nil {
+				common.SysLog(fmt.Sprintf("TokenAuth GetAgentUserGroup error for user %d: %v", token.UserId, err))
+				abortWithOpenAiMessage(c, http.StatusInternalServerError,
+					common.TranslateMessage(c, i18n.MsgDatabaseError))
+				return
+			}
+			userGroup = agentUserGroup
+			common.SetContextKey(c, constant.ContextKeyUserGroup, userGroup)
+		}
 		tokenGroup := token.Group
+		checkUserGroup := userGroup
+		if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, userGroup); ok {
+			checkUserGroup = agentGroup.SystemGroupName
+		}
 		if tokenGroup != "" {
 			if tokenGroup != "auto" {
+				checkGroup := tokenGroup
+				if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, tokenGroup); ok {
+					checkGroup = agentGroup.SystemGroupName
+					if !agentservice.UserCanSeeGroup(agentCtx, userGroup, agentGroup.GroupName) {
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
+						return
+					}
+				}
 				// check common.UserUsableGroups[userGroup]
-				if _, ok := service.GetUserUsableGroups(userGroup)[tokenGroup]; !ok {
+				if _, ok := service.GetUserUsableGroups(checkUserGroup)[checkGroup]; !ok {
 					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
 					return
 				}
 				// check group in common.GroupRatio
-				if !ratio_setting.ContainsGroupRatio(tokenGroup) {
+				if !ratio_setting.ContainsGroupRatio(checkGroup) {
 					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("分组 %s 已被弃用", tokenGroup))
 					return
 				}

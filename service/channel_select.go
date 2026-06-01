@@ -2,13 +2,16 @@ package service
 
 import (
 	"errors"
+	"sort"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/conversion"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -85,7 +88,14 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	var channel *model.Channel
 	var err error
 	selectGroup := param.TokenGroup
+	channelGroup := param.TokenGroup
+	if group, ok := agentservice.ResolveGroupFromRequest(param.Ctx, param.TokenGroup); ok {
+		channelGroup = group.SystemGroupName
+	}
 	userGroup := common.GetContextKeyString(param.Ctx, constant.ContextKeyUserGroup)
+	if group, ok := agentservice.ResolveGroupFromRequest(param.Ctx, userGroup); ok {
+		userGroup = group.SystemGroupName
+	}
 	filter := BuildProtocolChannelFilter(param)
 
 	if param.TokenGroup == "auto" {
@@ -93,6 +103,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			return nil, selectGroup, errors.New("auto groups is not enabled")
 		}
 		autoGroups := GetUserAutoGroup(userGroup)
+		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](param.Ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+			autoGroups = agentAutoGroups(agentCtx, userGroup)
+		}
 
 		// startGroupIndex: the group index to start searching from
 		// startGroupIndex: 开始搜索的分组索引
@@ -161,7 +174,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else {
-		channel, err = model.GetRandomSatisfiedChannelWithFilter(param.TokenGroup, param.ModelName, param.GetRetry(), filter)
+		channel, err = model.GetRandomSatisfiedChannelWithFilter(channelGroup, param.ModelName, param.GetRetry(), filter)
 		if errors.Is(err, model.ErrNoChannelMatchedFilter) {
 			return nil, param.TokenGroup, unsupportedImageChatProtocolError(param.ModelName)
 		}
@@ -170,6 +183,16 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	}
 	return channel, selectGroup, nil
+}
+
+func agentAutoGroups(agentCtx *types.AgentContext, userGroup string) []string {
+	visibleGroups := agentservice.VisibleGroupsForUser(agentCtx, userGroup)
+	autoGroups := make([]string, 0, len(visibleGroups))
+	for _, group := range visibleGroups {
+		autoGroups = append(autoGroups, group.SystemGroupName)
+	}
+	sort.Strings(autoGroups)
+	return autoGroups
 }
 
 func shouldStopOnProtocolMismatch(param *RetryParam) bool {

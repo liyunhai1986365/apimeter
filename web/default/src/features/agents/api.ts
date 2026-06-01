@@ -122,6 +122,10 @@ export function parseAgentBranding(branding?: string): AgentBranding {
       site_name:
         typeof parsed.site_name === 'string' ? parsed.site_name : undefined,
       logo: typeof parsed.logo === 'string' ? parsed.logo : undefined,
+      home_page_content:
+        typeof parsed.home_page_content === 'string'
+          ? parsed.home_page_content
+          : undefined,
     }
   } catch {
     return {}
@@ -131,10 +135,12 @@ export function parseAgentBranding(branding?: string): AgentBranding {
 export function stringifyAgentBranding(input: AgentBranding) {
   const siteName = input.site_name?.trim() ?? ''
   const logo = input.logo?.trim() ?? ''
-  if (!siteName && !logo) return ''
+  const homePageContent = input.home_page_content?.trim() ?? ''
+  if (!siteName && !logo && !homePageContent) return ''
   return JSON.stringify({
     site_name: siteName,
     logo,
+    home_page_content: homePageContent,
   })
 }
 
@@ -170,7 +176,11 @@ export async function listAgentGroupRatios() {
 
 export async function upsertAgentGroupRatio(input: {
   group_name: string
+  system_group_name: string
   ratio: number
+  visible: boolean
+  visible_groups?: string[]
+  remove_groups?: string[]
 }) {
   const res = await api.post<{ success: boolean; data: AgentGroupRatio }>(
     '/api/agent/group_ratios',
@@ -179,11 +189,54 @@ export async function upsertAgentGroupRatio(input: {
   return res.data
 }
 
-export async function listAgentUsers(page = 1, pageSize = 20) {
+export function buildAgentUserListParams(
+  page = 1,
+  pageSize = 20,
+  keyword = ''
+) {
+  const trimmedKeyword = keyword.trim()
+  return {
+    p: page,
+    page_size: pageSize,
+    ...(trimmedKeyword ? { keyword: trimmedKeyword } : {}),
+  }
+}
+
+export async function listAgentUsers(
+  page = 1,
+  pageSize = 20,
+  keyword = ''
+) {
   const res = await api.get<{ success: boolean; data: AgentPage<AgentUser> }>(
     '/api/agent/users',
-    { params: { p: page, page_size: pageSize } }
+    { params: buildAgentUserListParams(page, pageSize, keyword) }
   )
+  return res.data
+}
+
+export async function updateAgentUserStatus(input: {
+  userId: number
+  status: number
+}) {
+  const res = await api.put<{
+    success: boolean
+    data: { user_id: number; status: number }
+  }>(`/api/agent/users/${input.userId}/status`, {
+    status: input.status,
+  })
+  return res.data
+}
+
+export async function updateAgentUserGroup(input: {
+  userId: number
+  group_name: string
+}) {
+  const res = await api.put<{
+    success: boolean
+    data: { user_id: number; group: string }
+  }>(`/api/agent/users/${input.userId}/group`, {
+    group_name: input.group_name,
+  })
   return res.data
 }
 
@@ -257,21 +310,24 @@ export async function updateAdminAgentDomainStatus(input: {
   domainId: number
   status: number
 }) {
-  const res = await api.put<{ success: boolean; data: { id: number; status: number } }>(
-    `/api/agents/${input.agentId}/domains/${input.domainId}/status`,
-    { status: input.status }
-  )
+  const res = await api.put<{
+    success: boolean
+    data: { id: number; status: number }
+  }>(`/api/agents/${input.agentId}/domains/${input.domainId}/status`, {
+    status: input.status,
+  })
   return res.data
 }
 
 export async function listAdminAgentUsers(
   agentId: number,
   page = 1,
-  pageSize = 20
+  pageSize = 20,
+  keyword = ''
 ) {
   const res = await api.get<{ success: boolean; data: AgentPage<AgentUser> }>(
     `/api/agents/${agentId}/users`,
-    { params: { p: page, page_size: pageSize } }
+    { params: buildAgentUserListParams(page, pageSize, keyword) }
   )
   return res.data
 }
@@ -287,13 +343,21 @@ export async function listAdminAgentGroupRatios(agentId: number) {
 export async function upsertAdminAgentGroupRatio(input: {
   agentId: number
   group_name: string
+  system_group_name: string
   ratio: number
+  visible: boolean
+  visible_groups?: string[]
+  remove_groups?: string[]
 }) {
   const res = await api.post<{ success: boolean; data: AgentGroupRatio }>(
     `/api/agents/${input.agentId}/group_ratios`,
     {
       group_name: input.group_name,
+      system_group_name: input.system_group_name,
       ratio: input.ratio,
+      visible: input.visible,
+      visible_groups: input.visible_groups ?? [],
+      remove_groups: input.remove_groups ?? [],
     }
   )
   return res.data

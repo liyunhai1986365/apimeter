@@ -23,6 +23,15 @@ func TestApplyBrandingToStatusOverridesSystemNameAndLogo(t *testing.T) {
 	}, status["agent_branding"])
 }
 
+func TestParseBrandingReturnsHomePageContent(t *testing.T) {
+	branding, ok := ParseBranding(`{"site_name":"Agent Site","logo":"https://agent.example.com/logo.png","home_page_content":"# Agent Home"}`)
+
+	assert.True(t, ok)
+	assert.Equal(t, "Agent Site", branding.SiteName)
+	assert.Equal(t, "https://agent.example.com/logo.png", branding.Logo)
+	assert.Equal(t, "# Agent Home", branding.HomePageContent)
+}
+
 func TestApplyBrandingToStatusKeepsDefaultsForInvalidOrBlankBranding(t *testing.T) {
 	status := gin.H{
 		"system_name": "Main Site",

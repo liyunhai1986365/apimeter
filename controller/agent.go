@@ -35,8 +35,12 @@ type agentDomainRequest struct {
 }
 
 type agentGroupRatioRequest struct {
-	GroupName string  `json:"group_name"`
-	Ratio     float64 `json:"ratio"`
+	GroupName       string   `json:"group_name"`
+	SystemGroupName string   `json:"system_group_name"`
+	Ratio           float64  `json:"ratio"`
+	Visible         *bool    `json:"visible"`
+	VisibleGroups   []string `json:"visible_groups"`
+	RemoveGroups    []string `json:"remove_groups"`
 }
 
 type agentWithdrawalRequest struct {
@@ -48,10 +52,11 @@ type agentWithdrawalRequest struct {
 }
 
 type agentUserRequest struct {
-	UserId int    `json:"user_id"`
-	Status int    `json:"status"`
-	Source string `json:"source"`
-	Delta  int    `json:"delta"`
+	UserId    int    `json:"user_id"`
+	Status    int    `json:"status"`
+	Source    string `json:"source"`
+	Delta     int    `json:"delta"`
+	GroupName string `json:"group_name"`
 }
 
 func GetAgentSelf(c *gin.Context) {
@@ -405,7 +410,11 @@ func AgentUpsertGroupRatio(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	ratio, err := agentservice.UpsertGroupRatio(agentID, req.GroupName, req.Ratio)
+	visible := true
+	if req.Visible != nil {
+		visible = *req.Visible
+	}
+	ratio, err := agentservice.UpsertGroupRatio(agentID, req.GroupName, req.SystemGroupName, req.Ratio, visible, req.VisibleGroups, req.RemoveGroups)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -423,9 +432,14 @@ func AgentUpsertGroupRatio(c *gin.Context) {
 	}
 	common.ApiSuccess(c, agentservice.GroupRatioView{
 		GroupName:       ratio.GroupName,
+		SystemGroupName: ratio.SystemGroupName,
 		ConfiguredRatio: ratio.Ratio,
 		EffectiveRatio:  ratio.Ratio,
 		Configured:      true,
+		Visible:         ratio.Visible,
+		Available:       true,
+		VisibleGroups:   req.VisibleGroups,
+		RemoveGroups:    req.RemoveGroups,
 	})
 }
 
@@ -481,11 +495,33 @@ func AgentUpdateUserStatus(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if err := model.DB.Model(&model.AgentUser{}).Where("agent_id = ? AND user_id = ?", agentID, userID).Update("status", req.Status).Error; err != nil {
+	if err := agentservice.UpdateUserGlobalStatus(agentID, userID, req.Status); err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	common.ApiSuccess(c, gin.H{"user_id": userID, "status": req.Status})
+}
+
+func AgentUpdateUserGroup(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	userID, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := agentservice.UpdateUserGroup(agentID, userID, req.GroupName); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{"user_id": userID, "group": req.GroupName})
 }
 
 func AgentAdjustUserQuota(c *gin.Context) {

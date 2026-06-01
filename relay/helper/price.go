@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -48,9 +49,18 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		logger.LogDebug(ctx, "final group: %s", autoGroup)
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
+	displayGroup := relayInfo.UsingGroup
+	if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
+		displayGroup = group.GroupName
+		relayInfo.UsingGroup = group.SystemGroupName
+	}
+	userGroup := relayInfo.UserGroup
+	if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, userGroup); ok {
+		userGroup = group.SystemGroupName
+	}
 
 	// check user group special ratio
-	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
+	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(userGroup, relayInfo.UsingGroup)
 	if ok {
 		// user group special ratio
 		groupRatioInfo.GroupSpecialRatio = userGroupRatio
@@ -63,7 +73,7 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 	groupRatioInfo.BaseGroupRatio = groupRatioInfo.GroupRatio
 
 	if relayInfo != nil && relayInfo.AgentContext != nil {
-		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[relayInfo.UsingGroup]; ok {
+		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[displayGroup]; ok {
 			if agentRatio < groupRatioInfo.BaseGroupRatio {
 				agentRatio = groupRatioInfo.BaseGroupRatio
 			}
@@ -76,7 +86,7 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 			relayInfo.AgentBillingSnapshot = &types.AgentBillingSnapshot{
 				AgentID:           relayInfo.AgentContext.AgentID,
 				Domain:            relayInfo.AgentContext.Domain,
-				Group:             relayInfo.UsingGroup,
+				Group:             displayGroup,
 				BaseGroupRatio:    groupRatioInfo.BaseGroupRatio,
 				ChargedGroupRatio: agentRatio,
 			}

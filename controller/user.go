@@ -104,12 +104,18 @@ func Login(c *gin.Context) {
 // setup session & cookies and then return user info
 func setupLogin(user *model.User, c *gin.Context) {
 	model.UpdateUserLastLoginAt(user.Id)
+	group := user.Group
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, user.Id, user.Group); err == nil {
+			group = agentUserGroup
+		}
+	}
 	session := sessions.Default(c)
 	session.Set("id", user.Id)
 	session.Set("username", user.Username)
 	session.Set("role", user.Role)
 	session.Set("status", user.Status)
-	session.Set("group", user.Group)
+	session.Set("group", group)
 	err := session.Save()
 	if err != nil {
 		common.ApiErrorI18n(c, i18n.MsgUserSessionSaveFailed)
@@ -127,7 +133,7 @@ func setupLogin(user *model.User, c *gin.Context) {
 			"display_name": user.DisplayName,
 			"role":         user.Role,
 			"status":       user.Status,
-			"group":        user.Group,
+			"group":        group,
 			"has_agent":    hasAgentConsole,
 			"permissions":  permissions,
 		},

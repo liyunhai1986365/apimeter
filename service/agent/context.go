@@ -5,6 +5,8 @@ import (
 	"net"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
@@ -52,12 +54,17 @@ func ResolveByHost(host string) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
+	groups, err := EffectiveGroupMap(agentWithDomain.Id)
+	if err != nil {
+		return nil, err
+	}
 	return &Context{
 		AgentID:       agentWithDomain.Id,
 		Domain:        agentWithDomain.Domain,
 		OwnerUserID:   agentWithDomain.OwnerUserId,
 		DefaultMarkup: agentWithDomain.DefaultMarkup,
 		Branding:      agentWithDomain.Branding,
+		Groups:        groups,
 		GroupRatios:   groupRatios,
 	}, nil
 }
@@ -81,6 +88,78 @@ func BindUser(ctx *Context, userID int, source string) error {
 		return nil
 	}
 	return model.BindUserToAgent(ctx.AgentID, userID, source)
+}
+
+func GetUserGroup(ctx *Context, userID int, fallbackGroup string) (string, error) {
+	if ctx == nil || ctx.AgentID == 0 || userID == 0 {
+		return fallbackGroup, nil
+	}
+	var agentUser model.AgentUser
+	err := model.DB.Where("agent_id = ? AND user_id = ? AND status = ?", ctx.AgentID, userID, model.AgentUserStatusEnabled).First(&agentUser).Error
+	if err != nil {
+		return fallbackGroup, err
+	}
+	group := strings.TrimSpace(agentUser.Group)
+	if group == "" {
+		return fallbackGroup, nil
+	}
+	return group, nil
+}
+
+func VisibleGroupsForUser(ctx *Context, userGroup string) map[string]types.AgentGroup {
+	result := make(map[string]types.AgentGroup)
+	if ctx == nil {
+		return result
+	}
+	for _, group := range ctx.Groups {
+		if !group.Visible || !group.Available {
+			continue
+		}
+		result[group.GroupName] = group
+	}
+	if current, ok := ResolveGroup(ctx, userGroup); ok {
+		for _, groupName := range current.RemoveGroups {
+			delete(result, groupName)
+		}
+		for _, groupName := range current.VisibleGroups {
+			group, ok := ResolveGroup(ctx, groupName)
+			if !ok {
+				continue
+			}
+			result[group.GroupName] = group
+		}
+	}
+	return result
+}
+
+func UserCanSeeGroup(ctx *Context, userGroup string, groupName string) bool {
+	if strings.TrimSpace(groupName) == "" {
+		return false
+	}
+	if current, ok := ResolveGroup(ctx, userGroup); ok && current.GroupName == groupName {
+		return true
+	}
+	_, ok := VisibleGroupsForUser(ctx, userGroup)[groupName]
+	return ok
+}
+
+func ResolveGroup(ctx *Context, groupName string) (types.AgentGroup, bool) {
+	if ctx == nil || strings.TrimSpace(groupName) == "" {
+		return types.AgentGroup{}, false
+	}
+	group, ok := ctx.Groups[groupName]
+	if ok && group.Available {
+		return group, true
+	}
+	return types.AgentGroup{}, false
+}
+
+func ResolveGroupFromRequest(c *gin.Context, groupName string) (types.AgentGroup, bool) {
+	agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
+	if !ok || agentCtx == nil {
+		return types.AgentGroup{}, false
+	}
+	return ResolveGroup(agentCtx, groupName)
 }
 
 func ApplySnapshot(snapshot *BillingSnapshot, baseQuota int) int {

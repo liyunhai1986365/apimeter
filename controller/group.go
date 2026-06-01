@@ -3,10 +3,14 @@ package controller
 import (
 	"net/http"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -28,6 +32,30 @@ func GetUserGroups(c *gin.Context) {
 	userGroup := ""
 	userId := c.GetInt("id")
 	userGroup, _ = model.GetUserGroup(userId, false)
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, userId, userGroup); err == nil {
+			userGroup = agentUserGroup
+		}
+		userSystemGroup := userGroup
+		if agentGroup, ok := agentCtx.Groups[userGroup]; ok && agentGroup.Available {
+			userSystemGroup = agentGroup.SystemGroupName
+		}
+		userUsableGroups := service.GetUserUsableGroups(userSystemGroup)
+		for _, group := range agentservice.VisibleGroupsForUser(agentCtx, userGroup) {
+			if desc, ok := userUsableGroups[group.SystemGroupName]; ok {
+				usableGroups[group.GroupName] = map[string]interface{}{
+					"ratio": group.EffectiveRatio,
+					"desc":  desc,
+				}
+			}
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "",
+			"data":    usableGroups,
+		})
+		return
+	}
 	userUsableGroups := service.GetUserUsableGroups(userGroup)
 	for groupName, _ := range ratio_setting.GetGroupRatioCopy() {
 		// UserUsableGroups contains the groups that the user can use

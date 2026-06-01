@@ -2,9 +2,12 @@ package controller
 
 import (
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -46,8 +49,12 @@ func GetPricing(c *gin.Context) {
 		user, err := model.GetUserCache(userId.(int))
 		if err == nil {
 			group = user.Group
+			groupForSystemRatio := group
+			if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, group); ok {
+				groupForSystemRatio = agentGroup.SystemGroupName
+			}
 			for g := range groupRatio {
-				ratio, ok := ratio_setting.GetGroupGroupRatio(group, g)
+				ratio, ok := ratio_setting.GetGroupGroupRatio(groupForSystemRatio, g)
 				if ok {
 					groupRatio[g] = ratio
 				}
@@ -57,6 +64,63 @@ func GetPricing(c *gin.Context) {
 	groupRatio = applyAgentGroupRatios(c, groupRatio)
 
 	usableGroup = service.GetUserUsableGroups(group)
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		if userID, hasUserID := c.Get("id"); hasUserID {
+			if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, userID.(int), group); err == nil {
+				group = agentUserGroup
+			}
+		}
+		groupForUsable := group
+		if agentGroup, ok := agentCtx.Groups[group]; ok && agentGroup.Available {
+			groupForUsable = agentGroup.SystemGroupName
+		}
+		systemUsableGroup := service.GetUserUsableGroups(groupForUsable)
+		pricing = filterPricingByUsableGroups(pricing, systemUsableGroup)
+		agentUsableGroup := map[string]string{}
+		agentGroupRatio := map[string]float64{}
+		agentSystemGroups := make(map[string]struct{})
+		visibleGroups := agentservice.VisibleGroupsForUser(agentCtx, group)
+		for _, agentGroup := range visibleGroups {
+			if desc, ok := systemUsableGroup[agentGroup.SystemGroupName]; ok {
+				agentUsableGroup[agentGroup.GroupName] = desc
+				agentGroupRatio[agentGroup.GroupName] = agentGroup.EffectiveRatio
+				agentSystemGroups[agentGroup.SystemGroupName] = struct{}{}
+			}
+		}
+		for i := range pricing {
+			if common.StringsContains(pricing[i].EnableGroup, "all") {
+				keys := make([]string, 0, len(agentUsableGroup))
+				for groupName := range agentUsableGroup {
+					keys = append(keys, groupName)
+				}
+				pricing[i].EnableGroup = keys
+				continue
+			}
+			enableGroups := make([]string, 0, len(pricing[i].EnableGroup))
+			for _, systemGroup := range pricing[i].EnableGroup {
+				if _, ok := agentSystemGroups[systemGroup]; !ok {
+					continue
+				}
+				for _, agentGroup := range visibleGroups {
+					if agentGroup.SystemGroupName == systemGroup && agentGroup.Available {
+						enableGroups = append(enableGroups, agentGroup.GroupName)
+					}
+				}
+			}
+			pricing[i].EnableGroup = enableGroups
+		}
+		c.JSON(200, gin.H{
+			"success":            true,
+			"data":               pricing,
+			"vendors":            model.GetVendors(),
+			"group_ratio":        agentGroupRatio,
+			"usable_group":       agentUsableGroup,
+			"supported_endpoint": model.GetSupportedEndpointMap(),
+			"auto_groups":        []string{},
+			"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
+		})
+		return
+	}
 	pricing = filterPricingByUsableGroups(pricing, usableGroup)
 	// check groupRatio contains usableGroup
 	for group := range ratio_setting.GetGroupRatioCopy() {

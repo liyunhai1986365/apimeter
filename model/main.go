@@ -281,6 +281,12 @@ func migrateDB() error {
 	if err := normalizeAgentDecimalTablesForSQLite(); err != nil {
 		return err
 	}
+	if err := migrateAgentGroupRatiosMappingColumns(); err != nil {
+		return err
+	}
+	if err := migrateAgentUserGroupColumn(); err != nil {
+		return err
+	}
 	if err := migrateNewAPISupplierChannelProfileStatus(); err != nil {
 		return err
 	}
@@ -426,7 +432,57 @@ func migrateDBFast() error {
 	if err := migrateNewAPISupplierChannelProfileStatus(); err != nil {
 		return err
 	}
+	if err := migrateAgentGroupRatiosMappingColumns(); err != nil {
+		return err
+	}
+	if err := migrateAgentUserGroupColumn(); err != nil {
+		return err
+	}
 	common.SysLog("database migrated")
+	return nil
+}
+
+func migrateAgentGroupRatiosMappingColumns() error {
+	if DB == nil || !DB.Migrator().HasTable(&AgentGroupRatio{}) {
+		return nil
+	}
+	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "system_group_name") {
+		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "SystemGroupName"); err != nil {
+			return err
+		}
+	}
+	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "visible") {
+		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "Visible"); err != nil {
+			return err
+		}
+	}
+	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "visible_groups") {
+		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "VisibleGroups"); err != nil {
+			return err
+		}
+	}
+	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "remove_groups") {
+		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "RemoveGroups"); err != nil {
+			return err
+		}
+	}
+	if err := DB.Model(&AgentGroupRatio{}).
+		Where("system_group_name = '' OR system_group_name IS NULL").
+		Update("system_group_name", gorm.Expr("group_name")).Error; err != nil {
+		return err
+	}
+	return DB.Model(&AgentGroupRatio{}).
+		Where("visible IS NULL").
+		Update("visible", true).Error
+}
+
+func migrateAgentUserGroupColumn() error {
+	if DB == nil || !DB.Migrator().HasTable(&AgentUser{}) {
+		return nil
+	}
+	if !DB.Migrator().HasColumn(&AgentUser{}, "group") {
+		return DB.Migrator().AddColumn(&AgentUser{}, "Group")
+	}
 	return nil
 }
 

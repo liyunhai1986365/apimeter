@@ -116,13 +116,28 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 	}
 
 	actualGroupRatio := groupRatio
-	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(relayInfo.UserGroup, relayInfo.UsingGroup)
+	userGroup := relayInfo.UserGroup
+	if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, userGroup); ok {
+		userGroup = agentGroup.SystemGroupName
+	}
+	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(userGroup, relayInfo.UsingGroup)
 	if ok {
 		actualGroupRatio = userGroupRatio
 	}
 	baseGroupRatio := actualGroupRatio
 	if relayInfo.AgentContext != nil {
-		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[relayInfo.UsingGroup]; ok {
+		displayGroup := relayInfo.UsingGroup
+		if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
+			displayGroup = agentGroup.GroupName
+			relayInfo.UsingGroup = agentGroup.SystemGroupName
+			groupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
+			actualGroupRatio = groupRatio
+			if userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(userGroup, relayInfo.UsingGroup); ok {
+				actualGroupRatio = userGroupRatio
+			}
+			baseGroupRatio = actualGroupRatio
+		}
+		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[displayGroup]; ok {
 			if agentRatio < baseGroupRatio {
 				agentRatio = baseGroupRatio
 			}
@@ -130,7 +145,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 			relayInfo.AgentBillingSnapshot = &types.AgentBillingSnapshot{
 				AgentID:           relayInfo.AgentContext.AgentID,
 				Domain:            relayInfo.AgentContext.Domain,
-				Group:             relayInfo.UsingGroup,
+				Group:             displayGroup,
 				BaseGroupRatio:    baseGroupRatio,
 				ChargedGroupRatio: agentRatio,
 			}

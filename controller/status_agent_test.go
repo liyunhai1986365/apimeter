@@ -49,3 +49,39 @@ func TestGetStatusUsesAgentDomainForDisplayedServerAddress(t *testing.T) {
 	firstApiInfo := apiInfo[0].(map[string]interface{})
 	require.Equal(t, "https://agent.example.com/v1/chat/completions", firstApiInfo["url"])
 }
+
+func TestGetHomePageContentUsesAgentBrandingContent(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldHomePageContent := common.OptionMap["HomePageContent"]
+	common.OptionMap["HomePageContent"] = "# Main Home"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap["HomePageContent"] = oldHomePageContent
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.GET("/api/home_page_content", func(c *gin.Context) {
+		common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+			AgentID:  1,
+			Domain:   "agent.example.com",
+			Branding: `{"home_page_content":"# Agent Home"}`,
+		})
+		GetHomePageContent(c)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/home_page_content", nil)
+	req.Host = "agent.example.com"
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, "# Agent Home", body["data"])
+}

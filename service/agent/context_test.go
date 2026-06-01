@@ -37,6 +37,7 @@ func setupAgentTestDB(t *testing.T) *gorm.DB {
 		&model.AgentGroupRatio{},
 		&model.AgentLedger{},
 		&model.AgentWithdrawal{},
+		&model.User{},
 	))
 
 	t.Cleanup(func() {
@@ -125,20 +126,22 @@ func TestRequireUserInAgent(t *testing.T) {
 	require.NoError(t, RequireUserInAgent(nil, 100))
 }
 
-func TestUpsertGroupRatioRejectsBelowSystemRatioAndIsolatesAgents(t *testing.T) {
+func TestUpsertGroupRatioMapsProxyGroupToSystemGroup(t *testing.T) {
 	setupAgentTestDB(t)
 	t.Cleanup(func() {
 		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
 	})
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
 
-	_, err := UpsertGroupRatio(1, "vip", 1.2)
+	_, err := UpsertGroupRatio(1, "agent-vip", "vip", 1.2, true, nil, nil)
 	require.ErrorIs(t, err, ErrAgentGroupRatioBelowSystem)
 
-	ratio, err := UpsertGroupRatio(1, "vip", 1.5)
+	ratio, err := UpsertGroupRatio(1, "agent-vip", "vip", 1.5, false, nil, nil)
 	require.NoError(t, err)
-	require.Equal(t, "vip", ratio.GroupName)
+	require.Equal(t, "agent-vip", ratio.GroupName)
+	require.Equal(t, "vip", ratio.SystemGroupName)
 	require.Equal(t, 1.5, ratio.Ratio)
+	require.False(t, ratio.Visible)
 
 	require.NoError(t, err)
 	agentOneRatios, err := EffectiveGroupRatioMap(1)
@@ -146,8 +149,122 @@ func TestUpsertGroupRatioRejectsBelowSystemRatioAndIsolatesAgents(t *testing.T) 
 	agentTwoRatios, err := EffectiveGroupRatioMap(2)
 	require.NoError(t, err)
 
-	require.Equal(t, 1.5, agentOneRatios["vip"])
-	require.Equal(t, 1.25, agentTwoRatios["vip"])
+	require.Equal(t, 1.5, agentOneRatios["agent-vip"])
+	require.NotContains(t, agentOneRatios, "vip")
+	require.NotContains(t, agentTwoRatios, "agent-vip")
+}
+
+func TestAgentGroupMappingSkipsUnavailableSystemGroup(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
+
+	_, err := UpsertGroupRatio(1, "agent-vip", "vip", 1.5, true, nil, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+
+	ratios, err := ListGroupRatios(1)
+	require.NoError(t, err)
+	var found GroupRatioView
+	for _, ratio := range ratios {
+		if ratio.GroupName == "agent-vip" {
+			found = ratio
+			break
+		}
+	}
+	require.Equal(t, "agent-vip", found.GroupName)
+	require.Equal(t, "vip", found.SystemGroupName)
+	require.False(t, found.Available)
+
+	effective, err := EffectiveGroupRatioMap(1)
+	require.NoError(t, err)
+	require.NotContains(t, effective, "agent-vip")
+}
+
+func TestVisibleGroupsForUserAppendsConfiguredGroupsToGlobalVisibleGroups(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25,"svip":1.5}`))
+
+	_, err := UpsertGroupRatio(1, "starter", "default", 1, true, []string{"internal-svip"}, nil)
+	require.NoError(t, err)
+	_, err = UpsertGroupRatio(1, "public-vip", "vip", 1.5, true, nil, nil)
+	require.NoError(t, err)
+	_, err = UpsertGroupRatio(1, "internal-svip", "svip", 1.8, false, nil, nil)
+	require.NoError(t, err)
+
+	groups, err := EffectiveGroupMap(1)
+	require.NoError(t, err)
+	ctx := &Context{AgentID: 1, Groups: groups}
+
+	starterVisibleGroups := VisibleGroupsForUser(ctx, "starter")
+	require.Contains(t, starterVisibleGroups, "starter")
+	require.Contains(t, starterVisibleGroups, "public-vip")
+	require.Contains(t, starterVisibleGroups, "internal-svip")
+	require.False(t, starterVisibleGroups["internal-svip"].Visible)
+
+	vipVisibleGroups := VisibleGroupsForUser(ctx, "public-vip")
+	require.Contains(t, vipVisibleGroups, "starter")
+	require.Contains(t, vipVisibleGroups, "public-vip")
+	require.NotContains(t, vipVisibleGroups, "internal-svip")
+}
+
+func TestVisibleGroupsForUserRemovesConfiguredGroupsFromGlobalVisibleGroups(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25,"svip":1.5}`))
+
+	_, err := UpsertGroupRatio(1, "starter", "default", 1, true, nil, []string{"public-vip"})
+	require.NoError(t, err)
+	_, err = UpsertGroupRatio(1, "public-vip", "vip", 1.5, true, nil, nil)
+	require.NoError(t, err)
+	_, err = UpsertGroupRatio(1, "internal-svip", "svip", 1.8, false, []string{"public-vip"}, nil)
+	require.NoError(t, err)
+
+	groups, err := EffectiveGroupMap(1)
+	require.NoError(t, err)
+	ctx := &Context{AgentID: 1, Groups: groups}
+
+	starterVisibleGroups := VisibleGroupsForUser(ctx, "starter")
+	require.Contains(t, starterVisibleGroups, "starter")
+	require.NotContains(t, starterVisibleGroups, "public-vip")
+
+	internalVisibleGroups := VisibleGroupsForUser(ctx, "internal-svip")
+	require.Contains(t, internalVisibleGroups, "starter")
+	require.Contains(t, internalVisibleGroups, "public-vip")
+}
+
+func TestUpdateUserGroupAllowsInvisibleConfiguredAgentGroup(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
+
+	require.NoError(t, model.DB.Create(&model.User{Id: 101, Username: "agent-user", Group: "default", Status: common.UserStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentUser{AgentId: 1, UserId: 101, Status: model.AgentUserStatusEnabled}).Error)
+	_, err := UpsertGroupRatio(1, "internal-vip", "vip", 1.5, false, nil, nil)
+	require.NoError(t, err)
+
+	require.NoError(t, UpdateUserGroup(1, 101, "internal-vip"))
+
+	user, err := model.GetUserById(101, false)
+	require.NoError(t, err)
+	require.Equal(t, "default", user.Group)
+
+	var agentUser model.AgentUser
+	require.NoError(t, model.DB.Where("agent_id = ? AND user_id = ?", 1, 101).First(&agentUser).Error)
+	require.Equal(t, "internal-vip", agentUser.Group)
+
+	err = UpdateUserGroup(1, 101, "missing-proxy-group")
+	require.ErrorIs(t, err, ErrAgentUserGroupNotAllowed)
 }
 
 func TestBaseQuotaFromChargedScalesByAgentGroupRatio(t *testing.T) {
@@ -350,7 +467,7 @@ func TestAgentDomainAndGroupRatioCRUD(t *testing.T) {
 	require.NotNil(t, ctx)
 	require.Equal(t, agent.Id, ctx.AgentID)
 
-	rule, err := UpsertGroupRatio(agent.Id, "default", 1.45)
+	rule, err := UpsertGroupRatio(agent.Id, "default", "default", 1.45, true, nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 1.45, rule.Ratio)
 

@@ -77,6 +77,7 @@ type AgentUser struct {
 	UserId    int    `json:"user_id" gorm:"uniqueIndex;index:idx_agent_users_agent_user,priority:2;column:user_id"`
 	Source    string `json:"source" gorm:"type:varchar(32);default:'domain'"`
 	Status    int    `json:"status" gorm:"type:int;index"`
+	Group     string `json:"group" gorm:"type:varchar(64);default:'';column:group"`
 	CreatedAt int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 }
 
@@ -86,6 +87,7 @@ type AgentUserWithProfile struct {
 	UserId             int    `json:"user_id" gorm:"column:user_id"`
 	Source             string `json:"source" gorm:"column:source"`
 	AgentUserStatus    int    `json:"agent_user_status" gorm:"column:agent_user_status"`
+	AgentUserGroup     string `json:"agent_user_group" gorm:"column:agent_user_group"`
 	AgentUserCreatedAt int64  `json:"agent_user_created_at" gorm:"column:agent_user_created_at"`
 
 	Username        string `json:"username" gorm:"column:username"`
@@ -94,6 +96,7 @@ type AgentUserWithProfile struct {
 	Role            int    `json:"role" gorm:"column:role"`
 	UserStatus      int    `json:"status" gorm:"column:user_status"`
 	Group           string `json:"group" gorm:"column:user_group"`
+	SystemGroup     string `json:"system_group" gorm:"column:system_group"`
 	Quota           int    `json:"quota" gorm:"column:quota"`
 	UsedQuota       int    `json:"used_quota" gorm:"column:used_quota"`
 	RequestCount    int    `json:"request_count" gorm:"column:request_count"`
@@ -117,12 +120,16 @@ type AgentPricingRule struct {
 }
 
 type AgentGroupRatio struct {
-	Id        int     `json:"id"`
-	AgentId   int     `json:"agent_id" gorm:"index:idx_agent_group_ratio_agent_group,priority:1;column:agent_id"`
-	GroupName string  `json:"group_name" gorm:"type:varchar(64);index:idx_agent_group_ratio_agent_group,priority:2"`
-	Ratio     float64 `json:"ratio" gorm:"precision:10;scale:6;default:1"`
-	CreatedAt int64   `json:"created_at" gorm:"autoCreateTime;column:created_at"`
-	UpdatedAt int64   `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
+	Id              int     `json:"id"`
+	AgentId         int     `json:"agent_id" gorm:"index:idx_agent_group_ratio_agent_group,priority:1;column:agent_id"`
+	GroupName       string  `json:"group_name" gorm:"type:varchar(64);index:idx_agent_group_ratio_agent_group,priority:2"`
+	SystemGroupName string  `json:"system_group_name" gorm:"type:varchar(64);index"`
+	Ratio           float64 `json:"ratio" gorm:"precision:10;scale:6;default:1"`
+	Visible         bool    `json:"visible"`
+	VisibleGroups   string  `json:"visible_groups" gorm:"type:text;column:visible_groups"`
+	RemoveGroups    string  `json:"remove_groups" gorm:"type:text;column:remove_groups"`
+	CreatedAt       int64   `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+	UpdatedAt       int64   `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
 }
 
 type AgentLedger struct {
@@ -326,6 +333,18 @@ func GetAgentGroupRatioMap(agentId int) (map[string]float64, error) {
 	return result, nil
 }
 
+func GetAgentGroupRatioConfigMap(agentId int) (map[string]*AgentGroupRatio, error) {
+	ratios := make([]*AgentGroupRatio, 0)
+	if err := DB.Where("agent_id = ?", agentId).Find(&ratios).Error; err != nil {
+		return nil, err
+	}
+	result := make(map[string]*AgentGroupRatio, len(ratios))
+	for _, ratio := range ratios {
+		result[ratio.GroupName] = ratio
+	}
+	return result, nil
+}
+
 func ListAgentGroupRatios(agentId int) ([]*AgentGroupRatio, error) {
 	ratios := make([]*AgentGroupRatio, 0)
 	if err := DB.Where("agent_id = ?", agentId).Order("group_name asc").Find(&ratios).Error; err != nil {
@@ -362,13 +381,15 @@ func ListAgentUsers(agentId int, keyword string, startIdx int, num int) ([]*Agen
 		"agent_users.user_id",
 		"agent_users.source",
 		"agent_users.status AS agent_user_status",
+		"agent_users." + groupCol + " AS agent_user_group",
 		"agent_users.created_at AS agent_user_created_at",
 		"users.username",
 		"users.display_name",
 		"users.email",
 		"users.role",
 		"users.status AS user_status",
-		"users." + groupCol + " AS user_group",
+		"COALESCE(NULLIF(agent_users." + groupCol + ", ''), users." + groupCol + ") AS user_group",
+		"users." + groupCol + " AS system_group",
 		"users.quota",
 		"users.used_quota",
 		"users.request_count",

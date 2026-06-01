@@ -32,11 +32,12 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { TableEmpty } from '@/components/data-table'
-import { GroupBadge } from '@/components/group-badge'
-import { SectionPageLayout } from '@/components/layout'
-import { LongText } from '@/components/long-text'
-import { StatusBadge } from '@/components/status-badge'
+import {
+  formatQuota as formatDisplayQuota,
+  formatTimestampToDate,
+} from '@/lib/format'
+import { normalizePagedData } from '@/lib/paged-response'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -51,13 +52,17 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { TableEmpty } from '@/components/data-table'
+import { GroupBadge } from '@/components/group-badge'
+import { SectionPageLayout } from '@/components/layout'
+import { LongText } from '@/components/long-text'
+import { StatusBadge } from '@/components/status-badge'
+import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
+import { AgentGroupManager } from './components/agent-group-manager'
 import {
-  formatQuota as formatDisplayQuota,
-  formatTimestampToDate,
-} from '@/lib/format'
-import { normalizePagedData } from '@/lib/paged-response'
-import { cn } from '@/lib/utils'
-import { USER_STATUSES } from '@/features/users/constants'
+  AgentUsersPaginationControls,
+  AgentUsersSearchControls,
+} from './components/agent-users-list-controls'
 import {
   createAgentDomain,
   getAgentSelf,
@@ -70,10 +75,18 @@ import {
   stringifyAgentBranding,
   submitAgentWithdrawal,
   updateAgentBranding,
+  updateAgentUserGroup,
+  updateAgentUserStatus,
   upsertAgentGroupRatio,
   verifyAgentDomain,
 } from './api'
-import type { AgentDomain, AgentLedger, AgentUser, AgentWithdrawal } from './types'
+import type {
+  AgentDomain,
+  AgentGroupRatio,
+  AgentLedger,
+  AgentUser,
+  AgentWithdrawal,
+} from './types'
 
 function normalizeSettlementCurrency(currency?: string) {
   const code = (currency || 'USD').toUpperCase()
@@ -119,7 +132,9 @@ function UserQuotaCell(props: { quota: number; usedQuota: number }) {
   const percentage = total > 0 ? (props.quota / total) * 100 : 0
 
   if (total === 0) {
-    return <StatusBadge label={t('No Quota')} variant='neutral' copyable={false} />
+    return (
+      <StatusBadge label={t('No Quota')} variant='neutral' copyable={false} />
+    )
   }
 
   return (
@@ -152,7 +167,9 @@ function statusLabel(status: number) {
   return 'Pending'
 }
 
-function withdrawalVariant(status: string): 'default' | 'outline' | 'secondary' | 'destructive' {
+function withdrawalVariant(
+  status: string
+): 'default' | 'outline' | 'secondary' | 'destructive' {
   if (status === 'paid') return 'default'
   if (status === 'approved') return 'secondary'
   if (status === 'rejected') return 'destructive'
@@ -164,11 +181,20 @@ export function Agents() {
   const queryClient = useQueryClient()
   const [siteName, setSiteName] = useState('')
   const [logo, setLogo] = useState('')
+  const [homePageContent, setHomePageContent] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [groupName, setGroupName] = useState('default')
   const [groupRatio, setGroupRatio] = useState('1')
   const [withdrawMoney, setWithdrawMoney] = useState('')
   const [accountInfo, setAccountInfo] = useState('')
+  const [systemGroupName, setSystemGroupName] = useState('default')
+  const [groupVisible, setGroupVisible] = useState(true)
+  const [visibleGroups, setVisibleGroups] = useState<string[]>([])
+  const [removeGroups, setRemoveGroups] = useState<string[]>([])
+  const [userKeywordInput, setUserKeywordInput] = useState('')
+  const [userKeyword, setUserKeyword] = useState('')
+  const [userPage, setUserPage] = useState(1)
+  const [userPageSize, setUserPageSize] = useState(20)
 
   const selfQuery = useQuery({
     queryKey: ['agent', 'self'],
@@ -183,8 +209,8 @@ export function Agents() {
     queryFn: () => listAgentGroupRatios(),
   })
   const usersQuery = useQuery({
-    queryKey: ['agent', 'users'],
-    queryFn: () => listAgentUsers(),
+    queryKey: ['agent', 'users', userPage, userPageSize, userKeyword],
+    queryFn: () => listAgentUsers(userPage, userPageSize, userKeyword),
   })
   const ledgerQuery = useQuery({
     queryKey: ['agent', 'ledger'],
@@ -206,7 +232,9 @@ export function Agents() {
       refreshAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -218,7 +246,9 @@ export function Agents() {
       refreshAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -229,7 +259,9 @@ export function Agents() {
       refreshAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -240,7 +272,9 @@ export function Agents() {
       refreshAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -253,7 +287,35 @@ export function Agents() {
       refreshAgent()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Operation failed'))
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
+  const updateUserStatusMutation = useMutation({
+    mutationFn: updateAgentUserStatus,
+    onSuccess: () => {
+      toast.success(t('User status updated'))
+      queryClient.invalidateQueries({ queryKey: ['agent', 'users'] })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
+  const updateUserGroupMutation = useMutation({
+    mutationFn: updateAgentUserGroup,
+    onSuccess: () => {
+      toast.success(t('User group updated'))
+      queryClient.invalidateQueries({ queryKey: ['agent', 'users'] })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
     },
   })
 
@@ -279,21 +341,45 @@ export function Agents() {
   const users = usersPage.items
   const domains = domainsPage.items
   const groupRatios = groupRatiosQuery.data?.data ?? []
+  const configuredGroupRatios = groupRatios.filter((item) => item.configured)
   const ledger = ledgerPage.items
   const withdrawals = withdrawalsPage.items
   const canCreateDomain = newDomain.trim() !== ''
   const selectedGroupBaseRatio =
-    groupRatios.find((item) => item.group_name === groupName)?.system_ratio ?? 0
+    groupRatios.find((item) => item.group_name === groupName)?.system_ratio ??
+    groupRatios.find((item) => item.system_group_name === systemGroupName)
+      ?.system_ratio ??
+    0
   const canSaveGroupRatio =
-    groupName.trim() !== '' && Number(groupRatio) >= selectedGroupBaseRatio
+    groupName.trim() !== '' &&
+    systemGroupName.trim() !== '' &&
+    Number(groupRatio) >= selectedGroupBaseRatio
   const canSubmitWithdrawal =
     Number(withdrawMoney) > 0 && accountInfo.trim() !== ''
+  const editAgentGroup = (rule: AgentGroupRatio) => {
+    setGroupName(rule.group_name)
+    setSystemGroupName(rule.system_group_name)
+    setGroupRatio(String(rule.effective_ratio || rule.system_ratio || 1))
+    setGroupVisible(rule.visible)
+    setVisibleGroups(rule.visible_groups ?? [])
+    setRemoveGroups(rule.remove_groups ?? [])
+  }
+  const searchAgentUsers = () => {
+    setUserPage(1)
+    setUserKeyword(userKeywordInput.trim())
+  }
+  const clearAgentUserSearch = () => {
+    setUserKeywordInput('')
+    setUserPage(1)
+    setUserKeyword('')
+  }
 
   useEffect(() => {
     if (!self?.agent) return
     const branding = parseAgentBranding(self.agent.branding)
     setSiteName(branding.site_name ?? '')
     setLogo(branding.logo ?? '')
+    setHomePageContent(branding.home_page_content ?? '')
   }, [self?.agent?.branding])
 
   const copyText = async (text?: string) => {
@@ -390,6 +476,7 @@ export function Agents() {
                           branding: stringifyAgentBranding({
                             site_name: siteName,
                             logo,
+                            home_page_content: homePageContent,
                           }),
                         })
                       }
@@ -408,6 +495,16 @@ export function Agents() {
                       value={logo}
                       onChange={(event) => setLogo(event.target.value)}
                       placeholder={t('Logo URL')}
+                    />
+                    <Textarea
+                      value={homePageContent}
+                      onChange={(event) =>
+                        setHomePageContent(event.target.value)
+                      }
+                      placeholder={t(
+                        'Agent home page content (Markdown, HTML, or URL)'
+                      )}
+                      className='min-h-28'
                     />
                   </div>
                   <div className='grid gap-3 sm:grid-cols-2'>
@@ -538,9 +635,18 @@ export function Agents() {
                 <div className='mb-3'>
                   <h3 className='text-sm font-semibold'>{t('Agent Users')}</h3>
                   <p className='text-muted-foreground mt-1 text-xs'>
-                    {t('Users bound to this agent can access the agent console.')}
+                    {t(
+                      'Users bound to this agent can access the agent console.'
+                    )}
                   </p>
                 </div>
+                <AgentUsersSearchControls
+                  keyword={userKeywordInput}
+                  isLoading={usersQuery.isLoading || usersQuery.isFetching}
+                  onKeywordChange={setUserKeywordInput}
+                  onSearch={searchAgentUsers}
+                  onClear={clearAgentUserSearch}
+                />
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -551,14 +657,17 @@ export function Agents() {
                       <TableHead>{t('Email')}</TableHead>
                       <TableHead>{t('Requests:')}</TableHead>
                       <TableHead>{t('Last Login')}</TableHead>
+                      <TableHead>{t('Actions')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {users.length === 0 ? (
                       <TableEmpty
-                        colSpan={7}
+                        colSpan={8}
                         title={t('No Agent Users')}
-                        description={t('Admin-bound agent users will appear here.')}
+                        description={t(
+                          'Admin-bound agent users will appear here.'
+                        )}
                         icon={<Users className='size-6' />}
                       />
                     ) : (
@@ -593,7 +702,32 @@ export function Agents() {
                             />
                           </TableCell>
                           <TableCell>
-                            <GroupBadge group={user.group} />
+                            <div className='flex min-w-[150px] items-center gap-2'>
+                              <GroupBadge group={user.group} />
+                              <select
+                                className='border-input bg-background h-8 max-w-[140px] rounded-md border px-2 text-xs'
+                                value={user.group}
+                                disabled={
+                                  updateUserGroupMutation.isPending ||
+                                  configuredGroupRatios.length === 0
+                                }
+                                onChange={(event) =>
+                                  updateUserGroupMutation.mutate({
+                                    userId: user.user_id,
+                                    group_name: event.target.value,
+                                  })
+                                }
+                              >
+                                {configuredGroupRatios.map((item) => (
+                                  <option
+                                    key={item.group_name}
+                                    value={item.group_name}
+                                  >
+                                    {item.group_name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <LongText className='text-muted-foreground max-w-[180px] text-sm'>
@@ -606,114 +740,85 @@ export function Agents() {
                           <TableCell>
                             {formatTimestampToDate(user.last_login_at)}
                           </TableCell>
+                          <TableCell>
+                            <Button
+                              variant='outline'
+                              size='sm'
+                              disabled={updateUserStatusMutation.isPending}
+                              onClick={() =>
+                                updateUserStatusMutation.mutate({
+                                  userId: user.user_id,
+                                  status:
+                                    user.status === USER_STATUS.ENABLED
+                                      ? USER_STATUS.DISABLED
+                                      : USER_STATUS.ENABLED,
+                                })
+                              }
+                            >
+                              {user.status === USER_STATUS.ENABLED
+                                ? t('Disable')
+                                : t('Enable')}
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
                   </TableBody>
                 </Table>
+                <AgentUsersPaginationControls
+                  page={usersPage.page ?? userPage}
+                  pageSize={usersPage.page_size ?? userPageSize}
+                  total={usersPage.total}
+                  itemCount={users.length}
+                  isLoading={usersQuery.isLoading || usersQuery.isFetching}
+                  onPageChange={setUserPage}
+                  onPageSizeChange={(nextPageSize) => {
+                    setUserPageSize(nextPageSize)
+                    setUserPage(1)
+                  }}
+                />
               </section>
             </TabsContent>
 
             <TabsContent value='pricing'>
-              <section className='rounded-lg border p-3'>
-                <div className='mb-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]'>
-                  <div>
-                    <h3 className='text-sm font-semibold'>
-                      {t('Group Pricing')}
-                    </h3>
-                    <p className='text-muted-foreground mt-1 text-xs'>
-                      {t('Configure group ratios for this agent site.')}
-                    </p>
-                  </div>
-                  <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px_auto]'>
-                    <select
-                      className='border-input bg-background h-8 rounded-md border px-2 text-sm'
-                      value={groupName}
-                      onChange={(event) => {
-                        const nextGroup = event.target.value
-                        setGroupName(nextGroup)
-                        const nextRatio = groupRatios.find(
-                          (item) => item.group_name === nextGroup
-                        )
-                        setGroupRatio(
-                          String(
-                            nextRatio?.effective_ratio ??
-                              nextRatio?.system_ratio ??
-                              1
-                          )
-                        )
-                      }}
-                    >
-                      {groupRatios.map((item) => (
-                        <option key={item.group_name} value={item.group_name}>
-                          {item.group_name}
-                        </option>
-                      ))}
-                    </select>
-                    <Input
-                      value={groupRatio}
-                      onChange={(event) => setGroupRatio(event.target.value)}
-                      type='number'
-                      step='0.01'
-                      min={selectedGroupBaseRatio}
-                    />
-                    <Button
-                      disabled={
-                        !canSaveGroupRatio ||
-                        saveGroupRatioMutation.isPending
-                      }
-                      onClick={() =>
-                        saveGroupRatioMutation.mutate({
-                          group_name: groupName,
-                          ratio: Number(groupRatio),
-                        })
-                      }
-                    >
-                      <Save />
-                      {t('Save')}
-                    </Button>
-                  </div>
-                </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t('Group')}</TableHead>
-                      <TableHead>{t('System Ratio')}</TableHead>
-                      <TableHead>{t('Agent Ratio')}</TableHead>
-                      <TableHead>{t('Effective Ratio')}</TableHead>
-                      <TableHead>{t('Status')}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {groupRatios.length === 0 ? (
-                      <TableEmpty
-                        colSpan={5}
-                        title={t('No Groups')}
-                        description={t('No group ratios are configured.')}
-                        icon={<BadgeDollarSign className='size-6' />}
-                      />
-                    ) : (
-                      groupRatios.map((rule) => (
-                        <TableRow key={rule.group_name}>
-                          <TableCell className='font-mono text-xs'>
-                            {rule.group_name}
-                          </TableCell>
-                          <TableCell>{rule.system_ratio}</TableCell>
-                          <TableCell>
-                            {rule.configured ? rule.configured_ratio : '-'}
-                          </TableCell>
-                          <TableCell>{rule.effective_ratio}</TableCell>
-                          <TableCell>
-                            <Badge variant={rule.configured ? 'default' : 'outline'}>
-                              {rule.configured ? t('Configured') : t('System')}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
-              </section>
+              <AgentGroupManager
+                groupRatios={groupRatios}
+                groupName={groupName}
+                systemGroupName={systemGroupName}
+                groupRatio={groupRatio}
+                groupVisible={groupVisible}
+                visibleGroups={visibleGroups}
+                removeGroups={removeGroups}
+                canSave={canSaveGroupRatio}
+                isPending={saveGroupRatioMutation.isPending}
+                onGroupNameChange={setGroupName}
+                onSystemGroupNameChange={(nextSystemGroup) => {
+                  setSystemGroupName(nextSystemGroup)
+                  const nextRatio = groupRatios.find(
+                    (item) => item.system_group_name === nextSystemGroup
+                  )
+                  setGroupRatio(
+                    String(
+                      nextRatio?.effective_ratio ?? nextRatio?.system_ratio ?? 1
+                    )
+                  )
+                }}
+                onGroupRatioChange={setGroupRatio}
+                onGroupVisibleChange={setGroupVisible}
+                onVisibleGroupsChange={setVisibleGroups}
+                onRemoveGroupsChange={setRemoveGroups}
+                onSave={() =>
+                  saveGroupRatioMutation.mutate({
+                    group_name: groupName,
+                    system_group_name: systemGroupName,
+                    ratio: Number(groupRatio),
+                    visible: groupVisible,
+                    visible_groups: visibleGroups,
+                    remove_groups: removeGroups,
+                  })
+                }
+                onEdit={editAgentGroup}
+              />
             </TabsContent>
 
             <TabsContent value='settlement'>
@@ -742,7 +847,9 @@ export function Agents() {
                     />
                     <Button
                       className='w-full'
-                      disabled={!canSubmitWithdrawal || withdrawMutation.isPending}
+                      disabled={
+                        !canSubmitWithdrawal || withdrawMutation.isPending
+                      }
                       onClick={() =>
                         withdrawMutation.mutate({
                           amount_money: Number(withdrawMoney),
@@ -772,7 +879,9 @@ export function Agents() {
                         <TableEmpty
                           colSpan={3}
                           title={t('No Withdrawals')}
-                          description={t('Submitted withdrawals will appear here.')}
+                          description={t(
+                            'Submitted withdrawals will appear here.'
+                          )}
                           icon={<Wallet className='size-6' />}
                         />
                       ) : (
@@ -816,7 +925,9 @@ export function Agents() {
                       <TableEmpty
                         colSpan={4}
                         title={t('No Ledger Records')}
-                        description={t('Agent income and withdrawal records will appear here.')}
+                        description={t(
+                          'Agent income and withdrawal records will appear here.'
+                        )}
                         icon={<BadgeDollarSign className='size-6' />}
                       />
                     ) : (

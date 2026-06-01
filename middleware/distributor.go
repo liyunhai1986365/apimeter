@@ -18,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -96,6 +97,10 @@ func Distribute() func(c *gin.Context) {
 				}
 				var selectGroup string
 				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+				channelGroup := usingGroup
+				if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
+					channelGroup = agentGroup.SystemGroupName
+				}
 				// check path is /pg/chat/completions
 				if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
 					playgroundRequest := &dto.PlayGroundRequest{}
@@ -105,12 +110,29 @@ func Distribute() func(c *gin.Context) {
 						return
 					}
 					if playgroundRequest.Group != "" {
-						if !service.GroupInUserUsableGroups(usingGroup, playgroundRequest.Group) && playgroundRequest.Group != usingGroup {
+						checkUsingGroup := usingGroup
+						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
+							checkUsingGroup = agentGroup.SystemGroupName
+						}
+						checkRequestedGroup := playgroundRequest.Group
+						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, playgroundRequest.Group); ok {
+							checkRequestedGroup = agentGroup.SystemGroupName
+							agentCtx, _ := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
+							if !agentservice.UserCanSeeGroup(agentCtx, usingGroup, agentGroup.GroupName) {
+								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied))
+								return
+							}
+						}
+						if !service.GroupInUserUsableGroups(checkUsingGroup, checkRequestedGroup) && playgroundRequest.Group != usingGroup {
 							abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied))
 							return
 						}
 						usingGroup = playgroundRequest.Group
 						common.SetContextKey(c, constant.ContextKeyUsingGroup, usingGroup)
+						channelGroup = usingGroup
+						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
+							channelGroup = agentGroup.SystemGroupName
+						}
 					}
 				}
 
@@ -141,7 +163,7 @@ func Distribute() func(c *gin.Context) {
 									break
 								}
 							}
-						} else if model.IsChannelEnabledForGroupModel(usingGroup, modelRequest.Model, preferred.Id) {
+						} else if model.IsChannelEnabledForGroupModel(channelGroup, modelRequest.Model, preferred.Id) {
 							channel = preferred
 							selectGroup = usingGroup
 							service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)

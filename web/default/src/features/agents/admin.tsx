@@ -38,8 +38,6 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { formatTimestampToDate } from '@/lib/format'
 import { normalizePagedData } from '@/lib/paged-response'
-import { GroupBadge } from '@/components/group-badge'
-import { LongText } from '@/components/long-text'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -62,7 +60,14 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { TableEmpty } from '@/components/data-table'
+import { GroupBadge } from '@/components/group-badge'
 import { SectionPageLayout } from '@/components/layout'
+import { LongText } from '@/components/long-text'
+import { AgentGroupManager } from './components/agent-group-manager'
+import {
+  AgentUsersPaginationControls,
+  AgentUsersSearchControls,
+} from './components/agent-users-list-controls'
 import {
   bindAdminAgentUser,
   completeAdminAgentWithdrawal,
@@ -148,13 +153,24 @@ export function AgentManagement() {
   const [newAgentSlug, setNewAgentSlug] = useState('')
   const [newAgentSiteName, setNewAgentSiteName] = useState('')
   const [newAgentLogo, setNewAgentLogo] = useState('')
+  const [newAgentHomePageContent, setNewAgentHomePageContent] = useState('')
   const [brandSiteName, setBrandSiteName] = useState('')
   const [brandLogo, setBrandLogo] = useState('')
+  const [brandHomePageContent, setBrandHomePageContent] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [bindUserId, setBindUserId] = useState('')
   const [groupName, setGroupName] = useState('default')
+  const [systemGroupName, setSystemGroupName] = useState('default')
   const [groupRatio, setGroupRatio] = useState('1')
+  const [groupVisible, setGroupVisible] = useState(true)
+  const [visibleGroups, setVisibleGroups] = useState<string[]>([])
+  const [removeGroups, setRemoveGroups] = useState<string[]>([])
   const [withdrawalRemark, setWithdrawalRemark] = useState('')
+  const [selectedUsersKeywordInput, setSelectedUsersKeywordInput] =
+    useState('')
+  const [selectedUsersKeyword, setSelectedUsersKeyword] = useState('')
+  const [selectedUsersPageNumber, setSelectedUsersPageNumber] = useState(1)
+  const [selectedUsersPageSize, setSelectedUsersPageSize] = useState(20)
 
   const agentsQuery = useQuery({
     queryKey: ['admin', 'agents'],
@@ -162,8 +178,22 @@ export function AgentManagement() {
   })
 
   const selectedUsersQuery = useQuery({
-    queryKey: ['admin', 'agents', selectedAgentId, 'users'],
-    queryFn: () => listAdminAgentUsers(selectedAgentId ?? 0, 1, 50),
+    queryKey: [
+      'admin',
+      'agents',
+      selectedAgentId,
+      'users',
+      selectedUsersPageNumber,
+      selectedUsersPageSize,
+      selectedUsersKeyword,
+    ],
+    queryFn: () =>
+      listAdminAgentUsers(
+        selectedAgentId ?? 0,
+        selectedUsersPageNumber,
+        selectedUsersPageSize,
+        selectedUsersKeyword
+      ),
     enabled: selectedAgentId != null,
   })
 
@@ -217,12 +247,32 @@ export function AgentManagement() {
     (withdrawal) => withdrawal.status === 'pending'
   ).length
   const totalAgentUsers = selectedUsersPage.total
+  const selectAgent = (agentId: number) => {
+    if (selectedAgentId !== agentId) {
+      setSelectedUsersKeywordInput('')
+      setSelectedUsersKeyword('')
+      setSelectedUsersPageNumber(1)
+    }
+    setSelectedAgentId(agentId)
+  }
   const openAgentDetail = (agent: Agent) => {
     const branding = parseAgentBranding(agent.branding)
     setBrandSiteName(branding.site_name ?? '')
     setBrandLogo(branding.logo ?? '')
-    setSelectedAgentId(agent.id)
+    setBrandHomePageContent(branding.home_page_content ?? '')
+    setVisibleGroups([])
+    setRemoveGroups([])
+    selectAgent(agent.id)
     setDetailAgentId(agent.id)
+  }
+  const searchSelectedAgentUsers = () => {
+    setSelectedUsersPageNumber(1)
+    setSelectedUsersKeyword(selectedUsersKeywordInput.trim())
+  }
+  const clearSelectedAgentUserSearch = () => {
+    setSelectedUsersKeywordInput('')
+    setSelectedUsersKeyword('')
+    setSelectedUsersPageNumber(1)
   }
 
   const refresh = () => {
@@ -349,7 +399,11 @@ export function AgentManagement() {
   const canBindUser = selectedAgentId != null && Number(bindUserId) > 0
   const selectedGroupBaseRatio =
     selectedGroupRatios.find((item) => item.group_name === groupName)
-      ?.system_ratio ?? 0
+      ?.system_ratio ??
+    selectedGroupRatios.find(
+      (item) => item.system_group_name === systemGroupName
+    )?.system_ratio ??
+    0
   const canSavePricing =
     selectedAgentId != null &&
     groupName.trim() !== '' &&
@@ -485,7 +539,7 @@ export function AgentManagement() {
                                 <Button
                                   size='sm'
                                   variant='outline'
-                                  onClick={() => setSelectedAgentId(agent.id)}
+                                  onClick={() => selectAgent(agent.id)}
                                 >
                                   {t('Select')}
                                 </Button>
@@ -550,60 +604,93 @@ export function AgentManagement() {
                       message={t('Select an agent to manage users.')}
                     />
                   ) : (
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>{t('Username')}</TableHead>
-                          <TableHead>{t('Source')}</TableHead>
-                          <TableHead>{t('Status')}</TableHead>
-                          <TableHead>{t('Group')}</TableHead>
-                          <TableHead>{t('Quota')}</TableHead>
-                          <TableHead>{t('Created At')}</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {selectedUsersQuery.isLoading ? (
-                          <LoadingRow colSpan={6} />
-                        ) : selectedUsers.length === 0 ? (
-                          <TableEmpty
-                            colSpan={6}
-                            title={t('No Agent Users')}
-                            description={t(
-                              'Bind users to open the agent console for them.'
-                            )}
-                            icon={<Users className='size-6' />}
-                          />
-                        ) : (
-                          selectedUsers.map((user) => (
-                            <TableRow key={user.id}>
-                              <TableCell>
-                                <div className='flex min-w-[160px] flex-col gap-1'>
-                                  <LongText className='max-w-[150px] font-medium'>
-                                    {user.username || `#${user.user_id}`}
-                                  </LongText>
-                                  <span className='text-muted-foreground text-xs'>
-                                    #{user.user_id}
-                                  </span>
-                                </div>
-                              </TableCell>
-                              <TableCell>{user.source}</TableCell>
-                              <TableCell>
-                                <Badge variant='outline'>
-                                  {t(domainStatusLabel(user.agent_user_status))}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <GroupBadge group={user.group} />
-                              </TableCell>
-                              <TableCell>{user.quota.toLocaleString()}</TableCell>
-                              <TableCell>
-                                {formatTimestampToDate(user.created_at)}
-                              </TableCell>
-                            </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
+                    <>
+                      <AgentUsersSearchControls
+                        keyword={selectedUsersKeywordInput}
+                        isLoading={
+                          selectedUsersQuery.isLoading ||
+                          selectedUsersQuery.isFetching
+                        }
+                        onKeywordChange={setSelectedUsersKeywordInput}
+                        onSearch={searchSelectedAgentUsers}
+                        onClear={clearSelectedAgentUserSearch}
+                      />
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>{t('Username')}</TableHead>
+                            <TableHead>{t('Source')}</TableHead>
+                            <TableHead>{t('Status')}</TableHead>
+                            <TableHead>{t('Group')}</TableHead>
+                            <TableHead>{t('Quota')}</TableHead>
+                            <TableHead>{t('Created At')}</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {selectedUsersQuery.isLoading ? (
+                            <LoadingRow colSpan={6} />
+                          ) : selectedUsers.length === 0 ? (
+                            <TableEmpty
+                              colSpan={6}
+                              title={t('No Agent Users')}
+                              description={t(
+                                'Bind users to open the agent console for them.'
+                              )}
+                              icon={<Users className='size-6' />}
+                            />
+                          ) : (
+                            selectedUsers.map((user) => (
+                              <TableRow key={user.id}>
+                                <TableCell>
+                                  <div className='flex min-w-[160px] flex-col gap-1'>
+                                    <LongText className='max-w-[150px] font-medium'>
+                                      {user.username || `#${user.user_id}`}
+                                    </LongText>
+                                    <span className='text-muted-foreground text-xs'>
+                                      #{user.user_id}
+                                    </span>
+                                  </div>
+                                </TableCell>
+                                <TableCell>{user.source}</TableCell>
+                                <TableCell>
+                                  <Badge variant='outline'>
+                                    {t(
+                                      domainStatusLabel(user.agent_user_status)
+                                    )}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <GroupBadge group={user.group} />
+                                </TableCell>
+                                <TableCell>
+                                  {user.quota.toLocaleString()}
+                                </TableCell>
+                                <TableCell>
+                                  {formatTimestampToDate(user.created_at)}
+                                </TableCell>
+                              </TableRow>
+                            ))
+                          )}
+                        </TableBody>
+                      </Table>
+                      <AgentUsersPaginationControls
+                        page={selectedUsersPage.page ?? selectedUsersPageNumber}
+                        pageSize={
+                          selectedUsersPage.page_size ?? selectedUsersPageSize
+                        }
+                        total={selectedUsersPage.total}
+                        itemCount={selectedUsers.length}
+                        isLoading={
+                          selectedUsersQuery.isLoading ||
+                          selectedUsersQuery.isFetching
+                        }
+                        onPageChange={setSelectedUsersPageNumber}
+                        onPageSizeChange={(nextPageSize) => {
+                          setSelectedUsersPageSize(nextPageSize)
+                          setSelectedUsersPageNumber(1)
+                        }}
+                      />
+                    </>
                   )}
                 </section>
               </TabsContent>
@@ -706,6 +793,7 @@ export function AgentManagement() {
         slug={newAgentSlug}
         siteName={newAgentSiteName}
         logo={newAgentLogo}
+        homePageContent={newAgentHomePageContent}
         isPending={createAgentMutation.isPending}
         canSubmit={canCreateAgent}
         onOwnerUserIdChange={setNewAgentOwnerId}
@@ -713,6 +801,7 @@ export function AgentManagement() {
         onSlugChange={setNewAgentSlug}
         onSiteNameChange={setNewAgentSiteName}
         onLogoChange={setNewAgentLogo}
+        onHomePageContentChange={setNewAgentHomePageContent}
         onSubmit={() =>
           createAgentMutation.mutate({
             owner_user_id: Number(newAgentOwnerId),
@@ -723,6 +812,7 @@ export function AgentManagement() {
             branding: stringifyAgentBranding({
               site_name: newAgentSiteName,
               logo: newAgentLogo,
+              home_page_content: newAgentHomePageContent,
             }),
           })
         }
@@ -739,12 +829,24 @@ export function AgentManagement() {
         domains={selectedDomains}
         groupRatios={selectedGroupRatios}
         users={selectedUsers}
+        usersPage={selectedUsersPage.page ?? selectedUsersPageNumber}
+        usersPageSize={selectedUsersPage.page_size ?? selectedUsersPageSize}
+        usersTotal={selectedUsersPage.total}
+        usersLoading={
+          selectedUsersQuery.isLoading || selectedUsersQuery.isFetching
+        }
+        usersKeyword={selectedUsersKeywordInput}
         brandSiteName={brandSiteName}
         brandLogo={brandLogo}
+        brandHomePageContent={brandHomePageContent}
         newDomain={newDomain}
         bindUserId={bindUserId}
         groupName={groupName}
+        systemGroupName={systemGroupName}
         groupRatio={groupRatio}
+        groupVisible={groupVisible}
+        visibleGroups={visibleGroups}
+        removeGroups={removeGroups}
         isDomainPending={createDomainMutation.isPending}
         isBindPending={bindUserMutation.isPending}
         isPricingPending={savePricingMutation.isPending}
@@ -754,18 +856,33 @@ export function AgentManagement() {
         canSavePricing={canSavePricing}
         onNewDomainChange={setNewDomain}
         onBindUserIdChange={setBindUserId}
+        onUsersKeywordChange={setSelectedUsersKeywordInput}
+        onUsersSearch={searchSelectedAgentUsers}
+        onUsersClear={clearSelectedAgentUserSearch}
+        onUsersPageChange={setSelectedUsersPageNumber}
+        onUsersPageSizeChange={(nextPageSize) => {
+          setSelectedUsersPageSize(nextPageSize)
+          setSelectedUsersPageNumber(1)
+        }}
         onGroupNameChange={(nextGroup) => {
           setGroupName(nextGroup)
+        }}
+        onSystemGroupNameChange={(nextGroup) => {
+          setSystemGroupName(nextGroup)
           const nextRatio = selectedGroupRatios.find(
-            (item) => item.group_name === nextGroup
+            (item) => item.system_group_name === nextGroup
           )
           setGroupRatio(
             String(nextRatio?.effective_ratio ?? nextRatio?.system_ratio ?? 1)
           )
         }}
         onGroupRatioChange={setGroupRatio}
+        onGroupVisibleChange={setGroupVisible}
+        onVisibleGroupsChange={setVisibleGroups}
+        onRemoveGroupsChange={setRemoveGroups}
         onBrandSiteNameChange={setBrandSiteName}
         onBrandLogoChange={setBrandLogo}
+        onBrandHomePageContentChange={setBrandHomePageContent}
         isBrandingPending={saveBrandingMutation.isPending}
         onSaveBranding={() =>
           detailAgent &&
@@ -779,6 +896,7 @@ export function AgentManagement() {
             branding: stringifyAgentBranding({
               site_name: brandSiteName,
               logo: brandLogo,
+              home_page_content: brandHomePageContent,
             }),
           })
         }
@@ -801,7 +919,11 @@ export function AgentManagement() {
           savePricingMutation.mutate({
             agentId: selectedAgentId,
             group_name: groupName,
+            system_group_name: systemGroupName,
             ratio: Number(groupRatio),
+            visible: groupVisible,
+            visible_groups: visibleGroups,
+            remove_groups: removeGroups,
           })
         }
         onDomainStatusChange={(domain, status) =>
@@ -843,6 +965,7 @@ function CreateAgentDialog(props: {
   slug: string
   siteName: string
   logo: string
+  homePageContent: string
   isPending: boolean
   canSubmit: boolean
   onOpenChange: (open: boolean) => void
@@ -851,6 +974,7 @@ function CreateAgentDialog(props: {
   onSlugChange: (value: string) => void
   onSiteNameChange: (value: string) => void
   onLogoChange: (value: string) => void
+  onHomePageContentChange: (value: string) => void
   onSubmit: () => void
 }) {
   const { t } = useTranslation()
@@ -892,6 +1016,14 @@ function CreateAgentDialog(props: {
             onChange={(event) => props.onLogoChange(event.target.value)}
             placeholder={t('Logo URL')}
           />
+          <Textarea
+            value={props.homePageContent}
+            onChange={(event) =>
+              props.onHomePageContentChange(event.target.value)
+            }
+            placeholder={t('Agent home page content (Markdown, HTML, or URL)')}
+            className='min-h-28'
+          />
         </div>
         <DialogFooter>
           <Button
@@ -920,12 +1052,22 @@ function AgentDetailDialog(props: {
   domains: AgentDomain[]
   groupRatios: AgentGroupRatio[]
   users: AgentUser[]
+  usersPage: number
+  usersPageSize: number
+  usersTotal: number
+  usersLoading: boolean
+  usersKeyword: string
   brandSiteName: string
   brandLogo: string
+  brandHomePageContent: string
   newDomain: string
   bindUserId: string
   groupName: string
+  systemGroupName: string
   groupRatio: string
+  groupVisible: boolean
+  visibleGroups: string[]
+  removeGroups: string[]
   isDomainPending: boolean
   isBindPending: boolean
   isPricingPending: boolean
@@ -937,10 +1079,20 @@ function AgentDetailDialog(props: {
   onOpenChange: (open: boolean) => void
   onNewDomainChange: (value: string) => void
   onBindUserIdChange: (value: string) => void
+  onUsersKeywordChange: (value: string) => void
+  onUsersSearch: () => void
+  onUsersClear: () => void
+  onUsersPageChange: (page: number) => void
+  onUsersPageSizeChange: (pageSize: number) => void
   onGroupNameChange: (value: string) => void
+  onSystemGroupNameChange: (value: string) => void
   onGroupRatioChange: (value: string) => void
+  onGroupVisibleChange: (value: boolean) => void
+  onVisibleGroupsChange: (value: string[]) => void
+  onRemoveGroupsChange: (value: string[]) => void
   onBrandSiteNameChange: (value: string) => void
   onBrandLogoChange: (value: string) => void
+  onBrandHomePageContentChange: (value: string) => void
   onSaveBranding: () => void
   onCreateDomain: () => void
   onBindUser: () => void
@@ -948,7 +1100,6 @@ function AgentDetailDialog(props: {
   onDomainStatusChange: (domain: AgentDomain, status: number) => void
 }) {
   const { t } = useTranslation()
-
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-4xl'>
@@ -1010,6 +1161,16 @@ function AgentDetailDialog(props: {
                   placeholder={t('Logo URL')}
                 />
               </div>
+              <Textarea
+                value={props.brandHomePageContent}
+                onChange={(event) =>
+                  props.onBrandHomePageContentChange(event.target.value)
+                }
+                placeholder={t(
+                  'Agent home page content (Markdown, HTML, or URL)'
+                )}
+                className='mt-3 min-h-32'
+              />
             </section>
 
             <div className='grid gap-4 xl:grid-cols-2'>
@@ -1040,6 +1201,13 @@ function AgentDetailDialog(props: {
                     </Button>
                   </div>
                 </div>
+                <AgentUsersSearchControls
+                  keyword={props.usersKeyword}
+                  isLoading={props.usersLoading}
+                  onKeywordChange={props.onUsersKeywordChange}
+                  onSearch={props.onUsersSearch}
+                  onClear={props.onUsersClear}
+                />
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -1174,96 +1342,46 @@ function AgentDetailDialog(props: {
                     )}
                   </TableBody>
                 </Table>
+                <AgentUsersPaginationControls
+                  page={props.usersPage}
+                  pageSize={props.usersPageSize}
+                  total={props.usersTotal}
+                  itemCount={props.users.length}
+                  isLoading={props.usersLoading}
+                  onPageChange={props.onUsersPageChange}
+                  onPageSizeChange={props.onUsersPageSizeChange}
+                />
               </section>
             </div>
 
-            <section className='rounded-lg border p-3'>
-              <div className='mb-3 grid gap-2 lg:grid-cols-[minmax(0,1fr)_minmax(360px,520px)]'>
-                <div>
-                  <h3 className='text-sm font-semibold'>
-                    {t('Group Pricing')}
-                  </h3>
-                  <p className='text-muted-foreground mt-1 text-xs'>
-                    {t('Configure group ratios for this agent site.')}
-                  </p>
-                </div>
-                <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_112px_auto]'>
-                  <select
-                    className='border-input bg-background h-8 rounded-md border px-2 text-sm'
-                    value={props.groupName}
-                    onChange={(event) =>
-                      props.onGroupNameChange(event.target.value)
-                    }
-                  >
-                    {props.groupRatios.map((item) => (
-                      <option key={item.group_name} value={item.group_name}>
-                        {item.group_name}
-                      </option>
-                    ))}
-                  </select>
-                  <Input
-                    value={props.groupRatio}
-                    onChange={(event) =>
-                      props.onGroupRatioChange(event.target.value)
-                    }
-                    type='number'
-                    min={
-                      props.groupRatios.find(
-                        (item) => item.group_name === props.groupName
-                      )?.system_ratio ?? 0
-                    }
-                    step='0.01'
-                    placeholder={t('Ratio')}
-                  />
-                  <Button
-                    disabled={!props.canSavePricing || props.isPricingPending}
-                    onClick={props.onSavePricing}
-                  >
-                    <Save />
-                    {t('Save')}
-                  </Button>
-                </div>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>{t('Group')}</TableHead>
-                    <TableHead>{t('System Ratio')}</TableHead>
-                    <TableHead>{t('Agent Ratio')}</TableHead>
-                    <TableHead>{t('Effective Ratio')}</TableHead>
-                    <TableHead>{t('Status')}</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {props.groupRatios.length === 0 ? (
-                    <TableEmpty
-                      colSpan={5}
-                      title={t('No Groups')}
-                      description={t('No group ratios are configured.')}
-                      icon={<BadgeDollarSign className='size-6' />}
-                    />
-                  ) : (
-                    props.groupRatios.map((rule) => (
-                      <TableRow key={rule.group_name}>
-                        <TableCell className='font-mono text-xs'>
-                          {rule.group_name}
-                        </TableCell>
-                        <TableCell>{rule.system_ratio}</TableCell>
-                        <TableCell>
-                          {rule.configured ? rule.configured_ratio : '-'}
-                        </TableCell>
-                        <TableCell>{rule.effective_ratio}</TableCell>
-                        <TableCell>
-                          <Badge variant={rule.configured ? 'default' : 'outline'}>
-                            {rule.configured ? t('Configured') : t('System')}
-                          </Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </section>
+            <AgentGroupManager
+              groupRatios={props.groupRatios}
+              groupName={props.groupName}
+              systemGroupName={props.systemGroupName}
+              groupRatio={props.groupRatio}
+              groupVisible={props.groupVisible}
+              visibleGroups={props.visibleGroups}
+              removeGroups={props.removeGroups}
+              canSave={props.canSavePricing}
+              isPending={props.isPricingPending}
+              onGroupNameChange={props.onGroupNameChange}
+              onSystemGroupNameChange={props.onSystemGroupNameChange}
+              onGroupRatioChange={props.onGroupRatioChange}
+              onGroupVisibleChange={props.onGroupVisibleChange}
+              onVisibleGroupsChange={props.onVisibleGroupsChange}
+              onRemoveGroupsChange={props.onRemoveGroupsChange}
+              onSave={props.onSavePricing}
+              onEdit={(rule) => {
+                props.onGroupNameChange(rule.group_name)
+                props.onSystemGroupNameChange(rule.system_group_name)
+                props.onGroupRatioChange(
+                  String(rule.effective_ratio || rule.system_ratio || 1)
+                )
+                props.onGroupVisibleChange(rule.visible)
+                props.onVisibleGroupsChange(rule.visible_groups ?? [])
+                props.onRemoveGroupsChange(rule.remove_groups ?? [])
+              }}
+            />
           </div>
         )}
       </DialogContent>
