@@ -421,13 +421,6 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			newAPISupplierRoute.GET("/", controller.GetAllNewAPISuppliers)
 			newAPISupplierRoute.GET("/search", controller.SearchNewAPISuppliers)
-			newAPISupplierRoute.GET("/channel_profiles", controller.ListNewAPISupplierChannelProfiles)
-			newAPISupplierRoute.POST("/channel_profiles/test_all", controller.TestAllNewAPISupplierChannelProfiles)
-			newAPISupplierRoute.PUT("/channel_profiles/:profile_id", controller.UpdateNewAPISupplierChannelProfile)
-			newAPISupplierRoute.POST("/channel_profiles/:profile_id/sync", controller.SyncNewAPISupplierChannelProfile)
-			newAPISupplierRoute.GET("/channel_profiles/:profile_id/models", controller.ListNewAPISupplierChannelProfileModels)
-			newAPISupplierRoute.POST("/channel_profiles/:profile_id/test_model", controller.TestNewAPISupplierChannelProfileModel)
-			newAPISupplierRoute.POST("/channel_profiles/:profile_id/test_models", controller.TestNewAPISupplierChannelProfileModels)
 			newAPISupplierRoute.GET("/:id", controller.GetNewAPISupplier)
 			newAPISupplierRoute.POST("/", controller.CreateNewAPISupplier)
 			newAPISupplierRoute.PUT("/", controller.UpdateNewAPISupplier)
@@ -437,7 +430,6 @@ func SetApiRouter(router *gin.Engine) {
 			newAPISupplierRoute.POST("/:id/test_model", controller.TestNewAPISupplierModel)
 			newAPISupplierRoute.POST("/:id/configure_channels", controller.ConfigureNewAPISupplierChannels)
 			newAPISupplierRoute.GET("/:id/channels", controller.ListNewAPISupplierChannels)
-			newAPISupplierRoute.POST("/:id/sync_profiles", controller.SyncNewAPISupplierProfiles)
 		}
 
 		modelsRoute := apiRouter.Group("/models")

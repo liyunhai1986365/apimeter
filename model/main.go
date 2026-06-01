@@ -287,10 +287,6 @@ func migrateDB() error {
 	if err := migrateAgentUserGroupColumn(); err != nil {
 		return err
 	}
-	if err := migrateNewAPISupplierChannelProfileStatus(); err != nil {
-		return err
-	}
-
 	err := DB.AutoMigrate(
 		&Channel{},
 		&Token{},
@@ -309,8 +305,6 @@ func migrateDB() error {
 		&Vendor{},
 		&NewAPISupplier{},
 		&NewAPISupplierChannel{},
-		&NewAPISupplierChannelProfile{},
-		&NewAPISupplierChannelProfileModel{},
 		&ModelChannelTestResult{},
 		&ChannelOperationRecord{},
 		&PrefillGroup{},
@@ -373,8 +367,6 @@ func migrateDBFast() error {
 		{&Vendor{}, "Vendor"},
 		{&NewAPISupplier{}, "NewAPISupplier"},
 		{&NewAPISupplierChannel{}, "NewAPISupplierChannel"},
-		{&NewAPISupplierChannelProfile{}, "NewAPISupplierChannelProfile"},
-		{&NewAPISupplierChannelProfileModel{}, "NewAPISupplierChannelProfileModel"},
 		{&ModelChannelTestResult{}, "ModelChannelTestResult"},
 		{&ChannelOperationRecord{}, "ChannelOperationRecord"},
 		{&PrefillGroup{}, "PrefillGroup"},
@@ -429,9 +421,6 @@ func migrateDBFast() error {
 			return err
 		}
 	}
-	if err := migrateNewAPISupplierChannelProfileStatus(); err != nil {
-		return err
-	}
 	if err := migrateAgentGroupRatiosMappingColumns(); err != nil {
 		return err
 	}
@@ -484,29 +473,6 @@ func migrateAgentUserGroupColumn() error {
 		return DB.Migrator().AddColumn(&AgentUser{}, "Group")
 	}
 	return nil
-}
-
-func migrateNewAPISupplierChannelProfileStatus() error {
-	if DB == nil || !DB.Migrator().HasTable(&NewAPISupplierChannelProfile{}) {
-		return nil
-	}
-	if DB.Migrator().HasColumn(&NewAPISupplierChannelProfile{}, "channel_status") {
-		return nil
-	}
-	if err := DB.Migrator().AddColumn(&NewAPISupplierChannelProfile{}, "ChannelStatus"); err != nil {
-		return err
-	}
-	if err := DB.Model(&NewAPISupplierChannelProfile{}).
-		Where("sync_status = ?", NewAPISupplierChannelSyncStatusDisabled).
-		Updates(map[string]any{
-			"channel_status": NewAPISupplierChannelStatusUnavailable,
-			"sync_status":    NewAPISupplierChannelSyncStatusPending,
-		}).Error; err != nil {
-		return err
-	}
-	return DB.Model(&NewAPISupplierChannelProfile{}).
-		Where("channel_status = '' OR channel_status IS NULL").
-		Update("channel_status", NewAPISupplierChannelStatusAvailable).Error
 }
 
 func migrateLOGDB() error {

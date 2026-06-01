@@ -25,7 +25,6 @@ import {
   CircleAlert,
   Coins,
   Edit,
-  Layers3,
   Plus,
   RefreshCw,
   Trash2,
@@ -61,7 +60,6 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { SectionPageLayout } from '@/components/layout'
 import { formatQuota, formatTimestamp } from '@/lib/format'
@@ -73,11 +71,9 @@ import {
   getLocalGroups,
   listNewAPISuppliers,
   queryNewAPISupplierBalance,
-  syncNewAPISupplierProfiles,
   updateNewAPISupplier,
 } from './api'
 import { SupplierChannelConfigDialog } from './components/supplier-channel-config-dialog'
-import { SupplierChannelProfilesTab } from './components/supplier-channel-profiles-tab'
 import type { NewAPISupplier, NewAPISupplierGroupSnapshot } from './types'
 
 const queryKey = ['newapi-suppliers']
@@ -207,18 +203,6 @@ export function NewAPISuppliers() {
     },
   })
 
-  const syncProfilesMutation = useMutation({
-    mutationFn: syncNewAPISupplierProfiles,
-    onSuccess: (res) => {
-      if (!res.success) return
-      toast.success(t('Supplier channel profiles synced'))
-      queryClient.invalidateQueries({ queryKey })
-      queryClient.invalidateQueries({
-        queryKey: ['newapi-supplier-channel-profiles'],
-      })
-    },
-  })
-
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
@@ -269,223 +253,171 @@ export function NewAPISuppliers() {
           </Button>
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <Tabs defaultValue='suppliers' className='gap-4'>
-            <TabsList>
-              <TabsTrigger value='suppliers'>{t('Suppliers')}</TabsTrigger>
-              <TabsTrigger value='profiles'>
-                {t('Supplier Channels')}
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value='suppliers'>
-              <Card>
-                <CardContent className='p-0'>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('Supplier')}</TableHead>
-                        <TableHead>{t('Status')}</TableHead>
-                        <TableHead>{t('Balance')}</TableHead>
-                        <TableHead>{t('Groups / Models')}</TableHead>
-                        <TableHead>{t('Channels')}</TableHead>
-                        <TableHead>{t('Last Check')}</TableHead>
-                        <TableHead className='text-right'>
-                          {t('Actions')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {suppliers.map((supplier) => {
-                        const groupModels = parseGroupModels(
-                          supplier.group_models_json
-                        )
-                        const modelCount = groupModels.reduce(
-                          (sum, item) => sum + item.models.length,
-                          0
-                        )
-                        return (
-                          <TableRow key={supplier.id}>
-                            <TableCell className='min-w-[220px]'>
-                              <div className='space-y-1'>
-                                <div className='font-medium'>
-                                  {supplier.name}
-                                </div>
-                                <div className='text-muted-foreground max-w-[320px] truncate text-xs'>
-                                  {supplier.base_url}
-                                </div>
-                                {supplier.last_error && (
-                                  <div className='text-destructive flex items-center gap-1 text-xs'>
-                                    <CircleAlert className='h-3 w-3' />
-                                    {supplier.last_error}
-                                  </div>
-                                )}
+          <Card>
+            <CardContent className='p-0'>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>{t('Supplier')}</TableHead>
+                    <TableHead>{t('Status')}</TableHead>
+                    <TableHead>{t('Balance')}</TableHead>
+                    <TableHead>{t('Groups / Models')}</TableHead>
+                    <TableHead>{t('Channels')}</TableHead>
+                    <TableHead>{t('Last Check')}</TableHead>
+                    <TableHead className='text-right'>{t('Actions')}</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {suppliers.map((supplier) => {
+                    const groupModels = parseGroupModels(
+                      supplier.group_models_json
+                    )
+                    const modelCount = groupModels.reduce(
+                      (sum, item) => sum + item.models.length,
+                      0
+                    )
+                    return (
+                      <TableRow key={supplier.id}>
+                        <TableCell className='min-w-[220px]'>
+                          <div className='space-y-1'>
+                            <div className='font-medium'>{supplier.name}</div>
+                            <div className='text-muted-foreground max-w-[320px] truncate text-xs'>
+                              {supplier.base_url}
+                            </div>
+                            {supplier.last_error && (
+                              <div className='text-destructive flex items-center gap-1 text-xs'>
+                                <CircleAlert className='h-3 w-3' />
+                                {supplier.last_error}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              {statusBadge(supplier.status, t)}
-                            </TableCell>
-                            <TableCell>
-                              <div className='space-y-1'>
-                                <div>{formatQuota(supplier.quota || 0)}</div>
-                                <div className='text-muted-foreground text-xs'>
-                                  {t('Used')}:{' '}
-                                  {formatQuota(supplier.used_quota || 0)}
-                                </div>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <div className='space-y-1'>
-                                <div>
-                                  {groupModels.length} {t('Groups')} /{' '}
-                                  {modelCount} {t('Models')}
-                                </div>
-                                {groupModels.length > 0 && (
-                                  <div className='flex max-w-[320px] flex-wrap gap-1'>
-                                    {groupModels.slice(0, 3).map((group) => (
-                                      <Badge
-                                        key={group.group}
-                                        variant='outline'
-                                        className='font-normal'
-                                      >
-                                        {group.group}
-                                        {group.ratio && (
-                                          <span className='text-muted-foreground ml-1'>
-                                            {t('Ratio')}: {group.ratio}
-                                          </span>
-                                        )}
-                                      </Badge>
-                                    ))}
-                                    {groupModels.length > 3 && (
-                                      <Badge
-                                        variant='outline'
-                                        className='font-normal'
-                                      >
-                                        +{groupModels.length - 3}
-                                      </Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>{statusBadge(supplier.status, t)}</TableCell>
+                        <TableCell>
+                          <div className='space-y-1'>
+                            <div>{formatQuota(supplier.quota || 0)}</div>
+                            <div className='text-muted-foreground text-xs'>
+                              {t('Used')}: {formatQuota(supplier.used_quota || 0)}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div className='space-y-1'>
+                            <div>
+                              {groupModels.length} {t('Groups')} / {modelCount}{' '}
+                              {t('Models')}
+                            </div>
+                            {groupModels.length > 0 && (
+                              <div className='flex max-w-[320px] flex-wrap gap-1'>
+                                {groupModels.slice(0, 3).map((group) => (
+                                  <Badge
+                                    key={group.group}
+                                    variant='outline'
+                                    className='font-normal'
+                                  >
+                                    {group.group}
+                                    {group.ratio && (
+                                      <span className='text-muted-foreground ml-1'>
+                                        {t('Ratio')}: {group.ratio}
+                                      </span>
                                     )}
-                                  </div>
+                                  </Badge>
+                                ))}
+                                {groupModels.length > 3 && (
+                                  <Badge
+                                    variant='outline'
+                                    className='font-normal'
+                                  >
+                                    +{groupModels.length - 3}
+                                  </Badge>
                                 )}
-                                <div className='text-muted-foreground text-xs'>
-                                  {supplier.model_source === 'pricing'
-                                    ? t('Model Square')
-                                    : supplier.model_source ||
-                                      t('Not checked')}
-                                </div>
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              {supplier.bound_channel_count || 0}
-                            </TableCell>
-                            <TableCell>
-                              {supplier.last_check_time
-                                ? formatTimestamp(supplier.last_check_time)
-                                : t('Never')}
-                            </TableCell>
-                            <TableCell>
-                              <div className='flex justify-end gap-2'>
-                                <Button
-                                  size='icon-sm'
-                                  variant='outline'
-                                  onClick={() =>
-                                    balanceMutation.mutate(supplier.id)
-                                  }
-                                  disabled={balanceMutation.isPending}
-                                >
-                                  <Coins className='h-4 w-4' />
-                                  <span className='sr-only'>
-                                    {t('Query Balance')}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size='icon-sm'
-                                  variant='outline'
-                                  onClick={() =>
-                                    checkMutation.mutate(supplier.id)
-                                  }
-                                  disabled={checkMutation.isPending}
-                                >
-                                  <RefreshCw className='h-4 w-4' />
-                                  <span className='sr-only'>
-                                    {t('Check')}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size='icon-sm'
-                                  variant='outline'
-                                  onClick={() =>
-                                    syncProfilesMutation.mutate(supplier.id)
-                                  }
-                                  disabled={
-                                    syncProfilesMutation.isPending ||
-                                    supplier.model_source !== 'pricing' ||
-                                    groupModels.length === 0
-                                  }
-                                >
-                                  <Layers3 className='h-4 w-4' />
-                                  <span className='sr-only'>
-                                    {t('Sync Profiles')}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size='icon-sm'
-                                  variant='outline'
-                                  onClick={() => openConfigure(supplier)}
-                                  disabled={
-                                    supplier.model_source !== 'pricing' ||
-                                    groupModels.length === 0
-                                  }
-                                >
-                                  <CheckCircle2 className='h-4 w-4' />
-                                  <span className='sr-only'>
-                                    {t('Configure Channels')}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size='icon-sm'
-                                  variant='outline'
-                                  onClick={() => openEdit(supplier)}
-                                >
-                                  <Edit className='h-4 w-4' />
-                                  <span className='sr-only'>
-                                    {t('Edit')}
-                                  </span>
-                                </Button>
-                                <Button
-                                  size='icon-sm'
-                                  variant='destructive'
-                                  onClick={() =>
-                                    deleteMutation.mutate(supplier.id)
-                                  }
-                                  disabled={deleteMutation.isPending}
-                                >
-                                  <Trash2 className='h-4 w-4' />
-                                  <span className='sr-only'>
-                                    {t('Delete')}
-                                  </span>
-                                </Button>
-                              </div>
-                            </TableCell>
-                          </TableRow>
-                        )
-                      })}
-                      {!isLoading && suppliers.length === 0 && (
-                        <TableRow>
-                          <TableCell
-                            className='text-muted-foreground h-24 text-center'
-                            colSpan={7}
-                          >
-                            {t('No Suppliers Found')}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            <TabsContent value='profiles'>
-              <SupplierChannelProfilesTab />
-            </TabsContent>
-          </Tabs>
+                            )}
+                            <div className='text-muted-foreground text-xs'>
+                              {supplier.model_source === 'pricing'
+                                ? t('Model Square')
+                                : supplier.model_source || t('Not checked')}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>{supplier.bound_channel_count || 0}</TableCell>
+                        <TableCell>
+                          {supplier.last_check_time
+                            ? formatTimestamp(supplier.last_check_time)
+                            : t('Never')}
+                        </TableCell>
+                        <TableCell>
+                          <div className='flex justify-end gap-2'>
+                            <Button
+                              size='icon-sm'
+                              variant='outline'
+                              onClick={() => balanceMutation.mutate(supplier.id)}
+                              disabled={balanceMutation.isPending}
+                            >
+                              <Coins className='h-4 w-4' />
+                              <span className='sr-only'>
+                                {t('Query Balance')}
+                              </span>
+                            </Button>
+                            <Button
+                              size='icon-sm'
+                              variant='outline'
+                              onClick={() => checkMutation.mutate(supplier.id)}
+                              disabled={checkMutation.isPending}
+                            >
+                              <RefreshCw className='h-4 w-4' />
+                              <span className='sr-only'>{t('Check')}</span>
+                            </Button>
+                            <Button
+                              size='icon-sm'
+                              variant='outline'
+                              onClick={() => openConfigure(supplier)}
+                              disabled={
+                                supplier.model_source !== 'pricing' ||
+                                groupModels.length === 0
+                              }
+                            >
+                              <CheckCircle2 className='h-4 w-4' />
+                              <span className='sr-only'>
+                                {t('Configure Channels')}
+                              </span>
+                            </Button>
+                            <Button
+                              size='icon-sm'
+                              variant='outline'
+                              onClick={() => openEdit(supplier)}
+                            >
+                              <Edit className='h-4 w-4' />
+                              <span className='sr-only'>{t('Edit')}</span>
+                            </Button>
+                            <Button
+                              size='icon-sm'
+                              variant='destructive'
+                              onClick={() => deleteMutation.mutate(supplier.id)}
+                              disabled={deleteMutation.isPending}
+                            >
+                              <Trash2 className='h-4 w-4' />
+                              <span className='sr-only'>{t('Delete')}</span>
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {!isLoading && suppliers.length === 0 && (
+                    <TableRow>
+                      <TableCell
+                        className='text-muted-foreground h-24 text-center'
+                        colSpan={7}
+                      >
+                        {t('No Suppliers Found')}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

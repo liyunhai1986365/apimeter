@@ -23,18 +23,9 @@ import type {
   ConfigureItem,
   ConfiguredChannel,
   NewAPISupplierBalanceResult,
-  NewAPISupplierChannelProfile,
-  NewAPISupplierChannelProfileModel,
-  NewAPISupplierChannelProfileUpdateRequest,
   NewAPISupplier,
   NewAPISupplierCheckResult,
   PagedResponse,
-  SupplierProfileSyncResult,
-  SupplierChannelProfileAllTestResult,
-  SupplierChannelProfileAllTestRequest,
-  SupplierChannelProfileBatchTestResult,
-  SupplierChannelProfileBatchTestRequest,
-  SupplierChannelProfileListParams,
   TestModelRequest,
   TestModelResult,
 } from './types'
@@ -102,82 +93,5 @@ export async function testNewAPISupplierModel(
 
 export async function getLocalGroups(): Promise<ApiResponse<string[]>> {
   const res = await api.get('/api/group/')
-  return res.data
-}
-
-export async function syncNewAPISupplierProfiles(
-  id: number
-): Promise<ApiResponse<SupplierProfileSyncResult>> {
-  const res = await api.post(`/api/newapi_suppliers/${id}/sync_profiles`)
-  return res.data
-}
-
-export async function listNewAPISupplierChannelProfiles(
-  params?: SupplierChannelProfileListParams
-): Promise<PagedResponse<NewAPISupplierChannelProfile>> {
-  const res = await api.get('/api/newapi_suppliers/channel_profiles', {
-    params,
-  })
-  return res.data
-}
-
-export async function listNewAPISupplierChannelProfileModels(
-  profileId: number
-): Promise<ApiResponse<NewAPISupplierChannelProfileModel[]>> {
-  const res = await api.get(
-    `/api/newapi_suppliers/channel_profiles/${profileId}/models`
-  )
-  return res.data
-}
-
-export async function updateNewAPISupplierChannelProfile(
-  profileId: number,
-  data: NewAPISupplierChannelProfileUpdateRequest
-): Promise<ApiResponse<NewAPISupplierChannelProfile>> {
-  const res = await api.put(
-    `/api/newapi_suppliers/channel_profiles/${profileId}`,
-    data
-  )
-  return res.data
-}
-
-export async function syncNewAPISupplierChannelProfile(
-  profileId: number
-): Promise<ApiResponse<NewAPISupplierChannelProfile>> {
-  const res = await api.post(
-    `/api/newapi_suppliers/channel_profiles/${profileId}/sync`
-  )
-  return res.data
-}
-
-export async function testNewAPISupplierChannelProfileModel(
-  profileId: number,
-  data: Pick<TestModelRequest, 'model' | 'endpoint_type' | 'stream'>
-): Promise<TestModelResult> {
-  const res = await api.post(
-    `/api/newapi_suppliers/channel_profiles/${profileId}/test_model`,
-    data
-  )
-  return res.data
-}
-
-export async function testNewAPISupplierChannelProfileModels(
-  profileId: number,
-  data?: SupplierChannelProfileBatchTestRequest
-): Promise<ApiResponse<SupplierChannelProfileBatchTestResult>> {
-  const res = await api.post(
-    `/api/newapi_suppliers/channel_profiles/${profileId}/test_models`,
-    data ?? {}
-  )
-  return res.data
-}
-
-export async function testAllNewAPISupplierChannelProfiles(
-  data?: SupplierChannelProfileAllTestRequest
-): Promise<ApiResponse<SupplierChannelProfileAllTestResult>> {
-  const res = await api.post(
-    '/api/newapi_suppliers/channel_profiles/test_all',
-    data ?? {}
-  )
   return res.data
 }

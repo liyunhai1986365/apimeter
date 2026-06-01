@@ -12,8 +12,6 @@ const (
 	NewAPISupplierStatusDisabled  = 0
 	NewAPISupplierStatusError     = 2
 	NewAPISupplierSyncModeManaged = "managed"
-	NewAPISupplierSyncModeManual  = "manual"
-	NewAPISupplierSyncModeIgnored = "ignored"
 )
 
 type NewAPISupplier struct {
