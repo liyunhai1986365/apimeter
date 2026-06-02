@@ -39,6 +39,21 @@ export type UpdateOptionResponse = {
   message: string
 }
 
+export type GlobalWebhookTestResponse = {
+  success: boolean
+  message: string
+  data?: {
+    event?: {
+      type: string
+      channel_id?: number
+      channel_name?: string
+      model_name?: string
+      message?: string
+      created_at?: number
+    }
+  }
+}
+
 export type ConfirmPaymentComplianceResponse = {
   success: boolean
   message: string
@@ -295,6 +310,21 @@ export type OperationsSettings = {
   'monitor_setting.channel_auto_operation_min_requests': number
   'monitor_setting.channel_auto_operation_error_rate': number
   'monitor_setting.channel_auto_operation_protect_last': boolean
+  'webhook_setting.enabled': boolean
+  'webhook_setting.url': string
+  'webhook_setting.secret': string
+  'webhook_setting.interval_minutes': number
+  'webhook_setting.suppress_minutes': number
+  'webhook_setting.notify_on_empty_result': boolean
+  'webhook_setting.balance_check_enabled': boolean
+  'webhook_setting.balance_threshold': number
+  'webhook_setting.model_error_check_enabled': boolean
+  'webhook_setting.model_error_window_minutes': number
+  'webhook_setting.model_error_threshold': number
+  'webhook_setting.model_error_min_requests': number
+  'webhook_setting.model_error_rate': number
+  'webhook_setting.channel_test_check_enabled': boolean
+  'webhook_setting.channel_test_window_minutes': number
   SMTPServer: string
   SMTPPort: string
   SMTPAccount: string

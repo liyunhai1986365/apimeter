@@ -36,17 +36,10 @@ func GetUserGroups(c *gin.Context) {
 		if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, userId, userGroup); err == nil {
 			userGroup = agentUserGroup
 		}
-		userSystemGroup := userGroup
-		if agentGroup, ok := agentCtx.Groups[userGroup]; ok && agentGroup.Available {
-			userSystemGroup = agentGroup.SystemGroupName
-		}
-		userUsableGroups := service.GetUserUsableGroups(userSystemGroup)
 		for _, group := range agentservice.VisibleGroupsForUser(agentCtx, userGroup) {
-			if desc, ok := userUsableGroups[group.SystemGroupName]; ok {
-				usableGroups[group.GroupName] = map[string]interface{}{
-					"ratio": group.EffectiveRatio,
-					"desc":  desc,
-				}
+			usableGroups[group.GroupName] = map[string]interface{}{
+				"ratio": group.EffectiveRatio,
+				"desc":  setting.GetUsableGroupDescription(group.SystemGroupName),
 			}
 		}
 		c.JSON(http.StatusOK, gin.H{

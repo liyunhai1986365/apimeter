@@ -6,6 +6,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 
@@ -70,23 +71,20 @@ func GetPricing(c *gin.Context) {
 				group = agentUserGroup
 			}
 		}
-		groupForUsable := group
-		if agentGroup, ok := agentCtx.Groups[group]; ok && agentGroup.Available {
-			groupForUsable = agentGroup.SystemGroupName
-		}
-		systemUsableGroup := service.GetUserUsableGroups(groupForUsable)
-		pricing = filterPricingByUsableGroups(pricing, systemUsableGroup)
 		agentUsableGroup := map[string]string{}
 		agentGroupRatio := map[string]float64{}
 		agentSystemGroups := make(map[string]struct{})
 		visibleGroups := agentservice.VisibleGroupsForUser(agentCtx, group)
 		for _, agentGroup := range visibleGroups {
-			if desc, ok := systemUsableGroup[agentGroup.SystemGroupName]; ok {
-				agentUsableGroup[agentGroup.GroupName] = desc
-				agentGroupRatio[agentGroup.GroupName] = agentGroup.EffectiveRatio
-				agentSystemGroups[agentGroup.SystemGroupName] = struct{}{}
-			}
+			agentUsableGroup[agentGroup.GroupName] = setting.GetUsableGroupDescription(agentGroup.SystemGroupName)
+			agentGroupRatio[agentGroup.GroupName] = agentGroup.EffectiveRatio
+			agentSystemGroups[agentGroup.SystemGroupName] = struct{}{}
 		}
+		systemUsableGroup := make(map[string]string, len(agentSystemGroups))
+		for systemGroup := range agentSystemGroups {
+			systemUsableGroup[systemGroup] = setting.GetUsableGroupDescription(systemGroup)
+		}
+		pricing = filterPricingByUsableGroups(pricing, systemUsableGroup)
 		for i := range pricing {
 			if common.StringsContains(pricing[i].EnableGroup, "all") {
 				keys := make([]string, 0, len(agentUsableGroup))

@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -22,6 +23,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 )
+
+var requestIdMessagePattern = regexp.MustCompile(`(?i)\s*\(\s*request\s+id\s*:\s*[^)]*\)`)
 
 func OpenBrowser(url string) {
 	var err error
@@ -294,6 +297,7 @@ func Max(a int, b int) int {
 }
 
 func MessageWithRequestId(message string, id string) string {
+	message = strings.TrimSpace(requestIdMessagePattern.ReplaceAllString(message, ""))
 	return fmt.Sprintf("%s (request id: %s)", message, id)
 }
 

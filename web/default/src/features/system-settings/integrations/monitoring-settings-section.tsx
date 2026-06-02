@@ -18,12 +18,15 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useRef } from 'react'
 import * as z from 'zod'
+import { useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
+import { Send } from 'lucide-react'
 import { toast } from 'sonner'
 import { parseHttpStatusCodeRules } from '@/lib/http-status-code-rules'
 import { Button } from '@/components/ui/button'
+import { sendGlobalWebhookTest } from '../api'
 import {
   Form,
   FormControl,
@@ -80,6 +83,46 @@ const monitoringSchema = z
         .max(100, 'Error rate cannot exceed 100'),
       channel_auto_operation_protect_last: z.boolean(),
     }),
+    webhook_setting: z.object({
+      enabled: z.boolean(),
+      url: z.string(),
+      secret: z.string(),
+      interval_minutes: z.coerce
+        .number()
+        .int()
+        .min(1, 'Interval must be at least 1 minute'),
+      suppress_minutes: z.coerce
+        .number()
+        .int()
+        .min(0, 'Suppress window cannot be negative'),
+      notify_on_empty_result: z.boolean(),
+      balance_check_enabled: z.boolean(),
+      balance_threshold: z.coerce
+        .number()
+        .min(0, 'Balance threshold cannot be negative'),
+      model_error_check_enabled: z.boolean(),
+      model_error_window_minutes: z.coerce
+        .number()
+        .int()
+        .min(1, 'Window must be at least 1 minute'),
+      model_error_threshold: z.coerce
+        .number()
+        .int()
+        .min(1, 'Threshold must be at least 1'),
+      model_error_min_requests: z.coerce
+        .number()
+        .int()
+        .min(1, 'Minimum requests must be at least 1'),
+      model_error_rate: z.coerce
+        .number()
+        .min(1, 'Error rate must be at least 1')
+        .max(100, 'Error rate cannot exceed 100'),
+      channel_test_check_enabled: z.boolean(),
+      channel_test_window_minutes: z.coerce
+        .number()
+        .int()
+        .min(1, 'Window must be at least 1 minute'),
+    }),
   })
   .superRefine((values, ctx) => {
     const disableParsed = parseHttpStatusCodeRules(
@@ -107,6 +150,30 @@ const monitoringSchema = z
         )}`,
       })
     }
+
+    const webhookURL = values.webhook_setting.url.trim()
+    if (values.webhook_setting.enabled && webhookURL === '') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['webhook_setting', 'url'],
+        message: 'Webhook URL is required when global webhook is enabled',
+      })
+    }
+
+    if (webhookURL !== '') {
+      try {
+        const parsed = new URL(webhookURL)
+        if (!['http:', 'https:'].includes(parsed.protocol)) {
+          throw new Error('invalid protocol')
+        }
+      } catch {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['webhook_setting', 'url'],
+          message: 'Enter a valid HTTP or HTTPS URL',
+        })
+      }
+    }
   })
 
 type MonitoringFormValues = z.output<typeof monitoringSchema>
@@ -129,6 +196,21 @@ type MonitoringSettingsSectionProps = {
     'monitor_setting.channel_auto_operation_min_requests': number
     'monitor_setting.channel_auto_operation_error_rate': number
     'monitor_setting.channel_auto_operation_protect_last': boolean
+    'webhook_setting.enabled': boolean
+    'webhook_setting.url': string
+    'webhook_setting.secret': string
+    'webhook_setting.interval_minutes': number
+    'webhook_setting.suppress_minutes': number
+    'webhook_setting.notify_on_empty_result': boolean
+    'webhook_setting.balance_check_enabled': boolean
+    'webhook_setting.balance_threshold': number
+    'webhook_setting.model_error_check_enabled': boolean
+    'webhook_setting.model_error_window_minutes': number
+    'webhook_setting.model_error_threshold': number
+    'webhook_setting.model_error_min_requests': number
+    'webhook_setting.model_error_rate': number
+    'webhook_setting.channel_test_check_enabled': boolean
+    'webhook_setting.channel_test_window_minutes': number
   }
 }
 
@@ -152,6 +234,21 @@ type NormalizedMonitoringValues = {
   'monitor_setting.channel_auto_operation_min_requests': number
   'monitor_setting.channel_auto_operation_error_rate': number
   'monitor_setting.channel_auto_operation_protect_last': boolean
+  'webhook_setting.enabled': boolean
+  'webhook_setting.url': string
+  'webhook_setting.secret': string
+  'webhook_setting.interval_minutes': number
+  'webhook_setting.suppress_minutes': number
+  'webhook_setting.notify_on_empty_result': boolean
+  'webhook_setting.balance_check_enabled': boolean
+  'webhook_setting.balance_threshold': number
+  'webhook_setting.model_error_check_enabled': boolean
+  'webhook_setting.model_error_window_minutes': number
+  'webhook_setting.model_error_threshold': number
+  'webhook_setting.model_error_min_requests': number
+  'webhook_setting.model_error_rate': number
+  'webhook_setting.channel_test_check_enabled': boolean
+  'webhook_setting.channel_test_window_minutes': number
 }
 
 const buildFormDefaults = (
@@ -183,6 +280,28 @@ const buildFormDefaults = (
       defaults['monitor_setting.channel_auto_operation_error_rate'],
     channel_auto_operation_protect_last:
       defaults['monitor_setting.channel_auto_operation_protect_last'],
+  },
+  webhook_setting: {
+    enabled: defaults['webhook_setting.enabled'],
+    url: defaults['webhook_setting.url'] ?? '',
+    secret: defaults['webhook_setting.secret'] ?? '',
+    interval_minutes: defaults['webhook_setting.interval_minutes'],
+    suppress_minutes: defaults['webhook_setting.suppress_minutes'],
+    notify_on_empty_result: defaults['webhook_setting.notify_on_empty_result'],
+    balance_check_enabled: defaults['webhook_setting.balance_check_enabled'],
+    balance_threshold: defaults['webhook_setting.balance_threshold'],
+    model_error_check_enabled:
+      defaults['webhook_setting.model_error_check_enabled'],
+    model_error_window_minutes:
+      defaults['webhook_setting.model_error_window_minutes'],
+    model_error_threshold: defaults['webhook_setting.model_error_threshold'],
+    model_error_min_requests:
+      defaults['webhook_setting.model_error_min_requests'],
+    model_error_rate: defaults['webhook_setting.model_error_rate'],
+    channel_test_check_enabled:
+      defaults['webhook_setting.channel_test_check_enabled'],
+    channel_test_window_minutes:
+      defaults['webhook_setting.channel_test_window_minutes'],
   },
 })
 
@@ -218,6 +337,33 @@ const normalizeDefaults = (
     defaults['monitor_setting.channel_auto_operation_error_rate'],
   'monitor_setting.channel_auto_operation_protect_last':
     defaults['monitor_setting.channel_auto_operation_protect_last'],
+  'webhook_setting.enabled': defaults['webhook_setting.enabled'],
+  'webhook_setting.url': (defaults['webhook_setting.url'] ?? '').trim(),
+  'webhook_setting.secret': defaults['webhook_setting.secret'] ?? '',
+  'webhook_setting.interval_minutes':
+    defaults['webhook_setting.interval_minutes'],
+  'webhook_setting.suppress_minutes':
+    defaults['webhook_setting.suppress_minutes'],
+  'webhook_setting.notify_on_empty_result':
+    defaults['webhook_setting.notify_on_empty_result'],
+  'webhook_setting.balance_check_enabled':
+    defaults['webhook_setting.balance_check_enabled'],
+  'webhook_setting.balance_threshold':
+    defaults['webhook_setting.balance_threshold'],
+  'webhook_setting.model_error_check_enabled':
+    defaults['webhook_setting.model_error_check_enabled'],
+  'webhook_setting.model_error_window_minutes':
+    defaults['webhook_setting.model_error_window_minutes'],
+  'webhook_setting.model_error_threshold':
+    defaults['webhook_setting.model_error_threshold'],
+  'webhook_setting.model_error_min_requests':
+    defaults['webhook_setting.model_error_min_requests'],
+  'webhook_setting.model_error_rate':
+    defaults['webhook_setting.model_error_rate'],
+  'webhook_setting.channel_test_check_enabled':
+    defaults['webhook_setting.channel_test_check_enabled'],
+  'webhook_setting.channel_test_window_minutes':
+    defaults['webhook_setting.channel_test_window_minutes'],
 })
 
 const normalizeFormValues = (
@@ -252,6 +398,33 @@ const normalizeFormValues = (
     values.monitor_setting.channel_auto_operation_error_rate,
   'monitor_setting.channel_auto_operation_protect_last':
     values.monitor_setting.channel_auto_operation_protect_last,
+  'webhook_setting.enabled': values.webhook_setting.enabled,
+  'webhook_setting.url': values.webhook_setting.url.trim(),
+  'webhook_setting.secret': values.webhook_setting.secret,
+  'webhook_setting.interval_minutes':
+    values.webhook_setting.interval_minutes,
+  'webhook_setting.suppress_minutes':
+    values.webhook_setting.suppress_minutes,
+  'webhook_setting.notify_on_empty_result':
+    values.webhook_setting.notify_on_empty_result,
+  'webhook_setting.balance_check_enabled':
+    values.webhook_setting.balance_check_enabled,
+  'webhook_setting.balance_threshold':
+    values.webhook_setting.balance_threshold,
+  'webhook_setting.model_error_check_enabled':
+    values.webhook_setting.model_error_check_enabled,
+  'webhook_setting.model_error_window_minutes':
+    values.webhook_setting.model_error_window_minutes,
+  'webhook_setting.model_error_threshold':
+    values.webhook_setting.model_error_threshold,
+  'webhook_setting.model_error_min_requests':
+    values.webhook_setting.model_error_min_requests,
+  'webhook_setting.model_error_rate':
+    values.webhook_setting.model_error_rate,
+  'webhook_setting.channel_test_check_enabled':
+    values.webhook_setting.channel_test_check_enabled,
+  'webhook_setting.channel_test_window_minutes':
+    values.webhook_setting.channel_test_window_minutes,
 })
 
 export function MonitoringSettingsSection({
@@ -259,6 +432,19 @@ export function MonitoringSettingsSection({
 }: MonitoringSettingsSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
+  const sendWebhookTest = useMutation({
+    mutationFn: sendGlobalWebhookTest,
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message || t('Webhook test alert sent'))
+      } else {
+        toast.error(data.message || t('Failed to send webhook test alert'))
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || t('Failed to send webhook test alert'))
+    },
+  })
   const baselineRef = useRef<NormalizedMonitoringValues>(
     normalizeDefaults(defaultValues)
   )
@@ -279,6 +465,14 @@ export function MonitoringSettingsSection({
   const autoRetryStatusCodes = form.watch('AutomaticRetryStatusCodes')
   const channelAutoOperationEnabled = form.watch(
     'monitor_setting.channel_auto_operation_enabled'
+  )
+  const globalWebhookEnabled = form.watch('webhook_setting.enabled')
+  const balanceCheckEnabled = form.watch('webhook_setting.balance_check_enabled')
+  const modelErrorCheckEnabled = form.watch(
+    'webhook_setting.model_error_check_enabled'
+  )
+  const channelTestCheckEnabled = form.watch(
+    'webhook_setting.channel_test_check_enabled'
   )
   const autoDisableParsed = useMemo(
     () => parseHttpStatusCodeRules(autoDisableStatusCodes),
@@ -309,6 +503,14 @@ export function MonitoringSettingsSection({
     }
 
     baselineRef.current = normalized
+  }
+
+  const handleSendWebhookTest = () => {
+    if (form.formState.isDirty) {
+      toast.info(t('Save webhook settings before sending a test alert'))
+      return
+    }
+    sendWebhookTest.mutate()
   }
 
   return (
@@ -566,6 +768,477 @@ export function MonitoringSettingsSection({
                 </FormItem>
               )}
             />
+          </div>
+
+          <div className='space-y-4 rounded-lg border p-4'>
+            <FormField
+              control={form.control}
+              name='webhook_setting.enabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Global webhook alerts')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t('Push channel balance, model error and channel test alerts to a system-level webhook')}
+                    </FormDescription>
+                  </div>
+                  <div className='flex items-center gap-3'>
+                    <Button
+                      type='button'
+                      variant='outline'
+                      size='sm'
+                      disabled={sendWebhookTest.isPending}
+                      onClick={handleSendWebhookTest}
+                    >
+                      <Send className='mr-2 size-4' />
+                      {sendWebhookTest.isPending
+                        ? t('Sending...')
+                        : t('Send test alert')}
+                    </Button>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <div className='grid gap-6 md:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='webhook_setting.url'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Webhook URL')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder='https://example.com/webhook'
+                        disabled={!globalWebhookEnabled}
+                        value={field.value}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('The system sends JSON alert payloads to this URL')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.secret'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Webhook secret')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='password'
+                        autoComplete='new-password'
+                        disabled={!globalWebhookEnabled}
+                        value={field.value}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Used to sign payloads with X-Webhook-Signature')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className='grid gap-6 md:grid-cols-3'>
+              <FormField
+                control={form.control}
+                name='webhook_setting.interval_minutes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Push interval (minutes)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        step={1}
+                        disabled={!globalWebhookEnabled}
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('How often the monitor checks alert conditions')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.suppress_minutes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Suppress window (minutes)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={0}
+                        step={1}
+                        disabled={!globalWebhookEnabled}
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Skip duplicate payloads within this window')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.notify_on_empty_result'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel className='text-base'>
+                        {t('Push empty checks')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('Send a heartbeat when no alert event is found')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        disabled={!globalWebhookEnabled}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className='grid gap-6 md:grid-cols-3'>
+              <FormField
+                control={form.control}
+                name='webhook_setting.balance_check_enabled'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel className='text-base'>
+                        {t('Balance alerts')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('Check enabled channels and report low balances')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        disabled={!globalWebhookEnabled}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.balance_threshold'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Balance threshold')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={0}
+                        step='0.01'
+                        disabled={!globalWebhookEnabled || !balanceCheckEnabled}
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Report channels whose upstream balance is at or below this value')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.channel_test_check_enabled'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel className='text-base'>
+                        {t('Channel test alerts')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('Push recent failed model-channel test results')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        disabled={!globalWebhookEnabled}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.channel_test_window_minutes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Channel test window (minutes)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        step={1}
+                        disabled={
+                          !globalWebhookEnabled || !channelTestCheckEnabled
+                        }
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Only failed tests in this recent window are included')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <div className='grid gap-6 md:grid-cols-4'>
+              <FormField
+                control={form.control}
+                name='webhook_setting.model_error_check_enabled'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel className='text-base'>
+                        {t('Model error alerts')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t('Push channels with repeated model errors')}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        disabled={!globalWebhookEnabled}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.model_error_window_minutes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Model error window (minutes)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        step={1}
+                        disabled={
+                          !globalWebhookEnabled || !modelErrorCheckEnabled
+                        }
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Count only model errors in this recent window')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.model_error_threshold'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Webhook model error threshold')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        step={1}
+                        disabled={
+                          !globalWebhookEnabled || !modelErrorCheckEnabled
+                        }
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Push when one model reaches this many errors')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.model_error_min_requests'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Webhook minimum requests')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        step={1}
+                        disabled={
+                          !globalWebhookEnabled || !modelErrorCheckEnabled
+                        }
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Ignore low-volume models below this request count')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='webhook_setting.model_error_rate'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t('Webhook error rate threshold (%)')}</FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        max={100}
+                        step={1}
+                        disabled={
+                          !globalWebhookEnabled || !modelErrorCheckEnabled
+                        }
+                        value={
+                          typeof field.value === 'number' &&
+                          Number.isFinite(field.value)
+                            ? field.value
+                            : ''
+                        }
+                        onChange={(event) =>
+                          field.onChange(event.target.valueAsNumber)
+                        }
+                        name={field.name}
+                        onBlur={field.onBlur}
+                        ref={field.ref}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Push only when the model error rate reaches this percentage')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </div>
 
           <div className='grid gap-6 md:grid-cols-2'>

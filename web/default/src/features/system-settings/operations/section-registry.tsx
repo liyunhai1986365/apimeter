@@ -73,6 +73,33 @@ const OPERATIONS_SECTIONS = [
             settings['monitor_setting.channel_auto_operation_error_rate'],
           'monitor_setting.channel_auto_operation_protect_last':
             settings['monitor_setting.channel_auto_operation_protect_last'],
+          'webhook_setting.enabled': settings['webhook_setting.enabled'],
+          'webhook_setting.url': settings['webhook_setting.url'],
+          'webhook_setting.secret': settings['webhook_setting.secret'],
+          'webhook_setting.interval_minutes':
+            settings['webhook_setting.interval_minutes'],
+          'webhook_setting.suppress_minutes':
+            settings['webhook_setting.suppress_minutes'],
+          'webhook_setting.notify_on_empty_result':
+            settings['webhook_setting.notify_on_empty_result'],
+          'webhook_setting.balance_check_enabled':
+            settings['webhook_setting.balance_check_enabled'],
+          'webhook_setting.balance_threshold':
+            settings['webhook_setting.balance_threshold'],
+          'webhook_setting.model_error_check_enabled':
+            settings['webhook_setting.model_error_check_enabled'],
+          'webhook_setting.model_error_window_minutes':
+            settings['webhook_setting.model_error_window_minutes'],
+          'webhook_setting.model_error_threshold':
+            settings['webhook_setting.model_error_threshold'],
+          'webhook_setting.model_error_min_requests':
+            settings['webhook_setting.model_error_min_requests'],
+          'webhook_setting.model_error_rate':
+            settings['webhook_setting.model_error_rate'],
+          'webhook_setting.channel_test_check_enabled':
+            settings['webhook_setting.channel_test_check_enabled'],
+          'webhook_setting.channel_test_window_minutes':
+            settings['webhook_setting.channel_test_window_minutes'],
         }}
       />
     ),

@@ -24,6 +24,7 @@ import type {
   SystemOptionsResponse,
   UpdateOptionRequest,
   UpdateOptionResponse,
+  GlobalWebhookTestResponse,
   UpstreamChannelsResponse,
   UpstreamRatiosResponse,
 } from './types'
@@ -35,6 +36,13 @@ export async function getSystemOptions() {
 
 export async function updateSystemOption(request: UpdateOptionRequest) {
   const res = await api.put<UpdateOptionResponse>('/api/option/', request)
+  return res.data
+}
+
+export async function sendGlobalWebhookTest() {
+  const res = await api.post<GlobalWebhookTestResponse>(
+    '/api/option/global-webhook/test'
+  )
   return res.data
 }
 
