@@ -1,7 +1,9 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -11,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/gin-gonic/gin"
 )
 
 const (
@@ -275,4 +278,89 @@ func buildGlobalWebhookFingerprint(payload service.GlobalWebhookPayload) string 
 		))
 	}
 	return builder.String()
+}
+
+func buildGlobalWebhookTestPayloadFromLatestError(now int64) (service.GlobalWebhookPayload, error) {
+	var latest model.Log
+	err := model.LOG_DB.Model(&model.Log{}).
+		Where("type = ?", model.LogTypeError).
+		Order("created_at DESC, id DESC").
+		First(&latest).Error
+	if err != nil {
+		return service.GlobalWebhookPayload{}, errors.New("暂无错误日志，无法发送测试告警")
+	}
+
+	channelName := ""
+	channelType := 0
+	if latest.ChannelId > 0 {
+		var channel model.Channel
+		if err := model.DB.Select("id", "name", "type").First(&channel, latest.ChannelId).Error; err == nil {
+			channelName = channel.Name
+			channelType = channel.Type
+		}
+	}
+	event := service.GlobalWebhookEvent{
+		Type:        "webhook_test_latest_error",
+		ChannelID:   latest.ChannelId,
+		ChannelName: channelName,
+		ChannelType: channelType,
+		ModelName:   latest.ModelName,
+		ErrorCode:   extractGlobalWebhookErrorCode(latest.Other),
+		Message:     strings.TrimSpace(latest.Content),
+		CreatedAt:   latest.CreatedAt,
+		Extra: map[string]interface{}{
+			"request_id":          latest.RequestId,
+			"upstream_request_id": latest.UpstreamRequestId,
+			"group":               latest.Group,
+			"username":            latest.Username,
+			"token_name":          latest.TokenName,
+		},
+	}
+	payload := service.NewGlobalWebhookPayload("New API Webhook 测试告警", []service.GlobalWebhookEvent{event}, now)
+	payload.Meta = map[string]interface{}{
+		"node_name": common.NodeName,
+		"version":   common.Version,
+		"test":      true,
+	}
+	return payload, nil
+}
+
+func extractGlobalWebhookErrorCode(other string) string {
+	if strings.TrimSpace(other) == "" {
+		return ""
+	}
+	otherMap, err := common.StrToMap(other)
+	if err != nil || otherMap == nil {
+		return ""
+	}
+	for _, key := range []string{"code", "error_code", "status_code"} {
+		if value, ok := otherMap[key]; ok {
+			return strings.TrimSpace(fmt.Sprint(value))
+		}
+	}
+	return ""
+}
+
+func SendGlobalWebhookTest(c *gin.Context) {
+	setting := operation_setting.GetWebhookSetting()
+	if strings.TrimSpace(setting.URL) == "" {
+		common.ApiErrorMsg(c, "请先配置全局 Webhook 地址")
+		return
+	}
+	payload, err := buildGlobalWebhookTestPayloadFromLatestError(common.GetTimestamp())
+	if err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	if err := service.SendGlobalWebhookPayload(setting.URL, setting.Secret, payload); err != nil {
+		common.ApiErrorMsg(c, err.Error())
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "测试告警已发送",
+		"data": gin.H{
+			"event": payload.Events[0],
+		},
+	})
 }
