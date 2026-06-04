@@ -545,6 +545,57 @@ func fetchImageTaskFromUpstream(task *model.Task) ([]byte, int, error) {
 	return body, resp.StatusCode, nil
 }
 
+func FetchConfigurableImageTaskForPolling(ch *model.Channel, task *model.Task, upstreamTaskID, key, proxy string) ([]byte, int, bool, error) {
+	if ch == nil || ch.Type != constant.ChannelTypeConfigurable {
+		return nil, 0, false, nil
+	}
+	profile := configurableImageProfileFromChannel(ch)
+	if profile == nil {
+		return nil, 0, false, nil
+	}
+	baseURL := ch.GetBaseURL()
+	if strings.TrimSpace(baseURL) == "" && ch.Type >= 0 && ch.Type < len(constant.ChannelBaseURLs) {
+		baseURL = constant.GetChannelBaseURL(ch.Type)
+	}
+	if strings.TrimSpace(baseURL) == "" {
+		return nil, 0, true, fmt.Errorf("channel base url is empty")
+	}
+	if strings.TrimSpace(upstreamTaskID) == "" && task != nil {
+		upstreamTaskID = task.GetUpstreamTaskID()
+	}
+	req, err := buildConfigurableImageTaskFetchRequest(baseURL, key, upstreamTaskID, profile)
+	if err != nil {
+		return nil, 0, true, err
+	}
+	client, err := service.GetHttpClientWithProxy(proxy)
+	if err != nil {
+		return nil, 0, true, err
+	}
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, 0, true, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, 0, true, err
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return body, resp.StatusCode, true, nil
+	}
+	normalized, ok, err := configurable.ImageTaskResponseBytesFromProfile(upstreamTaskID, profile, body)
+	if err != nil {
+		return nil, resp.StatusCode, true, err
+	}
+	if ok {
+		return normalized, resp.StatusCode, true, nil
+	}
+	return body, resp.StatusCode, true, nil
+}
+
 func buildImageTaskFetchRequest(baseURL, key, upstreamTaskID string, modelName ...string) (*http.Request, error) {
 	taskPath := "/v1/tasks/" + upstreamTaskID
 	if len(modelName) > 0 {

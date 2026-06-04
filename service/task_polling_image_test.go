@@ -137,6 +137,71 @@ func TestUpdateImageTasksFetchesDuomiGeminiImageTaskEndpoint(t *testing.T) {
 	require.Equal(t, int64(1757061229), reloaded.CreatedAt)
 }
 
+func TestUpdateImageTasksUsesConfigurableImageFetcher(t *testing.T) {
+	truncate(t)
+
+	originFetcher := ConfigurableImageTaskFetcher
+	called := false
+	ConfigurableImageTaskFetcher = func(ch *model.Channel, task *model.Task, taskID, key, proxy string) ([]byte, int, bool, error) {
+		called = true
+		require.Equal(t, constant.ChannelTypeConfigurable, ch.Type)
+		require.Equal(t, "apixo-task", taskID)
+		require.Equal(t, "sk-apixo", key)
+		require.Equal(t, "", proxy)
+		return []byte(`{"id":"apixo-task","state":"success","progress":100,"data":{"images":[{"url":"https://file.apixo.ai/output.png"}]}}`), http.StatusOK, true, nil
+	}
+	t.Cleanup(func() { ConfigurableImageTaskFetcher = originFetcher })
+
+	channel := model.Channel{
+		Id:      901,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "sk-apixo",
+		BaseURL: common.GetPointer("https://api.apixo.ai"),
+		Status:  common.ChannelStatusEnabled,
+		Name:    "apixo-image",
+		Models:  "gpt-image-2",
+		Group:   "default",
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ProfileID: "apixo-gpt-image-2",
+		},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+
+	now := time.Now().Unix()
+	task := &model.Task{
+		TaskID:     "apixo-task",
+		UserId:     7,
+		ChannelId:  channel.Id,
+		Action:     constant.TaskActionGenerate,
+		Status:     model.TaskStatusSubmitted,
+		Progress:   "0%",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		SubmitTime: now,
+		Platform:   constant.TaskPlatform("999"),
+		Properties: model.Properties{
+			OriginModelName: "gpt-image-2",
+		},
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: "apixo-task",
+			AsyncImage:     true,
+		},
+	}
+	require.NoError(t, model.DB.Create(task).Error)
+
+	err := UpdateImageTasks(context.Background(), map[int][]string{channel.Id: []string{"apixo-task"}}, map[string]*model.Task{"apixo-task": task})
+	require.NoError(t, err)
+	require.True(t, called)
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", task.TaskID).First(&reloaded).Error)
+	require.Equal(t, model.TaskStatus(model.TaskStatusSuccess), reloaded.Status)
+	require.Equal(t, "100%", reloaded.Progress)
+	require.Equal(t, "https://file.apixo.ai/output.png", reloaded.PrivateData.ResultURL)
+}
+
 func TestUpdateVideoTasksPollsConfigurableProfile(t *testing.T) {
 	truncate(t)
 

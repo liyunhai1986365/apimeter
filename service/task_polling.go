@@ -36,6 +36,10 @@ type TaskPollingAdaptor interface {
 // 打破 service -> relay -> relay/channel -> service 的循环依赖。
 var GetTaskAdaptorFunc func(platform constant.TaskPlatform) TaskPollingAdaptor
 
+// ConfigurableImageTaskFetcher is injected by relay at startup so service can
+// poll configurable image profiles without importing relay/channel/configurable.
+var ConfigurableImageTaskFetcher func(ch *model.Channel, task *model.Task, taskID, key, proxy string) ([]byte, int, bool, error)
+
 // sweepTimedOutTasks 在主轮询之前独立清理超时任务。
 // 每次最多处理 100 条，剩余的下个周期继续处理。
 // 使用 per-task CAS (UpdateWithStatus) 防止覆盖被正常轮询已推进的任务。
@@ -543,7 +547,7 @@ func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string
 		key = privateKey
 	}
 
-	body, statusCode, err := fetchImageTaskResult(baseURL, key, task.GetUpstreamTaskID(), proxy, imageTaskModelName(task))
+	body, statusCode, err := fetchImageTaskResultForChannel(ch, task, task.GetUpstreamTaskID(), key, proxy, baseURL)
 	if err != nil {
 		return fmt.Errorf("fetch image task failed for task %s: %w", taskId, err)
 	}
@@ -581,6 +585,16 @@ func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string
 		return fmt.Errorf("update image task failed: %w", err)
 	}
 	return nil
+}
+
+func fetchImageTaskResultForChannel(ch *model.Channel, task *model.Task, upstreamTaskID, key, proxy, baseURL string) ([]byte, int, error) {
+	if ConfigurableImageTaskFetcher != nil {
+		body, statusCode, handled, err := ConfigurableImageTaskFetcher(ch, task, upstreamTaskID, key, proxy)
+		if handled {
+			return body, statusCode, err
+		}
+	}
+	return fetchImageTaskResult(baseURL, key, upstreamTaskID, proxy, imageTaskModelName(task))
 }
 
 func fetchImageTaskResult(baseURL, key, upstreamTaskID, proxy string, modelName ...string) ([]byte, int, error) {

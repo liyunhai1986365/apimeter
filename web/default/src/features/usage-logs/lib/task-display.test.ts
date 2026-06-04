@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { buildTaskLogSubtitle, getTaskLogVideoPreviewUrl } from './task-display'
+import {
+  buildTaskLogSubtitle,
+  getTaskLogImagePreviewUrl,
+  getTaskLogVideoPreviewUrl,
+} from './task-display'
 import type { TaskLog } from '../types'
 
 function taskLog(overrides: Partial<TaskLog>): TaskLog {
@@ -96,5 +100,50 @@ describe('getTaskLogVideoPreviewUrl', () => {
     })
 
     assert.equal(getTaskLogVideoPreviewUrl(log), '')
+  })
+
+  test('does not expose image task result url as video preview', () => {
+    const log = taskLog({
+      result_url: 'https://cdn.example.com/result.png',
+      properties: {
+        origin_model_name: 'gpt-image-2',
+      },
+    })
+
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
+  })
+})
+
+describe('getTaskLogImagePreviewUrl', () => {
+  test('uses result_url from successful image tasks', () => {
+    const log = taskLog({
+      result_url: 'https://cdn.example.com/result.png',
+      properties: {
+        origin_model_name: 'gpt-image-2',
+      },
+    })
+
+    assert.equal(
+      getTaskLogImagePreviewUrl(log),
+      'https://cdn.example.com/result.png'
+    )
+  })
+
+  test('extracts image url from normalized task data', () => {
+    const log = taskLog({
+      properties: {
+        upstream_model_name: 'gemini-3-pro-image-preview',
+      },
+      data: JSON.stringify({
+        data: {
+          images: [{ url: 'https://cdn.example.com/output.jpeg' }],
+        },
+      }),
+    })
+
+    assert.equal(
+      getTaskLogImagePreviewUrl(log),
+      'https://cdn.example.com/output.jpeg'
+    )
   })
 })

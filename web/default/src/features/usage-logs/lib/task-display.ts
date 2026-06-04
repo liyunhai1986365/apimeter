@@ -46,6 +46,7 @@ function normalizePreviewUrl(value: unknown): string {
   if (url.startsWith('http://') || url.startsWith('https://')) return url
   if (url.startsWith('/')) return url
   if (url.startsWith('data:video/')) return url
+  if (url.startsWith('data:image/')) return url
   return ''
 }
 
@@ -98,6 +99,30 @@ const VIDEO_PREVIEW_URL_PATHS = [
   'result.videos.0.url',
 ] as const
 
+const IMAGE_PREVIEW_URL_PATHS = [
+  'image.url',
+  'image_url',
+  'url',
+  'output.image_url',
+  'output.url',
+  'output.image.url',
+  'output.results.0.url',
+  'output.images.0.url',
+  'data.image_url',
+  'data.url',
+  'data.image.url',
+  'data.images.0.url',
+  'data.result.url',
+  'data.resultUrls.0',
+  'data.results.0.url',
+  'data.task_result.images.0.url',
+  'result.image_url',
+  'result.url',
+  'result.image.url',
+  'result.images.0.url',
+  'resultUrls.0',
+] as const
+
 export function getTaskLogImageModelName(log: TaskLog): string {
   const properties = parseProperties(log.properties)
   const originModelName = normalizeModelName(properties.origin_model_name)
@@ -116,6 +141,9 @@ export function buildTaskLogSubtitle(log: TaskLog, t: TranslateFn): string {
 }
 
 export function getTaskLogVideoPreviewUrl(log: TaskLog): string {
+  if (getTaskLogImageModelName(log)) {
+    return ''
+  }
   if (log.status !== TASK_STATUS.SUCCESS || !isVideoTaskAction(log.action)) {
     return ''
   }
@@ -131,6 +159,26 @@ export function getTaskLogVideoPreviewUrl(log: TaskLog): string {
 
   if (normalizePreviewUrl(log.fail_reason) && log.task_id) {
     return `/v1/videos/${encodeURIComponent(log.task_id)}/content`
+  }
+
+  return ''
+}
+
+export function getTaskLogImagePreviewUrl(log: TaskLog): string {
+  if (!getTaskLogImageModelName(log)) {
+    return ''
+  }
+  if (log.status !== TASK_STATUS.SUCCESS) {
+    return ''
+  }
+
+  const resultUrl = normalizePreviewUrl(log.result_url)
+  if (resultUrl) return resultUrl
+
+  const data = parseRecordData(log.data)
+  for (const path of IMAGE_PREVIEW_URL_PATHS) {
+    const url = normalizePreviewUrl(getAtPath(data, path))
+    if (url) return url
   }
 
   return ''

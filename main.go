@@ -130,6 +130,7 @@ func main() {
 		}
 		return a
 	}
+	service.ConfigurableImageTaskFetcher = relay.FetchConfigurableImageTaskForPolling
 
 	// Channel upstream model update check task
 	controller.StartChannelUpstreamModelUpdateTask()

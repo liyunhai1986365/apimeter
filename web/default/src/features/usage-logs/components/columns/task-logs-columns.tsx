@@ -19,7 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 /* eslint-disable react-refresh/only-export-components */
 import { useState, useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import { Music, Video } from 'lucide-react'
+import { ImageIcon, Music, Video } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatTimestampToDate } from '@/lib/format'
@@ -31,6 +31,7 @@ import { TASK_STATUS } from '../../constants'
 import { taskStatusMapper } from '../../lib/mappers'
 import {
   buildTaskLogSubtitle,
+  getTaskLogImagePreviewUrl,
   getTaskLogVideoPreviewUrl,
 } from '../../lib/task-display'
 import type { TaskLog } from '../../types'
@@ -39,6 +40,7 @@ import {
   type AudioClip,
 } from '../dialogs/audio-preview-dialog'
 import { FailReasonDialog } from '../dialogs/fail-reason-dialog'
+import { ImageDialog } from '../dialogs/image-dialog'
 import { VideoPreviewDialog } from '../dialogs/video-preview-dialog'
 import { useUsageLogsContext } from '../usage-logs-provider'
 import {
@@ -114,6 +116,38 @@ function VideoPreviewCell({ videoUrl }: { videoUrl: string }) {
         open={open}
         onOpenChange={setOpen}
         videoUrl={videoUrl}
+      />
+    </>
+  )
+}
+
+function ImagePreviewCell({
+  imageUrl,
+  taskId,
+}: {
+  imageUrl: string
+  taskId?: string
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+
+  return (
+    <>
+      <button
+        type='button'
+        className='group flex items-center gap-1 text-left text-xs'
+        onClick={() => setOpen(true)}
+      >
+        <ImageIcon className='text-muted-foreground size-3' />
+        <span className='text-foreground leading-snug group-hover:underline'>
+          {t('Click to preview image')}
+        </span>
+      </button>
+      <ImageDialog
+        open={open}
+        onOpenChange={setOpen}
+        imageUrl={imageUrl}
+        taskId={taskId}
       />
     </>
   )
@@ -276,6 +310,11 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
           ) {
             return <AudioPreviewCell log={log} />
           }
+        }
+
+        const imageUrl = getTaskLogImagePreviewUrl(log)
+        if (imageUrl) {
+          return <ImagePreviewCell imageUrl={imageUrl} taskId={log.task_id} />
         }
 
         const videoUrl = getTaskLogVideoPreviewUrl(log)

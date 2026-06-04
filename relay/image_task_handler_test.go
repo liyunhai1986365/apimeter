@@ -489,6 +489,60 @@ func TestBuildConfigurableImageTaskFetchRequestUsesProfile(t *testing.T) {
 	require.Equal(t, "Bearer apixo-key", req.Header.Get("Authorization"))
 }
 
+func TestFetchConfigurableImageTaskForPollingUsesProfile(t *testing.T) {
+	service.InitHttpClient()
+
+	taskID := "dff8afd34c4e47719b85ad6651daa3f0"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/v1/statusTask/gpt-image-2", r.URL.Path)
+		require.Equal(t, taskID, r.URL.Query().Get("taskId"))
+		require.Equal(t, "Bearer apixo-key", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"code": 200,
+			"message": "success",
+			"data": {
+				"resultJson": "{\"resultUrls\":[\"https://file.apixo.ai/temp/out.png\"]}",
+				"state": "success",
+				"taskId": "dff8afd34c4e47719b85ad6651daa3f0"
+			}
+		}`))
+	}))
+	defer upstream.Close()
+
+	channel := model.Channel{
+		Id:      63,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "apixo-key",
+		BaseURL: common.GetPointer(upstream.URL),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "apixo-gpt-image-2"},
+	})
+	task := &model.Task{
+		TaskID:    taskID,
+		ChannelId: channel.Id,
+		Action:    constant.TaskActionGenerate,
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: taskID,
+		},
+	}
+
+	body, statusCode, handled, err := FetchConfigurableImageTaskForPolling(&channel, task, taskID, "apixo-key", "")
+	require.NoError(t, err)
+	require.True(t, handled)
+	require.Equal(t, http.StatusOK, statusCode)
+	require.JSONEq(t, `{
+		"id":"dff8afd34c4e47719b85ad6651daa3f0",
+		"state":"success",
+		"progress":0,
+		"create_time":0,
+		"update_time":0,
+		"action":"generate",
+		"data":{"images":[{"url":"https://file.apixo.ai/temp/out.png"}]}
+	}`, string(body))
+}
+
 func TestConvertImageTaskResponseUsesConfigurableImageProfile(t *testing.T) {
 	setupImageTaskTestDB(t)
 	channel := model.Channel{
