@@ -15,28 +15,25 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/stretchr/testify/require"
 )
 
 func TestNewGlobalWebhookPayloadSummarizesEvents(t *testing.T) {
-	threshold := 5.0
-	balance := 3.2
-
 	payload := NewGlobalWebhookPayload("New API 监控告警", []GlobalWebhookEvent{
-		{Type: "channel_balance_low", ChannelID: 1, ChannelName: "openai-a", Balance: &balance, Threshold: &threshold},
-		{Type: "channel_balance_error", ChannelID: 2, ChannelName: "openai-b", Message: "尚未实现"},
 		{Type: "model_error", ChannelID: 3, ChannelName: "openai-c", ModelName: "gpt-test", ErrorRequests: 4},
 		{Type: "channel_test_failed", ChannelID: 4, ChannelName: "openai-d", ModelName: "gpt-test", Message: "timeout"},
+		{Type: "channel_auto_disabled", ChannelID: 5, ChannelName: "openai-e", ModelName: "gpt-test", Message: "too many errors"},
 	}, 1700000000)
 
 	require.Equal(t, "global_monitor", payload.Type)
 	require.EqualValues(t, 1700000000, payload.Timestamp)
-	require.Equal(t, 1, payload.Summary.LowBalanceChannels)
-	require.Equal(t, 1, payload.Summary.BalanceCheckErrors)
 	require.Equal(t, 1, payload.Summary.ModelErrorItems)
 	require.Equal(t, 1, payload.Summary.FailedChannelTests)
-	require.Len(t, payload.Events, 4)
+	require.Equal(t, 1, payload.Summary.AutoDisabledChannels)
+	require.Len(t, payload.Events, 3)
 }
 
 func TestIsWeComWebhookURLRecognizesEnterpriseWechatRobot(t *testing.T) {
@@ -46,11 +43,9 @@ func TestIsWeComWebhookURLRecognizesEnterpriseWechatRobot(t *testing.T) {
 }
 
 func TestMarshalGlobalWebhookRequestBodyUsesWeComMarkdownFormat(t *testing.T) {
-	threshold := 5.0
-	balance := 3.2
 	payload := NewGlobalWebhookPayload("New API 监控告警", []GlobalWebhookEvent{
-		{Type: "channel_balance_low", ChannelID: 1, ChannelName: "openai-a", Balance: &balance, Threshold: &threshold},
 		{Type: "model_error", ChannelID: 2, ChannelName: "openai-b", ModelName: "gpt-test", ErrorRequests: 3, TotalRequests: 5, ErrorRate: 60, Message: "upstream timeout"},
+		{Type: "channel_auto_disabled", ChannelID: 3, ChannelName: "openai-c", ModelName: "gpt-test", ErrorRequests: 3, TotalRequests: 5, ErrorRate: 60, Message: "upstream timeout"},
 	}, 1700000000)
 
 	body, err := marshalGlobalWebhookRequestBody("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6", payload)
@@ -65,8 +60,8 @@ func TestMarshalGlobalWebhookRequestBodyUsesWeComMarkdownFormat(t *testing.T) {
 	require.NoError(t, common.Unmarshal(body, &got))
 	require.Equal(t, "markdown", got.MsgType)
 	require.Contains(t, got.Markdown.Content, "## New API 监控告警")
-	require.Contains(t, got.Markdown.Content, "渠道余额低")
 	require.Contains(t, got.Markdown.Content, "模型错误")
+	require.Contains(t, got.Markdown.Content, "自动禁用")
 	require.LessOrEqual(t, len(got.Markdown.Content), weComMarkdownMaxBytes)
 }
 
@@ -158,6 +153,59 @@ func TestSendGlobalWebhookPayloadPostsStructuredJSONWithSignature(t *testing.T) 
 	require.Equal(t, hex.EncodeToString(mac.Sum(nil)), receivedSignature)
 	require.Equal(t, "global_monitor", receivedPayload.Type)
 	require.Equal(t, 1, receivedPayload.Summary.ModelErrorItems)
+}
+
+func TestSendGlobalWebhookChannelOperationRecordPostsAutoDisableEvent(t *testing.T) {
+	fetchSetting := system_setting.GetFetchSetting()
+	originalSSRF := fetchSetting.EnableSSRFProtection
+	fetchSetting.EnableSSRFProtection = false
+
+	webhookSetting := operation_setting.GetWebhookSetting()
+	originalWebhookSetting := *webhookSetting
+	t.Cleanup(func() {
+		fetchSetting.EnableSSRFProtection = originalSSRF
+		*webhookSetting = originalWebhookSetting
+	})
+
+	var receivedPayload GlobalWebhookPayload
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, common.Unmarshal(body, &receivedPayload))
+		w.WriteHeader(http.StatusNoContent)
+	}))
+	defer server.Close()
+
+	webhookSetting.Enabled = true
+	webhookSetting.URL = server.URL
+	webhookSetting.Secret = ""
+
+	err := SendGlobalWebhookChannelOperationRecord(model.ChannelOperationRecord{
+		ChannelID:     11,
+		ChannelName:   "openai-a",
+		Action:        model.ChannelOperationActionDisable,
+		Source:        model.ChannelOperationSourceAuto,
+		Status:        common.ChannelStatusAutoDisabled,
+		Reason:        "model errors reached threshold",
+		ModelName:     "gpt-test",
+		TotalRequests: 10,
+		ErrorRequests: 6,
+		ErrorRate:     60,
+		CreatedAt:     1700000000,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "New API 自动禁用告警", receivedPayload.Title)
+	require.Len(t, receivedPayload.Events, 1)
+	event := receivedPayload.Events[0]
+	require.Equal(t, "channel_auto_disabled", event.Type)
+	require.Equal(t, 11, event.ChannelID)
+	require.Equal(t, "openai-a", event.ChannelName)
+	require.Equal(t, "gpt-test", event.ModelName)
+	require.Equal(t, "model errors reached threshold", event.Message)
+	require.EqualValues(t, 10, event.TotalRequests)
+	require.EqualValues(t, 6, event.ErrorRequests)
+	require.Equal(t, 60.0, event.ErrorRate)
 }
 
 func TestSendGlobalWebhookPayloadPostsWeComMarkdownPayload(t *testing.T) {

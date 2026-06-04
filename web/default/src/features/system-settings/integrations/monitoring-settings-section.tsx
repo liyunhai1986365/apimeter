@@ -96,10 +96,6 @@ const monitoringSchema = z
         .int()
         .min(0, 'Suppress window cannot be negative'),
       notify_on_empty_result: z.boolean(),
-      balance_check_enabled: z.boolean(),
-      balance_threshold: z.coerce
-        .number()
-        .min(0, 'Balance threshold cannot be negative'),
       model_error_check_enabled: z.boolean(),
       model_error_window_minutes: z.coerce
         .number()
@@ -202,8 +198,6 @@ type MonitoringSettingsSectionProps = {
     'webhook_setting.interval_minutes': number
     'webhook_setting.suppress_minutes': number
     'webhook_setting.notify_on_empty_result': boolean
-    'webhook_setting.balance_check_enabled': boolean
-    'webhook_setting.balance_threshold': number
     'webhook_setting.model_error_check_enabled': boolean
     'webhook_setting.model_error_window_minutes': number
     'webhook_setting.model_error_threshold': number
@@ -240,8 +234,6 @@ type NormalizedMonitoringValues = {
   'webhook_setting.interval_minutes': number
   'webhook_setting.suppress_minutes': number
   'webhook_setting.notify_on_empty_result': boolean
-  'webhook_setting.balance_check_enabled': boolean
-  'webhook_setting.balance_threshold': number
   'webhook_setting.model_error_check_enabled': boolean
   'webhook_setting.model_error_window_minutes': number
   'webhook_setting.model_error_threshold': number
@@ -288,8 +280,6 @@ const buildFormDefaults = (
     interval_minutes: defaults['webhook_setting.interval_minutes'],
     suppress_minutes: defaults['webhook_setting.suppress_minutes'],
     notify_on_empty_result: defaults['webhook_setting.notify_on_empty_result'],
-    balance_check_enabled: defaults['webhook_setting.balance_check_enabled'],
-    balance_threshold: defaults['webhook_setting.balance_threshold'],
     model_error_check_enabled:
       defaults['webhook_setting.model_error_check_enabled'],
     model_error_window_minutes:
@@ -346,10 +336,6 @@ const normalizeDefaults = (
     defaults['webhook_setting.suppress_minutes'],
   'webhook_setting.notify_on_empty_result':
     defaults['webhook_setting.notify_on_empty_result'],
-  'webhook_setting.balance_check_enabled':
-    defaults['webhook_setting.balance_check_enabled'],
-  'webhook_setting.balance_threshold':
-    defaults['webhook_setting.balance_threshold'],
   'webhook_setting.model_error_check_enabled':
     defaults['webhook_setting.model_error_check_enabled'],
   'webhook_setting.model_error_window_minutes':
@@ -407,10 +393,6 @@ const normalizeFormValues = (
     values.webhook_setting.suppress_minutes,
   'webhook_setting.notify_on_empty_result':
     values.webhook_setting.notify_on_empty_result,
-  'webhook_setting.balance_check_enabled':
-    values.webhook_setting.balance_check_enabled,
-  'webhook_setting.balance_threshold':
-    values.webhook_setting.balance_threshold,
   'webhook_setting.model_error_check_enabled':
     values.webhook_setting.model_error_check_enabled,
   'webhook_setting.model_error_window_minutes':
@@ -467,7 +449,6 @@ export function MonitoringSettingsSection({
     'monitor_setting.channel_auto_operation_enabled'
   )
   const globalWebhookEnabled = form.watch('webhook_setting.enabled')
-  const balanceCheckEnabled = form.watch('webhook_setting.balance_check_enabled')
   const modelErrorCheckEnabled = form.watch(
     'webhook_setting.model_error_check_enabled'
   )
@@ -781,7 +762,7 @@ export function MonitoringSettingsSection({
                       {t('Global webhook alerts')}
                     </FormLabel>
                     <FormDescription>
-                      {t('Push channel balance, model error and channel test alerts to a system-level webhook')}
+                      {t('Push model error, channel test, and automatic disable alerts to a system-level webhook')}
                     </FormDescription>
                   </div>
                   <div className='flex items-center gap-3'>
@@ -949,65 +930,7 @@ export function MonitoringSettingsSection({
               />
             </div>
 
-            <div className='grid gap-6 md:grid-cols-3'>
-              <FormField
-                control={form.control}
-                name='webhook_setting.balance_check_enabled'
-                render={({ field }) => (
-                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                    <div className='space-y-0.5'>
-                      <FormLabel className='text-base'>
-                        {t('Balance alerts')}
-                      </FormLabel>
-                      <FormDescription>
-                        {t('Check enabled channels and report low balances')}
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        disabled={!globalWebhookEnabled}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name='webhook_setting.balance_threshold'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Balance threshold')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        type='number'
-                        min={0}
-                        step='0.01'
-                        disabled={!globalWebhookEnabled || !balanceCheckEnabled}
-                        value={
-                          typeof field.value === 'number' &&
-                          Number.isFinite(field.value)
-                            ? field.value
-                            : ''
-                        }
-                        onChange={(event) =>
-                          field.onChange(event.target.valueAsNumber)
-                        }
-                        name={field.name}
-                        onBlur={field.onBlur}
-                        ref={field.ref}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t('Report channels whose upstream balance is at or below this value')}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
+            <div className='grid gap-6 md:grid-cols-2'>
               <FormField
                 control={form.control}
                 name='webhook_setting.channel_test_check_enabled'

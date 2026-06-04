@@ -12,6 +12,7 @@
   "Anthropic": "Anthropic",
   "API URL": "API URL",
   "API2GPT": "API2GPT",
+  "Apixo GPT Image 2": "Apixo GPT Image 2",
   "AZURE_OPENAI_ENDPOINT *": "AZURE_OPENAI_ENDPOINT *",
   "checkout.session.completed": "checkout.session.completed",
   "checkout.session.expired": "checkout.session.expired",
@@ -107,6 +108,5 @@
   "whsec_xxx": "whsec_xxx",
   "Windows": "Windows",
   "Worker URL": "Worker URL",
-  "Xinference": "Xinference",
-  "Apixo GPT Image 2": "Apixo GPT Image 2"
+  "Xinference": "Xinference"
 }

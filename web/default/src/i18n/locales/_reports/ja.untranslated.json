@@ -30,6 +30,7 @@
   "API subscription plans": "API subscription plans",
   "API URL": "API URL",
   "API2GPT": "API2GPT",
+  "Apixo GPT Image 2": "Apixo GPT Image 2",
   "Are there any usage restrictions or rate limits?": "Are there any usage restrictions or rate limits?",
   "AZURE_OPENAI_ENDPOINT *": "AZURE_OPENAI_ENDPOINT *",
   "Best for": "Best for",
@@ -351,6 +352,5 @@
   "You commit to using upstream APIs, accounts, keys, quotas, and service capabilities only within the scope of lawful authorization obtained from upstream service providers, model service providers, or relevant rights holders, and will not conduct unauthorized resale, trafficking, distribution, or other non-compliant commercialization.": "You commit to using upstream APIs, accounts, keys, quotas, and service capabilities only within the scope of lawful authorization obtained from upstream service providers, model service providers, or relevant rights holders, and will not conduct unauthorized resale, trafficking, distribution, or other non-compliant commercialization.",
   "You have legally obtained authorization for the connected model APIs, accounts, keys, and quotas.": "You have legally obtained authorization for the connected model APIs, accounts, keys, and quotas.",
   "You understand and independently bear legal responsibility arising from deployment, operation, and charging behavior.": "You understand and independently bear legal responsibility arising from deployment, operation, and charging behavior.",
-  "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario.": "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario.",
-  "Apixo GPT Image 2": "Apixo GPT Image 2"
+  "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario.": "You understand this compliance reminder is only for risk notice and does not constitute legal advice, a compliance review conclusion, or a guarantee of the legality of your use of this system; you should consult professional legal or compliance advisors based on your actual business scenario."
 }

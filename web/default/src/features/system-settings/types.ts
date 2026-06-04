@@ -316,8 +316,6 @@ export type OperationsSettings = {
   'webhook_setting.interval_minutes': number
   'webhook_setting.suppress_minutes': number
   'webhook_setting.notify_on_empty_result': boolean
-  'webhook_setting.balance_check_enabled': boolean
-  'webhook_setting.balance_threshold': number
   'webhook_setting.model_error_check_enabled': boolean
   'webhook_setting.model_error_window_minutes': number
   'webhook_setting.model_error_threshold': number

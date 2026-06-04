@@ -54,8 +54,6 @@ const defaultOperationsSettings: OperationsSettings = {
   'webhook_setting.interval_minutes': 30,
   'webhook_setting.suppress_minutes': 30,
   'webhook_setting.notify_on_empty_result': false,
-  'webhook_setting.balance_check_enabled': true,
-  'webhook_setting.balance_threshold': 5,
   'webhook_setting.model_error_check_enabled': true,
   'webhook_setting.model_error_window_minutes': 10,
   'webhook_setting.model_error_threshold': 3,

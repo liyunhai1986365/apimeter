@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -64,6 +65,23 @@ func TestShouldSendGlobalWebhookNotificationSuppressesSameFingerprintWithinWindo
 	}, 1700000200)
 	require.True(t, shouldSendGlobalWebhookNotification(setting, changedPayload, 1700000200))
 	require.True(t, shouldSendGlobalWebhookNotification(setting, payload, 1700002000))
+}
+
+func TestCollectGlobalWebhookMonitorEventsDoesNotQueryChannelBalance(t *testing.T) {
+	setupGlobalWebhookControllerTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Channel{
+		Id:     11,
+		Name:   "azure-a",
+		Type:   constant.ChannelTypeAzure,
+		Status: common.ChannelStatusEnabled,
+	}).Error)
+
+	events := collectGlobalWebhookMonitorEvents(&operation_setting.WebhookSetting{
+		ModelErrorCheckEnabled:  false,
+		ChannelTestCheckEnabled: false,
+	})
+
+	require.Empty(t, events)
 }
 
 func TestBuildGlobalWebhookTestPayloadUsesLatestErrorLog(t *testing.T) {

@@ -90,9 +90,6 @@ func runGlobalWebhookMonitorTaskOnce() {
 
 func collectGlobalWebhookMonitorEvents(setting *operation_setting.WebhookSetting) []service.GlobalWebhookEvent {
 	events := make([]service.GlobalWebhookEvent, 0)
-	if setting.BalanceCheckEnabled {
-		events = append(events, collectGlobalWebhookBalanceEvents(setting)...)
-	}
 	if setting.ModelErrorCheckEnabled {
 		events = append(events, collectGlobalWebhookModelErrorEvents(setting)...)
 	}
@@ -101,52 +98,6 @@ func collectGlobalWebhookMonitorEvents(setting *operation_setting.WebhookSetting
 	}
 	if len(events) > globalWebhookMonitorMaxEvents {
 		return events[:globalWebhookMonitorMaxEvents]
-	}
-	return events
-}
-
-func collectGlobalWebhookBalanceEvents(setting *operation_setting.WebhookSetting) []service.GlobalWebhookEvent {
-	channels, err := model.GetAllChannels(0, 0, true, false)
-	if err != nil {
-		common.SysLog(fmt.Sprintf("global webhook balance query channels failed: %v", err))
-		return []service.GlobalWebhookEvent{{
-			Type:    "channel_balance_error",
-			Message: err.Error(),
-		}}
-	}
-	events := make([]service.GlobalWebhookEvent, 0)
-	threshold := setting.BalanceThreshold
-	for _, channel := range channels {
-		if channel == nil || channel.Status != common.ChannelStatusEnabled || channel.ChannelInfo.IsMultiKey {
-			continue
-		}
-		balance, err := updateChannelBalance(channel)
-		if err != nil {
-			events = append(events, service.GlobalWebhookEvent{
-				Type:        "channel_balance_error",
-				ChannelID:   channel.Id,
-				ChannelName: channel.Name,
-				ChannelType: channel.Type,
-				Message:     err.Error(),
-			})
-		} else if balance <= threshold {
-			balanceValue := balance
-			thresholdValue := threshold
-			events = append(events, service.GlobalWebhookEvent{
-				Type:        "channel_balance_low",
-				ChannelID:   channel.Id,
-				ChannelName: channel.Name,
-				ChannelType: channel.Type,
-				Balance:     &balanceValue,
-				Threshold:   &thresholdValue,
-			})
-		}
-		if common.RequestInterval > 0 {
-			time.Sleep(common.RequestInterval)
-		}
-		if len(events) >= globalWebhookMonitorMaxEvents {
-			return events
-		}
 	}
 	return events
 }
@@ -260,11 +211,10 @@ func shouldSendGlobalWebhookNotification(setting *operation_setting.WebhookSetti
 
 func buildGlobalWebhookFingerprint(payload service.GlobalWebhookPayload) string {
 	builder := strings.Builder{}
-	builder.WriteString(fmt.Sprintf("%d:%d:%d:%d",
-		payload.Summary.LowBalanceChannels,
-		payload.Summary.BalanceCheckErrors,
+	builder.WriteString(fmt.Sprintf("%d:%d:%d",
 		payload.Summary.ModelErrorItems,
 		payload.Summary.FailedChannelTests,
+		payload.Summary.AutoDisabledChannels,
 	))
 	for _, event := range payload.Events {
 		builder.WriteString(fmt.Sprintf("|%s:%d:%s:%s:%s:%d:%d",

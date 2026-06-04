@@ -9,8 +9,6 @@ type WebhookSetting struct {
 	IntervalMinutes          int     `json:"interval_minutes"`
 	SuppressMinutes          int     `json:"suppress_minutes"`
 	NotifyOnEmptyResult      bool    `json:"notify_on_empty_result"`
-	BalanceCheckEnabled      bool    `json:"balance_check_enabled"`
-	BalanceThreshold         float64 `json:"balance_threshold"`
 	ModelErrorCheckEnabled   bool    `json:"model_error_check_enabled"`
 	ModelErrorWindowMinutes  int     `json:"model_error_window_minutes"`
 	ModelErrorThreshold      int     `json:"model_error_threshold"`
@@ -27,8 +25,6 @@ var webhookSetting = WebhookSetting{
 	IntervalMinutes:          30,
 	SuppressMinutes:          30,
 	NotifyOnEmptyResult:      false,
-	BalanceCheckEnabled:      true,
-	BalanceThreshold:         5,
 	ModelErrorCheckEnabled:   true,
 	ModelErrorWindowMinutes:  10,
 	ModelErrorThreshold:      3,

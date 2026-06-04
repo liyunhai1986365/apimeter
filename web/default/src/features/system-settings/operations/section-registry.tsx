@@ -82,10 +82,6 @@ const OPERATIONS_SECTIONS = [
             settings['webhook_setting.suppress_minutes'],
           'webhook_setting.notify_on_empty_result':
             settings['webhook_setting.notify_on_empty_result'],
-          'webhook_setting.balance_check_enabled':
-            settings['webhook_setting.balance_check_enabled'],
-          'webhook_setting.balance_threshold':
-            settings['webhook_setting.balance_threshold'],
           'webhook_setting.model_error_check_enabled':
             settings['webhook_setting.model_error_check_enabled'],
           'webhook_setting.model_error_window_minutes':

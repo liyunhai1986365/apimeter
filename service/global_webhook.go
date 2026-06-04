@@ -10,6 +10,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 )
 
@@ -25,10 +27,9 @@ type GlobalWebhookPayload struct {
 }
 
 type GlobalWebhookSummary struct {
-	LowBalanceChannels int `json:"low_balance_channels"`
-	BalanceCheckErrors int `json:"balance_check_errors"`
-	ModelErrorItems    int `json:"model_error_items"`
-	FailedChannelTests int `json:"failed_channel_tests"`
+	ModelErrorItems      int `json:"model_error_items"`
+	FailedChannelTests   int `json:"failed_channel_tests"`
+	AutoDisabledChannels int `json:"auto_disabled_channels"`
 }
 
 type GlobalWebhookEvent struct {
@@ -62,17 +63,56 @@ func NewGlobalWebhookPayload(title string, events []GlobalWebhookEvent, now int6
 	}
 	for _, event := range events {
 		switch event.Type {
-		case "channel_balance_low":
-			payload.Summary.LowBalanceChannels++
-		case "channel_balance_error":
-			payload.Summary.BalanceCheckErrors++
 		case "model_error":
 			payload.Summary.ModelErrorItems++
 		case "channel_test_failed":
 			payload.Summary.FailedChannelTests++
+		case "channel_auto_disabled":
+			payload.Summary.AutoDisabledChannels++
 		}
 	}
 	return payload
+}
+
+func SendGlobalWebhookChannelOperationRecord(record model.ChannelOperationRecord) error {
+	if record.Action != model.ChannelOperationActionDisable || record.Source != model.ChannelOperationSourceAuto {
+		return nil
+	}
+	setting := operation_setting.GetWebhookSetting()
+	if !setting.Enabled || strings.TrimSpace(setting.URL) == "" {
+		return nil
+	}
+	now := common.GetTimestamp()
+	if record.CreatedAt > 0 {
+		now = record.CreatedAt
+	}
+	createdAt := now
+	event := GlobalWebhookEvent{
+		Type:          "channel_auto_disabled",
+		ChannelID:     record.ChannelID,
+		ChannelName:   record.ChannelName,
+		ModelName:     record.ModelName,
+		Message:       strings.TrimSpace(record.Reason),
+		TotalRequests: record.TotalRequests,
+		ErrorRequests: record.ErrorRequests,
+		ErrorRate:     record.ErrorRate,
+		CreatedAt:     createdAt,
+		Extra: map[string]interface{}{
+			"operation_record_id": record.Id,
+			"status":              record.Status,
+			"target_channel_id":   record.TargetChannelID,
+			"operation_group_id":  record.OperationGroupID,
+			"window_seconds":      record.WindowSeconds,
+			"success":             record.Success,
+			"extra":               record.Extra,
+		},
+	}
+	payload := NewGlobalWebhookPayload("New API 自动禁用告警", []GlobalWebhookEvent{event}, now)
+	payload.Meta = map[string]interface{}{
+		"node_name": common.NodeName,
+		"version":   common.Version,
+	}
+	return SendGlobalWebhookPayload(setting.URL, setting.Secret, payload)
 }
 
 func SendGlobalWebhookPayload(webhookURL string, secret string, payload GlobalWebhookPayload) error {
@@ -179,8 +219,8 @@ func buildWeComMarkdownContent(payload GlobalWebhookPayload) string {
 	lines := []string{
 		fmt.Sprintf("## %s", nonEmpty(payload.Title, "New API 监控告警")),
 		fmt.Sprintf(">时间：<font color=\"comment\">%s</font>", time.Unix(payload.Timestamp, 0).Format("2006-01-02 15:04:05")),
-		fmt.Sprintf(">低余额渠道：<font color=\"warning\">%d</font>，余额查询失败：<font color=\"warning\">%d</font>", payload.Summary.LowBalanceChannels, payload.Summary.BalanceCheckErrors),
-		fmt.Sprintf(">模型错误：<font color=\"warning\">%d</font>，渠道测试失败：<font color=\"warning\">%d</font>", payload.Summary.ModelErrorItems, payload.Summary.FailedChannelTests),
+		fmt.Sprintf(">自动禁用：<font color=\"warning\">%d</font>，模型错误：<font color=\"warning\">%d</font>", payload.Summary.AutoDisabledChannels, payload.Summary.ModelErrorItems),
+		fmt.Sprintf(">渠道测试失败：<font color=\"warning\">%d</font>", payload.Summary.FailedChannelTests),
 	}
 	if len(payload.Events) == 0 {
 		lines = append(lines, "", "无告警事件。")
@@ -210,22 +250,22 @@ func formatWeComEventLine(event GlobalWebhookEvent) string {
 	}
 
 	switch event.Type {
-	case "channel_balance_low":
-		balance := "-"
-		threshold := "-"
-		if event.Balance != nil {
-			balance = fmt.Sprintf("%.4f", *event.Balance)
-		}
-		if event.Threshold != nil {
-			threshold = fmt.Sprintf("%.4f", *event.Threshold)
-		}
-		return fmt.Sprintf("渠道余额低：<font color=\"warning\">%s</font>，余额 %s，阈值 %s", channel, balance, threshold)
-	case "channel_balance_error":
-		return fmt.Sprintf("余额查询失败：<font color=\"warning\">%s</font>，%s", channel, truncateSingleLine(event.Message, 160))
 	case "model_error":
 		return fmt.Sprintf("模型错误：<font color=\"warning\">%s</font> / `%s`，错误 %d/%d，错误率 %.2f%%，最近错误：%s", channel, nonEmpty(event.ModelName, "-"), event.ErrorRequests, event.TotalRequests, event.ErrorRate, truncateSingleLine(event.Message, 160))
 	case "channel_test_failed":
 		return fmt.Sprintf("渠道测试失败：<font color=\"warning\">%s</font> / `%s`，%s", channel, nonEmpty(event.ModelName, "-"), truncateSingleLine(event.Message, 160))
+	case "channel_auto_disabled":
+		detail := fmt.Sprintf("自动禁用：<font color=\"warning\">%s</font>", channel)
+		if strings.TrimSpace(event.ModelName) != "" {
+			detail += fmt.Sprintf(" / `%s`", strings.TrimSpace(event.ModelName))
+		}
+		if event.TotalRequests > 0 || event.ErrorRequests > 0 {
+			detail += fmt.Sprintf("，错误 %d/%d，错误率 %.2f%%", event.ErrorRequests, event.TotalRequests, event.ErrorRate)
+		}
+		if strings.TrimSpace(event.Message) != "" {
+			detail += fmt.Sprintf("，原因：%s", truncateSingleLine(event.Message, 160))
+		}
+		return detail
 	case "webhook_test_latest_error":
 		requestID := ""
 		if event.Extra != nil {
