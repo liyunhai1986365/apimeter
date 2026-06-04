@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
@@ -121,6 +122,8 @@ type imageAsyncTaskResponse struct {
 	Error      map[string]interface{} `json:"error,omitempty"`
 }
 
+const defaultImageAsyncWaitTimeoutSeconds = 600
+
 type duomiGeminiImageSubmitResponse struct {
 	Code int    `json:"code"`
 	Msg  string `json:"msg"`
@@ -222,7 +225,7 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 	key := info.ApiKey
 	proxy := info.ChannelSetting.Proxy
 
-	body, err := waitImageTaskSucceeded(c, baseURL, key, upstreamTaskID, proxy, info.OriginModelName)
+	body, err := waitImageTaskSucceeded(c, baseURL, key, upstreamTaskID, proxy, info.OriginModelName, info.ChannelSetting)
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusBadGateway)
 	}
@@ -233,7 +236,7 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 	return output, nil
 }
 
-func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy, modelName string) ([]byte, error) {
+func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy, modelName string, settings ...dto.ChannelSettings) ([]byte, error) {
 	waitSeconds := 2 * time.Second
 	maxStep := imageAsyncWaitMaxStep(c)
 	if maxStep <= 0 {
@@ -243,7 +246,7 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy,
 		if err := imageAsyncWaitContextErr(c); err != nil {
 			return nil, err
 		}
-		body, statusCode, err := fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy, modelName)
+		body, statusCode, err := fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy, modelName, settings...)
 		if err != nil {
 			return nil, err
 		}
@@ -251,7 +254,7 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy,
 			return nil, fmt.Errorf("fetch image task status code: %d, body: %s", statusCode, string(body))
 		}
 
-		upstream, normalizedBody, err := normalizeImageTaskResponseForRelay(modelName, upstreamTaskID, body)
+		upstream, normalizedBody, err := normalizeImageTaskResponseForRelay(modelName, upstreamTaskID, body, configurableImageProfileFromSettingsSlice(settings...))
 		if err != nil {
 			return nil, err
 		}
@@ -285,7 +288,7 @@ func imageAsyncWaitMaxStep(c *gin.Context) int {
 			}
 		}
 	}
-	return imageAsyncWaitSteps(common.GetEnvOrDefault("IMAGE_ASYNC_WAIT_TIMEOUT_SECONDS", 120))
+	return imageAsyncWaitSteps(common.GetEnvOrDefault("IMAGE_ASYNC_WAIT_TIMEOUT_SECONDS", defaultImageAsyncWaitTimeoutSeconds))
 }
 
 func imageAsyncWaitSteps(timeoutSeconds int) int {
@@ -323,7 +326,17 @@ func sleepImageAsyncWait(c *gin.Context, d time.Duration) error {
 	}
 }
 
-func normalizeImageTaskResponseForRelay(modelName, upstreamTaskID string, body []byte) (dto.ImageTaskResponse, []byte, error) {
+func normalizeImageTaskResponseForRelay(modelName, upstreamTaskID string, body []byte, profile *configurable.Profile) (dto.ImageTaskResponse, []byte, error) {
+	if profile != nil {
+		if upstream, ok, err := configurable.ImageTaskResponseFromProfile(upstreamTaskID, modelName, profile, body); ok || err != nil {
+			if err != nil {
+				return dto.ImageTaskResponse{}, nil, err
+			}
+			normalized, err := common.Marshal(upstream)
+			return upstream, normalized, err
+		}
+	}
+
 	if relaycommon.IsDuomiGeminiImageModel(modelName) {
 		task := &model.Task{
 			TaskID: upstreamTaskID,
@@ -375,8 +388,15 @@ func convertImageAsyncResultToOpenAIResponse(info *relaycommon.RelayInfo, body [
 	return common.Marshal(imageResp)
 }
 
-func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string, modelName ...string) ([]byte, int, error) {
-	req, err := buildImageTaskFetchRequest(baseURL, key, upstreamTaskID, modelName...)
+func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string, modelName string, settings ...dto.ChannelSettings) ([]byte, int, error) {
+	profile := configurableImageProfileFromSettingsSlice(settings...)
+	var req *http.Request
+	var err error
+	if profile != nil {
+		req, err = buildConfigurableImageTaskFetchRequest(baseURL, key, upstreamTaskID, profile)
+	} else {
+		req, err = buildImageTaskFetchRequest(baseURL, key, upstreamTaskID, modelName)
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -495,7 +515,13 @@ func fetchImageTaskFromUpstream(task *model.Task) ([]byte, int, error) {
 		return nil, 0, fmt.Errorf("channel base url is empty")
 	}
 
-	req, err := buildImageTaskFetchRequest(baseURL, channelModel.Key, task.GetUpstreamTaskID(), imageTaskModelName(task))
+	profile := configurableImageProfileFromChannel(channelModel)
+	var req *http.Request
+	if profile != nil {
+		req, err = buildConfigurableImageTaskFetchRequest(baseURL, channelModel.Key, task.GetUpstreamTaskID(), profile)
+	} else {
+		req, err = buildImageTaskFetchRequest(baseURL, channelModel.Key, task.GetUpstreamTaskID(), imageTaskModelName(task))
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -540,7 +566,58 @@ func buildImageTaskFetchRequest(baseURL, key, upstreamTaskID string, modelName .
 	return req, nil
 }
 
+func buildConfigurableImageTaskFetchRequest(baseURL, key, upstreamTaskID string, profile *configurable.Profile) (*http.Request, error) {
+	if profile == nil || !strings.EqualFold(strings.TrimSpace(profile.MediaType), "image") {
+		return nil, fmt.Errorf("configurable image profile not found")
+	}
+	requestURL := strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(strings.ReplaceAll(profile.Fetch.Path, "{task_id}", upstreamTaskID), "/")
+	method := strings.ToUpper(strings.TrimSpace(profile.Fetch.Method))
+	if method == "" {
+		method = http.MethodGet
+	}
+	req, err := http.NewRequest(method, requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	if strings.TrimSpace(key) != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+	return req, nil
+}
+
+func configurableImageProfileFromSettingsSlice(settings ...dto.ChannelSettings) *configurable.Profile {
+	if len(settings) == 0 {
+		return nil
+	}
+	return configurableImageProfileFromSettings(settings[0])
+}
+
+func configurableImageProfileFromSettings(settings dto.ChannelSettings) *configurable.Profile {
+	if settings.Protocol == nil || strings.TrimSpace(settings.Protocol.ProfileID) == "" {
+		return nil
+	}
+	profile, ok := configurable.GetProfile(settings.Protocol.ProfileID)
+	if !ok || !strings.EqualFold(strings.TrimSpace(profile.MediaType), "image") {
+		return nil
+	}
+	return profile
+}
+
+func configurableImageProfileFromChannel(channelModel *model.Channel) *configurable.Profile {
+	if channelModel == nil || channelModel.Type != constant.ChannelTypeConfigurable {
+		return nil
+	}
+	return configurableImageProfileFromSettings(channelModel.GetSetting())
+}
+
 func convertImageTaskResponse(task *model.Task, body []byte) ([]byte, error) {
+	if profile := configurableImageProfileForTask(task); profile != nil {
+		if normalized, ok, err := configurable.ImageTaskResponseBytesFromProfile(task.GetUpstreamTaskID(), profile, body); ok || err != nil {
+			return normalized, err
+		}
+	}
+
 	if relaycommon.IsDuomiGeminiImageModel(imageTaskModelName(task)) {
 		if normalized, ok, err := normalizeDuomiGeminiImageTaskResponse(task, body); ok || err != nil {
 			return normalized, err
@@ -565,6 +642,17 @@ func convertImageTaskResponse(task *model.Task, body []byte) ([]byte, error) {
 		response.State = mapTaskStatusToSimple(task.Status)
 	}
 	return common.Marshal(response)
+}
+
+func configurableImageProfileForTask(task *model.Task) *configurable.Profile {
+	if task == nil || task.ChannelId <= 0 {
+		return nil
+	}
+	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	if err != nil {
+		return nil
+	}
+	return configurableImageProfileFromChannel(channelModel)
 }
 
 func normalizeDuomiGeminiImageTaskResponse(task *model.Task, body []byte) ([]byte, bool, error) {

@@ -121,6 +121,8 @@ func GetAdaptor(apiType int) channel.Adaptor {
 		return &replicate.Adaptor{}
 	case constant.APITypeCodex:
 		return &codex.Adaptor{}
+	case constant.APITypeConfigurable:
+		return &configurable.ImageAdaptor{}
 	}
 	return nil
 }

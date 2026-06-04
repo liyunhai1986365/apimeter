@@ -1,0 +1,71 @@
+id: apixo-gpt-image-2
+name: Apixo GPT Image 2
+media_type: image
+accepted_modes:
+  - openai.image.generations
+  - openai.image.edits
+upstream_modes:
+  - apixo.gpt-image-2.image
+submit:
+  method: POST
+  path: /api/v1/generateTask/gpt-image-2
+  body:
+    fields:
+      - to: request_type
+        value: async
+      - to: request_type
+        from: request.request_type
+        omit_empty: true
+      - to: callback_url
+        from: request.callback_url
+        omit_empty: true
+      - to: input.mode
+        from: request.image_urls
+        transform: image_mode
+      - to: input.prompt
+        from: request.prompt
+      - to: input.image_urls
+        from: request.image_urls
+        omit_empty: true
+      - to: input.aspect_ratio
+        from: request.size
+        transform: image_aspect_ratio
+        omit_empty: true
+      - to: input.resolution
+        from: request.size
+        transform: image_resolution
+        omit_empty: true
+      - to: input.aspect_ratio
+        from: request.aspect_ratio
+        transform: image_aspect_ratio
+        omit_empty: true
+      - to: input.resolution
+        from: request.resolution
+        transform: image_resolution
+        omit_empty: true
+      - to: input.quality
+        from: request.quality
+        transform: image_quality
+        omit_empty: true
+  response:
+    task_id_path: data.taskId
+fetch:
+  method: GET
+  path: /api/v1/statusTask/gpt-image-2?taskId={task_id}
+  response:
+    task_id_path: data.taskId
+    status_path: data.state
+    result_json_path: data.resultJson
+    result_url_path: resultUrls
+    reason_path: data.failMsg
+    status_map:
+      success: SUCCESS
+      succeeded: SUCCESS
+      failed: FAILURE
+      failure: FAILURE
+      error: FAILURE
+      pending: QUEUED
+      queued: QUEUED
+      submitted: SUBMITTED
+      processing: IN_PROGRESS
+      running: IN_PROGRESS

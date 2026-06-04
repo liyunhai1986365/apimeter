@@ -89,14 +89,15 @@ type FieldMapping struct {
 }
 
 type ResponseConfig struct {
-	Passthrough   bool              `yaml:"passthrough"`
-	Fields        []FieldMapping    `yaml:"fields"`
-	TaskIDPath    string            `yaml:"task_id_path"`
-	StatusPath    string            `yaml:"status_path"`
-	ProgressPath  string            `yaml:"progress_path"`
-	ResultURLPath string            `yaml:"result_url_path"`
-	ReasonPath    string            `yaml:"reason_path"`
-	StatusMap     map[string]string `yaml:"status_map"`
+	Passthrough    bool              `yaml:"passthrough"`
+	Fields         []FieldMapping    `yaml:"fields"`
+	TaskIDPath     string            `yaml:"task_id_path"`
+	StatusPath     string            `yaml:"status_path"`
+	ProgressPath   string            `yaml:"progress_path"`
+	ResultURLPath  string            `yaml:"result_url_path"`
+	ResultJSONPath string            `yaml:"result_json_path"`
+	ReasonPath     string            `yaml:"reason_path"`
+	StatusMap      map[string]string `yaml:"status_map"`
 }
 
 var (

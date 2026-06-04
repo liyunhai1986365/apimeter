@@ -1,10 +1,12 @@
 package openai
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -12,6 +14,13 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func rawJSON(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	data, err := common.Marshal(value)
+	require.NoError(t, err)
+	return data
+}
 
 func TestConvertImageRequestUsesDuomiGeminiTextToImagePayload(t *testing.T) {
 	adaptor := &Adaptor{}

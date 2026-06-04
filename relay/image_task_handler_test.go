@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
@@ -281,6 +282,32 @@ func TestImageAsyncWaitStepsRoundsUp(t *testing.T) {
 	require.Equal(t, 2, imageAsyncWaitSteps(3))
 }
 
+func TestImageAsyncWaitMaxStepDefaultsTo600Seconds(t *testing.T) {
+	t.Setenv("IMAGE_ASYNC_WAIT_TIMEOUT_SECONDS", "")
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	require.Equal(t, 300, imageAsyncWaitMaxStep(c))
+}
+
+func TestShouldForceConvertImageRequestForConfigurableImageProfile(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeConfigurable,
+			ChannelSetting: dto.ChannelSettings{
+				PassThroughBodyEnabled: true,
+				Protocol: &dto.ChannelProtocolSettings{
+					ProfileID: "apixo-gpt-image-2",
+				},
+			},
+		},
+	}
+
+	require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{Model: "any-image-model"}))
+}
+
 func TestImageResponseCaptureDoesNotWriteBodyOnIntermediateFlush(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -451,6 +478,57 @@ func TestBuildImageTaskFetchRequestUsesDuomiGeminiTaskEndpoint(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana/7154f43c-7765-4e77-d51e-0db4eee107b0", req.URL.String())
 	require.Equal(t, "duomi-key", req.Header.Get("Authorization"))
+}
+
+func TestBuildConfigurableImageTaskFetchRequestUsesProfile(t *testing.T) {
+	profile, ok := configurable.GetProfile("apixo-gpt-image-2")
+	require.True(t, ok)
+	req, err := buildConfigurableImageTaskFetchRequest("https://api.apixo.ai", "apixo-key", "dff8afd34c4e47719b85ad6651daa3f0", profile)
+	require.NoError(t, err)
+	require.Equal(t, "https://api.apixo.ai/api/v1/statusTask/gpt-image-2?taskId=dff8afd34c4e47719b85ad6651daa3f0", req.URL.String())
+	require.Equal(t, "Bearer apixo-key", req.Header.Get("Authorization"))
+}
+
+func TestConvertImageTaskResponseUsesConfigurableImageProfile(t *testing.T) {
+	setupImageTaskTestDB(t)
+	channel := model.Channel{
+		Id:      63,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "apixo-key",
+		BaseURL: common.GetPointer("https://api.apixo.ai"),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "apixo-gpt-image-2"},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+
+	task := &model.Task{
+		TaskID:    "dff8afd34c4e47719b85ad6651daa3f0",
+		ChannelId: 63,
+		Action:    constant.TaskActionGenerate,
+		Properties: model.Properties{
+			OriginModelName: "gpt-image-2",
+		},
+	}
+	output, err := convertImageTaskResponse(task, []byte(`{
+		"code": 200,
+		"message": "success",
+		"data": {
+			"resultJson": "{\"resultUrls\":[\"https://file.apixo.ai/temp/out.png\"]}",
+			"state": "success",
+			"taskId": "dff8afd34c4e47719b85ad6651daa3f0"
+		}
+	}`))
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"id":"dff8afd34c4e47719b85ad6651daa3f0",
+		"state":"success",
+		"progress":0,
+		"create_time":0,
+		"update_time":0,
+		"action":"generate",
+		"data":{"images":[{"url":"https://file.apixo.ai/temp/out.png"}]}
+	}`, string(output))
 }
 
 func TestConvertImageTaskResponseNormalizesDuomiGeminiPayload(t *testing.T) {

@@ -49,6 +49,10 @@ export const PROTOCOL_PROFILE_OPTIONS = [
     label: 'HappyHorse Video',
     value: 'happyhorse-video',
   },
+  {
+    label: 'Apixo GPT Image 2',
+    value: 'apixo-gpt-image-2',
+  },
 ]
 
 // ============================================================================

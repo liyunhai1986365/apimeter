@@ -1,0 +1,132 @@
+package configurable
+
+import (
+	"bytes"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
+)
+
+func TestImageAdaptorBuildsApixoTextToImagePayloadFromProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfo(relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:   "gpt-image-2",
+		Prompt:  "a clean product photo",
+		Size:    "2048x1536",
+		Quality: "auto",
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "async", gjson.GetBytes(data, "request_type").String())
+	require.Equal(t, "text-to-image", gjson.GetBytes(data, "input.mode").String())
+	require.Equal(t, "a clean product photo", gjson.GetBytes(data, "input.prompt").String())
+	require.Equal(t, "4:3", gjson.GetBytes(data, "input.aspect_ratio").String())
+	require.Equal(t, "2k", gjson.GetBytes(data, "input.resolution").String())
+	require.Equal(t, "medium", gjson.GetBytes(data, "input.quality").String())
+	require.False(t, gjson.GetBytes(data, "input.image_urls").Exists())
+}
+
+func TestImageAdaptorBuildsApixoImageEditPayloadFromMultipart(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "edit this image"))
+	require.NoError(t, writer.WriteField("size", "auto"))
+	require.NoError(t, writer.WriteField("quality", "auto"))
+	part, err := writer.CreateFormFile("image[]", "source.jpg")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("fake-jpg"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", &body)
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfo(relayconstant.RelayModeImagesEdits)
+	adaptor.Init(info)
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:   "gpt-image-2",
+		Prompt:  "edit this image",
+		Size:    "auto",
+		Quality: "auto",
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "image-to-image", gjson.GetBytes(data, "input.mode").String())
+	require.Equal(t, "auto", gjson.GetBytes(data, "input.aspect_ratio").String())
+	require.Equal(t, "1k", gjson.GetBytes(data, "input.resolution").String())
+	require.Equal(t, "medium", gjson.GetBytes(data, "input.quality").String())
+	require.Equal(t, int64(1), gjson.GetBytes(data, "input.image_urls.#").Int())
+	require.Contains(t, gjson.GetBytes(data, "input.image_urls.0").String(), "/api/relay-temp-images/")
+}
+
+func TestImageAdaptorApixoRequestURLAndSubmitResponseFromProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfo(relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	requestURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	require.Equal(t, "https://api.apixo.ai/api/v1/generateTask/gpt-image-2", requestURL)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"code":200,"message":"success","data":{"taskId":"task-123"}}`))),
+	}
+	usage, newAPIError := adaptor.DoResponse(c, resp, info)
+	require.Nil(t, newAPIError)
+	require.IsType(t, &dto.Usage{}, usage)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "task-123", gjson.GetBytes(recorder.Body.Bytes(), "id").String())
+}
+
+func configurableImageRelayInfo(relayMode int) *relaycommon.RelayInfo {
+	return &relaycommon.RelayInfo{
+		RelayMode:       relayMode,
+		OriginModelName: "gpt-image-2",
+		RequestURLPath:  "/v1/images/generations",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			ChannelBaseUrl:    "https://api.apixo.ai",
+			ApiKey:            "apixo-key",
+			UpstreamModelName: "gpt-image-2",
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					ProfileID: "apixo-gpt-image-2",
+				},
+			},
+		},
+	}
+}

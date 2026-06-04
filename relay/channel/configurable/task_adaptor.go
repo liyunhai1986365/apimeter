@@ -619,6 +619,14 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 		return toIntValue(value)
 	case "media_objects":
 		return mediaObjects(value, field), nil
+	case "image_mode":
+		return imageMode(value), nil
+	case "image_aspect_ratio":
+		return imageAspectRatio(value), nil
+	case "image_resolution":
+		return imageResolution(value), nil
+	case "image_quality":
+		return imageQuality(value), nil
 	default:
 		return nil, fmt.Errorf("unsupported transform %q", transform)
 	}

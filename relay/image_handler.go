@@ -47,7 +47,9 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 	var requestBody io.Reader
 
-	if !isConvertedImageRequest(c, info) && (model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) {
+	if !shouldForceConvertImageRequest(info, imageReq) &&
+		!isConvertedImageRequest(c, info) &&
+		(model_setting.GetGlobalSettings().PassThroughRequestEnabled || info.ChannelSetting.PassThroughBodyEnabled) {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
@@ -136,6 +138,13 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		}
 	}
 
+	usageData := usage.(*dto.Usage)
+	if ensureEstimatedImageUsageIfMissing(info, request, usageData) && responseCapture.HasBody() {
+		if body, injected := imageResponseBodyWithUsage(responseCapture.BodyBytes(), usageData); injected {
+			responseCapture.ReplaceBody(responseCapture.Status(), body)
+		}
+	}
+
 	imageN := uint(1)
 	if request.N != nil {
 		imageN = *request.N
@@ -151,11 +160,11 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		}
 	}
 
-	if usage.(*dto.Usage).TotalTokens == 0 {
-		usage.(*dto.Usage).TotalTokens = 1
+	if usageData.TotalTokens == 0 {
+		usageData.TotalTokens = 1
 	}
-	if usage.(*dto.Usage).PromptTokens == 0 {
-		usage.(*dto.Usage).PromptTokens = 1
+	if usageData.PromptTokens == 0 {
+		usageData.PromptTokens = 1
 	}
 
 	quality := "standard"
@@ -175,8 +184,8 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		logContent = append(logContent, fmt.Sprintf("生成数量 %d", imageN))
 	}
 
-	service.PostTextConsumeQuota(c, info, usage.(*dto.Usage), logContent)
-	if wrapped, wrapErr := maybeWrapChatImageResponse(c, info, responseCapture.BodyBytes(), usage.(*dto.Usage)); wrapErr != nil {
+	service.PostTextConsumeQuota(c, info, usageData, logContent)
+	if wrapped, wrapErr := maybeWrapChatImageResponse(c, info, responseCapture.BodyBytes(), usageData); wrapErr != nil {
 		return wrapErr
 	} else if wrapped {
 		return nil
@@ -190,4 +199,11 @@ func isConvertedImageRequest(c *gin.Context, info *relaycommon.RelayInfo) bool {
 		return true
 	}
 	return conversion.ActiveConversionID(c) != "" || c.GetBool("chat_image_compat")
+}
+
+func shouldForceConvertImageRequest(info *relaycommon.RelayInfo, request *dto.ImageRequest) bool {
+	if info == nil || request == nil {
+		return false
+	}
+	return configurableImageProfileFromSettings(info.ChannelSetting) != nil
 }

@@ -590,10 +590,31 @@ func OpenaiHandlerWithUsage(c *gin.Context, info *relaycommon.RelayInfo, resp *h
 	return &usageResp.Usage, nil
 }
 
+func applyOutputTokensDetails(usage *dto.Usage) {
+	if usage == nil || usage.OutputTokensDetails == nil {
+		return
+	}
+	details := usage.OutputTokensDetails
+	if usage.CompletionTokenDetails.TextTokens == 0 {
+		usage.CompletionTokenDetails.TextTokens = details.TextTokens
+	}
+	if usage.CompletionTokenDetails.AudioTokens == 0 {
+		usage.CompletionTokenDetails.AudioTokens = details.AudioTokens
+	}
+	if usage.CompletionTokenDetails.ImageTokens == 0 {
+		usage.CompletionTokenDetails.ImageTokens = details.ImageTokens
+	}
+	if usage.CompletionTokenDetails.ReasoningTokens == 0 {
+		usage.CompletionTokenDetails.ReasoningTokens = details.ReasoningTokens
+	}
+}
+
 func applyUsagePostProcessing(info *relaycommon.RelayInfo, usage *dto.Usage, responseBody []byte) {
 	if info == nil || usage == nil {
 		return
 	}
+
+	applyOutputTokensDetails(usage)
 
 	switch info.ChannelType {
 	case constant.ChannelTypeDeepSeek:
