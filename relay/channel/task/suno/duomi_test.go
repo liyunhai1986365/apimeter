@@ -308,6 +308,28 @@ func TestDuomiFeedResponseDoesNotReturnContentBeforeStatusThree(t *testing.T) {
 	}
 }
 
+func TestDuomiFeedResponseMapsStatusTwoWithMessageToFailure(t *testing.T) {
+	body := []byte(`{"code":200,"msg":"success","data":{"task_id":"upstream_1","status":"2","msg":"Song generation is temporarily unavailable. Please try again shortly."}}`)
+
+	items, err := parseDuomiFetchResponse("upstream_1", body)
+	if err != nil {
+		t.Fatalf("parseDuomiFetchResponse error: %v", err)
+	}
+	if len(items) != 1 {
+		t.Fatalf("unexpected item count: %d", len(items))
+	}
+	item := items[0]
+	if item.Status != "FAILURE" {
+		t.Fatalf("unexpected status: %+v", item)
+	}
+	if item.FailReason != "Song generation is temporarily unavailable. Please try again shortly." {
+		t.Fatalf("unexpected fail reason: %+v", item)
+	}
+	if item.FinishTime == 0 {
+		t.Fatalf("failure response should set finish time: %+v", item)
+	}
+}
+
 func TestDuomiFeedResponsePrefersStatusOverStateForSuccess(t *testing.T) {
 	body := []byte(`{"code":200,"msg":"ok","data":{"task_id":"upstream_1","state":"succeeded","status":"2","title":"Song","audio_url":"https://cdn.example/song.mp3","image_url":"https://cdn.example/img.jpg","prompt":"lyrics","mv":"chirp-v4"}}`)
 

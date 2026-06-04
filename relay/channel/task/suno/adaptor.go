@@ -609,7 +609,7 @@ func parseDuomiFetchResponse(taskID string, responseBody []byte) ([]dto.SunoData
 	if data.TaskID == "" {
 		return nil, fmt.Errorf("duomi response missing task_id")
 	}
-	status := mapDuomiStatus(firstNonEmpty(string(data.Status), string(data.State)))
+	status := mapDuomiFeedStatus(data)
 	item := dto.SunoDataResponse{
 		TaskID:     data.TaskID,
 		Action:     constant.SunoActionMusic,
@@ -623,6 +623,13 @@ func parseDuomiFetchResponse(taskID string, responseBody []byte) ([]dto.SunoData
 		item.FinishTime = time.Now().Unix()
 	}
 	return []dto.SunoDataResponse{item}, nil
+}
+
+func mapDuomiFeedStatus(data dto.DuomiSunoFeedData) model.TaskStatus {
+	if strings.TrimSpace(string(data.Status)) == "2" && strings.TrimSpace(data.Msg) != "" {
+		return model.TaskStatusFailure
+	}
+	return mapDuomiStatus(firstNonEmpty(string(data.Status), string(data.State)))
 }
 
 func mapDuomiStatus(state string) model.TaskStatus {
@@ -641,7 +648,7 @@ func mapDuomiStatus(state string) model.TaskStatus {
 }
 
 func duomiFailReason(data dto.DuomiSunoFeedData) string {
-	if mapDuomiStatus(firstNonEmpty(string(data.Status), string(data.State))) != model.TaskStatusFailure {
+	if mapDuomiFeedStatus(data) != model.TaskStatusFailure {
 		return ""
 	}
 	if data.Msg != "" {

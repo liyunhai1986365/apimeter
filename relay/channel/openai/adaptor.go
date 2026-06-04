@@ -168,16 +168,7 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			info.RelayMode != relayconstant.RelayModeResponsesCompact {
 			return fmt.Sprintf("%s/v1/chat/completions", info.ChannelBaseUrl), nil
 		}
-		requestURLPath := info.RequestURLPath
-		if imageReq, ok := info.Request.(*dto.ImageRequest); ok {
-			if geminiPath, ok := relaycommon.DuomiGeminiImageRequestPath(info.ChannelBaseUrl, requestURLPath, imageReq.Model, duomiGeminiImageRequestHasImage(*imageReq)); ok {
-				return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, geminiPath, info.ChannelType), nil
-			}
-		}
-		if relaycommon.ShouldUseDuomiImageAsync(info.ChannelBaseUrl, requestURLPath) {
-			requestURLPath = relaycommon.WithAsyncQuery(requestURLPath)
-		}
-		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, requestURLPath, info.ChannelType), nil
+		return relaycommon.GetFullRequestURL(info.ChannelBaseUrl, info.RequestURLPath, info.ChannelType), nil
 	}
 }
 
@@ -221,13 +212,7 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *
 		}
 	} else {
 		if !hasAuthOverride {
-			if imageReq, ok := info.Request.(*dto.ImageRequest); ok &&
-				relaycommon.IsDuomiImageAsyncUpstream(info.ChannelBaseUrl) &&
-				relaycommon.IsDuomiGeminiImageModel(imageReq.Model) {
-				header.Set("Authorization", info.ApiKey)
-			} else {
-				header.Set("Authorization", "Bearer "+info.ApiKey)
-			}
+			header.Set("Authorization", "Bearer "+info.ApiKey)
 		}
 	}
 	if info.ChannelType == constant.ChannelTypeOpenRouter {
@@ -439,10 +424,6 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	if relaycommon.IsDuomiGeminiImageModel(request.Model) && relaycommon.IsDuomiImageAsyncUpstream(info.ChannelBaseUrl) {
-		return convertDuomiGeminiImageRequest(request)
-	}
-
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesEdits:
 		if isJSONRequest(c) {
@@ -571,92 +552,6 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	default:
 		return request, nil
 	}
-}
-
-func convertDuomiGeminiImageRequest(request dto.ImageRequest) (map[string]any, error) {
-	payload := map[string]any{
-		"model":  request.Model,
-		"prompt": request.Prompt,
-	}
-	if aspectRatio := imageRequestStringField(request, "aspect_ratio"); aspectRatio != "" {
-		payload["aspect_ratio"] = aspectRatio
-	}
-	if imageSize := imageRequestStringField(request, "image_size"); imageSize != "" {
-		payload["image_size"] = imageSize
-	} else if request.Size != "" {
-		payload["image_size"] = request.Size
-	}
-	imageURLs, err := duomiGeminiImageURLs(request)
-	if err != nil {
-		return nil, err
-	}
-	if len(imageURLs) > 0 {
-		payload["image_urls"] = imageURLs
-	}
-	return payload, nil
-}
-
-func duomiGeminiImageRequestHasImage(request dto.ImageRequest) bool {
-	imageURLs, err := duomiGeminiImageURLs(request)
-	return err == nil && len(imageURLs) > 0
-}
-
-func duomiGeminiImageURLs(request dto.ImageRequest) ([]string, error) {
-	var imageURLs []string
-	appendRawImageURLs := func(raw []byte) error {
-		if len(raw) == 0 {
-			return nil
-		}
-		var single string
-		if err := common.Unmarshal(raw, &single); err == nil {
-			if strings.TrimSpace(single) != "" {
-				imageURLs = append(imageURLs, strings.TrimSpace(single))
-			}
-			return nil
-		}
-		var multi []string
-		if err := common.Unmarshal(raw, &multi); err == nil {
-			for _, url := range multi {
-				if strings.TrimSpace(url) != "" {
-					imageURLs = append(imageURLs, strings.TrimSpace(url))
-				}
-			}
-			return nil
-		}
-		var objects []map[string]any
-		if err := common.Unmarshal(raw, &objects); err == nil {
-			for _, object := range objects {
-				if url, ok := object["url"].(string); ok && strings.TrimSpace(url) != "" {
-					imageURLs = append(imageURLs, strings.TrimSpace(url))
-				}
-			}
-			return nil
-		}
-		return nil
-	}
-
-	if err := appendRawImageURLs(request.Image); err != nil {
-		return nil, err
-	}
-	if err := appendRawImageURLs(request.Images); err != nil {
-		return nil, err
-	}
-	if raw, ok := request.Extra["image_urls"]; ok {
-		if err := appendRawImageURLs(raw); err != nil {
-			return nil, err
-		}
-	}
-	return imageURLs, nil
-}
-
-func imageRequestStringField(request dto.ImageRequest, key string) string {
-	if raw, ok := request.Extra[key]; ok && len(raw) > 0 {
-		var value string
-		if err := common.Unmarshal(raw, &value); err == nil {
-			return strings.TrimSpace(value)
-		}
-	}
-	return ""
 }
 
 func isJSONRequest(c *gin.Context) bool {

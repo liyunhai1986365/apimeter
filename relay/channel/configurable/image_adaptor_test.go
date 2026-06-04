@@ -112,19 +112,82 @@ func TestImageAdaptorApixoRequestURLAndSubmitResponseFromProfile(t *testing.T) {
 	require.Equal(t, "task-123", gjson.GetBytes(recorder.Body.Bytes(), "id").String())
 }
 
+func TestImageAdaptorBuildsDuomiGeminiTextToImagePayloadFromProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("duomi-gemini-image", "https://duomiapi.com", "duomi-key", relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gemini-3-pro-image-preview",
+		Prompt: "中文海报",
+		Size:   "1K",
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "gemini-3-pro-image-preview", gjson.GetBytes(data, "model").String())
+	require.Equal(t, "中文海报", gjson.GetBytes(data, "prompt").String())
+	require.Equal(t, "1K", gjson.GetBytes(data, "image_size").String())
+	require.False(t, gjson.GetBytes(data, "image_urls").Exists())
+
+	requestURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana", requestURL)
+
+	header := http.Header{}
+	require.NoError(t, adaptor.SetupRequestHeader(c, &header, info))
+	require.Equal(t, "duomi-key", header.Get("Authorization"))
+}
+
+func TestImageAdaptorBuildsDuomiGeminiImageEditPayloadFromProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("duomi-gemini-image", "https://duomiapi.com", "duomi-key", relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gemini-2.5-flash-image",
+		Prompt: "改成红色字",
+		Image:  []byte(`"https://cdn.example.com/ref.jpg"`),
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "gemini-2.5-flash-image", gjson.GetBytes(data, "model").String())
+	require.Equal(t, "改成红色字", gjson.GetBytes(data, "prompt").String())
+	require.Equal(t, "https://cdn.example.com/ref.jpg", gjson.GetBytes(data, "image_urls.0").String())
+
+	requestURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana-edit", requestURL)
+}
+
 func configurableImageRelayInfo(relayMode int) *relaycommon.RelayInfo {
+	return configurableImageRelayInfoWithProfile("apixo-gpt-image-2", "https://api.apixo.ai", "apixo-key", relayMode)
+}
+
+func configurableImageRelayInfoWithProfile(profileID, baseURL, key string, relayMode int) *relaycommon.RelayInfo {
 	return &relaycommon.RelayInfo{
 		RelayMode:       relayMode,
 		OriginModelName: "gpt-image-2",
 		RequestURLPath:  "/v1/images/generations",
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelType:       constant.ChannelTypeConfigurable,
-			ChannelBaseUrl:    "https://api.apixo.ai",
-			ApiKey:            "apixo-key",
+			ChannelBaseUrl:    baseURL,
+			ApiKey:            key,
 			UpstreamModelName: "gpt-image-2",
 			ChannelSetting: dto.ChannelSettings{
 				Protocol: &dto.ChannelProtocolSettings{
-					ProfileID: "apixo-gpt-image-2",
+					ProfileID: profileID,
 				},
 			},
 		},

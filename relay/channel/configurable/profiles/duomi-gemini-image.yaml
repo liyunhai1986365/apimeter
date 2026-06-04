@@ -1,0 +1,64 @@
+id: duomi-gemini-image
+name: Duomi Gemini Image
+media_type: image
+accepted_modes:
+  - openai.image.generations
+  - openai.image.edits
+upstream_modes:
+  - duomi.gemini.image
+submit:
+  method: POST
+  path: /api/gemini/nano-banana
+  path_variants:
+    - path: /api/gemini/nano-banana-edit
+      field: request.image_urls
+      non_empty: true
+  headers:
+    - name: Authorization
+      value: "{api_key}"
+  body:
+    fields:
+      - to: model
+        from: request.model
+      - to: prompt
+        from: request.prompt
+      - to: aspect_ratio
+        from: request.aspect_ratio
+        omit_empty: true
+      - to: image_size
+        from: request.image_size
+        fallback_from: request.size
+        omit_empty: true
+      - to: image_urls
+        from: request.image_urls
+        omit_empty: true
+  response:
+    task_id_path: data.task_id
+fetch:
+  method: GET
+  path: /api/gemini/nano-banana/{task_id}
+  headers:
+    - name: Authorization
+      value: "{api_key}"
+  response:
+    task_id_path: data.task_id
+    status_path: data.status
+    create_time_path: data.create_time
+    update_time_path: data.update_time
+    action_path: data.action
+    result_url_path: data.data.images.#.url
+    reason_path: data.msg
+    status_map:
+      "1": QUEUED
+      "2": FAILURE
+      "3": SUCCESS
+      pending: QUEUED
+      queued: QUEUED
+      submitted: SUBMITTED
+      processing: IN_PROGRESS
+      running: IN_PROGRESS
+      success: SUCCESS
+      succeeded: SUCCESS
+      failed: FAILURE
+      failure: FAILURE
+      error: FAILURE

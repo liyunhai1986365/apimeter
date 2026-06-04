@@ -55,6 +55,8 @@ fetch:
   response:
     task_id_path: data.taskId
     status_path: data.state
+    create_time_path: data.createTime
+    update_time_path: data.completeTime
     result_json_path: data.resultJson
     result_url_path: resultUrls
     reason_path: data.failMsg

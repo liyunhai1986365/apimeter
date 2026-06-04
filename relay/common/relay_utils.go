@@ -3,7 +3,6 @@ package common
 import (
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 
@@ -35,63 +34,6 @@ func GetFullRequestURL(baseURL string, requestURL string, channelType int) strin
 		}
 	}
 	return fullRequestURL
-}
-
-func ShouldUseDuomiImageAsync(baseURL, requestURL string) bool {
-	normalizedBaseURL := strings.ToLower(strings.TrimRight(strings.TrimSpace(baseURL), "/"))
-	if !strings.Contains(normalizedBaseURL, "duomiapi.com") {
-		return false
-	}
-	return strings.Split(requestURL, "?")[0] == "/v1/images/generations"
-}
-
-func IsDuomiGeminiImageModel(modelName string) bool {
-	switch strings.ToLower(strings.TrimSpace(modelName)) {
-	case "gemini-3-pro-image-preview",
-		"gemini-3.1-flash-image-preview",
-		"gemini-2.5-pro-image-preview",
-		"gemini-2.5-flash-image",
-		"gemini-2.5-flash-image-preview":
-		return true
-	default:
-		return false
-	}
-}
-
-func DuomiGeminiImageRequestPath(baseURL, requestURL, modelName string, hasImage bool) (string, bool) {
-	if !ShouldUseDuomiImageAsync(baseURL, requestURL) || !IsDuomiGeminiImageModel(modelName) {
-		return "", false
-	}
-	if hasImage {
-		return "/api/gemini/nano-banana-edit", true
-	}
-	return "/api/gemini/nano-banana", true
-}
-
-func DuomiGeminiImageTaskPath(baseURL, modelName, upstreamTaskID string) (string, bool) {
-	if !IsDuomiImageAsyncUpstream(baseURL) || !IsDuomiGeminiImageModel(modelName) {
-		return "", false
-	}
-	return "/api/gemini/nano-banana/" + upstreamTaskID, true
-}
-
-func WithAsyncQuery(requestURL string) string {
-	parsedURL, err := url.Parse(requestURL)
-	if err != nil {
-		if strings.Contains(requestURL, "?") {
-			return requestURL + "&async=true"
-		}
-		return requestURL + "?async=true"
-	}
-	query := parsedURL.Query()
-	query.Set("async", "true")
-	parsedURL.RawQuery = query.Encode()
-	return parsedURL.String()
-}
-
-func IsDuomiImageAsyncUpstream(baseURL string) bool {
-	normalizedBaseURL := strings.ToLower(strings.TrimRight(strings.TrimSpace(baseURL), "/"))
-	return strings.Contains(normalizedBaseURL, "duomiapi.com")
 }
 
 func GetAPIVersion(c *gin.Context) string {

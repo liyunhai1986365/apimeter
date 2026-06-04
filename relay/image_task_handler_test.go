@@ -150,16 +150,16 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 	}`, recorder.Body.String())
 }
 
-func TestWaitImageAsyncSubmitResponseNormalizesDuomiGeminiTaskPayload(t *testing.T) {
+func TestWaitImageAsyncSubmitResponseUsesConfigurableDuomiGeminiProfile(t *testing.T) {
 	setupImageTaskTestDB(t)
 	gin.SetMode(gin.TestMode)
 
 	upstreamTaskID := "f5044b53-4e32-2ee6-48b4-73bd60cd6754"
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/duomiapi.com/api/gemini/nano-banana/"+upstreamTaskID, r.URL.Path)
+		require.Equal(t, "/api/gemini/nano-banana/"+upstreamTaskID, r.URL.Path)
 		require.Equal(t, "duomi-key", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"code":200,"msg":"success","data":{"task_id":"f5044b53-4e32-2ee6-48b4-73bd60cd6754","state":"succeeded","data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg","file_name":"output.jpeg"}],"description":"done"},"create_time":"1757061229","update_time":"1757061252","msg":"","status":"3","action":"generate"},"exec_time":0.05,"ip":"118.125.2.163"}`))
+		_, _ = w.Write([]byte(`{"code":200,"msg":"success","data":{"task_id":"f5044b53-4e32-2ee6-48b4-73bd60cd6754","data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg","file_name":"output.jpeg"}],"description":"done"},"create_time":"1757061229","update_time":"1757061252","msg":"","status":"3","action":"generate"},"exec_time":0.05,"ip":"118.125.2.163"}`))
 	}))
 	defer upstream.Close()
 
@@ -167,10 +167,13 @@ func TestWaitImageAsyncSubmitResponseNormalizesDuomiGeminiTaskPayload(t *testing
 		StartTime:       time.Unix(1779125700, 0),
 		OriginModelName: "gemini-3-pro-image-preview",
 		ChannelMeta: &relaycommon.ChannelMeta{
-			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelType:    constant.ChannelTypeConfigurable,
 			ChannelId:      11,
-			ChannelBaseUrl: upstream.URL + "/duomiapi.com",
+			ChannelBaseUrl: upstream.URL,
 			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{ProfileID: "duomi-gemini-image"},
+			},
 		},
 	}
 
@@ -180,7 +183,7 @@ func TestWaitImageAsyncSubmitResponseNormalizesDuomiGeminiTaskPayload(t *testing
 		defer cancel()
 		c.Request = c.Request.WithContext(ctx)
 
-		body, apiErr := waitImageAsyncSubmitResponse(c, info, []byte(`{"code":200,"msg":"success","data":{"task_id":"f5044b53-4e32-2ee6-48b4-73bd60cd6754"}}`))
+		body, apiErr := waitImageAsyncSubmitResponse(c, info, []byte(`{"id":"f5044b53-4e32-2ee6-48b4-73bd60cd6754"}`))
 		require.Nil(t, apiErr)
 		c.Data(http.StatusOK, "application/json", body)
 	})
@@ -465,19 +468,12 @@ func TestConfigurableNativeFetchStoresFailureReason(t *testing.T) {
 	require.Equal(t, "The parameter is invalid.", reloaded.FailReason)
 }
 
-func TestBuildImageTaskFetchRequestUsesDuomiTaskEndpointAndRawAuthorization(t *testing.T) {
+func TestBuildImageTaskFetchRequestUsesStandardEndpointAndBearerAuthorization(t *testing.T) {
 	req, err := buildImageTaskFetchRequest("https://duomiapi.com", "duomi-key", "7154f43c-7765-4e77-d51e-0db4eee107b0")
 	require.NoError(t, err)
 	require.Equal(t, "https://duomiapi.com/v1/tasks/7154f43c-7765-4e77-d51e-0db4eee107b0", req.URL.String())
-	require.Equal(t, "duomi-key", req.Header.Get("Authorization"))
+	require.Equal(t, "Bearer duomi-key", req.Header.Get("Authorization"))
 	require.Equal(t, "application/json", req.Header.Get("Accept"))
-}
-
-func TestBuildImageTaskFetchRequestUsesDuomiGeminiTaskEndpoint(t *testing.T) {
-	req, err := buildImageTaskFetchRequest("https://duomiapi.com", "duomi-key", "7154f43c-7765-4e77-d51e-0db4eee107b0", "gemini-3-pro-image-preview")
-	require.NoError(t, err)
-	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana/7154f43c-7765-4e77-d51e-0db4eee107b0", req.URL.String())
-	require.Equal(t, "duomi-key", req.Header.Get("Authorization"))
 }
 
 func TestBuildConfigurableImageTaskFetchRequestUsesProfile(t *testing.T) {
@@ -487,6 +483,15 @@ func TestBuildConfigurableImageTaskFetchRequestUsesProfile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "https://api.apixo.ai/api/v1/statusTask/gpt-image-2?taskId=dff8afd34c4e47719b85ad6651daa3f0", req.URL.String())
 	require.Equal(t, "Bearer apixo-key", req.Header.Get("Authorization"))
+}
+
+func TestBuildConfigurableImageTaskFetchRequestUsesDuomiProfileHeaders(t *testing.T) {
+	profile, ok := configurable.GetProfile("duomi-gemini-image")
+	require.True(t, ok)
+	req, err := buildConfigurableImageTaskFetchRequest("https://duomiapi.com", "duomi-key", "7154f43c-7765-4e77-d51e-0db4eee107b0", profile)
+	require.NoError(t, err)
+	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana/7154f43c-7765-4e77-d51e-0db4eee107b0", req.URL.String())
+	require.Equal(t, "duomi-key", req.Header.Get("Authorization"))
 }
 
 func TestFetchConfigurableImageTaskForPollingUsesProfile(t *testing.T) {
@@ -501,12 +506,14 @@ func TestFetchConfigurableImageTaskForPollingUsesProfile(t *testing.T) {
 		_, _ = w.Write([]byte(`{
 			"code": 200,
 			"message": "success",
-			"data": {
-				"resultJson": "{\"resultUrls\":[\"https://file.apixo.ai/temp/out.png\"]}",
-				"state": "success",
-				"taskId": "dff8afd34c4e47719b85ad6651daa3f0"
-			}
-		}`))
+				"data": {
+					"resultJson": "{\"resultUrls\":[\"https://file.apixo.ai/temp/out.png\"]}",
+					"state": "success",
+					"taskId": "dff8afd34c4e47719b85ad6651daa3f0",
+					"createTime": 1780459451000,
+					"completeTime": 1780459536000
+				}
+			}`))
 	}))
 	defer upstream.Close()
 
@@ -536,10 +543,68 @@ func TestFetchConfigurableImageTaskForPollingUsesProfile(t *testing.T) {
 		"id":"dff8afd34c4e47719b85ad6651daa3f0",
 		"state":"success",
 		"progress":0,
-		"create_time":0,
-		"update_time":0,
+		"create_time":1780459451,
+		"update_time":1780459536,
 		"action":"generate",
 		"data":{"images":[{"url":"https://file.apixo.ai/temp/out.png"}]}
+	}`, string(body))
+}
+
+func TestFetchConfigurableImageTaskForPollingUsesDuomiProfile(t *testing.T) {
+	service.InitHttpClient()
+
+	taskID := "7154f43c-7765-4e77-d51e-0db4eee107b0"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/gemini/nano-banana/"+taskID, r.URL.Path)
+		require.Equal(t, "duomi-key", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"code": 200,
+			"msg": "success",
+			"data": {
+				"task_id": "7154f43c-7765-4e77-d51e-0db4eee107b0",
+				"status": "3",
+				"create_time": "1757061229",
+				"update_time": "1757061252",
+				"action": "generate",
+				"data": {
+					"images": [{"url":"https://cdn3.dmiapi.com/output.jpeg"}]
+				}
+			}
+		}`))
+	}))
+	defer upstream.Close()
+
+	channel := model.Channel{
+		Id:      64,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "duomi-key",
+		BaseURL: common.GetPointer(upstream.URL),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "duomi-gemini-image"},
+	})
+	task := &model.Task{
+		TaskID:    taskID,
+		ChannelId: channel.Id,
+		Action:    constant.TaskActionGenerate,
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: taskID,
+		},
+	}
+
+	body, statusCode, handled, err := FetchConfigurableImageTaskForPolling(&channel, task, taskID, "duomi-key", "")
+	require.NoError(t, err)
+	require.True(t, handled)
+	require.Equal(t, http.StatusOK, statusCode)
+	require.JSONEq(t, `{
+		"id":"7154f43c-7765-4e77-d51e-0db4eee107b0",
+		"state":"success",
+		"progress":0,
+		"create_time":1757061229,
+		"update_time":1757061252,
+		"action":"generate",
+		"data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg"}]}
 	}`, string(body))
 }
 
@@ -567,27 +632,42 @@ func TestConvertImageTaskResponseUsesConfigurableImageProfile(t *testing.T) {
 	output, err := convertImageTaskResponse(task, []byte(`{
 		"code": 200,
 		"message": "success",
-		"data": {
-			"resultJson": "{\"resultUrls\":[\"https://file.apixo.ai/temp/out.png\"]}",
-			"state": "success",
-			"taskId": "dff8afd34c4e47719b85ad6651daa3f0"
-		}
-	}`))
+			"data": {
+				"resultJson": "{\"resultUrls\":[\"https://file.apixo.ai/temp/out.png\"]}",
+				"state": "success",
+				"taskId": "dff8afd34c4e47719b85ad6651daa3f0",
+				"createTime": 1780459451000,
+				"completeTime": 1780459536000
+			}
+		}`))
 	require.NoError(t, err)
 	require.JSONEq(t, `{
 		"id":"dff8afd34c4e47719b85ad6651daa3f0",
 		"state":"success",
 		"progress":0,
-		"create_time":0,
-		"update_time":0,
+		"create_time":1780459451,
+		"update_time":1780459536,
 		"action":"generate",
 		"data":{"images":[{"url":"https://file.apixo.ai/temp/out.png"}]}
 	}`, string(output))
 }
 
-func TestConvertImageTaskResponseNormalizesDuomiGeminiPayload(t *testing.T) {
+func TestConvertImageTaskResponseUsesDuomiConfigurableImageProfile(t *testing.T) {
+	setupImageTaskTestDB(t)
+	channel := model.Channel{
+		Id:      64,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "duomi-key",
+		BaseURL: common.GetPointer("https://duomiapi.com"),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "duomi-gemini-image"},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+
 	task := &model.Task{
 		TaskID:    "7154f43c-7765-4e77-d51e-0db4eee107b0",
+		ChannelId: 64,
 		Action:    constant.TaskActionGenerate,
 		CreatedAt: 1779125700,
 		UpdatedAt: 1779125701,
@@ -601,7 +681,6 @@ func TestConvertImageTaskResponseNormalizesDuomiGeminiPayload(t *testing.T) {
 		"msg":"success",
 		"data":{
 			"task_id":"7154f43c-7765-4e77-d51e-0db4eee107b0",
-			"state":"succeeded",
 			"data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg","file_name":"output.jpeg"}],"description":"done"},
 			"create_time":"1757061229",
 			"update_time":"1757061252",
@@ -615,11 +694,11 @@ func TestConvertImageTaskResponseNormalizesDuomiGeminiPayload(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, `{
 		"id":"7154f43c-7765-4e77-d51e-0db4eee107b0",
-		"state":"succeeded",
+		"state":"success",
 		"progress":0,
 		"create_time":1757061229,
 		"update_time":1757061252,
 		"action":"generate",
-		"data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg","file_name":"output.jpeg"}]}
+		"data":{"images":[{"url":"https://cdn3.dmiapi.com/output.jpeg"}]}
 	}`, string(output))
 }

@@ -25,9 +25,10 @@ import (
 
 type ImageAdaptor struct {
 	openai.Adaptor
-	apiKey  string
-	baseURL string
-	profile *Profile
+	apiKey             string
+	baseURL            string
+	profile            *Profile
+	selectedSubmitPath string
 }
 
 func (a *ImageAdaptor) Init(info *relaycommon.RelayInfo) {
@@ -46,7 +47,11 @@ func (a *ImageAdaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error
 	if err != nil {
 		return "", err
 	}
-	return joinURL(a.baseURL, profile.Submit.Path), nil
+	path := profile.Submit.Path
+	if strings.TrimSpace(a.selectedSubmitPath) != "" {
+		path = a.selectedSubmitPath
+	}
+	return joinURL(a.baseURL, path), nil
 }
 
 func (a *ImageAdaptor) SetupRequestHeader(c *gin.Context, header *http.Header, info *relaycommon.RelayInfo) error {
@@ -57,7 +62,7 @@ func (a *ImageAdaptor) SetupRequestHeader(c *gin.Context, header *http.Header, i
 	}
 	if a.profile != nil {
 		req := &http.Request{Header: *header}
-		applyConfiguredHeaders(req, a.profile.Submit.Headers, a.apiKey, "")
+		ApplyConfiguredHeaders(req, a.profile.Submit.Headers, a.apiKey, "")
 		*header = req.Header
 	}
 	return nil
@@ -72,6 +77,7 @@ func (a *ImageAdaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.Rel
 	if err != nil {
 		return nil, err
 	}
+	a.selectedSubmitPath = selectEndpointPath(profile.Submit, source, info)
 	payload, err := buildMappedMap(profile.Submit.Body.Fields, source, info)
 	if err != nil {
 		return nil, err
@@ -136,6 +142,31 @@ func (a *ImageAdaptor) requireImageProfile() (*Profile, error) {
 		return nil, fmt.Errorf("configurable profile %s is not an image profile", a.profile.ID)
 	}
 	return a.profile, nil
+}
+
+func selectEndpointPath(endpoint EndpointConfig, source map[string]any, info *relaycommon.RelayInfo) string {
+	for _, variant := range endpoint.PathVariants {
+		if pathVariantMatches(variant, source, info) {
+			if path := strings.TrimSpace(variant.Path); path != "" {
+				return path
+			}
+		}
+	}
+	return endpoint.Path
+}
+
+func pathVariantMatches(variant PathVariant, source map[string]any, info *relaycommon.RelayInfo) bool {
+	if strings.TrimSpace(variant.Field) == "" {
+		return false
+	}
+	value := valueFromSource(variant.Field, source, info)
+	if variant.NonEmpty != nil {
+		return !isEmptyValue(value) == *variant.NonEmpty
+	}
+	if variant.Equals != nil {
+		return fmt.Sprint(value) == fmt.Sprint(variant.Equals)
+	}
+	return !isEmptyValue(value)
 }
 
 func imageRequestSource(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (map[string]any, error) {
@@ -455,7 +486,7 @@ func isJSONImageRequest(c *gin.Context) bool {
 	return strings.HasPrefix(contentType, "application/json")
 }
 
-func ImageTaskResponseFromProfile(taskID, modelName string, profile *Profile, upstream []byte) (dto.ImageTaskResponse, bool, error) {
+func ImageTaskResponseFromProfile(taskID string, profile *Profile, upstream []byte) (dto.ImageTaskResponse, bool, error) {
 	if profile == nil || !strings.EqualFold(strings.TrimSpace(profile.MediaType), "image") {
 		return dto.ImageTaskResponse{}, false, nil
 	}
@@ -473,6 +504,15 @@ func ImageTaskResponseFromProfile(taskID, modelName string, profile *Profile, up
 	}
 	if progress := gjson.GetBytes(upstream, resp.ProgressPath); progress.Exists() {
 		response.Progress = int(progress.Int())
+	}
+	if createTime := imageTaskUnixTime(gjson.GetBytes(upstream, resp.CreateTimePath)); createTime != 0 {
+		response.CreateTime = createTime
+	}
+	if updateTime := imageTaskUnixTime(gjson.GetBytes(upstream, resp.UpdateTimePath)); updateTime != 0 {
+		response.UpdateTime = updateTime
+	}
+	if action := strings.TrimSpace(gjson.GetBytes(upstream, resp.ActionPath).String()); action != "" {
+		response.Action = action
 	}
 	resultSource := upstream
 	if resultJSONPath := strings.TrimSpace(resp.ResultJSONPath); resultJSONPath != "" {
@@ -500,6 +540,28 @@ func ImageTaskResponseFromProfile(taskID, modelName string, profile *Profile, up
 		return dto.ImageTaskResponse{}, true, err
 	}
 	return parsed, true, nil
+}
+
+func imageTaskUnixTime(result gjson.Result) int64 {
+	if !result.Exists() {
+		return 0
+	}
+	value := result.Int()
+	if value == 0 {
+		parsed, err := strconv.ParseInt(strings.TrimSpace(result.String()), 10, 64)
+		if err != nil {
+			return 0
+		}
+		value = parsed
+	}
+	switch {
+	case value >= 1_000_000_000_000_000:
+		return value / 1_000_000
+	case value >= 100_000_000_000:
+		return value / 1_000
+	default:
+		return value
+	}
 }
 
 func isFailureImageState(state string) bool {
@@ -531,7 +593,7 @@ func stringsFromGJSON(result gjson.Result) []string {
 }
 
 func ImageTaskResponseBytesFromProfile(taskID string, profile *Profile, upstream []byte) ([]byte, bool, error) {
-	response, ok, err := ImageTaskResponseFromProfile(taskID, "", profile, upstream)
+	response, ok, err := ImageTaskResponseFromProfile(taskID, profile, upstream)
 	if !ok || err != nil {
 		return nil, ok, err
 	}

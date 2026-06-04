@@ -95,7 +95,7 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info
 		req.Header.Set("Authorization", "Bearer "+a.apiKey)
 	}
 	if a.profile != nil {
-		applyConfiguredHeaders(req, a.profile.Submit.Headers, a.apiKey, "")
+		ApplyConfiguredHeaders(req, a.profile.Submit.Headers, a.apiKey, "")
 	}
 	return nil
 }
@@ -249,7 +249,7 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if strings.TrimSpace(key) != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
-	applyConfiguredHeaders(req, profile.Fetch.Headers, key, taskID)
+	ApplyConfiguredHeaders(req, profile.Fetch.Headers, key, taskID)
 	client, err := service.GetHttpClientWithProxy(proxy)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
@@ -856,7 +856,7 @@ func joinURL(baseURL, path string) string {
 	return strings.TrimRight(baseURL, "/") + "/" + strings.TrimLeft(path, "/")
 }
 
-func applyConfiguredHeaders(req *http.Request, headers []HeaderConfig, apiKey string, taskID string) {
+func ApplyConfiguredHeaders(req *http.Request, headers []HeaderConfig, apiKey string, taskID string) {
 	for _, header := range headers {
 		name := strings.TrimSpace(header.Name)
 		if name == "" {

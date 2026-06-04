@@ -35,10 +35,18 @@ type ConversionRef struct {
 type EndpointConfig struct {
 	Method         string         `yaml:"method"`
 	Path           string         `yaml:"path"`
+	PathVariants   []PathVariant  `yaml:"path_variants"`
 	Headers        []HeaderConfig `yaml:"headers"`
 	Body           BodyConfig     `yaml:"body"`
 	Response       ResponseConfig `yaml:"response"`
 	OpenAIResponse ResponseConfig `yaml:"openai_response"`
+}
+
+type PathVariant struct {
+	Path     string `yaml:"path"`
+	Field    string `yaml:"field"`
+	NonEmpty *bool  `yaml:"non_empty"`
+	Equals   any    `yaml:"equals"`
 }
 
 type NativeConfig struct {
@@ -94,6 +102,9 @@ type ResponseConfig struct {
 	TaskIDPath     string            `yaml:"task_id_path"`
 	StatusPath     string            `yaml:"status_path"`
 	ProgressPath   string            `yaml:"progress_path"`
+	CreateTimePath string            `yaml:"create_time_path"`
+	UpdateTimePath string            `yaml:"update_time_path"`
+	ActionPath     string            `yaml:"action_path"`
 	ResultURLPath  string            `yaml:"result_url_path"`
 	ResultJSONPath string            `yaml:"result_json_path"`
 	ReasonPath     string            `yaml:"reason_path"`

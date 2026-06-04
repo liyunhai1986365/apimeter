@@ -53,6 +53,10 @@ export const PROTOCOL_PROFILE_OPTIONS = [
     label: 'Apixo GPT Image 2',
     value: 'apixo-gpt-image-2',
   },
+  {
+    label: 'Duomi Gemini Image',
+    value: 'duomi-gemini-image',
+  },
 ]
 
 // ============================================================================
