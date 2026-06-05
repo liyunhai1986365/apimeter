@@ -57,6 +57,10 @@ export const PROTOCOL_PROFILE_OPTIONS = [
     label: 'Duomi Gemini Image',
     value: 'duomi-gemini-image',
   },
+  {
+    label: 'Moxing GPT Image 2',
+    value: 'moxing-gpt-image-2',
+  },
 ]
 
 // ============================================================================

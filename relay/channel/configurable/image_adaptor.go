@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel"
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -100,7 +101,17 @@ func (a *ImageAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rel
 	}
 	_ = resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		logConfigurableImageUpstreamError(c, resp.StatusCode, responseBody)
 		return &dto.Usage{}, types.NewOpenAIError(fmt.Errorf("upstream status %d: %s", resp.StatusCode, string(responseBody)), types.ErrorCodeBadResponseStatusCode, resp.StatusCode)
+	}
+
+	if profile.Submit.Response.Passthrough {
+		responseBody, err = buildConfiguredResponse(profile.Submit.Response, responseBody, info)
+		if err != nil {
+			return &dto.Usage{}, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+		c.Data(http.StatusOK, "application/json", responseBody)
+		return &dto.Usage{}, nil
 	}
 
 	taskID := strings.TrimSpace(gjson.GetBytes(responseBody, profile.Submit.Response.TaskIDPath).String())
@@ -131,6 +142,17 @@ func (a *ImageAdaptor) GetChannelName() string {
 		return a.profile.Name
 	}
 	return "Configurable Image"
+}
+
+func logConfigurableImageUpstreamError(c *gin.Context, statusCode int, body []byte) {
+	if !common.DebugEnabled {
+		return
+	}
+	preview := string(body)
+	if len(preview) > 2048 {
+		preview = preview[:2048] + "...[TRUNCATED]"
+	}
+	logger.LogDebug(c, "configurable image upstream error: status=%d body=%s", statusCode, common.MaskSensitiveInfo(preview))
 }
 
 func (a *ImageAdaptor) requireImageProfile() (*Profile, error) {
@@ -232,6 +254,14 @@ func imageResolution(value any) string {
 	return resolution
 }
 
+func imageResolutionUpper(value any) string {
+	resolution := imageResolution(value)
+	if resolution == "" {
+		return ""
+	}
+	return strings.ToUpper(resolution)
+}
+
 func imageQuality(value any) string {
 	quality := strings.ToLower(strings.TrimSpace(firstString(value)))
 	switch quality {
@@ -244,6 +274,21 @@ func imageQuality(value any) string {
 	default:
 		return "medium"
 	}
+}
+
+func moxingAspectRatio(value any) string {
+	input := strings.ToLower(strings.TrimSpace(firstString(value)))
+	if input == "" {
+		return ""
+	}
+	if isSupportedMoxingAspectRatio(input) {
+		return input
+	}
+	aspectRatio, _, ok := imageSizeToAspectRatioAndResolution(input)
+	if !ok || !isSupportedMoxingAspectRatio(aspectRatio) {
+		return ""
+	}
+	return aspectRatio
 }
 
 func imageSizeToAspectRatioAndResolution(size string) (string, string, bool) {
@@ -294,23 +339,50 @@ type imageAspectRatioCandidate struct {
 
 var imageAspectRatioCandidates = []imageAspectRatioCandidate{
 	{value: "1:1", ratio: 1},
+	{value: "5:4", ratio: 5.0 / 4.0},
+	{value: "4:5", ratio: 4.0 / 5.0},
+	{value: "3:2", ratio: 3.0 / 2.0},
+	{value: "2:3", ratio: 2.0 / 3.0},
 	{value: "4:3", ratio: 4.0 / 3.0},
 	{value: "3:4", ratio: 3.0 / 4.0},
 	{value: "16:9", ratio: 16.0 / 9.0},
 	{value: "9:16", ratio: 9.0 / 16.0},
+	{value: "21:9", ratio: 21.0 / 9.0},
+}
+
+var apixoSupportedAspectRatios = map[string]struct{}{
+	"auto": {},
+	"1:1":  {},
+	"4:3":  {},
+	"3:4":  {},
+	"16:9": {},
+	"9:16": {},
+}
+
+var moxingSupportedAspectRatios = map[string]struct{}{
+	"auto": {},
+	"1:1":  {},
+	"16:9": {},
+	"9:16": {},
+	"5:4":  {},
+	"4:5":  {},
+	"3:2":  {},
+	"2:3":  {},
+	"4:3":  {},
+	"3:4":  {},
+	"21:9": {},
 }
 
 func isSupportedImageAspectRatio(value string) bool {
 	value = strings.ToLower(strings.TrimSpace(value))
-	if value == "auto" {
-		return true
-	}
-	for _, candidate := range imageAspectRatioCandidates {
-		if value == candidate.value {
-			return true
-		}
-	}
-	return false
+	_, ok := apixoSupportedAspectRatios[value]
+	return ok
+}
+
+func isSupportedMoxingAspectRatio(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	_, ok := moxingSupportedAspectRatios[value]
+	return ok
 }
 
 func normalizeImageResolution(value string) string {

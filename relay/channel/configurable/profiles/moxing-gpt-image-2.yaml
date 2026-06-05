@@ -1,0 +1,47 @@
+id: moxing-gpt-image-2
+name: Moxing GPT Image 2
+media_type: image
+accepted_modes:
+  - openai.image.generations
+  - openai.image.edits
+upstream_modes:
+  - moxing.gpt-image-2.image
+submit:
+  method: POST
+  path: /v1/images/generations
+  headers:
+    - name: Authorization
+      value: "Bearer {api_key}"
+  body:
+    fields:
+      - to: model
+        from: request.model
+      - to: prompt
+        from: request.prompt
+      - to: n
+        from: request.n
+        omit_empty: true
+      - to: response_format
+        from: request.response_format
+        omit_empty: true
+      - to: size
+        from: request.size
+        transform: image_resolution_upper
+        omit_empty: true
+      - to: size
+        from: request.resolution
+        transform: image_resolution_upper
+        omit_empty: true
+      - to: aspect_ratio
+        from: request.aspect_ratio
+        transform: moxing_aspect_ratio
+        omit_empty: true
+      - to: aspect_ratio
+        from: request.size
+        transform: moxing_aspect_ratio
+        omit_empty: true
+      - to: reference_images
+        from: request.image_urls
+        omit_empty: true
+  response:
+    passthrough: true

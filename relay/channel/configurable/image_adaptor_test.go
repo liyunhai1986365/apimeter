@@ -2,6 +2,7 @@ package configurable
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -194,6 +195,115 @@ func TestImageAdaptorBuildsDuomiGeminiImageEditPayloadFromProfile(t *testing.T) 
 	requestURL, err := adaptor.GetRequestURL(info)
 	require.NoError(t, err)
 	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana-edit", requestURL)
+}
+
+func TestImageAdaptorBuildsMoxingTextToImagePayloadFromProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("moxing-gpt-image-2", "https://api.moxing.example", "moxing-key", relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	n := uint(1)
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:          "gpt-image-2",
+		Prompt:         "生成一个小狗的图片",
+		N:              &n,
+		Size:           "2k",
+		ResponseFormat: "url",
+		Extra: map[string]json.RawMessage{
+			"aspect_ratio": []byte(`"21:9"`),
+		},
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "gpt-image-2", gjson.GetBytes(data, "model").String())
+	require.Equal(t, "生成一个小狗的图片", gjson.GetBytes(data, "prompt").String())
+	require.Equal(t, int64(1), gjson.GetBytes(data, "n").Int())
+	require.Equal(t, "url", gjson.GetBytes(data, "response_format").String())
+	require.Equal(t, "2K", gjson.GetBytes(data, "size").String())
+	require.Equal(t, "21:9", gjson.GetBytes(data, "aspect_ratio").String())
+	require.False(t, gjson.GetBytes(data, "reference_images").Exists())
+
+	requestURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	require.Equal(t, "https://api.moxing.example/v1/images/generations", requestURL)
+
+	header := http.Header{}
+	require.NoError(t, adaptor.SetupRequestHeader(c, &header, info))
+	require.Equal(t, "Bearer moxing-key", header.Get("Authorization"))
+}
+
+func TestImageAdaptorBuildsMoxingReferenceImagesPayloadFromProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("moxing-gpt-image-2", "https://api.moxing.example", "moxing-key", relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "参考图片生成一张海报",
+		Size:   "2160x3840",
+		Image:  []byte(`["https://example.com/ref1.png","https://example.com/ref2.png"]`),
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "4K", gjson.GetBytes(data, "size").String())
+	require.Equal(t, "9:16", gjson.GetBytes(data, "aspect_ratio").String())
+	require.Equal(t, int64(2), gjson.GetBytes(data, "reference_images.#").Int())
+	require.Equal(t, "https://example.com/ref1.png", gjson.GetBytes(data, "reference_images.0").String())
+	require.Equal(t, "https://example.com/ref2.png", gjson.GetBytes(data, "reference_images.1").String())
+}
+
+func TestImageAdaptorKeepsMoxingTextToImageFourKPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("moxing-gpt-image-2", "https://api.moxing.example", "moxing-key", relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "生成竖版海报",
+		Size:   "2160x3840",
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "4K", gjson.GetBytes(data, "size").String())
+	require.Equal(t, "9:16", gjson.GetBytes(data, "aspect_ratio").String())
+	require.False(t, gjson.GetBytes(data, "reference_images").Exists())
+}
+
+func TestImageAdaptorMoxingSubmitResponsePassesThroughOpenAIImageResponse(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("moxing-gpt-image-2", "https://api.moxing.example", "moxing-key", relayconstant.RelayModeImagesGenerations)
+	adaptor.Init(info)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"created":1780000000,"data":[{"url":"https://cdn.example.com/image.png"}]}`))),
+	}
+	usage, newAPIError := adaptor.DoResponse(c, resp, info)
+	require.Nil(t, newAPIError)
+	require.IsType(t, &dto.Usage{}, usage)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "https://cdn.example.com/image.png", gjson.GetBytes(recorder.Body.Bytes(), "data.0.url").String())
 }
 
 func TestImageTaskResponseFromProfileExtractsBase64Images(t *testing.T) {

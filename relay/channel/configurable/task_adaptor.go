@@ -625,6 +625,10 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 		return imageAspectRatio(value), nil
 	case "image_resolution":
 		return imageResolution(value), nil
+	case "image_resolution_upper":
+		return imageResolutionUpper(value), nil
+	case "moxing_aspect_ratio":
+		return moxingAspectRatio(value), nil
 	case "image_quality":
 		return imageQuality(value), nil
 	default:
