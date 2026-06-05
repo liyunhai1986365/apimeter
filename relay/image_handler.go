@@ -12,8 +12,10 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/relay/helper"
+	"github.com/QuantumNous/new-api/relay/imageconv"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -95,7 +97,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
-		return types.NewOpenAIError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)
+		return newImageSubmitUncertainError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)
 	}
 	var httpResp *http.Response
 	if resp != nil {
@@ -123,7 +125,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
-		return newAPIError
+		return markImageSubmitUncertainError(newAPIError)
 	}
 
 	if responseCapture.HasBody() {
@@ -141,6 +143,16 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	usageData := usage.(*dto.Usage)
 	if ensureEstimatedImageUsageIfMissing(info, request, usageData) && responseCapture.HasBody() {
 		if body, injected := imageResponseBodyWithUsage(responseCapture.BodyBytes(), usageData); injected {
+			responseCapture.ReplaceBody(responseCapture.Status(), body)
+		}
+	}
+
+	if responseCapture.HasBody() {
+		body, normalized, err := normalizeOpenAIImageResponseByFormat(c, info, responseCapture.BodyBytes())
+		if err != nil {
+			return newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+		if normalized {
 			responseCapture.ReplaceBody(responseCapture.Status(), body)
 		}
 	}
@@ -190,8 +202,26 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	} else if wrapped {
 		return nil
 	}
-	responseCapture.WriteCaptured()
+	if !responseCapture.HasBody() {
+		return newImageSubmitUncertainError(fmt.Errorf("image response body is empty"), types.ErrorCodeBadResponseBody, http.StatusBadGateway)
+	}
+	logImageCapturedResponse(c, responseCapture)
+	if err := responseCapture.WriteCaptured(); err != nil {
+		logger.LogError(c, fmt.Sprintf("image response write failed: %s", err.Error()))
+	}
 	return nil
+}
+
+func logImageCapturedResponse(c *gin.Context, responseCapture *imageResponseCapture) {
+	if !common.DebugEnabled || responseCapture == nil {
+		return
+	}
+	body := responseCapture.BodyBytes()
+	preview := string(body)
+	if len(preview) > 2048 {
+		preview = preview[:2048] + "...[TRUNCATED]"
+	}
+	logger.LogDebug(c, "image response captured: status=%d body_size=%d body=%s", responseCapture.Status(), len(body), common.MaskSensitiveInfo(preview))
 }
 
 func isConvertedImageRequest(c *gin.Context, info *relaycommon.RelayInfo) bool {
@@ -205,5 +235,22 @@ func shouldForceConvertImageRequest(info *relaycommon.RelayInfo, request *dto.Im
 	if info == nil || request == nil {
 		return false
 	}
-	return configurableImageProfileFromSettings(info.ChannelSetting) != nil
+	if info.ChannelMeta != nil && configurableImageProfileFromSettings(info.ChannelSetting) != nil {
+		return true
+	}
+	if !imageconv.RequestHasImageInput(request) {
+		return false
+	}
+	settings := dto.ChannelSettings{}
+	if info.ChannelMeta != nil {
+		settings = info.ChannelSetting
+	}
+	switch info.RelayMode {
+	case relayconstant.RelayModeImagesGenerations:
+		return settings.ImageGenerationWithImageToEditEnabled()
+	case relayconstant.RelayModeImagesEdits:
+		return settings.ImageJSONEditToMultipartEnabled()
+	default:
+		return false
+	}
 }

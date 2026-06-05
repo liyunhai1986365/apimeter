@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"math"
-	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -17,7 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/relay/imageconv"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
@@ -187,126 +186,13 @@ func imageRequestSource(c *gin.Context, info *relaycommon.RelayInfo, request dto
 			source[key] = value
 		}
 	}
-	imageURLs, err := imageRequestURLs(c, info, request)
+	includeMultipartFiles := info != nil && info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONImageRequest(c)
+	imageURLs, err := imageconv.RequestImageURLs(c, request, includeMultipartFiles)
 	if err != nil {
 		return nil, err
 	}
 	source["image_urls"] = imageURLs
 	return source, nil
-}
-
-func imageRequestURLs(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) ([]string, error) {
-	var imageURLs []string
-	appendRaw := func(raw []byte) error {
-		values, err := rawImageURLs(raw)
-		if err != nil {
-			return err
-		}
-		imageURLs = append(imageURLs, values...)
-		return nil
-	}
-	if err := appendRaw(request.Image); err != nil {
-		return nil, err
-	}
-	if err := appendRaw(request.Images); err != nil {
-		return nil, err
-	}
-	for _, key := range []string{"image", "images", "image_urls"} {
-		if err := appendRaw(request.Extra[key]); err != nil {
-			return nil, err
-		}
-	}
-	if raw := request.Extra["input"]; len(raw) > 0 {
-		var input struct {
-			ImageURLs []string `json:"image_urls"`
-		}
-		if err := common.Unmarshal(raw, &input); err == nil {
-			imageURLs = append(imageURLs, input.ImageURLs...)
-		}
-	}
-	if len(imageURLs) == 0 && info != nil && info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONImageRequest(c) {
-		var err error
-		imageURLs, err = multipartImageURLs(c)
-		if err != nil {
-			return nil, err
-		}
-	}
-	imageURLs = compactStrings(imageURLs)
-	if len(imageURLs) > 16 {
-		return nil, fmt.Errorf("image_urls supports 1-16 URLs")
-	}
-	return imageURLs, nil
-}
-
-func rawImageURLs(raw []byte) ([]string, error) {
-	if len(raw) == 0 {
-		return nil, nil
-	}
-	var values []string
-	if err := common.Unmarshal(raw, &values); err == nil {
-		return compactStrings(values), nil
-	}
-	var single string
-	if err := common.Unmarshal(raw, &single); err == nil {
-		return compactStrings([]string{single}), nil
-	}
-	var objects []struct {
-		URL string `json:"url"`
-	}
-	if err := common.Unmarshal(raw, &objects); err == nil {
-		for _, object := range objects {
-			values = append(values, object.URL)
-		}
-		return compactStrings(values), nil
-	}
-	var object struct {
-		URL string `json:"url"`
-	}
-	if err := common.Unmarshal(raw, &object); err == nil && strings.TrimSpace(object.URL) != "" {
-		return []string{strings.TrimSpace(object.URL)}, nil
-	}
-	return nil, nil
-}
-
-func multipartImageURLs(c *gin.Context) ([]string, error) {
-	form, err := common.ParseMultipartFormReusable(c)
-	if err != nil {
-		return nil, fmt.Errorf("parse image edit form failed: %w", err)
-	}
-	if form == nil || form.File == nil {
-		return nil, fmt.Errorf("image is required")
-	}
-	files := multipartImageFiles(form.File)
-	if len(files) == 0 {
-		return nil, fmt.Errorf("image is required")
-	}
-	if len(files) > 16 {
-		return nil, fmt.Errorf("image_urls supports 1-16 URLs")
-	}
-	imageURLs := make([]string, 0, len(files))
-	for _, fileHeader := range files {
-		imageURL, err := service.SaveTemporaryImage(c, fileHeader)
-		if err != nil {
-			return nil, err
-		}
-		imageURLs = append(imageURLs, imageURL)
-	}
-	return imageURLs, nil
-}
-
-func multipartImageFiles(files map[string][]*multipart.FileHeader) []*multipart.FileHeader {
-	var imageFiles []*multipart.FileHeader
-	for _, field := range []string{"image", "image[]"} {
-		if values := files[field]; len(values) > 0 {
-			imageFiles = append(imageFiles, values...)
-		}
-	}
-	for field, values := range files {
-		if field != "image[]" && strings.HasPrefix(field, "image[") && len(values) > 0 {
-			imageFiles = append(imageFiles, values...)
-		}
-	}
-	return imageFiles
 }
 
 func imageMode(value any) string {
@@ -524,6 +410,13 @@ func ImageTaskResponseFromProfile(taskID string, profile *Profile, upstream []by
 	if resultURLPath := strings.TrimSpace(resp.ResultURLPath); resultURLPath != "" {
 		for _, imageURL := range stringsFromGJSON(gjson.GetBytes(resultSource, resultURLPath)) {
 			response.Data.Images = append(response.Data.Images, dto.ImageTaskImage{URL: imageURL})
+		}
+	}
+	if resultBase64Path := strings.TrimSpace(resp.ResultBase64Path); resultBase64Path != "" {
+		for _, imageBase64 := range stringsFromGJSON(gjson.GetBytes(resultSource, resultBase64Path)) {
+			if imageBase64 != "" {
+				response.Data.Images = append(response.Data.Images, dto.ImageTaskImage{B64Json: imageBase64})
+			}
 		}
 	}
 	if isFailureImageState(response.State) {

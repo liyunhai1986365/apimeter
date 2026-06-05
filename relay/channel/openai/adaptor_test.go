@@ -1,11 +1,15 @@
 package openai
 
 import (
+	"bytes"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/gin-gonic/gin"
@@ -37,4 +41,160 @@ func TestOpenAIImageRequestKeepsStandardEndpointAndBearerAuthorization(t *testin
 	err = adaptor.SetupRequestHeader(c, &header, info)
 	require.NoError(t, err)
 	require.Equal(t, "Bearer duomi-key", header.Get("Authorization"))
+}
+
+func TestOpenAIImageGenerationWithImageInputUsesEditsEndpoint(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:  "/v1/images/generations",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫的背景",
+		Size:   "1024x1024",
+		Image:  []byte(`["data:image/png;base64,ZmFrZS1pbWFnZQ=="]`),
+	})
+	require.NoError(t, err)
+	body, ok := converted.(*bytes.Buffer)
+	require.True(t, ok)
+	require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
+	require.Contains(t, c.Request.Header.Get("Content-Type"), "multipart/form-data")
+
+	gotURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	require.Equal(t, "https://duomiapi.com/v1/images/edits", gotURL)
+
+	reader := multipart.NewReader(bytes.NewReader(body.Bytes()), multipartBoundary(t, c.Request.Header.Get("Content-Type")))
+	form, err := reader.ReadForm(1024 * 1024)
+	require.NoError(t, err)
+	require.Equal(t, "gpt-image-2", form.Value["model"][0])
+	require.Equal(t, "修改这只猫的背景", form.Value["prompt"][0])
+	require.Equal(t, "1024x1024", form.Value["size"][0])
+	require.Len(t, form.File["image"], 1)
+	require.Equal(t, "image-1.png", form.File["image"][0].Filename)
+}
+
+func TestOpenAIImageGenerationWithImageInputKeepsGenerationsWhenAutoConvertDisabled(t *testing.T) {
+	disabled := false
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:  "/v1/images/generations",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				ImageAutoConvertGenerationWithImageToEdit: &disabled,
+			},
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫的背景",
+		Image:  []byte(`["data:image/png;base64,ZmFrZS1pbWFnZQ=="]`),
+	})
+	require.NoError(t, err)
+	_, ok := converted.(dto.ImageRequest)
+	require.True(t, ok)
+	require.Equal(t, relayconstant.RelayModeImagesGenerations, info.RelayMode)
+	require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
+
+	gotURL, err := adaptor.GetRequestURL(info)
+	require.NoError(t, err)
+	require.Equal(t, "https://duomiapi.com/v1/images/generations", gotURL)
+}
+
+func TestOpenAIImageEditsJSONInputBuildsMultipart(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesEdits,
+		RequestURLPath:  "/v1/images/edits",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫的背景",
+		Image:  []byte(`["data:image/png;base64,ZmFrZS1pbWFnZQ=="]`),
+	})
+	require.NoError(t, err)
+	body, ok := converted.(*bytes.Buffer)
+	require.True(t, ok)
+	require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
+	require.Contains(t, c.Request.Header.Get("Content-Type"), "multipart/form-data")
+
+	reader := multipart.NewReader(bytes.NewReader(body.Bytes()), multipartBoundary(t, c.Request.Header.Get("Content-Type")))
+	form, err := reader.ReadForm(1024 * 1024)
+	require.NoError(t, err)
+	require.Equal(t, "gpt-image-2", form.Value["model"][0])
+	require.Equal(t, "修改这只猫的背景", form.Value["prompt"][0])
+	require.Len(t, form.File["image"], 1)
+}
+
+func TestOpenAIImageEditsJSONInputKeepsJSONWhenAutoConvertDisabled(t *testing.T) {
+	disabled := false
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesEdits,
+		RequestURLPath:  "/v1/images/edits",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				ImageAutoConvertJSONEditToMultipart: &disabled,
+			},
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫的背景",
+		Image:  []byte(`["data:image/png;base64,ZmFrZS1pbWFnZQ=="]`),
+	})
+	require.NoError(t, err)
+	_, ok := converted.(dto.ImageRequest)
+	require.True(t, ok)
+	require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
+	require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
+}
+
+func multipartBoundary(t *testing.T, contentType string) string {
+	t.Helper()
+	_, params, err := mime.ParseMediaType(contentType)
+	require.NoError(t, err)
+	return params["boundary"]
 }

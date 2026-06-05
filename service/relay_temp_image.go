@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
 	"encoding/base64"
@@ -52,6 +53,29 @@ func SaveTemporaryImage(c *gin.Context, fileHeader *multipart.FileHeader) (strin
 	return saveTemporaryImageWithConfig(c, fileHeader, cfg)
 }
 
+func SaveTemporaryImageBase64(c *gin.Context, base64Data string) (string, error) {
+	mimeType, cleanBase64, err := DecodeBase64FileData(base64Data)
+	if err != nil {
+		return "", err
+	}
+	data, err := base64.StdEncoding.DecodeString(cleanBase64)
+	if err != nil {
+		return "", fmt.Errorf("decode temp image base64 failed: %w", err)
+	}
+	return SaveTemporaryImageBytes(c, data, mimeType, tempImageFilenameForMime(mimeType))
+}
+
+func SaveTemporaryImageBytes(c *gin.Context, data []byte, contentType, filename string) (string, error) {
+	if len(data) == 0 {
+		return "", fmt.Errorf("missing image data")
+	}
+	cfg, err := tempImageStorageConfigFromEnv(c)
+	if err != nil {
+		return "", err
+	}
+	return saveTemporaryImageBytesWithConfig(c, data, contentType, filename, cfg)
+}
+
 func saveTemporaryImageWithConfig(c *gin.Context, fileHeader *multipart.FileHeader, cfg tempImageStorageConfig) (string, error) {
 	if fileHeader == nil {
 		return "", fmt.Errorf("missing image file")
@@ -61,6 +85,17 @@ func saveTemporaryImageWithConfig(c *gin.Context, fileHeader *multipart.FileHead
 		return saveTemporaryImageToOSS(fileHeader, cfg)
 	case "local", "":
 		return saveTemporaryImageToLocal(c, fileHeader, cfg)
+	default:
+		return "", fmt.Errorf("unsupported temp image storage: %s", cfg.Storage)
+	}
+}
+
+func saveTemporaryImageBytesWithConfig(c *gin.Context, data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
+	case "oss":
+		return saveTemporaryImageBytesToOSS(data, contentType, filename, cfg)
+	case "local", "":
+		return saveTemporaryImageBytesToLocal(c, data, filename, cfg)
 	default:
 		return "", fmt.Errorf("unsupported temp image storage: %s", cfg.Storage)
 	}
@@ -104,6 +139,28 @@ func saveTemporaryImageToLocal(c *gin.Context, fileHeader *multipart.FileHeader,
 	return publicBaseURL + relayTempImageRoutePrefix + fileID, nil
 }
 
+func saveTemporaryImageBytesToLocal(c *gin.Context, data []byte, filename string, cfg tempImageStorageConfig) (string, error) {
+	dir := cfg.LocalDir
+	if dir == "" {
+		dir = relayTempImageDir()
+	}
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return "", fmt.Errorf("create temp image dir failed: %w", err)
+	}
+
+	fileID := uuid.NewString() + relayTempImageExt(filename)
+	path := filepath.Join(dir, fileID)
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return "", fmt.Errorf("write temp image file failed: %w", err)
+	}
+
+	publicBaseURL := strings.TrimRight(strings.TrimSpace(cfg.LocalPublicBaseURL), "/")
+	if publicBaseURL == "" {
+		publicBaseURL = relayTempImagePublicBaseURL(c)
+	}
+	return publicBaseURL + relayTempImageRoutePrefix + fileID, nil
+}
+
 func saveTemporaryImageToOSS(fileHeader *multipart.FileHeader, cfg tempImageStorageConfig) (string, error) {
 	if err := validateOSSConfig(cfg); err != nil {
 		return "", err
@@ -129,6 +186,46 @@ func saveTemporaryImageToOSS(fileHeader *multipart.FileHeader, cfg tempImageStor
 	if fileHeader.Size > 0 {
 		req.ContentLength = fileHeader.Size
 	}
+	stringToSign := strings.Join([]string{
+		http.MethodPut,
+		"",
+		contentType,
+		req.Header.Get("Date"),
+		canonicalResource,
+	}, "\n")
+	req.Header.Set("Authorization", "OSS "+cfg.OSSAccessKeyID+":"+ossSignature(cfg.OSSAccessKeySecret, stringToSign))
+
+	resp, err := serviceHTTPClient().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("upload temp image to oss failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("upload temp image to oss status %d: %s", resp.StatusCode, string(body))
+	}
+	return tempImageOSSPublicURL(cfg, objectName, canonicalResource)
+}
+
+func saveTemporaryImageBytesToOSS(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	if err := validateOSSConfig(cfg); err != nil {
+		return "", err
+	}
+	if contentType = strings.TrimSpace(contentType); contentType == "" {
+		contentType = tempImageContentTypeForFilename(filename)
+	}
+	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, relayTempImageExt(filename))
+	requestURL, canonicalResource, err := tempImageOSSObjectURL(cfg, objectName)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodPut, requestURL, bytes.NewReader(data))
+	if err != nil {
+		return "", fmt.Errorf("create oss upload request failed: %w", err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
+	req.ContentLength = int64(len(data))
 	stringToSign := strings.Join([]string{
 		http.MethodPut,
 		"",
@@ -310,8 +407,13 @@ func relayTempImageContentType(fileHeader *multipart.FileHeader) string {
 		if contentType := strings.TrimSpace(fileHeader.Header.Get("Content-Type")); contentType != "" {
 			return contentType
 		}
+		return tempImageContentTypeForFilename(fileHeader.Filename)
 	}
-	switch relayTempImageExt(fileHeader.Filename) {
+	return tempImageContentTypeForFilename("")
+}
+
+func tempImageContentTypeForFilename(filename string) string {
+	switch relayTempImageExt(filename) {
 	case ".jpg", ".jpeg":
 		return "image/jpeg"
 	case ".png":
@@ -320,6 +422,17 @@ func relayTempImageContentType(fileHeader *multipart.FileHeader) string {
 		return "image/webp"
 	default:
 		return "application/octet-stream"
+	}
+}
+
+func tempImageFilenameForMime(mimeType string) string {
+	switch strings.ToLower(strings.TrimSpace(mimeType)) {
+	case "image/jpeg", "image/jpg":
+		return "image.jpg"
+	case "image/webp":
+		return "image.webp"
+	default:
+		return "image.png"
 	}
 }
 

@@ -1,13 +1,23 @@
 package dto
 
 type ChannelSettings struct {
-	ForceFormat            bool                     `json:"force_format,omitempty"`
-	ThinkingToContent      bool                     `json:"thinking_to_content,omitempty"`
-	Proxy                  string                   `json:"proxy"`
-	PassThroughBodyEnabled bool                     `json:"pass_through_body_enabled,omitempty"`
-	SystemPrompt           string                   `json:"system_prompt,omitempty"`
-	SystemPromptOverride   bool                     `json:"system_prompt_override,omitempty"`
-	Protocol               *ChannelProtocolSettings `json:"protocol,omitempty"`
+	ForceFormat                               bool                     `json:"force_format,omitempty"`
+	ThinkingToContent                         bool                     `json:"thinking_to_content,omitempty"`
+	Proxy                                     string                   `json:"proxy"`
+	PassThroughBodyEnabled                    bool                     `json:"pass_through_body_enabled,omitempty"`
+	ImageAutoConvertGenerationWithImageToEdit *bool                    `json:"image_auto_convert_generation_with_image_to_edit,omitempty"`
+	ImageAutoConvertJSONEditToMultipart       *bool                    `json:"image_auto_convert_json_edit_to_multipart,omitempty"`
+	SystemPrompt                              string                   `json:"system_prompt,omitempty"`
+	SystemPromptOverride                      bool                     `json:"system_prompt_override,omitempty"`
+	Protocol                                  *ChannelProtocolSettings `json:"protocol,omitempty"`
+}
+
+func (s ChannelSettings) ImageGenerationWithImageToEditEnabled() bool {
+	return s.ImageAutoConvertGenerationWithImageToEdit == nil || *s.ImageAutoConvertGenerationWithImageToEdit
+}
+
+func (s ChannelSettings) ImageJSONEditToMultipartEnabled() bool {
+	return s.ImageAutoConvertJSONEditToMultipart == nil || *s.ImageAutoConvertJSONEditToMultipart
 }
 
 type ChannelProtocolSettings struct {

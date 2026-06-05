@@ -15,11 +15,13 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 	"gorm.io/gorm"
 )
 
@@ -51,6 +53,11 @@ func setupImageTaskTestDB(t *testing.T) {
 			_ = sqlDB.Close()
 		}
 	})
+}
+
+func gjsonGetString(t *testing.T, body []byte, path string) string {
+	t.Helper()
+	return gjson.GetBytes(body, path).String()
 }
 
 func TestRecordImageAsyncSubmitResponseStoresTaskAndKeepsPublicID(t *testing.T) {
@@ -108,6 +115,13 @@ func TestRecordImageAsyncSubmitResponseSkipsTaskWhenClientDidNotRequestAsync(t *
 	require.False(t, exists)
 }
 
+func TestImageSubmitUncertainErrorSkipsRetry(t *testing.T) {
+	apiErr := newImageSubmitUncertainError(fmt.Errorf("unexpected EOF"), types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)
+	require.NotNil(t, apiErr)
+	require.True(t, types.IsSkipRetryError(apiErr))
+	require.Equal(t, http.StatusInternalServerError, apiErr.StatusCode)
+}
+
 func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(t *testing.T) {
 	setupImageTaskTestDB(t)
 	gin.SetMode(gin.TestMode)
@@ -148,6 +162,110 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 		"created": 1779125744,
 		"data": [{"url":"https://cdn3.dmiapi.com/20260519/6a0b4e2e6925c.png?e=1779557807&token=abc","b64_json":"","revised_prompt":""}]
 	}`, recorder.Body.String())
+}
+
+func TestConvertImageAsyncResultStoresBase64AsURLByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, err := convertImageAsyncResultToOpenAIResponse(c, &relaycommon.RelayInfo{}, []byte(`{
+		"id":"task-1",
+		"state":"succeeded",
+		"data":{"images":[{"b64_json":"data:image/png;base64,ZmFrZS1pbWFnZQ=="}]}
+	}`))
+	require.NoError(t, err)
+	require.Contains(t, gjsonGetString(t, body, "data.0.url"), "https://cdn.example.com/api/relay-temp-images/")
+	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
+}
+
+func TestConvertImageAsyncResultReturnsBase64WhenRequested(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, err := convertImageAsyncResultToOpenAIResponse(c, &relaycommon.RelayInfo{
+		Request: &dto.ImageRequest{ResponseFormat: "b64_json"},
+	}, []byte(`{
+		"id":"task-1",
+		"state":"succeeded",
+		"data":{"images":[{"b64_json":"data:image/png;base64,ZmFrZS1pbWFnZQ=="}]}
+	}`))
+	require.NoError(t, err)
+	require.Equal(t, "ZmFrZS1pbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
+	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
+}
+
+func TestNormalizeOpenAIImageResponseStoresBase64AsURLWhenURLRequested(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{
+		Request: &dto.ImageRequest{ResponseFormat: "url"},
+	}, []byte(`{
+		"created": 1779125744,
+		"data": [{"b64_json":"data:image/png;base64,ZmFrZS1pbWFnZQ=="}],
+		"usage": {"total_tokens": 3}
+	}`))
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Contains(t, gjsonGetString(t, body, "data.0.url"), "https://cdn.example.com/api/relay-temp-images/")
+	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
+	require.Equal(t, int64(3), gjson.GetBytes(body, "usage.total_tokens").Int())
+}
+
+func TestNormalizeOpenAIImageResponseStoresDataURLFieldAsURLWhenURLRequested(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{
+		Request: &dto.ImageRequest{ResponseFormat: "url"},
+	}, []byte(`{
+		"created": 1779125744,
+		"data": [{"url":"data:image/png;base64,ZmFrZS1pbWFnZQ=="}],
+		"usage": {"total_tokens": 3}
+	}`))
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Contains(t, gjsonGetString(t, body, "data.0.url"), "https://cdn.example.com/api/relay-temp-images/")
+	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
+	require.Equal(t, int64(3), gjson.GetBytes(body, "usage.total_tokens").Int())
+}
+
+func TestImageTaskResponseWithURLImagesStoresBase64(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/tasks/task-1", nil)
+	body, err := imageTaskResponseWithURLImages(c, []byte(`{
+		"id":"task-1",
+		"state":"success",
+		"data":{"images":[{"b64_json":"data:image/png;base64,ZmFrZS1pbWFnZQ=="}]}
+	}`))
+	require.NoError(t, err)
+	require.Contains(t, gjsonGetString(t, body, "data.images.0.url"), "https://cdn.example.com/api/relay-temp-images/")
+	require.Empty(t, gjsonGetString(t, body, "data.images.0.b64_json"))
 }
 
 func TestWaitImageAsyncSubmitResponseUsesConfigurableDuomiGeminiProfile(t *testing.T) {
@@ -247,6 +365,7 @@ func TestWaitImageAsyncSubmitResponseUsesConfiguredWaitTimeout(t *testing.T) {
 	require.NotNil(t, apiErr)
 	require.Nil(t, body)
 	require.Contains(t, apiErr.Error(), "image async task wait timeout")
+	require.True(t, types.IsSkipRetryError(apiErr))
 	require.Equal(t, 1, calls)
 }
 
@@ -276,6 +395,7 @@ func TestWaitImageAsyncSubmitResponseCanDisableSyncWait(t *testing.T) {
 	require.NotNil(t, apiErr)
 	require.Nil(t, body)
 	require.Contains(t, apiErr.Error(), "image async task wait disabled")
+	require.True(t, types.IsSkipRetryError(apiErr))
 }
 
 func TestImageAsyncWaitStepsRoundsUp(t *testing.T) {
@@ -311,6 +431,62 @@ func TestShouldForceConvertImageRequestForConfigurableImageProfile(t *testing.T)
 	require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{Model: "any-image-model"}))
 }
 
+func TestShouldForceConvertImageRequestWhenImageInputRequiresModeConversion(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeImagesGenerations,
+	}
+
+	require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{
+		Model: "gpt-image-2",
+		Image: []byte(`["https://cdn.example.com/cat.png"]`),
+	}))
+}
+
+func TestShouldNotForceConvertImageRequestWhenGenerationAutoConvertDisabled(t *testing.T) {
+	disabled := false
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelSetting: dto.ChannelSettings{
+				ImageAutoConvertGenerationWithImageToEdit: &disabled,
+			},
+		},
+	}
+
+	require.False(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{
+		Model: "gpt-image-2",
+		Image: []byte(`["https://cdn.example.com/cat.png"]`),
+	}))
+}
+
+func TestShouldForceConvertImageRequestForJSONImageEdits(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeImagesEdits,
+	}
+
+	require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{
+		Model: "gpt-image-2",
+		Image: []byte(`["https://cdn.example.com/cat.png"]`),
+	}))
+}
+
+func TestShouldNotForceConvertImageRequestWhenJSONEditAutoConvertDisabled(t *testing.T) {
+	disabled := false
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeImagesEdits,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelSetting: dto.ChannelSettings{
+				ImageAutoConvertJSONEditToMultipart: &disabled,
+			},
+		},
+	}
+
+	require.False(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{
+		Model: "gpt-image-2",
+		Image: []byte(`["https://cdn.example.com/cat.png"]`),
+	}))
+}
+
 func TestImageResponseCaptureDoesNotWriteBodyOnIntermediateFlush(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
@@ -333,6 +509,28 @@ func TestImageResponseCaptureDoesNotWriteBodyOnIntermediateFlush(t *testing.T) {
 		"data":[{"url":"https://cdn3.dmiapi.com/output.png","b64_json":"","revised_prompt":""}]
 	}`, recorder.Body.String())
 	require.Equal(t, fmt.Sprintf("%d", recorder.Body.Len()), recorder.Header().Get("Content-Length"))
+}
+
+func TestImageResponseCaptureReportsWriteError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	capture := newImageResponseCapture(failingImageResponseWriter{ResponseWriter: c.Writer})
+
+	capture.WriteHeader(http.StatusOK)
+	_, err := capture.Write([]byte(`{"data":[{"url":"https://cdn.example.com/output.png"}]}`))
+	require.NoError(t, err)
+
+	err = capture.WriteCaptured()
+	require.ErrorContains(t, err, "client disconnected")
+}
+
+type failingImageResponseWriter struct {
+	gin.ResponseWriter
+}
+
+func (w failingImageResponseWriter) Write([]byte) (int, error) {
+	return 0, fmt.Errorf("client disconnected")
 }
 
 func TestImageTaskFetchReturnsOpenAICompatibleTaskPayload(t *testing.T) {

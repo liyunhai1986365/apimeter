@@ -242,6 +242,8 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.force_format ||
     values.thinking_to_content ||
     values.pass_through_body_enabled ||
+    values.image_auto_convert_generation_with_image_to_edit === false ||
+    values.image_auto_convert_json_edit_to_multipart === false ||
     values.system_prompt_override ||
     (values.protocol_native_modes?.length ?? 0) > 0 ||
     (values.protocol_enabled_conversions?.length ?? 0) > 0 ||
@@ -3207,6 +3209,58 @@ export function ChannelMutateDrawer({
                             <FormControl>
                               <Switch
                                 checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='image_auto_convert_generation_with_image_to_edit'
+                        render={({ field }) => (
+                          <FormItem className='flex items-center justify-between px-4 py-3'>
+                            <div className='space-y-0.5'>
+                              <FormLabel>
+                                {t(
+                                  'Auto convert image generation with references'
+                                )}
+                              </FormLabel>
+                              <FormDescription>
+                                {t(
+                                  'Switch image generation requests with image inputs to image edits'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value !== false}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='image_auto_convert_json_edit_to_multipart'
+                        render={({ field }) => (
+                          <FormItem className='flex items-center justify-between px-4 py-3'>
+                            <div className='space-y-0.5'>
+                              <FormLabel>
+                                {t('Auto convert JSON image edits to multipart')}
+                              </FormLabel>
+                              <FormDescription>
+                                {t(
+                                  'Convert JSON image edit requests with URL or base64 images into multipart form data'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value !== false}
                                 onCheckedChange={field.onChange}
                               />
                             </FormControl>

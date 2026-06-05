@@ -91,7 +91,7 @@ func (w *imageResponseCapture) ReplaceBody(status int, body []byte) {
 func (w *imageResponseCapture) Flush() {
 }
 
-func (w *imageResponseCapture) WriteCaptured() {
+func (w *imageResponseCapture) WriteCaptured() error {
 	for k, v := range w.Header() {
 		if len(v) == 0 {
 			continue
@@ -103,8 +103,11 @@ func (w *imageResponseCapture) WriteCaptured() {
 		w.ResponseWriter.WriteHeader(w.status)
 	}
 	if w.body.Len() > 0 {
-		_, _ = w.ResponseWriter.Write(w.body.Bytes())
+		if _, err := w.ResponseWriter.Write(w.body.Bytes()); err != nil {
+			return err
+		}
 	}
+	return nil
 }
 
 type imageAsyncSubmitResponse struct {
@@ -132,6 +135,17 @@ func parseImageAsyncSubmitResponse(body []byte) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func newImageSubmitUncertainError(err error, errorCode types.ErrorCode, statusCode int) *types.NewAPIError {
+	return types.NewOpenAIError(err, errorCode, statusCode, types.ErrOptionWithSkipRetry())
+}
+
+func markImageSubmitUncertainError(err *types.NewAPIError) *types.NewAPIError {
+	if err == nil {
+		return nil
+	}
+	return newImageSubmitUncertainError(err, err.GetErrorCode(), err.StatusCode)
 }
 
 func recordImageAsyncSubmitResponse(info *relaycommon.RelayInfo, responseBody []byte) *types.NewAPIError {
@@ -169,7 +183,7 @@ func insertImageAsyncTask(info *relaycommon.RelayInfo, upstreamTaskID string, re
 	task.Progress = "0%"
 
 	if err := task.Insert(); err != nil {
-		return types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		return newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 	return nil
 }
@@ -180,7 +194,7 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 		return nil, nil
 	}
 	if info.ChannelMeta == nil {
-		return nil, types.NewOpenAIError(fmt.Errorf("missing channel metadata"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		return nil, newImageSubmitUncertainError(fmt.Errorf("missing channel metadata"), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 
 	baseURL := info.ChannelBaseUrl
@@ -198,11 +212,11 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 
 	body, err := waitImageTaskSucceeded(c, baseURL, key, upstreamTaskID, proxy, info.ChannelSetting)
 	if err != nil {
-		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusBadGateway)
+		return nil, newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusBadGateway)
 	}
-	output, err := convertImageAsyncResultToOpenAIResponse(info, body)
+	output, err := convertImageAsyncResultToOpenAIResponse(c, info, body)
 	if err != nil {
-		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		return nil, newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 	return output, nil
 }
@@ -315,7 +329,7 @@ func normalizeImageTaskResponseForRelay(upstreamTaskID string, body []byte, prof
 	return upstream, body, nil
 }
 
-func convertImageAsyncResultToOpenAIResponse(info *relaycommon.RelayInfo, body []byte) ([]byte, error) {
+func convertImageAsyncResultToOpenAIResponse(c *gin.Context, info *relaycommon.RelayInfo, body []byte) ([]byte, error) {
 	var taskResp dto.ImageTaskResponse
 	if err := common.Unmarshal(body, &taskResp); err != nil {
 		return nil, err
@@ -329,14 +343,150 @@ func convertImageAsyncResultToOpenAIResponse(info *relaycommon.RelayInfo, body [
 		imageResp.Created = info.StartTime.Unix()
 	}
 	for _, image := range taskResp.Data.Images {
-		imageResp.Data = append(imageResp.Data, dto.ImageData{
-			Url: strings.TrimSpace(image.URL),
-		})
+		imageData, err := imageTaskImageToOpenAIData(c, image, imageResponseFormat(info))
+		if err != nil {
+			return nil, err
+		}
+		if imageData.Url != "" || imageData.B64Json != "" {
+			imageResp.Data = append(imageResp.Data, imageData)
+		}
 	}
 	if len(imageResp.Data) == 0 {
 		return nil, fmt.Errorf("image task succeeded without images")
 	}
 	return common.Marshal(imageResp)
+}
+
+func imageResponseFormat(info *relaycommon.RelayInfo) string {
+	if info != nil {
+		if request, ok := info.Request.(*dto.ImageRequest); ok {
+			switch strings.ToLower(strings.TrimSpace(request.ResponseFormat)) {
+			case "b64_json", "base64":
+				return "b64_json"
+			}
+		}
+	}
+	return "url"
+}
+
+func imageTaskImageToOpenAIData(c *gin.Context, image dto.ImageTaskImage, responseFormat string) (dto.ImageData, error) {
+	imageURL := strings.TrimSpace(image.URL)
+	imageBase64 := strings.TrimSpace(image.B64Json)
+	if responseFormat == "b64_json" {
+		if imageBase64 != "" {
+			_, cleanBase64, err := service.DecodeBase64FileData(imageBase64)
+			if err != nil {
+				return dto.ImageData{}, err
+			}
+			return dto.ImageData{B64Json: cleanBase64}, nil
+		}
+		if imageURL == "" {
+			return dto.ImageData{}, nil
+		}
+		if !isHTTPImageReference(imageURL) {
+			_, cleanBase64, err := service.DecodeBase64FileData(imageURL)
+			if err != nil {
+				return dto.ImageData{}, err
+			}
+			return dto.ImageData{B64Json: cleanBase64}, nil
+		}
+		_, base64Data, err := service.GetImageFromUrl(imageURL)
+		if err != nil {
+			return dto.ImageData{}, err
+		}
+		return dto.ImageData{B64Json: base64Data}, nil
+	}
+	if imageURL != "" {
+		if !isHTTPImageReference(imageURL) {
+			url, err := service.SaveTemporaryImageBase64(c, imageURL)
+			if err != nil {
+				return dto.ImageData{}, err
+			}
+			return dto.ImageData{Url: url}, nil
+		}
+		return dto.ImageData{Url: imageURL}, nil
+	}
+	if imageBase64 == "" {
+		return dto.ImageData{}, nil
+	}
+	url, err := service.SaveTemporaryImageBase64(c, imageBase64)
+	if err != nil {
+		return dto.ImageData{}, err
+	}
+	return dto.ImageData{Url: url}, nil
+}
+
+func isHTTPImageReference(ref string) bool {
+	ref = strings.ToLower(strings.TrimSpace(ref))
+	return strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://")
+}
+
+func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.RelayInfo, body []byte) ([]byte, bool, error) {
+	responseFormat := imageResponseFormat(info)
+	var payload map[string]any
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return nil, false, err
+	}
+	dataValue, ok := payload["data"].([]any)
+	if !ok {
+		return body, false, nil
+	}
+
+	changed := false
+	for i, item := range dataValue {
+		image, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		normalized, err := imageTaskImageToOpenAIData(c, dto.ImageTaskImage{
+			URL:     stringFromImageMap(image, "url"),
+			B64Json: stringFromImageMap(image, "b64_json"),
+		}, responseFormat)
+		if err != nil {
+			return nil, false, err
+		}
+		if responseFormat == "b64_json" {
+			if normalized.B64Json == "" {
+				continue
+			}
+			if stringFromImageMap(image, "b64_json") != normalized.B64Json {
+				image["b64_json"] = normalized.B64Json
+				changed = true
+			}
+			if stringFromImageMap(image, "url") != "" {
+				image["url"] = ""
+				changed = true
+			}
+			dataValue[i] = image
+			continue
+		}
+		if normalized.Url == "" {
+			continue
+		}
+		if stringFromImageMap(image, "url") != normalized.Url {
+			image["url"] = normalized.Url
+			changed = true
+		}
+		if stringFromImageMap(image, "b64_json") != "" {
+			image["b64_json"] = ""
+			changed = true
+		}
+		dataValue[i] = image
+	}
+	if !changed {
+		return body, false, nil
+	}
+	payload["data"] = dataValue
+	normalized, err := common.Marshal(payload)
+	return normalized, true, err
+}
+
+func stringFromImageMap(image map[string]any, key string) string {
+	value, ok := image[key]
+	if !ok || value == nil {
+		return ""
+	}
+	return strings.TrimSpace(fmt.Sprint(value))
 }
 
 func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string, settings ...dto.ChannelSettings) ([]byte, int, error) {
@@ -542,6 +692,10 @@ func FetchConfigurableImageTaskForPolling(ch *model.Channel, task *model.Task, u
 		return nil, resp.StatusCode, true, err
 	}
 	if ok {
+		normalized, err = imageTaskResponseWithURLImages(nil, normalized)
+		if err != nil {
+			return nil, resp.StatusCode, true, err
+		}
 		return normalized, resp.StatusCode, true, nil
 	}
 	return body, resp.StatusCode, true, nil
@@ -610,7 +764,10 @@ func configurableImageProfileFromChannel(channelModel *model.Channel) *configura
 func convertImageTaskResponse(task *model.Task, body []byte) ([]byte, error) {
 	if profile := configurableImageProfileForTask(task); profile != nil {
 		if normalized, ok, err := configurable.ImageTaskResponseBytesFromProfile(task.GetUpstreamTaskID(), profile, body); ok || err != nil {
-			return normalized, err
+			if err != nil {
+				return normalized, err
+			}
+			return imageTaskResponseWithURLImages(nil, normalized)
 		}
 	}
 
@@ -630,6 +787,34 @@ func convertImageTaskResponse(task *model.Task, body []byte) ([]byte, error) {
 	}
 	if response.State == "" {
 		response.State = mapTaskStatusToSimple(task.Status)
+	}
+	normalized, err := common.Marshal(response)
+	if err != nil {
+		return nil, err
+	}
+	return imageTaskResponseWithURLImages(nil, normalized)
+}
+
+func imageTaskResponseWithURLImages(c *gin.Context, body []byte) ([]byte, error) {
+	var response dto.ImageTaskResponse
+	if err := common.Unmarshal(body, &response); err != nil {
+		return nil, err
+	}
+	changed := false
+	for i, image := range response.Data.Images {
+		if strings.TrimSpace(image.URL) != "" || strings.TrimSpace(image.B64Json) == "" {
+			continue
+		}
+		imageURL, err := service.SaveTemporaryImageBase64(c, image.B64Json)
+		if err != nil {
+			return nil, err
+		}
+		response.Data.Images[i].URL = imageURL
+		response.Data.Images[i].B64Json = ""
+		changed = true
+	}
+	if !changed {
+		return body, nil
 	}
 	return common.Marshal(response)
 }

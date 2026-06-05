@@ -18,4 +18,5 @@ type ImageTaskData struct {
 type ImageTaskImage struct {
 	URL      string `json:"url"`
 	FileName string `json:"file_name,omitempty"`
+	B64Json  string `json:"b64_json,omitempty"`
 }

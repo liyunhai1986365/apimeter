@@ -99,6 +99,8 @@ export const channelFormSchema = z.object({
   thinking_to_content: z.boolean().optional(),
   proxy: z.string().optional(),
   pass_through_body_enabled: z.boolean().optional(),
+  image_auto_convert_generation_with_image_to_edit: z.boolean().optional(),
+  image_auto_convert_json_edit_to_multipart: z.boolean().optional(),
   system_prompt: z.string().optional(),
   system_prompt_override: z.boolean().optional(),
   protocol_native_modes: z.array(z.string()).optional(),
@@ -162,6 +164,8 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   thinking_to_content: false,
   proxy: '',
   pass_through_body_enabled: false,
+  image_auto_convert_generation_with_image_to_edit: true,
+  image_auto_convert_json_edit_to_multipart: true,
   system_prompt: '',
   system_prompt_override: false,
   protocol_native_modes: [],
@@ -202,6 +206,8 @@ export function transformChannelToFormDefaults(
     thinking_to_content: false,
     proxy: '',
     pass_through_body_enabled: false,
+    image_auto_convert_generation_with_image_to_edit: true,
+    image_auto_convert_json_edit_to_multipart: true,
     system_prompt: '',
     system_prompt_override: false,
     protocol_native_modes: [] as string[],
@@ -218,6 +224,15 @@ export function transformChannelToFormDefaults(
         thinking_to_content: parsed.thinking_to_content || false,
         proxy: parsed.proxy || '',
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
+        image_auto_convert_generation_with_image_to_edit:
+          typeof parsed.image_auto_convert_generation_with_image_to_edit ===
+          'boolean'
+            ? parsed.image_auto_convert_generation_with_image_to_edit
+            : true,
+        image_auto_convert_json_edit_to_multipart:
+          typeof parsed.image_auto_convert_json_edit_to_multipart === 'boolean'
+            ? parsed.image_auto_convert_json_edit_to_multipart
+            : true,
         system_prompt: parsed.system_prompt || '',
         system_prompt_override: parsed.system_prompt_override || false,
         protocol_native_modes: Array.isArray(parsed.protocol?.native_modes)
@@ -361,6 +376,10 @@ function buildSettingJSON(formData: ChannelFormValues): string {
     thinking_to_content: formData.thinking_to_content || false,
     proxy: formData.proxy || '',
     pass_through_body_enabled: formData.pass_through_body_enabled || false,
+    image_auto_convert_generation_with_image_to_edit:
+      formData.image_auto_convert_generation_with_image_to_edit !== false,
+    image_auto_convert_json_edit_to_multipart:
+      formData.image_auto_convert_json_edit_to_multipart !== false,
     system_prompt: formData.system_prompt || '',
     system_prompt_override: formData.system_prompt_override || false,
     protocol,

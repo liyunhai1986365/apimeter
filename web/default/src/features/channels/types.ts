@@ -85,6 +85,8 @@ export interface ChannelSettings {
   thinking_to_content?: boolean
   proxy?: string
   pass_through_body_enabled?: boolean
+  image_auto_convert_generation_with_image_to_edit?: boolean
+  image_auto_convert_json_edit_to_multipart?: boolean
   system_prompt?: string
   system_prompt_override?: boolean
   protocol?: {

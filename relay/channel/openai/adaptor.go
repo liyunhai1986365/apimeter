@@ -26,6 +26,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/common_handler"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/relay/imageconv"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/setting/reasoning"
@@ -425,8 +426,20 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	switch info.RelayMode {
+	case relayconstant.RelayModeImagesGenerations:
+		if info.ChannelSetting.ImageGenerationWithImageToEditEnabled() && imageconv.RequestHasImageInput(&request) {
+			info.RelayMode = relayconstant.RelayModeImagesEdits
+			info.RequestURLPath = imageconv.EditsRequestPath(info.RequestURLPath)
+			if isJSONRequest(c) {
+				return imageconv.BuildOpenAIJSONEditMultipart(c, request)
+			}
+		}
+		return request, nil
 	case relayconstant.RelayModeImagesEdits:
 		if isJSONRequest(c) {
+			if info.ChannelSetting.ImageJSONEditToMultipartEnabled() && imageconv.RequestHasImageInput(&request) {
+				return imageconv.BuildOpenAIJSONEditMultipart(c, request)
+			}
 			return request, nil
 		}
 
@@ -456,28 +469,9 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		}
 
 		if mf != nil && mf.File != nil {
-			// Check if "image" field exists in any form, including array notation
-			var imageFiles []*multipart.FileHeader
-			var exists bool
-
-			// First check for standard "image" field
-			if imageFiles, exists = mf.File["image"]; !exists || len(imageFiles) == 0 {
-				// If not found, check for "image[]" field
-				if imageFiles, exists = mf.File["image[]"]; !exists || len(imageFiles) == 0 {
-					// If still not found, iterate through all fields to find any that start with "image["
-					foundArrayImages := false
-					for fieldName, files := range mf.File {
-						if strings.HasPrefix(fieldName, "image[") && len(files) > 0 {
-							foundArrayImages = true
-							imageFiles = append(imageFiles, files...)
-						}
-					}
-
-					// If no image fields found at all
-					if !foundArrayImages && (len(imageFiles) == 0) {
-						return nil, errors.New("image is required")
-					}
-				}
+			imageFiles := imageconv.MultipartImageFiles(mf.File)
+			if len(imageFiles) == 0 {
+				return nil, errors.New("image is required")
 			}
 
 			// Process all image files

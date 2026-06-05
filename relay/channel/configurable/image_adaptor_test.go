@@ -89,6 +89,31 @@ func TestImageAdaptorBuildsApixoImageEditPayloadFromMultipart(t *testing.T) {
 	require.Contains(t, gjson.GetBytes(data, "input.image_urls.0").String(), "/api/relay-temp-images/")
 }
 
+func TestImageAdaptorConvertsBase64ImageInputToTemporaryURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("duomi-gemini-image", "https://duomiapi.com", "duomi-key", relayconstant.RelayModeImagesEdits)
+	adaptor.Init(info)
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gemini-2.5-flash-image",
+		Prompt: "edit this image",
+		Image:  []byte(`"data:image/png;base64,ZmFrZS1pbWFnZQ=="`),
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Contains(t, gjson.GetBytes(data, "image_urls.0").String(), "https://cdn.example.com/api/relay-temp-images/")
+}
+
 func TestImageAdaptorApixoRequestURLAndSubmitResponseFromProfile(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	adaptor := &ImageAdaptor{}
@@ -169,6 +194,31 @@ func TestImageAdaptorBuildsDuomiGeminiImageEditPayloadFromProfile(t *testing.T) 
 	requestURL, err := adaptor.GetRequestURL(info)
 	require.NoError(t, err)
 	require.Equal(t, "https://duomiapi.com/api/gemini/nano-banana-edit", requestURL)
+}
+
+func TestImageTaskResponseFromProfileExtractsBase64Images(t *testing.T) {
+	profile := &Profile{
+		MediaType: "image",
+		Fetch: EndpointConfig{
+			Response: ResponseConfig{
+				TaskIDPath:       "id",
+				StatusPath:       "state",
+				ResultBase64Path: "images.#.b64_json",
+				StatusMap: map[string]string{
+					"success": "SUCCESS",
+				},
+			},
+		},
+	}
+
+	response, ok, err := ImageTaskResponseFromProfile("task-1", profile, []byte(`{
+		"id":"task-1",
+		"state":"success",
+		"images":[{"b64_json":"data:image/png;base64,ZmFrZQ=="}]
+	}`))
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, "data:image/png;base64,ZmFrZQ==", response.Data.Images[0].B64Json)
 }
 
 func configurableImageRelayInfo(relayMode int) *relaycommon.RelayInfo {
