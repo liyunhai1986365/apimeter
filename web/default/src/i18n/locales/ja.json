@@ -5286,6 +5286,7 @@
     "What would you like to know?": "何を知りたいですか？",
     "When a token uses the auto group, the system tries groups from top to bottom until it finds an available group.": "トークンが auto グループを使用すると、システムは上から順に利用可能なグループを探します。",
     "When conditions match, the final price is multiplied by X. Multiple matches multiply together; values < 1 act as discounts.": "条件に一致したとき、最終価格に X を掛けます。複数一致は掛け合わさり、1 未満は割引として効きます。",
+    "When disabled, failures on this channel are returned directly without retrying other channels.": "無効にすると、このチャネルでの失敗は他のチャネルでリトライせず、そのまま返されます。",
     "When disabled, your custom rules are kept but not used.": "無効にすると、カスタムルールは保持されますが使用されません。",
     "When enabled, if channels in the current group fail, it will try channels in the next group in order.": "有効にすると、現在のグループのチャンネルが失敗した場合、次のグループのチャンネルを順番に試します。",
     "When enabled, large request bodies are temporarily stored on disk instead of memory, significantly reducing memory usage. SSD recommended.": "有効にすると、大きなリクエストボディはメモリではなくディスクに一時保存され、メモリ使用量が大幅に削減されます。SSD環境での使用を推奨します。",

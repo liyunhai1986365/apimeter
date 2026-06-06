@@ -237,6 +237,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.priority ||
     values.weight ||
     values.channel_ratio !== 1 ||
+    values.retry_enabled === false ||
     values.proxy?.trim() ||
     values.system_prompt?.trim() ||
     values.force_format ||
@@ -2585,6 +2586,29 @@ export function ChannelMutateDrawer({
                                 onCheckedChange={(checked) =>
                                   field.onChange(checked ? 1 : 0)
                                 }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='retry_enabled'
+                        render={({ field }) => (
+                          <FormItem className='flex items-center justify-between'>
+                            <div className='space-y-0.5'>
+                              <FormLabel>{t('Allow Retry')}</FormLabel>
+                              <FormDescription>
+                                {t(
+                                  'When disabled, failures on this channel are returned directly without retrying other channels.'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value !== false}
+                                onCheckedChange={field.onChange}
                               />
                             </FormControl>
                           </FormItem>
