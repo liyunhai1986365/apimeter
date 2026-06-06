@@ -25,6 +25,7 @@ import {
   getHeaderNavModuleEnabled,
   getHeaderNavModuleNewWindow,
   getHeaderNavModuleRequireAuth,
+  isExternalHeaderNavHref,
   isHeaderNavBuiltInModule,
   mergeHeaderNavOrder,
   serializeHeaderNavModules,
@@ -77,8 +78,6 @@ const createCustomLinkId = (
   }
   return id
 }
-
-const isExternalHref = (href: string): boolean => /^https?:\/\//i.test(href)
 
 function normalizeConfig(config: HeaderNavModules): HeaderNavModules {
   return {
@@ -169,8 +168,8 @@ export function HeaderNavigationSection({
       title,
       href,
       enabled: true,
-      external: isExternalHref(href),
-      newWindow: isExternalHref(href),
+      external: isExternalHeaderNavHref(href),
+      newWindow: isExternalHeaderNavHref(href),
       requireAuth: false,
     }
 
@@ -349,8 +348,8 @@ export function HeaderNavigationSection({
                         setCustomLink(customId, (current) => ({
                           ...current,
                           href: event.target.value,
-                          external: isExternalHref(event.target.value),
-                          newWindow: isExternalHref(event.target.value)
+                          external: isExternalHeaderNavHref(event.target.value),
+                          newWindow: isExternalHeaderNavHref(event.target.value)
                             ? current.newWindow
                             : false,
                         }))

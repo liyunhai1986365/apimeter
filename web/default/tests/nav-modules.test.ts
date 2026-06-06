@@ -35,7 +35,7 @@ describe('header navigation modules', () => {
     expect(items.find((item) => item.id === 'agentAccess')).toMatchObject({
       titleKey: 'Agent Access',
       href: '/docs/apps',
-      external: false,
+      external: true,
       newWindow: false,
     })
   })
@@ -52,6 +52,54 @@ describe('header navigation modules', () => {
       href: 'https://api.example.com/docs/apps',
       external: true,
     })
+  })
+
+  it('treats same-origin docs links as document routes outside the SPA', () => {
+    const modules = parseHeaderNavModules('')
+    const items = getOrderedHeaderNavItems(modules, '/zh/docs')
+
+    expect(items.find((item) => item.id === 'agentAccess')).toMatchObject({
+      href: '/docs/apps',
+      external: true,
+      newWindow: false,
+    })
+    expect(items.find((item) => item.id === 'docs')).toMatchObject({
+      href: '/zh/docs',
+      external: true,
+      newWindow: true,
+    })
+  })
+
+  it('forces configured same-origin docs custom links to leave the SPA', () => {
+    const modules = parseHeaderNavModules({
+      order: ['custom:localized-docs'],
+      customLinks: [
+        {
+          id: 'localized-docs',
+          title: 'Localized Docs',
+          href: '/zh/docs',
+          enabled: true,
+          external: false,
+          newWindow: false,
+        },
+      ],
+      home: false,
+      agentAccess: false,
+      console: false,
+      pricing: false,
+      subscription: false,
+      rankings: false,
+      docs: false,
+      about: false,
+    })
+
+    expect(getOrderedHeaderNavItems(modules)).toContainEqual(
+      expect.objectContaining({
+        id: 'custom:localized-docs',
+        href: '/zh/docs',
+        external: true,
+      })
+    )
   })
 
   it('keeps legacy boolean settings while adding missing default modules', () => {

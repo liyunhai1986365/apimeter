@@ -270,6 +270,14 @@ function normalizeCustomLinkId(raw: unknown, index: number): string {
   return `link-${index + 1}`
 }
 
+function isDocsDocumentRoute(href: string): boolean {
+  return /^\/(?:[a-z]{2}\/)?docs(?:\/|$)/i.test(href.trim())
+}
+
+export function isExternalHeaderNavHref(href: string): boolean {
+  return /^https?:\/\//i.test(href) || isDocsDocumentRoute(href)
+}
+
 function parseCustomLinks(raw: unknown): HeaderNavCustomLink[] {
   if (!Array.isArray(raw)) return []
 
@@ -284,10 +292,9 @@ function parseCustomLinks(raw: unknown): HeaderNavCustomLink[] {
     const id = normalizeCustomLinkId(record.id, index)
     if (acc.some((link) => link.id === id)) return acc
 
-    const external = parseHeaderNavBoolean(
-      record.external,
-      /^https?:\/\//i.test(href)
-    )
+    const external = isDocsDocumentRoute(href)
+      ? true
+      : parseHeaderNavBoolean(record.external, isExternalHeaderNavHref(href))
 
     acc.push({
       id,
@@ -531,20 +538,17 @@ export function getOrderedHeaderNavItems(
 
     const enabled = modules[builtInId]
     if (enabled === true) {
+      const href =
+        builtInId === 'agentAccess' && agentAccessLink
+          ? agentAccessLink
+          : builtInId === 'docs' && docsLink
+            ? docsLink
+            : item.href
+
       acc.push({
         ...item,
-        href:
-          builtInId === 'agentAccess' && agentAccessLink
-            ? agentAccessLink
-            : builtInId === 'docs' && docsLink
-              ? docsLink
-              : item.href,
-        external:
-          builtInId === 'agentAccess' && agentAccessLink
-            ? /^https?:\/\//i.test(agentAccessLink)
-            : builtInId === 'docs' && docsLink
-              ? /^https?:\/\//i.test(docsLink)
-              : item.external,
+        href,
+        external: isExternalHeaderNavHref(href),
         newWindow: getHeaderNavModuleNewWindow(modules, builtInId),
         enabled,
         requireAuth: false,
