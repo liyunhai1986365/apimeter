@@ -39,6 +39,7 @@ import { TableCell, TableRow } from '@/components/ui/table'
 import { DataTablePage } from '@/components/data-table'
 import { DEFAULT_LOGS_DATA, LOG_TYPE_ENUM } from '../constants'
 import { useColumnsByCategory } from '../lib/columns'
+import { usageLogsManualRefreshQueryOptions } from '../lib/query-options'
 import { fetchLogsByCategory } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
@@ -108,6 +109,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   })
 
   const { data, isLoading, isFetching } = useQuery({
+    ...usageLogsManualRefreshQueryOptions,
     queryKey: [
       'logs',
       logCategory,
