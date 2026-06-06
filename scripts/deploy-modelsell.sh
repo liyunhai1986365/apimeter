@@ -111,12 +111,6 @@ init_context() {
   DEPLOY_HEALTH_PATH="${DEPLOY_HEALTH_PATH:-/api/status}"
   DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-30}"
   DEPLOY_KEEP_RELEASES="${DEPLOY_KEEP_RELEASES:-5}"
-  DEPLOY_STANDBY_APP_PORT="${DEPLOY_STANDBY_APP_PORT:-$((DEPLOY_APP_PORT + 1))}"
-  DEPLOY_ZERO_DOWNTIME="${DEPLOY_ZERO_DOWNTIME:-true}"
-  DEPLOY_CADDY_UPSTREAM_FILE="${DEPLOY_CADDY_UPSTREAM_FILE:-/etc/caddy/modelsell-upstream.caddy}"
-  DEPLOY_CADDY_CONFIG_FILE="${DEPLOY_CADDY_CONFIG_FILE:-/etc/caddy/Caddyfile}"
-  DEPLOY_CADDY_AUTO_PATCH="${DEPLOY_CADDY_AUTO_PATCH:-true}"
-  DEPLOY_DRAIN_TIMEOUT="${DEPLOY_DRAIN_TIMEOUT:-900}"
 
   require_var DEPLOY_HOST
   require_var DEPLOY_REMOTE_DIR
@@ -233,7 +227,7 @@ run_remote_deploy() {
   local apply_release="$1"
   local install_env="$2"
 
-  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' STANDBY_APP_PORT='$DEPLOY_STANDBY_APP_PORT' ZERO_DOWNTIME='$DEPLOY_ZERO_DOWNTIME' CADDY_UPSTREAM_FILE='$DEPLOY_CADDY_UPSTREAM_FILE' CADDY_CONFIG_FILE='$DEPLOY_CADDY_CONFIG_FILE' CADDY_AUTO_PATCH='$DEPLOY_CADDY_AUTO_PATCH' DRAIN_TIMEOUT='$DEPLOY_DRAIN_TIMEOUT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' bash -s" <<'REMOTE_SCRIPT'
+  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' bash -s" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 RELEASES_DIR="$REMOTE_DIR/releases"
@@ -251,38 +245,10 @@ warn() {
 
 show_service_debug() {
   systemctl --no-pager --full status "$SERVICE_NAME" || true
-  systemctl --no-pager --full status "${SERVICE_NAME}@blue" || true
-  systemctl --no-pager --full status "${SERVICE_NAME}@green" || true
   journalctl -u "$SERVICE_NAME" -n 100 --no-pager || true
-  journalctl -u "${SERVICE_NAME}@blue" -n 60 --no-pager || true
-  journalctl -u "${SERVICE_NAME}@green" -n 60 --no-pager || true
 }
 
 install_service_config() {
-  cat >"/etc/systemd/system/${SERVICE_NAME}@.service" <<EOF
-[Unit]
-Description=ModelSell API Service (%i)
-After=network-online.target mysql.service mysqld.service redis.service redis-server.service
-Wants=network-online.target
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=${REMOTE_DIR}
-EnvironmentFile=${REMOTE_DIR}/.env
-Environment=MODELSELL_SLOT=%i
-EnvironmentFile=-${REMOTE_DIR}/slots/%i.env
-ExecStart=${REMOTE_DIR}/release-%i/${BINARY_NAME} --port \${APP_PORT} --log-dir ${REMOTE_DIR}/logs
-Restart=always
-RestartSec=5
-TimeoutStopSec=${DRAIN_TIMEOUT}
-KillSignal=SIGTERM
-LimitNOFILE=65535
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
   cat >"/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
 Description=ModelSell API Service
@@ -297,8 +263,6 @@ EnvironmentFile=${REMOTE_DIR}/.env
 ExecStart=${REMOTE_DIR}/current/${BINARY_NAME} --port ${APP_PORT} --log-dir ${REMOTE_DIR}/logs
 Restart=always
 RestartSec=5
-TimeoutStopSec=${DRAIN_TIMEOUT}
-KillSignal=SIGTERM
 LimitNOFILE=65535
 
 [Install]
@@ -306,6 +270,7 @@ WantedBy=multi-user.target
 EOF
 
   systemctl daemon-reload
+  systemctl enable "$SERVICE_NAME"
 }
 
 normalize_health_path() {
@@ -321,24 +286,6 @@ wait_service_healthy() {
 
   while (( SECONDS < deadline )); do
     if systemctl is-active --quiet "$SERVICE_NAME" && curl -fsS --max-time 3 "$url" >/dev/null; then
-      log "Health check passed: $url"
-      return 0
-    fi
-    sleep 1
-  done
-
-  warn "Health check failed: $url"
-  return 1
-}
-
-wait_port_healthy() {
-  local port="$1"
-  normalize_health_path
-  local url="http://127.0.0.1:${port}${HEALTH_PATH}"
-  local deadline=$((SECONDS + HEALTH_TIMEOUT))
-
-  while (( SECONDS < deadline )); do
-    if curl -fsS --max-time 3 "$url" >/dev/null; then
       log "Health check passed: $url"
       return 0
     fi
@@ -377,214 +324,6 @@ rollback_service() {
     warn "Rollback health check failed"
     show_service_debug
   fi
-}
-
-bool_enabled() {
-  case "${1:-}" in
-    1|true|TRUE|yes|YES|on|ON) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-
-slot_port() {
-  case "$1" in
-    blue) printf '%s\n' "$APP_PORT" ;;
-    green) printf '%s\n' "$STANDBY_APP_PORT" ;;
-    *) return 1 ;;
-  esac
-}
-
-other_slot() {
-  case "$1" in
-    blue) printf 'green\n' ;;
-    green) printf 'blue\n' ;;
-    *) printf 'blue\n' ;;
-  esac
-}
-
-slot_service_name() {
-  printf '%s@%s' "$SERVICE_NAME" "$1"
-}
-
-write_slot_env() {
-  local slot="$1"
-  local port="$2"
-  mkdir -p "$REMOTE_DIR/slots"
-  cat >"$REMOTE_DIR/slots/${slot}.env" <<EOF
-APP_PORT=${port}
-PORT=${port}
-EOF
-}
-
-active_caddy_port() {
-  if [[ -f "$CADDY_UPSTREAM_FILE" ]]; then
-    sed -n 's/.*127\.0\.0\.1:\([0-9][0-9]*\).*/\1/p' "$CADDY_UPSTREAM_FILE" | tail -n 1
-  fi
-}
-
-active_slot_from_caddy() {
-  local port
-  port="$(active_caddy_port || true)"
-  case "$port" in
-    "$APP_PORT") printf 'blue\n' ;;
-    "$STANDBY_APP_PORT") printf 'green\n' ;;
-    *) return 1 ;;
-  esac
-}
-
-detect_current_slot() {
-  local slot
-  if slot="$(active_slot_from_caddy 2>/dev/null)"; then
-    printf '%s\n' "$slot"
-    return 0
-  fi
-  if systemctl is-active --quiet "$(slot_service_name blue)"; then
-    printf 'blue\n'
-    return 0
-  fi
-  if systemctl is-active --quiet "$(slot_service_name green)"; then
-    printf 'green\n'
-    return 0
-  fi
-  printf 'blue\n'
-}
-
-service_main_pid() {
-  systemctl show "$(slot_service_name "$1")" -p MainPID --value 2>/dev/null || true
-}
-
-tcp_connection_count_for_port() {
-  local port="$1"
-  if command -v ss >/dev/null 2>&1; then
-    ss -Htan "sport = :$port" 2>/dev/null | awk '$1 == "ESTAB" || $1 == "FIN-WAIT-1" || $1 == "FIN-WAIT-2" || $1 == "CLOSE-WAIT" {count++} END {print count+0}'
-    return 0
-  fi
-  if command -v netstat >/dev/null 2>&1; then
-    netstat -tan 2>/dev/null | awk -v port=":$port" '$4 ~ port "$" && ($6 == "ESTABLISHED" || $6 == "FIN_WAIT1" || $6 == "FIN_WAIT2" || $6 == "CLOSE_WAIT") {count++} END {print count+0}'
-    return 0
-  fi
-  printf '0\n'
-}
-
-ensure_standby_slot_available() {
-  local slot="$1"
-  local port="$2"
-  local service
-  service="$(slot_service_name "$slot")"
-  if systemctl is-active --quiet "$service"; then
-    local connections
-    connections="$(tcp_connection_count_for_port "$port")"
-    if [[ "$connections" != "0" ]]; then
-      warn "Standby slot $slot still has $connections active connection(s) on port $port; refusing to interrupt them"
-      return 1
-    fi
-    systemctl stop "$service" || true
-  fi
-}
-
-start_slot_service() {
-  local slot="$1"
-  local port="$2"
-  local release_link="$REMOTE_DIR/release-$slot"
-  local service
-  service="$(slot_service_name "$slot")"
-
-  ln -sfnT "$RELEASE_DIR" "$release_link"
-  write_slot_env "$slot" "$port"
-  systemctl enable "$service"
-  systemctl restart "$service"
-  if ! wait_port_healthy "$port"; then
-    warn "New slot failed health check: $service"
-    systemctl stop "$service" || true
-    return 1
-  fi
-}
-
-update_caddy_upstream() {
-  local port="$1"
-  if ! command -v caddy >/dev/null 2>&1; then
-    warn "Missing remote command: caddy"
-    return 1
-  fi
-  mkdir -p "$(dirname "$CADDY_UPSTREAM_FILE")"
-  cat >"$CADDY_UPSTREAM_FILE.tmp" <<EOF
-reverse_proxy 127.0.0.1:${port}
-EOF
-  mv "$CADDY_UPSTREAM_FILE.tmp" "$CADDY_UPSTREAM_FILE"
-  caddy validate --config "$CADDY_CONFIG_FILE"
-  systemctl reload caddy
-  wait_port_healthy "$port"
-}
-
-rollback_zero_downtime() {
-  local current_slot="$1"
-  local current_port="$2"
-  local previous_target="$3"
-  warn "Rolling back zero-downtime deployment"
-
-  if [[ -n "$ENV_BACKUP" && -f "$ENV_BACKUP" ]]; then
-    cp "$ENV_BACKUP" "$REMOTE_DIR/.env"
-    chmod 600 "$REMOTE_DIR/.env"
-    warn "Restored previous runtime env"
-  fi
-  if [[ -n "$previous_target" && -d "$previous_target" ]]; then
-    ln -sfnT "$previous_target" "$CURRENT_LINK"
-    ln -sfnT "$previous_target" "$REMOTE_DIR/release-$current_slot"
-    warn "Restored previous release: $previous_target"
-  fi
-  update_caddy_upstream "$current_port" || true
-}
-
-stop_previous_slot_after_drain() {
-  local slot="$1"
-  local port
-  port="$(slot_port "$slot")"
-  local service
-  service="$(slot_service_name "$slot")"
-
-  if ! systemctl is-active --quiet "$service"; then
-    return 0
-  fi
-
-  local deadline=$((SECONDS + DRAIN_TIMEOUT))
-  while (( SECONDS < deadline )); do
-    local connections
-    connections="$(tcp_connection_count_for_port "$port")"
-    if [[ "$connections" == "0" ]]; then
-      log "Stopping drained previous slot: $service"
-      systemctl stop "$service" || true
-      return 0
-    fi
-    log "Waiting for previous slot to drain: $service has $connections active connection(s)"
-    sleep 5
-  done
-
-  warn "Drain timeout reached for $service; leaving it running to avoid interrupting active business traffic"
-}
-
-zero_downtime_deploy() {
-  local previous_target="$1"
-  local current_slot
-  current_slot="$(detect_current_slot)"
-  local next_slot
-  next_slot="$(other_slot "$current_slot")"
-  local current_port
-  current_port="$(slot_port "$current_slot")"
-  local next_port
-  next_port="$(slot_port "$next_slot")"
-
-  log "Zero-downtime deploy: current=$current_slot:$current_port next=$next_slot:$next_port"
-  ensure_standby_slot_available "$next_slot" "$next_port"
-  start_slot_service "$next_slot" "$next_port"
-
-  if ! update_caddy_upstream "$next_port"; then
-    systemctl stop "$(slot_service_name "$next_slot")" || true
-    rollback_zero_downtime "$current_slot" "$current_port" "$previous_target"
-    return 1
-  fi
-
-  ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"
-  stop_previous_slot_after_drain "$current_slot"
 }
 
 cleanup_old_releases() {
@@ -657,17 +396,10 @@ fi
 install_service_config
 
 if [[ "$APPLY_RELEASE" == "1" ]]; then
-  if bool_enabled "$ZERO_DOWNTIME"; then
-    if ! zero_downtime_deploy "$PREVIOUS_TARGET"; then
-      show_service_debug
-      exit 1
-    fi
-  else
-    ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"
-    if ! restart_and_verify; then
-      rollback_service "$PREVIOUS_TARGET"
-      exit 1
-    fi
+  ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"
+  if ! restart_and_verify; then
+    rollback_service "$PREVIOUS_TARGET"
+    exit 1
   fi
   cleanup_old_releases
   exit 0
