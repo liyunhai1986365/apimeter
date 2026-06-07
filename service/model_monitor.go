@@ -11,6 +11,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"gorm.io/gorm"
 )
 
 const (
@@ -405,6 +406,17 @@ func aggregateModelMonitorLogs(modelName string, window ModelMonitorWindow, grou
 	if group = strings.TrimSpace(group); group != "" {
 		query = query.Where(modelLogGroupCol()+" = ?", group)
 	}
+	query = onlyFinalRetryLogRows(query, func(tx *gorm.DB, alias string) *gorm.DB {
+		prefix := alias + "."
+		tx = tx.
+			Where(prefix+"model_name = ?", modelName).
+			Where(prefix+"created_at >= ? AND "+prefix+"created_at <= ?", window.StartTimestamp, window.EndTimestamp).
+			Where(prefix+"type IN ?", []int{model.LogTypeConsume, model.LogTypeError})
+		if group != "" {
+			tx = tx.Where(prefix+modelLogGroupCol()+" = ?", group)
+		}
+		return tx
+	})
 	if err := query.Scan(&rows).Error; err != nil {
 		return nil, ModelMonitorSummary{}, err
 	}
@@ -473,6 +485,17 @@ func getModelMonitorUseTimes(modelName string, window ModelMonitorWindow, group 
 	if group = strings.TrimSpace(group); group != "" {
 		query = query.Where(modelLogGroupCol()+" = ?", group)
 	}
+	query = onlyFinalRetryLogRows(query, func(tx *gorm.DB, alias string) *gorm.DB {
+		prefix := alias + "."
+		tx = tx.
+			Where(prefix+"model_name = ?", modelName).
+			Where(prefix+"created_at >= ? AND "+prefix+"created_at <= ?", window.StartTimestamp, window.EndTimestamp).
+			Where(prefix+"type IN ?", []int{model.LogTypeConsume, model.LogTypeError})
+		if group != "" {
+			tx = tx.Where(prefix+modelLogGroupCol()+" = ?", group)
+		}
+		return tx
+	})
 	if err := query.Find(&logs).Error; err != nil {
 		return nil, nil, err
 	}
@@ -492,6 +515,17 @@ func getModelMonitorLatestErrorsByChannel(modelName string, window ModelMonitorW
 	if group = strings.TrimSpace(group); group != "" {
 		query = query.Where(modelLogGroupCol()+" = ?", group)
 	}
+	query = onlyFinalRetryLogRows(query, func(tx *gorm.DB, alias string) *gorm.DB {
+		prefix := alias + "."
+		tx = tx.
+			Where(prefix+"model_name = ?", modelName).
+			Where(prefix+"created_at >= ? AND "+prefix+"created_at <= ?", window.StartTimestamp, window.EndTimestamp).
+			Where(prefix+"type IN ?", []int{model.LogTypeConsume, model.LogTypeError})
+		if group != "" {
+			tx = tx.Where(prefix+modelLogGroupCol()+" = ?", group)
+		}
+		return tx
+	})
 	if err := query.Order("created_at desc, id desc").Limit(200).Find(&logs).Error; err != nil {
 		return nil, err
 	}
@@ -518,6 +552,17 @@ func getModelMonitorRecentErrors(modelName string, window ModelMonitorWindow, gr
 	if group = strings.TrimSpace(group); group != "" {
 		query = query.Where(modelLogGroupCol()+" = ?", group)
 	}
+	query = onlyFinalRetryLogRows(query, func(tx *gorm.DB, alias string) *gorm.DB {
+		prefix := alias + "."
+		tx = tx.
+			Where(prefix+"model_name = ?", modelName).
+			Where(prefix+"created_at >= ? AND "+prefix+"created_at <= ?", window.StartTimestamp, window.EndTimestamp).
+			Where(prefix+"type IN ?", []int{model.LogTypeConsume, model.LogTypeError})
+		if group != "" {
+			tx = tx.Where(prefix+modelLogGroupCol()+" = ?", group)
+		}
+		return tx
+	})
 	if err := query.Order("created_at desc, id desc").Limit(modelMonitorRecentErrorLimit).Find(&logs).Error; err != nil {
 		return nil, err
 	}
@@ -561,6 +606,19 @@ func calculateRates(success int64, errors int64) (float64, float64) {
 	}
 	successRate := round2(float64(success) * 100 / float64(total))
 	return successRate, round2(100 - successRate)
+}
+
+func onlyFinalRetryLogRows(tx *gorm.DB, applyFilters func(*gorm.DB, string) *gorm.DB) *gorm.DB {
+	newer := model.LOG_DB.Table("logs AS newer").Select("1")
+	newer = applyFilters(newer, "newer")
+	newer = newer.
+		Where("newer.request_id = logs.request_id").
+		Where("newer.request_id <> ''").
+		Where("newer.model_name = logs.model_name").
+		Where("(newer.created_at > logs.created_at OR (newer.created_at = logs.created_at AND newer.id > logs.id))").
+		Limit(1)
+
+	return tx.Where("NOT (logs.request_id <> '' AND EXISTS (?))", newer)
 }
 
 func calculateHealthScore(successRate float64, total int64, p95UseTime int, latestErrorAt int64) int {

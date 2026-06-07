@@ -125,6 +125,53 @@ func TestGetModelMonitorAggregatesLogsByChannelWithinWindow(t *testing.T) {
 	require.Equal(t, "rate limited", second.LatestError)
 }
 
+func TestGetModelMonitorCountsOnlyFinalRetryLogByRequestID(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	require.NoError(t, model.DB.Create(&model.Model{Id: 1, ModelName: "gpt-test", Status: 1}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Name: "openai-a", Type: 1, Status: 1, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 12, Name: "openai-b", Type: 1, Status: 1, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 11, Enabled: true}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 12, Enabled: true}).Error)
+
+	logs := []model.Log{
+		{CreatedAt: now - 90, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "retry failed first", Group: "default", RequestId: "req-success"},
+		{CreatedAt: now - 80, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 12, Quota: 120, PromptTokens: 10, CompletionTokens: 20, UseTime: 3, Group: "default", RequestId: "req-success"},
+		{CreatedAt: now - 70, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "retry failed first", Group: "default", RequestId: "req-fail"},
+		{CreatedAt: now - 60, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 12, Content: "retry failed last", Group: "default", RequestId: "req-fail"},
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "single failure", Group: "default"},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	result, err := GetModelMonitor(1, ModelMonitorQuery{EndTimestamp: now}, now)
+	require.NoError(t, err)
+
+	require.EqualValues(t, 3, result.Summary.TotalRequests)
+	require.EqualValues(t, 1, result.Summary.SuccessRequests)
+	require.EqualValues(t, 2, result.Summary.ErrorRequests)
+	require.InDelta(t, 33.33, result.Summary.SuccessRate, 0.01)
+
+	channelsByID := map[int]ModelMonitorChannel{}
+	for _, channel := range result.Channels {
+		channelsByID[channel.ChannelID] = channel
+	}
+
+	first := channelsByID[11]
+	require.EqualValues(t, 11, first.ChannelID)
+	require.EqualValues(t, 1, first.TotalRequests)
+	require.EqualValues(t, 0, first.SuccessRequests)
+	require.EqualValues(t, 1, first.ErrorRequests)
+	require.Equal(t, "single failure", first.LatestError)
+
+	second := channelsByID[12]
+	require.EqualValues(t, 12, second.ChannelID)
+	require.EqualValues(t, 2, second.TotalRequests)
+	require.EqualValues(t, 1, second.SuccessRequests)
+	require.EqualValues(t, 1, second.ErrorRequests)
+	require.Equal(t, "retry failed last", second.LatestError)
+}
+
 func TestClearModelMonitorCacheRefreshesChannelPriority(t *testing.T) {
 	setupModelMonitorTestDB(t)
 	now := time.Now().Unix()
@@ -263,6 +310,37 @@ func TestGetChannelModelErrorStatsAppliesThresholdAndWindow(t *testing.T) {
 	require.EqualValues(t, 3, stats[0].TotalRequests)
 	require.InDelta(t, 66.67, stats[0].ErrorRate, 0.01)
 	require.Equal(t, "second failure", stats[0].LatestError)
+	require.Equal(t, now-50, stats[0].LatestErrorAt)
+}
+
+func TestGetChannelModelErrorStatsCountsOnlyFinalRetryLogByRequestID(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	logs := []model.Log{
+		{CreatedAt: now - 90, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "retry failed first", Group: "default", RequestId: "req-success"},
+		{CreatedAt: now - 80, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 12, Content: "retry success", Group: "default", RequestId: "req-success"},
+		{CreatedAt: now - 70, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "retry failed first", Group: "default", RequestId: "req-fail"},
+		{CreatedAt: now - 60, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "retry failed last", Group: "default", RequestId: "req-fail"},
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "single failure", Group: "default"},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	stats, err := GetChannelModelErrorStats(ChannelModelErrorStatsQuery{
+		ChannelID:        11,
+		Threshold:        2,
+		WindowSeconds:    10 * 60,
+		Now:              now,
+		MinRequests:      2,
+		ErrorRatePercent: 50,
+	})
+	require.NoError(t, err)
+	require.Len(t, stats, 1)
+	require.Equal(t, "gpt-test", stats[0].ModelName)
+	require.EqualValues(t, 2, stats[0].TotalRequests)
+	require.EqualValues(t, 2, stats[0].ErrorCount)
+	require.InDelta(t, 100, stats[0].ErrorRate, 0.01)
+	require.Equal(t, "single failure", stats[0].LatestError)
 	require.Equal(t, now-50, stats[0].LatestErrorAt)
 }
 

@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"gorm.io/gorm"
 )
 
 type ChannelModelErrorStats struct {
@@ -91,6 +92,18 @@ func GetChannelModelErrorStats(args ...interface{}) ([]ChannelModelErrorStats, e
 	if strings.TrimSpace(query.Group) != "" {
 		db = db.Where(model.CommonLogGroupCol()+" = ?", strings.TrimSpace(query.Group))
 	}
+	group := strings.TrimSpace(query.Group)
+	db = onlyFinalRetryLogRows(db, func(tx *gorm.DB, alias string) *gorm.DB {
+		prefix := alias + "."
+		tx = tx.
+			Where(prefix+"type IN ?", []int{model.LogTypeConsume, model.LogTypeError}).
+			Where(prefix+"created_at >= ?", since).
+			Where(prefix+"model_name <> ?", "")
+		if group != "" {
+			tx = tx.Where(prefix+model.CommonLogGroupCol()+" = ?", group)
+		}
+		return tx
+	})
 	err := db.
 		Having("SUM(CASE WHEN type = ? THEN 1 ELSE 0 END) >= ?", model.LogTypeError, query.Threshold).
 		Having("COUNT(*) >= ?", query.MinRequests).
@@ -113,9 +126,20 @@ func GetChannelModelErrorStats(args ...interface{}) ([]ChannelModelErrorStats, e
 		latestQuery := model.LOG_DB.Model(&model.Log{}).
 			Where("channel_id = ? AND type = ? AND model_name = ? AND created_at >= ?", query.ChannelID, model.LogTypeError, row.ModelName, since).
 			Order("created_at DESC, id DESC")
-		if strings.TrimSpace(query.Group) != "" {
-			latestQuery = latestQuery.Where(model.CommonLogGroupCol()+" = ?", strings.TrimSpace(query.Group))
+		if group != "" {
+			latestQuery = latestQuery.Where(model.CommonLogGroupCol()+" = ?", group)
 		}
+		latestQuery = onlyFinalRetryLogRows(latestQuery, func(tx *gorm.DB, alias string) *gorm.DB {
+			prefix := alias + "."
+			tx = tx.
+				Where(prefix+"type IN ?", []int{model.LogTypeConsume, model.LogTypeError}).
+				Where(prefix+"created_at >= ?", since).
+				Where(prefix+"model_name <> ?", "")
+			if group != "" {
+				tx = tx.Where(prefix+model.CommonLogGroupCol()+" = ?", group)
+			}
+			return tx
+		})
 		latestErr := latestQuery.
 			First(&latest).Error
 		if latestErr != nil {
