@@ -25,6 +25,10 @@ import {
 } from '../maintenance/config'
 import { HeaderNavigationSection } from '../maintenance/header-navigation-section'
 import { NoticeSection } from '../maintenance/notice-section'
+import {
+  RankingsVisibilitySection,
+  type RankingsDataVisibility,
+} from '../maintenance/rankings-visibility-section'
 import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
 import type { SiteSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
@@ -77,6 +81,18 @@ const SITE_SECTIONS = [
         />
       )
     },
+  },
+  {
+    id: 'rankings-visibility',
+    titleKey: 'Rankings data visibility',
+    descriptionKey: 'Control exact usage exposure on public rankings',
+    build: (settings: SiteSettings) => (
+      <RankingsVisibilitySection
+        defaultValue={
+          (settings.RankingsDataVisibility || 'masked') as RankingsDataVisibility
+        }
+      />
+    ),
   },
   {
     id: 'sidebar-modules',

@@ -94,6 +94,7 @@ type MarketShareSectionProps = {
   history: VendorShareSeries
   rows: VendorRanking[]
   period: RankingPeriod
+  exactData: boolean
 }
 
 /**
@@ -125,6 +126,7 @@ export function MarketShareSection(props: MarketShareSectionProps) {
       return (order.get(a.vendor) ?? 999) - (order.get(b.vendor) ?? 999)
     })
   }, [props.history])
+  const formatMetric = props.exactData ? formatTokens : formatPopularity
 
   const spec = useMemo(() => {
     if (orderedPoints.length === 0) return null
@@ -170,7 +172,9 @@ export function MarketShareSection(props: MarketShareSectionProps) {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.vendor ?? ''),
               value: (datum: Record<string, unknown>) =>
-                `${(Number(datum?.share) * 100).toFixed(1)}% · ${formatTokens(Number(datum?.tokens) || 0)}`,
+                props.exactData
+                  ? `${(Number(datum?.share) * 100).toFixed(1)}% · ${formatMetric(Number(datum?.tokens) || 0)}`
+                  : `${(Number(datum?.share) * 100).toFixed(1)}% · ${t('index')} ${formatMetric(Number(datum?.tokens) || 0)}`,
             },
           ],
         },
@@ -202,7 +206,7 @@ export function MarketShareSection(props: MarketShareSectionProps) {
       },
       animationAppear: { duration: 500 },
     }
-  }, [barRadius, colourMap, orderedPoints])
+  }, [barRadius, colourMap, formatMetric, orderedPoints, props.exactData, t])
 
   const visible = props.rows.slice(0, MAX_VENDORS_IN_LIST)
   const half = Math.ceil(visible.length / 2)
@@ -249,7 +253,11 @@ export function MarketShareSection(props: MarketShareSectionProps) {
             {t('By model author')}
           </h3>
           <p className='text-muted-foreground/80 mt-0.5 text-xs'>
-            {t('Vendors ranked by aggregated token volume')}
+            {t(
+              props.exactData
+                ? 'Vendors ranked by aggregated token volume'
+                : 'Vendors ranked by relative popularity'
+            )}
           </p>
         </header>
         {visible.length === 0 ? (
@@ -258,9 +266,17 @@ export function MarketShareSection(props: MarketShareSectionProps) {
           </div>
         ) : (
           <div className='grid grid-cols-1 gap-x-8 px-5 pt-1 pb-4 md:grid-cols-2'>
-            <VendorList rows={left} colourMap={colourMap} />
+            <VendorList
+              rows={left}
+              colourMap={colourMap}
+              exactData={props.exactData}
+            />
             {right.length > 0 && (
-              <VendorList rows={right} colourMap={colourMap} />
+              <VendorList
+                rows={right}
+                colourMap={colourMap}
+                exactData={props.exactData}
+              />
             )}
           </div>
         )}
@@ -272,7 +288,10 @@ export function MarketShareSection(props: MarketShareSectionProps) {
 function VendorList(props: {
   rows: VendorRanking[]
   colourMap: Record<string, string>
+  exactData: boolean
 }) {
+  const { t } = useTranslation()
+  const formatMetric = props.exactData ? formatTokens : formatPopularity
   return (
     <ul>
       {props.rows.map((vendor) => (
@@ -295,14 +314,21 @@ function VendorList(props: {
           </VendorLink>
           <div className='shrink-0 text-right'>
             <div className='text-foreground font-mono text-sm font-semibold tabular-nums'>
-              {formatTokens(vendor.total_tokens)}
+              {formatMetric(vendor.total_tokens)}
             </div>
             <div className='text-muted-foreground/80 font-mono text-[11px] tabular-nums'>
-              {formatShare(vendor.share)}
+              {props.exactData
+                ? formatShare(vendor.share)
+                : `${formatShare(vendor.share)} · ${t('index')}`}
             </div>
           </div>
         </li>
       ))}
     </ul>
   )
+}
+
+function formatPopularity(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0'
+  return Math.round(value).toString()
 }

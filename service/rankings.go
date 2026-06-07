@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 )
 
@@ -18,9 +20,16 @@ const (
 	rankingMoverLimit       = 6
 	rankingOthersLabel      = "Others"
 	rankingUnknownVendor    = "Unknown"
+
+	rankingsDataVisibilityMasked      = "masked"
+	rankingsDataVisibilityExact       = "exact"
+	rankingsDataVisibilityHiddenExact = "hidden_exact"
 )
 
 type RankingsResponse struct {
+	DataVisibility     string             `json:"data_visibility"`
+	ExactData          bool               `json:"exact_data"`
+	DisplayMetric      string             `json:"display_metric"`
 	Models             []RankedModel      `json:"models"`
 	Vendors            []RankedVendor     `json:"vendors"`
 	TopMovers          []RankingMover     `json:"top_movers"`
@@ -135,6 +144,10 @@ var (
 )
 
 func GetRankingsSnapshot(period string) (*RankingsResponse, error) {
+	return GetRankingsSnapshotForRole(period, 0)
+}
+
+func GetRankingsSnapshotForRole(period string, role int) (*RankingsResponse, error) {
 	config, err := rankingConfig(period)
 	if err != nil {
 		return nil, err
@@ -144,7 +157,7 @@ func GetRankingsSnapshot(period string) (*RankingsResponse, error) {
 	rankingCacheMu.Lock()
 	if item, ok := rankingCache[config.id]; ok && now.Before(item.expiresAt) {
 		rankingCacheMu.Unlock()
-		return item.data, nil
+		return prepareRankingsSnapshotForRole(item.data, role), nil
 	}
 	rankingCacheMu.Unlock()
 
@@ -160,7 +173,7 @@ func GetRankingsSnapshot(period string) (*RankingsResponse, error) {
 	}
 	rankingCacheMu.Unlock()
 
-	return data, nil
+	return prepareRankingsSnapshotForRole(data, role), nil
 }
 
 func rankingConfig(period string) (rankingPeriodConfig, error) {
@@ -200,7 +213,13 @@ func buildRankingsSnapshot(config rankingPeriodConfig, now time.Time) (*Rankings
 		}
 	}
 
-	meta := buildRankingModelMeta()
+	pricings := model.GetPricing()
+	aliasMap := buildRankingAliasMap(pricings)
+	currentTotals = mergeRankingQuotaTotals(currentTotals, aliasMap)
+	currentBuckets = mergeRankingQuotaBuckets(currentBuckets, aliasMap)
+	previousTotals = mergeRankingQuotaTotals(previousTotals, aliasMap)
+
+	meta := buildRankingModelMeta(pricings)
 	totalTokens := sumRankingTokens(currentTotals)
 	previousRankByModel := rankingRankMap(previousTotals)
 	previousTokensByModel := rankingTokenMap(previousTotals)
@@ -212,6 +231,9 @@ func buildRankingsSnapshot(config rankingPeriodConfig, now time.Time) (*Rankings
 	movers, droppers := buildRankingMovers(rankedModels)
 
 	return &RankingsResponse{
+		DataVisibility:     rankingsDataVisibilityExact,
+		ExactData:          true,
+		DisplayMetric:      "tokens",
 		Models:             limitRankedModels(rankedModels, rankingLeaderboardLimit),
 		Vendors:            vendors,
 		TopMovers:          movers,
@@ -219,6 +241,94 @@ func buildRankingsSnapshot(config rankingPeriodConfig, now time.Time) (*Rankings
 		ModelsHistory:      modelHistory,
 		VendorShareHistory: vendorHistory,
 	}, nil
+}
+
+func prepareRankingsSnapshotForRole(data *RankingsResponse, role int) *RankingsResponse {
+	if data == nil {
+		return nil
+	}
+	visibility := getRankingsDataVisibility()
+	if shouldUseExactRankingsData(visibility, role) {
+		exact := cloneRankingsSnapshot(data)
+		exact.DataVisibility = rankingsDataVisibilityExact
+		exact.ExactData = true
+		exact.DisplayMetric = "tokens"
+		return exact
+	}
+	return maskRankingsSnapshot(data)
+}
+
+func getRankingsDataVisibility() string {
+	common.OptionMapRWMutex.RLock()
+	raw := common.OptionMap["RankingsDataVisibility"]
+	common.OptionMapRWMutex.RUnlock()
+	switch strings.TrimSpace(raw) {
+	case rankingsDataVisibilityExact:
+		return rankingsDataVisibilityExact
+	case rankingsDataVisibilityHiddenExact:
+		return rankingsDataVisibilityHiddenExact
+	default:
+		return rankingsDataVisibilityMasked
+	}
+}
+
+func shouldUseExactRankingsData(visibility string, role int) bool {
+	switch visibility {
+	case rankingsDataVisibilityExact:
+		return true
+	case rankingsDataVisibilityHiddenExact:
+		return role >= common.RoleAdminUser
+	default:
+		return false
+	}
+}
+
+func maskRankingsSnapshot(data *RankingsResponse) *RankingsResponse {
+	masked := cloneRankingsSnapshot(data)
+	masked.DataVisibility = rankingsDataVisibilityMasked
+	masked.ExactData = false
+	masked.DisplayMetric = "popularity"
+
+	modelMax := maxRankedModelTokens(masked.Models)
+	for idx := range masked.Models {
+		masked.Models[idx].TotalTokens = rankingPopularityScore(masked.Models[idx].TotalTokens, modelMax)
+		masked.Models[idx].GrowthPct = rankingTrendScore(masked.Models[idx].GrowthPct)
+	}
+	recalculateRankedModelShares(masked.Models)
+
+	vendorMax := maxRankedVendorTokens(masked.Vendors)
+	for idx := range masked.Vendors {
+		masked.Vendors[idx].TotalTokens = rankingPopularityScore(masked.Vendors[idx].TotalTokens, vendorMax)
+		masked.Vendors[idx].GrowthPct = rankingTrendScore(masked.Vendors[idx].GrowthPct)
+	}
+	recalculateRankedVendorShares(masked.Vendors)
+
+	for idx := range masked.TopMovers {
+		masked.TopMovers[idx].GrowthPct = rankingTrendScore(masked.TopMovers[idx].GrowthPct)
+	}
+	for idx := range masked.TopDroppers {
+		masked.TopDroppers[idx].GrowthPct = rankingTrendScore(masked.TopDroppers[idx].GrowthPct)
+	}
+
+	historyModelMax := maxModelHistoryTokens(masked.ModelsHistory)
+	for idx := range masked.ModelsHistory.Points {
+		masked.ModelsHistory.Points[idx].Tokens = rankingPopularityScore(masked.ModelsHistory.Points[idx].Tokens, historyModelMax)
+	}
+	for idx := range masked.ModelsHistory.Models {
+		masked.ModelsHistory.Models[idx].Total = rankingPopularityScore(masked.ModelsHistory.Models[idx].Total, modelMax)
+	}
+
+	historyVendorMax := maxVendorShareHistoryTokens(masked.VendorShareHistory)
+	for idx := range masked.VendorShareHistory.Points {
+		masked.VendorShareHistory.Points[idx].Tokens = rankingPopularityScore(masked.VendorShareHistory.Points[idx].Tokens, historyVendorMax)
+	}
+	recalculateVendorShareHistory(masked.VendorShareHistory.Points)
+	for idx := range masked.VendorShareHistory.Vendors {
+		masked.VendorShareHistory.Vendors[idx].Total = rankingPopularityScore(masked.VendorShareHistory.Vendors[idx].Total, vendorMax)
+	}
+	recalculateVendorShareVendorShares(masked.VendorShareHistory.Vendors)
+
+	return masked
 }
 
 func rankingTimeRange(config rankingPeriodConfig, now time.Time) (int64, int64) {
@@ -235,14 +345,14 @@ func previousRankingTimeRange(config rankingPeriodConfig, currentStart int64) (i
 	return previousStart, previousEnd
 }
 
-func buildRankingModelMeta() map[string]rankingModelMeta {
+func buildRankingModelMeta(pricings []model.Pricing) map[string]rankingModelMeta {
 	vendorByID := make(map[int]model.PricingVendor)
 	for _, vendor := range model.GetVendors() {
 		vendorByID[vendor.ID] = vendor
 	}
 
 	meta := make(map[string]rankingModelMeta)
-	for _, pricing := range model.GetPricing() {
+	for _, pricing := range pricings {
 		item := rankingModelMeta{vendor: rankingUnknownVendor}
 		if vendor, ok := vendorByID[pricing.VendorID]; ok {
 			item.vendor = vendor.Name
@@ -253,6 +363,103 @@ func buildRankingModelMeta() map[string]rankingModelMeta {
 		meta[pricing.ModelName] = item
 	}
 	return meta
+}
+
+func buildRankingAliasMap(pricings []model.Pricing) map[string]string {
+	aliasToPrimary := make(map[string]string)
+	for _, pricing := range pricings {
+		primary := strings.TrimSpace(pricing.ModelName)
+		if primary == "" {
+			continue
+		}
+		if _, exists := aliasToPrimary[primary]; !exists {
+			aliasToPrimary[primary] = primary
+		}
+		for _, alias := range pricing.AliasModels {
+			alias = strings.TrimSpace(alias)
+			if alias == "" {
+				continue
+			}
+			if _, exists := aliasToPrimary[alias]; !exists {
+				aliasToPrimary[alias] = primary
+			}
+		}
+	}
+	return aliasToPrimary
+}
+
+func canonicalRankingModelName(modelName string, aliasMap map[string]string) string {
+	if primary, ok := aliasMap[modelName]; ok && primary != "" {
+		return primary
+	}
+	return modelName
+}
+
+func mergeRankingQuotaTotals(totals []model.RankingQuotaTotal, aliasMap map[string]string) []model.RankingQuotaTotal {
+	if len(totals) == 0 {
+		return totals
+	}
+	tokensByModel := make(map[string]int64, len(totals))
+	for _, item := range totals {
+		modelName := canonicalRankingModelName(item.ModelName, aliasMap)
+		tokensByModel[modelName] += item.TotalTokens
+	}
+
+	rows := make([]model.RankingQuotaTotal, 0, len(tokensByModel))
+	for modelName, totalTokens := range tokensByModel {
+		if modelName == "" || totalTokens <= 0 {
+			continue
+		}
+		rows = append(rows, model.RankingQuotaTotal{
+			ModelName:   modelName,
+			TotalTokens: totalTokens,
+		})
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].TotalTokens == rows[j].TotalTokens {
+			return rows[i].ModelName < rows[j].ModelName
+		}
+		return rows[i].TotalTokens > rows[j].TotalTokens
+	})
+	return rows
+}
+
+func mergeRankingQuotaBuckets(buckets []model.RankingQuotaBucket, aliasMap map[string]string) []model.RankingQuotaBucket {
+	if len(buckets) == 0 {
+		return buckets
+	}
+	tokensByBucketAndModel := make(map[int64]map[string]int64)
+	for _, item := range buckets {
+		modelName := canonicalRankingModelName(item.ModelName, aliasMap)
+		if modelName == "" {
+			continue
+		}
+		if _, ok := tokensByBucketAndModel[item.Bucket]; !ok {
+			tokensByBucketAndModel[item.Bucket] = make(map[string]int64)
+		}
+		tokensByBucketAndModel[item.Bucket][modelName] += item.Tokens
+	}
+
+	rows := make([]model.RankingQuotaBucket, 0, len(buckets))
+	for bucket, tokensByModel := range tokensByBucketAndModel {
+		for modelName, tokens := range tokensByModel {
+			if tokens <= 0 {
+				continue
+			}
+			rows = append(rows, model.RankingQuotaBucket{
+				ModelName: modelName,
+				Bucket:    bucket,
+				Tokens:    tokens,
+			})
+		}
+	}
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].Bucket == rows[j].Bucket {
+			return rows[i].ModelName < rows[j].ModelName
+		}
+		return rows[i].Bucket < rows[j].Bucket
+	})
+	return rows
 }
 
 func modelMeta(modelName string, meta map[string]rankingModelMeta) rankingModelMeta {
@@ -575,6 +782,163 @@ func rankingGrowthPct(current int64, previous int64) float64 {
 
 func roundRankingFloat(value float64) float64 {
 	return math.Round(value*10000) / 10000
+}
+
+func rankingPopularityScore(value int64, maxValue int64) int64 {
+	if value <= 0 || maxValue <= 0 {
+		return 0
+	}
+	score := int64(math.Round((float64(value) / float64(maxValue)) * 100))
+	if score < 1 {
+		return 1
+	}
+	if score > 100 {
+		return 100
+	}
+	return score
+}
+
+func rankingTrendScore(value float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value == 0 {
+		return 0
+	}
+	if value > 100 {
+		return 100
+	}
+	if value < -100 {
+		return -100
+	}
+	return roundRankingFloat(math.Round(value/10) * 10)
+}
+
+func maxRankedModelTokens(rows []RankedModel) int64 {
+	var maxValue int64
+	for _, row := range rows {
+		if row.TotalTokens > maxValue {
+			maxValue = row.TotalTokens
+		}
+	}
+	return maxValue
+}
+
+func maxRankedVendorTokens(rows []RankedVendor) int64 {
+	var maxValue int64
+	for _, row := range rows {
+		if row.TotalTokens > maxValue {
+			maxValue = row.TotalTokens
+		}
+	}
+	return maxValue
+}
+
+func maxModelHistoryTokens(series ModelHistorySeries) int64 {
+	var maxValue int64
+	for _, point := range series.Points {
+		if point.Tokens > maxValue {
+			maxValue = point.Tokens
+		}
+	}
+	return maxValue
+}
+
+func maxVendorShareHistoryTokens(series VendorShareSeries) int64 {
+	var maxValue int64
+	for _, point := range series.Points {
+		if point.Tokens > maxValue {
+			maxValue = point.Tokens
+		}
+	}
+	return maxValue
+}
+
+func recalculateRankedModelShares(rows []RankedModel) {
+	total := int64(0)
+	for _, row := range rows {
+		total += row.TotalTokens
+	}
+	for idx := range rows {
+		rows[idx].Share = rankingShare(rows[idx].TotalTokens, total)
+	}
+}
+
+func recalculateRankedVendorShares(rows []RankedVendor) {
+	total := int64(0)
+	for _, row := range rows {
+		total += row.TotalTokens
+	}
+	for idx := range rows {
+		rows[idx].Share = rankingShare(rows[idx].TotalTokens, total)
+	}
+}
+
+func recalculateVendorShareVendorShares(rows []VendorShareVendor) {
+	total := int64(0)
+	for _, row := range rows {
+		total += row.Total
+	}
+	for idx := range rows {
+		rows[idx].Share = rankingShare(rows[idx].Total, total)
+	}
+}
+
+func recalculateVendorShareHistory(points []VendorSharePoint) {
+	totalByTs := make(map[string]int64)
+	for _, point := range points {
+		totalByTs[point.Ts] += point.Tokens
+	}
+	for idx := range points {
+		points[idx].Share = rankingShare(points[idx].Tokens, totalByTs[points[idx].Ts])
+	}
+}
+
+func cloneRankingsSnapshot(data *RankingsResponse) *RankingsResponse {
+	if data == nil {
+		return nil
+	}
+	cloned := *data
+	cloned.Models = append([]RankedModel(nil), data.Models...)
+	cloned.Vendors = append([]RankedVendor(nil), data.Vendors...)
+	cloned.TopMovers = append([]RankingMover(nil), data.TopMovers...)
+	cloned.TopDroppers = append([]RankingMover(nil), data.TopDroppers...)
+	cloned.ModelsHistory = ModelHistorySeries{
+		Points:  append([]ModelHistoryPoint(nil), data.ModelsHistory.Points...),
+		Models:  append([]ModelHistoryModel(nil), data.ModelsHistory.Models...),
+		Buckets: data.ModelsHistory.Buckets,
+	}
+	cloned.VendorShareHistory = VendorShareSeries{
+		Points:  append([]VendorSharePoint(nil), data.VendorShareHistory.Points...),
+		Vendors: append([]VendorShareVendor(nil), data.VendorShareHistory.Vendors...),
+		Buckets: data.VendorShareHistory.Buckets,
+	}
+	normalizeRankingsSnapshotSlices(&cloned)
+	return &cloned
+}
+
+func normalizeRankingsSnapshotSlices(data *RankingsResponse) {
+	if data.Models == nil {
+		data.Models = []RankedModel{}
+	}
+	if data.Vendors == nil {
+		data.Vendors = []RankedVendor{}
+	}
+	if data.TopMovers == nil {
+		data.TopMovers = []RankingMover{}
+	}
+	if data.TopDroppers == nil {
+		data.TopDroppers = []RankingMover{}
+	}
+	if data.ModelsHistory.Points == nil {
+		data.ModelsHistory.Points = []ModelHistoryPoint{}
+	}
+	if data.ModelsHistory.Models == nil {
+		data.ModelsHistory.Models = []ModelHistoryModel{}
+	}
+	if data.VendorShareHistory.Points == nil {
+		data.VendorShareHistory.Points = []VendorSharePoint{}
+	}
+	if data.VendorShareHistory.Vendors == nil {
+		data.VendorShareHistory.Vendors = []VendorShareVendor{}
+	}
 }
 
 func limitRankedModels(rows []RankedModel, limit int) []RankedModel {

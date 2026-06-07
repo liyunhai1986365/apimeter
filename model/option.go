@@ -72,6 +72,7 @@ func InitOptionMap() {
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo
+	common.OptionMap["RankingsDataVisibility"] = "masked"
 	common.OptionMap["ServerAddress"] = ""
 	common.OptionMap["AgentCNAMEBaseDomain"] = os.Getenv("AGENT_CNAME_BASE_DOMAIN")
 	common.OptionMap["AgentTLSAskSecret"] = os.Getenv("AGENT_TLS_ASK_SECRET")

@@ -124,6 +124,9 @@ export type VendorShareSeries = {
 }
 
 export type RankingsSnapshot = {
+  data_visibility?: 'exact' | 'masked' | 'hidden_exact'
+  exact_data?: boolean
+  display_metric?: 'tokens' | 'popularity' | string
   // Overall (all categories) ------------------------------------------------
   models: ModelRanking[]
   vendors: VendorRanking[]

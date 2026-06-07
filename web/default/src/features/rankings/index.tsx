@@ -45,6 +45,22 @@ export function Rankings() {
 
   const rankingsQuery = useRankings(period)
   const snapshot = rankingsQuery.data?.data
+  const modelsHistory = snapshot
+    ? {
+        ...snapshot.models_history,
+        points: snapshot.models_history?.points ?? [],
+        models: snapshot.models_history?.models ?? [],
+        buckets: snapshot.models_history?.buckets ?? 0,
+      }
+    : undefined
+  const vendorShareHistory = snapshot
+    ? {
+        ...snapshot.vendor_share_history,
+        points: snapshot.vendor_share_history?.points ?? [],
+        vendors: snapshot.vendor_share_history?.vendors ?? [],
+        buckets: snapshot.vendor_share_history?.buckets ?? 0,
+      }
+    : undefined
 
   const handlePeriodChange = (next: RankingPeriod) => {
     navigate({
@@ -87,20 +103,22 @@ export function Rankings() {
           ) : (
             <>
               <ModelsSection
-                history={snapshot.models_history}
-                rows={snapshot.models}
+                history={modelsHistory!}
+                rows={snapshot.models ?? []}
                 period={period}
+                exactData={snapshot.exact_data ?? true}
               />
 
               <MarketShareSection
-                history={snapshot.vendor_share_history}
-                rows={snapshot.vendors}
+                history={vendorShareHistory!}
+                rows={snapshot.vendors ?? []}
                 period={period}
+                exactData={snapshot.exact_data ?? true}
               />
 
               <PulseSection
-                movers={snapshot.top_movers}
-                droppers={snapshot.top_droppers}
+                movers={snapshot.top_movers ?? []}
+                droppers={snapshot.top_droppers ?? []}
               />
             </>
           )}

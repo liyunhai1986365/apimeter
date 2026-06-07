@@ -36,12 +36,17 @@ const PERIOD_DESCRIPTIONS: Record<RankingPeriod, string> = {
   all: 'Token usage by model since launch',
 }
 
+const MASKED_PERIOD_DESCRIPTIONS: Partial<Record<RankingPeriod, string>> = {
+  week: 'Weekly token index by model across the past few weeks',
+}
+
 const TOOLTIP_MAX_ROWS = 10
 
 type ModelsSectionProps = {
   history: ModelHistorySeries
   rows: ModelRanking[]
   period: RankingPeriod
+  exactData: boolean
 }
 
 /**
@@ -74,6 +79,12 @@ export function ModelsSection(props: ModelsSectionProps) {
     () => props.rows.reduce((s, r) => s + r.total_tokens, 0),
     [props.rows]
   )
+  const metricLabel = props.exactData ? 'tokens' : 'popularity index'
+  const periodDescription = props.exactData
+    ? PERIOD_DESCRIPTIONS[props.period]
+    : (MASKED_PERIOD_DESCRIPTIONS[props.period] ??
+      PERIOD_DESCRIPTIONS[props.period])
+  const formatMetric = props.exactData ? formatTokens : formatPopularity
 
   const spec = useMemo(() => {
     if (orderedPoints.length === 0) return null
@@ -101,7 +112,8 @@ export function ModelsSection(props: ModelsSectionProps) {
         {
           orient: 'left',
           label: {
-            formatMethod: (val: number | string) => formatTokens(Number(val)),
+            formatMethod: (val: number | string) =>
+              formatMetric(Number(val)),
             style: { fill: 'currentColor', fontSize: 10 },
           },
           grid: { visible: true, style: { lineDash: [3, 3] } },
@@ -114,7 +126,7 @@ export function ModelsSection(props: ModelsSectionProps) {
               key: (datum: Record<string, unknown>) =>
                 String(datum?.model ?? ''),
               value: (datum: Record<string, unknown>) =>
-                formatTokens(Number(datum?.tokens) || 0),
+                formatMetric(Number(datum?.tokens) || 0),
             },
           ],
         },
@@ -140,7 +152,7 @@ export function ModelsSection(props: ModelsSectionProps) {
             const overflow = array.slice(TOOLTIP_MAX_ROWS)
             const result = visible.map((item) => ({
               key: item.key,
-              value: formatTokens(Number(item.value) || 0),
+              value: formatMetric(Number(item.value) || 0),
             }))
             if (overflow.length > 0) {
               const otherSum = overflow.reduce(
@@ -149,17 +161,17 @@ export function ModelsSection(props: ModelsSectionProps) {
               )
               result.push({
                 key: t('+{{count}} more', { count: overflow.length }),
-                value: formatTokens(otherSum),
+                value: formatMetric(otherSum),
               })
             }
-            result.unshift({ key: t('Total:'), value: formatTokens(sum) })
+            result.unshift({ key: t('Total:'), value: formatMetric(sum) })
             return result
           },
         },
       },
       animationAppear: { duration: 500 },
     }
-  }, [barRadius, orderedPoints, t])
+  }, [barRadius, formatMetric, orderedPoints, t])
 
   return (
     <section className='bg-card overflow-hidden rounded-lg border'>
@@ -171,15 +183,15 @@ export function ModelsSection(props: ModelsSectionProps) {
             {t('Top Models')}
           </h2>
           <p className='text-muted-foreground mt-1 text-sm'>
-            {t(PERIOD_DESCRIPTIONS[props.period])}
+            {t(periodDescription)}
           </p>
         </div>
         <div className='shrink-0 text-right'>
           <div className='text-foreground font-mono text-2xl font-semibold tabular-nums'>
-            {formatTokens(totalTokens)}
+            {formatMetric(totalTokens)}
           </div>
           <div className='text-muted-foreground/80 text-[10px] font-medium tracking-widest uppercase'>
-            {t('tokens')}
+            {t(metricLabel)}
           </div>
         </div>
       </header>
@@ -221,10 +233,15 @@ export function ModelsSection(props: ModelsSectionProps) {
           </div>
         ) : (
           <div className='px-5 pt-1 pb-4'>
-            <ModelLeaderboard rows={props.rows} />
+            <ModelLeaderboard rows={props.rows} exactData={props.exactData} />
           </div>
         )}
       </div>
     </section>
   )
+}
+
+function formatPopularity(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0'
+  return Math.round(value).toString()
 }
