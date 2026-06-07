@@ -38,6 +38,7 @@ import type {
   SearchChannelsParams,
   SearchChannelsResponse,
   TagOperationParams,
+  RetryPolicyRule,
 } from './types'
 
 // Extended API config types
@@ -138,6 +139,14 @@ export async function updateChannel(
   data: Partial<Channel>
 ): Promise<{ success: boolean; message?: string; data?: Channel }> {
   const res = await api.put('/api/channel/', { id, ...data })
+  return res.data
+}
+
+export async function appendChannelRetryPolicyRule(
+  id: number,
+  rule: RetryPolicyRule
+): Promise<{ success: boolean; message?: string; data?: Channel }> {
+  const res = await api.post(`/api/channel/${id}/retry_policy_rules`, { rule })
   return res.data
 }
 

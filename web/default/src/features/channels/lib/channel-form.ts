@@ -20,6 +20,16 @@ import { z } from 'zod'
 import { CHANNEL_STATUS, MODEL_FETCHABLE_TYPES } from '../constants'
 import type { Channel } from '../types'
 
+const jsonArrayString = z.string().refine((value) => {
+  const trimmed = value.trim()
+  if (!trimmed) return true
+  try {
+    return Array.isArray(JSON.parse(trimmed))
+  } catch {
+    return false
+  }
+}, 'Must be a valid JSON array')
+
 export const REQUEST_MODE_OPTIONS = [
   { label: 'OpenAI Chat', value: 'openai.chat' },
   { label: 'OpenAI Image Generations', value: 'openai.image.generations' },
@@ -108,6 +118,7 @@ export const channelFormSchema = z.object({
   image_auto_convert_json_edit_to_multipart: z.boolean().optional(),
   system_prompt: z.string().optional(),
   system_prompt_override: z.boolean().optional(),
+  retry_policy_rules: jsonArrayString.optional(),
   protocol_native_modes: z.array(z.string()).optional(),
   protocol_enabled_conversions: z.array(z.string()).optional(),
   protocol_profile_id: z.string().optional(),
@@ -174,6 +185,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   image_auto_convert_json_edit_to_multipart: true,
   system_prompt: '',
   system_prompt_override: false,
+  retry_policy_rules: '[]',
   protocol_native_modes: [],
   protocol_enabled_conversions: [],
   protocol_profile_id: '',
@@ -216,6 +228,7 @@ export function transformChannelToFormDefaults(
     image_auto_convert_json_edit_to_multipart: true,
     system_prompt: '',
     system_prompt_override: false,
+    retry_policy_rules: '[]',
     protocol_native_modes: [] as string[],
     protocol_enabled_conversions: [] as string[],
     protocol_profile_id: '',
@@ -241,6 +254,9 @@ export function transformChannelToFormDefaults(
             : true,
         system_prompt: parsed.system_prompt || '',
         system_prompt_override: parsed.system_prompt_override || false,
+        retry_policy_rules: Array.isArray(parsed.retry_policy_rules)
+          ? JSON.stringify(parsed.retry_policy_rules, null, 2)
+          : '[]',
         protocol_native_modes: Array.isArray(parsed.protocol?.native_modes)
           ? parsed.protocol.native_modes
           : [],
@@ -389,6 +405,9 @@ function buildSettingJSON(formData: ChannelFormValues): string {
       formData.image_auto_convert_json_edit_to_multipart !== false,
     system_prompt: formData.system_prompt || '',
     system_prompt_override: formData.system_prompt_override || false,
+    retry_policy_rules: formData.retry_policy_rules?.trim()
+      ? JSON.parse(formData.retry_policy_rules)
+      : [],
     protocol,
   }
   return JSON.stringify(settingObj)

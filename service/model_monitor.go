@@ -677,6 +677,12 @@ func setModelMonitorCache(key string, result *ModelMonitorResult) {
 	}
 }
 
+func ClearModelMonitorCache() {
+	modelMonitorCache.Lock()
+	defer modelMonitorCache.Unlock()
+	modelMonitorCache.items = map[string]modelMonitorCacheEntry{}
+}
+
 func round2(value float64) float64 {
 	return math.Round(value*100) / 100
 }

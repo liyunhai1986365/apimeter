@@ -125,6 +125,36 @@ func TestGetModelMonitorAggregatesLogsByChannelWithinWindow(t *testing.T) {
 	require.Equal(t, "rate limited", second.LatestError)
 }
 
+func TestClearModelMonitorCacheRefreshesChannelPriority(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	initialPriority := int64(1)
+	updatedPriority := int64(9)
+	require.NoError(t, model.DB.Create(&model.Model{Id: 1, ModelName: "gpt-test", Status: 1}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Name: "openai-a", Type: 1, Status: 1, Models: "gpt-test", Group: "default", Priority: &initialPriority}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 11, Enabled: true, Priority: &initialPriority}).Error)
+
+	first, err := GetModelMonitor(1, ModelMonitorQuery{EndTimestamp: now}, now)
+	require.NoError(t, err)
+	require.Len(t, first.Channels, 1)
+	require.EqualValues(t, initialPriority, first.Channels[0].Priority)
+
+	require.NoError(t, model.DB.Model(&model.Ability{}).Where("channel_id = ?", 11).Update("priority", updatedPriority).Error)
+
+	cached, err := GetModelMonitor(1, ModelMonitorQuery{EndTimestamp: now}, now)
+	require.NoError(t, err)
+	require.Len(t, cached.Channels, 1)
+	require.EqualValues(t, initialPriority, cached.Channels[0].Priority)
+
+	ClearModelMonitorCache()
+
+	refreshed, err := GetModelMonitor(1, ModelMonitorQuery{EndTimestamp: now}, now)
+	require.NoError(t, err)
+	require.Len(t, refreshed.Channels, 1)
+	require.EqualValues(t, updatedPriority, refreshed.Channels[0].Priority)
+}
+
 func TestListModelMonitorModelsSortsByErrorRateDescendingBeforePaging(t *testing.T) {
 	setupModelMonitorTestDB(t)
 	now := time.Now().Unix()

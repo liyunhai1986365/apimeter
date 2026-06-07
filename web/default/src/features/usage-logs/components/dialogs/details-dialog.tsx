@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Copy,
   Check,
@@ -31,6 +32,7 @@ import {
   Info,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
 import { formatGroupDiscount } from '@/lib/group-discount'
@@ -48,6 +50,11 @@ import {
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
+import { appendChannelRetryPolicyRule } from '@/features/channels/api'
+import {
+  buildRetryPolicyRuleFromLog,
+  channelsQueryKeys,
+} from '@/features/channels/lib'
 import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
 import type { UsageLog } from '../../data/schema'
 import {
@@ -398,6 +405,7 @@ interface DetailsDialogProps {
 
 export function DetailsDialog(props: DetailsDialogProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
   const details = props.log.content ?? ''
   const other = parseLogOther(props.log.other)
@@ -481,6 +489,40 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const useChannel = other?.admin_info?.use_channel
   const channelChain =
     useChannel && useChannel.length > 0 ? useChannel.join(' → ') : undefined
+  const retryPolicyRule = buildRetryPolicyRuleFromLog(props.log)
+  const canAppendRetryPolicy =
+    props.isAdmin &&
+    props.log.type === 5 &&
+    props.log.channel > 0 &&
+    retryPolicyRule
+  const appendRetryPolicy = useMutation({
+    mutationFn: async () => {
+      if (!retryPolicyRule || props.log.channel <= 0) {
+        throw new Error(t('No retry policy can be generated from this log'))
+      }
+      const updateResponse = await appendChannelRetryPolicyRule(
+        props.log.channel,
+        retryPolicyRule
+      )
+      if (!updateResponse.success) {
+        throw new Error(updateResponse.message || t('Failed to update channel'))
+      }
+    },
+    onSuccess: () => {
+      toast.success(t('Retry policy added to channel'))
+      queryClient.invalidateQueries({ queryKey: channelsQueryKeys.lists() })
+      queryClient.invalidateQueries({
+        queryKey: channelsQueryKeys.detail(props.log.channel),
+      })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('Failed to add retry policy to channel')
+      )
+    },
+  })
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
@@ -545,6 +587,26 @@ export function DetailsDialog(props: DetailsDialogProps) {
 
               {channelChain && props.isAdmin && (
                 <DetailRow label={t('Retry Chain')} value={channelChain} mono />
+              )}
+
+              {canAppendRetryPolicy && (
+                <DetailRow
+                  label={t('Retry Policy')}
+                  value={
+                    <Button
+                      type='button'
+                      size='sm'
+                      variant='outline'
+                      className='h-7 px-2 text-xs'
+                      disabled={appendRetryPolicy.isPending}
+                      onClick={() => appendRetryPolicy.mutate()}
+                    >
+                      {appendRetryPolicy.isPending
+                        ? t('Adding...')
+                        : t('Add to channel retry policy')}
+                    </Button>
+                  }
+                />
               )}
 
               {props.log.token_name && (
@@ -984,35 +1046,33 @@ export function DetailsDialog(props: DetailsDialogProps) {
             )}
 
             {/* Param override */}
-            {other?.po &&
-              Array.isArray(other.po) &&
-              other.po.length > 0 && (
-                <DetailSection
-                  icon={<Settings2 className='size-3.5' aria-hidden='true' />}
-                  label={`${t('Param Override')} (${other.po.length})`}
-                >
-                  {other.po.filter(Boolean).map((line, idx) => {
-                    const parsed = parseAuditLine(line)
-                    if (!parsed) return null
-                    return (
-                      <div
-                        key={idx}
-                        className='bg-background/60 flex min-w-0 flex-col gap-1.5 rounded border p-2 sm:flex-row sm:items-start sm:gap-2'
-                      >
-                        <StatusBadge
-                          variant='neutral'
-                          label={getParamOverrideActionLabel(parsed.action, t)}
-                          className='shrink-0 font-medium'
-                          copyable={false}
-                        />
-                        <span className='min-w-0 font-mono text-[11px] leading-relaxed break-all sm:break-words'>
-                          {parsed.content}
-                        </span>
-                      </div>
-                    )
-                  })}
-                </DetailSection>
-              )}
+            {other?.po && Array.isArray(other.po) && other.po.length > 0 && (
+              <DetailSection
+                icon={<Settings2 className='size-3.5' aria-hidden='true' />}
+                label={`${t('Param Override')} (${other.po.length})`}
+              >
+                {other.po.filter(Boolean).map((line, idx) => {
+                  const parsed = parseAuditLine(line)
+                  if (!parsed) return null
+                  return (
+                    <div
+                      key={idx}
+                      className='bg-background/60 flex min-w-0 flex-col gap-1.5 rounded border p-2 sm:flex-row sm:items-start sm:gap-2'
+                    >
+                      <StatusBadge
+                        variant='neutral'
+                        label={getParamOverrideActionLabel(parsed.action, t)}
+                        className='shrink-0 font-medium'
+                        copyable={false}
+                      />
+                      <span className='min-w-0 font-mono text-[11px] leading-relaxed break-all sm:break-words'>
+                        {parsed.content}
+                      </span>
+                    </div>
+                  )
+                })}
+              </DetailSection>
+            )}
 
             {/* Content */}
             {details && (

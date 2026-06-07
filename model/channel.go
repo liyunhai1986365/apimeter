@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/samber/lo"
@@ -1033,8 +1034,41 @@ func (channel *Channel) ValidateSettings() error {
 		if err != nil {
 			return err
 		}
+		if err := operation_setting.ValidateRetryPolicyRules(channelRetryPolicyRulesToOperationRules(channelParams.RetryPolicyRules)); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func channelRetryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_setting.RetryPolicyRule {
+	if len(rules) == 0 {
+		return nil
+	}
+	result := make([]operation_setting.RetryPolicyRule, 0, len(rules))
+	for _, rule := range rules {
+		result = append(result, operation_setting.RetryPolicyRule{
+			Name:            rule.Name,
+			Action:          rule.Action,
+			Models:          rule.Models,
+			ChannelIDs:      rule.ChannelIDs,
+			ChannelTypes:    rule.ChannelTypes,
+			ErrorTypes:      rule.ErrorTypes,
+			ErrorCodes:      rule.ErrorCodes,
+			StatusCodes:     rule.StatusCodes,
+			MessageContains: rule.MessageContains,
+			Conditions: operation_setting.RetryPolicyConditions{
+				Models:          rule.Conditions.Models,
+				ChannelIDs:      rule.Conditions.ChannelIDs,
+				ChannelTypes:    rule.Conditions.ChannelTypes,
+				ErrorTypes:      rule.Conditions.ErrorTypes,
+				ErrorCodes:      rule.Conditions.ErrorCodes,
+				StatusCodes:     rule.Conditions.StatusCodes,
+				MessageContains: rule.Conditions.MessageContains,
+			},
+		})
+	}
+	return result
 }
 
 func (channel *Channel) GetSetting() dto.ChannelSettings {

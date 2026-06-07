@@ -562,6 +562,14 @@ export const STATIC_I18N_KEYS = [
   'High-risk status code retry input placeholder',
   'High-risk status code retry input mismatch',
   'I confirm enabling high-risk retry',
+  'Retry by model and message',
+  'Retry a specific model when the upstream error contains text',
+  'Retry upstream rate limits',
+  'Retry common upstream rate limit responses',
+  'Skip invalid requests',
+  'Do not retry client-side invalid request errors',
+  'Retry provider temporary errors',
+  'Retry temporary upstream failures and overloaded responses',
 
   // Subscription management
   'Subscription Management',

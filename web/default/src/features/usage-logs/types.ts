@@ -98,6 +98,11 @@ export interface LogOtherData {
     multi_key_index?: number
     use_channel?: number[]
     local_count_tokens?: boolean
+    error_code?: string
+    status_code?: number
+    channel_id?: number
+    channel_name?: string
+    channel_type?: number
     channel_affinity?: ChannelAffinityInfo
     // Top-up audit fields (type=1, admin only)
     payment_method?: string
@@ -314,11 +319,7 @@ export interface GetLogsResponse {
   success: boolean
   message?: string
   data?: {
-    items:
-      | UsageLog[]
-      | ChannelOperationRecord[]
-      | MidjourneyLog[]
-      | TaskLog[]
+    items: UsageLog[] | ChannelOperationRecord[] | MidjourneyLog[] | TaskLog[]
     total: number
     page: number
     page_size: number

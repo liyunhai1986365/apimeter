@@ -18,15 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useRef } from 'react'
 import * as z from 'zod'
-import { useMutation } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useTranslation } from 'react-i18next'
+import { useMutation } from '@tanstack/react-query'
 import { Send } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { parseHttpStatusCodeRules } from '@/lib/http-status-code-rules'
 import { Button } from '@/components/ui/button'
-import { sendGlobalWebhookTest } from '../api'
 import {
   Form,
   FormControl,
@@ -37,8 +36,20 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  insertRetryPolicyTemplate,
+  RETRY_POLICY_TEMPLATES,
+} from '@/features/channels/lib'
+import { sendGlobalWebhookTest } from '../api'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
 import { useUpdateOption } from '../hooks/use-update-option'
@@ -49,6 +60,16 @@ const numericString = z.string().refine((value) => {
   return !Number.isNaN(Number(trimmed)) && Number(trimmed) >= 0
 }, 'Enter a non-negative number or leave empty')
 
+const jsonArrayString = z.string().refine((value) => {
+  const trimmed = value.trim()
+  if (!trimmed) return true
+  try {
+    return Array.isArray(JSON.parse(trimmed))
+  } catch {
+    return false
+  }
+}, 'Must be a valid JSON array')
+
 const monitoringSchema = z
   .object({
     ChannelDisableThreshold: numericString,
@@ -58,6 +79,7 @@ const monitoringSchema = z
     AutomaticDisableKeywords: z.string(),
     AutomaticDisableStatusCodes: z.string(),
     AutomaticRetryStatusCodes: z.string(),
+    AutomaticRetryPolicyRules: jsonArrayString,
     monitor_setting: z.object({
       auto_test_channel_enabled: z.boolean(),
       auto_test_channel_minutes: z.coerce
@@ -184,6 +206,7 @@ type MonitoringSettingsSectionProps = {
     AutomaticDisableKeywords: string
     AutomaticDisableStatusCodes: string
     AutomaticRetryStatusCodes: string
+    AutomaticRetryPolicyRules: string
     'monitor_setting.auto_test_channel_enabled': boolean
     'monitor_setting.auto_test_channel_minutes': number
     'monitor_setting.channel_auto_operation_enabled': boolean
@@ -220,6 +243,7 @@ type NormalizedMonitoringValues = {
   AutomaticDisableKeywords: string
   AutomaticDisableStatusCodes: string
   AutomaticRetryStatusCodes: string
+  AutomaticRetryPolicyRules: string
   'monitor_setting.auto_test_channel_enabled': boolean
   'monitor_setting.auto_test_channel_minutes': number
   'monitor_setting.channel_auto_operation_enabled': boolean
@@ -255,6 +279,7 @@ const buildFormDefaults = (
   ),
   AutomaticDisableStatusCodes: defaults.AutomaticDisableStatusCodes ?? '',
   AutomaticRetryStatusCodes: defaults.AutomaticRetryStatusCodes ?? '',
+  AutomaticRetryPolicyRules: defaults.AutomaticRetryPolicyRules ?? '[]',
   monitor_setting: {
     auto_test_channel_enabled:
       defaults['monitor_setting.auto_test_channel_enabled'],
@@ -311,6 +336,9 @@ const normalizeDefaults = (
   AutomaticRetryStatusCodes: parseHttpStatusCodeRules(
     defaults.AutomaticRetryStatusCodes ?? ''
   ).normalized,
+  AutomaticRetryPolicyRules: (
+    defaults.AutomaticRetryPolicyRules ?? '[]'
+  ).trim(),
   'monitor_setting.auto_test_channel_enabled':
     defaults['monitor_setting.auto_test_channel_enabled'],
   'monitor_setting.auto_test_channel_minutes':
@@ -368,6 +396,7 @@ const normalizeFormValues = (
   AutomaticRetryStatusCodes: parseHttpStatusCodeRules(
     values.AutomaticRetryStatusCodes
   ).normalized,
+  AutomaticRetryPolicyRules: values.AutomaticRetryPolicyRules.trim() || '[]',
   'monitor_setting.auto_test_channel_enabled':
     values.monitor_setting.auto_test_channel_enabled,
   'monitor_setting.auto_test_channel_minutes':
@@ -387,10 +416,8 @@ const normalizeFormValues = (
   'webhook_setting.enabled': values.webhook_setting.enabled,
   'webhook_setting.url': values.webhook_setting.url.trim(),
   'webhook_setting.secret': values.webhook_setting.secret,
-  'webhook_setting.interval_minutes':
-    values.webhook_setting.interval_minutes,
-  'webhook_setting.suppress_minutes':
-    values.webhook_setting.suppress_minutes,
+  'webhook_setting.interval_minutes': values.webhook_setting.interval_minutes,
+  'webhook_setting.suppress_minutes': values.webhook_setting.suppress_minutes,
   'webhook_setting.notify_on_empty_result':
     values.webhook_setting.notify_on_empty_result,
   'webhook_setting.model_error_check_enabled':
@@ -401,8 +428,7 @@ const normalizeFormValues = (
     values.webhook_setting.model_error_threshold,
   'webhook_setting.model_error_min_requests':
     values.webhook_setting.model_error_min_requests,
-  'webhook_setting.model_error_rate':
-    values.webhook_setting.model_error_rate,
+  'webhook_setting.model_error_rate': values.webhook_setting.model_error_rate,
   'webhook_setting.channel_test_check_enabled':
     values.webhook_setting.channel_test_check_enabled,
   'webhook_setting.channel_test_window_minutes':
@@ -684,7 +710,9 @@ export function MonitoringSettingsSection({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Ignore low-volume models until this many requests exist')}
+                    {t(
+                      'Ignore low-volume models until this many requests exist'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -719,7 +747,9 @@ export function MonitoringSettingsSection({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Disable only when the model error rate reaches this percentage')}
+                    {t(
+                      'Disable only when the model error rate reaches this percentage'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
@@ -762,7 +792,9 @@ export function MonitoringSettingsSection({
                       {t('Global webhook alerts')}
                     </FormLabel>
                     <FormDescription>
-                      {t('Push model error, channel test, and automatic disable alerts to a system-level webhook')}
+                      {t(
+                        'Push model error, channel test, and automatic disable alerts to a system-level webhook'
+                      )}
                     </FormDescription>
                   </div>
                   <div className='flex items-center gap-3'>
@@ -984,7 +1016,9 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Only failed tests in this recent window are included')}
+                      {t(
+                        'Only failed tests in this recent window are included'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -1130,7 +1164,9 @@ export function MonitoringSettingsSection({
                 name='webhook_setting.model_error_rate'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Webhook error rate threshold (%)')}</FormLabel>
+                    <FormLabel>
+                      {t('Webhook error rate threshold (%)')}
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type='number'
@@ -1155,7 +1191,9 @@ export function MonitoringSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Push only when the model error rate reaches this percentage')}
+                      {t(
+                        'Push only when the model error rate reaches this percentage'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -1347,6 +1385,59 @@ export function MonitoringSettingsSection({
               )}
             />
           </div>
+
+          <FormField
+            control={form.control}
+            name='AutomaticRetryPolicyRules'
+            render={({ field }) => (
+              <FormItem>
+                <div className='flex items-center justify-between gap-3'>
+                  <FormLabel>{t('Global retry policy')}</FormLabel>
+                  <Select
+                    value=''
+                    onValueChange={(value) => {
+                      const template = RETRY_POLICY_TEMPLATES.find(
+                        (item) => item.labelKey === value
+                      )
+                      if (template) {
+                        field.onChange(
+                          insertRetryPolicyTemplate(field.value, template)
+                        )
+                      }
+                    }}
+                  >
+                    <SelectTrigger className='h-8 w-40'>
+                      <SelectValue placeholder={t('Insert template')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RETRY_POLICY_TEMPLATES.map((template) => (
+                        <SelectItem
+                          key={template.labelKey}
+                          value={template.labelKey}
+                        >
+                          {t(template.labelKey)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <FormControl>
+                  <Textarea
+                    rows={6}
+                    placeholder='[{"models":["gpt-image-2"],"message_contains":["private ip"],"action":"retry"}]'
+                    {...field}
+                    onChange={(event) => field.onChange(event.target.value)}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    'Global retry policy is used when the channel retry policy does not match; status code rules remain the fallback.'
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
           <Button type='submit' disabled={updateOption.isPending}>
             {updateOption.isPending

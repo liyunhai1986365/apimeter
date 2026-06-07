@@ -425,6 +425,9 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if strings.TrimSpace(request.ResponseFormat) == "" {
+		request.ResponseFormat = "url"
+	}
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesGenerations:
 		if info.ChannelSetting.ImageGenerationWithImageToEditEnabled() && imageconv.RequestHasImageInput(&request) {

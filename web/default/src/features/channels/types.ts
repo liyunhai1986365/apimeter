@@ -90,11 +90,33 @@ export interface ChannelSettings {
   image_auto_convert_json_edit_to_multipart?: boolean
   system_prompt?: string
   system_prompt_override?: boolean
+  retry_policy_rules?: RetryPolicyRule[]
   protocol?: {
     native_modes?: string[]
     enabled_conversions?: string[]
     profile_id?: string
     image_async_wait_timeout_seconds?: number
+  }
+}
+
+export interface RetryPolicyRule {
+  name?: string
+  action: 'retry' | 'skip_retry'
+  models?: string[]
+  channel_ids?: number[]
+  channel_types?: number[]
+  error_types?: string[]
+  error_codes?: string[]
+  status_codes?: string
+  message_contains?: string[]
+  conditions?: {
+    models?: string[]
+    channel_ids?: number[]
+    channel_types?: number[]
+    error_types?: string[]
+    error_codes?: string[]
+    status_codes?: string
+    message_contains?: string[]
   }
 }
 

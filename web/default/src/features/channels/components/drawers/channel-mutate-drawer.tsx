@@ -147,6 +147,8 @@ import {
   hasModelConfigChanged,
   findMissingModelsInMapping,
   validateModelMappingJson,
+  insertRetryPolicyTemplate,
+  RETRY_POLICY_TEMPLATES,
 } from '../../lib'
 import {
   collectInvalidStatusCodeEntries,
@@ -238,6 +240,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.weight ||
     values.channel_ratio !== 1 ||
     values.retry_enabled === false ||
+    values.retry_policy_rules?.trim() !== '[]' ||
     values.proxy?.trim() ||
     values.system_prompt?.trim() ||
     values.force_format ||
@@ -2615,6 +2618,62 @@ export function ChannelMutateDrawer({
                         )}
                       />
 
+                      <FormField
+                        control={form.control}
+                        name='retry_policy_rules'
+                        render={({ field }) => (
+                          <FormItem>
+                            <div className='flex items-center justify-between gap-3'>
+                              <FormLabel>{t('Channel retry policy')}</FormLabel>
+                              <Select
+                                value=''
+                                onValueChange={(value) => {
+                                  const template = RETRY_POLICY_TEMPLATES.find(
+                                    (item) => item.labelKey === value
+                                  )
+                                  if (template) {
+                                    field.onChange(
+                                      insertRetryPolicyTemplate(
+                                        field.value,
+                                        template
+                                      )
+                                    )
+                                  }
+                                }}
+                              >
+                                <SelectTrigger className='h-8 w-40'>
+                                  <SelectValue
+                                    placeholder={t('Insert template')}
+                                  />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {RETRY_POLICY_TEMPLATES.map((template) => (
+                                    <SelectItem
+                                      key={template.labelKey}
+                                      value={template.labelKey}
+                                    >
+                                      {t(template.labelKey)}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <FormControl>
+                              <Textarea
+                                rows={6}
+                                placeholder='[{"models":["gpt-image-2"],"message_contains":["private ip"],"action":"retry"}]'
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Channel retry policy has the highest priority, then global retry policy, then status code rules.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </div>
 
                     <div className='space-y-4 border-t pt-4'>
@@ -3274,7 +3333,9 @@ export function ChannelMutateDrawer({
                           <FormItem className='flex items-center justify-between px-4 py-3'>
                             <div className='space-y-0.5'>
                               <FormLabel>
-                                {t('Auto convert JSON image edits to multipart')}
+                                {t(
+                                  'Auto convert JSON image edits to multipart'
+                                )}
                               </FormLabel>
                               <FormDescription>
                                 {t(
@@ -3367,7 +3428,9 @@ export function ChannelMutateDrawer({
                         name='protocol_enabled_conversions'
                         render={({ field }) => (
                           <FormItem className='px-4 py-3'>
-                            <FormLabel>{t('Enabled Protocol Conversions')}</FormLabel>
+                            <FormLabel>
+                              {t('Enabled Protocol Conversions')}
+                            </FormLabel>
                             <FormControl>
                               <MultiSelect
                                 options={CONVERSION_OPTIONS.map((option) => ({
@@ -3625,7 +3688,9 @@ export function ChannelMutateDrawer({
         redirectSourceModels={redirectModelKeyList}
         customFetcher={!isEditing ? createModeFetcher : undefined}
         existingModelsOverride={
-          !isEditing ? parseModelsString(form.getValues('models') || '') : undefined
+          !isEditing
+            ? parseModelsString(form.getValues('models') || '')
+            : undefined
         }
       />
 

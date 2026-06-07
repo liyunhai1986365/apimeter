@@ -56,7 +56,8 @@ import {
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { SectionPageLayout } from '@/components/layout'
 import { StatusBadge, type StatusVariant } from '@/components/status-badge'
-import { removeChannelModel } from '@/features/channels/api'
+import { removeChannelModel, updateChannel } from '@/features/channels/api'
+import { NumericSpinnerInput } from '@/features/channels/components/numeric-spinner-input'
 import {
   listModelMonitorModels,
   testModelChannels,
@@ -189,6 +190,40 @@ export function ModelMonitor() {
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : t('Failed to remove model')
+      )
+    },
+  })
+
+  const updatePriorityMutation = useMutation({
+    mutationFn: async ({
+      channelID,
+      priority,
+    }: {
+      channelID: number
+      priority: number
+    }) => {
+      const response = await updateChannel(channelID, { priority })
+      if (!response.success) {
+        throw new Error(
+          response.message || t('Failed to update channel priority')
+        )
+      }
+      return { channelID, priority }
+    },
+    onSuccess: ({ priority }) => {
+      toast.success(
+        t('Channel global priority updated to {{value}}', {
+          value: priority,
+        })
+      )
+      queryClient.invalidateQueries({ queryKey: ['model-monitor'] })
+      queryClient.invalidateQueries({ queryKey: ['channels'] })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('Failed to update channel priority')
       )
     },
   })
@@ -374,6 +409,17 @@ export function ModelMonitor() {
                             modelName: item.model_name,
                           })
                         }
+                        onUpdatePriority={(channel, priority) =>
+                          updatePriorityMutation.mutate({
+                            channelID: channel.channel_id,
+                            priority,
+                          })
+                        }
+                        updatingPriorityChannelID={
+                          updatePriorityMutation.isPending
+                            ? updatePriorityMutation.variables?.channelID
+                            : undefined
+                        }
                         removingChannelID={
                           removeModelMutation.isPending
                             ? removeModelMutation.variables?.channelID
@@ -469,6 +515,8 @@ function MonitorRow({
   onToggleExpanded,
   onTest,
   onRemoveModel,
+  onUpdatePriority,
+  updatingPriorityChannelID,
   removingChannelID,
 }: {
   item: ModelMonitorListItem
@@ -479,6 +527,8 @@ function MonitorRow({
   onToggleExpanded: () => void
   onTest: () => void
   onRemoveModel: (channel: ModelMonitorChannel) => void
+  onUpdatePriority: (channel: ModelMonitorChannel, priority: number) => void
+  updatingPriorityChannelID?: number
   removingChannelID?: number
 }) {
   const { t } = useTranslation()
@@ -578,6 +628,8 @@ function MonitorRow({
               channels={item.channels || []}
               latestTestByChannel={latestTestByChannel}
               onRemoveModel={onRemoveModel}
+              onUpdatePriority={onUpdatePriority}
+              updatingPriorityChannelID={updatingPriorityChannelID}
               removingChannelID={removingChannelID}
             />
           </TableCell>
@@ -591,11 +643,15 @@ function ChannelStatsTable({
   channels,
   latestTestByChannel,
   onRemoveModel,
+  onUpdatePriority,
+  updatingPriorityChannelID,
   removingChannelID,
 }: {
   channels: ModelMonitorChannel[]
   latestTestByChannel: Map<number, ModelChannelTestItem>
   onRemoveModel: (channel: ModelMonitorChannel) => void
+  onUpdatePriority: (channel: ModelMonitorChannel, priority: number) => void
+  updatingPriorityChannelID?: number
   removingChannelID?: number
 }) {
   const { t } = useTranslation()
@@ -615,6 +671,9 @@ function ChannelStatsTable({
           <TableHeader>
             <TableRow>
               <TableHead>{t('Channel')}</TableHead>
+              <TableHead className='w-[120px]'>
+                {t('Global Priority')}
+              </TableHead>
               <TableHead>{t('Health')}</TableHead>
               <TableHead>{t('Error Rate')}</TableHead>
               <TableHead>{t('Latency')}</TableHead>
@@ -629,6 +688,8 @@ function ChannelStatsTable({
               const latestTest = latestTestByChannel.get(channel.channel_id)
               const canRemove = latestTest && !latestTest.success
               const isRemoving = removingChannelID === channel.channel_id
+              const isUpdatingPriority =
+                updatingPriorityChannelID === channel.channel_id
               return (
                 <TableRow key={channel.channel_id}>
                   <TableCell>
@@ -641,6 +702,15 @@ function ChannelStatsTable({
                         {channel.group || '-'}
                       </span>
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    <NumericSpinnerInput
+                      value={channel.priority}
+                      onChange={(value) => onUpdatePriority(channel, value)}
+                      min={-999}
+                      disabled={isUpdatingPriority}
+                      className='min-w-[96px]'
+                    />
                   </TableCell>
                   <TableCell>
                     <StatusBadge

@@ -1,5 +1,7 @@
 package dto
 
+import "github.com/QuantumNous/new-api/types"
+
 type ChannelSettings struct {
 	ForceFormat                               bool                     `json:"force_format,omitempty"`
 	ThinkingToContent                         bool                     `json:"thinking_to_content,omitempty"`
@@ -10,6 +12,31 @@ type ChannelSettings struct {
 	SystemPrompt                              string                   `json:"system_prompt,omitempty"`
 	SystemPromptOverride                      bool                     `json:"system_prompt_override,omitempty"`
 	Protocol                                  *ChannelProtocolSettings `json:"protocol,omitempty"`
+	RetryPolicyRules                          []RetryPolicyRule        `json:"retry_policy_rules,omitempty"`
+}
+
+type RetryPolicyRule struct {
+	Name       string                `json:"name,omitempty"`
+	Action     string                `json:"action"`
+	Conditions RetryPolicyConditions `json:"conditions,omitempty"`
+
+	Models          []string          `json:"models,omitempty"`
+	ChannelIDs      []int             `json:"channel_ids,omitempty"`
+	ChannelTypes    []int             `json:"channel_types,omitempty"`
+	ErrorTypes      []types.ErrorType `json:"error_types,omitempty"`
+	ErrorCodes      []types.ErrorCode `json:"error_codes,omitempty"`
+	StatusCodes     string            `json:"status_codes,omitempty"`
+	MessageContains []string          `json:"message_contains,omitempty"`
+}
+
+type RetryPolicyConditions struct {
+	Models          []string          `json:"models,omitempty"`
+	ChannelIDs      []int             `json:"channel_ids,omitempty"`
+	ChannelTypes    []int             `json:"channel_types,omitempty"`
+	ErrorTypes      []types.ErrorType `json:"error_types,omitempty"`
+	ErrorCodes      []types.ErrorCode `json:"error_codes,omitempty"`
+	StatusCodes     string            `json:"status_codes,omitempty"`
+	MessageContains []string          `json:"message_contains,omitempty"`
 }
 
 func (s ChannelSettings) ImageGenerationWithImageToEditEnabled() bool {

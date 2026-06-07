@@ -3,6 +3,7 @@ package operation_setting
 import (
 	"testing"
 
+	"github.com/QuantumNous/new-api/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,4 +85,76 @@ func TestIsAlwaysSkipRetryStatusCode(t *testing.T) {
 	require.True(t, IsAlwaysSkipRetryStatusCode(504))
 	require.True(t, IsAlwaysSkipRetryStatusCode(524))
 	require.False(t, IsAlwaysSkipRetryStatusCode(500))
+}
+
+func TestRetryPolicyChannelRulesOverrideGlobalRules(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{
+			Name:   "global retry on overloaded",
+			Action: RetryPolicyActionRetry,
+			Conditions: RetryPolicyConditions{
+				MessageContains: []string{"overloaded"},
+			},
+		},
+	}
+
+	decision := ShouldRetryByPolicy(RetryPolicyInput{
+		ModelName:    "gpt-image-2",
+		ChannelID:    29,
+		ChannelType:  1,
+		ErrorType:    types.ErrorTypeOpenAIError,
+		ErrorCode:    types.ErrorCode("temporary_error"),
+		StatusCode:   500,
+		ErrorMessage: "upstream overloaded",
+		ChannelRules: []RetryPolicyRule{
+			{
+				Name:   "channel skips gpt-image-2",
+				Action: RetryPolicyActionSkipRetry,
+				Conditions: RetryPolicyConditions{
+					Models: []string{"gpt-image-2"},
+				},
+			},
+		},
+	})
+
+	require.True(t, decision.Matched)
+	require.Equal(t, RetryPolicySourceChannel, decision.Source)
+	require.False(t, decision.ShouldRetry)
+}
+
+func TestRetryPolicyGlobalRulesApplyWhenChannelRulesMiss(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{
+			Name:   "global retry private ip",
+			Action: RetryPolicyActionRetry,
+			Conditions: RetryPolicyConditions{
+				MessageContains: []string{"private ip"},
+			},
+		},
+	}
+
+	decision := ShouldRetryByPolicy(RetryPolicyInput{
+		ModelName:    "gpt-image-2",
+		StatusCode:   400,
+		ErrorMessage: "download image failed: private ip rejected",
+		ChannelRules: []RetryPolicyRule{
+			{
+				Name:   "channel only skips claude",
+				Action: RetryPolicyActionSkipRetry,
+				Conditions: RetryPolicyConditions{
+					Models: []string{"claude-3-5-sonnet"},
+				},
+			},
+		},
+	})
+
+	require.True(t, decision.Matched)
+	require.Equal(t, RetryPolicySourceGlobal, decision.Source)
+	require.True(t, decision.ShouldRetry)
 }

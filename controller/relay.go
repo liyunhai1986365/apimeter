@@ -486,7 +486,63 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if operation_setting.IsAlwaysSkipRetryCode(openaiErr.GetErrorCode()) {
 		return false
 	}
+	if decision := operation_setting.ShouldRetryByPolicy(buildRetryPolicyInput(c, openaiErr)); decision.Matched {
+		return decision.ShouldRetry
+	}
 	return operation_setting.ShouldRetryByStatusCode(code)
+}
+
+func buildRetryPolicyInput(c *gin.Context, err *types.NewAPIError) operation_setting.RetryPolicyInput {
+	input := operation_setting.RetryPolicyInput{}
+	if err != nil {
+		input.ErrorType = err.GetErrorType()
+		input.ErrorCode = err.GetErrorCode()
+		input.StatusCode = err.StatusCode
+		input.ErrorMessage = err.Error()
+	}
+	if c == nil {
+		return input
+	}
+	input.ModelName = c.GetString("original_model")
+	if input.ModelName == "" {
+		input.ModelName = common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
+	}
+	input.ChannelID = common.GetContextKeyInt(c, constant.ContextKeyChannelId)
+	input.ChannelType = common.GetContextKeyInt(c, constant.ContextKeyChannelType)
+	if channelSetting, ok := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting); ok {
+		input.ChannelRules = retryPolicyRulesToOperationRules(channelSetting.RetryPolicyRules)
+	}
+	return input
+}
+
+func retryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_setting.RetryPolicyRule {
+	if len(rules) == 0 {
+		return nil
+	}
+	result := make([]operation_setting.RetryPolicyRule, 0, len(rules))
+	for _, rule := range rules {
+		result = append(result, operation_setting.RetryPolicyRule{
+			Name:            rule.Name,
+			Action:          rule.Action,
+			Models:          rule.Models,
+			ChannelIDs:      rule.ChannelIDs,
+			ChannelTypes:    rule.ChannelTypes,
+			ErrorTypes:      rule.ErrorTypes,
+			ErrorCodes:      rule.ErrorCodes,
+			StatusCodes:     rule.StatusCodes,
+			MessageContains: rule.MessageContains,
+			Conditions: operation_setting.RetryPolicyConditions{
+				Models:          rule.Conditions.Models,
+				ChannelIDs:      rule.Conditions.ChannelIDs,
+				ChannelTypes:    rule.Conditions.ChannelTypes,
+				ErrorTypes:      rule.Conditions.ErrorTypes,
+				ErrorCodes:      rule.Conditions.ErrorCodes,
+				StatusCodes:     rule.Conditions.StatusCodes,
+				MessageContains: rule.Conditions.MessageContains,
+			},
+		})
+	}
+	return result
 }
 
 func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {

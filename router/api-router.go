@@ -293,6 +293,7 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.GET("/update_balance/:id", controller.UpdateChannelBalance)
 			channelRoute.POST("/", controller.AddChannel)
 			channelRoute.PUT("/", controller.UpdateChannel)
+			channelRoute.POST("/:id/retry_policy_rules", controller.AppendChannelRetryPolicyRule)
 			channelRoute.DELETE("/disabled", controller.DeleteDisabledChannel)
 			channelRoute.DELETE("/:id/models", controller.RemoveChannelModel)
 			channelRoute.POST("/tag/disabled", controller.DisableTagChannels)
