@@ -1,6 +1,10 @@
 package dto
 
-import "github.com/QuantumNous/new-api/types"
+import (
+	"strings"
+
+	"github.com/QuantumNous/new-api/types"
+)
 
 type ChannelSettings struct {
 	ForceFormat                               bool                     `json:"force_format,omitempty"`
@@ -9,6 +13,7 @@ type ChannelSettings struct {
 	PassThroughBodyEnabled                    bool                     `json:"pass_through_body_enabled,omitempty"`
 	ImageAutoConvertGenerationWithImageToEdit *bool                    `json:"image_auto_convert_generation_with_image_to_edit,omitempty"`
 	ImageAutoConvertJSONEditToMultipart       *bool                    `json:"image_auto_convert_json_edit_to_multipart,omitempty"`
+	OpenAIImageResponseFormat                 string                   `json:"openai_image_response_format,omitempty"`
 	SystemPrompt                              string                   `json:"system_prompt,omitempty"`
 	SystemPromptOverride                      bool                     `json:"system_prompt_override,omitempty"`
 	Protocol                                  *ChannelProtocolSettings `json:"protocol,omitempty"`
@@ -45,6 +50,17 @@ func (s ChannelSettings) ImageGenerationWithImageToEditEnabled() bool {
 
 func (s ChannelSettings) ImageJSONEditToMultipartEnabled() bool {
 	return s.ImageAutoConvertJSONEditToMultipart == nil || *s.ImageAutoConvertJSONEditToMultipart
+}
+
+func (s ChannelSettings) OpenAIImageResponseFormatOverride() string {
+	switch strings.ToLower(strings.TrimSpace(s.OpenAIImageResponseFormat)) {
+	case "url":
+		return "url"
+	case "b64_json":
+		return "b64_json"
+	default:
+		return ""
+	}
 }
 
 type ChannelProtocolSettings struct {

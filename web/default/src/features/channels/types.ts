@@ -88,6 +88,7 @@ export interface ChannelSettings {
   pass_through_body_enabled?: boolean
   image_auto_convert_generation_with_image_to_edit?: boolean
   image_auto_convert_json_edit_to_multipart?: boolean
+  openai_image_response_format?: 'url' | 'b64_json' | ''
   system_prompt?: string
   system_prompt_override?: boolean
   retry_policy_rules?: RetryPolicyRule[]

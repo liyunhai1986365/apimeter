@@ -22,4 +22,27 @@ describe('channel form payload transforms', () => {
     assert.equal(createPayload.channel.channel_ratio, 1.35)
     assert.equal(updatePayload.channel_ratio, 1.35)
   })
+
+  test('stores OpenAI image response format override in channel setting', () => {
+    const formData = {
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      name: 'image-format-channel',
+      key: 'sk-test',
+      models: 'gpt-image-2',
+      openai_image_response_format: 'b64_json' as const,
+    }
+
+    const createPayload = transformFormDataToCreatePayload(formData)
+    const updatePayload = transformFormDataToUpdatePayload(formData, 42)
+
+    assert.equal(
+      JSON.parse(createPayload.channel.setting || '{}')
+        .openai_image_response_format,
+      'b64_json'
+    )
+    assert.equal(
+      JSON.parse(updatePayload.setting || '{}').openai_image_response_format,
+      'b64_json'
+    )
+  })
 })

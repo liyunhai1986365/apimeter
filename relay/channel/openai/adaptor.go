@@ -425,12 +425,16 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
-	if strings.TrimSpace(request.ResponseFormat) == "" {
-		request.ResponseFormat = "url"
+	settings := dto.ChannelSettings{}
+	if info != nil && info.ChannelMeta != nil {
+		settings = info.ChannelSetting
+	}
+	if responseFormat := settings.OpenAIImageResponseFormatOverride(); responseFormat != "" {
+		request.ResponseFormat = responseFormat
 	}
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesGenerations:
-		if info.ChannelSetting.ImageGenerationWithImageToEditEnabled() && imageconv.RequestHasImageInput(&request) {
+		if settings.ImageGenerationWithImageToEditEnabled() && imageconv.RequestHasImageInput(&request) {
 			info.RelayMode = relayconstant.RelayModeImagesEdits
 			info.RequestURLPath = imageconv.EditsRequestPath(info.RequestURLPath)
 			if isJSONRequest(c) {
@@ -440,7 +444,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		return request, nil
 	case relayconstant.RelayModeImagesEdits:
 		if isJSONRequest(c) {
-			if info.ChannelSetting.ImageJSONEditToMultipartEnabled() && imageconv.RequestHasImageInput(&request) {
+			if settings.ImageJSONEditToMultipartEnabled() && imageconv.RequestHasImageInput(&request) {
 				return imageconv.BuildOpenAIJSONEditMultipart(c, request)
 			}
 			return request, nil
@@ -462,12 +466,15 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		// 写入所有非文件字段
 		if mf != nil {
 			for key, values := range mf.Value {
-				if key == "model" {
+				if key == "model" || (key == "response_format" && request.ResponseFormat != "") {
 					continue
 				}
 				for _, value := range values {
 					writer.WriteField(key, value)
 				}
+			}
+			if request.ResponseFormat != "" {
+				writer.WriteField("response_format", request.ResponseFormat)
 			}
 		}
 

@@ -123,7 +123,7 @@ func TestOpenAIImageGenerationWithImageInputKeepsGenerationsWhenAutoConvertDisab
 	require.Equal(t, "https://duomiapi.com/v1/images/generations", gotURL)
 }
 
-func TestOpenAIImageGenerationDefaultsResponseFormatToURL(t *testing.T) {
+func TestOpenAIImageGenerationDoesNotDefaultResponseFormat(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		RelayMode:       relayconstant.RelayModeImagesGenerations,
 		RequestURLPath:  "/v1/images/generations",
@@ -147,7 +147,7 @@ func TestOpenAIImageGenerationDefaultsResponseFormatToURL(t *testing.T) {
 	require.NoError(t, err)
 	imageReq, ok := converted.(dto.ImageRequest)
 	require.True(t, ok)
-	require.Equal(t, "url", imageReq.ResponseFormat)
+	require.Empty(t, imageReq.ResponseFormat)
 }
 
 func TestOpenAIImageGenerationKeepsExplicitResponseFormat(t *testing.T) {
@@ -176,6 +176,85 @@ func TestOpenAIImageGenerationKeepsExplicitResponseFormat(t *testing.T) {
 	imageReq, ok := converted.(dto.ImageRequest)
 	require.True(t, ok)
 	require.Equal(t, "b64_json", imageReq.ResponseFormat)
+}
+
+func TestOpenAIImageGenerationUsesConfiguredResponseFormat(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:  "/v1/images/generations",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				OpenAIImageResponseFormat: "url",
+			},
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:          "gpt-image-2",
+		Prompt:         "画一张海报",
+		ResponseFormat: "b64_json",
+	})
+	require.NoError(t, err)
+	imageReq, ok := converted.(dto.ImageRequest)
+	require.True(t, ok)
+	require.Equal(t, "url", imageReq.ResponseFormat)
+}
+
+func TestOpenAIImageEditMultipartUsesConfiguredResponseFormat(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesEdits,
+		RequestURLPath:  "/v1/images/edits",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				OpenAIImageResponseFormat: "b64_json",
+			},
+		},
+	}
+
+	var source bytes.Buffer
+	sourceWriter := multipart.NewWriter(&source)
+	require.NoError(t, sourceWriter.WriteField("model", "gpt-image-2"))
+	require.NoError(t, sourceWriter.WriteField("prompt", "修改这只猫"))
+	require.NoError(t, sourceWriter.WriteField("response_format", "url"))
+	part, err := sourceWriter.CreateFormFile("image", "cat.png")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("fake image"))
+	require.NoError(t, err)
+	require.NoError(t, sourceWriter.Close())
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(source.Bytes()))
+	c.Request.Header.Set("Content-Type", sourceWriter.FormDataContentType())
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:          "gpt-image-2",
+		Prompt:         "修改这只猫",
+		ResponseFormat: "url",
+	})
+	require.NoError(t, err)
+	body, ok := converted.(*bytes.Buffer)
+	require.True(t, ok)
+
+	reader := multipart.NewReader(bytes.NewReader(body.Bytes()), multipartBoundary(t, c.Request.Header.Get("Content-Type")))
+	form, err := reader.ReadForm(1024 * 1024)
+	require.NoError(t, err)
+	require.Equal(t, "b64_json", form.Value["response_format"][0])
+	require.Len(t, form.File["image"], 1)
 }
 
 func TestOpenAIImageEditsJSONInputBuildsMultipart(t *testing.T) {

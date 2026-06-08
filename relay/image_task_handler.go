@@ -359,6 +359,11 @@ func convertImageAsyncResultToOpenAIResponse(c *gin.Context, info *relaycommon.R
 
 func imageResponseFormat(info *relaycommon.RelayInfo) string {
 	if info != nil {
+		if info.ChannelMeta != nil {
+			if responseFormat := info.ChannelSetting.OpenAIImageResponseFormatOverride(); responseFormat != "" {
+				return responseFormat
+			}
+		}
 		if request, ok := info.Request.(*dto.ImageRequest); ok {
 			switch strings.ToLower(strings.TrimSpace(request.ResponseFormat)) {
 			case "b64_json", "base64":

@@ -431,6 +431,23 @@ func TestShouldForceConvertImageRequestForConfigurableImageProfile(t *testing.T)
 	require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{Model: "any-image-model"}))
 }
 
+func TestShouldForceConvertImageRequestWhenOpenAIImageResponseFormatConfigured(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode: relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelSetting: dto.ChannelSettings{
+				PassThroughBodyEnabled:    true,
+				OpenAIImageResponseFormat: "url",
+			},
+		},
+	}
+
+	require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{
+		Model:          "gpt-image-2",
+		ResponseFormat: "b64_json",
+	}))
+}
+
 func TestShouldForceConvertImageRequestWhenImageInputRequiresModeConversion(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		RelayMode: relayconstant.RelayModeImagesGenerations,

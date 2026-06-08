@@ -235,15 +235,18 @@ func shouldForceConvertImageRequest(info *relaycommon.RelayInfo, request *dto.Im
 	if info == nil || request == nil {
 		return false
 	}
-	if info.ChannelMeta != nil && configurableImageProfileFromSettings(info.ChannelSetting) != nil {
+	settings := dto.ChannelSettings{}
+	if info.ChannelMeta != nil {
+		settings = info.ChannelSetting
+	}
+	if configurableImageProfileFromSettings(settings) != nil {
+		return true
+	}
+	if settings.OpenAIImageResponseFormatOverride() != "" {
 		return true
 	}
 	if !imageconv.RequestHasImageInput(request) {
 		return false
-	}
-	settings := dto.ChannelSettings{}
-	if info.ChannelMeta != nil {
-		settings = info.ChannelSetting
 	}
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesGenerations:

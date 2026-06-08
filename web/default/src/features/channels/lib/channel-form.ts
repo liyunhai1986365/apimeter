@@ -116,6 +116,7 @@ export const channelFormSchema = z.object({
   pass_through_body_enabled: z.boolean().optional(),
   image_auto_convert_generation_with_image_to_edit: z.boolean().optional(),
   image_auto_convert_json_edit_to_multipart: z.boolean().optional(),
+  openai_image_response_format: z.enum(['', 'url', 'b64_json']).optional(),
   system_prompt: z.string().optional(),
   system_prompt_override: z.boolean().optional(),
   retry_policy_rules: jsonArrayString.optional(),
@@ -183,6 +184,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   pass_through_body_enabled: false,
   image_auto_convert_generation_with_image_to_edit: true,
   image_auto_convert_json_edit_to_multipart: true,
+  openai_image_response_format: '',
   system_prompt: '',
   system_prompt_override: false,
   retry_policy_rules: '[]',
@@ -226,6 +228,7 @@ export function transformChannelToFormDefaults(
     pass_through_body_enabled: false,
     image_auto_convert_generation_with_image_to_edit: true,
     image_auto_convert_json_edit_to_multipart: true,
+    openai_image_response_format: '' as '' | 'url' | 'b64_json',
     system_prompt: '',
     system_prompt_override: false,
     retry_policy_rules: '[]',
@@ -252,6 +255,11 @@ export function transformChannelToFormDefaults(
           typeof parsed.image_auto_convert_json_edit_to_multipart === 'boolean'
             ? parsed.image_auto_convert_json_edit_to_multipart
             : true,
+        openai_image_response_format:
+          parsed.openai_image_response_format === 'url' ||
+          parsed.openai_image_response_format === 'b64_json'
+            ? parsed.openai_image_response_format
+            : '',
         system_prompt: parsed.system_prompt || '',
         system_prompt_override: parsed.system_prompt_override || false,
         retry_policy_rules: Array.isArray(parsed.retry_policy_rules)
@@ -403,6 +411,7 @@ function buildSettingJSON(formData: ChannelFormValues): string {
       formData.image_auto_convert_generation_with_image_to_edit !== false,
     image_auto_convert_json_edit_to_multipart:
       formData.image_auto_convert_json_edit_to_multipart !== false,
+    openai_image_response_format: formData.openai_image_response_format || '',
     system_prompt: formData.system_prompt || '',
     system_prompt_override: formData.system_prompt_override || false,
     retry_policy_rules: formData.retry_policy_rules?.trim()

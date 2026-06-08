@@ -248,6 +248,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.pass_through_body_enabled ||
     values.image_auto_convert_generation_with_image_to_edit === false ||
     values.image_auto_convert_json_edit_to_multipart === false ||
+    Boolean(values.openai_image_response_format) ||
     values.system_prompt_override ||
     (values.protocol_native_modes?.length ?? 0) > 0 ||
     (values.protocol_enabled_conversions?.length ?? 0) > 0 ||
@@ -3352,6 +3353,53 @@ export function ChannelMutateDrawer({
                           </FormItem>
                         )}
                       />
+
+                      {currentType === 1 && (
+                        <FormField
+                          control={form.control}
+                          name='openai_image_response_format'
+                          render={({ field }) => (
+                            <FormItem className='px-4 py-3'>
+                              <FormLabel>
+                                {t('OpenAI image response format')}
+                              </FormLabel>
+                              <Select
+                                value={field.value || 'none'}
+                                onValueChange={(value) =>
+                                  field.onChange(
+                                    value === 'none' ? '' : value
+                                  )
+                                }
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue
+                                      placeholder={t(
+                                        'Select image response format'
+                                      )}
+                                    />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value='none'>
+                                    {t('Use client request')}
+                                  </SelectItem>
+                                  <SelectItem value='url'>url</SelectItem>
+                                  <SelectItem value='b64_json'>
+                                    b64_json
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                {t(
+                                  'Force image generation and edit requests to use this response_format when set'
+                                )}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
                       <FormField
                         control={form.control}
