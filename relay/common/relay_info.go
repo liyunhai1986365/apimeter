@@ -141,6 +141,7 @@ type RelayInfo struct {
 	BillingSource           string
 	TokenSubscriptionPlanId int
 	TokenUserSubscriptionId int
+	TokenImageSettings      dto.TokenImageSettings
 	// SubscriptionId is the user_subscriptions.id used when BillingSource == "subscription"
 	SubscriptionId int
 	// SubscriptionPreConsumed is the amount pre-consumed on subscription item (quota units or 1)
@@ -524,6 +525,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		BillingSource:           common.GetContextKeyString(c, constant.ContextKeyTokenBillingSource),
 		TokenSubscriptionPlanId: common.GetContextKeyInt(c, constant.ContextKeyTokenSubscriptionPlanId),
 		TokenUserSubscriptionId: common.GetContextKeyInt(c, constant.ContextKeyTokenUserSubscriptionId),
+		TokenImageSettings:      tokenImageSettingsFromContext(c),
 
 		isFirstResponse:     true,
 		RelayMode:           relayconstant.Path2RelayMode(c.Request.URL.Path),
@@ -563,6 +565,14 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	}
 
 	return info
+}
+
+func tokenImageSettingsFromContext(c *gin.Context) dto.TokenImageSettings {
+	settings, ok := common.GetContextKeyType[dto.TokenImageSettings](c, constant.ContextKeyTokenImageSettings)
+	if !ok {
+		return dto.TokenImageSettings{}.Normalized()
+	}
+	return settings.Normalized()
 }
 
 func cloneRequestHeaders(c *gin.Context) map[string]string {

@@ -49,6 +49,13 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Sheet,
   SheetClose,
   SheetContent,
@@ -113,6 +120,84 @@ function ApiKeyFormSection(props: ApiKeyFormSectionProps) {
       <div className='space-y-3 p-3 sm:space-y-4 sm:p-4'>{props.children}</div>
     </section>
   )
+}
+
+function getImageResponseFormatLabel(
+  value: ApiKeyFormValues['image_response_format'],
+  t: ReturnType<typeof useTranslation>['t']
+) {
+  switch (value) {
+    case 'url':
+      return t('Force URL')
+    case 'b64_json':
+      return t('Force base64')
+    case 'follow_request':
+    default:
+      return t('Follow request or endpoint')
+  }
+}
+
+function getImageResponseFormatDescription(
+  value: ApiKeyFormValues['image_response_format'],
+  t: ReturnType<typeof useTranslation>['t']
+) {
+  switch (value) {
+    case 'url':
+      return t(
+        'Force this key to return image results as URL fields when possible.'
+      )
+    case 'b64_json':
+      return t(
+        'Force this key to return image results as base64 fields when possible.'
+      )
+    case 'follow_request':
+    default:
+      return t(
+        'Do not force a token-level image format; follow the request, channel override, or endpoint default.'
+      )
+  }
+}
+
+function getImageStoreStrategyLabel(
+  value: ApiKeyFormValues['image_store_strategy'],
+  t: ReturnType<typeof useTranslation>['t']
+) {
+  switch (value) {
+    case 'keep_endpoint_url':
+      return t('Keep endpoint URL')
+    case 'only_store_base64':
+      return t('Store base64 only')
+    case 'force_store_url_and_base64':
+      return t('Store URL and base64')
+    case 'default':
+    default:
+      return t('Default storage')
+  }
+}
+
+function getImageStoreStrategyDescription(
+  value: ApiKeyFormValues['image_store_strategy'],
+  t: ReturnType<typeof useTranslation>['t']
+) {
+  switch (value) {
+    case 'keep_endpoint_url':
+      return t(
+        'Return the endpoint URL directly when it is already a reachable image URL; do not transfer it to gateway storage.'
+      )
+    case 'only_store_base64':
+      return t(
+        'When returning URL format, store base64 image data through the gateway and return the stored URL.'
+      )
+    case 'force_store_url_and_base64':
+      return t(
+        'Always transfer the image through gateway storage and include both the stored URL and base64 data.'
+      )
+    case 'default':
+    default:
+      return t(
+        'Use the default image handling policy; URL responses are stored by the gateway when needed.'
+      )
+  }
 }
 
 export function ApiKeysMutateDrawer({
@@ -267,6 +352,13 @@ export function ApiKeysMutateDrawer({
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
   const selectedGroup = form.watch('group')
   const unlimitedQuota = form.watch('unlimited_quota')
+  const imageResponseFormat = form.watch('image_response_format')
+
+  useEffect(() => {
+    if (imageResponseFormat !== 'url') {
+      form.setValue('image_store_strategy', 'default')
+    }
+  }, [form, imageResponseFormat])
 
   return (
     <Sheet
@@ -597,6 +689,109 @@ export function ApiKeysMutateDrawer({
                         </FormItem>
                       )}
                     />
+
+                    <div className='grid gap-3 sm:grid-cols-2'>
+                      <FormField
+                        control={form.control}
+                        name='image_response_format'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Image response format')}</FormLabel>
+                            <Select
+                              value={field.value || 'follow_request'}
+                              onValueChange={field.onChange}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue
+                                    placeholder={t(
+                                      'Select image response format'
+                                    )}
+                                  >
+                                    {getImageResponseFormatLabel(
+                                      field.value,
+                                      t
+                                    )}
+                                  </SelectValue>
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value='follow_request'>
+                                  {t('Follow request or endpoint')}
+                                </SelectItem>
+                                <SelectItem value='url'>
+                                  {t('Force URL')}
+                                </SelectItem>
+                                <SelectItem value='b64_json'>
+                                  {t('Force base64')}
+                                </SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              {getImageResponseFormatDescription(
+                                field.value,
+                                t
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      {imageResponseFormat === 'url' && (
+                        <FormField
+                          control={form.control}
+                          name='image_store_strategy'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('Image storage strategy')}
+                              </FormLabel>
+                              <Select
+                                value={field.value || 'default'}
+                                onValueChange={field.onChange}
+                              >
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue
+                                      placeholder={t(
+                                        'Select image storage strategy'
+                                      )}
+                                    >
+                                      {getImageStoreStrategyLabel(
+                                        field.value,
+                                        t
+                                      )}
+                                    </SelectValue>
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value='default'>
+                                    {t('Default storage')}
+                                  </SelectItem>
+                                  <SelectItem value='keep_endpoint_url'>
+                                    {t('Keep endpoint URL')}
+                                  </SelectItem>
+                                  <SelectItem value='only_store_base64'>
+                                    {t('Store base64 only')}
+                                  </SelectItem>
+                                  <SelectItem value='force_store_url_and_base64'>
+                                    {t('Store URL and base64')}
+                                  </SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormDescription>
+                                {getImageStoreStrategyDescription(
+                                  field.value,
+                                  t
+                                )}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                    </div>
                   </div>
                 </CollapsibleContent>
               </section>

@@ -22,6 +22,7 @@ const (
 	ContextKeyTokenBillingSource      ContextKey = "token_billing_source"
 	ContextKeyTokenSubscriptionPlanId ContextKey = "token_subscription_plan_id"
 	ContextKeyTokenUserSubscriptionId ContextKey = "token_user_subscription_id"
+	ContextKeyTokenImageSettings      ContextKey = "token_image_settings"
 
 	/* channel related keys */
 	ContextKeyChannelId                ContextKey = "channel_id"

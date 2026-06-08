@@ -249,6 +249,79 @@ func TestNormalizeOpenAIImageResponseStoresDataURLFieldAsURLWhenURLRequested(t *
 	require.Equal(t, int64(3), gjson.GetBytes(body, "usage.total_tokens").Int())
 }
 
+func TestNormalizeOpenAIImageResponseKeepsEndpointURLWhenTokenRequestsOriginalURL(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{
+		TokenImageSettings: model.TokenImageSettings{
+			Format: "url",
+			Store:  "keep_endpoint_url",
+		},
+	}, []byte(`{
+		"created": 1779125744,
+		"data": [{"url":"https://upstream.example.com/output.png","b64_json":""}],
+		"usage": {"total_tokens": 3}
+	}`))
+
+	require.NoError(t, err)
+	require.False(t, changed)
+	require.Equal(t, "https://upstream.example.com/output.png", gjsonGetString(t, body, "data.0.url"))
+	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
+}
+
+func TestNormalizeOpenAIImageResponseForcesBase64FromEndpointURLWhenTokenRequestsBase64(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{
+		TokenImageSettings: model.TokenImageSettings{
+			Format: "b64_json",
+			Store:  "keep_endpoint_url",
+		},
+	}, []byte(fmt.Sprintf(`{
+		"created": 1779125744,
+		"data": [{"url":%q,"b64_json":""}],
+		"usage": {"total_tokens": 3}
+	}`, "data:image/png;base64,ZmFrZSBpbWFnZQ==")))
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "ZmFrZSBpbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
+	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
+}
+
+func TestNormalizeOpenAIImageResponseForceStoresURLAndBase64(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{
+		TokenImageSettings: model.TokenImageSettings{
+			Format: "follow_request",
+			Store:  "force_store_url_and_base64",
+		},
+		Request: &dto.ImageRequest{ResponseFormat: "url"},
+	}, []byte(fmt.Sprintf(`{
+		"created": 1779125744,
+		"data": [{"url":%q,"b64_json":""}],
+		"usage": {"total_tokens": 3}
+	}`, "data:image/png;base64,ZmFrZSBpbWFnZQ==")))
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Contains(t, gjsonGetString(t, body, "data.0.url"), "https://cdn.example.com/api/relay-temp-images/")
+	require.Equal(t, "ZmFrZSBpbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
+}
+
 func TestImageTaskResponseWithURLImagesStoresBase64(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")

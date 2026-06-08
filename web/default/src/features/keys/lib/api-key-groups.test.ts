@@ -24,6 +24,36 @@ describe('api key group options', () => {
     assert.equal(payload.cross_group_retry, true)
   })
 
+  test('resets image storage strategy unless URL response format is selected', () => {
+    const defaults = getApiKeyFormDefaultValues()
+    const payload = transformFormDataToPayload({
+      ...defaults,
+      name: 'image-key',
+      image_response_format: 'b64_json',
+      image_store_strategy: 'force_store_url_and_base64',
+    })
+
+    assert.deepEqual(payload.image_settings, {
+      format: 'b64_json',
+      store: 'default',
+    })
+  })
+
+  test('stores API key image storage strategy when URL response format is selected', () => {
+    const defaults = getApiKeyFormDefaultValues()
+    const payload = transformFormDataToPayload({
+      ...defaults,
+      name: 'image-key',
+      image_response_format: 'url',
+      image_store_strategy: 'keep_endpoint_url',
+    })
+
+    assert.deepEqual(payload.image_settings, {
+      format: 'url',
+      store: 'keep_endpoint_url',
+    })
+  })
+
   test('adds auto group option when default auto group is enabled', () => {
     const options = buildApiKeyGroupOptions(
       {

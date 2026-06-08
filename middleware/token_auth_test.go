@@ -267,3 +267,47 @@ func TestTokenAuthAcceptsSubscriptionKeyPrefix(t *testing.T) {
 	require.Equal(t, "subscription", response.BillingSource)
 	require.Equal(t, 3002, response.UserSubscriptionId)
 }
+
+func TestTokenAuthStoresTokenImageSettingsInContext(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       4,
+		Username: "image-settings-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:         4,
+		Name:           "image-settings-token",
+		Key:            "imagesettingstokenkey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100000,
+		UnlimitedQuota: true,
+		Group:          "auto",
+		ImageSettings:  model.TokenImageSettings{Format: "b64_json", Store: "force_store_url_and_base64"},
+	}).Error)
+
+	router := gin.New()
+	router.GET("/auth-only", TokenAuth(), func(c *gin.Context) {
+		settings, _ := common.GetContextKeyType[model.TokenImageSettings](c, constant.ContextKeyTokenImageSettings)
+		c.JSON(http.StatusOK, gin.H{
+			"format": settings.Format,
+			"store":  settings.Store,
+		})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/auth-only", nil)
+	request.Header.Set("Authorization", "Bearer imagesettingstokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"format":"b64_json","store":"force_store_url_and_base64"}`, recorder.Body.String())
+}
