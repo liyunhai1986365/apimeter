@@ -102,6 +102,19 @@ export type UserModelFallbackSetting = {
   rules?: ModelFallbackRule[]
 }
 
+export type UserImageStorageSetting = {
+  enabled?: boolean
+  type?: 'aliyun_oss' | 'cloudflare_r2'
+  endpoint?: string
+  accelerate_endpoint?: string
+  bucket?: string
+  access_key_id?: string
+  access_key_secret?: string
+  access_key_secret_configured?: boolean
+  object_prefix?: string
+  public_base_url?: string
+}
+
 /**
  * Parsed user settings
  */
@@ -134,6 +147,8 @@ export interface UserSettings {
   language?: string
   /** User-specific model fallback settings */
   model_fallback?: UserModelFallbackSetting
+  /** User-specific image transfer storage settings */
+  image_storage?: UserImageStorageSetting
 }
 
 /**
@@ -162,6 +177,7 @@ export interface UpdateUserSettingsRequest {
   record_ip_log?: boolean
   upstream_model_update_notify_enabled?: boolean
   model_fallback?: UserModelFallbackSetting
+  image_storage?: UserImageStorageSetting
 }
 
 /**

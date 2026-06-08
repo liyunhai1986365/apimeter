@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"crypto/hmac"
 	"crypto/sha1"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -18,6 +20,8 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -29,16 +33,19 @@ const (
 )
 
 type tempImageStorageConfig struct {
-	Storage            string
-	LocalDir           string
-	LocalPublicBaseURL string
-	OSSEndpoint        string
-	OSSBucket          string
-	OSSAccessKeyID     string
-	OSSAccessKeySecret string
-	OSSObjectPrefix    string
-	OSSPublicBaseURL   string
-	OSSSignedURLExpire int
+	Storage               string
+	LocalDir              string
+	LocalPublicBaseURL    string
+	Provider              string
+	OSSEndpoint           string
+	OSSAccelerateEndpoint string
+	OSSBucket             string
+	OSSAccessKeyID        string
+	OSSAccessKeySecret    string
+	OSSObjectPrefix       string
+	OSSPublicBaseURL      string
+	OSSSignedURLExpire    int
+	R2Region              string
 }
 
 func SaveRelayTempImage(c *gin.Context, fileHeader *multipart.FileHeader) (string, error) {
@@ -76,13 +83,21 @@ func SaveTemporaryImageBytes(c *gin.Context, data []byte, contentType, filename 
 	return saveTemporaryImageBytesWithConfig(c, data, contentType, filename, cfg)
 }
 
+func TestUserImageStorage(setting dto.UserImageStorageSetting) (string, error) {
+	cfg, err := tempImageStorageConfigFromUserImageStorage(setting)
+	if err != nil {
+		return "", err
+	}
+	return saveTemporaryFileBytesToCloudStorage([]byte("test"), "text/plain; charset=utf-8", "test.txt", cfg)
+}
+
 func saveTemporaryImageWithConfig(c *gin.Context, fileHeader *multipart.FileHeader, cfg tempImageStorageConfig) (string, error) {
 	if fileHeader == nil {
 		return "", fmt.Errorf("missing image file")
 	}
 	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
-	case "oss":
-		return saveTemporaryImageToOSS(fileHeader, cfg)
+	case "oss", "r2":
+		return saveTemporaryImageToCloudStorage(fileHeader, cfg)
 	case "local", "":
 		return saveTemporaryImageToLocal(c, fileHeader, cfg)
 	default:
@@ -92,12 +107,39 @@ func saveTemporaryImageWithConfig(c *gin.Context, fileHeader *multipart.FileHead
 
 func saveTemporaryImageBytesWithConfig(c *gin.Context, data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
-	case "oss":
-		return saveTemporaryImageBytesToOSS(data, contentType, filename, cfg)
+	case "oss", "r2":
+		return saveTemporaryImageBytesToCloudStorage(data, contentType, filename, cfg)
 	case "local", "":
 		return saveTemporaryImageBytesToLocal(c, data, filename, cfg)
 	default:
 		return "", fmt.Errorf("unsupported temp image storage: %s", cfg.Storage)
+	}
+}
+
+func saveTemporaryImageToCloudStorage(fileHeader *multipart.FileHeader, cfg tempImageStorageConfig) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
+	case "oss":
+		return saveTemporaryImageToOSS(fileHeader, cfg)
+	case "r2":
+		file, err := fileHeader.Open()
+		if err != nil {
+			return "", fmt.Errorf("open image file failed: %w", err)
+		}
+		defer file.Close()
+		return saveTemporaryImageReaderToR2(file, fileHeader.Size, relayTempImageContentType(fileHeader), fileHeader.Filename, cfg)
+	default:
+		return "", fmt.Errorf("unsupported cloud temp image storage: %s", cfg.Storage)
+	}
+}
+
+func saveTemporaryImageBytesToCloudStorage(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
+	case "oss":
+		return saveTemporaryImageBytesToOSS(data, contentType, filename, cfg)
+	case "r2":
+		return saveTemporaryImageBytesToR2(data, contentType, filename, cfg)
+	default:
+		return "", fmt.Errorf("unsupported cloud temp image storage: %s", cfg.Storage)
 	}
 }
 
@@ -247,7 +289,125 @@ func saveTemporaryImageBytesToOSS(data []byte, contentType, filename string, cfg
 	return tempImageOSSPublicURL(cfg, objectName, canonicalResource)
 }
 
+func saveTemporaryFileBytesToOSS(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	if err := validateOSSConfig(cfg); err != nil {
+		return "", err
+	}
+	if contentType = strings.TrimSpace(contentType); contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, "/"+filepath.Base(filename))
+	requestURL, canonicalResource, err := tempImageOSSObjectURL(cfg, objectName)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodPut, requestURL, bytes.NewReader(data))
+	if err != nil {
+		return "", fmt.Errorf("create oss upload request failed: %w", err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	req.Header.Set("Date", time.Now().UTC().Format(http.TimeFormat))
+	req.ContentLength = int64(len(data))
+	stringToSign := strings.Join([]string{
+		http.MethodPut,
+		"",
+		contentType,
+		req.Header.Get("Date"),
+		canonicalResource,
+	}, "\n")
+	req.Header.Set("Authorization", "OSS "+cfg.OSSAccessKeyID+":"+ossSignature(cfg.OSSAccessKeySecret, stringToSign))
+
+	resp, err := serviceHTTPClient().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("upload temp image to oss failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("upload temp image to oss status %d: %s", resp.StatusCode, string(body))
+	}
+	return tempImageOSSPublicURL(cfg, objectName, canonicalResource)
+}
+
+func saveTemporaryFileBytesToCloudStorage(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
+	case "oss":
+		return saveTemporaryFileBytesToOSS(data, contentType, filename, cfg)
+	case "r2":
+		return saveTemporaryFileBytesToR2(data, contentType, filename, cfg)
+	default:
+		return "", fmt.Errorf("unsupported cloud temp image storage: %s", cfg.Storage)
+	}
+}
+
+func saveTemporaryImageBytesToR2(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	if contentType = strings.TrimSpace(contentType); contentType == "" {
+		contentType = tempImageContentTypeForFilename(filename)
+	}
+	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, relayTempImageExt(filename))
+	return putBytesToR2(data, contentType, objectName, cfg)
+}
+
+func saveTemporaryFileBytesToR2(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	if contentType = strings.TrimSpace(contentType); contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, "/"+filepath.Base(filename))
+	return putBytesToR2(data, contentType, objectName, cfg)
+}
+
+func saveTemporaryImageReaderToR2(reader io.Reader, size int64, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	if contentType = strings.TrimSpace(contentType); contentType == "" {
+		contentType = tempImageContentTypeForFilename(filename)
+	}
+	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, relayTempImageExt(filename))
+	return putReaderToR2(reader, size, contentType, objectName, cfg, "UNSIGNED-PAYLOAD")
+}
+
+func putBytesToR2(data []byte, contentType, objectName string, cfg tempImageStorageConfig) (string, error) {
+	return putReaderToR2(bytes.NewReader(data), int64(len(data)), contentType, objectName, cfg, sha256Hex(data))
+}
+
+func putReaderToR2(reader io.Reader, size int64, contentType, objectName string, cfg tempImageStorageConfig, payloadHash string) (string, error) {
+	if err := validateR2Config(cfg); err != nil {
+		return "", err
+	}
+	if reader == nil {
+		return "", fmt.Errorf("missing r2 upload body")
+	}
+	if payloadHash == "" {
+		payloadHash = "UNSIGNED-PAYLOAD"
+	}
+	requestURL, err := tempImageR2ObjectURL(cfg, objectName)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodPut, requestURL, reader)
+	if err != nil {
+		return "", fmt.Errorf("create r2 upload request failed: %w", err)
+	}
+	req.Header.Set("Content-Type", contentType)
+	if size >= 0 {
+		req.ContentLength = size
+	}
+	signR2Request(req, cfg, payloadHash)
+
+	resp, err := serviceHTTPClient().Do(req)
+	if err != nil {
+		return "", fmt.Errorf("upload temp image to r2 failed: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4096))
+		return "", fmt.Errorf("upload temp image to r2 status %d: %s", resp.StatusCode, string(body))
+	}
+	return tempImageR2PublicURL(cfg, objectName)
+}
+
 func tempImageStorageConfigFromEnv(c *gin.Context) (tempImageStorageConfig, error) {
+	if cfg, ok, err := tempImageStorageConfigFromUserSetting(c); ok || err != nil {
+		return cfg, err
+	}
 	cfg := tempImageStorageConfig{
 		Storage:            strings.ToLower(strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_STORAGE"))),
 		LocalDir:           strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_DIR")),
@@ -259,6 +419,22 @@ func tempImageStorageConfigFromEnv(c *gin.Context) (tempImageStorageConfig, erro
 		OSSObjectPrefix:    strings.Trim(strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_OSS_PREFIX")), "/"),
 		OSSPublicBaseURL:   strings.TrimRight(strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_OSS_PUBLIC_BASE_URL")), "/"),
 		OSSSignedURLExpire: common.GetEnvOrDefault("API_TEMP_IMAGE_OSS_SIGNED_URL_EXPIRE_SECONDS", defaultTempImageOSSSignedURLExpire),
+		R2Region:           strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_REGION")),
+	}
+	ossConfigured := cfg.hasOSSConfig()
+	r2Configured := hasR2EnvConfig()
+	useR2Config := cfg.Storage == "r2" || ((cfg.Storage == "" || cfg.Storage == "auto") && !ossConfigured && r2Configured)
+	if useR2Config {
+		cfg.OSSEndpoint = strings.TrimRight(strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_ENDPOINT")), "/")
+		cfg.OSSBucket = strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_BUCKET"))
+		cfg.OSSAccessKeyID = strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_ACCESS_KEY_ID"))
+		cfg.OSSAccessKeySecret = strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_ACCESS_KEY_SECRET"))
+		cfg.OSSObjectPrefix = strings.Trim(strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_PREFIX")), "/")
+		cfg.OSSPublicBaseURL = strings.TrimRight(strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_PUBLIC_BASE_URL")), "/")
+		cfg.OSSSignedURLExpire = common.GetEnvOrDefault("API_TEMP_IMAGE_R2_SIGNED_URL_EXPIRE_SECONDS", defaultTempImageOSSSignedURLExpire)
+	}
+	if cfg.R2Region == "" {
+		cfg.R2Region = "auto"
 	}
 	if cfg.OSSObjectPrefix == "" {
 		cfg.OSSObjectPrefix = defaultTempImageOSSObjectPrefix
@@ -266,6 +442,8 @@ func tempImageStorageConfigFromEnv(c *gin.Context) (tempImageStorageConfig, erro
 	if cfg.Storage == "" || cfg.Storage == "auto" {
 		if cfg.hasOSSConfig() {
 			cfg.Storage = "oss"
+		} else if r2Configured {
+			cfg.Storage = "r2"
 		} else {
 			cfg.Storage = "local"
 		}
@@ -278,7 +456,77 @@ func tempImageStorageConfigFromEnv(c *gin.Context) (tempImageStorageConfig, erro
 			return cfg, err
 		}
 	}
+	if cfg.Storage == "r2" {
+		if err := validateR2Config(cfg); err != nil {
+			return cfg, err
+		}
+	}
 	return cfg, nil
+}
+
+func tempImageStorageConfigFromUserSetting(c *gin.Context) (tempImageStorageConfig, bool, error) {
+	if c == nil {
+		return tempImageStorageConfig{}, false, nil
+	}
+	setting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting)
+	if !ok {
+		return tempImageStorageConfig{}, false, nil
+	}
+	imageStorage := setting.ImageStorage
+	if !imageStorage.IsReady() {
+		return tempImageStorageConfig{}, false, nil
+	}
+	return tempImageStorageConfigFromUserImageStorageWithOK(imageStorage)
+}
+
+func tempImageStorageConfigFromUserImageStorageWithOK(imageStorage dto.UserImageStorageSetting) (tempImageStorageConfig, bool, error) {
+	cfg, err := tempImageStorageConfigFromUserImageStorage(imageStorage)
+	return cfg, true, err
+}
+
+func tempImageStorageConfigFromUserImageStorage(imageStorage dto.UserImageStorageSetting) (tempImageStorageConfig, error) {
+	if !imageStorage.IsReady() {
+		return tempImageStorageConfig{}, fmt.Errorf("user image storage config is incomplete")
+	}
+	storage := "oss"
+	if imageStorage.Type == dto.UserImageStorageTypeCloudflareR2 {
+		storage = "r2"
+	}
+	cfg := tempImageStorageConfig{
+		Storage:               storage,
+		OSSEndpoint:           strings.TrimRight(strings.TrimSpace(imageStorage.Endpoint), "/"),
+		OSSAccelerateEndpoint: strings.TrimRight(strings.TrimSpace(imageStorage.AccelerateEndpoint), "/"),
+		OSSBucket:             strings.TrimSpace(imageStorage.Bucket),
+		OSSAccessKeyID:        strings.TrimSpace(imageStorage.AccessKeyID),
+		OSSAccessKeySecret:    strings.TrimSpace(imageStorage.AccessKeySecret),
+		OSSObjectPrefix:       strings.Trim(strings.TrimSpace(imageStorage.ObjectPrefix), "/"),
+		OSSPublicBaseURL:      strings.TrimRight(strings.TrimSpace(imageStorage.PublicBaseURL), "/"),
+		OSSSignedURLExpire:    common.GetEnvOrDefault("API_TEMP_IMAGE_OSS_SIGNED_URL_EXPIRE_SECONDS", defaultTempImageOSSSignedURLExpire),
+		R2Region:              "auto",
+	}
+	if storage == "r2" {
+		cfg.OSSSignedURLExpire = common.GetEnvOrDefault("API_TEMP_IMAGE_R2_SIGNED_URL_EXPIRE_SECONDS", defaultTempImageOSSSignedURLExpire)
+	}
+	if cfg.OSSObjectPrefix == "" {
+		cfg.OSSObjectPrefix = defaultTempImageOSSObjectPrefix
+	}
+	if storage == "r2" {
+		if err := validateR2Config(cfg); err != nil {
+			return cfg, err
+		}
+		return cfg, nil
+	}
+	if err := validateOSSConfig(cfg); err != nil {
+		return cfg, err
+	}
+	return cfg, nil
+}
+
+func hasR2EnvConfig() bool {
+	return strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_ENDPOINT")) != "" ||
+		strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_BUCKET")) != "" ||
+		strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_ACCESS_KEY_ID")) != "" ||
+		strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_ACCESS_KEY_SECRET")) != ""
 }
 
 func (cfg tempImageStorageConfig) hasOSSConfig() bool {
@@ -308,9 +556,29 @@ func validateOSSConfig(cfg tempImageStorageConfig) error {
 	return nil
 }
 
-func tempImageOSSObjectName(prefix, ext string) string {
+func validateR2Config(cfg tempImageStorageConfig) error {
+	missing := make([]string, 0)
+	if cfg.OSSEndpoint == "" {
+		missing = append(missing, "API_TEMP_IMAGE_R2_ENDPOINT")
+	}
+	if cfg.OSSBucket == "" {
+		missing = append(missing, "API_TEMP_IMAGE_R2_BUCKET")
+	}
+	if cfg.OSSAccessKeyID == "" {
+		missing = append(missing, "API_TEMP_IMAGE_R2_ACCESS_KEY_ID")
+	}
+	if cfg.OSSAccessKeySecret == "" {
+		missing = append(missing, "API_TEMP_IMAGE_R2_ACCESS_KEY_SECRET")
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("missing r2 temp image config: %s", strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+func tempImageOSSObjectName(prefix, suffix string) string {
 	prefix = strings.Trim(prefix, "/")
-	name := time.Now().UTC().Format("20060102") + "/" + uuid.NewString() + ext
+	name := time.Now().UTC().Format("20060102") + "/" + uuid.NewString() + suffix
 	if prefix == "" {
 		return name
 	}
@@ -318,7 +586,11 @@ func tempImageOSSObjectName(prefix, ext string) string {
 }
 
 func tempImageOSSObjectURL(cfg tempImageStorageConfig, objectName string) (string, string, error) {
-	endpoint, err := parseOSSEndpoint(cfg.OSSEndpoint)
+	uploadEndpoint := cfg.OSSEndpoint
+	if strings.TrimSpace(cfg.OSSAccelerateEndpoint) != "" {
+		uploadEndpoint = cfg.OSSAccelerateEndpoint
+	}
+	endpoint, err := parseOSSEndpoint(uploadEndpoint)
 	if err != nil {
 		return "", "", err
 	}
@@ -330,7 +602,9 @@ func tempImageOSSObjectURL(cfg tempImageStorageConfig, objectName string) (strin
 		return u.String(), canonicalResource, nil
 	}
 	u := *endpoint
-	u.Host = cfg.OSSBucket + "." + u.Host
+	if !ossEndpointHasBucketHost(endpoint, cfg.OSSBucket) {
+		u.Host = cfg.OSSBucket + "." + u.Host
+	}
 	u.Path = strings.TrimRight(u.Path, "/") + "/" + escapedObjectName
 	return u.String(), canonicalResource, nil
 }
@@ -364,6 +638,37 @@ func tempImageOSSPublicURL(cfg tempImageStorageConfig, objectName, canonicalReso
 	return parsed.String(), nil
 }
 
+func tempImageR2ObjectURL(cfg tempImageStorageConfig, objectName string) (string, error) {
+	endpoint, err := parseOSSEndpoint(cfg.OSSEndpoint)
+	if err != nil {
+		return "", err
+	}
+	escapedObjectName := escapeOSSObjectName(objectName)
+	u := *endpoint
+	u.Path = strings.TrimRight(u.Path, "/") + "/" + cfg.OSSBucket + "/" + escapedObjectName
+	return u.String(), nil
+}
+
+func tempImageR2PublicURL(cfg tempImageStorageConfig, objectName string) (string, error) {
+	escapedObjectName := escapeOSSObjectName(objectName)
+	if cfg.OSSPublicBaseURL != "" {
+		return strings.TrimRight(cfg.OSSPublicBaseURL, "/") + "/" + escapedObjectName, nil
+	}
+	expires := cfg.OSSSignedURLExpire
+	if expires <= 0 {
+		expires = defaultTempImageOSSSignedURLExpire
+	}
+	requestURL, err := tempImageR2ObjectURL(cfg, objectName)
+	if err != nil {
+		return "", err
+	}
+	req, err := http.NewRequest(http.MethodGet, requestURL, nil)
+	if err != nil {
+		return "", fmt.Errorf("create r2 signed url request failed: %w", err)
+	}
+	return presignR2Request(req, cfg, time.Duration(expires)*time.Second), nil
+}
+
 func parseOSSEndpoint(endpoint string) (*url.URL, error) {
 	endpoint = strings.TrimSpace(endpoint)
 	if endpoint == "" {
@@ -388,6 +693,14 @@ func shouldUsePathStyleOSSURL(endpoint *url.URL) bool {
 	return ip != nil
 }
 
+func ossEndpointHasBucketHost(endpoint *url.URL, bucket string) bool {
+	bucket = strings.TrimSpace(bucket)
+	if bucket == "" || endpoint == nil {
+		return false
+	}
+	return strings.HasPrefix(strings.ToLower(endpoint.Hostname()), strings.ToLower(bucket)+".")
+}
+
 func escapeOSSObjectName(objectName string) string {
 	parts := strings.Split(objectName, "/")
 	for i, part := range parts {
@@ -400,6 +713,123 @@ func ossSignature(secret, stringToSign string) string {
 	mac := hmac.New(sha1.New, []byte(secret))
 	_, _ = mac.Write([]byte(stringToSign))
 	return base64.StdEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func signR2Request(req *http.Request, cfg tempImageStorageConfig, payloadHash string) {
+	now := time.Now().UTC()
+	if payloadHash == "" {
+		payloadHash = "UNSIGNED-PAYLOAD"
+	}
+	req.Header.Set("Host", req.URL.Host)
+	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
+	req.Header.Set("X-Amz-Date", now.Format("20060102T150405Z"))
+	req.Header.Set("Authorization", r2Authorization(req.Method, req.URL, req.Header, cfg, payloadHash, now))
+}
+
+func presignR2Request(req *http.Request, cfg tempImageStorageConfig, expires time.Duration) string {
+	now := time.Now().UTC()
+	credentialScope := r2CredentialScope(cfg, now)
+	query := req.URL.Query()
+	query.Set("X-Amz-Algorithm", "AWS4-HMAC-SHA256")
+	query.Set("X-Amz-Credential", cfg.OSSAccessKeyID+"/"+credentialScope)
+	query.Set("X-Amz-Date", now.Format("20060102T150405Z"))
+	query.Set("X-Amz-Expires", strconv.FormatInt(int64(expires/time.Second), 10))
+	query.Set("X-Amz-SignedHeaders", "host")
+	req.URL.RawQuery = query.Encode()
+
+	canonicalRequest := strings.Join([]string{
+		req.Method,
+		r2CanonicalURI(req.URL),
+		r2CanonicalQuery(req.URL.Query()),
+		"host:" + strings.ToLower(req.URL.Host) + "\n",
+		"host",
+		"UNSIGNED-PAYLOAD",
+	}, "\n")
+	stringToSign := strings.Join([]string{
+		"AWS4-HMAC-SHA256",
+		now.Format("20060102T150405Z"),
+		credentialScope,
+		sha256Hex([]byte(canonicalRequest)),
+	}, "\n")
+	signature := hex.EncodeToString(hmacSHA256Bytes(r2SigningKey(cfg, now), stringToSign))
+	query.Set("X-Amz-Signature", signature)
+	req.URL.RawQuery = query.Encode()
+	return req.URL.String()
+}
+
+func r2Authorization(method string, u *url.URL, header http.Header, cfg tempImageStorageConfig, payloadHash string, now time.Time) string {
+	credentialScope := r2CredentialScope(cfg, now)
+	signedHeaders := "content-type;host;x-amz-content-sha256;x-amz-date"
+	canonicalHeaders := strings.Join([]string{
+		"content-type:" + strings.TrimSpace(header.Get("Content-Type")),
+		"host:" + strings.ToLower(u.Host),
+		"x-amz-content-sha256:" + payloadHash,
+		"x-amz-date:" + header.Get("X-Amz-Date"),
+		"",
+	}, "\n")
+	canonicalRequest := strings.Join([]string{
+		method,
+		r2CanonicalURI(u),
+		r2CanonicalQuery(u.Query()),
+		canonicalHeaders,
+		signedHeaders,
+		payloadHash,
+	}, "\n")
+	stringToSign := strings.Join([]string{
+		"AWS4-HMAC-SHA256",
+		header.Get("X-Amz-Date"),
+		credentialScope,
+		sha256Hex([]byte(canonicalRequest)),
+	}, "\n")
+	signature := hex.EncodeToString(hmacSHA256Bytes(r2SigningKey(cfg, now), stringToSign))
+	return fmt.Sprintf(
+		"AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s",
+		cfg.OSSAccessKeyID,
+		credentialScope,
+		signedHeaders,
+		signature,
+	)
+}
+
+func r2CredentialScope(cfg tempImageStorageConfig, t time.Time) string {
+	region := strings.TrimSpace(cfg.R2Region)
+	if region == "" {
+		region = "auto"
+	}
+	return t.Format("20060102") + "/" + region + "/s3/aws4_request"
+}
+
+func r2SigningKey(cfg tempImageStorageConfig, t time.Time) []byte {
+	region := strings.TrimSpace(cfg.R2Region)
+	if region == "" {
+		region = "auto"
+	}
+	kDate := hmacSHA256Bytes([]byte("AWS4"+cfg.OSSAccessKeySecret), t.Format("20060102"))
+	kRegion := hmacSHA256Bytes(kDate, region)
+	kService := hmacSHA256Bytes(kRegion, "s3")
+	return hmacSHA256Bytes(kService, "aws4_request")
+}
+
+func r2CanonicalURI(u *url.URL) string {
+	if u.EscapedPath() == "" {
+		return "/"
+	}
+	return u.EscapedPath()
+}
+
+func r2CanonicalQuery(values url.Values) string {
+	return values.Encode()
+}
+
+func hmacSHA256Bytes(key []byte, data string) []byte {
+	mac := hmac.New(sha256.New, key)
+	_, _ = mac.Write([]byte(data))
+	return mac.Sum(nil)
+}
+
+func sha256Hex(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:])
 }
 
 func relayTempImageContentType(fileHeader *multipart.FileHeader) string {

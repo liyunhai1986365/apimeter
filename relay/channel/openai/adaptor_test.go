@@ -178,6 +178,35 @@ func TestOpenAIImageGenerationKeepsExplicitResponseFormat(t *testing.T) {
 	require.Equal(t, "b64_json", imageReq.ResponseFormat)
 }
 
+func TestOpenAIImageGenerationIgnoresTokenImageFormatForUpstreamRequest(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode:          relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:     "/v1/images/generations",
+		OriginModelName:    "gpt-image-2",
+		TokenImageSettings: dto.TokenImageSettings{Format: "url"},
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:          "gpt-image-2",
+		Prompt:         "画一张海报",
+		ResponseFormat: "b64_json",
+	})
+	require.NoError(t, err)
+	imageReq, ok := converted.(dto.ImageRequest)
+	require.True(t, ok)
+	require.Equal(t, "b64_json", imageReq.ResponseFormat)
+}
+
 func TestOpenAIImageGenerationUsesConfiguredResponseFormat(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		RelayMode:       relayconstant.RelayModeImagesGenerations,

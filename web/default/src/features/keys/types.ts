@@ -45,6 +45,24 @@ export const apiKeySchema = z.object({
   model_limits_enabled: z.boolean(),
   model_limits: z.string().nullish().default(''),
   allow_ips: z.string().nullish().default(''),
+  image_settings: z
+    .object({
+      format: z
+        .enum(['follow_request', 'url', 'b64_json'])
+        .optional()
+        .default('follow_request'),
+      store: z
+        .enum([
+          'default',
+          'keep_endpoint_url',
+          'only_store_base64',
+          'force_store_url_and_base64',
+        ])
+        .optional()
+        .default('default'),
+    })
+    .optional()
+    .default({ format: 'follow_request', store: 'default' }),
 })
 
 export type ApiKey = z.infer<typeof apiKeySchema>
@@ -92,6 +110,14 @@ export interface ApiKeyFormData {
   allow_ips: string
   group: string
   cross_group_retry: boolean
+  image_settings: {
+    format: 'follow_request' | 'url' | 'b64_json'
+    store:
+      | 'default'
+      | 'keep_endpoint_url'
+      | 'only_store_base64'
+      | 'force_store_url_and_base64'
+  }
 }
 
 // ============================================================================

@@ -38,6 +38,17 @@ export function getApiKeyFormSchema(t: TFunction) {
       allow_ips: z.string().optional(),
       group: z.string().optional(),
       cross_group_retry: z.boolean().optional(),
+      image_response_format: z
+        .enum(['follow_request', 'url', 'b64_json'])
+        .optional(),
+      image_store_strategy: z
+        .enum([
+          'default',
+          'keep_endpoint_url',
+          'only_store_base64',
+          'force_store_url_and_base64',
+        ])
+        .optional(),
       tokenCount: z.number().min(1).optional(),
     })
     .superRefine((data, ctx) => {
@@ -73,6 +84,8 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   allow_ips: '',
   group: AUTO_GROUP_VALUE,
   cross_group_retry: true,
+  image_response_format: 'follow_request',
+  image_store_strategy: 'default',
   tokenCount: 1,
 }
 
@@ -109,6 +122,13 @@ export function transformFormDataToPayload(
     group: data.group || '',
     cross_group_retry:
       data.group === AUTO_GROUP_VALUE ? !!data.cross_group_retry : false,
+    image_settings: {
+      format: data.image_response_format || 'follow_request',
+      store:
+        data.image_response_format === 'url'
+          ? data.image_store_strategy || 'default'
+          : 'default',
+    },
   }
 }
 
@@ -134,6 +154,8 @@ export function transformApiKeyToFormDefaults(
     allow_ips: apiKey.allow_ips || '',
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,
+    image_response_format: apiKey.image_settings?.format || 'follow_request',
+    image_store_strategy: apiKey.image_settings?.store || 'default',
     tokenCount: 1,
   }
 }

@@ -467,6 +467,7 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	common.SetContextKey(c, constant.ContextKeyTokenBillingSource, token.BillingSource)
 	common.SetContextKey(c, constant.ContextKeyTokenSubscriptionPlanId, token.SubscriptionPlanId)
 	common.SetContextKey(c, constant.ContextKeyTokenUserSubscriptionId, token.UserSubscriptionId)
+	common.SetContextKey(c, constant.ContextKeyTokenImageSettings, token.ImageSettings.Normalized())
 	if len(parts) > 1 {
 		if model.IsAdmin(token.UserId) {
 			c.Set("specific_channel_id", parts[1])

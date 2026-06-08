@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState } from 'react'
-import { Link2, Settings } from 'lucide-react'
+import { Cloud, Link2, Settings } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -26,6 +26,7 @@ import { TitledCard } from '@/components/ui/titled-card'
 import type { UserProfile } from '../types'
 import { AccountBindingsTab } from './tabs/account-bindings-tab'
 import { NotificationTab } from './tabs/notification-tab'
+import { StorageTab } from './tabs/storage-tab'
 
 // ============================================================================
 // Profile Settings Card Component
@@ -69,7 +70,7 @@ export function ProfileSettingsCard({
       icon={<Settings className='h-4 w-4' />}
     >
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className='grid group-data-horizontal/tabs:h-10 w-full grid-cols-2 items-stretch gap-1 rounded-xl p-1'>
+        <TabsList className='grid group-data-horizontal/tabs:h-10 w-full grid-cols-3 items-stretch gap-1 rounded-xl p-1'>
           <TabsTrigger
             value='bindings'
             className='h-full gap-2 rounded-lg px-3 py-0 leading-none'
@@ -88,6 +89,14 @@ export function ProfileSettingsCard({
             </span>
             <span className='sm:hidden'>{t('Settings')}</span>
           </TabsTrigger>
+          <TabsTrigger
+            value='storage'
+            className='h-full gap-2 rounded-lg px-3 py-0 leading-none'
+          >
+            <Cloud className='h-4 w-4' />
+            <span className='hidden sm:inline'>{t('Storage Settings')}</span>
+            <span className='sm:hidden'>{t('Storage')}</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value='bindings' className='mt-4 sm:mt-6'>
@@ -96,6 +105,10 @@ export function ProfileSettingsCard({
 
         <TabsContent value='settings' className='mt-4 sm:mt-6'>
           <NotificationTab profile={profile} onUpdate={onProfileUpdate} />
+        </TabsContent>
+
+        <TabsContent value='storage' className='mt-4 sm:mt-6'>
+          <StorageTab profile={profile} onUpdate={onProfileUpdate} />
         </TabsContent>
       </Tabs>
     </TitledCard>

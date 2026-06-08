@@ -6,32 +6,47 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
 
+const (
+	TokenImageFormatFollowRequest = dto.TokenImageFormatFollowRequest
+	TokenImageFormatURL           = dto.TokenImageFormatURL
+	TokenImageFormatB64JSON       = dto.TokenImageFormatB64JSON
+
+	TokenImageStoreDefault                = dto.TokenImageStoreDefault
+	TokenImageStoreKeepEndpointURL        = dto.TokenImageStoreKeepEndpointURL
+	TokenImageStoreOnlyStoreBase64        = dto.TokenImageStoreOnlyStoreBase64
+	TokenImageStoreForceStoreURLAndBase64 = dto.TokenImageStoreForceStoreURLAndBase64
+)
+
+type TokenImageSettings = dto.TokenImageSettings
+
 type Token struct {
-	Id                 int            `json:"id"`
-	UserId             int            `json:"user_id" gorm:"index"`
-	Key                string         `json:"key" gorm:"type:varchar(128);uniqueIndex"`
-	Status             int            `json:"status" gorm:"default:1"`
-	Name               string         `json:"name" gorm:"index" `
-	CreatedTime        int64          `json:"created_time" gorm:"bigint"`
-	AccessedTime       int64          `json:"accessed_time" gorm:"bigint"`
-	ExpiredTime        int64          `json:"expired_time" gorm:"bigint;default:-1"` // -1 means never expired
-	RemainQuota        int            `json:"remain_quota" gorm:"default:0"`
-	UnlimitedQuota     bool           `json:"unlimited_quota"`
-	ModelLimitsEnabled bool           `json:"model_limits_enabled"`
-	ModelLimits        string         `json:"model_limits" gorm:"type:text"`
-	AllowIps           *string        `json:"allow_ips" gorm:"default:''"`
-	UsedQuota          int            `json:"used_quota" gorm:"default:0"` // used quota
-	Group              string         `json:"group" gorm:"default:''"`
-	CrossGroupRetry    bool           `json:"cross_group_retry"`                                 // 跨分组重试，仅auto分组有效
-	BillingSource      string         `json:"billing_source" gorm:"type:varchar(32);default:''"` // subscription 表示订阅专属Key
-	SubscriptionPlanId int            `json:"subscription_plan_id" gorm:"index;default:0"`
-	UserSubscriptionId int            `json:"user_subscription_id" gorm:"index;default:0"`
-	DeletedAt          gorm.DeletedAt `gorm:"index"`
+	Id                 int                `json:"id"`
+	UserId             int                `json:"user_id" gorm:"index"`
+	Key                string             `json:"key" gorm:"type:varchar(128);uniqueIndex"`
+	Status             int                `json:"status" gorm:"default:1"`
+	Name               string             `json:"name" gorm:"index" `
+	CreatedTime        int64              `json:"created_time" gorm:"bigint"`
+	AccessedTime       int64              `json:"accessed_time" gorm:"bigint"`
+	ExpiredTime        int64              `json:"expired_time" gorm:"bigint;default:-1"` // -1 means never expired
+	RemainQuota        int                `json:"remain_quota" gorm:"default:0"`
+	UnlimitedQuota     bool               `json:"unlimited_quota"`
+	ModelLimitsEnabled bool               `json:"model_limits_enabled"`
+	ModelLimits        string             `json:"model_limits" gorm:"type:text"`
+	AllowIps           *string            `json:"allow_ips" gorm:"default:''"`
+	UsedQuota          int                `json:"used_quota" gorm:"default:0"` // used quota
+	Group              string             `json:"group" gorm:"default:''"`
+	CrossGroupRetry    bool               `json:"cross_group_retry"`                                 // 跨分组重试，仅auto分组有效
+	ImageSettings      TokenImageSettings `json:"image_settings" gorm:"type:text"`                   // 图片返回格式与转存策略
+	BillingSource      string             `json:"billing_source" gorm:"type:varchar(32);default:''"` // subscription 表示订阅专属Key
+	SubscriptionPlanId int                `json:"subscription_plan_id" gorm:"index;default:0"`
+	UserSubscriptionId int                `json:"user_subscription_id" gorm:"index;default:0"`
+	DeletedAt          gorm.DeletedAt     `gorm:"index"`
 }
 
 func (token *Token) Clean() {
@@ -304,7 +319,7 @@ func (token *Token) Update() (err error) {
 	}()
 	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
 		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry",
-		"billing_source", "subscription_plan_id", "user_subscription_id").Updates(token).Error
+		"image_settings", "billing_source", "subscription_plan_id", "user_subscription_id").Updates(token).Error
 	return err
 }
 

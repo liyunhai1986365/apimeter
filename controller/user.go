@@ -450,7 +450,7 @@ func GetSelf(c *gin.Context) {
 		"aff_history_quota": user.AffHistoryQuota,
 		"inviter_id":        user.InviterId,
 		"linux_do_id":       user.LinuxDOId,
-		"setting":           user.Setting,
+		"setting":           userSettingResponseJSON(user.Setting),
 		"stripe_customer":   user.StripeCustomer,
 		"has_agent":         hasAgentConsole,
 		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
@@ -1172,19 +1172,20 @@ func TopUp(c *gin.Context) {
 }
 
 type UpdateUserSettingRequest struct {
-	QuotaWarningType                 string  `json:"notify_type"`
-	QuotaWarningThreshold            float64 `json:"quota_warning_threshold"`
-	WebhookUrl                       string  `json:"webhook_url,omitempty"`
-	WebhookSecret                    string  `json:"webhook_secret,omitempty"`
-	NotificationEmail                string  `json:"notification_email,omitempty"`
-	BarkUrl                          string  `json:"bark_url,omitempty"`
-	GotifyUrl                        string  `json:"gotify_url,omitempty"`
-	GotifyToken                      string  `json:"gotify_token,omitempty"`
-	GotifyPriority                   int     `json:"gotify_priority,omitempty"`
-	UpstreamModelUpdateNotifyEnabled *bool   `json:"upstream_model_update_notify_enabled,omitempty"`
-	AcceptUnsetModelRatioModel       bool    `json:"accept_unset_model_ratio_model"`
-	RecordIpLog                      *bool   `json:"record_ip_log"`
-	ModelFallback                    any     `json:"model_fallback,omitempty"`
+	QuotaWarningType                 string                       `json:"notify_type"`
+	QuotaWarningThreshold            float64                      `json:"quota_warning_threshold"`
+	WebhookUrl                       string                       `json:"webhook_url,omitempty"`
+	WebhookSecret                    string                       `json:"webhook_secret,omitempty"`
+	NotificationEmail                string                       `json:"notification_email,omitempty"`
+	BarkUrl                          string                       `json:"bark_url,omitempty"`
+	GotifyUrl                        string                       `json:"gotify_url,omitempty"`
+	GotifyToken                      string                       `json:"gotify_token,omitempty"`
+	GotifyPriority                   int                          `json:"gotify_priority,omitempty"`
+	UpstreamModelUpdateNotifyEnabled *bool                        `json:"upstream_model_update_notify_enabled,omitempty"`
+	AcceptUnsetModelRatioModel       bool                         `json:"accept_unset_model_ratio_model"`
+	RecordIpLog                      *bool                        `json:"record_ip_log"`
+	ModelFallback                    any                          `json:"model_fallback,omitempty"`
+	ImageStorage                     *dto.UserImageStorageSetting `json:"image_storage,omitempty"`
 }
 
 func UpdateUserSetting(c *gin.Context) {
@@ -1291,6 +1292,13 @@ func UpdateUserSetting(c *gin.Context) {
 	if req.ModelFallback != nil {
 		settings.ModelFallback = req.ModelFallback
 	}
+	if req.ImageStorage != nil {
+		imageStorage := *req.ImageStorage
+		if strings.TrimSpace(imageStorage.AccessKeySecret) == "" {
+			imageStorage.AccessKeySecret = existingSettings.ImageStorage.AccessKeySecret
+		}
+		settings.ImageStorage = imageStorage
+	}
 
 	// 如果是webhook类型,添加webhook相关设置
 	if req.QuotaWarningType == dto.NotifyTypeWebhook {
@@ -1328,6 +1336,56 @@ func UpdateUserSetting(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUpdateFailed)
 		return
 	}
+	if err := model.InvalidateUserCache(user.Id); err != nil {
+		common.SysLog(fmt.Sprintf("failed to invalidate user cache for user %d: %s", user.Id, err.Error()))
+	}
 
 	common.ApiSuccessI18n(c, i18n.MsgSettingSaved, nil)
+}
+
+func TestUserImageStorage(c *gin.Context) {
+	var req dto.UserImageStorageSetting
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	userId := c.GetInt("id")
+	user, err := model.GetUserById(userId, true)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	existingSettings := user.GetSetting()
+	if strings.TrimSpace(req.AccessKeySecret) == "" {
+		req.AccessKeySecret = existingSettings.ImageStorage.AccessKeySecret
+	}
+	req.Enabled = true
+	if strings.TrimSpace(req.Type) == "" {
+		req.Type = dto.UserImageStorageTypeAliyunOSS
+	}
+
+	url, err := service.TestUserImageStorage(req)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	common.ApiSuccess(c, url)
+}
+
+func userSettingResponseJSON(setting string) string {
+	if strings.TrimSpace(setting) == "" {
+		return setting
+	}
+	var parsed dto.UserSetting
+	if err := common.Unmarshal([]byte(setting), &parsed); err != nil {
+		return setting
+	}
+	parsed.ImageStorage = parsed.ImageStorage.Redacted()
+	bytes, err := common.Marshal(parsed)
+	if err != nil {
+		return setting
+	}
+	return string(bytes)
 }
