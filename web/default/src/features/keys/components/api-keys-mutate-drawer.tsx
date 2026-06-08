@@ -190,7 +190,7 @@ function getImageStoreStrategyDescription(
       )
     case 'force_store_url_and_base64':
       return t(
-        'Always transfer the image through gateway storage and include both the stored URL and base64 data.'
+        'When the endpoint returns a URL or base64 image, always transfer it through gateway storage.'
       )
     case 'default':
     default:

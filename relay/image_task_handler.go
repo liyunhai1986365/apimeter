@@ -343,7 +343,7 @@ func convertImageAsyncResultToOpenAIResponse(c *gin.Context, info *relaycommon.R
 		imageResp.Created = info.StartTime.Unix()
 	}
 	for _, image := range taskResp.Data.Images {
-		imageData, err := imageTaskImageToOpenAIData(c, image, buildImageResponsePolicy(info))
+		imageData, err := imageTaskImageToOpenAIData(imageStorageContext(c, info), image, buildImageResponsePolicy(info))
 		if err != nil {
 			return nil, err
 		}
@@ -370,15 +370,15 @@ func buildImageResponsePolicy(info *relaycommon.RelayInfo) imageResponsePolicy {
 	if info != nil {
 		settings := info.TokenImageSettings.Normalized()
 		policy.store = settings.Store
+		if settings.Format == dto.TokenImageFormatURL || settings.Format == dto.TokenImageFormatB64JSON {
+			policy.format = settings.Format
+			return policy
+		}
 		if info.ChannelMeta != nil {
 			if responseFormat := info.ChannelSetting.OpenAIImageResponseFormatOverride(); responseFormat != "" {
 				policy.format = responseFormat
 				return policy
 			}
-		}
-		if settings.Format == dto.TokenImageFormatURL || settings.Format == dto.TokenImageFormatB64JSON {
-			policy.format = settings.Format
-			return policy
 		}
 		if request, ok := info.Request.(*dto.ImageRequest); ok {
 			switch strings.ToLower(strings.TrimSpace(request.ResponseFormat)) {
@@ -403,7 +403,10 @@ func imageTaskImageToOpenAIData(c *gin.Context, image dto.ImageTaskImage, policy
 		if err != nil {
 			return dto.ImageData{}, err
 		}
-		return data, nil
+		if policy.format == "b64_json" {
+			return dto.ImageData{B64Json: data.B64Json}, nil
+		}
+		return dto.ImageData{Url: data.Url}, nil
 	}
 	if policy.format == "b64_json" {
 		if imageBase64 != "" {
@@ -493,6 +496,7 @@ func isHTTPImageReference(ref string) bool {
 
 func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.RelayInfo, body []byte) ([]byte, bool, error) {
 	policy := buildImageResponsePolicy(info)
+	storageCtx := imageStorageContext(c, info)
 	var payload map[string]any
 	if err := common.Unmarshal(body, &payload); err != nil {
 		return nil, false, err
@@ -508,9 +512,9 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 		if !ok {
 			continue
 		}
-		normalized, err := imageTaskImageToOpenAIData(c, dto.ImageTaskImage{
+		normalized, err := imageTaskImageToOpenAIData(storageCtx, dto.ImageTaskImage{
 			URL:     stringFromImageMap(image, "url"),
-			B64Json: stringFromImageMap(image, "b64_json"),
+			B64Json: stringFromImageMap(image, "b64_json", "base64"),
 		}, policy)
 		if err != nil {
 			return nil, false, err
@@ -519,12 +523,31 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 			if normalized.Url == "" && normalized.B64Json == "" {
 				continue
 			}
-			if stringFromImageMap(image, "url") != normalized.Url {
-				image["url"] = normalized.Url
+			if policy.format == "b64_json" {
+				if stringFromImageMap(image, "b64_json") != normalized.B64Json {
+					image["b64_json"] = normalized.B64Json
+					changed = true
+				}
+				if stringFromImageMap(image, "url") != "" {
+					image["url"] = ""
+					changed = true
+				}
+			} else {
+				if stringFromImageMap(image, "url") != normalized.Url {
+					image["url"] = normalized.Url
+					changed = true
+				}
+				if stringFromImageMap(image, "b64_json") != "" {
+					image["b64_json"] = ""
+					changed = true
+				}
+			}
+			if _, ok := image["b64_json"]; !ok && policy.format != "b64_json" {
+				image["b64_json"] = ""
 				changed = true
 			}
-			if stringFromImageMap(image, "b64_json") != normalized.B64Json {
-				image["b64_json"] = normalized.B64Json
+			if _, ok := image["base64"]; ok {
+				image["base64"] = ""
 				changed = true
 			}
 			dataValue[i] = image
@@ -542,6 +565,10 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 				image["url"] = ""
 				changed = true
 			}
+			if stringFromImageMap(image, "base64") != "" {
+				image["base64"] = ""
+				changed = true
+			}
 			dataValue[i] = image
 			continue
 		}
@@ -556,6 +583,14 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 			image["b64_json"] = ""
 			changed = true
 		}
+		if _, ok := image["b64_json"]; !ok {
+			image["b64_json"] = ""
+			changed = true
+		}
+		if _, ok := image["base64"]; ok {
+			image["base64"] = ""
+			changed = true
+		}
 		dataValue[i] = image
 	}
 	if !changed {
@@ -566,12 +601,29 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 	return normalized, true, err
 }
 
-func stringFromImageMap(image map[string]any, key string) string {
-	value, ok := image[key]
-	if !ok || value == nil {
-		return ""
+func imageStorageContext(c *gin.Context, info *relaycommon.RelayInfo) *gin.Context {
+	if c == nil || info == nil || !info.UserSetting.ImageStorage.IsReady() {
+		return c
 	}
-	return strings.TrimSpace(fmt.Sprint(value))
+	if _, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting); ok {
+		return c
+	}
+	common.SetContextKey(c, constant.ContextKeyUserSetting, info.UserSetting)
+	return c
+}
+
+func stringFromImageMap(image map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value, ok := image[key]
+		if !ok || value == nil {
+			continue
+		}
+		valueString := strings.TrimSpace(fmt.Sprint(value))
+		if valueString != "" {
+			return valueString
+		}
+	}
+	return ""
 }
 
 func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string, settings ...dto.ChannelSettings) ([]byte, int, error) {

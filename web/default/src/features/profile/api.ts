@@ -22,6 +22,7 @@ import type {
   UserProfile,
   UpdateUserRequest,
   UpdateUserSettingsRequest,
+  UserImageStorageSetting,
   DeleteAccountRequest,
   CheckinStatusResponse,
   CheckinResponse,
@@ -56,6 +57,16 @@ export async function updateUserSettings(
   data: UpdateUserSettingsRequest
 ): Promise<ApiResponse> {
   const res = await api.put('/api/user/setting', data)
+  return res.data
+}
+
+/**
+ * Test user image storage settings
+ */
+export async function testUserImageStorage(
+  data: UserImageStorageSetting
+): Promise<ApiResponse<string>> {
+  const res = await api.post('/api/user/setting/image-storage/test', data)
   return res.data
 }
 
