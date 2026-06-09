@@ -242,7 +242,11 @@ func shouldForceConvertImageRequest(info *relaycommon.RelayInfo, request *dto.Im
 	if configurableImageProfileFromSettings(settings) != nil {
 		return true
 	}
-	if settings.OpenAIImageResponseFormatOverride() != "" {
+	tokenSettings := info.TokenImageSettings.Normalized()
+	if tokenSettings.Format == dto.TokenImageFormatURL || tokenSettings.Format == dto.TokenImageFormatB64JSON {
+		return true
+	}
+	if strings.TrimSpace(request.ResponseFormat) == "" && settings.OpenAIImageResponseFormatOverride() != "" {
 		return true
 	}
 	if !imageconv.RequestHasImageInput(request) {

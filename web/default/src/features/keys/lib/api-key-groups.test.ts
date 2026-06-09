@@ -45,12 +45,12 @@ describe('api key group options', () => {
       ...defaults,
       name: 'image-key',
       image_response_format: 'url',
-      image_store_strategy: 'keep_endpoint_url',
+      image_store_strategy: 'force_store_url_and_base64',
     })
 
     assert.deepEqual(payload.image_settings, {
       format: 'url',
-      store: 'keep_endpoint_url',
+      store: 'force_store_url_and_base64',
     })
   })
 

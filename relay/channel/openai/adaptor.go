@@ -429,7 +429,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	if info != nil && info.ChannelMeta != nil {
 		settings = info.ChannelSetting
 	}
-	if responseFormat := settings.OpenAIImageResponseFormatOverride(); responseFormat != "" {
+	if responseFormat := openAIImageResponseFormatForUpstream(info, request.ResponseFormat); responseFormat != "" {
 		request.ResponseFormat = responseFormat
 	}
 	switch info.RelayMode {
@@ -556,6 +556,26 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	default:
 		return request, nil
 	}
+}
+
+func openAIImageResponseFormatForUpstream(info *relaycommon.RelayInfo, requestResponseFormat string) string {
+	if info != nil {
+		tokenSettings := info.TokenImageSettings.Normalized()
+		switch tokenSettings.Format {
+		case dto.TokenImageFormatURL, dto.TokenImageFormatB64JSON:
+			return tokenSettings.Format
+		}
+	}
+	switch strings.ToLower(strings.TrimSpace(requestResponseFormat)) {
+	case "url":
+		return "url"
+	case "b64_json", "base64":
+		return "b64_json"
+	}
+	if info != nil && info.ChannelMeta != nil {
+		return info.ChannelSetting.OpenAIImageResponseFormatOverride()
+	}
+	return ""
 }
 
 func isJSONRequest(c *gin.Context) bool {

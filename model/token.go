@@ -18,7 +18,6 @@ const (
 	TokenImageFormatB64JSON       = dto.TokenImageFormatB64JSON
 
 	TokenImageStoreDefault                = dto.TokenImageStoreDefault
-	TokenImageStoreKeepEndpointURL        = dto.TokenImageStoreKeepEndpointURL
 	TokenImageStoreOnlyStoreBase64        = dto.TokenImageStoreOnlyStoreBase64
 	TokenImageStoreForceStoreURLAndBase64 = dto.TokenImageStoreForceStoreURLAndBase64
 )

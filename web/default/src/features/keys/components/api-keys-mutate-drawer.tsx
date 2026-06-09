@@ -163,8 +163,6 @@ function getImageStoreStrategyLabel(
   t: ReturnType<typeof useTranslation>['t']
 ) {
   switch (value) {
-    case 'keep_endpoint_url':
-      return t('Keep endpoint URL')
     case 'only_store_base64':
       return t('Store base64 only')
     case 'force_store_url_and_base64':
@@ -180,22 +178,18 @@ function getImageStoreStrategyDescription(
   t: ReturnType<typeof useTranslation>['t']
 ) {
   switch (value) {
-    case 'keep_endpoint_url':
-      return t(
-        'Return the endpoint URL directly when it is already a reachable image URL; do not transfer it to gateway storage.'
-      )
     case 'only_store_base64':
       return t(
-        'When returning URL format, store base64 image data through the gateway and return the stored URL.'
+        'When returning URL format, store base64 image data through the gateway; endpoint URLs are returned directly.'
       )
     case 'force_store_url_and_base64':
       return t(
-        'When the endpoint returns a URL or base64 image, always transfer it through gateway storage.'
+        'When returning URL format, store both endpoint URLs and base64 image data through the gateway.'
       )
     case 'default':
     default:
       return t(
-        'Use the default image handling policy; URL responses are stored by the gateway when needed.'
+        'Use the default image handling policy; base64 image data is stored by the gateway when returning URL format.'
       )
   }
 }
@@ -768,9 +762,6 @@ export function ApiKeysMutateDrawer({
                                 <SelectContent>
                                   <SelectItem value='default'>
                                     {t('Default storage')}
-                                  </SelectItem>
-                                  <SelectItem value='keep_endpoint_url'>
-                                    {t('Keep endpoint URL')}
                                   </SelectItem>
                                   <SelectItem value='only_store_base64'>
                                     {t('Store base64 only')}

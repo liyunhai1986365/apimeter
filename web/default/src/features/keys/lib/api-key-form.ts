@@ -44,7 +44,6 @@ export function getApiKeyFormSchema(t: TFunction) {
       image_store_strategy: z
         .enum([
           'default',
-          'keep_endpoint_url',
           'only_store_base64',
           'force_store_url_and_base64',
         ])
@@ -125,7 +124,8 @@ export function transformFormDataToPayload(
     image_settings: {
       format: data.image_response_format || 'follow_request',
       store:
-        data.image_response_format === 'url'
+        data.image_response_format === 'url' &&
+        data.image_store_strategy !== 'default'
           ? data.image_store_strategy || 'default'
           : 'default',
     },
@@ -155,7 +155,11 @@ export function transformApiKeyToFormDefaults(
     group: apiKey.group || DEFAULT_GROUP,
     cross_group_retry: !!apiKey.cross_group_retry,
     image_response_format: apiKey.image_settings?.format || 'follow_request',
-    image_store_strategy: apiKey.image_settings?.store || 'default',
+    image_store_strategy:
+      apiKey.image_settings?.store === 'only_store_base64' ||
+      apiKey.image_settings?.store === 'force_store_url_and_base64'
+        ? apiKey.image_settings.store
+        : 'default',
     tokenCount: 1,
   }
 }

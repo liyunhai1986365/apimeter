@@ -374,16 +374,20 @@ func buildImageResponsePolicy(info *relaycommon.RelayInfo) imageResponsePolicy {
 			policy.format = settings.Format
 			return policy
 		}
+		if request, ok := info.Request.(*dto.ImageRequest); ok {
+			switch strings.ToLower(strings.TrimSpace(request.ResponseFormat)) {
+			case "url":
+				policy.format = "url"
+				return policy
+			case "b64_json", "base64":
+				policy.format = "b64_json"
+				return policy
+			}
+		}
 		if info.ChannelMeta != nil {
 			if responseFormat := info.ChannelSetting.OpenAIImageResponseFormatOverride(); responseFormat != "" {
 				policy.format = responseFormat
 				return policy
-			}
-		}
-		if request, ok := info.Request.(*dto.ImageRequest); ok {
-			switch strings.ToLower(strings.TrimSpace(request.ResponseFormat)) {
-			case "b64_json", "base64":
-				policy.format = "b64_json"
 			}
 		}
 	}
@@ -394,10 +398,6 @@ func imageTaskImageToOpenAIData(c *gin.Context, image dto.ImageTaskImage, policy
 	imageURL := strings.TrimSpace(image.URL)
 	imageBase64 := strings.TrimSpace(image.B64Json)
 	switch policy.store {
-	case dto.TokenImageStoreKeepEndpointURL:
-		if policy.format == "url" && imageURL != "" && isHTTPImageReference(imageURL) {
-			return dto.ImageData{Url: imageURL}, nil
-		}
 	case dto.TokenImageStoreForceStoreURLAndBase64:
 		data, err := imageTaskImageToStoredURLAndBase64(c, imageURL, imageBase64)
 		if err != nil {
@@ -514,7 +514,7 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 		}
 		normalized, err := imageTaskImageToOpenAIData(storageCtx, dto.ImageTaskImage{
 			URL:     stringFromImageMap(image, "url"),
-			B64Json: stringFromImageMap(image, "b64_json", "base64"),
+			B64Json: stringFromImageMap(image, "b64_json", "base64", "image_base64", "imageBase64"),
 		}, policy)
 		if err != nil {
 			return nil, false, err
@@ -550,6 +550,14 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 				image["base64"] = ""
 				changed = true
 			}
+			if _, ok := image["image_base64"]; ok {
+				image["image_base64"] = ""
+				changed = true
+			}
+			if _, ok := image["imageBase64"]; ok {
+				image["imageBase64"] = ""
+				changed = true
+			}
 			dataValue[i] = image
 			continue
 		}
@@ -567,6 +575,14 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 			}
 			if stringFromImageMap(image, "base64") != "" {
 				image["base64"] = ""
+				changed = true
+			}
+			if stringFromImageMap(image, "image_base64") != "" {
+				image["image_base64"] = ""
+				changed = true
+			}
+			if stringFromImageMap(image, "imageBase64") != "" {
+				image["imageBase64"] = ""
 				changed = true
 			}
 			dataValue[i] = image
@@ -589,6 +605,14 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 		}
 		if _, ok := image["base64"]; ok {
 			image["base64"] = ""
+			changed = true
+		}
+		if _, ok := image["image_base64"]; ok {
+			image["image_base64"] = ""
+			changed = true
+		}
+		if _, ok := image["imageBase64"]; ok {
+			image["imageBase64"] = ""
 			changed = true
 		}
 		dataValue[i] = image

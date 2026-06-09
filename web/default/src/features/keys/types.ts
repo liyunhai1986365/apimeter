@@ -54,7 +54,6 @@ export const apiKeySchema = z.object({
       store: z
         .enum([
           'default',
-          'keep_endpoint_url',
           'only_store_base64',
           'force_store_url_and_base64',
         ])
@@ -114,7 +113,6 @@ export interface ApiKeyFormData {
     format: 'follow_request' | 'url' | 'b64_json'
     store:
       | 'default'
-      | 'keep_endpoint_url'
       | 'only_store_base64'
       | 'force_store_url_and_base64'
   }

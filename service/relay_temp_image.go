@@ -72,6 +72,17 @@ func SaveTemporaryImageBase64(c *gin.Context, base64Data string) (string, error)
 	return SaveTemporaryImageBytes(c, data, mimeType, tempImageFilenameForMime(mimeType))
 }
 
+func SaveTemporaryImageCleanBase64(c *gin.Context, cleanBase64, mimeType string) (string, error) {
+	data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(cleanBase64))
+	if err != nil {
+		return "", fmt.Errorf("decode temp image base64 failed: %w", err)
+	}
+	if strings.TrimSpace(mimeType) == "" {
+		mimeType = "image/png"
+	}
+	return SaveTemporaryImageBytes(c, data, mimeType, tempImageFilenameForMime(mimeType))
+}
+
 func SaveTemporaryImageBytes(c *gin.Context, data []byte, contentType, filename string) (string, error) {
 	if len(data) == 0 {
 		return "", fmt.Errorf("missing image data")

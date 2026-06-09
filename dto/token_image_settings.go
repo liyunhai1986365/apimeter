@@ -14,7 +14,6 @@ const (
 	TokenImageFormatB64JSON       = "b64_json"
 
 	TokenImageStoreDefault                = "default"
-	TokenImageStoreKeepEndpointURL        = "keep_endpoint_url"
 	TokenImageStoreOnlyStoreBase64        = "only_store_base64"
 	TokenImageStoreForceStoreURLAndBase64 = "force_store_url_and_base64"
 )
@@ -35,8 +34,6 @@ func (s TokenImageSettings) Normalized() TokenImageSettings {
 	}
 
 	switch strings.ToLower(strings.TrimSpace(s.Store)) {
-	case TokenImageStoreKeepEndpointURL:
-		s.Store = TokenImageStoreKeepEndpointURL
 	case TokenImageStoreOnlyStoreBase64:
 		s.Store = TokenImageStoreOnlyStoreBase64
 	case TokenImageStoreForceStoreURLAndBase64:
