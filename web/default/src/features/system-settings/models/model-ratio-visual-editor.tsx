@@ -51,6 +51,7 @@ import {
 import {
   DataTableBulkActions,
   DataTableColumnHeader,
+  getDataTableCellClassName,
   DataTableToolbar,
   DataTablePagination,
 } from '@/components/data-table'
@@ -917,13 +918,19 @@ export const ModelRatioVisualEditor = memo(
                   : t('No models configured. Use Add model to get started.')}
               </div>
             ) : (
-              <div className='overflow-hidden rounded-md border'>
+              <div className='overflow-x-auto rounded-md border'>
                 <Table>
                   <TableHeader>
                     {table.getHeaderGroups().map((headerGroup) => (
                       <TableRow key={headerGroup.id}>
                         {headerGroup.headers.map((header) => (
-                          <TableHead key={header.id} colSpan={header.colSpan}>
+                          <TableHead
+                            key={header.id}
+                            colSpan={header.colSpan}
+                            className={getDataTableCellClassName(
+                              header.column.id
+                            )}
+                          >
                             {header.isPlaceholder
                               ? null
                               : flexRender(
@@ -955,7 +962,12 @@ export const ModelRatioVisualEditor = memo(
                         }}
                       >
                         {row.getVisibleCells().map((cell) => (
-                          <TableCell key={cell.id}>
+                          <TableCell
+                            key={cell.id}
+                            className={getDataTableCellClassName(
+                              cell.column.id
+                            )}
+                          >
                             {flexRender(
                               cell.column.columnDef.cell,
                               cell.getContext()

@@ -2,6 +2,9 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   getApiKeyFormDefaultValues,
+  addGroupToChain,
+  getApiKeyGroupDisplayItems,
+  removeGroupFromChain,
   transformFormDataToPayload,
 } from './api-key-form'
 import {
@@ -18,10 +21,52 @@ describe('api key group options', () => {
       name: 'test-key',
     })
 
-    assert.equal(defaults.group, AUTO_GROUP_VALUE)
+    assert.deepEqual(defaults.group_chain, [AUTO_GROUP_VALUE])
     assert.equal(defaults.cross_group_retry, true)
     assert.equal(payload.group, AUTO_GROUP_VALUE)
+    assert.equal(payload.group_policy, '')
     assert.equal(payload.cross_group_retry, true)
+  })
+
+  test('serializes ordered group chain in payload', () => {
+    const defaults = getApiKeyFormDefaultValues()
+    const payload = transformFormDataToPayload({
+      ...defaults,
+      name: 'ordered-key',
+      group_chain: ['vip', 'backup'],
+    })
+
+    assert.equal(payload.group, 'vip')
+    assert.equal(
+      payload.group_policy,
+      '{"type":"ordered","groups":["vip","backup"]}'
+    )
+    assert.equal(payload.cross_group_retry, true)
+  })
+
+  test('replaces auto when adding the first concrete group and restores auto when empty', () => {
+    assert.deepEqual(addGroupToChain([AUTO_GROUP_VALUE], 'vip'), ['vip'])
+    assert.deepEqual(addGroupToChain(['vip'], 'backup'), ['vip', 'backup'])
+    assert.deepEqual(removeGroupFromChain(['vip'], 0), [AUTO_GROUP_VALUE])
+  })
+
+  test('selecting auto clears all concrete groups', () => {
+    assert.deepEqual(addGroupToChain(['vip', 'backup'], AUTO_GROUP_VALUE), [
+      AUTO_GROUP_VALUE,
+    ])
+  })
+
+  test('previews only the primary group and hides extra groups in API key list', () => {
+    const display = getApiKeyGroupDisplayItems(
+      {
+        group: 'vip',
+        group_policy: '{"type":"ordered","groups":["vip","backup","economy"]}',
+      }
+    )
+
+    assert.deepEqual(display.visibleGroups, ['vip'])
+    assert.deepEqual(display.hiddenGroups, ['backup', 'economy'])
+    assert.equal(display.hiddenCount, 2)
   })
 
   test('resets image storage strategy unless URL response format is selected', () => {

@@ -17,10 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useCallback } from 'react'
-import { Check, Copy, Loader2 } from 'lucide-react'
+import { Check, Copy, Infinity, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
+import { formatQuota } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Progress } from '@/components/ui/progress'
 import {
   Popover,
   PopoverContent,
@@ -32,8 +35,15 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { StatusBadge } from '@/components/status-badge'
+import { getApiKeyQuotaDisplay } from '../lib/api-key-quota'
 import { type ApiKey } from '../types'
 import { useApiKeys } from './api-keys-provider'
+
+function getQuotaProgressColor(percentage: number): string {
+  if (percentage <= 10) return '[&_[data-slot=progress-indicator]]:bg-rose-500'
+  if (percentage <= 30) return '[&_[data-slot=progress-indicator]]:bg-amber-500'
+  return '[&_[data-slot=progress-indicator]]:bg-emerald-500'
+}
 
 export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
   const { t } = useTranslation()
@@ -137,6 +147,58 @@ export function ApiKeyCell({ apiKey }: { apiKey: ApiKey }) {
         </TooltipContent>
       </Tooltip>
     </div>
+  )
+}
+
+export function ApiKeyQuotaCell({
+  apiKey,
+  className,
+}: {
+  apiKey: ApiKey
+  className?: string
+}) {
+  const { t } = useTranslation()
+  const quota = getApiKeyQuotaDisplay(apiKey)
+
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={<div className={cn('w-[150px] space-y-1', className)} />}
+      >
+        <div className='flex items-center justify-between gap-2 text-xs'>
+          <span className='font-medium tabular-nums'>
+            {formatQuota(quota.leftQuota)}
+          </span>
+          <span className='text-muted-foreground tabular-nums'>
+            {quota.totalQuota == null ? (
+              <Infinity className='size-3.5' aria-label={t('Unlimited')} />
+            ) : (
+              formatQuota(quota.totalQuota)
+            )}
+          </span>
+        </div>
+        <Progress
+          value={quota.percentage}
+          className={cn('h-1.5', getQuotaProgressColor(quota.percentage))}
+        />
+      </TooltipTrigger>
+      <TooltipContent>
+        <div className='space-y-1 text-xs'>
+          <div>
+            {t('Used:')} {formatQuota(quota.usedQuota)}
+          </div>
+          <div>
+            {t('Remaining:')}{' '}
+            {quota.unlimited ? t('Unlimited') : formatQuota(quota.remainingQuota)}
+            {!quota.unlimited && ` (${quota.percentage.toFixed(1)}%)`}
+          </div>
+          <div>
+            {t('Total:')}{' '}
+            {quota.totalQuota == null ? t('Unlimited') : formatQuota(quota.totalQuota)}
+          </div>
+        </div>
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

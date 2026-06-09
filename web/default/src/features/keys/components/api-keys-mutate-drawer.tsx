@@ -81,10 +81,8 @@ import {
   transformApiKeyToFormDefaults,
 } from '../lib'
 import { type ApiKey } from '../types'
-import {
-  ApiKeyGroupCombobox,
-  type ApiKeyGroupOption,
-} from './api-key-group-combobox'
+import { type ApiKeyGroupOption } from './api-key-group-combobox'
+import { ApiKeyGroupOrderSelector } from './api-key-group-order-selector'
 import { useApiKeys } from './api-keys-provider'
 
 type ApiKeyMutateDrawerProps = {
@@ -228,11 +226,11 @@ export function ApiKeysMutateDrawer({
     resolver: zodResolver(schema),
     defaultValues: getApiKeyFormDefaultValues(),
   })
-  const watchedGroup = form.watch('group')
+  const watchedGroupChain = form.watch('group_chain')
   const groups: ApiKeyGroupOption[] = buildApiKeyGroupOptions(
     groupsRaw,
     true,
-    currentRow?.group || watchedGroup
+    currentRow?.group || watchedGroupChain?.[0]
   )
 
   // Load existing data when updating
@@ -251,16 +249,20 @@ export function ApiKeysMutateDrawer({
   // Correct group after groups load: if the form value is not in available groups, fall back.
   useEffect(() => {
     if (groups.length === 0) return
-    const currentGroup = form.getValues('group')
-    if (shouldFallbackApiKeyGroup(currentGroup, groups)) {
+    const currentChain = form.getValues('group_chain') || []
+    const cleanChain = currentChain.filter(
+      (group) => !shouldFallbackApiKeyGroup(group, groups)
+    )
+    if (cleanChain.length !== currentChain.length || cleanChain.length === 0) {
       const fallback =
+        groups.find((g) => g.value === AUTO_GROUP_VALUE)?.value ??
         groups.find((g) => g.value === 'default')?.value ??
         groups[0]?.value ??
-        ''
-      form.setValue('group', fallback)
-      if (currentGroup === AUTO_GROUP_VALUE) {
-        form.setValue('cross_group_retry', false)
-      }
+        AUTO_GROUP_VALUE
+      form.setValue(
+        'group_chain',
+        cleanChain.length > 0 ? cleanChain : [fallback]
+      )
     }
   }, [groups, form])
 
@@ -344,7 +346,7 @@ export function ApiKeysMutateDrawer({
   const quotaPlaceholder = tokensOnly
     ? t('Enter quota in tokens')
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
-  const selectedGroup = form.watch('group')
+  const selectedGroupChain = form.watch('group_chain')
   const unlimitedQuota = form.watch('unlimited_quota')
   const imageResponseFormat = form.watch('image_response_format')
 
@@ -406,24 +408,28 @@ export function ApiKeysMutateDrawer({
 
               <FormField
                 control={form.control}
-                name='group'
+                name='group_chain'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Group')}</FormLabel>
+                    <FormLabel>{t('Group call order')}</FormLabel>
                     <FormControl>
-                      <ApiKeyGroupCombobox
+                      <ApiKeyGroupOrderSelector
                         options={groups}
                         value={field.value}
-                        onValueChange={field.onChange}
-                        placeholder={t('Select a group')}
+                        onChange={field.onChange}
                       />
                     </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Requests use the groups in this order. auto keeps the current automatic group selection.'
+                      )}
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {selectedGroup === 'auto' && (
+              {(selectedGroupChain || []).length > 1 && (
                 <FormField
                   control={form.control}
                   name='cross_group_retry'

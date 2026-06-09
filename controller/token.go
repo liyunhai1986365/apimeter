@@ -7,8 +7,10 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
 	"github.com/gin-gonic/gin"
@@ -29,6 +31,35 @@ func buildMaskedTokenResponses(tokens []*model.Token) []*model.Token {
 		maskedTokens = append(maskedTokens, buildMaskedTokenResponse(token))
 	}
 	return maskedTokens
+}
+
+func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
+	if token == nil {
+		return nil
+	}
+	userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+	if userGroup == "" {
+		userGroup = c.GetString("group")
+	}
+	if userGroup == "" {
+		if dbGroup, err := model.GetUserGroup(c.GetInt("id"), false); err == nil {
+			userGroup = dbGroup
+		}
+	}
+	group, policy, err := service.NormalizeTokenGroupPolicy(token.GroupPolicy, userGroup)
+	if err != nil {
+		return err
+	}
+	if group != "" || token.GroupPolicy != "" {
+		token.Group = group
+		token.GroupPolicy = policy
+	}
+	if token.GroupPolicy == "" {
+		if err := service.ValidateExplicitTokenGroup(token.Group, userGroup); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func GetAllTokens(c *gin.Context) {
@@ -175,6 +206,10 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
+	if err := normalizeTokenGroupForRequest(c, &token); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	// 非无限额度时，检查额度值是否超出有效范围
 	if !token.UnlimitedQuota {
 		if token.RemainQuota < 0 {
@@ -220,6 +255,7 @@ func AddToken(c *gin.Context) {
 		ModelLimits:        token.ModelLimits,
 		AllowIps:           token.AllowIps,
 		Group:              token.Group,
+		GroupPolicy:        token.GroupPolicy,
 		CrossGroupRetry:    token.CrossGroupRetry,
 		ImageSettings:      token.ImageSettings.Normalized(),
 	}
@@ -262,6 +298,12 @@ func UpdateToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
+	if statusOnly == "" {
+		if err := normalizeTokenGroupForRequest(c, &token); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 	if !token.UnlimitedQuota {
 		if token.RemainQuota < 0 {
 			common.ApiErrorI18n(c, i18n.MsgTokenQuotaNegative)
@@ -300,6 +342,7 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.ModelLimits = token.ModelLimits
 		cleanToken.AllowIps = token.AllowIps
 		cleanToken.Group = token.Group
+		cleanToken.GroupPolicy = token.GroupPolicy
 		cleanToken.CrossGroupRetry = token.CrossGroupRetry
 		cleanToken.ImageSettings = token.ImageSettings.Normalized()
 	}

@@ -23,6 +23,13 @@ import { DEFAULT_GROUP } from '../constants'
 import { type ApiKeyFormData, type ApiKey } from '../types'
 import { AUTO_GROUP_VALUE } from './api-key-groups'
 
+const ORDERED_GROUP_POLICY_TYPE = 'ordered'
+
+type OrderedGroupPolicy = {
+  type?: string
+  groups?: unknown
+}
+
 // ============================================================================
 // Form Schema
 // ============================================================================
@@ -36,17 +43,13 @@ export function getApiKeyFormSchema(t: TFunction) {
       unlimited_quota: z.boolean(),
       model_limits: z.array(z.string()),
       allow_ips: z.string().optional(),
-      group: z.string().optional(),
+      group_chain: z.array(z.string()).min(1, t('Select at least one group')),
       cross_group_retry: z.boolean().optional(),
       image_response_format: z
         .enum(['follow_request', 'url', 'b64_json'])
         .optional(),
       image_store_strategy: z
-        .enum([
-          'default',
-          'only_store_base64',
-          'force_store_url_and_base64',
-        ])
+        .enum(['default', 'only_store_base64', 'force_store_url_and_base64'])
         .optional(),
       tokenCount: z.number().min(1).optional(),
     })
@@ -81,7 +84,7 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   unlimited_quota: true,
   model_limits: [],
   allow_ips: '',
-  group: AUTO_GROUP_VALUE,
+  group_chain: [AUTO_GROUP_VALUE],
   cross_group_retry: true,
   image_response_format: 'follow_request',
   image_store_strategy: 'default',
@@ -91,7 +94,7 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
 export function getApiKeyFormDefaultValues(): ApiKeyFormValues {
   return {
     ...API_KEY_FORM_DEFAULT_VALUES,
-    group: AUTO_GROUP_VALUE,
+    group_chain: [AUTO_GROUP_VALUE],
     cross_group_retry: true,
   }
 }
@@ -106,6 +109,15 @@ export function getApiKeyFormDefaultValues(): ApiKeyFormValues {
 export function transformFormDataToPayload(
   data: ApiKeyFormValues
 ): ApiKeyFormData {
+  const groupChain = normalizeGroupChain(data.group_chain)
+  const groupPolicy =
+    groupChain.length === 1 && groupChain[0] === AUTO_GROUP_VALUE
+      ? ''
+      : JSON.stringify({
+          type: ORDERED_GROUP_POLICY_TYPE,
+          groups: groupChain,
+        })
+
   return {
     name: data.name,
     remain_quota: data.unlimited_quota
@@ -118,9 +130,9 @@ export function transformFormDataToPayload(
     model_limits_enabled: data.model_limits.length > 0,
     model_limits: data.model_limits.join(','),
     allow_ips: data.allow_ips || '',
-    group: data.group || '',
-    cross_group_retry:
-      data.group === AUTO_GROUP_VALUE ? !!data.cross_group_retry : false,
+    group: groupChain[0] || AUTO_GROUP_VALUE,
+    group_policy: groupPolicy,
+    cross_group_retry: !!data.cross_group_retry,
     image_settings: {
       format: data.image_response_format || 'follow_request',
       store:
@@ -138,6 +150,8 @@ export function transformFormDataToPayload(
 export function transformApiKeyToFormDefaults(
   apiKey: ApiKey
 ): ApiKeyFormValues {
+  const groupChain = parseApiKeyGroupChain(apiKey)
+
   return {
     name: apiKey.name,
     remain_quota_dollars: apiKey.unlimited_quota
@@ -152,7 +166,7 @@ export function transformApiKeyToFormDefaults(
       ? apiKey.model_limits.split(',').filter(Boolean)
       : [],
     allow_ips: apiKey.allow_ips || '',
-    group: apiKey.group || DEFAULT_GROUP,
+    group_chain: groupChain,
     cross_group_retry: !!apiKey.cross_group_retry,
     image_response_format: apiKey.image_settings?.format || 'follow_request',
     image_store_strategy:
@@ -161,5 +175,88 @@ export function transformApiKeyToFormDefaults(
         ? apiKey.image_settings.store
         : 'default',
     tokenCount: 1,
+  }
+}
+
+export function normalizeGroupChain(groups: string[] | undefined): string[] {
+  const cleanGroups = (groups || [])
+    .map((group) => group.trim())
+    .filter(Boolean)
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const group of cleanGroups) {
+    if (seen.has(group)) continue
+    seen.add(group)
+    result.push(group)
+  }
+  if (result.includes(AUTO_GROUP_VALUE)) {
+    return [AUTO_GROUP_VALUE]
+  }
+  return result.length > 0 ? result : [AUTO_GROUP_VALUE]
+}
+
+export function addGroupToChain(groups: string[], group: string): string[] {
+  const targetGroup = group.trim()
+  if (!targetGroup) return normalizeGroupChain(groups)
+  if (targetGroup === AUTO_GROUP_VALUE) return [AUTO_GROUP_VALUE]
+  const current = normalizeGroupChain(groups)
+  if (current.includes(targetGroup)) return current
+  if (current.length === 1 && current[0] === AUTO_GROUP_VALUE) {
+    return [targetGroup]
+  }
+  return normalizeGroupChain([...current, targetGroup])
+}
+
+export function removeGroupFromChain(
+  groups: string[],
+  index: number
+): string[] {
+  const current = normalizeGroupChain(groups)
+  const next = current.filter((_, i) => i !== index)
+  return next.length > 0 ? next : [AUTO_GROUP_VALUE]
+}
+
+export function parseApiKeyGroupChain(
+  apiKey: Pick<ApiKey, 'group' | 'group_policy'>
+): string[] {
+  const policyText = apiKey.group_policy?.trim()
+  if (policyText) {
+    try {
+      const policy = JSON.parse(policyText) as OrderedGroupPolicy
+      if (
+        policy?.type === ORDERED_GROUP_POLICY_TYPE &&
+        Array.isArray(policy.groups)
+      ) {
+        const groups = policy.groups.filter(
+          (group): group is string => typeof group === 'string'
+        )
+        return normalizeGroupChain(groups)
+      }
+    } catch (_error) {
+      // Fall through to legacy group.
+    }
+  }
+  return normalizeGroupChain([apiKey.group || DEFAULT_GROUP])
+}
+
+export function getApiKeyGroupDisplayItems(
+  apiKey: Pick<ApiKey, 'group' | 'group_policy'>,
+  visibleLimit = 1
+): {
+  allGroups: string[]
+  visibleGroups: string[]
+  hiddenGroups: string[]
+  hiddenCount: number
+} {
+  const allGroups = parseApiKeyGroupChain(apiKey)
+  const limit = Math.max(1, visibleLimit)
+  const visibleGroups = allGroups.slice(0, limit)
+  const hiddenGroups = allGroups.slice(limit)
+
+  return {
+    allGroups,
+    visibleGroups,
+    hiddenGroups,
+    hiddenCount: hiddenGroups.length,
   }
 }

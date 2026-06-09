@@ -168,6 +168,62 @@ func TestCacheGetRandomSatisfiedChannelAutoGroupAndCrossGroupRetry(t *testing.T)
 	require.Equal(t, "vip", selectedGroup)
 }
 
+func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+	createChannelSelectFixture(t, db, 1101, "vip", 10)
+	createChannelSelectFixture(t, db, 1102, "backup", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, true)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["vip","backup"]}`)
+
+	retry := common.RetryTimes
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1101, channel.Id)
+	require.Equal(t, "vip", selectedGroup)
+
+	retry++
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1102, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+}
+
+func TestNormalizeTokenGroupPolicyAutoClearsConcreteGroups(t *testing.T) {
+	t.Cleanup(func() {
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	group, policy, err := NormalizeTokenGroupPolicy(`{"type":"ordered","groups":["vip","auto","backup"]}`, "default")
+	require.NoError(t, err)
+	require.Equal(t, "auto", group)
+	require.Empty(t, policy)
+}
+
 func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupport(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {

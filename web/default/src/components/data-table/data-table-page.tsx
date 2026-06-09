@@ -36,6 +36,7 @@ import {
 import { PageFooterPortal } from '@/components/layout'
 import { MobileCardList } from './mobile-card-list'
 import { DataTablePagination } from './pagination'
+import { getDataTableCellClassName } from './table-cell-class'
 import { TableEmpty } from './table-empty'
 import { TableSkeleton } from './table-skeleton'
 import { DataTableToolbar } from './toolbar'
@@ -316,6 +317,7 @@ function renderDesktop<TData>(
                 <TableHead
                   key={header.id}
                   colSpan={header.colSpan}
+                  className={getDataTableCellClassName(header.column.id)}
                   style={
                     props.applyHeaderSize
                       ? { width: header.getSize() }
@@ -381,7 +383,10 @@ function DefaultRow<TData>({
       className={className}
     >
       {row.getVisibleCells().map((cell) => (
-        <TableCell key={cell.id}>
+        <TableCell
+          key={cell.id}
+          className={getDataTableCellClassName(cell.column.id)}
+        >
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
       ))}

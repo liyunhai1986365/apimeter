@@ -98,7 +98,54 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	}
 	filter := BuildProtocolChannelFilter(param)
 
-	if param.TokenGroup == "auto" {
+	policyGroups := ResolveTokenGroupChain(param.Ctx, param.TokenGroup)
+	if len(policyGroups) > 0 {
+		startGroupIndex := 0
+		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+
+		if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
+			if idx, ok := lastGroupIndex.(int); ok {
+				startGroupIndex = idx
+			}
+		}
+
+		for i := startGroupIndex; i < len(policyGroups); i++ {
+			policyGroup := policyGroups[i]
+			priorityRetry := param.GetRetry()
+			if i > startGroupIndex {
+				priorityRetry = 0
+			}
+			logger.LogDebug(param.Ctx, "Policy selecting group: %s, priorityRetry: %d", policyGroup, priorityRetry)
+
+			channel, err = model.GetRandomSatisfiedChannelWithFilter(policyGroup, param.ModelName, priorityRetry, filter)
+			if err != nil && !errors.Is(err, model.ErrNoChannelMatchedFilter) {
+				return nil, policyGroup, err
+			}
+			if errors.Is(err, model.ErrNoChannelMatchedFilter) && shouldStopOnProtocolMismatch(param) {
+				return nil, policyGroup, unsupportedImageChatProtocolError(param.ModelName)
+			}
+			if channel == nil {
+				logger.LogDebug(param.Ctx, "No available channel in policy group %s for model %s at priorityRetry %d, trying next group", policyGroup, param.ModelName, priorityRetry)
+				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
+				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupRetryIndex, 0)
+				param.SetRetry(0)
+				continue
+			}
+			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, policyGroup)
+			selectGroup = policyGroup
+			logger.LogDebug(param.Ctx, "Policy selected group: %s", policyGroup)
+
+			if crossGroupRetry && priorityRetry >= common.RetryTimes {
+				logger.LogDebug(param.Ctx, "Current policy group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", policyGroup, priorityRetry, common.RetryTimes)
+				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
+				param.SetRetry(0)
+				param.ResetRetryNextTry()
+			} else {
+				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i)
+			}
+			break
+		}
+	} else if param.TokenGroup == "auto" {
 		if len(setting.GetAutoGroups()) == 0 {
 			return nil, selectGroup, errors.New("auto groups is not enabled")
 		}
@@ -196,7 +243,10 @@ func agentAutoGroups(agentCtx *types.AgentContext, userGroup string) []string {
 }
 
 func shouldStopOnProtocolMismatch(param *RetryParam) bool {
-	if param == nil || param.TokenGroup != "auto" || param.Ctx == nil {
+	if param == nil || param.Ctx == nil {
+		return true
+	}
+	if param.TokenGroup != "auto" && len(ResolveTokenGroupChain(param.Ctx, param.TokenGroup)) == 0 {
 		return true
 	}
 	return !common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)

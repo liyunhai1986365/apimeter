@@ -40,6 +40,7 @@ type Token struct {
 	AllowIps           *string            `json:"allow_ips" gorm:"default:''"`
 	UsedQuota          int                `json:"used_quota" gorm:"default:0"` // used quota
 	Group              string             `json:"group" gorm:"default:''"`
+	GroupPolicy        string             `json:"group_policy" gorm:"type:text"`
 	CrossGroupRetry    bool               `json:"cross_group_retry"`                                 // 跨分组重试，仅auto分组有效
 	ImageSettings      TokenImageSettings `json:"image_settings" gorm:"type:text"`                   // 图片返回格式与转存策略
 	BillingSource      string             `json:"billing_source" gorm:"type:varchar(32);default:''"` // subscription 表示订阅专属Key
@@ -317,7 +318,7 @@ func (token *Token) Update() (err error) {
 		}
 	}()
 	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
-		"model_limits_enabled", "model_limits", "allow_ips", "group", "cross_group_retry",
+		"model_limits_enabled", "model_limits", "allow_ips", "group", "group_policy", "cross_group_retry",
 		"image_settings", "billing_source", "subscription_plan_id", "user_subscription_id").Updates(token).Error
 	return err
 }

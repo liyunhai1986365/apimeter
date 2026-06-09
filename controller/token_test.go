@@ -14,6 +14,8 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
@@ -32,10 +34,13 @@ type tokenPageResponse struct {
 }
 
 type tokenResponseItem struct {
-	ID     int    `json:"id"`
-	Name   string `json:"name"`
-	Key    string `json:"key"`
-	Status int    `json:"status"`
+	ID              int    `json:"id"`
+	Name            string `json:"name"`
+	Key             string `json:"key"`
+	Status          int    `json:"status"`
+	Group           string `json:"group"`
+	GroupPolicy     string `json:"group_policy"`
+	CrossGroupRetry bool   `json:"cross_group_retry"`
 }
 
 type tokenKeyResponse struct {
@@ -274,6 +279,22 @@ func getTokenKeyColumnType(t *testing.T, db *gorm.DB, dialect string) string {
 	}
 }
 
+func setTokenTestGroups(t *testing.T) {
+	t.Helper()
+
+	requireNoError := func(err error) {
+		if err != nil {
+			t.Fatalf("failed to set token test groups: %v", err)
+		}
+	}
+	requireNoError(ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"backup":1}`))
+	requireNoError(setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	t.Cleanup(func() {
+		_ = ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+	})
+}
+
 func runTokenMigrationCompatibilityTest(t *testing.T, db *gorm.DB, dialect string, managedTokensTable *bool) {
 	t.Helper()
 
@@ -362,6 +383,9 @@ func TestTokenAutoMigrateUsesVarchar128KeyColumn(t *testing.T) {
 
 	if got := getTokenKeyColumnType(t, db, "sqlite"); got != "varchar(128)" {
 		t.Fatalf("expected key column type varchar(128), got %q", got)
+	}
+	if got := getSQLiteColumnType(t, db, "tokens", "group_policy"); got != "text" {
+		t.Fatalf("expected group_policy column type text, got %q", got)
 	}
 }
 
@@ -544,6 +568,96 @@ func TestAddTokenReturnsCreatedTokenWithFullKey(t *testing.T) {
 	}
 	if detail.Key != token.GetFullKey() {
 		t.Fatalf("expected returned key %q to match stored key %q", detail.Key, token.GetFullKey())
+	}
+}
+
+func TestAddTokenPersistsOrderedGroupPolicy(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	setTokenTestGroups(t)
+
+	body := map[string]any{
+		"name":                 "ordered-token",
+		"expired_time":         -1,
+		"remain_quota":         0,
+		"unlimited_quota":      true,
+		"model_limits_enabled": false,
+		"model_limits":         "",
+		"group":                "vip",
+		"group_policy":         `{"type":"ordered","groups":["vip","backup"]}`,
+		"cross_group_retry":    true,
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 1)
+	ctx.Set("group", "default")
+	AddToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected create response to succeed, got message: %s", response.Message)
+	}
+
+	var detail tokenResponseItem
+	if err := common.Unmarshal(response.Data, &detail); err != nil {
+		t.Fatalf("failed to decode token create response: %v", err)
+	}
+	if detail.Group != "vip" {
+		t.Fatalf("expected legacy group to follow first group policy item, got %q", detail.Group)
+	}
+	if detail.GroupPolicy != `{"type":"ordered","groups":["vip","backup"]}` {
+		t.Fatalf("expected ordered group policy to be returned, got %q", detail.GroupPolicy)
+	}
+	if !detail.CrossGroupRetry {
+		t.Fatalf("expected ordered group policy to keep cross-group retry enabled")
+	}
+
+	var token model.Token
+	if err := db.First(&token, detail.ID).Error; err != nil {
+		t.Fatalf("failed to load created token: %v", err)
+	}
+	if token.Group != "vip" {
+		t.Fatalf("expected stored legacy group vip, got %q", token.Group)
+	}
+	if token.GroupPolicy != `{"type":"ordered","groups":["vip","backup"]}` {
+		t.Fatalf("expected stored ordered group policy, got %q", token.GroupPolicy)
+	}
+}
+
+func TestUpdateTokenPersistsOrderedGroupPolicyOrder(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	setTokenTestGroups(t)
+	token := seedToken(t, db, 1, "ordered-edit-token", "edit1234token5678")
+
+	body := map[string]any{
+		"id":                   token.Id,
+		"name":                 "ordered-updated-token",
+		"expired_time":         -1,
+		"remain_quota":         100,
+		"unlimited_quota":      true,
+		"model_limits_enabled": false,
+		"model_limits":         "",
+		"group":                "vip",
+		"group_policy":         `{"type":"ordered","groups":["vip","backup"]}`,
+		"cross_group_retry":    true,
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/token/", body, 1)
+	ctx.Set("group", "default")
+	UpdateToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected update response to succeed, got message: %s", response.Message)
+	}
+
+	var updated model.Token
+	if err := db.First(&updated, token.Id).Error; err != nil {
+		t.Fatalf("failed to load updated token: %v", err)
+	}
+	if updated.Group != "vip" {
+		t.Fatalf("expected stored legacy group vip, got %q", updated.Group)
+	}
+	if updated.GroupPolicy != `{"type":"ordered","groups":["vip","backup"]}` {
+		t.Fatalf("expected stored group policy order to be preserved, got %q", updated.GroupPolicy)
 	}
 }
 

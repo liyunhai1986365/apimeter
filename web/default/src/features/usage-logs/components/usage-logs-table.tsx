@@ -36,7 +36,7 @@ import { cn } from '@/lib/utils'
 import { useIsAdmin } from '@/hooks/use-admin'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { DataTablePage } from '@/components/data-table'
+import { DataTablePage, getDataTableCellClassName } from '@/components/data-table'
 import { DEFAULT_LOGS_DATA, LOG_TYPE_ENUM } from '../constants'
 import { useColumnsByCategory } from '../lib/columns'
 import { usageLogsManualRefreshQueryOptions } from '../lib/query-options'
@@ -211,7 +211,10 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
             {row.getVisibleCells().map((cell) => (
               <TableCell
                 key={cell.id}
-                className={usesCompactRows ? 'py-2' : 'py-3.5'}
+                className={cn(
+                  usesCompactRows ? 'py-2' : 'py-3.5',
+                  getDataTableCellClassName(cell.column.id)
+                )}
               >
                 {flexRender(cell.column.columnDef.cell, cell.getContext())}
               </TableCell>

@@ -20,6 +20,7 @@ import type { Table } from '@tanstack/react-table'
 import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import { TableRow, TableCell } from '@/components/ui/table'
+import { getDataTableCellClassName } from './table-cell-class'
 
 const SKELETON_WIDTHS = [
   '75%',
@@ -66,7 +67,10 @@ export function TableSkeleton<TData>({
               SKELETON_WIDTHS.length
 
             return (
-              <TableCell key={column.id} className='py-3'>
+              <TableCell
+                key={column.id}
+                className={cn('py-3', getDataTableCellClassName(column.id))}
+              >
                 <Skeleton
                   className={cn(
                     'h-4 rounded-sm',

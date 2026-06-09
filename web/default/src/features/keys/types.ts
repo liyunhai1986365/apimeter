@@ -34,6 +34,7 @@ export const apiKeySchema = z.object({
   created_time: z.number(),
   accessed_time: z.number(),
   group: z.string().nullish().default(''),
+  group_policy: z.string().nullish().default(''),
   cross_group_retry: z
     .preprocess((v) => {
       if (v === 1) return true
@@ -52,11 +53,7 @@ export const apiKeySchema = z.object({
         .optional()
         .default('follow_request'),
       store: z
-        .enum([
-          'default',
-          'only_store_base64',
-          'force_store_url_and_base64',
-        ])
+        .enum(['default', 'only_store_base64', 'force_store_url_and_base64'])
         .optional()
         .default('default'),
     })
@@ -108,13 +105,11 @@ export interface ApiKeyFormData {
   model_limits: string
   allow_ips: string
   group: string
+  group_policy?: string
   cross_group_retry: boolean
   image_settings: {
     format: 'follow_request' | 'url' | 'b64_json'
-    store:
-      | 'default'
-      | 'only_store_base64'
-      | 'force_store_url_and_base64'
+    store: 'default' | 'only_store_base64' | 'force_store_url_and_base64'
   }
 }
 
