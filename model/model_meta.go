@@ -167,6 +167,68 @@ func normalizeLookupValues(values []string) []string {
 	return normalized
 }
 
+func GetModelPrimaryNameMap(candidateNames []string) (map[string]string, error) {
+	candidateNames = normalizeLookupValues(candidateNames)
+	result := make(map[string]string, len(candidateNames))
+
+	var models []Model
+	if err := DB.Order("sort_order ASC").Order("id ASC").Find(&models).Error; err != nil {
+		return nil, err
+	}
+
+	for _, modelItem := range models {
+		primary := strings.TrimSpace(modelItem.ModelName)
+		if primary == "" {
+			continue
+		}
+		if _, exists := result[primary]; !exists {
+			result[primary] = primary
+		}
+		for _, alias := range parseAliasModels(modelItem.AliasModels) {
+			if alias == primary {
+				continue
+			}
+			if _, exists := result[alias]; !exists {
+				result[alias] = primary
+			}
+		}
+	}
+
+	for _, candidate := range candidateNames {
+		if candidate == "" {
+			continue
+		}
+		if _, exists := result[candidate]; exists {
+			continue
+		}
+		for _, modelItem := range models {
+			primary := strings.TrimSpace(modelItem.ModelName)
+			if primary == "" || candidate == primary || modelItem.NameRule == NameRuleExact {
+				continue
+			}
+			if modelNameRuleMatches(candidate, primary, modelItem.NameRule) {
+				result[candidate] = primary
+				break
+			}
+		}
+	}
+
+	return result, nil
+}
+
+func modelNameRuleMatches(candidate string, primary string, rule int) bool {
+	switch rule {
+	case NameRulePrefix:
+		return strings.HasPrefix(candidate, primary)
+	case NameRuleSuffix:
+		return strings.HasSuffix(candidate, primary)
+	case NameRuleContains:
+		return strings.Contains(candidate, primary)
+	default:
+		return candidate == primary
+	}
+}
+
 func GetPreferredModelOwnerChannelTypes(modelNames []string, groups []string) (map[string]int, error) {
 	result := make(map[string]int)
 	modelNames = normalizeLookupValues(modelNames)

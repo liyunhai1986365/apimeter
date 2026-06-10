@@ -195,19 +195,15 @@ func rankingConfig(period string) (rankingPeriodConfig, error) {
 
 func buildRankingsSnapshot(config rankingPeriodConfig, now time.Time) (*RankingsResponse, error) {
 	startTime, endTime := rankingTimeRange(config, now)
-	currentTotals, err := model.GetRankingQuotaTotals(startTime, endTime)
-	if err != nil {
-		return nil, err
-	}
-	currentBuckets, err := model.GetRankingQuotaBuckets(startTime, endTime, config.bucketSize)
+	currentLogs, err := model.GetRankingConsumeLogRows(startTime, endTime)
 	if err != nil {
 		return nil, err
 	}
 
-	var previousTotals []model.RankingQuotaTotal
+	var previousLogs []model.RankingConsumeLogRow
 	if config.hasPrevious {
 		previousStart, previousEnd := previousRankingTimeRange(config, startTime)
-		previousTotals, err = model.GetRankingQuotaTotals(previousStart, previousEnd)
+		previousLogs, err = model.GetRankingConsumeLogRows(previousStart, previousEnd)
 		if err != nil {
 			return nil, err
 		}
@@ -215,9 +211,19 @@ func buildRankingsSnapshot(config rankingPeriodConfig, now time.Time) (*Rankings
 
 	pricings := model.GetPricing()
 	aliasMap := buildRankingAliasMap(pricings)
-	currentTotals = mergeRankingQuotaTotals(currentTotals, aliasMap)
-	currentBuckets = mergeRankingQuotaBuckets(currentBuckets, aliasMap)
-	previousTotals = mergeRankingQuotaTotals(previousTotals, aliasMap)
+	modelPrimaryMap, err := model.GetModelPrimaryNameMap(collectRankingLogModelNames(currentLogs, previousLogs))
+	if err != nil {
+		return nil, err
+	}
+	for alias, primary := range modelPrimaryMap {
+		if strings.TrimSpace(alias) == "" || strings.TrimSpace(primary) == "" {
+			continue
+		}
+		aliasMap[alias] = primary
+	}
+
+	currentTotals, currentBuckets := buildRankingUsageFromLogs(currentLogs, config.bucketSize, aliasMap)
+	previousTotals, _ := buildRankingUsageFromLogs(previousLogs, config.bucketSize, aliasMap)
 
 	meta := buildRankingModelMeta(pricings)
 	totalTokens := sumRankingTokens(currentTotals)
@@ -393,6 +399,123 @@ func canonicalRankingModelName(modelName string, aliasMap map[string]string) str
 		return primary
 	}
 	return modelName
+}
+
+func collectRankingLogModelNames(groups ...[]model.RankingConsumeLogRow) []string {
+	names := make([]string, 0)
+	for _, rows := range groups {
+		for _, row := range rows {
+			if modelName := strings.TrimSpace(row.ModelName); modelName != "" {
+				names = append(names, modelName)
+			}
+			if upstreamModelName := rankingLogUpstreamModelName(row.Other); upstreamModelName != "" {
+				names = append(names, upstreamModelName)
+			}
+		}
+	}
+	return names
+}
+
+func buildRankingUsageFromLogs(rows []model.RankingConsumeLogRow, bucketSize int64, aliasMap map[string]string) ([]model.RankingQuotaTotal, []model.RankingQuotaBucket) {
+	if len(rows) == 0 {
+		return []model.RankingQuotaTotal{}, []model.RankingQuotaBucket{}
+	}
+	if bucketSize <= 0 {
+		bucketSize = 3600
+	}
+
+	tokensByModel := make(map[string]int64)
+	tokensByBucketAndModel := make(map[int64]map[string]int64)
+	for _, row := range rows {
+		tokens := int64(row.PromptTokens + row.CompletionTokens)
+		if tokens <= 0 {
+			continue
+		}
+		modelName := rankingLogModelName(row, aliasMap)
+		if modelName == "" {
+			continue
+		}
+		tokensByModel[modelName] += tokens
+
+		bucket := (row.CreatedAt / bucketSize) * bucketSize
+		if _, ok := tokensByBucketAndModel[bucket]; !ok {
+			tokensByBucketAndModel[bucket] = make(map[string]int64)
+		}
+		tokensByBucketAndModel[bucket][modelName] += tokens
+	}
+
+	totals := make([]model.RankingQuotaTotal, 0, len(tokensByModel))
+	for modelName, totalTokens := range tokensByModel {
+		if totalTokens <= 0 {
+			continue
+		}
+		totals = append(totals, model.RankingQuotaTotal{
+			ModelName:   modelName,
+			TotalTokens: totalTokens,
+		})
+	}
+	sort.Slice(totals, func(i, j int) bool {
+		if totals[i].TotalTokens == totals[j].TotalTokens {
+			return totals[i].ModelName < totals[j].ModelName
+		}
+		return totals[i].TotalTokens > totals[j].TotalTokens
+	})
+
+	buckets := make([]model.RankingQuotaBucket, 0, len(rows))
+	for bucket, tokensByModel := range tokensByBucketAndModel {
+		for modelName, tokens := range tokensByModel {
+			if tokens <= 0 {
+				continue
+			}
+			buckets = append(buckets, model.RankingQuotaBucket{
+				ModelName: modelName,
+				Bucket:    bucket,
+				Tokens:    tokens,
+			})
+		}
+	}
+	sort.Slice(buckets, func(i, j int) bool {
+		if buckets[i].Bucket == buckets[j].Bucket {
+			return buckets[i].ModelName < buckets[j].ModelName
+		}
+		return buckets[i].Bucket < buckets[j].Bucket
+	})
+
+	return totals, buckets
+}
+
+func rankingLogModelName(row model.RankingConsumeLogRow, aliasMap map[string]string) string {
+	modelName := strings.TrimSpace(row.ModelName)
+	upstreamModelName := rankingLogUpstreamModelName(row.Other)
+	for _, candidate := range []string{upstreamModelName, modelName} {
+		if primary, ok := aliasMap[candidate]; ok && strings.TrimSpace(primary) != "" {
+			return primary
+		}
+	}
+	if upstreamModelName != "" {
+		return upstreamModelName
+	}
+	return modelName
+}
+
+func rankingLogUpstreamModelName(other string) string {
+	other = strings.TrimSpace(other)
+	if other == "" {
+		return ""
+	}
+	otherMap, err := common.StrToMap(other)
+	if err != nil || otherMap == nil {
+		return ""
+	}
+	value, ok := otherMap["upstream_model_name"]
+	if !ok {
+		return ""
+	}
+	upstreamModelName, ok := value.(string)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(upstreamModelName)
 }
 
 func mergeRankingQuotaTotals(totals []model.RankingQuotaTotal, aliasMap map[string]string) []model.RankingQuotaTotal {

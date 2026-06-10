@@ -18,6 +18,25 @@ type RankingQuotaBucket struct {
 	Tokens    int64  `json:"tokens"`
 }
 
+type RankingConsumeLogRow struct {
+	CreatedAt        int64  `json:"created_at"`
+	ModelName        string `json:"model_name"`
+	PromptTokens     int    `json:"prompt_tokens"`
+	CompletionTokens int    `json:"completion_tokens"`
+	Other            string `json:"other"`
+}
+
+func GetRankingConsumeLogRows(startTime int64, endTime int64) ([]RankingConsumeLogRow, error) {
+	var rows []RankingConsumeLogRow
+	query := LOG_DB.Model(&Log{}).
+		Select("created_at", "model_name", "prompt_tokens", "completion_tokens", "other").
+		Where("type = ?", LogTypeConsume).
+		Where("(prompt_tokens > 0 OR completion_tokens > 0)")
+	query = applyRankingQuotaTimeRange(query, startTime, endTime)
+	err := query.Find(&rows).Error
+	return rows, err
+}
+
 func GetRankingQuotaTotals(startTime int64, endTime int64) ([]RankingQuotaTotal, error) {
 	var rows []RankingQuotaTotal
 	query := DB.Table("quota_data").
