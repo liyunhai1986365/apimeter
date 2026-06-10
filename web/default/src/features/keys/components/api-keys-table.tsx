@@ -47,6 +47,7 @@ import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
+  DataTableToolbar,
 } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { getApiKeys, searchApiKeys } from '../api'
@@ -59,6 +60,7 @@ import {
 import { type ApiKey } from '../types'
 import { ApiKeyCell, ApiKeyQuotaCell } from './api-keys-cells'
 import { useApiKeysColumns } from './api-keys-columns'
+import { ApiKeysPrimaryButtons } from './api-keys-primary-buttons'
 import { useApiKeys } from './api-keys-provider'
 import { DataTableBulkActions } from './data-table-bulk-actions'
 import { DataTableRowActions } from './data-table-row-actions'
@@ -316,17 +318,24 @@ export function ApiKeysTable() {
         'No API keys available. Create your first API key to get started.'
       )}
       skeletonKeyPrefix='api-keys-skeleton'
-      toolbarProps={{
-        searchPlaceholder: t('Filter by name or key...'),
-        filters: [
-          {
-            columnId: 'status',
-            title: t('Status'),
-            options: API_KEY_STATUS_OPTIONS,
-            singleSelect: true,
-          },
-        ],
-      }}
+      toolbar={
+        <div className='flex flex-wrap items-center gap-2 sm:gap-3'>
+          <ApiKeysPrimaryButtons />
+          <DataTableToolbar
+            table={table}
+            className='min-w-0 flex-1'
+            searchPlaceholder={t('Filter by name or key...')}
+            filters={[
+              {
+                columnId: 'status',
+                title: t('Status'),
+                options: API_KEY_STATUS_OPTIONS,
+                singleSelect: true,
+              },
+            ]}
+          />
+        </div>
+      }
       mobile={<ApiKeysMobileList table={table} isLoading={isLoading} />}
       getRowClassName={(row) =>
         isDisabledApiKeyRow(row.original) ? DISABLED_ROW_DESKTOP : undefined

@@ -28,6 +28,7 @@ import {
   Copy,
   Link,
   Loader2,
+  RotateCcw,
   MoreHorizontal as DotsHorizontalIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -53,7 +54,7 @@ import {
 import { useChatPresets } from '@/features/chat/hooks/use-chat-presets'
 import { resolveChatUrl, type ChatPreset } from '@/features/chat/lib/chat-links'
 import { sendToFluent } from '@/features/chat/lib/send-to-fluent'
-import { updateApiKeyStatus } from '../api'
+import { resetApiKeyQuota, updateApiKeyStatus } from '../api'
 import { API_KEY_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import { apiKeySchema } from '../types'
 import { useApiKeys } from './api-keys-provider'
@@ -85,6 +86,7 @@ export function DataTableRowActions<TData>({
   const isEnabled = apiKey.status === API_KEY_STATUS.ENABLED
   const { chatPresets, serverAddress } = useChatPresets()
   const [isTogglingStatus, setIsTogglingStatus] = useState(false)
+  const [isResettingQuota, setIsResettingQuota] = useState(false)
 
   const hasChatPresets = chatPresets.length > 0
 
@@ -153,6 +155,23 @@ export function DataTableRowActions<TData>({
       toast.error(t(ERROR_MESSAGES.UNEXPECTED))
     } finally {
       setIsTogglingStatus(false)
+    }
+  }
+
+  const handleResetQuota = async () => {
+    setIsResettingQuota(true)
+    try {
+      const result = await resetApiKeyQuota(apiKey.id)
+      if (result.success) {
+        toast.success(t('Quota reset successfully'))
+        triggerRefresh()
+      } else {
+        toast.error(result.message || t('Failed to reset quota'))
+      }
+    } catch {
+      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+    } finally {
+      setIsResettingQuota(false)
     }
   }
 
@@ -255,6 +274,19 @@ export function DataTableRowActions<TData>({
             {t('CC Switch')}
             <DropdownMenuShortcut>
               <ArrowRightLeft size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            disabled={isResettingQuota}
+            onClick={() => void handleResetQuota()}
+          >
+            {t('Reset quota')}
+            <DropdownMenuShortcut>
+              {isResettingQuota ? (
+                <Loader2 size={16} className='animate-spin' />
+              ) : (
+                <RotateCcw size={16} />
+              )}
             </DropdownMenuShortcut>
           </DropdownMenuItem>
           {hasChatPresets && (

@@ -291,6 +291,82 @@ func UpdateUserWorkspaceQuotaResetConfig(userId int, workspaceId int, req Worksp
 	return workspace.QuotaResetConfig(), nil
 }
 
+func ResetUserWorkspaceQuotaNow(userId int, workspaceId int, now time.Time) (WorkspaceQuotaResetConfig, error) {
+	workspace, err := GetUserWorkspaceByID(userId, workspaceId)
+	if err != nil {
+		return WorkspaceQuotaResetConfig{}, err
+	}
+	if !workspace.QuotaResetEnabled || workspace.QuotaResetAmount <= 0 {
+		return WorkspaceQuotaResetConfig{}, errors.New("请先启用工作区配额规则")
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	nowUnix := now.Unix()
+
+	workspace.QuotaResetLastAppliedAt = nowUnix
+	workspace.UpdatedTime = common.GetTimestamp()
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		if err := resetWorkspaceTokenQuotasTx(tx, workspace, nowUnix); err != nil {
+			return err
+		}
+		return tx.Model(workspace).
+			Select("quota_reset_last_applied_at", "updated_time").
+			Updates(workspace).Error
+	})
+	if err != nil {
+		return WorkspaceQuotaResetConfig{}, err
+	}
+	if err := InvalidateUserTokensCache(userId); err != nil {
+		common.SysLog("failed to invalidate workspace quota token cache: " + err.Error())
+	}
+	return workspace.QuotaResetConfig(), nil
+}
+
+func ResetUserTokenWorkspaceQuota(userId int, tokenId int, now time.Time) (*Token, error) {
+	if userId <= 0 || tokenId <= 0 {
+		return nil, errors.New("令牌参数无效")
+	}
+	token, err := GetTokenByIds(tokenId, userId)
+	if err != nil {
+		return nil, err
+	}
+	if token.BillingSource == "subscription" || token.UserSubscriptionId > 0 {
+		return nil, errors.New("订阅密钥不支持工作区配额重置")
+	}
+	if token.WorkspaceId <= 0 {
+		return nil, errors.New("令牌未关联工作区")
+	}
+	workspace, err := GetUserWorkspaceByID(userId, token.WorkspaceId)
+	if err != nil {
+		return nil, err
+	}
+	if !workspace.QuotaResetEnabled || workspace.QuotaResetAmount <= 0 {
+		return nil, errors.New("请先启用工作区配额规则")
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	nowUnix := now.Unix()
+
+	if err := DB.Transaction(func(tx *gorm.DB) error {
+		return resetWorkspaceTokenQuotaTx(tx, workspace, token.Id, nowUnix)
+	}); err != nil {
+		return nil, err
+	}
+	if err := InvalidateUserTokensCache(userId); err != nil {
+		common.SysLog("failed to invalidate workspace quota token cache: " + err.Error())
+	}
+	token.RemainQuota = workspace.QuotaResetAmount
+	token.UnlimitedQuota = false
+	token.AccessedTime = nowUnix
+	if token.Status == common.TokenStatusExhausted {
+		token.Status = common.TokenStatusEnabled
+	}
+	token.WorkspaceName = workspace.Name
+	return token, nil
+}
+
 func isValidWorkspaceQuotaResetPeriod(period string) bool {
 	switch period {
 	case WorkspaceQuotaResetPeriodDaily, WorkspaceQuotaResetPeriodWeekly, WorkspaceQuotaResetPeriodMonthly:
@@ -388,17 +464,35 @@ func resetWorkspaceTokenQuotasTx(tx *gorm.DB, workspace *Workspace, nowUnix int6
 	if tx == nil || workspace == nil || workspace.Id <= 0 || workspace.UserId <= 0 {
 		return errors.New("工作区配额重置参数无效")
 	}
-	baseQuery := tx.Model(&Token{}).
-		Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ?", workspace.UserId, workspace.Id, "subscription", 0)
-	if err := baseQuery.Updates(map[string]interface{}{
-		"remain_quota":    workspace.QuotaResetAmount,
-		"unlimited_quota": false,
-		"accessed_time":   nowUnix,
-	}).Error; err != nil {
+	if err := tx.Model(&Token{}).
+		Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ?", workspace.UserId, workspace.Id, "subscription", 0).
+		Updates(map[string]interface{}{
+			"remain_quota":    workspace.QuotaResetAmount,
+			"unlimited_quota": false,
+			"accessed_time":   nowUnix,
+		}).Error; err != nil {
 		return err
 	}
 	return tx.Model(&Token{}).
 		Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ? AND status = ?", workspace.UserId, workspace.Id, "subscription", 0, common.TokenStatusExhausted).
+		Update("status", common.TokenStatusEnabled).Error
+}
+
+func resetWorkspaceTokenQuotaTx(tx *gorm.DB, workspace *Workspace, tokenId int, nowUnix int64) error {
+	if tx == nil || workspace == nil || workspace.Id <= 0 || workspace.UserId <= 0 || tokenId <= 0 {
+		return errors.New("工作区令牌配额重置参数无效")
+	}
+	if err := tx.Model(&Token{}).
+		Where("id = ? AND user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ?", tokenId, workspace.UserId, workspace.Id, "subscription", 0).
+		Updates(map[string]interface{}{
+			"remain_quota":    workspace.QuotaResetAmount,
+			"unlimited_quota": false,
+			"accessed_time":   nowUnix,
+		}).Error; err != nil {
+		return err
+	}
+	return tx.Model(&Token{}).
+		Where("id = ? AND user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ? AND status = ?", tokenId, workspace.UserId, workspace.Id, "subscription", 0, common.TokenStatusExhausted).
 		Update("status", common.TokenStatusEnabled).Error
 }
 

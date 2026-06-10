@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CalendarClock, Gauge } from 'lucide-react'
+import { CalendarClock, Gauge, Loader2, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
@@ -49,12 +49,14 @@ import {
 import { Switch } from '@/components/ui/switch'
 import {
   getWorkspaceQuotaResetConfig,
+  resetWorkspaceQuota,
   updateWorkspaceQuotaResetConfig,
 } from '../api'
 import {
   type WorkspaceQuotaResetConfig,
   type WorkspaceQuotaResetPeriod,
 } from '../types'
+import { useApiKeys } from './api-keys-provider'
 
 type WorkspaceQuotaManagementProps = {
   workspaceId: number
@@ -76,6 +78,7 @@ export function WorkspaceQuotaManagement({
 }: WorkspaceQuotaManagementProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const { triggerRefresh } = useApiKeys()
   const [open, setOpen] = useState(false)
   const [enabled, setEnabled] = useState(false)
   const [period, setPeriod] = useState<WorkspaceQuotaResetPeriod>('daily')
@@ -160,11 +163,38 @@ export function WorkspaceQuotaManagement({
       void queryClient.invalidateQueries({
         queryKey: ['workspace-quota-reset-config', workspaceId],
       })
+      triggerRefresh()
       setOpen(false)
     },
     onError: (error) => {
       toast.error(
         error instanceof Error ? error.message : t('Failed to save quota rule')
+      )
+    },
+  })
+
+  const resetMutation = useMutation({
+    mutationFn: async () => {
+      const res = await resetWorkspaceQuota(workspaceId)
+      if (!res.success || !res.data) {
+        throw new Error(res.message || t('Failed to reset quota'))
+      }
+      return res.data
+    },
+    onSuccess: (config) => {
+      toast.success(t('Current period quota reset'))
+      queryClient.setQueryData(
+        ['workspace-quota-reset-config', workspaceId],
+        config
+      )
+      void queryClient.invalidateQueries({
+        queryKey: ['workspace-quota-reset-config', workspaceId],
+      })
+      triggerRefresh()
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Failed to reset quota')
       )
     },
   })
@@ -290,6 +320,22 @@ export function WorkspaceQuotaManagement({
           </div>
 
           <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              disabled={
+                !config?.enabled || !config.amount || resetMutation.isPending
+              }
+              onClick={() => resetMutation.mutate()}
+              className='sm:mr-auto'
+            >
+              {resetMutation.isPending ? (
+                <Loader2 className='animate-spin' />
+              ) : (
+                <RotateCcw />
+              )}
+              {t('Reset current period')}
+            </Button>
             <Button
               type='button'
               variant='outline'

@@ -105,3 +105,75 @@ func TestResetDueWorkspaceQuotaResetsWorkspaceTokens(t *testing.T) {
 	require.Equal(t, now.Unix(), updated.QuotaResetLastAppliedAt)
 	require.Equal(t, time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC).Unix(), updated.QuotaResetNextAt)
 }
+
+func TestResetUserWorkspaceQuotaNowKeepsNextSchedule(t *testing.T) {
+	truncateTables(t)
+
+	now := time.Date(2026, 6, 10, 10, 0, 0, 0, time.UTC)
+	nextAt := time.Date(2026, 6, 11, 0, 0, 0, 0, time.UTC).Unix()
+	workspace := Workspace{
+		Id:                521,
+		UserId:            1001,
+		Name:              "Manual Reset",
+		Status:            WorkspaceStatusEnabled,
+		QuotaResetEnabled: true,
+		QuotaResetPeriod:  WorkspaceQuotaResetPeriodDaily,
+		QuotaResetAmount:  1800000,
+		QuotaResetNextAt:  nextAt,
+	}
+	require.NoError(t, DB.Create(&workspace).Error)
+	require.NoError(t, DB.Create(&[]Token{
+		{Id: 621, UserId: 1001, WorkspaceId: workspace.Id, Name: "manual-main", Key: "manual-main-key", RemainQuota: 10, UsedQuota: 200},
+		{Id: 622, UserId: 1001, WorkspaceId: workspace.Id, Name: "manual-sub", Key: "manual-sub-key", RemainQuota: 20, UsedQuota: 300, BillingSource: "subscription"},
+	}).Error)
+
+	config, err := ResetUserWorkspaceQuotaNow(1001, workspace.Id, now)
+
+	require.NoError(t, err)
+	require.Equal(t, now.Unix(), config.LastAppliedAt)
+	require.Equal(t, nextAt, config.NextAt)
+
+	var normal Token
+	require.NoError(t, DB.First(&normal, 621).Error)
+	require.Equal(t, 1800000, normal.RemainQuota)
+	require.Equal(t, 200, normal.UsedQuota)
+
+	var subscription Token
+	require.NoError(t, DB.First(&subscription, 622).Error)
+	require.Equal(t, 20, subscription.RemainQuota)
+}
+
+func TestResetUserTokenWorkspaceQuotaOnlyResetsSelectedToken(t *testing.T) {
+	truncateTables(t)
+
+	now := time.Date(2026, 6, 10, 10, 30, 0, 0, time.UTC)
+	workspace := Workspace{
+		Id:                531,
+		UserId:            1001,
+		Name:              "Single Reset",
+		Status:            WorkspaceStatusEnabled,
+		QuotaResetEnabled: true,
+		QuotaResetPeriod:  WorkspaceQuotaResetPeriodDaily,
+		QuotaResetAmount:  2100000,
+		QuotaResetNextAt:  now.Add(12 * time.Hour).Unix(),
+	}
+	require.NoError(t, DB.Create(&workspace).Error)
+	require.NoError(t, DB.Create(&[]Token{
+		{Id: 631, UserId: 1001, WorkspaceId: workspace.Id, Name: "single-main", Key: "single-main-key", RemainQuota: 0, UsedQuota: 200, Status: common.TokenStatusExhausted, UnlimitedQuota: true},
+		{Id: 632, UserId: 1001, WorkspaceId: workspace.Id, Name: "single-side", Key: "single-side-key", RemainQuota: 20, UsedQuota: 300, Status: common.TokenStatusEnabled},
+	}).Error)
+
+	token, err := ResetUserTokenWorkspaceQuota(1001, 631, now)
+
+	require.NoError(t, err)
+	require.Equal(t, 2100000, token.RemainQuota)
+	require.Equal(t, 200, token.UsedQuota)
+	require.False(t, token.UnlimitedQuota)
+	require.Equal(t, common.TokenStatusEnabled, token.Status)
+	require.Equal(t, workspace.Name, token.WorkspaceName)
+
+	var other Token
+	require.NoError(t, DB.First(&other, 632).Error)
+	require.Equal(t, 20, other.RemainQuota)
+	require.Equal(t, 300, other.UsedQuota)
+}

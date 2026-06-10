@@ -115,6 +115,13 @@ export async function updateWorkspaceQuotaResetConfig(
   return res.data
 }
 
+export async function resetWorkspaceQuota(
+  id: number
+): Promise<ApiResponse<WorkspaceQuotaResetConfig>> {
+  const res = await api.post(`/api/workspaces/${id}/quota-reset/reset`)
+  return res.data
+}
+
 // Get single API key by ID
 export async function getApiKey(id: number): Promise<ApiResponse<ApiKey>> {
   const res = await api.get(`/api/token/${id}`)
@@ -157,6 +164,13 @@ export async function updateApiKeyStatus(
   status: number
 ): Promise<ApiResponse<ApiKey>> {
   const res = await api.put('/api/token/?status_only=true', { id, status })
+  return res.data
+}
+
+export async function resetApiKeyQuota(
+  id: number
+): Promise<ApiResponse<ApiKey>> {
+  const res = await api.post(`/api/token/${id}/quota-reset`)
   return res.data
 }
 

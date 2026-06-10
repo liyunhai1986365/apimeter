@@ -23,7 +23,6 @@ import { formatQuota } from '@/lib/format'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getWorkspaceUsageStats } from '../api'
 import { type WorkspaceUsageStats } from '../types'
-import { ApiKeysPrimaryButtons } from './api-keys-primary-buttons'
 import { useApiKeys } from './api-keys-provider'
 import { ApiKeysTable } from './api-keys-table'
 import { WorkspaceQuotaManagement } from './workspace-quota-management'
@@ -156,7 +155,6 @@ export function ApiKeyWorkspaceDetail() {
           {selectedWorkspace && (
             <WorkspaceQuotaManagement workspaceId={selectedWorkspace.id} />
           )}
-          <ApiKeysPrimaryButtons />
         </div>
       </div>
 

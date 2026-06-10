@@ -130,3 +130,17 @@ func UpdateWorkspaceQuotaResetConfig(c *gin.Context) {
 	}
 	common.ApiSuccess(c, config)
 }
+
+func ResetWorkspaceQuotaNow(c *gin.Context) {
+	workspaceId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	config, err := model.ResetUserWorkspaceQuotaNow(c.GetInt("id"), workspaceId, time.Time{})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, config)
+}

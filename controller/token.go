@@ -355,6 +355,25 @@ func DeleteToken(c *gin.Context) {
 	})
 }
 
+func ResetTokenQuota(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	userId := c.GetInt("id")
+	token, err := model.ResetUserTokenWorkspaceQuota(userId, id, time.Time{})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.AttachTokenTodayUsedQuota([]*model.Token{token}, time.Time{}); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, buildMaskedTokenResponse(token))
+}
+
 func UpdateToken(c *gin.Context) {
 	userId := c.GetInt("id")
 	statusOnly := c.Query("status_only")
