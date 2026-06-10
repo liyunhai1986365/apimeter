@@ -119,6 +119,9 @@ func main() {
 	// Subscription quota reset task (daily/weekly/monthly/custom)
 	service.StartSubscriptionQuotaResetTask()
 
+	// Workspace API key quota reset task (daily/weekly/monthly)
+	service.StartWorkspaceQuotaResetTask()
+
 	// Affiliate top-up reward task (delayed reward after invitee payment)
 	service.StartAffiliateTopUpRewardTask()
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -107,6 +108,10 @@ func GetAllTokens(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if err := model.AttachTokenTodayUsedQuota(tokens, time.Time{}); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	total, _ := model.CountUserTokens(userId, workspaceId)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
@@ -134,6 +139,10 @@ func SearchTokens(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if err := model.AttachTokenTodayUsedQuota(tokens, time.Time{}); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
@@ -152,6 +161,10 @@ func GetToken(c *gin.Context) {
 		return
 	}
 	if err := model.AttachWorkspaceNames([]*model.Token{token}); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.AttachTokenTodayUsedQuota([]*model.Token{token}, time.Time{}); err != nil {
 		common.ApiError(c, err)
 		return
 	}

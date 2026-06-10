@@ -14,6 +14,12 @@ type workspaceRequest struct {
 	Description string `json:"description"`
 }
 
+type workspaceQuotaResetRequest struct {
+	Enabled bool   `json:"enabled"`
+	Period  string `json:"period"`
+	Amount  int    `json:"amount"`
+}
+
 func ListWorkspaces(c *gin.Context) {
 	workspaces, err := model.ListUserWorkspaces(c.GetInt("id"))
 	if err != nil {
@@ -81,4 +87,46 @@ func GetWorkspaceUsageStats(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, stats)
+}
+
+func GetWorkspaceQuotaResetConfig(c *gin.Context) {
+	workspaceId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	config, err := model.GetUserWorkspaceQuotaResetConfig(c.GetInt("id"), workspaceId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, config)
+}
+
+func UpdateWorkspaceQuotaResetConfig(c *gin.Context) {
+	workspaceId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req workspaceQuotaResetRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	config, err := model.UpdateUserWorkspaceQuotaResetConfig(
+		c.GetInt("id"),
+		workspaceId,
+		model.WorkspaceQuotaResetConfigRequest{
+			Enabled: req.Enabled,
+			Period:  req.Period,
+			Amount:  req.Amount,
+		},
+		time.Time{},
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, config)
 }

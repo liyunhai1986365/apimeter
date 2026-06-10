@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -41,6 +42,7 @@ type Token struct {
 	ModelLimits        string             `json:"model_limits" gorm:"type:text"`
 	AllowIps           *string            `json:"allow_ips" gorm:"default:''"`
 	UsedQuota          int                `json:"used_quota" gorm:"default:0"` // used quota
+	TodayUsedQuota     int                `json:"today_used_quota" gorm:"-"`
 	Group              string             `json:"group" gorm:"default:''"`
 	GroupPolicy        string             `json:"group_policy" gorm:"type:text"`
 	CrossGroupRetry    bool               `json:"cross_group_retry"`                                 // 跨分组重试，仅auto分组有效
@@ -214,6 +216,53 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 		return nil, 0, errors.New("搜索令牌失败")
 	}
 	return tokens, total, nil
+}
+
+func AttachTokenTodayUsedQuota(tokens []*Token, now time.Time) error {
+	if len(tokens) == 0 {
+		return nil
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	tokenIDs := make([]int, 0, len(tokens))
+	seen := make(map[int]struct{}, len(tokens))
+	for _, token := range tokens {
+		if token == nil || token.Id <= 0 {
+			continue
+		}
+		if _, ok := seen[token.Id]; ok {
+			continue
+		}
+		seen[token.Id] = struct{}{}
+		tokenIDs = append(tokenIDs, token.Id)
+	}
+	if len(tokenIDs) == 0 {
+		return nil
+	}
+
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	var rows []struct {
+		TokenId        int `gorm:"column:token_id"`
+		TodayUsedQuota int `gorm:"column:today_used_quota"`
+	}
+	if err := LOG_DB.Model(&Log{}).
+		Select("token_id, COALESCE(SUM(quota), 0) AS today_used_quota").
+		Where("token_id IN ? AND type = ? AND created_at >= ? AND created_at <= ?", tokenIDs, LogTypeConsume, startOfToday.Unix(), now.Unix()).
+		Group("token_id").
+		Scan(&rows).Error; err != nil {
+		return err
+	}
+	quotaByTokenID := make(map[int]int, len(rows))
+	for _, row := range rows {
+		quotaByTokenID[row.TokenId] = row.TodayUsedQuota
+	}
+	for _, token := range tokens {
+		if token != nil {
+			token.TodayUsedQuota = quotaByTokenID[token.Id]
+		}
+	}
+	return nil
 }
 
 func ValidateUserToken(key string) (token *Token, err error) {

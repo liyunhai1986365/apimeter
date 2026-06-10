@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useCallback } from 'react'
-import { Check, Copy, Infinity, Loader2 } from 'lucide-react'
+import { Check, Copy, Infinity as InfinityIcon, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { copyToClipboard } from '@/lib/copy-to-clipboard'
 import { formatQuota } from '@/lib/format'
@@ -171,7 +171,7 @@ export function ApiKeyQuotaCell({
           </span>
           <span className='text-muted-foreground tabular-nums'>
             {quota.totalQuota == null ? (
-              <Infinity className='size-3.5' aria-label={t('Unlimited')} />
+              <InfinityIcon className='size-3.5' aria-label={t('Unlimited')} />
             ) : (
               formatQuota(quota.totalQuota)
             )}
@@ -184,6 +184,9 @@ export function ApiKeyQuotaCell({
       </TooltipTrigger>
       <TooltipContent>
         <div className='space-y-1 text-xs'>
+          <div>
+            {t('Today usage')}: {formatQuota(quota.todayUsedQuota)}
+          </div>
           <div>
             {t('Used:')} {formatQuota(quota.usedQuota)}
           </div>

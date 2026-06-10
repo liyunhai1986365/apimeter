@@ -26,6 +26,7 @@ import { type WorkspaceUsageStats } from '../types'
 import { ApiKeysPrimaryButtons } from './api-keys-primary-buttons'
 import { useApiKeys } from './api-keys-provider'
 import { ApiKeysTable } from './api-keys-table'
+import { WorkspaceQuotaManagement } from './workspace-quota-management'
 
 function WorkspaceUsageStatsStrip({
   stats,
@@ -97,7 +98,7 @@ export function ApiKeyWorkspaceDetail() {
       if (!selectedWorkspace?.id) return undefined
       const res = await getWorkspaceUsageStats(selectedWorkspace.id)
       if (!res.success) {
-        throw new Error(res.message || t('Failed to load workspace usage'))
+        throw new Error(res.message || 'Failed to load workspace usage')
       }
       return res.data
     },
@@ -151,7 +152,10 @@ export function ApiKeyWorkspaceDetail() {
             )}
           </div>
         </div>
-        <div className='shrink-0 lg:ml-auto'>
+        <div className='flex shrink-0 items-start gap-5 lg:ml-auto'>
+          {selectedWorkspace && (
+            <WorkspaceQuotaManagement workspaceId={selectedWorkspace.id} />
+          )}
           <ApiKeysPrimaryButtons />
         </div>
       </div>

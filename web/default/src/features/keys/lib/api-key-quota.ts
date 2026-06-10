@@ -19,13 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 import type { ApiKey } from '../types'
 
 export function getApiKeyQuotaDisplay(
-  apiKey: Pick<ApiKey, 'used_quota' | 'remain_quota' | 'unlimited_quota'>
+  apiKey: Pick<ApiKey, 'used_quota' | 'remain_quota' | 'unlimited_quota'> &
+    Partial<Pick<ApiKey, 'today_used_quota'>>
 ) {
+  const todayUsedQuota = apiKey.today_used_quota || 0
   if (apiKey.unlimited_quota) {
     return {
       unlimited: true,
       leftQuota: apiKey.used_quota,
       usedQuota: apiKey.used_quota,
+      todayUsedQuota,
       remainingQuota: apiKey.remain_quota,
       totalQuota: null,
       percentage: 100,
@@ -42,6 +45,7 @@ export function getApiKeyQuotaDisplay(
     unlimited: false,
     leftQuota: remainingQuota,
     usedQuota,
+    todayUsedQuota,
     remainingQuota,
     totalQuota,
     percentage,

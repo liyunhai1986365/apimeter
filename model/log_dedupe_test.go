@@ -127,6 +127,29 @@ func TestGetUserWorkspaceUsageStatsAggregatesWorkspaceKeys(t *testing.T) {
 	require.Equal(t, 4000, stats.TotalUsedQuota)
 }
 
+func TestAttachTokenTodayUsedQuotaAggregatesTodayConsumeLogs(t *testing.T) {
+	truncateTables(t)
+
+	now := time.Date(2026, 6, 10, 15, 0, 0, 0, time.UTC)
+	tokens := []*Token{
+		{Id: 431, UserId: 1001, Name: "today-main", Key: "today-main-key"},
+		{Id: 432, UserId: 1001, Name: "today-side", Key: "today-side-key"},
+	}
+	require.NoError(t, DB.Create(tokens).Error)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 81, UserId: 1001, Type: LogTypeConsume, CreatedAt: now.Add(-time.Hour).Unix(), TokenId: 431, TokenName: "today-main", Quota: 100},
+		{Id: 82, UserId: 1001, Type: LogTypeConsume, CreatedAt: now.Add(-2 * time.Hour).Unix(), TokenId: 431, TokenName: "today-main", Quota: 250},
+		{Id: 83, UserId: 1001, Type: LogTypeConsume, CreatedAt: now.Add(-time.Hour).Unix(), TokenId: 432, TokenName: "today-side", Quota: 900},
+		{Id: 84, UserId: 1001, Type: LogTypeConsume, CreatedAt: time.Date(2026, 6, 9, 23, 59, 0, 0, time.UTC).Unix(), TokenId: 431, TokenName: "today-main", Quota: 500},
+		{Id: 85, UserId: 1001, Type: LogTypeError, CreatedAt: now.Add(-time.Hour).Unix(), TokenId: 431, TokenName: "today-main", Quota: 700},
+	}).Error)
+
+	require.NoError(t, AttachTokenTodayUsedQuota(tokens, now))
+
+	require.Equal(t, 350, tokens[0].TodayUsedQuota)
+	require.Equal(t, 900, tokens[1].TodayUsedQuota)
+}
+
 func TestGetQuotaDatesFromLogsFiltersByWorkspaceAndToken(t *testing.T) {
 	truncateTables(t)
 

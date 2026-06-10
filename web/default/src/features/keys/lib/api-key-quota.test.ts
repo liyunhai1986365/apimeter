@@ -7,11 +7,13 @@ describe('api key quota display', () => {
     const display = getApiKeyQuotaDisplay({
       unlimited_quota: false,
       used_quota: 25,
+      today_used_quota: 10,
       remain_quota: 75,
     })
 
     assert.equal(display.unlimited, false)
     assert.equal(display.leftQuota, 75)
+    assert.equal(display.todayUsedQuota, 10)
     assert.equal(display.totalQuota, 100)
     assert.equal(display.percentage, 75)
   })

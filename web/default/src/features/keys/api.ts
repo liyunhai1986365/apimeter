@@ -26,6 +26,8 @@ import type {
   SearchApiKeysParams,
   ApiKeyFormData,
   Workspace,
+  WorkspaceQuotaResetConfig,
+  WorkspaceQuotaResetConfigPayload,
   WorkspaceUsageStats,
 } from './types'
 
@@ -95,6 +97,21 @@ export async function getWorkspaceUsageStats(
   id: number
 ): Promise<ApiResponse<WorkspaceUsageStats>> {
   const res = await api.get(`/api/workspaces/${id}/usage`)
+  return res.data
+}
+
+export async function getWorkspaceQuotaResetConfig(
+  id: number
+): Promise<ApiResponse<WorkspaceQuotaResetConfig>> {
+  const res = await api.get(`/api/workspaces/${id}/quota-reset`)
+  return res.data
+}
+
+export async function updateWorkspaceQuotaResetConfig(
+  id: number,
+  data: WorkspaceQuotaResetConfigPayload
+): Promise<ApiResponse<WorkspaceQuotaResetConfig>> {
+  const res = await api.put(`/api/workspaces/${id}/quota-reset`, data)
   return res.data
 }
 

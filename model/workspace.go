@@ -14,18 +14,27 @@ const (
 	WorkspaceStatusDisabled = 2
 
 	DefaultWorkspaceName = "Default"
+
+	WorkspaceQuotaResetPeriodDaily   = "daily"
+	WorkspaceQuotaResetPeriodWeekly  = "weekly"
+	WorkspaceQuotaResetPeriodMonthly = "monthly"
 )
 
 type Workspace struct {
-	Id          int            `json:"id"`
-	UserId      int            `json:"user_id" gorm:"index"`
-	Name        string         `json:"name" gorm:"type:varchar(64);index"`
-	Description string         `json:"description" gorm:"type:varchar(255);default:''"`
-	IsDefault   bool           `json:"is_default" gorm:"index;default:false"`
-	Status      int            `json:"status" gorm:"default:1"`
-	CreatedTime int64          `json:"created_time" gorm:"bigint"`
-	UpdatedTime int64          `json:"updated_time" gorm:"bigint"`
-	DeletedAt   gorm.DeletedAt `gorm:"index"`
+	Id                      int            `json:"id"`
+	UserId                  int            `json:"user_id" gorm:"index"`
+	Name                    string         `json:"name" gorm:"type:varchar(64);index"`
+	Description             string         `json:"description" gorm:"type:varchar(255);default:''"`
+	IsDefault               bool           `json:"is_default" gorm:"index;default:false"`
+	Status                  int            `json:"status" gorm:"default:1"`
+	QuotaResetEnabled       bool           `json:"quota_reset_enabled" gorm:"default:false"`
+	QuotaResetPeriod        string         `json:"quota_reset_period" gorm:"type:varchar(16);default:''"`
+	QuotaResetAmount        int            `json:"quota_reset_amount" gorm:"default:0"`
+	QuotaResetLastAppliedAt int64          `json:"quota_reset_last_applied_at" gorm:"bigint;default:0"`
+	QuotaResetNextAt        int64          `json:"quota_reset_next_at" gorm:"bigint;default:0;index"`
+	CreatedTime             int64          `json:"created_time" gorm:"bigint"`
+	UpdatedTime             int64          `json:"updated_time" gorm:"bigint"`
+	DeletedAt               gorm.DeletedAt `gorm:"index"`
 }
 
 type WorkspaceWithTokenCount struct {
@@ -39,6 +48,32 @@ type WorkspaceUsageStats struct {
 	WeekQuota      int `json:"week_quota"`
 	MonthQuota     int `json:"month_quota"`
 	TotalUsedQuota int `json:"total_used_quota"`
+}
+
+type WorkspaceQuotaResetConfig struct {
+	WorkspaceId   int    `json:"workspace_id"`
+	Enabled       bool   `json:"enabled"`
+	Period        string `json:"period"`
+	Amount        int    `json:"amount"`
+	LastAppliedAt int64  `json:"last_applied_at"`
+	NextAt        int64  `json:"next_at"`
+}
+
+type WorkspaceQuotaResetConfigRequest struct {
+	Enabled bool   `json:"enabled"`
+	Period  string `json:"period"`
+	Amount  int    `json:"amount"`
+}
+
+func (workspace Workspace) QuotaResetConfig() WorkspaceQuotaResetConfig {
+	return WorkspaceQuotaResetConfig{
+		WorkspaceId:   workspace.Id,
+		Enabled:       workspace.QuotaResetEnabled,
+		Period:        workspace.QuotaResetPeriod,
+		Amount:        workspace.QuotaResetAmount,
+		LastAppliedAt: workspace.QuotaResetLastAppliedAt,
+		NextAt:        workspace.QuotaResetNextAt,
+	}
 }
 
 func EnsureDefaultWorkspace(userId int) (*Workspace, error) {
@@ -177,6 +212,194 @@ func UpdateUserWorkspace(userId int, workspaceId int, name string, description s
 	workspace.Description = description
 	workspace.UpdatedTime = common.GetTimestamp()
 	return workspace, DB.Model(workspace).Select("name", "description", "updated_time").Updates(workspace).Error
+}
+
+func GetUserWorkspaceQuotaResetConfig(userId int, workspaceId int) (WorkspaceQuotaResetConfig, error) {
+	workspace, err := GetUserWorkspaceByID(userId, workspaceId)
+	if err != nil {
+		return WorkspaceQuotaResetConfig{}, err
+	}
+	return workspace.QuotaResetConfig(), nil
+}
+
+func UpdateUserWorkspaceQuotaResetConfig(userId int, workspaceId int, req WorkspaceQuotaResetConfigRequest, now time.Time) (WorkspaceQuotaResetConfig, error) {
+	workspace, err := GetUserWorkspaceByID(userId, workspaceId)
+	if err != nil {
+		return WorkspaceQuotaResetConfig{}, err
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	period := strings.TrimSpace(req.Period)
+	if period == "" {
+		period = WorkspaceQuotaResetPeriodDaily
+	}
+	if !isValidWorkspaceQuotaResetPeriod(period) {
+		return WorkspaceQuotaResetConfig{}, errors.New("工作区配额周期无效")
+	}
+	if req.Amount < 0 {
+		return WorkspaceQuotaResetConfig{}, errors.New("工作区配额不能为负数")
+	}
+	if req.Enabled && req.Amount <= 0 {
+		return WorkspaceQuotaResetConfig{}, errors.New("启用工作区配额时额度必须大于 0")
+	}
+
+	shouldApplyNow := req.Enabled && (!workspace.QuotaResetEnabled || workspace.QuotaResetLastAppliedAt == 0)
+	nowUnix := now.Unix()
+	workspace.QuotaResetEnabled = req.Enabled
+	workspace.QuotaResetPeriod = period
+	workspace.QuotaResetAmount = req.Amount
+	workspace.UpdatedTime = common.GetTimestamp()
+	if req.Enabled {
+		workspace.QuotaResetNextAt = NextWorkspaceQuotaResetAt(period, now).Unix()
+		if shouldApplyNow {
+			workspace.QuotaResetLastAppliedAt = nowUnix
+		}
+	} else {
+		workspace.QuotaResetNextAt = 0
+	}
+
+	selectColumns := []string{
+		"quota_reset_enabled",
+		"quota_reset_period",
+		"quota_reset_amount",
+		"quota_reset_next_at",
+		"updated_time",
+	}
+	if shouldApplyNow {
+		selectColumns = append(selectColumns, "quota_reset_last_applied_at")
+	}
+
+	err = DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(workspace).Select(selectColumns).Updates(workspace).Error; err != nil {
+			return err
+		}
+		if shouldApplyNow {
+			return resetWorkspaceTokenQuotasTx(tx, workspace, nowUnix)
+		}
+		return nil
+	})
+	if err != nil {
+		return WorkspaceQuotaResetConfig{}, err
+	}
+	if shouldApplyNow {
+		if err := InvalidateUserTokensCache(userId); err != nil {
+			common.SysLog("failed to invalidate workspace quota token cache: " + err.Error())
+		}
+	}
+	return workspace.QuotaResetConfig(), nil
+}
+
+func isValidWorkspaceQuotaResetPeriod(period string) bool {
+	switch period {
+	case WorkspaceQuotaResetPeriodDaily, WorkspaceQuotaResetPeriodWeekly, WorkspaceQuotaResetPeriodMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+func NextWorkspaceQuotaResetAt(period string, now time.Time) time.Time {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	switch period {
+	case WorkspaceQuotaResetPeriodWeekly:
+		weekday := int(startOfToday.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		return startOfToday.AddDate(0, 0, 8-weekday)
+	case WorkspaceQuotaResetPeriodMonthly:
+		return time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, now.Location())
+	default:
+		return startOfToday.AddDate(0, 0, 1)
+	}
+}
+
+func ResetDueWorkspaceQuotaConfigs(limit int, now time.Time) (int, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	if now.IsZero() {
+		now = time.Now()
+	}
+	nowUnix := now.Unix()
+
+	var workspaces []Workspace
+	if err := DB.Where("quota_reset_enabled = ? AND quota_reset_next_at > 0 AND quota_reset_next_at <= ?", true, nowUnix).
+		Order("quota_reset_next_at asc").
+		Limit(limit).
+		Find(&workspaces).Error; err != nil {
+		return 0, err
+	}
+	if len(workspaces) == 0 {
+		return 0, nil
+	}
+
+	resetCount := 0
+	for _, workspace := range workspaces {
+		workspaceCopy := workspace
+		err := DB.Transaction(func(tx *gorm.DB) error {
+			var locked Workspace
+			if err := tx.Set("gorm:query_option", "FOR UPDATE").
+				Where("id = ? AND quota_reset_enabled = ? AND quota_reset_next_at > 0 AND quota_reset_next_at <= ?", workspaceCopy.Id, true, nowUnix).
+				First(&locked).Error; err != nil {
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil
+				}
+				return err
+			}
+			if !isValidWorkspaceQuotaResetPeriod(locked.QuotaResetPeriod) {
+				locked.QuotaResetPeriod = WorkspaceQuotaResetPeriodDaily
+			}
+			if locked.QuotaResetAmount <= 0 {
+				return tx.Model(&locked).Select("quota_reset_enabled", "quota_reset_next_at", "updated_time").Updates(map[string]interface{}{
+					"quota_reset_enabled": false,
+					"quota_reset_next_at": 0,
+					"updated_time":        common.GetTimestamp(),
+				}).Error
+			}
+			if err := resetWorkspaceTokenQuotasTx(tx, &locked, nowUnix); err != nil {
+				return err
+			}
+			locked.QuotaResetLastAppliedAt = nowUnix
+			locked.QuotaResetNextAt = NextWorkspaceQuotaResetAt(locked.QuotaResetPeriod, now).Unix()
+			locked.UpdatedTime = common.GetTimestamp()
+			if err := tx.Model(&locked).Select("quota_reset_last_applied_at", "quota_reset_next_at", "updated_time").Updates(&locked).Error; err != nil {
+				return err
+			}
+			resetCount++
+			return nil
+		})
+		if err != nil {
+			return resetCount, err
+		}
+		if err := InvalidateUserTokensCache(workspaceCopy.UserId); err != nil {
+			common.SysLog("failed to invalidate workspace quota token cache: " + err.Error())
+		}
+	}
+	return resetCount, nil
+}
+
+func resetWorkspaceTokenQuotasTx(tx *gorm.DB, workspace *Workspace, nowUnix int64) error {
+	if tx == nil || workspace == nil || workspace.Id <= 0 || workspace.UserId <= 0 {
+		return errors.New("工作区配额重置参数无效")
+	}
+	baseQuery := tx.Model(&Token{}).
+		Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ?", workspace.UserId, workspace.Id, "subscription", 0)
+	if err := baseQuery.Updates(map[string]interface{}{
+		"remain_quota":    workspace.QuotaResetAmount,
+		"unlimited_quota": false,
+		"accessed_time":   nowUnix,
+	}).Error; err != nil {
+		return err
+	}
+	return tx.Model(&Token{}).
+		Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ? AND status = ?", workspace.UserId, workspace.Id, "subscription", 0, common.TokenStatusExhausted).
+		Update("status", common.TokenStatusEnabled).Error
 }
 
 func DeleteUserWorkspace(userId int, workspaceId int) error {
