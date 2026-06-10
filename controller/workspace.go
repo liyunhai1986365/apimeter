@@ -2,6 +2,7 @@ package controller
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -66,4 +67,18 @@ func DeleteWorkspace(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, nil)
+}
+
+func GetWorkspaceUsageStats(c *gin.Context) {
+	workspaceId, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	stats, err := model.GetUserWorkspaceUsageStats(c.GetInt("id"), workspaceId, time.Time{})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, stats)
 }

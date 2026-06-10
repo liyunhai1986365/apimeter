@@ -343,6 +343,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			workspaceRoute.GET("/", controller.ListWorkspaces)
 			workspaceRoute.GET("", controller.ListWorkspaces)
+			workspaceRoute.GET("/:id/usage", controller.GetWorkspaceUsageStats)
 			workspaceRoute.POST("/", controller.CreateWorkspace)
 			workspaceRoute.PUT("/:id", controller.UpdateWorkspace)
 			workspaceRoute.DELETE("/:id", controller.DeleteWorkspace)

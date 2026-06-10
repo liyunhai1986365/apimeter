@@ -26,6 +26,7 @@ import type {
   SearchApiKeysParams,
   ApiKeyFormData,
   Workspace,
+  WorkspaceUsageStats,
 } from './types'
 
 // ============================================================================
@@ -87,6 +88,13 @@ export async function updateWorkspace(data: {
 
 export async function deleteWorkspace(id: number): Promise<ApiResponse> {
   const res = await api.delete(`/api/workspaces/${id}`)
+  return res.data
+}
+
+export async function getWorkspaceUsageStats(
+  id: number
+): Promise<ApiResponse<WorkspaceUsageStats>> {
+  const res = await api.get(`/api/workspaces/${id}/usage`)
   return res.data
 }
 

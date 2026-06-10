@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
@@ -30,6 +31,14 @@ type Workspace struct {
 type WorkspaceWithTokenCount struct {
 	Workspace
 	TokenCount int64 `json:"token_count"`
+}
+
+type WorkspaceUsageStats struct {
+	WorkspaceId    int `json:"workspace_id"`
+	TodayQuota     int `json:"today_quota"`
+	WeekQuota      int `json:"week_quota"`
+	MonthQuota     int `json:"month_quota"`
+	TotalUsedQuota int `json:"total_used_quota"`
 }
 
 func EnsureDefaultWorkspace(userId int) (*Workspace, error) {
@@ -186,6 +195,73 @@ func DeleteUserWorkspace(userId int, workspaceId int) error {
 		return errors.New("请先删除或移动该工作区下的令牌")
 	}
 	return DB.Delete(workspace).Error
+}
+
+func GetUserWorkspaceUsageStats(userId int, workspaceId int, now time.Time) (WorkspaceUsageStats, error) {
+	stats := WorkspaceUsageStats{WorkspaceId: workspaceId}
+	if userId <= 0 || workspaceId <= 0 {
+		return stats, errors.New("userId 或 workspaceId 无效")
+	}
+	workspace, err := GetUserWorkspaceByID(userId, workspaceId)
+	if err != nil {
+		return stats, err
+	}
+	stats.WorkspaceId = workspace.Id
+	if now.IsZero() {
+		now = time.Now()
+	}
+
+	var tokenIDs []int
+	tokenQuery := func() *gorm.DB {
+		return DB.Model(&Token{}).
+			Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, workspace.Id, "subscription")
+	}
+	if err := tokenQuery().Pluck("id", &tokenIDs).Error; err != nil {
+		return stats, err
+	}
+	if len(tokenIDs) == 0 {
+		return stats, nil
+	}
+
+	var total struct {
+		TotalUsedQuota int `gorm:"column:total_used_quota"`
+	}
+	if err := tokenQuery().Select("COALESCE(SUM(used_quota), 0) AS total_used_quota").Scan(&total).Error; err != nil {
+		return stats, err
+	}
+	stats.TotalUsedQuota = total.TotalUsedQuota
+
+	startOfToday := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	weekday := int(startOfToday.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	startOfWeek := startOfToday.AddDate(0, 0, 1-weekday)
+	startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+
+	var period struct {
+		TodayQuota int `gorm:"column:today_quota"`
+		WeekQuota  int `gorm:"column:week_quota"`
+		MonthQuota int `gorm:"column:month_quota"`
+	}
+	if err := LOG_DB.Model(&Log{}).
+		Select(
+			`COALESCE(SUM(CASE WHEN created_at >= ? THEN quota ELSE 0 END), 0) AS today_quota,
+COALESCE(SUM(CASE WHEN created_at >= ? THEN quota ELSE 0 END), 0) AS week_quota,
+COALESCE(SUM(CASE WHEN created_at >= ? THEN quota ELSE 0 END), 0) AS month_quota`,
+			startOfToday.Unix(),
+			startOfWeek.Unix(),
+			startOfMonth.Unix(),
+		).
+		Where("user_id = ? AND token_id IN ? AND type = ? AND created_at <= ?", userId, tokenIDs, LogTypeConsume, now.Unix()).
+		Scan(&period).Error; err != nil {
+		return stats, err
+	}
+	stats.TodayQuota = period.TodayQuota
+	stats.WeekQuota = period.WeekQuota
+	stats.MonthQuota = period.MonthQuota
+
+	return stats, nil
 }
 
 func AttachWorkspaceNames(tokens []*Token) error {

@@ -79,6 +79,16 @@ export const workspaceSchema = z.object({
 
 export type Workspace = z.infer<typeof workspaceSchema>
 
+export const workspaceUsageStatsSchema = z.object({
+  workspace_id: z.number(),
+  today_quota: z.number(),
+  week_quota: z.number(),
+  month_quota: z.number(),
+  total_used_quota: z.number(),
+})
+
+export type WorkspaceUsageStats = z.infer<typeof workspaceUsageStatsSchema>
+
 // ============================================================================
 // API Request/Response Types
 // ============================================================================

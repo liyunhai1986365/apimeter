@@ -2,6 +2,7 @@ package model
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -90,6 +91,39 @@ func TestSumUsedQuotaFiltersByTokenAndWorkspaceName(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, 100, stat.Quota)
+}
+
+func TestGetUserWorkspaceUsageStatsAggregatesWorkspaceKeys(t *testing.T) {
+	truncateTables(t)
+
+	now := time.Date(2026, 6, 10, 15, 0, 0, 0, time.UTC)
+	alpha := Workspace{Id: 301, UserId: 1001, Name: "Usage Alpha", Status: WorkspaceStatusEnabled}
+	beta := Workspace{Id: 302, UserId: 1001, Name: "Usage Beta", Status: WorkspaceStatusEnabled}
+	require.NoError(t, DB.Create(&[]Workspace{alpha, beta}).Error)
+	require.NoError(t, DB.Create(&[]Token{
+		{Id: 401, UserId: 1001, WorkspaceId: alpha.Id, Name: "alpha-main", Key: "alpha-main-key", UsedQuota: 1000},
+		{Id: 402, UserId: 1001, WorkspaceId: alpha.Id, Name: "alpha-side", Key: "alpha-side-key", UsedQuota: 3000},
+		{Id: 403, UserId: 1001, WorkspaceId: beta.Id, Name: "beta-main", Key: "beta-main-key", UsedQuota: 9000},
+		{Id: 404, UserId: 1001, WorkspaceId: alpha.Id, Name: "alpha-subscription", Key: "alpha-sub-key", UsedQuota: 7000, BillingSource: "subscription"},
+	}).Error)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 61, UserId: 1001, Type: LogTypeConsume, CreatedAt: now.Add(-time.Hour).Unix(), TokenId: 401, TokenName: "alpha-main", Quota: 100},
+		{Id: 62, UserId: 1001, Type: LogTypeConsume, CreatedAt: time.Date(2026, 6, 9, 12, 0, 0, 0, time.UTC).Unix(), TokenId: 402, TokenName: "alpha-side", Quota: 200},
+		{Id: 63, UserId: 1001, Type: LogTypeConsume, CreatedAt: time.Date(2026, 6, 1, 12, 0, 0, 0, time.UTC).Unix(), TokenId: 401, TokenName: "alpha-main", Quota: 300},
+		{Id: 64, UserId: 1001, Type: LogTypeConsume, CreatedAt: time.Date(2026, 5, 31, 12, 0, 0, 0, time.UTC).Unix(), TokenId: 401, TokenName: "alpha-main", Quota: 400},
+		{Id: 65, UserId: 1001, Type: LogTypeConsume, CreatedAt: now.Add(-time.Hour).Unix(), TokenId: 403, TokenName: "beta-main", Quota: 900},
+		{Id: 66, UserId: 1001, Type: LogTypeConsume, CreatedAt: now.Add(-time.Hour).Unix(), TokenId: 404, TokenName: "alpha-subscription", Quota: 800},
+		{Id: 67, UserId: 1001, Type: LogTypeError, CreatedAt: now.Add(-time.Hour).Unix(), TokenId: 401, TokenName: "alpha-main", Quota: 500},
+	}).Error)
+
+	stats, err := GetUserWorkspaceUsageStats(1001, alpha.Id, now)
+
+	require.NoError(t, err)
+	require.Equal(t, alpha.Id, stats.WorkspaceId)
+	require.Equal(t, 100, stats.TodayQuota)
+	require.Equal(t, 300, stats.WeekQuota)
+	require.Equal(t, 600, stats.MonthQuota)
+	require.Equal(t, 4000, stats.TotalUsedQuota)
 }
 
 func TestGetQuotaDatesFromLogsFiltersByWorkspaceAndToken(t *testing.T) {
