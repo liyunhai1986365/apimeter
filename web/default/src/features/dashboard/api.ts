@@ -17,7 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
-import type { QuotaDataItem, UptimeGroupResult } from './types'
+import type {
+  QuotaDataItem,
+  UsageDimensionTrendItem,
+  UptimeGroupResult,
+} from './types'
 
 // ============================================================================
 // Dashboard APIs
@@ -45,6 +49,27 @@ export async function getUserQuotaDates(
     endpoint,
     { params }
   )
+  return res.data
+}
+
+export async function getUsageDimensionTrends(
+  params: {
+    start_timestamp: number
+    end_timestamp: number
+    default_time?: string
+    username?: string
+    token_name?: string
+    workspace_name?: string
+  },
+  isAdmin = false
+) {
+  const endpoint = isAdmin
+    ? '/api/data/dimensions'
+    : '/api/data/self/dimensions'
+  const res = await api.get<{
+    success: boolean
+    data: UsageDimensionTrendItem[]
+  }>(endpoint, { params })
   return res.data
 }
 

@@ -691,6 +691,93 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 	return quotaData, err
 }
 
+func GetUsageDimensionTrendsFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int) (trendData []*UsageDimensionTrendData, err error) {
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspaceName)
+	if err != nil {
+		return nil, err
+	}
+	tx := LOG_DB.Table("logs").
+		Select("token_id, token_name, sum(1) as count, sum(quota) as quota, sum(prompt_tokens) + sum(completion_tokens) as token_used, created_at").
+		Where("type = ?", LogTypeConsume)
+	tx = applyTokenIDFilter(tx, "", tokenIDs, tokenIDsResolved)
+	if userId > 0 {
+		tx = tx.Where("user_id = ?", userId)
+	}
+	if username != "" {
+		tx = tx.Where("username = ?", username)
+	}
+	if tokenName != "" {
+		tx = tx.Where("token_name = ?", tokenName)
+	}
+	if startTime != 0 {
+		tx = tx.Where("created_at >= ?", startTime)
+	}
+	if endTime != 0 {
+		tx = tx.Where("created_at <= ?", endTime)
+	}
+	if err = tx.Group("token_id, token_name, created_at").Find(&trendData).Error; err != nil {
+		return nil, err
+	}
+	enrichUsageDimensionTrendWorkspaces(trendData)
+	return trendData, nil
+}
+
+func enrichUsageDimensionTrendWorkspaces(trendData []*UsageDimensionTrendData) {
+	if len(trendData) == 0 {
+		return
+	}
+	tokenIdSet := make(map[int]struct{})
+	for _, item := range trendData {
+		if item != nil && item.TokenId > 0 {
+			tokenIdSet[item.TokenId] = struct{}{}
+		}
+	}
+	if len(tokenIdSet) == 0 {
+		return
+	}
+	tokenIds := make([]int, 0, len(tokenIdSet))
+	for tokenId := range tokenIdSet {
+		tokenIds = append(tokenIds, tokenId)
+	}
+	var tokens []Token
+	if err := DB.Select("id", "workspace_id").Where("id IN ?", tokenIds).Find(&tokens).Error; err != nil {
+		common.SysError("failed to query usage trend tokens: " + err.Error())
+		return
+	}
+	tokenWorkspaceIds := make(map[int]int, len(tokens))
+	workspaceIdSet := make(map[int]struct{})
+	for _, token := range tokens {
+		tokenWorkspaceIds[token.Id] = token.WorkspaceId
+		if token.WorkspaceId > 0 {
+			workspaceIdSet[token.WorkspaceId] = struct{}{}
+		}
+	}
+	if len(workspaceIdSet) == 0 {
+		return
+	}
+	workspaceIds := make([]int, 0, len(workspaceIdSet))
+	for workspaceId := range workspaceIdSet {
+		workspaceIds = append(workspaceIds, workspaceId)
+	}
+	var workspaces []Workspace
+	if err := DB.Select("id", "name").Where("id IN ?", workspaceIds).Find(&workspaces).Error; err != nil {
+		common.SysError("failed to query usage trend workspaces: " + err.Error())
+		return
+	}
+	workspaceNames := make(map[int]string, len(workspaces))
+	for _, workspace := range workspaces {
+		workspaceNames[workspace.Id] = workspace.Name
+	}
+	for _, item := range trendData {
+		if item == nil {
+			continue
+		}
+		workspaceId := tokenWorkspaceIds[item.TokenId]
+		item.WorkspaceId = workspaceId
+		item.WorkspaceName = workspaceNames[workspaceId]
+	}
+}
+
 func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string) (token int) {
 	tx := LOG_DB.Table("logs").Select("ifnull(sum(prompt_tokens),0) + ifnull(sum(completion_tokens),0)")
 	if username != "" {

@@ -1,6 +1,7 @@
 package model
 
 import (
+	"strconv"
 	"testing"
 	"time"
 
@@ -148,6 +149,49 @@ func TestGetQuotaDatesFromLogsFiltersByWorkspaceAndToken(t *testing.T) {
 	require.Equal(t, "gpt-alpha", data[0].ModelName)
 	require.Equal(t, 150, data[0].Quota)
 	require.Equal(t, 30, data[0].TokenUsed)
+}
+
+func TestGetUsageDimensionTrendsFromLogsAggregatesTokensAndEnrichesWorkspaces(t *testing.T) {
+	truncateTables(t)
+
+	alpha := Workspace{Id: 123, UserId: 1001, Name: "Dimension Alpha", Status: WorkspaceStatusEnabled}
+	beta := Workspace{Id: 124, UserId: 1001, Name: "Dimension Beta", Status: WorkspaceStatusEnabled}
+	require.NoError(t, DB.Create(&[]Workspace{alpha, beta}).Error)
+	require.NoError(t, DB.Create(&[]Token{
+		{Id: 223, UserId: 1001, WorkspaceId: alpha.Id, Name: "alpha-dimension-key", Key: "alpha-dimension-key-value"},
+		{Id: 224, UserId: 1001, WorkspaceId: beta.Id, Name: "beta-dimension-key", Key: "beta-dimension-key-value"},
+	}).Error)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 71, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3600, TokenId: 223, TokenName: "alpha-dimension-key", Quota: 150, PromptTokens: 10, CompletionTokens: 20},
+		{Id: 72, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3600, TokenId: 223, TokenName: "alpha-dimension-key", Quota: 250, PromptTokens: 30, CompletionTokens: 40},
+		{Id: 73, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 7200, TokenId: 224, TokenName: "beta-dimension-key", Quota: 450, PromptTokens: 50, CompletionTokens: 60},
+		{Id: 74, UserId: 1001, Username: "alice", Type: LogTypeError, CreatedAt: 3600, TokenId: 223, TokenName: "alpha-dimension-key", Quota: 900},
+	}).Error)
+
+	data, err := GetUsageDimensionTrendsFromLogs(0, 10000, "", "", "", 0)
+
+	require.NoError(t, err)
+	require.Len(t, data, 2)
+
+	byTokenAndTime := make(map[string]*UsageDimensionTrendData)
+	for _, item := range data {
+		byTokenAndTime[item.TokenName+"-"+strconv.FormatInt(item.CreatedAt, 10)] = item
+	}
+	alphaItem := byTokenAndTime["alpha-dimension-key-3600"]
+	require.NotNil(t, alphaItem)
+	require.Equal(t, alpha.Id, alphaItem.WorkspaceId)
+	require.Equal(t, alpha.Name, alphaItem.WorkspaceName)
+	require.Equal(t, 2, alphaItem.Count)
+	require.Equal(t, 400, alphaItem.Quota)
+	require.Equal(t, 100, alphaItem.TokenUsed)
+
+	betaItem := byTokenAndTime["beta-dimension-key-7200"]
+	require.NotNil(t, betaItem)
+	require.Equal(t, beta.Id, betaItem.WorkspaceId)
+	require.Equal(t, beta.Name, betaItem.WorkspaceName)
+	require.Equal(t, 1, betaItem.Count)
+	require.Equal(t, 450, betaItem.Quota)
+	require.Equal(t, 110, betaItem.TokenUsed)
 }
 
 func TestTaskLogsFilterByTokenAndWorkspaceName(t *testing.T) {

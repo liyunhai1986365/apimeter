@@ -21,6 +21,17 @@ type QuotaData struct {
 	Quota     int    `json:"quota" gorm:"default:0"`
 }
 
+type UsageDimensionTrendData struct {
+	CreatedAt     int64  `json:"created_at"`
+	TokenId       int    `json:"token_id"`
+	TokenName     string `json:"token_name"`
+	WorkspaceId   int    `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+	Count         int    `json:"count"`
+	TokenUsed     int    `json:"token_used"`
+	Quota         int    `json:"quota"`
+}
+
 func UpdateQuotaData() {
 	for {
 		if common.DataExportEnabled {

@@ -33,6 +33,17 @@ export interface QuotaDataItem {
   quota?: number
 }
 
+export interface UsageDimensionTrendItem {
+  created_at: number
+  token_id?: number
+  token_name?: string
+  workspace_id?: number
+  workspace_name?: string
+  token_used?: number
+  count?: number
+  quota?: number
+}
+
 // ============================================================================
 // Uptime Monitoring Types
 // ============================================================================
@@ -112,6 +123,11 @@ export interface ProcessedChartData {
 export interface ProcessedUserChartData {
   spec_user_rank: VChartSpec
   spec_user_trend: VChartSpec
+}
+
+export interface ProcessedDimensionTrendChartData {
+  spec_trend: VChartSpec
+  totalQuotaDisplay: string
 }
 
 // ============================================================================

@@ -23,7 +23,9 @@ import { MAX_CHART_TREND_POINTS } from '@/features/dashboard/constants'
 import type {
   QuotaDataItem,
   ProcessedChartData,
+  ProcessedDimensionTrendChartData,
   ProcessedUserChartData,
+  UsageDimensionTrendItem,
 } from '@/features/dashboard/types'
 
 type TFunction = (key: string) => string
@@ -716,6 +718,231 @@ export function processChartData(
     },
     totalQuotaDisplay: formatQuotaTotal(totalQuotaRaw),
     totalCountDisplay: formatInt(totalTimes),
+  }
+}
+
+export function processDimensionTrendChartData(
+  data: UsageDimensionTrendItem[],
+  dimension: 'workspace' | 'token',
+  timeGranularity: TimeGranularity = 'day',
+  t?: TFunction,
+  themeKey?: string,
+  referenceTimestamps?: number[]
+): ProcessedDimensionTrendChartData {
+  const tt: TFunction = t ?? ((x) => x)
+  const otherLabel = tt('Other')
+  const unknownWorkspaceLabel = tt('Unknown workspace')
+  const unknownTokenLabel = tt('Unknown token')
+  const formatQuotaValue = (value: number) => renderQuotaCompat(value, 4)
+  const formatQuotaTotal = (value: number) => renderQuotaCompat(value, 2)
+  const getDimensionName = (item: UsageDimensionTrendItem) => {
+    if (dimension === 'workspace') {
+      return item.workspace_name?.trim() || unknownWorkspaceLabel
+    }
+    return item.token_name?.trim() || unknownTokenLabel
+  }
+
+  if (!data || data.length === 0) {
+    return {
+      spec_trend: {
+        type: 'area',
+        data: [{ id: 'dimensionTrendData', values: [] }],
+        xField: 'Time',
+        yField: 'Amount',
+        seriesField: 'Name',
+        legends: { visible: true, selectMode: 'single' },
+        title: {
+          visible: true,
+          text:
+            dimension === 'workspace'
+              ? tt('Workspace Usage Trend')
+              : tt('Token Usage Trend'),
+          subtext: tt('No data available'),
+        },
+      },
+      totalQuotaDisplay: formatQuotaTotal(0),
+    }
+  }
+
+  const timeDimensionMap = new Map<string, Map<string, number>>()
+  const dimensionTotalsMap = new Map<string, number>()
+  const timeTotalsMap = new Map<string, number>()
+
+  data.forEach((item) => {
+    const time = formatChartTime(item.created_at, timeGranularity)
+    const name = getDimensionName(item)
+    const quota = Number(item.quota) || 0
+    if (!timeDimensionMap.has(time)) {
+      timeDimensionMap.set(time, new Map())
+    }
+    const dimensionMap = timeDimensionMap.get(time)!
+    dimensionMap.set(name, (dimensionMap.get(name) || 0) + quota)
+    dimensionTotalsMap.set(name, (dimensionTotalsMap.get(name) || 0) + quota)
+    timeTotalsMap.set(time, (timeTotalsMap.get(time) || 0) + quota)
+  })
+
+  const baseTimes =
+    referenceTimestamps && referenceTimestamps.length > 0
+      ? referenceTimestamps.map((timestamp) =>
+          formatChartTime(timestamp, timeGranularity)
+        )
+      : Array.from(timeDimensionMap.keys())
+  const sortedTimes = Array.from(new Set(baseTimes)).sort()
+  const getIntervalSec = () => {
+    if (timeGranularity === 'hour') return 3600
+    if (timeGranularity === 'week') return 7 * 24 * 3600
+    return 24 * 3600
+  }
+  const fillTimePoints = (times: string[]) => {
+    const MAX_TREND_POINTS = MAX_CHART_TREND_POINTS
+    if (times.length >= MAX_TREND_POINTS) return times
+    const latestSource =
+      referenceTimestamps && referenceTimestamps.length > 0
+        ? referenceTimestamps
+        : data.map((item) => Number(item.created_at) || 0)
+    const latest = latestSource.reduce(
+      (max, timestamp) => Math.max(max, timestamp),
+      0
+    )
+    const padded = [...times]
+    const intervalSec = getIntervalSec()
+    for (let i = times.length; i < MAX_TREND_POINTS; i++) {
+      const time = formatChartTime(
+        latest - (MAX_TREND_POINTS - 1 - i) * intervalSec,
+        timeGranularity
+      )
+      if (!padded.includes(time)) padded.push(time)
+    }
+    return padded.sort()
+  }
+  const chartTimes = fillTimePoints(sortedTimes)
+
+  const MAX_DIMENSION_SERIES = 15
+  const rankedDimensions = Array.from(dimensionTotalsMap.entries()).sort(
+    (a, b) => b[1] - a[1]
+  )
+  const topDimensions = new Set(
+    rankedDimensions.slice(0, MAX_DIMENSION_SERIES).map(([name]) => name)
+  )
+  const hasOther = rankedDimensions.length > MAX_DIMENSION_SERIES
+  const seriesNames = rankedDimensions
+    .slice(0, MAX_DIMENSION_SERIES)
+    .map(([name]) => name)
+  if (hasOther) seriesNames.push(otherLabel)
+
+  const values: Array<{
+    Time: string
+    Name: string
+    Amount: number
+    rawQuota: number
+    TimeSum: number
+  }> = []
+  chartTimes.forEach((time) => {
+    const dimensionMap = timeDimensionMap.get(time)
+    const buckets = new Map<string, number>()
+    if (dimensionMap) {
+      dimensionMap.forEach((quota, name) => {
+        const key = topDimensions.has(name) ? name : otherLabel
+        buckets.set(key, (buckets.get(key) || 0) + quota)
+      })
+    }
+    const timeSum = timeTotalsMap.get(time) || 0
+    seriesNames.forEach((name) => {
+      const rawQuota = buckets.get(name) || 0
+      values.push({
+        Time: time,
+        Name: name,
+        Amount: rawQuota,
+        rawQuota,
+        TimeSum: timeSum,
+      })
+    })
+  })
+
+  const totalQuotaRaw = Array.from(dimensionTotalsMap.values()).reduce(
+    (sum, quota) => sum + quota,
+    0
+  )
+  const color = getVChartDefaultColors(seriesNames.length, themeKey)
+
+  return {
+    spec_trend: {
+      type: 'area',
+      data: [{ id: 'dimensionTrendData', values }],
+      xField: 'Time',
+      yField: 'Amount',
+      seriesField: 'Name',
+      stack: false,
+      legends: { visible: true, selectMode: 'single' },
+      color,
+      axes: [
+        { orient: 'bottom', type: 'band' },
+        {
+          orient: 'left',
+          type: 'linear',
+          label: {
+            formatMethod: (value: number) =>
+              formatQuotaValue(Number(value) || 0),
+          },
+        },
+      ],
+      tooltip: {
+        mark: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.Name,
+              value: (datum: Record<string, unknown>) =>
+                formatQuotaValue(Number(datum?.rawQuota) || 0),
+            },
+          ],
+        },
+        dimension: {
+          content: [
+            {
+              key: (datum: Record<string, unknown>) => datum?.Name,
+              value: (datum: Record<string, unknown>) =>
+                Number(datum?.rawQuota) || 0,
+            },
+          ],
+          updateContent: (array: TooltipLineItem[]) => {
+            const namedItems = array.filter((item) => item.key !== otherLabel)
+            const otherItems = array.filter((item) => item.key === otherLabel)
+            namedItems.sort(
+              (a, b) => (Number(b.value) || 0) - (Number(a.value) || 0)
+            )
+            array = [...namedItems, ...otherItems]
+
+            let sum = 0
+            for (let i = 0; i < array.length; i++) {
+              const v = Number(array[i].value) || 0
+              sum += v
+              array[i].value = formatQuotaValue(v)
+            }
+            array.unshift({
+              key: tt('Total:'),
+              value: formatQuotaValue(sum),
+            })
+            return array
+          },
+        },
+      },
+      area: {
+        style: {
+          fillOpacity: 0.08,
+          curveType: 'monotone',
+        },
+      },
+      line: {
+        style: {
+          lineWidth: 2,
+          curveType: 'monotone',
+        },
+      },
+      point: { visible: false },
+      background: { fill: 'transparent' },
+      animation: true,
+    },
+    totalQuotaDisplay: formatQuotaTotal(totalQuotaRaw),
   }
 }
 
