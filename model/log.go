@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -38,6 +39,39 @@ type Log struct {
 	RequestId         string `json:"request_id,omitempty" gorm:"type:varchar(64);index:idx_logs_request_id;default:''"`
 	UpstreamRequestId string `json:"upstream_request_id,omitempty" gorm:"type:varchar(128);index:idx_logs_upstream_request_id;default:''"`
 	Other             string `json:"other"`
+}
+
+func resolveTokenIDsForFilters(userId int, tokenName string, workspaceName string) ([]int, bool, error) {
+	tokenName = strings.TrimSpace(tokenName)
+	workspaceName = strings.TrimSpace(workspaceName)
+	if workspaceName == "" {
+		return nil, false, nil
+	}
+	query := DB.Table("tokens").
+		Select("tokens.id").
+		Joins("JOIN workspaces ON workspaces.id = tokens.workspace_id").
+		Where("workspaces.name = ?", workspaceName)
+	if userId > 0 {
+		query = query.Where("tokens.user_id = ?", userId)
+	}
+	if tokenName != "" {
+		query = query.Where("tokens.name = ?", tokenName)
+	}
+	var ids []int
+	if err := query.Pluck("tokens.id", &ids).Error; err != nil {
+		return nil, false, err
+	}
+	return ids, true, nil
+}
+
+func applyTokenIDFilter(tx *gorm.DB, prefix string, tokenIDs []int, tokenIDsResolved bool) *gorm.DB {
+	if !tokenIDsResolved {
+		return tx
+	}
+	if len(tokenIDs) == 0 {
+		return tx.Where("1 = 0")
+	}
+	return tx.Where(prefix+"token_id IN ?", tokenIDs)
 }
 
 // don't use iota, avoid change log type value
@@ -310,9 +344,18 @@ func dedupeRepeatedErrorLogsByRequestId(tx *gorm.DB, applyFilters func(*gorm.DB,
 	return tx.Where("NOT (logs.type = ? AND logs.request_id <> '' AND EXISTS (?))", LogTypeError, newer)
 }
 
-func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
+func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string, workspaceName ...string) (logs []*Log, total int64, err error) {
+	workspace := ""
+	if len(workspaceName) > 0 {
+		workspace = workspaceName[0]
+	}
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace)
+	if err != nil {
+		return nil, 0, err
+	}
 	applyFilters := func(tx *gorm.DB, alias string) *gorm.DB {
 		prefix := alias + "."
+		tx = applyTokenIDFilter(tx, prefix, tokenIDs, tokenIDsResolved)
 		if logType != LogTypeUnknown {
 			tx = tx.Where(prefix+"type = ?", logType)
 		}
@@ -401,7 +444,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 const logSearchCountLimit = 10000
 
-func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string) (logs []*Log, total int64, err error) {
+func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, workspaceName ...string) (logs []*Log, total int64, err error) {
 	var modelNamePattern string
 	if modelName != "" {
 		modelNamePattern, err = sanitizeLikePattern(modelName)
@@ -409,9 +452,18 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 			return nil, 0, err
 		}
 	}
+	workspace := ""
+	if len(workspaceName) > 0 {
+		workspace = workspaceName[0]
+	}
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspace)
+	if err != nil {
+		return nil, 0, err
+	}
 	applyFilters := func(tx *gorm.DB, alias string) *gorm.DB {
 		prefix := alias + "."
 		tx = tx.Where(prefix+"user_id = ?", userId)
+		tx = applyTokenIDFilter(tx, prefix, tokenIDs, tokenIDsResolved)
 		if logType != LogTypeUnknown {
 			tx = tx.Where(prefix+"type = ?", logType)
 		}
@@ -545,11 +597,21 @@ func GetSubscriptionKeyUsageStats(userId int, tokenId int, days int, now time.Ti
 	return stats, nil
 }
 
-func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string) (stat Stat, err error) {
+func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspaceName ...string) (stat Stat, err error) {
 	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
 
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
+	workspace := ""
+	if len(workspaceName) > 0 {
+		workspace = workspaceName[0]
+	}
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace)
+	if err != nil {
+		return stat, err
+	}
+	tx = applyTokenIDFilter(tx, "", tokenIDs, tokenIDsResolved)
+	rpmTpmQuery = applyTokenIDFilter(rpmTpmQuery, "", tokenIDs, tokenIDsResolved)
 
 	if username != "" {
 		tx = tx.Where("username = ?", username)
@@ -599,6 +661,34 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 
 	return stat, nil
+}
+
+func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int) (quotaData []*QuotaData, err error) {
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspaceName)
+	if err != nil {
+		return nil, err
+	}
+	tx := LOG_DB.Table("logs").
+		Select("model_name, sum(1) as count, sum(quota) as quota, sum(prompt_tokens) + sum(completion_tokens) as token_used, created_at").
+		Where("type = ?", LogTypeConsume)
+	tx = applyTokenIDFilter(tx, "", tokenIDs, tokenIDsResolved)
+	if userId > 0 {
+		tx = tx.Where("user_id = ?", userId)
+	}
+	if username != "" {
+		tx = tx.Where("username = ?", username)
+	}
+	if tokenName != "" {
+		tx = tx.Where("token_name = ?", tokenName)
+	}
+	if startTime != 0 {
+		tx = tx.Where("created_at >= ?", startTime)
+	}
+	if endTime != 0 {
+		tx = tx.Where("created_at <= ?", endTime)
+	}
+	err = tx.Group("model_name, created_at").Find(&quotaData).Error
+	return quotaData, err
 }
 
 func SumUsedToken(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string) (token int) {

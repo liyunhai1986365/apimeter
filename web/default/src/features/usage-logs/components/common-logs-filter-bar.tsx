@@ -39,6 +39,13 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { DataTableToolbar } from '@/components/data-table'
+import { FilterCombobox } from '@/components/filter-combobox'
+import {
+  ALL_TOKEN_FILTER_VALUE,
+  ALL_WORKSPACE_FILTER_VALUE,
+  useWorkspaceTokenOptions,
+} from '@/features/keys/hooks/use-workspace-token-options'
+import { useLogFilterOptions } from '../hooks/use-log-filter-options'
 import { LOG_TYPES } from '../constants'
 import { buildSearchParams } from '../lib/filter'
 import { getDefaultTimeRange } from '../lib/utils'
@@ -49,6 +56,9 @@ import { useUsageLogsContext } from './usage-logs-provider'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 const logTypeValues = ['0', '1', '2', '3', '4', '5', '6'] as const
+const ALL_MODEL_FILTER_VALUE = '__all_models__'
+const ALL_GROUP_FILTER_VALUE = '__all_groups__'
+const ALL_CHANNEL_FILTER_VALUE = '__all_channels__'
 
 type LogTypeValue = (typeof logTypeValues)[number]
 
@@ -85,6 +95,7 @@ export function CommonLogsFilterBar<TData>(
     if (searchParams.channel) next.channel = String(searchParams.channel)
     if (searchParams.model) next.model = searchParams.model
     if (searchParams.token) next.token = searchParams.token
+    if (searchParams.workspace) next.workspace = searchParams.workspace
     if (searchParams.group) next.group = searchParams.group
     if (searchParams.username) next.username = searchParams.username
     if (searchParams.requestId) next.requestId = searchParams.requestId
@@ -105,6 +116,7 @@ export function CommonLogsFilterBar<TData>(
     searchParams.channel,
     searchParams.model,
     searchParams.token,
+    searchParams.workspace,
     searchParams.group,
     searchParams.username,
     searchParams.requestId,
@@ -162,6 +174,7 @@ export function CommonLogsFilterBar<TData>(
 
   const hasExpandedFilters =
     !!filters.token ||
+    !!filters.workspace ||
     !!filters.username ||
     !!filters.channel ||
     !!filters.requestId ||
@@ -172,6 +185,16 @@ export function CommonLogsFilterBar<TData>(
 
   const inputClass = 'w-full sm:w-[140px] lg:w-[160px]'
   const sensitiveType = sensitiveVisible ? 'text' : 'password'
+  const { workspaceOptions, tokenOptions } = useWorkspaceTokenOptions({
+    workspaceName: filters.workspace,
+    tokenName: filters.token,
+  })
+  const { modelOptions, groupOptions, channelOptions } = useLogFilterOptions({
+    modelName: filters.model,
+    group: filters.group,
+    channel: filters.channel,
+    includeChannels: isAdmin,
+  })
 
   const statsBar = (
     <div className='flex flex-wrap items-center gap-2'>
@@ -214,19 +237,22 @@ export function CommonLogsFilterBar<TData>(
       }
       additionalSearch={
         <>
-          <Input
+          <FilterCombobox
+            options={modelOptions}
+            value={filters.model}
+            allValue={ALL_MODEL_FILTER_VALUE}
+            allLabel={t('All Models')}
             placeholder={t('Model Name')}
-            value={filters.model || ''}
-            onChange={(e) => handleChange('model', e.target.value)}
-            onKeyDown={handleKeyDown}
+            onValueChange={(value) => handleChange('model', value)}
             className={inputClass}
           />
-          <Input
+          <FilterCombobox
+            options={groupOptions}
+            value={filters.group}
+            allValue={ALL_GROUP_FILTER_VALUE}
+            allLabel={t('All Groups')}
             placeholder={t('Group')}
-            type={sensitiveType}
-            value={filters.group || ''}
-            onChange={(e) => handleChange('group', e.target.value)}
-            onKeyDown={handleKeyDown}
+            onValueChange={(value) => handleChange('group', value)}
             className={inputClass}
           />
           <Select
@@ -260,12 +286,25 @@ export function CommonLogsFilterBar<TData>(
       }
       expandable={
         <>
-          <Input
+          <FilterCombobox
+            options={workspaceOptions}
+            value={filters.workspace}
+            allValue={ALL_WORKSPACE_FILTER_VALUE}
+            allLabel={t('All Workspaces')}
+            placeholder={t('Workspace Name')}
+            onValueChange={(value) => {
+              handleChange('workspace', value)
+              if (value !== filters.workspace) handleChange('token', undefined)
+            }}
+            className={inputClass}
+          />
+          <FilterCombobox
+            options={tokenOptions}
+            value={filters.token}
+            allValue={ALL_TOKEN_FILTER_VALUE}
+            allLabel={t('All Tokens')}
             placeholder={t('Token Name')}
-            type={sensitiveType}
-            value={filters.token || ''}
-            onChange={(e) => handleChange('token', e.target.value)}
-            onKeyDown={handleKeyDown}
+            onValueChange={(value) => handleChange('token', value)}
             className={inputClass}
           />
           {isAdmin && (
@@ -279,11 +318,13 @@ export function CommonLogsFilterBar<TData>(
             />
           )}
           {isAdmin && (
-            <Input
+            <FilterCombobox
+              options={channelOptions}
+              value={filters.channel}
+              allValue={ALL_CHANNEL_FILTER_VALUE}
+              allLabel={t('All Channels')}
               placeholder={t('Channel ID')}
-              value={filters.channel || ''}
-              onChange={(e) => handleChange('channel', e.target.value)}
-              onKeyDown={handleKeyDown}
+              onValueChange={(value) => handleChange('channel', value)}
               className={inputClass}
             />
           )}

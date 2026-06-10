@@ -338,6 +338,15 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.POST("/batch", controller.DeleteTokenBatch)
 			tokenRoute.POST("/batch/keys", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKeysBatch)
 		}
+		workspaceRoute := apiRouter.Group("/workspaces")
+		workspaceRoute.Use(middleware.UserAuth())
+		{
+			workspaceRoute.GET("/", controller.ListWorkspaces)
+			workspaceRoute.GET("", controller.ListWorkspaces)
+			workspaceRoute.POST("/", controller.CreateWorkspace)
+			workspaceRoute.PUT("/:id", controller.UpdateWorkspace)
+			workspaceRoute.DELETE("/:id", controller.DeleteWorkspace)
+		}
 
 		usageRoute := apiRouter.Group("/usage")
 		usageRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())

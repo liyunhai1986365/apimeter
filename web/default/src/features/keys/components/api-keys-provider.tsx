@@ -20,9 +20,9 @@ import React, { useState, useCallback, useRef, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import useDialogState from '@/hooks/use-dialog'
-import { fetchTokenKey, fetchTokenKeysBatch } from '../api'
+import { fetchTokenKey, fetchTokenKeysBatch, getWorkspaces } from '../api'
 import { ERROR_MESSAGES } from '../constants'
-import { type ApiKey, type ApiKeysDialogType } from '../types'
+import { type ApiKey, type ApiKeysDialogType, type Workspace } from '../types'
 
 type ApiKeysContextType = {
   open: ApiKeysDialogType | null
@@ -39,6 +39,12 @@ type ApiKeysContextType = {
   loadingKeys: Record<number, boolean>
   copiedKeyId: number | null
   markKeyCopied: (id: number) => void
+  workspaces: Workspace[]
+  selectedWorkspaceId: number | null
+  selectedWorkspace: Workspace | null
+  setSelectedWorkspaceId: React.Dispatch<React.SetStateAction<number | null>>
+  isLoadingWorkspaces: boolean
+  refreshWorkspaces: () => Promise<void>
 }
 
 const ApiKeysContext = React.createContext<ApiKeysContextType | null>(null)
@@ -48,7 +54,13 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useDialogState<ApiKeysDialogType>(null)
   const [currentRow, setCurrentRow] = useState<ApiKey | null>(null)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  const [workspaceRefreshTrigger, setWorkspaceRefreshTrigger] = useState(0)
   const [resolvedKey, setResolvedKey] = useState('')
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<number | null>(
+    null
+  )
+  const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(false)
 
   const [resolvedKeys, setResolvedKeys] = useState<Record<number, string>>({})
   const [loadingKeys, setLoadingKeys] = useState<Record<number, boolean>>({})
@@ -69,7 +81,38 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
 
   const triggerRefresh = useCallback(() => {
     setRefreshTrigger((prev) => prev + 1)
+    setWorkspaceRefreshTrigger((prev) => prev + 1)
   }, [])
+
+  const refreshWorkspaces = useCallback(async () => {
+    setIsLoadingWorkspaces(true)
+    try {
+      const res = await getWorkspaces()
+      if (!res.success || !res.data) {
+        toast.error(res.message || t(ERROR_MESSAGES.UNEXPECTED))
+        return
+      }
+      setWorkspaces(res.data)
+      setSelectedWorkspaceId((current) => {
+        if (current && res.data?.some((workspace) => workspace.id === current)) {
+          return current
+        }
+        return (
+          res.data?.find((workspace) => workspace.is_default)?.id ??
+          res.data?.[0]?.id ??
+          null
+        )
+      })
+    } catch {
+      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+    } finally {
+      setIsLoadingWorkspaces(false)
+    }
+  }, [t])
+
+  useEffect(() => {
+    void refreshWorkspaces()
+  }, [refreshWorkspaces, workspaceRefreshTrigger])
 
   const resolveRealKey = useCallback(
     async (id: number): Promise<string | null> => {
@@ -152,6 +195,9 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
     [resolvedKeys, t]
   )
 
+  const selectedWorkspace =
+    workspaces.find((workspace) => workspace.id === selectedWorkspaceId) ?? null
+
   return (
     <ApiKeysContext
       value={{
@@ -169,6 +215,12 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
         loadingKeys,
         copiedKeyId,
         markKeyCopied,
+        workspaces,
+        selectedWorkspaceId,
+        selectedWorkspace,
+        setSelectedWorkspaceId,
+        isLoadingWorkspaces,
+        refreshWorkspaces,
       }}
     >
       {children}

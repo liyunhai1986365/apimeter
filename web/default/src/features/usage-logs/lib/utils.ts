@@ -110,6 +110,18 @@ export function buildQueryParams(
   return queryParams
 }
 
+export function normalizeNumericFilterValue(
+  value: unknown
+): string | undefined {
+  if (value === undefined || value === null || value === '') return undefined
+  const raw = String(value).trim()
+  if (!raw) return undefined
+  const unquoted = raw.replace(/^["'](.+)["']$/, '$1').trim()
+  if (!unquoted) return undefined
+  const numeric = Number(unquoted)
+  return Number.isFinite(numeric) ? String(numeric) : undefined
+}
+
 /**
  * Build time range parameters with default values
  * Shared logic for all log types
@@ -155,13 +167,14 @@ export function buildBaseParams(config: {
   end_timestamp?: number
 } {
   const { page, pageSize, searchParams, useMilliseconds = false } = config
+  const channelId = normalizeNumericFilterValue(searchParams.channel)
 
   return {
     p: page,
     page_size: pageSize,
-    ...(searchParams.channel
+    ...(channelId
       ? {
-          channel_id: String(searchParams.channel),
+          channel_id: channelId,
         }
       : {}),
     ...buildTimeRangeParams(searchParams, useMilliseconds),
@@ -179,6 +192,7 @@ export function buildApiParams(config: {
   isAdmin: boolean
 }): GetLogsParams {
   const { page, pageSize, searchParams, columnFilters = [], isAdmin } = config
+  const channelId = normalizeNumericFilterValue(searchParams.channel)
 
   // Helper to process type parameter (single value from array)
   const processType = (value: unknown) => {
@@ -195,10 +209,11 @@ export function buildApiParams(config: {
     ...(searchParams.type ? { type: processType(searchParams.type) } : {}),
     ...(searchParams.model ? { model_name: String(searchParams.model) } : {}),
     ...(searchParams.token ? { token_name: String(searchParams.token) } : {}),
-    ...(searchParams.group ? { group: String(searchParams.group) } : {}),
-    ...(isAdmin && searchParams.channel
-      ? { channel: Number(searchParams.channel) || 0 }
+    ...(searchParams.workspace
+      ? { workspace_name: String(searchParams.workspace) }
       : {}),
+    ...(searchParams.group ? { group: String(searchParams.group) } : {}),
+    ...(isAdmin && channelId ? { channel: Number(channelId) } : {}),
     ...(isAdmin && searchParams.username
       ? { username: String(searchParams.username) }
       : {}),
@@ -226,11 +241,17 @@ export function buildApiParams(config: {
         case 'token_name':
           params.token_name = String(value)
           break
+        case 'workspace_name':
+          params.workspace_name = String(value)
+          break
         case 'group':
           params.group = String(value)
           break
         case 'channel':
-          if (isAdmin) params.channel = Number(value) || 0
+          if (isAdmin) {
+            const channelFilter = normalizeNumericFilterValue(value)
+            if (channelFilter) params.channel = Number(channelFilter)
+          }
           break
         case 'username':
           if (isAdmin) params.username = String(value)
@@ -300,7 +321,11 @@ export async function fetchLogsByCategory(
       ? { mj_id: searchParams.filter as string | undefined }
       : {}),
     ...(logCategory === 'task'
-      ? { task_id: searchParams.filter as string | undefined }
+      ? {
+          task_id: searchParams.filter as string | undefined,
+          token_name: searchParams.token as string | undefined,
+          workspace_name: searchParams.workspace as string | undefined,
+        }
       : {}),
   }
 

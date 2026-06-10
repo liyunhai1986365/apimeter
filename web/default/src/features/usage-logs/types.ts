@@ -49,6 +49,7 @@ export interface CommonFilters {
 export interface CommonLogFilters extends CommonFilters {
   model?: string
   token?: string
+  workspace?: string
   group?: string
   username?: string
   requestId?: string
@@ -67,6 +68,8 @@ export interface DrawingLogFilters extends CommonFilters {
  */
 export interface TaskLogFilters extends CommonFilters {
   taskId?: string
+  token?: string
+  workspace?: string
 }
 
 /**
@@ -275,6 +278,7 @@ export interface GetLogsParams {
   type?: number
   username?: string
   token_name?: string
+  workspace_name?: string
   model_name?: string
   start_timestamp?: number
   end_timestamp?: number
@@ -330,6 +334,7 @@ export interface GetLogStatsParams {
   type?: number
   username?: string
   token_name?: string
+  workspace_name?: string
   model_name?: string
   start_timestamp?: number
   end_timestamp?: number
@@ -367,6 +372,8 @@ export interface GetTaskLogsParams {
   page_size?: number
   channel_id?: string
   task_id?: string
+  token_name?: string
+  workspace_name?: string
   start_timestamp?: number
   end_timestamp?: number
 }

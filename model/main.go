@@ -289,6 +289,7 @@ func migrateDB() error {
 	}
 	err := DB.AutoMigrate(
 		&Channel{},
+		&Workspace{},
 		&Token{},
 		&User{},
 		&PasskeyCredential{},
@@ -339,6 +340,9 @@ func migrateDB() error {
 			return err
 		}
 	}
+	if err := BackfillTaskTokenFields(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -351,6 +355,7 @@ func migrateDBFast() error {
 		name  string
 	}{
 		{&Channel{}, "Channel"},
+		{&Workspace{}, "Workspace"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
 		{&PasskeyCredential{}, "PasskeyCredential"},
@@ -425,6 +430,9 @@ func migrateDBFast() error {
 		return err
 	}
 	if err := migrateAgentUserGroupColumn(); err != nil {
+		return err
+	}
+	if err := BackfillTaskTokenFields(); err != nil {
 		return err
 	}
 	common.SysLog("database migrated")

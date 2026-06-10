@@ -168,6 +168,12 @@ func insertImageAsyncTask(info *relaycommon.RelayInfo, upstreamTaskID string, re
 	task.PrivateData.BillingSource = info.BillingSource
 	task.PrivateData.SubscriptionId = info.SubscriptionId
 	task.PrivateData.TokenId = info.TokenId
+	task.TokenId = info.TokenId
+	if info.TokenId > 0 {
+		if token, err := model.GetTokenById(info.TokenId); err == nil {
+			task.TokenName = token.Name
+		}
+	}
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
 		ModelPrice:      info.PriceData.ModelPrice,
 		GroupRatio:      info.PriceData.GroupRatioInfo.GroupRatio,

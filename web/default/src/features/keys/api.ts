@@ -22,8 +22,10 @@ import type {
   ApiResponse,
   GetApiKeysParams,
   GetApiKeysResponse,
+  GetApiKeySearchResponse,
   SearchApiKeysParams,
   ApiKeyFormData,
+  Workspace,
 } from './types'
 
 // ============================================================================
@@ -34,22 +36,57 @@ import type {
 export async function getApiKeys(
   params: GetApiKeysParams = {}
 ): Promise<GetApiKeysResponse> {
-  const { p = 1, size = 10 } = params
-  const res = await api.get(`/api/token/?p=${p}&size=${size}`)
+  const { p = 1, size = 10, workspace_id } = params
+  const queryParams = new URLSearchParams()
+  queryParams.set('p', String(p))
+  queryParams.set('size', String(size))
+  if (workspace_id) queryParams.set('workspace_id', String(workspace_id))
+  const res = await api.get(`/api/token/?${queryParams.toString()}`)
   return res.data
 }
 
 // Search API keys by keyword or token (with pagination)
 export async function searchApiKeys(
   params: SearchApiKeysParams
-): Promise<{ success: boolean; message?: string; data?: ApiKey[] }> {
-  const { keyword = '', token = '', p, size } = params
+): Promise<GetApiKeySearchResponse> {
+  const { keyword = '', token = '', p, size, workspace_id } = params
   const queryParams = new URLSearchParams()
   if (keyword) queryParams.set('keyword', keyword)
   if (token) queryParams.set('token', token)
   if (p != null) queryParams.set('p', String(p))
   if (size != null) queryParams.set('size', String(size))
+  if (workspace_id) queryParams.set('workspace_id', String(workspace_id))
   const res = await api.get(`/api/token/search?${queryParams.toString()}`)
+  return res.data
+}
+
+export async function getWorkspaces(): Promise<ApiResponse<Workspace[]>> {
+  const res = await api.get('/api/workspaces/')
+  return res.data
+}
+
+export async function createWorkspace(data: {
+  name: string
+  description?: string
+}): Promise<ApiResponse<Workspace>> {
+  const res = await api.post('/api/workspaces/', data)
+  return res.data
+}
+
+export async function updateWorkspace(data: {
+  id: number
+  name: string
+  description?: string
+}): Promise<ApiResponse<Workspace>> {
+  const res = await api.put(`/api/workspaces/${data.id}`, {
+    name: data.name,
+    description: data.description || '',
+  })
+  return res.data
+}
+
+export async function deleteWorkspace(id: number): Promise<ApiResponse> {
+  const res = await api.delete(`/api/workspaces/${id}`)
   return res.data
 }
 

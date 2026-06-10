@@ -35,6 +35,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { FilterCombobox } from '@/components/filter-combobox'
 import {
   Select,
   SelectContent,
@@ -44,6 +45,11 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { DateTimePicker } from '@/components/datetime-picker'
+import {
+  ALL_TOKEN_FILTER_VALUE,
+  ALL_WORKSPACE_FILTER_VALUE,
+  useWorkspaceTokenOptions,
+} from '@/features/keys/hooks/use-workspace-token-options'
 import {
   TIME_GRANULARITY_OPTIONS,
   TIME_RANGE_PRESETS,
@@ -90,6 +96,11 @@ export function ModelsFilter(props: ModelsFilterProps) {
   const [selectedRange, setSelectedRange] = useState<number | null>(
     () => props.preferences.defaultTimeRangeDays
   )
+  const { workspaceOptions, tokenOptions } = useWorkspaceTokenOptions({
+    workspaceName: filters.workspace_name,
+    tokenName: filters.token_name,
+    enabled: open,
+  })
 
   const resetFiltersFromPreferences = () => {
     setFilters(buildDefaultDashboardFilters(props.preferences))
@@ -245,6 +256,42 @@ export function ModelsFilter(props: ModelsFilterProps) {
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+
+            <SectionDivider label={t('API Key Filters')} />
+
+            <div className='grid gap-3 sm:grid-cols-2'>
+              <div className='grid gap-2'>
+                <Label htmlFor='workspace_name'>{t('Workspace Name')}</Label>
+                <FilterCombobox
+                  id='workspace_name'
+                  options={workspaceOptions}
+                  value={filters.workspace_name}
+                  allValue={ALL_WORKSPACE_FILTER_VALUE}
+                  allLabel={t('All Workspaces')}
+                  placeholder={t('Workspace Name')}
+                  onValueChange={(value) => {
+                    handleChange('workspace_name', value)
+                    if (value !== filters.workspace_name) {
+                      handleChange('token_name', undefined)
+                    }
+                  }}
+                  className='w-full'
+                />
+              </div>
+              <div className='grid gap-2'>
+                <Label htmlFor='token_name'>{t('Token Name')}</Label>
+                <FilterCombobox
+                  id='token_name'
+                  options={tokenOptions}
+                  value={filters.token_name}
+                  allValue={ALL_TOKEN_FILTER_VALUE}
+                  allLabel={t('All Tokens')}
+                  placeholder={t('Token Name')}
+                  onValueChange={(value) => handleChange('token_name', value)}
+                  className='w-full'
+                />
+              </div>
             </div>
 
             {/* Admin-only fields */}

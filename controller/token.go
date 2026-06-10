@@ -33,6 +33,34 @@ func buildMaskedTokenResponses(tokens []*model.Token) []*model.Token {
 	return maskedTokens
 }
 
+func tokenWorkspaceIDFromQuery(c *gin.Context) (int, error) {
+	raw := strings.TrimSpace(c.Query("workspace_id"))
+	if raw == "" {
+		return 0, nil
+	}
+	workspaceId, err := strconv.Atoi(raw)
+	if err != nil || workspaceId < 0 {
+		return 0, fmt.Errorf("workspace_id 无效")
+	}
+	return workspaceId, nil
+}
+
+func prepareTokenWorkspaceFilter(c *gin.Context, userId int) (int, error) {
+	if _, err := model.EnsureDefaultWorkspace(userId); err != nil {
+		return 0, err
+	}
+	workspaceId, err := tokenWorkspaceIDFromQuery(c)
+	if err != nil {
+		return 0, err
+	}
+	if workspaceId > 0 {
+		if _, err := model.GetUserWorkspaceByID(userId, workspaceId); err != nil {
+			return 0, err
+		}
+	}
+	return workspaceId, nil
+}
+
 func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 	if token == nil {
 		return nil
@@ -65,12 +93,21 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 func GetAllTokens(c *gin.Context) {
 	userId := c.GetInt("id")
 	pageInfo := common.GetPageQuery(c)
-	tokens, err := model.GetAllUserTokens(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	workspaceId, err := prepareTokenWorkspaceFilter(c, userId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	total, _ := model.CountUserTokens(userId)
+	tokens, err := model.GetAllUserTokens(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), workspaceId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.AttachWorkspaceNames(tokens); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	total, _ := model.CountUserTokens(userId, workspaceId)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
@@ -83,8 +120,17 @@ func SearchTokens(c *gin.Context) {
 
 	pageInfo := common.GetPageQuery(c)
 
-	tokens, total, err := model.SearchUserTokens(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	workspaceId, err := prepareTokenWorkspaceFilter(c, userId)
 	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	tokens, total, err := model.SearchUserTokens(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), workspaceId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.AttachWorkspaceNames(tokens); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -102,6 +148,10 @@ func GetToken(c *gin.Context) {
 	}
 	token, err := model.GetTokenByIds(id, userId)
 	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if err := model.AttachWorkspaceNames([]*model.Token{token}); err != nil {
 		common.ApiError(c, err)
 		return
 	}
@@ -206,6 +256,11 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
+	workspace, err := model.ResolveUserWorkspace(c.GetInt("id"), token.WorkspaceId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	if err := normalizeTokenGroupForRequest(c, &token); err != nil {
 		common.ApiError(c, err)
 		return
@@ -244,6 +299,8 @@ func AddToken(c *gin.Context) {
 	}
 	cleanToken := model.Token{
 		UserId:             c.GetInt("id"),
+		WorkspaceId:        workspace.Id,
+		WorkspaceName:      workspace.Name,
 		Name:               token.Name,
 		Key:                key,
 		CreatedTime:        common.GetTimestamp(),
@@ -333,6 +390,15 @@ func UpdateToken(c *gin.Context) {
 	if statusOnly != "" {
 		cleanToken.Status = token.Status
 	} else {
+		if token.WorkspaceId > 0 {
+			workspace, err := model.GetUserWorkspaceByID(userId, token.WorkspaceId)
+			if err != nil {
+				common.ApiError(c, err)
+				return
+			}
+			cleanToken.WorkspaceId = workspace.Id
+			cleanToken.WorkspaceName = workspace.Name
+		}
 		// If you add more fields, please also update token.Update()
 		cleanToken.Name = token.Name
 		cleanToken.ExpiredTime = token.ExpiredTime
@@ -350,6 +416,12 @@ func UpdateToken(c *gin.Context) {
 	if err != nil {
 		common.ApiError(c, err)
 		return
+	}
+	if cleanToken.WorkspaceName == "" {
+		if err := model.AttachWorkspaceNames([]*model.Token{cleanToken}); err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,

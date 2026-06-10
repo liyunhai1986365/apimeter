@@ -179,7 +179,7 @@ function ApiKeysMobileList({
 
 export function ApiKeysTable() {
   const { t } = useTranslation()
-  const { refreshTrigger } = useApiKeys()
+  const { refreshTrigger, selectedWorkspaceId } = useApiKeys()
   const columns = useApiKeysColumns()
   const [rowSelection, setRowSelection] = useState({})
   const [sorting, setSorting] = useState<SortingState>([])
@@ -209,6 +209,7 @@ export function ApiKeysTable() {
       pagination.pageIndex + 1,
       pagination.pageSize,
       globalFilter,
+      selectedWorkspaceId,
       refreshTrigger,
     ],
     queryFn: async () => {
@@ -216,14 +217,26 @@ export function ApiKeysTable() {
       const hasFilter = globalFilter?.trim()
 
       if (hasFilter) {
-        const result = await searchApiKeys({ keyword: globalFilter })
+        const result = await searchApiKeys({
+          keyword: globalFilter,
+          p: pagination.pageIndex + 1,
+          size: pagination.pageSize,
+          workspace_id: selectedWorkspaceId || undefined,
+        })
         if (!result.success) {
           toast.error(result.message || t(ERROR_MESSAGES.SEARCH_FAILED))
           return { items: [], total: 0 }
         }
+        const payload = result.data
+        if (Array.isArray(payload)) {
+          return {
+            items: payload,
+            total: payload.length,
+          }
+        }
         return {
-          items: result.data || [],
-          total: result.data?.length || 0,
+          items: payload?.items || [],
+          total: payload?.total || 0,
         }
       }
 
@@ -231,6 +244,7 @@ export function ApiKeysTable() {
       const result = await getApiKeys({
         p: pagination.pageIndex + 1,
         size: pagination.pageSize,
+        workspace_id: selectedWorkspaceId || undefined,
       })
 
       if (!result.success) {
@@ -244,6 +258,7 @@ export function ApiKeysTable() {
       }
     },
     placeholderData: (previousData) => previousData,
+    enabled: selectedWorkspaceId !== null,
   })
 
   const apiKeys = data?.items || []

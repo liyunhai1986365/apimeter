@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	commonRelay "github.com/QuantumNous/new-api/relay/common"
+	"gorm.io/gorm"
 )
 
 type TaskStatus string
@@ -50,6 +51,8 @@ type Task struct {
 	UserId     int                   `json:"user_id" gorm:"index"`
 	Group      string                `json:"group" gorm:"type:varchar(50)"` // 修正计费用
 	ChannelId  int                   `json:"channel_id" gorm:"index"`
+	TokenId    int                   `json:"token_id" gorm:"index;default:0"`
+	TokenName  string                `json:"token_name" gorm:"index;default:''"`
 	Quota      int                   `json:"quota"`
 	Action     string                `json:"action" gorm:"type:varchar(40);index"` // 任务类型, song, lyrics, description-mode
 	Status     TaskStatus            `json:"status" gorm:"type:varchar(20);index"` // 任务状态
@@ -162,12 +165,77 @@ type SyncTaskQueryParams struct {
 	Platform       constant.TaskPlatform
 	ChannelID      string
 	TaskID         string
+	TokenName      string
+	WorkspaceName  string
 	UserID         string
 	Action         string
 	Status         string
 	StartTimestamp int64
 	EndTimestamp   int64
 	UserIDs        []int
+}
+
+func applyTaskTokenFilters(query *gorm.DB, userId int, queryParams SyncTaskQueryParams) *gorm.DB {
+	if queryParams.TokenName != "" {
+		query = query.Where("token_name = ?", queryParams.TokenName)
+	}
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, queryParams.TokenName, queryParams.WorkspaceName)
+	if err != nil {
+		return query.Where("1 = 0")
+	}
+	return applyTokenIDFilter(query, "", tokenIDs, tokenIDsResolved)
+}
+
+func hydrateTaskTokenFields(task *Task) {
+	if task == nil {
+		return
+	}
+	if task.TokenId == 0 && task.PrivateData.TokenId > 0 {
+		task.TokenId = task.PrivateData.TokenId
+	}
+	if task.TokenName == "" && task.TokenId > 0 && DB != nil {
+		if token, err := GetTokenById(task.TokenId); err == nil {
+			task.TokenName = token.Name
+		}
+	}
+}
+
+func BackfillTaskTokenFields() error {
+	if DB == nil || !DB.Migrator().HasTable(&Task{}) || !DB.Migrator().HasColumn(&Task{}, "TokenId") {
+		return nil
+	}
+	var tasks []Task
+	return DB.Where("token_id = ?", 0).FindInBatches(&tasks, 200, func(tx *gorm.DB, _ int) error {
+		tokenIDs := make([]int, 0, len(tasks))
+		for _, task := range tasks {
+			if task.PrivateData.TokenId > 0 {
+				tokenIDs = append(tokenIDs, task.PrivateData.TokenId)
+			}
+		}
+		tokenNames := make(map[int]string, len(tokenIDs))
+		if len(tokenIDs) > 0 {
+			var tokens []Token
+			if err := DB.Select("id", "name").Where("id IN ?", tokenIDs).Find(&tokens).Error; err != nil {
+				return err
+			}
+			for _, token := range tokens {
+				tokenNames[token.Id] = token.Name
+			}
+		}
+		for _, task := range tasks {
+			tokenId := task.PrivateData.TokenId
+			if tokenId <= 0 {
+				continue
+			}
+			if err := DB.Model(&Task{}).Where("id = ?", task.ID).Updates(map[string]interface{}{
+				"token_id":   tokenId,
+				"token_name": tokenNames[tokenId],
+			}).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	}).Error
 }
 
 func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) *Task {
@@ -202,6 +270,7 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 		Status:      TaskStatusNotStart,
 		Progress:    "0%",
 		ChannelId:   relayInfo.ChannelId,
+		TokenId:     relayInfo.TokenId,
 		Platform:    platform,
 		Properties:  properties,
 		PrivateData: privateData,
@@ -215,6 +284,7 @@ func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQ
 
 	// 初始化查询构建器
 	query := DB.Where("user_id = ?", userId)
+	query = applyTaskTokenFilters(query, userId, queryParams)
 
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
@@ -251,6 +321,7 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 
 	// 初始化查询构建器
 	query := DB
+	query = applyTaskTokenFilters(query, 0, queryParams)
 
 	// 添加过滤条件
 	if queryParams.ChannelID != "" {
@@ -358,6 +429,7 @@ func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {
 }
 
 func (Task *Task) Insert() error {
+	hydrateTaskTokenFields(Task)
 	var err error
 	err = DB.Create(Task).Error
 	return err
@@ -450,6 +522,7 @@ type TaskQuotaUsage struct {
 func TaskCountAllTasks(queryParams SyncTaskQueryParams) int64 {
 	var total int64
 	query := DB.Model(&Task{})
+	query = applyTaskTokenFilters(query, 0, queryParams)
 	if queryParams.ChannelID != "" {
 		query = query.Where("channel_id = ?", queryParams.ChannelID)
 	}
@@ -485,6 +558,7 @@ func TaskCountAllTasks(queryParams SyncTaskQueryParams) int64 {
 func TaskCountAllUserTask(userId int, queryParams SyncTaskQueryParams) int64 {
 	var total int64
 	query := DB.Model(&Task{}).Where("user_id = ?", userId)
+	query = applyTaskTokenFilters(query, userId, queryParams)
 	if queryParams.TaskID != "" {
 		query = query.Where("task_id = ?", queryParams.TaskID)
 	}

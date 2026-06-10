@@ -24,6 +24,8 @@ import { z } from 'zod'
 
 export const apiKeySchema = z.object({
   id: z.number(),
+  workspace_id: z.number().optional().default(0),
+  workspace_name: z.string().nullish().default(''),
   name: z.string(),
   key: z.string(),
   status: z.number(), // 1: enabled, 2: disabled, 3: expired, 4: exhausted
@@ -63,6 +65,20 @@ export const apiKeySchema = z.object({
 
 export type ApiKey = z.infer<typeof apiKeySchema>
 
+export const workspaceSchema = z.object({
+  id: z.number(),
+  user_id: z.number().optional().default(0),
+  name: z.string(),
+  description: z.string().nullish().default(''),
+  is_default: z.boolean(),
+  status: z.number(),
+  created_time: z.number().optional().default(0),
+  updated_time: z.number().optional().default(0),
+  token_count: z.number().optional().default(0),
+})
+
+export type Workspace = z.infer<typeof workspaceSchema>
+
 // ============================================================================
 // API Request/Response Types
 // ============================================================================
@@ -76,6 +92,7 @@ export interface ApiResponse<T = unknown> {
 export interface GetApiKeysParams {
   p?: number
   size?: number
+  workspace_id?: number
 }
 
 export interface GetApiKeysResponse {
@@ -89,14 +106,29 @@ export interface GetApiKeysResponse {
   }
 }
 
+export interface GetApiKeySearchResponse {
+  success: boolean
+  message?: string
+  data?:
+    | ApiKey[]
+    | {
+        items: ApiKey[]
+        total: number
+        page?: number
+        page_size?: number
+      }
+}
+
 export interface SearchApiKeysParams {
   keyword?: string
   token?: string
   p?: number
   size?: number
+  workspace_id?: number
 }
 
 export interface ApiKeyFormData {
+  workspace_id?: number
   name: string
   remain_quota: number
   expired_time: number
@@ -123,3 +155,4 @@ export type ApiKeysDialogType =
   | 'delete'
   | 'batch-delete'
   | 'cc-switch'
+  | 'workspace-create'

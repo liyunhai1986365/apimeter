@@ -24,12 +24,20 @@ import { useTranslation } from 'react-i18next'
 import { useIsAdmin } from '@/hooks/use-admin'
 import { Input } from '@/components/ui/input'
 import { DataTableToolbar } from '@/components/data-table'
+import { FilterCombobox } from '@/components/filter-combobox'
+import {
+  ALL_TOKEN_FILTER_VALUE,
+  ALL_WORKSPACE_FILTER_VALUE,
+  useWorkspaceTokenOptions,
+} from '@/features/keys/hooks/use-workspace-token-options'
+import { useLogFilterOptions } from '../hooks/use-log-filter-options'
 import { buildSearchParams } from '../lib/filter'
 import { getDefaultTimeRange } from '../lib/utils'
 import type { DrawingLogFilters, LogCategory, TaskLogFilters } from '../types'
 import { CompactDateTimeRangePicker } from './compact-date-time-range-picker'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
+const ALL_CHANNEL_FILTER_VALUE = '__all_channels__'
 
 type TaskLikeLogCategory = Extract<LogCategory, 'drawing' | 'task'>
 type TaskLogsFilters = DrawingLogFilters | TaskLogFilters
@@ -93,6 +101,10 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
         : {
             ...baseFilters,
             ...(searchParams.filter ? { taskId: searchParams.filter } : {}),
+            ...(searchParams.token ? { token: searchParams.token } : {}),
+            ...(searchParams.workspace
+              ? { workspace: searchParams.workspace }
+              : {}),
           }
 
     setFilters(next)
@@ -102,10 +114,15 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
     searchParams.endTime,
     searchParams.channel,
     searchParams.filter,
+    searchParams.token,
+    searchParams.workspace,
   ])
 
   const handleChange = useCallback(
-    (field: keyof TaskLogsFilters, value: Date | string | undefined) => {
+    (
+      field: keyof DrawingLogFilters | keyof TaskLogFilters,
+      value: Date | string | undefined
+    ) => {
       setFilters((prev) => ({ ...prev, [field]: value }))
     },
     []
@@ -161,7 +178,23 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
       ? t('Filter by Midjourney task ID')
       : t('Filter by task ID')
   const inputClass = 'w-full sm:w-[180px] lg:w-[200px]'
-  const hasAdditionalFilters = !!filterValue || !!filters.channel
+  const taskFilters = filters as TaskLogFilters
+  const { workspaceOptions, tokenOptions } = useWorkspaceTokenOptions({
+    workspaceName: taskFilters.workspace,
+    tokenName: taskFilters.token,
+    enabled: props.logCategory === 'task',
+  })
+  const { channelOptions } = useLogFilterOptions({
+    channel: filters.channel,
+    includeModels: false,
+    includeGroups: false,
+    includeChannels: isAdmin,
+  })
+  const hasAdditionalFilters =
+    !!filterValue ||
+    !!filters.channel ||
+    (props.logCategory === 'task' &&
+      (!!taskFilters.token || !!taskFilters.workspace))
 
   return (
     <DataTableToolbar
@@ -188,13 +221,42 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
             className={inputClass}
           />
           {isAdmin && (
-            <Input
+            <FilterCombobox
+              options={channelOptions}
+              value={filters.channel}
+              allValue={ALL_CHANNEL_FILTER_VALUE}
+              allLabel={t('All Channels')}
               placeholder={t('Channel ID')}
-              value={filters.channel || ''}
-              onChange={(e) => handleChange('channel', e.target.value)}
-              onKeyDown={handleKeyDown}
+              onValueChange={(value) => handleChange('channel', value)}
               className={inputClass}
             />
+          )}
+          {props.logCategory === 'task' && (
+            <>
+              <FilterCombobox
+                options={workspaceOptions}
+                value={taskFilters.workspace}
+                allValue={ALL_WORKSPACE_FILTER_VALUE}
+                allLabel={t('All Workspaces')}
+                placeholder={t('Workspace Name')}
+                onValueChange={(value) => {
+                  handleChange('workspace', value)
+                  if (value !== taskFilters.workspace) {
+                    handleChange('token', undefined)
+                  }
+                }}
+                className={inputClass}
+              />
+              <FilterCombobox
+                options={tokenOptions}
+                value={taskFilters.token}
+                allValue={ALL_TOKEN_FILTER_VALUE}
+                allLabel={t('All Tokens')}
+                placeholder={t('Token Name')}
+                onValueChange={(value) => handleChange('token', value)}
+                className={inputClass}
+              />
+            </>
           )}
         </>
       }

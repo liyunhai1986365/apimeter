@@ -27,6 +27,8 @@ type TokenImageSettings = dto.TokenImageSettings
 type Token struct {
 	Id                 int                `json:"id"`
 	UserId             int                `json:"user_id" gorm:"index"`
+	WorkspaceId        int                `json:"workspace_id" gorm:"index;default:0"`
+	WorkspaceName      string             `json:"workspace_name" gorm:"-"`
 	Key                string             `json:"key" gorm:"type:varchar(128);uniqueIndex"`
 	Status             int                `json:"status" gorm:"default:1"`
 	Name               string             `json:"name" gorm:"index" `
@@ -99,10 +101,14 @@ func (token *Token) GetIpLimits() []string {
 	return ipLimits
 }
 
-func GetAllUserTokens(userId int, startIdx int, num int) ([]*Token, error) {
+func GetAllUserTokens(userId int, startIdx int, num int, workspaceIds ...int) ([]*Token, error) {
 	var tokens []*Token
 	var err error
-	err = DB.Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription").
+	query := DB.Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
+	if len(workspaceIds) > 0 && workspaceIds[0] > 0 {
+		query = query.Where("workspace_id = ?", workspaceIds[0])
+	}
+	err = query.
 		Order("id desc").Limit(num).Offset(startIdx).Find(&tokens).Error
 	return tokens, err
 }
@@ -146,7 +152,7 @@ func sanitizeLikePattern(input string) (string, error) {
 
 const searchHardLimit = 100
 
-func SearchUserTokens(userId int, keyword string, token string, offset int, limit int) (tokens []*Token, total int64, err error) {
+func SearchUserTokens(userId int, keyword string, token string, offset int, limit int, workspaceIds ...int) (tokens []*Token, total int64, err error) {
 	// model 层强制截断
 	if limit <= 0 || limit > searchHardLimit {
 		limit = searchHardLimit
@@ -174,6 +180,9 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 	}
 
 	baseQuery := DB.Model(&Token{}).Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
+	if len(workspaceIds) > 0 && workspaceIds[0] > 0 {
+		baseQuery = baseQuery.Where("workspace_id = ?", workspaceIds[0])
+	}
 
 	// 非空才加 LIKE 条件，空则跳过（不过滤该字段）
 	if keyword != "" {
@@ -319,7 +328,7 @@ func (token *Token) Update() (err error) {
 	}()
 	err = DB.Model(token).Select("name", "status", "expired_time", "remain_quota", "unlimited_quota",
 		"model_limits_enabled", "model_limits", "allow_ips", "group", "group_policy", "cross_group_retry",
-		"image_settings", "billing_source", "subscription_plan_id", "user_subscription_id").Updates(token).Error
+		"image_settings", "workspace_id", "billing_source", "subscription_plan_id", "user_subscription_id").Updates(token).Error
 	return err
 }
 
@@ -457,9 +466,13 @@ func decreaseTokenQuota(id int, quota int) (err error) {
 }
 
 // CountUserTokens returns total number of tokens for the given user, used for pagination
-func CountUserTokens(userId int) (int64, error) {
+func CountUserTokens(userId int, workspaceIds ...int) (int64, error) {
 	var total int64
-	err := DB.Model(&Token{}).Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription").Count(&total).Error
+	query := DB.Model(&Token{}).Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
+	if len(workspaceIds) > 0 && workspaceIds[0] > 0 {
+		query = query.Where("workspace_id = ?", workspaceIds[0])
+	}
+	err := query.Count(&total).Error
 	return total, err
 }
 

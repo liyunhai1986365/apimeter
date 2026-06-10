@@ -18,10 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 import { SectionPageLayout } from '@/components/layout'
+import { ApiKeyWorkspaceDetail } from './components/api-key-workspace-detail'
+import { ApiKeyWorkspacePanel } from './components/api-key-workspace-panel'
 import { ApiKeysDialogs } from './components/api-keys-dialogs'
-import { ApiKeysPrimaryButtons } from './components/api-keys-primary-buttons'
 import { ApiKeysProvider } from './components/api-keys-provider'
-import { ApiKeysTable } from './components/api-keys-table'
 
 export function ApiKeys() {
   const { t } = useTranslation()
@@ -32,11 +32,11 @@ export function ApiKeys() {
         <SectionPageLayout.Description>
           {t('Manage your API keys for accessing the service')}
         </SectionPageLayout.Description>
-        <SectionPageLayout.Actions>
-          <ApiKeysPrimaryButtons />
-        </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
-          <ApiKeysTable />
+          <div className='min-h-0 space-y-4'>
+            <ApiKeyWorkspacePanel />
+            <ApiKeyWorkspaceDetail />
+          </div>
         </SectionPageLayout.Content>
       </SectionPageLayout>
 

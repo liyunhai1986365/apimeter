@@ -52,6 +52,7 @@ export function buildSearchParams(
         ...baseParams,
         ...(commonFilters.model && { model: commonFilters.model }),
         ...(commonFilters.token && { token: commonFilters.token }),
+        ...(commonFilters.workspace && { workspace: commonFilters.workspace }),
         ...(commonFilters.group && { group: commonFilters.group }),
         ...(commonFilters.username && { username: commonFilters.username }),
         ...(commonFilters.requestId && { requestId: commonFilters.requestId }),
@@ -72,6 +73,8 @@ export function buildSearchParams(
       return {
         ...baseParams,
         ...(taskFilters.taskId && { filter: taskFilters.taskId }),
+        ...(taskFilters.token && { token: taskFilters.token }),
+        ...(taskFilters.workspace && { workspace: taskFilters.workspace }),
       }
     }
     default:

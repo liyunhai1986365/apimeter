@@ -31,6 +31,7 @@ type tokenAPIResponse struct {
 
 type tokenPageResponse struct {
 	Items []tokenResponseItem `json:"items"`
+	Total int                 `json:"total"`
 }
 
 type tokenResponseItem struct {
@@ -38,9 +39,19 @@ type tokenResponseItem struct {
 	Name            string `json:"name"`
 	Key             string `json:"key"`
 	Status          int    `json:"status"`
+	WorkspaceID     int    `json:"workspace_id"`
+	WorkspaceName   string `json:"workspace_name"`
 	Group           string `json:"group"`
 	GroupPolicy     string `json:"group_policy"`
 	CrossGroupRetry bool   `json:"cross_group_retry"`
+}
+
+type workspaceResponseItem struct {
+	ID          int    `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	IsDefault   bool   `json:"is_default"`
+	TokenCount  int64  `json:"token_count"`
 }
 
 type tokenKeyResponse struct {
@@ -106,7 +117,7 @@ func openTokenControllerTestDB(t *testing.T) *gorm.DB {
 func migrateTokenControllerTestDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
-	if err := db.AutoMigrate(&model.Token{}); err != nil {
+	if err := db.AutoMigrate(&model.Workspace{}, &model.Token{}); err != nil {
 		t.Fatalf("failed to migrate token table: %v", err)
 	}
 }
@@ -169,8 +180,13 @@ func openTokenControllerExternalDB(t *testing.T, dialect string, dsn string) (*g
 func seedToken(t *testing.T, db *gorm.DB, userID int, name string, rawKey string) *model.Token {
 	t.Helper()
 
+	workspace, err := model.EnsureDefaultWorkspace(userID)
+	if err != nil {
+		t.Fatalf("failed to ensure default workspace: %v", err)
+	}
 	token := &model.Token{
 		UserId:         userID,
+		WorkspaceId:    workspace.Id,
 		Name:           name,
 		Key:            rawKey,
 		Status:         common.TokenStatusEnabled,
@@ -185,6 +201,23 @@ func seedToken(t *testing.T, db *gorm.DB, userID int, name string, rawKey string
 		t.Fatalf("failed to create token: %v", err)
 	}
 	return token
+}
+
+func seedWorkspace(t *testing.T, userID int, name string) *model.Workspace {
+	t.Helper()
+
+	workspace := &model.Workspace{
+		UserId:      userID,
+		Name:        name,
+		Description: name + " description",
+		Status:      model.WorkspaceStatusEnabled,
+		CreatedTime: common.GetTimestamp(),
+		UpdatedTime: common.GetTimestamp(),
+	}
+	if err := model.DB.Create(workspace).Error; err != nil {
+		t.Fatalf("failed to create workspace: %v", err)
+	}
+	return workspace
 }
 
 func newAuthenticatedContext(t *testing.T, method string, target string, body any, userID int) (*gin.Context, *httptest.ResponseRecorder) {
@@ -386,6 +419,167 @@ func TestTokenAutoMigrateUsesVarchar128KeyColumn(t *testing.T) {
 	}
 	if got := getSQLiteColumnType(t, db, "tokens", "group_policy"); got != "text" {
 		t.Fatalf("expected group_policy column type text, got %q", got)
+	}
+	if got := getSQLiteColumnType(t, db, "tokens", "workspace_id"); got == "" {
+		t.Fatalf("expected workspace_id column to exist")
+	}
+}
+
+func TestEnsureDefaultWorkspaceBackfillsExistingTokens(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	token := &model.Token{
+		UserId:         1,
+		Name:           "legacy-token",
+		Key:            "legacyworkspacekey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100,
+		UnlimitedQuota: true,
+		Group:          "default",
+	}
+	if err := db.Create(token).Error; err != nil {
+		t.Fatalf("failed to create legacy token: %v", err)
+	}
+
+	workspace, err := model.EnsureDefaultWorkspace(1)
+	if err != nil {
+		t.Fatalf("failed to ensure default workspace: %v", err)
+	}
+
+	var fetched model.Token
+	if err := db.First(&fetched, token.Id).Error; err != nil {
+		t.Fatalf("failed to fetch token: %v", err)
+	}
+	if fetched.WorkspaceId != workspace.Id {
+		t.Fatalf("expected token workspace %d, got %d", workspace.Id, fetched.WorkspaceId)
+	}
+}
+
+func TestGetAllTokensFiltersByWorkspace(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	defaultWorkspace, err := model.EnsureDefaultWorkspace(1)
+	if err != nil {
+		t.Fatalf("failed to ensure default workspace: %v", err)
+	}
+	projectWorkspace := seedWorkspace(t, 1, "Project Alpha")
+	otherWorkspace := seedWorkspace(t, 2, "Other User")
+
+	defaultToken := seedToken(t, db, 1, "default-token", "defaultworkspacekey")
+	projectToken := seedToken(t, db, 1, "project-token", "projectworkspacekey")
+	projectToken.WorkspaceId = projectWorkspace.Id
+	if err := db.Save(projectToken).Error; err != nil {
+		t.Fatalf("failed to move token to project workspace: %v", err)
+	}
+	otherToken := seedToken(t, db, 2, "other-token", "otherworkspacekey")
+	otherToken.WorkspaceId = otherWorkspace.Id
+	if err := db.Save(otherToken).Error; err != nil {
+		t.Fatalf("failed to move token to other workspace: %v", err)
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, fmt.Sprintf("/api/token/?workspace_id=%d&p=1&size=10", projectWorkspace.Id), nil, 1)
+	GetAllTokens(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected success response, got message: %s", response.Message)
+	}
+	var page tokenPageResponse
+	if err := common.Unmarshal(response.Data, &page); err != nil {
+		t.Fatalf("failed to decode token page response: %v", err)
+	}
+	if page.Total != 1 || len(page.Items) != 1 {
+		t.Fatalf("expected one workspace token, got total=%d items=%d", page.Total, len(page.Items))
+	}
+	if page.Items[0].ID != projectToken.Id {
+		t.Fatalf("expected project token %d, got %d", projectToken.Id, page.Items[0].ID)
+	}
+	if page.Items[0].WorkspaceID != projectWorkspace.Id || page.Items[0].WorkspaceName != "Project Alpha" {
+		t.Fatalf("expected workspace metadata for Project Alpha, got id=%d name=%q", page.Items[0].WorkspaceID, page.Items[0].WorkspaceName)
+	}
+	if page.Items[0].ID == defaultToken.Id || page.Items[0].WorkspaceID == defaultWorkspace.Id {
+		t.Fatalf("workspace filter returned default workspace token")
+	}
+}
+
+func TestAddTokenPersistsWorkspace(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	workspace := seedWorkspace(t, 1, "Project Beta")
+	body := map[string]any{
+		"name":                 "workspace-token",
+		"workspace_id":         workspace.Id,
+		"expired_time":         -1,
+		"remain_quota":         0,
+		"unlimited_quota":      true,
+		"model_limits_enabled": false,
+		"model_limits":         "",
+		"group":                "default",
+		"cross_group_retry":    false,
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 1)
+	AddToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected create response to succeed, got message: %s", response.Message)
+	}
+	var detail tokenResponseItem
+	if err := common.Unmarshal(response.Data, &detail); err != nil {
+		t.Fatalf("failed to decode token create response: %v", err)
+	}
+	if detail.WorkspaceID != workspace.Id || detail.WorkspaceName != "Project Beta" {
+		t.Fatalf("expected created token workspace metadata, got id=%d name=%q", detail.WorkspaceID, detail.WorkspaceName)
+	}
+
+	var token model.Token
+	if err := db.First(&token, detail.ID).Error; err != nil {
+		t.Fatalf("failed to load created token: %v", err)
+	}
+	if token.WorkspaceId != workspace.Id {
+		t.Fatalf("expected stored workspace %d, got %d", workspace.Id, token.WorkspaceId)
+	}
+}
+
+func TestListWorkspacesIncludesDefaultAndTokenCounts(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	defaultWorkspace, err := model.EnsureDefaultWorkspace(1)
+	if err != nil {
+		t.Fatalf("failed to ensure default workspace: %v", err)
+	}
+	projectWorkspace := seedWorkspace(t, 1, "Project Gamma")
+	defaultToken := seedToken(t, db, 1, "default-token", "defaulttokenkey000")
+	projectToken := seedToken(t, db, 1, "project-token", "projecttokenkey000")
+	projectToken.WorkspaceId = projectWorkspace.Id
+	if err := db.Save(projectToken).Error; err != nil {
+		t.Fatalf("failed to move token to project workspace: %v", err)
+	}
+	_ = defaultToken
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/workspaces", nil, 1)
+	ListWorkspaces(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected success response, got message: %s", response.Message)
+	}
+	var workspaces []workspaceResponseItem
+	if err := common.Unmarshal(response.Data, &workspaces); err != nil {
+		t.Fatalf("failed to decode workspace response: %v", err)
+	}
+	if len(workspaces) != 2 {
+		t.Fatalf("expected two workspaces, got %d", len(workspaces))
+	}
+	counts := map[int]int64{}
+	for _, workspace := range workspaces {
+		counts[workspace.ID] = workspace.TokenCount
+	}
+	if counts[defaultWorkspace.Id] != 1 {
+		t.Fatalf("expected default workspace token count 1, got %d", counts[defaultWorkspace.Id])
+	}
+	if counts[projectWorkspace.Id] != 1 {
+		t.Fatalf("expected project workspace token count 1, got %d", counts[projectWorkspace.Id])
 	}
 }
 

@@ -38,6 +38,7 @@ func TestMain(m *testing.M) {
 		&Task{},
 		&User{},
 		&Token{},
+		&Workspace{},
 		&Log{},
 		&Channel{},
 		&Ability{},
