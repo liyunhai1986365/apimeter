@@ -2186,6 +2186,7 @@
     "GC execution failed": "GC 执行失败",
     "Gemini": "Gemini",
     "Gemini Generate Content": "Gemini Generate Content",
+    "Gemini Generate Content to OpenAI Image Generations": "Gemini Generate Content 转 OpenAI 图片生成",
     "Gemini Image 4K": "Gemini 图片 4K",
     "Gemini will continue to auto-detect thinking mode even with the adapter disabled. Enable this only when you need finer control over pricing and budgeting.": "即使禁用适配器，Gemini 也会继续自动检测思维模式。仅当您需要对定价和预算进行更精细的控制时才启用此选项。",
     "General": "常规",

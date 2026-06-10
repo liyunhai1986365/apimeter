@@ -197,7 +197,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	service.PostTextConsumeQuota(c, info, usageData, logContent)
-	if wrapped, wrapErr := maybeWrapChatImageResponse(c, info, responseCapture.BodyBytes(), usageData); wrapErr != nil {
+	if wrapped, wrapErr := maybeWrapImageResponse(c, info, responseCapture.BodyBytes(), usageData); wrapErr != nil {
 		return wrapErr
 	} else if wrapped {
 		return nil

@@ -85,6 +85,14 @@ func conversionEnabled(c *gin.Context, id ConversionID) bool {
 	return !ok || ConversionEnabled(settings, id)
 }
 
+func conversionAllowed(c *gin.Context, id ConversionID) bool {
+	settings, ok := channelSettings(c)
+	if !ok || settings.Protocol == nil || len(settings.Protocol.EnabledConversions) == 0 {
+		return true
+	}
+	return ConversionEnabled(settings, id)
+}
+
 func protocolConfigured(c *gin.Context) bool {
 	settings, ok := channelSettings(c)
 	return ok && settings.Protocol != nil

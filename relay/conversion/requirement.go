@@ -10,6 +10,7 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 type Requirement struct {
@@ -63,9 +64,20 @@ func RequirementFromHTTPRequest(c *gin.Context, modelName string) Requirement {
 	}
 	relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
 	sourceMode := ModeFromRelay(types.RelayFormatOpenAI, relayMode)
+	if relayMode == relayconstant.RelayModeGemini {
+		sourceMode = RequestModeGeminiGenerateContent
+	}
 	if strings.HasPrefix(c.Request.URL.Path, "/v1/video/generations") ||
 		strings.HasPrefix(c.Request.URL.Path, "/v1/videos") {
 		sourceMode = RequestModeOpenAIVideoGenerations
+	}
+	if sourceMode == RequestModeGeminiGenerateContent && isGeminiImageGenerationHTTPRequest(c, modelName) {
+		return Requirement{
+			SourceMode: sourceMode,
+			TargetMode: RequestModeOpenAIImageGenerations,
+			Conversion: ConversionGeminiGenerateContentToImageGenerations,
+			Intent:     MediaIntentImageGenerate,
+		}
 	}
 	return RequirementFromMode(sourceMode, modelName)
 }
@@ -86,4 +98,42 @@ func RequirementFromMode(sourceMode RequestMode, modelName string) Requirement {
 		SourceMode: sourceMode,
 		TargetMode: sourceMode,
 	}
+}
+
+func CanonicalRequirement(req Requirement) Requirement {
+	if req.Conversion == "" {
+		return req
+	}
+	return Requirement{
+		SourceMode: req.TargetMode,
+		TargetMode: req.TargetMode,
+		Intent:     req.Intent,
+	}
+}
+
+func isGeminiImageGenerationHTTPRequest(c *gin.Context, modelName string) bool {
+	if common.IsImageGenerationModel(modelName) {
+		return true
+	}
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		return false
+	}
+	body, err := storage.Bytes()
+	if err != nil {
+		return false
+	}
+	modalities := gjson.GetBytes(body, "generationConfig.responseModalities")
+	if !modalities.Exists() {
+		modalities = gjson.GetBytes(body, "generation_config.response_modalities")
+	}
+	foundImage := false
+	modalities.ForEach(func(_, value gjson.Result) bool {
+		if strings.EqualFold(strings.TrimSpace(value.String()), "IMAGE") {
+			foundImage = true
+			return false
+		}
+		return true
+	})
+	return foundImage
 }

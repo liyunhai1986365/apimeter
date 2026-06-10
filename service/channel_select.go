@@ -122,7 +122,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				return nil, policyGroup, err
 			}
 			if errors.Is(err, model.ErrNoChannelMatchedFilter) && shouldStopOnProtocolMismatch(param) {
-				return nil, policyGroup, unsupportedImageChatProtocolError(param.ModelName)
+				return nil, policyGroup, unsupportedProtocolError(param)
 			}
 			if channel == nil {
 				logger.LogDebug(param.Ctx, "No available channel in policy group %s for model %s at priorityRetry %d, trying next group", policyGroup, param.ModelName, priorityRetry)
@@ -182,7 +182,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				return nil, autoGroup, err
 			}
 			if errors.Is(err, model.ErrNoChannelMatchedFilter) && shouldStopOnProtocolMismatch(param) {
-				return nil, autoGroup, unsupportedImageChatProtocolError(param.ModelName)
+				return nil, autoGroup, unsupportedProtocolError(param)
 			}
 			if channel == nil {
 				// Current group has no available channel for this model, try next group
@@ -223,7 +223,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	} else {
 		channel, err = model.GetRandomSatisfiedChannelWithFilter(channelGroup, param.ModelName, param.GetRetry(), filter)
 		if errors.Is(err, model.ErrNoChannelMatchedFilter) {
-			return nil, param.TokenGroup, unsupportedImageChatProtocolError(param.ModelName)
+			return nil, param.TokenGroup, unsupportedProtocolError(param)
 		}
 		if err != nil {
 			return nil, param.TokenGroup, err
@@ -257,6 +257,14 @@ func unsupportedImageChatProtocolError(modelName string) error {
 	return req.UnsupportedError(modelName)
 }
 
+func unsupportedProtocolError(param *RetryParam) error {
+	req := conversion.RequirementFromHTTPRequest(param.Ctx, param.ModelName)
+	if req.Empty() {
+		return unsupportedImageChatProtocolError(param.ModelName)
+	}
+	return req.UnsupportedError(param.ModelName)
+}
+
 func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 	if param == nil || param.Ctx == nil || param.Ctx.Request == nil {
 		return nil
@@ -271,13 +279,14 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 		}
 	}
 	req := conversion.RequirementFromHTTPRequest(param.Ctx, param.ModelName)
-	if req.Empty() || req.Conversion == "" {
+	if req.Empty() {
 		return nil
 	}
+	channelReq := conversion.CanonicalRequirement(req)
 	return func(channel *model.Channel) bool {
 		if channel == nil {
 			return false
 		}
-		return req.Supports(channel.GetSetting())
+		return channelReq.Supports(channel.GetSetting())
 	}
 }

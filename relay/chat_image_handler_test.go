@@ -11,6 +11,8 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/conversion"
+	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -73,4 +75,81 @@ func TestMaybeWrapChatImageResponseClearsCapturedImageContentLength(t *testing.T
 	require.NotEqual(t, "45", recorder.Header().Get("Content-Length"))
 	require.Empty(t, recorder.Header().Get("Api-Request-Path"))
 	require.Contains(t, recorder.Body.String(), "https://cdn.example.com/output.png")
+}
+
+func TestMaybeWrapImageResponseWrapsGeminiGenerateContentPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", nil)
+
+	info := &relaycommon.RelayInfo{
+		RelayMode:            relayconstant.RelayModeImagesGenerations,
+		RelayFormat:          types.RelayFormatOpenAIImage,
+		OriginModelName:      "gemini-3.1-flash-image-preview",
+		Request:              &dto.ImageRequest{Model: "gemini-3.1-flash-image-preview", Prompt: "draw"},
+		ConversionID:         string(conversion.ConversionGeminiGenerateContentToImageGenerations),
+		SourceRequestMode:    string(conversion.RequestModeGeminiGenerateContent),
+		PreserveResponseMode: true,
+	}
+
+	wrapped, err := maybeWrapImageResponse(c, info, []byte(`{"created":1779125744,"data":[{"b64_json":"b3V0cHV0"}]}`), &dto.Usage{PromptTokens: 3, CompletionTokens: 4, TotalTokens: 7})
+	require.Nil(t, err)
+	require.True(t, wrapped)
+
+	var response dto.GeminiChatResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Len(t, response.Candidates, 1)
+	require.Equal(t, int64(0), response.Candidates[0].Index)
+	require.Len(t, response.Candidates[0].Content.Parts, 1)
+	require.NotNil(t, response.Candidates[0].Content.Parts[0].InlineData)
+	require.Equal(t, "image/png", response.Candidates[0].Content.Parts[0].InlineData.MimeType)
+	require.Equal(t, "b3V0cHV0", response.Candidates[0].Content.Parts[0].InlineData.Data)
+	require.Equal(t, 7, response.UsageMetadata.TotalTokenCount)
+}
+
+func TestMaybeWrapImageResponseConvertsURLToGeminiInlineData(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+	imageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/png")
+		_, _ = w.Write([]byte("fake-png"))
+	}))
+	defer imageServer.Close()
+
+	fetchSetting := system_setting.GetFetchSetting()
+	originalSSRF := fetchSetting.EnableSSRFProtection
+	originalMaxFileDownloadMB := constant.MaxFileDownloadMB
+	constant.MaxFileDownloadMB = 1
+	fetchSetting.EnableSSRFProtection = false
+	t.Cleanup(func() {
+		constant.MaxFileDownloadMB = originalMaxFileDownloadMB
+		fetchSetting.EnableSSRFProtection = originalSSRF
+	})
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", nil)
+	info := &relaycommon.RelayInfo{
+		RelayMode:            relayconstant.RelayModeImagesGenerations,
+		RelayFormat:          types.RelayFormatOpenAIImage,
+		OriginModelName:      "gemini-3.1-flash-image-preview",
+		Request:              &dto.ImageRequest{Model: "gemini-3.1-flash-image-preview", Prompt: "draw"},
+		ConversionID:         string(conversion.ConversionGeminiGenerateContentToImageGenerations),
+		SourceRequestMode:    string(conversion.RequestModeGeminiGenerateContent),
+		PreserveResponseMode: true,
+	}
+
+	wrapped, err := maybeWrapImageResponse(c, info, []byte(`{"data":[{"url":"`+imageServer.URL+`/out.png"}]}`), &dto.Usage{})
+	require.Nil(t, err)
+	require.True(t, wrapped)
+
+	var response dto.GeminiChatResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Len(t, response.Candidates, 1)
+	require.Len(t, response.Candidates[0].Content.Parts, 1)
+	require.NotNil(t, response.Candidates[0].Content.Parts[0].InlineData)
+	require.Equal(t, "image/png", response.Candidates[0].Content.Parts[0].InlineData.MimeType)
+	require.Equal(t, "ZmFrZS1wbmc=", response.Candidates[0].Content.Parts[0].InlineData.Data)
+	require.Empty(t, response.Candidates[0].Content.Parts[0].Text)
 }

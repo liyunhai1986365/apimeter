@@ -2186,6 +2186,7 @@
     "GC execution failed": "Échec de l'exécution du GC",
     "Gemini": "Gemini",
     "Gemini Generate Content": "Génération de contenu Gemini",
+    "Gemini Generate Content to OpenAI Image Generations": "Génération de contenu Gemini vers générations d’images OpenAI",
     "Gemini Image 4K": "Gemini Image 4K",
     "Gemini will continue to auto-detect thinking mode even with the adapter disabled. Enable this only when you need finer control over pricing and budgeting.": "Gemini continuera à détecter automatiquement le mode de pensée même avec l'adaptateur désactivé. Activez ceci uniquement lorsque vous avez besoin d'un contrôle plus fin sur la tarification et le budget.",
     "General": "Général",

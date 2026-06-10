@@ -20,6 +20,7 @@ type Converter interface {
 
 var converters = []Converter{
 	openAIChatToImageGenerationsConverter{},
+	geminiGenerateContentToImageGenerationsConverter{},
 }
 
 func ApplyRequest(c *gin.Context, relayFormat types.RelayFormat, relayMode int, request dto.Request) (dto.Request, *Plan, error) {
@@ -37,14 +38,15 @@ func ApplyRequest(c *gin.Context, relayFormat types.RelayFormat, relayMode int, 
 		if !converter.Match(c, request) {
 			continue
 		}
-		if protocolConfigured(c) && !nativeModeSupported(c, sourceMode) {
+		if protocolConfigured(c) && !nativeModeSupported(c, sourceMode) && !nativeModeSupported(c, converter.To()) {
 			return nil, nil, fmt.Errorf("request mode %s is not supported by current channel", sourceMode)
 		}
-		if !conversionEnabled(c, converter.ID()) {
-			return nil, nil, fmt.Errorf("conversion %s is not supported by current channel", converter.ID())
-		}
-		if !nativeModeSupported(c, converter.To()) {
+		targetSupported := nativeModeSupported(c, converter.To())
+		if !targetSupported {
 			return nil, nil, fmt.Errorf("request mode %s is not supported by current channel", converter.To())
+		}
+		if !conversionAllowed(c, converter.ID()) {
+			return nil, nil, fmt.Errorf("conversion %s is not supported by current channel", converter.ID())
 		}
 		convertedRequest, err := converter.ConvertRequest(c, request)
 		if err != nil {

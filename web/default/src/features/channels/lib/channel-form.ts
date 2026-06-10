@@ -43,10 +43,17 @@ export const REQUEST_MODE_OPTIONS = [
 export const CONVERSION_OPTION_OPENAI_CHAT_TO_IMAGE_GENERATIONS =
   'openai.chat_to_openai.image.generations'
 
+export const CONVERSION_OPTION_GEMINI_GENERATE_CONTENT_TO_IMAGE_GENERATIONS =
+  'gemini.generate_content_to_openai.image.generations'
+
 export const CONVERSION_OPTIONS = [
   {
     label: 'OpenAI Chat to OpenAI Image Generations',
     value: CONVERSION_OPTION_OPENAI_CHAT_TO_IMAGE_GENERATIONS,
+  },
+  {
+    label: 'Gemini Generate Content to OpenAI Image Generations',
+    value: CONVERSION_OPTION_GEMINI_GENERATE_CONTENT_TO_IMAGE_GENERATIONS,
   },
 ]
 

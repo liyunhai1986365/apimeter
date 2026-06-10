@@ -27,7 +27,8 @@ const (
 )
 
 const (
-	ConversionOpenAIChatToImageGenerations ConversionID = "openai.chat_to_openai.image.generations"
+	ConversionOpenAIChatToImageGenerations            ConversionID = "openai.chat_to_openai.image.generations"
+	ConversionGeminiGenerateContentToImageGenerations ConversionID = "gemini.generate_content_to_openai.image.generations"
 )
 
 func ModeFromRelay(format types.RelayFormat, relayMode int) RequestMode {

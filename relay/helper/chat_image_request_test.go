@@ -95,6 +95,75 @@ func TestApplyRequestPreservesImageURLs(t *testing.T) {
 	require.Equal(t, []string{"https://example.com/input.png"}, imageURLs)
 }
 
+func TestApplyRequestConvertsGeminiImageGenerateContentToImageRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{
+		"contents":[
+			{"role":"user","parts":[{"text":"cat"},{"inlineData":{"mimeType":"image/png","data":"aW5wdXQ="}}]}
+		],
+		"generationConfig":{
+			"responseModalities":["TEXT","IMAGE"],
+			"candidateCount":2,
+			"imageConfig":{"aspectRatio":"1:1","imageSize":"2K"}
+		}
+	}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	request, err := GetAndValidateRequest(c, types.RelayFormatGemini)
+	require.NoError(t, err)
+	_, ok := request.(*dto.GeminiChatRequest)
+	require.True(t, ok)
+
+	request, plan, err := conversion.ApplyRequest(c, types.RelayFormatGemini, relayconstant.RelayModeGemini, request)
+	require.NoError(t, err)
+	require.NotNil(t, plan)
+	plan.Store(c)
+
+	imageRequest, ok := request.(*dto.ImageRequest)
+	require.True(t, ok)
+	require.Equal(t, "gemini-3.1-flash-image-preview", imageRequest.Model)
+	require.Equal(t, "cat", imageRequest.Prompt)
+	require.NotNil(t, imageRequest.N)
+	require.Equal(t, uint(2), *imageRequest.N)
+	var aspectRatio string
+	require.NoError(t, common.Unmarshal(imageRequest.Extra["aspect_ratio"], &aspectRatio))
+	require.Equal(t, "1:1", aspectRatio)
+	var imageSize string
+	require.NoError(t, common.Unmarshal(imageRequest.Extra["image_size"], &imageSize))
+	require.Equal(t, "2K", imageSize)
+	var images []string
+	require.NoError(t, common.Unmarshal(imageRequest.Images, &images))
+	require.Equal(t, []string{"data:image/png;base64,aW5wdXQ="}, images)
+	require.Equal(t, relayconstant.RelayModeImagesGenerations, c.GetInt("relay_mode"))
+	require.Equal(t, string(conversion.ConversionGeminiGenerateContentToImageGenerations), c.GetString(conversion.ContextKeyConversionID))
+}
+
+func TestApplyRequestAllowsGeminiImageConversionOnCanonicalImageChannel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{
+		"contents":[{"role":"user","parts":[{"text":"cat"}]}],
+		"generationConfig":{"responseModalities":["IMAGE"]}
+	}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+		},
+	})
+
+	request, err := GetAndValidateRequest(c, types.RelayFormatGemini)
+	require.NoError(t, err)
+	converted, plan, err := conversion.ApplyRequest(c, types.RelayFormatGemini, relayconstant.RelayModeGemini, request)
+	require.NoError(t, err)
+	require.NotNil(t, plan)
+	require.NotNil(t, converted)
+	require.Equal(t, string(conversion.ConversionGeminiGenerateContentToImageGenerations), string(plan.ID))
+}
+
 func TestApplyRequestRejectsImageChatWhenConversionDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := `{"model":"gpt-image-2","messages":[{"role":"user","content":"draw a river"}]}`
@@ -116,7 +185,7 @@ func TestApplyRequestRejectsImageChatWhenConversionDisabled(t *testing.T) {
 	require.Contains(t, err.Error(), string(conversion.ConversionOpenAIChatToImageGenerations))
 }
 
-func TestApplyRequestRejectsImageChatWhenSourceNativeModeUnsupported(t *testing.T) {
+func TestApplyRequestAllowsImageChatConversionOnCanonicalImageChannel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := `{"model":"gpt-image-2","messages":[{"role":"user","content":"draw a river"}]}`
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
@@ -132,10 +201,9 @@ func TestApplyRequestRejectsImageChatWhenSourceNativeModeUnsupported(t *testing.
 	request, err := GetAndValidateRequest(c, types.RelayFormatOpenAI)
 	require.NoError(t, err)
 	converted, plan, err := conversion.ApplyRequest(c, types.RelayFormatOpenAI, relayconstant.RelayModeChatCompletions, request)
-	require.Error(t, err)
-	require.Nil(t, plan)
-	require.Nil(t, converted)
-	require.Contains(t, err.Error(), string(conversion.RequestModeOpenAIChat))
+	require.NoError(t, err)
+	require.NotNil(t, plan)
+	require.NotNil(t, converted)
 }
 
 func TestApplyRequestRejectsImageChatWhenTargetNativeModeUnsupported(t *testing.T) {

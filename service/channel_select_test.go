@@ -258,7 +258,7 @@ func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupport(t *testin
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
-	require.Equal(t, 1002, channel.Id)
+	require.Equal(t, 1001, channel.Id)
 	require.Equal(t, "default", selectedGroup)
 }
 
@@ -275,8 +275,7 @@ func TestBuildProtocolChannelFilterUsesConversionRequirement(t *testing.T) {
 	unsupported := model.Channel{}
 	unsupported.SetSetting(dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
-			NativeModes:        []string{string(conversion.RequestModeOpenAIImageGenerations)},
-			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+			NativeModes: []string{string(conversion.RequestModeOpenAIChat)},
 		},
 	})
 	require.False(t, filter(&unsupported))
@@ -294,7 +293,37 @@ func TestBuildProtocolChannelFilterUsesConversionRequirement(t *testing.T) {
 	require.True(t, filter(&supported))
 }
 
-func TestCacheGetRandomSatisfiedChannelRejectsWhenAllImageChatChannelsUnsupported(t *testing.T) {
+func TestBuildProtocolChannelFilterUsesGeminiImageCanonicalRequirement(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(`{
+		"contents":[{"parts":[{"text":"cat"}]}],
+		"generationConfig":{"responseModalities":["TEXT","IMAGE"]}
+	}`))
+
+	filter := BuildProtocolChannelFilter(&RetryParam{
+		Ctx:       c,
+		ModelName: "gemini-3.1-flash-image-preview",
+	})
+	require.NotNil(t, filter)
+
+	geminiOnly := model.Channel{}
+	geminiOnly.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+		},
+	})
+	require.False(t, filter(&geminiOnly))
+
+	imageCapable := model.Channel{}
+	imageCapable.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+		},
+	})
+	require.True(t, filter(&imageCapable))
+}
+
+func TestCacheGetRandomSatisfiedChannelRejectsWhenAllImageChatChannelsCannotRunCanonicalImage(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {
 		common.MemoryCacheEnabled = false
@@ -302,14 +331,12 @@ func TestCacheGetRandomSatisfiedChannelRejectsWhenAllImageChatChannelsUnsupporte
 
 	createImageChannelSelectFixture(t, db, 1001, "default", 20, dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
-			NativeModes:        []string{string(conversion.RequestModeOpenAIImageGenerations)},
-			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+			NativeModes: []string{string(conversion.RequestModeOpenAIChat)},
 		},
 	})
 	createImageChannelSelectFixture(t, db, 1002, "default", 10, dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
-			NativeModes:        []string{string(conversion.RequestModeOpenAIChat)},
-			EnabledConversions: []string{string(conversion.ConversionOpenAIChatToImageGenerations)},
+			NativeModes: []string{string(conversion.RequestModeOpenAIChat)},
 		},
 	})
 	model.InitChannelCache()
@@ -326,7 +353,7 @@ func TestCacheGetRandomSatisfiedChannelRejectsWhenAllImageChatChannelsUnsupporte
 	require.Error(t, err)
 	require.Nil(t, channel)
 	require.Equal(t, "default", selectedGroup)
-	require.Contains(t, err.Error(), string(conversion.RequestModeOpenAIChat))
+	require.Contains(t, err.Error(), string(conversion.RequestModeOpenAIImageGenerations))
 	require.Contains(t, err.Error(), string(conversion.ConversionOpenAIChatToImageGenerations))
 }
 
@@ -364,6 +391,6 @@ func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupportWithoutMem
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
-	require.Equal(t, 1002, channel.Id)
+	require.Equal(t, 1001, channel.Id)
 	require.Equal(t, "default", selectedGroup)
 }

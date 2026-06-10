@@ -67,6 +67,13 @@ func geminiRelayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewA
 	return err
 }
 
+func relayDispatchFormat(entryFormat types.RelayFormat, info *relaycommon.RelayInfo) types.RelayFormat {
+	if info != nil && info.RelayFormat != "" {
+		return info.RelayFormat
+	}
+	return entryFormat
+}
+
 func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	requestId := c.GetString(common.RequestIdKey)
@@ -236,7 +243,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			}
 			c.Request.Body = io.NopCloser(bodyStorage)
 
-			switch relayFormat {
+			switch relayDispatchFormat(relayFormat, relayInfo) {
 			case types.RelayFormatOpenAIRealtime:
 				newAPIError = relay.WssHelper(c, relayInfo)
 			case types.RelayFormatClaude:
