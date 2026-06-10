@@ -190,7 +190,9 @@ export function PlaygroundInput({
               selectedGroup={groupValue}
               groups={groups}
               onGroupChange={onGroupChange}
-              disabled={isModelSelectDisabled || isGroupSelectDisabled}
+              disabled={disabled}
+              modelDisabled={isModelSelectDisabled}
+              groupDisabled={isGroupSelectDisabled}
             />
 
             {isGenerating && onStop ? (

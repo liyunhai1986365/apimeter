@@ -132,6 +132,8 @@ export interface ParameterEnabled {
 export interface ModelOption {
   label: string
   value: string
+  category?: string
+  description?: string
 }
 
 export interface GroupOption {

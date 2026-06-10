@@ -16,13 +16,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getUserModels, getUserGroups } from './api'
+import { getPricing } from '@/features/pricing/api'
+import { getUserGroups } from './api'
 import { PlaygroundChat } from './components/playground-chat'
 import { PlaygroundInput } from './components/playground-input'
 import { usePlaygroundState, useChatHandler } from './hooks'
-import { createUserMessage, createLoadingAssistantMessage } from './lib'
+import {
+  buildPlaygroundModelOptions,
+  createUserMessage,
+  createLoadingAssistantMessage,
+} from './lib'
 import type { Message as MessageType } from './types'
 
 export function Playground() {
@@ -49,10 +54,11 @@ export function Playground() {
     null
   )
 
-  // Load models
-  const { data: modelsData, isLoading: isLoadingModels } = useQuery({
-    queryKey: ['playground-models'],
-    queryFn: getUserModels,
+  // Load model square data so the selector mirrors public model visibility.
+  const { data: pricingData, isLoading: isLoadingModels } = useQuery({
+    queryKey: ['pricing'],
+    queryFn: getPricing,
+    staleTime: 5 * 60 * 1000,
   })
 
   // Load groups
@@ -61,13 +67,16 @@ export function Playground() {
     queryFn: getUserGroups,
   })
 
-  // Update models when data changes
-  useEffect(() => {
-    if (!modelsData) return
+  const modelsData = useMemo(
+    () => buildPlaygroundModelOptions(pricingData?.data ?? [], config.group),
+    [pricingData?.data, config.group]
+  )
 
+  // Update models when pricing data or selected group changes
+  useEffect(() => {
     setModels(modelsData)
 
-    // Set default model if current model is not available
+    // Set default model if current model is not available in this group
     const isCurrentModelValid = modelsData.some((m) => m.value === config.model)
     if (modelsData.length > 0 && !isCurrentModelValid) {
       updateConfig('model', modelsData[0].value)

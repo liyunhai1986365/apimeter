@@ -568,6 +568,8 @@ export interface ModelGroupSelectorProps {
   // Common props
   className?: string
   disabled?: boolean
+  modelDisabled?: boolean
+  groupDisabled?: boolean
 }
 
 /**
@@ -583,6 +585,8 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
   onGroupChange,
   className,
   disabled = false,
+  modelDisabled = false,
+  groupDisabled = false,
 }) => {
   return (
     <div className={cn('flex items-center gap-2', className)}>
@@ -590,13 +594,13 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
         selectedGroup={selectedGroup}
         groups={groups}
         onGroupChange={onGroupChange}
-        disabled={disabled}
+        disabled={disabled || groupDisabled}
       />
       <ModelSelector
         selectedModel={selectedModel}
         models={models}
         onModelChange={onModelChange}
-        disabled={disabled}
+        disabled={disabled || modelDisabled}
       />
     </div>
   )
