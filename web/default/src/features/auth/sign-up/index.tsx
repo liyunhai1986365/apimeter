@@ -20,7 +20,7 @@ import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useStatus } from '@/hooks/use-status'
 import { AuthLayout } from '../auth-layout'
-import { TermsFooter } from '../components/terms-footer'
+import { LegalRegisterNotice } from '../components/legal-register-notice'
 import { SignUpForm } from './components/sign-up-form'
 
 export function SignUp() {
@@ -30,11 +30,21 @@ export function SignUp() {
   return (
     <AuthLayout>
       <div className='w-full space-y-8'>
-        <div className='space-y-2'>
-          <h2 className='text-center text-2xl font-semibold tracking-tight sm:text-left'>
-            {t('Create an account')}
-          </h2>
-          <p className='text-muted-foreground text-left text-sm sm:text-base'>
+        <div className='space-y-3'>
+          <div className='space-y-2'>
+            <p className='text-primary text-sm font-medium'>
+              {t('Start building')}
+            </p>
+            <h2 className='text-3xl leading-tight font-semibold tracking-tight'>
+              {t('Create your gateway account')}
+            </h2>
+            <p className='text-muted-foreground text-sm leading-6'>
+              {t(
+                'Join the platform to issue keys, route requests, and track usage from day one.'
+              )}
+            </p>
+          </div>
+          <p className='text-muted-foreground text-sm'>
             {t('Already have an account?')}{' '}
             <Link
               to='/sign-in'
@@ -46,13 +56,9 @@ export function SignUp() {
           </p>
         </div>
 
-        <SignUpForm />
+        <LegalRegisterNotice status={status} />
 
-        <TermsFooter
-          variant='sign-up'
-          status={status}
-          className='text-center'
-        />
+        <SignUpForm />
       </div>
     </AuthLayout>
   )

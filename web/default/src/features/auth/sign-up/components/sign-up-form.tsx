@@ -53,6 +53,11 @@ import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import {
+  getLegalConsentAvailability,
+  isLegalConsentAccepted,
+  subscribeLegalConsentAccepted,
+} from '@/features/auth/lib/legal-consent-storage'
 import { getAffiliateCode } from '@/features/auth/lib/storage'
 
 export function SignUpForm({
@@ -99,8 +104,10 @@ export function SignUpForm({
 
   const emailValue = form.watch('email')
   const emailVerificationRequired = !!status?.email_verification
-  const hasUserAgreement = Boolean(status?.user_agreement_enabled)
-  const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
+  const {
+    userAgreementEnabled: hasUserAgreement,
+    privacyPolicyEnabled: hasPrivacyPolicy,
+  } = getLegalConsentAvailability(status)
   const requiresLegalConsent = hasUserAgreement || hasPrivacyPolicy
   const oauthRegisterEnabled =
     status?.oauth_register_enabled ??
@@ -124,10 +131,22 @@ export function SignUpForm({
 
   useEffect(() => {
     if (requiresLegalConsent) {
-      setAgreedToLegal(false)
+      setAgreedToLegal(isLegalConsentAccepted())
     } else {
       setAgreedToLegal(true)
     }
+  }, [requiresLegalConsent])
+
+  useEffect(() => {
+    if (!requiresLegalConsent) return
+
+    if (isLegalConsentAccepted()) {
+      setAgreedToLegal(true)
+    }
+
+    return subscribeLegalConsentAccepted(() => {
+      setAgreedToLegal(true)
+    })
   }, [requiresLegalConsent])
 
   async function onSubmit(data: z.infer<typeof registerFormSchema>) {
@@ -220,7 +239,7 @@ export function SignUpForm({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-4', className)}
+        className={cn('grid gap-5', className)}
         {...props}
       >
         {/* Username Field */}
@@ -231,7 +250,12 @@ export function SignUpForm({
             <FormItem>
               <FormLabel>{t('Username')}</FormLabel>
               <FormControl>
-                <Input placeholder={t('Enter your username')} {...field} />
+                <Input
+                  placeholder={t('Enter your username')}
+                  className='h-11 px-3'
+                  autoComplete='username'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -248,6 +272,8 @@ export function SignUpForm({
               <FormControl>
                 <PasswordInput
                   placeholder={t('Enter password (8-20 characters)')}
+                  className='[&_input]:h-11 [&_input]:px-3'
+                  autoComplete='new-password'
                   {...field}
                 />
               </FormControl>
@@ -264,7 +290,12 @@ export function SignUpForm({
             <FormItem>
               <FormLabel>{t('Confirm password')}</FormLabel>
               <FormControl>
-                <PasswordInput placeholder={t('Confirm password')} {...field} />
+                <PasswordInput
+                  placeholder={t('Confirm password')}
+                  className='[&_input]:h-11 [&_input]:px-3'
+                  autoComplete='new-password'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -287,6 +318,8 @@ export function SignUpForm({
                     <Input
                       placeholder={t('name@example.com')}
                       type='email'
+                      className='h-11 px-3'
+                      autoComplete='email'
                       {...field}
                     />
                   </FormControl>
@@ -296,12 +329,14 @@ export function SignUpForm({
             />
 
             {/* Verification Code Field */}
-            <div className='flex items-end gap-2'>
-              <div className='flex-1'>
+            <div className='grid gap-2 sm:grid-cols-[1fr_auto]'>
+              <div className='min-w-0'>
                 <Input
                   placeholder={t('Verification code')}
                   value={verificationCode}
                   onChange={(e) => setVerificationCode(e.target.value)}
+                  className='h-11 px-3'
+                  autoComplete='one-time-code'
                 />
               </div>
               <Button
@@ -309,6 +344,7 @@ export function SignUpForm({
                 type='button'
                 disabled={isLoading || isSendingCode || isActive || !emailValue}
                 onClick={handleSendVerificationCode}
+                className='h-11 rounded-lg px-4'
               >
                 {isActive ? (
                   t('Resend ({{seconds}}s)', { seconds: secondsLeft })
@@ -319,7 +355,6 @@ export function SignUpForm({
                 )}
               </Button>
             </div>
-
           </>
         )}
 
@@ -343,7 +378,7 @@ export function SignUpForm({
         {/* Submit Button */}
         <Button
           type='submit'
-          className='mt-2 w-full justify-center gap-2'
+          className='mt-1 h-11 w-full justify-center gap-2 rounded-lg'
           disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}

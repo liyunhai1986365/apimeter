@@ -58,6 +58,11 @@ import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 import { loginFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
+import {
+  getLegalConsentAvailability,
+  isLegalConsentAccepted,
+  subscribeLegalConsentAccepted,
+} from '@/features/auth/lib/legal-consent-storage'
 import { beginPasskeyLogin, finishPasskeyLogin } from '@/features/auth/passkey'
 import type { AuthFormProps } from '@/features/auth/types'
 
@@ -90,8 +95,10 @@ export function UserAuthForm({
   } = useTurnstile()
   const { handleLoginSuccess, redirectTo2FA } = useAuthRedirect()
 
-  const hasUserAgreement = Boolean(status?.user_agreement_enabled)
-  const hasPrivacyPolicy = Boolean(status?.privacy_policy_enabled)
+  const {
+    userAgreementEnabled: hasUserAgreement,
+    privacyPolicyEnabled: hasPrivacyPolicy,
+  } = getLegalConsentAvailability(status)
   const requiresLegalConsent = hasUserAgreement || hasPrivacyPolicy
   const passkeyButtonDisabled =
     isPasskeyLoading ||
@@ -101,10 +108,22 @@ export function UserAuthForm({
 
   useEffect(() => {
     if (requiresLegalConsent) {
-      setAgreedToLegal(false)
+      setAgreedToLegal(isLegalConsentAccepted())
     } else {
       setAgreedToLegal(true)
     }
+  }, [requiresLegalConsent])
+
+  useEffect(() => {
+    if (!requiresLegalConsent) return
+
+    if (isLegalConsentAccepted()) {
+      setAgreedToLegal(true)
+    }
+
+    return subscribeLegalConsentAccepted(() => {
+      setAgreedToLegal(true)
+    })
   }, [requiresLegalConsent])
 
   useEffect(() => {
@@ -279,7 +298,7 @@ export function UserAuthForm({
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className={cn('grid gap-4', className)}
+        className={cn('grid gap-5', className)}
         {...props}
       >
         {/* Username Field */}
@@ -292,6 +311,8 @@ export function UserAuthForm({
               <FormControl>
                 <Input
                   placeholder={t('Enter your username or email')}
+                  className='h-11 px-3'
+                  autoComplete='username'
                   {...field}
                 />
               </FormControl>
@@ -308,7 +329,12 @@ export function UserAuthForm({
             <FormItem className='relative'>
               <FormLabel>{t('Password')}</FormLabel>
               <FormControl>
-                <PasswordInput placeholder={t('Enter password')} {...field} />
+                <PasswordInput
+                  placeholder={t('Enter password')}
+                  className='[&_input]:h-11 [&_input]:px-3'
+                  autoComplete='current-password'
+                  {...field}
+                />
               </FormControl>
               <FormMessage />
               <Link
@@ -324,7 +350,7 @@ export function UserAuthForm({
         {/* Submit Button */}
         <Button
           type='submit'
-          className='mt-2 w-full justify-center gap-2'
+          className='mt-1 h-11 w-full justify-center gap-2 rounded-lg'
           disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
         >
           {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
