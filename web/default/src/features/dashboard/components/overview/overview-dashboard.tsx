@@ -583,9 +583,12 @@ export function OverviewDashboard() {
   const completedStepCount = startSteps.filter((step) => step.completed).length
   const setupComplete = completedStepCount === startSteps.length
   const setupGuideExpanded = manualSetupGuideExpanded ?? !setupComplete
-  const showLeftContentPanels =
-    isAdmin || showApiInfoPanel || showAnnouncementsPanel || showFAQPanel
-  const showContentPanels = showLeftContentPanels || showUptimePanel
+  const showOverviewPanels =
+    showApiInfoPanel ||
+    showAnnouncementsPanel ||
+    showUptimePanel ||
+    showFAQPanel
+  const showContentPanels = isAdmin || showOverviewPanels
 
   const handleSetupGuideToggle = () => {
     const nextExpanded = !setupGuideExpanded
@@ -731,44 +734,34 @@ export function OverviewDashboard() {
         <CardStaggerContainer
           className={cn(
             'grid grid-cols-1 gap-4',
-            showLeftContentPanels &&
-              showUptimePanel &&
-              'xl:grid-cols-[minmax(0,1fr)_22rem]'
+            showOverviewPanels && 'xl:grid-cols-2'
           )}
         >
-          {showLeftContentPanels && (
-            <div
-              className={cn(
-                'grid min-w-0 grid-cols-1 gap-4',
-                (showApiInfoPanel || showAnnouncementsPanel || showFAQPanel) &&
-                  'lg:grid-cols-2'
-              )}
+          {isAdmin && (
+            <CardStaggerItem
+              className={showOverviewPanels ? 'xl:col-span-2' : undefined}
             >
-              {isAdmin && (
-                <CardStaggerItem className='lg:col-span-2'>
-                  <PerformanceHealthPanel />
-                </CardStaggerItem>
-              )}
-              {showApiInfoPanel && (
-                <CardStaggerItem>
-                  <ApiInfoPanel />
-                </CardStaggerItem>
-              )}
-              {showAnnouncementsPanel && (
-                <CardStaggerItem>
-                  <AnnouncementsPanel />
-                </CardStaggerItem>
-              )}
-              {showFAQPanel && (
-                <CardStaggerItem>
-                  <FAQPanel />
-                </CardStaggerItem>
-              )}
-            </div>
+              <PerformanceHealthPanel />
+            </CardStaggerItem>
+          )}
+          {showApiInfoPanel && (
+            <CardStaggerItem className='h-full'>
+              <ApiInfoPanel />
+            </CardStaggerItem>
+          )}
+          {showAnnouncementsPanel && (
+            <CardStaggerItem className='h-full'>
+              <AnnouncementsPanel />
+            </CardStaggerItem>
           )}
           {showUptimePanel && (
-            <CardStaggerItem>
+            <CardStaggerItem className='h-full'>
               <UptimePanel />
+            </CardStaggerItem>
+          )}
+          {showFAQPanel && (
+            <CardStaggerItem className='h-full'>
+              <FAQPanel />
             </CardStaggerItem>
           )}
         </CardStaggerContainer>
