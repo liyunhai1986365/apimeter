@@ -44,7 +44,7 @@ type ApiKeysContextType = {
   selectedWorkspace: Workspace | null
   setSelectedWorkspaceId: React.Dispatch<React.SetStateAction<number | null>>
   isLoadingWorkspaces: boolean
-  refreshWorkspaces: () => Promise<void>
+  refreshWorkspaces: (preferredWorkspaceId?: number | null) => Promise<void>
 }
 
 const ApiKeysContext = React.createContext<ApiKeysContextType | null>(null)
@@ -84,31 +84,43 @@ export function ApiKeysProvider({ children }: { children: React.ReactNode }) {
     setWorkspaceRefreshTrigger((prev) => prev + 1)
   }, [])
 
-  const refreshWorkspaces = useCallback(async () => {
-    setIsLoadingWorkspaces(true)
-    try {
-      const res = await getWorkspaces()
-      if (!res.success || !res.data) {
-        toast.error(res.message || t(ERROR_MESSAGES.UNEXPECTED))
-        return
-      }
-      setWorkspaces(res.data)
-      setSelectedWorkspaceId((current) => {
-        if (current && res.data?.some((workspace) => workspace.id === current)) {
-          return current
+  const refreshWorkspaces = useCallback(
+    async (preferredWorkspaceId?: number | null) => {
+      setIsLoadingWorkspaces(true)
+      try {
+        const res = await getWorkspaces()
+        if (!res.success || !res.data) {
+          toast.error(res.message || t(ERROR_MESSAGES.UNEXPECTED))
+          return
         }
-        return (
-          res.data?.find((workspace) => workspace.is_default)?.id ??
-          res.data?.[0]?.id ??
-          null
-        )
-      })
-    } catch {
-      toast.error(t(ERROR_MESSAGES.UNEXPECTED))
-    } finally {
-      setIsLoadingWorkspaces(false)
-    }
-  }, [t])
+        setWorkspaces(res.data)
+        setSelectedWorkspaceId((current) => {
+          if (
+            preferredWorkspaceId &&
+            res.data?.some((workspace) => workspace.id === preferredWorkspaceId)
+          ) {
+            return preferredWorkspaceId
+          }
+          if (
+            current &&
+            res.data?.some((workspace) => workspace.id === current)
+          ) {
+            return current
+          }
+          return (
+            res.data?.find((workspace) => workspace.is_default)?.id ??
+            res.data?.[0]?.id ??
+            null
+          )
+        })
+      } catch {
+        toast.error(t(ERROR_MESSAGES.UNEXPECTED))
+      } finally {
+        setIsLoadingWorkspaces(false)
+      }
+    },
+    [t]
+  )
 
   useEffect(() => {
     void refreshWorkspaces()

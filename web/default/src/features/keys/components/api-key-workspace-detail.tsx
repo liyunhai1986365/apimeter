@@ -17,9 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
-import { KeyRound } from 'lucide-react'
+import { KeyRound, Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatQuota } from '@/lib/format'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getWorkspaceUsageStats } from '../api'
 import { type WorkspaceUsageStats } from '../types'
@@ -90,7 +91,7 @@ function WorkspaceUsageStatsStrip({
 
 export function ApiKeyWorkspaceDetail() {
   const { t } = useTranslation()
-  const { selectedWorkspace, isLoadingWorkspaces } = useApiKeys()
+  const { selectedWorkspace, isLoadingWorkspaces, setOpen } = useApiKeys()
   const usageStatsQuery = useQuery({
     queryKey: ['workspace-usage-stats', selectedWorkspace?.id],
     queryFn: async () => {
@@ -137,7 +138,8 @@ export function ApiKeyWorkspaceDetail() {
                   : t('API Keys in selected workspace')}
               </h2>
               <p className='text-muted-foreground mt-1 truncate text-xs'>
-                {t('Workspace totals are calculated from linked API keys.')}
+                {selectedWorkspace?.description ||
+                  t('Workspace totals are calculated from linked API keys.')}
               </p>
             </div>
             {selectedWorkspace && (
@@ -151,9 +153,24 @@ export function ApiKeyWorkspaceDetail() {
             )}
           </div>
         </div>
-        <div className='flex shrink-0 items-start gap-5 lg:ml-auto'>
+        <div className='flex shrink-0 items-start gap-3 lg:ml-auto'>
           {selectedWorkspace && (
-            <WorkspaceQuotaManagement workspaceId={selectedWorkspace.id} />
+            <>
+              <WorkspaceQuotaManagement
+                workspaceId={selectedWorkspace.id}
+                summaryMode='configured'
+              />
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                className='h-8'
+                onClick={() => setOpen('workspace-settings')}
+              >
+                <Settings2 className='size-3.5' />
+                {t('Workspace settings')}
+              </Button>
+            </>
           )}
         </div>
       </div>

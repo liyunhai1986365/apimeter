@@ -526,14 +526,18 @@ func DeleteUserWorkspace(userId int, workspaceId int) error {
 	if workspace.IsDefault {
 		return errors.New("默认工作区不能删除")
 	}
-	var count int64
-	if err := DB.Model(&Token{}).Where("user_id = ? AND workspace_id = ?", userId, workspaceId).Count(&count).Error; err != nil {
+	defaultWorkspace, err := EnsureDefaultWorkspace(userId)
+	if err != nil {
 		return err
 	}
-	if count > 0 {
-		return errors.New("请先删除或移动该工作区下的令牌")
-	}
-	return DB.Delete(workspace).Error
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(&Token{}).
+			Where("user_id = ? AND workspace_id = ?", userId, workspaceId).
+			Update("workspace_id", defaultWorkspace.Id).Error; err != nil {
+			return err
+		}
+		return tx.Delete(workspace).Error
+	})
 }
 
 func GetUserWorkspaceUsageStats(userId int, workspaceId int, now time.Time) (WorkspaceUsageStats, error) {

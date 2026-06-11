@@ -205,3 +205,4 @@ export type ApiKeysDialogType =
   | 'batch-delete'
   | 'cc-switch'
   | 'workspace-create'
+  | 'workspace-settings'

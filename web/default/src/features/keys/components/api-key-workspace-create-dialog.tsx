@@ -71,7 +71,7 @@ export function ApiKeyWorkspaceCreateDialog({
       })
       if (res.success && res.data) {
         setSelectedWorkspaceId(res.data.id)
-        await refreshWorkspaces()
+        await refreshWorkspaces(res.data.id)
         triggerRefresh()
         toast.success(t('Workspace created successfully'))
         onOpenChange(false)
@@ -91,7 +91,9 @@ export function ApiKeyWorkspaceCreateDialog({
         <DialogHeader>
           <DialogTitle>{t('Create Workspace')}</DialogTitle>
           <DialogDescription>
-            {t('Create a workspace to organize API keys by project or purpose.')}
+            {t(
+              'Create a workspace to organize API keys by project or purpose.'
+            )}
           </DialogDescription>
         </DialogHeader>
         <div className='space-y-3'>

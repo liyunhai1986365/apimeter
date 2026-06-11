@@ -177,3 +177,33 @@ func TestResetUserTokenWorkspaceQuotaOnlyResetsSelectedToken(t *testing.T) {
 	require.Equal(t, 20, other.RemainQuota)
 	require.Equal(t, 300, other.UsedQuota)
 }
+
+func TestDeleteUserWorkspaceMovesTokensToDefaultWorkspace(t *testing.T) {
+	truncateTables(t)
+
+	defaultWorkspace, err := EnsureDefaultWorkspace(1001)
+	require.NoError(t, err)
+	project := Workspace{Id: 701, UserId: 1001, Name: "Delete Project", Status: WorkspaceStatusEnabled}
+	otherUserWorkspace := Workspace{Id: 702, UserId: 2002, Name: "Other User", Status: WorkspaceStatusEnabled}
+	require.NoError(t, DB.Create(&[]Workspace{project, otherUserWorkspace}).Error)
+	require.NoError(t, DB.Create(&[]Token{
+		{Id: 801, UserId: 1001, WorkspaceId: project.Id, Name: "project-main", Key: "project-main-key"},
+		{Id: 802, UserId: 1001, WorkspaceId: project.Id, Name: "project-side", Key: "project-side-key"},
+		{Id: 803, UserId: 2002, WorkspaceId: otherUserWorkspace.Id, Name: "other-main", Key: "other-main-key"},
+	}).Error)
+
+	err = DeleteUserWorkspace(1001, project.Id)
+
+	require.NoError(t, err)
+	var deleted Workspace
+	require.Error(t, DB.First(&deleted, project.Id).Error)
+	var moved []Token
+	require.NoError(t, DB.Where("user_id = ? AND id IN ?", 1001, []int{801, 802}).Find(&moved).Error)
+	require.Len(t, moved, 2)
+	for _, token := range moved {
+		require.Equal(t, defaultWorkspace.Id, token.WorkspaceId)
+	}
+	var other Token
+	require.NoError(t, DB.First(&other, 803).Error)
+	require.Equal(t, otherUserWorkspace.Id, other.WorkspaceId)
+}

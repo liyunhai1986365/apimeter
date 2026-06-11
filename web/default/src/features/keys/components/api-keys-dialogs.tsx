@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useState } from 'react'
 import { ApiKeyWorkspaceCreateDialog } from './api-key-workspace-create-dialog'
+import { ApiKeyWorkspaceSettingsDialog } from './api-key-workspace-settings-dialog'
 import { ApiKeysDeleteDialog } from './api-keys-delete-dialog'
 import { ApiKeysMutateDrawer } from './api-keys-mutate-drawer'
 import { useApiKeys } from './api-keys-provider'
@@ -50,6 +51,10 @@ export function ApiKeysDialogs() {
       <ApiKeysDeleteDialog />
       <ApiKeyWorkspaceCreateDialog
         open={open === 'workspace-create'}
+        onOpenChange={(isOpen) => !isOpen && setOpen(null)}
+      />
+      <ApiKeyWorkspaceSettingsDialog
+        open={open === 'workspace-settings'}
         onOpenChange={(isOpen) => !isOpen && setOpen(null)}
       />
       <CCSwitchDialog
