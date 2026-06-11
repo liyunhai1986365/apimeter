@@ -24,4 +24,15 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if profile.Fetch.Response.StatusMap["completed"] != "SUCCESS" {
 		t.Fatalf("unexpected completed status mapping")
 	}
+
+	seedance, ok := GetProfile("doubao-seedance-2")
+	if !ok {
+		t.Fatal("expected doubao-seedance-2 profile")
+	}
+	if seedance.Submit.Path != "/api/v3/contents/generations/tasks" {
+		t.Fatalf("unexpected seedance submit path: %s", seedance.Submit.Path)
+	}
+	if seedance.Fetch.Response.ResultURLPath != "content.video_url" {
+		t.Fatalf("unexpected seedance result url path: %s", seedance.Fetch.Response.ResultURLPath)
+	}
 }

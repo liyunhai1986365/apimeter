@@ -28,4 +28,18 @@ func TestConfigurableNativeRoutesAreRegisteredFromProfiles(t *testing.T) {
 	if recorder.Code == http.StatusNotFound {
 		t.Fatalf("expected configurable native fetch route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
+
+	recorder = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", nil)
+	r.ServeHTTP(recorder, req)
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("expected seedance native submit route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	recorder = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/api/v3/contents/generations/tasks/task_123", nil)
+	r.ServeHTTP(recorder, req)
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("expected seedance native fetch route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
 }

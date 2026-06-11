@@ -550,6 +550,10 @@ func appendJSONValue(jsonText string, path string, value any) (string, error) {
 		for _, item := range v {
 			values = append(values, item)
 		}
+	case []map[string]any:
+		for _, item := range v {
+			values = append(values, item)
+		}
 	case []any:
 		values = append(values, v...)
 	default:
@@ -619,6 +623,14 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 		return toIntValue(value)
 	case "media_objects":
 		return mediaObjects(value, field), nil
+	case "seedance_text_content":
+		return seedanceTextContent(value), nil
+	case "seedance_image_content":
+		return seedanceMediaContent(value, "image_url", "reference_image", field), nil
+	case "seedance_video_content":
+		return seedanceMediaContent(value, "video_url", "reference_video", field), nil
+	case "seedance_audio_content":
+		return seedanceMediaContent(value, "audio_url", "reference_audio", field), nil
 	case "image_mode":
 		return imageMode(value), nil
 	case "image_aspect_ratio":
@@ -634,6 +646,38 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 	default:
 		return nil, fmt.Errorf("unsupported transform %q", transform)
 	}
+}
+
+func seedanceTextContent(value any) []map[string]any {
+	text, ok := value.(string)
+	if !ok || strings.TrimSpace(text) == "" {
+		return nil
+	}
+	return []map[string]any{{
+		"type": "text",
+		"text": text,
+	}}
+}
+
+func seedanceMediaContent(value any, contentType, role string, field FieldMapping) []map[string]any {
+	urls := stringValues(value)
+	if field.FirstOnly && len(urls) > 1 {
+		urls = urls[:1]
+	}
+	content := make([]map[string]any, 0, len(urls))
+	for _, url := range urls {
+		if strings.TrimSpace(url) == "" {
+			continue
+		}
+		content = append(content, map[string]any{
+			"type": contentType,
+			contentType: map[string]string{
+				"url": url,
+			},
+			"role": role,
+		})
+	}
+	return content
 }
 
 func toIntValue(value any) (any, error) {

@@ -182,6 +182,168 @@ func TestTaskAdaptorBuildsHappyHorseVideoEditRequest(t *testing.T) {
 	}
 }
 
+func TestTaskAdaptorBuildsSeedanceTextToVideoRequest(t *testing.T) {
+	body := buildSeedanceRequestBody(t, []byte(`{
+		"model":"doubao-seedance-2-0-260128",
+		"prompt":"一只金色柴犬在樱花树下奔跑，镜头缓缓上升",
+		"size":"480p",
+		"seconds":"5",
+		"metadata":{"ratio":"16:9","watermark":false,"generate_audio":true}
+	}`), "doubao-seedance-2-0-260128")
+
+	if got := gjson.GetBytes(body, "model").String(); got != "doubao-seedance-2-0-260128" {
+		t.Fatalf("unexpected model: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.#").Int(); got != 1 {
+		t.Fatalf("unexpected content length: %d body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.0.type").String(); got != "text" {
+		t.Fatalf("unexpected content type: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.0.text").String(); got != "一只金色柴犬在樱花树下奔跑，镜头缓缓上升" {
+		t.Fatalf("unexpected text: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "resolution").String(); got != "480p" {
+		t.Fatalf("unexpected resolution: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "duration").Int(); got != 5 {
+		t.Fatalf("unexpected duration: %d body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "ratio").String(); got != "16:9" {
+		t.Fatalf("unexpected ratio: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "watermark").Bool(); got {
+		t.Fatalf("unexpected watermark: %v body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "generate_audio").Bool(); !got {
+		t.Fatalf("unexpected generate_audio: %v body=%s", got, body)
+	}
+}
+
+func TestTaskAdaptorBuildsSeedanceAllModalitiesRequest(t *testing.T) {
+	body := buildSeedanceRequestBody(t, []byte(`{
+		"model":"doubao-seedance-2-0-fast-260128",
+		"prompt":"使用图片的风格，把这个声音应用在女主说话的场景，并修改这个视频",
+		"images":["https://example.com/reference_image.jpg"],
+		"metadata":{
+			"video_url":"https://example.com/reference-video.mp4",
+			"audio_url":"https://example.com/reference_audio.mp3",
+			"ratio":"9:16",
+			"watermark":false
+		},
+		"duration":6
+	}`), "doubao-seedance-2-0-fast-260128")
+
+	if got := gjson.GetBytes(body, "content.#").Int(); got != 4 {
+		t.Fatalf("unexpected content length: %d body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.1.type").String(); got != "image_url" {
+		t.Fatalf("unexpected image content type: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.1.image_url.url").String(); got != "https://example.com/reference_image.jpg" {
+		t.Fatalf("unexpected image url: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.1.role").String(); got != "reference_image" {
+		t.Fatalf("unexpected image role: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.2.video_url.url").String(); got != "https://example.com/reference-video.mp4" {
+		t.Fatalf("unexpected video url: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.2.role").String(); got != "reference_video" {
+		t.Fatalf("unexpected video role: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "content.3.audio_url.url").String(); got != "https://example.com/reference_audio.mp3" {
+		t.Fatalf("unexpected audio url: %s body=%s", got, body)
+	}
+	if got := gjson.GetBytes(body, "duration").Int(); got != 6 {
+		t.Fatalf("unexpected duration: %d body=%s", got, body)
+	}
+}
+
+func TestTaskAdaptorBuildsSeedanceNativeOfficialRequest(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{
+		"model":"doubao-seedance-2-0-260128",
+		"content":[
+			{"type":"text","text":"让画面中的人物缓缓转身微笑"},
+			{"type":"image_url","image_url":{"url":"https://example.com/photo.jpg"},"role":"reference_image"}
+		],
+		"resolution":"480p",
+		"ratio":"16:9",
+		"duration":5,
+		"watermark":false
+	}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	if _, err := common.GetBodyStorage(c); err != nil {
+		t.Fatalf("cache body: %v", err)
+	}
+
+	info := seedanceRelayInfo("doubao-seedance-2-0-260128")
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	if err := adaptor.ValidateRequestAndSetAction(c, info); err != nil {
+		t.Fatalf("validate native request: %v", err)
+	}
+	ratios := adaptor.EstimateBilling(c, info)
+	if got := ratios["seconds"]; got != 5 {
+		t.Fatalf("unexpected billing seconds ratio: %v", got)
+	}
+
+	reader, err := adaptor.BuildRequestBody(c, info)
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	mappedBody, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read mapped body: %v", err)
+	}
+	if !bytes.Equal(bytes.TrimSpace(mappedBody), bytes.TrimSpace(body)) {
+		t.Fatalf("native official body should passthrough, got=%s want=%s", mappedBody, body)
+	}
+}
+
+func TestTaskAdaptorParsesSeedanceResponses(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := seedanceRelayInfo("doubao-seedance-2-0-260128")
+	info.TaskRelayInfo = &relaycommon.TaskRelayInfo{
+		PublicTaskID: "task_public",
+	}
+	adaptor.Init(info)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"id":"task_seedance","status":"queued","model":"doubao-seedance-2-0-260128","created_at":1779607183}`))),
+	}
+	taskID, taskData, taskErr := adaptor.DoResponse(c, resp, info)
+	if taskErr != nil {
+		t.Fatalf("do response error: %v", taskErr)
+	}
+	if taskID != "task_seedance" {
+		t.Fatalf("unexpected upstream task id: %s", taskID)
+	}
+	if !bytes.Contains(taskData, []byte("task_seedance")) {
+		t.Fatalf("expected original task data, got %s", taskData)
+	}
+	if got := gjson.GetBytes(recorder.Body.Bytes(), "status").String(); got != dto.VideoStatusQueued {
+		t.Fatalf("unexpected public response status: %s body=%s", got, recorder.Body.String())
+	}
+
+	result, err := adaptor.ParseTaskResult([]byte(`{"id":"task_seedance","status":"succeeded","model":"doubao-seedance-2-0-260128","content":{"video_url":"https://example.com/result.mp4"},"usage":{"completion_tokens":100858}}`))
+	if err != nil {
+		t.Fatalf("parse result: %v", err)
+	}
+	if result.Status != "SUCCESS" {
+		t.Fatalf("unexpected status: %s", result.Status)
+	}
+	if result.Url != "https://example.com/result.mp4" {
+		t.Fatalf("unexpected url: %s", result.Url)
+	}
+}
+
 func TestTaskAdaptorBuildsHappyHorseNativeDashScopeRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{
@@ -598,6 +760,52 @@ func happyHorseRelayInfo(upstreamModel string) *relaycommon.RelayInfo {
 			ChannelSetting: dto.ChannelSettings{
 				Protocol: &dto.ChannelProtocolSettings{
 					ProfileID: "happyhorse-video",
+				},
+			},
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+}
+
+func buildSeedanceRequestBody(t *testing.T, requestBody []byte, upstreamModel string) []byte {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", bytes.NewReader(requestBody))
+	c.Request.Header.Set("Content-Type", "application/json")
+	if _, err := common.GetBodyStorage(c); err != nil {
+		t.Fatalf("cache body: %v", err)
+	}
+
+	info := seedanceRelayInfo(upstreamModel)
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	if err := adaptor.ValidateRequestAndSetAction(c, info); err != nil {
+		t.Fatalf("validate request: %v", err)
+	}
+
+	reader, err := adaptor.BuildRequestBody(c, info)
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	mappedBody, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read mapped body: %v", err)
+	}
+	return mappedBody
+}
+
+func seedanceRelayInfo(upstreamModel string) *relaycommon.RelayInfo {
+	return &relaycommon.RelayInfo{
+		OriginModelName: upstreamModel,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			ChannelBaseUrl:    "https://api.llm.jimuall.com",
+			ApiKey:            "sk-test",
+			UpstreamModelName: upstreamModel,
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					ProfileID: "doubao-seedance-2",
 				},
 			},
 		},

@@ -67,6 +67,10 @@ export const PROTOCOL_PROFILE_OPTIONS = [
     value: 'happyhorse-video',
   },
   {
+    label: 'Doubao Seedance 2.0',
+    value: 'doubao-seedance-2',
+  },
+  {
     label: 'Apixo GPT Image 2',
     value: 'apixo-gpt-image-2',
   },
