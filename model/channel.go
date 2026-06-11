@@ -72,6 +72,12 @@ type ChannelInfo struct {
 	MultiKeyMode           constant.MultiKeyMode `json:"multi_key_mode"`
 }
 
+type ChannelFilterOption struct {
+	Id     int    `json:"id"`
+	Name   string `json:"name"`
+	Status int    `json:"status"`
+}
+
 type ChannelSortOptions struct {
 	SortBy    string
 	SortOrder string
@@ -1215,6 +1221,15 @@ func CountAllChannels() (int64, error) {
 	var total int64
 	err := DB.Model(&Channel{}).Count(&total).Error
 	return total, err
+}
+
+func GetChannelFilterOptions() ([]ChannelFilterOption, error) {
+	var options []ChannelFilterOption
+	err := DB.Model(&Channel{}).
+		Select("id", "name", "status").
+		Order("id desc").
+		Scan(&options).Error
+	return options, err
 }
 
 // CountAllTags returns number of non-empty distinct tags

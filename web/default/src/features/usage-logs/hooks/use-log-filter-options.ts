@@ -19,16 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import type { ComboboxInputOption } from '@/components/ui/combobox-input'
-import { getUserGroups, getUserModels } from '@/lib/api'
-import { getChannels } from '@/features/channels/api'
-
-const FILTER_OPTIONS_PAGE_SIZE = 1000
+import { getUserGroups } from '@/lib/api'
+import { getChannelFilterOptions } from '@/features/channels/api'
 
 interface UseLogFilterOptionsParams {
-  modelName?: string
   group?: string
   channel?: string
-  includeModels?: boolean
   includeGroups?: boolean
   includeChannels?: boolean
 }
@@ -44,19 +40,7 @@ function appendCurrentOption(
 }
 
 export function useLogFilterOptions(params: UseLogFilterOptionsParams = {}) {
-  const includeModels = params.includeModels ?? true
   const includeGroups = params.includeGroups ?? true
-
-  const modelsQuery = useQuery({
-    queryKey: ['log-filter-options', 'models'],
-    queryFn: async () => {
-      const result = await getUserModels()
-      if (!result.success) throw new Error(result.message || 'Load failed')
-      return result.data || []
-    },
-    enabled: includeModels,
-    staleTime: 60_000,
-  })
 
   const groupsQuery = useQuery({
     queryKey: ['log-filter-options', 'groups'],
@@ -72,23 +56,13 @@ export function useLogFilterOptions(params: UseLogFilterOptionsParams = {}) {
   const channelsQuery = useQuery({
     queryKey: ['log-filter-options', 'channels'],
     queryFn: async () => {
-      const result = await getChannels({
-        p: 1,
-        page_size: FILTER_OPTIONS_PAGE_SIZE,
-      })
+      const result = await getChannelFilterOptions()
       if (!result.success) throw new Error(result.message || 'Load failed')
-      return result.data?.items || []
+      return result.data || []
     },
     enabled: !!params.includeChannels,
     staleTime: 60_000,
   })
-
-  const modelOptions = useMemo<ComboboxInputOption[]>(() => {
-    const options = (modelsQuery.data || [])
-      .filter(Boolean)
-      .map((model) => ({ value: model, label: model }))
-    return appendCurrentOption(options, params.modelName)
-  }, [modelsQuery.data, params.modelName])
 
   const groupOptions = useMemo<ComboboxInputOption[]>(() => {
     const options = (groupsQuery.data || [])
@@ -113,7 +87,6 @@ export function useLogFilterOptions(params: UseLogFilterOptionsParams = {}) {
   }, [channelsQuery.data, params.channel])
 
   return {
-    modelOptions,
     groupOptions,
     channelOptions,
   }

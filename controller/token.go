@@ -118,6 +118,24 @@ func GetAllTokens(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+func GetTokenFilterOptions(c *gin.Context) {
+	userId := c.GetInt("id")
+	workspaces, err := model.ListUserWorkspaceFilterOptions(userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	tokens, err := model.GetUserTokenFilterOptions(userId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"workspaces": workspaces,
+		"tokens":     tokens,
+	})
+}
+
 func SearchTokens(c *gin.Context) {
 	userId := c.GetInt("id")
 	keyword := c.Query("keyword")

@@ -42,6 +42,12 @@ type WorkspaceWithTokenCount struct {
 	TokenCount int64 `json:"token_count"`
 }
 
+type WorkspaceFilterOption struct {
+	Id        int    `json:"id"`
+	Name      string `json:"name"`
+	IsDefault bool   `json:"is_default"`
+}
+
 type WorkspaceUsageStats struct {
 	WorkspaceId    int `json:"workspace_id"`
 	TodayQuota     int `json:"today_quota"`
@@ -159,6 +165,22 @@ func ListUserWorkspaces(userId int) ([]WorkspaceWithTokenCount, error) {
 		})
 	}
 	return result, nil
+}
+
+func ListUserWorkspaceFilterOptions(userId int) ([]WorkspaceFilterOption, error) {
+	if userId <= 0 {
+		return nil, errors.New("userId 无效")
+	}
+	if _, err := EnsureDefaultWorkspace(userId); err != nil {
+		return nil, err
+	}
+	var options []WorkspaceFilterOption
+	err := DB.Model(&Workspace{}).
+		Select("id", "name", "is_default").
+		Where("user_id = ?", userId).
+		Order("is_default desc, id asc").
+		Scan(&options).Error
+	return options, err
 }
 
 func CreateUserWorkspace(userId int, name string, description string) (*Workspace, error) {

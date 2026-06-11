@@ -71,6 +71,27 @@ func TestGetAllChannelsFiltersByRatioQuery(t *testing.T) {
 	require.NotContains(t, recorder.Body.String(), "high-ratio")
 }
 
+func TestGetChannelFilterOptionsReturnsOnlyIdAndName(t *testing.T) {
+	setupChannelControllerBatchTestDB(t)
+
+	require.NoError(t, model.BatchInsertChannels([]model.Channel{
+		{Type: 1, Key: "sk-secret-1", Name: "alpha-channel", Models: "gpt-4o", Group: "default"},
+		{Type: 2, Key: "sk-secret-2", Name: "beta-channel", Models: "gpt-4o-mini", Group: "vip"},
+	}))
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/channel/filter-options", nil)
+
+	GetChannelFilterOptions(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "alpha-channel")
+	require.Contains(t, recorder.Body.String(), "beta-channel")
+	require.NotContains(t, recorder.Body.String(), "sk-secret")
+	require.NotContains(t, recorder.Body.String(), "gpt-4o")
+}
+
 func TestBatchSetChannelGroupsControllerUpdatesAbilities(t *testing.T) {
 	setupChannelControllerBatchTestDB(t)
 

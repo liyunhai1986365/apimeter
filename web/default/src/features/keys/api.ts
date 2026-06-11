@@ -26,6 +26,7 @@ import type {
   SearchApiKeysParams,
   ApiKeyFormData,
   Workspace,
+  TokenFilterOptionsResponse,
   WorkspaceQuotaResetConfig,
   WorkspaceQuotaResetConfigPayload,
   WorkspaceUsageStats,
@@ -65,6 +66,13 @@ export async function searchApiKeys(
 
 export async function getWorkspaces(): Promise<ApiResponse<Workspace[]>> {
   const res = await api.get('/api/workspaces/')
+  return res.data
+}
+
+export async function getTokenFilterOptions(): Promise<
+  ApiResponse<TokenFilterOptionsResponse>
+> {
+  const res = await api.get('/api/token/filter-options')
   return res.data
 }
 

@@ -313,7 +313,6 @@ export function Dashboard() {
                 <Suspense fallback={<ModelChartsFallback />}>
                   <LazyDimensionTrendCharts
                     filters={modelFilters}
-                    isAdmin={isAdmin}
                     timeReferenceData={modelData}
                     timeGranularity={
                       modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY

@@ -56,7 +56,6 @@ import { useUsageLogsContext } from './usage-logs-provider'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
 const logTypeValues = ['0', '1', '2', '3', '4', '5', '6'] as const
-const ALL_MODEL_FILTER_VALUE = '__all_models__'
 const ALL_GROUP_FILTER_VALUE = '__all_groups__'
 const ALL_CHANNEL_FILTER_VALUE = '__all_channels__'
 
@@ -189,8 +188,7 @@ export function CommonLogsFilterBar<TData>(
     workspaceName: filters.workspace,
     tokenName: filters.token,
   })
-  const { modelOptions, groupOptions, channelOptions } = useLogFilterOptions({
-    modelName: filters.model,
+  const { groupOptions, channelOptions } = useLogFilterOptions({
     group: filters.group,
     channel: filters.channel,
     includeChannels: isAdmin,
@@ -237,13 +235,11 @@ export function CommonLogsFilterBar<TData>(
       }
       additionalSearch={
         <>
-          <FilterCombobox
-            options={modelOptions}
-            value={filters.model}
-            allValue={ALL_MODEL_FILTER_VALUE}
-            allLabel={t('All Models')}
+          <Input
             placeholder={t('Model Name')}
-            onValueChange={(value) => handleChange('model', value)}
+            value={filters.model || ''}
+            onChange={(e) => handleChange('model', e.target.value)}
+            onKeyDown={handleKeyDown}
             className={inputClass}
           />
           <FilterCombobox

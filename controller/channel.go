@@ -207,6 +207,15 @@ func GetAllChannels(c *gin.Context) {
 	return
 }
 
+func GetChannelFilterOptions(c *gin.Context) {
+	options, err := model.GetChannelFilterOptions()
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, options)
+}
+
 func buildFetchModelsHeaders(channel *model.Channel, key string) (http.Header, error) {
 	var headers http.Header
 	switch channel.Type {

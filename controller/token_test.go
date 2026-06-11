@@ -58,6 +58,19 @@ type tokenKeyResponse struct {
 	Key string `json:"key"`
 }
 
+type tokenFilterOptionsResponse struct {
+	Workspaces []struct {
+		ID        int    `json:"id"`
+		Name      string `json:"name"`
+		IsDefault bool   `json:"is_default"`
+	} `json:"workspaces"`
+	Tokens []struct {
+		ID          int    `json:"id"`
+		Name        string `json:"name"`
+		WorkspaceID int    `json:"workspace_id"`
+	} `json:"tokens"`
+}
+
 type sqliteColumnInfo struct {
 	Name string `gorm:"column:name"`
 	Type string `gorm:"column:type"`
@@ -117,9 +130,19 @@ func openTokenControllerTestDB(t *testing.T) *gorm.DB {
 func migrateTokenControllerTestDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
-	if err := db.AutoMigrate(&model.Workspace{}, &model.Token{}); err != nil {
+	if err := db.AutoMigrate(&model.Workspace{}, &model.Token{}, &model.Log{}); err != nil {
 		t.Fatalf("failed to migrate token table: %v", err)
 	}
+}
+
+func setupTokenControllerFilterOptionsTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	db := openTokenControllerTestDB(t)
+	if err := db.AutoMigrate(&model.Workspace{}, &model.Token{}); err != nil {
+		t.Fatalf("failed to migrate filter options tables: %v", err)
+	}
+	return db
 }
 
 func setupTokenControllerTestDB(t *testing.T) *gorm.DB {
@@ -500,6 +523,43 @@ func TestGetAllTokensFiltersByWorkspace(t *testing.T) {
 	}
 	if page.Items[0].ID == defaultToken.Id || page.Items[0].WorkspaceID == defaultWorkspace.Id {
 		t.Fatalf("workspace filter returned default workspace token")
+	}
+}
+
+func TestGetTokenFilterOptionsDoesNotRequireLogTable(t *testing.T) {
+	db := setupTokenControllerFilterOptionsTestDB(t)
+	projectWorkspace := seedWorkspace(t, 1, "Project Filter")
+	projectToken := seedToken(t, db, 1, "project-filter-token", "projectfiltertoken")
+	projectToken.WorkspaceId = projectWorkspace.Id
+	if err := db.Save(projectToken).Error; err != nil {
+		t.Fatalf("failed to move token to project workspace: %v", err)
+	}
+	seedToken(t, db, 2, "other-user-token", "otherfiltertoken")
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/token/filter-options", nil, 1)
+	GetTokenFilterOptions(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected success response, got message: %s", response.Message)
+	}
+	var options tokenFilterOptionsResponse
+	if err := common.Unmarshal(response.Data, &options); err != nil {
+		t.Fatalf("failed to decode filter options response: %v", err)
+	}
+	if len(options.Tokens) != 1 {
+		t.Fatalf("expected one token option, got %d", len(options.Tokens))
+	}
+	if options.Tokens[0].Name != "project-filter-token" || options.Tokens[0].WorkspaceID != projectWorkspace.Id {
+		t.Fatalf("unexpected token option: %+v", options.Tokens[0])
+	}
+	if len(options.Workspaces) == 0 {
+		t.Fatalf("expected workspace options")
+	}
+	for _, token := range options.Tokens {
+		if token.Name == "other-user-token" {
+			t.Fatalf("filter options leaked another user's token")
+		}
 	}
 }
 

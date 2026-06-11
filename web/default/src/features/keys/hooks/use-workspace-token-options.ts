@@ -18,12 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getApiKeys, getWorkspaces } from '../api'
+import { getTokenFilterOptions } from '../api'
 
 export const ALL_WORKSPACE_FILTER_VALUE = '__all_workspaces__'
 export const ALL_TOKEN_FILTER_VALUE = '__all_tokens__'
-
-const TOKEN_OPTIONS_PAGE_SIZE = 1000
 
 export interface WorkspaceFilterOption {
   value: string
@@ -57,44 +55,23 @@ export function useWorkspaceTokenOptions(
   params: UseWorkspaceTokenOptionsParams = {}
 ) {
   const enabled = params.enabled ?? true
-  const workspaceQuery = useQuery({
-    queryKey: ['workspace-token-filter-options', 'workspaces'],
+  const filterOptionsQuery = useQuery({
+    queryKey: ['workspace-token-filter-options'],
     queryFn: async () => {
-      const result = await getWorkspaces()
+      const result = await getTokenFilterOptions()
       if (!result.success) throw new Error(result.message || 'Load failed')
-      return result.data || []
+      return result.data || { workspaces: [], tokens: [] }
     },
     enabled,
     staleTime: 60_000,
   })
 
-  const workspaces = workspaceQuery.data || []
+  const workspaces = filterOptionsQuery.data?.workspaces || []
+  const tokens = filterOptionsQuery.data?.tokens || []
   const selectedWorkspace = workspaces.find(
     (workspace) => workspace.name === params.workspaceName
   )
   const selectedWorkspaceId = selectedWorkspace?.id
-  const canLoadTokens =
-    enabled && (!params.workspaceName || !!selectedWorkspaceId)
-
-  const tokenQuery = useQuery({
-    queryKey: [
-      'workspace-token-filter-options',
-      'tokens',
-      selectedWorkspaceId || 'all',
-      params.workspaceName || '',
-    ],
-    queryFn: async () => {
-      const result = await getApiKeys({
-        p: 1,
-        size: TOKEN_OPTIONS_PAGE_SIZE,
-        workspace_id: selectedWorkspaceId,
-      })
-      if (!result.success) throw new Error(result.message || 'Load failed')
-      return result.data?.items || []
-    },
-    enabled: canLoadTokens,
-    staleTime: 60_000,
-  })
 
   const workspaceOptions = useMemo<WorkspaceFilterOption[]>(() => {
     const options = workspaces.map((workspace) => ({
@@ -102,7 +79,6 @@ export function useWorkspaceTokenOptions(
       label: workspace.name,
       id: workspace.id,
       isDefault: workspace.is_default,
-      tokenCount: workspace.token_count,
     }))
     return appendCurrentOption(options, params.workspaceName)
   }, [params.workspaceName, workspaces])
@@ -111,7 +87,10 @@ export function useWorkspaceTokenOptions(
     const seen = new Set<string>()
     const options: TokenFilterOption[] = []
 
-    for (const token of tokenQuery.data || []) {
+    for (const token of tokens) {
+      if (selectedWorkspaceId && token.workspace_id !== selectedWorkspaceId) {
+        continue
+      }
       const name = token.name?.trim()
       if (!name || seen.has(name)) continue
       seen.add(name)
@@ -119,12 +98,12 @@ export function useWorkspaceTokenOptions(
     }
 
     return appendCurrentOption(options, params.tokenName)
-  }, [params.tokenName, tokenQuery.data])
+  }, [params.tokenName, selectedWorkspaceId, tokens])
 
   return {
     workspaceOptions,
     tokenOptions,
-    isLoadingWorkspaces: workspaceQuery.isLoading,
-    isLoadingTokens: tokenQuery.isLoading,
+    isLoadingWorkspaces: filterOptionsQuery.isLoading,
+    isLoadingTokens: filterOptionsQuery.isLoading,
   }
 }

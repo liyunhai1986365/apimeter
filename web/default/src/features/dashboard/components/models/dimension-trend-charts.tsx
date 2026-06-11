@@ -43,7 +43,6 @@ let themeManagerPromise: Promise<
 
 interface DimensionTrendChartsProps {
   filters?: DashboardFilters
-  isAdmin?: boolean
   timeReferenceData?: QuotaDataItem[]
   timeGranularity?: TimeGranularity
 }
@@ -176,9 +175,10 @@ export function DimensionTrendCharts(props: DimensionTrendChartsProps) {
       if (abortController.signal.aborted) return
       setLoading(true)
       try {
+        const { username: _username, ...selfFilters } = props.filters ?? {}
         const res = await getUsageDimensionTrends(
-          buildQueryParams(timeRange, props.filters),
-          Boolean(props.isAdmin)
+          buildQueryParams(timeRange, selfFilters),
+          false
         )
         if (abortController.signal.aborted) return
         setData(res?.data || [])
@@ -197,7 +197,7 @@ export function DimensionTrendCharts(props: DimensionTrendChartsProps) {
     return () => {
       abortController.abort()
     }
-  }, [props.filters, props.isAdmin])
+  }, [props.filters])
 
   return (
     <div className='space-y-3'>

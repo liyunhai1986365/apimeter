@@ -51,12 +51,13 @@ func GetQuotaDatesByUser(c *gin.Context) {
 }
 
 func GetAllUsageDimensionTrends(c *gin.Context) {
+	userId := c.GetInt("id")
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	username := c.Query("username")
 	tokenName := c.Query("token_name")
 	workspaceName := c.Query("workspace_name")
-	dates, err := model.GetUsageDimensionTrendsFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, 0)
+	dates, err := model.GetUsageDimensionTrendsFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, userId)
 	if err != nil {
 		common.ApiError(c, err)
 		return

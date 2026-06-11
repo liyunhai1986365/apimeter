@@ -186,7 +186,6 @@ export function TaskLogsFilterBar<TData>(props: TaskLogsFilterBarProps<TData>) {
   })
   const { channelOptions } = useLogFilterOptions({
     channel: filters.channel,
-    includeModels: false,
     includeGroups: false,
     includeChannels: isAdmin,
   })

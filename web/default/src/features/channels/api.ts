@@ -102,6 +102,15 @@ export async function getChannels(
   return res.data
 }
 
+export async function getChannelFilterOptions(): Promise<{
+  success: boolean
+  message?: string
+  data?: Array<{ id: number; name: string; status: number }>
+}> {
+  const res = await api.get('/api/channel/filter-options')
+  return res.data
+}
+
 /**
  * Search channels with filters
  */

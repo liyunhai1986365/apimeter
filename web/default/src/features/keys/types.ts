@@ -80,6 +80,23 @@ export const workspaceSchema = z.object({
 
 export type Workspace = z.infer<typeof workspaceSchema>
 
+export interface WorkspaceFilterOptionItem {
+  id: number
+  name: string
+  is_default: boolean
+}
+
+export interface TokenFilterOptionItem {
+  id: number
+  name: string
+  workspace_id: number
+}
+
+export interface TokenFilterOptionsResponse {
+  workspaces: WorkspaceFilterOptionItem[]
+  tokens: TokenFilterOptionItem[]
+}
+
 export const workspaceUsageStatsSchema = z.object({
   workspace_id: z.number(),
   today_quota: z.number(),
