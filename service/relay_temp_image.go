@@ -434,7 +434,7 @@ func tempImageStorageConfigFromEnv(c *gin.Context) (tempImageStorageConfig, erro
 	}
 	ossConfigured := cfg.hasOSSConfig()
 	r2Configured := hasR2EnvConfig()
-	useR2Config := cfg.Storage == "r2" || ((cfg.Storage == "" || cfg.Storage == "auto") && !ossConfigured && r2Configured)
+	useR2Config := cfg.Storage == "r2" || ((cfg.Storage == "" || cfg.Storage == "auto") && r2Configured)
 	if useR2Config {
 		cfg.OSSEndpoint = strings.TrimRight(strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_ENDPOINT")), "/")
 		cfg.OSSBucket = strings.TrimSpace(os.Getenv("API_TEMP_IMAGE_R2_BUCKET"))
@@ -451,10 +451,10 @@ func tempImageStorageConfigFromEnv(c *gin.Context) (tempImageStorageConfig, erro
 		cfg.OSSObjectPrefix = defaultTempImageOSSObjectPrefix
 	}
 	if cfg.Storage == "" || cfg.Storage == "auto" {
-		if cfg.hasOSSConfig() {
-			cfg.Storage = "oss"
-		} else if r2Configured {
+		if r2Configured {
 			cfg.Storage = "r2"
+		} else if ossConfigured {
+			cfg.Storage = "oss"
 		} else {
 			cfg.Storage = "local"
 		}

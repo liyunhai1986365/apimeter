@@ -144,15 +144,17 @@ func TestSaveTemporaryImageUploadsMultipartToR2WithUnsignedPayload(t *testing.T)
 	require.Equal(t, int64(len("fake-png")), uploadedContentLength)
 }
 
-func TestSaveTemporaryImageAutoKeepsOSSWhenBothOSSAndR2Configured(t *testing.T) {
-	var ossUploaded bool
+func TestSaveTemporaryImageAutoPrefersR2WhenBothOSSAndR2Configured(t *testing.T) {
 	ossServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ossUploaded = true
-		w.WriteHeader(http.StatusOK)
+		t.Fatal("auto storage should prefer R2 when both OSS and R2 are configured")
 	}))
 	defer ossServer.Close()
+	var r2Uploaded bool
+	var uploadedAuthorization string
 	r2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("auto storage should keep OSS when OSS is configured")
+		r2Uploaded = true
+		uploadedAuthorization = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer r2Server.Close()
 
@@ -168,7 +170,8 @@ func TestSaveTemporaryImageAutoKeepsOSSWhenBothOSSAndR2Configured(t *testing.T) 
 
 	_, err := SaveTemporaryImage(nil, multipartImageFileHeader(t, "source.png", "image/png", "fake-png"))
 	require.NoError(t, err)
-	require.True(t, ossUploaded)
+	require.True(t, r2Uploaded)
+	require.Contains(t, uploadedAuthorization, "AWS4-HMAC-SHA256")
 }
 
 func TestSaveTemporaryImageBase64UsesUserOSSWhenConfigured(t *testing.T) {
