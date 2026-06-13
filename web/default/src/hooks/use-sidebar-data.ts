@@ -134,7 +134,7 @@ export function buildSidebarData(
           },
           {
             title: t('Billing'),
-            url: '/billing/current',
+            url: '/billing/monthly',
             activeUrls: ['/billing'],
             icon: ReceiptText,
           },

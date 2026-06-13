@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -32,10 +33,7 @@ const (
 	BillingStatementStatusConfirmed = "confirmed"
 	BillingStatementStatusException = "exception"
 
-	BillingStatementSummaryDimensionModel  = "model"
-	BillingStatementSummaryDimensionGroup  = "group"
-	BillingStatementSummaryDimensionKey    = "key"
-	BillingStatementSummaryDimensionSource = "source"
+	BillingStatementSummaryDimensionMonthModelGroup = "month_model_group"
 )
 
 type BillingUsageItem struct {
@@ -125,6 +123,10 @@ type BillingStatementSummary struct {
 	PeriodValue      string `json:"period_value" gorm:"type:varchar(16);index"`
 	Dimension        string `json:"dimension" gorm:"type:varchar(32);index"`
 	DimensionValue   string `json:"dimension_value" gorm:"type:varchar(191);index"`
+	ModelName        string `json:"model_name" gorm:"type:varchar(191);index;default:''"`
+	Group            string `json:"group" gorm:"type:varchar(64);index;default:''"`
+	BillingSource    string `json:"billing_source" gorm:"type:varchar(32);index;default:''"`
+	BillingMode      string `json:"billing_mode" gorm:"type:varchar(32);index;default:''"`
 	RequestCount     int64  `json:"request_count" gorm:"type:bigint;default:0"`
 	InputTokens      int64  `json:"input_tokens" gorm:"type:bigint;default:0"`
 	OutputTokens     int64  `json:"output_tokens" gorm:"type:bigint;default:0"`
@@ -147,6 +149,15 @@ type BillingV2BackfillResult struct {
 	LedgerCreated int64 `json:"ledger_created"`
 	Skipped       int64 `json:"skipped"`
 	Failed        int64 `json:"failed"`
+}
+
+type BillingRecentMonthGenerationResult struct {
+	Month          string                  `json:"month"`
+	PeriodStart    int64                   `json:"period_start"`
+	PeriodEnd      int64                   `json:"period_end"`
+	Backfill       BillingV2BackfillResult `json:"backfill"`
+	StatementCount int                     `json:"statement_count"`
+	FailedUsers    []int                   `json:"failed_users"`
 }
 
 type BillingUsageItemQuery struct {
@@ -179,6 +190,39 @@ type BillingStatementQuery struct {
 	Period     string
 	Limit      int
 	Offset     int
+}
+
+type BillingBreakdownQuery struct {
+	UserId        int
+	Period        string
+	StartDate     string
+	EndDate       string
+	Month         string
+	ModelName     string
+	Group         string
+	BillingSource string
+	BillingMode   string
+	Limit         int
+	Offset        int
+	NoPagination  bool
+}
+
+type BillingBreakdownRow struct {
+	Period        string `json:"period"`
+	PeriodValue   string `json:"period_value"`
+	ModelName     string `json:"model_name"`
+	Group         string `json:"group"`
+	BillingSource string `json:"billing_source"`
+	BillingMode   string `json:"billing_mode"`
+
+	RequestCount     int64 `json:"request_count"`
+	InputTokens      int64 `json:"input_tokens"`
+	OutputTokens     int64 `json:"output_tokens"`
+	CacheReadTokens  int64 `json:"cache_read_tokens"`
+	CacheWriteTokens int64 `json:"cache_write_tokens"`
+	OriginalAmount   int64 `json:"original_amount"`
+	DiscountAmount   int64 `json:"discount_amount"`
+	SettlementAmount int64 `json:"settlement_amount"`
 }
 
 type DailyBillingReconciliation struct {
@@ -302,6 +346,80 @@ func BackfillBillingV2FromLogs(options BillingV2BackfillOptions) (BillingV2Backf
 		if len(logs) < options.BatchSize {
 			break
 		}
+	}
+	return result, nil
+}
+
+func GenerateRecentMonthlyBillingStatements(now time.Time, batchSize int) (BillingRecentMonthGenerationResult, error) {
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	now = now.UTC()
+	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+	monthTime := currentMonth.AddDate(0, -1, 0)
+	month := monthTime.Format("2006-01")
+	start := monthTime.Unix()
+	end := currentMonth.Add(-time.Second).Unix()
+
+	backfill, err := BackfillBillingV2FromLogs(BillingV2BackfillOptions{
+		StartTimestamp: start,
+		EndTimestamp:   end,
+		BatchSize:      batchSize,
+	})
+	result := BillingRecentMonthGenerationResult{
+		Month:       month,
+		PeriodStart: start,
+		PeriodEnd:   end,
+		Backfill:    backfill,
+		FailedUsers: []int{},
+	}
+	if err != nil {
+		return result, err
+	}
+
+	userSet := map[int]struct{}{}
+	var usageUsers []struct {
+		UserId int
+	}
+	if err := LOG_DB.Model(&BillingUsageItem{}).
+		Where("billing_month = ?", month).
+		Select("user_id").
+		Group("user_id").
+		Scan(&usageUsers).Error; err != nil {
+		return result, err
+	}
+	for _, row := range usageUsers {
+		if row.UserId > 0 {
+			userSet[row.UserId] = struct{}{}
+		}
+	}
+	var ledgerUsers []struct {
+		UserId int
+	}
+	if err := LOG_DB.Model(&AccountLedgerEntry{}).
+		Where("ledger_month = ?", month).
+		Select("user_id").
+		Group("user_id").
+		Scan(&ledgerUsers).Error; err != nil {
+		return result, err
+	}
+	for _, row := range ledgerUsers {
+		if row.UserId > 0 {
+			userSet[row.UserId] = struct{}{}
+		}
+	}
+
+	users := make([]int, 0, len(userSet))
+	for userId := range userSet {
+		users = append(users, userId)
+	}
+	sort.Ints(users)
+	for _, userId := range users {
+		if _, _, err := GenerateMonthlyBillingStatement(userId, month); err != nil {
+			result.FailedUsers = append(result.FailedUsers, userId)
+			continue
+		}
+		result.StatementCount++
 	}
 	return result, nil
 }
@@ -466,6 +584,24 @@ func latestAccountLedgerBalanceTx(tx *gorm.DB, userId int, accountType string) (
 	return latest.BalanceAfter, nil
 }
 
+func billingDisplayValue(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "-"
+	}
+	return value
+}
+
+func billingModeFromLog(other map[string]interface{}) string {
+	if mode := billingValueString(other, "billing_mode", ""); mode != "" {
+		return mode
+	}
+	if billingValueFloat(other, "model_price", 0) > 0 {
+		return "per-request"
+	}
+	return "ratio"
+}
+
 func billingUsageItemFromLog(log *Log, other map[string]interface{}) BillingUsageItem {
 	groupRatio := billingValueFloat(other, "group_ratio", 1)
 	if groupRatio == 0 {
@@ -501,7 +637,7 @@ func billingUsageItemFromLog(log *Log, other map[string]interface{}) BillingUsag
 		ModelName:        log.ModelName,
 		Group:            log.Group,
 		BillingSource:    billingValueString(other, "billing_source", BillingSourceWallet),
-		BillingMode:      billingValueString(other, "billing_mode", "ratio"),
+		BillingMode:      billingModeFromLog(other),
 		GroupRatio:       groupRatio,
 		BilledAt:         log.CreatedAt,
 		InputTokens:      input,
@@ -606,6 +742,115 @@ func GetAccountLedgerEntries(query AccountLedgerQuery) ([]AccountLedgerEntry, er
 	var rows []AccountLedgerEntry
 	err := tx.Order("occurred_at asc, id asc").Limit(limit).Offset(query.Offset).Find(&rows).Error
 	return rows, err
+}
+
+func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow, error) {
+	period := strings.TrimSpace(query.Period)
+	if period == "" {
+		period = BillingStatementPeriodMonth
+	}
+	tx := LOG_DB.Model(&BillingUsageItem{})
+	if query.UserId > 0 {
+		tx = tx.Where("user_id = ?", query.UserId)
+	}
+	if strings.TrimSpace(query.Month) != "" {
+		tx = tx.Where("billing_month = ?", strings.TrimSpace(query.Month))
+	}
+	if strings.TrimSpace(query.StartDate) != "" {
+		if period == BillingStatementPeriodMonth {
+			tx = tx.Where("billing_month >= ?", strings.TrimSpace(query.StartDate))
+		} else {
+			tx = tx.Where("billing_date >= ?", strings.TrimSpace(query.StartDate))
+		}
+	}
+	if strings.TrimSpace(query.EndDate) != "" {
+		if period == BillingStatementPeriodMonth {
+			tx = tx.Where("billing_month <= ?", strings.TrimSpace(query.EndDate))
+		} else {
+			tx = tx.Where("billing_date <= ?", strings.TrimSpace(query.EndDate))
+		}
+	}
+	if strings.TrimSpace(query.ModelName) != "" {
+		tx = tx.Where("model_name = ?", strings.TrimSpace(query.ModelName))
+	}
+	if strings.TrimSpace(query.Group) != "" {
+		tx = tx.Where(logGroupCol+" = ?", strings.TrimSpace(query.Group))
+	}
+	if strings.TrimSpace(query.BillingSource) != "" {
+		tx = tx.Where("billing_source = ?", strings.TrimSpace(query.BillingSource))
+	}
+	if strings.TrimSpace(query.BillingMode) != "" {
+		tx = tx.Where("billing_mode = ?", strings.TrimSpace(query.BillingMode))
+	}
+
+	var items []BillingUsageItem
+	if err := tx.Order("billing_date asc, billing_month asc, model_name asc, id asc").Find(&items).Error; err != nil {
+		return nil, err
+	}
+
+	type collectorKey struct {
+		PeriodValue string
+		ModelName   string
+		Group       string
+	}
+	collectors := map[collectorKey]*BillingBreakdownRow{}
+	order := make([]collectorKey, 0)
+	for _, item := range items {
+		periodValue := item.BillingMonth
+		if period == BillingStatementPeriodDay {
+			periodValue = item.BillingDate
+		}
+		key := collectorKey{
+			PeriodValue: billingDisplayValue(periodValue),
+			ModelName:   billingDisplayValue(item.ModelName),
+			Group:       billingDisplayValue(item.Group),
+		}
+		row := collectors[key]
+		if row == nil {
+			row = &BillingBreakdownRow{
+				Period:        period,
+				PeriodValue:   key.PeriodValue,
+				ModelName:     key.ModelName,
+				Group:         key.Group,
+				BillingSource: billingDisplayValue(item.BillingSource),
+				BillingMode:   billingDisplayValue(item.BillingMode),
+			}
+			collectors[key] = row
+			order = append(order, key)
+		}
+		row.RequestCount++
+		row.InputTokens += item.InputTokens
+		row.OutputTokens += item.OutputTokens
+		row.CacheReadTokens += item.CacheReadTokens
+		row.CacheWriteTokens += item.CacheWriteTokens
+		row.OriginalAmount += item.OriginalAmount
+		row.DiscountAmount += item.DiscountAmount
+		row.SettlementAmount += item.SettlementAmount
+	}
+
+	rows := make([]BillingBreakdownRow, 0, len(order))
+	for _, key := range order {
+		rows = append(rows, *collectors[key])
+	}
+	if query.NoPagination {
+		return rows, nil
+	}
+	offset := query.Offset
+	if offset < 0 {
+		offset = 0
+	}
+	if offset >= len(rows) {
+		return []BillingBreakdownRow{}, nil
+	}
+	limit := query.Limit
+	if limit <= 0 || limit > 500 {
+		limit = 500
+	}
+	end := offset + limit
+	if end > len(rows) {
+		end = len(rows)
+	}
+	return rows[offset:end], nil
 }
 
 func GetDailyBillingReconciliations(query BillingStatementQuery) ([]DailyBillingReconciliation, error) {
@@ -783,25 +1028,27 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 		Find(&items).Error; err != nil {
 		return nil, err
 	}
-	summaries := make([]BillingStatementSummary, 0, len(items)*4)
+	summaries := make([]BillingStatementSummary, 0, len(items))
 	collectors := map[string]map[string]*BillingStatementSummary{
-		BillingStatementSummaryDimensionModel:  {},
-		BillingStatementSummaryDimensionGroup:  {},
-		BillingStatementSummaryDimensionKey:    {},
-		BillingStatementSummaryDimensionSource: {},
+		BillingStatementSummaryDimensionMonthModelGroup: {},
 	}
 	for _, item := range items {
-		values := map[string]string{
-			BillingStatementSummaryDimensionModel:  item.ModelName,
-			BillingStatementSummaryDimensionGroup:  item.Group,
-			BillingStatementSummaryDimensionKey:    item.TokenName,
-			BillingStatementSummaryDimensionSource: item.BillingSource,
+		modelName := billingDisplayValue(item.ModelName)
+		groupName := billingDisplayValue(item.Group)
+		billingSource := billingDisplayValue(item.BillingSource)
+		billingMode := billingDisplayValue(item.BillingMode)
+		detailValue := strings.Join([]string{statement.PeriodValue, modelName, groupName}, " / ")
+		values := map[string]BillingStatementSummary{
+			BillingStatementSummaryDimensionMonthModelGroup: {
+				DimensionValue: detailValue,
+				ModelName:      modelName,
+				Group:          groupName,
+				BillingSource:  billingSource,
+				BillingMode:    billingMode,
+			},
 		}
-		for dimension, value := range values {
-			if value == "" {
-				value = "-"
-			}
-			row := collectors[dimension][value]
+		for dimension, seed := range values {
+			row := collectors[dimension][seed.DimensionValue]
 			if row == nil {
 				row = &BillingStatementSummary{
 					StatementNo:    statement.StatementNo,
@@ -809,9 +1056,13 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 					Period:         statement.Period,
 					PeriodValue:    statement.PeriodValue,
 					Dimension:      dimension,
-					DimensionValue: value,
+					DimensionValue: seed.DimensionValue,
+					ModelName:      seed.ModelName,
+					Group:          seed.Group,
+					BillingSource:  seed.BillingSource,
+					BillingMode:    seed.BillingMode,
 				}
-				collectors[dimension][value] = row
+				collectors[dimension][seed.DimensionValue] = row
 			}
 			row.RequestCount++
 			row.InputTokens += item.InputTokens
@@ -824,10 +1075,7 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 		}
 	}
 	dimensionOrder := []string{
-		BillingStatementSummaryDimensionModel,
-		BillingStatementSummaryDimensionGroup,
-		BillingStatementSummaryDimensionKey,
-		BillingStatementSummaryDimensionSource,
+		BillingStatementSummaryDimensionMonthModelGroup,
 	}
 	for _, dimension := range dimensionOrder {
 		for _, row := range collectors[dimension] {
@@ -858,6 +1106,16 @@ func GetBillingStatements(query BillingStatementQuery) ([]BillingStatement, erro
 	var rows []BillingStatement
 	err := tx.Order("period_value desc, id desc").Limit(limit).Offset(query.Offset).Find(&rows).Error
 	return rows, err
+}
+
+func GetBillingStatementByNo(statementNo string, userId int) (BillingStatement, error) {
+	var row BillingStatement
+	tx := LOG_DB.Model(&BillingStatement{}).Where("statement_no = ?", strings.TrimSpace(statementNo))
+	if userId > 0 {
+		tx = tx.Where("user_id = ?", userId)
+	}
+	err := tx.First(&row).Error
+	return row, err
 }
 
 func GetBillingStatementSummaries(statementNo string) ([]BillingStatementSummary, error) {

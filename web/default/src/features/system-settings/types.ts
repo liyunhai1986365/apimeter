@@ -71,6 +71,27 @@ export type DeleteLogsResponse = {
   data?: number
 }
 
+export type HistoricalBillingGenerationResult = {
+  month: string
+  period_start: number
+  period_end: number
+  backfill: {
+    scanned: number
+    usage_created: number
+    ledger_created: number
+    skipped: number
+    failed: number
+  }
+  statement_count: number
+  failed_users: number[]
+}
+
+export type HistoricalBillingGenerationResponse = {
+  success: boolean
+  message: string
+  data?: HistoricalBillingGenerationResult
+}
+
 export type SiteSettings = {
   'theme.frontend': string
   Notice: string

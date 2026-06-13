@@ -5,13 +5,11 @@ import {
   AlertTriangle,
   ArrowDownCircle,
   ArrowUpCircle,
-  BadgePercent,
   DatabaseZap,
+  Download,
   Gauge,
-  Layers3,
   ReceiptText,
   RefreshCw,
-  Rows3,
   Scale,
   WalletCards,
 } from 'lucide-react'
@@ -56,17 +54,19 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionPageLayout } from '@/components/layout'
 import {
+  exportBillingBreakdowns,
+  exportBillingMonthlyStatement,
   generateBillingMonthlyStatement,
   getAccountLedgerEntries,
-  getBillingCurrentPeriod,
+  getBillingBreakdowns,
   getBillingMonthlyStatementSummaries,
   getBillingMonthlyStatements,
   getDailyBillingReconciliations,
 } from './api'
 import type {
   AccountLedgerEntry,
+  BillingBreakdownRow,
   BillingCenterSectionId,
-  BillingCurrentPeriod,
   BillingStatement,
   BillingStatementSummary,
   DailyBillingReconciliation,
@@ -105,23 +105,42 @@ function entryTypeLabel(value: string, t: (key: string) => string) {
   return value || '-'
 }
 
-function dimensionLabel(value: string, t: (key: string) => string) {
-  if (value === 'model') return t('Model')
-  if (value === 'group') return t('Group')
-  if (value === 'key') return t('Key')
-  if (value === 'source') return t('Billing source')
-  return value || '-'
-}
-
 function signedQuotaClass(value: number) {
   if (value > 0) return 'text-emerald-600 dark:text-emerald-400'
   if (value < 0) return 'text-destructive'
   return 'text-muted-foreground'
 }
 
-function discountRate(original: number, discount: number) {
-  if (original <= 0) return '-'
-  return `${((discount / original) * 100).toFixed(2)}%`
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+
+function summaryRowsToBreakdownRows(
+  rows: BillingStatementSummary[]
+): BillingBreakdownRow[] {
+  return rows.map((row) => ({
+    period: row.period,
+    period_value: row.period_value,
+    model_name: row.model_name || '-',
+    group: row.group || '-',
+    billing_source: row.billing_source || '-',
+    billing_mode: row.billing_mode || '-',
+    request_count: row.request_count,
+    input_tokens: row.input_tokens,
+    output_tokens: row.output_tokens,
+    cache_read_tokens: row.cache_read_tokens,
+    cache_write_tokens: row.cache_write_tokens,
+    original_amount: row.original_amount,
+    discount_amount: row.discount_amount,
+    settlement_amount: row.settlement_amount,
+  }))
 }
 
 function MetricCard({
@@ -195,111 +214,17 @@ function StatementBadge({ status }: { status: string }) {
   )
 }
 
-function CurrentPeriodTab() {
-  const { t } = useTranslation()
-  const [current, setCurrent] = useState<BillingCurrentPeriod | null>(null)
-  const [loading, setLoading] = useState(false)
-
-  const fetchCurrent = useCallback(async () => {
-    setLoading(true)
-    try {
-      const summaryResponse = await getBillingCurrentPeriod()
-      if (summaryResponse.success) setCurrent(summaryResponse.data)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    void fetchCurrent()
-  }, [fetchCurrent])
-
-  const summary = current?.summary
-
-  return (
-    <div className='space-y-4'>
-      <FilterShell>
-        <div className='min-w-52 flex-1'>
-          <div className='text-sm font-medium'>{t('Current period')}</div>
-          <div className='text-muted-foreground text-xs'>
-            {current?.month ?? dayjs().format('YYYY-MM')} ·{' '}
-            {statusLabel(current?.status ?? 'estimated', t)}
-          </div>
-        </div>
-        <Button
-          type='button'
-          variant='outline'
-          onClick={() => void fetchCurrent()}
-          disabled={loading}
-          className='md:ml-auto'
-        >
-          <RefreshCw
-            className={cn('size-4', loading && 'animate-spin')}
-            aria-hidden='true'
-          />
-          {t('Refresh')}
-        </Button>
-      </FilterShell>
-
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-        <MetricCard
-          title={t('Settlement amount')}
-          value={formatQuota(summary?.settlement_amount ?? 0)}
-          icon={Scale}
-          tone='accent'
-        />
-        <MetricCard
-          title={t('Original amount')}
-          value={formatQuota(summary?.original_amount ?? 0)}
-          icon={ReceiptText}
-        />
-        <MetricCard
-          title={t('Group discount')}
-          value={formatQuota(summary?.discount_amount ?? 0)}
-          icon={BadgePercent}
-          tone={(summary?.discount_amount ?? 0) >= 0 ? 'positive' : 'negative'}
-        />
-        <MetricCard
-          title={t('Requests')}
-          value={formatNumber(summary?.request_count ?? 0)}
-          icon={Activity}
-        />
-      </div>
-
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-        <MetricCard
-          title={t('Input tokens')}
-          value={formatTokens(summary?.input_tokens ?? 0)}
-          icon={ArrowDownCircle}
-        />
-        <MetricCard
-          title={t('Output tokens')}
-          value={formatTokens(summary?.output_tokens ?? 0)}
-          icon={ArrowUpCircle}
-        />
-        <MetricCard
-          title={t('Cache read')}
-          value={formatTokens(summary?.cache_read_tokens ?? 0)}
-          icon={Rows3}
-        />
-        <MetricCard
-          title={t('Cache write')}
-          value={formatTokens(summary?.cache_write_tokens ?? 0)}
-          icon={Layers3}
-        />
-      </div>
-    </div>
-  )
-}
-
 function MonthlyStatementsTab() {
   const { t } = useTranslation()
-  const [month, setMonth] = useState(() => dayjs().format('YYYY-MM'))
+  const [month, setMonth] = useState(() =>
+    dayjs().subtract(1, 'month').format('YYYY-MM')
+  )
   const [statements, setStatements] = useState<BillingStatement[]>([])
   const [selected, setSelected] = useState<BillingStatement | null>(null)
   const [summaries, setSummaries] = useState<BillingStatementSummary[]>([])
   const [loading, setLoading] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const fetchStatements = useCallback(async () => {
     setLoading(true)
@@ -359,15 +284,25 @@ function MonthlyStatementsTab() {
     }
   }, [fetchStatements, month, t])
 
-  const selectedSummaries = useMemo(
+  const handleExport = useCallback(async () => {
+    if (!selected) return
+    setExporting(true)
+    try {
+      const blob = await exportBillingMonthlyStatement(selected.statement_no)
+      downloadBlob(
+        blob,
+        `monthly-billing-${selected.period_value}-${selected.statement_no}.csv`
+      )
+      toast.success(t('Billing exported'))
+    } finally {
+      setExporting(false)
+    }
+  }, [selected, t])
+
+  const selectedBreakdowns = useMemo(
     () =>
-      summaries.reduce(
-        (acc, row) => {
-          if (!acc[row.dimension]) acc[row.dimension] = []
-          acc[row.dimension].push(row)
-          return acc
-        },
-        {} as Record<string, BillingStatementSummary[]>
+      summaryRowsToBreakdownRows(
+        summaries.filter((row) => row.dimension === 'month_model_group')
       ),
     [summaries]
   )
@@ -408,9 +343,21 @@ function MonthlyStatementsTab() {
           />
           {t('Generate monthly statement')}
         </Button>
+        <Button
+          type='button'
+          variant='outline'
+          onClick={() => void handleExport()}
+          disabled={exporting || !selected}
+        >
+          <Download
+            className={cn('size-4', exporting && 'animate-pulse')}
+            aria-hidden='true'
+          />
+          {t('Export monthly bill')}
+        </Button>
       </FilterShell>
 
-      <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]'>
+      <div className='space-y-4'>
         <div className='overflow-hidden rounded-lg border'>
           <Table>
             <TableHeader>
@@ -495,19 +442,9 @@ function MonthlyStatementsTab() {
             </div>
           )}
 
-          <StatementSummaryTable
-            rows={selectedSummaries.model ?? []}
-            title={t('Model statement summary')}
-            loading={loading}
-          />
-          <StatementSummaryTable
-            rows={selectedSummaries.group ?? []}
-            title={t('Group pricing summary')}
-            loading={loading}
-          />
-          <StatementSummaryTable
-            rows={selectedSummaries.source ?? []}
-            title={t('Billing source summary')}
+          <BillingBreakdownTable
+            rows={selectedBreakdowns}
+            title={t('Monthly model group bill')}
             loading={loading}
           />
         </div>
@@ -516,12 +453,12 @@ function MonthlyStatementsTab() {
   )
 }
 
-function StatementSummaryTable({
+function BillingBreakdownTable({
   rows,
   title,
   loading,
 }: {
-  rows: BillingStatementSummary[]
+  rows: BillingBreakdownRow[]
   title: string
   loading?: boolean
 }) {
@@ -531,50 +468,70 @@ function StatementSummaryTable({
     <div className='overflow-hidden rounded-lg border'>
       <div className='flex items-center justify-between gap-3 border-b px-3 py-2'>
         <h3 className='text-sm font-medium'>{title}</h3>
-        {rows[0] && (
-          <Badge variant='outline'>{dimensionLabel(rows[0].dimension, t)}</Badge>
-        )}
+        {rows[0] && <Badge variant='outline'>{t('Model group bill')}</Badge>}
       </div>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t('Dimension')}</TableHead>
-            <TableHead className='text-right'>{t('Requests')}</TableHead>
-            <TableHead className='text-right'>{t('Input tokens')}</TableHead>
-            <TableHead className='text-right'>{t('Output tokens')}</TableHead>
-            <TableHead className='text-right'>{t('Discount rate')}</TableHead>
-            <TableHead className='text-right'>
-              {t('Settlement amount')}
-            </TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {rows.map((row) => (
-            <TableRow key={`${row.dimension}-${row.dimension_value}`}>
-              <TableCell>
-                <Badge variant='outline'>{row.dimension_value || '-'}</Badge>
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                {formatNumber(row.request_count)}
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                {formatTokens(row.input_tokens)}
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                {formatTokens(row.output_tokens)}
-              </TableCell>
-              <TableCell className='text-right tabular-nums'>
-                {discountRate(row.original_amount, row.discount_amount)}
-              </TableCell>
-              <TableCell className='text-right font-medium tabular-nums'>
-                {formatQuota(row.settlement_amount)}
-              </TableCell>
+      <div className='overflow-x-auto'>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t('Period')}</TableHead>
+              <TableHead>{t('Model')}</TableHead>
+              <TableHead>{t('Group')}</TableHead>
+              <TableHead className='text-right'>{t('Requests')}</TableHead>
+              <TableHead className='text-right'>{t('Input tokens')}</TableHead>
+              <TableHead className='text-right'>{t('Output tokens')}</TableHead>
+              <TableHead className='text-right'>{t('Cache read')}</TableHead>
+              <TableHead className='text-right'>{t('Cache write')}</TableHead>
+              <TableHead className='text-right'>{t('Original amount')}</TableHead>
+              <TableHead className='text-right'>{t('Group discount')}</TableHead>
+              <TableHead className='text-right'>
+                {t('Settlement amount')}
+              </TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow
+                key={`${row.period}-${row.period_value}-${row.model_name}-${row.group}-${row.billing_source}-${row.billing_mode}`}
+              >
+                <TableCell className='font-medium whitespace-nowrap'>
+                  {row.period_value}
+                </TableCell>
+                <TableCell>
+                  <Badge variant='outline'>{row.model_name || '-'}</Badge>
+                </TableCell>
+                <TableCell>{row.group || '-'}</TableCell>
+                <TableCell className='text-right tabular-nums'>
+                  {formatNumber(row.request_count)}
+                </TableCell>
+                <TableCell className='text-right tabular-nums'>
+                  {formatTokens(row.input_tokens)}
+                </TableCell>
+                <TableCell className='text-right tabular-nums'>
+                  {formatTokens(row.output_tokens)}
+                </TableCell>
+                <TableCell className='text-right tabular-nums'>
+                  {formatTokens(row.cache_read_tokens)}
+                </TableCell>
+                <TableCell className='text-right tabular-nums'>
+                  {formatTokens(row.cache_write_tokens)}
+                </TableCell>
+                <TableCell className='text-right tabular-nums'>
+                  {formatQuota(row.original_amount)}
+                </TableCell>
+                <TableCell className='text-right tabular-nums'>
+                  {formatQuota(row.discount_amount)}
+                </TableCell>
+                <TableCell className='text-right font-medium tabular-nums'>
+                  {formatQuota(row.settlement_amount)}
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
       {!loading && rows.length === 0 && (
-        <EmptyBillingState title={t('No statement summary found')} />
+        <EmptyBillingState title={t('No billing breakdown found')} />
       )}
     </div>
   )
@@ -587,7 +544,9 @@ function DailyReconciliationTab() {
   )
   const [endMonth, setEndMonth] = useState(() => dayjs().format('YYYY-MM'))
   const [rows, setRows] = useState<DailyBillingReconciliation[]>([])
+  const [breakdowns, setBreakdowns] = useState<BillingBreakdownRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const fetchRows = useCallback(async () => {
     setLoading(true)
@@ -598,6 +557,15 @@ function DailyReconciliationTab() {
         limit: 90,
       })
       if (response.success) setRows(response.data ?? [])
+      const breakdownResponse = await getBillingBreakdowns({
+        period: 'day',
+        start_date: `${startMonth}-01`,
+        end_date: dayjs(`${endMonth}-01`).endOf('month').format('YYYY-MM-DD'),
+        limit: 500,
+      })
+      if (breakdownResponse.success) {
+        setBreakdowns(breakdownResponse.data ?? [])
+      }
     } finally {
       setLoading(false)
     }
@@ -606,6 +574,27 @@ function DailyReconciliationTab() {
   useEffect(() => {
     void fetchRows()
   }, [fetchRows])
+
+  const dailyExportEndDate = useMemo(
+    () => dayjs(`${endMonth}-01`).endOf('month').format('YYYY-MM-DD'),
+    [endMonth]
+  )
+
+  const handleExport = useCallback(async () => {
+    const startDate = `${startMonth}-01`
+    setExporting(true)
+    try {
+      const blob = await exportBillingBreakdowns({
+        period: 'day',
+        start_date: startDate,
+        end_date: dailyExportEndDate,
+      })
+      downloadBlob(blob, `daily-billing-${startDate}-${dailyExportEndDate}.csv`)
+      toast.success(t('Billing exported'))
+    } finally {
+      setExporting(false)
+    }
+  }, [dailyExportEndDate, startMonth, t])
 
   const totals = useMemo(
     () =>
@@ -655,6 +644,18 @@ function DailyReconciliationTab() {
             aria-hidden='true'
           />
           {t('Refresh')}
+        </Button>
+        <Button
+          type='button'
+          variant='outline'
+          onClick={() => void handleExport()}
+          disabled={exporting}
+        >
+          <Download
+            className={cn('size-4', exporting && 'animate-pulse')}
+            aria-hidden='true'
+          />
+          {t('Export daily bill')}
         </Button>
       </FilterShell>
 
@@ -734,6 +735,12 @@ function DailyReconciliationTab() {
           />
         )}
       </div>
+
+      <BillingBreakdownTable
+        rows={breakdowns}
+        title={t('Daily model group bill')}
+        loading={loading}
+      />
     </div>
   )
 }
@@ -936,12 +943,6 @@ const BILLING_SECTION_META: Record<
     icon: React.ComponentType<{ className?: string; 'aria-hidden'?: boolean }>
   }
 > = {
-  current: {
-    titleKey: 'Current period',
-    descriptionKey:
-      'Review this period usage, tokens, discounts, and settlement amount',
-    icon: Gauge,
-  },
   monthly: {
     titleKey: 'Monthly statements',
     descriptionKey:
@@ -1001,7 +1002,6 @@ export function BillingCenter() {
             </TabsList>
           </Tabs>
           <Separator />
-          {activeSection === 'current' && <CurrentPeriodTab />}
           {activeSection === 'monthly' && <MonthlyStatementsTab />}
           {activeSection === 'reconciliation' && <DailyReconciliationTab />}
           {activeSection === 'ledger' && <AccountLedgerTab />}

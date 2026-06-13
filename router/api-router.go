@@ -387,13 +387,16 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 
 		billingRoute := apiRouter.Group("/billing")
-		billingRoute.GET("/current-period", middleware.UserAuth(), controller.GetBillingCurrentPeriod)
 		billingRoute.GET("/account-ledger", middleware.UserAuth(), controller.ListAccountLedgerEntries)
+		billingRoute.GET("/breakdowns", middleware.UserAuth(), controller.ListBillingBreakdowns)
+		billingRoute.GET("/breakdowns/export", middleware.UserAuth(), controller.ExportBillingBreakdowns)
 		billingRoute.GET("/monthly-statements", middleware.UserAuth(), controller.ListBillingMonthlyStatements)
 		billingRoute.POST("/monthly-statements/generate", middleware.UserAuth(), controller.GenerateBillingMonthlyStatement)
+		billingRoute.GET("/monthly-statements/:statement_no/export", middleware.UserAuth(), controller.ExportBillingMonthlyStatement)
 		billingRoute.GET("/monthly-statements/:statement_no/summaries", middleware.UserAuth(), controller.GetBillingMonthlyStatementSummaries)
 		billingRoute.GET("/daily-reconciliations", middleware.UserAuth(), controller.ListDailyBillingReconciliations)
 		billingRoute.POST("/admin/backfill-v2", middleware.AdminAuth(), controller.BackfillBillingV2)
+		billingRoute.POST("/admin/generate-recent-month", middleware.AdminAuth(), controller.GenerateRecentMonthlyBillingStatements)
 
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)

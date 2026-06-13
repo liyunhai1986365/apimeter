@@ -4,21 +4,13 @@ import type {
   AccountLedgerParams,
   BillingApiResponse,
   BillingBackfillResult,
-  BillingCurrentPeriod,
+  BillingBreakdownParams,
+  BillingBreakdownRow,
   BillingStatement,
   BillingStatementParams,
   BillingStatementSummary,
   DailyBillingReconciliation,
 } from './types'
-
-export async function getBillingCurrentPeriod(): Promise<
-  BillingApiResponse<BillingCurrentPeriod>
-> {
-  const res = await api.get<BillingApiResponse<BillingCurrentPeriod>>(
-    '/api/billing/current-period'
-  )
-  return res.data
-}
 
 export async function getAccountLedgerEntries(
   params: AccountLedgerParams = {}
@@ -36,6 +28,42 @@ export async function getBillingMonthlyStatements(
   const res = await api.get<BillingApiResponse<BillingStatement[]>>(
     '/api/billing/monthly-statements',
     { params: { period: 'month', ...params } }
+  )
+  return res.data
+}
+
+export async function getBillingBreakdowns(
+  params: BillingBreakdownParams = {}
+): Promise<BillingApiResponse<BillingBreakdownRow[]>> {
+  const res = await api.get<BillingApiResponse<BillingBreakdownRow[]>>(
+    '/api/billing/breakdowns',
+    { params }
+  )
+  return res.data
+}
+
+export async function exportBillingBreakdowns(
+  params: BillingBreakdownParams = {}
+): Promise<Blob> {
+  const res = await api.get<Blob>('/api/billing/breakdowns/export', {
+    params,
+    responseType: 'blob',
+    disableDuplicate: true,
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function exportBillingMonthlyStatement(
+  statementNo: string
+): Promise<Blob> {
+  const res = await api.get<Blob>(
+    `/api/billing/monthly-statements/${encodeURIComponent(statementNo)}/export`,
+    {
+      responseType: 'blob',
+      disableDuplicate: true,
+      skipBusinessError: true,
+    } as Record<string, unknown>
   )
   return res.data
 }

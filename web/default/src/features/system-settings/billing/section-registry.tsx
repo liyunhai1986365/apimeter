@@ -24,6 +24,7 @@ import { PaymentSettingsSection } from '../integrations/payment-settings-section
 import { RatioSettingsCard } from '../models/ratio-settings-card'
 import type { BillingSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { HistoricalBillingSection } from './historical-billing-section'
 
 const getModelDefaults = (settings: BillingSettings) => ({
   ModelPrice: settings.ModelPrice,
@@ -194,6 +195,12 @@ const BILLING_SECTIONS = [
         }}
       />
     ),
+  },
+  {
+    id: 'historical-billing',
+    titleKey: 'Historical Billing',
+    descriptionKey: 'Generate historical monthly bills',
+    build: () => <HistoricalBillingSection />,
   },
   {
     id: 'checkin',

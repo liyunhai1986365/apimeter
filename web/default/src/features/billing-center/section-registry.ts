@@ -1,5 +1,4 @@
 export const BILLING_CENTER_SECTIONS = [
-  'current',
   'monthly',
   'reconciliation',
   'ledger',
@@ -7,7 +6,7 @@ export const BILLING_CENTER_SECTIONS = [
 
 export type BillingCenterSectionId = (typeof BILLING_CENTER_SECTIONS)[number]
 
-export const BILLING_CENTER_DEFAULT_SECTION: BillingCenterSectionId = 'current'
+export const BILLING_CENTER_DEFAULT_SECTION: BillingCenterSectionId = 'monthly'
 
 export function isBillingCenterSectionId(
   section: string | undefined

@@ -107,7 +107,6 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/dashboard/users': { section: 'console', module: 'detail' },
   '/dashboard/billing': { section: 'console', module: 'detail' },
   '/billing': { section: 'personal', module: 'topup' },
-  '/billing/current': { section: 'personal', module: 'topup' },
   '/billing/monthly': { section: 'personal', module: 'topup' },
   '/billing/reconciliation': { section: 'personal', module: 'topup' },
   '/billing/ledger': { section: 'personal', module: 'topup' },

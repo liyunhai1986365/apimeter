@@ -17,23 +17,6 @@ export type AccountLedgerEntryType =
   | 'adjustment'
   | string
 
-export type BillingCurrentPeriodSummary = {
-  request_count: number
-  input_tokens: number
-  output_tokens: number
-  cache_read_tokens: number
-  cache_write_tokens: number
-  original_amount: number
-  discount_amount: number
-  settlement_amount: number
-}
-
-export type BillingCurrentPeriod = {
-  month: string
-  status: string
-  summary: BillingCurrentPeriodSummary
-}
-
 export type AccountLedgerEntry = {
   id: number
   user_id: number
@@ -90,8 +73,31 @@ export type BillingStatementSummary = {
   user_id: number
   period: string
   period_value: string
-  dimension: 'model' | 'group' | 'key' | 'source' | string
+  dimension:
+    | 'month_model_group'
+    | string
   dimension_value: string
+  model_name: string
+  group: string
+  billing_source: string
+  billing_mode: string
+  request_count: number
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  original_amount: number
+  discount_amount: number
+  settlement_amount: number
+}
+
+export type BillingBreakdownRow = {
+  period: 'day' | 'month' | string
+  period_value: string
+  model_name: string
+  group: string
+  billing_source: string
+  billing_mode: string
   request_count: number
   input_tokens: number
   output_tokens: number
@@ -124,6 +130,19 @@ export type BillingStatementParams = {
   start_month?: string
   end_month?: string
   period?: string
+  limit?: number
+  offset?: number
+}
+
+export type BillingBreakdownParams = {
+  period?: 'day' | 'month' | string
+  start_date?: string
+  end_date?: string
+  month?: string
+  model_name?: string
+  group?: string
+  billing_source?: string
+  billing_mode?: string
   limit?: number
   offset?: number
 }
