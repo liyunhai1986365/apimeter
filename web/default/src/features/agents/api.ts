@@ -126,6 +126,10 @@ export function parseAgentBranding(branding?: string): AgentBranding {
         typeof parsed.home_page_content === 'string'
           ? parsed.home_page_content
           : undefined,
+      header_nav_modules:
+        typeof parsed.header_nav_modules === 'string'
+          ? parsed.header_nav_modules
+          : undefined,
     }
   } catch {
     return {}
@@ -136,11 +140,13 @@ export function stringifyAgentBranding(input: AgentBranding) {
   const siteName = input.site_name?.trim() ?? ''
   const logo = input.logo?.trim() ?? ''
   const homePageContent = input.home_page_content?.trim() ?? ''
-  if (!siteName && !logo && !homePageContent) return ''
+  const headerNavModules = input.header_nav_modules?.trim() ?? ''
+  if (!siteName && !logo && !homePageContent && !headerNavModules) return ''
   return JSON.stringify({
     site_name: siteName,
     logo,
     home_page_content: homePageContent,
+    header_nav_modules: headerNavModules,
   })
 }
 
@@ -202,11 +208,7 @@ export function buildAgentUserListParams(
   }
 }
 
-export async function listAgentUsers(
-  page = 1,
-  pageSize = 20,
-  keyword = ''
-) {
+export async function listAgentUsers(page = 1, pageSize = 20, keyword = '') {
   const res = await api.get<{ success: boolean; data: AgentPage<AgentUser> }>(
     '/api/agent/users',
     { params: buildAgentUserListParams(page, pageSize, keyword) }

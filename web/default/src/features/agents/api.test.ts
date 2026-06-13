@@ -13,6 +13,7 @@ describe('agent branding helpers', () => {
         site_name: 'Agent Site',
         logo: 'https://agent.example.com/logo.png',
         home_page_content: '# Agent Home',
+        header_nav_modules: '{"home":false}',
       })
     )
 
@@ -20,6 +21,7 @@ describe('agent branding helpers', () => {
       site_name: 'Agent Site',
       logo: 'https://agent.example.com/logo.png',
       home_page_content: '# Agent Home',
+      header_nav_modules: '{"home":false}',
     })
     assert.equal(
       stringifyAgentBranding(branding),
@@ -27,6 +29,7 @@ describe('agent branding helpers', () => {
         site_name: 'Agent Site',
         logo: 'https://agent.example.com/logo.png',
         home_page_content: '# Agent Home',
+        header_nav_modules: '{"home":false}',
       })
     )
   })

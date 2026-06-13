@@ -37,6 +37,11 @@ import {
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { formatTimestampToDate } from '@/lib/format'
+import {
+  parseHeaderNavModules,
+  serializeHeaderNavModules,
+  type HeaderNavModules,
+} from '@/lib/nav-modules'
 import { normalizePagedData } from '@/lib/paged-response'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -63,11 +68,7 @@ import { TableEmpty } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { SectionPageLayout } from '@/components/layout'
 import { LongText } from '@/components/long-text'
-import { AgentGroupManager } from './components/agent-group-manager'
-import {
-  AgentUsersPaginationControls,
-  AgentUsersSearchControls,
-} from './components/agent-users-list-controls'
+import { HeaderNavigationSection } from '@/features/system-settings/maintenance/header-navigation-section'
 import {
   bindAdminAgentUser,
   completeAdminAgentWithdrawal,
@@ -84,6 +85,11 @@ import {
   updateAdminAgentDomainStatus,
   upsertAdminAgentGroupRatio,
 } from './api'
+import { AgentGroupManager } from './components/agent-group-manager'
+import {
+  AgentUsersPaginationControls,
+  AgentUsersSearchControls,
+} from './components/agent-users-list-controls'
 import type {
   Agent,
   AgentDomain,
@@ -157,6 +163,7 @@ export function AgentManagement() {
   const [brandSiteName, setBrandSiteName] = useState('')
   const [brandLogo, setBrandLogo] = useState('')
   const [brandHomePageContent, setBrandHomePageContent] = useState('')
+  const [brandHeaderNavModules, setBrandHeaderNavModules] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [bindUserId, setBindUserId] = useState('')
   const [groupName, setGroupName] = useState('default')
@@ -166,8 +173,7 @@ export function AgentManagement() {
   const [visibleGroups, setVisibleGroups] = useState<string[]>([])
   const [removeGroups, setRemoveGroups] = useState<string[]>([])
   const [withdrawalRemark, setWithdrawalRemark] = useState('')
-  const [selectedUsersKeywordInput, setSelectedUsersKeywordInput] =
-    useState('')
+  const [selectedUsersKeywordInput, setSelectedUsersKeywordInput] = useState('')
   const [selectedUsersKeyword, setSelectedUsersKeyword] = useState('')
   const [selectedUsersPageNumber, setSelectedUsersPageNumber] = useState(1)
   const [selectedUsersPageSize, setSelectedUsersPageSize] = useState(20)
@@ -260,6 +266,7 @@ export function AgentManagement() {
     setBrandSiteName(branding.site_name ?? '')
     setBrandLogo(branding.logo ?? '')
     setBrandHomePageContent(branding.home_page_content ?? '')
+    setBrandHeaderNavModules(branding.header_nav_modules ?? '')
     setVisibleGroups([])
     setRemoveGroups([])
     selectAgent(agent.id)
@@ -274,6 +281,14 @@ export function AgentManagement() {
     setSelectedUsersKeyword('')
     setSelectedUsersPageNumber(1)
   }
+  const brandHeaderNavConfig = useMemo(
+    () => parseHeaderNavModules(brandHeaderNavModules),
+    [brandHeaderNavModules]
+  )
+  const brandHeaderNavSerialized = useMemo(
+    () => serializeHeaderNavModules(brandHeaderNavConfig),
+    [brandHeaderNavConfig]
+  )
 
   const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ['admin', 'agents'] })
@@ -839,6 +854,8 @@ export function AgentManagement() {
         brandSiteName={brandSiteName}
         brandLogo={brandLogo}
         brandHomePageContent={brandHomePageContent}
+        brandHeaderNavConfig={brandHeaderNavConfig}
+        brandHeaderNavSerialized={brandHeaderNavSerialized}
         newDomain={newDomain}
         bindUserId={bindUserId}
         groupName={groupName}
@@ -897,9 +914,28 @@ export function AgentManagement() {
               site_name: brandSiteName,
               logo: brandLogo,
               home_page_content: brandHomePageContent,
+              header_nav_modules: brandHeaderNavModules,
             }),
           })
         }
+        onSaveHeaderNavigation={async (serialized) => {
+          if (!detailAgent) return
+          await saveBrandingMutation.mutateAsync({
+            id: detailAgent.id,
+            owner_user_id: detailAgent.owner_user_id,
+            name: detailAgent.name,
+            slug: detailAgent.slug,
+            status: detailAgent.status,
+            default_markup: detailAgent.default_markup,
+            branding: stringifyAgentBranding({
+              site_name: brandSiteName,
+              logo: brandLogo,
+              home_page_content: brandHomePageContent,
+              header_nav_modules: serialized,
+            }),
+          })
+          setBrandHeaderNavModules(serialized)
+        }}
         onCreateDomain={() =>
           selectedAgentId != null &&
           createDomainMutation.mutate({
@@ -1060,6 +1096,8 @@ function AgentDetailDialog(props: {
   brandSiteName: string
   brandLogo: string
   brandHomePageContent: string
+  brandHeaderNavConfig: HeaderNavModules
+  brandHeaderNavSerialized: string
   newDomain: string
   bindUserId: string
   groupName: string
@@ -1094,6 +1132,7 @@ function AgentDetailDialog(props: {
   onBrandLogoChange: (value: string) => void
   onBrandHomePageContentChange: (value: string) => void
   onSaveBranding: () => void
+  onSaveHeaderNavigation: (serialized: string) => Promise<unknown> | unknown
   onCreateDomain: () => void
   onBindUser: () => void
   onSavePricing: () => void
@@ -1170,6 +1209,20 @@ function AgentDetailDialog(props: {
                   'Agent home page content (Markdown, HTML, or URL)'
                 )}
                 className='mt-3 min-h-32'
+              />
+            </section>
+
+            <section className='rounded-lg border p-3'>
+              <HeaderNavigationSection
+                title={t('Agent header navigation')}
+                description={t(
+                  'Control the top navigation shown on this agent domain.'
+                )}
+                config={props.brandHeaderNavConfig}
+                initialSerialized={props.brandHeaderNavSerialized}
+                saveLabel={t('Save navigation')}
+                saving={props.isBrandingPending}
+                onSave={props.onSaveHeaderNavigation}
               />
             </section>
 

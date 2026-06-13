@@ -36,6 +36,10 @@ import {
   formatQuota as formatDisplayQuota,
   formatTimestampToDate,
 } from '@/lib/format'
+import {
+  parseHeaderNavModules,
+  serializeHeaderNavModules,
+} from '@/lib/nav-modules'
 import { normalizePagedData } from '@/lib/paged-response'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
@@ -57,12 +61,8 @@ import { GroupBadge } from '@/components/group-badge'
 import { SectionPageLayout } from '@/components/layout'
 import { LongText } from '@/components/long-text'
 import { StatusBadge } from '@/components/status-badge'
+import { HeaderNavigationSection } from '@/features/system-settings/maintenance/header-navigation-section'
 import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
-import { AgentGroupManager } from './components/agent-group-manager'
-import {
-  AgentUsersPaginationControls,
-  AgentUsersSearchControls,
-} from './components/agent-users-list-controls'
 import {
   createAgentDomain,
   getAgentSelf,
@@ -80,6 +80,11 @@ import {
   upsertAgentGroupRatio,
   verifyAgentDomain,
 } from './api'
+import { AgentGroupManager } from './components/agent-group-manager'
+import {
+  AgentUsersPaginationControls,
+  AgentUsersSearchControls,
+} from './components/agent-users-list-controls'
 import type {
   AgentDomain,
   AgentGroupRatio,
@@ -182,6 +187,7 @@ export function Agents() {
   const [siteName, setSiteName] = useState('')
   const [logo, setLogo] = useState('')
   const [homePageContent, setHomePageContent] = useState('')
+  const [headerNavModules, setHeaderNavModules] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [groupName, setGroupName] = useState('default')
   const [groupRatio, setGroupRatio] = useState('1')
@@ -373,6 +379,14 @@ export function Agents() {
     setUserPage(1)
     setUserKeyword('')
   }
+  const headerNavConfig = useMemo(
+    () => parseHeaderNavModules(headerNavModules),
+    [headerNavModules]
+  )
+  const headerNavSerialized = useMemo(
+    () => serializeHeaderNavModules(headerNavConfig),
+    [headerNavConfig]
+  )
 
   useEffect(() => {
     if (!self?.agent) return
@@ -380,6 +394,7 @@ export function Agents() {
     setSiteName(branding.site_name ?? '')
     setLogo(branding.logo ?? '')
     setHomePageContent(branding.home_page_content ?? '')
+    setHeaderNavModules(branding.header_nav_modules ?? '')
   }, [self?.agent?.branding])
 
   const copyText = async (text?: string) => {
@@ -477,6 +492,7 @@ export function Agents() {
                             site_name: siteName,
                             logo,
                             home_page_content: homePageContent,
+                            header_nav_modules: headerNavModules,
                           }),
                         })
                       }
@@ -521,6 +537,30 @@ export function Agents() {
                       value={self?.agent.settlement_currency ?? '-'}
                     />
                   </div>
+                </section>
+
+                <section className='rounded-lg border p-3'>
+                  <HeaderNavigationSection
+                    title={t('Agent header navigation')}
+                    description={t(
+                      'Control the top navigation shown on this agent domain.'
+                    )}
+                    config={headerNavConfig}
+                    initialSerialized={headerNavSerialized}
+                    saveLabel={t('Save navigation')}
+                    saving={saveBrandingMutation.isPending}
+                    onSave={async (serialized) => {
+                      await saveBrandingMutation.mutateAsync({
+                        branding: stringifyAgentBranding({
+                          site_name: siteName,
+                          logo,
+                          home_page_content: homePageContent,
+                          header_nav_modules: serialized,
+                        }),
+                      })
+                      setHeaderNavModules(serialized)
+                    }}
+                  />
                 </section>
 
                 <section className='rounded-lg border p-3'>

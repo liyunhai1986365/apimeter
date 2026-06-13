@@ -47,6 +47,11 @@ import { HEADER_NAV_DEFAULT } from './config'
 type HeaderNavigationSectionProps = {
   config: HeaderNavModules
   initialSerialized: string
+  title?: string
+  description?: string
+  saveLabel?: string
+  onSave?: (serialized: string) => Promise<unknown> | unknown
+  saving?: boolean
 }
 
 const BUILT_IN_DESCRIPTIONS: Record<HeaderNavBuiltInModule, string> = {
@@ -104,6 +109,11 @@ function moveItem(order: string[], id: string, direction: -1 | 1): string[] {
 export function HeaderNavigationSection({
   config,
   initialSerialized,
+  title,
+  description,
+  saveLabel,
+  onSave,
+  saving,
 }: HeaderNavigationSectionProps) {
   const { t } = useTranslation()
   const updateOption = useUpdateOption()
@@ -197,6 +207,11 @@ export function HeaderNavigationSection({
     const serialized = serializeHeaderNavModules(navConfig)
     if (serialized === initialSerialized) return
 
+    if (onSave) {
+      await onSave(serialized)
+      return
+    }
+
     await updateOption.mutateAsync({
       key: 'HeaderNavModules',
       value: serialized,
@@ -206,11 +221,15 @@ export function HeaderNavigationSection({
   const resetToDefault = () => {
     setNavConfig(normalizeConfig(HEADER_NAV_DEFAULT))
   }
+  const isSaving = saving ?? updateOption.isPending
 
   return (
     <SettingsSection
-      title={t('Header navigation')}
-      description={t('Enable, add, or reorder top navigation menus globally.')}
+      title={title ?? t('Header navigation')}
+      description={
+        description ??
+        t('Enable, add, or reorder top navigation menus globally.')
+      }
     >
       <div className='space-y-6'>
         <div className='space-y-3'>
@@ -473,12 +492,8 @@ export function HeaderNavigationSection({
           <Button type='button' variant='outline' onClick={resetToDefault}>
             {t('Reset to default')}
           </Button>
-          <Button
-            type='button'
-            disabled={updateOption.isPending}
-            onClick={onSubmit}
-          >
-            {updateOption.isPending ? t('Saving...') : t('Save navigation')}
+          <Button type='button' disabled={isSaving} onClick={onSubmit}>
+            {isSaving ? t('Saving...') : (saveLabel ?? t('Save navigation'))}
           </Button>
         </div>
       </div>

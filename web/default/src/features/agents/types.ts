@@ -34,6 +34,7 @@ export type AgentBranding = {
   site_name?: string
   logo?: string
   home_page_content?: string
+  header_nav_modules?: string
 }
 
 export type AgentBalance = {
