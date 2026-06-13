@@ -108,6 +108,7 @@ func openTokenControllerTestDB(t *testing.T) *gorm.DB {
 	common.UsingMySQL = false
 	common.UsingPostgreSQL = false
 	common.RedisEnabled = false
+	model.InitColForTest()
 
 	dsn := fmt.Sprintf("file:%s?mode=memory&cache=shared", strings.ReplaceAll(t.Name(), "/", "_"))
 	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
@@ -873,6 +874,73 @@ func TestAddTokenPersistsOrderedGroupPolicy(t *testing.T) {
 	}
 	if token.GroupPolicy != `{"type":"ordered","groups":["vip","backup"]}` {
 		t.Fatalf("expected stored ordered group policy, got %q", token.GroupPolicy)
+	}
+}
+
+func TestAddTokenUsesCurrentUserGroupForSpecialUsableGroups(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+
+	requireNoError := func(err error) {
+		if err != nil {
+			t.Fatalf("failed to configure test groups: %v", err)
+		}
+	}
+	requireNoError(db.AutoMigrate(&model.User{}))
+	requireNoError(ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"starter":1,"hidden":1}`))
+	requireNoError(setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+
+	specialGroups := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+	previousSpecialGroups := specialGroups.ReadAll()
+	specialGroups.Clear()
+	specialGroups.Set("starter", map[string]string{
+		"+:hidden": "Hidden group for starter users",
+	})
+	t.Cleanup(func() {
+		_ = ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		specialGroups.Clear()
+		specialGroups.AddAll(previousSpecialGroups)
+	})
+
+	user := &model.User{
+		Id:       1,
+		Username: "starter-user",
+		Password: "test-password",
+		Group:    "starter",
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}
+	if err := db.Create(user).Error; err != nil {
+		t.Fatalf("failed to create starter user: %v", err)
+	}
+
+	body := map[string]any{
+		"name":                 "hidden-token",
+		"expired_time":         -1,
+		"remain_quota":         0,
+		"unlimited_quota":      true,
+		"model_limits_enabled": false,
+		"model_limits":         "",
+		"group":                "hidden",
+		"group_policy":         `{"type":"ordered","groups":["hidden"]}`,
+		"cross_group_retry":    true,
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 1)
+	ctx.Set("group", "default")
+	AddToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected create response to use current DB user group, got message: %s", response.Message)
+	}
+
+	var detail tokenResponseItem
+	if err := common.Unmarshal(response.Data, &detail); err != nil {
+		t.Fatalf("failed to decode token create response: %v", err)
+	}
+	if detail.Group != "hidden" {
+		t.Fatalf("expected created token group hidden, got %q", detail.Group)
 	}
 }
 

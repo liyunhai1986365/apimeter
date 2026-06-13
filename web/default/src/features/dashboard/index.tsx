@@ -25,7 +25,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionPageLayout } from '@/components/layout'
 import { FadeIn } from '@/components/page-transition'
-import { ModelBillingContent } from '@/features/model-billing'
 import { ModelsChartPreferences } from './components/models/models-chart-preferences'
 import { ModelsFilter } from './components/models/models-filter-dialog'
 import { OverviewDashboard } from './components/overview/overview-dashboard'
@@ -152,10 +151,6 @@ const SECTION_META: Record<
   users: {
     titleKey: 'User Analytics',
     descriptionKey: 'View user consumption statistics and charts',
-  },
-  billing: {
-    titleKey: 'Billing',
-    descriptionKey: 'Review model billing grouped by day or month',
   },
 }
 
@@ -327,11 +322,6 @@ export function Dashboard() {
               <Suspense fallback={<ModelChartsFallback />}>
                 <LazyUserCharts />
               </Suspense>
-            </FadeIn>
-          )}
-          {activeSection === 'billing' && (
-            <FadeIn>
-              <ModelBillingContent />
             </FadeIn>
           )}
         </div>

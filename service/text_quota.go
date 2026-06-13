@@ -199,38 +199,6 @@ func modelBillingInputTokens(summary textQuotaSummary) int64 {
 	return inputTokens
 }
 
-func recordTextModelBilling(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, summary textQuotaSummary, logID int, logModel string, tieredBillingApplied bool, tieredResult *billingexpr.TieredResult) {
-	if relayInfo == nil || logID <= 0 || summary.TotalTokens == 0 {
-		return
-	}
-	originalQuota := modelBillingOriginalQuota(summary, tieredResult)
-	payableQuota := int64(summary.Quota)
-	record := &model.ModelBillingRecord{
-		UserId:             relayInfo.UserId,
-		TokenId:            relayInfo.TokenId,
-		LogId:              logID,
-		RequestId:          ctx.GetString(common.RequestIdKey),
-		ModelName:          logModel,
-		BillingSource:      relayInfo.BillingSource,
-		Group:              relayInfo.UsingGroup,
-		GroupRatio:         summary.GroupRatio,
-		BillingMode:        modelBillingMode(relayInfo, tieredBillingApplied),
-		CreatedAt:          common.GetTimestamp(),
-		InputTokens:        modelBillingInputTokens(summary),
-		OutputTokens:       int64(summary.CompletionTokens),
-		CacheWriteTokens:   int64(cacheWriteTokensTotal(summary)),
-		CacheReadTokens:    int64(summary.CacheTokens),
-		CacheWrite5mTokens: int64(summary.CacheCreationTokens5m),
-		CacheWrite1hTokens: int64(summary.CacheCreationTokens1h),
-		OriginalQuota:      originalQuota,
-		DiscountQuota:      originalQuota - payableQuota,
-		PayableQuota:       payableQuota,
-	}
-	if err := model.RecordModelBilling(record); err != nil {
-		logger.LogError(ctx, "failed to record model billing: "+err.Error())
-	}
-}
-
 func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage) textQuotaSummary {
 	summary := textQuotaSummary{
 		ModelName:            relayInfo.OriginModelName,
@@ -561,7 +529,6 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 			logger.LogError(ctx, "error settling agent ledger: "+err.Error())
 		}
 	}
-	recordTextModelBilling(ctx, relayInfo, summary, logID, logModel, tieredBillingApplied, tieredResult)
 	gopool.Go(func() {
 		perfmetrics.RecordRelaySample(relayInfo, true, int64(summary.CompletionTokens))
 	})

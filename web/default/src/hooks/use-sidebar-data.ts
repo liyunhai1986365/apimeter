@@ -32,6 +32,7 @@ import {
   MessageSquare,
   CreditCard,
   BadgeDollarSign,
+  ReceiptText,
   ListTodo,
   Settings2,
   Settings,
@@ -44,9 +45,20 @@ import { useAuthStore } from '@/stores/auth-store'
 import { WORKSPACE_IDS } from '@/components/layout/lib/workspace-registry'
 import { type SidebarData } from '@/components/layout/types'
 
-export function useSidebarData(): SidebarData {
-  const { t } = useTranslation()
-  const user = useAuthStore((state) => state.auth.user)
+type SidebarUser =
+  | {
+      has_agent?: boolean
+      permissions?: {
+        agent_console?: boolean
+      }
+    }
+  | null
+  | undefined
+
+export function buildSidebarData(
+  t: (key: string) => string,
+  user: SidebarUser
+): SidebarData {
   const canUseAgentConsole = Boolean(
     user &&
     (user.has_agent === true || user.permissions?.agent_console === true)
@@ -119,6 +131,12 @@ export function useSidebarData(): SidebarData {
             title: t('Wallet'),
             url: '/wallet',
             icon: Wallet,
+          },
+          {
+            title: t('Billing'),
+            url: '/billing/current',
+            activeUrls: ['/billing'],
+            icon: ReceiptText,
           },
           {
             title: t('Subscription'),
@@ -200,4 +218,11 @@ export function useSidebarData(): SidebarData {
       },
     ],
   }
+}
+
+export function useSidebarData(): SidebarData {
+  const { t } = useTranslation()
+  const user = useAuthStore((state) => state.auth.user)
+
+  return buildSidebarData(t, user)
 }

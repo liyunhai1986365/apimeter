@@ -3,8 +3,8 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
 export const Route = createFileRoute('/_authenticated/model-billing/')({
   beforeLoad: () => {
     throw redirect({
-      to: '/dashboard/$section',
-      params: { section: 'billing' },
+      to: '/billing/$section',
+      params: { section: 'current' },
     })
   },
 })

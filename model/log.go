@@ -286,6 +286,11 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 			LogQuotaData(userId, username, params.ModelName, params.Quota, common.GetTimestamp(), params.PromptTokens+params.CompletionTokens)
 		})
 	}
+	gopool.Go(func() {
+		if _, err := RecordBillingV2ConsumeLog(log.Id); err != nil {
+			common.SysLog("failed to record billing v2 consume log: " + err.Error())
+		}
+	})
 	return log.Id
 }
 

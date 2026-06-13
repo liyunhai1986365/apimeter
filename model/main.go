@@ -326,7 +326,10 @@ func migrateDB() error {
 		&AgentGroupRatio{},
 		&AgentLedger{},
 		&AgentWithdrawal{},
-		&ModelBillingRecord{},
+		&BillingUsageItem{},
+		&AccountLedgerEntry{},
+		&BillingStatement{},
+		&BillingStatementSummary{},
 	)
 	if err != nil {
 		return err
@@ -392,7 +395,10 @@ func migrateDBFast() error {
 		{&AgentGroupRatio{}, "AgentGroupRatio"},
 		{&AgentLedger{}, "AgentLedger"},
 		{&AgentWithdrawal{}, "AgentWithdrawal"},
-		{&ModelBillingRecord{}, "ModelBillingRecord"},
+		{&BillingUsageItem{}, "BillingUsageItem"},
+		{&AccountLedgerEntry{}, "AccountLedgerEntry"},
+		{&BillingStatement{}, "BillingStatement"},
+		{&BillingStatementSummary{}, "BillingStatementSummary"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))
@@ -488,7 +494,7 @@ func migrateLOGDB() error {
 	if err = LOG_DB.AutoMigrate(&Log{}); err != nil {
 		return err
 	}
-	if err = LOG_DB.AutoMigrate(&ModelBillingRecord{}); err != nil {
+	if err = LOG_DB.AutoMigrate(&BillingUsageItem{}, &AccountLedgerEntry{}, &BillingStatement{}, &BillingStatementSummary{}); err != nil {
 		return err
 	}
 	return nil

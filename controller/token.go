@@ -66,14 +66,15 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 	if token == nil {
 		return nil
 	}
-	userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-	if userGroup == "" {
-		userGroup = c.GetString("group")
+	userGroup := ""
+	if dbGroup, err := model.GetUserGroup(c.GetInt("id"), false); err == nil {
+		userGroup = strings.TrimSpace(dbGroup)
 	}
 	if userGroup == "" {
-		if dbGroup, err := model.GetUserGroup(c.GetInt("id"), false); err == nil {
-			userGroup = dbGroup
-		}
+		userGroup = common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+	}
+	if userGroup == "" {
+		userGroup = c.GetString("group")
 	}
 	group, policy, err := service.NormalizeTokenGroupPolicy(token.GroupPolicy, userGroup)
 	if err != nil {

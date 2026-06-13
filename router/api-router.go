@@ -387,9 +387,13 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 
 		billingRoute := apiRouter.Group("/billing")
-		billingRoute.GET("/models/summary", middleware.UserAuth(), controller.GetSelfModelBillingSummary)
-		billingRoute.GET("/admin/models/summary", middleware.AdminAuth(), controller.GetAdminModelBillingSummary)
-		billingRoute.POST("/admin/models/backfill", middleware.AdminAuth(), controller.BackfillModelBillingFromLogs)
+		billingRoute.GET("/current-period", middleware.UserAuth(), controller.GetBillingCurrentPeriod)
+		billingRoute.GET("/account-ledger", middleware.UserAuth(), controller.ListAccountLedgerEntries)
+		billingRoute.GET("/monthly-statements", middleware.UserAuth(), controller.ListBillingMonthlyStatements)
+		billingRoute.POST("/monthly-statements/generate", middleware.UserAuth(), controller.GenerateBillingMonthlyStatement)
+		billingRoute.GET("/monthly-statements/:statement_no/summaries", middleware.UserAuth(), controller.GetBillingMonthlyStatementSummaries)
+		billingRoute.GET("/daily-reconciliations", middleware.UserAuth(), controller.ListDailyBillingReconciliations)
+		billingRoute.POST("/admin/backfill-v2", middleware.AdminAuth(), controller.BackfillBillingV2)
 
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)

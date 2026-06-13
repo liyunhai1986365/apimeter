@@ -42,12 +42,6 @@ const DASHBOARD_SECTIONS = [
     adminOnly: true,
     build: () => null,
   },
-  {
-    id: 'billing',
-    titleKey: 'Billing',
-    descriptionKey: 'Review model billing grouped by day or month',
-    build: () => null,
-  },
 ] as const
 
 export type DashboardSectionId = (typeof DASHBOARD_SECTIONS)[number]['id']

@@ -17,28 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
-import { Dashboard } from '@/features/dashboard'
-import {
-  DASHBOARD_SECTION_IDS,
-  DASHBOARD_DEFAULT_SECTION,
-} from '@/features/dashboard/section-registry'
+import { BILLING_CENTER_DEFAULT_SECTION } from '@/features/billing-center/section-registry'
 
-export const Route = createFileRoute('/_authenticated/dashboard/$section')({
-  beforeLoad: ({ params }) => {
-    if (params.section === 'billing') {
-      throw redirect({
-        to: '/billing/$section',
-        params: { section: 'current' },
-      })
-    }
-
-    const validSections = DASHBOARD_SECTION_IDS as unknown as string[]
-    if (!validSections.includes(params.section)) {
-      throw redirect({
-        to: '/dashboard/$section',
-        params: { section: DASHBOARD_DEFAULT_SECTION },
-      })
-    }
+export const Route = createFileRoute('/_authenticated/billing/')({
+  beforeLoad: () => {
+    throw redirect({
+      to: '/billing/$section',
+      params: { section: BILLING_CENTER_DEFAULT_SECTION },
+    })
   },
-  component: Dashboard,
 })

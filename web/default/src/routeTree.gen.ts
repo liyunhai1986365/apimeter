@@ -53,6 +53,7 @@ import { Route as AuthenticatedModelBillingIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
+import { Route as AuthenticatedBillingIndexRouteImport } from './routes/_authenticated/billing/index'
 import { Route as AuthenticatedAgentsIndexRouteImport } from './routes/_authenticated/agents/index'
 import { Route as AuthenticatedAgentManagementIndexRouteImport } from './routes/_authenticated/agent-management/index'
 import { Route as AuthenticatedUsageLogsSectionRouteImport } from './routes/_authenticated/usage-logs/$section'
@@ -60,6 +61,7 @@ import { Route as AuthenticatedModelsSectionRouteImport } from './routes/_authen
 import { Route as AuthenticatedErrorsErrorRouteImport } from './routes/_authenticated/errors/$error'
 import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_authenticated/dashboard/$section'
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat/$chatId'
+import { Route as AuthenticatedBillingSectionRouteImport } from './routes/_authenticated/billing/$section'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
 import { Route as AuthenticatedSystemSettingsSiteIndexRouteImport } from './routes/_authenticated/system-settings/site/index'
 import { Route as AuthenticatedSystemSettingsSecurityIndexRouteImport } from './routes/_authenticated/system-settings/security/index'
@@ -309,6 +311,12 @@ const AuthenticatedChannelsIndexRoute =
     path: '/channels/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBillingIndexRoute =
+  AuthenticatedBillingIndexRouteImport.update({
+    id: '/billing/',
+    path: '/billing/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAgentsIndexRoute =
   AuthenticatedAgentsIndexRouteImport.update({
     id: '/agents/',
@@ -350,6 +358,12 @@ const AuthenticatedChatChatIdRoute = AuthenticatedChatChatIdRouteImport.update({
   path: '/chat/$chatId',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedBillingSectionRoute =
+  AuthenticatedBillingSectionRouteImport.update({
+    id: '/billing/$section',
+    path: '/billing/$section',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const authUserResetRoute = authUserResetRouteImport.update({
   id: '/user/reset',
   path: '/user/reset',
@@ -467,6 +481,7 @@ export interface FileRoutesByFullPath {
   '/setup/': typeof SetupIndexRoute
   '/subscription/': typeof SubscriptionIndexRoute
   '/user/reset': typeof authUserResetRoute
+  '/billing/$section': typeof AuthenticatedBillingSectionRoute
   '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -474,6 +489,7 @@ export interface FileRoutesByFullPath {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/agent-management/': typeof AuthenticatedAgentManagementIndexRoute
   '/agents/': typeof AuthenticatedAgentsIndexRoute
+  '/billing/': typeof AuthenticatedBillingIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
@@ -532,6 +548,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupIndexRoute
   '/subscription': typeof SubscriptionIndexRoute
   '/user/reset': typeof authUserResetRoute
+  '/billing/$section': typeof AuthenticatedBillingSectionRoute
   '/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -539,6 +556,7 @@ export interface FileRoutesByTo {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/agent-management': typeof AuthenticatedAgentManagementIndexRoute
   '/agents': typeof AuthenticatedAgentsIndexRoute
+  '/billing': typeof AuthenticatedBillingIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
@@ -601,6 +619,7 @@ export interface FileRoutesById {
   '/setup/': typeof SetupIndexRoute
   '/subscription/': typeof SubscriptionIndexRoute
   '/(auth)/user/reset': typeof authUserResetRoute
+  '/_authenticated/billing/$section': typeof AuthenticatedBillingSectionRoute
   '/_authenticated/chat/$chatId': typeof AuthenticatedChatChatIdRoute
   '/_authenticated/dashboard/$section': typeof AuthenticatedDashboardSectionRoute
   '/_authenticated/errors/$error': typeof AuthenticatedErrorsErrorRoute
@@ -608,6 +627,7 @@ export interface FileRoutesById {
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/agent-management/': typeof AuthenticatedAgentManagementIndexRoute
   '/_authenticated/agents/': typeof AuthenticatedAgentsIndexRoute
+  '/_authenticated/billing/': typeof AuthenticatedBillingIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
@@ -669,6 +689,7 @@ export interface FileRouteTypes {
     | '/setup/'
     | '/subscription/'
     | '/user/reset'
+    | '/billing/$section'
     | '/chat/$chatId'
     | '/dashboard/$section'
     | '/errors/$error'
@@ -676,6 +697,7 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/agent-management/'
     | '/agents/'
+    | '/billing/'
     | '/channels/'
     | '/dashboard/'
     | '/keys/'
@@ -734,6 +756,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/subscription'
     | '/user/reset'
+    | '/billing/$section'
     | '/chat/$chatId'
     | '/dashboard/$section'
     | '/errors/$error'
@@ -741,6 +764,7 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/agent-management'
     | '/agents'
+    | '/billing'
     | '/channels'
     | '/dashboard'
     | '/keys'
@@ -802,6 +826,7 @@ export interface FileRouteTypes {
     | '/setup/'
     | '/subscription/'
     | '/(auth)/user/reset'
+    | '/_authenticated/billing/$section'
     | '/_authenticated/chat/$chatId'
     | '/_authenticated/dashboard/$section'
     | '/_authenticated/errors/$error'
@@ -809,6 +834,7 @@ export interface FileRouteTypes {
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/agent-management/'
     | '/_authenticated/agents/'
+    | '/_authenticated/billing/'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
     | '/_authenticated/keys/'
@@ -1175,6 +1201,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedChannelsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/billing/': {
+      id: '/_authenticated/billing/'
+      path: '/billing'
+      fullPath: '/billing/'
+      preLoaderRoute: typeof AuthenticatedBillingIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agents/': {
       id: '/_authenticated/agents/'
       path: '/agents'
@@ -1222,6 +1255,13 @@ declare module '@tanstack/react-router' {
       path: '/chat/$chatId'
       fullPath: '/chat/$chatId'
       preLoaderRoute: typeof AuthenticatedChatChatIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/billing/$section': {
+      id: '/_authenticated/billing/$section'
+      path: '/billing/$section'
+      fullPath: '/billing/$section'
+      preLoaderRoute: typeof AuthenticatedBillingSectionRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/(auth)/user/reset': {
@@ -1416,6 +1456,7 @@ const AuthenticatedSystemSettingsRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemSettingsRouteRoute: typeof AuthenticatedSystemSettingsRouteRouteWithChildren
   AuthenticatedChat2linkRoute: typeof AuthenticatedChat2linkRoute
+  AuthenticatedBillingSectionRoute: typeof AuthenticatedBillingSectionRoute
   AuthenticatedChatChatIdRoute: typeof AuthenticatedChatChatIdRoute
   AuthenticatedDashboardSectionRoute: typeof AuthenticatedDashboardSectionRoute
   AuthenticatedErrorsErrorRoute: typeof AuthenticatedErrorsErrorRoute
@@ -1423,6 +1464,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedAgentManagementIndexRoute: typeof AuthenticatedAgentManagementIndexRoute
   AuthenticatedAgentsIndexRoute: typeof AuthenticatedAgentsIndexRoute
+  AuthenticatedBillingIndexRoute: typeof AuthenticatedBillingIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
@@ -1444,6 +1486,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSystemSettingsRouteRoute:
     AuthenticatedSystemSettingsRouteRouteWithChildren,
   AuthenticatedChat2linkRoute: AuthenticatedChat2linkRoute,
+  AuthenticatedBillingSectionRoute: AuthenticatedBillingSectionRoute,
   AuthenticatedChatChatIdRoute: AuthenticatedChatChatIdRoute,
   AuthenticatedDashboardSectionRoute: AuthenticatedDashboardSectionRoute,
   AuthenticatedErrorsErrorRoute: AuthenticatedErrorsErrorRoute,
@@ -1452,6 +1495,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentManagementIndexRoute:
     AuthenticatedAgentManagementIndexRoute,
   AuthenticatedAgentsIndexRoute: AuthenticatedAgentsIndexRoute,
+  AuthenticatedBillingIndexRoute: AuthenticatedBillingIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
