@@ -16,24 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/**
- * Hook for checking admin privileges
- */
+import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
 import { ROLE } from '@/lib/roles'
+import { ModelProfit } from '@/features/model-profit'
 
-/**
- * Check if current user has admin privileges
- */
-export function useIsAdmin(): boolean {
-  const { user } = useAuthStore((state) => state.auth)
-  return (user?.role ?? 0) >= ROLE.ADMIN
-}
+export const Route = createFileRoute('/_authenticated/model-profit/')({
+  beforeLoad: () => {
+    const { auth } = useAuthStore.getState()
 
-/**
- * Check if current user has super admin privileges
- */
-export function useIsRoot(): boolean {
-  const { user } = useAuthStore((state) => state.auth)
-  return (user?.role ?? 0) >= ROLE.SUPER_ADMIN
-}
+    if (!auth.user || auth.user.role < ROLE.SUPER_ADMIN) {
+      throw redirect({
+        to: '/403',
+      })
+    }
+  },
+  component: ModelProfit,
+})

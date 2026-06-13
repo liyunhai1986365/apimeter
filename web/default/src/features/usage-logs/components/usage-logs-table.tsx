@@ -32,10 +32,13 @@ import { useMediaQuery } from '@/hooks'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import { useIsAdmin } from '@/hooks/use-admin'
+import { useIsAdmin, useIsRoot } from '@/hooks/use-admin'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { TableCell, TableRow } from '@/components/ui/table'
-import { DataTablePage, getDataTableCellClassName } from '@/components/data-table'
+import {
+  DataTablePage,
+  getDataTableCellClassName,
+} from '@/components/data-table'
 import { DEFAULT_LOGS_DATA, LOG_TYPE_ENUM } from '../constants'
 import { useColumnsByCategory } from '../lib/columns'
 import { usageLogsManualRefreshQueryOptions } from '../lib/query-options'
@@ -58,12 +61,14 @@ interface UsageLogsTableProps {
 export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
+  const isRoot = useIsRoot()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const searchParams = route.useSearch()
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
-  >((): Record<string, boolean> =>
-    logCategory === 'common' ? { ip: false } : {}
+  >(
+    (): Record<string, boolean> =>
+      logCategory === 'common' ? { ip: false } : {}
   )
 
   useEffect(() => {
@@ -113,6 +118,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       'logs',
       logCategory,
       isAdmin,
+      isRoot,
       pagination.pageIndex + 1,
       pagination.pageSize,
       columnFilters,
@@ -145,7 +151,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   })
 
   const logs = data?.items || []
-  const columns = useColumnsByCategory(logCategory, isAdmin)
+  const columns = useColumnsByCategory(logCategory, isAdmin, isRoot)
   const isLoadingData = isLoading || (isFetching && !data)
 
   const table = useReactTable({

@@ -94,6 +94,146 @@ func TestSumUsedQuotaFiltersByTokenAndWorkspaceName(t *testing.T) {
 	require.Equal(t, 100, stat.Quota)
 }
 
+func TestSumUsedQuotaAggregatesChannelCostFields(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id:        141,
+			UserId:    1001,
+			Type:      LogTypeConsume,
+			CreatedAt: 100,
+			Quota:     1500,
+			Other:     `{"group_ratio":1.5,"channel_ratio":0.8,"cost_base_quota":1000,"cost_quota":800,"profit_quota":700}`,
+		},
+		{
+			Id:        142,
+			UserId:    1001,
+			Type:      LogTypeConsume,
+			CreatedAt: 101,
+			Quota:     600,
+			Other:     `{"group_ratio":1.2,"channel_ratio":0.5}`,
+		},
+		{
+			Id:        143,
+			UserId:    1001,
+			Type:      LogTypeError,
+			CreatedAt: 102,
+			Quota:     900,
+			Other:     `{"group_ratio":1.5,"channel_ratio":0.8,"cost_quota":480}`,
+		},
+	}).Error)
+
+	stat, err := SumUsedQuota(LogTypeConsume, 0, 0, "", "", "", 0, "")
+
+	require.NoError(t, err)
+	require.Equal(t, 2100, stat.Quota)
+	require.Equal(t, 1050, stat.CostQuota)
+	require.Equal(t, 1050, stat.ProfitQuota)
+}
+
+func TestSumModelProfitStatsAggregatesByModelAndDate(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id:        151,
+			UserId:    1001,
+			Type:      LogTypeConsume,
+			CreatedAt: 100,
+			ModelName: "gpt-4o",
+			Quota:     1500,
+			Other:     `{"cost_base_quota":1000,"cost_quota":800,"profit_quota":700}`,
+		},
+		{
+			Id:        152,
+			UserId:    1002,
+			Type:      LogTypeConsume,
+			CreatedAt: 120,
+			ModelName: "gpt-4o",
+			Quota:     300,
+			Other:     `{"group_ratio":1.5,"channel_ratio":0.2}`,
+		},
+		{
+			Id:        153,
+			UserId:    1001,
+			Type:      LogTypeConsume,
+			CreatedAt: 130,
+			ModelName: "claude-sonnet-4",
+			Quota:     400,
+			Other:     `{"cost_quota":500,"profit_quota":-100}`,
+		},
+		{
+			Id:        154,
+			UserId:    1001,
+			Type:      LogTypeConsume,
+			CreatedAt: 90,
+			ModelName: "outside",
+			Quota:     900,
+			Other:     `{"cost_quota":100,"profit_quota":800}`,
+		},
+	}).Error)
+
+	summary, err := SumModelProfitStats(LogTypeConsume, 100, 130, "", "", "", 0, "")
+
+	require.NoError(t, err)
+	require.Equal(t, 2200, summary.Quota)
+	require.Equal(t, 1340, summary.CostQuota)
+	require.Equal(t, 860, summary.ProfitQuota)
+	require.Len(t, summary.Items, 2)
+
+	require.Equal(t, "gpt-4o", summary.Items[0].ModelName)
+	require.Equal(t, 1800, summary.Items[0].Quota)
+	require.Equal(t, 840, summary.Items[0].CostQuota)
+	require.Equal(t, 960, summary.Items[0].ProfitQuota)
+	require.Equal(t, 2, summary.Items[0].RequestCount)
+
+	require.Equal(t, "claude-sonnet-4", summary.Items[1].ModelName)
+	require.Equal(t, 400, summary.Items[1].Quota)
+	require.Equal(t, 500, summary.Items[1].CostQuota)
+	require.Equal(t, -100, summary.Items[1].ProfitQuota)
+	require.Equal(t, 1, summary.Items[1].RequestCount)
+}
+
+func TestFormatUserLogsRemovesChannelCostFields(t *testing.T) {
+	logs := []*Log{
+		{
+			Id:    10,
+			Other: `{"channel_ratio":0.8,"cost_base_quota":1000,"cost_quota":800,"profit_quota":700,"profit_rate":0.4667,"billing_source":"wallet","base_quota":900}`,
+		},
+	}
+
+	formatUserLogs(logs, 0)
+
+	require.NotContains(t, logs[0].Other, "channel_ratio")
+	require.NotContains(t, logs[0].Other, "cost_base_quota")
+	require.NotContains(t, logs[0].Other, "cost_quota")
+	require.NotContains(t, logs[0].Other, "profit_quota")
+	require.NotContains(t, logs[0].Other, "profit_rate")
+	require.Contains(t, logs[0].Other, "billing_source")
+	require.Contains(t, logs[0].Other, "base_quota")
+}
+
+func TestStripChannelCostFieldsFromLogsPreservesAdminFields(t *testing.T) {
+	logs := []*Log{
+		{
+			Id:    10,
+			Other: `{"admin_info":{"node":"n1"},"stream_status":"completed","channel_ratio":0.8,"cost_base_quota":1000,"cost_quota":800,"profit_quota":700,"profit_rate":0.4667,"billing_source":"wallet"}`,
+		},
+	}
+
+	StripChannelCostFieldsFromLogs(logs)
+
+	require.NotContains(t, logs[0].Other, "channel_ratio")
+	require.NotContains(t, logs[0].Other, "cost_base_quota")
+	require.NotContains(t, logs[0].Other, "cost_quota")
+	require.NotContains(t, logs[0].Other, "profit_quota")
+	require.NotContains(t, logs[0].Other, "profit_rate")
+	require.Contains(t, logs[0].Other, "admin_info")
+	require.Contains(t, logs[0].Other, "stream_status")
+	require.Contains(t, logs[0].Other, "billing_source")
+}
+
 func TestGetUserWorkspaceUsageStatsAggregatesWorkspaceKeys(t *testing.T) {
 	truncateTables(t)
 

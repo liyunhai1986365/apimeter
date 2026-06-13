@@ -48,6 +48,7 @@ import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
+import { Route as AuthenticatedModelProfitIndexRouteImport } from './routes/_authenticated/model-profit/index'
 import { Route as AuthenticatedModelMonitorIndexRouteImport } from './routes/_authenticated/model-monitor/index'
 import { Route as AuthenticatedModelBillingIndexRouteImport } from './routes/_authenticated/model-billing/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
@@ -282,6 +283,12 @@ const AuthenticatedModelsIndexRoute =
     path: '/models/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedModelProfitIndexRoute =
+  AuthenticatedModelProfitIndexRouteImport.update({
+    id: '/model-profit/',
+    path: '/model-profit/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedModelMonitorIndexRoute =
   AuthenticatedModelMonitorIndexRouteImport.update({
     id: '/model-monitor/',
@@ -495,6 +502,7 @@ export interface FileRoutesByFullPath {
   '/keys/': typeof AuthenticatedKeysIndexRoute
   '/model-billing/': typeof AuthenticatedModelBillingIndexRoute
   '/model-monitor/': typeof AuthenticatedModelMonitorIndexRoute
+  '/model-profit/': typeof AuthenticatedModelProfitIndexRoute
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
@@ -562,6 +570,7 @@ export interface FileRoutesByTo {
   '/keys': typeof AuthenticatedKeysIndexRoute
   '/model-billing': typeof AuthenticatedModelBillingIndexRoute
   '/model-monitor': typeof AuthenticatedModelMonitorIndexRoute
+  '/model-profit': typeof AuthenticatedModelProfitIndexRoute
   '/models': typeof AuthenticatedModelsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
@@ -633,6 +642,7 @@ export interface FileRoutesById {
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
   '/_authenticated/model-billing/': typeof AuthenticatedModelBillingIndexRoute
   '/_authenticated/model-monitor/': typeof AuthenticatedModelMonitorIndexRoute
+  '/_authenticated/model-profit/': typeof AuthenticatedModelProfitIndexRoute
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
@@ -703,6 +713,7 @@ export interface FileRouteTypes {
     | '/keys/'
     | '/model-billing/'
     | '/model-monitor/'
+    | '/model-profit/'
     | '/models/'
     | '/playground/'
     | '/profile/'
@@ -770,6 +781,7 @@ export interface FileRouteTypes {
     | '/keys'
     | '/model-billing'
     | '/model-monitor'
+    | '/model-profit'
     | '/models'
     | '/playground'
     | '/profile'
@@ -840,6 +852,7 @@ export interface FileRouteTypes {
     | '/_authenticated/keys/'
     | '/_authenticated/model-billing/'
     | '/_authenticated/model-monitor/'
+    | '/_authenticated/model-profit/'
     | '/_authenticated/models/'
     | '/_authenticated/playground/'
     | '/_authenticated/profile/'
@@ -1166,6 +1179,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedModelsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/model-profit/': {
+      id: '/_authenticated/model-profit/'
+      path: '/model-profit'
+      fullPath: '/model-profit/'
+      preLoaderRoute: typeof AuthenticatedModelProfitIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/model-monitor/': {
       id: '/_authenticated/model-monitor/'
       path: '/model-monitor'
@@ -1470,6 +1490,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
   AuthenticatedModelBillingIndexRoute: typeof AuthenticatedModelBillingIndexRoute
   AuthenticatedModelMonitorIndexRoute: typeof AuthenticatedModelMonitorIndexRoute
+  AuthenticatedModelProfitIndexRoute: typeof AuthenticatedModelProfitIndexRoute
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
@@ -1501,6 +1522,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
   AuthenticatedModelBillingIndexRoute: AuthenticatedModelBillingIndexRoute,
   AuthenticatedModelMonitorIndexRoute: AuthenticatedModelMonitorIndexRoute,
+  AuthenticatedModelProfitIndexRoute: AuthenticatedModelProfitIndexRoute,
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,

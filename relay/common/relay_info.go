@@ -67,6 +67,7 @@ type ChannelMeta struct {
 	ChannelIsMultiKey    bool
 	ChannelMultiKeyIndex int
 	ChannelBaseUrl       string
+	ChannelRatio         float64
 	ApiType              int
 	ApiVersion           string
 	ApiKey               string
@@ -226,6 +227,12 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 		UpstreamModelName:    info.CurrentModel(),
 		IsModelMapped:        false,
 		SupportStreamOptions: false,
+	}
+	if ratio, ok := common.GetContextKeyType[float64](c, constant.ContextKeyChannelRatio); ok {
+		channelMeta.ChannelRatio = ratio
+	}
+	if channelMeta.ChannelRatio == 0 {
+		channelMeta.ChannelRatio = 1
 	}
 
 	if channelType == constant.ChannelTypeAzure {

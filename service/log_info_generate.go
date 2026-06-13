@@ -2,6 +2,7 @@ package service
 
 import (
 	"encoding/base64"
+	"math"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -13,6 +14,53 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+func roundFloat(value float64, places int) float64 {
+	if places <= 0 {
+		return math.Round(value)
+	}
+	scale := math.Pow10(places)
+	return math.Round(value*scale) / scale
+}
+
+func channelRatioFromRelayInfo(relayInfo *relaycommon.RelayInfo) float64 {
+	if relayInfo == nil || relayInfo.ChannelMeta == nil || relayInfo.ChannelMeta.ChannelRatio == 0 {
+		return 1
+	}
+	return relayInfo.ChannelMeta.ChannelRatio
+}
+
+func appendChannelCostInfo(other map[string]interface{}, relayInfo *relaycommon.RelayInfo, revenueQuota int) {
+	if other == nil {
+		return
+	}
+	groupRatio := 1.0
+	if relayInfo != nil && relayInfo.PriceData.GroupRatioInfo.GroupRatio != 0 {
+		groupRatio = relayInfo.PriceData.GroupRatioInfo.GroupRatio
+	} else if value, ok := other["group_ratio"].(float64); ok && value != 0 {
+		groupRatio = value
+	}
+
+	baseQuota := revenueQuota
+	if groupRatio > 0 {
+		baseQuota = int(math.Round(float64(revenueQuota) / groupRatio))
+	}
+
+	channelRatio := channelRatioFromRelayInfo(relayInfo)
+	costQuota := int(math.Round(float64(baseQuota) * channelRatio))
+	profitQuota := revenueQuota - costQuota
+	profitRate := 0.0
+	if revenueQuota != 0 {
+		profitRate = roundFloat(float64(profitQuota)/float64(revenueQuota), 4)
+	}
+
+	other["group_ratio"] = groupRatio
+	other["channel_ratio"] = channelRatio
+	other["cost_base_quota"] = baseQuota
+	other["cost_quota"] = costQuota
+	other["profit_quota"] = profitQuota
+	other["profit_rate"] = profitRate
+}
 
 func appendRequestPath(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
 	if other == nil {
@@ -280,6 +328,7 @@ func GenerateMjOtherInfo(relayInfo *relaycommon.RelayInfo, priceData types.Price
 		other["user_group_ratio"] = priceData.GroupRatioInfo.GroupSpecialRatio
 	}
 	appendRequestPath(nil, relayInfo, other)
+	appendChannelCostInfo(other, relayInfo, priceData.Quota)
 	return other
 }
 

@@ -25,6 +25,10 @@ const adminNavGroups: NavGroup[] = [
         title: 'System Settings',
         url: '/system-settings/site',
       },
+      {
+        title: 'Model Profit',
+        url: '/model-profit',
+      },
     ],
   },
 ]
@@ -44,12 +48,20 @@ function flattenUrls(navGroups: NavGroup[]): string[] {
 describe('applyRoleSidebarRestrictions', () => {
   test('keeps all admin menus visible for root users', () => {
     assert.deepEqual(
-      flattenUrls(applyRoleSidebarRestrictions(adminNavGroups, ROLE.SUPER_ADMIN)),
-      ['/channels', '/suppliers', '/models/metadata', '/system-settings/site']
+      flattenUrls(
+        applyRoleSidebarRestrictions(adminNavGroups, ROLE.SUPER_ADMIN)
+      ),
+      [
+        '/channels',
+        '/suppliers',
+        '/models/metadata',
+        '/system-settings/site',
+        '/model-profit',
+      ]
     )
   })
 
-  test('hides channel, supplier, and system settings menus for regular administrators', () => {
+  test('hides root-only admin menus for regular administrators', () => {
     assert.deepEqual(
       flattenUrls(applyRoleSidebarRestrictions(adminNavGroups, ROLE.ADMIN)),
       ['/models/metadata']

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -926,7 +927,7 @@ func parseNewAPISupplierChannelRatio(ratio string) *float64 {
 	if err != nil {
 		return nil
 	}
-	return common.GetPointer(value)
+	return common.GetPointer(math.Round((value/7)*1000) / 1000)
 }
 
 func formatNewAPISupplierChannelName(group string, ratio string, channelName string, channelType int) string {

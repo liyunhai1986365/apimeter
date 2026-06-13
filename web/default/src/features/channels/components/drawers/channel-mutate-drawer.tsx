@@ -33,6 +33,7 @@ import {
   Loader2,
   Sparkles,
   Trash2,
+  Divide,
   Copy,
   FileText,
   Eraser,
@@ -136,6 +137,7 @@ import {
   transformChannelToFormDefaults,
   transformFormDataToCreatePayload,
   transformFormDataToUpdatePayload,
+  divideChannelRatioBySupplierScale,
   type ChannelFormValues,
   deduplicateKeys,
   getChannelTypeIcon,
@@ -2531,12 +2533,38 @@ export function ChannelMutateDrawer({
                           name='channel_ratio'
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>{t('Ratio')}</FormLabel>
+                              <div className='flex items-center justify-between gap-2'>
+                                <FormLabel>{t('Cost Discount')}</FormLabel>
+                                <Button
+                                  type='button'
+                                  variant='outline'
+                                  size='sm'
+                                  className='h-7 gap-1.5 px-2 text-xs'
+                                  onClick={() => {
+                                    const nextRatio =
+                                      divideChannelRatioBySupplierScale(
+                                        Number(field.value)
+                                      )
+                                    field.onChange(nextRatio)
+                                    form.setValue(
+                                      'channel_ratio',
+                                      nextRatio,
+                                      {
+                                        shouldDirty: true,
+                                        shouldValidate: true,
+                                      }
+                                    )
+                                  }}
+                                >
+                                  <Divide className='size-3.5' />
+                                  {t('Divide by 7')}
+                                </Button>
+                              </div>
                               <FormControl>
                                 <Input
                                   type='number'
                                   min='0'
-                                  step='0.01'
+                                  step='0.001'
                                   placeholder='1'
                                   {...field}
                                   onChange={(e) =>

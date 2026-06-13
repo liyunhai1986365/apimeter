@@ -99,7 +99,7 @@ export const channelFormSchema = z.object({
   model_mapping: z.string().optional(),
   priority: z.number().optional(),
   weight: z.number().optional(),
-  channel_ratio: z.number().min(0, 'Channel ratio cannot be negative'),
+  channel_ratio: z.number().min(0, 'Cost discount cannot be negative'),
   test_model: z.string().optional(),
   auto_ban: z.number().optional(),
   retry_enabled: z.boolean().optional(),
@@ -219,6 +219,11 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   upstream_model_update_check_enabled: false,
   upstream_model_update_auto_sync_enabled: false,
   upstream_model_update_ignored_models: '',
+}
+
+export function divideChannelRatioBySupplierScale(ratio: number): number {
+  if (!Number.isFinite(ratio)) return 0
+  return Math.round((ratio / 7) * 1_000) / 1_000
 }
 
 // ============================================================================

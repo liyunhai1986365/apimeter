@@ -39,6 +39,7 @@ import {
   Store,
   Network,
   Monitor,
+  ChartNoAxesCombined,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
@@ -182,6 +183,11 @@ export function buildSidebarData(
             title: t('Model Monitor'),
             url: '/model-monitor',
             icon: Monitor,
+          },
+          {
+            title: t('Model Profit'),
+            url: '/model-profit',
+            icon: ChartNoAxesCombined,
           },
           {
             title: t('Operation Records'),

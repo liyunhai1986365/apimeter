@@ -136,6 +136,10 @@ export function SidebarModulesSection({
         title: t('Model Monitor'),
         description: t('Monitor model health and channel test results.'),
       },
+      model_profit: {
+        title: t('Model Profit'),
+        description: t('Track model revenue, supplier cost, and profit.'),
+      },
       redemption: {
         title: t('Redeem codes'),
         description: t('Create and review invite or credit codes.'),

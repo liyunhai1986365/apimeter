@@ -135,6 +135,11 @@ export interface LogOtherData {
   completion_ratio?: number
   model_price?: number
   group_ratio?: number
+  channel_ratio?: number
+  cost_base_quota?: number
+  cost_quota?: number
+  profit_quota?: number
+  profit_rate?: number
   user_group_ratio?: number
   cache_ratio?: number
   cache_creation_ratio?: number
@@ -206,6 +211,26 @@ export interface LogStatistics {
   quota: number
   rpm: number
   tpm: number
+  base_quota?: number
+  cost_quota?: number
+  profit_quota?: number
+}
+
+export interface ModelProfitStatsItem {
+  model_name: string
+  request_count: number
+  quota: number
+  base_quota: number
+  cost_quota: number
+  profit_quota: number
+}
+
+export interface ModelProfitStats {
+  quota: number
+  base_quota: number
+  cost_quota: number
+  profit_quota: number
+  items: ModelProfitStatsItem[]
 }
 
 // ============================================================================
@@ -348,6 +373,12 @@ export interface GetLogStatsResponse {
   success: boolean
   message?: string
   data?: LogStatistics
+}
+
+export interface GetModelProfitStatsResponse {
+  success: boolean
+  message?: string
+  data?: ModelProfitStats
 }
 
 // ============================================================================

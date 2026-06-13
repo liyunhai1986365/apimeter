@@ -143,10 +143,11 @@ function BillingBreakdown(props: {
   log: UsageLog
   other: LogOtherData
   isAdmin: boolean
+  isRoot: boolean
 }) {
   const { t } = useTranslation()
   const discountLabels = useGroupDiscountLabels()
-  const { log, other, isAdmin } = props
+  const { log, other, isAdmin, isRoot } = props
   const isPerCall = isPerCallBilling(other.model_price)
   const isClaude = other.claude === true
   const isTieredExpr = other.billing_mode === 'tiered_expr'
@@ -314,6 +315,37 @@ function BillingBreakdown(props: {
     })
   }
 
+  if (isRoot && other.cost_quota != null) {
+    if (other.cost_base_quota != null) {
+      rows.push({
+        label: t('Base Quota'),
+        value: formatLogQuota(other.cost_base_quota),
+      })
+    }
+    if (other.channel_ratio != null) {
+      rows.push({
+        label: t('Cost Discount'),
+        value: `${other.channel_ratio}`,
+      })
+    }
+    rows.push({
+      label: t('Supplier Cost'),
+      value: formatLogQuota(other.cost_quota),
+    })
+    if (other.profit_quota != null) {
+      rows.push({
+        label: t('Profit'),
+        value: formatLogQuota(other.profit_quota),
+      })
+    }
+    if (other.profit_rate != null) {
+      rows.push({
+        label: t('Profit Rate'),
+        value: `${(other.profit_rate * 100).toFixed(2)}%`,
+      })
+    }
+  }
+
   rows.push({
     label: t('Total Cost'),
     value: formatLogQuota(log.quota),
@@ -399,6 +431,7 @@ function TokenBreakdown(props: { log: UsageLog; other: LogOtherData }) {
 interface DetailsDialogProps {
   log: UsageLog
   isAdmin: boolean
+  isRoot: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
 }
@@ -916,6 +949,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
                 log={props.log}
                 other={other}
                 isAdmin={props.isAdmin}
+                isRoot={props.isRoot}
               />
             )}
 

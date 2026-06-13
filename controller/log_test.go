@@ -1,6 +1,11 @@
 package controller
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
+)
 
 func TestParseLogQueryIntAcceptsQuotedValues(t *testing.T) {
 	tests := []struct {
@@ -22,5 +27,38 @@ func TestParseLogQueryIntAcceptsQuotedValues(t *testing.T) {
 				t.Fatalf("parseLogQueryInt(%q) = %d, want %d", tt.value, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestBuildLogsStatDataOnlyIncludesCostForRoot(t *testing.T) {
+	stat := model.Stat{
+		Quota:       3000,
+		Rpm:         12,
+		Tpm:         34,
+		BaseQuota:   2000,
+		CostQuota:   1200,
+		ProfitQuota: 1800,
+	}
+
+	adminData := buildLogsStatData(stat, common.RoleAdminUser)
+	if _, ok := adminData["base_quota"]; ok {
+		t.Fatalf("ordinary admin stat data should not include base_quota: %#v", adminData)
+	}
+	if _, ok := adminData["cost_quota"]; ok {
+		t.Fatalf("ordinary admin stat data should not include cost_quota: %#v", adminData)
+	}
+	if _, ok := adminData["profit_quota"]; ok {
+		t.Fatalf("ordinary admin stat data should not include profit_quota: %#v", adminData)
+	}
+
+	rootData := buildLogsStatData(stat, common.RoleRootUser)
+	if got := rootData["base_quota"]; got != stat.BaseQuota {
+		t.Fatalf("root base_quota = %v, want %d", got, stat.BaseQuota)
+	}
+	if got := rootData["cost_quota"]; got != stat.CostQuota {
+		t.Fatalf("root cost_quota = %v, want %d", got, stat.CostQuota)
+	}
+	if got := rootData["profit_quota"]; got != stat.ProfitQuota {
+		t.Fatalf("root profit_quota = %v, want %d", got, stat.ProfitQuota)
 	}
 }

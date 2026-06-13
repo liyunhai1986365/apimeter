@@ -42,6 +42,9 @@ func GetAllLogs(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if c.GetInt("role") < common.RoleRootUser {
+		model.StripChannelCostFieldsFromLogs(logs)
+	}
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
@@ -130,13 +133,45 @@ func GetLogsStat(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data": gin.H{
-			"quota": stat.Quota,
-			"rpm":   stat.Rpm,
-			"tpm":   stat.Tpm,
-		},
+		"data":    buildLogsStatData(stat, c.GetInt("role")),
 	})
 	return
+}
+
+func GetLogsModelProfitStats(c *gin.Context) {
+	logType, _ := strconv.Atoi(c.Query("type"))
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	tokenName := c.Query("token_name")
+	workspaceName := c.Query("workspace_name")
+	username := c.Query("username")
+	modelName := c.Query("model_name")
+	channel := parseLogQueryInt(c.Query("channel"))
+	group := c.Query("group")
+	stat, err := model.SumModelProfitStats(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, workspaceName)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    stat,
+	})
+}
+
+func buildLogsStatData(stat model.Stat, role int) gin.H {
+	data := gin.H{
+		"quota": stat.Quota,
+		"rpm":   stat.Rpm,
+		"tpm":   stat.Tpm,
+	}
+	if role >= common.RoleRootUser {
+		data["base_quota"] = stat.BaseQuota
+		data["cost_quota"] = stat.CostQuota
+		data["profit_quota"] = stat.ProfitQuota
+	}
+	return data
 }
 
 func GetLogsSelfStat(c *gin.Context) {

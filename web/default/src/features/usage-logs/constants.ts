@@ -33,6 +33,9 @@ export const DEFAULT_LOG_STATS: LogStatistics = {
   quota: 0,
   rpm: 0,
   tpm: 0,
+  base_quota: 0,
+  cost_quota: 0,
+  profit_quota: 0,
 }
 
 /**

@@ -464,6 +464,11 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
 	common.SetContextKey(c, constant.ContextKeyChannelType, channel.Type)
 	common.SetContextKey(c, constant.ContextKeyChannelCreateTime, channel.CreatedTime)
+	channelRatio := 1.0
+	if channel.ChannelRatio != nil {
+		channelRatio = *channel.ChannelRatio
+	}
+	common.SetContextKey(c, constant.ContextKeyChannelRatio, channelRatio)
 	common.SetContextKey(c, constant.ContextKeyChannelSetting, channel.GetSetting())
 	common.SetContextKey(c, constant.ContextKeyChannelOtherSetting, channel.GetOtherSettings())
 	paramOverride := channel.GetParamOverride()

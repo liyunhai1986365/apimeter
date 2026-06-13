@@ -23,6 +23,7 @@ import type {
   GetLogsResponse,
   GetLogStatsParams,
   GetLogStatsResponse,
+  GetModelProfitStatsResponse,
   GetChannelOperationRecordsParams,
   GetMidjourneyLogsParams,
   GetTaskLogsParams,
@@ -79,6 +80,14 @@ export const getUserLogs = (
 
 export const getLogStats = (params: GetLogStatsParams = {}) =>
   fetchLogStats('/api/log', params, true)
+
+export async function getModelProfitStats(
+  params: GetLogStatsParams = {}
+): Promise<GetModelProfitStatsResponse> {
+  const queryParams = buildQueryParams(params as Record<string, unknown>)
+  const res = await api.get(`/api/log/model_profit_stats?${queryParams}`)
+  return res.data
+}
 
 export const getUserLogStats = (
   params: Omit<GetLogStatsParams, 'username' | 'channel'> = {}

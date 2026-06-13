@@ -22,4 +22,11 @@ describe('buildSidebarData', () => {
     assert.ok(urls.includes('/billing/monthly'))
     assert.ok(!urls.includes('/dashboard/billing'))
   })
+
+  test('adds model profit as an independent admin menu item', () => {
+    const data = buildSidebarData((key) => key, null)
+    const urls = flattenUrls(data)
+
+    assert.ok(urls.includes('/model-profit'))
+  })
 })

@@ -461,7 +461,7 @@ export function ChannelsTable() {
         type='number'
         min='0'
         step='0.01'
-        placeholder={t('Ratio')}
+        placeholder={t('Cost Discount')}
         value={ratioValueInput}
         onChange={(e) => setRatioValueInput(e.target.value)}
         onBlur={() => commitRatioFilters(ratioOpInput, ratioValueInput)}

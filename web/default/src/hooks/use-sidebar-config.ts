@@ -63,6 +63,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
     supplier: true,
     models: true,
     model_monitor: true,
+    model_profit: true,
     redemption: true,
     user: true,
     agent_management: true,
@@ -125,6 +126,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/models/metadata': { section: 'admin', module: 'models' },
   '/models/deployments': { section: 'admin', module: 'models' },
   '/model-monitor': { section: 'admin', module: 'model_monitor' },
+  '/model-profit': { section: 'admin', module: 'model_profit' },
   '/users': { section: 'admin', module: 'user' },
   '/agent-management': { section: 'admin', module: 'agent_management' },
   '/redemption-codes': { section: 'admin', module: 'redemption' },
@@ -136,6 +138,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
 const REGULAR_ADMIN_HIDDEN_URLS = new Set([
   '/channels',
   '/suppliers',
+  '/model-profit',
   '/system-settings',
   '/system-settings/site',
 ])

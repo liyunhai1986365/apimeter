@@ -60,6 +60,7 @@ export const SIDEBAR_MODULES_DEFAULT: SidebarModulesAdminConfig = {
     supplier: true,
     models: true,
     model_monitor: true,
+    model_profit: true,
     redemption: true,
     user: true,
     setting: true,

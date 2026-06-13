@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -85,6 +88,25 @@ const (
 	LogTypeRefund  = 6
 )
 
+func stripChannelCostFields(otherMap map[string]interface{}) {
+	delete(otherMap, "channel_ratio")
+	delete(otherMap, "cost_base_quota")
+	delete(otherMap, "cost_quota")
+	delete(otherMap, "profit_quota")
+	delete(otherMap, "profit_rate")
+}
+
+func StripChannelCostFieldsFromLogs(logs []*Log) {
+	for i := range logs {
+		otherMap, _ := common.StrToMap(logs[i].Other)
+		if otherMap == nil {
+			continue
+		}
+		stripChannelCostFields(otherMap)
+		logs[i].Other = common.MapToJsonStr(otherMap)
+	}
+}
+
 func formatUserLogs(logs []*Log, startIdx int) {
 	for i := range logs {
 		logs[i].ChannelName = ""
@@ -95,6 +117,7 @@ func formatUserLogs(logs []*Log, startIdx int) {
 			delete(otherMap, "admin_info")
 			// delete(otherMap, "reject_reason")
 			delete(otherMap, "stream_status")
+			stripChannelCostFields(otherMap)
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)
 		logs[i].Id = startIdx + i + 1
@@ -513,9 +536,29 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 }
 
 type Stat struct {
-	Quota int `json:"quota"`
-	Rpm   int `json:"rpm"`
-	Tpm   int `json:"tpm"`
+	Quota       int `json:"quota"`
+	Rpm         int `json:"rpm"`
+	Tpm         int `json:"tpm"`
+	BaseQuota   int `json:"base_quota"`
+	CostQuota   int `json:"cost_quota"`
+	ProfitQuota int `json:"profit_quota"`
+}
+
+type ModelProfitStat struct {
+	ModelName    string `json:"model_name"`
+	RequestCount int    `json:"request_count"`
+	Quota        int    `json:"quota"`
+	BaseQuota    int    `json:"base_quota"`
+	CostQuota    int    `json:"cost_quota"`
+	ProfitQuota  int    `json:"profit_quota"`
+}
+
+type ModelProfitStatsSummary struct {
+	Quota       int               `json:"quota"`
+	BaseQuota   int               `json:"base_quota"`
+	CostQuota   int               `json:"cost_quota"`
+	ProfitQuota int               `json:"profit_quota"`
+	Items       []ModelProfitStat `json:"items"`
 }
 
 type SubscriptionKeyUsagePoint struct {
@@ -602,11 +645,67 @@ func GetSubscriptionKeyUsageStats(userId int, tokenId int, days int, now time.Ti
 	return stats, nil
 }
 
+func logOtherNumber(other map[string]interface{}, key string) (float64, bool) {
+	if other == nil {
+		return 0, false
+	}
+	value, ok := other[key]
+	if !ok {
+		return 0, false
+	}
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
+func logCostSnapshot(quota int, otherText string) (baseQuota int, costQuota int, profitQuota int) {
+	other, _ := common.StrToMap(otherText)
+	if base, ok := logOtherNumber(other, "cost_base_quota"); ok {
+		baseQuota = int(math.Round(base))
+	} else {
+		groupRatio, ok := logOtherNumber(other, "group_ratio")
+		if ok && groupRatio > 0 {
+			baseQuota = int(math.Round(float64(quota) / groupRatio))
+		} else {
+			baseQuota = quota
+		}
+	}
+
+	if cost, ok := logOtherNumber(other, "cost_quota"); ok {
+		costQuota = int(math.Round(cost))
+	} else {
+		channelRatio, ok := logOtherNumber(other, "channel_ratio")
+		if !ok || channelRatio == 0 {
+			channelRatio = 1
+		}
+		costQuota = int(math.Round(float64(baseQuota) * channelRatio))
+	}
+	if profit, ok := logOtherNumber(other, "profit_quota"); ok {
+		profitQuota = int(math.Round(profit))
+	} else {
+		profitQuota = quota - costQuota
+	}
+	return baseQuota, costQuota, profitQuota
+}
+
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspaceName ...string) (stat Stat, err error) {
 	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
 
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
+	costQuery := LOG_DB.Table("logs").Select("quota, other")
 	workspace := ""
 	if len(workspaceName) > 0 {
 		workspace = workspaceName[0]
@@ -617,20 +716,25 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 	tx = applyTokenIDFilter(tx, "", tokenIDs, tokenIDsResolved)
 	rpmTpmQuery = applyTokenIDFilter(rpmTpmQuery, "", tokenIDs, tokenIDsResolved)
+	costQuery = applyTokenIDFilter(costQuery, "", tokenIDs, tokenIDsResolved)
 
 	if username != "" {
 		tx = tx.Where("username = ?", username)
 		rpmTpmQuery = rpmTpmQuery.Where("username = ?", username)
+		costQuery = costQuery.Where("username = ?", username)
 	}
 	if tokenName != "" {
 		tx = tx.Where("token_name = ?", tokenName)
 		rpmTpmQuery = rpmTpmQuery.Where("token_name = ?", tokenName)
+		costQuery = costQuery.Where("token_name = ?", tokenName)
 	}
 	if startTimestamp != 0 {
 		tx = tx.Where("created_at >= ?", startTimestamp)
+		costQuery = costQuery.Where("created_at >= ?", startTimestamp)
 	}
 	if endTimestamp != 0 {
 		tx = tx.Where("created_at <= ?", endTimestamp)
+		costQuery = costQuery.Where("created_at <= ?", endTimestamp)
 	}
 	if modelName != "" {
 		modelNamePattern, err := sanitizeLikePattern(modelName)
@@ -639,18 +743,22 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		}
 		tx = tx.Where("model_name LIKE ? ESCAPE '!'", modelNamePattern)
 		rpmTpmQuery = rpmTpmQuery.Where("model_name LIKE ? ESCAPE '!'", modelNamePattern)
+		costQuery = costQuery.Where("model_name LIKE ? ESCAPE '!'", modelNamePattern)
 	}
 	if channel != 0 {
 		tx = tx.Where("channel_id = ?", channel)
 		rpmTpmQuery = rpmTpmQuery.Where("channel_id = ?", channel)
+		costQuery = costQuery.Where("channel_id = ?", channel)
 	}
 	if group != "" {
 		tx = tx.Where(logGroupCol+" = ?", group)
 		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
+		costQuery = costQuery.Where(logGroupCol+" = ?", group)
 	}
 
 	tx = tx.Where("type = ?", LogTypeConsume)
 	rpmTpmQuery = rpmTpmQuery.Where("type = ?", LogTypeConsume)
+	costQuery = costQuery.Where("type = ?", LogTypeConsume)
 
 	// 只统计最近60秒的rpm和tpm
 	rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", time.Now().Add(-60*time.Second).Unix())
@@ -664,8 +772,107 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		common.SysError("failed to query rpm/tpm stat: " + err.Error())
 		return stat, errors.New("查询统计数据失败")
 	}
+	var costRows []struct {
+		Quota int
+		Other string
+	}
+	if err := costQuery.Scan(&costRows).Error; err != nil {
+		common.SysError("failed to query cost stat: " + err.Error())
+		return stat, errors.New("查询统计数据失败")
+	}
+	for _, row := range costRows {
+		baseQuota, costQuota, profitQuota := logCostSnapshot(row.Quota, row.Other)
+		stat.BaseQuota += baseQuota
+		stat.CostQuota += costQuota
+		stat.ProfitQuota += profitQuota
+	}
 
 	return stat, nil
+}
+
+func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspaceName ...string) (summary ModelProfitStatsSummary, err error) {
+	query := LOG_DB.Table("logs").Select("model_name, quota, other")
+	workspace := ""
+	if len(workspaceName) > 0 {
+		workspace = workspaceName[0]
+	}
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace)
+	if err != nil {
+		return summary, err
+	}
+	query = applyTokenIDFilter(query, "", tokenIDs, tokenIDsResolved)
+
+	if username != "" {
+		query = query.Where("username = ?", username)
+	}
+	if tokenName != "" {
+		query = query.Where("token_name = ?", tokenName)
+	}
+	if startTimestamp != 0 {
+		query = query.Where("created_at >= ?", startTimestamp)
+	}
+	if endTimestamp != 0 {
+		query = query.Where("created_at <= ?", endTimestamp)
+	}
+	if modelName != "" {
+		modelNamePattern, err := sanitizeLikePattern(modelName)
+		if err != nil {
+			return summary, err
+		}
+		query = query.Where("model_name LIKE ? ESCAPE '!'", modelNamePattern)
+	}
+	if channel != 0 {
+		query = query.Where("channel_id = ?", channel)
+	}
+	if group != "" {
+		query = query.Where(logGroupCol+" = ?", group)
+	}
+	query = query.Where("type = ?", LogTypeConsume)
+
+	var rows []struct {
+		ModelName string
+		Quota     int
+		Other     string
+	}
+	if err := query.Scan(&rows).Error; err != nil {
+		common.SysError("failed to query model profit stats: " + err.Error())
+		return summary, errors.New("查询统计数据失败")
+	}
+
+	itemByModel := make(map[string]*ModelProfitStat)
+	for _, row := range rows {
+		model := strings.TrimSpace(row.ModelName)
+		if model == "" {
+			model = "unknown"
+		}
+		item := itemByModel[model]
+		if item == nil {
+			item = &ModelProfitStat{ModelName: model}
+			itemByModel[model] = item
+		}
+		baseQuota, costQuota, profitQuota := logCostSnapshot(row.Quota, row.Other)
+		item.RequestCount++
+		item.Quota += row.Quota
+		item.BaseQuota += baseQuota
+		item.CostQuota += costQuota
+		item.ProfitQuota += profitQuota
+		summary.Quota += row.Quota
+		summary.BaseQuota += baseQuota
+		summary.CostQuota += costQuota
+		summary.ProfitQuota += profitQuota
+	}
+
+	summary.Items = make([]ModelProfitStat, 0, len(itemByModel))
+	for _, item := range itemByModel {
+		summary.Items = append(summary.Items, *item)
+	}
+	sort.Slice(summary.Items, func(i, j int) bool {
+		if summary.Items[i].ProfitQuota == summary.Items[j].ProfitQuota {
+			return summary.Items[i].Quota > summary.Items[j].Quota
+		}
+		return summary.Items[i].ProfitQuota > summary.Items[j].ProfitQuota
+	})
+	return summary, nil
 }
 
 func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int) (quotaData []*QuotaData, err error) {

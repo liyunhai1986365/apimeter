@@ -978,8 +978,8 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
     // Channel cost ratio column
     {
       accessorKey: 'channel_ratio',
-      meta: { label: t('Ratio'), mobileHidden: true },
-      header: t('Ratio'),
+      meta: { label: t('Cost Discount'), mobileHidden: true },
+      header: t('Cost Discount'),
       cell: ({ row }) => {
         if (isTagAggregateRow(row.original)) {
           return <span className='text-muted-foreground text-xs'>-</span>
@@ -988,7 +988,7 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
         const ratio = row.getValue('channel_ratio') as number
         return (
           <StatusBadge
-            label={`${ratio ?? 1}x`}
+            label={`${ratio ?? 1}`}
             variant='neutral'
             size='sm'
             copyable={false}

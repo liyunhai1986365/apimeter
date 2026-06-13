@@ -263,7 +263,10 @@ function buildDetailSegments(
   return segments
 }
 
-export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
+export function useCommonLogsColumns(
+  isAdmin: boolean,
+  isRoot: boolean
+): ColumnDef<UsageLog>[] {
   const { t } = useTranslation()
   const discountLabels = useGroupDiscountLabels()
   const columns: ColumnDef<UsageLog>[] = [
@@ -765,12 +768,28 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
         }
 
         const quotaStr = formatLogQuota(quota)
+        const profitQuota = other?.profit_quota
+        const hasChannelProfit =
+          isRoot && profitQuota != null && Number.isFinite(profitQuota)
+        const profitClassName =
+          profitQuota == null || profitQuota === 0
+            ? 'text-muted-foreground'
+            : profitQuota > 0
+              ? 'text-emerald-600 dark:text-emerald-400'
+              : 'text-red-600 dark:text-red-400'
 
         return (
           <div className='flex flex-col gap-0.5'>
             <span className='border-border/80 bg-muted/60 inline-flex w-fit items-center rounded-md border px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums'>
               {quotaStr}
             </span>
+            {hasChannelProfit && (
+              <span className='flex flex-wrap gap-x-2 text-[11px] tabular-nums'>
+                <span className={profitClassName}>
+                  {t('Profit')} {formatLogQuota(profitQuota)}
+                </span>
+              </span>
+            )}
           </div>
         )
       },
@@ -853,6 +872,7 @@ export function useCommonLogsColumns(isAdmin: boolean): ColumnDef<UsageLog>[] {
             <DetailsDialog
               log={log}
               isAdmin={isAdmin}
+              isRoot={isRoot}
               open={dialogOpen}
               onOpenChange={setDialogOpen}
             />
