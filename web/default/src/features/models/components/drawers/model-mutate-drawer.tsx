@@ -85,6 +85,11 @@ import type { ModelSettings } from '@/features/system-settings/types'
 import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
 import { createModel, updateModel, getModel, getVendors } from '../../api'
 import { getNameRuleOptions, ENDPOINT_TEMPLATES } from '../../constants'
+import {
+  convertRatioValuesToPriceValues,
+  normalizeModelPricingValuesForInputMode,
+  syncModelPricingMaps,
+} from '../../lib/model-pricing-sync'
 import { modelsQueryKeys, vendorsQueryKeys, parseModelTags } from '../../lib'
 import { appendEndpointTemplate } from '../../lib/endpoint-template'
 import type { Model } from '../../types'
@@ -115,15 +120,17 @@ const extendedModelFormSchema = z.object({
   price: z.string().optional(),
   ratio: z.string().optional(),
   cacheRatio: z.string().optional(),
+  createCacheRatio: z.string().optional(),
   completionRatio: z.string().optional(),
   imageRatio: z.string().optional(),
   audioRatio: z.string().optional(),
   audioCompletionRatio: z.string().optional(),
+  billingExpr: z.string().optional(),
 })
 
 type ExtendedModelFormValues = z.infer<typeof extendedModelFormSchema>
 
-type PricingMode = 'per-token' | 'per-request'
+type PricingMode = 'per-token' | 'per-request' | 'tiered_expr'
 type PricingSubMode = 'ratio' | 'price'
 
 const MODALITY_VALUES: Modality[] = ['text', 'image', 'audio', 'video', 'file']
@@ -177,6 +184,16 @@ function formatListField(values: string[]): string {
     .filter(Boolean)
     .join(',')
 }
+
+const pricingFields = [
+  'ratio',
+  'cacheRatio',
+  'createCacheRatio',
+  'completionRatio',
+  'imageRatio',
+  'audioRatio',
+  'audioCompletionRatio',
+] as const
 
 type ModelMutateDrawerProps = {
   open: boolean
@@ -321,10 +338,12 @@ export function ModelMutateDrawer({
       price: '',
       ratio: '',
       cacheRatio: '',
+      createCacheRatio: '',
       completionRatio: '',
       imageRatio: '',
       audioRatio: '',
       audioCompletionRatio: '',
+      billingExpr: '',
     },
   })
 
@@ -337,9 +356,9 @@ export function ModelMutateDrawer({
     setPromptPrice(value)
     if (value && !isNaN(parseFloat(value))) {
       const ratio = parseFloat(value) / 2
-      form.setValue('ratio', ratio.toString())
+      form.setValue('ratio', ratio.toString(), { shouldDirty: true })
     } else {
-      form.setValue('ratio', '')
+      form.setValue('ratio', '', { shouldDirty: true })
     }
   }
 
@@ -353,10 +372,40 @@ export function ModelMutateDrawer({
       parseFloat(promptPrice) > 0
     ) {
       const completionRatio = parseFloat(value) / parseFloat(promptPrice)
-      form.setValue('completionRatio', completionRatio.toString())
+      form.setValue('completionRatio', completionRatio.toString(), {
+        shouldDirty: true,
+      })
     } else {
-      form.setValue('completionRatio', '')
+      form.setValue('completionRatio', '', { shouldDirty: true })
     }
+  }
+
+  const handlePricingSubModeChange = (value: string) => {
+    const nextMode = value as PricingSubMode
+    if (nextMode === pricingSubMode) return
+
+    const currentValues = form.getValues()
+    const convertedValues =
+      nextMode === 'price'
+        ? convertRatioValuesToPriceValues(currentValues)
+        : normalizeModelPricingValuesForInputMode(currentValues, 'price')
+
+    pricingFields.forEach((field) => {
+      form.setValue(field, convertedValues[field] || '', {
+        shouldDirty: true,
+        shouldValidate: true,
+      })
+    })
+    setPricingSubMode(nextMode)
+  }
+
+  const getAdvancedFieldDescription = (
+    ratioDescriptionKey: string,
+    priceDescriptionKey: string
+  ) => {
+    return pricingSubMode === 'price'
+      ? t(priceDescriptionKey)
+      : t(ratioDescriptionKey)
   }
 
   // Load model data for editing and ratio configuration
@@ -364,6 +413,9 @@ export function ModelMutateDrawer({
     if (open && isEditing && modelData?.data) {
       const model = modelData.data
       setOldModelName(model.model_name)
+      setPricingSubMode('ratio')
+      setPromptPrice('')
+      setCompletionPrice('')
 
       // Base model data reset
       const baseModelData = {
@@ -391,10 +443,12 @@ export function ModelMutateDrawer({
         price: '',
         ratio: '',
         cacheRatio: '',
+        createCacheRatio: '',
         completionRatio: '',
         imageRatio: '',
         audioRatio: '',
         audioCompletionRatio: '',
+        billingExpr: '',
       }
 
       // Parse ratio configurations from system settings if available
@@ -409,6 +463,10 @@ export function ModelMutateDrawer({
         )
         const cacheMap = safeJsonParse<Record<string, number>>(
           modelSettings.CacheRatio,
+          { fallback: {}, silent: true }
+        )
+        const createCacheMap = safeJsonParse<Record<string, number>>(
+          modelSettings.CreateCacheRatio,
           { fallback: {}, silent: true }
         )
         const completionMap = safeJsonParse<Record<string, number>>(
@@ -427,23 +485,58 @@ export function ModelMutateDrawer({
           modelSettings.AudioCompletionRatio,
           { fallback: {}, silent: true }
         )
+        const billingModeMap = safeJsonParse<Record<string, string>>(
+          modelSettings['billing_setting.billing_mode'],
+          { fallback: {}, silent: true }
+        )
+        const billingExprMap = safeJsonParse<Record<string, string>>(
+          modelSettings['billing_setting.billing_expr'],
+          { fallback: {}, silent: true }
+        )
 
         // Extract ratio config for this model
         const modelName = model.model_name
         const price = priceMap[modelName]
         const ratio = ratioMap[modelName]
         const cacheRatio = cacheMap[modelName]
+        const createCacheRatio = createCacheMap[modelName]
         const completionRatio = completionMap[modelName]
         const imageRatio = imageMap[modelName]
         const audioRatio = audioMap[modelName]
         const audioCompletionRatio = audioCompletionMap[modelName]
+        const billingMode = billingModeMap[modelName]
 
         // Determine pricing mode
-        if (price !== undefined && price !== null) {
+        if (billingMode === 'tiered_expr') {
+          setPricingMode('tiered_expr')
+          setAdvancedOpen(false)
+          if (ratio !== undefined && ratio !== null) {
+            const tokenPrice = ratio * 2
+            setPromptPrice(tokenPrice.toString())
+            if (completionRatio !== undefined && completionRatio !== null) {
+              const compPrice = tokenPrice * completionRatio
+              setCompletionPrice(compPrice.toString())
+            }
+          }
+          form.reset({
+            ...baseModelData,
+            price: price?.toString() || '',
+            ratio: ratio?.toString() || '',
+            cacheRatio: cacheRatio?.toString() || '',
+            createCacheRatio: createCacheRatio?.toString() || '',
+            completionRatio: completionRatio?.toString() || '',
+            imageRatio: imageRatio?.toString() || '',
+            audioRatio: audioRatio?.toString() || '',
+            audioCompletionRatio: audioCompletionRatio?.toString() || '',
+            billingExpr: billingExprMap[modelName] || '',
+          })
+        } else if (price !== undefined && price !== null) {
           setPricingMode('per-request')
+          setAdvancedOpen(false)
           form.reset({
             ...baseModelData,
             price: price.toString(),
+            billingExpr: billingExprMap[modelName] || '',
           })
         } else {
           setPricingMode('per-token')
@@ -459,13 +552,21 @@ export function ModelMutateDrawer({
             ...baseModelData,
             ratio: ratio?.toString() || '',
             cacheRatio: cacheRatio?.toString() || '',
+            createCacheRatio: createCacheRatio?.toString() || '',
             completionRatio: completionRatio?.toString() || '',
             imageRatio: imageRatio?.toString() || '',
             audioRatio: audioRatio?.toString() || '',
             audioCompletionRatio: audioCompletionRatio?.toString() || '',
+            billingExpr: billingExprMap[modelName] || '',
           })
           setAdvancedOpen(
-            !!(cacheRatio || imageRatio || audioRatio || audioCompletionRatio)
+            !!(
+              cacheRatio ||
+              createCacheRatio ||
+              imageRatio ||
+              audioRatio ||
+              audioCompletionRatio
+            )
           )
         }
       } else {
@@ -506,10 +607,12 @@ export function ModelMutateDrawer({
         price: '',
         ratio: '',
         cacheRatio: '',
+        createCacheRatio: '',
         completionRatio: '',
         imageRatio: '',
         audioRatio: '',
         audioCompletionRatio: '',
+        billingExpr: '',
       })
     }
   }, [open, isEditing, modelData, currentRow, form, modelSettings])
@@ -534,10 +637,12 @@ export function ModelMutateDrawer({
           price,
           ratio,
           cacheRatio,
+          createCacheRatio,
           completionRatio,
           imageRatio,
           audioRatio,
           audioCompletionRatio,
+          billingExpr,
           ...modelData
         } = submitData
         const payload = {
@@ -550,22 +655,10 @@ export function ModelMutateDrawer({
           : await createModel(payload)
 
         if (response.success) {
-          // Handle ratio configuration updates in system settings
           const finalModelName = values.model_name
-          const hasRatioConfig =
-            (pricingMode === 'per-request' &&
-              values.price &&
-              values.price !== '') ||
-            (pricingMode === 'per-token' &&
-              (values.ratio ||
-                values.cacheRatio ||
-                values.completionRatio ||
-                values.imageRatio ||
-                values.audioRatio ||
-                values.audioCompletionRatio))
 
           // Always process system settings updates if we have modelSettings
-          // This ensures we can remove stale entries even when clearing all pricing fields
+          // This keeps explicit pricing edits and model-name changes synchronized.
           if (modelSettings) {
             // Read existing configurations
             const priceMap = safeJsonParse<Record<string, number>>(
@@ -578,6 +671,10 @@ export function ModelMutateDrawer({
             )
             const cacheMap = safeJsonParse<Record<string, number>>(
               modelSettings.CacheRatio,
+              { fallback: {}, silent: true }
+            )
+            const createCacheMap = safeJsonParse<Record<string, number>>(
+              modelSettings.CreateCacheRatio,
               { fallback: {}, silent: true }
             )
             const completionMap = safeJsonParse<Record<string, number>>(
@@ -596,91 +693,91 @@ export function ModelMutateDrawer({
               modelSettings.AudioCompletionRatio,
               { fallback: {}, silent: true }
             )
+            const billingModeMap = safeJsonParse<Record<string, string>>(
+              modelSettings['billing_setting.billing_mode'],
+              { fallback: {}, silent: true }
+            )
+            const billingExprMap = safeJsonParse<Record<string, string>>(
+              modelSettings['billing_setting.billing_expr'],
+              { fallback: {}, silent: true }
+            )
 
-            // Remove old model name entries if model name changed (always, even if no new config)
-            if (isEditing && oldModelName && oldModelName !== finalModelName) {
-              delete priceMap[oldModelName]
-              delete ratioMap[oldModelName]
-              delete cacheMap[oldModelName]
-              delete completionMap[oldModelName]
-              delete imageMap[oldModelName]
-              delete audioMap[oldModelName]
-              delete audioCompletionMap[oldModelName]
-            }
-
-            // Remove current model name from all maps first (always, to handle mode switches or clearing)
-            // This ensures stale entries are removed even when user clears all fields
-            delete priceMap[finalModelName]
-            delete ratioMap[finalModelName]
-            delete cacheMap[finalModelName]
-            delete completionMap[finalModelName]
-            delete imageMap[finalModelName]
-            delete audioMap[finalModelName]
-            delete audioCompletionMap[finalModelName]
-
-            // Only add new entries if user provided new configuration
-            if (hasRatioConfig) {
-              if (
-                pricingMode === 'per-request' &&
-                values.price &&
-                values.price !== ''
-              ) {
-                priceMap[finalModelName] = parseFloat(values.price)
-              } else if (pricingMode === 'per-token') {
-                if (values.ratio && values.ratio !== '') {
-                  ratioMap[finalModelName] = parseFloat(values.ratio)
-                }
-                if (values.cacheRatio && values.cacheRatio !== '') {
-                  cacheMap[finalModelName] = parseFloat(values.cacheRatio)
-                }
-                if (values.completionRatio && values.completionRatio !== '') {
-                  completionMap[finalModelName] = parseFloat(
-                    values.completionRatio
-                  )
-                }
-                if (values.imageRatio && values.imageRatio !== '') {
-                  imageMap[finalModelName] = parseFloat(values.imageRatio)
-                }
-                if (values.audioRatio && values.audioRatio !== '') {
-                  audioMap[finalModelName] = parseFloat(values.audioRatio)
-                }
-                if (
-                  values.audioCompletionRatio &&
-                  values.audioCompletionRatio !== ''
-                ) {
-                  audioCompletionMap[finalModelName] = parseFloat(
-                    values.audioCompletionRatio
-                  )
-                }
-              }
-            }
+            const syncedPricingMaps = syncModelPricingMaps({
+              maps: {
+                priceMap,
+                ratioMap,
+                cacheMap,
+                createCacheMap,
+                completionMap,
+                imageMap,
+                audioMap,
+                audioCompletionMap,
+                billingModeMap,
+                billingExprMap,
+              },
+              values: {
+                price,
+                ratio,
+                cacheRatio,
+                createCacheRatio,
+                completionRatio,
+                imageRatio,
+                audioRatio,
+                audioCompletionRatio,
+                billingExpr,
+              },
+              pricingMode,
+              pricingInputMode: pricingSubMode,
+              finalModelName,
+              oldModelName,
+              isEditing,
+            })
 
             // Update system options if there are changes
             const updates: Array<{ key: string; value: string }> = []
 
-            const newModelPrice = normalizeJsonString(JSON.stringify(priceMap))
+            const newModelPrice = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.priceMap)
+            )
             if (
               newModelPrice !== normalizeJsonString(modelSettings.ModelPrice)
             ) {
               updates.push({ key: 'ModelPrice', value: newModelPrice })
             }
 
-            const newModelRatio = normalizeJsonString(JSON.stringify(ratioMap))
+            const newModelRatio = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.ratioMap)
+            )
             if (
               newModelRatio !== normalizeJsonString(modelSettings.ModelRatio)
             ) {
               updates.push({ key: 'ModelRatio', value: newModelRatio })
             }
 
-            const newCacheRatio = normalizeJsonString(JSON.stringify(cacheMap))
+            const newCacheRatio = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.cacheMap)
+            )
             if (
               newCacheRatio !== normalizeJsonString(modelSettings.CacheRatio)
             ) {
               updates.push({ key: 'CacheRatio', value: newCacheRatio })
             }
 
+            const newCreateCacheRatio = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.createCacheMap)
+            )
+            if (
+              newCreateCacheRatio !==
+              normalizeJsonString(modelSettings.CreateCacheRatio)
+            ) {
+              updates.push({
+                key: 'CreateCacheRatio',
+                value: newCreateCacheRatio,
+              })
+            }
+
             const newCompletionRatio = normalizeJsonString(
-              JSON.stringify(completionMap)
+              JSON.stringify(syncedPricingMaps.completionMap)
             )
             if (
               newCompletionRatio !==
@@ -692,14 +789,18 @@ export function ModelMutateDrawer({
               })
             }
 
-            const newImageRatio = normalizeJsonString(JSON.stringify(imageMap))
+            const newImageRatio = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.imageMap)
+            )
             if (
               newImageRatio !== normalizeJsonString(modelSettings.ImageRatio)
             ) {
               updates.push({ key: 'ImageRatio', value: newImageRatio })
             }
 
-            const newAudioRatio = normalizeJsonString(JSON.stringify(audioMap))
+            const newAudioRatio = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.audioMap)
+            )
             if (
               newAudioRatio !== normalizeJsonString(modelSettings.AudioRatio)
             ) {
@@ -707,7 +808,7 @@ export function ModelMutateDrawer({
             }
 
             const newAudioCompletionRatio = normalizeJsonString(
-              JSON.stringify(audioCompletionMap)
+              JSON.stringify(syncedPricingMaps.audioCompletionMap)
             )
             if (
               newAudioCompletionRatio !==
@@ -716,6 +817,32 @@ export function ModelMutateDrawer({
               updates.push({
                 key: 'AudioCompletionRatio',
                 value: newAudioCompletionRatio,
+              })
+            }
+
+            const newBillingMode = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.billingModeMap)
+            )
+            if (
+              newBillingMode !==
+              normalizeJsonString(modelSettings['billing_setting.billing_mode'])
+            ) {
+              updates.push({
+                key: 'billing_setting.billing_mode',
+                value: newBillingMode,
+              })
+            }
+
+            const newBillingExpr = normalizeJsonString(
+              JSON.stringify(syncedPricingMaps.billingExprMap)
+            )
+            if (
+              newBillingExpr !==
+              normalizeJsonString(modelSettings['billing_setting.billing_expr'])
+            ) {
+              updates.push({
+                key: 'billing_setting.billing_expr',
+                value: newBillingExpr,
               })
             }
 
@@ -749,6 +876,7 @@ export function ModelMutateDrawer({
       queryClient,
       onOpenChange,
       pricingMode,
+      pricingSubMode,
       oldModelName,
       modelSettings,
       updateOption,
@@ -1316,6 +1444,12 @@ export function ModelMutateDrawer({
                       {t('Per-request (fixed price)')}
                     </Label>
                   </div>
+                  <div className='flex items-center space-x-2'>
+                    <RadioGroupItem value='tiered_expr' id='tiered-expr' />
+                    <Label htmlFor='tiered-expr' className='font-normal'>
+                      {t('Expression pricing')}
+                    </Label>
+                  </div>
                 </RadioGroup>
               </div>
 
@@ -1348,15 +1482,67 @@ export function ModelMutateDrawer({
                     </FormItem>
                   )}
                 />
+              ) : pricingMode === 'tiered_expr' ? (
+                <>
+                  <FormField
+                    control={form.control}
+                    name='billingExpr'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Billing expression')}</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder='tier("base", p * 0 + c * 0)'
+                            rows={4}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Expression pricing is stored with the same billing fields used by model pricing.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name='ratio'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Fallback model ratio')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='text'
+                            placeholder='1.0'
+                            {...field}
+                            onChange={(e) => {
+                              const value = e.target.value
+                              if (validateNumber(value)) {
+                                field.onChange(value)
+                              }
+                            }}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Optional fallback used while expression pricing is syncing.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </>
               ) : (
                 <>
                   <div className='space-y-4'>
                     <Label>{t('Input mode')}</Label>
                     <RadioGroup
                       value={pricingSubMode}
-                      onValueChange={(value) =>
-                        setPricingSubMode(value as PricingSubMode)
-                      }
+                      onValueChange={handlePricingSubModeChange}
                     >
                       <div className='flex items-center space-x-2'>
                         <RadioGroupItem value='ratio' id='ratio' />
@@ -1521,9 +1707,13 @@ export function ModelMutateDrawer({
                       <FormField
                         control={form.control}
                         name='cacheRatio'
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>{t('Cache ratio')}</FormLabel>
+	                        render={({ field }) => (
+	                          <FormItem>
+	                            <FormLabel>
+	                              {pricingSubMode === 'price'
+	                                ? t('Cache read price')
+                                : t('Cache ratio')}
+                            </FormLabel>
                             <FormControl>
                               <Input
                                 type='text'
@@ -1538,7 +1728,44 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                              {t('Discount ratio for cache hits.')}
+                              {getAdvancedFieldDescription(
+                                'Discount ratio for cache hits.',
+                                'Token price for cache reads.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name='createCacheRatio'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {pricingSubMode === 'price'
+                                ? t('Cache write price')
+                                : t('Create cache ratio')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type='text'
+                                placeholder='1.0'
+                                {...field}
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                  if (validateNumber(value)) {
+                                    field.onChange(value)
+                                  }
+                                }}
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {getAdvancedFieldDescription(
+                                'Ratio applied when creating cache entries for supported models.',
+                                'Token price for creating cache entries.'
+                              )}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1550,7 +1777,11 @@ export function ModelMutateDrawer({
                         name='imageRatio'
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('Image ratio')}</FormLabel>
+                            <FormLabel>
+                              {pricingSubMode === 'price'
+                                ? t('Image input price')
+                                : t('Image ratio')}
+                            </FormLabel>
                             <FormControl>
                               <Input
                                 type='text'
@@ -1565,7 +1796,10 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                              {t('Multiplier for image processing.')}
+                              {getAdvancedFieldDescription(
+                                'Multiplier for image processing.',
+                                'Token price for image input.'
+                              )}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1577,7 +1811,11 @@ export function ModelMutateDrawer({
                         name='audioRatio'
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('Audio ratio')}</FormLabel>
+                            <FormLabel>
+                              {pricingSubMode === 'price'
+                                ? t('Audio input price')
+                                : t('Audio ratio')}
+                            </FormLabel>
                             <FormControl>
                               <Input
                                 type='text'
@@ -1592,7 +1830,10 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                              {t('Multiplier for audio inputs.')}
+                              {getAdvancedFieldDescription(
+                                'Multiplier for audio inputs.',
+                                'Token price for audio input.'
+                              )}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
@@ -1604,7 +1845,11 @@ export function ModelMutateDrawer({
                         name='audioCompletionRatio'
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>{t('Audio completion ratio')}</FormLabel>
+                            <FormLabel>
+                              {pricingSubMode === 'price'
+                                ? t('Audio output price')
+                                : t('Audio completion ratio')}
+                            </FormLabel>
                             <FormControl>
                               <Input
                                 type='text'
@@ -1619,7 +1864,10 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                              {t('Multiplier for audio outputs.')}
+                              {getAdvancedFieldDescription(
+                                'Multiplier for audio outputs.',
+                                'Token price for audio output.'
+                              )}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>
