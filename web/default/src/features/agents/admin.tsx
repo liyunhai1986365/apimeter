@@ -43,6 +43,11 @@ import {
   type HeaderNavModules,
 } from '@/lib/nav-modules'
 import { normalizePagedData } from '@/lib/paged-response'
+import {
+  parseThemeCustomization,
+  serializeThemeCustomization,
+  type ThemeCustomization,
+} from '@/lib/theme-customization'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -68,6 +73,7 @@ import { TableEmpty } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { SectionPageLayout } from '@/components/layout'
 import { LongText } from '@/components/long-text'
+import { ThemeCustomizationEditor } from '@/components/theme-customization-editor'
 import { HeaderNavigationSection } from '@/features/system-settings/maintenance/header-navigation-section'
 import {
   bindAdminAgentUser,
@@ -90,6 +96,7 @@ import {
   AgentUsersPaginationControls,
   AgentUsersSearchControls,
 } from './components/agent-users-list-controls'
+import { AGENT_HOME_PAGE_CONTENT_TEXTAREA_CLASS } from './constants'
 import type {
   Agent,
   AgentDomain,
@@ -164,6 +171,7 @@ export function AgentManagement() {
   const [brandLogo, setBrandLogo] = useState('')
   const [brandHomePageContent, setBrandHomePageContent] = useState('')
   const [brandHeaderNavModules, setBrandHeaderNavModules] = useState('')
+  const [brandSiteStyle, setBrandSiteStyle] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [bindUserId, setBindUserId] = useState('')
   const [groupName, setGroupName] = useState('default')
@@ -267,6 +275,7 @@ export function AgentManagement() {
     setBrandLogo(branding.logo ?? '')
     setBrandHomePageContent(branding.home_page_content ?? '')
     setBrandHeaderNavModules(branding.header_nav_modules ?? '')
+    setBrandSiteStyle(branding.site_style ?? '')
     setVisibleGroups([])
     setRemoveGroups([])
     selectAgent(agent.id)
@@ -288,6 +297,10 @@ export function AgentManagement() {
   const brandHeaderNavSerialized = useMemo(
     () => serializeHeaderNavModules(brandHeaderNavConfig),
     [brandHeaderNavConfig]
+  )
+  const brandSiteStyleConfig = useMemo(
+    () => parseThemeCustomization(brandSiteStyle),
+    [brandSiteStyle]
   )
 
   const refresh = () => {
@@ -856,6 +869,7 @@ export function AgentManagement() {
         brandHomePageContent={brandHomePageContent}
         brandHeaderNavConfig={brandHeaderNavConfig}
         brandHeaderNavSerialized={brandHeaderNavSerialized}
+        brandSiteStyleConfig={brandSiteStyleConfig}
         newDomain={newDomain}
         bindUserId={bindUserId}
         groupName={groupName}
@@ -900,6 +914,9 @@ export function AgentManagement() {
         onBrandSiteNameChange={setBrandSiteName}
         onBrandLogoChange={setBrandLogo}
         onBrandHomePageContentChange={setBrandHomePageContent}
+        onBrandSiteStyleChange={(next) =>
+          setBrandSiteStyle(serializeThemeCustomization(next))
+        }
         isBrandingPending={saveBrandingMutation.isPending}
         onSaveBranding={() =>
           detailAgent &&
@@ -915,6 +932,25 @@ export function AgentManagement() {
               logo: brandLogo,
               home_page_content: brandHomePageContent,
               header_nav_modules: brandHeaderNavModules,
+              site_style: brandSiteStyle,
+            }),
+          })
+        }
+        onSaveSiteStyle={() =>
+          detailAgent &&
+          saveBrandingMutation.mutate({
+            id: detailAgent.id,
+            owner_user_id: detailAgent.owner_user_id,
+            name: detailAgent.name,
+            slug: detailAgent.slug,
+            status: detailAgent.status,
+            default_markup: detailAgent.default_markup,
+            branding: stringifyAgentBranding({
+              site_name: brandSiteName,
+              logo: brandLogo,
+              home_page_content: brandHomePageContent,
+              header_nav_modules: brandHeaderNavModules,
+              site_style: serializeThemeCustomization(brandSiteStyleConfig),
             }),
           })
         }
@@ -932,6 +968,7 @@ export function AgentManagement() {
               logo: brandLogo,
               home_page_content: brandHomePageContent,
               header_nav_modules: serialized,
+              site_style: brandSiteStyle,
             }),
           })
           setBrandHeaderNavModules(serialized)
@@ -1058,7 +1095,7 @@ function CreateAgentDialog(props: {
               props.onHomePageContentChange(event.target.value)
             }
             placeholder={t('Agent home page content (Markdown, HTML, or URL)')}
-            className='min-h-28'
+            className={AGENT_HOME_PAGE_CONTENT_TEXTAREA_CLASS}
           />
         </div>
         <DialogFooter>
@@ -1098,6 +1135,7 @@ function AgentDetailDialog(props: {
   brandHomePageContent: string
   brandHeaderNavConfig: HeaderNavModules
   brandHeaderNavSerialized: string
+  brandSiteStyleConfig: ThemeCustomization
   newDomain: string
   bindUserId: string
   groupName: string
@@ -1131,7 +1169,9 @@ function AgentDetailDialog(props: {
   onBrandSiteNameChange: (value: string) => void
   onBrandLogoChange: (value: string) => void
   onBrandHomePageContentChange: (value: string) => void
+  onBrandSiteStyleChange: (value: ThemeCustomization) => void
   onSaveBranding: () => void
+  onSaveSiteStyle: () => void
   onSaveHeaderNavigation: (serialized: string) => Promise<unknown> | unknown
   onCreateDomain: () => void
   onBindUser: () => void
@@ -1208,7 +1248,34 @@ function AgentDetailDialog(props: {
                 placeholder={t(
                   'Agent home page content (Markdown, HTML, or URL)'
                 )}
-                className='mt-3 min-h-32'
+                className={`mt-3 ${AGENT_HOME_PAGE_CONTENT_TEXTAREA_CLASS}`}
+              />
+            </section>
+
+            <section className='rounded-lg border p-3'>
+              <div className='mb-3 flex items-center justify-between gap-2'>
+                <div>
+                  <h3 className='text-sm font-semibold'>
+                    {t('Agent site style')}
+                  </h3>
+                  <p className='text-muted-foreground mt-1 text-xs'>
+                    {t(
+                      'Customize the color, radius, density, and content width for this agent domain.'
+                    )}
+                  </p>
+                </div>
+                <Button
+                  disabled={props.isBrandingPending}
+                  onClick={props.onSaveSiteStyle}
+                >
+                  <Save />
+                  {t('Save Style')}
+                </Button>
+              </div>
+              <ThemeCustomizationEditor
+                value={props.brandSiteStyleConfig}
+                disabled={props.isBrandingPending}
+                onChange={props.onBrandSiteStyleChange}
               />
             </section>
 

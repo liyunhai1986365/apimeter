@@ -115,3 +115,81 @@ export const THEME_COOKIE_KEYS = {
   scale: 'theme_scale',
   contentLayout: 'theme_content_layout',
 } as const
+
+function parseThemeCustomizationRecord(
+  raw: unknown
+): Record<string, unknown> | null {
+  if (!raw) return null
+  if (typeof raw === 'object') return raw as Record<string, unknown>
+  if (typeof raw !== 'string' || raw.trim() === '') return null
+
+  try {
+    const parsed = JSON.parse(raw) as unknown
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Record<string, unknown>)
+      : null
+  } catch {
+    return null
+  }
+}
+
+function pickAllowedValue<T extends string>(
+  raw: unknown,
+  allowed: ReadonlySet<T>,
+  fallback: T
+): T {
+  return typeof raw === 'string' && allowed.has(raw as T)
+    ? (raw as T)
+    : fallback
+}
+
+export function parseThemeCustomization(raw: unknown): ThemeCustomization {
+  const parsed = parseThemeCustomizationRecord(raw)
+  if (!parsed) return { ...DEFAULT_THEME_CUSTOMIZATION }
+
+  return {
+    preset: pickAllowedValue(
+      parsed.preset,
+      THEME_PRESET_VALUES,
+      DEFAULT_THEME_CUSTOMIZATION.preset
+    ),
+    radius: pickAllowedValue(
+      parsed.radius,
+      THEME_RADIUS_VALUES,
+      DEFAULT_THEME_CUSTOMIZATION.radius
+    ),
+    scale: pickAllowedValue(
+      parsed.scale,
+      THEME_SCALE_VALUES,
+      DEFAULT_THEME_CUSTOMIZATION.scale
+    ),
+    contentLayout: pickAllowedValue(
+      parsed.contentLayout,
+      CONTENT_LAYOUT_VALUES,
+      DEFAULT_THEME_CUSTOMIZATION.contentLayout
+    ),
+  }
+}
+
+export function serializeThemeCustomization(
+  customization: ThemeCustomization
+): string {
+  const normalized = parseThemeCustomization(customization)
+  return JSON.stringify({
+    preset: normalized.preset,
+    radius: normalized.radius,
+    scale: normalized.scale,
+    contentLayout: normalized.contentLayout,
+  })
+}
+
+export function parseThemeCustomizationFromStatus(
+  status: Record<string, unknown> | null
+): ThemeCustomization | null {
+  const branding =
+    status?.agent_branding && typeof status.agent_branding === 'object'
+      ? (status.agent_branding as Record<string, unknown>)
+      : null
+  if (!branding || typeof branding.site_style !== 'string') return null
+  return parseThemeCustomization(branding.site_style)
+}

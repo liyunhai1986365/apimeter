@@ -12,6 +12,7 @@ type Branding struct {
 	Logo             string `json:"logo"`
 	HomePageContent  string `json:"home_page_content"`
 	HeaderNavModules string `json:"header_nav_modules"`
+	SiteStyle        string `json:"site_style"`
 }
 
 func ParseBranding(raw string) (Branding, bool) {
@@ -27,7 +28,8 @@ func ParseBranding(raw string) (Branding, bool) {
 	branding.Logo = strings.TrimSpace(branding.Logo)
 	branding.HomePageContent = strings.TrimSpace(branding.HomePageContent)
 	branding.HeaderNavModules = strings.TrimSpace(branding.HeaderNavModules)
-	return branding, branding.SiteName != "" || branding.Logo != "" || branding.HomePageContent != "" || branding.HeaderNavModules != ""
+	branding.SiteStyle = strings.TrimSpace(branding.SiteStyle)
+	return branding, branding.SiteName != "" || branding.Logo != "" || branding.HomePageContent != "" || branding.HeaderNavModules != "" || branding.SiteStyle != ""
 }
 
 func ApplyBrandingToStatus(status gin.H, raw string) {
@@ -35,7 +37,7 @@ func ApplyBrandingToStatus(status gin.H, raw string) {
 	if !ok {
 		return
 	}
-	if branding.SiteName == "" && branding.Logo == "" && branding.HeaderNavModules == "" {
+	if branding.SiteName == "" && branding.Logo == "" && branding.HeaderNavModules == "" && branding.SiteStyle == "" {
 		return
 	}
 	if branding.SiteName != "" {
@@ -51,6 +53,7 @@ func ApplyBrandingToStatus(status gin.H, raw string) {
 		"site_name":          branding.SiteName,
 		"logo":               branding.Logo,
 		"header_nav_modules": branding.HeaderNavModules,
+		"site_style":         branding.SiteStyle,
 	}
 }
 

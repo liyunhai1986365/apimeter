@@ -25,7 +25,12 @@ import {
 } from '@tanstack/react-router'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-import { ThemeCustomizationProvider } from '@/context/theme-customization-provider'
+import { parseThemeCustomizationFromStatus } from '@/lib/theme-customization'
+import {
+  ThemeCustomizationProvider,
+  useThemeCustomization,
+} from '@/context/theme-customization-provider'
+import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { Toaster } from '@/components/ui/sonner'
 import { NavigationProgress } from '@/components/navigation-progress'
@@ -47,6 +52,7 @@ function RootComponent() {
 
   return (
     <ThemeCustomizationProvider>
+      <AgentThemeCustomizationSync />
       <NavigationProgress />
       <Outlet />
       <Toaster duration={5000} />
@@ -58,6 +64,21 @@ function RootComponent() {
       )}
     </ThemeCustomizationProvider>
   )
+}
+
+function AgentThemeCustomizationSync() {
+  const { status } = useStatus()
+  const { setSiteCustomization } = useThemeCustomization()
+
+  useEffect(() => {
+    setSiteCustomization(
+      parseThemeCustomizationFromStatus(
+        status as Record<string, unknown> | null
+      )
+    )
+  }, [setSiteCustomization, status])
+
+  return null
 }
 
 // 缓存 setup 状态检查结果，避免每次导航都重复调用 API

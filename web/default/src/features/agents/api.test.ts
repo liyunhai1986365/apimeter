@@ -14,6 +14,8 @@ describe('agent branding helpers', () => {
         logo: 'https://agent.example.com/logo.png',
         home_page_content: '# Agent Home',
         header_nav_modules: '{"home":false}',
+        site_style:
+          '{"preset":"ocean-breeze","radius":"lg","scale":"sm","contentLayout":"centered"}',
       })
     )
 
@@ -22,6 +24,8 @@ describe('agent branding helpers', () => {
       logo: 'https://agent.example.com/logo.png',
       home_page_content: '# Agent Home',
       header_nav_modules: '{"home":false}',
+      site_style:
+        '{"preset":"ocean-breeze","radius":"lg","scale":"sm","contentLayout":"centered"}',
     })
     assert.equal(
       stringifyAgentBranding(branding),
@@ -30,6 +34,8 @@ describe('agent branding helpers', () => {
         logo: 'https://agent.example.com/logo.png',
         home_page_content: '# Agent Home',
         header_nav_modules: '{"home":false}',
+        site_style:
+          '{"preset":"ocean-breeze","radius":"lg","scale":"sm","contentLayout":"centered"}',
       })
     )
   })

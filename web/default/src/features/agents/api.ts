@@ -130,6 +130,8 @@ export function parseAgentBranding(branding?: string): AgentBranding {
         typeof parsed.header_nav_modules === 'string'
           ? parsed.header_nav_modules
           : undefined,
+      site_style:
+        typeof parsed.site_style === 'string' ? parsed.site_style : undefined,
     }
   } catch {
     return {}
@@ -141,12 +143,15 @@ export function stringifyAgentBranding(input: AgentBranding) {
   const logo = input.logo?.trim() ?? ''
   const homePageContent = input.home_page_content?.trim() ?? ''
   const headerNavModules = input.header_nav_modules?.trim() ?? ''
-  if (!siteName && !logo && !homePageContent && !headerNavModules) return ''
+  const siteStyle = input.site_style?.trim() ?? ''
+  if (!siteName && !logo && !homePageContent && !headerNavModules && !siteStyle)
+    return ''
   return JSON.stringify({
     site_name: siteName,
     logo,
     home_page_content: homePageContent,
     header_nav_modules: headerNavModules,
+    site_style: siteStyle,
   })
 }
 

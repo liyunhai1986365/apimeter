@@ -13,7 +13,7 @@ func TestApplyBrandingToStatusOverridesSystemNameAndLogo(t *testing.T) {
 		"logo":        "/logo.png",
 	}
 
-	ApplyBrandingToStatus(status, `{"site_name":"Agent Site","logo":"https://agent.example.com/logo.png","header_nav_modules":"{\"home\":false}"}`)
+	ApplyBrandingToStatus(status, `{"site_name":"Agent Site","logo":"https://agent.example.com/logo.png","header_nav_modules":"{\"home\":false}","site_style":"{\"preset\":\"ocean-breeze\"}"}`)
 
 	assert.Equal(t, "Agent Site", status["system_name"])
 	assert.Equal(t, "https://agent.example.com/logo.png", status["logo"])
@@ -22,17 +22,19 @@ func TestApplyBrandingToStatusOverridesSystemNameAndLogo(t *testing.T) {
 		"site_name":          "Agent Site",
 		"logo":               "https://agent.example.com/logo.png",
 		"header_nav_modules": `{"home":false}`,
+		"site_style":         `{"preset":"ocean-breeze"}`,
 	}, status["agent_branding"])
 }
 
 func TestParseBrandingReturnsHomePageContent(t *testing.T) {
-	branding, ok := ParseBranding(`{"site_name":"Agent Site","logo":"https://agent.example.com/logo.png","home_page_content":"# Agent Home","header_nav_modules":"{\"pricing\":{\"enabled\":false}}"}`)
+	branding, ok := ParseBranding(`{"site_name":"Agent Site","logo":"https://agent.example.com/logo.png","home_page_content":"# Agent Home","header_nav_modules":"{\"pricing\":{\"enabled\":false}}","site_style":"{\"preset\":\"forest-whisper\",\"radius\":\"lg\"}"}`)
 
 	assert.True(t, ok)
 	assert.Equal(t, "Agent Site", branding.SiteName)
 	assert.Equal(t, "https://agent.example.com/logo.png", branding.Logo)
 	assert.Equal(t, "# Agent Home", branding.HomePageContent)
 	assert.Equal(t, `{"pricing":{"enabled":false}}`, branding.HeaderNavModules)
+	assert.Equal(t, `{"preset":"forest-whisper","radius":"lg"}`, branding.SiteStyle)
 }
 
 func TestApplyBrandingToStatusKeepsDefaultsForInvalidOrBlankBranding(t *testing.T) {

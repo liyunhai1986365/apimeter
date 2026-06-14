@@ -68,6 +68,7 @@ type ThemeCustomizationContextType = {
   setRadius: (radius: ThemeRadius) => void
   setScale: (scale: ThemeScale) => void
   setContentLayout: (contentLayout: ContentLayout) => void
+  setSiteCustomization: (customization: ThemeCustomization | null) => void
   resetCustomization: () => void
 }
 
@@ -82,6 +83,7 @@ const FALLBACK_CONTEXT: ThemeCustomizationContextType = {
   setRadius: () => {},
   setScale: () => {},
   setContentLayout: () => {},
+  setSiteCustomization: () => {},
   resetCustomization: () => {},
 }
 
@@ -119,33 +121,48 @@ export function ThemeCustomizationProvider(props: {
       DEFAULT_THEME_CUSTOMIZATION.contentLayout
     )
   )
+  const [siteCustomization, setSiteCustomization] =
+    useState<ThemeCustomization | null>(null)
+  const effectiveCustomization = useMemo<ThemeCustomization>(
+    () => siteCustomization ?? { preset, radius, scale, contentLayout },
+    [contentLayout, preset, radius, scale, siteCustomization]
+  )
 
   // Mirror state to the <body> via data-* attributes so theme-presets.css can
   // override CSS variables at the right cascade layer.
   useEffect(() => {
     applyAttribute(
       'data-theme-preset',
-      preset === DEFAULT_THEME_CUSTOMIZATION.preset ? null : preset
+      effectiveCustomization.preset === DEFAULT_THEME_CUSTOMIZATION.preset
+        ? null
+        : effectiveCustomization.preset
     )
-  }, [preset])
+  }, [effectiveCustomization.preset])
 
   useEffect(() => {
     applyAttribute(
       'data-theme-radius',
-      radius === DEFAULT_THEME_CUSTOMIZATION.radius ? null : radius
+      effectiveCustomization.radius === DEFAULT_THEME_CUSTOMIZATION.radius
+        ? null
+        : effectiveCustomization.radius
     )
-  }, [radius])
+  }, [effectiveCustomization.radius])
 
   useEffect(() => {
     applyAttribute(
       'data-theme-scale',
-      scale === DEFAULT_THEME_CUSTOMIZATION.scale ? null : scale
+      effectiveCustomization.scale === DEFAULT_THEME_CUSTOMIZATION.scale
+        ? null
+        : effectiveCustomization.scale
     )
-  }, [scale])
+  }, [effectiveCustomization.scale])
 
   useEffect(() => {
-    applyAttribute('data-theme-content-layout', contentLayout)
-  }, [contentLayout])
+    applyAttribute(
+      'data-theme-content-layout',
+      effectiveCustomization.contentLayout
+    )
+  }, [effectiveCustomization.contentLayout])
 
   const setPreset = useCallback((value: ThemePreset) => {
     _setPreset(value)
@@ -193,22 +210,21 @@ export function ThemeCustomizationProvider(props: {
   const value = useMemo<ThemeCustomizationContextType>(
     () => ({
       defaults: DEFAULT_THEME_CUSTOMIZATION,
-      customization: { preset, radius, scale, contentLayout },
+      customization: effectiveCustomization,
       setPreset,
       setRadius,
       setScale,
       setContentLayout,
+      setSiteCustomization,
       resetCustomization,
     }),
     [
-      preset,
-      radius,
-      scale,
-      contentLayout,
+      effectiveCustomization,
       setPreset,
       setRadius,
       setScale,
       setContentLayout,
+      setSiteCustomization,
       resetCustomization,
     ]
   )

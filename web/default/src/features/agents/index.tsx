@@ -41,6 +41,11 @@ import {
   serializeHeaderNavModules,
 } from '@/lib/nav-modules'
 import { normalizePagedData } from '@/lib/paged-response'
+import {
+  parseThemeCustomization,
+  serializeThemeCustomization,
+  type ThemeCustomization,
+} from '@/lib/theme-customization'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -61,6 +66,7 @@ import { GroupBadge } from '@/components/group-badge'
 import { SectionPageLayout } from '@/components/layout'
 import { LongText } from '@/components/long-text'
 import { StatusBadge } from '@/components/status-badge'
+import { ThemeCustomizationEditor } from '@/components/theme-customization-editor'
 import { HeaderNavigationSection } from '@/features/system-settings/maintenance/header-navigation-section'
 import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
 import {
@@ -85,6 +91,7 @@ import {
   AgentUsersPaginationControls,
   AgentUsersSearchControls,
 } from './components/agent-users-list-controls'
+import { AGENT_HOME_PAGE_CONTENT_TEXTAREA_CLASS } from './constants'
 import type {
   AgentDomain,
   AgentGroupRatio,
@@ -188,6 +195,7 @@ export function Agents() {
   const [logo, setLogo] = useState('')
   const [homePageContent, setHomePageContent] = useState('')
   const [headerNavModules, setHeaderNavModules] = useState('')
+  const [siteStyle, setSiteStyle] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [groupName, setGroupName] = useState('default')
   const [groupRatio, setGroupRatio] = useState('1')
@@ -387,6 +395,10 @@ export function Agents() {
     () => serializeHeaderNavModules(headerNavConfig),
     [headerNavConfig]
   )
+  const siteStyleConfig = useMemo(
+    () => parseThemeCustomization(siteStyle),
+    [siteStyle]
+  )
 
   useEffect(() => {
     if (!self?.agent) return
@@ -395,6 +407,7 @@ export function Agents() {
     setLogo(branding.logo ?? '')
     setHomePageContent(branding.home_page_content ?? '')
     setHeaderNavModules(branding.header_nav_modules ?? '')
+    setSiteStyle(branding.site_style ?? '')
   }, [self?.agent?.branding])
 
   const copyText = async (text?: string) => {
@@ -493,6 +506,7 @@ export function Agents() {
                             logo,
                             home_page_content: homePageContent,
                             header_nav_modules: headerNavModules,
+                            site_style: siteStyle,
                           }),
                         })
                       }
@@ -520,7 +534,7 @@ export function Agents() {
                       placeholder={t(
                         'Agent home page content (Markdown, HTML, or URL)'
                       )}
-                      className='min-h-28'
+                      className={AGENT_HOME_PAGE_CONTENT_TEXTAREA_CLASS}
                     />
                   </div>
                   <div className='grid gap-3 sm:grid-cols-2'>
@@ -540,6 +554,46 @@ export function Agents() {
                 </section>
 
                 <section className='rounded-lg border p-3'>
+                  <div className='mb-3 flex items-center justify-between gap-2'>
+                    <div>
+                      <h3 className='text-sm font-semibold'>
+                        {t('Agent site style')}
+                      </h3>
+                      <p className='text-muted-foreground mt-1 text-xs'>
+                        {t(
+                          'Customize the color, radius, density, and content width for this agent domain.'
+                        )}
+                      </p>
+                    </div>
+                    <Button
+                      disabled={saveBrandingMutation.isPending}
+                      onClick={() =>
+                        saveBrandingMutation.mutate({
+                          branding: stringifyAgentBranding({
+                            site_name: siteName,
+                            logo,
+                            home_page_content: homePageContent,
+                            header_nav_modules: headerNavModules,
+                            site_style:
+                              serializeThemeCustomization(siteStyleConfig),
+                          }),
+                        })
+                      }
+                    >
+                      <Save />
+                      {t('Save Style')}
+                    </Button>
+                  </div>
+                  <ThemeCustomizationEditor
+                    value={siteStyleConfig}
+                    disabled={saveBrandingMutation.isPending}
+                    onChange={(next: ThemeCustomization) =>
+                      setSiteStyle(serializeThemeCustomization(next))
+                    }
+                  />
+                </section>
+
+                <section className='rounded-lg border p-3'>
                   <HeaderNavigationSection
                     title={t('Agent header navigation')}
                     description={t(
@@ -556,6 +610,7 @@ export function Agents() {
                           logo,
                           home_page_content: homePageContent,
                           header_nav_modules: serialized,
+                          site_style: siteStyle,
                         }),
                       })
                       setHeaderNavModules(serialized)
