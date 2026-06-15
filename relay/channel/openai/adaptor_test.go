@@ -350,6 +350,60 @@ func TestOpenAIImageEditMultipartUsesConfiguredResponseFormat(t *testing.T) {
 	require.Len(t, form.File["image"], 1)
 }
 
+func TestOpenAIImageEditMultipartParamOverrideCanDeleteConfiguredResponseFormat(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesEdits,
+		RequestURLPath:  "/v1/images/edits",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				OpenAIImageResponseFormat: "url",
+			},
+			ParamOverride: map[string]any{
+				"operations": []any{
+					map[string]any{
+						"mode": "delete",
+						"path": "response_format",
+					},
+				},
+			},
+		},
+	}
+
+	var source bytes.Buffer
+	sourceWriter := multipart.NewWriter(&source)
+	require.NoError(t, sourceWriter.WriteField("model", "gpt-image-2"))
+	require.NoError(t, sourceWriter.WriteField("prompt", "修改这只猫"))
+	part, err := sourceWriter.CreateFormFile("image", "cat.png")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("fake image"))
+	require.NoError(t, err)
+	require.NoError(t, sourceWriter.Close())
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(source.Bytes()))
+	c.Request.Header.Set("Content-Type", sourceWriter.FormDataContentType())
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫",
+	})
+	require.NoError(t, err)
+	body, ok := converted.(*bytes.Buffer)
+	require.True(t, ok)
+
+	reader := multipart.NewReader(bytes.NewReader(body.Bytes()), multipartBoundary(t, c.Request.Header.Get("Content-Type")))
+	form, err := reader.ReadForm(1024 * 1024)
+	require.NoError(t, err)
+	require.NotContains(t, form.Value, "response_format")
+	require.Len(t, form.File["image"], 1)
+}
+
 func TestOpenAIImageEditMultipartTokenFormatOverridesUserAndChannelResponseFormat(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		RelayMode:          relayconstant.RelayModeImagesEdits,

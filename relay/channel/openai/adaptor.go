@@ -429,8 +429,12 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 	if info != nil && info.ChannelMeta != nil {
 		settings = info.ChannelSetting
 	}
+	deleteResponseFormat := imageResponseFormatDeletedByParamOverride(info)
 	if responseFormat := openAIImageResponseFormatForUpstream(info, request.ResponseFormat); responseFormat != "" {
 		request.ResponseFormat = responseFormat
+	}
+	if deleteResponseFormat {
+		request.ResponseFormat = ""
 	}
 	switch info.RelayMode {
 	case relayconstant.RelayModeImagesGenerations:
@@ -576,6 +580,51 @@ func openAIImageResponseFormatForUpstream(info *relaycommon.RelayInfo, requestRe
 		return info.ChannelSetting.OpenAIImageResponseFormatOverride()
 	}
 	return ""
+}
+
+func imageResponseFormatDeletedByParamOverride(info *relaycommon.RelayInfo) bool {
+	if info == nil || info.ChannelMeta == nil || len(info.ChannelMeta.ParamOverride) == 0 {
+		return false
+	}
+	operations, ok := info.ChannelMeta.ParamOverride["operations"]
+	if !ok {
+		return false
+	}
+	for _, operation := range paramOverrideOperationList(operations) {
+		if strings.EqualFold(strings.TrimSpace(paramOverrideOperationString(operation, "mode")), "delete") &&
+			strings.EqualFold(strings.TrimSpace(paramOverrideOperationString(operation, "path")), "response_format") {
+			return true
+		}
+	}
+	return false
+}
+
+func paramOverrideOperationList(operations any) []map[string]any {
+	switch typed := operations.(type) {
+	case []any:
+		result := make([]map[string]any, 0, len(typed))
+		for _, operation := range typed {
+			if operationMap, ok := operation.(map[string]any); ok {
+				result = append(result, operationMap)
+			}
+		}
+		return result
+	case []map[string]any:
+		return typed
+	default:
+		return nil
+	}
+}
+
+func paramOverrideOperationString(operation map[string]any, key string) string {
+	if operation == nil {
+		return ""
+	}
+	value, ok := operation[key].(string)
+	if !ok {
+		return ""
+	}
+	return value
 }
 
 func isJSONRequest(c *gin.Context) bool {
