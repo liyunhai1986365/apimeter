@@ -42,6 +42,7 @@ import {
 import {
   getDefaultPaymentType,
   getMinTopupAmount,
+  isStripePayment,
   isWaffoPancakePayment,
 } from './lib'
 import type {
@@ -160,6 +161,11 @@ export function Wallet(props: WalletProps) {
       // Validate minimum topup
       const minTopup = getMinTopupAmount(topupInfo)
       if (topupAmount < minTopup) {
+        return
+      }
+
+      if (isStripePayment(method.type)) {
+        await processPayment(topupAmount, method.type)
         return
       }
 
