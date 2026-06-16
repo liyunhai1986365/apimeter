@@ -37,6 +37,17 @@ type AutoEnableCandidateQuery struct {
 	Group           string
 }
 
+type AutoEnableOperationRecordCandidateQuery struct {
+	Now             int64
+	CooldownSeconds int64
+	Limit           int
+}
+
+type AutoEnableOperationRecordCandidate struct {
+	Channel *model.Channel
+	Record  model.ChannelOperationRecord
+}
+
 func BuildChannelAutoOperationRecordMeta(stat ChannelModelErrorStats, operationGroupID string, targetChannelID int, windowSeconds int64) ChannelStatusChangeRecordMeta {
 	return ChannelStatusChangeRecordMeta{
 		TargetChannelID:  targetChannelID,
@@ -268,6 +279,94 @@ func FindAutoEnableCandidateChannels(query AutoEnableCandidateQuery) ([]*model.C
 		candidates = append(candidates, channel)
 	}
 	return candidates, nil
+}
+
+func FindAutoEnableOperationRecordCandidates(query AutoEnableOperationRecordCandidateQuery) ([]AutoEnableOperationRecordCandidate, error) {
+	if query.Now <= 0 {
+		query.Now = common.GetTimestamp()
+	}
+	if query.CooldownSeconds < 0 {
+		query.CooldownSeconds = 0
+	}
+	if query.Limit <= 0 {
+		query.Limit = 200
+	}
+
+	cutoff := query.Now - query.CooldownSeconds
+	var records []model.ChannelOperationRecord
+	err := model.DB.Model(&model.ChannelOperationRecord{}).
+		Where("action = ? AND source = ? AND status = ? AND success = ?",
+			model.ChannelOperationActionDisable,
+			model.ChannelOperationSourceAuto,
+			common.ChannelStatusAutoDisabled,
+			true,
+		).
+		Order("id DESC").
+		Limit(query.Limit).
+		Find(&records).Error
+	if err != nil {
+		return nil, err
+	}
+
+	seenChannels := map[int]struct{}{}
+	candidates := make([]AutoEnableOperationRecordCandidate, 0, len(records))
+	for _, record := range records {
+		if record.ChannelID <= 0 {
+			continue
+		}
+		if _, exists := seenChannels[record.ChannelID]; exists {
+			continue
+		}
+		seenChannels[record.ChannelID] = struct{}{}
+		if record.CreatedAt > cutoff {
+			continue
+		}
+
+		var channel model.Channel
+		if err := model.DB.Where("id = ?", record.ChannelID).First(&channel).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				continue
+			}
+			return nil, err
+		}
+		if channel.Status != common.ChannelStatusAutoDisabled || !channel.GetAutoBan() {
+			continue
+		}
+
+		enabled, err := hasSuccessfulAutoEnableAfter(record)
+		if err != nil {
+			return nil, err
+		}
+		if enabled {
+			continue
+		}
+		candidateChannel := channel
+		candidates = append(candidates, AutoEnableOperationRecordCandidate{
+			Channel: &candidateChannel,
+			Record:  record,
+		})
+	}
+	return candidates, nil
+}
+
+func hasSuccessfulAutoEnableAfter(record model.ChannelOperationRecord) (bool, error) {
+	tx := model.DB.Model(&model.ChannelOperationRecord{}).
+		Where("channel_id = ? AND action = ? AND source = ? AND success = ?",
+			record.ChannelID,
+			model.ChannelOperationActionEnable,
+			model.ChannelOperationSourceAuto,
+			true,
+		)
+	if record.Id > 0 {
+		tx = tx.Where("id > ?", record.Id)
+	} else {
+		tx = tx.Where("created_at > ?", record.CreatedAt)
+	}
+	var count int64
+	if err := tx.Count(&count).Error; err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 func ParseModelGroupKey(key string) (string, string) {

@@ -50,6 +50,8 @@ const defaultOperationsSettings: OperationsSettings = {
   'monitor_setting.channel_auto_operation_error_rate': 50,
   'monitor_setting.channel_auto_operation_protect_last': true,
   'monitor_setting.channel_auto_disable_rules': '[]',
+  'monitor_setting.channel_auto_enable_check_minutes': 5,
+  'monitor_setting.channel_auto_enable_cooldown_minutes': 1,
   'webhook_setting.enabled': false,
   'webhook_setting.url': '',
   'webhook_setting.secret': '',

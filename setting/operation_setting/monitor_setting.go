@@ -10,15 +10,17 @@ import (
 )
 
 type MonitorSetting struct {
-	AutoTestChannelEnabled          bool                     `json:"auto_test_channel_enabled"`
-	AutoTestChannelMinutes          float64                  `json:"auto_test_channel_minutes"`
-	ChannelAutoOperationEnabled     bool                     `json:"channel_auto_operation_enabled"`
-	ChannelAutoOperationThreshold   int                      `json:"channel_auto_operation_threshold"`
-	ChannelAutoOperationWindowMins  int                      `json:"channel_auto_operation_window_minutes"`
-	ChannelAutoOperationMinRequests int                      `json:"channel_auto_operation_min_requests"`
-	ChannelAutoOperationErrorRate   float64                  `json:"channel_auto_operation_error_rate"`
-	ChannelAutoOperationProtectLast bool                     `json:"channel_auto_operation_protect_last"`
-	ChannelAutoDisableRules         []ChannelAutoDisableRule `json:"channel_auto_disable_rules"`
+	AutoTestChannelEnabled           bool                     `json:"auto_test_channel_enabled"`
+	AutoTestChannelMinutes           float64                  `json:"auto_test_channel_minutes"`
+	ChannelAutoOperationEnabled      bool                     `json:"channel_auto_operation_enabled"`
+	ChannelAutoOperationThreshold    int                      `json:"channel_auto_operation_threshold"`
+	ChannelAutoOperationWindowMins   int                      `json:"channel_auto_operation_window_minutes"`
+	ChannelAutoOperationMinRequests  int                      `json:"channel_auto_operation_min_requests"`
+	ChannelAutoOperationErrorRate    float64                  `json:"channel_auto_operation_error_rate"`
+	ChannelAutoOperationProtectLast  bool                     `json:"channel_auto_operation_protect_last"`
+	ChannelAutoDisableRules          []ChannelAutoDisableRule `json:"channel_auto_disable_rules"`
+	ChannelAutoEnableCheckMinutes    int                      `json:"channel_auto_enable_check_minutes"`
+	ChannelAutoEnableCooldownMinutes int                      `json:"channel_auto_enable_cooldown_minutes"`
 }
 
 type ChannelAutoDisableRule struct {
@@ -40,14 +42,16 @@ type ChannelAutoDisableRule struct {
 
 // 默认配置
 var monitorSetting = MonitorSetting{
-	AutoTestChannelEnabled:          false,
-	AutoTestChannelMinutes:          10,
-	ChannelAutoOperationEnabled:     false,
-	ChannelAutoOperationThreshold:   3,
-	ChannelAutoOperationWindowMins:  10,
-	ChannelAutoOperationMinRequests: 5,
-	ChannelAutoOperationErrorRate:   50,
-	ChannelAutoOperationProtectLast: true,
+	AutoTestChannelEnabled:           false,
+	AutoTestChannelMinutes:           10,
+	ChannelAutoOperationEnabled:      false,
+	ChannelAutoOperationThreshold:    3,
+	ChannelAutoOperationWindowMins:   10,
+	ChannelAutoOperationMinRequests:  5,
+	ChannelAutoOperationErrorRate:    50,
+	ChannelAutoOperationProtectLast:  true,
+	ChannelAutoEnableCheckMinutes:    5,
+	ChannelAutoEnableCooldownMinutes: 1,
 }
 
 func init() {

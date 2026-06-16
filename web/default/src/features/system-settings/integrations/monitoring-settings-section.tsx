@@ -198,6 +198,14 @@ const monitoringSchema = z
         .max(100, 'Error rate cannot exceed 100'),
       channel_auto_operation_protect_last: z.boolean(),
       channel_auto_disable_rules: z.array(autoDisableRuleSchema),
+      channel_auto_enable_check_minutes: z.coerce
+        .number()
+        .int()
+        .min(1, 'Interval must be at least 1 minute'),
+      channel_auto_enable_cooldown_minutes: z.coerce
+        .number()
+        .int()
+        .min(0, 'Cooldown cannot be negative'),
     }),
     webhook_setting: z.object({
       enabled: z.boolean(),
@@ -311,6 +319,8 @@ type MonitoringSettingsSectionProps = {
     'monitor_setting.channel_auto_operation_error_rate': number
     'monitor_setting.channel_auto_operation_protect_last': boolean
     'monitor_setting.channel_auto_disable_rules': string
+    'monitor_setting.channel_auto_enable_check_minutes': number
+    'monitor_setting.channel_auto_enable_cooldown_minutes': number
     'webhook_setting.enabled': boolean
     'webhook_setting.url': string
     'webhook_setting.secret': string
@@ -463,6 +473,8 @@ type NormalizedMonitoringValues = {
   'monitor_setting.channel_auto_operation_error_rate': number
   'monitor_setting.channel_auto_operation_protect_last': boolean
   'monitor_setting.channel_auto_disable_rules': string
+  'monitor_setting.channel_auto_enable_check_minutes': number
+  'monitor_setting.channel_auto_enable_cooldown_minutes': number
   'webhook_setting.enabled': boolean
   'webhook_setting.url': string
   'webhook_setting.secret': string
@@ -511,6 +523,10 @@ const buildFormDefaults = (
     channel_auto_disable_rules: parseAutoDisableRules(
       defaults['monitor_setting.channel_auto_disable_rules']
     ),
+    channel_auto_enable_check_minutes:
+      defaults['monitor_setting.channel_auto_enable_check_minutes'],
+    channel_auto_enable_cooldown_minutes:
+      defaults['monitor_setting.channel_auto_enable_cooldown_minutes'],
   },
   webhook_setting: {
     enabled: defaults['webhook_setting.enabled'],
@@ -574,6 +590,10 @@ const normalizeDefaults = (
       defaults['monitor_setting.channel_auto_disable_rules']
     )
   ),
+  'monitor_setting.channel_auto_enable_check_minutes':
+    defaults['monitor_setting.channel_auto_enable_check_minutes'],
+  'monitor_setting.channel_auto_enable_cooldown_minutes':
+    defaults['monitor_setting.channel_auto_enable_cooldown_minutes'],
   'webhook_setting.enabled': defaults['webhook_setting.enabled'],
   'webhook_setting.url': (defaults['webhook_setting.url'] ?? '').trim(),
   'webhook_setting.secret': defaults['webhook_setting.secret'] ?? '',
@@ -635,6 +655,10 @@ const normalizeFormValues = (
   'monitor_setting.channel_auto_disable_rules': normalizeAutoDisableRules(
     values.monitor_setting.channel_auto_disable_rules
   ),
+  'monitor_setting.channel_auto_enable_check_minutes':
+    values.monitor_setting.channel_auto_enable_check_minutes,
+  'monitor_setting.channel_auto_enable_cooldown_minutes':
+    values.monitor_setting.channel_auto_enable_cooldown_minutes,
   'webhook_setting.enabled': values.webhook_setting.enabled,
   'webhook_setting.url': values.webhook_setting.url.trim(),
   'webhook_setting.secret': values.webhook_setting.secret,
@@ -695,6 +719,9 @@ export function MonitoringSettingsSection({
   const autoRetryStatusCodes = form.watch('AutomaticRetryStatusCodes')
   const channelAutoOperationEnabled = form.watch(
     'monitor_setting.channel_auto_operation_enabled'
+  )
+  const automaticEnableChannelEnabled = form.watch(
+    'AutomaticEnableChannelEnabled'
   )
   const autoDisableRules = form.watch(
     'monitor_setting.channel_auto_disable_rules'
@@ -1933,6 +1960,66 @@ export function MonitoringSettingsSection({
               )}
             />
           </div>
+
+          {automaticEnableChannelEnabled && (
+            <div className='grid gap-6 md:grid-cols-2'>
+              <FormField
+                control={form.control}
+                name='monitor_setting.channel_auto_enable_check_minutes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('Auto-enable recovery interval (minutes)')}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={1}
+                        step={1}
+                        value={String(field.value ?? '')}
+                        onChange={(event) =>
+                          field.onChange(event.target.value)
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'How often to scan operation records for auto-disabled channels'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name='monitor_setting.channel_auto_enable_cooldown_minutes'
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      {t('Auto-enable cooldown (minutes)')}
+                    </FormLabel>
+                    <FormControl>
+                      <Input
+                        type='number'
+                        min={0}
+                        step={1}
+                        value={String(field.value ?? '')}
+                        onChange={(event) =>
+                          field.onChange(event.target.value)
+                        }
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t('Wait after auto-disable before testing recovery')}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          )}
 
           <FormField
             control={form.control}

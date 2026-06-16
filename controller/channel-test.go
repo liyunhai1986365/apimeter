@@ -43,6 +43,16 @@ type testResult struct {
 	newAPIError *types.NewAPIError
 }
 
+type AutoEnableOperationRecordRunOptions struct {
+	Now             int64
+	CooldownSeconds int64
+	Limit           int
+}
+
+var autoEnableOperationRecordChannelTester = func(channel *model.Channel, modelName string) testResult {
+	return testChannel(channel, modelName, "", shouldUseStreamForAutomaticChannelTest(channel))
+}
+
 func normalizeChannelTestEndpoint(channel *model.Channel, modelName, endpointType string) string {
 	normalized := strings.TrimSpace(endpointType)
 	if normalized != "" {
@@ -1183,6 +1193,77 @@ func tryEnableAutoOperationStandbyChannel(failedChannel *model.Channel, stat ser
 	return false, nil
 }
 
+func autoEnableOperationRecordChannels(options AutoEnableOperationRecordRunOptions) (int, error) {
+	if !common.AutomaticEnableChannelEnabled {
+		return 0, nil
+	}
+	if options.Now <= 0 {
+		options.Now = common.GetTimestamp()
+	}
+	candidates, err := service.FindAutoEnableOperationRecordCandidates(service.AutoEnableOperationRecordCandidateQuery{
+		Now:             options.Now,
+		CooldownSeconds: options.CooldownSeconds,
+		Limit:           options.Limit,
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	enabledCount := 0
+	for _, candidate := range candidates {
+		modelName := strings.TrimSpace(candidate.Record.ModelName)
+		result := autoEnableOperationRecordChannelTester(candidate.Channel, modelName)
+		if result.localErr != nil || result.newAPIError != nil {
+			reason := "自动启用检测失败"
+			if modelName != "" {
+				reason = fmt.Sprintf("自动启用检测失败，模型 %s 未恢复", modelName)
+			}
+			if result.localErr != nil {
+				reason += "：" + result.localErr.Error()
+			}
+			if result.newAPIError != nil {
+				reason += "：" + result.newAPIError.Error()
+			}
+			success := false
+			_ = model.RecordChannelOperation(model.ChannelOperationRecord{
+				ChannelID:        candidate.Channel.Id,
+				ChannelName:      candidate.Channel.Name,
+				Action:           model.ChannelOperationActionEnable,
+				Source:           model.ChannelOperationSourceAuto,
+				Status:           candidate.Channel.Status,
+				Reason:           reason,
+				ModelName:        modelName,
+				OperationGroupID: candidate.Record.OperationGroupID,
+				WindowSeconds:    candidate.Record.WindowSeconds,
+				TotalRequests:    candidate.Record.TotalRequests,
+				ErrorRequests:    candidate.Record.ErrorRequests,
+				ErrorRate:        candidate.Record.ErrorRate,
+				Success:          success,
+			})
+			continue
+		}
+		if !service.ShouldEnableChannel(result.newAPIError, candidate.Channel.Status) {
+			continue
+		}
+		service.EnableChannelForModel(
+			candidate.Channel.Id,
+			common.GetContextKeyString(result.context, constant.ContextKeyChannelKey),
+			candidate.Channel.Name,
+			modelName,
+			service.ChannelStatusChangeRecordMeta{
+				OperationGroupID: candidate.Record.OperationGroupID,
+				WindowSeconds:    candidate.Record.WindowSeconds,
+				TotalRequests:    candidate.Record.TotalRequests,
+				ErrorRequests:    candidate.Record.ErrorRequests,
+				ErrorRate:        candidate.Record.ErrorRate,
+			},
+		)
+		enabledCount++
+		time.Sleep(common.RequestInterval)
+	}
+	return enabledCount, nil
+}
+
 func TestAllChannels(c *gin.Context) {
 	err := testAllChannels(true)
 	if err != nil {
@@ -1218,6 +1299,43 @@ func AutomaticallyTestChannels() {
 				if !operation_setting.GetMonitorSetting().AutoTestChannelEnabled {
 					break
 				}
+			}
+		}
+	})
+}
+
+var autoEnableOperationRecordChannelsOnce sync.Once
+
+func AutomaticallyAutoEnableOperationRecordChannels() {
+	if !common.IsMasterNode {
+		return
+	}
+	autoEnableOperationRecordChannelsOnce.Do(func() {
+		for {
+			if !common.AutomaticEnableChannelEnabled {
+				time.Sleep(1 * time.Minute)
+				continue
+			}
+			setting := operation_setting.GetMonitorSetting()
+			intervalMinutes := setting.ChannelAutoEnableCheckMinutes
+			if intervalMinutes <= 0 {
+				intervalMinutes = 5
+			}
+			cooldownMinutes := setting.ChannelAutoEnableCooldownMinutes
+			if cooldownMinutes < 0 {
+				cooldownMinutes = 0
+			}
+			time.Sleep(time.Duration(intervalMinutes) * time.Minute)
+			enabled, err := autoEnableOperationRecordChannels(AutoEnableOperationRecordRunOptions{
+				CooldownSeconds: int64(cooldownMinutes) * 60,
+				Limit:           200,
+			})
+			if err != nil {
+				common.SysError(fmt.Sprintf("automatically auto-enable operation-record channels failed: %v", err))
+				continue
+			}
+			if enabled > 0 {
+				common.SysLog(fmt.Sprintf("automatically auto-enabled %d operation-record channels", enabled))
 			}
 		}
 	})

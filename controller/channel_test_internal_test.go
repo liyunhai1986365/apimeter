@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
@@ -124,4 +125,72 @@ func TestAutoDisableRulesSkipChannelsWithoutAutoBan(t *testing.T) {
 	var operationCount int64
 	require.NoError(t, model.DB.Model(&model.ChannelOperationRecord{}).Count(&operationCount).Error)
 	require.Zero(t, operationCount)
+}
+
+func TestAutoEnableOperationRecordChannelsEnablesHealthyCandidate(t *testing.T) {
+	setupChannelControllerBatchTestDB(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.ChannelOperationRecord{}))
+
+	originAutomaticEnable := common.AutomaticEnableChannelEnabled
+	common.AutomaticEnableChannelEnabled = true
+	t.Cleanup(func() {
+		common.AutomaticEnableChannelEnabled = originAutomaticEnable
+	})
+
+	autoBanEnabled := 1
+	channel := model.Channel{
+		Id:      11,
+		Name:    "recoverable",
+		Type:    1,
+		Status:  common.ChannelStatusAutoDisabled,
+		Models:  "gpt-test",
+		AutoBan: &autoBanEnabled,
+	}
+	require.NoError(t, model.DB.Create(&channel).Error)
+	require.NoError(t, model.DB.Create(&model.ChannelOperationRecord{
+		ChannelID:   channel.Id,
+		ChannelName: channel.Name,
+		Action:      model.ChannelOperationActionDisable,
+		Source:      model.ChannelOperationSourceAuto,
+		Status:      common.ChannelStatusAutoDisabled,
+		ModelName:   "gpt-test",
+		Success:     true,
+		CreatedAt:   time.Now().Unix() - 300,
+	}).Error)
+
+	originTester := autoEnableOperationRecordChannelTester
+	autoEnableOperationRecordChannelTester = func(channel *model.Channel, modelName string) testResult {
+		require.Equal(t, "gpt-test", modelName)
+		return testResult{context: channelTestContextWithKey("healthy-key")}
+	}
+	t.Cleanup(func() {
+		autoEnableOperationRecordChannelTester = originTester
+	})
+
+	enabled, err := autoEnableOperationRecordChannels(AutoEnableOperationRecordRunOptions{
+		Now:             time.Now().Unix(),
+		CooldownSeconds: 60,
+		Limit:           20,
+	})
+	require.NoError(t, err)
+	require.Equal(t, 1, enabled)
+
+	var updated model.Channel
+	require.NoError(t, model.DB.First(&updated, channel.Id).Error)
+	require.Equal(t, common.ChannelStatusEnabled, updated.Status)
+
+	var records []model.ChannelOperationRecord
+	require.NoError(t, model.DB.Where("channel_id = ?", channel.Id).Order("id ASC").Find(&records).Error)
+	require.Len(t, records, 2)
+	require.Equal(t, model.ChannelOperationActionEnable, records[1].Action)
+	require.Equal(t, model.ChannelOperationSourceAuto, records[1].Source)
+	require.Equal(t, common.ChannelStatusEnabled, records[1].Status)
+	require.True(t, records[1].Success)
+	require.Equal(t, "gpt-test", records[1].ModelName)
+}
+
+func channelTestContextWithKey(key string) *gin.Context {
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Set(string(constant.ContextKeyChannelKey), key)
+	return ctx
 }
