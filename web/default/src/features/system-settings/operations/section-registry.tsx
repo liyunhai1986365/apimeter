@@ -74,6 +74,8 @@ const OPERATIONS_SECTIONS = [
             settings['monitor_setting.channel_auto_operation_error_rate'],
           'monitor_setting.channel_auto_operation_protect_last':
             settings['monitor_setting.channel_auto_operation_protect_last'],
+          'monitor_setting.channel_auto_disable_rules':
+            settings['monitor_setting.channel_auto_disable_rules'],
           'webhook_setting.enabled': settings['webhook_setting.enabled'],
           'webhook_setting.url': settings['webhook_setting.url'],
           'webhook_setting.secret': settings['webhook_setting.secret'],

@@ -208,6 +208,99 @@ func TestSendGlobalWebhookChannelOperationRecordPostsAutoDisableEvent(t *testing
 	require.Equal(t, 60.0, event.ErrorRate)
 }
 
+func TestSendChannelOperationRecordNotificationsPostsWeComAutoDisableMarkdown(t *testing.T) {
+	fetchSetting := system_setting.GetFetchSetting()
+	originalSSRF := fetchSetting.EnableSSRFProtection
+	fetchSetting.EnableSSRFProtection = false
+
+	webhookSetting := operation_setting.GetWebhookSetting()
+	originalWebhookSetting := *webhookSetting
+	originalClient := httpClient
+	t.Cleanup(func() {
+		fetchSetting.EnableSSRFProtection = originalSSRF
+		*webhookSetting = originalWebhookSetting
+		httpClient = originalClient
+	})
+
+	var receivedPayload struct {
+		MsgType  string `json:"msgtype"`
+		Markdown struct {
+			Content string `json:"content"`
+		} `json:"markdown"`
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "qyapi.weixin.qq.com", r.Host)
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, common.Unmarshal(body, &receivedPayload))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"errcode":0,"errmsg":"ok"}`))
+	}))
+	defer server.Close()
+
+	serverURL, err := url.Parse(server.URL)
+	require.NoError(t, err)
+	httpClient = &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, network string, addr string) (net.Conn, error) {
+				return net.Dial(network, serverURL.Host)
+			},
+		},
+	}
+
+	webhookSetting.Enabled = true
+	webhookSetting.URL = "http://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6"
+	webhookSetting.Secret = ""
+
+	err = sendChannelOperationRecordNotifications(model.ChannelOperationRecord{
+		ChannelID:     11,
+		ChannelName:   "openai-a",
+		Action:        model.ChannelOperationActionDisable,
+		Source:        model.ChannelOperationSourceAuto,
+		Status:        common.ChannelStatusAutoDisabled,
+		Reason:        "模型 gpt-test 命中自动禁用规则",
+		ModelName:     "gpt-test",
+		TotalRequests: 10,
+		ErrorRequests: 6,
+		ErrorRate:     60,
+		CreatedAt:     1700000000,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "markdown", receivedPayload.MsgType)
+	require.Contains(t, receivedPayload.Markdown.Content, "New API 自动禁用告警")
+	require.Contains(t, receivedPayload.Markdown.Content, "自动禁用")
+	require.Contains(t, receivedPayload.Markdown.Content, "openai-a (#11)")
+	require.Contains(t, receivedPayload.Markdown.Content, "gpt-test")
+	require.Contains(t, receivedPayload.Markdown.Content, "命中自动禁用规则")
+}
+
+func TestSendChannelOperationRecordNotificationsSkipsNonAutoDisable(t *testing.T) {
+	webhookSetting := operation_setting.GetWebhookSetting()
+	originalWebhookSetting := *webhookSetting
+	t.Cleanup(func() {
+		*webhookSetting = originalWebhookSetting
+	})
+	webhookSetting.Enabled = true
+	webhookSetting.URL = "http://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6"
+	webhookSetting.Secret = ""
+
+	require.NoError(t, sendChannelOperationRecordNotifications(model.ChannelOperationRecord{
+		ChannelID:   11,
+		ChannelName: "openai-a",
+		Action:      model.ChannelOperationActionDisable,
+		Source:      model.ChannelOperationSourceManual,
+		Status:      common.ChannelStatusManuallyDisabled,
+	}))
+	require.NoError(t, sendChannelOperationRecordNotifications(model.ChannelOperationRecord{
+		ChannelID:   11,
+		ChannelName: "openai-a",
+		Action:      model.ChannelOperationActionEnable,
+		Source:      model.ChannelOperationSourceAuto,
+		Status:      common.ChannelStatusEnabled,
+	}))
+}
+
 func TestSendGlobalWebhookPayloadPostsWeComMarkdownPayload(t *testing.T) {
 	fetchSetting := system_setting.GetFetchSetting()
 	originalSSRF := fetchSetting.EnableSSRFProtection

@@ -956,10 +956,13 @@ func disableChannelByAutoOperationIfNeeded(channel *model.Channel) (bool, error)
 	if !setting.ChannelAutoOperationEnabled {
 		return false, nil
 	}
-	if setting.ChannelAutoOperationThreshold <= 0 || setting.ChannelAutoOperationWindowMins <= 0 {
+	if !channel.GetAutoBan() {
 		return false, nil
 	}
-	if !channel.GetAutoBan() {
+	if len(setting.ChannelAutoDisableRules) > 0 {
+		return disableChannelByAutoDisableRulesIfNeeded(channel, setting)
+	}
+	if setting.ChannelAutoOperationThreshold <= 0 || setting.ChannelAutoOperationWindowMins <= 0 {
 		return false, nil
 	}
 
@@ -1024,6 +1027,72 @@ func disableChannelByAutoOperationIfNeeded(channel *model.Channel) (bool, error)
 			reason,
 			stat.ModelName,
 			service.BuildChannelAutoOperationRecordMeta(stat, operationGroupID, 0, windowSeconds),
+		)
+		return true, nil
+	}
+	return false, nil
+}
+
+func disableChannelByAutoDisableRulesIfNeeded(channel *model.Channel, setting *operation_setting.MonitorSetting) (bool, error) {
+	if !channel.GetAutoBan() {
+		return false, nil
+	}
+	matches, err := service.GetChannelAutoDisableRuleMatches(service.ChannelAutoDisableRuleMatchQuery{
+		ChannelID: channel.Id,
+		Now:       time.Now().Unix(),
+		Rules:     setting.ChannelAutoDisableRules,
+	})
+	if err != nil {
+		return false, err
+	}
+	for _, match := range matches {
+		group := inferChannelAutoOperationGroup(channel, match.Stats.ModelName)
+		protectLast := match.Rule.ProtectLast
+		canDisable := true
+		if protectLast {
+			canDisable, err = service.CanDisableChannelForModel(channel.Id, match.Stats.ModelName, group)
+			if err != nil {
+				return false, err
+			}
+		}
+		operationGroupID := service.BuildChannelAutoOperationGroupID(channel.Id, match.Stats.ModelName, match.Stats.LatestErrorAt)
+		if !canDisable {
+			enabled, enableErr := tryEnableAutoOperationStandbyChannel(channel, match.Stats, group, operationGroupID, int64(match.Rule.WindowMinutes)*60)
+			if enableErr != nil {
+				common.SysError(fmt.Sprintf("channel auto disable rule standby check failed: channel_id=%d model=%s rule=%s err=%v", channel.Id, match.Stats.ModelName, match.Rule.ID, enableErr))
+			}
+			if enabled {
+				canDisable, err = service.CanDisableChannelForModel(channel.Id, match.Stats.ModelName, group)
+				if err != nil {
+					return false, err
+				}
+			}
+		}
+		if !canDisable {
+			common.SysLog(fmt.Sprintf("skip channel auto disable rule to keep model available: channel_id=%d model=%s group=%s rule=%s", channel.Id, match.Stats.ModelName, group, match.Rule.ID))
+			continue
+		}
+		canDisableWhole, missingKeys, err := service.CanDisableWholeChannelPreservingModels(channel.Id)
+		if err != nil {
+			return false, err
+		}
+		if !canDisableWhole {
+			tryEnableMissingModelStandbyChannels(channel, match.Stats, missingKeys, operationGroupID, int64(match.Rule.WindowMinutes)*60)
+			canDisableWhole, missingKeys, err = service.CanDisableWholeChannelPreservingModels(channel.Id)
+			if err != nil {
+				return false, err
+			}
+		}
+		if !canDisableWhole {
+			common.SysLog(fmt.Sprintf("skip channel auto disable rule to keep every model available: channel_id=%d missing=%s rule=%s", channel.Id, strings.Join(missingKeys, ","), match.Rule.ID))
+			continue
+		}
+		service.DisableWholeChannelForModelWithMeta(
+			channel.Id,
+			channel.Name,
+			service.BuildChannelAutoDisableRuleReason(match),
+			match.Stats.ModelName,
+			service.BuildChannelAutoDisableRuleRecordMeta(match, operationGroupID, 0),
 		)
 		return true, nil
 	}

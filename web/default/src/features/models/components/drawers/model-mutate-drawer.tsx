@@ -62,7 +62,6 @@ import {
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import { JsonEditor } from '@/components/json-editor'
 import { MultiSelect } from '@/components/multi-select'
 import { TagInput } from '@/components/tag-input'
 import {
@@ -84,15 +83,15 @@ import { normalizeJsonString } from '@/features/system-settings/models/utils'
 import type { ModelSettings } from '@/features/system-settings/types'
 import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
 import { createModel, updateModel, getModel, getVendors } from '../../api'
-import { getNameRuleOptions, ENDPOINT_TEMPLATES } from '../../constants'
+import { getNameRuleOptions } from '../../constants'
 import {
   convertRatioValuesToPriceValues,
   normalizeModelPricingValuesForInputMode,
   syncModelPricingMaps,
 } from '../../lib/model-pricing-sync'
 import { modelsQueryKeys, vendorsQueryKeys, parseModelTags } from '../../lib'
-import { appendEndpointTemplate } from '../../lib/endpoint-template'
 import type { Model } from '../../types'
+import { EndpointConfigEditor } from '../endpoint-config-editor'
 
 // Extended schema for ratio configuration (internal form state only)
 const extendedModelFormSchema = z.object({
@@ -883,26 +882,6 @@ export function ModelMutateDrawer({
     ]
   )
 
-  const handleFillEndpointTemplate = (templateKey: string) => {
-    const template = ENDPOINT_TEMPLATES[templateKey]
-    if (template) {
-      const currentEndpoints = form.getValues('endpoints') || ''
-      const nextEndpoints = appendEndpointTemplate(
-        currentEndpoints,
-        templateKey,
-        template
-      )
-      if (nextEndpoints === currentEndpoints && currentEndpoints.trim()) {
-        toast.error(t('Please fix endpoint JSON before adding a template.'))
-        return
-      }
-      form.setValue('endpoints', nextEndpoints, {
-        shouldDirty: true,
-        shouldTouch: true,
-      })
-    }
-  }
-
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className='flex h-dvh w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-2xl'>
@@ -1359,33 +1338,7 @@ export function ModelMutateDrawer({
 
             {/* Endpoints Configuration */}
             <div className='space-y-4'>
-              <div className='flex items-center justify-between'>
-                <h3 className='text-sm font-semibold'>{t('Endpoints')}</h3>
-                <Select<string>
-                  items={[
-                    ...Object.keys(ENDPOINT_TEMPLATES).map((key) => ({
-                      value: key,
-                      label: key,
-                    })),
-                  ]}
-                  onValueChange={(v) =>
-                    v !== null && handleFillEndpointTemplate(v)
-                  }
-                >
-                  <SelectTrigger size='sm' className='w-[200px]'>
-                    <SelectValue placeholder={t('Load template...')} />
-                  </SelectTrigger>
-                  <SelectContent alignItemWithTrigger={false}>
-                    <SelectGroup>
-                      {Object.keys(ENDPOINT_TEMPLATES).map((key) => (
-                        <SelectItem key={key} value={key}>
-                          {key}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </div>
+              <h3 className='text-sm font-semibold'>{t('Supported APIs')}</h3>
 
               <FormField
                 control={form.control}
@@ -1394,21 +1347,15 @@ export function ModelMutateDrawer({
                   <FormItem>
                     <FormLabel>{t('Endpoint Configuration')}</FormLabel>
                     <FormControl>
-                      <JsonEditor
+                      <EndpointConfigEditor
                         value={field.value || ''}
                         onChange={field.onChange}
-                        keyPlaceholder='endpoint_type'
-                        valuePlaceholder='{"path": "/v1/...", "method": "POST"}'
-                        keyLabel='Endpoint Type'
-                        valueLabel='Configuration'
-                        valueType='any'
-                        emptyMessage={t(
-                          'No endpoints configured. Switch to JSON mode or add rows to define endpoints.'
-                        )}
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Define API endpoints for this model (JSON format)')}
+                      {t(
+                        'Select built-in API modes or add custom modes. Docs URL is shown on the public model detail page.'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils'
 import { getPublicServerAddress } from '@/lib/server-address'
 import { useStatus } from '@/hooks/use-status'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -52,6 +53,7 @@ import {
   formatRateLimit,
   type SupportedParameter,
 } from '../lib/mock-stats'
+import { getEndpointLabel } from '../lib/endpoint-info'
 import { replaceModelInPath } from '../lib/model-helpers'
 import { inferApiInfo } from '../lib/model-metadata'
 import type { PricingModel } from '../types'
@@ -453,7 +455,10 @@ function buildSample(
 
 function CodeSamplesSection(props: {
   model: PricingModel
-  endpointMap: Record<string, { path?: string; method?: string }>
+  endpointMap: Record<
+    string,
+    { path?: string; method?: string; label?: string; docs_url?: string }
+  >
 }) {
   const { t } = useTranslation()
   const { status } = useStatus()
@@ -471,10 +476,16 @@ function CodeSamplesSection(props: {
         if (path && path.includes('{model}')) {
           path = replaceModelInPath(path, props.model.model_name || '')
         }
-        return { type, path, method: info.method || 'POST' }
+        return {
+          type,
+          path,
+          method: info.method || 'POST',
+          label: getEndpointLabel(type, props.endpointMap, t),
+          docsUrl: info.docs_url || '',
+        }
       })
       .filter((e) => Boolean(e.path))
-  }, [props.model, props.endpointMap])
+  }, [props.model, props.endpointMap, t])
 
   const [endpointType, setEndpointType] = useState<string>(
     endpoints[0]?.type ?? ''
@@ -511,11 +522,30 @@ function CodeSamplesSection(props: {
                   value={ep.type}
                   className='h-7 px-2.5 text-xs'
                 >
-                  {ep.type}
+                  {ep.label}
                 </TabsTrigger>
               ))}
             </TabsList>
           </Tabs>
+        )}
+
+        {activeEndpoint.docsUrl && (
+          <Button
+            type='button'
+            variant='outline'
+            size='sm'
+            render={
+              <a
+                href={activeEndpoint.docsUrl}
+                target='_blank'
+                rel='noopener noreferrer'
+                className='h-8 gap-1.5 px-2.5 text-xs'
+              />
+            }
+          >
+            {t('Interface Docs')}
+            <ExternalLink className='size-3' />
+          </Button>
         )}
 
         <Tabs

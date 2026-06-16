@@ -11,8 +11,10 @@ import "github.com/QuantumNous/new-api/constant"
 // 例如：{"path":"/v1/chat/completions","method":"POST"}
 
 type EndpointInfo struct {
-	Path   string `json:"path"`
-	Method string `json:"method"`
+	Path    string `json:"path"`
+	Method  string `json:"method"`
+	Label   string `json:"label,omitempty"`
+	DocsURL string `json:"docs_url,omitempty"`
 }
 
 // defaultEndpointInfoMap 保存内置端点的默认 Path 与 Method
@@ -24,6 +26,8 @@ var defaultEndpointInfoMap = map[constant.EndpointType]EndpointInfo{
 	constant.EndpointTypeGemini:                {Path: "/v1beta/models/{model}:generateContent", Method: "POST"},
 	constant.EndpointTypeJinaRerank:            {Path: "/v1/rerank", Method: "POST"},
 	constant.EndpointTypeImageGeneration:       {Path: "/v1/images/generations", Method: "POST"},
+	constant.EndpointTypeOpenAIImageEdit:       {Path: "/v1/images/edits", Method: "POST", Label: "OpenAI Image Edit"},
+	constant.EndpointTypeGeminiImageGeneration: {Path: "/v1beta/models/{model}:predict", Method: "POST", Label: "Gemini Native Image Generation"},
 	constant.EndpointTypeEmbeddings:            {Path: "/v1/embeddings", Method: "POST"},
 }
 

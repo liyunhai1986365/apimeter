@@ -32,6 +32,7 @@ import {
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
+import { getEndpointFallbackLabel } from '../lib/endpoint-info'
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import {
@@ -412,6 +413,9 @@ export function usePricingColumns(
       header: t('Endpoints'),
       cell: ({ row }) => {
         const endpoints = row.original.supported_endpoint_types || []
+        const endpointLabels = endpoints.map((endpoint) =>
+          getEndpointFallbackLabel(endpoint, t)
+        )
         if (endpoints.length === 0) {
           return <span className='text-muted-foreground/50 text-xs'>—</span>
         }
@@ -420,11 +424,11 @@ export function usePricingColumns(
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger render={<div />}>
-                {renderLimitedTags(endpoints, 2)}
+                {renderLimitedTags(endpointLabels, 2)}
               </TooltipTrigger>
               {endpoints.length > 2 && (
                 <TooltipContent side='top' className='max-w-[280px] p-2'>
-                  <span className='text-xs'>{endpoints.join(', ')}</span>
+                  <span className='text-xs'>{endpointLabels.join(', ')}</span>
                 </TooltipContent>
               )}
             </Tooltip>

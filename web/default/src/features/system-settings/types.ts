@@ -333,6 +333,7 @@ export type OperationsSettings = {
   'monitor_setting.channel_auto_operation_min_requests': number
   'monitor_setting.channel_auto_operation_error_rate': number
   'monitor_setting.channel_auto_operation_protect_last': boolean
+  'monitor_setting.channel_auto_disable_rules': string
   'webhook_setting.enabled': boolean
   'webhook_setting.url': string
   'webhook_setting.secret': string

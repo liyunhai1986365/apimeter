@@ -410,6 +410,277 @@ func TestGetChannelModelErrorStatsRequiresMinimumRequestsAndErrorRate(t *testing
 	require.InDelta(t, 66.67, stats[0].ErrorRate, 0.01)
 }
 
+func TestGetChannelAutoDisableRuleMatchesAppliesDetailedRuleConditions(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := int64(1_700_000_000)
+
+	logs := []model.Log{
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "upstream timeout", UseTime: 5, Other: `{"code":"timeout","status_code":504,"frt":35000}`, RequestId: "req-timeout-1"},
+		{CreatedAt: now - 45, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "upstream timeout again", UseTime: 5, Other: `{"code":"timeout","status_code":504,"frt":34000}`, RequestId: "req-timeout-2"},
+		{CreatedAt: now - 40, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "upstream timeout third", UseTime: 5, Other: `{"code":"timeout","status_code":504,"frt":31000}`, RequestId: "req-timeout-3"},
+		{CreatedAt: now - 35, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, UseTime: 2, Other: `{"frt":500}`, RequestId: "req-ok"},
+		{CreatedAt: now - 30, Type: model.LogTypeError, ModelName: "other-model", ChannelId: 11, Content: "other failure", UseTime: 5, Other: `{"code":"timeout","status_code":504,"frt":40000}`},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	matches, err := GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                       "first-token-rule",
+				Name:                     "First token rule",
+				Enabled:                  true,
+				ModelNames:               []string{"gpt-test"},
+				ErrorTypes:               []string{"timeout"},
+				StatusCodes:              "500-599",
+				FirstTokenSeconds:        30,
+				FirstTokenCountThreshold: 3,
+				WindowMinutes:            10,
+				MinRequests:              4,
+				ErrorCountThreshold:      3,
+				ErrorRate:                50,
+				PerMinuteErrorThreshold:  3,
+				ProtectLast:              true,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	require.Equal(t, "first-token-rule", matches[0].Rule.ID)
+	require.Equal(t, "gpt-test", matches[0].Stats.ModelName)
+	require.EqualValues(t, 4, matches[0].Stats.TotalRequests)
+	require.EqualValues(t, 3, matches[0].Stats.ErrorCount)
+	require.InDelta(t, 75, matches[0].Stats.ErrorRate, 0.01)
+	require.EqualValues(t, 3, matches[0].PeakMinuteErrorCount)
+	require.EqualValues(t, 3, matches[0].Extra["first_token_slow_count"])
+	require.ElementsMatch(t, []string{"model", "error_type", "status_code", "first_token", "first_token_count", "error_count", "error_rate", "min_requests", "per_minute_error_count"}, matches[0].MatchedConditions)
+}
+
+func TestGetChannelAutoDisableRuleMatchesCountsFirstTokenSlowRequestsSeparately(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := int64(1_700_000_000)
+
+	logs := []model.Log{
+		{CreatedAt: now - 50, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, Other: `{"frt":35000}`, RequestId: "req-slow-success-1"},
+		{CreatedAt: now - 45, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, Other: `{"ttft_ms":31000}`, RequestId: "req-slow-success-2"},
+		{CreatedAt: now - 40, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, Other: `{"ttft":32000}`, RequestId: "req-slow-success-3"},
+		{CreatedAt: now - 35, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, Other: `{"frt":500}`, RequestId: "req-fast-success"},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	matches, err := GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                       "first-token-only",
+				Name:                     "First token only",
+				Enabled:                  true,
+				ModelNames:               []string{"gpt-test"},
+				FirstTokenSeconds:        30,
+				FirstTokenCountThreshold: 3,
+				WindowMinutes:            10,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	require.EqualValues(t, 4, matches[0].Stats.TotalRequests)
+	require.EqualValues(t, 0, matches[0].Stats.ErrorCount)
+	require.EqualValues(t, 3, matches[0].Extra["first_token_slow_count"])
+	require.EqualValues(t, 3, matches[0].Extra["peak_minute_first_token_count"])
+	require.InDelta(t, 32, matches[0].Extra["latest_first_token"], 0.01)
+	require.ElementsMatch(t, []string{"model", "first_token", "first_token_count"}, matches[0].MatchedConditions)
+}
+
+func TestGetChannelAutoDisableRuleMatchesDoesNotFilterErrorCountByFirstToken(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := int64(1_700_000_000)
+
+	logs := []model.Log{
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "fast failure", Other: `{"code":"upstream","status_code":502,"frt":500}`, RequestId: "req-fast-error"},
+		{CreatedAt: now - 45, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "slow failure", Other: `{"code":"upstream","status_code":502,"frt":35000}`, RequestId: "req-slow-error"},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	matches, err := GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                  "error-count-only",
+				Name:                "Error count only",
+				Enabled:             true,
+				FirstTokenSeconds:   30,
+				WindowMinutes:       10,
+				ErrorCountThreshold: 2,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	require.EqualValues(t, 2, matches[0].Stats.ErrorCount)
+	require.EqualValues(t, 1, matches[0].Extra["first_token_slow_count"])
+	require.ElementsMatch(t, []string{"error_count"}, matches[0].MatchedConditions)
+}
+
+func TestGetChannelAutoDisableRuleMatchesRequiresFirstTokenCountWhenConfigured(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := int64(1_700_000_000)
+
+	logs := []model.Log{
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "first failure", Other: `{"code":"upstream","status_code":502,"frt":35000}`, RequestId: "req-error-1"},
+		{CreatedAt: now - 45, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "second failure", Other: `{"code":"upstream","status_code":502,"frt":500}`, RequestId: "req-error-2"},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	matches, err := GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                       "combined",
+				Name:                     "Combined",
+				Enabled:                  true,
+				FirstTokenSeconds:        30,
+				FirstTokenCountThreshold: 2,
+				WindowMinutes:            10,
+				ErrorCountThreshold:      2,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, matches)
+}
+
+func TestGetChannelAutoDisableRuleMatchesUsesStatisticsWindowAndMinutePeak(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := int64(1_700_000_000)
+
+	logs := []model.Log{
+		{CreatedAt: now - 70, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "old failure", Other: `{"code":"first_token","status_code":504}`},
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "first in window", Other: `{"code":"first_token","status_code":504}`},
+		{CreatedAt: now - 45, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "second in same minute", Other: `{"code":"first_token","status_code":504}`},
+		{CreatedAt: now - 65, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "third outside window", Other: `{"code":"first_token","status_code":504}`},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	matches, err := GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                      "peak-three",
+				Name:                    "Peak three",
+				Enabled:                 true,
+				WindowMinutes:           1,
+				ErrorCountThreshold:     2,
+				PerMinuteErrorThreshold: 3,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, matches)
+
+	matches, err = GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                      "peak-two",
+				Name:                    "Peak two",
+				Enabled:                 true,
+				WindowMinutes:           1,
+				ErrorCountThreshold:     2,
+				PerMinuteErrorThreshold: 2,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	require.EqualValues(t, 2, matches[0].Stats.ErrorCount)
+	require.EqualValues(t, 2, matches[0].PeakMinuteErrorCount)
+}
+
+func TestGetChannelAutoDisableRuleMatchesCountsOnlyFinalRetryLog(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := int64(1_700_000_000)
+
+	logs := []model.Log{
+		{CreatedAt: now - 50, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "retry failed first", Other: `{"code":"first_token","status_code":504}`, RequestId: "req-success"},
+		{CreatedAt: now - 45, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 12, Content: "retry succeeded", RequestId: "req-success"},
+		{CreatedAt: now - 40, Type: model.LogTypeError, ModelName: "gpt-test", ChannelId: 11, Content: "single final failure", Other: `{"code":"first_token","status_code":504}`, RequestId: "req-fail"},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	matches, err := GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                  "final-only",
+				Name:                "Final only",
+				Enabled:             true,
+				WindowMinutes:       10,
+				ErrorCountThreshold: 2,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Empty(t, matches)
+
+	matches, err = GetChannelAutoDisableRuleMatches(ChannelAutoDisableRuleMatchQuery{
+		ChannelID: 11,
+		Now:       now,
+		Rules: []ChannelAutoDisableRule{
+			{
+				ID:                  "final-only",
+				Name:                "Final only",
+				Enabled:             true,
+				WindowMinutes:       10,
+				ErrorCountThreshold: 1,
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, matches, 1)
+	require.EqualValues(t, 1, matches[0].Stats.ErrorCount)
+}
+
+func TestBuildChannelAutoDisableRuleRecordMetaIncludesRuleExtra(t *testing.T) {
+	match := ChannelAutoDisableRuleMatch{
+		Rule: ChannelAutoDisableRule{
+			ID:            "rule-first-token",
+			Name:          "First token rule",
+			WindowMinutes: 5,
+		},
+		Stats: ChannelModelErrorStats{
+			TotalRequests: 8,
+			ErrorCount:    4,
+			ErrorRate:     50,
+		},
+		PeakMinuteErrorCount: 3,
+		MatchedConditions:    []string{"status_code", "first_token"},
+		Extra: map[string]interface{}{
+			"rule_id":                 "rule-first-token",
+			"rule_name":               "First token rule",
+			"matched_conditions":      []string{"status_code", "first_token"},
+			"peak_minute_error_count": int64(3),
+		},
+	}
+
+	meta := BuildChannelAutoDisableRuleRecordMeta(match, "op-1", 12)
+	require.EqualValues(t, 12, meta.TargetChannelID)
+	require.Equal(t, "op-1", meta.OperationGroupID)
+	require.EqualValues(t, 5*60, meta.WindowSeconds)
+	require.EqualValues(t, 8, meta.TotalRequests)
+	require.EqualValues(t, 4, meta.ErrorRequests)
+	require.InDelta(t, 50, meta.ErrorRate, 0.01)
+	require.Contains(t, meta.Extra, `"rule_id":"rule-first-token"`)
+	require.Contains(t, meta.Extra, `"peak_minute_error_count":3`)
+}
+
 func TestCanDisableChannelForModelProtectsLastAvailableChannel(t *testing.T) {
 	setupModelMonitorTestDB(t)
 

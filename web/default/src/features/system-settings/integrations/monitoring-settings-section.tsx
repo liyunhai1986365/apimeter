@@ -21,11 +21,19 @@ import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation } from '@tanstack/react-query'
-import { Send } from 'lucide-react'
+import { Plus, Send, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { parseHttpStatusCodeRules } from '@/lib/http-status-code-rules'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Form,
   FormControl,
@@ -70,6 +78,91 @@ const jsonArrayString = z.string().refine((value) => {
   }
 }, 'Must be a valid JSON array')
 
+const autoDisableRuleSchema = z
+  .object({
+    rule_type: z.enum(['error', 'timeout']),
+    id: z.string().min(1, 'Rule ID is required'),
+    name: z.string().min(1, 'Rule name is required'),
+    enabled: z.boolean(),
+    model_names: z.array(z.string()),
+    error_types: z.array(z.string()),
+    status_codes: z.string(),
+    first_token_seconds: z.coerce
+      .number()
+      .int()
+      .min(0, 'First token time cannot be negative'),
+    first_token_count_threshold: z.coerce
+      .number()
+      .int()
+      .min(0, 'First-token slow count cannot be negative'),
+    window_minutes: z.coerce
+      .number()
+      .int()
+      .min(1, 'Window must be at least 1 minute'),
+    min_requests: z.coerce
+      .number()
+      .int()
+      .min(0, 'Minimum requests cannot be negative'),
+    error_count_threshold: z.coerce
+      .number()
+      .int()
+      .min(0, 'Error count cannot be negative'),
+    error_rate: z.coerce
+      .number()
+      .min(0, 'Error rate cannot be negative')
+      .max(100, 'Error rate cannot exceed 100'),
+    per_minute_error_threshold: z.coerce
+      .number()
+      .int()
+      .min(0, 'Per-minute errors cannot be negative'),
+    protect_last: z.boolean(),
+  })
+  .superRefine((rule, ctx) => {
+    if (rule.rule_type === 'error' && rule.status_codes.trim()) {
+      const parsed = parseHttpStatusCodeRules(rule.status_codes)
+      if (!parsed.ok) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['status_codes'],
+          message: `Invalid status code rules: ${parsed.invalidTokens.join(
+            ', '
+          )}`,
+        })
+      }
+    }
+
+    if (rule.rule_type === 'error') {
+      if (
+        rule.error_count_threshold === 0 &&
+        rule.error_rate === 0 &&
+        rule.per_minute_error_threshold === 0
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['error_count_threshold'],
+          message: 'Configure at least one trigger threshold',
+        })
+      }
+      return
+    }
+
+    if (rule.first_token_seconds === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['first_token_seconds'],
+        message: 'Configure first token seconds',
+      })
+    }
+
+    if (rule.first_token_count_threshold === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['first_token_count_threshold'],
+        message: 'Configure timeout count',
+      })
+    }
+  })
+
 const monitoringSchema = z
   .object({
     ChannelDisableThreshold: numericString,
@@ -104,6 +197,7 @@ const monitoringSchema = z
         .min(1, 'Error rate must be at least 1')
         .max(100, 'Error rate cannot exceed 100'),
       channel_auto_operation_protect_last: z.boolean(),
+      channel_auto_disable_rules: z.array(autoDisableRuleSchema),
     }),
     webhook_setting: z.object({
       enabled: z.boolean(),
@@ -196,6 +290,7 @@ const monitoringSchema = z
 
 type MonitoringFormValues = z.output<typeof monitoringSchema>
 type MonitoringFormInput = z.input<typeof monitoringSchema>
+type AutoDisableRuleForm = z.output<typeof autoDisableRuleSchema>
 
 type MonitoringSettingsSectionProps = {
   defaultValues: {
@@ -215,6 +310,7 @@ type MonitoringSettingsSectionProps = {
     'monitor_setting.channel_auto_operation_min_requests': number
     'monitor_setting.channel_auto_operation_error_rate': number
     'monitor_setting.channel_auto_operation_protect_last': boolean
+    'monitor_setting.channel_auto_disable_rules': string
     'webhook_setting.enabled': boolean
     'webhook_setting.url': string
     'webhook_setting.secret': string
@@ -231,8 +327,122 @@ type MonitoringSettingsSectionProps = {
   }
 }
 
+const defaultAutoDisableRule = (): AutoDisableRuleForm => ({
+  rule_type: 'error',
+  id: `rule-${Date.now().toString(36)}`,
+  name: 'New auto-disable rule',
+  enabled: true,
+  model_names: [],
+  error_types: [],
+  status_codes: '',
+  first_token_seconds: 0,
+  first_token_count_threshold: 0,
+  window_minutes: 10,
+  min_requests: 5,
+  error_count_threshold: 3,
+  error_rate: 50,
+  per_minute_error_threshold: 0,
+  protect_last: true,
+})
+
 function normalizeLineEndings(value: string) {
   return value.replace(/\r\n/g, '\n')
+}
+
+function splitCSV(value: string) {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function joinCSV(values: string[] | undefined) {
+  return (values || []).join(', ')
+}
+
+function parseAutoDisableRules(
+  value: string | undefined
+): AutoDisableRuleForm[] {
+  if (!value?.trim()) return []
+  try {
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((rule, index) => {
+      const firstTokenCountThreshold = Number(
+        rule.first_token_count_threshold || 0
+      )
+      const ruleType =
+        rule.rule_type === 'timeout' || firstTokenCountThreshold > 0
+          ? 'timeout'
+          : 'error'
+      return {
+        ...defaultAutoDisableRule(),
+        rule_type: ruleType,
+        id: String(rule.id || `rule-${index + 1}`),
+        name: String(rule.name || `Rule ${index + 1}`),
+        enabled: rule.enabled ?? true,
+        model_names: Array.isArray(rule.model_names) ? rule.model_names : [],
+        error_types: Array.isArray(rule.error_types) ? rule.error_types : [],
+        status_codes: String(rule.status_codes || ''),
+        first_token_seconds: Number(rule.first_token_seconds || 0),
+        first_token_count_threshold: firstTokenCountThreshold,
+        window_minutes: Number(rule.window_minutes || 10),
+        min_requests: Number(rule.min_requests || 0),
+        error_count_threshold: Number(rule.error_count_threshold || 0),
+        error_rate: Number(rule.error_rate || 0),
+        per_minute_error_threshold: Number(
+          rule.per_minute_error_threshold || 0
+        ),
+        protect_last: rule.protect_last ?? true,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+function normalizeAutoDisableRules(rules: AutoDisableRuleForm[]) {
+  return JSON.stringify(
+    rules.map((rule) => {
+      const base = {
+        id: rule.id.trim(),
+        name: rule.name.trim(),
+        enabled: rule.enabled,
+        model_names: rule.model_names
+          .map((item) => item.trim())
+          .filter(Boolean),
+        window_minutes: rule.window_minutes,
+        min_requests: rule.min_requests,
+        protect_last: rule.protect_last,
+      }
+
+      if (rule.rule_type === 'timeout') {
+        return {
+          ...base,
+          error_types: [],
+          status_codes: '',
+          first_token_seconds: rule.first_token_seconds,
+          first_token_count_threshold: rule.first_token_count_threshold,
+          error_count_threshold: 0,
+          error_rate: 0,
+          per_minute_error_threshold: 0,
+        }
+      }
+
+      return {
+        ...base,
+        error_types: rule.error_types
+          .map((item) => item.trim())
+          .filter(Boolean),
+        status_codes: parseHttpStatusCodeRules(rule.status_codes).normalized,
+        first_token_seconds: 0,
+        first_token_count_threshold: 0,
+        error_count_threshold: rule.error_count_threshold,
+        error_rate: rule.error_rate,
+        per_minute_error_threshold: rule.per_minute_error_threshold,
+      }
+    })
+  )
 }
 
 type NormalizedMonitoringValues = {
@@ -252,6 +462,7 @@ type NormalizedMonitoringValues = {
   'monitor_setting.channel_auto_operation_min_requests': number
   'monitor_setting.channel_auto_operation_error_rate': number
   'monitor_setting.channel_auto_operation_protect_last': boolean
+  'monitor_setting.channel_auto_disable_rules': string
   'webhook_setting.enabled': boolean
   'webhook_setting.url': string
   'webhook_setting.secret': string
@@ -297,6 +508,9 @@ const buildFormDefaults = (
       defaults['monitor_setting.channel_auto_operation_error_rate'],
     channel_auto_operation_protect_last:
       defaults['monitor_setting.channel_auto_operation_protect_last'],
+    channel_auto_disable_rules: parseAutoDisableRules(
+      defaults['monitor_setting.channel_auto_disable_rules']
+    ),
   },
   webhook_setting: {
     enabled: defaults['webhook_setting.enabled'],
@@ -355,6 +569,11 @@ const normalizeDefaults = (
     defaults['monitor_setting.channel_auto_operation_error_rate'],
   'monitor_setting.channel_auto_operation_protect_last':
     defaults['monitor_setting.channel_auto_operation_protect_last'],
+  'monitor_setting.channel_auto_disable_rules': normalizeAutoDisableRules(
+    parseAutoDisableRules(
+      defaults['monitor_setting.channel_auto_disable_rules']
+    )
+  ),
   'webhook_setting.enabled': defaults['webhook_setting.enabled'],
   'webhook_setting.url': (defaults['webhook_setting.url'] ?? '').trim(),
   'webhook_setting.secret': defaults['webhook_setting.secret'] ?? '',
@@ -413,6 +632,9 @@ const normalizeFormValues = (
     values.monitor_setting.channel_auto_operation_error_rate,
   'monitor_setting.channel_auto_operation_protect_last':
     values.monitor_setting.channel_auto_operation_protect_last,
+  'monitor_setting.channel_auto_disable_rules': normalizeAutoDisableRules(
+    values.monitor_setting.channel_auto_disable_rules
+  ),
   'webhook_setting.enabled': values.webhook_setting.enabled,
   'webhook_setting.url': values.webhook_setting.url.trim(),
   'webhook_setting.secret': values.webhook_setting.secret,
@@ -474,6 +696,9 @@ export function MonitoringSettingsSection({
   const channelAutoOperationEnabled = form.watch(
     'monitor_setting.channel_auto_operation_enabled'
   )
+  const autoDisableRules = form.watch(
+    'monitor_setting.channel_auto_disable_rules'
+  ) as AutoDisableRuleForm[]
   const globalWebhookEnabled = form.watch('webhook_setting.enabled')
   const modelErrorCheckEnabled = form.watch(
     'webhook_setting.model_error_check_enabled'
@@ -518,6 +743,63 @@ export function MonitoringSettingsSection({
       return
     }
     sendWebhookTest.mutate()
+  }
+
+  const updateRule = (index: number, patch: Partial<AutoDisableRuleForm>) => {
+    const current = form.getValues('monitor_setting.channel_auto_disable_rules')
+    const next = current.map((rule, ruleIndex) =>
+      ruleIndex === index ? { ...rule, ...patch } : rule
+    )
+    form.setValue('monitor_setting.channel_auto_disable_rules', next, {
+      shouldDirty: true,
+      shouldValidate: true,
+    })
+  }
+
+  const updateRuleType = (
+    index: number,
+    ruleType: AutoDisableRuleForm['rule_type']
+  ) => {
+    if (ruleType === 'timeout') {
+      updateRule(index, {
+        rule_type: ruleType,
+        error_types: [],
+        status_codes: '',
+        error_count_threshold: 0,
+        error_rate: 0,
+        per_minute_error_threshold: 0,
+        first_token_seconds: 30,
+        first_token_count_threshold: 3,
+      })
+      return
+    }
+
+    updateRule(index, {
+      rule_type: ruleType,
+      first_token_seconds: 0,
+      first_token_count_threshold: 0,
+      error_count_threshold: 3,
+      error_rate: 50,
+      per_minute_error_threshold: 0,
+    })
+  }
+
+  const addRule = () => {
+    const current = form.getValues('monitor_setting.channel_auto_disable_rules')
+    form.setValue(
+      'monitor_setting.channel_auto_disable_rules',
+      [...current, defaultAutoDisableRule()],
+      { shouldDirty: true, shouldValidate: true }
+    )
+  }
+
+  const removeRule = (index: number) => {
+    const current = form.getValues('monitor_setting.channel_auto_disable_rules')
+    form.setValue(
+      'monitor_setting.channel_auto_disable_rules',
+      current.filter((_, ruleIndex) => ruleIndex !== index),
+      { shouldDirty: true, shouldValidate: true }
+    )
   }
 
   return (
@@ -780,6 +1062,358 @@ export function MonitoringSettingsSection({
               )}
             />
           </div>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Auto-disable rules')}</CardTitle>
+              <CardDescription>
+                {t(
+                  'Rules run after retries finish and use the final usage or error logs in each statistics window'
+                )}
+              </CardDescription>
+              <CardAction>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  disabled={!channelAutoOperationEnabled}
+                  onClick={addRule}
+                >
+                  <Plus data-icon='inline-start' />
+                  {t('Add rule')}
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <div className='flex flex-col gap-4'>
+                {autoDisableRules.length === 0 && (
+                  <div className='text-muted-foreground rounded-lg border border-dashed p-4 text-sm'>
+                    {t(
+                      'No detailed rules configured. The legacy global thresholds above will be used.'
+                    )}
+                  </div>
+                )}
+
+                {autoDisableRules.map((rule, index) => (
+                  <div
+                    key={rule.id || index}
+                    className='flex flex-col gap-4 rounded-lg border p-4'
+                  >
+                    <div className='flex flex-col gap-3 md:flex-row md:items-center md:justify-between'>
+                      <div className='grid flex-1 gap-3 md:grid-cols-3'>
+                        <FormItem>
+                          <FormLabel>{t('Rule name')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              value={rule.name}
+                              disabled={!channelAutoOperationEnabled}
+                              onChange={(event) =>
+                                updateRule(index, {
+                                  name: event.target.value,
+                                })
+                              }
+                            />
+                          </FormControl>
+                        </FormItem>
+                        <FormItem>
+                          <FormLabel>{t('Trigger type')}</FormLabel>
+                          <Select
+                            value={rule.rule_type}
+                            onValueChange={(value) =>
+                              updateRuleType(
+                                index,
+                                value as AutoDisableRuleForm['rule_type']
+                              )
+                            }
+                            disabled={!channelAutoOperationEnabled}
+                          >
+                            <FormControl>
+                              <SelectTrigger className='w-full'>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value='error'>
+                                {t('Error')}
+                              </SelectItem>
+                              <SelectItem value='timeout'>
+                                {t('Timeout')}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </FormItem>
+                        <FormItem>
+                          <FormLabel>{t('Rule ID')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              value={rule.id}
+                              disabled={!channelAutoOperationEnabled}
+                              onChange={(event) =>
+                                updateRule(index, {
+                                  id: event.target.value,
+                                })
+                              }
+                            />
+                          </FormControl>
+                        </FormItem>
+                      </div>
+
+                      <div className='flex items-center gap-3'>
+                        <FormItem className='flex flex-row items-center gap-2'>
+                          <FormLabel className='text-sm'>
+                            {t('Enabled')}
+                          </FormLabel>
+                          <FormControl>
+                            <Switch
+                              checked={rule.enabled}
+                              disabled={!channelAutoOperationEnabled}
+                              onCheckedChange={(checked) =>
+                                updateRule(index, { enabled: checked })
+                              }
+                            />
+                          </FormControl>
+                        </FormItem>
+                        <Button
+                          type='button'
+                          variant='ghost'
+                          size='icon'
+                          disabled={!channelAutoOperationEnabled}
+                          onClick={() => removeRule(index)}
+                          title={t('Delete rule')}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className='grid gap-4 md:grid-cols-3'>
+                      <FormItem>
+                        <FormLabel>{t('Models')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t('All models')}
+                            value={joinCSV(rule.model_names)}
+                            disabled={!channelAutoOperationEnabled}
+                            onChange={(event) =>
+                              updateRule(index, {
+                                model_names: splitCSV(event.target.value),
+                              })
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t('Comma-separated model names, supports prefix*')}
+                        </FormDescription>
+                      </FormItem>
+
+                      <FormItem>
+                        <FormLabel>{t('Window (minutes)')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            min={1}
+                            step={1}
+                            value={rule.window_minutes}
+                            disabled={!channelAutoOperationEnabled}
+                            onChange={(event) =>
+                              updateRule(index, {
+                                window_minutes: event.target.valueAsNumber,
+                              })
+                            }
+                          />
+                        </FormControl>
+                      </FormItem>
+
+                      <FormItem>
+                        <FormLabel>{t('Min requests')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            type='number'
+                            min={0}
+                            step={1}
+                            value={rule.min_requests}
+                            disabled={!channelAutoOperationEnabled}
+                            onChange={(event) =>
+                              updateRule(index, {
+                                min_requests: event.target.valueAsNumber,
+                              })
+                            }
+                          />
+                        </FormControl>
+                      </FormItem>
+                    </div>
+
+                    {rule.rule_type === 'error' ? (
+                      <>
+                        <div className='grid gap-4 md:grid-cols-2'>
+                          <FormItem>
+                            <FormLabel>{t('Error types')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t(
+                                  'e.g. first_token, invalid_api_key'
+                                )}
+                                value={joinCSV(rule.error_types)}
+                                disabled={!channelAutoOperationEnabled}
+                                onChange={(event) =>
+                                  updateRule(index, {
+                                    error_types: splitCSV(event.target.value),
+                                  })
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t('Matches error code or error content')}
+                            </FormDescription>
+                          </FormItem>
+
+                          <FormItem>
+                            <FormLabel>{t('Status codes')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder={t('e.g. 401, 403, 500-599')}
+                                value={rule.status_codes}
+                                disabled={!channelAutoOperationEnabled}
+                                onChange={(event) =>
+                                  updateRule(index, {
+                                    status_codes: event.target.value,
+                                  })
+                                }
+                              />
+                            </FormControl>
+                            <FormDescription>
+                              {t('Leave empty to ignore status codes')}
+                            </FormDescription>
+                          </FormItem>
+                        </div>
+
+                        <div className='grid gap-4 md:grid-cols-3'>
+                          <FormItem>
+                            <FormLabel>{t('Errors')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                step={1}
+                                value={rule.error_count_threshold}
+                                disabled={!channelAutoOperationEnabled}
+                                onChange={(event) =>
+                                  updateRule(index, {
+                                    error_count_threshold:
+                                      event.target.valueAsNumber,
+                                  })
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+
+                          <FormItem>
+                            <FormLabel>{t('Errors/min')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                step={1}
+                                value={rule.per_minute_error_threshold}
+                                disabled={!channelAutoOperationEnabled}
+                                onChange={(event) =>
+                                  updateRule(index, {
+                                    per_minute_error_threshold:
+                                      event.target.valueAsNumber,
+                                  })
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+
+                          <FormItem>
+                            <FormLabel>{t('Error rate (%)')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                max={100}
+                                step={1}
+                                value={rule.error_rate}
+                                disabled={!channelAutoOperationEnabled}
+                                onChange={(event) =>
+                                  updateRule(index, {
+                                    error_rate: event.target.valueAsNumber,
+                                  })
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        </div>
+                      </>
+                    ) : (
+                      <div className='grid gap-4 md:grid-cols-2'>
+                        <FormItem>
+                          <FormLabel>
+                            {t('First token timeout (seconds)')}
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              min={1}
+                              step={1}
+                              value={rule.first_token_seconds}
+                              disabled={!channelAutoOperationEnabled}
+                              onChange={(event) =>
+                                updateRule(index, {
+                                  first_token_seconds:
+                                    event.target.valueAsNumber,
+                                })
+                              }
+                            />
+                          </FormControl>
+                        </FormItem>
+
+                        <FormItem>
+                          <FormLabel>{t('Timeout count')}</FormLabel>
+                          <FormControl>
+                            <Input
+                              type='number'
+                              min={1}
+                              step={1}
+                              value={rule.first_token_count_threshold}
+                              disabled={!channelAutoOperationEnabled}
+                              onChange={(event) =>
+                                updateRule(index, {
+                                  first_token_count_threshold:
+                                    event.target.valueAsNumber,
+                                })
+                              }
+                            />
+                          </FormControl>
+                        </FormItem>
+                      </div>
+                    )}
+
+                    <FormItem className='flex flex-row items-center justify-between rounded-lg border p-3'>
+                      <div className='flex flex-col gap-0.5'>
+                        <FormLabel>{t('Protect last channel')}</FormLabel>
+                        <FormDescription>
+                          {t(
+                            'Skip disabling when this is the last available channel for the model'
+                          )}
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={rule.protect_last}
+                          disabled={!channelAutoOperationEnabled}
+                          onCheckedChange={(checked) =>
+                            updateRule(index, { protect_last: checked })
+                          }
+                        />
+                      </FormControl>
+                    </FormItem>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           <div className='space-y-4 rounded-lg border p-4'>
             <FormField

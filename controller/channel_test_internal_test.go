@@ -3,11 +3,14 @@ package controller
 import (
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -68,4 +71,57 @@ func TestBuildTestLogOtherInjectsTieredInfo(t *testing.T) {
 	require.Equal(t, "tiered_expr", other["billing_mode"])
 	require.Equal(t, "base", other["matched_tier"])
 	require.NotEmpty(t, other["expr_b64"])
+}
+
+func TestAutoDisableRulesSkipChannelsWithoutAutoBan(t *testing.T) {
+	setupChannelControllerBatchTestDB(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.Log{}, &model.ChannelOperationRecord{}))
+
+	originSetting := *operation_setting.GetMonitorSetting()
+	t.Cleanup(func() {
+		*operation_setting.GetMonitorSetting() = originSetting
+	})
+	setting := operation_setting.GetMonitorSetting()
+	setting.ChannelAutoOperationEnabled = true
+	setting.ChannelAutoDisableRules = []operation_setting.ChannelAutoDisableRule{
+		{
+			ID:                  "errors",
+			Name:                "Errors",
+			Enabled:             true,
+			WindowMinutes:       10,
+			ErrorCountThreshold: 1,
+			ProtectLast:         false,
+		},
+	}
+
+	autoBanDisabled := 0
+	channel := &model.Channel{
+		Id:      11,
+		Name:    "auto-ban-off",
+		Type:    1,
+		Status:  common.ChannelStatusEnabled,
+		Models:  "gpt-test",
+		Group:   "default",
+		AutoBan: &autoBanDisabled,
+	}
+	require.NoError(t, model.DB.Create(channel).Error)
+	require.NoError(t, model.DB.Create(&model.Log{
+		CreatedAt: time.Now().Unix() - 10,
+		Type:      model.LogTypeError,
+		ModelName: "gpt-test",
+		ChannelId: channel.Id,
+		Content:   "upstream failed",
+	}).Error)
+
+	disabled, err := disableChannelByAutoOperationIfNeeded(channel)
+	require.NoError(t, err)
+	require.False(t, disabled)
+
+	var updated model.Channel
+	require.NoError(t, model.DB.First(&updated, channel.Id).Error)
+	require.Equal(t, common.ChannelStatusEnabled, updated.Status)
+
+	var operationCount int64
+	require.NoError(t, model.DB.Model(&model.ChannelOperationRecord{}).Count(&operationCount).Error)
+	require.Zero(t, operationCount)
 }

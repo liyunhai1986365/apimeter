@@ -106,10 +106,13 @@ export const ENDPOINT_TYPES = {
   ALL: 'all',
   OPENAI: 'openai',
   OPENAI_RESPONSE: 'openai-response',
+  OPENAI_RESPONSE_COMPACT: 'openai-response-compact',
   ANTHROPIC: 'anthropic',
   GEMINI: 'gemini',
+  GEMINI_IMAGE_GENERATION: 'gemini-image-generation',
   JINA_RERANK: 'jina-rerank',
   IMAGE_GENERATION: 'image-generation',
+  OPENAI_IMAGE_EDIT: 'openai-image-edit',
   EMBEDDINGS: 'embeddings',
   OPENAI_VIDEO: 'openai-video',
 } as const
@@ -125,10 +128,15 @@ export function getEndpointTypeLabels(
     [ENDPOINT_TYPES.ALL]: t('All Types'),
     [ENDPOINT_TYPES.OPENAI]: 'Chat',
     [ENDPOINT_TYPES.OPENAI_RESPONSE]: 'Response',
+    [ENDPOINT_TYPES.OPENAI_RESPONSE_COMPACT]: t('Response Compact'),
     [ENDPOINT_TYPES.ANTHROPIC]: 'Anthropic',
     [ENDPOINT_TYPES.GEMINI]: 'Gemini',
+    [ENDPOINT_TYPES.GEMINI_IMAGE_GENERATION]: t(
+      'Gemini Native Image Generation'
+    ),
     [ENDPOINT_TYPES.JINA_RERANK]: 'Rerank',
     [ENDPOINT_TYPES.IMAGE_GENERATION]: t('Image'),
+    [ENDPOINT_TYPES.OPENAI_IMAGE_EDIT]: t('Image Edit'),
     [ENDPOINT_TYPES.EMBEDDINGS]: t('Embeddings'),
     [ENDPOINT_TYPES.OPENAI_VIDEO]: t('Video'),
   }

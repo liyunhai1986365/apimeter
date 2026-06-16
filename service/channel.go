@@ -69,12 +69,16 @@ func recordChannelStatusChangeLogWithMeta(channelName string, channelId int, act
 		common.SysLog(fmt.Sprintf("failed to record channel operation: channel_id=%d, action=%s, error=%v", channelId, recordAction, err))
 	} else if recordAction == model.ChannelOperationActionDisable {
 		go func(record model.ChannelOperationRecord) {
-			if err := SendGlobalWebhookChannelOperationRecord(record); err != nil {
-				common.SysLog(fmt.Sprintf("failed to send channel auto disable webhook: channel_id=%d, error=%v", record.ChannelID, err))
+			if err := sendChannelOperationRecordNotifications(record); err != nil {
+				common.SysLog(fmt.Sprintf("failed to send channel auto disable notification: channel_id=%d, error=%v", record.ChannelID, err))
 			}
 		}(record)
 	}
 	return content
+}
+
+func sendChannelOperationRecordNotifications(record model.ChannelOperationRecord) error {
+	return SendGlobalWebhookChannelOperationRecord(record)
 }
 
 // disable & notify

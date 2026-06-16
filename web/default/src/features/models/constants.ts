@@ -173,15 +173,30 @@ export function getQuotaTypeConfig(
 
 export const ENDPOINT_TEMPLATES: Record<
   string,
-  { path: string; method: string }
+  { path: string; method: string; label?: string; docs_url?: string }
 > = {
   openai: { path: '/v1/chat/completions', method: 'POST' },
   'openai-response': { path: '/v1/responses', method: 'POST' },
+  'openai-response-compact': {
+    path: '/v1/responses/compact',
+    method: 'POST',
+  },
   anthropic: { path: '/v1/messages', method: 'POST' },
   gemini: { path: '/v1beta/models/{model}:generateContent', method: 'POST' },
-  'jina-rerank': { path: '/rerank', method: 'POST' },
+  'jina-rerank': { path: '/v1/rerank', method: 'POST' },
   'image-generation': { path: '/v1/images/generations', method: 'POST' },
+  'openai-image-edit': {
+    path: '/v1/images/edits',
+    method: 'POST',
+    label: 'OpenAI Image Edit',
+  },
+  'gemini-image-generation': {
+    path: '/v1beta/models/{model}:predict',
+    method: 'POST',
+    label: 'Gemini Native Image Generation',
+  },
   embeddings: { path: '/v1/embeddings', method: 'POST' },
+  'openai-video': { path: '/v1/videos', method: 'POST' },
 }
 
 // ============================================================================

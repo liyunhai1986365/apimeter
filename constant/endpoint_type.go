@@ -10,6 +10,8 @@ const (
 	EndpointTypeGemini                EndpointType = "gemini"
 	EndpointTypeJinaRerank            EndpointType = "jina-rerank"
 	EndpointTypeImageGeneration       EndpointType = "image-generation"
+	EndpointTypeOpenAIImageEdit       EndpointType = "openai-image-edit"
+	EndpointTypeGeminiImageGeneration EndpointType = "gemini-image-generation"
 	EndpointTypeEmbeddings            EndpointType = "embeddings"
 	EndpointTypeOpenAIVideo           EndpointType = "openai-video"
 	//EndpointTypeMidjourney     EndpointType = "midjourney-proxy"

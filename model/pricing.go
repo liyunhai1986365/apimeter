@@ -361,24 +361,9 @@ func updatePricing() {
 		if strings.TrimSpace(meta.Endpoints) == "" {
 			continue
 		}
-		var raw map[string]interface{}
-		if err := common.Unmarshal([]byte(meta.Endpoints), &raw); err == nil {
-			for k, v := range raw {
-				switch val := v.(type) {
-				case string:
-					supportedEndpointMap[k] = common.EndpointInfo{Path: val, Method: "POST"}
-				case map[string]interface{}:
-					ep := common.EndpointInfo{Method: "POST"}
-					if p, ok := val["path"].(string); ok {
-						ep.Path = p
-					}
-					if m, ok := val["method"].(string); ok {
-						ep.Method = strings.ToUpper(m)
-					}
-					supportedEndpointMap[k] = ep
-				default:
-					// ignore unsupported types
-				}
+		if customEndpoints := parseEndpointInfoMap(meta.Endpoints); len(customEndpoints) > 0 {
+			for k, info := range customEndpoints {
+				supportedEndpointMap[k] = info
 			}
 		}
 	}
@@ -483,4 +468,45 @@ func updatePricing() {
 // GetSupportedEndpointMap 返回全局端点到路径的映射
 func GetSupportedEndpointMap() map[string]common.EndpointInfo {
 	return supportedEndpointMap
+}
+
+func parseEndpointInfoMap(rawEndpoints string) map[string]common.EndpointInfo {
+	result := make(map[string]common.EndpointInfo)
+	if strings.TrimSpace(rawEndpoints) == "" {
+		return result
+	}
+
+	var raw map[string]interface{}
+	if err := common.Unmarshal([]byte(rawEndpoints), &raw); err != nil {
+		return result
+	}
+
+	for k, v := range raw {
+		switch val := v.(type) {
+		case string:
+			result[k] = common.EndpointInfo{Path: val, Method: "POST"}
+		case map[string]interface{}:
+			ep := common.EndpointInfo{Method: "POST"}
+			if p, ok := val["path"].(string); ok {
+				ep.Path = p
+			}
+			if m, ok := val["method"].(string); ok {
+				ep.Method = strings.ToUpper(m)
+			}
+			if label, ok := val["label"].(string); ok {
+				ep.Label = strings.TrimSpace(label)
+			}
+			if docsURL, ok := val["docs_url"].(string); ok {
+				ep.DocsURL = strings.TrimSpace(docsURL)
+			}
+			if docsURL, ok := val["docsUrl"].(string); ok && ep.DocsURL == "" {
+				ep.DocsURL = strings.TrimSpace(docsURL)
+			}
+			result[k] = ep
+		default:
+			// ignore unsupported types
+		}
+	}
+
+	return result
 }

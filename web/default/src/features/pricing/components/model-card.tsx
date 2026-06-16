@@ -30,6 +30,7 @@ import {
   getDynamicDisplayGroupRatio,
   getDynamicPricingSummary,
 } from '../lib/dynamic-price'
+import { getEndpointFallbackLabel } from '../lib/endpoint-info'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
 import type { PricingModel, TokenUnit } from '../types'
@@ -256,7 +257,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         <div className='flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-0.5 sm:gap-x-3 sm:gap-y-1'>
           {visibleEndpoints.map((item) => (
             <span key={item} className='text-muted-foreground/70 text-xs'>
-              {item}
+              {getEndpointFallbackLabel(item, t)}
             </span>
           ))}
           <span className='text-muted-foreground/50 text-xs'>
