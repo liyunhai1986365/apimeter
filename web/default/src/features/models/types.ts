@@ -248,6 +248,10 @@ export interface ModelMonitorSummary {
   error_rate: number
   health_score: number
   avg_use_time: number
+  avg_ttft: number
+  tpot: number
+  tokens_per_second: number
+  p90_use_time: number
   p95_use_time: number
   quota: number
   tokens: number
@@ -272,6 +276,10 @@ export interface ModelMonitorChannel {
   error_rate: number
   health_score: number
   avg_use_time: number
+  avg_ttft: number
+  tpot: number
+  tokens_per_second: number
+  p90_use_time: number
   p95_use_time: number
   quota: number
   tokens: number

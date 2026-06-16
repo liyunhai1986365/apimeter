@@ -104,6 +104,17 @@ function formatUseTime(value: number) {
   return `${value.toFixed(2)}s`
 }
 
+function formatTPOT(value: number) {
+  if (!value || !Number.isFinite(value)) return '-'
+  if (value < 1) return `${Math.round(value * 1000)}ms/token`
+  return `${value.toFixed(3)}s/token`
+}
+
+function formatTokensPerSecond(value: number) {
+  if (!value || !Number.isFinite(value)) return '-'
+  return `${value.toFixed(value < 10 ? 2 : 1)} token/s`
+}
+
 export function ModelMonitor() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -373,7 +384,7 @@ export function ModelMonitor() {
                     <TableHead>{t('Model')}</TableHead>
                     <TableHead>{t('Health')}</TableHead>
                     <TableHead>{t('Error Rate')}</TableHead>
-                    <TableHead>{t('Latency')}</TableHead>
+                    <TableHead>{t('Total duration')}</TableHead>
                     <TableHead>{t('Requests')}</TableHead>
                     <TableHead>{t('Channels')}</TableHead>
                     <TableHead>{t('Latest Test')}</TableHead>
@@ -587,8 +598,13 @@ function MonitorRow({
         <TableCell>
           <MetricStack
             primary={formatUseTime(item.summary.avg_use_time)}
-            secondary={`P95 ${formatUseTime(item.summary.p95_use_time)}`}
-            variant={latencyVariant(item.summary.p95_use_time)}
+            secondary={[
+              `P90 ${formatUseTime(item.summary.p90_use_time)}`,
+              `TTFT ${formatUseTime(item.summary.avg_ttft)}`,
+              `TPOT ${formatTPOT(item.summary.tpot)}`,
+              `TPS ${formatTokensPerSecond(item.summary.tokens_per_second)}`,
+            ]}
+            variant={latencyVariant(item.summary.p90_use_time)}
           />
         </TableCell>
         <TableCell>
@@ -676,7 +692,7 @@ function ChannelStatsTable({
               </TableHead>
               <TableHead>{t('Health')}</TableHead>
               <TableHead>{t('Error Rate')}</TableHead>
-              <TableHead>{t('Latency')}</TableHead>
+              <TableHead>{t('Total duration')}</TableHead>
               <TableHead>{t('Requests')}</TableHead>
               <TableHead>{t('Latest Error')}</TableHead>
               <TableHead>{t('Latest Test')}</TableHead>
@@ -729,8 +745,13 @@ function ChannelStatsTable({
                   <TableCell>
                     <MetricStack
                       primary={formatUseTime(channel.avg_use_time)}
-                      secondary={`P95 ${formatUseTime(channel.p95_use_time)}`}
-                      variant={latencyVariant(channel.p95_use_time)}
+                      secondary={[
+                        `P90 ${formatUseTime(channel.p90_use_time)}`,
+                        `TTFT ${formatUseTime(channel.avg_ttft)}`,
+                        `TPOT ${formatTPOT(channel.tpot)}`,
+                        `TPS ${formatTokensPerSecond(channel.tokens_per_second)}`,
+                      ]}
+                      variant={latencyVariant(channel.p90_use_time)}
                     />
                   </TableCell>
                   <TableCell>
@@ -796,9 +817,10 @@ function MetricStack({
   variant,
 }: {
   primary: string
-  secondary: string
+  secondary: string | string[]
   variant?: StatusVariant
 }) {
+  const secondaryItems = Array.isArray(secondary) ? secondary : [secondary]
   return (
     <div className='flex flex-col gap-1 text-xs'>
       {variant ? (
@@ -806,7 +828,11 @@ function MetricStack({
       ) : (
         <span className='text-sm font-medium'>{primary}</span>
       )}
-      <span className='text-muted-foreground'>{secondary}</span>
+      <span className='text-muted-foreground flex max-w-[190px] flex-wrap gap-x-2 gap-y-0.5'>
+        {secondaryItems.map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </span>
     </div>
   )
 }

@@ -125,6 +125,39 @@ func TestGetModelMonitorAggregatesLogsByChannelWithinWindow(t *testing.T) {
 	require.Equal(t, "rate limited", second.LatestError)
 }
 
+func TestGetModelMonitorComputesStreamingLatencyMetrics(t *testing.T) {
+	setupModelMonitorTestDB(t)
+	now := time.Now().Unix()
+
+	require.NoError(t, model.DB.Create(&model.Model{Id: 1, ModelName: "gpt-test", Status: 1}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Name: "openai-a", Type: 1, Status: 1, Models: "gpt-test", Group: "default"}).Error)
+	require.NoError(t, model.DB.Create(&model.Ability{Group: "default", Model: "gpt-test", ChannelId: 11, Enabled: true}).Error)
+
+	logs := []model.Log{
+		{CreatedAt: now - 60, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, CompletionTokens: 10, UseTime: 2, Group: "default", Other: `{"frt":500}`},
+		{CreatedAt: now - 50, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, CompletionTokens: 30, UseTime: 4, Group: "default", Other: `{"frt":1000}`},
+		{CreatedAt: now - 40, Type: model.LogTypeConsume, ModelName: "gpt-test", ChannelId: 11, CompletionTokens: 0, UseTime: 9, Group: "default", Other: `{}`},
+	}
+	require.NoError(t, model.LOG_DB.Create(&logs).Error)
+
+	result, err := GetModelMonitor(1, ModelMonitorQuery{EndTimestamp: now}, now)
+	require.NoError(t, err)
+	require.Len(t, result.Channels, 1)
+
+	channel := result.Channels[0]
+	require.InDelta(t, 5.0, channel.AvgUseTime, 0.01)
+	require.Equal(t, 9, channel.P90UseTime)
+	require.InDelta(t, 0.75, channel.AvgTtft, 0.01)
+	require.InDelta(t, 0.1125, channel.TPOT, 0.0001)
+	require.InDelta(t, 8.89, channel.TokensPerSecond, 0.01)
+
+	require.InDelta(t, 5.0, result.Summary.AvgUseTime, 0.01)
+	require.Equal(t, 9, result.Summary.P90UseTime)
+	require.InDelta(t, 0.75, result.Summary.AvgTtft, 0.01)
+	require.InDelta(t, 0.1125, result.Summary.TPOT, 0.0001)
+	require.InDelta(t, 8.89, result.Summary.TokensPerSecond, 0.01)
+}
+
 func TestGetModelMonitorCountsOnlyFinalRetryLogByRequestID(t *testing.T) {
 	setupModelMonitorTestDB(t)
 	now := time.Now().Unix()

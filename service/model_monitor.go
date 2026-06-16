@@ -18,6 +18,7 @@ const (
 	DefaultModelMonitorWindowSeconds = int64(10 * 60)
 	MaxModelMonitorWindowSeconds     = int64(24 * 60 * 60)
 	modelMonitorCacheTTL             = 30 * time.Second
+	modelMonitorCacheVersion         = "latency-v2"
 	modelMonitorRecentErrorLimit     = 20
 )
 
@@ -43,6 +44,10 @@ type ModelMonitorSummary struct {
 	ErrorRate        float64 `json:"error_rate"`
 	HealthScore      int     `json:"health_score"`
 	AvgUseTime       float64 `json:"avg_use_time"`
+	AvgTtft          float64 `json:"avg_ttft"`
+	TPOT             float64 `json:"tpot"`
+	TokensPerSecond  float64 `json:"tokens_per_second"`
+	P90UseTime       int     `json:"p90_use_time"`
 	P95UseTime       int     `json:"p95_use_time"`
 	Quota            int64   `json:"quota"`
 	Tokens           int64   `json:"tokens"`
@@ -67,6 +72,10 @@ type ModelMonitorChannel struct {
 	ErrorRate       float64 `json:"error_rate"`
 	HealthScore     int     `json:"health_score"`
 	AvgUseTime      float64 `json:"avg_use_time"`
+	AvgTtft         float64 `json:"avg_ttft"`
+	TPOT            float64 `json:"tpot"`
+	TokensPerSecond float64 `json:"tokens_per_second"`
+	P90UseTime      int     `json:"p90_use_time"`
 	P95UseTime      int     `json:"p95_use_time"`
 	Quota           int64   `json:"quota"`
 	Tokens          int64   `json:"tokens"`
@@ -169,7 +178,7 @@ func NormalizeModelMonitorWindow(query ModelMonitorQuery, now int64) ModelMonito
 
 func GetModelMonitor(modelID int, query ModelMonitorQuery, now int64) (*ModelMonitorResult, error) {
 	window := NormalizeModelMonitorWindow(query, now)
-	cacheKey := fmt.Sprintf("%d:%d:%d:%s", modelID, window.StartTimestamp, window.EndTimestamp, strings.TrimSpace(query.Group))
+	cacheKey := fmt.Sprintf("%s:%d:%d:%d:%s", modelMonitorCacheVersion, modelID, window.StartTimestamp, window.EndTimestamp, strings.TrimSpace(query.Group))
 	if cached, ok := getModelMonitorCache(cacheKey); ok {
 		copy := *cached
 		copy.CacheHit = true
@@ -445,19 +454,19 @@ func aggregateModelMonitorLogs(modelName string, window ModelMonitorWindow, grou
 		statsByChannel[row.ChannelID] = item
 	}
 
-	useTimesByChannel, allUseTimes, err := getModelMonitorUseTimes(modelName, window, group)
+	latencyStatsByChannel, allLatencyStats, err := getModelMonitorLatencyStats(modelName, window, group)
 	if err != nil {
 		return nil, ModelMonitorSummary{}, err
 	}
-	for channelID, useTimes := range useTimesByChannel {
+	for channelID, latencyStats := range latencyStatsByChannel {
 		item := statsByChannel[channelID]
-		item.P95UseTime = percentileInt(useTimes, 0.95)
+		latencyStats.applyToChannel(&item)
 		if item.SuccessRequests > 0 {
 			item.AvgUseTime = round2(item.AvgUseTime / float64(item.SuccessRequests))
 		}
 		statsByChannel[channelID] = item
 	}
-	summary.P95UseTime = percentileInt(allUseTimes, 0.95)
+	allLatencyStats.applyToSummary(&summary)
 	if summary.SuccessRequests > 0 {
 		summary.AvgUseTime = round2(summary.AvgUseTime / float64(summary.SuccessRequests))
 	}
@@ -478,9 +487,76 @@ func aggregateModelMonitorLogs(modelName string, window ModelMonitorWindow, grou
 	return statsByChannel, summary, nil
 }
 
-func getModelMonitorUseTimes(modelName string, window ModelMonitorWindow, group string) (map[int][]int, []int, error) {
+type modelMonitorLatencyStats struct {
+	useTimes           []int
+	ttftSumSeconds     float64
+	ttftCount          int64
+	generationSeconds  float64
+	completionTokenSum int64
+}
+
+func (stats *modelMonitorLatencyStats) add(log model.Log) {
+	stats.useTimes = append(stats.useTimes, log.UseTime)
+	ttftSeconds, hasTtft := extractMonitorTtftSeconds(log.Other)
+	if !hasTtft {
+		return
+	}
+	stats.ttftSumSeconds += ttftSeconds
+	stats.ttftCount++
+	if log.CompletionTokens <= 0 {
+		return
+	}
+	generationSeconds := float64(log.UseTime) - ttftSeconds
+	if generationSeconds <= 0 {
+		generationSeconds = float64(log.UseTime)
+	}
+	if generationSeconds <= 0 {
+		return
+	}
+	stats.generationSeconds += generationSeconds
+	stats.completionTokenSum += int64(log.CompletionTokens)
+}
+
+func (stats modelMonitorLatencyStats) applyToChannel(item *ModelMonitorChannel) {
+	item.P90UseTime = percentileInt(stats.useTimes, 0.90)
+	item.P95UseTime = percentileInt(stats.useTimes, 0.95)
+	item.AvgTtft = stats.avgTtft()
+	item.TPOT = stats.tpot()
+	item.TokensPerSecond = stats.tokensPerSecond()
+}
+
+func (stats modelMonitorLatencyStats) applyToSummary(summary *ModelMonitorSummary) {
+	summary.P90UseTime = percentileInt(stats.useTimes, 0.90)
+	summary.P95UseTime = percentileInt(stats.useTimes, 0.95)
+	summary.AvgTtft = stats.avgTtft()
+	summary.TPOT = stats.tpot()
+	summary.TokensPerSecond = stats.tokensPerSecond()
+}
+
+func (stats modelMonitorLatencyStats) avgTtft() float64 {
+	if stats.ttftCount <= 0 {
+		return 0
+	}
+	return round4(stats.ttftSumSeconds / float64(stats.ttftCount))
+}
+
+func (stats modelMonitorLatencyStats) tpot() float64 {
+	if stats.completionTokenSum <= 0 || stats.generationSeconds <= 0 {
+		return 0
+	}
+	return round4(stats.generationSeconds / float64(stats.completionTokenSum))
+}
+
+func (stats modelMonitorLatencyStats) tokensPerSecond() float64 {
+	if stats.completionTokenSum <= 0 || stats.generationSeconds <= 0 {
+		return 0
+	}
+	return round2(float64(stats.completionTokenSum) / stats.generationSeconds)
+}
+
+func getModelMonitorLatencyStats(modelName string, window ModelMonitorWindow, group string) (map[int]modelMonitorLatencyStats, modelMonitorLatencyStats, error) {
 	var logs []model.Log
-	query := model.LOG_DB.Select("channel_id", "use_time").
+	query := model.LOG_DB.Select("channel_id", "use_time", "completion_tokens", "other").
 		Where("model_name = ? AND created_at >= ? AND created_at <= ? AND type = ?", modelName, window.StartTimestamp, window.EndTimestamp, model.LogTypeConsume)
 	if group = strings.TrimSpace(group); group != "" {
 		query = query.Where(modelLogGroupCol()+" = ?", group)
@@ -497,13 +573,15 @@ func getModelMonitorUseTimes(modelName string, window ModelMonitorWindow, group 
 		return tx
 	})
 	if err := query.Find(&logs).Error; err != nil {
-		return nil, nil, err
+		return nil, modelMonitorLatencyStats{}, err
 	}
-	byChannel := map[int][]int{}
-	all := make([]int, 0, len(logs))
+	byChannel := map[int]modelMonitorLatencyStats{}
+	all := modelMonitorLatencyStats{useTimes: make([]int, 0, len(logs))}
 	for _, log := range logs {
-		byChannel[log.ChannelId] = append(byChannel[log.ChannelId], log.UseTime)
-		all = append(all, log.UseTime)
+		channelStats := byChannel[log.ChannelId]
+		channelStats.add(log)
+		byChannel[log.ChannelId] = channelStats
+		all.add(log)
 	}
 	return byChannel, all, nil
 }
@@ -699,6 +777,54 @@ func percentileInt(values []int, percentile float64) int {
 	return copied[index]
 }
 
+func extractMonitorTtftSeconds(other string) (float64, bool) {
+	if strings.TrimSpace(other) == "" {
+		return 0, false
+	}
+	otherMap, err := common.StrToMap(other)
+	if err != nil || otherMap == nil {
+		return 0, false
+	}
+	for _, key := range []string{"frt", "ttft", "ttft_ms"} {
+		value, ok := otherMap[key]
+		if !ok {
+			continue
+		}
+		ms, ok := monitorFloat(value)
+		if !ok || ms < 0 {
+			return 0, false
+		}
+		return ms / 1000, true
+	}
+	return 0, false
+}
+
+func monitorFloat(value any) (float64, bool) {
+	switch v := value.(type) {
+	case float64:
+		return v, true
+	case float32:
+		return float64(v), true
+	case int:
+		return float64(v), true
+	case int64:
+		return float64(v), true
+	case int32:
+		return float64(v), true
+	case uint:
+		return float64(v), true
+	case uint64:
+		return float64(v), true
+	case uint32:
+		return float64(v), true
+	case string:
+		parsed, err := strconv.ParseFloat(strings.TrimSpace(v), 64)
+		return parsed, err == nil
+	default:
+		return 0, false
+	}
+}
+
 func extractMonitorErrorCode(other string) string {
 	if strings.TrimSpace(other) == "" {
 		return ""
@@ -743,6 +869,10 @@ func ClearModelMonitorCache() {
 
 func round2(value float64) float64 {
 	return math.Round(value*100) / 100
+}
+
+func round4(value float64) float64 {
+	return math.Round(value*10000) / 10000
 }
 
 func modelCommonGroupCol() string {
