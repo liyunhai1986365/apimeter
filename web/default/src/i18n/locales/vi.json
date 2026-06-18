@@ -630,6 +630,7 @@
     "Balance queried successfully": "Truy vấn số dư thành công",
     "Balance updated successfully": "Đã cập nhật số dư thành công",
     "Balance updated: {{balance}}": "Số dư đã cập nhật: {{balance}}",
+    "Bank card": "Thẻ ngân hàng",
     "Bar Chart": "Biểu đồ cột",
     "Bark Push URL": "URL đẩy Bark",
     "Base address provided by your Epay service": "Địa chỉ cơ sở được cung cấp bởi dịch vụ Epay của bạn",
@@ -1022,7 +1023,7 @@
     "Conditions (AND)": "Điều kiện (AND)",
     "Confidence": "Tự tin",
     "Configurable Protocol": "Giao thuc co the cau hinh",
-    "Configurable protocol channels use this profile to map submit and fetch payloads": "Kenh giao thuc co the cau hinh dung ho so nay de anh xa payload gui va truy van",
+    "Configurable protocol channels use this profile to map task payloads and resource endpoints": "Kenh giao thuc co the cau hinh dung ho so nay de anh xa payload tac vu va endpoint tai nguyen",
     "Configuration": "Cấu hình",
     "Configuration File": "Tệp Cấu hình",
     "Configuration for Creem payment integration": "Cấu hình tích hợp thanh toán Creem",
@@ -1584,6 +1585,7 @@
     "Doubao Coding Plan": "Kế hoạch lập trình Doubao",
     "Doubao custom API address editing unlocked": "Đã mở khóa chỉnh sửa địa chỉ API tùy chỉnh Doubao",
     "Doubao Seedance 2.0": "Video Doubao Seedance 2.0",
+    "Doubao Seedance 2.0 API Assets": "Tai san API Doubao Seedance 2.0",
     "DoubaoVideo": "DoubaoVideo",
     "Double check the configuration below. Your system will be locked until initialization is complete.": "Kiểm tra kỹ lại cấu hình bên dưới. Hệ thống của bạn sẽ bị khóa cho đến khi quá trình khởi tạo hoàn tất.",
     "Double-click to edit": "Nhấp đúp để chỉnh sửa",
@@ -3574,6 +3576,7 @@
     "Path Regex (one per line)": "Regex đường dẫn (mỗi dòng một mục)",
     "Path:": "Đường dẫn:",
     "Pay": "Pay",
+    "Pay Now": "Thanh toán ngay",
     "Pay with Creem": "Thanh toán bằng Creem",
     "Pay with EPay": "Thanh toán bằng EPay",
     "Pay with Stripe": "Thanh toán bằng Stripe",
@@ -4800,6 +4803,7 @@
     "Supported Models": "Mô hình hỗ trợ",
     "Supported parameters": "Tham số hỗ trợ",
     "Supported variables": "Biến được hỗ trợ",
+    "Supports": "Hỗ trợ",
     "Supports `-thinking`, `-thinking-": "Hỗ trợ `-thinking`, `-thinking-",
     "Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.": "Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.",
     "Supports concurrent API calling & Shared credits": "Supports concurrent API calling & Shared credits",
@@ -5705,9 +5709,6 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom",
-    "Bank card": "Thẻ ngân hàng",
-    "Pay Now": "Thanh toán ngay",
-    "Supports": "Hỗ trợ"
+    "Zoom": "Zoom"
   }
 }

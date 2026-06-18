@@ -56,26 +56,60 @@ func SetVideoRouter(router *gin.Engine) {
 }
 
 func registerConfigurableNativeRoutes(router *gin.Engine) {
+	registeredNativeRoutes := map[string]bool{}
+	registeredResourceRoutes := map[string]bool{}
 	for _, profile := range configurable.ListProfiles() {
-		registerConfigurableNativeSubmitRoute(router, profile)
-		registerConfigurableNativeFetchRoute(router, profile)
+		registerConfigurableNativeSubmitRoute(router, profile, registeredNativeRoutes)
+		registerConfigurableNativeFetchRoute(router, profile, registeredNativeRoutes)
+		registerConfigurableResourceRoutes(router, profile, registeredResourceRoutes)
 	}
 }
 
-func registerConfigurableNativeSubmitRoute(router *gin.Engine, profile *configurable.Profile) {
+func registerConfigurableNativeSubmitRoute(router *gin.Engine, profile *configurable.Profile, registered map[string]bool) {
 	endpoint := profile.Native.Submit
 	if endpoint.Method == "" || endpoint.Path == "" {
 		return
 	}
+	key := endpoint.Method + " " + ginPath(endpoint.Path)
+	if registered[key] {
+		return
+	}
+	registered[key] = true
 	router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(profile.ID, relayconstant.RelayModeVideoSubmit), middleware.TokenAuth(), middleware.Distribute(), controller.RelayTask)
 }
 
-func registerConfigurableNativeFetchRoute(router *gin.Engine, profile *configurable.Profile) {
+func registerConfigurableNativeFetchRoute(router *gin.Engine, profile *configurable.Profile, registered map[string]bool) {
 	endpoint := profile.Native.Fetch
 	if endpoint.Method == "" || endpoint.Path == "" {
 		return
 	}
+	key := endpoint.Method + " " + ginPath(endpoint.Path)
+	if registered[key] {
+		return
+	}
+	registered[key] = true
 	router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(profile.ID, relayconstant.RelayModeVideoFetchByID), middleware.TokenAuth(), middleware.Distribute(), controller.RelayTaskFetch)
+}
+
+func registerConfigurableResourceRoutes(router *gin.Engine, profile *configurable.Profile, registered map[string]bool) {
+	for _, resource := range profile.Resources {
+		if resource.ID == "" {
+			continue
+		}
+		endpoints := []configurable.EndpointConfig{resource.Public}
+		endpoints = append(endpoints, resource.Aliases...)
+		for _, endpoint := range endpoints {
+			if endpoint.Method == "" || endpoint.Path == "" {
+				continue
+			}
+			key := endpoint.Method + " " + ginPath(endpoint.Path)
+			if registered[key] {
+				continue
+			}
+			registered[key] = true
+			router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayConfigurableResource)
+		}
+	}
 }
 
 func ginPath(path string) string {

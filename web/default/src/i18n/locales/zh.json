@@ -630,6 +630,7 @@
     "Balance queried successfully": "余额查询成功",
     "Balance updated successfully": "余额更新成功",
     "Balance updated: {{balance}}": "余额已更新：{{balance}}",
+    "Bank card": "银行卡",
     "Bar Chart": "柱状图",
     "Bark Push URL": "Bark 推送 URL",
     "Base address provided by your Epay service": "您的 Epay 服务提供的基础地址",
@@ -1022,7 +1023,7 @@
     "Conditions (AND)": "条件（AND）",
     "Confidence": "置信度",
     "Configurable Protocol": "可配置协议",
-    "Configurable protocol channels use this profile to map submit and fetch payloads": "可配置协议渠道使用此档案映射提交和查询载荷",
+    "Configurable protocol channels use this profile to map task payloads and resource endpoints": "可配置协议渠道使用此档案映射任务载荷和资源端点",
     "Configuration": "配置",
     "Configuration File": "配置文件",
     "Configuration for Creem payment integration": "Creem 支付集成的配置",
@@ -1584,6 +1585,7 @@
     "Doubao Coding Plan": "豆包 Coding Plan",
     "Doubao custom API address editing unlocked": "已解锁豆包自定义 API 地址编辑",
     "Doubao Seedance 2.0": "豆包 Seedance 2.0",
+    "Doubao Seedance 2.0 API Assets": "豆包 Seedance 2.0 API 素材",
     "DoubaoVideo": "DoubaoVideo",
     "Double check the configuration below. Your system will be locked until initialization is complete.": "仔细检查以下配置。您的系统将在初始化完成前保持锁定状态。",
     "Double-click to edit": "双击编辑",
@@ -3574,6 +3576,7 @@
     "Path Regex (one per line)": "路径正则（每行一个）",
     "Path:": "路径：",
     "Pay": "支付",
+    "Pay Now": "立即支付",
     "Pay with Creem": "使用 Creem 支付",
     "Pay with EPay": "使用易支付",
     "Pay with Stripe": "使用 Stripe 支付",
@@ -4800,6 +4803,7 @@
     "Supported Models": "支持模型",
     "Supported parameters": "支持的参数",
     "Supported variables": "支持变量",
+    "Supports": "支持",
     "Supports `-thinking`, `-thinking-": "支持 `-thinking`、`-thinking-`",
     "Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.": "支持 Claude Code、CodeX、Open Code、OpenClaw、Cline、VS Code Copilot 等 —— 一个 Key 通用所有工具。",
     "Supports concurrent API calling & Shared credits": "支持并发 API 调用及席位共享额度",
@@ -5705,9 +5709,6 @@
     "Zero retention": "零数据保留",
     "Zhipu": "智谱",
     "Zhipu V4": "智谱 V4",
-    "Zoom": "缩放",
-    "Bank card": "银行卡",
-    "Pay Now": "立即支付",
-    "Supports": "支持"
+    "Zoom": "缩放"
   }
 }

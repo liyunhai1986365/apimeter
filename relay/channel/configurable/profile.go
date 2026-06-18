@@ -15,16 +15,17 @@ import (
 var profileFS embed.FS
 
 type Profile struct {
-	ID            string          `yaml:"id"`
-	Name          string          `yaml:"name"`
-	MediaType     string          `yaml:"media_type"`
-	AcceptedModes []string        `yaml:"accepted_modes"`
-	UpstreamModes []string        `yaml:"upstream_modes"`
-	Conversions   []ConversionRef `yaml:"conversions"`
-	Native        NativeConfig    `yaml:"native"`
-	Billing       BillingConfig   `yaml:"billing"`
-	Submit        EndpointConfig  `yaml:"submit"`
-	Fetch         EndpointConfig  `yaml:"fetch"`
+	ID            string           `yaml:"id"`
+	Name          string           `yaml:"name"`
+	MediaType     string           `yaml:"media_type"`
+	AcceptedModes []string         `yaml:"accepted_modes"`
+	UpstreamModes []string         `yaml:"upstream_modes"`
+	Conversions   []ConversionRef  `yaml:"conversions"`
+	Native        NativeConfig     `yaml:"native"`
+	Billing       BillingConfig    `yaml:"billing"`
+	Submit        EndpointConfig   `yaml:"submit"`
+	Fetch         EndpointConfig   `yaml:"fetch"`
+	Resources     []ResourceConfig `yaml:"resources"`
 }
 
 type ConversionRef struct {
@@ -62,6 +63,17 @@ type NativeEndpointConfig struct {
 	Response    ResponseConfig `yaml:"response"`
 }
 
+type ResourceConfig struct {
+	ID         string            `yaml:"id"`
+	Name       string            `yaml:"name"`
+	Public     EndpointConfig    `yaml:"public"`
+	Aliases    []EndpointConfig  `yaml:"aliases"`
+	Upstream   EndpointConfig    `yaml:"upstream"`
+	PathParams map[string]string `yaml:"path_params"`
+	Request    BodyConfig        `yaml:"request"`
+	Response   ResponseConfig    `yaml:"response"`
+}
+
 type BillingConfig struct {
 	Ratios []BillingRatioConfig `yaml:"ratios"`
 }
@@ -84,16 +96,17 @@ type BodyConfig struct {
 }
 
 type FieldMapping struct {
-	To                string `yaml:"to"`
-	From              string `yaml:"from"`
-	FallbackFrom      string `yaml:"fallback_from"`
-	Transform         string `yaml:"transform"`
-	MediaType         string `yaml:"media_type"`
-	FirstOnly         bool   `yaml:"first_only"`
-	WhenModelContains string `yaml:"when_model_contains"`
-	Append            bool   `yaml:"append"`
-	Value             any    `yaml:"value"`
-	OmitEmpty         bool   `yaml:"omit_empty"`
+	To                string   `yaml:"to"`
+	From              string   `yaml:"from"`
+	FallbackFrom      string   `yaml:"fallback_from"`
+	FallbackFroms     []string `yaml:"fallback_froms"`
+	Transform         string   `yaml:"transform"`
+	MediaType         string   `yaml:"media_type"`
+	FirstOnly         bool     `yaml:"first_only"`
+	WhenModelContains string   `yaml:"when_model_contains"`
+	Append            bool     `yaml:"append"`
+	Value             any      `yaml:"value"`
+	OmitEmpty         bool     `yaml:"omit_empty"`
 }
 
 type ResponseConfig struct {
@@ -145,6 +158,80 @@ func GetProfile(id string) (*Profile, bool) {
 	}
 	cp := *profile
 	return &cp, true
+}
+
+func (p *Profile) ResourceByID(id string) (*ResourceConfig, bool) {
+	if p == nil {
+		return nil, false
+	}
+	id = strings.TrimSpace(id)
+	for _, resource := range p.Resources {
+		if strings.TrimSpace(resource.ID) == id {
+			cp := resource
+			return &cp, true
+		}
+	}
+	return nil, false
+}
+
+func (p *Profile) ResourceForEndpoint(method, path string) (*ResourceConfig, bool) {
+	if p == nil {
+		return nil, false
+	}
+	method = strings.ToUpper(strings.TrimSpace(method))
+	path = strings.TrimSpace(path)
+	for _, resource := range p.Resources {
+		for _, endpoint := range resourcePublicEndpoints(resource) {
+			if strings.ToUpper(strings.TrimSpace(endpoint.Method)) != method {
+				continue
+			}
+			if !nativePathMatches(endpoint.Path, path) {
+				continue
+			}
+			cp := resource
+			return &cp, true
+		}
+	}
+	return nil, false
+}
+
+func MatchResource(method, path string) (*Profile, *ResourceConfig, bool) {
+	profiles, err := loadProfiles()
+	if err != nil {
+		return nil, nil, false
+	}
+	method = strings.ToUpper(strings.TrimSpace(method))
+	path = strings.TrimSpace(path)
+	for _, profile := range profiles {
+		for _, resource := range profile.Resources {
+			for _, endpoint := range resourcePublicEndpoints(resource) {
+				if strings.ToUpper(strings.TrimSpace(endpoint.Method)) != method {
+					continue
+				}
+				if !nativePathMatches(endpoint.Path, path) {
+					continue
+				}
+				profileCopy := *profile
+				resourceCopy := resource
+				return &profileCopy, &resourceCopy, true
+			}
+		}
+	}
+	return nil, nil, false
+}
+
+func resourcePublicEndpoints(resource ResourceConfig) []EndpointConfig {
+	endpoints := make([]EndpointConfig, 0, 1+len(resource.Aliases))
+	if strings.TrimSpace(resource.Public.Method) != "" && strings.TrimSpace(resource.Public.Path) != "" {
+		endpoints = append(endpoints, resource.Public)
+	}
+	for _, alias := range resource.Aliases {
+		if strings.TrimSpace(alias.Method) == "" || strings.TrimSpace(alias.Path) == "" {
+			continue
+		}
+		endpoints = append(endpoints, alias)
+	}
+	return endpoints
 }
 
 func MatchNativeSubmit(method, path string) (*Profile, bool) {

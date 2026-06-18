@@ -32,13 +32,23 @@ type ModelRequest struct {
 }
 
 const (
-	ContextKeyConfigurableNativeProfileID = "configurable_native_profile_id"
+	ContextKeyConfigurableNativeProfileID   = "configurable_native_profile_id"
+	ContextKeyConfigurableResourceProfileID = "configurable_resource_profile_id"
+	ContextKeyConfigurableResourceID        = "configurable_resource_id"
 )
 
 func ConfigurableNativeProfile(profileID string, relayMode int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set(ContextKeyConfigurableNativeProfileID, profileID)
 		c.Set("relay_mode", relayMode)
+		c.Next()
+	}
+}
+
+func ConfigurableResource(profileID, resourceID string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(ContextKeyConfigurableResourceProfileID, profileID)
+		c.Set(ContextKeyConfigurableResourceID, resourceID)
 		c.Next()
 	}
 }

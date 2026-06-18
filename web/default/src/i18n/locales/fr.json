@@ -630,6 +630,7 @@
     "Balance queried successfully": "Solde interrogé avec succès",
     "Balance updated successfully": "Solde mis à jour avec succès",
     "Balance updated: {{balance}}": "Solde mis à jour : {{balance}}",
+    "Bank card": "Carte bancaire",
     "Bar Chart": "Graphique en barres",
     "Bark Push URL": "URL de notification Bark",
     "Base address provided by your Epay service": "Adresse de base fournie par votre service Epay",
@@ -1022,7 +1023,7 @@
     "Conditions (AND)": "Conditions (ET)",
     "Confidence": "Confiance",
     "Configurable Protocol": "Protocole configurable",
-    "Configurable protocol channels use this profile to map submit and fetch payloads": "Les canaux a protocole configurable utilisent ce profil pour mapper les charges de soumission et de recuperation",
+    "Configurable protocol channels use this profile to map task payloads and resource endpoints": "Les canaux a protocole configurable utilisent ce profil pour mapper les charges de taches et les points de terminaison de ressources",
     "Configuration": "Configuration",
     "Configuration File": "Fichier de configuration",
     "Configuration for Creem payment integration": "Configuration pour l'intégration de paiement Creem",
@@ -1584,6 +1585,7 @@
     "Doubao Coding Plan": "Plan Doubao Coding",
     "Doubao custom API address editing unlocked": "Édition d'adresse API personnalisée Doubao déverrouillée",
     "Doubao Seedance 2.0": "Video Doubao Seedance 2.0",
+    "Doubao Seedance 2.0 API Assets": "Actifs API Doubao Seedance 2.0",
     "DoubaoVideo": "DoubaoVideo",
     "Double check the configuration below. Your system will be locked until initialization is complete.": "Vérifiez la configuration ci-dessous. Votre système sera verrouillé jusqu'à ce que l'initialisation soit terminée.",
     "Double-click to edit": "Double-cliquez pour modifier",
@@ -3574,6 +3576,7 @@
     "Path Regex (one per line)": "Regex du chemin (un par ligne)",
     "Path:": "Chemin :",
     "Pay": "Pay",
+    "Pay Now": "Payer maintenant",
     "Pay with Creem": "Payer avec Creem",
     "Pay with EPay": "Payer avec EPay",
     "Pay with Stripe": "Payer avec Stripe",
@@ -4800,6 +4803,7 @@
     "Supported Models": "Modèles pris en charge",
     "Supported parameters": "Paramètres pris en charge",
     "Supported variables": "Variables supportées",
+    "Supports": "Prend en charge",
     "Supports `-thinking`, `-thinking-": "Prend en charge `-thinking`, `-thinking-",
     "Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.": "Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.",
     "Supports concurrent API calling & Shared credits": "Supports concurrent API calling & Shared credits",
@@ -5705,9 +5709,6 @@
     "Zero retention": "Aucune rétention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom",
-    "Bank card": "Carte bancaire",
-    "Pay Now": "Payer maintenant",
-    "Supports": "Prend en charge"
+    "Zoom": "Zoom"
   }
 }

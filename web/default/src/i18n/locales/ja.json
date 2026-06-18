@@ -630,6 +630,7 @@
     "Balance queried successfully": "残高の取得に成功しました",
     "Balance updated successfully": "残高が正常に更新されました",
     "Balance updated: {{balance}}": "残高更新：{{balance}}",
+    "Bank card": "銀行カード",
     "Bar Chart": "棒グラフ",
     "Bark Push URL": "BarkプッシュURL",
     "Base address provided by your Epay service": "Epayサービスによって提供されるベースアドレス",
@@ -1022,7 +1023,7 @@
     "Conditions (AND)": "条件（AND）",
     "Confidence": "信頼度",
     "Configurable Protocol": "設定可能なプロトコル",
-    "Configurable protocol channels use this profile to map submit and fetch payloads": "設定可能なプロトコルチャンネルはこのプロファイルで送信と取得のペイロードをマッピングします",
+    "Configurable protocol channels use this profile to map task payloads and resource endpoints": "設定可能なプロトコルチャンネルはこのプロファイルでタスクペイロードとリソースエンドポイントをマッピングします",
     "Configuration": "設定",
     "Configuration File": "設定ファイル",
     "Configuration for Creem payment integration": "Creem決済統合の設定",
@@ -1584,6 +1585,7 @@
     "Doubao Coding Plan": "豆包 Coding Plan",
     "Doubao custom API address editing unlocked": "豆包カスタムAPI アドレス編集がアンロックされました",
     "Doubao Seedance 2.0": "Doubao Seedance 2.0 動画",
+    "Doubao Seedance 2.0 API Assets": "Doubao Seedance 2.0 API アセット",
     "DoubaoVideo": "DoubaoVideo",
     "Double check the configuration below. Your system will be locked until initialization is complete.": "下記の設定を再確認してください。初期化が完了するまでシステムはロックされます。",
     "Double-click to edit": "ダブルクリックして編集",
@@ -3574,6 +3576,7 @@
     "Path Regex (one per line)": "パス正規表現（1行に1つ）",
     "Path:": "パス：",
     "Pay": "Pay",
+    "Pay Now": "今すぐ支払う",
     "Pay with Creem": "Creem で支払う",
     "Pay with EPay": "EPay で支払う",
     "Pay with Stripe": "Stripe で支払う",
@@ -4800,6 +4803,7 @@
     "Supported Models": "対応モデル",
     "Supported parameters": "対応パラメータ",
     "Supported variables": "サポートされる変数",
+    "Supports": "対応",
     "Supports `-thinking`, `-thinking-": "「-thinking」、「-thinking-」をサポートします",
     "Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.": "Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.",
     "Supports concurrent API calling & Shared credits": "Supports concurrent API calling & Shared credits",
@@ -5705,9 +5709,6 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム",
-    "Bank card": "銀行カード",
-    "Pay Now": "今すぐ支払う",
-    "Supports": "対応"
+    "Zoom": "ズーム"
   }
 }

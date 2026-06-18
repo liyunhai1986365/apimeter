@@ -80,6 +80,38 @@ func TestTaskAdaptorBuildsMappedSubmitRequest(t *testing.T) {
 	}
 }
 
+func TestBuildConfiguredResponseUsesMultipleFallbackSources(t *testing.T) {
+	responseBody, err := BuildConfiguredResponse(ResponseConfig{
+		Fields: []FieldMapping{
+			{To: "code", Value: 0},
+			{To: "message", Value: "ok"},
+			{
+				To:            "data.Id",
+				From:          "data.Id",
+				FallbackFrom:  "id",
+				FallbackFroms: []string{"asset_id"},
+			},
+		},
+	}, []byte(`{"asset_id":"asset-from-material"}`), nil)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"code":0,"message":"ok","data":{"Id":"asset-from-material"}}`, string(responseBody))
+}
+
+func TestBuildConfiguredResponsePrefersPrimarySourceBeforeFallbacks(t *testing.T) {
+	responseBody, err := BuildConfiguredResponse(ResponseConfig{
+		Fields: []FieldMapping{
+			{
+				To:            "data.Id",
+				From:          "data.Id",
+				FallbackFrom:  "id",
+				FallbackFroms: []string{"asset_id"},
+			},
+		},
+	}, []byte(`{"data":{"Id":"asset-from-api"},"id":"asset-from-id","asset_id":"asset-from-material"}`), nil)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"data":{"Id":"asset-from-api"}}`, string(responseBody))
+}
+
 func TestTaskAdaptorBuildsHappyHorseTextToVideoRequest(t *testing.T) {
 	body := buildHappyHorseRequestBody(t, []byte(`{
 		"model":"happyhorse-1.0-t2v",

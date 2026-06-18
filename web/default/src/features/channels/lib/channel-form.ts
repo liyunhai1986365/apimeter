@@ -71,6 +71,10 @@ export const PROTOCOL_PROFILE_OPTIONS = [
     value: 'doubao-seedance-2',
   },
   {
+    label: 'Doubao Seedance 2.0 API Assets',
+    value: 'doubao-seedance-2-api-assets',
+  },
+  {
     label: 'Apixo GPT Image 2',
     value: 'apixo-gpt-image-2',
   },

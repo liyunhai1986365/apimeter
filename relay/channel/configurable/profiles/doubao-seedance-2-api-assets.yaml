@@ -1,5 +1,5 @@
-id: doubao-seedance-2
-name: Doubao Seedance 2.0
+id: doubao-seedance-2-api-assets
+name: Doubao Seedance 2.0 API Assets
 media_type: video
 accepted_modes:
   - openai.video.generations
@@ -152,19 +152,14 @@ fetch:
         from: usage.completion_tokens
         omit_empty: true
 resources:
-  - id: material_assets
-    name: Material Assets
+  - id: assets_upload
+    name: Assets Upload
     public:
       method: POST
-      path: /material/assets
-    aliases:
-      - method: POST
-        path: /api/assets/upload
-      - method: POST
-        path: /api/assets
+      path: /api/assets/upload
     upstream:
       method: POST
-      path: /material/assets
+      path: /api/assets/upload
     request:
       fields:
         - to: url
@@ -175,27 +170,34 @@ resources:
           from: body.name
           omit_empty: true
     response:
+      passthrough: true
+  - id: assets_create
+    name: Assets Create
+    public:
+      method: POST
+      path: /api/assets
+    upstream:
+      method: POST
+      path: /api/assets
+    request:
       fields:
-        - to: code
-          value: 0
-        - to: message
-          value: ok
-        - to: data.Id
-          from: data.Id
-          fallback_from: id
-          fallback_froms:
-            - asset_id
-  - id: material_assets_list
-    name: Material Assets List
+        - to: url
+          from: body.url
+        - to: asset_type
+          from: body.asset_type
+        - to: name
+          from: body.name
+          omit_empty: true
+    response:
+      passthrough: true
+  - id: assets_list
+    name: Assets List
     public:
       method: GET
-      path: /material/assets
-    aliases:
-      - method: GET
-        path: /api/assets
+      path: /api/assets
     upstream:
       method: GET
-      path: /material/assets
+      path: /api/assets
     request:
       fields:
         - to: page
@@ -218,33 +220,23 @@ resources:
           omit_empty: true
     response:
       passthrough: true
-  - id: material_asset_detail
-    name: Material Asset Detail
+  - id: asset_detail
+    name: Asset Detail
     public:
       method: GET
-      path: /material/assets/{asset_id}
-    aliases:
-      - method: GET
-        path: /api/assets/{id}
+      path: /api/assets/{id}
     upstream:
       method: GET
-      path: /material/assets/{asset_id}
-    path_params:
-      asset_id: id
+      path: /api/assets/{id}
     response:
       passthrough: true
-  - id: material_asset_delete
-    name: Material Asset Delete
+  - id: asset_delete
+    name: Asset Delete
     public:
       method: DELETE
-      path: /material/assets/{asset_id}
-    aliases:
-      - method: DELETE
-        path: /api/assets/{id}
+      path: /api/assets/{id}
     upstream:
       method: DELETE
-      path: /material/assets/{asset_id}
-    path_params:
-      asset_id: id
+      path: /api/assets/{id}
     response:
       passthrough: true

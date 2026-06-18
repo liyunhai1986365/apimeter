@@ -3464,7 +3464,7 @@ export function ChannelMutateDrawer({
                             </Select>
                             <FormDescription>
                               {t(
-                                'Configurable protocol channels use this profile to map submit and fetch payloads'
+                                'Configurable protocol channels use this profile to map task payloads and resource endpoints'
                               )}
                             </FormDescription>
                             <FormMessage />

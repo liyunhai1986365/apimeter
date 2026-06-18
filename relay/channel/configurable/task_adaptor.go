@@ -505,9 +505,9 @@ func buildMappedMap(fields []FieldMapping, source map[string]any, info *relaycom
 		if field.From != "" {
 			value = valueFromSource(field.From, source, info)
 		}
-		if isEmptyValue(value) && field.FallbackFrom != "" {
-			value = valueFromSource(field.FallbackFrom, source, info)
-		}
+		value = firstFallbackValue(value, field, func(path string) any {
+			return valueFromSource(path, source, info)
+		})
 		var err error
 		value, err = applyFieldTransform(field.Transform, value, field)
 		if err != nil {
@@ -530,6 +530,10 @@ func buildMappedMap(fields []FieldMapping, source map[string]any, info *relaycom
 		return nil, err
 	}
 	return body, nil
+}
+
+func BuildMappedMap(fields []FieldMapping, source map[string]any, info *relaycommon.RelayInfo) (map[string]any, error) {
+	return buildMappedMap(fields, source, info)
 }
 
 func appendJSONValue(jsonText string, path string, value any) (string, error) {
@@ -810,6 +814,9 @@ func buildConfiguredResponse(config ResponseConfig, upstream []byte, info *relay
 			if field.From != "" {
 				value = responseValueFromSource(field.From, source, info)
 			}
+			value = firstFallbackValue(value, field, func(path string) any {
+				return responseValueFromSource(path, source, info)
+			})
 			var err error
 			value, err = applyFieldTransform(field.Transform, value, field)
 			if err != nil {
@@ -832,6 +839,32 @@ func buildConfiguredResponse(config ResponseConfig, upstream []byte, info *relay
 	return common.Marshal(body)
 }
 
+func BuildConfiguredResponse(config ResponseConfig, upstream []byte, info *relaycommon.RelayInfo) ([]byte, error) {
+	return buildConfiguredResponse(config, upstream, info)
+}
+
+func firstFallbackValue(value any, field FieldMapping, sourceValue func(string) any) any {
+	if !isEmptyValue(value) {
+		return value
+	}
+	fallbacks := make([]string, 0, 1+len(field.FallbackFroms))
+	if strings.TrimSpace(field.FallbackFrom) != "" {
+		fallbacks = append(fallbacks, field.FallbackFrom)
+	}
+	fallbacks = append(fallbacks, field.FallbackFroms...)
+	for _, fallback := range fallbacks {
+		fallback = strings.TrimSpace(fallback)
+		if fallback == "" {
+			continue
+		}
+		value = sourceValue(fallback)
+		if !isEmptyValue(value) {
+			return value
+		}
+	}
+	return value
+}
+
 func applyOpenAIVideoResponseFields(config ResponseConfig, body []byte, upstream []byte, info *relaycommon.RelayInfo) ([]byte, error) {
 	if len(config.Fields) == 0 {
 		return body, nil
@@ -847,6 +880,9 @@ func applyOpenAIVideoResponseFields(config ResponseConfig, body []byte, upstream
 		if field.From != "" {
 			value = responseValueFromSource(field.From, source, info)
 		}
+		value = firstFallbackValue(value, field, func(path string) any {
+			return responseValueFromSource(path, source, info)
+		})
 		var err error
 		value, err = applyFieldTransform(field.Transform, value, field)
 		if err != nil {
