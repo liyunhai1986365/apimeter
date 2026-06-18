@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { type ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import {
   Tooltip,
   TooltipContent,
@@ -442,8 +443,8 @@ export function usePricingColumns(
     // Enable Groups column
     {
       accessorKey: 'enable_groups',
-      meta: { label: t('Groups') },
-      header: t('Groups'),
+      meta: { label: t(USER_FACING_GROUP_TERMS.plural) },
+      header: t(USER_FACING_GROUP_TERMS.plural),
       cell: ({ row }) => {
         const groups = row.original.enable_groups || []
         if (groups.length === 0) {

@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -182,7 +183,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
   const groupOptions: FilterOption[] = [
     {
       value: FILTER_ALL,
-      label: t('All Groups'),
+      label: t(USER_FACING_GROUP_TERMS.all),
     },
     ...props.groups.map((group) => ({
       value: group,
@@ -292,7 +293,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
           onChange={props.onCategoryChange}
         />
         <FilterSection
-          title={t('Groups')}
+          title={t(USER_FACING_GROUP_TERMS.plural)}
           value={props.groupFilter}
           options={groupOptions}
           onChange={props.onGroupChange}

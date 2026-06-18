@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Button } from '@/components/ui/button'
 import {
@@ -986,7 +987,7 @@ function GroupPricingSection(props: {
     return (
       <section>
         <SectionTitle className={cn(isPage && 'mb-4')}>
-          {t('Pricing by Group')}
+          {t(USER_FACING_GROUP_TERMS.pricingBy)}
         </SectionTitle>
         <AutoGroupChain
           model={props.model}
@@ -1013,7 +1014,7 @@ function GroupPricingSection(props: {
       return (
         <section>
           <SectionTitle className={cn(isPage && 'mb-4')}>
-            {t('Pricing by Group')}
+            {t(USER_FACING_GROUP_TERMS.pricingBy)}
           </SectionTitle>
           <AutoGroupChain
             model={props.model}
@@ -1062,7 +1063,7 @@ function GroupPricingSection(props: {
     return (
       <section>
         <SectionTitle className={cn(isPage && 'mb-4')}>
-          {t('Pricing by Group')}
+          {t(USER_FACING_GROUP_TERMS.pricingBy)}
         </SectionTitle>
         <GroupPricingMetaRow
           model={props.model}
@@ -1158,7 +1159,7 @@ function GroupPricingSection(props: {
   return (
     <section>
       <SectionTitle className={cn(isPage && 'mb-4')}>
-        {t('Pricing by Group')}
+        {t(USER_FACING_GROUP_TERMS.pricingBy)}
       </SectionTitle>
       <GroupPricingMetaRow
         model={props.model}
@@ -1176,7 +1177,9 @@ function GroupPricingSection(props: {
         <Table className='text-sm'>
           <TableHeader>
             <TableRow className='hover:bg-transparent'>
-              <TableHead className={thClass}>{t('Group')}</TableHead>
+              <TableHead className={thClass}>
+                {t(USER_FACING_GROUP_TERMS.single)}
+              </TableHead>
               <TableHead className={thClass}>{t('Discount')}</TableHead>
               {isTokenBased ? (
                 <>

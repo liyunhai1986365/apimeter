@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { StatusBadge, type StatusBadgeProps } from './status-badge'
@@ -50,7 +51,7 @@ function getGroupLabel(params: {
 }): string {
   if (params.labelOverride) return params.labelOverride
   if (params.isEmptyGroup) return params.t('User Group')
-  if (params.isAutoGroup) return params.t('auto 自动分组')
+  if (params.isAutoGroup) return params.t(USER_FACING_GROUP_TERMS.autoLabel)
   return params.groupName ?? ''
 }
 

@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -76,6 +77,7 @@ export function ApiKeyGroupOrderSelector({
   disabled,
 }: ApiKeyGroupOrderSelectorProps) {
   const { t } = useTranslation()
+  const groupTerms = USER_FACING_GROUP_TERMS
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const selected = normalizeChain(value)
@@ -216,7 +218,7 @@ export function ApiKeyGroupOrderSelector({
         >
           <span className='flex items-center gap-2'>
             <Plus className='size-4' />
-            {t('Add group')}
+            {t(groupTerms.add)}
           </span>
           <ChevronsUpDown className='size-4 opacity-50' />
         </PopoverTrigger>
@@ -233,7 +235,7 @@ export function ApiKeyGroupOrderSelector({
               onValueChange={setSearchValue}
             />
             <CommandList className='max-h-[320px]'>
-              <CommandEmpty>{t('No group found.')}</CommandEmpty>
+              <CommandEmpty>{t(groupTerms.noneFound)}</CommandEmpty>
               <CommandGroup>
                 {filteredOptions.map((option) => (
                   <CommandItem

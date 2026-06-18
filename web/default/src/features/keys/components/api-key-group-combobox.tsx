@@ -21,6 +21,7 @@ import { Check, ChevronsUpDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -120,6 +121,7 @@ export function ApiKeyGroupCombobox({
   disabled,
 }: ApiKeyGroupComboboxProps) {
   const { t } = useTranslation()
+  const groupTerms = USER_FACING_GROUP_TERMS
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const selectedOption = options.find((option) => option.value === value)
@@ -165,7 +167,7 @@ export function ApiKeyGroupCombobox({
         <span className='flex min-w-0 flex-1 items-center justify-between gap-2 sm:gap-3'>
           <span className='min-w-0'>
             <span className='block truncate font-medium'>
-              {selectedOption?.label || placeholder || t('Select a group')}
+              {selectedOption?.label || placeholder || t(groupTerms.selectOne)}
             </span>
             {selectedDescription && (
               <span className='text-muted-foreground block truncate text-[11px] sm:text-xs'>
@@ -192,7 +194,7 @@ export function ApiKeyGroupCombobox({
             onValueChange={setSearchValue}
           />
           <CommandList className='max-h-[360px]'>
-            <CommandEmpty>{t('No group found.')}</CommandEmpty>
+            <CommandEmpty>{t(groupTerms.noneFound)}</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
                 <CommandItem

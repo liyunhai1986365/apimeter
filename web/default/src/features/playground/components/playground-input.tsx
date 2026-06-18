@@ -193,6 +193,7 @@ export function PlaygroundInput({
               disabled={disabled}
               modelDisabled={isModelSelectDisabled}
               groupDisabled={isGroupSelectDisabled}
+              userFacingGroupLabels
             />
 
             {isGenerating && onStop ? (

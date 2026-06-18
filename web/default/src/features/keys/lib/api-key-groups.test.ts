@@ -108,10 +108,10 @@ describe('api key group options', () => {
     )
 
     assert.equal(options[0]?.value, AUTO_GROUP_VALUE)
-    assert.equal(options[0]?.label, 'auto 自动分组')
+    assert.equal(options[0]?.label, 'auto 自动供应商')
     assert.equal(
       options[0]?.desc,
-      'Automatically selects the best available group with circuit breaker mechanism'
+      'Automatically selects the best available supplier with circuit breaker mechanism'
     )
     assert.equal(options[1]?.value, 'default')
   })
@@ -129,7 +129,7 @@ describe('api key group options', () => {
       options.filter((option) => option.value === AUTO_GROUP_VALUE).length,
       1
     )
-    assert.equal(options[0]?.label, 'auto 自动分组')
+    assert.equal(options[0]?.label, 'auto 自动供应商')
     assert.equal(options[0]?.desc, 'Backend auto')
   })
 

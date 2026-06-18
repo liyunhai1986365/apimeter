@@ -21,6 +21,7 @@ import { ChevronsUpDown, Check, CpuIcon, LayersIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
@@ -74,6 +75,7 @@ interface GroupSelectorProps {
   onGroupChange: (value: string) => void
   className?: string
   disabled?: boolean
+  userFacingLabels?: boolean
 }
 
 const ModelTriggerButton = React.forwardRef<
@@ -352,11 +354,19 @@ ModelSelector.displayName = 'ModelSelector'
  * Styled following Scira's form-component design patterns
  */
 export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
-  ({ selectedGroup, groups, onGroupChange, className, disabled = false }) => {
+  ({
+    selectedGroup,
+    groups,
+    onGroupChange,
+    className,
+    disabled = false,
+    userFacingLabels = false,
+  }) => {
     const { t } = useTranslation()
     const discountLabels = useGroupDiscountLabels()
     const [open, setOpen] = useState(false)
     const isMobile = useIsMobile()
+    const groupTerms = USER_FACING_GROUP_TERMS
 
     const currentGroup = useMemo(
       () => groups.find((g) => g.value === selectedGroup),
@@ -395,14 +405,21 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
           return searchableFields.includes(searchTerm) ? 1 : 0
         }}
       >
-        <CommandInput placeholder={t('Search groups...')} className='h-9' />
-        <CommandEmpty>{t('No group found.')}</CommandEmpty>
+        <CommandInput
+          placeholder={t(
+            userFacingLabels ? groupTerms.search : 'Search groups...'
+          )}
+          className='h-9'
+        />
+        <CommandEmpty>
+          {t(userFacingLabels ? groupTerms.noneFound : 'No group found.')}
+        </CommandEmpty>
         <CommandList
           className={isMobile ? '!max-h-full flex-1 p-2' : 'max-h-[240px]'}
         >
           <CommandGroup>
             <div className='text-muted-foreground px-2 py-1 text-[10px] font-medium'>
-              {t('Model Group')}
+              {t(userFacingLabels ? groupTerms.modelGroup : 'Model Group')}
             </div>
             {groups.map((group) => {
               const discount = formatGroupDiscount(group.ratio, discountLabels)
@@ -460,7 +477,10 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
           <Drawer open={open} onOpenChange={setOpen}>
             <DrawerTrigger asChild>
               <GroupTriggerButton
-                currentLabel={currentGroup?.label || t('Group')}
+                currentLabel={
+                  currentGroup?.label ||
+                  t(userFacingLabels ? groupTerms.single : 'Group')
+                }
                 triggerClassName={className}
                 isDisabled={disabled}
                 aria-expanded={open}
@@ -468,7 +488,9 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
             </DrawerTrigger>
             <DrawerContent className='max-h-[80vh]'>
               <DrawerHeader className='pb-4 text-left'>
-                <DrawerTitle>{t('Choose Group')}</DrawerTitle>
+                <DrawerTitle>
+                  {t(userFacingLabels ? groupTerms.choose : 'Choose Group')}
+                </DrawerTitle>
               </DrawerHeader>
               <div className='max-h-[calc(80vh-100px)] overflow-y-auto px-4 pb-6'>
                 <div className='space-y-2'>
@@ -530,7 +552,10 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
             <PopoverTrigger
               render={
                 <GroupTriggerButton
-                  currentLabel={currentGroup?.label || t('Group')}
+                  currentLabel={
+                    currentGroup?.label ||
+                    t(userFacingLabels ? groupTerms.single : 'Group')
+                  }
                   triggerClassName={className}
                   isDisabled={disabled}
                   aria-expanded={open}
@@ -570,6 +595,7 @@ export interface ModelGroupSelectorProps {
   disabled?: boolean
   modelDisabled?: boolean
   groupDisabled?: boolean
+  userFacingGroupLabels?: boolean
 }
 
 /**
@@ -587,6 +613,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
   disabled = false,
   modelDisabled = false,
   groupDisabled = false,
+  userFacingGroupLabels = false,
 }) => {
   return (
     <div className={cn('flex items-center gap-2', className)}>
@@ -595,6 +622,7 @@ export const ModelGroupSelector: React.FC<ModelGroupSelectorProps> = ({
         groups={groups}
         onGroupChange={onGroupChange}
         disabled={disabled || groupDisabled}
+        userFacingLabels={userFacingGroupLabels}
       />
       <ModelSelector
         selectedModel={selectedModel}

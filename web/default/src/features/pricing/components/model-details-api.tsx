@@ -31,6 +31,7 @@ import { useTranslation } from 'react-i18next'
 import type { BundledLanguage } from 'shiki/bundle/web'
 import { cn } from '@/lib/utils'
 import { getPublicServerAddress } from '@/lib/server-address'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { useStatus } from '@/hooks/use-status'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -710,7 +711,9 @@ function RateLimitsSection(props: {
         <Table>
           <TableHeader>
             <TableRow className='bg-muted/30 hover:bg-muted/30'>
-              <TableHead className='h-9 text-xs'>{t('Group')}</TableHead>
+              <TableHead className='h-9 text-xs'>
+                {t(USER_FACING_GROUP_TERMS.single)}
+              </TableHead>
               <TableHead className='h-9 text-right text-xs'>RPM</TableHead>
               <TableHead className='h-9 text-right text-xs'>TPM</TableHead>
               <TableHead className='h-9 text-right text-xs'>RPD</TableHead>

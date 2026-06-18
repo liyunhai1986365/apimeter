@@ -16,12 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import type { ApiKeyGroupOption } from '../components/api-key-group-combobox'
 
 export const AUTO_GROUP_VALUE = 'auto'
-export const AUTO_GROUP_LABEL = 'auto 自动分组'
+export const AUTO_GROUP_LABEL = 'auto 自动供应商'
 export const AUTO_GROUP_DESCRIPTION =
-  'Automatically selects the best available group with circuit breaker mechanism'
+  USER_FACING_GROUP_TERMS.autoDescription
 
 type UserGroupInfo = {
   desc: string

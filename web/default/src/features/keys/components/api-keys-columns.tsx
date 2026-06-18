@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next'
 import { getUserGroups } from '@/lib/api'
 import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Tooltip,
@@ -143,7 +144,10 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
     {
       accessorKey: 'group',
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title={t('Group')} />
+        <DataTableColumnHeader
+          column={column}
+          title={t(USER_FACING_GROUP_TERMS.single)}
+        />
       ),
       cell: ({ row }) => {
         const apiKey = row.original
@@ -163,7 +167,7 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
                   <>
                     <span className='text-muted-foreground/30'>·</span>
                     <span className='text-muted-foreground/60'>
-                      {t('Cross-group')}
+                      {t(USER_FACING_GROUP_TERMS.crossRetryShort)}
                     </span>
                   </>
                 )}
@@ -171,7 +175,7 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
               <TooltipContent>
                 <span className='text-xs'>
                   {t(
-                    'Automatically selects the best available group with circuit breaker mechanism'
+                    USER_FACING_GROUP_TERMS.autoDescription
                   )}
                 </span>
               </TooltipContent>
@@ -223,7 +227,7 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
           </Tooltip>
         )
       },
-      meta: { label: t('Group'), mobileHidden: true },
+      meta: { label: t(USER_FACING_GROUP_TERMS.single), mobileHidden: true },
     },
     {
       id: 'model_limits',

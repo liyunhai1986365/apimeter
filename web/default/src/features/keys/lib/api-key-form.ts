@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { z } from 'zod'
 import type { TFunction } from 'i18next'
 import { parseQuotaFromDollars, quotaUnitsToDollars } from '@/lib/format'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { DEFAULT_GROUP } from '../constants'
 import { type ApiKeyFormData, type ApiKey } from '../types'
 import { AUTO_GROUP_VALUE } from './api-key-groups'
@@ -43,7 +44,9 @@ export function getApiKeyFormSchema(t: TFunction) {
       unlimited_quota: z.boolean(),
       model_limits: z.array(z.string()),
       allow_ips: z.string().optional(),
-      group_chain: z.array(z.string()).min(1, t('Select at least one group')),
+      group_chain: z
+        .array(z.string())
+        .min(1, t(USER_FACING_GROUP_TERMS.selectAtLeastOne)),
       cross_group_retry: z.boolean().optional(),
       image_response_format: z
         .enum(['follow_request', 'url', 'b64_json'])

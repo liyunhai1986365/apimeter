@@ -21,6 +21,7 @@ import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, HeartPulse, Timer } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import {
   Table,
   TableBody,
@@ -259,14 +260,16 @@ export function ModelDetailsPerformance(props: {
       <section>
         <SectionHeader
           icon={HeartPulse}
-          title={t('Per-group performance')}
+          title={t(USER_FACING_GROUP_TERMS.perPerformance)}
           description={t('Average latency, TTFT, TPS, and success rate')}
         />
         <div className='overflow-x-auto rounded-lg border'>
           <Table className='text-sm'>
             <TableHeader>
               <TableRow className='hover:bg-transparent'>
-                <TableHead className={headerCellClass}>{t('Group')}</TableHead>
+                <TableHead className={headerCellClass}>
+                  {t(USER_FACING_GROUP_TERMS.single)}
+                </TableHead>
                 <TableHead className={`${headerCellClass} text-right`}>
                   TPS
                 </TableHead>

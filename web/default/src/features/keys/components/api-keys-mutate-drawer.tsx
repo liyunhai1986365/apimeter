@@ -32,6 +32,7 @@ import { toast } from 'sonner'
 import { getUserModels, getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -199,6 +200,7 @@ export function ApiKeysMutateDrawer({
   side = 'right',
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
+  const groupTerms = USER_FACING_GROUP_TERMS
   const isUpdate = !!currentRow
   const { triggerRefresh, selectedWorkspaceId } = useApiKeys()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -412,7 +414,7 @@ export function ApiKeysMutateDrawer({
                 name='group_chain'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t('Group call order')}</FormLabel>
+                    <FormLabel>{t(groupTerms.callOrder)}</FormLabel>
                     <FormControl>
                       <ApiKeyGroupOrderSelector
                         options={groups}
@@ -422,7 +424,7 @@ export function ApiKeysMutateDrawer({
                     </FormControl>
                     <FormDescription>
                       {t(
-                        'Requests use the groups in this order. auto keeps the current automatic group selection.'
+                        groupTerms.requestOrderDescription
                       )}
                     </FormDescription>
                     <FormMessage />
@@ -438,11 +440,11 @@ export function ApiKeysMutateDrawer({
                     <FormItem className='flex min-h-16 flex-row items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:min-h-20 sm:gap-4 sm:px-4 sm:py-3'>
                       <div className='space-y-0.5'>
                         <FormLabel className='text-sm'>
-                          {t('Cross-group retry')}
+                          {t(groupTerms.crossRetry)}
                         </FormLabel>
                         <FormDescription className='line-clamp-2 text-xs sm:line-clamp-none'>
                           {t(
-                            'When enabled, if channels in the current group fail, it will try channels in the next group in order.'
+                            groupTerms.crossRetryDescription
                           )}
                         </FormDescription>
                       </div>
