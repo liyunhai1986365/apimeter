@@ -54,6 +54,7 @@ type GroupFormValues = {
   UserUsableGroups: string
   GroupGroupRatio: string
   AutoGroups: string
+  GroupDisplayConfig: string
   DefaultUseAutoGroup: boolean
   GroupSpecialUsableGroup: string
 }
@@ -120,6 +121,7 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               userUsableGroups={form.watch('UserUsableGroups')}
               groupGroupRatio={form.watch('GroupGroupRatio')}
               autoGroups={form.watch('AutoGroups')}
+              groupDisplayConfig={form.watch('GroupDisplayConfig')}
               onChange={(field, value) =>
                 handleFieldChange(field as keyof GroupFormValues, value)
               }
@@ -254,6 +256,25 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                   <FormDescription>
                     {t(
                       'JSON array of group identifiers. When enabled below, new tokens rotate through this list.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='GroupDisplayConfig'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Group display configuration')}</FormLabel>
+                  <FormControl>
+                    <Textarea rows={8} {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'JSON object defining display categories and per-group display order.'
                     )}
                   </FormDescription>
                   <FormMessage />

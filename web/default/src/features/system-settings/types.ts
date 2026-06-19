@@ -210,6 +210,7 @@ export type ModelSettings = {
   UserUsableGroups: string
   GroupGroupRatio: string
   AutoGroups: string
+  GroupDisplayConfig: string
   DefaultUseAutoGroup: boolean
   'group_ratio_setting.group_special_usable_group': string
   'channel_affinity_setting.enabled': boolean
@@ -259,6 +260,7 @@ export type BillingSettings = {
   UserUsableGroups: string
   GroupGroupRatio: string
   AutoGroups: string
+  GroupDisplayConfig: string
   DefaultUseAutoGroup: boolean
   'group_ratio_setting.group_special_usable_group': string
   PayAddress: string

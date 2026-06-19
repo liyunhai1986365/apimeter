@@ -20,8 +20,8 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { AlertTriangle, HeartPulse, Timer } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { cn } from '@/lib/utils'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
+import { cn } from '@/lib/utils'
 import {
   Table,
   TableBody,
@@ -36,8 +36,12 @@ import {
   formatThroughput,
   formatUptimePct,
 } from '@/features/performance-metrics/lib/format'
-import type { PerformanceGroup } from '@/features/performance-metrics/types'
 import { type UptimeDayPoint } from '../lib/mock-stats'
+import {
+  toGroupedLatencySeries,
+  toGroupedUptimeSeries,
+  toGroupUptimeSeries,
+} from '../lib/performance-series'
 import type { PricingModel } from '../types'
 import { LatencyTrendChart, UptimeTrendChart } from './model-details-charts'
 import {
@@ -87,66 +91,6 @@ type PerformanceRow = {
   avg_tps: number
 }
 
-function toLatencySeries(groups: PerformanceGroup[]) {
-  const byTs = new Map<number, number[]>()
-  for (const group of groups) {
-    for (const point of group.series) {
-      if (point.avg_ttft_ms <= 0) continue
-      const current = byTs.get(point.ts) ?? []
-      current.push(point.avg_ttft_ms)
-      byTs.set(point.ts, current)
-    }
-  }
-
-  return Array.from(byTs.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([ts, values]) => ({
-      timestamp: new Date(ts * 1000).toISOString(),
-      group: 'latency',
-      ttft_ms: Math.round(
-        values.reduce((sum, value) => sum + value, 0) / values.length
-      ),
-    }))
-}
-
-function toUptimeSeries(groups: PerformanceGroup[]): UptimeDayPoint[] {
-  const byTs = new Map<number, { rates: number[]; incidents: number }>()
-  for (const group of groups) {
-    for (const point of group.series) {
-      const current = byTs.get(point.ts) ?? { rates: [], incidents: 0 }
-      if (Number.isFinite(point.success_rate)) {
-        current.rates.push(point.success_rate)
-        if (point.success_rate < 100) current.incidents += 1
-      }
-      byTs.set(point.ts, current)
-    }
-  }
-  return Array.from(byTs.entries())
-    .sort(([a], [b]) => a - b)
-    .map(([ts, value]) => {
-      const uptime =
-        value.rates.length > 0
-          ? value.rates.reduce((sum, rate) => sum + rate, 0) /
-            value.rates.length
-          : 0
-      return {
-        date: new Date(ts * 1000).toISOString(),
-        uptime_pct: Math.round(uptime * 100) / 100,
-        incidents: value.incidents,
-        outage_minutes: 0,
-      }
-    })
-}
-
-function toGroupUptimeSeries(group: PerformanceGroup): UptimeDayPoint[] {
-  return group.series.map((point) => ({
-    date: new Date(point.ts * 1000).toISOString(),
-    uptime_pct: Math.round(point.success_rate * 100) / 100,
-    incidents: point.success_rate < 100 ? 1 : 0,
-    outage_minutes: 0,
-  }))
-}
-
 function average(
   rows: PerformanceRow[],
   field: 'avg_ttft_ms' | 'avg_latency_ms'
@@ -183,8 +127,14 @@ export function ModelDetailsPerformance(props: {
       })),
     [groups]
   )
-  const latencySeries = useMemo(() => toLatencySeries(groups), [groups])
-  const uptimeSeries = useMemo(() => toUptimeSeries(groups), [groups])
+  const latencySeries = useMemo(
+    () => toGroupedLatencySeries(groups, props.usableGroup),
+    [groups, props.usableGroup]
+  )
+  const uptimeSeries = useMemo(
+    () => toGroupedUptimeSeries(groups, props.usableGroup),
+    [groups, props.usableGroup]
+  )
   const uptimeByGroup = useMemo<Record<string, UptimeDayPoint[]>>(() => {
     const map: Record<string, UptimeDayPoint[]> = {}
     for (const group of groups) {

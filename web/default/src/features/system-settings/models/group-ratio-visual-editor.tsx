@@ -17,7 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useMemo, useEffect, useCallback, memo } from 'react'
-import { Pencil, Plus, Trash2, GripVertical, ChevronDown } from 'lucide-react'
+import {
+  ArrowDown,
+  ArrowUp,
+  ChevronDown,
+  GripVertical,
+  Pencil,
+  Plus,
+  Trash2,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
@@ -43,6 +51,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Table,
   TableBody,
@@ -59,6 +68,7 @@ type GroupRatioVisualEditorProps = {
   userUsableGroups: string
   groupGroupRatio: string
   autoGroups: string
+  groupDisplayConfig: string
   onChange: (field: string, value: string) => void
 }
 
@@ -73,6 +83,25 @@ type GroupPricingRow = {
   ratio: number
   selectable: boolean
   description: string
+  categoryId: string
+  order: number
+}
+
+type GroupDisplayCategory = {
+  id: string
+  name: string
+  order: number
+}
+
+type GroupDisplayGroup = {
+  group: string
+  category_id: string
+  order: number
+}
+
+type GroupDisplayConfig = {
+  categories: GroupDisplayCategory[]
+  groups: GroupDisplayGroup[]
 }
 
 type GroupOverride = {
@@ -97,7 +126,8 @@ function normalizeRatio(value: unknown): number {
 
 function buildGroupPricingRows(
   groupRatio: string,
-  userUsableGroups: string
+  userUsableGroups: string,
+  groupDisplayConfig: string
 ): GroupPricingRow[] {
   const ratioMap = safeJsonParse<Record<string, number>>(groupRatio, {
     fallback: {},
@@ -107,38 +137,201 @@ function buildGroupPricingRows(
     fallback: {},
     context: 'user usable groups',
   })
+  const displayConfig = parseGroupDisplayConfig(groupDisplayConfig)
+  const displayGroupMap = new Map(
+    displayConfig.groups.map((item) => [item.group, item])
+  )
+  const categoryOrder = buildCategoryOrderMap(displayConfig.categories)
   const names = new Set([...Object.keys(ratioMap), ...Object.keys(usableMap)])
 
-  return Array.from(names).map((name) => ({
-    _id: createGroupPricingId(),
-    name,
-    ratio: normalizeRatio(ratioMap[name]),
-    selectable: Object.prototype.hasOwnProperty.call(usableMap, name),
-    description: String(usableMap[name] ?? ''),
-  }))
+  return Array.from(names)
+    .map((name, index) => {
+      const display = displayGroupMap.get(name)
+      return {
+        _id: createGroupPricingId(),
+        name,
+        ratio: normalizeRatio(ratioMap[name]),
+        selectable: Object.prototype.hasOwnProperty.call(usableMap, name),
+        description: String(usableMap[name] ?? ''),
+        categoryId: display?.category_id ?? '',
+        order: display?.order ?? (index + 1) * 10,
+      }
+    })
+    .sort((a, b) => compareGroupPricingRows(a, b, categoryOrder))
 }
 
-function serializeGroupPricingRows(rows: GroupPricingRow[]) {
+function parseGroupDisplayConfig(value: string): GroupDisplayConfig {
+  const parsed = safeJsonParse<GroupDisplayConfig>(value, {
+    fallback: { categories: [], groups: [] },
+    context: 'group display config',
+  })
+  return normalizeGroupDisplayConfig(parsed)
+}
+
+function normalizeGroupDisplayConfig(
+  config: Partial<GroupDisplayConfig> | null | undefined
+): GroupDisplayConfig {
+  const seenCategories = new Set<string>()
+  const categories = (
+    Array.isArray(config?.categories) ? config?.categories : []
+  )
+    .map((category) => ({
+      id: String(category.id ?? '').trim(),
+      name: String(category.name ?? '').trim(),
+      order: normalizeDisplayOrder(category.order),
+    }))
+    .filter((category) => {
+      if (!category.id || seenCategories.has(category.id)) return false
+      seenCategories.add(category.id)
+      return true
+    })
+    .map((category) => ({
+      ...category,
+      name: category.name || category.id,
+    }))
+    .sort(compareCategories)
+
+  const categoryIds = new Set(categories.map((category) => category.id))
+  const seenGroups = new Set<string>()
+  const groups = (Array.isArray(config?.groups) ? config?.groups : [])
+    .map((group) => ({
+      group: String(group.group ?? '').trim(),
+      category_id: String(group.category_id ?? '').trim(),
+      order: normalizeDisplayOrder(group.order),
+    }))
+    .filter((group) => {
+      if (!group.group || seenGroups.has(group.group)) return false
+      seenGroups.add(group.group)
+      return true
+    })
+    .map((group) => ({
+      ...group,
+      category_id: categoryIds.has(group.category_id) ? group.category_id : '',
+    }))
+
+  const categoryOrder = buildCategoryOrderMap(categories)
+  groups.sort((a, b) =>
+    compareGroupPricingRows(
+      {
+        _id: '',
+        name: a.group,
+        ratio: 1,
+        selectable: true,
+        description: '',
+        categoryId: a.category_id,
+        order: a.order,
+      },
+      {
+        _id: '',
+        name: b.group,
+        ratio: 1,
+        selectable: true,
+        description: '',
+        categoryId: b.category_id,
+        order: b.order,
+      },
+      categoryOrder
+    )
+  )
+
+  return { categories, groups }
+}
+
+function serializeGroupPricingRows(
+  rows: GroupPricingRow[],
+  categories: GroupDisplayCategory[]
+) {
   const groupRatio: Record<string, number> = {}
   const userUsableGroups: Record<string, string> = {}
+  const normalizedCategories = normalizeGroupDisplayConfig({
+    categories,
+    groups: [],
+  }).categories
+  const categoryIds = new Set(normalizedCategories.map((item) => item.id))
+  const groups: GroupDisplayGroup[] = []
 
-  for (const row of rows) {
+  for (const [index, row] of rows.entries()) {
     const name = row.name.trim()
     if (!name) continue
     groupRatio[name] = normalizeRatio(row.ratio)
     if (row.selectable) {
       userUsableGroups[name] = row.description
     }
+    groups.push({
+      group: name,
+      category_id: categoryIds.has(row.categoryId) ? row.categoryId : '',
+      order: normalizeDisplayOrder(row.order || (index + 1) * 10),
+    })
   }
 
   return {
     GroupRatio: JSON.stringify(groupRatio, null, 2),
     UserUsableGroups: JSON.stringify(userUsableGroups, null, 2),
+    GroupDisplayConfig: JSON.stringify(
+      normalizeGroupDisplayConfig({
+        categories: normalizedCategories,
+        groups,
+      }),
+      null,
+      2
+    ),
   }
 }
 
-function groupPricingSignature(rows: GroupPricingRow[]): string {
-  const serialized = serializeGroupPricingRows(rows)
+function normalizeDisplayOrder(value: unknown): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function compareCategories(
+  left: GroupDisplayCategory,
+  right: GroupDisplayCategory
+) {
+  if (left.order !== right.order) return left.order - right.order
+  if (left.name !== right.name) return left.name.localeCompare(right.name)
+  return left.id.localeCompare(right.id)
+}
+
+function buildCategoryOrderMap(categories: GroupDisplayCategory[]) {
+  return new Map(categories.map((category, index) => [category.id, index]))
+}
+
+function compareGroupPricingRows(
+  left: GroupPricingRow,
+  right: GroupPricingRow,
+  categoryOrder: Map<string, number>
+) {
+  const leftCategoryOrder =
+    categoryOrder.get(left.categoryId) ?? Number.MAX_SAFE_INTEGER
+  const rightCategoryOrder =
+    categoryOrder.get(right.categoryId) ?? Number.MAX_SAFE_INTEGER
+  if (leftCategoryOrder !== rightCategoryOrder) {
+    return leftCategoryOrder - rightCategoryOrder
+  }
+  if (left.order !== right.order) return left.order - right.order
+  return left.name.localeCompare(right.name)
+}
+
+function normalizeRowOrders(rows: GroupPricingRow[]) {
+  return rows.map((row, index) => ({ ...row, order: (index + 1) * 10 }))
+}
+
+function normalizeCategoryOrders(categories: GroupDisplayCategory[]) {
+  return categories.map((category, index) => ({
+    ...category,
+    order: (index + 1) * 10,
+  }))
+}
+
+function stableConfigSignature(value: unknown) {
+  return JSON.stringify(value)
+}
+
+function groupPricingSignature(
+  rows: GroupPricingRow[],
+  categories: GroupDisplayCategory[]
+): string {
+  const serialized = serializeGroupPricingRows(rows, categories)
   return JSON.stringify({
     groupRatio: safeJsonParse(serialized.GroupRatio, {
       fallback: {},
@@ -148,12 +341,17 @@ function groupPricingSignature(rows: GroupPricingRow[]): string {
       fallback: {},
       silent: true,
     }),
+    groupDisplay: safeJsonParse(serialized.GroupDisplayConfig, {
+      fallback: { categories: [], groups: [] },
+      silent: true,
+    }),
   })
 }
 
 function sourceGroupPricingSignature(
   groupRatio: string,
-  userUsableGroups: string
+  userUsableGroups: string,
+  groupDisplayConfig: string
 ): string {
   return JSON.stringify({
     groupRatio: safeJsonParse(groupRatio, { fallback: {}, silent: true }),
@@ -161,6 +359,7 @@ function sourceGroupPricingSignature(
       fallback: {},
       silent: true,
     }),
+    groupDisplay: parseGroupDisplayConfig(groupDisplayConfig),
   })
 }
 
@@ -170,6 +369,7 @@ export const GroupRatioVisualEditor = memo(function GroupRatioVisualEditor({
   userUsableGroups,
   groupGroupRatio,
   autoGroups,
+  groupDisplayConfig,
   onChange,
 }: GroupRatioVisualEditorProps) {
   const { t } = useTranslation()
@@ -413,6 +613,7 @@ export const GroupRatioVisualEditor = memo(function GroupRatioVisualEditor({
       <GroupPricingTable
         groupRatio={groupRatio}
         userUsableGroups={userUsableGroups}
+        groupDisplayConfig={groupDisplayConfig}
         onChange={onChange}
       />
 
@@ -753,40 +954,72 @@ export const GroupRatioVisualEditor = memo(function GroupRatioVisualEditor({
 type GroupPricingTableProps = {
   groupRatio: string
   userUsableGroups: string
+  groupDisplayConfig: string
   onChange: (field: string, value: string) => void
 }
 
 function GroupPricingTable({
   groupRatio,
   userUsableGroups,
+  groupDisplayConfig,
   onChange,
 }: GroupPricingTableProps) {
   const { t } = useTranslation()
+  const [categories, setCategories] = useState<GroupDisplayCategory[]>(
+    () => parseGroupDisplayConfig(groupDisplayConfig).categories
+  )
   const [rows, setRows] = useState<GroupPricingRow[]>(() =>
-    buildGroupPricingRows(groupRatio, userUsableGroups)
+    buildGroupPricingRows(groupRatio, userUsableGroups, groupDisplayConfig)
   )
 
   useEffect(() => {
+    const incomingDisplayConfig = parseGroupDisplayConfig(groupDisplayConfig)
     const incomingSignature = sourceGroupPricingSignature(
       groupRatio,
-      userUsableGroups
+      userUsableGroups,
+      groupDisplayConfig
     )
+    setCategories((currentCategories) => {
+      if (
+        stableConfigSignature(currentCategories) ===
+        stableConfigSignature(incomingDisplayConfig.categories)
+      ) {
+        return currentCategories
+      }
+      return incomingDisplayConfig.categories
+    })
     setRows((currentRows) => {
-      if (groupPricingSignature(currentRows) === incomingSignature) {
+      if (
+        groupPricingSignature(currentRows, incomingDisplayConfig.categories) ===
+        incomingSignature
+      ) {
         return currentRows
       }
-      return buildGroupPricingRows(groupRatio, userUsableGroups)
+      return buildGroupPricingRows(
+        groupRatio,
+        userUsableGroups,
+        groupDisplayConfig
+      )
     })
-  }, [groupRatio, userUsableGroups])
+  }, [groupDisplayConfig, groupRatio, userUsableGroups])
 
   const emitRows = useCallback(
-    (nextRows: GroupPricingRow[]) => {
-      setRows(nextRows)
-      const serialized = serializeGroupPricingRows(nextRows)
+    (
+      nextRows: GroupPricingRow[],
+      nextCategories: GroupDisplayCategory[] = categories
+    ) => {
+      const categoryOrder = buildCategoryOrderMap(nextCategories)
+      const sortedRows = [...nextRows].sort((a, b) =>
+        compareGroupPricingRows(a, b, categoryOrder)
+      )
+      setRows(sortedRows)
+      setCategories(nextCategories)
+      const serialized = serializeGroupPricingRows(sortedRows, nextCategories)
       onChange('GroupRatio', serialized.GroupRatio)
       onChange('UserUsableGroups', serialized.UserUsableGroups)
+      onChange('GroupDisplayConfig', serialized.GroupDisplayConfig)
     },
-    [onChange]
+    [categories, onChange]
   )
 
   const updateRow = useCallback(
@@ -818,6 +1051,8 @@ function GroupPricingTable({
         ratio: 1,
         selectable: true,
         description: '',
+        categoryId: '',
+        order: (rows.length + 1) * 10,
       },
     ])
   }, [emitRows, rows])
@@ -825,6 +1060,82 @@ function GroupPricingTable({
   const removeRow = useCallback(
     (id: string) => {
       emitRows(rows.filter((row) => row._id !== id))
+    },
+    [emitRows, rows]
+  )
+
+  const addCategory = useCallback(() => {
+    const existingIds = new Set(categories.map((category) => category.id))
+    let index = 1
+    let id = `category_${index}`
+    while (existingIds.has(id)) {
+      index += 1
+      id = `category_${index}`
+    }
+    emitRows(rows, [
+      ...categories,
+      { id, name: t('New category'), order: (categories.length + 1) * 10 },
+    ])
+  }, [categories, emitRows, rows, t])
+
+  const updateCategory = useCallback(
+    (
+      oldId: string,
+      field: keyof GroupDisplayCategory,
+      value: string | number
+    ) => {
+      const nextCategories = categories.map((category) =>
+        category.id === oldId ? { ...category, [field]: value } : category
+      )
+      const nextRows =
+        field === 'id'
+          ? rows.map((row) =>
+              row.categoryId === oldId
+                ? { ...row, categoryId: String(value) }
+                : row
+            )
+          : rows
+      emitRows(nextRows, nextCategories)
+    },
+    [categories, emitRows, rows]
+  )
+
+  const removeCategory = useCallback(
+    (categoryId: string) => {
+      emitRows(
+        rows.map((row) =>
+          row.categoryId === categoryId ? { ...row, categoryId: '' } : row
+        ),
+        categories.filter((category) => category.id !== categoryId)
+      )
+    },
+    [categories, emitRows, rows]
+  )
+
+  const moveCategory = useCallback(
+    (index: number, direction: 'up' | 'down') => {
+      const nextIndex = direction === 'up' ? index - 1 : index + 1
+      if (nextIndex < 0 || nextIndex >= categories.length) return
+      const nextCategories = [...categories]
+      ;[nextCategories[index], nextCategories[nextIndex]] = [
+        nextCategories[nextIndex],
+        nextCategories[index],
+      ]
+      emitRows(rows, normalizeCategoryOrders(nextCategories))
+    },
+    [categories, emitRows, rows]
+  )
+
+  const moveRow = useCallback(
+    (index: number, direction: 'up' | 'down') => {
+      const nextIndex = direction === 'up' ? index - 1 : index + 1
+      if (nextIndex < 0 || nextIndex >= rows.length) return
+      const nextRows = [...rows]
+      ;[nextRows[index], nextRows[nextIndex]] = [
+        nextRows[nextIndex],
+        nextRows[index],
+      ]
+      emitRows(normalizeRowOrders(nextRows))
     },
     [emitRows, rows]
   )
@@ -860,12 +1171,91 @@ function GroupPricingTable({
         </div>
       </CardHeader>
       <CardContent>
-        <div className='space-y-3'>
+        <div className='space-y-5'>
+          <div className='bg-muted/15 rounded-lg border p-3'>
+            <div className='mb-3 flex items-center justify-between gap-3'>
+              <div>
+                <div className='text-sm font-medium'>
+                  {t('Group categories')}
+                </div>
+                <p className='text-muted-foreground text-xs'>
+                  {t('Manage category names and display order.')}
+                </p>
+              </div>
+              <Button onClick={addCategory} size='sm' variant='outline'>
+                <Plus className='mr-2 h-4 w-4' />
+                {t('Add category')}
+              </Button>
+            </div>
+
+            {categories.length === 0 ? (
+              <div className='text-muted-foreground rounded-md border border-dashed px-3 py-4 text-center text-sm'>
+                {t('No categories yet. Groups without a category appear last.')}
+              </div>
+            ) : (
+              <div className='space-y-2'>
+                {categories.map((category, index) => (
+                  <div
+                    key={`${category.id}-${index}`}
+                    className='bg-background grid gap-2 rounded-md border p-2 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]'
+                  >
+                    <Input
+                      value={category.id}
+                      placeholder={t('Category ID')}
+                      onChange={(event) =>
+                        updateCategory(category.id, 'id', event.target.value)
+                      }
+                    />
+                    <Input
+                      value={category.name}
+                      placeholder={t('Category name')}
+                      onChange={(event) =>
+                        updateCategory(category.id, 'name', event.target.value)
+                      }
+                    />
+                    <div className='flex items-center justify-end gap-1'>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        disabled={index === 0}
+                        onClick={() => moveCategory(index, 'up')}
+                        aria-label={t('Move up')}
+                      >
+                        <ArrowUp className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        disabled={index === categories.length - 1}
+                        onClick={() => moveCategory(index, 'down')}
+                        aria-label={t('Move down')}
+                      >
+                        <ArrowDown className='h-4 w-4' />
+                      </Button>
+                      <Button
+                        variant='ghost'
+                        size='sm'
+                        onClick={() => removeCategory(category.id)}
+                        aria-label={t('Delete category')}
+                      >
+                        <Trash2 className='h-4 w-4' />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className='overflow-hidden rounded-md border'>
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className='w-24'>{t('Order')}</TableHead>
                   <TableHead className='min-w-40'>{t('Group name')}</TableHead>
+                  <TableHead className='min-w-36'>
+                    {t('Display category')}
+                  </TableHead>
                   <TableHead className='w-28'>{t('Ratio')}</TableHead>
                   <TableHead className='w-28 text-center'>
                     {t('User selectable')}
@@ -880,7 +1270,7 @@ function GroupPricingTable({
                 {rows.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={7}
                       className='text-muted-foreground h-20 text-center text-sm'
                     >
                       {t('No groups yet. Add a group to get started.')}
@@ -889,6 +1279,29 @@ function GroupPricingTable({
                 ) : (
                   rows.map((row) => (
                     <TableRow key={row._id}>
+                      <TableCell>
+                        <div className='flex items-center gap-1'>
+                          <GripVertical className='text-muted-foreground h-4 w-4' />
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            disabled={rows.indexOf(row) === 0}
+                            onClick={() => moveRow(rows.indexOf(row), 'up')}
+                            aria-label={t('Move up')}
+                          >
+                            <ArrowUp className='h-4 w-4' />
+                          </Button>
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            disabled={rows.indexOf(row) === rows.length - 1}
+                            onClick={() => moveRow(rows.indexOf(row), 'down')}
+                            aria-label={t('Move down')}
+                          >
+                            <ArrowDown className='h-4 w-4' />
+                          </Button>
+                        </div>
+                      </TableCell>
                       <TableCell>
                         <Input
                           value={row.name}
@@ -899,6 +1312,27 @@ function GroupPricingTable({
                             row.name.trim()
                           )}
                         />
+                      </TableCell>
+                      <TableCell>
+                        <NativeSelect
+                          value={row.categoryId}
+                          onChange={(event) =>
+                            updateRow(row._id, 'categoryId', event.target.value)
+                          }
+                          className='w-full'
+                        >
+                          <NativeSelectOption value=''>
+                            {t('Uncategorized')}
+                          </NativeSelectOption>
+                          {categories.map((category) => (
+                            <NativeSelectOption
+                              key={category.id}
+                              value={category.id}
+                            >
+                              {category.name}
+                            </NativeSelectOption>
+                          ))}
+                        </NativeSelect>
                       </TableCell>
                       <TableCell>
                         <Input

@@ -84,12 +84,12 @@ import type { ModelSettings } from '@/features/system-settings/types'
 import { safeJsonParse } from '@/features/system-settings/utils/json-parser'
 import { createModel, updateModel, getModel, getVendors } from '../../api'
 import { getNameRuleOptions } from '../../constants'
+import { modelsQueryKeys, vendorsQueryKeys, parseModelTags } from '../../lib'
 import {
   convertRatioValuesToPriceValues,
   normalizeModelPricingValuesForInputMode,
   syncModelPricingMaps,
 } from '../../lib/model-pricing-sync'
-import { modelsQueryKeys, vendorsQueryKeys, parseModelTags } from '../../lib'
 import type { Model } from '../../types'
 import { EndpointConfigEditor } from '../endpoint-config-editor'
 
@@ -290,6 +290,7 @@ export function ModelMutateDrawer({
       UserUsableGroups: '',
       GroupGroupRatio: '',
       AutoGroups: '',
+      GroupDisplayConfig: '{"categories":[],"groups":[]}',
       DefaultUseAutoGroup: false,
       CreateCacheRatio: '',
       'group_ratio_setting.group_special_usable_group': '{}',
@@ -1654,11 +1655,11 @@ export function ModelMutateDrawer({
                       <FormField
                         control={form.control}
                         name='cacheRatio'
-	                        render={({ field }) => (
-	                          <FormItem>
-	                            <FormLabel>
-	                              {pricingSubMode === 'price'
-	                                ? t('Cache read price')
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {pricingSubMode === 'price'
+                                ? t('Cache read price')
                                 : t('Cache ratio')}
                             </FormLabel>
                             <FormControl>

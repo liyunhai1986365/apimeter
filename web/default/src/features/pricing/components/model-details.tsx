@@ -89,6 +89,7 @@ import type {
   Modality,
   ModelCapability,
   PriceType,
+  PricingGroupDisplayConfig,
   PricingModel,
   TokenUnit,
 } from '../types'
@@ -889,6 +890,7 @@ function GroupPricingSection(props: {
   model: PricingModel
   groupRatio: Record<string, number>
   usableGroup: PricingUsableGroupMap
+  groupDisplay?: PricingGroupDisplayConfig
   priceRate: number
   usdExchangeRate: number
   tokenUnit: TokenUnit
@@ -901,8 +903,13 @@ function GroupPricingSection(props: {
   const isPage = props.variant === 'page'
 
   const availableGroups = useMemo(
-    () => getAvailableGroups(props.model, props.usableGroup || {}),
-    [props.model, props.usableGroup]
+    () =>
+      getAvailableGroups(
+        props.model,
+        props.usableGroup || {},
+        props.groupDisplay
+      ),
+    [props.model, props.usableGroup, props.groupDisplay]
   )
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics', props.model.model_name],
@@ -1172,6 +1179,7 @@ export interface ModelDetailsContentProps {
   model: PricingModel
   groupRatio: Record<string, number>
   usableGroup: PricingUsableGroupMap
+  groupDisplay?: PricingGroupDisplayConfig
   endpointMap: Record<string, { path?: string; method?: string }>
   autoGroups: string[]
   priceRate: number
@@ -1240,6 +1248,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               model={props.model}
               groupRatio={props.groupRatio}
               usableGroup={props.usableGroup}
+              groupDisplay={props.groupDisplay}
               priceRate={props.priceRate}
               usdExchangeRate={props.usdExchangeRate}
               tokenUnit={props.tokenUnit}
@@ -1320,6 +1329,7 @@ export function ModelDetails() {
     models,
     groupRatio,
     usableGroup,
+    groupDisplay,
     endpointMap,
     autoGroups,
     isLoading,
@@ -1414,6 +1424,7 @@ export function ModelDetails() {
             model={model}
             groupRatio={groupRatio || {}}
             usableGroup={usableGroup || {}}
+            groupDisplay={groupDisplay}
             autoGroups={autoGroups || []}
             priceRate={priceRate ?? 1}
             usdExchangeRate={usdExchangeRate ?? 1}

@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { EXCLUDED_GROUPS, QUOTA_TYPE_VALUES } from '../constants'
-import type { PricingModel } from '../types'
+import type { PricingGroupDisplayConfig, PricingModel } from '../types'
 
 // ----------------------------------------------------------------------------
 // Model Helper Utilities
@@ -28,15 +28,53 @@ import type { PricingModel } from '../types'
  */
 export function getAvailableGroups(
   model: PricingModel,
-  usableGroup: Record<string, string | { desc?: string; ratio?: number }>
+  usableGroup: Record<string, string | { desc?: string; ratio?: number }>,
+  groupDisplay?: PricingGroupDisplayConfig
 ): string[] {
   const modelEnableGroups = Array.isArray(model.enable_groups)
     ? model.enable_groups
     : []
 
+  const categoryOrder = new Map(
+    (groupDisplay?.categories ?? [])
+      .slice()
+      .sort((a, b) => {
+        if (a.order !== b.order) return a.order - b.order
+        if (a.name !== b.name) return a.name.localeCompare(b.name)
+        return a.id.localeCompare(b.id)
+      })
+      .map((category, index) => [category.id, index])
+  )
+  const groupOrder = new Map(
+    (groupDisplay?.groups ?? []).map((item) => [
+      item.group,
+      {
+        categoryOrder:
+          categoryOrder.get(item.category_id) ?? Number.MAX_SAFE_INTEGER,
+        groupOrder: item.order,
+      },
+    ])
+  )
+
   return Object.keys(usableGroup)
     .filter((g) => !EXCLUDED_GROUPS.includes(g))
     .filter((g) => modelEnableGroups.includes(g))
+    .sort((a, b) => {
+      const aOrder = groupOrder.get(a)
+      const bOrder = groupOrder.get(b)
+      const aConfigured = aOrder !== undefined
+      const bConfigured = bOrder !== undefined
+      if (aConfigured !== bConfigured) return aConfigured ? -1 : 1
+      if (aOrder && bOrder) {
+        if (aOrder.categoryOrder !== bOrder.categoryOrder) {
+          return aOrder.categoryOrder - bOrder.categoryOrder
+        }
+        if (aOrder.groupOrder !== bOrder.groupOrder) {
+          return aOrder.groupOrder - bOrder.groupOrder
+        }
+      }
+      return a.localeCompare(b)
+    })
 }
 
 /**

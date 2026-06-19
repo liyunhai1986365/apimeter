@@ -21,10 +21,12 @@ import { VChart } from '@visactor/react-vchart'
 import { useTranslation } from 'react-i18next'
 import { useThemeRadiusPx } from '@/lib/theme-radius'
 import { useChartTheme } from '@/lib/use-chart-theme'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
 import { VCHART_OPTION } from '@/lib/vchart'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
 import type { LatencyTimePoint, UptimeDayPoint } from '../lib/mock-stats'
+import type { GroupedUptimePoint } from '../lib/performance-series'
 
 function formatHourLabel(iso: string): string {
   const date = new Date(iso)
@@ -79,11 +81,19 @@ export function LatencyTrendChart(props: {
       line: {
         style: { lineWidth: 2 },
       },
-      legends: { visible: false },
+      legends: {
+        visible: true,
+        orient: 'bottom',
+        padding: { top: 8 },
+      },
       tooltip: {
         mark: {
           title: { value: (d: { time: string }) => d.time },
           content: [
+            {
+              key: t(USER_FACING_GROUP_TERMS.single),
+              value: (d: { group: string }) => d.group,
+            },
             {
               key: t('Average TTFT'),
               value: (d: { ttft: number }) => `${Math.round(d.ttft)} ms`,
@@ -146,7 +156,7 @@ export function LatencyTrendChart(props: {
 // ---------------------------------------------------------------------------
 
 export function UptimeTrendChart(props: {
-  series: UptimeDayPoint[]
+  series: Array<UptimeDayPoint | GroupedUptimePoint>
   className?: string
 }) {
   const { t } = useTranslation()
@@ -157,6 +167,7 @@ export function UptimeTrendChart(props: {
 
     const data = props.series.map((point) => ({
       date: formatDayLabel(point.date),
+      group: 'group' in point ? point.group : t('Availability'),
       uptime: point.uptime_pct,
       incidents: point.incidents,
       outage: point.outage_minutes,
@@ -167,9 +178,10 @@ export function UptimeTrendChart(props: {
       data: [{ id: 'uptime', values: data }],
       xField: 'date',
       yField: 'uptime',
+      seriesField: 'group',
       smooth: true,
       line: {
-        style: { stroke: '#10b981', lineWidth: 2 },
+        style: { lineWidth: 2 },
       },
       point: {
         visible: true,
@@ -184,10 +196,19 @@ export function UptimeTrendChart(props: {
           },
         },
       },
+      legends: {
+        visible: true,
+        orient: 'bottom',
+        padding: { top: 8 },
+      },
       tooltip: {
         mark: {
           title: { value: (d: { date: string }) => d.date },
           content: [
+            {
+              key: t(USER_FACING_GROUP_TERMS.single),
+              value: (d: { group: string }) => d.group,
+            },
             {
               key: t('Uptime'),
               value: (d: { uptime: number }) => `${d.uptime.toFixed(2)}%`,

@@ -28,6 +28,23 @@ export type PricingVendor = {
   sort_order?: number
 }
 
+export type PricingGroupDisplayCategory = {
+  id: string
+  name: string
+  order: number
+}
+
+export type PricingGroupDisplayGroup = {
+  group: string
+  category_id: string
+  order: number
+}
+
+export type PricingGroupDisplayConfig = {
+  categories: PricingGroupDisplayCategory[]
+  groups: PricingGroupDisplayGroup[]
+}
+
 export type PricingModel = {
   id: number
   model_name: string
@@ -119,6 +136,7 @@ export type PricingData = {
   vendors: PricingVendor[]
   group_ratio: Record<string, number>
   usable_group: Record<string, string | { desc?: string; ratio?: number }>
+  group_display?: PricingGroupDisplayConfig
   supported_endpoint: Record<
     string,
     {
