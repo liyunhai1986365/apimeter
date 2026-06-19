@@ -117,12 +117,21 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Policy selecting group: %s, priorityRetry: %d", policyGroup, priorityRetry)
 
-			channel, err = model.GetRandomSatisfiedChannelWithFilter(policyGroup, param.ModelName, priorityRetry, filter)
-			if err != nil && !errors.Is(err, model.ErrNoChannelMatchedFilter) {
-				return nil, policyGroup, err
-			}
-			if errors.Is(err, model.ErrNoChannelMatchedFilter) && shouldStopOnProtocolMismatch(param) {
-				return nil, policyGroup, unsupportedProtocolError(param)
+			if model.IsUserOwnedProviderGroup(policyGroup) {
+				channel, err = model.GetUserOwnedProviderChannelForGroup(common.GetContextKeyInt(param.Ctx, constant.ContextKeyUserId), policyGroup, param.ModelName)
+				if err == nil {
+					common.SetContextKey(param.Ctx, constant.ContextKeyTokenBillingSource, BillingSourceUserOwnedProvider)
+				} else if shouldStopOnProtocolMismatch(param) {
+					return nil, policyGroup, err
+				}
+			} else {
+				channel, err = model.GetRandomSatisfiedChannelWithFilter(policyGroup, param.ModelName, priorityRetry, filter)
+				if err != nil && !errors.Is(err, model.ErrNoChannelMatchedFilter) {
+					return nil, policyGroup, err
+				}
+				if errors.Is(err, model.ErrNoChannelMatchedFilter) && shouldStopOnProtocolMismatch(param) {
+					return nil, policyGroup, unsupportedProtocolError(param)
+				}
 			}
 			if channel == nil {
 				logger.LogDebug(param.Ctx, "No available channel in policy group %s for model %s at priorityRetry %d, trying next group", policyGroup, param.ModelName, priorityRetry)

@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
@@ -137,6 +138,169 @@ func TestTokenAuthAllowsAutoTokenGroupAndDistributorSelectsDefaultAutoGroup(t *t
 	require.Equal(t, "auto", response.UsingGroup)
 	require.Equal(t, "default", response.AutoGroup)
 	require.Equal(t, 1001, response.ChannelId)
+}
+
+func TestTokenAuthAllowsOwnedProviderGroupAndDistributorUsesOwnedChannel(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       7,
+		Username: "owned-provider-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	group := model.BuildUserOwnedProviderGroup(7, 7001)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:         7,
+		Name:           "owned-provider-token",
+		Key:            "ownedprovidertokenkey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100000,
+		UnlimitedQuota: true,
+		Group:          group,
+	}).Error)
+
+	weight := uint(100)
+	priority := int64(10)
+	autoBan := 1
+	require.NoError(t, db.Create(&model.Channel{
+		Id:          7001,
+		Type:        constant.ChannelTypeOpenAI,
+		Key:         "owned-upstream-key",
+		Status:      common.ChannelStatusEnabled,
+		Name:        "user-openai",
+		Group:       group,
+		Models:      "gpt-owned",
+		Weight:      &weight,
+		Priority:    &priority,
+		AutoBan:     &autoBan,
+		Scope:       model.ChannelScopeUserOwned,
+		OwnerUserId: 7,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     group,
+		Model:     "gpt-owned",
+		ChannelId: 7001,
+		Enabled:   true,
+		Priority:  &priority,
+		Weight:    weight,
+	}).Error)
+	model.InitChannelCache()
+
+	router := gin.New()
+	router.POST("/v1/chat/completions", TokenAuth(), Distribute(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"using_group":    common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+			"channel_id":     common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+			"billing_source": common.GetContextKeyString(c, constant.ContextKeyTokenBillingSource),
+		})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-owned"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer ownedprovidertokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	var response struct {
+		UsingGroup    string `json:"using_group"`
+		ChannelId     int    `json:"channel_id"`
+		BillingSource string `json:"billing_source"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, group, response.UsingGroup)
+	require.Equal(t, 7001, response.ChannelId)
+	require.Equal(t, service.BillingSourceUserOwnedProvider, response.BillingSource)
+}
+
+func TestTokenAuthAllowsOwnedProviderGroupPolicy(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       8,
+		Username: "owned-provider-policy-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	group := model.BuildUserOwnedProviderGroup(8, 8001)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:         8,
+		Name:           "owned-provider-policy-token",
+		Key:            "ownedproviderpolicytokenkey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100000,
+		UnlimitedQuota: true,
+		Group:          "auto",
+		GroupPolicy:    `{"type":"ordered","groups":["` + group + `"]}`,
+	}).Error)
+
+	weight := uint(100)
+	priority := int64(10)
+	autoBan := 1
+	require.NoError(t, db.Create(&model.Channel{
+		Id:          8001,
+		Type:        constant.ChannelTypeOpenAI,
+		Key:         "owned-policy-upstream-key",
+		Status:      common.ChannelStatusEnabled,
+		Name:        "user-openai-policy",
+		Group:       group,
+		Models:      "gpt-owned-policy",
+		Weight:      &weight,
+		Priority:    &priority,
+		AutoBan:     &autoBan,
+		Scope:       model.ChannelScopeUserOwned,
+		OwnerUserId: 8,
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     group,
+		Model:     "gpt-owned-policy",
+		ChannelId: 8001,
+		Enabled:   true,
+		Priority:  &priority,
+		Weight:    weight,
+	}).Error)
+	model.InitChannelCache()
+
+	router := gin.New()
+	router.POST("/v1/chat/completions", TokenAuth(), Distribute(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"channel_id":     common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+			"auto_group":     common.GetContextKeyString(c, constant.ContextKeyAutoGroup),
+			"billing_source": common.GetContextKeyString(c, constant.ContextKeyTokenBillingSource),
+		})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-owned-policy"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer ownedproviderpolicytokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	var response struct {
+		ChannelId     int    `json:"channel_id"`
+		AutoGroup     string `json:"auto_group"`
+		BillingSource string `json:"billing_source"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, 8001, response.ChannelId)
+	require.Equal(t, group, response.AutoGroup)
+	require.Equal(t, service.BillingSourceUserOwnedProvider, response.BillingSource)
 }
 
 func TestTokenAuthAllowsSubscriptionKeyWithZeroTokenQuota(t *testing.T) {

@@ -10,8 +10,9 @@ import (
 )
 
 const (
-	BillingSourceWallet       = "wallet"
-	BillingSourceSubscription = "subscription"
+	BillingSourceWallet            = "wallet"
+	BillingSourceSubscription      = "subscription"
+	BillingSourceUserOwnedProvider = "user_owned_provider"
 )
 
 // PreConsumeBilling 根据用户计费偏好创建 BillingSession 并执行预扣费。

@@ -12,7 +12,7 @@ import (
 
 // FundingSource 抽象了预扣费的资金来源。
 type FundingSource interface {
-	// Source 返回资金来源标识："wallet" 或 "subscription"
+	// Source 返回资金来源标识："wallet"、"subscription" 或 "user_owned_provider"
 	Source() string
 	// PreConsume 从该资金来源预扣 amount 额度
 	PreConsume(amount int) error
@@ -62,6 +62,20 @@ func (w *WalletFunding) Refund() error {
 	// 订阅的 RefundSubscriptionPreConsume 有 requestId 幂等保护所以可以重试。
 	return model.IncreaseUserQuota(w.userId, w.consumed, false)
 }
+
+// ---------------------------------------------------------------------------
+// UserOwnedProviderFunding — 用户自有供应商资金来源实现
+// ---------------------------------------------------------------------------
+
+type UserOwnedProviderFunding struct{}
+
+func (u *UserOwnedProviderFunding) Source() string { return BillingSourceUserOwnedProvider }
+
+func (u *UserOwnedProviderFunding) PreConsume(_ int) error { return nil }
+
+func (u *UserOwnedProviderFunding) Settle(_ int) error { return nil }
+
+func (u *UserOwnedProviderFunding) Refund() error { return nil }
 
 // ---------------------------------------------------------------------------
 // SubscriptionFunding — 订阅资金来源实现

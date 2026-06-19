@@ -76,7 +76,8 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 	if userGroup == "" {
 		userGroup = c.GetString("group")
 	}
-	group, policy, err := service.NormalizeTokenGroupPolicy(token.GroupPolicy, userGroup)
+	userId := c.GetInt("id")
+	group, policy, err := service.NormalizeTokenGroupPolicyForUser(token.GroupPolicy, userGroup, userId)
 	if err != nil {
 		return err
 	}
@@ -85,7 +86,7 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 		token.GroupPolicy = policy
 	}
 	if token.GroupPolicy == "" {
-		if err := service.ValidateExplicitTokenGroup(token.Group, userGroup); err != nil {
+		if err := service.ValidateExplicitTokenGroupForUser(token.Group, userGroup, userId); err != nil {
 			return err
 		}
 	}

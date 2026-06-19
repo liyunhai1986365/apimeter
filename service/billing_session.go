@@ -49,6 +49,10 @@ func (s *BillingSession) Settle(actualQuota int) error {
 		s.settled = true
 		return nil
 	}
+	if s.funding.Source() == BillingSourceUserOwnedProvider {
+		s.settled = true
+		return nil
+	}
 	// 1) 调整资金来源（仅在尚未提交时执行，防止重复调用）
 	if !s.fundingSettled {
 		if err := s.funding.Settle(delta); err != nil {
@@ -156,6 +160,9 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 	if s.settled || s.refunded || s.trusted || targetQuota <= s.preConsumedQuota {
 		return nil
 	}
+	if s.funding.Source() == BillingSourceUserOwnedProvider {
+		return nil
+	}
 
 	delta := targetQuota - s.preConsumedQuota
 	if delta <= 0 {
@@ -185,6 +192,9 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 // 任一步骤失败时原子回滚已完成的步骤。
 func (s *BillingSession) preConsume(c *gin.Context, quota int) *types.NewAPIError {
 	effectiveQuota := quota
+	if s.funding.Source() == BillingSourceUserOwnedProvider {
+		effectiveQuota = 0
+	}
 
 	// ---- 信任额度旁路 ----
 	if s.shouldTrust(c) {
@@ -249,6 +259,9 @@ func (s *BillingSession) reserveFunding(delta int) error {
 		}
 		return nil
 	default:
+		if s.funding.Source() == BillingSourceUserOwnedProvider {
+			return nil
+		}
 		return types.NewError(fmt.Errorf("unsupported funding source: %s", s.funding.Source()), types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 	}
 }
@@ -269,7 +282,7 @@ func (s *BillingSession) rollbackFundingReserve(delta int) {
 }
 
 func (s *BillingSession) reserveToken(delta int) error {
-	if delta <= 0 || s.relayInfo.IsPlayground {
+	if delta <= 0 || s.relayInfo.IsPlayground || s.funding.Source() == BillingSourceUserOwnedProvider {
 		return nil
 	}
 	if err := PreConsumeTokenQuota(s.relayInfo, delta); err != nil {
@@ -343,6 +356,17 @@ func (s *BillingSession) syncRelayInfo() {
 func NewBillingSession(c *gin.Context, relayInfo *relaycommon.RelayInfo, preConsumedQuota int) (*BillingSession, *types.NewAPIError) {
 	if relayInfo == nil {
 		return nil, types.NewError(fmt.Errorf("relayInfo is nil"), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
+	}
+
+	if relayInfo.BillingSource == BillingSourceUserOwnedProvider {
+		session := &BillingSession{
+			relayInfo: relayInfo,
+			funding:   &UserOwnedProviderFunding{},
+		}
+		if apiErr := session.preConsume(c, 0); apiErr != nil {
+			return nil, apiErr
+		}
+		return session, nil
 	}
 
 	// 钱包路径需要先检查用户额度

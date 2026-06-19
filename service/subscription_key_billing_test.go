@@ -102,6 +102,58 @@ func TestNewBillingSessionSubscriptionKeyUsesBoundSubscriptionOnly(t *testing.T)
 	assert.Equal(t, int64(0), refreshedOther.AmountUsed)
 }
 
+func TestNewBillingSessionUserOwnedProviderDoesNotConsumeWalletOrTokenQuota(t *testing.T) {
+	truncate(t)
+	gin.SetMode(gin.TestMode)
+	model.InitColForTest()
+
+	seedUser(t, 9121, 100000)
+	require.NoError(t, model.DB.Create(&model.Token{
+		Id:             9122,
+		UserId:         9121,
+		Key:            "user-owned-provider-token",
+		Status:         common.TokenStatusEnabled,
+		RemainQuota:    100000,
+		UnlimitedQuota: false,
+	}).Error)
+
+	router := gin.New()
+	router.GET("/", func(c *gin.Context) {
+		info := &relaycommon.RelayInfo{
+			RequestId:       "user-owned-provider-request",
+			UserId:          9121,
+			TokenId:         9122,
+			TokenKey:        "user-owned-provider-token",
+			TokenUnlimited:  false,
+			BillingSource:   BillingSourceUserOwnedProvider,
+			OriginModelName: "gpt-4o",
+		}
+		session, apiErr := NewBillingSession(c, info, 500)
+		if apiErr != nil {
+			c.JSON(apiErr.StatusCode, gin.H{"error": apiErr.Error()})
+			return
+		}
+		require.NoError(t, session.Settle(800))
+		c.JSON(http.StatusOK, gin.H{
+			"source":       session.funding.Source(),
+			"pre_consumed": info.FinalPreConsumedQuota,
+		})
+	})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	quota, err := model.GetUserQuota(9121, false)
+	require.NoError(t, err)
+	assert.Equal(t, 100000, quota)
+
+	token, err := model.GetTokenById(9122)
+	require.NoError(t, err)
+	assert.Equal(t, 100000, token.RemainQuota)
+}
+
 func TestNewBillingSessionSystemTokenUsesWalletEvenWhenSubscriptionFirst(t *testing.T) {
 	truncate(t)
 	gin.SetMode(gin.TestMode)

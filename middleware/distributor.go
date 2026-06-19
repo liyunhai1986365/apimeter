@@ -111,6 +111,16 @@ func Distribute() func(c *gin.Context) {
 				if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
 					channelGroup = agentGroup.SystemGroupName
 				}
+				if model.IsUserOwnedProviderGroup(channelGroup) {
+					ownedChannel, ownedErr := model.GetUserOwnedProviderChannelForGroup(c.GetInt("id"), channelGroup, modelRequest.Model)
+					if ownedErr != nil {
+						abortWithOpenAiMessage(c, http.StatusForbidden, ownedErr.Error(), types.ErrorCodeModelNotFound)
+						return
+					}
+					channel = ownedChannel
+					selectGroup = channelGroup
+					common.SetContextKey(c, constant.ContextKeyTokenBillingSource, service.BillingSourceUserOwnedProvider)
+				}
 				// check path is /pg/chat/completions
 				if strings.HasPrefix(c.Request.URL.Path, "/pg/chat/completions") {
 					playgroundRequest := &dto.PlayGroundRequest{}
@@ -143,6 +153,16 @@ func Distribute() func(c *gin.Context) {
 						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
 							channelGroup = agentGroup.SystemGroupName
 						}
+						if model.IsUserOwnedProviderGroup(channelGroup) {
+							ownedChannel, ownedErr := model.GetUserOwnedProviderChannelForGroup(c.GetInt("id"), channelGroup, modelRequest.Model)
+							if ownedErr != nil {
+								abortWithOpenAiMessage(c, http.StatusForbidden, ownedErr.Error(), types.ErrorCodeModelNotFound)
+								return
+							}
+							channel = ownedChannel
+							selectGroup = channelGroup
+							common.SetContextKey(c, constant.ContextKeyTokenBillingSource, service.BillingSourceUserOwnedProvider)
+						}
 					}
 				}
 
@@ -151,32 +171,34 @@ func Distribute() func(c *gin.Context) {
 					ModelName:  modelRequest.Model,
 					TokenGroup: usingGroup,
 				})
-				if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
-					preferred, err := model.CacheGetChannel(preferredChannelID)
-					if err == nil && preferred != nil {
-						if preferred.Status != common.ChannelStatusEnabled {
-							if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
-								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorAffinityChannelDisabled))
-								return
-							}
-						} else if protocolFilter != nil && !protocolFilter(preferred) {
-							service.ClearChannelAffinityContext(c)
-						} else if usingGroup == "auto" {
-							userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-							autoGroups := service.GetUserAutoGroup(userGroup)
-							for _, g := range autoGroups {
-								if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
-									selectGroup = g
-									common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
-									channel = preferred
-									service.MarkChannelAffinityUsed(c, g, preferred.Id)
-									break
+				if channel == nil {
+					if preferredChannelID, found := service.GetPreferredChannelByAffinity(c, modelRequest.Model, usingGroup); found {
+						preferred, err := model.CacheGetChannel(preferredChannelID)
+						if err == nil && preferred != nil {
+							if preferred.Status != common.ChannelStatusEnabled {
+								if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+									abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorAffinityChannelDisabled))
+									return
 								}
+							} else if protocolFilter != nil && !protocolFilter(preferred) {
+								service.ClearChannelAffinityContext(c)
+							} else if usingGroup == "auto" {
+								userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+								autoGroups := service.GetUserAutoGroup(userGroup)
+								for _, g := range autoGroups {
+									if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
+										selectGroup = g
+										common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
+										channel = preferred
+										service.MarkChannelAffinityUsed(c, g, preferred.Id)
+										break
+									}
+								}
+							} else if model.IsChannelEnabledForGroupModel(channelGroup, modelRequest.Model, preferred.Id) {
+								channel = preferred
+								selectGroup = usingGroup
+								service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
 							}
-						} else if model.IsChannelEnabledForGroupModel(channelGroup, modelRequest.Model, preferred.Id) {
-							channel = preferred
-							selectGroup = usingGroup
-							service.MarkChannelAffinityUsed(c, usingGroup, preferred.Id)
 						}
 					}
 				}

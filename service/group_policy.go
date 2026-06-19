@@ -6,6 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -23,6 +24,10 @@ type TokenGroupPolicy struct {
 }
 
 func NormalizeTokenGroupPolicy(raw string, userGroup string) (string, string, error) {
+	return NormalizeTokenGroupPolicyForUser(raw, userGroup, 0)
+}
+
+func NormalizeTokenGroupPolicyForUser(raw string, userGroup string, userID int) (string, string, error) {
 	policy, ok, err := parseTokenGroupPolicy(raw)
 	if err != nil {
 		return "", "", err
@@ -34,7 +39,7 @@ func NormalizeTokenGroupPolicy(raw string, userGroup string) (string, string, er
 		return "", "", errors.New("unsupported group policy type")
 	}
 
-	groups, err := normalizePolicyGroups(policy.Groups, userGroup)
+	groups, err := normalizePolicyGroups(policy.Groups, userGroup, userID)
 	if err != nil {
 		return "", "", err
 	}
@@ -107,7 +112,7 @@ func parseTokenGroupPolicy(raw string) (TokenGroupPolicy, bool, error) {
 	return policy, true, nil
 }
 
-func normalizePolicyGroups(groups []string, userGroup string) ([]string, error) {
+func normalizePolicyGroups(groups []string, userGroup string, userID int) ([]string, error) {
 	cleanGroups := make([]string, 0, len(groups))
 	seen := make(map[string]bool)
 	userUsableGroups := GetUserUsableGroups(userGroup)
@@ -120,6 +125,21 @@ func normalizePolicyGroups(groups []string, userGroup string) ([]string, error) 
 			return []string{AutoGroupName}, nil
 		}
 		if seen[group] {
+			continue
+		}
+		if model.IsUserOwnedProviderGroup(group) {
+			if userID <= 0 {
+				return nil, errors.New("无权访问 " + group + " 分组")
+			}
+			ok, err := model.UserOwnsProviderGroup(userID, group)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, errors.New("无权访问 " + group + " 分组")
+			}
+			seen[group] = true
+			cleanGroups = append(cleanGroups, group)
 			continue
 		}
 		if _, ok := userUsableGroups[group]; !ok {
@@ -138,8 +158,25 @@ func normalizePolicyGroups(groups []string, userGroup string) ([]string, error) 
 }
 
 func ValidateExplicitTokenGroup(group string, userGroup string) error {
+	return ValidateExplicitTokenGroupForUser(group, userGroup, 0)
+}
+
+func ValidateExplicitTokenGroupForUser(group string, userGroup string, userID int) error {
 	group = strings.TrimSpace(group)
 	if group == "" || group == AutoGroupName {
+		return nil
+	}
+	if model.IsUserOwnedProviderGroup(group) {
+		if userID <= 0 {
+			return errors.New("无权访问 " + group + " 分组")
+		}
+		ok, err := model.UserOwnsProviderGroup(userID, group)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return errors.New("无权访问 " + group + " 分组")
+		}
 		return nil
 	}
 	if _, ok := GetUserUsableGroups(userGroup)[group]; !ok {

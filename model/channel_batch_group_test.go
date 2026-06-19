@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func setupChannelBatchGroupTestDB(t *testing.T) {
+func SetupChannelBatchGroupTestDBForTest(t *testing.T) {
 	t.Helper()
 
 	originDB := DB
@@ -37,7 +37,7 @@ func setupChannelBatchGroupTestDB(t *testing.T) {
 }
 
 func TestApplyChannelRatioFilterSupportsComparisons(t *testing.T) {
-	setupChannelBatchGroupTestDB(t)
+	SetupChannelBatchGroupTestDBForTest(t)
 
 	ratioOne := 1.0
 	ratioThree := 3.0
@@ -69,7 +69,7 @@ func TestApplyChannelRatioFilterSupportsComparisons(t *testing.T) {
 }
 
 func TestBatchSetChannelGroupsUpdatesAbilities(t *testing.T) {
-	setupChannelBatchGroupTestDB(t)
+	SetupChannelBatchGroupTestDBForTest(t)
 
 	ratio := 1.0
 	channel := Channel{

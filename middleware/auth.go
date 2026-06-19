@@ -421,6 +421,27 @@ func TokenAuth() func(c *gin.Context) {
 						return
 					}
 				}
+				if model.IsUserOwnedProviderGroup(checkGroup) {
+					ok, err := model.UserOwnsProviderGroup(token.UserId, checkGroup)
+					if err != nil {
+						common.SysLog(fmt.Sprintf("TokenAuth UserOwnsProviderGroup error for user %d: %v", token.UserId, err))
+						abortWithOpenAiMessage(c, http.StatusInternalServerError,
+							common.TranslateMessage(c, i18n.MsgDatabaseError))
+						return
+					}
+					if !ok {
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
+						return
+					}
+					userGroup = tokenGroup
+					common.SetContextKey(c, constant.ContextKeyUsingGroup, userGroup)
+					err = SetupContextForToken(c, token, parts...)
+					if err != nil {
+						return
+					}
+					c.Next()
+					return
+				}
 				// check common.UserUsableGroups[userGroup]
 				if _, ok := service.GetUserUsableGroups(checkUserGroup)[checkGroup]; !ok {
 					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))

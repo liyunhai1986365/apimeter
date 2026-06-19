@@ -42,6 +42,15 @@ func GetUserGroups(c *gin.Context) {
 				"desc":  setting.GetUsableGroupDescription(group.SystemGroupName),
 			}
 		}
+		if channels, err := model.ListUserOwnedProviderChannels(userId); err == nil {
+			for _, channel := range channels {
+				usableGroups[channel.Group] = map[string]interface{}{
+					"ratio": "自有",
+					"desc":  channel.Name,
+					"scope": model.ChannelScopeUserOwned,
+				}
+			}
+		}
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "",
@@ -64,6 +73,15 @@ func GetUserGroups(c *gin.Context) {
 		usableGroups["auto"] = map[string]interface{}{
 			"ratio": "自动",
 			"desc":  setting.GetUsableGroupDescription("auto"),
+		}
+	}
+	if channels, err := model.ListUserOwnedProviderChannels(userId); err == nil {
+		for _, channel := range channels {
+			usableGroups[channel.Group] = map[string]interface{}{
+				"ratio": "自有",
+				"desc":  channel.Name,
+				"scope": model.ChannelScopeUserOwned,
+			}
 		}
 	}
 	c.JSON(http.StatusOK, gin.H{

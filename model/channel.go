@@ -53,6 +53,8 @@ type Channel struct {
 	ParamOverride     *string `json:"param_override" gorm:"type:text"`
 	HeaderOverride    *string `json:"header_override" gorm:"type:text"`
 	Remark            *string `json:"remark" gorm:"type:varchar(255)" validate:"max=255"`
+	Scope             string  `json:"scope" gorm:"type:varchar(32);default:'platform';index"`
+	OwnerUserId       int     `json:"owner_user_id" gorm:"index;default:0"`
 	// add after v0.8.5
 	ChannelInfo ChannelInfo `json:"channel_info" gorm:"type:json"`
 
@@ -61,6 +63,11 @@ type Channel struct {
 	// cache info
 	Keys []string `json:"-" gorm:"-"`
 }
+
+const (
+	ChannelScopePlatform  = "platform"
+	ChannelScopeUserOwned = "user_owned"
+)
 
 type ChannelInfo struct {
 	IsMultiKey             bool                  `json:"is_multi_key"`                        // 是否多Key模式

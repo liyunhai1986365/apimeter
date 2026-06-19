@@ -83,6 +83,10 @@ func SetApiRouter(router *gin.Engine) {
 			selfRoute.Use(middleware.AgentUserAuth())
 			{
 				selfRoute.GET("/self/groups", controller.GetUserGroups)
+				selfRoute.GET("/self/providers", controller.ListUserOwnedProviders)
+				selfRoute.POST("/self/providers", controller.CreateUserOwnedProvider)
+				selfRoute.PUT("/self/providers/:id", controller.UpdateUserOwnedProvider)
+				selfRoute.DELETE("/self/providers/:id", controller.DeleteUserOwnedProvider)
 				selfRoute.GET("/self", controller.GetSelf)
 				selfRoute.GET("/models", controller.GetUserModels)
 				selfRoute.PUT("/self", controller.UpdateSelf)
