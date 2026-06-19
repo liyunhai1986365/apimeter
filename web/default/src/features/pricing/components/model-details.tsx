@@ -19,14 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
-import {
-  ArrowLeft,
-  ChevronDown,
-  Code2,
-  HeartPulse,
-  Info,
-  Timer,
-} from 'lucide-react'
+import { ArrowLeft, ChevronDown, Code2, Info } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
@@ -36,7 +29,6 @@ import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Button } from '@/components/ui/button'
 import {
   Card,
-  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -71,7 +63,6 @@ import { getPerfMetrics } from '@/features/performance-metrics/api'
 import {
   formatLatency,
   formatThroughput,
-  formatUptimePct,
 } from '@/features/performance-metrics/lib/format'
 import type { PerformanceGroup } from '@/features/performance-metrics/types'
 import { DEFAULT_TOKEN_UNIT, QUOTA_TYPE_VALUES } from '../constants'
@@ -84,6 +75,7 @@ import {
 import { parseTags } from '../lib/filters'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
+import { toGroupUptimeSeries } from '../lib/performance-series'
 import { formatFixedPrice, formatGroupPrice } from '../lib/price'
 import type {
   Modality,
@@ -102,6 +94,7 @@ import {
 import { ModalityIcons } from './model-details-modalities'
 import { ModelDetailsPerformance } from './model-details-performance'
 import { ModelDetailsQuickStats } from './model-details-quick-stats'
+import { UptimeSparkline } from './model-details-uptime-sparkline'
 
 // ----------------------------------------------------------------------------
 // Local UI helpers
@@ -312,128 +305,6 @@ function ModelSignalsSection(props: {
   )
 }
 
-function OverviewMetric(props: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  value: React.ReactNode
-  intent?: 'default' | 'warning' | 'success'
-  variant?: ModelDetailsVariant
-}) {
-  const Icon = props.icon
-  const intent = props.intent ?? 'default'
-  const isPage = props.variant === 'page'
-
-  return (
-    <div
-      className={cn(
-        'flex min-w-0 items-center gap-2 px-3 py-2',
-        isPage && 'gap-3 px-5 py-4'
-      )}
-    >
-      <Icon
-        className={cn(
-          'text-muted-foreground/70 size-3.5 shrink-0',
-          isPage && 'size-4'
-        )}
-      />
-      <div className='min-w-0 flex-1'>
-        <div
-          className={cn(
-            'text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase',
-            isPage && 'text-[11px]'
-          )}
-        >
-          {props.label}
-        </div>
-        <div
-          className={cn(
-            'text-foreground truncate font-mono text-sm font-semibold tabular-nums',
-            isPage && 'mt-1 text-base md:text-lg',
-            intent === 'warning' && 'text-amber-600 dark:text-amber-400',
-            intent === 'success' && 'text-emerald-600 dark:text-emerald-400'
-          )}
-        >
-          {props.value}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function OverviewSummaryGrid(props: {
-  model: PricingModel
-  variant?: ModelDetailsVariant
-}) {
-  const { t } = useTranslation()
-  const isPage = props.variant === 'page'
-  const metricsQuery = useQuery({
-    queryKey: ['perf-metrics', props.model.model_name],
-    queryFn: () => getPerfMetrics(props.model.model_name, 24),
-    staleTime: 60 * 1000,
-  })
-
-  const groups = metricsQuery.data?.data.groups ?? []
-  const successRates = groups
-    .map((group) => group.success_rate)
-    .filter((rate) => Number.isFinite(rate))
-  const successRate =
-    successRates.length > 0
-      ? successRates.reduce((sum, rate) => sum + rate, 0) / successRates.length
-      : Number.NaN
-  let successIntent: 'default' | 'warning' | 'success' = 'warning'
-  if (successRate >= 99.9) {
-    successIntent = 'success'
-  } else if (successRate >= 99) {
-    successIntent = 'default'
-  }
-  const tpsValues = groups
-    .map((group) => group.avg_tps)
-    .filter((value) => value > 0)
-  const avgTps =
-    tpsValues.length > 0
-      ? tpsValues.reduce((sum, value) => sum + value, 0) / tpsValues.length
-      : 0
-  const latencyValues = groups
-    .map((group) => group.avg_latency_ms)
-    .filter((value) => value > 0)
-  const avgLatency =
-    latencyValues.length > 0
-      ? Math.round(
-          latencyValues.reduce((sum, value) => sum + value, 0) /
-            latencyValues.length
-        )
-      : 0
-
-  return (
-    <div
-      className={cn(
-        'bg-muted/20 grid overflow-hidden rounded-lg border sm:grid-cols-3 sm:divide-x',
-        isPage && 'bg-background/70 rounded-2xl shadow-sm'
-      )}
-    >
-      <OverviewMetric
-        icon={Timer}
-        label='TPS'
-        value={formatThroughput(avgTps)}
-        variant={props.variant}
-      />
-      <OverviewMetric
-        icon={Timer}
-        label={t('Average latency')}
-        value={formatLatency(avgLatency)}
-        variant={props.variant}
-      />
-      <OverviewMetric
-        icon={HeartPulse}
-        label={t('Success rate')}
-        value={formatUptimePct(successRate)}
-        intent={successIntent}
-        variant={props.variant}
-      />
-    </div>
-  )
-}
-
 // ----------------------------------------------------------------------------
 // Model header (always visible above the detail sections)
 // ----------------------------------------------------------------------------
@@ -589,12 +460,6 @@ function ModelHeader(props: {
 // Group pricing cards
 // ----------------------------------------------------------------------------
 
-function getPerformanceIntent(successRate: number) {
-  if (successRate >= 99.9) return 'success'
-  if (successRate >= 99) return 'default'
-  return 'warning'
-}
-
 function getDiscountBadgeClass() {
   return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-300'
 }
@@ -629,72 +494,32 @@ function ProviderGroupTitle(props: { group: string; desc?: string }) {
   )
 }
 
-function ProviderPerformanceStrip(props: {
+function ProviderPerformanceInline(props: {
   performance?: PerformanceGroup
   isLoading?: boolean
 }) {
-  const { t } = useTranslation()
-
   if (props.isLoading) {
-    return (
-      <div className='grid grid-cols-3 gap-1.5'>
-        {Array.from({ length: 3 }).map((_, index) => (
-          <Skeleton key={index} className='h-12 rounded-lg' />
-        ))}
-      </div>
-    )
+    return <Skeleton className='h-7 w-64 max-w-full rounded-md' />
   }
 
   if (!props.performance) {
-    return (
-      <div className='border-border/70 bg-muted/20 text-muted-foreground rounded-lg border px-3 py-2 text-xs'>
-        {t('No performance data available')}
-      </div>
-    )
+    return null
   }
 
-  const intent = getPerformanceIntent(props.performance.success_rate)
+  const uptimeSeries = toGroupUptimeSeries(props.performance)
 
   return (
-    <div className='grid grid-cols-3 gap-1.5'>
-      <ProviderMetric
-        label='TPS'
-        value={formatThroughput(props.performance.avg_tps)}
-      />
-      <ProviderMetric
-        label={t('Latency')}
-        value={formatLatency(props.performance.avg_latency_ms)}
-      />
-      <ProviderMetric
-        label={t('Success')}
-        value={formatUptimePct(props.performance.success_rate)}
-        intent={intent}
-      />
-    </div>
-  )
-}
-
-function ProviderMetric(props: {
-  label: string
-  value: React.ReactNode
-  intent?: 'default' | 'warning' | 'success'
-}) {
-  const intent = props.intent ?? 'default'
-
-  return (
-    <div className='bg-muted/20 min-w-0 rounded-lg border px-2.5 py-2'>
-      <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
-        {props.label}
-      </div>
-      <div
-        className={cn(
-          'text-foreground mt-1 truncate font-mono text-xs font-semibold tabular-nums',
-          intent === 'warning' && 'text-amber-600 dark:text-amber-400',
-          intent === 'success' && 'text-emerald-600 dark:text-emerald-400'
-        )}
-      >
-        {props.value}
-      </div>
+    <div className='text-muted-foreground flex min-w-0 shrink-0 items-center gap-2 overflow-hidden text-xs'>
+      <span className='bg-muted/35 rounded-md px-2 py-1 font-mono font-semibold tabular-nums'>
+        TPS {formatThroughput(props.performance.avg_tps)}
+      </span>
+      <span className='bg-muted/35 rounded-md px-2 py-1 font-mono font-semibold tabular-nums'>
+        TTFT {formatLatency(props.performance.avg_ttft_ms)}
+      </span>
+      <span className='bg-muted/35 rounded-md px-2 py-1 font-mono font-semibold tabular-nums'>
+        Latency {formatLatency(props.performance.avg_latency_ms)}
+      </span>
+      <UptimeSparkline size='sm' series={uptimeSeries} />
     </div>
   )
 }
@@ -702,59 +527,41 @@ function ProviderMetric(props: {
 function ProviderPriceItem(props: {
   label: string
   value: React.ReactNode
+  originalValue?: React.ReactNode
   featured?: boolean
   unit?: string
 }) {
   return (
     <div
       className={cn(
-        'border-border/70 bg-background/70 min-w-0 rounded-lg border px-3 py-2.5',
-        props.featured &&
-          'bg-muted/25 ring-foreground/5 rounded-xl px-4 py-3 ring-1'
+        'flex min-w-52 shrink-0 items-center justify-start gap-2 px-1 py-1'
       )}
     >
-      <div
+      <span
         className={cn(
-          'text-muted-foreground truncate text-[11px] font-medium',
-          props.featured && 'text-xs'
+          'text-muted-foreground min-w-0 truncate text-xs font-medium',
+          props.featured && 'text-sm'
         )}
       >
-        {props.label}
-      </div>
-      <div
-        className={cn(
-          'text-foreground mt-1 truncate font-mono text-sm font-semibold tabular-nums',
-          props.featured && 'text-xl leading-tight md:text-2xl'
-        )}
-      >
-        {props.value}
-      </div>
-      {props.unit && (
-        <div className='text-muted-foreground/60 mt-1 truncate text-[10px]'>
-          {props.unit}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ProviderExtraPriceRow(props: {
-  label: string
-  value: React.ReactNode
-  unit?: string
-}) {
-  return (
-    <div className='flex min-w-0 items-baseline justify-between gap-3 rounded-md px-2 py-1.5'>
-      <span className='text-muted-foreground min-w-0 truncate text-xs'>
         {props.label}
       </span>
-      <span className='text-muted-foreground flex shrink-0 items-baseline gap-1 font-mono text-xs tabular-nums'>
+      <span
+        className={cn(
+          'text-foreground flex shrink-0 items-baseline gap-1.5 font-mono text-sm font-semibold tabular-nums',
+          props.featured && 'text-base md:text-lg'
+        )}
+      >
+        {props.originalValue ? (
+          <span className='text-muted-foreground/45 text-xs font-medium line-through'>
+            {props.originalValue}
+          </span>
+        ) : null}
         {props.value}
-        {props.unit && (
+        {props.unit ? (
           <span className='text-muted-foreground/40 font-sans text-[10px]'>
             / {props.unit}
           </span>
-        )}
+        ) : null}
       </span>
     </div>
   )
@@ -792,6 +599,17 @@ function ProviderPriceCard(props: {
       props.usdExchangeRate,
       props.groupRatio
     )
+  const renderOriginalTokenPrice = (type: PriceType) =>
+    formatGroupPrice(
+      props.model,
+      props.group,
+      type,
+      props.tokenUnit,
+      props.showRechargePrice,
+      props.priceRate,
+      props.usdExchangeRate,
+      { ...props.groupRatio, [props.group]: 1 }
+    )
   const renderFixedPrice = () =>
     formatFixedPrice(
       props.model,
@@ -801,86 +619,100 @@ function ProviderPriceCard(props: {
       props.usdExchangeRate,
       props.groupRatio
     )
+  const renderOriginalFixedPrice = () =>
+    formatFixedPrice(
+      props.model,
+      props.group,
+      props.showRechargePrice,
+      props.priceRate,
+      props.usdExchangeRate,
+      { ...props.groupRatio, [props.group]: 1 }
+    )
+  const hasDiscount = props.ratio > 0 && props.ratio < 1
 
   return (
     <Card
       size='sm'
       className={cn(
-        'border-border/80 bg-background/80 hover:border-foreground/20 hover:bg-background shadow-none transition-colors',
+        'border-border/80 bg-background/80 hover:border-foreground/20 hover:bg-background gap-0 py-0 shadow-none transition-colors',
         props.isPage && 'rounded-2xl'
       )}
     >
-      <CardHeader className='gap-2 border-b pb-3'>
-        <CardTitle className='min-w-0'>
-          <ProviderGroupTitle group={props.group} desc={props.groupDesc} />
-        </CardTitle>
-        {props.groupDesc && (
-          <CardDescription className='max-w-full truncate text-xs'>
-            {t(props.groupDesc)}
-          </CardDescription>
-        )}
-        <CardAction>
+      <CardHeader className='flex flex-row items-center justify-between gap-3 border-b px-3 py-2.5 sm:px-4'>
+        <div className='flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden'>
+          <CardTitle className='min-w-0 shrink-0'>
+            <ProviderGroupTitle group={props.group} desc={props.groupDesc} />
+          </CardTitle>
           {props.discountLabel && (
             <span
               className={cn(
-                'inline-flex rounded-md border px-2 py-1 text-xs font-semibold shadow-sm',
+                'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
                 getDiscountBadgeClass()
               )}
             >
               {props.discountLabel}
             </span>
           )}
-        </CardAction>
+          {props.groupDesc && (
+            <CardDescription className='min-w-0 flex-1 truncate text-xs'>
+              {t(props.groupDesc)}
+            </CardDescription>
+          )}
+        </div>
+        <ProviderPerformanceInline
+          performance={props.performance}
+          isLoading={props.performanceLoading}
+        />
       </CardHeader>
 
-      <CardContent className='flex flex-col gap-4'>
+      <CardContent className='overflow-x-auto px-3 py-3 sm:px-4'>
         {isTokenBased ? (
-          <>
-            <div className='grid grid-cols-1 gap-2 sm:grid-cols-2'>
+          <div className='flex min-w-max items-stretch gap-2'>
+            <ProviderPriceItem
+              label={t('Input')}
+              value={renderTokenPrice('input')}
+              originalValue={
+                hasDiscount ? renderOriginalTokenPrice('input') : undefined
+              }
+              unit={priceUnit}
+              featured
+            />
+            <ProviderPriceItem
+              label={t('Output')}
+              value={renderTokenPrice('output')}
+              originalValue={
+                hasDiscount ? renderOriginalTokenPrice('output') : undefined
+              }
+              unit={priceUnit}
+              featured
+            />
+            {props.extraPriceTypes.map((priceType) => (
               <ProviderPriceItem
-                label={t('Input')}
-                value={renderTokenPrice('input')}
+                key={priceType.type}
+                label={priceType.label}
+                value={renderTokenPrice(priceType.type)}
+                originalValue={
+                  hasDiscount
+                    ? renderOriginalTokenPrice(priceType.type)
+                    : undefined
+                }
                 unit={priceUnit}
-                featured
               />
-              <ProviderPriceItem
-                label={t('Output')}
-                value={renderTokenPrice('output')}
-                unit={priceUnit}
-                featured
-              />
-            </div>
-            {props.extraPriceTypes.length > 0 && (
-              <div className='bg-muted/15 rounded-lg border p-1'>
-                {props.extraPriceTypes.map((priceType) => (
-                  <ProviderExtraPriceRow
-                    key={priceType.type}
-                    label={priceType.label}
-                    value={renderTokenPrice(priceType.type)}
-                    unit={priceUnit}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        ) : (
-          <ProviderPriceItem
-            label={t('Price')}
-            value={renderFixedPrice()}
-            unit={priceUnit}
-            featured
-          />
-        )}
-
-        <div>
-          <div className='text-muted-foreground mb-2 text-[10px] font-medium tracking-wider uppercase'>
-            {t('Performance')}
+            ))}
           </div>
-          <ProviderPerformanceStrip
-            performance={props.performance}
-            isLoading={props.performanceLoading}
-          />
-        </div>
+        ) : (
+          <div className='flex min-w-max'>
+            <ProviderPriceItem
+              label={t('Price')}
+              value={renderFixedPrice()}
+              originalValue={
+                hasDiscount ? renderOriginalFixedPrice() : undefined
+              }
+              unit={priceUnit}
+              featured
+            />
+          </div>
+        )}
       </CardContent>
     </Card>
   )
@@ -1014,12 +846,7 @@ function GroupPricingSection(props: {
         <SectionTitle className={cn(isPage && 'mb-4')}>
           {t(USER_FACING_GROUP_TERMS.pricingBy)}
         </SectionTitle>
-        <div
-          className={cn(
-            'grid gap-3 @2xl/details:grid-cols-2',
-            isPage && 'gap-4'
-          )}
-        >
+        <div className={cn('grid gap-3', isPage && 'gap-4')}>
           {availableGroups.map((group) => {
             const ratio = props.groupRatio[group] || 1
             const discountLabel = getDiscountLabel(ratio, discountLabels)
@@ -1037,33 +864,31 @@ function GroupPricingSection(props: {
               >
                 <div
                   className={cn(
-                    'bg-muted/20 flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2',
-                    isPage && 'px-5 py-3'
+                    'bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2.5',
+                    isPage && 'px-4'
                   )}
                 >
-                  <div className='min-w-0'>
-                    <ProviderGroupTitle group={group} desc={groupDesc} />
-                    {groupDesc && (
-                      <p className='text-muted-foreground mt-1 max-w-full truncate text-xs'>
-                        {t(groupDesc)}
-                      </p>
-                    )}
-                  </div>
-                  <div className='flex shrink-0 flex-wrap items-center justify-end gap-2'>
+                  <div className='flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden'>
+                    <div className='min-w-0 shrink-0'>
+                      <ProviderGroupTitle group={group} desc={groupDesc} />
+                    </div>
                     {discountLabel && (
                       <span
                         className={cn(
-                          'inline-flex rounded-md border px-2 py-1 text-xs font-semibold shadow-sm',
+                          'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
                           getDiscountBadgeClass()
                         )}
                       >
                         {discountLabel}
                       </span>
                     )}
+                    {groupDesc && (
+                      <p className='text-muted-foreground min-w-0 flex-1 truncate text-xs'>
+                        {t(groupDesc)}
+                      </p>
+                    )}
                   </div>
-                </div>
-                <div className='px-3 pt-3 sm:px-4'>
-                  <ProviderPerformanceStrip
+                  <ProviderPerformanceInline
                     performance={performanceByGroup[group]}
                     isLoading={metricsQuery.isLoading}
                   />
@@ -1092,8 +917,21 @@ function GroupPricingSection(props: {
                           usdExchangeRate: props.usdExchangeRate,
                           groupRatioMultiplier: ratio,
                         })
+                        const originalEntries =
+                          ratio > 0 && ratio < 1
+                            ? getDynamicPriceEntries(tier, {
+                                tokenUnit: props.tokenUnit,
+                                showRechargePrice,
+                                priceRate: props.priceRate,
+                                usdExchangeRate: props.usdExchangeRate,
+                                groupRatioMultiplier: 1,
+                              })
+                            : []
                         const entryMap = new Map(
                           entries.map((entry) => [entry.field, entry])
+                        )
+                        const originalEntryMap = new Map(
+                          originalEntries.map((entry) => [entry.field, entry])
                         )
 
                         return (
@@ -1103,12 +941,26 @@ function GroupPricingSection(props: {
                             </TableCell>
                             {priceFields.map((fieldEntry) => {
                               const entry = entryMap.get(fieldEntry.field)
+                              const originalEntry = originalEntryMap.get(
+                                fieldEntry.field
+                              )
                               return (
                                 <TableCell
                                   key={fieldEntry.field}
                                   className='py-2.5 text-right font-mono'
                                 >
-                                  {entry?.formatted ?? '-'}
+                                  {entry ? (
+                                    <span className='inline-flex items-baseline justify-end gap-1.5'>
+                                      {originalEntry && (
+                                        <span className='text-muted-foreground/45 text-xs font-medium line-through'>
+                                          {originalEntry.formatted}
+                                        </span>
+                                      )}
+                                      <span>{entry.formatted}</span>
+                                    </span>
+                                  ) : (
+                                    '-'
+                                  )}
                                 </TableCell>
                               )
                             })}
@@ -1131,9 +983,7 @@ function GroupPricingSection(props: {
       <SectionTitle className={cn(isPage && 'mb-4')}>
         {t(USER_FACING_GROUP_TERMS.pricingBy)}
       </SectionTitle>
-      <div
-        className={cn('grid gap-3 @2xl/details:grid-cols-2', isPage && 'gap-4')}
-      >
+      <div className={cn('grid gap-3', isPage && 'gap-4')}>
         {availableGroups.map((group) => {
           const ratio = props.groupRatio[group] || 1
           const groupDesc = getUsableGroupDescription(props.usableGroup, group)
@@ -1163,7 +1013,7 @@ function GroupPricingSection(props: {
   )
 }
 
-const TAB_VALUES = ['overview', 'performance', 'api'] as const
+const TAB_VALUES = ['overview', 'api'] as const
 type TabValue = (typeof TAB_VALUES)[number]
 
 const TAB_META: Record<
@@ -1171,7 +1021,6 @@ const TAB_META: Record<
   { icon: React.ComponentType<{ className?: string }>; labelKey: string }
 > = {
   overview: { icon: Info, labelKey: 'Overview' },
-  performance: { icon: HeartPulse, labelKey: 'Performance' },
   api: { icon: Code2, labelKey: 'API' },
 }
 
@@ -1207,7 +1056,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
       <Tabs defaultValue='overview' className={cn('gap-4', isPage && 'gap-6')}>
         <TabsList
           className={cn(
-            'bg-muted/60 grid w-full grid-cols-3 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto',
+            'bg-muted/60 grid w-full grid-cols-2 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto',
             isPage && 'rounded-2xl p-1.5'
           )}
         >
@@ -1233,8 +1082,6 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
           value='overview'
           className={cn('space-y-6 outline-none', isPage && 'space-y-8')}
         >
-          <OverviewSummaryGrid model={props.model} variant={variant} />
-
           <section
             className={cn(
               'bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm',
@@ -1257,6 +1104,11 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             />
           </section>
 
+          <ModelDetailsPerformance
+            model={props.model}
+            usableGroup={props.usableGroup}
+          />
+
           <ModelDetailsQuickStats metadata={metadata} />
 
           <ModelSignalsSection
@@ -1267,13 +1119,6 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
           />
 
           <ModelDetailsProviderInfo model={props.model} />
-        </TabsContent>
-
-        <TabsContent value='performance' className='outline-none'>
-          <ModelDetailsPerformance
-            model={props.model}
-            usableGroup={props.usableGroup}
-          />
         </TabsContent>
 
         <TabsContent value='api' className='outline-none'>
