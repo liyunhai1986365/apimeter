@@ -112,11 +112,6 @@ export function buildSidebarData(
             icon: Key,
           },
           {
-            title: t('Suppliers'),
-            url: '/provider',
-            icon: Handshake,
-          },
-          {
             title: t('Usage Logs'),
             url: '/usage-logs/common',
             icon: FileText,
@@ -149,6 +144,11 @@ export function buildSidebarData(
             title: t('Subscription'),
             url: '/user-subscription',
             icon: BadgeDollarSign,
+          },
+          {
+            title: t('Suppliers'),
+            url: '/provider',
+            icon: Handshake,
           },
           {
             title: t('Profile'),

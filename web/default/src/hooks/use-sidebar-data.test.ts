@@ -30,11 +30,24 @@ describe('buildSidebarData', () => {
     assert.ok(urls.includes('/model-profit'))
   })
 
-  test('adds provider directory as a user console menu item', () => {
+  test('adds provider directory between subscription and profile', () => {
     const data = buildSidebarData((key) => key, null)
     const urls = flattenUrls(data)
+    const personal = data.navGroups.find((group) => group.id === 'personal')
+    const personalUrls =
+      personal?.items
+        .filter((item) => 'url' in item && item.url)
+        .map((item) => item.url as string) ?? []
 
     assert.ok(urls.includes('/provider'))
     assert.ok(urls.includes('/suppliers'))
+    assert.equal(
+      personalUrls.indexOf('/provider'),
+      personalUrls.indexOf('/user-subscription') + 1
+    )
+    assert.equal(
+      personalUrls.indexOf('/profile'),
+      personalUrls.indexOf('/provider') + 1
+    )
   })
 })
