@@ -38,6 +38,7 @@ import {
   Settings,
   Store,
   Network,
+  Handshake,
   Monitor,
   ChartNoAxesCombined,
 } from 'lucide-react'
@@ -109,6 +110,11 @@ export function buildSidebarData(
             title: t('API Keys'),
             url: '/keys',
             icon: Key,
+          },
+          {
+            title: t('Suppliers'),
+            url: '/provider',
+            icon: Handshake,
           },
           {
             title: t('Usage Logs'),

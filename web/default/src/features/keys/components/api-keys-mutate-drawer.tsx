@@ -31,8 +31,8 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getUserModels, getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
-import { cn } from '@/lib/utils'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
+import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -69,6 +69,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { MultiSelect } from '@/components/multi-select'
+import { getPricing } from '@/features/pricing/api'
 import { createApiKey, updateApiKey, getApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import {
@@ -217,6 +218,12 @@ export function ApiKeysMutateDrawer({
   const { data: groupsData } = useQuery({
     queryKey: ['user-groups'],
     queryFn: getUserGroups,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const { data: pricingData } = useQuery({
+    queryKey: ['pricing', 'api-key-group-filters'],
+    queryFn: getPricing,
     staleTime: 5 * 60 * 1000,
   })
 
@@ -420,12 +427,13 @@ export function ApiKeysMutateDrawer({
                         options={groups}
                         value={field.value}
                         onChange={field.onChange}
+                        groupDisplay={pricingData?.group_display}
+                        vendors={pricingData?.vendors}
+                        models={pricingData?.data}
                       />
                     </FormControl>
                     <FormDescription>
-                      {t(
-                        groupTerms.requestOrderDescription
-                      )}
+                      {t(groupTerms.requestOrderDescription)}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -443,9 +451,7 @@ export function ApiKeysMutateDrawer({
                           {t(groupTerms.crossRetry)}
                         </FormLabel>
                         <FormDescription className='line-clamp-2 text-xs sm:line-clamp-none'>
-                          {t(
-                            groupTerms.crossRetryDescription
-                          )}
+                          {t(groupTerms.crossRetryDescription)}
                         </FormDescription>
                       </div>
                       <FormControl>

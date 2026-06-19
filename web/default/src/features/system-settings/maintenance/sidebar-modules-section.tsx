@@ -96,6 +96,10 @@ export function SidebarModulesSection({
         title: t('Token management'),
         description: t('Create, revoke, and audit API tokens.'),
       },
+      supplier_directory: {
+        title: t('Suppliers'),
+        description: t('Browse supplier groups, vendors, models, and discounts.'),
+      },
       log: {
         title: t('Usage logs'),
         description: t('Detailed request logs for investigations.'),

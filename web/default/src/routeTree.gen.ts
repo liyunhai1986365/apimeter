@@ -45,6 +45,7 @@ import { Route as AuthenticatedSystemSettingsIndexRouteImport } from './routes/_
 import { Route as AuthenticatedSuppliersIndexRouteImport } from './routes/_authenticated/suppliers/index'
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
 import { Route as AuthenticatedRedemptionCodesIndexRouteImport } from './routes/_authenticated/redemption-codes/index'
+import { Route as AuthenticatedProviderIndexRouteImport } from './routes/_authenticated/provider/index'
 import { Route as AuthenticatedProfileIndexRouteImport } from './routes/_authenticated/profile/index'
 import { Route as AuthenticatedPlaygroundIndexRouteImport } from './routes/_authenticated/playground/index'
 import { Route as AuthenticatedModelsIndexRouteImport } from './routes/_authenticated/models/index'
@@ -263,6 +264,12 @@ const AuthenticatedRedemptionCodesIndexRoute =
   AuthenticatedRedemptionCodesIndexRouteImport.update({
     id: '/redemption-codes/',
     path: '/redemption-codes/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedProviderIndexRoute =
+  AuthenticatedProviderIndexRouteImport.update({
+    id: '/provider/',
+    path: '/provider/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedProfileIndexRoute =
@@ -506,6 +513,7 @@ export interface FileRoutesByFullPath {
   '/models/': typeof AuthenticatedModelsIndexRoute
   '/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/profile/': typeof AuthenticatedProfileIndexRoute
+  '/provider/': typeof AuthenticatedProviderIndexRoute
   '/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/suppliers/': typeof AuthenticatedSuppliersIndexRoute
@@ -574,6 +582,7 @@ export interface FileRoutesByTo {
   '/models': typeof AuthenticatedModelsIndexRoute
   '/playground': typeof AuthenticatedPlaygroundIndexRoute
   '/profile': typeof AuthenticatedProfileIndexRoute
+  '/provider': typeof AuthenticatedProviderIndexRoute
   '/redemption-codes': typeof AuthenticatedRedemptionCodesIndexRoute
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
   '/suppliers': typeof AuthenticatedSuppliersIndexRoute
@@ -646,6 +655,7 @@ export interface FileRoutesById {
   '/_authenticated/models/': typeof AuthenticatedModelsIndexRoute
   '/_authenticated/playground/': typeof AuthenticatedPlaygroundIndexRoute
   '/_authenticated/profile/': typeof AuthenticatedProfileIndexRoute
+  '/_authenticated/provider/': typeof AuthenticatedProviderIndexRoute
   '/_authenticated/redemption-codes/': typeof AuthenticatedRedemptionCodesIndexRoute
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/_authenticated/suppliers/': typeof AuthenticatedSuppliersIndexRoute
@@ -717,6 +727,7 @@ export interface FileRouteTypes {
     | '/models/'
     | '/playground/'
     | '/profile/'
+    | '/provider/'
     | '/redemption-codes/'
     | '/subscriptions/'
     | '/suppliers/'
@@ -785,6 +796,7 @@ export interface FileRouteTypes {
     | '/models'
     | '/playground'
     | '/profile'
+    | '/provider'
     | '/redemption-codes'
     | '/subscriptions'
     | '/suppliers'
@@ -856,6 +868,7 @@ export interface FileRouteTypes {
     | '/_authenticated/models/'
     | '/_authenticated/playground/'
     | '/_authenticated/profile/'
+    | '/_authenticated/provider/'
     | '/_authenticated/redemption-codes/'
     | '/_authenticated/subscriptions/'
     | '/_authenticated/suppliers/'
@@ -1156,6 +1169,13 @@ declare module '@tanstack/react-router' {
       path: '/redemption-codes'
       fullPath: '/redemption-codes/'
       preLoaderRoute: typeof AuthenticatedRedemptionCodesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/provider/': {
+      id: '/_authenticated/provider/'
+      path: '/provider'
+      fullPath: '/provider/'
+      preLoaderRoute: typeof AuthenticatedProviderIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/profile/': {
@@ -1494,6 +1514,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedModelsIndexRoute: typeof AuthenticatedModelsIndexRoute
   AuthenticatedPlaygroundIndexRoute: typeof AuthenticatedPlaygroundIndexRoute
   AuthenticatedProfileIndexRoute: typeof AuthenticatedProfileIndexRoute
+  AuthenticatedProviderIndexRoute: typeof AuthenticatedProviderIndexRoute
   AuthenticatedRedemptionCodesIndexRoute: typeof AuthenticatedRedemptionCodesIndexRoute
   AuthenticatedSubscriptionsIndexRoute: typeof AuthenticatedSubscriptionsIndexRoute
   AuthenticatedSuppliersIndexRoute: typeof AuthenticatedSuppliersIndexRoute
@@ -1526,6 +1547,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedModelsIndexRoute: AuthenticatedModelsIndexRoute,
   AuthenticatedPlaygroundIndexRoute: AuthenticatedPlaygroundIndexRoute,
   AuthenticatedProfileIndexRoute: AuthenticatedProfileIndexRoute,
+  AuthenticatedProviderIndexRoute: AuthenticatedProviderIndexRoute,
   AuthenticatedRedemptionCodesIndexRoute:
     AuthenticatedRedemptionCodesIndexRoute,
   AuthenticatedSubscriptionsIndexRoute: AuthenticatedSubscriptionsIndexRoute,

@@ -87,6 +87,11 @@ export function SidebarModulesCard() {
           description: t('API token management'),
         },
         {
+          key: 'supplier_directory',
+          title: t('Suppliers'),
+          description: t('Supplier groups, vendors, models, and discounts'),
+        },
+        {
           key: 'log',
           title: t('Usage Logs'),
           description: t('API usage records'),

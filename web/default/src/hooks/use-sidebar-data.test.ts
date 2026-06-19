@@ -29,4 +29,12 @@ describe('buildSidebarData', () => {
 
     assert.ok(urls.includes('/model-profit'))
   })
+
+  test('adds provider directory as a user console menu item', () => {
+    const data = buildSidebarData((key) => key, null)
+    const urls = flattenUrls(data)
+
+    assert.ok(urls.includes('/provider'))
+    assert.ok(urls.includes('/suppliers'))
+  })
 })
