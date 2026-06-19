@@ -3622,6 +3622,7 @@
     "Pending Withdrawal": "保留中の出金",
     "Pending Withdrawal Processing": "待处理提现",
     "per": "あたり",
+    "per {{unit}} tokens": "{{unit}}トークンあたり",
     "Per 1K tokens": "1Kトークンあたり",
     "Per 1M tokens": "1Mトークンあたり",
     "Per count": "回数単位",

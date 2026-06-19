@@ -3622,6 +3622,7 @@
     "Pending Withdrawal": "Rút tiền đang chờ",
     "Pending Withdrawal Processing": "待处理提现",
     "per": "per",
+    "per {{unit}} tokens": "mỗi {{unit}} token",
     "Per 1K tokens": "Mỗi 1K tokens",
     "Per 1M tokens": "Mỗi 1M tokens",
     "Per count": "Theo lượt",

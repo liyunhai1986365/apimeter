@@ -3622,6 +3622,7 @@
     "Pending Withdrawal": "Pending Withdrawal",
     "Pending Withdrawal Processing": "待处理提现",
     "per": "per",
+    "per {{unit}} tokens": "per {{unit}} tokens",
     "Per 1K tokens": "Per 1K tokens",
     "Per 1M tokens": "Per 1M tokens",
     "Per count": "Per count",

@@ -3622,6 +3622,7 @@
     "Pending Withdrawal": "Ожидающий вывод",
     "Pending Withdrawal Processing": "待处理提现",
     "per": "за",
+    "per {{unit}} tokens": "за {{unit}} токенов",
     "Per 1K tokens": "За 1K токенов",
     "Per 1M tokens": "За 1M токенов",
     "Per count": "Поштучно",

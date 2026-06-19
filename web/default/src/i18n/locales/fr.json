@@ -3622,6 +3622,7 @@
     "Pending Withdrawal": "Retrait en attente",
     "Pending Withdrawal Processing": "待处理提现",
     "per": "par",
+    "per {{unit}} tokens": "par {{unit}} tokens",
     "Per 1K tokens": "Par 1K tokens",
     "Per 1M tokens": "Par 1M tokens",
     "Per count": "À l'acte",
