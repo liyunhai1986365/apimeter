@@ -303,6 +303,102 @@ func TestTokenAuthAllowsOwnedProviderGroupPolicy(t *testing.T) {
 	require.Equal(t, service.BillingSourceUserOwnedProvider, response.BillingSource)
 }
 
+func TestTokenAuthOwnedProviderPolicySkipsGroupsWithoutRequestedModel(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       9,
+		Username: "owned-provider-policy-fallback-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	firstGroup := model.BuildUserOwnedProviderGroup(9, 9001)
+	secondGroup := model.BuildUserOwnedProviderGroup(9, 9002)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:          9,
+		Name:            "owned-provider-policy-fallback-token",
+		Key:             "ownedproviderpolicyfallbacktokenkey",
+		Status:          common.TokenStatusEnabled,
+		CreatedTime:     1,
+		AccessedTime:    1,
+		ExpiredTime:     -1,
+		RemainQuota:     100000,
+		UnlimitedQuota:  true,
+		Group:           firstGroup,
+		GroupPolicy:     `{"type":"ordered","groups":["` + firstGroup + `","` + secondGroup + `"]}`,
+		CrossGroupRetry: true,
+	}).Error)
+
+	weight := uint(100)
+	priority := int64(10)
+	autoBan := 1
+	require.NoError(t, db.Create(&[]model.Channel{
+		{
+			Id:          9001,
+			Type:        constant.ChannelTypeOpenAI,
+			Key:         "owned-policy-first-key",
+			Status:      common.ChannelStatusEnabled,
+			Name:        "user-openai-policy-first",
+			Group:       firstGroup,
+			Models:      "gpt-4o",
+			Weight:      &weight,
+			Priority:    &priority,
+			AutoBan:     &autoBan,
+			Scope:       model.ChannelScopeUserOwned,
+			OwnerUserId: 9,
+		},
+		{
+			Id:          9002,
+			Type:        constant.ChannelTypeOpenAI,
+			Key:         "owned-policy-second-key",
+			Status:      common.ChannelStatusEnabled,
+			Name:        "user-openai-policy-second",
+			Group:       secondGroup,
+			Models:      "gpt-5.5",
+			Weight:      &weight,
+			Priority:    &priority,
+			AutoBan:     &autoBan,
+			Scope:       model.ChannelScopeUserOwned,
+			OwnerUserId: 9,
+		},
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: firstGroup, Model: "gpt-4o", ChannelId: 9001, Enabled: true, Priority: &priority, Weight: weight},
+		{Group: secondGroup, Model: "gpt-5.5", ChannelId: 9002, Enabled: true, Priority: &priority, Weight: weight},
+	}).Error)
+	model.InitChannelCache()
+
+	router := gin.New()
+	router.POST("/v1/chat/completions", TokenAuth(), Distribute(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"channel_id":     common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+			"auto_group":     common.GetContextKeyString(c, constant.ContextKeyAutoGroup),
+			"billing_source": common.GetContextKeyString(c, constant.ContextKeyTokenBillingSource),
+		})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-5.5"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer ownedproviderpolicyfallbacktokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	var response struct {
+		ChannelId     int    `json:"channel_id"`
+		AutoGroup     string `json:"auto_group"`
+		BillingSource string `json:"billing_source"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, 9002, response.ChannelId)
+	require.Equal(t, secondGroup, response.AutoGroup)
+	require.Equal(t, service.BillingSourceUserOwnedProvider, response.BillingSource)
+}
+
 func TestTokenAuthAllowsSubscriptionKeyWithZeroTokenQuota(t *testing.T) {
 	db := openTokenAuthTestDB(t)
 

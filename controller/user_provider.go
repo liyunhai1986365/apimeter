@@ -11,6 +11,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+type UserOwnedProviderItem struct {
+	model.Channel
+	Stats model.UserOwnedProviderStats `json:"stats"`
+}
+
 func ListUserOwnedProviders(c *gin.Context) {
 	userID := c.GetInt("id")
 	channels, err := model.ListUserOwnedProviderChannels(userID)
@@ -18,7 +23,25 @@ func ListUserOwnedProviders(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	common.ApiSuccess(c, channels)
+	channelIDs := make([]int, 0, len(channels))
+	for _, channel := range channels {
+		channelIDs = append(channelIDs, channel.Id)
+	}
+	statsByChannel, err := model.GetUserOwnedProviderStats(userID, channelIDs)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	items := make([]UserOwnedProviderItem, 0, len(channels))
+	for _, channel := range channels {
+		stats := statsByChannel[channel.Id]
+		stats.ChannelId = channel.Id
+		items = append(items, UserOwnedProviderItem{
+			Channel: channel,
+			Stats:   stats,
+		})
+	}
+	common.ApiSuccess(c, items)
 }
 
 func CreateUserOwnedProvider(c *gin.Context) {

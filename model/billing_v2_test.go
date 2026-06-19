@@ -104,6 +104,60 @@ func TestBillingV2BackfillCreatesUsageAndAccountLedger(t *testing.T) {
 	assert.Equal(t, int64(43000), ledger[2].BalanceAfter)
 }
 
+func TestBillingV2SkipsUserOwnedProviderConsumeLogs(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, LOG_DB.AutoMigrate(
+		&BillingUsageItem{},
+		&AccountLedgerEntry{},
+		&BillingStatement{},
+		&BillingStatementSummary{},
+	))
+
+	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
+	log := &Log{
+		Id:               7051,
+		UserId:           1001,
+		CreatedAt:        day.Add(time.Hour).Unix(),
+		Type:             LogTypeConsume,
+		ModelName:        "gpt-5",
+		TokenId:          2001,
+		TokenName:        "byok-key",
+		Group:            BuildUserOwnedProviderGroup(1001, 9001),
+		RequestId:        "req-user-owned-provider",
+		Quota:            8000,
+		PromptTokens:     1200,
+		CompletionTokens: 300,
+		Other: common.MapToJsonStr(map[string]interface{}{
+			"billing_source": "user_owned_provider",
+			"billing_mode":   "ratio",
+		}),
+	}
+	require.NoError(t, LOG_DB.Create(log).Error)
+
+	created, err := RecordBillingV2ConsumeLog(log.Id)
+	require.NoError(t, err)
+	assert.False(t, created)
+
+	var usageCount int64
+	require.NoError(t, LOG_DB.Model(&BillingUsageItem{}).Count(&usageCount).Error)
+	assert.Equal(t, int64(0), usageCount)
+
+	var ledgerCount int64
+	require.NoError(t, LOG_DB.Model(&AccountLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Equal(t, int64(0), ledgerCount)
+
+	result, err := BackfillBillingV2FromLogs(BillingV2BackfillOptions{
+		StartTimestamp: day.Unix(),
+		EndTimestamp:   day.AddDate(0, 0, 1).Add(-time.Second).Unix(),
+		BatchSize:      100,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), result.Scanned)
+	assert.Equal(t, int64(0), result.UsageCreated)
+	assert.Equal(t, int64(0), result.LedgerCreated)
+	assert.Equal(t, int64(1), result.Skipped)
+}
+
 func TestBillingV2UsageItemInfersPerRequestBillingModeFromFixedPrice(t *testing.T) {
 	usage := billingUsageItemFromLog(&Log{
 		Id:        7101,
@@ -166,6 +220,24 @@ func TestBillingV2BuildsMonthlyStatementAndDailyReconciliation(t *testing.T) {
 		OriginalAmount:   5000,
 		SettlementAmount: 5000,
 	}))
+	require.NoError(t, RecordBillingUsageItem(&BillingUsageItem{
+		UserId:           1001,
+		TokenId:          2003,
+		TokenName:        "byok-key",
+		LogId:            7103,
+		RequestId:        "req-user-owned-provider",
+		ModelName:        "gpt-5",
+		Group:            BuildUserOwnedProviderGroup(1001, 9001),
+		BillingSource:    BillingSourceUserProvider,
+		GroupRatio:       1,
+		BilledAt:         day.Add(3 * time.Hour).Unix(),
+		BillingDate:      "2026-06-12",
+		BillingMonth:     "2026-06",
+		InputTokens:      700,
+		OutputTokens:     100,
+		OriginalAmount:   9000,
+		SettlementAmount: 9000,
+	}))
 	require.NoError(t, RecordAccountLedgerEntry(&AccountLedgerEntry{
 		UserId:        1001,
 		AccountType:   BillingSourceWallet,
@@ -176,6 +248,19 @@ func TestBillingV2BuildsMonthlyStatementAndDailyReconciliation(t *testing.T) {
 		SourceType:    AccountLedgerSourceUsage,
 		SourceId:      "7101",
 		OccurredAt:    day.Add(time.Hour).Unix(),
+		LedgerDate:    "2026-06-12",
+		LedgerMonth:   "2026-06",
+	}))
+	require.NoError(t, RecordAccountLedgerEntry(&AccountLedgerEntry{
+		UserId:        1001,
+		AccountType:   BillingSourceUserProvider,
+		EntryType:     AccountLedgerEntryTypeConsume,
+		Amount:        -9000,
+		BalanceBefore: 0,
+		BalanceAfter:  -9000,
+		SourceType:    AccountLedgerSourceUsage,
+		SourceId:      "7103",
+		OccurredAt:    day.Add(3 * time.Hour).Unix(),
 		LedgerDate:    "2026-06-12",
 		LedgerMonth:   "2026-06",
 	}))

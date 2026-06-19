@@ -181,7 +181,7 @@ func appendBillingInfo(relayInfo *relaycommon.RelayInfo, other map[string]interf
 		other["charged_quota"] = snap.ChargedEstimatedQuota
 		other["agent_profit_quota"] = snap.ChargedEstimatedQuota - snap.BaseEstimatedQuota
 	}
-	// billing_source: "wallet" or "subscription"
+	// billing_source: "wallet", "subscription", or "user_owned_provider"
 	if relayInfo.BillingSource != "" {
 		other["billing_source"] = relayInfo.BillingSource
 	}

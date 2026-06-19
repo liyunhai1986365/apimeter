@@ -63,6 +63,7 @@ import {
   getKeyPromptForType,
 } from '@/features/channels/lib/channel-utils'
 import { getPricing } from '@/features/pricing/api'
+import { formatCompactNumber, formatLogQuota } from '@/lib/format'
 import {
   createUserOwnedProvider,
   deleteUserOwnedProvider,
@@ -176,6 +177,17 @@ function UserOwnedProvidersSection(props: {
   const [editingProvider, setEditingProvider] =
     useState<UserOwnedProviderRow | null>(null)
   const [form, setForm] = useState<ProviderFormState>(defaultProviderForm)
+  const totalStats = useMemo(
+    () =>
+      props.providers.reduce(
+        (total, provider) => ({
+          requestCount: total.requestCount + (provider.stats?.request_count ?? 0),
+          quota: total.quota + (provider.stats?.quota ?? 0),
+        }),
+        { requestCount: 0, quota: 0 }
+      ),
+    [props.providers]
+  )
 
   const resetDialog = () => {
     setDialogOpen(false)
@@ -276,10 +288,25 @@ function UserOwnedProvidersSection(props: {
             {t('Use your own upstream keys without wallet billing.')}
           </p>
         </div>
-        <Button size='sm' onClick={openCreateDialog}>
-          <Plus data-icon='start' />
-          {t('Create Provider')}
-        </Button>
+        <div className='flex flex-wrap items-center gap-2 sm:justify-end'>
+          {props.providers.length > 0 && (
+            <div className='flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-1.5 text-xs'>
+              <span className='text-muted-foreground'>
+                {t('Estimated spend')}
+              </span>
+              <span className='font-semibold tabular-nums'>
+                {formatLogQuota(totalStats.quota)}
+              </span>
+              <span className='text-muted-foreground'>
+                {formatCompactNumber(totalStats.requestCount)} {t('Requests')}
+              </span>
+            </div>
+          )}
+          <Button size='sm' onClick={openCreateDialog}>
+            <Plus data-icon='start' />
+            {t('Create Provider')}
+          </Button>
+        </div>
       </div>
 
       <div className='divide-y'>
@@ -295,7 +322,7 @@ function UserOwnedProvidersSection(props: {
           props.providers.map((provider) => (
             <div
               key={provider.id}
-              className='grid gap-2 px-4 py-3 text-sm md:grid-cols-[minmax(10rem,0.8fr)_minmax(8rem,0.5fr)_minmax(14rem,1fr)_auto] md:items-center'
+              className='grid gap-2 px-4 py-3 text-sm md:grid-cols-[minmax(10rem,0.8fr)_minmax(8rem,0.5fr)_minmax(14rem,1fr)_minmax(9rem,0.55fr)_auto] md:items-center'
             >
               <div className='min-w-0'>
                 <div className='truncate font-medium'>{provider.name}</div>
@@ -308,6 +335,16 @@ function UserOwnedProvidersSection(props: {
               </Badge>
               <div className='text-muted-foreground min-w-0 truncate text-xs'>
                 {provider.models || '-'}
+              </div>
+              <div className='flex min-w-0 flex-col gap-0.5 md:items-end'>
+                <div className='font-medium tabular-nums'>
+                  {formatLogQuota(provider.stats?.quota ?? 0)}
+                </div>
+                <div className='text-muted-foreground text-xs'>
+                  {t('Estimated spend')} ·{' '}
+                  {formatCompactNumber(provider.stats?.request_count ?? 0)}{' '}
+                  {t('Requests')}
+                </div>
               </div>
               <div className='flex justify-start gap-1 md:justify-end'>
                 <Button

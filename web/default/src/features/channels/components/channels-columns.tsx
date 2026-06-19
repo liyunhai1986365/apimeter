@@ -611,6 +611,36 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
       minSize: 200,
     },
 
+    // Ownership scope column (hidden by default, used by toolbar filters)
+    {
+      accessorKey: 'scope',
+      meta: { label: t('Ownership'), mobileHidden: true },
+      header: t('Ownership'),
+      cell: ({ row }) => {
+        const scope = row.getValue('scope') as string
+        return (
+          <StatusBadge
+            label={
+              scope === 'user_owned'
+                ? t('User-owned channels')
+                : t('Platform channels')
+            }
+            variant={scope === 'user_owned' ? 'warning' : 'neutral'}
+            size='sm'
+            copyable={false}
+          />
+        )
+      },
+      filterFn: (row, id, value) => {
+        if (!value || value.length === 0 || value.includes('platform')) {
+          return row.getValue(id) !== 'user_owned'
+        }
+        if (value.includes('all')) return true
+        return value.includes(String(row.getValue(id)))
+      },
+      enableSorting: false,
+    },
+
     // Type column
     {
       accessorKey: 'type',

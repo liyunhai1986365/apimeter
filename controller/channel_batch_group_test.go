@@ -71,6 +71,63 @@ func TestGetAllChannelsFiltersByRatioQuery(t *testing.T) {
 	require.NotContains(t, recorder.Body.String(), "high-ratio")
 }
 
+func TestGetAllChannelsDefaultsToPlatformScopeAndAllowsOwnedScopeFilter(t *testing.T) {
+	setupChannelControllerBatchTestDB(t)
+
+	ratio := 1.0
+	require.NoError(t, model.BatchInsertChannels([]model.Channel{
+		{
+			Type:         1,
+			Key:          "sk-platform",
+			Name:         "platform-channel",
+			Models:       "gpt-4o",
+			Group:        "default",
+			ChannelRatio: &ratio,
+			Scope:        model.ChannelScopePlatform,
+		},
+		{
+			Type:         1,
+			Key:          "sk-owned",
+			Name:         "owned-channel",
+			Models:       "gpt-4o",
+			Group:        model.BuildUserOwnedProviderGroup(1001, 2002),
+			ChannelRatio: &ratio,
+			Scope:        model.ChannelScopeUserOwned,
+			OwnerUserId:  1001,
+		},
+	}))
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/channel", nil)
+
+	GetAllChannels(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "platform-channel")
+	require.NotContains(t, recorder.Body.String(), "owned-channel")
+
+	recorder = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/channel?scope=user_owned", nil)
+
+	GetAllChannels(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.NotContains(t, recorder.Body.String(), "platform-channel")
+	require.Contains(t, recorder.Body.String(), "owned-channel")
+
+	recorder = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/channel?scope=all", nil)
+
+	GetAllChannels(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), "platform-channel")
+	require.Contains(t, recorder.Body.String(), "owned-channel")
+}
+
 func TestGetChannelFilterOptionsReturnsOnlyIdAndName(t *testing.T) {
 	setupChannelControllerBatchTestDB(t)
 

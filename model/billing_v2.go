@@ -16,6 +16,7 @@ import (
 const (
 	BillingSourceWallet       = "wallet"
 	BillingSourceSubscription = "subscription"
+	BillingSourceUserProvider = "user_owned_provider"
 
 	AccountLedgerEntryTypeTopup      = "topup"
 	AccountLedgerEntryTypeConsume    = "consume"
@@ -442,7 +443,11 @@ func backfillBillingV2Log(log *Log, balances map[string]int64, result *BillingV2
 	accountType := BillingSourceWallet
 	other, _ := common.StrToMap(log.Other)
 	if log.Type == LogTypeConsume {
-		accountType = billingValueString(other, "billing_source", BillingSourceWallet)
+		accountType = billingSourceFromLogOther(other)
+		if shouldSkipPlatformBillingSource(accountType) {
+			result.Skipped++
+			return false, nil
+		}
 	}
 	key := fmt.Sprintf("%d:%s", log.UserId, accountType)
 	before := balances[key]
@@ -517,6 +522,9 @@ func RecordBillingV2ConsumeLog(logId int) (bool, error) {
 		return false, nil
 	}
 	other, _ := common.StrToMap(log.Other)
+	if shouldSkipPlatformBillingSource(billingSourceFromLogOther(other)) {
+		return false, nil
+	}
 	usage := billingUsageItemFromLog(&log, other)
 	accountType := usage.BillingSource
 	if strings.TrimSpace(accountType) == "" {
@@ -602,6 +610,22 @@ func billingModeFromLog(other map[string]interface{}) string {
 	return "ratio"
 }
 
+func shouldSkipPlatformBillingSource(source string) bool {
+	return strings.TrimSpace(source) == BillingSourceUserProvider
+}
+
+func billingSourceFromLogOther(other map[string]interface{}) string {
+	return billingValueString(other, "billing_source", BillingSourceWallet)
+}
+
+func excludeUserProviderBilling(tx *gorm.DB) *gorm.DB {
+	return tx.Where("(billing_source IS NULL OR billing_source = '' OR billing_source <> ?)", BillingSourceUserProvider)
+}
+
+func excludeUserProviderLedger(tx *gorm.DB) *gorm.DB {
+	return tx.Where("(account_type IS NULL OR account_type = '' OR account_type <> ?)", BillingSourceUserProvider)
+}
+
 func billingUsageItemFromLog(log *Log, other map[string]interface{}) BillingUsageItem {
 	groupRatio := billingValueFloat(other, "group_ratio", 1)
 	if groupRatio == 0 {
@@ -636,7 +660,7 @@ func billingUsageItemFromLog(log *Log, other map[string]interface{}) BillingUsag
 		RequestId:        log.RequestId,
 		ModelName:        log.ModelName,
 		Group:            log.Group,
-		BillingSource:    billingValueString(other, "billing_source", BillingSourceWallet),
+		BillingSource:    billingSourceFromLogOther(other),
 		BillingMode:      billingModeFromLog(other),
 		GroupRatio:       groupRatio,
 		BilledAt:         log.CreatedAt,
@@ -660,6 +684,7 @@ func GetBillingUsageItems(query BillingUsageItemQuery) ([]BillingUsageItem, erro
 	if query.UserId > 0 {
 		tx = tx.Where("user_id = ?", query.UserId)
 	}
+	tx = excludeUserProviderBilling(tx)
 	if query.StartTime > 0 {
 		tx = tx.Where("billed_at >= ?", query.StartTime)
 	}
@@ -691,6 +716,7 @@ func GetBillingUsageTotals(query BillingUsageItemQuery) (BillingUsageTotals, err
 	if query.UserId > 0 {
 		tx = tx.Where("user_id = ?", query.UserId)
 	}
+	tx = excludeUserProviderBilling(tx)
 	if query.StartTime > 0 {
 		tx = tx.Where("billed_at >= ?", query.StartTime)
 	}
@@ -727,6 +753,7 @@ func GetAccountLedgerEntries(query AccountLedgerQuery) ([]AccountLedgerEntry, er
 	if query.UserId > 0 {
 		tx = tx.Where("user_id = ?", query.UserId)
 	}
+	tx = excludeUserProviderLedger(tx)
 	if query.StartTime > 0 {
 		tx = tx.Where("occurred_at >= ?", query.StartTime)
 	}
@@ -753,6 +780,7 @@ func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow
 	if query.UserId > 0 {
 		tx = tx.Where("user_id = ?", query.UserId)
 	}
+	tx = excludeUserProviderBilling(tx)
 	if strings.TrimSpace(query.Month) != "" {
 		tx = tx.Where("billing_month = ?", strings.TrimSpace(query.Month))
 	}
@@ -860,6 +888,8 @@ func GetDailyBillingReconciliations(query BillingStatementQuery) ([]DailyBilling
 		usage = usage.Where("user_id = ?", query.UserId)
 		ledger = ledger.Where("user_id = ?", query.UserId)
 	}
+	usage = excludeUserProviderBilling(usage)
+	ledger = excludeUserProviderLedger(ledger)
 	if strings.TrimSpace(query.StartMonth) != "" {
 		usage = usage.Where("billing_month >= ?", query.StartMonth)
 		ledger = ledger.Where("ledger_month >= ?", query.StartMonth)
@@ -938,6 +968,7 @@ func GenerateMonthlyBillingStatement(userId int, month string) (BillingStatement
 	}
 	if err := LOG_DB.Model(&BillingUsageItem{}).
 		Where("user_id = ? AND billing_month = ?", userId, month).
+		Scopes(excludeUserProviderBilling).
 		Select("COUNT(*) AS request_count, COALESCE(SUM(input_tokens),0) AS input_tokens, COALESCE(SUM(output_tokens),0) AS output_tokens, COALESCE(SUM(cache_read_tokens),0) AS cache_read_tokens, COALESCE(SUM(cache_write_tokens),0) AS cache_write_tokens, COALESCE(SUM(original_amount),0) AS original_amount, COALESCE(SUM(discount_amount),0) AS discount_amount, COALESCE(SUM(settlement_amount),0) AS settlement_amount").
 		Scan(&usageTotals).Error; err != nil {
 		return BillingStatement{}, nil, err
@@ -948,6 +979,7 @@ func GenerateMonthlyBillingStatement(userId int, month string) (BillingStatement
 	}
 	if err := LOG_DB.Model(&AccountLedgerEntry{}).
 		Where("user_id = ? AND ledger_month = ?", userId, month).
+		Scopes(excludeUserProviderLedger).
 		Select("entry_type, COALESCE(SUM(amount), 0) AS amount").
 		Group("entry_type").
 		Scan(&ledgerTotals).Error; err != nil {
@@ -1025,6 +1057,7 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 	var items []BillingUsageItem
 	if err := LOG_DB.Model(&BillingUsageItem{}).
 		Where("user_id = ? AND billing_month = ?", statement.UserId, statement.PeriodValue).
+		Scopes(excludeUserProviderBilling).
 		Find(&items).Error; err != nil {
 		return nil, err
 	}

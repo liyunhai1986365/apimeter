@@ -255,6 +255,7 @@ export type ChannelSortBy =
 
 export type ChannelSortOrder = 'asc' | 'desc'
 export type ChannelRatioFilterOp = 'lt' | 'lte' | 'eq' | 'gte' | 'gt'
+export type ChannelScopeFilter = 'platform' | 'user_owned' | 'all'
 
 export interface GetChannelsParams {
   p?: number
@@ -262,6 +263,7 @@ export interface GetChannelsParams {
   status?: string // 'enabled', 'disabled', or empty for all
   type?: number
   group?: string
+  scope?: ChannelScopeFilter
   id_sort?: boolean
   tag_mode?: boolean
   sort_by?: ChannelSortBy
@@ -273,6 +275,7 @@ export interface GetChannelsParams {
 export interface SearchChannelsParams {
   keyword?: string
   group?: string
+  scope?: ChannelScopeFilter
   model?: string
   status?: string
   type?: number

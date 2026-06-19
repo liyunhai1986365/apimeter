@@ -62,6 +62,19 @@ func parseStatusFilter(statusParam string) int {
 	}
 }
 
+func parseChannelScopeFilter(scopeParam string) string {
+	switch strings.ToLower(strings.TrimSpace(scopeParam)) {
+	case "all":
+		return "all"
+	case model.ChannelScopeUserOwned:
+		return model.ChannelScopeUserOwned
+	case model.ChannelScopePlatform, "":
+		return model.ChannelScopePlatform
+	default:
+		return model.ChannelScopePlatform
+	}
+}
+
 func clearChannelInfo(channel *model.Channel) {
 	if channel.ChannelInfo.IsMultiKey {
 		channel.ChannelInfo.MultiKeyDisabledReason = nil
@@ -95,12 +108,17 @@ func parseChannelRatioFilter(c *gin.Context) (*model.ChannelRatioFilter, error) 
 	}, nil
 }
 
-func buildChannelListQuery(group string, statusFilter int, typeFilter int, ratioFilter *model.ChannelRatioFilter) *gorm.DB {
+func buildChannelListQuery(group string, statusFilter int, typeFilter int, ratioFilter *model.ChannelRatioFilter, scopeFilter string) *gorm.DB {
 	query := model.DB.Model(&model.Channel{})
 	query = model.ApplyChannelGroupFilter(query, group)
 	query = applyChannelStatusFilter(query, statusFilter)
 	if typeFilter >= 0 {
 		query = query.Where("type = ?", typeFilter)
+	}
+	if scopeFilter == model.ChannelScopeUserOwned {
+		query = query.Where("scope = ?", model.ChannelScopeUserOwned)
+	} else if scopeFilter != "all" {
+		query = query.Where("(scope = ? OR scope = '')", model.ChannelScopePlatform)
 	}
 	query = model.ApplyChannelRatioFilter(query, ratioFilter)
 	return query
@@ -116,6 +134,7 @@ func GetAllChannels(c *gin.Context) {
 	statusParam := c.Query("status")
 	// statusFilter: -1 all, 1 enabled, 0 disabled (include auto & manual)
 	statusFilter := parseStatusFilter(statusParam)
+	scopeFilter := parseChannelScopeFilter(c.Query("scope"))
 	// type filter
 	typeStr := c.Query("type")
 	typeFilter := -1
@@ -133,13 +152,13 @@ func GetAllChannels(c *gin.Context) {
 	var total int64
 
 	if enableTagMode {
-		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+		tags, err := model.GetPaginatedChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter, scopeFilter), pageInfo.GetStartIdx(), pageInfo.GetPageSize())
 		if err != nil {
 			common.SysError("failed to get paginated tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签失败，请稍后重试"})
 			return
 		}
-		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter))
+		total, err = model.CountChannelTags(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter, scopeFilter))
 		if err != nil {
 			common.SysError("failed to count tags: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取标签数量失败，请稍后重试"})
@@ -150,7 +169,7 @@ func GetAllChannels(c *gin.Context) {
 				continue
 			}
 			var tagChannels []*model.Channel
-			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter).Where("tag = ?", *tag)).
+			err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter, scopeFilter).Where("tag = ?", *tag)).
 				Omit("key").
 				Find(&tagChannels).Error
 			if err != nil {
@@ -161,13 +180,13 @@ func GetAllChannels(c *gin.Context) {
 			channelData = append(channelData, tagChannels...)
 		}
 	} else {
-		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter).Count(&total).Error; err != nil {
+		if err := buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter, scopeFilter).Count(&total).Error; err != nil {
 			common.SysError("failed to count channels: " + err.Error())
 			c.JSON(http.StatusOK, gin.H{"success": false, "message": "获取渠道数量失败，请稍后重试"})
 			return
 		}
 
-		err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter)).
+		err := sortOptions.Apply(buildChannelListQuery(groupFilter, statusFilter, typeFilter, ratioFilter, scopeFilter)).
 			Limit(pageInfo.GetPageSize()).
 			Offset(pageInfo.GetStartIdx()).
 			Omit("key").
@@ -183,7 +202,7 @@ func GetAllChannels(c *gin.Context) {
 		clearChannelInfo(datum)
 	}
 
-	countQuery := buildChannelListQuery(groupFilter, statusFilter, -1, ratioFilter)
+	countQuery := buildChannelListQuery(groupFilter, statusFilter, -1, ratioFilter, scopeFilter)
 	var results []struct {
 		Type  int64
 		Count int64
@@ -294,6 +313,7 @@ func SearchChannels(c *gin.Context) {
 	modelKeyword := c.Query("model")
 	statusParam := c.Query("status")
 	statusFilter := parseStatusFilter(statusParam)
+	scopeFilter := parseChannelScopeFilter(c.Query("scope"))
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
 	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
@@ -315,7 +335,7 @@ func SearchChannels(c *gin.Context) {
 		for _, tag := range tags {
 			if tag != nil && *tag != "" {
 				var tagChannels []*model.Channel
-				err := sortOptions.Apply(buildChannelListQuery(group, -1, -1, ratioFilter).Where("tag = ?", *tag)).
+				err := sortOptions.Apply(buildChannelListQuery(group, -1, -1, ratioFilter, scopeFilter).Where("tag = ?", *tag)).
 					Omit("key").
 					Find(&tagChannels).Error
 				if err != nil {
@@ -329,7 +349,7 @@ func SearchChannels(c *gin.Context) {
 			}
 		}
 	} else {
-		channels, err := model.SearchChannels(keyword, group, modelKeyword, idSort, sortOptions)
+		channels, err := model.SearchChannels(keyword, group, modelKeyword, idSort, scopeFilter, sortOptions)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,

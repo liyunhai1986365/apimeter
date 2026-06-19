@@ -435,7 +435,7 @@ func GetChannelsByTag(tag string, idSort bool, selectAll bool, sortOptions ...Ch
 	return channels, err
 }
 
-func SearchChannels(keyword string, group string, model string, idSort bool, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
+func SearchChannels(keyword string, group string, model string, idSort bool, scopeFilter string, sortOptions ...ChannelSortOptions) ([]*Channel, error) {
 	var channels []*Channel
 	modelsCol := "`models`"
 
@@ -459,6 +459,11 @@ func SearchChannels(keyword string, group string, model string, idSort bool, sor
 	whereClause := "(id = ? OR name LIKE ? OR " + commonKeyCol + " = ? OR " + baseURLCol + " LIKE ?) AND " + modelsCol + " LIKE ?"
 	args := []any{common.String2Int(keyword), "%" + keyword + "%", keyword, "%" + keyword + "%", "%" + model + "%"}
 	baseQuery = ApplyChannelGroupFilter(baseQuery.Where(whereClause, args...), group)
+	if scopeFilter == ChannelScopeUserOwned {
+		baseQuery = baseQuery.Where("scope = ?", ChannelScopeUserOwned)
+	} else if scopeFilter != "all" {
+		baseQuery = baseQuery.Where("(scope = ? OR scope = '')", ChannelScopePlatform)
+	}
 
 	// 执行查询
 	err := order.Apply(baseQuery).Find(&channels).Error

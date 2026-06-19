@@ -111,7 +111,8 @@ func Distribute() func(c *gin.Context) {
 				if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
 					channelGroup = agentGroup.SystemGroupName
 				}
-				if model.IsUserOwnedProviderGroup(channelGroup) {
+				hasGroupPolicyChain := len(service.ResolveTokenGroupChain(c, usingGroup)) > 0
+				if model.IsUserOwnedProviderGroup(channelGroup) && !hasGroupPolicyChain {
 					ownedChannel, ownedErr := model.GetUserOwnedProviderChannelForGroup(c.GetInt("id"), channelGroup, modelRequest.Model)
 					if ownedErr != nil {
 						abortWithOpenAiMessage(c, http.StatusForbidden, ownedErr.Error(), types.ErrorCodeModelNotFound)

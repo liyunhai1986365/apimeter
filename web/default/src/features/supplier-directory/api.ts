@@ -11,10 +11,20 @@ export type UserOwnedProviderPayload = {
   }
 }
 
+export type UserOwnedProviderResponse = Channel & {
+  stats?: {
+    channel_id: number
+    request_count: number
+    prompt_tokens: number
+    completion_tokens: number
+    quota: number
+  }
+}
+
 export async function getUserOwnedProviders(): Promise<{
   success: boolean
   message?: string
-  data?: Channel[]
+  data?: UserOwnedProviderResponse[]
 }> {
   const res = await api.get('/api/user/self/providers')
   return res.data

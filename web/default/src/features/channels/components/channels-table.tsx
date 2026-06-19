@@ -60,7 +60,12 @@ import {
   getChannelTypeIcon,
   getChannelTypeLabel,
 } from '../lib'
-import type { Channel, ChannelRatioFilterOp, ChannelSortBy } from '../types'
+import type {
+  Channel,
+  ChannelRatioFilterOp,
+  ChannelScopeFilter,
+  ChannelSortBy,
+} from '../types'
 import { useChannelsColumns } from './channels-columns'
 import { useChannels } from './channels-provider'
 import { DataTableBulkActions } from './data-table-bulk-actions'
@@ -102,6 +107,7 @@ export function ChannelsTable() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     models: false,
+    scope: false,
     tag: false,
   })
   const [rowSelection, setRowSelection] = useState({})
@@ -128,6 +134,7 @@ export function ChannelsTable() {
       { columnId: 'status', searchKey: 'status', type: 'array' },
       { columnId: 'type', searchKey: 'type', type: 'array' },
       { columnId: 'group', searchKey: 'group', type: 'array' },
+      { columnId: 'scope', searchKey: 'scope', type: 'array' },
       { columnId: 'model', searchKey: 'model', type: 'string' },
       { columnId: 'ratioOp', searchKey: 'ratioOp', type: 'string' },
       { columnId: 'ratioValue', searchKey: 'ratioValue', type: 'string' },
@@ -141,6 +148,8 @@ export function ChannelsTable() {
     (columnFilters.find((f) => f.id === 'type')?.value as string[]) || []
   const groupFilter =
     (columnFilters.find((f) => f.id === 'group')?.value as string[]) || []
+  const scopeFilter =
+    (columnFilters.find((f) => f.id === 'scope')?.value as string[]) || []
   const modelFilterFromUrl =
     (columnFilters.find((f) => f.id === 'model')?.value as string) || ''
   const ratioOpFromUrl =
@@ -183,6 +192,10 @@ export function ChannelsTable() {
   const parsedRatioValue = ratioValue === '' ? undefined : Number(ratioValue)
   const hasValidRatioFilter =
     parsedRatioValue !== undefined && Number.isFinite(parsedRatioValue)
+  const activeScope =
+    scopeFilter.length > 0 && !scopeFilter.includes('platform')
+      ? (scopeFilter[0] as ChannelScopeFilter)
+      : undefined
 
   const commitRatioFilters = (
     operator: ChannelRatioFilterOp,
@@ -257,6 +270,7 @@ export function ChannelsTable() {
         groupFilter.length > 0 && !groupFilter.includes('all')
           ? groupFilter[0]
           : undefined,
+      scope: activeScope,
       status:
         statusFilter.length > 0 && !statusFilter.includes('all')
           ? statusFilter[0]
@@ -282,6 +296,7 @@ export function ChannelsTable() {
             groupFilter.length > 0 && !groupFilter.includes('all')
               ? groupFilter[0]
               : undefined,
+          scope: activeScope,
           status:
             statusFilter.length > 0 && !statusFilter.includes('all')
               ? statusFilter[0]
@@ -302,6 +317,7 @@ export function ChannelsTable() {
             groupFilter.length > 0 && !groupFilter.includes('all')
               ? groupFilter[0]
               : undefined,
+          scope: activeScope,
           status:
             statusFilter.length > 0 && !statusFilter.includes('all')
               ? statusFilter[0]
@@ -435,6 +451,12 @@ export function ChannelsTable() {
     ...groupOptions,
   ]
 
+  const scopeFilterOptions = [
+    { label: t('Platform channels'), value: 'platform' },
+    { label: t('User-owned channels'), value: 'user_owned' },
+    { label: t('All channels'), value: 'all' },
+  ]
+
   const ratioFilterNode = (
     <div className='flex w-full items-center gap-1.5 sm:w-auto'>
       <Select
@@ -519,6 +541,12 @@ export function ChannelsTable() {
             columnId: 'group',
             title: t('Group'),
             options: groupFilterOptions,
+            singleSelect: true,
+          },
+          {
+            columnId: 'scope',
+            title: t('Ownership'),
+            options: scopeFilterOptions,
             singleSelect: true,
           },
         ],

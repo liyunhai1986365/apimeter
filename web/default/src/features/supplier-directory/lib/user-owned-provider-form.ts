@@ -37,6 +37,13 @@ export type UserOwnedProviderRow = Pick<
   openai_organization?: string | null
   other?: string
   settings?: string
+  stats?: {
+    channel_id: number
+    request_count: number
+    prompt_tokens: number
+    completion_tokens: number
+    quota: number
+  }
 }
 
 type ProviderFormInput = Pick<

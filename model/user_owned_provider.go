@@ -82,3 +82,37 @@ func ListUserOwnedProviderChannels(userID int) ([]Channel, error) {
 		Find(&channels).Error
 	return channels, err
 }
+
+type UserOwnedProviderStats struct {
+	ChannelId        int   `json:"channel_id" gorm:"column:channel_id"`
+	RequestCount     int64 `json:"request_count" gorm:"column:request_count"`
+	PromptTokens     int   `json:"prompt_tokens" gorm:"column:prompt_tokens"`
+	CompletionTokens int   `json:"completion_tokens" gorm:"column:completion_tokens"`
+	Quota            int   `json:"quota" gorm:"column:quota"`
+}
+
+func GetUserOwnedProviderStats(userID int, channelIDs []int) (map[int]UserOwnedProviderStats, error) {
+	statsByChannel := make(map[int]UserOwnedProviderStats, len(channelIDs))
+	if userID <= 0 || len(channelIDs) == 0 {
+		return statsByChannel, nil
+	}
+
+	var rows []UserOwnedProviderStats
+	err := LOG_DB.Model(&Log{}).
+		Select(`channel_id,
+COUNT(*) AS request_count,
+COALESCE(SUM(prompt_tokens), 0) AS prompt_tokens,
+COALESCE(SUM(completion_tokens), 0) AS completion_tokens,
+COALESCE(SUM(quota), 0) AS quota`).
+		Where("user_id = ? AND type = ? AND channel_id IN ?", userID, LogTypeConsume, channelIDs).
+		Group("channel_id").
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	for _, row := range rows {
+		statsByChannel[row.ChannelId] = row
+	}
+	return statsByChannel, nil
+}
