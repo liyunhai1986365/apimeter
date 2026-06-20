@@ -17,6 +17,11 @@ const options: ApiKeyGroupOption[] = [
   { value: 'default', label: 'default', desc: 'Default' },
   { value: 'fast', label: 'fast', desc: 'Fast' },
   { value: 'backup', label: 'backup', desc: 'Backup' },
+  {
+    value: 'user_owned:1:7',
+    label: 'My OpenAI',
+    desc: 'Use your own upstream keys',
+  },
 ]
 
 const groupDisplay: PricingGroupDisplayConfig = {
@@ -67,7 +72,13 @@ describe('api key group filters', () => {
 
     assert.deepEqual(
       metadata.categories.map((category) => category.value),
-      [ALL_CATEGORY_VALUE, 'official', 'partner', '__uncategorized__']
+      [
+        ALL_CATEGORY_VALUE,
+        'user_owned',
+        'official',
+        'partner',
+        '__uncategorized__',
+      ]
     )
     assert.deepEqual(
       metadata.vendors.map((vendor) => vendor.value),
@@ -97,6 +108,14 @@ describe('api key group filters', () => {
         search: '',
       }).map((option) => option.value),
       []
+    )
+    assert.deepEqual(
+      filterApiKeyGroupOptions(options, metadata, {
+        category: 'user_owned',
+        vendor: ALL_VENDOR_VALUE,
+        search: '',
+      }).map((option) => option.value),
+      ['user_owned:1:7']
     )
   })
 })

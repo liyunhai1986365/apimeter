@@ -21,9 +21,11 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
+  ChevronDown,
   ChevronsUpDown,
   Filter,
   Plus,
+  Search,
   Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -31,30 +33,25 @@ import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import type {
   PricingGroupDisplayConfig,
   PricingModel,
   PricingVendor,
 } from '@/features/pricing/types'
-import { addGroupToChain, removeGroupFromChain } from '../lib/api-key-form'
+import { addGroupsToChain, removeGroupFromChain } from '../lib/api-key-form'
 import {
   ALL_CATEGORY_VALUE,
   ALL_VENDOR_VALUE,
+  UNCATEGORIZED_CATEGORY_VALUE,
   buildApiKeyGroupFilterMetadata,
   filterApiKeyGroupOptions,
 } from '../lib/api-key-group-filters'
@@ -87,6 +84,12 @@ function normalizeChain(value: string[]) {
   return result.length > 0 ? result : [AUTO_GROUP_VALUE]
 }
 
+type GroupedOptions = {
+  value: string
+  label: string
+  options: ApiKeyGroupOption[]
+}
+
 export function ApiKeyGroupOrderSelector({
   options,
   value,
@@ -100,8 +103,9 @@ export function ApiKeyGroupOrderSelector({
   const groupTerms = USER_FACING_GROUP_TERMS
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
-  const [categoryFilter, setCategoryFilter] = useState(ALL_CATEGORY_VALUE)
   const [vendorFilter, setVendorFilter] = useState(ALL_VENDOR_VALUE)
+  const [pendingGroups, setPendingGroups] = useState<string[]>([])
+  const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const selected = normalizeChain(value)
   const optionMap = useMemo(
     () => new Map(options.map((option) => [option.value, option])),
@@ -122,29 +126,43 @@ export function ApiKeyGroupOrderSelector({
       }),
     [availableOptions, groupDisplay, models, vendors]
   )
+  const effectiveVendorFilter = filterMetadata.vendors.some(
+    (vendor) => vendor.value === vendorFilter
+  )
+    ? vendorFilter
+    : ALL_VENDOR_VALUE
   const filteredOptions = useMemo(() => {
-    const nextCategory = filterMetadata.categories.some(
-      (category) => category.value === categoryFilter
-    )
-      ? categoryFilter
-      : ALL_CATEGORY_VALUE
-    const nextVendor = filterMetadata.vendors.some(
-      (vendor) => vendor.value === vendorFilter
-    )
-      ? vendorFilter
-      : ALL_VENDOR_VALUE
     return filterApiKeyGroupOptions(availableOptions, filterMetadata, {
-      category: nextCategory,
-      vendor: nextVendor,
+      category: ALL_CATEGORY_VALUE,
+      vendor: effectiveVendorFilter,
       search: searchValue,
     })
-  }, [
-    availableOptions,
-    categoryFilter,
-    filterMetadata,
-    searchValue,
-    vendorFilter,
-  ])
+  }, [availableOptions, effectiveVendorFilter, filterMetadata, searchValue])
+  const groupedOptions = useMemo<GroupedOptions[]>(() => {
+    const groups = new Map<string, ApiKeyGroupOption[]>()
+    for (const option of filteredOptions) {
+      const category =
+        option.value === AUTO_GROUP_VALUE
+          ? ALL_CATEGORY_VALUE
+          : filterMetadata.groupCategory.get(option.value) ||
+            UNCATEGORIZED_CATEGORY_VALUE
+      if (!groups.has(category)) groups.set(category, [])
+      groups.get(category)?.push(option)
+    }
+
+    return filterMetadata.categories
+      .map((category) => ({
+        value: category.value,
+        label: category.label,
+        options: groups.get(category.value) || [],
+      }))
+      .filter((group) => group.options.length > 0)
+  }, [filterMetadata.categories, filterMetadata.groupCategory, filteredOptions])
+  const pendingSet = useMemo(() => new Set(pendingGroups), [pendingGroups])
+  const filteredValues = useMemo(
+    () => filteredOptions.map((option) => option.value),
+    [filteredOptions]
+  )
 
   const emit = (next: string[]) => onChange(normalizeChain(next))
 
@@ -161,10 +179,64 @@ export function ApiKeyGroupOrderSelector({
     emit(removeGroupFromChain(selected, index))
   }
 
-  const add = (group: string) => {
-    emit(addGroupToChain(selected, group))
+  const togglePendingGroup = (group: string, checked: boolean) => {
+    setPendingGroups((current) => {
+      if (checked) {
+        return current.includes(group) ? current : [...current, group]
+      }
+      return current.filter((item) => item !== group)
+    })
+  }
+
+  const selectVisible = (groups: string[]) => {
+    setPendingGroups((current) => {
+      const next = [...current]
+      for (const group of groups) {
+        if (!next.includes(group)) next.push(group)
+      }
+      return next
+    })
+  }
+
+  const clearVisible = (groups: string[]) => {
+    const visible = new Set(groups)
+    setPendingGroups((current) => current.filter((group) => !visible.has(group)))
+  }
+
+  const clearPendingGroups = () => {
+    setPendingGroups([])
+  }
+
+  const toggleCategoryExpanded = (category: string) => {
+    setExpandedCategories((current) =>
+      current.includes(category)
+        ? current.filter((item) => item !== category)
+        : [...current, category]
+    )
+  }
+
+  const toggleVisibleGroups = (groups: string[], checked: boolean) => {
+    if (checked) {
+      selectVisible(groups)
+      return
+    }
+    clearVisible(groups)
+  }
+
+  const applyPendingGroups = () => {
+    emit(addGroupsToChain(selected, pendingGroups))
     setOpen(false)
     setSearchValue('')
+    setPendingGroups([])
+  }
+
+  const handleOpenChange = (nextOpen: boolean) => {
+    setOpen(nextOpen)
+    if (!nextOpen) {
+      setSearchValue('')
+      setPendingGroups([])
+      setExpandedCategories([])
+    }
   }
 
   const showStructuredFilters =
@@ -249,7 +321,7 @@ export function ApiKeyGroupOrderSelector({
         })}
       </div>
 
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger
           render={
             <Button
@@ -267,55 +339,30 @@ export function ApiKeyGroupOrderSelector({
           <ChevronsUpDown className='size-4 opacity-50' />
         </PopoverTrigger>
         <PopoverContent
-          className='w-[var(--anchor-width)] overflow-hidden rounded-xl p-0 shadow-lg'
+          className='w-[min(92vw,760px)] overflow-hidden rounded-xl p-0 shadow-lg'
           onWheel={(event) => event.stopPropagation()}
           onTouchMove={(event) => event.stopPropagation()}
           onPointerDown={(event) => event.stopPropagation()}
         >
-          <Command shouldFilter={false}>
-            {showStructuredFilters && (
-              <div className='space-y-2 border-b p-2'>
-                {filterMetadata.categories.length > 1 && (
-                  <Tabs
-                    value={
-                      filterMetadata.categories.some(
-                        (category) => category.value === categoryFilter
-                      )
-                        ? categoryFilter
-                        : ALL_CATEGORY_VALUE
-                    }
-                    onValueChange={setCategoryFilter}
-                  >
-                    <TabsList className='h-auto max-w-full flex-wrap justify-start'>
-                      {filterMetadata.categories.map((category) => (
-                        <TabsTrigger
-                          key={category.value}
-                          value={category.value}
-                          className='h-7 px-2 text-xs'
-                        >
-                          {t(category.label)}
-                          <span className='text-muted-foreground ml-1 font-mono text-[10px]'>
-                            {category.count}
-                          </span>
-                        </TabsTrigger>
-                      ))}
-                    </TabsList>
-                  </Tabs>
-                )}
-
-                {filterMetadata.vendors.length > 1 && (
-                  <div className='flex items-center gap-2'>
-                    <Filter className='text-muted-foreground size-3.5' />
+          <div className='bg-background'>
+            <div className='border-b p-3'>
+              <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
+                <div className='relative min-w-0 flex-1'>
+                  <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
+                  <Input
+                    value={searchValue}
+                    onChange={(event) => setSearchValue(event.target.value)}
+                    placeholder={t(groupTerms.search)}
+                    className='h-9 pl-9'
+                  />
+                </div>
+                {showStructuredFilters && filterMetadata.vendors.length > 1 && (
+                  <div className='flex min-w-0 items-center gap-2 sm:w-56'>
+                    <Filter className='text-muted-foreground size-3.5 shrink-0' />
                     <NativeSelect
                       size='sm'
                       className='w-full'
-                      value={
-                        filterMetadata.vendors.some(
-                          (vendor) => vendor.value === vendorFilter
-                        )
-                          ? vendorFilter
-                          : ALL_VENDOR_VALUE
-                      }
+                      value={effectiveVendorFilter}
                       onChange={(event) => setVendorFilter(event.target.value)}
                       aria-label={t('Filter by vendor')}
                     >
@@ -331,35 +378,167 @@ export function ApiKeyGroupOrderSelector({
                   </div>
                 )}
               </div>
-            )}
-            <CommandInput
-              placeholder={t('Search...')}
-              value={searchValue}
-              onValueChange={setSearchValue}
-            />
-            <CommandList className='max-h-[320px]'>
-              <CommandEmpty>{t(groupTerms.noneFound)}</CommandEmpty>
-              <CommandGroup>
-                {filteredOptions.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={() => add(option.value)}
-                    className='data-[selected=true]:bg-muted items-start gap-3 rounded-lg px-3 py-3 transition-colors'
-                  >
-                    <Check className='mt-0.5 size-4 opacity-0' />
-                    <span className='min-w-0 flex-1'>
-                      <span className='block truncate font-medium'>
-                        {option.label}
-                      </span>
-                      <GroupDescription desc={option.desc} />
-                    </span>
-                    <GroupRatioBadge ratio={option.ratio} />
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
+            </div>
+
+            <ScrollArea className='h-[380px]'>
+              <div className='space-y-3 p-3'>
+                {groupedOptions.length === 0 ? (
+                  <div className='text-muted-foreground flex h-40 items-center justify-center rounded-lg border border-dashed text-sm'>
+                    {t(groupTerms.noneFound)}
+                  </div>
+                ) : (
+                  groupedOptions.map((group) => {
+                    const visibleValues = group.options.map(
+                      (option) => option.value
+                    )
+                    const selectedInGroup = visibleValues.filter((item) =>
+                      pendingSet.has(item)
+                    ).length
+                    const allSelected =
+                      visibleValues.length > 0 &&
+                      selectedInGroup === visibleValues.length
+                    const isExpanded = expandedCategories.includes(group.value)
+
+                    return (
+                      <section
+                        key={group.value}
+                        className='overflow-hidden rounded-lg border'
+                      >
+                        <button
+                          type='button'
+                          className={cn(
+                            'bg-muted/40 hover:bg-muted/55 flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
+                            isExpanded && 'border-b'
+                          )}
+                          onClick={() => toggleCategoryExpanded(group.value)}
+                        >
+                          <span
+                            className='shrink-0'
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <Checkbox
+                              checked={allSelected}
+                              onCheckedChange={(checked) =>
+                                toggleVisibleGroups(
+                                  visibleValues,
+                                  checked === true
+                                )
+                              }
+                            />
+                          </span>
+                          <span className='min-w-0 flex-1'>
+                            <span className='block truncate text-sm font-medium'>
+                              {t(group.label)}
+                            </span>
+                            <span className='text-muted-foreground block text-xs'>
+                              {t('{{selected}}/{{total}} selected', {
+                                selected: selectedInGroup,
+                                total: visibleValues.length,
+                              })}
+                            </span>
+                          </span>
+                          <Badge
+                            variant='secondary'
+                            className='h-6 shrink-0 rounded-md px-2 text-xs'
+                          >
+                            {visibleValues.length}
+                          </Badge>
+                          <ChevronDown
+                            className={cn(
+                              'text-muted-foreground size-4 shrink-0 transition-transform',
+                              isExpanded && 'rotate-180'
+                            )}
+                          />
+                        </button>
+
+                        {isExpanded && (
+                          <div className='grid gap-1 p-2'>
+                            {group.options.map((option) => (
+                              <label
+                                key={option.value}
+                                className={cn(
+                                  'hover:bg-muted/60 flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 transition-colors',
+                                  pendingSet.has(option.value) &&
+                                    'bg-primary/5'
+                                )}
+                              >
+                                <Checkbox
+                                  checked={pendingSet.has(option.value)}
+                                  onCheckedChange={(checked) =>
+                                    togglePendingGroup(
+                                      option.value,
+                                      checked === true
+                                    )
+                                  }
+                                  className='mt-0.5'
+                                />
+                                <span className='min-w-0 flex-1'>
+                                  <span className='flex min-w-0 items-center gap-2'>
+                                    <span className='truncate text-sm font-medium'>
+                                      {option.label}
+                                    </span>
+                                    {pendingSet.has(option.value) && (
+                                      <Check className='text-primary size-4 shrink-0' />
+                                    )}
+                                  </span>
+                                  <GroupDescription desc={option.desc} />
+                                </span>
+                                <GroupRatioBadge ratio={option.ratio} />
+                              </label>
+                            ))}
+                          </div>
+                        )}
+                      </section>
+                    )
+                  })
+                )}
+              </div>
+            </ScrollArea>
+
+            <div className='flex items-center justify-between gap-3 border-t p-3'>
+              <span className='text-muted-foreground text-xs'>
+                {t('{{count}} supplier(s) selected', {
+                  count: pendingGroups.length,
+                })}
+              </span>
+              <div className='flex items-center gap-2'>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='sm'
+                  onClick={() => selectVisible(filteredValues)}
+                  disabled={filteredValues.length === 0}
+                >
+                  {t('Select all')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='sm'
+                  onClick={clearPendingGroups}
+                  disabled={pendingGroups.length === 0}
+                >
+                  {t('Clear all')}
+                </Button>
+                <Button
+                  type='button'
+                  variant='outline'
+                  size='sm'
+                  onClick={() => handleOpenChange(false)}
+                >
+                  {t('Cancel')}
+                </Button>
+                <Button
+                  type='button'
+                  size='sm'
+                  disabled={pendingGroups.length === 0}
+                  onClick={applyPendingGroups}
+                >
+                  {t('Add selected suppliers')}
+                </Button>
+              </div>
+            </div>
+          </div>
         </PopoverContent>
       </Popover>
     </div>

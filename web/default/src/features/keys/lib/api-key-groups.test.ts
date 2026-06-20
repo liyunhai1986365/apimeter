@@ -3,6 +3,7 @@ import { describe, test } from 'node:test'
 import {
   getApiKeyFormDefaultValues,
   addGroupToChain,
+  addGroupsToChain,
   getApiKeyGroupDisplayItems,
   removeGroupFromChain,
   transformFormDataToPayload,
@@ -54,6 +55,17 @@ describe('api key group options', () => {
     assert.deepEqual(addGroupToChain(['vip', 'backup'], AUTO_GROUP_VALUE), [
       AUTO_GROUP_VALUE,
     ])
+  })
+
+  test('batch adding groups replaces auto, preserves order, and skips duplicates', () => {
+    assert.deepEqual(
+      addGroupsToChain([AUTO_GROUP_VALUE], ['vip', 'backup', 'vip']),
+      ['vip', 'backup']
+    )
+    assert.deepEqual(
+      addGroupsToChain(['vip'], ['backup', 'vip', 'economy']),
+      ['vip', 'backup', 'economy']
+    )
   })
 
   test('previews only the primary group and hides extra groups in API key list', () => {

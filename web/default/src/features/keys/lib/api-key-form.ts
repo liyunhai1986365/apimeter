@@ -210,6 +210,16 @@ export function addGroupToChain(groups: string[], group: string): string[] {
   return normalizeGroupChain([...current, targetGroup])
 }
 
+export function addGroupsToChain(
+  groups: string[],
+  nextGroups: string[]
+): string[] {
+  return nextGroups.reduce(
+    (chain, group) => addGroupToChain(chain, group),
+    normalizeGroupChain(groups)
+  )
+}
+
 export function removeGroupFromChain(
   groups: string[],
   index: number

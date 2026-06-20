@@ -26,6 +26,7 @@ import { AUTO_GROUP_VALUE } from './api-key-groups'
 
 export const ALL_CATEGORY_VALUE = '__all_categories__'
 export const UNCATEGORIZED_CATEGORY_VALUE = '__uncategorized__'
+export const USER_OWNED_CATEGORY_VALUE = 'user_owned'
 export const ALL_VENDOR_VALUE = '__all_vendors__'
 
 export type ApiKeyGroupCategoryFilter = {
@@ -68,6 +69,10 @@ function optionValues(options: ApiKeyGroupOption[]) {
   )
 }
 
+function isUserOwnedGroup(group: string) {
+  return group.startsWith('user_owned:')
+}
+
 export function buildApiKeyGroupFilterMetadata({
   options,
   groupDisplay,
@@ -88,6 +93,10 @@ export function buildApiKeyGroupFilterMetadata({
   const groupCategory = new Map<string, string>()
   for (const item of groupDisplay?.groups ?? []) {
     if (!groups.has(item.group)) continue
+    if (isUserOwnedGroup(item.group)) {
+      groupCategory.set(item.group, USER_OWNED_CATEGORY_VALUE)
+      continue
+    }
     const categoryId = categoryLabels.has(item.category_id)
       ? item.category_id
       : UNCATEGORIZED_CATEGORY_VALUE
@@ -95,7 +104,12 @@ export function buildApiKeyGroupFilterMetadata({
   }
   for (const group of groups) {
     if (!groupCategory.has(group)) {
-      groupCategory.set(group, UNCATEGORIZED_CATEGORY_VALUE)
+      groupCategory.set(
+        group,
+        isUserOwnedGroup(group)
+          ? USER_OWNED_CATEGORY_VALUE
+          : UNCATEGORIZED_CATEGORY_VALUE
+      )
     }
   }
 
@@ -125,6 +139,16 @@ export function buildApiKeyGroupFilterMetadata({
       count: groups.size,
     },
   ]
+  const userOwnedCount = [...groupCategory.values()].filter(
+    (value) => value === USER_OWNED_CATEGORY_VALUE
+  ).length
+  if (userOwnedCount > 0) {
+    categories.push({
+      value: USER_OWNED_CATEGORY_VALUE,
+      label: 'User-owned suppliers',
+      count: userOwnedCount,
+    })
+  }
   for (const category of categoryDefinitions) {
     const count = [...groupCategory.values()].filter(
       (value) => value === category.id
