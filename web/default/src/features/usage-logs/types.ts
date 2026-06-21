@@ -193,6 +193,15 @@ export interface LogOtherData {
   is_task?: boolean
   task_id?: string
   reason?: string
+  refund_quota?: number
+  pre_consumed_quota?: number
+  actual_quota?: number
+  actual_total_tokens?: number
+  actual_completion_tokens?: number
+  estimated_prompt_tokens?: number
+  estimated_completion_tokens?: number
+  estimated_quota_before_group?: number
+  estimated_quota_after_group?: number
   // Subscription billing fields
   subscription_plan_id?: string
   subscription_plan_title?: string

@@ -37,6 +37,25 @@ func TestResolveIncomingBillingExprRequestInput(t *testing.T) {
 	require.Equal(t, "application/json", input.Headers["Content-Type"])
 }
 
+func TestResolveIncomingBillingExprRequestInputFallsBackWhenBodyStorageClosed(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", nil)
+	ctx.Request.Header.Set("Content-Type", "application/json")
+
+	body := []byte(`{"model":"doubao-seedance-2-0-fast-260128","resolution":"720p"}`)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	require.NoError(t, storage.Close())
+	ctx.Set(common.KeyBodyStorage, storage)
+	ctx.Set(common.KeyRequestBody, body)
+
+	input, err := ResolveIncomingBillingExprRequestInput(ctx, &relaycommon.RelayInfo{})
+	require.NoError(t, err)
+	require.Equal(t, body, input.Body)
+}
+
 func TestBuildBillingExprRequestInputFromRequest(t *testing.T) {
 	request := &dto.GeneralOpenAIRequest{
 		Model:  "gemini-3.1-pro-preview",

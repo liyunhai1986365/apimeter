@@ -35,6 +35,7 @@ func modelPriceNotConfiguredError(modelName string, userId int) error {
 
 // https://docs.claude.com/en/docs/build-with-claude/prompt-caching#1-hour-cache-duration
 const claudeCacheCreation1hMultiplier = 6 / 3.75
+const seedance2TaskPreConsumeUSDPerSecond = 0.5
 
 // HandleGroupRatio checks for "auto_group" in the context and updates the group ratio and relayInfo.UsingGroup if present
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupRatioInfo {
@@ -311,6 +312,11 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 		}
 	}
 
+	quotaToPreConsume := preConsumedQuota
+	if !freeModel && isSeedance2TaskPreConsume(c, info.OriginModelName) {
+		quotaToPreConsume = billingexpr.QuotaRound(seedance2TaskPreConsumeUSDPerSecond * common.QuotaPerUnit)
+	}
+
 	exprHash := billingexpr.ExprHashString(exprStr)
 	snapshot := &billingexpr.BillingSnapshot{
 		BillingMode:               billing_setting.BillingModeTieredExpr,
@@ -332,14 +338,25 @@ func modelPriceHelperTiered(c *gin.Context, info *relaycommon.RelayInfo, promptT
 	priceData := types.PriceData{
 		FreeModel:         freeModel,
 		GroupRatioInfo:    groupRatioInfo,
-		QuotaToPreConsume: preConsumedQuota,
+		QuotaToPreConsume: quotaToPreConsume,
 	}
 
-	logger.LogDebug(c, "model_price_helper_tiered result: model=%s preConsume=%d quotaBeforeGroup=%.2f groupRatio=%.2f tier=%s", info.OriginModelName, preConsumedQuota, quotaBeforeGroup, groupRatioInfo.GroupRatio, trace.MatchedTier)
+	logger.LogDebug(c, "model_price_helper_tiered result: model=%s preConsume=%d estimatedQuota=%d quotaBeforeGroup=%.2f groupRatio=%.2f tier=%s", info.OriginModelName, quotaToPreConsume, preConsumedQuota, quotaBeforeGroup, groupRatioInfo.GroupRatio, trace.MatchedTier)
 
 	info.PriceData = priceData
-	captureAgentQuotaSnapshot(info.AgentBillingSnapshot, preConsumedQuota)
+	captureAgentQuotaSnapshot(info.AgentBillingSnapshot, quotaToPreConsume)
 	return priceData, nil
+}
+
+func isSeedance2TaskPreConsume(c *gin.Context, modelName string) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	if c.Request.URL.Path != "/api/v3/contents/generations/tasks" {
+		return false
+	}
+	normalizedModel := strings.ToLower(modelName)
+	return strings.Contains(normalizedModel, "seedance-2.0") || strings.Contains(normalizedModel, "seedance-2-0")
 }
 
 func captureAgentQuotaSnapshot(snapshot *types.AgentBillingSnapshot, chargedQuota int) {

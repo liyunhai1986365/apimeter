@@ -38,9 +38,14 @@ func GetRequestBody(c *gin.Context) (io.Seeker, error) {
 	if storage, exists := c.Get(KeyBodyStorage); exists && storage != nil {
 		if bs, ok := storage.(BodyStorage); ok {
 			if _, err := bs.Seek(0, io.SeekStart); err != nil {
-				return nil, fmt.Errorf("failed to seek body storage: %w", err)
+				if errors.Is(err, ErrStorageClosed) {
+					c.Set(KeyBodyStorage, nil)
+				} else {
+					return nil, fmt.Errorf("failed to seek body storage: %w", err)
+				}
+			} else {
+				return bs, nil
 			}
-			return bs, nil
 		}
 	}
 

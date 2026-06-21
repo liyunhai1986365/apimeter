@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"sort"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -14,6 +15,8 @@ import (
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
+
+const contextKeyConfigurableNativeProfileIDs = "configurable_native_profile_ids"
 
 type RetryParam struct {
 	Ctx          *gin.Context
@@ -144,7 +147,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			selectGroup = policyGroup
 			logger.LogDebug(param.Ctx, "Policy selected group: %s", policyGroup)
 
-			if crossGroupRetry && priorityRetry >= common.RetryTimes {
+			if crossGroupRetry && priorityRetry >= common.RetryTimes && i+1 < len(policyGroups) {
 				logger.LogDebug(param.Ctx, "Current policy group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", policyGroup, priorityRetry, common.RetryTimes)
 				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
 				param.SetRetry(0)
@@ -211,7 +214,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 
 			// Prepare state for next retry
 			// 为下一次重试准备状态
-			if crossGroupRetry && priorityRetry >= common.RetryTimes {
+			if crossGroupRetry && priorityRetry >= common.RetryTimes && i+1 < len(autoGroups) {
 				// Current group has exhausted all retries, prepare to switch to next group
 				// This request still uses current group, but next retry will use next group
 				// 当前分组已用完所有重试次数，准备切换到下一个分组
@@ -279,12 +282,21 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 		return nil
 	}
 	if profileID := param.Ctx.GetString("configurable_native_profile_id"); profileID != "" {
+		profileIDs := configurableNativeProfileIDsFromContext(param.Ctx, profileID)
 		return func(channel *model.Channel) bool {
 			if channel == nil || channel.Type != constant.ChannelTypeConfigurable {
 				return false
 			}
 			settings := channel.GetSetting()
-			return settings.Protocol != nil && settings.Protocol.ProfileID == profileID
+			if settings.Protocol == nil {
+				return false
+			}
+			for _, id := range profileIDs {
+				if settings.Protocol.ProfileID == id {
+					return true
+				}
+			}
+			return false
 		}
 	}
 	req := conversion.RequirementFromHTTPRequest(param.Ctx, param.ModelName)
@@ -298,4 +310,36 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 		}
 		return channelReq.Supports(channel.GetSetting())
 	}
+}
+
+func configurableNativeProfileIDsFromContext(c *gin.Context, fallbackProfileID string) []string {
+	ids := []string{}
+	if c != nil {
+		if raw, exists := common.GetContextKey(c, contextKeyConfigurableNativeProfileIDs); exists {
+			switch values := raw.(type) {
+			case []string:
+				ids = append(ids, values...)
+			case []any:
+				for _, value := range values {
+					if id, ok := value.(string); ok {
+						ids = append(ids, id)
+					}
+				}
+			}
+		}
+	}
+	if len(ids) == 0 {
+		ids = append(ids, fallbackProfileID)
+	}
+	seen := map[string]bool{}
+	deduped := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
+		if id == "" || seen[id] {
+			continue
+		}
+		deduped = append(deduped, id)
+		seen[id] = true
+	}
+	return deduped
 }

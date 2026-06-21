@@ -210,13 +210,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 
 	// 6. 将 OtherRatios 应用到基础额度
-	if !common.StringsContains(constant.TaskPricePatches, modelName) {
-		for _, ra := range info.PriceData.OtherRatios {
-			if ra != 1.0 {
-				info.PriceData.Quota = int(float64(info.PriceData.Quota) * ra)
-			}
-		}
-	}
+	applyTaskOtherRatios(info, modelName)
 
 	// 7. 预扣费（仅首次 — 重试时 info.Billing 已存在，跳过）
 	if info.Billing == nil && !info.PriceData.FreeModel {
@@ -258,7 +252,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	// 11. 提交后计费调整：让适配器根据上游实际返回调整 OtherRatios
 	finalQuota := info.PriceData.Quota
-	if adjustedRatios := adaptor.AdjustBillingOnSubmit(info, taskData); len(adjustedRatios) > 0 {
+	if adjustedRatios := adaptor.AdjustBillingOnSubmit(info, taskData); len(adjustedRatios) > 0 && shouldApplyTaskOtherRatios(info, modelName) {
 		// 基于调整后的 ratios 重新计算 quota
 		finalQuota = recalcQuotaFromRatios(info, adjustedRatios)
 		info.PriceData.OtherRatios = adjustedRatios
@@ -271,6 +265,21 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 		Platform:       platform,
 		Quota:          finalQuota,
 	}, nil
+}
+
+func applyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) {
+	if !shouldApplyTaskOtherRatios(info, modelName) {
+		return
+	}
+	for _, ra := range info.PriceData.OtherRatios {
+		if ra != 1.0 {
+			info.PriceData.Quota = int(float64(info.PriceData.Quota) * ra)
+		}
+	}
+}
+
+func shouldApplyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) bool {
+	return !common.StringsContains(constant.TaskPricePatches, modelName)
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。

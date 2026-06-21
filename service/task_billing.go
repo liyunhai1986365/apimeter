@@ -139,6 +139,13 @@ func taskBillingOther(task *model.Task) map[string]interface{} {
 				other[k] = v
 			}
 		}
+		if snap := bc.TieredBillingSnapshot; snap != nil {
+			InjectTieredBillingSnapshotInfo(other, snap, nil)
+			other["estimated_prompt_tokens"] = snap.EstimatedPromptTokens
+			other["estimated_completion_tokens"] = snap.EstimatedCompletionTokens
+			other["estimated_quota_before_group"] = snap.EstimatedQuotaBeforeGroup
+			other["estimated_quota_after_group"] = snap.EstimatedQuotaAfterGroup
+		}
 	}
 	props := task.Properties
 	if props.UpstreamModelName != "" && props.UpstreamModelName != props.OriginModelName {
@@ -177,6 +184,11 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	other := taskBillingOther(task)
 	other["task_id"] = task.TaskID
 	other["reason"] = reason
+	other["refund_quota"] = quota
+	other["pre_consumed_quota"] = quota
+	other["actual_quota"] = 0
+	other["actual_total_tokens"] = 0
+	other["actual_completion_tokens"] = 0
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
 		UserId:    task.UserId,
 		LogType:   model.LogTypeRefund,
@@ -231,6 +243,12 @@ func RecalculateTaskQuotaByTieredExpr(ctx context.Context, task *model.Task, tas
 	}
 	extraOther := map[string]interface{}{}
 	InjectTieredBillingSnapshotInfo(extraOther, task.PrivateData.BillingContext.TieredBillingSnapshot, tieredResult)
+	totalTokens := taskResult.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = taskResult.CompletionTokens
+	}
+	extraOther["actual_total_tokens"] = totalTokens
+	extraOther["actual_completion_tokens"] = taskResult.CompletionTokens
 	recalculateTaskQuota(ctx, task, actualQuota, reason, extraOther)
 	return true
 }

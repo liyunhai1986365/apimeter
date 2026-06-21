@@ -451,7 +451,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const isManage = props.log.type === 3
   const isSubscription = other?.billing_source === 'subscription'
   const isTieredBilling =
-    isConsume &&
+    (isConsume || isRefund) &&
     !isViolation &&
     other?.billing_mode === 'tiered_expr' &&
     !!other?.expr_b64
@@ -795,6 +795,67 @@ export function DetailsDialog(props: DetailsDialogProps) {
               <DetailSection label={t('Refund Details')}>
                 {other.task_id && (
                   <DetailRow label={t('Task ID')} value={other.task_id} mono />
+                )}
+                {other.pre_consumed_quota != null && (
+                  <DetailRow
+                    label={t('Pre-Consumed Quota')}
+                    value={formatLogQuota(other.pre_consumed_quota)}
+                    mono
+                  />
+                )}
+                {other.actual_quota != null && (
+                  <DetailRow
+                    label={t('Actual Cost')}
+                    value={formatLogQuota(other.actual_quota)}
+                    mono
+                  />
+                )}
+                <DetailRow
+                  label={t('Refund Amount')}
+                  value={formatLogQuota(other.refund_quota ?? props.log.quota)}
+                  mono
+                />
+                {other.actual_total_tokens != null && (
+                  <DetailRow
+                    label={t('Actual Total Tokens')}
+                    value={formatTokens(other.actual_total_tokens)}
+                    mono
+                  />
+                )}
+                {other.actual_completion_tokens != null && (
+                  <DetailRow
+                    label={t('Actual Output Tokens')}
+                    value={formatTokens(other.actual_completion_tokens)}
+                    mono
+                  />
+                )}
+                {other.estimated_prompt_tokens != null && (
+                  <DetailRow
+                    label={t('Estimated Input Tokens')}
+                    value={formatTokens(other.estimated_prompt_tokens)}
+                    mono
+                  />
+                )}
+                {other.estimated_completion_tokens != null && (
+                  <DetailRow
+                    label={t('Estimated Output Tokens')}
+                    value={formatTokens(other.estimated_completion_tokens)}
+                    mono
+                  />
+                )}
+                {other.matched_tier && (
+                  <DetailRow
+                    label={t('Matched Tier')}
+                    value={other.matched_tier}
+                    mono
+                  />
+                )}
+                {other.estimated_quota_after_group != null && (
+                  <DetailRow
+                    label={t('Estimated Cost')}
+                    value={formatLogQuota(other.estimated_quota_after_group)}
+                    mono
+                  />
                 )}
                 {other.reason && (
                   <DetailRow label={t('Reason')} value={other.reason} />

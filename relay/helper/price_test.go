@@ -104,9 +104,54 @@ func TestModelPriceHelperTieredCanPriceSeedanceRequestShape(t *testing.T) {
 
 	priceData, err := ModelPriceHelper(ctx, info, 0, &types.TokenCountMeta{MaxTokens: 1000})
 	require.NoError(t, err)
-	require.Equal(t, 2153, priceData.QuotaToPreConsume)
+	require.Equal(t, int(0.5*common.QuotaPerUnit), priceData.QuotaToPreConsume)
 	require.NotNil(t, info.TieredBillingSnapshot)
 	require.Equal(t, "1080p_video", info.TieredBillingSnapshot.EstimatedTier)
+	require.Equal(t, 2153, info.TieredBillingSnapshot.EstimatedQuotaAfterGroup)
+}
+
+func TestModelPriceHelperTieredKeepsEstimatedPreConsumeForNonSeedanceTask(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(saved))
+	})
+
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode": `{"other-video-model":"tiered_expr"}`,
+		"billing_setting.billing_expr": `{"other-video-model":"tier(\"base\", c * 6.3888888889)"}`,
+	}))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	req := httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", nil)
+	req.Body = nil
+	req.ContentLength = 0
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+	ctx.Set("group", "default")
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "other-video-model",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+		RequestHeaders:  map[string]string{"Content-Type": "application/json"},
+		BillingRequestInput: &billingexpr.RequestInput{
+			Headers: map[string]string{"Content-Type": "application/json"},
+			Body:    []byte(`{"resolution":"720p"}`),
+		},
+	}
+
+	priceData, err := ModelPriceHelper(ctx, info, 0, &types.TokenCountMeta{MaxTokens: 1000})
+	require.NoError(t, err)
+	require.Equal(t, 3194, priceData.QuotaToPreConsume)
+	require.NotNil(t, info.TieredBillingSnapshot)
+	require.Equal(t, 3194, info.TieredBillingSnapshot.EstimatedQuotaAfterGroup)
 }
 
 func TestHandleGroupRatioUsesAgentConfiguredRatio(t *testing.T) {

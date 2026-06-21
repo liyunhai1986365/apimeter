@@ -294,6 +294,64 @@ func TestRefundTaskQuota_NoToken(t *testing.T) {
 	assert.Equal(t, model.LogTypeRefund, log.Type)
 }
 
+func TestRefundTaskQuota_TieredExprIncludesPricingSnapshot(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 5, 5, 5
+	const initQuota = 10000
+	const preConsumed = 1250000
+	const tokenRemain = 2000000
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-tiered-refund", tokenRemain)
+	seedChannel(t, channelID)
+
+	expr := `param("resolution") == "1080p" ? tier("1080p_no_video_input", c * 7.29) : tier("480_720p_no_video_input", c * 6.57)`
+	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	task.TaskID = "task_seedance_refund"
+	task.Properties.OriginModelName = "doubao-seedance-2-0-260128"
+	task.PrivateData.BillingContext.OriginModelName = "doubao-seedance-2-0-260128"
+	task.PrivateData.BillingContext.OtherRatios = map[string]float64{"seconds": 5}
+	task.PrivateData.BillingContext.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+		BillingMode:               "tiered_expr",
+		ModelName:                 "doubao-seedance-2-0-260128",
+		ExprString:                expr,
+		ExprHash:                  billingexpr.ExprHashString(expr),
+		GroupRatio:                1,
+		EstimatedPromptTokens:     0,
+		EstimatedCompletionTokens: 250000,
+		EstimatedQuotaBeforeGroup: 821250,
+		EstimatedQuotaAfterGroup:  821250,
+		EstimatedTier:             "480_720p_no_video_input",
+		QuotaPerUnit:              common.QuotaPerUnit,
+		ExprVersion:               billingexpr.ExprVersion(expr),
+	}
+
+	RefundTaskQuota(ctx, task, "upstream failed")
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeRefund, log.Type)
+	assert.Equal(t, preConsumed, log.Quota)
+	assert.Equal(t, "doubao-seedance-2-0-260128", log.ModelName)
+
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	assert.Equal(t, "tiered_expr", other["billing_mode"])
+	assert.Equal(t, "480_720p_no_video_input", other["matched_tier"])
+	assert.NotEmpty(t, other["expr_b64"])
+	assert.Equal(t, float64(preConsumed), other["refund_quota"])
+	assert.Equal(t, float64(preConsumed), other["pre_consumed_quota"])
+	assert.Equal(t, float64(0), other["actual_quota"])
+	assert.Equal(t, float64(0), other["actual_total_tokens"])
+	assert.Equal(t, float64(0), other["actual_completion_tokens"])
+	assert.Equal(t, float64(250000), other["estimated_completion_tokens"])
+	assert.Equal(t, float64(0), other["estimated_prompt_tokens"])
+	assert.Equal(t, float64(821250), other["estimated_quota_after_group"])
+	assert.Equal(t, float64(5), other["seconds"])
+}
+
 // ===========================================================================
 // RecalculateTaskQuota tests
 // ===========================================================================
@@ -772,4 +830,7 @@ func TestSettle_TieredExprTaskUsesFrozenRequestInputAndCompletionTokens(t *testi
 	assert.Equal(t, "tiered_expr", other["billing_mode"])
 	assert.Equal(t, "1080p_video", other["matched_tier"])
 	assert.NotEmpty(t, other["expr_b64"])
+	assert.Equal(t, float64(actualQuota), other["actual_quota"])
+	assert.Equal(t, float64(1000), other["actual_total_tokens"])
+	assert.Equal(t, float64(1000), other["actual_completion_tokens"])
 }

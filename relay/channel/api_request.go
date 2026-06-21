@@ -537,13 +537,14 @@ func DoTaskApiRequest(a TaskAdaptor, c *gin.Context, info *common.RelayInfo, req
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest(c.Request.Method, fullRequestURL, requestBody)
+	bodyReader := common2.ReaderOnly(requestBody)
+	req, err := http.NewRequest(c.Request.Method, fullRequestURL, bodyReader)
 	if err != nil {
 		return nil, fmt.Errorf("new request failed: %w", err)
 	}
 	applyUpstreamContentLength(req, info)
 	req.GetBody = func() (io.ReadCloser, error) {
-		return io.NopCloser(requestBody), nil
+		return io.NopCloser(common2.ReaderOnly(requestBody)), nil
 	}
 
 	err = a.BuildRequestHeader(c, req, info)

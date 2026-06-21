@@ -246,13 +246,34 @@ func MatchNativeFetch(method, path string) (*Profile, bool) {
 	})
 }
 
+func MatchNativeSubmitProfiles(method, path string) []*Profile {
+	return matchNativeEndpointProfiles(method, path, func(profile *Profile) NativeEndpointConfig {
+		return profile.Native.Submit
+	})
+}
+
+func MatchNativeFetchProfiles(method, path string) []*Profile {
+	return matchNativeEndpointProfiles(method, path, func(profile *Profile) NativeEndpointConfig {
+		return profile.Native.Fetch
+	})
+}
+
 func matchNativeEndpoint(method, path string, endpoint func(*Profile) NativeEndpointConfig) (*Profile, bool) {
+	matches := matchNativeEndpointProfiles(method, path, endpoint)
+	if len(matches) == 0 {
+		return nil, false
+	}
+	return matches[0], true
+}
+
+func matchNativeEndpointProfiles(method, path string, endpoint func(*Profile) NativeEndpointConfig) []*Profile {
 	profiles, err := loadProfiles()
 	if err != nil {
-		return nil, false
+		return nil
 	}
 	method = strings.ToUpper(strings.TrimSpace(method))
 	path = strings.TrimSpace(path)
+	matches := make([]*Profile, 0)
 	for _, profile := range profiles {
 		native := endpoint(profile)
 		if strings.ToUpper(strings.TrimSpace(native.Method)) != method {
@@ -262,9 +283,12 @@ func matchNativeEndpoint(method, path string, endpoint func(*Profile) NativeEndp
 			continue
 		}
 		cp := *profile
-		return &cp, true
+		matches = append(matches, &cp)
 	}
-	return nil, false
+	sort.Slice(matches, func(i, j int) bool {
+		return matches[i].ID < matches[j].ID
+	})
+	return matches
 }
 
 func nativePathMatches(pattern, path string) bool {

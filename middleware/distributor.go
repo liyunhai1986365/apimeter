@@ -33,6 +33,7 @@ type ModelRequest struct {
 
 const (
 	ContextKeyConfigurableNativeProfileID   = "configurable_native_profile_id"
+	ContextKeyConfigurableNativeProfileIDs  = "configurable_native_profile_ids"
 	ContextKeyConfigurableResourceProfileID = "configurable_resource_profile_id"
 	ContextKeyConfigurableResourceID        = "configurable_resource_id"
 )
@@ -40,9 +41,36 @@ const (
 func ConfigurableNativeProfile(profileID string, relayMode int) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Set(ContextKeyConfigurableNativeProfileID, profileID)
+		c.Set(ContextKeyConfigurableNativeProfileIDs, configurableNativeProfileIDs(c, profileID, relayMode))
 		c.Set("relay_mode", relayMode)
 		c.Next()
 	}
+}
+
+func configurableNativeProfileIDs(c *gin.Context, fallbackProfileID string, relayMode int) []string {
+	if c == nil || c.Request == nil {
+		return []string{fallbackProfileID}
+	}
+	var profiles []*configurable.Profile
+	switch relayMode {
+	case relayconstant.RelayModeVideoFetchByID:
+		profiles = configurable.MatchNativeFetchProfiles(c.Request.Method, c.Request.URL.Path)
+	default:
+		profiles = configurable.MatchNativeSubmitProfiles(c.Request.Method, c.Request.URL.Path)
+	}
+	ids := make([]string, 0, len(profiles)+1)
+	seen := map[string]bool{}
+	for _, profile := range profiles {
+		if profile == nil || strings.TrimSpace(profile.ID) == "" || seen[profile.ID] {
+			continue
+		}
+		ids = append(ids, profile.ID)
+		seen[profile.ID] = true
+	}
+	if strings.TrimSpace(fallbackProfileID) != "" && !seen[fallbackProfileID] {
+		ids = append(ids, fallbackProfileID)
+	}
+	return ids
 }
 
 func ConfigurableResource(profileID, resourceID string) gin.HandlerFunc {

@@ -168,6 +168,40 @@ func TestCacheGetRandomSatisfiedChannelAutoGroupAndCrossGroupRetry(t *testing.T)
 	require.Equal(t, "vip", selectedGroup)
 }
 
+func TestCacheGetRandomSatisfiedChannelDoesNotResetRetryAtLastAutoGroup(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+	createChannelSelectFixture(t, db, 1201, "default", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, true)
+
+	retry := common.RetryTimes
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1201, channel.Id)
+	require.Equal(t, "default", selectedGroup)
+	require.Equal(t, common.RetryTimes, retry)
+	index, ok := common.GetContextKey(c, constant.ContextKeyAutoGroupIndex)
+	require.True(t, ok)
+	require.Equal(t, 0, index)
+}
+
 func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {
@@ -210,6 +244,40 @@ func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T)
 	require.NotNil(t, channel)
 	require.Equal(t, 1102, channel.Id)
 	require.Equal(t, "backup", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelDoesNotResetRetryAtLastPolicyGroup(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","backup":"备用分组"}`))
+	createChannelSelectFixture(t, db, 1301, "backup", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, true)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["backup"]}`)
+
+	retry := common.RetryTimes
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "backup",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1301, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+	require.Equal(t, common.RetryTimes, retry)
+	index, ok := common.GetContextKey(c, constant.ContextKeyAutoGroupIndex)
+	require.True(t, ok)
+	require.Equal(t, 0, index)
 }
 
 func TestNormalizeTokenGroupPolicyAutoClearsConcreteGroups(t *testing.T) {
@@ -259,6 +327,60 @@ func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupport(t *testin
 	require.NoError(t, err)
 	require.NotNil(t, channel)
 	require.Equal(t, 1001, channel.Id)
+	require.Equal(t, "default", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelAllowsEquivalentNativeConfigurableProfile(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled = false
+	})
+
+	weight := uint(100)
+	priority := int64(10)
+	autoBan := 1
+	channel := model.Channel{
+		Id:       1001,
+		Type:     constant.ChannelTypeConfigurable,
+		Key:      "sk-test",
+		Status:   common.ChannelStatusEnabled,
+		Name:     "seedance-api-assets",
+		Group:    "default",
+		Models:   "doubao-seedance-2-0-fast-260128",
+		Weight:   &weight,
+		Priority: &priority,
+		AutoBan:  &autoBan,
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ProfileID: "doubao-seedance-2-api-assets",
+		},
+	})
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     "default",
+		Model:     "doubao-seedance-2-0-fast-260128",
+		ChannelId: channel.Id,
+		Enabled:   true,
+		Priority:  &priority,
+		Weight:    weight,
+	}).Error)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", strings.NewReader(`{"model":"doubao-seedance-2-0-fast-260128"}`))
+	c.Set("configurable_native_profile_id", "doubao-seedance-2")
+	c.Set("configurable_native_profile_ids", []string{"doubao-seedance-2", "doubao-seedance-2-api-assets"})
+
+	selected, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "doubao-seedance-2-0-fast-260128",
+		Retry:      common.GetPointer(0),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, selected)
+	require.Equal(t, channel.Id, selected.Id)
 	require.Equal(t, "default", selectedGroup)
 }
 

@@ -336,6 +336,55 @@ func TestTaskAdaptorBuildsSeedanceNativeOfficialRequest(t *testing.T) {
 	}
 }
 
+func TestTaskAdaptorNativePassthroughBodySurvivesUpstreamRequestClose(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{
+		"model":"doubao-seedance-2-0-fast-260128",
+		"content":[{"type":"text","text":"一只金色柴犬在樱花树下奔跑"}],
+		"resolution":"720p",
+		"ratio":"16:9",
+		"duration":5,
+		"watermark":false
+	}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	if _, err := common.GetBodyStorage(c); err != nil {
+		t.Fatalf("cache body: %v", err)
+	}
+
+	info := seedanceRelayInfo("doubao-seedance-2-0-fast-260128")
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	if err := adaptor.ValidateRequestAndSetAction(c, info); err != nil {
+		t.Fatalf("validate native request: %v", err)
+	}
+
+	reader, err := adaptor.BuildRequestBody(c, info)
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	req, err := http.NewRequest(http.MethodPost, "https://example.com/api/v3/contents/generations/tasks", common.ReaderOnly(reader))
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	if err := req.Body.Close(); err != nil {
+		t.Fatalf("close upstream request body: %v", err)
+	}
+
+	storage, err := common.GetBodyStorage(c)
+	if err != nil {
+		t.Fatalf("body storage should remain reusable: %v", err)
+	}
+	got, err := storage.Bytes()
+	if err != nil {
+		t.Fatalf("read reusable body: %v", err)
+	}
+	if !bytes.Equal(bytes.TrimSpace(got), bytes.TrimSpace(body)) {
+		t.Fatalf("unexpected cached body: %s", got)
+	}
+}
+
 func TestTaskAdaptorParsesSeedanceResponses(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	info := seedanceRelayInfo("doubao-seedance-2-0-260128")
