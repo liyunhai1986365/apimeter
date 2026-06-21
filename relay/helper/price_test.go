@@ -62,6 +62,53 @@ func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	require.Equal(t, common.QuotaPerUnit, info.TieredBillingSnapshot.QuotaPerUnit)
 }
 
+func TestModelPriceHelperTieredCanPriceSeedanceRequestShape(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(saved))
+	})
+
+	expr := `param("resolution") == "1080p" && param("content.#(type==\"video_url\").video_url.url") != nil ? tier("1080p_video", c * 4.3055555556) : tier("base", c * 6.3888888889)`
+	exprJSON, err := common.Marshal(expr)
+	require.NoError(t, err)
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode": `{"doubao-seedance-2.0":"tiered_expr"}`,
+		"billing_setting.billing_expr": `{"doubao-seedance-2.0":` + string(exprJSON) + `}`,
+	}))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	req := httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", nil)
+	req.Body = nil
+	req.ContentLength = 0
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+	ctx.Set("group", "default")
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "doubao-seedance-2.0",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+		RequestHeaders:  map[string]string{"Content-Type": "application/json"},
+		BillingRequestInput: &billingexpr.RequestInput{
+			Headers: map[string]string{"Content-Type": "application/json"},
+			Body:    []byte(`{"resolution":"1080p","content":[{"type":"video_url","video_url":{"url":"https://example.com/input.mp4"}}]}`),
+		},
+	}
+
+	priceData, err := ModelPriceHelper(ctx, info, 0, &types.TokenCountMeta{MaxTokens: 1000})
+	require.NoError(t, err)
+	require.Equal(t, 2153, priceData.QuotaToPreConsume)
+	require.NotNil(t, info.TieredBillingSnapshot)
+	require.Equal(t, "1080p_video", info.TieredBillingSnapshot.EstimatedTier)
+}
+
 func TestHandleGroupRatioUsesAgentConfiguredRatio(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Cleanup(func() {

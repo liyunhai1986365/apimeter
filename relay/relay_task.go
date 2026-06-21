@@ -19,6 +19,8 @@ import (
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -29,6 +31,8 @@ type TaskSubmitResult struct {
 	Quota          int
 	//PerCallPrice   types.PriceData
 }
+
+const tieredTaskEstimatedCompletionTokens = 250000
 
 // ResolveOriginTask 处理基于已有任务的提交（remix / continuation）：
 // 查找原始任务、从中提取模型名称、将渠道锁定到原始任务的渠道
@@ -179,9 +183,20 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 
 	// 4. 价格计算：基础模型价格
 	info.OriginModelName = modelName
-	priceData, err := helper.ModelPriceHelperPerCall(c, info)
-	if err != nil {
-		return nil, service.TaskErrorWrapper(err, "model_price_error", http.StatusBadRequest)
+	var priceDataErr error
+	var priceData = info.PriceData
+	if billing_setting.GetBillingMode(info.OriginModelName) == billing_setting.BillingModeTieredExpr {
+		priceData, priceDataErr = helper.ModelPriceHelper(c, info, 0, &types.TokenCountMeta{
+			MaxTokens: tieredTaskEstimatedCompletionTokens,
+		})
+		if priceDataErr == nil {
+			priceData.Quota = priceData.QuotaToPreConsume
+		}
+	} else {
+		priceData, priceDataErr = helper.ModelPriceHelperPerCall(c, info)
+	}
+	if priceDataErr != nil {
+		return nil, service.TaskErrorWrapper(priceDataErr, "model_price_error", http.StatusBadRequest)
 	}
 	info.PriceData = priceData
 

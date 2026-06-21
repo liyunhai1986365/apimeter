@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -44,6 +45,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["model_ratio"] = info.PriceData.ModelRatio
 	}
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
+	InjectTieredBillingSnapshotInfo(other, info.TieredBillingSnapshot, nil)
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
 	}
@@ -188,10 +190,59 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	})
 }
 
+func taskTieredActualQuota(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) (int, *billingexpr.TieredResult, bool) {
+	if task == nil || taskResult == nil || task.PrivateData.BillingContext == nil {
+		return 0, nil, false
+	}
+	bc := task.PrivateData.BillingContext
+	snap := bc.TieredBillingSnapshot
+	if snap == nil || snap.BillingMode != "tiered_expr" {
+		return 0, nil, false
+	}
+	totalTokens := taskResult.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = taskResult.CompletionTokens
+	}
+	if totalTokens <= 0 {
+		return 0, nil, false
+	}
+	requestInput := billingexpr.RequestInput{}
+	if bc.BillingRequestInput != nil {
+		requestInput = *bc.BillingRequestInput
+	}
+	result, err := billingexpr.ComputeTieredQuotaWithRequest(snap, billingexpr.TokenParams{
+		C: float64(totalTokens),
+	}, requestInput)
+	if err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("任务 %s 表达式计费结算失败: %s", task.TaskID, err.Error()))
+		return 0, nil, false
+	}
+	return result.ActualQuotaAfterGroup, &result, true
+}
+
+func RecalculateTaskQuotaByTieredExpr(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) bool {
+	actualQuota, tieredResult, ok := taskTieredActualQuota(ctx, task, taskResult)
+	if !ok {
+		return false
+	}
+	reason := "tiered_expr"
+	if tieredResult != nil && tieredResult.MatchedTier != "" {
+		reason = fmt.Sprintf("tiered_expr：tier=%s", tieredResult.MatchedTier)
+	}
+	extraOther := map[string]interface{}{}
+	InjectTieredBillingSnapshotInfo(extraOther, task.PrivateData.BillingContext.TieredBillingSnapshot, tieredResult)
+	recalculateTaskQuota(ctx, task, actualQuota, reason, extraOther)
+	return true
+}
+
 // RecalculateTaskQuota 通用的异步差额结算。
 // actualQuota 是任务完成后的实际应扣额度，与预扣额度 (task.Quota) 做差额结算。
 // reason 用于日志记录（例如 "token重算" 或 "adaptor调整"）。
 func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string) {
+	recalculateTaskQuota(ctx, task, actualQuota, reason, nil)
+}
+
+func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string, extraOther map[string]interface{}) {
 	if actualQuota <= 0 {
 		return
 	}
@@ -238,6 +289,9 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	other["task_id"] = task.TaskID
 	other["pre_consumed_quota"] = preConsumedQuota
 	other["actual_quota"] = actualQuota
+	for key, value := range extraOther {
+		other[key] = value
+	}
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
 		UserId:    task.UserId,
 		LogType:   logType,

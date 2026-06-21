@@ -194,6 +194,11 @@ const PRESET_GROUPS: PresetGroup[] = [
         label: 'Qwen3 Omni Flash',
         expr: 'tier("base", p * 0.43 + c * 3.06 + img * 0.78 + ai * 3.81 + ao * 15.11)',
       },
+      {
+        key: 'doubao-seedance-2.0',
+        label: 'Doubao Seedance 2.0',
+        expr: 'param("resolution") == "1080p" ? (param("content.#(type==\\"video_url\\").video_url.url") != nil ? tier("1080p_video_input", c * 4.3055555556) : tier("1080p_no_video_input", c * 7.0833333333)) : (param("content.#(type==\\"video_url\\").video_url.url") != nil ? tier("480_720p_video_input", c * 3.8888888889) : tier("480_720p_no_video_input", c * 6.3888888889))',
+      },
     ],
   },
   {

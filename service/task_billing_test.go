@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -717,4 +718,58 @@ func TestSettle_NonPerCall_AdaptorAdjustWorks(t *testing.T) {
 	log := getLastLog(t)
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeRefund, log.Type)
+}
+
+func TestSettle_TieredExprTaskUsesFrozenRequestInputAndCompletionTokens(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 33, 33, 33
+	const initQuota, preConsumed = 10000, 1000
+	const tokenRemain = 8000
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-tiered-task", tokenRemain)
+	seedChannel(t, channelID)
+
+	expr := `param("resolution") == "1080p" && param("content.#(type==\"video_url\").video_url.url") != nil ? tier("1080p_video", c * 4.3055555556) : tier("base", c * 6.3888888889)`
+	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+		BillingMode:               "tiered_expr",
+		ModelName:                 "test-model",
+		ExprString:                expr,
+		ExprHash:                  billingexpr.ExprHashString(expr),
+		GroupRatio:                1,
+		EstimatedPromptTokens:     0,
+		EstimatedCompletionTokens: 0,
+		EstimatedQuotaAfterGroup:  preConsumed,
+		EstimatedTier:             "base",
+		QuotaPerUnit:              common.QuotaPerUnit,
+		ExprVersion:               billingexpr.ExprVersion(expr),
+	}
+	task.PrivateData.BillingContext.BillingRequestInput = &billingexpr.RequestInput{
+		Body: []byte(`{"resolution":"1080p","content":[{"type":"video_url","video_url":{"url":"https://example.com/input.mp4"}}]}`),
+	}
+
+	adaptor := &mockAdaptor{adjustReturn: 0}
+	taskResult := &relaycommon.TaskInfo{Status: model.TaskStatusSuccess, CompletionTokens: 1000, TotalTokens: 1000}
+
+	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+
+	// 31 CNY / 1M tokens with USD/CNY=7.2 => $4.3055555556 / 1M tokens.
+	// quota = 1000 * 4.3055555556 / 1M * 500000 = 2153.
+	const actualQuota = 2153
+	assert.Equal(t, initQuota-(actualQuota-preConsumed), getUserQuota(t, userID))
+	assert.Equal(t, tokenRemain-(actualQuota-preConsumed), getTokenRemainQuota(t, tokenID))
+	assert.Equal(t, actualQuota, task.Quota)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeConsume, log.Type)
+	assert.Contains(t, log.Content, "tiered_expr")
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	assert.Equal(t, "tiered_expr", other["billing_mode"])
+	assert.Equal(t, "1080p_video", other["matched_tier"])
+	assert.NotEmpty(t, other["expr_b64"])
 }

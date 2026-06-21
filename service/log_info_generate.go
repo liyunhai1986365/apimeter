@@ -343,9 +343,20 @@ func InjectTieredBillingInfo(other map[string]interface{}, relayInfo *relaycommo
 	if snap == nil {
 		return
 	}
+	InjectTieredBillingSnapshotInfo(other, snap, result)
+}
+
+func InjectTieredBillingSnapshotInfo(other map[string]interface{}, snap *billingexpr.BillingSnapshot, result *billingexpr.TieredResult) {
+	if other == nil || snap == nil {
+		return
+	}
 	other["billing_mode"] = "tiered_expr"
 	other["expr_b64"] = base64.StdEncoding.EncodeToString([]byte(snap.ExprString))
-	if result != nil {
-		other["matched_tier"] = result.MatchedTier
+	matchedTier := snap.EstimatedTier
+	if result != nil && result.MatchedTier != "" {
+		matchedTier = result.MatchedTier
+	}
+	if matchedTier != "" {
+		other["matched_tier"] = matchedTier
 	}
 }

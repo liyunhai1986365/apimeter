@@ -271,6 +271,15 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		Url:      gjson.GetBytes(respBody, resp.ResultURLPath).String(),
 		Progress: progressString(gjson.GetBytes(respBody, resp.ProgressPath)),
 	}
+	if totalTokens := int(gjson.GetBytes(respBody, "usage.total_tokens").Int()); totalTokens > 0 {
+		info.TotalTokens = totalTokens
+	}
+	if completionTokens := int(gjson.GetBytes(respBody, "usage.completion_tokens").Int()); completionTokens > 0 {
+		info.CompletionTokens = completionTokens
+		if info.TotalTokens == 0 {
+			info.TotalTokens = completionTokens
+		}
+	}
 	if info.Progress == "" {
 		switch model.TaskStatus(status) {
 		case model.TaskStatusSuccess, model.TaskStatusFailure:

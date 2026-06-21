@@ -268,6 +268,16 @@ export type EvalResult = {
   error: string | null
 }
 
+function timeInZone(tz: string): Date {
+  const trimmed = tz.trim()
+  if (!trimmed) return new Date()
+  try {
+    return new Date(new Date().toLocaleString('en-US', { timeZone: trimmed }))
+  } catch {
+    return new Date()
+  }
+}
+
 export function evalExprLocally(
   exprStr: string,
   promptTokens: number,
@@ -292,12 +302,24 @@ export function evalExprLocally(
       p: promptTokens,
       c: completionTokens,
       len,
+      nil: null,
       tier: tierFn,
       max: Math.max,
       min: Math.min,
       abs: Math.abs,
       ceil: Math.ceil,
       floor: Math.floor,
+      header: () => '',
+      param: () => null,
+      has: (source: unknown, substr: string) => {
+        if (source == null || !substr) return false
+        return String(source).includes(substr)
+      },
+      hour: (tz: string) => timeInZone(tz).getHours(),
+      minute: (tz: string) => timeInZone(tz).getMinutes(),
+      weekday: (tz: string) => timeInZone(tz).getDay(),
+      month: (tz: string) => timeInZone(tz).getMonth() + 1,
+      day: (tz: string) => timeInZone(tz).getDate(),
     }
     for (const field of ESTIMATOR_VARS) {
       env[field.var] = extraTokenValues[field.stateKey] || 0

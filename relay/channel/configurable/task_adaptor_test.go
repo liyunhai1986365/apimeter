@@ -374,6 +374,36 @@ func TestTaskAdaptorParsesSeedanceResponses(t *testing.T) {
 	if result.Url != "https://example.com/result.mp4" {
 		t.Fatalf("unexpected url: %s", result.Url)
 	}
+	if result.TotalTokens != 100858 {
+		t.Fatalf("unexpected total tokens: %d", result.TotalTokens)
+	}
+}
+
+func TestTaskAdaptorParsesUsageTotalTokensBeforeCompletionTokens(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "video-model",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeConfigurable,
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					ProfileID: "generic-video-json",
+				},
+			},
+		},
+	}
+	adaptor.Init(info)
+
+	result, err := adaptor.ParseTaskResult([]byte(`{"id":"task_generic","status":"completed","video":{"url":"https://example.com/result.mp4"},"usage":{"completion_tokens":100,"total_tokens":120}}`))
+	if err != nil {
+		t.Fatalf("parse result: %v", err)
+	}
+	if result.CompletionTokens != 100 {
+		t.Fatalf("unexpected completion tokens: %d", result.CompletionTokens)
+	}
+	if result.TotalTokens != 120 {
+		t.Fatalf("unexpected total tokens: %d", result.TotalTokens)
+	}
 }
 
 func TestTaskAdaptorBuildsHappyHorseNativeDashScopeRequest(t *testing.T) {

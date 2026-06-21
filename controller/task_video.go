@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/relay"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 )
 
@@ -148,6 +149,10 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 			task.FailReason = taskResult.Url
 		}
 
+		// 如果配置了表达式计费，优先按冻结的表达式和请求上下文重新计费。
+		if service.RecalculateTaskQuotaByTieredExpr(ctx, task, taskResult) {
+			break
+		}
 		// 如果返回了 total_tokens 并且配置了模型倍率(非固定价格),则重新计费
 		if taskResult.TotalTokens > 0 {
 			// 获取模型名称
