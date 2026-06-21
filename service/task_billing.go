@@ -247,7 +247,12 @@ func RecalculateTaskQuotaByTieredExpr(ctx context.Context, task *model.Task, tas
 	if totalTokens <= 0 {
 		totalTokens = taskResult.CompletionTokens
 	}
+	promptTokens := totalTokens - taskResult.CompletionTokens
+	if promptTokens < 0 {
+		promptTokens = 0
+	}
 	extraOther["actual_total_tokens"] = totalTokens
+	extraOther["actual_prompt_tokens"] = promptTokens
 	extraOther["actual_completion_tokens"] = taskResult.CompletionTokens
 	recalculateTaskQuota(ctx, task, actualQuota, reason, extraOther)
 	return true
@@ -311,16 +316,36 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		other[key] = value
 	}
 	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		UserId:    task.UserId,
-		LogType:   logType,
-		Content:   reason,
-		ChannelId: task.ChannelId,
-		ModelName: taskModelName(task),
-		Quota:     logQuota,
-		TokenId:   task.PrivateData.TokenId,
-		Group:     task.Group,
-		Other:     other,
+		UserId:           task.UserId,
+		LogType:          logType,
+		Content:          reason,
+		ChannelId:        task.ChannelId,
+		ModelName:        taskModelName(task),
+		Quota:            logQuota,
+		PromptTokens:     intFromMap(other, "actual_prompt_tokens"),
+		CompletionTokens: intFromMap(other, "actual_completion_tokens"),
+		TokenId:          task.PrivateData.TokenId,
+		Group:            task.Group,
+		Other:            other,
 	})
+}
+
+func intFromMap(values map[string]interface{}, key string) int {
+	if values == nil {
+		return 0
+	}
+	switch value := values[key].(type) {
+	case int:
+		return value
+	case int64:
+		return int(value)
+	case float64:
+		return int(value)
+	case float32:
+		return int(value)
+	default:
+		return 0
+	}
 }
 
 // RecalculateTaskQuotaByTokens 根据实际 token 消耗重新计费（异步差额结算）。

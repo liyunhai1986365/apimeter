@@ -824,6 +824,8 @@ func TestSettle_TieredExprTaskUsesFrozenRequestInputAndCompletionTokens(t *testi
 	log := getLastLog(t)
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeConsume, log.Type)
+	assert.Equal(t, 0, log.PromptTokens)
+	assert.Equal(t, 1000, log.CompletionTokens)
 	assert.Contains(t, log.Content, "tiered_expr")
 	var other map[string]interface{}
 	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))

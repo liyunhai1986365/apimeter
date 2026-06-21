@@ -197,6 +197,7 @@ export interface LogOtherData {
   pre_consumed_quota?: number
   actual_quota?: number
   actual_total_tokens?: number
+  actual_prompt_tokens?: number
   actual_completion_tokens?: number
   estimated_prompt_tokens?: number
   estimated_completion_tokens?: number
