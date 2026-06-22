@@ -22,8 +22,11 @@ import {
   ArrowUp,
   Check,
   ChevronsUpDown,
+  Gauge,
+  Percent,
   Plus,
   Search,
+  SlidersHorizontal,
   Trash2,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -39,6 +42,8 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { GroupPerformanceInline } from '@/features/performance-metrics/components/group-performance-inline'
+import type { PerfGroupSummary } from '@/features/performance-metrics/types'
 import type {
   PricingGroupDisplayConfig,
   PricingModel,
@@ -48,8 +53,10 @@ import { addGroupsToChain, removeGroupFromChain } from '../lib/api-key-form'
 import {
   ALL_CATEGORY_VALUE,
   ALL_VENDOR_VALUE,
+  type ApiKeyGroupSort,
   buildApiKeyGroupFilterMetadata,
   filterApiKeyGroupOptions,
+  sortApiKeyGroupOptions,
 } from '../lib/api-key-group-filters'
 import { AUTO_GROUP_VALUE } from '../lib/api-key-groups'
 import {
@@ -66,6 +73,7 @@ type ApiKeyGroupOrderSelectorProps = {
   groupDisplay?: PricingGroupDisplayConfig
   vendors?: PricingVendor[]
   models?: PricingModel[]
+  groupPerformance?: Record<string, PerfGroupSummary>
 }
 
 function normalizeChain(value: string[]) {
@@ -80,6 +88,42 @@ function normalizeChain(value: string[]) {
   return result.length > 0 ? result : [AUTO_GROUP_VALUE]
 }
 
+type SortButtonConfig = {
+  key: 'discount' | 'latency' | 'name'
+  label: string
+  icon: typeof Percent
+  asc: ApiKeyGroupSort
+  desc: ApiKeyGroupSort
+  defaultMode: ApiKeyGroupSort
+}
+
+const SORT_BUTTONS: SortButtonConfig[] = [
+  {
+    key: 'discount',
+    label: 'Discount',
+    icon: Percent,
+    asc: 'discount_asc',
+    desc: 'discount_desc',
+    defaultMode: 'discount_desc',
+  },
+  {
+    key: 'latency',
+    label: 'Latency',
+    icon: Gauge,
+    asc: 'latency_asc',
+    desc: 'latency_desc',
+    defaultMode: 'latency_asc',
+  },
+  {
+    key: 'name',
+    label: 'Name',
+    icon: SlidersHorizontal,
+    asc: 'name_asc',
+    desc: 'name_desc',
+    defaultMode: 'name_asc',
+  },
+]
+
 export function ApiKeyGroupOrderSelector({
   options,
   value,
@@ -88,12 +132,14 @@ export function ApiKeyGroupOrderSelector({
   groupDisplay,
   vendors,
   models,
+  groupPerformance,
 }: ApiKeyGroupOrderSelectorProps) {
   const { t } = useTranslation()
   const groupTerms = USER_FACING_GROUP_TERMS
   const [open, setOpen] = useState(false)
   const [searchValue, setSearchValue] = useState('')
   const [vendorFilter, setVendorFilter] = useState(ALL_VENDOR_VALUE)
+  const [sortMode, setSortMode] = useState<ApiKeyGroupSort>('name_asc')
   const [pendingGroups, setPendingGroups] = useState<string[]>([])
   const selected = normalizeChain(value)
   const optionMap = useMemo(
@@ -127,10 +173,18 @@ export function ApiKeyGroupOrderSelector({
       search: searchValue,
     })
   }, [availableOptions, effectiveVendorFilter, filterMetadata, searchValue])
+  const sortedFilteredOptions = useMemo(
+    () =>
+      sortApiKeyGroupOptions(filteredOptions, {
+        sort: sortMode,
+        groupPerformance,
+      }),
+    [filteredOptions, groupPerformance, sortMode]
+  )
   const pendingSet = useMemo(() => new Set(pendingGroups), [pendingGroups])
   const filteredValues = useMemo(
-    () => filteredOptions.map((option) => option.value),
-    [filteredOptions]
+    () => sortedFilteredOptions.map((option) => option.value),
+    [sortedFilteredOptions]
   )
 
   const emit = (next: string[]) => onChange(normalizeChain(next))
@@ -169,6 +223,14 @@ export function ApiKeyGroupOrderSelector({
 
   const clearPendingGroups = () => {
     setPendingGroups([])
+  }
+
+  const toggleSortMode = (config: SortButtonConfig) => {
+    setSortMode((current) => {
+      if (current === config.asc) return config.desc
+      if (current === config.desc) return config.asc
+      return config.defaultMode
+    })
   }
 
   const applyPendingGroups = () => {
@@ -292,15 +354,46 @@ export function ApiKeyGroupOrderSelector({
         >
           <div className='bg-background'>
             <div className='border-b p-3'>
-              <div className='space-y-2'>
-                <div className='relative min-w-0 flex-1'>
-                  <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
-                  <Input
-                    value={searchValue}
-                    onChange={(event) => setSearchValue(event.target.value)}
-                    placeholder={t(groupTerms.search)}
-                    className='h-9 pl-9'
-                  />
+              <div className='flex flex-col gap-2'>
+                <div className='flex flex-col gap-2 sm:flex-row'>
+                  <div className='relative min-w-0 flex-1'>
+                    <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
+                    <Input
+                      value={searchValue}
+                      onChange={(event) => setSearchValue(event.target.value)}
+                      placeholder={t(groupTerms.search)}
+                      className='h-9 pl-9'
+                    />
+                  </div>
+                  <div
+                    className='flex shrink-0 gap-1 overflow-x-auto pb-0.5 sm:pb-0'
+                    aria-label={t('Sort suppliers')}
+                  >
+                    {SORT_BUTTONS.map((config) => {
+                      const active =
+                        sortMode === config.asc || sortMode === config.desc
+                      const ascending = sortMode === config.asc
+                      const Icon = config.icon
+                      const DirectionIcon = ascending ? ArrowUp : ArrowDown
+
+                      return (
+                        <Button
+                          key={config.key}
+                          type='button'
+                          variant={active ? 'secondary' : 'outline'}
+                          size='sm'
+                          className='h-9 shrink-0 gap-1.5 px-2.5 text-xs'
+                          onClick={() => toggleSortMode(config)}
+                          aria-pressed={active}
+                          title={t('Click again to reverse sort')}
+                        >
+                          <Icon className='size-3.5' />
+                          <span>{t(config.label)}</span>
+                          {active && <DirectionIcon className='size-3.5' />}
+                        </Button>
+                      )
+                    })}
+                  </div>
                 </div>
                 {showVendorFilters && (
                   <div
@@ -340,13 +433,13 @@ export function ApiKeyGroupOrderSelector({
 
             <ScrollArea className='h-[380px]'>
               <div className='p-3'>
-                {filteredOptions.length === 0 ? (
+                {sortedFilteredOptions.length === 0 ? (
                   <div className='text-muted-foreground flex h-40 items-center justify-center rounded-lg border border-dashed text-sm'>
                     {t(groupTerms.noneFound)}
                   </div>
                 ) : (
                   <div className='grid gap-1.5'>
-                    {filteredOptions.map((option) => {
+                    {sortedFilteredOptions.map((option) => {
                       const categoryLabel =
                         filterMetadata.groupCategoryLabels.get(option.value)
 
@@ -371,6 +464,16 @@ export function ApiKeyGroupOrderSelector({
                               <span className='truncate text-sm font-medium'>
                                 {option.label}
                               </span>
+                              {categoryLabel && (
+                                <Badge
+                                  variant='outline'
+                                  className='bg-background text-muted-foreground h-6 max-w-32 shrink-0 rounded-md px-2 text-xs'
+                                >
+                                  <span className='truncate'>
+                                    {t(categoryLabel)}
+                                  </span>
+                                </Badge>
+                              )}
                               {pendingSet.has(option.value) && (
                                 <Check className='text-primary size-4 shrink-0' />
                               )}
@@ -378,16 +481,11 @@ export function ApiKeyGroupOrderSelector({
                             <GroupDescription desc={option.desc} />
                           </span>
                           <span className='flex shrink-0 items-center gap-1.5'>
-                            {categoryLabel && (
-                              <Badge
-                                variant='outline'
-                                className='bg-background text-muted-foreground h-6 max-w-32 rounded-md px-2 text-xs'
-                              >
-                                <span className='truncate'>
-                                  {t(categoryLabel)}
-                                </span>
-                              </Badge>
-                            )}
+                            <GroupPerformanceInline
+                              perf={groupPerformance?.[option.value]}
+                              compact
+                              className='hidden sm:flex'
+                            />
                             <GroupRatioBadge ratio={option.ratio} />
                           </span>
                         </label>

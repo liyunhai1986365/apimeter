@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import type {
   PricingData,
   PricingGroupDisplayCategory,
+  PricingGroupPerformance,
   PricingModel,
   PricingVendor,
 } from '@/features/pricing/types'
@@ -44,6 +45,7 @@ export type SupplierDirectoryItem = {
   group: string
   description?: string
   ratio: number
+  performance?: PricingGroupPerformance
   categoryId: string
   categoryName: string
   order: number
@@ -188,6 +190,7 @@ export function buildSupplierDirectoryData(
         group,
         description: getGroupDescription(info),
         ratio: getGroupRatio(group, info, pricing.group_ratio || {}),
+        performance: pricing.group_perf?.[group],
         categoryId: category.id,
         categoryName,
         order: category.order,
@@ -196,10 +199,12 @@ export function buildSupplierDirectoryData(
       }
     })
     .sort((a, b) => {
-      const aCategoryOrder =
-        categoryDefinitions.findIndex((category) => category.id === a.categoryId)
-      const bCategoryOrder =
-        categoryDefinitions.findIndex((category) => category.id === b.categoryId)
+      const aCategoryOrder = categoryDefinitions.findIndex(
+        (category) => category.id === a.categoryId
+      )
+      const bCategoryOrder = categoryDefinitions.findIndex(
+        (category) => category.id === b.categoryId
+      )
       const normalizedA =
         aCategoryOrder === -1 ? Number.MAX_SAFE_INTEGER : aCategoryOrder
       const normalizedB =
@@ -339,7 +344,9 @@ export function filterSupplierDirectoryItems(
       item.group.toLowerCase().includes(search) ||
       item.categoryName.toLowerCase().includes(search) ||
       item.description?.toLowerCase().includes(search) ||
-      item.vendors.some((vendor) => vendor.name.toLowerCase().includes(search)) ||
+      item.vendors.some((vendor) =>
+        vendor.name.toLowerCase().includes(search)
+      ) ||
       item.models.some((model) =>
         model.model_name.toLowerCase().includes(search)
       )

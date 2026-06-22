@@ -27,8 +27,9 @@ import {
   Plus,
   Trash2,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { formatCompactNumber, formatLogQuota } from '@/lib/format'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
@@ -62,8 +63,10 @@ import {
   getChannelTypeLabel,
   getKeyPromptForType,
 } from '@/features/channels/lib/channel-utils'
+import { getPerfMetricsGroups } from '@/features/performance-metrics/api'
+import { GroupPerformanceInline } from '@/features/performance-metrics/components/group-performance-inline'
+import type { PerfGroupSummary } from '@/features/performance-metrics/types'
 import { getPricing } from '@/features/pricing/api'
-import { formatCompactNumber, formatLogQuota } from '@/lib/format'
 import {
   createUserOwnedProvider,
   deleteUserOwnedProvider,
@@ -100,6 +103,21 @@ export function SupplierDirectory() {
     queryKey: ['supplier-directory', 'user-owned-providers'],
     queryFn: getUserOwnedProviders,
   })
+  const groupPerfQuery = useQuery({
+    queryKey: ['perf-metrics-groups', 24],
+    queryFn: () => getPerfMetricsGroups(24),
+    staleTime: 60 * 1000,
+  })
+  const groupPerformance = useMemo(
+    () =>
+      Object.fromEntries(
+        (groupPerfQuery.data?.data.groups ?? []).map((item) => [
+          item.group,
+          item,
+        ])
+      ),
+    [groupPerfQuery.data]
+  )
 
   const directory = useMemo(() => buildSupplierDirectoryData(data), [data])
   const sections = useMemo(
@@ -125,6 +143,7 @@ export function SupplierDirectory() {
       <UserOwnedProvidersSection
         providers={ownedQuery.data?.data ?? []}
         isLoading={ownedQuery.isLoading}
+        groupPerformance={groupPerformance}
       />
 
       {sections.length === 0 ? (
@@ -140,7 +159,10 @@ export function SupplierDirectory() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <SupplierCategorySections sections={sections} />
+        <SupplierCategorySections
+          sections={sections}
+          groupPerformance={groupPerformance}
+        />
       )}
     </PageTransition>
   )
@@ -170,6 +192,7 @@ function groupSuppliersByCategory(
 function UserOwnedProvidersSection(props: {
   providers: UserOwnedProviderRow[]
   isLoading: boolean
+  groupPerformance: Record<string, PerfGroupSummary>
 }) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
@@ -181,7 +204,8 @@ function UserOwnedProvidersSection(props: {
     () =>
       props.providers.reduce(
         (total, provider) => ({
-          requestCount: total.requestCount + (provider.stats?.request_count ?? 0),
+          requestCount:
+            total.requestCount + (provider.stats?.request_count ?? 0),
           quota: total.quota + (provider.stats?.quota ?? 0),
         }),
         { requestCount: 0, quota: 0 }
@@ -280,7 +304,7 @@ function UserOwnedProvidersSection(props: {
   }
 
   return (
-    <section className='rounded-lg border bg-card'>
+    <section className='bg-card rounded-lg border'>
       <div className='flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between'>
         <div className='min-w-0'>
           <h2 className='font-semibold'>{t('My Providers')}</h2>
@@ -290,7 +314,7 @@ function UserOwnedProvidersSection(props: {
         </div>
         <div className='flex flex-wrap items-center gap-2 sm:justify-end'>
           {props.providers.length > 0 && (
-            <div className='flex items-center gap-3 rounded-md border bg-muted/30 px-3 py-1.5 text-xs'>
+            <div className='bg-muted/30 flex items-center gap-3 rounded-md border px-3 py-1.5 text-xs'>
               <span className='text-muted-foreground'>
                 {t('Estimated spend')}
               </span>
@@ -337,6 +361,11 @@ function UserOwnedProvidersSection(props: {
                 {provider.models || '-'}
               </div>
               <div className='flex min-w-0 flex-col gap-0.5 md:items-end'>
+                <GroupPerformanceInline
+                  perf={props.groupPerformance[provider.group]}
+                  compact
+                  className='justify-start md:justify-end'
+                />
                 <div className='font-medium tabular-nums'>
                   {formatLogQuota(provider.stats?.quota ?? 0)}
                 </div>
@@ -388,7 +417,9 @@ function UserOwnedProvidersSection(props: {
             <DialogDescription>
               {editingProvider
                 ? t('Update this private provider configuration.')
-                : t('Create a private provider backed by your own upstream key.')}
+                : t(
+                    'Create a private provider backed by your own upstream key.'
+                  )}
             </DialogDescription>
           </DialogHeader>
           <form className='grid gap-4' onSubmit={submit}>
@@ -439,11 +470,7 @@ function UserOwnedProvidersSection(props: {
               />
             </div>
             <DialogFooter>
-              <Button
-                type='button'
-                variant='outline'
-                onClick={resetDialog}
-              >
+              <Button type='button' variant='outline' onClick={resetDialog}>
                 {t('Cancel')}
               </Button>
               <Button
@@ -816,6 +843,7 @@ function CheckboxField(props: {
 
 function SupplierCategorySections(props: {
   sections: SupplierCategorySection[]
+  groupPerformance: Record<string, PerfGroupSummary>
 }) {
   const { t } = useTranslation()
 
@@ -825,9 +853,9 @@ function SupplierCategorySections(props: {
         <details
           key={section.id}
           open
-          className='group overflow-hidden rounded-lg border bg-card'
+          className='group bg-card overflow-hidden rounded-lg border'
         >
-          <summary className='flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-muted/30'>
+          <summary className='hover:bg-muted/30 flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition-colors'>
             <div className='flex min-w-0 items-center gap-2'>
               <ChevronDown className='text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-180' />
               <h2 className='truncate text-base font-semibold'>
@@ -840,7 +868,13 @@ function SupplierCategorySections(props: {
           </summary>
           <div className='divide-y border-t'>
             {section.suppliers.map((supplier) => (
-              <SupplierRow key={supplier.group} supplier={supplier} />
+              <SupplierRow
+                key={supplier.group}
+                supplier={supplier}
+                performance={
+                  supplier.performance ?? props.groupPerformance[supplier.group]
+                }
+              />
             ))}
           </div>
         </details>
@@ -849,25 +883,35 @@ function SupplierCategorySections(props: {
   )
 }
 
-function SupplierRow({ supplier }: { supplier: SupplierDirectoryItem }) {
+function SupplierRow({
+  supplier,
+  performance,
+}: {
+  supplier: SupplierDirectoryItem
+  performance?: PerfGroupSummary
+}) {
   const { t } = useTranslation()
   const discountLabels = useGroupDiscountLabels()
   const discount = formatGroupDiscount(supplier.ratio, discountLabels)
 
   return (
-    <div className='grid gap-2 px-4 py-3 text-sm transition-colors hover:bg-muted/30 md:grid-cols-[minmax(10rem,0.8fr)_minmax(14rem,1.4fr)_auto] md:items-center'>
+    <div className='hover:bg-muted/30 grid gap-2 px-4 py-3 text-sm transition-colors md:grid-cols-[minmax(10rem,0.8fr)_minmax(14rem,1.4fr)_auto] md:items-center'>
       <div className='min-w-0 truncate font-medium'>{supplier.group}</div>
       <div className='text-muted-foreground min-w-0 truncate text-xs'>
         {supplier.description ? t(supplier.description) : '-'}
       </div>
-      <div className='flex justify-start md:justify-end'>
+      <div className='flex flex-wrap justify-start gap-2 md:justify-end'>
+        <GroupPerformanceInline perf={performance} compact />
         {discount ? (
           <Badge className='border-info bg-info text-info-foreground'>
             <BadgePercent data-icon='inline-start' />
             {discount}
           </Badge>
         ) : (
-          <Badge variant='outline' className='text-muted-foreground font-normal'>
+          <Badge
+            variant='outline'
+            className='text-muted-foreground font-normal'
+          >
             {t('No active discounts')}
           </Badge>
         )}

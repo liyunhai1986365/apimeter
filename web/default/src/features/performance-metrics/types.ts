@@ -58,3 +58,20 @@ export type PerfSummaryAllData = {
     models: PerfModelSummary[]
   }
 }
+
+export type PerfGroupSummary = {
+  group: string
+  avg_ttft_ms: number
+  avg_latency_ms: number
+  success_rate: number
+  avg_tps: number
+  request_count: number
+}
+
+export type PerfGroupSummaryData = {
+  success: boolean
+  message?: string
+  data: {
+    groups: PerfGroupSummary[]
+  }
+}

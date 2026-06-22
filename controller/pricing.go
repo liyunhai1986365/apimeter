@@ -4,6 +4,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/service"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting"
@@ -112,6 +113,7 @@ func GetPricing(c *gin.Context) {
 			"data":               pricing,
 			"vendors":            model.GetVendors(),
 			"group_ratio":        agentGroupRatio,
+			"group_perf":         getPricingGroupPerformance(agentUsableGroup),
 			"usable_group":       agentUsableGroup,
 			"group_display":      setting.GetGroupDisplayConfig(),
 			"supported_endpoint": model.GetSupportedEndpointMap(),
@@ -133,12 +135,31 @@ func GetPricing(c *gin.Context) {
 		"data":               pricing,
 		"vendors":            model.GetVendors(),
 		"group_ratio":        groupRatio,
+		"group_perf":         getPricingGroupPerformance(usableGroup),
 		"usable_group":       usableGroup,
 		"group_display":      setting.GetGroupDisplayConfig(),
 		"supported_endpoint": model.GetSupportedEndpointMap(),
 		"auto_groups":        service.GetUserAutoGroup(group),
 		"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",
 	})
+}
+
+func getPricingGroupPerformance[T any](usableGroup map[string]T) map[string]perfmetrics.GroupSummary {
+	groups := make([]string, 0, len(usableGroup))
+	for group := range usableGroup {
+		if group != "" && group != "auto" {
+			groups = append(groups, group)
+		}
+	}
+	result, err := perfmetrics.QueryGroupSummary(24, groups)
+	if err != nil {
+		return map[string]perfmetrics.GroupSummary{}
+	}
+	perfByGroup := make(map[string]perfmetrics.GroupSummary, len(result.Groups))
+	for _, item := range result.Groups {
+		perfByGroup[item.Group] = item
+	}
+	return perfByGroup
 }
 
 func ResetModelRatio(c *gin.Context) {

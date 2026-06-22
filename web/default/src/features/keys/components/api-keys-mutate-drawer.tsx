@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useForm, type SubmitErrorHandler } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -69,6 +69,7 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { MultiSelect } from '@/components/multi-select'
+import { getPerfMetricsGroups } from '@/features/performance-metrics/api'
 import { getPricing } from '@/features/pricing/api'
 import { createApiKey, updateApiKey, getApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
@@ -226,9 +227,21 @@ export function ApiKeysMutateDrawer({
     queryFn: getPricing,
     staleTime: 5 * 60 * 1000,
   })
+  const { data: groupPerfData } = useQuery({
+    queryKey: ['perf-metrics-groups', 24],
+    queryFn: () => getPerfMetricsGroups(24),
+    staleTime: 60 * 1000,
+  })
 
   const models = modelsData?.data || []
   const groupsRaw = groupsData?.data || {}
+  const groupPerformance = useMemo(
+    () =>
+      Object.fromEntries(
+        (groupPerfData?.data.groups ?? []).map((item) => [item.group, item])
+      ),
+    [groupPerfData]
+  )
   const schema = getApiKeyFormSchema(t)
 
   const form = useForm<ApiKeyFormValues>({
@@ -430,6 +443,7 @@ export function ApiKeysMutateDrawer({
                         groupDisplay={pricingData?.group_display}
                         vendors={pricingData?.vendors}
                         models={pricingData?.data}
+                        groupPerformance={groupPerformance}
                       />
                     </FormControl>
                     <FormDescription>

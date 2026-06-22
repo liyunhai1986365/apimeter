@@ -61,9 +61,12 @@ func GetPerfMetrics(modelName string, group string, startTs int64, endTs int64) 
 
 type PerfMetricSummary struct {
 	ModelName      string `json:"model_name"`
+	Group          string `json:"group"`
 	RequestCount   int64  `json:"request_count"`
 	SuccessCount   int64  `json:"success_count"`
 	TotalLatencyMs int64  `json:"total_latency_ms"`
+	TtftSumMs      int64  `json:"ttft_sum_ms"`
+	TtftCount      int64  `json:"ttft_count"`
 	OutputTokens   int64  `json:"output_tokens"`
 	GenerationMs   int64  `json:"generation_ms"`
 }
@@ -83,6 +86,51 @@ func GetPerfMetricsSummaryAll(startTs int64, endTs int64, groups []string) ([]Pe
 		Group("model_name").
 		Having("SUM(request_count) > 0").
 		Find(&summaries).Error
+	return summaries, err
+}
+
+func GetPerfMetricsGroupSummary(startTs int64, endTs int64, groups []string) ([]PerfMetricSummary, error) {
+	type groupSummaryRow struct {
+		GroupName      string `gorm:"column:group_name"`
+		RequestCount   int64
+		SuccessCount   int64
+		TotalLatencyMs int64
+		TtftSumMs      int64
+		TtftCount      int64
+		OutputTokens   int64
+		GenerationMs   int64
+	}
+
+	var rows []groupSummaryRow
+	query := DB.Model(&PerfMetric{}).
+		Select(commonGroupCol+" AS group_name, SUM(request_count) as request_count, SUM(success_count) as success_count, SUM(total_latency_ms) as total_latency_ms, SUM(ttft_sum_ms) as ttft_sum_ms, SUM(ttft_count) as ttft_count, SUM(output_tokens) as output_tokens, SUM(generation_ms) as generation_ms").
+		Where("bucket_ts >= ? AND bucket_ts <= ?", startTs, endTs)
+	if groups != nil {
+		if len(groups) == 0 {
+			return nil, nil
+		}
+		query = query.Where(commonGroupCol+" IN ?", groups)
+	}
+	err := query.
+		Group("group").
+		Having("SUM(request_count) > 0").
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	summaries := make([]PerfMetricSummary, 0, len(rows))
+	for _, row := range rows {
+		summaries = append(summaries, PerfMetricSummary{
+			Group:          row.GroupName,
+			RequestCount:   row.RequestCount,
+			SuccessCount:   row.SuccessCount,
+			TotalLatencyMs: row.TotalLatencyMs,
+			TtftSumMs:      row.TtftSumMs,
+			TtftCount:      row.TtftCount,
+			OutputTokens:   row.OutputTokens,
+			GenerationMs:   row.GenerationMs,
+		})
+	}
 	return summaries, err
 }
 

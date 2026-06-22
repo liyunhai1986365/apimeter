@@ -45,6 +45,15 @@ export type PricingGroupDisplayConfig = {
   groups: PricingGroupDisplayGroup[]
 }
 
+export type PricingGroupPerformance = {
+  group: string
+  avg_ttft_ms: number
+  avg_latency_ms: number
+  success_rate: number
+  avg_tps: number
+  request_count: number
+}
+
 export type PricingModel = {
   id: number
   model_name: string
@@ -135,6 +144,7 @@ export type PricingData = {
   data: PricingModel[]
   vendors: PricingVendor[]
   group_ratio: Record<string, number>
+  group_perf?: Record<string, PricingGroupPerformance>
   usable_group: Record<string, string | { desc?: string; ratio?: number }>
   group_display?: PricingGroupDisplayConfig
   supported_endpoint: Record<

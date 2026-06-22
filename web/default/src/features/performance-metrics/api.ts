@@ -17,7 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
-import type { PerformanceMetricsData, PerfSummaryAllData } from './types'
+import type {
+  PerformanceMetricsData,
+  PerfGroupSummaryData,
+  PerfSummaryAllData,
+} from './types'
 
 export async function getPerfMetricsSummary(
   hours = 24
@@ -37,6 +41,15 @@ export async function getPerfMetrics(
       model: modelName,
       hours,
     },
+  })
+  return res.data
+}
+
+export async function getPerfMetricsGroups(
+  hours = 24
+): Promise<PerfGroupSummaryData> {
+  const res = await api.get<PerfGroupSummaryData>('/api/perf-metrics/groups', {
+    params: { hours },
   })
   return res.data
 }

@@ -41,6 +41,16 @@ const pricing: PricingData = {
     official: 0.8,
     premium: 1,
   },
+  group_perf: {
+    official: {
+      group: 'official',
+      avg_ttft_ms: 120,
+      avg_latency_ms: 450,
+      success_rate: 99.5,
+      avg_tps: 23.4,
+      request_count: 42,
+    },
+  },
   usable_group: {
     official: { desc: 'Official stable route', ratio: 0.75 },
     premium: 'Premium route',
@@ -70,6 +80,7 @@ describe('supplier directory', () => {
     )
     assert.equal(directory.items[0].description, 'Official stable route')
     assert.equal(directory.items[0].ratio, 0.75)
+    assert.equal(directory.items[0].performance?.avg_latency_ms, 450)
     assert.deepEqual(
       directory.items[0].models.map((item) => item.model_name),
       ['gpt-5', 'shared-model']

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { PerfGroupSummary } from '@/features/performance-metrics/types'
 import type {
   PricingGroupDisplayConfig,
   PricingModel,
@@ -28,6 +29,14 @@ export const ALL_CATEGORY_VALUE = '__all_categories__'
 export const UNCATEGORIZED_CATEGORY_VALUE = '__uncategorized__'
 export const USER_OWNED_CATEGORY_VALUE = 'user_owned'
 export const ALL_VENDOR_VALUE = '__all_vendors__'
+
+export type ApiKeyGroupSort =
+  | 'name_asc'
+  | 'name_desc'
+  | 'discount_desc'
+  | 'discount_asc'
+  | 'latency_asc'
+  | 'latency_desc'
 
 export type ApiKeyGroupCategoryFilter = {
   value: string
@@ -60,6 +69,11 @@ type FilterApiKeyGroupOptionsParams = {
   category: string
   vendor: string
   search: string
+}
+
+type SortApiKeyGroupOptionsParams = {
+  sort: ApiKeyGroupSort
+  groupPerformance?: Record<string, PerfGroupSummary>
 }
 
 function optionValues(options: ApiKeyGroupOption[]) {
@@ -249,4 +263,87 @@ export function filterApiKeyGroupOptions(
       ratioText.includes(search)
     )
   })
+}
+
+function optionName(option: ApiKeyGroupOption) {
+  return (option.label || option.value).toLowerCase()
+}
+
+function numericRatio(option: ApiKeyGroupOption) {
+  return typeof option.ratio === 'number' && Number.isFinite(option.ratio)
+    ? option.ratio
+    : undefined
+}
+
+function compareName(a: ApiKeyGroupOption, b: ApiKeyGroupOption) {
+  const byName = optionName(a).localeCompare(optionName(b))
+  if (byName !== 0) return byName
+  return a.value.localeCompare(b.value)
+}
+
+function compareOptionalNumber(
+  a: number | undefined,
+  b: number | undefined,
+  direction: 'asc' | 'desc'
+) {
+  if (a == null && b == null) return 0
+  if (a == null) return 1
+  if (b == null) return -1
+  return direction === 'asc' ? a - b : b - a
+}
+
+export function sortApiKeyGroupOptions(
+  options: ApiKeyGroupOption[],
+  params: SortApiKeyGroupOptionsParams
+): ApiKeyGroupOption[] {
+  const sorted = [...options]
+  sorted.sort((a, b) => {
+    if (a.value === AUTO_GROUP_VALUE || b.value === AUTO_GROUP_VALUE) {
+      if (a.value === b.value) return 0
+      return a.value === AUTO_GROUP_VALUE ? -1 : 1
+    }
+
+    if (params.sort === 'discount_desc') {
+      const byDiscount = compareOptionalNumber(
+        numericRatio(a),
+        numericRatio(b),
+        'asc'
+      )
+      return byDiscount || compareName(a, b)
+    }
+
+    if (params.sort === 'discount_asc') {
+      const byDiscount = compareOptionalNumber(
+        numericRatio(a),
+        numericRatio(b),
+        'desc'
+      )
+      return byDiscount || compareName(a, b)
+    }
+
+    if (params.sort === 'latency_asc') {
+      const byLatency = compareOptionalNumber(
+        params.groupPerformance?.[a.value]?.avg_latency_ms,
+        params.groupPerformance?.[b.value]?.avg_latency_ms,
+        'asc'
+      )
+      return byLatency || compareName(a, b)
+    }
+
+    if (params.sort === 'latency_desc') {
+      const byLatency = compareOptionalNumber(
+        params.groupPerformance?.[a.value]?.avg_latency_ms,
+        params.groupPerformance?.[b.value]?.avg_latency_ms,
+        'desc'
+      )
+      return byLatency || compareName(a, b)
+    }
+
+    if (params.sort === 'name_desc') {
+      return -compareName(a, b)
+    }
+
+    return compareName(a, b)
+  })
+  return sorted
 }

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import type { PerfGroupSummary } from '@/features/performance-metrics/types'
 import type {
   PricingGroupDisplayConfig,
   PricingModel,
@@ -11,6 +12,7 @@ import {
   ALL_VENDOR_VALUE,
   buildApiKeyGroupFilterMetadata,
   filterApiKeyGroupOptions,
+  sortApiKeyGroupOptions,
 } from './api-key-group-filters'
 
 const options: ApiKeyGroupOption[] = [
@@ -23,6 +25,40 @@ const options: ApiKeyGroupOption[] = [
     desc: 'Use your own upstream keys',
   },
 ]
+
+const sortableOptions: ApiKeyGroupOption[] = [
+  { value: 'standard', label: 'Standard', desc: 'Standard', ratio: 1 },
+  { value: 'economy', label: 'Economy', desc: 'Economy', ratio: 0.6 },
+  { value: 'premium', label: 'Premium', desc: 'Premium', ratio: 1.4 },
+  { value: 'unknown', label: 'Unknown', desc: 'Unknown' },
+]
+
+const groupPerformance: Record<string, PerfGroupSummary> = {
+  standard: {
+    group: 'standard',
+    avg_ttft_ms: 80,
+    avg_latency_ms: 500,
+    success_rate: 99,
+    avg_tps: 20,
+    request_count: 10,
+  },
+  economy: {
+    group: 'economy',
+    avg_ttft_ms: 100,
+    avg_latency_ms: 700,
+    success_rate: 98,
+    avg_tps: 18,
+    request_count: 10,
+  },
+  premium: {
+    group: 'premium',
+    avg_ttft_ms: 60,
+    avg_latency_ms: 300,
+    success_rate: 99,
+    avg_tps: 22,
+    request_count: 10,
+  },
+}
 
 const groupDisplay: PricingGroupDisplayConfig = {
   categories: [
@@ -124,6 +160,62 @@ describe('api key group filters', () => {
         search: '',
       }).map((option) => option.value),
       ['user_owned:1:7']
+    )
+  })
+
+  test('sorts supplier options by discount, latency, and name', () => {
+    assert.deepEqual(
+      sortApiKeyGroupOptions(sortableOptions, {
+        sort: 'discount_desc',
+        groupPerformance,
+      }).map((option) => option.value),
+      ['economy', 'standard', 'premium', 'unknown']
+    )
+
+    assert.deepEqual(
+      sortApiKeyGroupOptions(sortableOptions, {
+        sort: 'discount_asc',
+        groupPerformance,
+      }).map((option) => option.value),
+      ['premium', 'standard', 'economy', 'unknown']
+    )
+
+    assert.deepEqual(
+      sortApiKeyGroupOptions(sortableOptions, {
+        sort: 'latency_asc',
+        groupPerformance,
+      }).map((option) => option.value),
+      ['premium', 'standard', 'economy', 'unknown']
+    )
+
+    assert.deepEqual(
+      sortApiKeyGroupOptions(sortableOptions, {
+        sort: 'latency_desc',
+        groupPerformance,
+      }).map((option) => option.value),
+      ['economy', 'standard', 'premium', 'unknown']
+    )
+
+    assert.deepEqual(
+      sortApiKeyGroupOptions(
+        [sortableOptions[1], sortableOptions[2], sortableOptions[0]],
+        {
+          sort: 'name_asc',
+          groupPerformance,
+        }
+      ).map((option) => option.value),
+      ['economy', 'premium', 'standard']
+    )
+
+    assert.deepEqual(
+      sortApiKeyGroupOptions(
+        [sortableOptions[1], sortableOptions[2], sortableOptions[0]],
+        {
+          sort: 'name_desc',
+          groupPerformance,
+        }
+      ).map((option) => option.value),
+      ['standard', 'premium', 'economy']
     )
   })
 })

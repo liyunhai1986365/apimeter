@@ -199,6 +199,93 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 	return SummaryAllResult{Models: models}, nil
 }
 
+func QueryGroupSummary(hours int, groups []string) (GroupSummaryResult, error) {
+	if hours <= 0 {
+		hours = 24
+	}
+	if hours > 24*30 {
+		hours = 24 * 30
+	}
+	endTs := time.Now().Unix()
+	startTs := endTs - int64(hours)*3600
+	allowedGroups := allowedGroupSet(groups)
+
+	rows, err := model.GetPerfMetricsGroupSummary(startTs, endTs, groups)
+	if err != nil {
+		return GroupSummaryResult{}, err
+	}
+
+	merged := map[bucketKey]counters{}
+	for _, row := range rows {
+		mergeCounters(merged, bucketKey{group: row.Group}, counters{
+			requestCount:   row.RequestCount,
+			successCount:   row.SuccessCount,
+			totalLatencyMs: row.TotalLatencyMs,
+			ttftSumMs:      row.TtftSumMs,
+			ttftCount:      row.TtftCount,
+			outputTokens:   row.OutputTokens,
+			generationMs:   row.GenerationMs,
+		})
+	}
+
+	hotBuckets.Range(func(key, value any) bool {
+		k := key.(bucketKey)
+		if k.bucketTs < startTs || k.bucketTs > endTs {
+			return true
+		}
+		if allowedGroups != nil {
+			if _, ok := allowedGroups[k.group]; !ok {
+				return true
+			}
+		}
+		snap := value.(*atomicBucket).snapshot()
+		if snap.requestCount == 0 {
+			return true
+		}
+		mergeCounters(merged, bucketKey{group: k.group}, snap)
+		return true
+	})
+
+	return buildGroupSummaryResult(merged), nil
+}
+
+func buildGroupSummaryResult(merged map[bucketKey]counters) GroupSummaryResult {
+	totalsByGroup := map[string]counters{}
+	for key, value := range merged {
+		if key.group == "" || value.requestCount == 0 {
+			continue
+		}
+		current := totalsByGroup[key.group]
+		current.requestCount += value.requestCount
+		current.successCount += value.successCount
+		current.totalLatencyMs += value.totalLatencyMs
+		current.ttftSumMs += value.ttftSumMs
+		current.ttftCount += value.ttftCount
+		current.outputTokens += value.outputTokens
+		current.generationMs += value.generationMs
+		totalsByGroup[key.group] = current
+	}
+
+	groups := make([]GroupSummary, 0, len(totalsByGroup))
+	for group, total := range totalsByGroup {
+		groups = append(groups, GroupSummary{
+			Group:        group,
+			AvgTtftMs:    avg(total.ttftSumMs, total.ttftCount),
+			AvgLatencyMs: avg(total.totalLatencyMs, total.requestCount),
+			SuccessRate:  successRate(total),
+			AvgTps:       avgTps(total),
+			RequestCount: total.requestCount,
+		})
+	}
+	sort.Slice(groups, func(i, j int) bool {
+		if groups[i].RequestCount != groups[j].RequestCount {
+			return groups[i].RequestCount > groups[j].RequestCount
+		}
+		return groups[i].Group < groups[j].Group
+	})
+	return GroupSummaryResult{Groups: groups}
+}
+
 func allowedGroupSet(groups []string) map[string]struct{} {
 	if groups == nil {
 		return nil
