@@ -84,6 +84,14 @@ describe('api key group filters', () => {
       metadata.vendors.map((vendor) => vendor.value),
       [ALL_VENDOR_VALUE, '2', '1']
     )
+    assert.deepEqual(
+      metadata.vendors.map((vendor) => vendor.label),
+      ['All', 'Anthropic', 'OpenAI']
+    )
+    assert.deepEqual(
+      options.map((option) => metadata.groupCategoryLabels.get(option.value)),
+      ['Official', 'Partner', 'Uncategorized', 'User-owned suppliers']
+    )
 
     assert.deepEqual(
       filterApiKeyGroupOptions(options, metadata, {

@@ -21,9 +21,7 @@ import {
   ArrowDown,
   ArrowUp,
   Check,
-  ChevronDown,
   ChevronsUpDown,
-  Filter,
   Plus,
   Search,
   Trash2,
@@ -35,7 +33,6 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
-import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Popover,
   PopoverContent,
@@ -51,7 +48,6 @@ import { addGroupsToChain, removeGroupFromChain } from '../lib/api-key-form'
 import {
   ALL_CATEGORY_VALUE,
   ALL_VENDOR_VALUE,
-  UNCATEGORIZED_CATEGORY_VALUE,
   buildApiKeyGroupFilterMetadata,
   filterApiKeyGroupOptions,
 } from '../lib/api-key-group-filters'
@@ -84,12 +80,6 @@ function normalizeChain(value: string[]) {
   return result.length > 0 ? result : [AUTO_GROUP_VALUE]
 }
 
-type GroupedOptions = {
-  value: string
-  label: string
-  options: ApiKeyGroupOption[]
-}
-
 export function ApiKeyGroupOrderSelector({
   options,
   value,
@@ -105,7 +95,6 @@ export function ApiKeyGroupOrderSelector({
   const [searchValue, setSearchValue] = useState('')
   const [vendorFilter, setVendorFilter] = useState(ALL_VENDOR_VALUE)
   const [pendingGroups, setPendingGroups] = useState<string[]>([])
-  const [expandedCategories, setExpandedCategories] = useState<string[]>([])
   const selected = normalizeChain(value)
   const optionMap = useMemo(
     () => new Map(options.map((option) => [option.value, option])),
@@ -138,26 +127,6 @@ export function ApiKeyGroupOrderSelector({
       search: searchValue,
     })
   }, [availableOptions, effectiveVendorFilter, filterMetadata, searchValue])
-  const groupedOptions = useMemo<GroupedOptions[]>(() => {
-    const groups = new Map<string, ApiKeyGroupOption[]>()
-    for (const option of filteredOptions) {
-      const category =
-        option.value === AUTO_GROUP_VALUE
-          ? ALL_CATEGORY_VALUE
-          : filterMetadata.groupCategory.get(option.value) ||
-            UNCATEGORIZED_CATEGORY_VALUE
-      if (!groups.has(category)) groups.set(category, [])
-      groups.get(category)?.push(option)
-    }
-
-    return filterMetadata.categories
-      .map((category) => ({
-        value: category.value,
-        label: category.label,
-        options: groups.get(category.value) || [],
-      }))
-      .filter((group) => group.options.length > 0)
-  }, [filterMetadata.categories, filterMetadata.groupCategory, filteredOptions])
   const pendingSet = useMemo(() => new Set(pendingGroups), [pendingGroups])
   const filteredValues = useMemo(
     () => filteredOptions.map((option) => option.value),
@@ -198,29 +167,8 @@ export function ApiKeyGroupOrderSelector({
     })
   }
 
-  const clearVisible = (groups: string[]) => {
-    const visible = new Set(groups)
-    setPendingGroups((current) => current.filter((group) => !visible.has(group)))
-  }
-
   const clearPendingGroups = () => {
     setPendingGroups([])
-  }
-
-  const toggleCategoryExpanded = (category: string) => {
-    setExpandedCategories((current) =>
-      current.includes(category)
-        ? current.filter((item) => item !== category)
-        : [...current, category]
-    )
-  }
-
-  const toggleVisibleGroups = (groups: string[], checked: boolean) => {
-    if (checked) {
-      selectVisible(groups)
-      return
-    }
-    clearVisible(groups)
   }
 
   const applyPendingGroups = () => {
@@ -235,12 +183,10 @@ export function ApiKeyGroupOrderSelector({
     if (!nextOpen) {
       setSearchValue('')
       setPendingGroups([])
-      setExpandedCategories([])
     }
   }
 
-  const showStructuredFilters =
-    filterMetadata.categories.length > 1 || filterMetadata.vendors.length > 1
+  const showVendorFilters = filterMetadata.vendors.length > 1
 
   return (
     <div className='space-y-2'>
@@ -346,7 +292,7 @@ export function ApiKeyGroupOrderSelector({
         >
           <div className='bg-background'>
             <div className='border-b p-3'>
-              <div className='flex flex-col gap-2 sm:flex-row sm:items-center'>
+              <div className='space-y-2'>
                 <div className='relative min-w-0 flex-1'>
                   <Search className='text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2' />
                   <Input
@@ -356,141 +302,98 @@ export function ApiKeyGroupOrderSelector({
                     className='h-9 pl-9'
                   />
                 </div>
-                {showStructuredFilters && filterMetadata.vendors.length > 1 && (
-                  <div className='flex min-w-0 items-center gap-2 sm:w-56'>
-                    <Filter className='text-muted-foreground size-3.5 shrink-0' />
-                    <NativeSelect
-                      size='sm'
-                      className='w-full'
-                      value={effectiveVendorFilter}
-                      onChange={(event) => setVendorFilter(event.target.value)}
-                      aria-label={t('Filter by vendor')}
-                    >
-                      {filterMetadata.vendors.map((vendor) => (
-                        <NativeSelectOption
-                          key={vendor.value}
-                          value={vendor.value}
+                {showVendorFilters && (
+                  <div
+                    className='flex gap-1.5 overflow-x-auto pb-1'
+                    role='tablist'
+                    aria-label={t('Filter by vendor')}
+                  >
+                    {filterMetadata.vendors.map((vendor) => (
+                      <button
+                        key={vendor.value}
+                        type='button'
+                        role='tab'
+                        aria-selected={effectiveVendorFilter === vendor.value}
+                        className={cn(
+                          'border-border bg-background text-muted-foreground hover:bg-muted/60 hover:text-foreground inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors',
+                          effectiveVendorFilter === vendor.value &&
+                            'border-primary/40 bg-primary/10 text-primary shadow-xs'
+                        )}
+                        onClick={() => setVendorFilter(vendor.value)}
+                      >
+                        <span>{t(vendor.label)}</span>
+                        <span
+                          className={cn(
+                            'bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px] tabular-nums',
+                            effectiveVendorFilter === vendor.value &&
+                              'bg-primary/15 text-primary'
+                          )}
                         >
-                          {t(vendor.label)} ({vendor.count})
-                        </NativeSelectOption>
-                      ))}
-                    </NativeSelect>
+                          {vendor.count}
+                        </span>
+                      </button>
+                    ))}
                   </div>
                 )}
               </div>
             </div>
 
             <ScrollArea className='h-[380px]'>
-              <div className='space-y-3 p-3'>
-                {groupedOptions.length === 0 ? (
+              <div className='p-3'>
+                {filteredOptions.length === 0 ? (
                   <div className='text-muted-foreground flex h-40 items-center justify-center rounded-lg border border-dashed text-sm'>
                     {t(groupTerms.noneFound)}
                   </div>
                 ) : (
-                  groupedOptions.map((group) => {
-                    const visibleValues = group.options.map(
-                      (option) => option.value
-                    )
-                    const selectedInGroup = visibleValues.filter((item) =>
-                      pendingSet.has(item)
-                    ).length
-                    const allSelected =
-                      visibleValues.length > 0 &&
-                      selectedInGroup === visibleValues.length
-                    const isExpanded = expandedCategories.includes(group.value)
+                  <div className='grid gap-1.5'>
+                    {filteredOptions.map((option) => {
+                      const categoryLabel =
+                        filterMetadata.groupCategoryLabels.get(option.value)
 
-                    return (
-                      <section
-                        key={group.value}
-                        className='overflow-hidden rounded-lg border'
-                      >
-                        <button
-                          type='button'
+                      return (
+                        <label
+                          key={option.value}
                           className={cn(
-                            'bg-muted/40 hover:bg-muted/55 flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors',
-                            isExpanded && 'border-b'
+                            'hover:bg-muted/60 flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors',
+                            pendingSet.has(option.value) &&
+                              'border-primary/30 bg-primary/5'
                           )}
-                          onClick={() => toggleCategoryExpanded(group.value)}
                         >
-                          <span
-                            className='shrink-0'
-                            onClick={(event) => event.stopPropagation()}
-                          >
-                            <Checkbox
-                              checked={allSelected}
-                              onCheckedChange={(checked) =>
-                                toggleVisibleGroups(
-                                  visibleValues,
-                                  checked === true
-                                )
-                              }
-                            />
-                          </span>
-                          <span className='min-w-0 flex-1'>
-                            <span className='block truncate text-sm font-medium'>
-                              {t(group.label)}
-                            </span>
-                            <span className='text-muted-foreground block text-xs'>
-                              {t('{{selected}}/{{total}} selected', {
-                                selected: selectedInGroup,
-                                total: visibleValues.length,
-                              })}
-                            </span>
-                          </span>
-                          <Badge
-                            variant='secondary'
-                            className='h-6 shrink-0 rounded-md px-2 text-xs'
-                          >
-                            {visibleValues.length}
-                          </Badge>
-                          <ChevronDown
-                            className={cn(
-                              'text-muted-foreground size-4 shrink-0 transition-transform',
-                              isExpanded && 'rotate-180'
-                            )}
+                          <Checkbox
+                            checked={pendingSet.has(option.value)}
+                            onCheckedChange={(checked) =>
+                              togglePendingGroup(option.value, checked === true)
+                            }
+                            className='mt-0.5'
                           />
-                        </button>
-
-                        {isExpanded && (
-                          <div className='grid gap-1 p-2'>
-                            {group.options.map((option) => (
-                              <label
-                                key={option.value}
-                                className={cn(
-                                  'hover:bg-muted/60 flex cursor-pointer items-start gap-3 rounded-lg px-2.5 py-2 transition-colors',
-                                  pendingSet.has(option.value) &&
-                                    'bg-primary/5'
-                                )}
+                          <span className='min-w-0 flex-1'>
+                            <span className='flex min-w-0 items-center gap-2'>
+                              <span className='truncate text-sm font-medium'>
+                                {option.label}
+                              </span>
+                              {pendingSet.has(option.value) && (
+                                <Check className='text-primary size-4 shrink-0' />
+                              )}
+                            </span>
+                            <GroupDescription desc={option.desc} />
+                          </span>
+                          <span className='flex shrink-0 items-center gap-1.5'>
+                            {categoryLabel && (
+                              <Badge
+                                variant='outline'
+                                className='bg-background text-muted-foreground h-6 max-w-32 rounded-md px-2 text-xs'
                               >
-                                <Checkbox
-                                  checked={pendingSet.has(option.value)}
-                                  onCheckedChange={(checked) =>
-                                    togglePendingGroup(
-                                      option.value,
-                                      checked === true
-                                    )
-                                  }
-                                  className='mt-0.5'
-                                />
-                                <span className='min-w-0 flex-1'>
-                                  <span className='flex min-w-0 items-center gap-2'>
-                                    <span className='truncate text-sm font-medium'>
-                                      {option.label}
-                                    </span>
-                                    {pendingSet.has(option.value) && (
-                                      <Check className='text-primary size-4 shrink-0' />
-                                    )}
-                                  </span>
-                                  <GroupDescription desc={option.desc} />
+                                <span className='truncate'>
+                                  {t(categoryLabel)}
                                 </span>
-                                <GroupRatioBadge ratio={option.ratio} />
-                              </label>
-                            ))}
-                          </div>
-                        )}
-                      </section>
-                    )
-                  })
+                              </Badge>
+                            )}
+                            <GroupRatioBadge ratio={option.ratio} />
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
                 )}
               </div>
             </ScrollArea>

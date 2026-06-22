@@ -45,6 +45,7 @@ export type ApiKeyGroupFilterMetadata = {
   categories: ApiKeyGroupCategoryFilter[]
   vendors: ApiKeyGroupVendorFilter[]
   groupCategory: Map<string, string>
+  groupCategoryLabels: Map<string, string>
   groupVendors: Map<string, Set<string>>
 }
 
@@ -166,6 +167,15 @@ export function buildApiKeyGroupFilterMetadata({
       count: uncategorizedCount,
     })
   }
+  const categoryLabelByValue = new Map(
+    categories.map((category) => [category.value, category.label])
+  )
+  const groupCategoryLabels = new Map(
+    [...groupCategory.entries()].map(([group, category]) => [
+      group,
+      categoryLabelByValue.get(category) || 'Uncategorized',
+    ])
+  )
 
   const vendorsWithCounts = vendors
     .map((vendor) => {
@@ -192,7 +202,7 @@ export function buildApiKeyGroupFilterMetadata({
     vendors: [
       {
         value: ALL_VENDOR_VALUE,
-        label: 'All vendors',
+        label: 'All',
         count: groups.size,
       },
       ...vendorsWithCounts.map(({ value, label, count }) => ({
@@ -202,6 +212,7 @@ export function buildApiKeyGroupFilterMetadata({
       })),
     ],
     groupCategory,
+    groupCategoryLabels,
     groupVendors,
   }
 }
