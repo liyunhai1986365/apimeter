@@ -829,31 +829,10 @@ export function DetailsDialog(props: DetailsDialogProps) {
                     mono
                   />
                 )}
-                {other.estimated_prompt_tokens != null && (
-                  <DetailRow
-                    label={t('Estimated Input Tokens')}
-                    value={formatTokens(other.estimated_prompt_tokens)}
-                    mono
-                  />
-                )}
-                {other.estimated_completion_tokens != null && (
-                  <DetailRow
-                    label={t('Estimated Output Tokens')}
-                    value={formatTokens(other.estimated_completion_tokens)}
-                    mono
-                  />
-                )}
                 {other.matched_tier && (
                   <DetailRow
                     label={t('Matched Tier')}
                     value={other.matched_tier}
-                    mono
-                  />
-                )}
-                {other.estimated_quota_after_group != null && (
-                  <DetailRow
-                    label={t('Estimated Cost')}
-                    value={formatLogQuota(other.estimated_quota_after_group)}
                     mono
                   />
                 )}

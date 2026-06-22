@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -115,6 +116,15 @@ func (a *TaskAdaptor) Init(info *relaycommon.RelayInfo) {
 
 // ValidateRequestAndSetAction parses body, validates fields and sets default action.
 func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycommon.RelayInfo) (taskErr *dto.TaskError) {
+	if isSeedanceNativeTaskRequest(c) {
+		req, err := seedanceNativeTaskSubmitReq(c)
+		if err != nil {
+			return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
+		}
+		info.Action = constant.TaskActionGenerate
+		c.Set("task_request", req)
+		return nil
+	}
 	// Accept only POST /v1/video/generations as "generate" action.
 	return relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
 }
@@ -138,12 +148,23 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 	if err != nil {
 		return nil
 	}
+	ratios := map[string]float64{}
+	seconds := req.Duration
+	if seconds <= 0 {
+		seconds, _ = strconv.Atoi(req.Seconds)
+	}
+	if seconds > 0 {
+		ratios["seconds"] = float64(seconds)
+	}
 	if hasVideoInMetadata(req.Metadata) {
 		if ratio, ok := GetVideoInputRatio(info.OriginModelName); ok {
-			return map[string]float64{"video_input": ratio}
+			ratios["video_input"] = ratio
 		}
 	}
-	return nil
+	if len(ratios) == 0 {
+		return nil
+	}
+	return ratios
 }
 
 // hasVideoInMetadata 直接检查 metadata 的 content 数组是否包含 video_url 条目，
@@ -301,6 +322,69 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	})
 
 	return &r, nil
+}
+
+func isSeedanceNativeTaskRequest(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	return c.Request.Method == http.MethodPost && c.Request.URL.Path == "/api/v3/contents/generations/tasks"
+}
+
+func seedanceNativeTaskSubmitReq(c *gin.Context) (relaycommon.TaskSubmitReq, error) {
+	var native requestPayload
+	if err := common.UnmarshalBodyReusable(c, &native); err != nil {
+		return relaycommon.TaskSubmitReq{}, err
+	}
+	if strings.TrimSpace(native.Model) == "" {
+		return relaycommon.TaskSubmitReq{}, fmt.Errorf("model field is required")
+	}
+
+	req := relaycommon.TaskSubmitReq{
+		Model:    native.Model,
+		Size:     native.Resolution,
+		Metadata: map[string]interface{}{},
+	}
+	if native.Duration != nil {
+		req.Duration = int(*native.Duration)
+		req.Seconds = strconv.Itoa(req.Duration)
+	}
+	if native.Ratio != "" {
+		req.Metadata["ratio"] = native.Ratio
+	}
+	if native.Watermark != nil {
+		req.Metadata["watermark"] = bool(*native.Watermark)
+	}
+	if native.GenerateAudio != nil {
+		req.Metadata["generate_audio"] = bool(*native.GenerateAudio)
+	}
+
+	content := make([]interface{}, 0, len(native.Content))
+	for _, item := range native.Content {
+		content = append(content, map[string]interface{}{
+			"type":      item.Type,
+			"text":      item.Text,
+			"image_url": item.ImageURL,
+			"video_url": item.VideoURL,
+			"audio_url": item.AudioURL,
+			"role":      item.Role,
+		})
+		switch item.Type {
+		case "text":
+			if req.Prompt == "" {
+				req.Prompt = item.Text
+			}
+		case "image_url":
+			if item.ImageURL != nil && item.ImageURL.URL != "" {
+				req.Images = append(req.Images, item.ImageURL.URL)
+			}
+		}
+	}
+	req.Metadata["content"] = content
+	if strings.TrimSpace(req.Prompt) == "" {
+		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt is required")
+	}
+	return req, nil
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {

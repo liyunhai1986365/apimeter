@@ -284,17 +284,23 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 	if profileID := param.Ctx.GetString("configurable_native_profile_id"); profileID != "" {
 		profileIDs := configurableNativeProfileIDsFromContext(param.Ctx, profileID)
 		return func(channel *model.Channel) bool {
-			if channel == nil || channel.Type != constant.ChannelTypeConfigurable {
+			if channel == nil {
 				return false
 			}
-			settings := channel.GetSetting()
-			if settings.Protocol == nil {
-				return false
-			}
-			for _, id := range profileIDs {
-				if settings.Protocol.ProfileID == id {
-					return true
+			if channel.Type == constant.ChannelTypeConfigurable {
+				settings := channel.GetSetting()
+				if settings.Protocol == nil {
+					return false
 				}
+				for _, id := range profileIDs {
+					if settings.Protocol.ProfileID == id {
+						return true
+					}
+				}
+				return false
+			}
+			if nativeSeedanceProfileSupportsChannel(profileIDs, param.ModelName, channel.Type) {
+				return true
 			}
 			return false
 		}
@@ -342,4 +348,19 @@ func configurableNativeProfileIDsFromContext(c *gin.Context, fallbackProfileID s
 		seen[id] = true
 	}
 	return deduped
+}
+
+func nativeSeedanceProfileSupportsChannel(profileIDs []string, modelName string, channelType int) bool {
+	if channelType != constant.ChannelTypeVolcEngine && channelType != constant.ChannelTypeDoubaoVideo {
+		return false
+	}
+	if !strings.HasPrefix(modelName, "doubao-seedance-2-0-") {
+		return false
+	}
+	for _, profileID := range profileIDs {
+		if profileID == "doubao-seedance-2" || profileID == "doubao-seedance-2-api-assets" {
+			return true
+		}
+	}
+	return false
 }

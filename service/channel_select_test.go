@@ -384,6 +384,55 @@ func TestCacheGetRandomSatisfiedChannelAllowsEquivalentNativeConfigurableProfile
 	require.Equal(t, "default", selectedGroup)
 }
 
+func TestCacheGetRandomSatisfiedChannelAllowsNativeSeedanceVolcEngineChannel(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		common.MemoryCacheEnabled = false
+	})
+
+	weight := uint(100)
+	priority := int64(10)
+	autoBan := 1
+	channel := model.Channel{
+		Id:       1001,
+		Type:     constant.ChannelTypeVolcEngine,
+		Key:      "sk-test",
+		Status:   common.ChannelStatusEnabled,
+		Name:     "volcengine-seedance",
+		Group:    "default",
+		Models:   "doubao-seedance-2-0-fast-260128",
+		Weight:   &weight,
+		Priority: &priority,
+		AutoBan:  &autoBan,
+	}
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     "default",
+		Model:     "doubao-seedance-2-0-fast-260128",
+		ChannelId: channel.Id,
+		Enabled:   true,
+		Priority:  &priority,
+		Weight:    weight,
+	}).Error)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", strings.NewReader(`{"model":"doubao-seedance-2-0-fast-260128"}`))
+	c.Set("configurable_native_profile_id", "doubao-seedance-2")
+	c.Set("configurable_native_profile_ids", []string{"doubao-seedance-2", "doubao-seedance-2-api-assets"})
+
+	selected, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "doubao-seedance-2-0-fast-260128",
+		Retry:      common.GetPointer(0),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, selected)
+	require.Equal(t, channel.Id, selected.Id)
+	require.Equal(t, "default", selectedGroup)
+}
+
 func TestBuildProtocolChannelFilterUsesConversionRequirement(t *testing.T) {
 	c, _ := gin.CreateTestContext(nil)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-image-2"}`))
