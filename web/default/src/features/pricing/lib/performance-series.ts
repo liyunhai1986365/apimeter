@@ -33,11 +33,8 @@ export type GroupedUptimePoint = UptimeDayPoint & {
 
 export function getPerformanceGroupDisplayName(
   group: string,
-  usableGroup: UsableGroupMap
+  _usableGroup: UsableGroupMap
 ) {
-  const info = usableGroup[group]
-  if (typeof info === 'string' && info.trim()) return info
-  if (info && typeof info === 'object' && info.desc?.trim()) return info.desc
   return group
 }
 
@@ -45,32 +42,45 @@ export function toGroupedLatencySeries(
   groups: PerformanceGroup[],
   usableGroup: UsableGroupMap
 ): GroupedLatencyPoint[] {
-  return groups.flatMap((group) => {
-    const displayName = getPerformanceGroupDisplayName(group.group, usableGroup)
-    return group.series
-      .filter((point) => point.avg_ttft_ms > 0)
-      .map((point) => ({
-        timestamp: new Date(point.ts * 1000).toISOString(),
-        group: displayName,
-        ttft_ms: Math.round(point.avg_ttft_ms),
-      }))
-  })
+  return groups
+    .flatMap((group) => {
+      const displayName = getPerformanceGroupDisplayName(
+        group.group,
+        usableGroup
+      )
+      return group.series
+        .filter((point) => point.avg_ttft_ms > 0)
+        .map((point) => ({
+          timestamp: new Date(point.ts * 1000).toISOString(),
+          group: displayName,
+          ttft_ms: Math.round(point.avg_ttft_ms),
+        }))
+    })
+    .sort(
+      (a, b) =>
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    )
 }
 
 export function toGroupedUptimeSeries(
   groups: PerformanceGroup[],
   usableGroup: UsableGroupMap
 ): GroupedUptimePoint[] {
-  return groups.flatMap((group) => {
-    const displayName = getPerformanceGroupDisplayName(group.group, usableGroup)
-    return group.series.map((point) => ({
-      date: new Date(point.ts * 1000).toISOString(),
-      group: displayName,
-      uptime_pct: Math.round(point.success_rate * 100) / 100,
-      incidents: point.success_rate < 100 ? 1 : 0,
-      outage_minutes: 0,
-    }))
-  })
+  return groups
+    .flatMap((group) => {
+      const displayName = getPerformanceGroupDisplayName(
+        group.group,
+        usableGroup
+      )
+      return group.series.map((point) => ({
+        date: new Date(point.ts * 1000).toISOString(),
+        group: displayName,
+        uptime_pct: Math.round(point.success_rate * 100) / 100,
+        incidents: point.success_rate < 100 ? 1 : 0,
+        outage_minutes: 0,
+      }))
+    })
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 }
 
 export function toGroupUptimeSeries(group: PerformanceGroup): UptimeDayPoint[] {

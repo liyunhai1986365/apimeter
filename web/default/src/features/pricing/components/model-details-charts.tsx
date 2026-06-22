@@ -63,7 +63,7 @@ export function LatencyTrendChart(props: {
   const spec = useMemo(() => {
     if (props.series.length === 0) return null
     const data = props.series.map((point) => ({
-      time: formatHourLabel(point.timestamp),
+      time: point.timestamp,
       group: point.group,
       ttft: point.ttft_ms,
     }))
@@ -88,7 +88,7 @@ export function LatencyTrendChart(props: {
       },
       tooltip: {
         mark: {
-          title: { value: (d: { time: string }) => d.time },
+          title: { value: (d: { time: string }) => formatHourLabel(d.time) },
           content: [
             {
               key: t(USER_FACING_GROUP_TERMS.single),
@@ -105,6 +105,8 @@ export function LatencyTrendChart(props: {
         {
           orient: 'bottom',
           label: {
+            formatMethod: (val: number | string) =>
+              formatHourLabel(String(val)),
             style: { fill: 'currentColor', fontSize: 10 },
           },
           tick: { visible: false },
