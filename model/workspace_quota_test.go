@@ -50,6 +50,70 @@ func TestUpdateUserWorkspaceQuotaResetConfigAppliesInitialResetAndSchedulesNextR
 	require.Equal(t, common.TokenStatusEnabled, token.Status)
 }
 
+func TestUpdateUserWorkspaceQuotaResetConfigClearsTokenQuotaWhenDisabled(t *testing.T) {
+	truncateTables(t)
+
+	now := time.Date(2026, 6, 10, 15, 45, 0, 0, time.UTC)
+	workspace := Workspace{
+		Id:                      505,
+		UserId:                  1001,
+		Name:                    "Quota Disable",
+		Status:                  WorkspaceStatusEnabled,
+		QuotaResetEnabled:       true,
+		QuotaResetPeriod:        WorkspaceQuotaResetPeriodDaily,
+		QuotaResetAmount:        3000000,
+		QuotaResetLastAppliedAt: now.Add(-time.Hour).Unix(),
+		QuotaResetNextAt:        now.Add(time.Hour).Unix(),
+	}
+	otherWorkspace := Workspace{Id: 506, UserId: 1001, Name: "Quota Other", Status: WorkspaceStatusEnabled}
+	require.NoError(t, DB.Create(&[]Workspace{workspace, otherWorkspace}).Error)
+	require.NoError(t, DB.Create(&[]Token{
+		{Id: 605, UserId: 1001, WorkspaceId: workspace.Id, Name: "disable-main", Key: "disable-main-key", RemainQuota: 1200, UsedQuota: 200, UnlimitedQuota: false, Status: common.TokenStatusExhausted},
+		{Id: 606, UserId: 1001, WorkspaceId: workspace.Id, Name: "disable-side", Key: "disable-side-key", RemainQuota: 800, UsedQuota: 300, UnlimitedQuota: false, Status: common.TokenStatusEnabled},
+		{Id: 607, UserId: 1001, WorkspaceId: workspace.Id, Name: "disable-subscription", Key: "disable-sub-key", RemainQuota: 700, UsedQuota: 400, UnlimitedQuota: false, Status: common.TokenStatusEnabled, BillingSource: "subscription"},
+		{Id: 608, UserId: 1001, WorkspaceId: otherWorkspace.Id, Name: "other-main", Key: "other-main-key", RemainQuota: 600, UsedQuota: 500, UnlimitedQuota: false, Status: common.TokenStatusEnabled},
+	}).Error)
+
+	config, err := UpdateUserWorkspaceQuotaResetConfig(
+		1001,
+		workspace.Id,
+		WorkspaceQuotaResetConfigRequest{
+			Enabled: false,
+			Period:  WorkspaceQuotaResetPeriodDaily,
+			Amount:  0,
+		},
+		now,
+	)
+
+	require.NoError(t, err)
+	require.False(t, config.Enabled)
+	require.Equal(t, 0, config.Amount)
+	require.Equal(t, int64(0), config.NextAt)
+
+	var main Token
+	require.NoError(t, DB.First(&main, 605).Error)
+	require.Equal(t, 0, main.RemainQuota)
+	require.Equal(t, 200, main.UsedQuota)
+	require.True(t, main.UnlimitedQuota)
+	require.Equal(t, common.TokenStatusEnabled, main.Status)
+
+	var side Token
+	require.NoError(t, DB.First(&side, 606).Error)
+	require.Equal(t, 0, side.RemainQuota)
+	require.Equal(t, 300, side.UsedQuota)
+	require.True(t, side.UnlimitedQuota)
+
+	var subscription Token
+	require.NoError(t, DB.First(&subscription, 607).Error)
+	require.Equal(t, 700, subscription.RemainQuota)
+	require.False(t, subscription.UnlimitedQuota)
+
+	var other Token
+	require.NoError(t, DB.First(&other, 608).Error)
+	require.Equal(t, 600, other.RemainQuota)
+	require.False(t, other.UnlimitedQuota)
+}
+
 func TestResetDueWorkspaceQuotaResetsWorkspaceTokens(t *testing.T) {
 	truncateTables(t)
 

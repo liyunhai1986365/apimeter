@@ -267,7 +267,9 @@ func UpdateUserWorkspaceQuotaResetConfig(userId int, workspaceId int, req Worksp
 		return WorkspaceQuotaResetConfig{}, errors.New("启用工作区配额时额度必须大于 0")
 	}
 
-	shouldApplyNow := req.Enabled && (!workspace.QuotaResetEnabled || workspace.QuotaResetLastAppliedAt == 0)
+	wasQuotaResetEnabled := workspace.QuotaResetEnabled
+	shouldApplyNow := req.Enabled && (!wasQuotaResetEnabled || workspace.QuotaResetLastAppliedAt == 0)
+	shouldClearTokenQuota := !req.Enabled && wasQuotaResetEnabled
 	nowUnix := now.Unix()
 	workspace.QuotaResetEnabled = req.Enabled
 	workspace.QuotaResetPeriod = period
@@ -300,12 +302,15 @@ func UpdateUserWorkspaceQuotaResetConfig(userId int, workspaceId int, req Worksp
 		if shouldApplyNow {
 			return resetWorkspaceTokenQuotasTx(tx, workspace, nowUnix)
 		}
+		if shouldClearTokenQuota {
+			return clearWorkspaceTokenQuotasTx(tx, workspace)
+		}
 		return nil
 	})
 	if err != nil {
 		return WorkspaceQuotaResetConfig{}, err
 	}
-	if shouldApplyNow {
+	if shouldApplyNow || shouldClearTokenQuota {
 		if err := InvalidateUserTokensCache(userId); err != nil {
 			common.SysLog("failed to invalidate workspace quota token cache: " + err.Error())
 		}
@@ -515,6 +520,23 @@ func resetWorkspaceTokenQuotaTx(tx *gorm.DB, workspace *Workspace, tokenId int, 
 	}
 	return tx.Model(&Token{}).
 		Where("id = ? AND user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ? AND status = ?", tokenId, workspace.UserId, workspace.Id, "subscription", 0, common.TokenStatusExhausted).
+		Update("status", common.TokenStatusEnabled).Error
+}
+
+func clearWorkspaceTokenQuotasTx(tx *gorm.DB, workspace *Workspace) error {
+	if tx == nil || workspace == nil || workspace.Id <= 0 || workspace.UserId <= 0 {
+		return errors.New("工作区配额清空参数无效")
+	}
+	if err := tx.Model(&Token{}).
+		Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ?", workspace.UserId, workspace.Id, "subscription", 0).
+		Updates(map[string]interface{}{
+			"remain_quota":    0,
+			"unlimited_quota": true,
+		}).Error; err != nil {
+		return err
+	}
+	return tx.Model(&Token{}).
+		Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?) AND user_subscription_id = ? AND status = ?", workspace.UserId, workspace.Id, "subscription", 0, common.TokenStatusExhausted).
 		Update("status", common.TokenStatusEnabled).Error
 }
 
