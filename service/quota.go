@@ -39,6 +39,43 @@ type QuotaInfo struct {
 	GroupRatio    float64
 }
 
+type quotaNotifyPlan struct {
+	threshold      int
+	notifyType     string
+	remainingQuota int
+}
+
+func defaultQuotaNotifyThresholds() []quotaNotifyPlan {
+	return []quotaNotifyPlan{
+		{threshold: int(10 * common.QuotaPerUnit), notifyType: dto.NotifyTypeQuotaExceed + "_usd_10"},
+		{threshold: int(common.QuotaPerUnit), notifyType: dto.NotifyTypeQuotaExceed + "_usd_1"},
+	}
+}
+
+func quotaNotifyPlans(userQuota int, consumeQuota int, customThreshold float64) []quotaNotifyPlan {
+	remainingQuota := userQuota - consumeQuota
+	if customThreshold > 0 {
+		threshold := int(customThreshold)
+		if remainingQuota >= threshold {
+			return nil
+		}
+		return []quotaNotifyPlan{{
+			threshold:      threshold,
+			notifyType:     dto.NotifyTypeQuotaExceed,
+			remainingQuota: remainingQuota,
+		}}
+	}
+
+	plans := make([]quotaNotifyPlan, 0, 2)
+	for _, plan := range defaultQuotaNotifyThresholds() {
+		if remainingQuota < plan.threshold {
+			plan.remainingQuota = remainingQuota
+			plans = append(plans, plan)
+		}
+	}
+	return plans
+}
+
 func hasCustomModelRatio(modelName string, currentRatio float64) bool {
 	defaultRatio, exists := ratio_setting.GetDefaultModelRatioMap()[modelName]
 	if !exists {
@@ -505,18 +542,9 @@ func PostConsumeQuota(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQu
 func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preConsumedQuota int) {
 	gopool.Go(func() {
 		userSetting := relayInfo.UserSetting
-		threshold := common.QuotaRemindThreshold
-		if userSetting.QuotaWarningThreshold != 0 {
-			threshold = int(userSetting.QuotaWarningThreshold)
-		}
-
-		//noMoreQuota := userCache.Quota-(quota+preConsumedQuota) <= 0
-		quotaTooLow := false
 		consumeQuota := quota + preConsumedQuota
-		if relayInfo.UserQuota-consumeQuota < threshold {
-			quotaTooLow = true
-		}
-		if quotaTooLow {
+		plans := quotaNotifyPlans(relayInfo.UserQuota, consumeQuota, userSetting.QuotaWarningThreshold)
+		for _, plan := range plans {
 			prompt := "您的额度即将用尽"
 			topUpLink := PaymentReturnURL("/console/topup")
 
@@ -532,17 +560,17 @@ func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preCon
 			if notifyType == dto.NotifyTypeBark {
 				// Bark推送使用简短文本，不支持HTML
 				content = "{{value}}，剩余额度：{{value}}，请及时充值"
-				values = []interface{}{prompt, logger.FormatQuota(relayInfo.UserQuota)}
+				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota)}
 			} else if notifyType == dto.NotifyTypeGotify {
 				content = "{{value}}，当前剩余额度为 {{value}}，请及时充值。"
-				values = []interface{}{prompt, logger.FormatQuota(relayInfo.UserQuota)}
+				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota)}
 			} else {
 				// 默认内容格式，适用于Email和Webhook（支持HTML）
 				content = "{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>"
-				values = []interface{}{prompt, logger.FormatQuota(relayInfo.UserQuota), topUpLink, topUpLink}
+				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota), topUpLink, topUpLink}
 			}
 
-			err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt, content, values))
+			err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values))
 			if err != nil {
 				common.SysError(fmt.Sprintf("failed to send quota notify to user %d: %s", relayInfo.UserId, err.Error()))
 			}
@@ -559,41 +587,35 @@ func checkAndSendSubscriptionQuotaNotify(relayInfo *relaycommon.RelayInfo) {
 			return
 		}
 
-		userSetting := relayInfo.UserSetting
-		threshold := common.QuotaRemindThreshold
-		if userSetting.QuotaWarningThreshold != 0 {
-			threshold = int(userSetting.QuotaWarningThreshold)
-		}
-
 		usedAfter := relayInfo.SubscriptionAmountUsedAfterPreConsume + relayInfo.SubscriptionPostDelta
 		remaining := relayInfo.SubscriptionAmountTotal - usedAfter
-		if remaining >= int64(threshold) {
-			return
-		}
+		plans := quotaNotifyPlans(0, -int(remaining), relayInfo.UserSetting.QuotaWarningThreshold)
 
 		prompt := "您的订阅额度即将用尽"
 		topUpLink := PaymentReturnURL("/console/topup")
 
-		var content string
-		var values []interface{}
-		notifyType := userSetting.NotifyType
-		if notifyType == "" {
-			notifyType = dto.NotifyTypeEmail
-		}
+		for _, plan := range plans {
+			var content string
+			var values []interface{}
+			notifyType := relayInfo.UserSetting.NotifyType
+			if notifyType == "" {
+				notifyType = dto.NotifyTypeEmail
+			}
 
-		if notifyType == dto.NotifyTypeBark {
-			content = "{{value}}，剩余额度：{{value}}，请及时充值"
-			values = []interface{}{prompt, logger.FormatQuota(int(remaining))}
-		} else if notifyType == dto.NotifyTypeGotify {
-			content = "{{value}}，当前剩余额度为 {{value}}，请及时充值。"
-			values = []interface{}{prompt, logger.FormatQuota(int(remaining))}
-		} else {
-			content = "{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>"
-			values = []interface{}{prompt, logger.FormatQuota(int(remaining)), topUpLink, topUpLink}
-		}
+			if notifyType == dto.NotifyTypeBark {
+				content = "{{value}}，剩余额度：{{value}}，请及时充值"
+				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota)}
+			} else if notifyType == dto.NotifyTypeGotify {
+				content = "{{value}}，当前剩余额度为 {{value}}，请及时充值。"
+				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota)}
+			} else {
+				content = "{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>"
+				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota), topUpLink, topUpLink}
+			}
 
-		if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(dto.NotifyTypeQuotaExceed, prompt, content, values)); err != nil {
-			common.SysError(fmt.Sprintf("failed to send subscription quota notify to user %d: %s", relayInfo.UserId, err.Error()))
+			if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values)); err != nil {
+				common.SysError(fmt.Sprintf("failed to send subscription quota notify to user %d: %s", relayInfo.UserId, err.Error()))
+			}
 		}
 	})
 }

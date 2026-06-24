@@ -37,7 +37,6 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { TitledCard } from '@/components/ui/titled-card'
 import { updateUserSettings } from '../api'
-import { DEFAULT_QUOTA_WARNING_THRESHOLD } from '../constants'
 import { parseUserSettings } from '../lib'
 import type {
   ModelFallbackRule,
@@ -103,8 +102,7 @@ function buildSettingsPayload(
   const parsed = parseUserSettings(profile?.setting)
   return {
     notify_type: parsed.notify_type || 'email',
-    quota_warning_threshold:
-      parsed.quota_warning_threshold ?? DEFAULT_QUOTA_WARNING_THRESHOLD,
+    quota_warning_threshold: parsed.quota_warning_threshold ?? 0,
     webhook_url: parsed.webhook_url ?? '',
     webhook_secret: parsed.webhook_secret ?? '',
     notification_email: parsed.notification_email ?? '',

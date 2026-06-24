@@ -104,7 +104,19 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
   const handleSave = async () => {
     try {
       setLoading(true)
-      const response = await updateUserSettings(settings)
+      const parsed = parseUserSettings(profile?.setting)
+      const hasCustomThreshold =
+        parsed.quota_warning_threshold !== undefined &&
+        parsed.quota_warning_threshold > 0
+      const thresholdChanged =
+        settings.quota_warning_threshold !== DEFAULT_QUOTA_WARNING_THRESHOLD ||
+        hasCustomThreshold
+      const response = await updateUserSettings({
+        ...settings,
+        quota_warning_threshold: thresholdChanged
+          ? settings.quota_warning_threshold
+          : 0,
+      })
 
       if (response.success) {
         toast.success(t('Settings updated successfully'))

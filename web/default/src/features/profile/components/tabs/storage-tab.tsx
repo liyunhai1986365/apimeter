@@ -27,7 +27,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { PasswordInput } from '@/components/password-input'
 import { testUserImageStorage, updateUserSettings } from '../../api'
-import { DEFAULT_QUOTA_WARNING_THRESHOLD } from '../../constants'
 import { parseUserSettings } from '../../lib'
 import type { UserImageStorageSetting, UserProfile } from '../../types'
 
@@ -97,8 +96,7 @@ export function StorageTab({ profile, onUpdate }: StorageTabProps) {
       const response = await updateUserSettings({
         ...current,
         notify_type: current.notify_type ?? 'email',
-        quota_warning_threshold:
-          current.quota_warning_threshold ?? DEFAULT_QUOTA_WARNING_THRESHOLD,
+        quota_warning_threshold: current.quota_warning_threshold ?? 0,
         image_storage: {
           ...imageStorage,
           type: storageType,
