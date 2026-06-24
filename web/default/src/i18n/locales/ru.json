@@ -3685,6 +3685,7 @@
     "Per-group performance": "Производительность по группам",
     "Per-request": "За запрос",
     "Per-request (fixed price)": "За запрос (фиксированная цена)",
+    "Per second": "За секунду",
     "Per-supplier performance": "Производительность по поставщикам",
     "Per-token": "За токен",
     "Per-token (ratio based)": "За токен (на основе соотношения)",

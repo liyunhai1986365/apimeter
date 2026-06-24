@@ -42,6 +42,7 @@ export type BillingVar = {
   isBase?: boolean
   isConditionOnly?: boolean
   group?: string
+  unit?: 'tokens' | 'second'
 }
 
 export const BILLING_VARS: BillingVar[] = [
@@ -62,6 +63,16 @@ export const BILLING_VARS: BillingVar[] = [
     shortLabel: 'Output',
     side: 'output',
     isBase: true,
+  },
+  {
+    key: 'duration',
+    field: 'perSecondPrice',
+    tierField: 'per_second_unit_cost',
+    label: 'Per second price',
+    shortLabel: 'Per second',
+    side: 'output',
+    group: 'time',
+    unit: 'second',
   },
   {
     key: 'len',
@@ -161,9 +172,14 @@ export const BILLING_CACHE_VAR_MAP = BILLING_EXTRA_VARS.map((v) => ({
 }))
 
 const BILLING_VAR_REGEX = new RegExp(
-  `\\b(${BILLING_PRICING_VARS.map((v) => v.key).join('|')})\\s*\\*\\s*([\\d.eE+-]+)`,
+  `\\b(${BILLING_PRICING_VARS.filter((v) => v.unit !== 'second')
+    .map((v) => v.key)
+    .join('|')})\\s*\\*\\s*([\\d.eE+-]+)`,
   'g'
 )
+
+const PARAM_DURATION_PRICE_REGEX =
+  /param\("parameters\.duration"\)\s*\*\s*([\d.eE+-]+)\s*\*\s*1000000/g
 
 // ---------------------------------------------------------------------------
 // Request rule constants
@@ -258,11 +274,136 @@ function parseTierBody(bodyStr: string): Record<string, number> {
   while ((m = re.exec(bodyStr)) !== null) {
     if (!(m[1] in coeffs)) coeffs[m[1]] = Number(m[2])
   }
+  const durationRe = new RegExp(PARAM_DURATION_PRICE_REGEX.source, 'g')
+  while ((m = durationRe.exec(bodyStr)) !== null) {
+    if (!('duration' in coeffs)) coeffs.duration = Number(m[1])
+  }
   const tier: Record<string, number> = {}
   for (const [varName, field] of Object.entries(BILLING_VAR_KEY_TO_FIELD)) {
     tier[field] = coeffs[varName] || 0
   }
   return tier
+}
+
+type TierCall = {
+  label: string
+  body: string
+  start: number
+}
+
+function findTierCalls(expr: string): TierCall[] {
+  const calls: TierCall[] = []
+  let searchIndex = 0
+
+  while (searchIndex < expr.length) {
+    const start = expr.indexOf('tier("', searchIndex)
+    if (start === -1) break
+
+    let index = start + 'tier('.length
+    let labelEnd = index
+    let escaped = false
+    for (labelEnd = index + 1; labelEnd < expr.length; labelEnd += 1) {
+      const char = expr[labelEnd]
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+      if (char === '"') break
+    }
+    if (labelEnd >= expr.length) {
+      searchIndex = start + 1
+      continue
+    }
+
+    const rawLabel = expr.slice(index, labelEnd + 1)
+    let label = ''
+    try {
+      label = JSON.parse(rawLabel) as string
+    } catch {
+      searchIndex = start + 1
+      continue
+    }
+
+    index = labelEnd + 1
+    while (/\s/.test(expr[index] || '')) index += 1
+    if (expr[index] !== ',') {
+      searchIndex = start + 1
+      continue
+    }
+    index += 1
+    while (/\s/.test(expr[index] || '')) index += 1
+
+    const bodyStart = index
+    let depth = 0
+    let inString = false
+    escaped = false
+    for (; index < expr.length; index += 1) {
+      const char = expr[index]
+      if (escaped) {
+        escaped = false
+        continue
+      }
+      if (char === '\\') {
+        escaped = true
+        continue
+      }
+      if (char === '"') {
+        inString = !inString
+        continue
+      }
+      if (inString) continue
+      if (char === '(') {
+        depth += 1
+        continue
+      }
+      if (char === ')') {
+        if (depth === 0) break
+        depth -= 1
+      }
+    }
+
+    if (index >= expr.length) {
+      searchIndex = start + 1
+      continue
+    }
+
+    calls.push({
+      label,
+      body: expr.slice(bodyStart, index).trim(),
+      start,
+    })
+    searchIndex = index + 1
+  }
+
+  return calls
+}
+
+function parseTierConditionsBefore(
+  expr: string,
+  tierStart: number,
+  condGroup: string
+): TierCondition[] {
+  const before = expr.slice(0, tierStart)
+  const match = before.match(new RegExp(`${condGroup}\\s*\\?\\s*$`))
+  const condStr = match?.[1] || ''
+  const conditions: TierCondition[] = []
+  if (!condStr) return conditions
+
+  for (const cp of condStr.split(/\s*&&\s*/)) {
+    const cm = cp.trim().match(/^(p|c|len)\s*(<|<=|>|>=)\s*([\d.eE+]+)$/)
+    if (cm) {
+      conditions.push({
+        var: cm[1] as TierCondition['var'],
+        op: cm[2] as TierCondition['op'],
+        value: Number(cm[3]),
+      })
+    }
+  }
+  return conditions
 }
 
 export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
@@ -272,30 +413,11 @@ export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
     const condGroup =
       `((?:(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)` +
       `(?:\\s*&&\\s*(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)*)`
-    const tierRe = new RegExp(
-      `(?:${condGroup}\\s*\\?\\s*)?tier\\("([^"]*)",\\s*([^)]+)\\)`,
-      'g'
-    )
     const tiers: ParsedTier[] = []
-    let m
-    while ((m = tierRe.exec(body)) !== null) {
-      const condStr = m[1] || ''
-      const conditions: TierCondition[] = []
-      if (condStr) {
-        for (const cp of condStr.split(/\s*&&\s*/)) {
-          const cm = cp.trim().match(/^(p|c|len)\s*(<|<=|>|>=)\s*([\d.eE+]+)$/)
-          if (cm) {
-            conditions.push({
-              var: cm[1] as TierCondition['var'],
-              op: cm[2] as TierCondition['op'],
-              value: Number(cm[3]),
-            })
-          }
-        }
-      }
-      const tier = parseTierBody(m[3]) as ParsedTier
-      tier.label = m[2]
-      tier.conditions = conditions
+    for (const call of findTierCalls(body)) {
+      const tier = parseTierBody(call.body) as ParsedTier
+      tier.label = call.label
+      tier.conditions = parseTierConditionsBefore(body, call.start, condGroup)
       tiers.push(tier)
     }
     return tiers

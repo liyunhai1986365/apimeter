@@ -48,6 +48,7 @@ import {
   type RequestRuleGroup,
   type TierCondition,
 } from '../lib/billing-expr'
+import { formatDynamicSecondPrice } from '../lib/dynamic-price'
 
 type DynamicPricingBreakdownProps = {
   billingExpr: string | null | undefined
@@ -296,7 +297,12 @@ export function DynamicPricingBreakdown({
                           </div>
                           <div className='truncate font-mono text-sm font-semibold'>
                             {value > 0
-                              ? `${symbol}${(value * rate).toFixed(4)}`
+                              ? v.unit === 'second'
+                                ? formatDynamicSecondPrice(value, {
+                                    tokenUnit: 'M',
+                                    usdExchangeRate: rate,
+                                  })
+                                : `${symbol}${(value * rate).toFixed(4)}`
                               : '-'}
                           </div>
                         </div>
@@ -373,7 +379,12 @@ export function DynamicPricingBreakdown({
                           >
                             {value > 0 ? (
                               <span className='font-semibold'>
-                                {`${symbol}${(value * rate).toFixed(4)}`}
+                                {v.unit === 'second'
+                                  ? formatDynamicSecondPrice(value, {
+                                      tokenUnit: 'M',
+                                      usdExchangeRate: rate,
+                                    })
+                                  : `${symbol}${(value * rate).toFixed(4)}`}
                               </span>
                             ) : (
                               '-'

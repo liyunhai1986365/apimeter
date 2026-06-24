@@ -3685,6 +3685,7 @@
     "Per-group performance": "グループ別パフォーマンス",
     "Per-request": "リクエスト単位",
     "Per-request (fixed price)": "リクエストごと (固定価格)",
+    "Per second": "秒あたり",
     "Per-supplier performance": "サプライヤー別パフォーマンス",
     "Per-token": "トークン単位",
     "Per-token (ratio based)": "トークンごと (比率ベース)",

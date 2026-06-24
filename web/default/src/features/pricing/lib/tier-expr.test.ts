@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import {
+  parseTiersFromExpr,
+  splitBillingExprAndRequestRules,
+} from './billing-expr'
+import { getDynamicPriceEntries } from './dynamic-price'
 import { evalExprLocally } from './tier-expr'
 
 const emptyExtras = {
@@ -43,5 +48,36 @@ describe('evalExprLocally', () => {
     assert.equal(result.error, null)
     assert.ok(Math.abs(result.cost - 638.88888889) < 0.00000001)
     assert.equal(result.matchedTier, '480_720p_no_video_input')
+  })
+})
+
+describe('parseTiersFromExpr', () => {
+  test('extracts per-second duration prices from request-aware tier expressions', () => {
+    const { billingExpr } = splitBillingExprAndRequestRules(`param("parameters.resolution") == "1080P"
+      ? tier("1080p_per_second", param("parameters.duration") * 1 * 1000000)
+      : tier("720p_per_second", param("parameters.duration") * 0.5 * 1000000)`)
+
+    const tiers = parseTiersFromExpr(billingExpr)
+
+    assert.equal(tiers.length, 2)
+    assert.equal(tiers[0].label, '1080p_per_second')
+    assert.equal(tiers[0].perSecondPrice, 1)
+    assert.equal(tiers[1].label, '720p_per_second')
+    assert.equal(tiers[1].perSecondPrice, 0.5)
+  })
+
+  test('exposes per-second prices to dynamic pricing entries', () => {
+    const tiers = parseTiersFromExpr(
+      'tier("720p_per_second", param("parameters.duration") * 0.5 * 1000000)'
+    )
+
+    const entries = getDynamicPriceEntries(tiers[0], {
+      tokenUnit: 'M',
+    })
+
+    assert.equal(entries.length, 1)
+    assert.equal(entries[0].field, 'perSecondPrice')
+    assert.equal(entries[0].shortLabel, 'Per second')
+    assert.equal(entries[0].formatted, '$0.5')
   })
 })
