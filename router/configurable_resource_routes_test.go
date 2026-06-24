@@ -63,6 +63,34 @@ func TestConfigurableResourceRoutesAreRegisteredFromProfiles(t *testing.T) {
 	if recorder.Code == http.StatusNotFound {
 		t.Fatalf("expected configurable assets delete alias route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
 	}
+
+	recorder = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/v1/asset-groups", nil)
+	r.ServeHTTP(recorder, req)
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("expected service inference asset group create route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	recorder = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodGet, "/v1/asset-groups/group_123", nil)
+	r.ServeHTTP(recorder, req)
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("expected service inference asset group detail route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	recorder = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/v1/assets", nil)
+	r.ServeHTTP(recorder, req)
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("expected service inference asset create route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+
+	recorder = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/v1/assets/get", nil)
+	r.ServeHTTP(recorder, req)
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("expected service inference asset get route to be registered, got status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
 }
 
 func TestConfigurableResourceRoutesAllowSharedPublicPathsAcrossProfiles(t *testing.T) {

@@ -359,6 +359,122 @@ func TestRelayConfigurableResourceSelectsAPIAssetsProfileForSharedAssetsUploadRo
 	require.JSONEq(t, `{"code":0,"message":"ok","data":{"Id":"asset-direct"}}`, recorder.Body.String())
 }
 
+func TestRelayConfigurableResourceProxiesServiceInferenceAssetLifecycle(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := openConfigurableResourceTestDB(t)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+
+	var assetGroupBody string
+	var assetCreateBody string
+	var assetGetBody string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "Bearer upstream-secret", r.Header.Get("Authorization"))
+		require.Equal(t, "application/json", r.Header.Get("Accept"))
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/asset-groups":
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			assetGroupBody = string(bodyBytes)
+			_, _ = w.Write([]byte(`{"id":"group-service","name":"characters","description":"test group"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/asset-groups/group-service":
+			_, _ = w.Write([]byte(`{"id":"group-service","name":"characters","description":"test group"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/assets":
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			assetCreateBody = string(bodyBytes)
+			_, _ = w.Write([]byte(`{"id":"asset-service","task_id":"task-service","status":"processing"}`))
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/assets/get":
+			bodyBytes, err := io.ReadAll(r.Body)
+			require.NoError(t, err)
+			assetGetBody = string(bodyBytes)
+			_, _ = w.Write([]byte(`{"id":"asset-service","name":"child","url":"asset-url","asset_type":"Image","group_id":"group-service","status":"completed","error":null}`))
+		default:
+			t.Fatalf("unexpected upstream request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer upstream.Close()
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       10,
+		Username: "resource-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:         10,
+		Name:           "resource-token",
+		Key:            "resourcetokenkey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100000,
+		UnlimitedQuota: true,
+		Group:          "default",
+	}).Error)
+
+	channel := &model.Channel{
+		Id:          20,
+		Type:        constant.ChannelTypeConfigurable,
+		Key:         "upstream-secret",
+		Status:      common.ChannelStatusEnabled,
+		Name:        "seedance-service-inference",
+		Group:       "default",
+		Models:      "dreamina-seedance-2-0-fast-260128",
+		BaseURL:     &upstream.URL,
+		CreatedTime: common.GetTimestamp(),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-service-inference"},
+	})
+	require.NoError(t, db.Create(channel).Error)
+
+	router := gin.New()
+	router.POST("/v1/asset-groups", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+	router.GET("/v1/asset-groups/:group_id", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+	router.POST("/v1/assets", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+	router.POST("/v1/assets/get", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/asset-groups", strings.NewReader(`{"name":"characters","description":"test group"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer resourcetokenkey")
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"id":"group-service","name":"characters","description":"test group"}`, recorder.Body.String())
+	require.JSONEq(t, `{"name":"characters","description":"test group"}`, assetGroupBody)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/v1/asset-groups/group-service", nil)
+	request.Header.Set("Authorization", "Bearer resourcetokenkey")
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"id":"group-service","name":"characters","description":"test group"}`, recorder.Body.String())
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/v1/assets", strings.NewReader(`{"group_id":"group-service","url":"https://cdn.example.com/image.png","asset_type":"Image","name":"child"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer resourcetokenkey")
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"id":"asset-service","task_id":"task-service","status":"processing"}`, recorder.Body.String())
+	require.JSONEq(t, `{"group_id":"group-service","url":"https://cdn.example.com/image.png","asset_type":"Image","name":"child"}`, assetCreateBody)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodPost, "/v1/assets/get", strings.NewReader(`{"asset_id":"asset-service","task_id":"task-service"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer resourcetokenkey")
+	router.ServeHTTP(recorder, request)
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"id":"asset-service","name":"child","url":"asset-url","asset_type":"Image","group_id":"group-service","status":"completed","error":null}`, recorder.Body.String())
+	require.JSONEq(t, `{"asset_id":"asset-service","task_id":"task-service"}`, assetGetBody)
+}
+
 func TestRelayConfigurableResourceProxiesMaterialDetailPathParam(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := openConfigurableResourceTestDB(t)

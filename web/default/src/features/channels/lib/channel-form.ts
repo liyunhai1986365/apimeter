@@ -57,7 +57,7 @@ export const CONVERSION_OPTIONS = [
   },
 ]
 
-export const PROTOCOL_PROFILE_OPTIONS = [
+export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
   {
     label: 'Generic JSON Video Task',
     value: 'generic-video-json',
@@ -73,6 +73,10 @@ export const PROTOCOL_PROFILE_OPTIONS = [
   {
     label: 'Doubao Seedance 2.0 API Assets',
     value: 'doubao-seedance-2-api-assets',
+  },
+  {
+    label: 'Seedance2 Service Inference',
+    value: 'seedance2-service-inference',
   },
   {
     label: 'Apixo GPT Image 2',

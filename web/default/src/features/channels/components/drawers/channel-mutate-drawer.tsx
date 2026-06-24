@@ -114,6 +114,7 @@ import {
   getChannelKey,
   getGroups,
   getPrefillGroups,
+  getProtocolProfiles,
   refreshCodexCredential,
   updateChannel,
 } from '../../api'
@@ -130,7 +131,7 @@ import {
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
   CONVERSION_OPTIONS,
-  PROTOCOL_PROFILE_OPTIONS,
+  FALLBACK_PROTOCOL_PROFILE_OPTIONS,
   REQUEST_MODE_OPTIONS,
   channelFormSchema,
   channelsQueryKeys,
@@ -370,6 +371,11 @@ export function ChannelMutateDrawer({
     queryFn: () => getPrefillGroups('model'),
   })
 
+  const { data: protocolProfilesData } = useQuery({
+    queryKey: ['channel_protocol_profiles'],
+    queryFn: getProtocolProfiles,
+  })
+
   const { copyToClipboard } = useCopyToClipboard()
 
   const {
@@ -455,6 +461,17 @@ export function ChannelMutateDrawer({
     }
     return allModelsList
   }, [allModelsList, currentType])
+
+  const protocolProfileOptions = useMemo(() => {
+    const profiles = protocolProfilesData?.data
+    if (profiles?.length) {
+      return profiles.map((profile) => ({
+        label: profile.name || profile.id,
+        value: profile.id,
+      }))
+    }
+    return FALLBACK_PROTOCOL_PROFILE_OPTIONS
+  }, [protocolProfilesData])
 
   // Get prefill groups
   const prefillGroups = useMemo(
@@ -3452,7 +3469,7 @@ export function ChannelMutateDrawer({
                                 <SelectItem value='none'>
                                   {t('Use channel default')}
                                 </SelectItem>
-                                {PROTOCOL_PROFILE_OPTIONS.map((option) => (
+                                {protocolProfileOptions.map((option) => (
                                   <SelectItem
                                     key={option.value}
                                     value={option.value}

@@ -403,8 +403,8 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
-	// Gemini/Vertex 支持实时查询：用户 fetch 时直接从上游拉取最新状态
-	if realtimeResp := tryConfigurableNativeFetch(c, originTask); len(realtimeResp) > 0 {
+	// Configurable channels support realtime fetch through their profile fetch endpoint.
+	if realtimeResp := tryConfigurableFetch(c, originTask, c.GetString("configurable_native_profile_id") != ""); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
 	}
@@ -534,7 +534,11 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 }
 
 func tryConfigurableNativeFetch(c *gin.Context, task *model.Task) []byte {
-	if c == nil || task == nil || c.GetString("configurable_native_profile_id") == "" {
+	return tryConfigurableFetch(c, task, true)
+}
+
+func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody bool) []byte {
+	if c == nil || task == nil {
 		return nil
 	}
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
@@ -588,6 +592,9 @@ func tryConfigurableNativeFetch(c *gin.Context, task *model.Task) []byte {
 		if !snap.Equal(task.Snapshot()) {
 			_, _ = task.UpdateWithStatus(snap.Status)
 		}
+	}
+	if !returnNativeBody {
+		return nil
 	}
 	if converter, ok := adaptor.(interface {
 		ConvertToNativeFetchResponse(*model.Task, []byte) ([]byte, error)

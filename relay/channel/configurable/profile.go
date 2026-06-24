@@ -15,17 +15,25 @@ import (
 var profileFS embed.FS
 
 type Profile struct {
-	ID            string           `yaml:"id"`
-	Name          string           `yaml:"name"`
-	MediaType     string           `yaml:"media_type"`
-	AcceptedModes []string         `yaml:"accepted_modes"`
-	UpstreamModes []string         `yaml:"upstream_modes"`
-	Conversions   []ConversionRef  `yaml:"conversions"`
-	Native        NativeConfig     `yaml:"native"`
-	Billing       BillingConfig    `yaml:"billing"`
-	Submit        EndpointConfig   `yaml:"submit"`
-	Fetch         EndpointConfig   `yaml:"fetch"`
-	Resources     []ResourceConfig `yaml:"resources"`
+	ID            string               `yaml:"id"`
+	Name          string               `yaml:"name"`
+	MediaType     string               `yaml:"media_type"`
+	AcceptedModes []string             `yaml:"accepted_modes"`
+	UpstreamModes []string             `yaml:"upstream_modes"`
+	Conversions   []ConversionRef      `yaml:"conversions"`
+	Video         *VideoProtocolConfig `yaml:"video,omitempty"`
+	Native        NativeConfig         `yaml:"native"`
+	Billing       BillingConfig        `yaml:"billing"`
+	Submit        EndpointConfig       `yaml:"submit"`
+	Fetch         EndpointConfig       `yaml:"fetch"`
+	Resources     []ResourceConfig     `yaml:"resources"`
+}
+
+type VideoProtocolConfig struct {
+	Native  NativeConfig   `yaml:"native"`
+	Billing BillingConfig  `yaml:"billing"`
+	Submit  EndpointConfig `yaml:"submit"`
+	Fetch   EndpointConfig `yaml:"fetch"`
 }
 
 type ConversionRef struct {
@@ -56,11 +64,12 @@ type NativeConfig struct {
 }
 
 type NativeEndpointConfig struct {
-	Method      string         `yaml:"method"`
-	Path        string         `yaml:"path"`
-	Passthrough bool           `yaml:"passthrough"`
-	Request     BodyConfig     `yaml:"request"`
-	Response    ResponseConfig `yaml:"response"`
+	Method         string         `yaml:"method"`
+	Path           string         `yaml:"path"`
+	Passthrough    bool           `yaml:"passthrough"`
+	ResponseFormat string         `yaml:"response_format"`
+	Request        BodyConfig     `yaml:"request"`
+	Response       ResponseConfig `yaml:"response"`
 }
 
 type ResourceConfig struct {
@@ -110,19 +119,21 @@ type FieldMapping struct {
 }
 
 type ResponseConfig struct {
-	Passthrough      bool              `yaml:"passthrough"`
-	Fields           []FieldMapping    `yaml:"fields"`
-	TaskIDPath       string            `yaml:"task_id_path"`
-	StatusPath       string            `yaml:"status_path"`
-	ProgressPath     string            `yaml:"progress_path"`
-	CreateTimePath   string            `yaml:"create_time_path"`
-	UpdateTimePath   string            `yaml:"update_time_path"`
-	ActionPath       string            `yaml:"action_path"`
-	ResultURLPath    string            `yaml:"result_url_path"`
-	ResultBase64Path string            `yaml:"result_base64_path"`
-	ResultJSONPath   string            `yaml:"result_json_path"`
-	ReasonPath       string            `yaml:"reason_path"`
-	StatusMap        map[string]string `yaml:"status_map"`
+	Passthrough          bool              `yaml:"passthrough"`
+	Fields               []FieldMapping    `yaml:"fields"`
+	TaskIDPath           string            `yaml:"task_id_path"`
+	StatusPath           string            `yaml:"status_path"`
+	ProgressPath         string            `yaml:"progress_path"`
+	CreateTimePath       string            `yaml:"create_time_path"`
+	UpdateTimePath       string            `yaml:"update_time_path"`
+	ActionPath           string            `yaml:"action_path"`
+	ResultURLPath        string            `yaml:"result_url_path"`
+	ResultBase64Path     string            `yaml:"result_base64_path"`
+	ResultJSONPath       string            `yaml:"result_json_path"`
+	ReasonPath           string            `yaml:"reason_path"`
+	TotalTokensPath      string            `yaml:"total_tokens_path"`
+	CompletionTokensPath string            `yaml:"completion_tokens_path"`
+	StatusMap            map[string]string `yaml:"status_map"`
 }
 
 var (
@@ -195,6 +206,54 @@ func (p *Profile) ResourceForEndpoint(method, path string) (*ResourceConfig, boo
 	return nil, false
 }
 
+func (p *Profile) videoNative() NativeConfig {
+	if p != nil && p.Video != nil {
+		return p.Video.Native
+	}
+	if p == nil {
+		return NativeConfig{}
+	}
+	return p.Native
+}
+
+func (p *Profile) videoSubmit() EndpointConfig {
+	if p != nil && p.Video != nil {
+		return p.Video.Submit
+	}
+	if p == nil {
+		return EndpointConfig{}
+	}
+	return p.Submit
+}
+
+func (p *Profile) videoFetch() EndpointConfig {
+	if p != nil && p.Video != nil {
+		return p.Video.Fetch
+	}
+	if p == nil {
+		return EndpointConfig{}
+	}
+	return p.Fetch
+}
+
+func (p *Profile) videoBilling() BillingConfig {
+	if p != nil && p.Video != nil {
+		return p.Video.Billing
+	}
+	if p == nil {
+		return BillingConfig{}
+	}
+	return p.Billing
+}
+
+func (p *Profile) VideoNativeSubmit() NativeEndpointConfig {
+	return p.videoNative().Submit
+}
+
+func (p *Profile) VideoNativeFetch() NativeEndpointConfig {
+	return p.videoNative().Fetch
+}
+
 func MatchResource(method, path string) (*Profile, *ResourceConfig, bool) {
 	profiles, err := loadProfiles()
 	if err != nil {
@@ -236,25 +295,25 @@ func resourcePublicEndpoints(resource ResourceConfig) []EndpointConfig {
 
 func MatchNativeSubmit(method, path string) (*Profile, bool) {
 	return matchNativeEndpoint(method, path, func(profile *Profile) NativeEndpointConfig {
-		return profile.Native.Submit
+		return profile.videoNative().Submit
 	})
 }
 
 func MatchNativeFetch(method, path string) (*Profile, bool) {
 	return matchNativeEndpoint(method, path, func(profile *Profile) NativeEndpointConfig {
-		return profile.Native.Fetch
+		return profile.videoNative().Fetch
 	})
 }
 
 func MatchNativeSubmitProfiles(method, path string) []*Profile {
 	return matchNativeEndpointProfiles(method, path, func(profile *Profile) NativeEndpointConfig {
-		return profile.Native.Submit
+		return profile.videoNative().Submit
 	})
 }
 
 func MatchNativeFetchProfiles(method, path string) []*Profile {
 	return matchNativeEndpointProfiles(method, path, func(profile *Profile) NativeEndpointConfig {
-		return profile.Native.Fetch
+		return profile.videoNative().Fetch
 	})
 }
 

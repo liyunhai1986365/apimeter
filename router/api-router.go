@@ -292,6 +292,7 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.GET("/models_enabled", controller.EnabledListModels)
 			channelRoute.GET("/operation_records", controller.GetChannelOperationRecords)
 			channelRoute.GET("/filter-options", controller.GetChannelFilterOptions)
+			channelRoute.GET("/protocol_profiles", controller.GetConfigurableProtocolProfiles)
 			channelRoute.GET("/:id", controller.GetChannel)
 			channelRoute.POST("/:id/key", middleware.RootAuth(), middleware.CriticalRateLimit(), middleware.DisableCache(), middleware.SecureVerificationRequired(), controller.GetChannelKey)
 			channelRoute.GET("/test", controller.TestAllChannels)

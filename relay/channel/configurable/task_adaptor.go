@@ -39,7 +39,7 @@ func ExtractNativeModel(c *gin.Context, profile *Profile) (string, error) {
 	if err := common.UnmarshalBodyReusable(c, &body); err != nil {
 		return "", err
 	}
-	mapped, err := buildMappedMap(profile.Native.Submit.Request.Fields, body, nil)
+	mapped, err := buildMappedMap(profile.videoNative().Submit.Request.Fields, body, nil)
 	if err != nil {
 		return "", err
 	}
@@ -85,7 +85,7 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	if err != nil {
 		return "", err
 	}
-	return joinURL(a.baseURL, profile.Submit.Path), nil
+	return joinURL(a.baseURL, profile.videoSubmit().Path), nil
 }
 
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
@@ -95,7 +95,7 @@ func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info
 		req.Header.Set("Authorization", "Bearer "+a.apiKey)
 	}
 	if a.profile != nil {
-		ApplyConfiguredHeaders(req, a.profile.Submit.Headers, a.apiKey, "")
+		ApplyConfiguredHeaders(req, a.profile.videoSubmit().Headers, a.apiKey, "")
 	}
 	return nil
 }
@@ -105,21 +105,11 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
-	if a.isNativeSubmitRequest(c) && profile.Native.Submit.Passthrough {
-		bodyStorage, err := common.GetBodyStorage(c)
-		if err != nil {
-			return nil, err
-		}
-		if _, err := bodyStorage.Seek(0, io.SeekStart); err != nil {
-			return nil, err
-		}
-		return bodyStorage, nil
-	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil, err
 	}
-	body, err := buildMappedBody(profile.Submit.Body.Fields, req, info)
+	body, err := buildMappedBody(profile.videoSubmit().Body.Fields, req, info)
 	if err != nil {
 		return nil, err
 	}
@@ -135,7 +125,7 @@ func (a *TaskAdaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, req
 }
 
 func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInfo) map[string]float64 {
-	if a.profile == nil || len(a.profile.Billing.Ratios) == 0 {
+	if a.profile == nil || len(a.profile.videoBilling().Ratios) == 0 {
 		return nil
 	}
 	req, err := relaycommon.GetTaskRequest(c)
@@ -151,7 +141,7 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		return nil
 	}
 	ratios := make(map[string]float64)
-	for _, ratio := range a.profile.Billing.Ratios {
+	for _, ratio := range a.profile.videoBilling().Ratios {
 		key := strings.TrimSpace(ratio.Key)
 		if key == "" {
 			continue
@@ -182,37 +172,53 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 	_ = resp.Body.Close()
 
-	taskID := strings.TrimSpace(gjson.GetBytes(responseBody, profile.Submit.Response.TaskIDPath).String())
+	taskID := strings.TrimSpace(gjson.GetBytes(responseBody, profile.videoSubmit().Response.TaskIDPath).String())
 	if taskID == "" {
 		return "", nil, service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
 	}
 
 	if a.isNativeSubmitRequest(c) {
-		nativeResponse, err := buildConfiguredResponse(profile.Native.Submit.Response, responseBody, info)
-		if err != nil {
-			return "", nil, service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
+		if strings.EqualFold(strings.TrimSpace(profile.videoNative().Submit.ResponseFormat), "openai_video") {
+			ovBody, err := a.buildOpenAIVideoSubmitResponse(profile.videoSubmit().OpenAIResponse, responseBody, info)
+			if err != nil {
+				return "", nil, service.TaskErrorWrapper(err, "build_native_openai_video_response_failed", http.StatusInternalServerError)
+			}
+			c.Data(http.StatusOK, "application/json", ovBody)
+		} else {
+			nativeResponse, err := buildConfiguredResponse(profile.videoNative().Submit.Response, responseBody, info)
+			if err != nil {
+				return "", nil, service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
+			}
+			c.Data(http.StatusOK, "application/json", nativeResponse)
 		}
-		c.Data(http.StatusOK, "application/json", nativeResponse)
 	} else {
-		ov := dto.NewOpenAIVideo()
-		ov.ID = publicTaskID(info)
-		ov.TaskID = publicTaskID(info)
-		ov.Model = info.OriginModelName
-		ov.CreatedAt = time.Now().Unix()
-		if status := mapStatus(profile.Submit.Response.StatusMap, gjson.GetBytes(responseBody, profile.Submit.Response.StatusPath).String()); status != "" {
-			ov.Status = model.TaskStatus(status).ToVideoStatus()
-		}
-		ovBody, err := common.Marshal(ov)
-		if err != nil {
-			return "", nil, service.TaskErrorWrapper(err, "marshal_openai_video_failed", http.StatusInternalServerError)
-		}
-		ovBody, err = applyOpenAIVideoResponseFields(profile.Submit.OpenAIResponse, ovBody, responseBody, info)
+		ovBody, err := a.buildOpenAIVideoSubmitResponse(profile.videoSubmit().OpenAIResponse, responseBody, info)
 		if err != nil {
 			return "", nil, service.TaskErrorWrapper(err, "build_openai_video_response_failed", http.StatusInternalServerError)
 		}
 		c.Data(http.StatusOK, "application/json", ovBody)
 	}
 	return taskID, responseBody, nil
+}
+
+func (a *TaskAdaptor) buildOpenAIVideoSubmitResponse(config ResponseConfig, responseBody []byte, info *relaycommon.RelayInfo) ([]byte, error) {
+	profile, err := a.requireProfile()
+	if err != nil {
+		return nil, err
+	}
+	ov := dto.NewOpenAIVideo()
+	ov.ID = publicTaskID(info)
+	ov.TaskID = publicTaskID(info)
+	ov.Model = info.OriginModelName
+	ov.CreatedAt = time.Now().Unix()
+	if status := mapStatus(profile.videoSubmit().Response.StatusMap, gjson.GetBytes(responseBody, profile.videoSubmit().Response.StatusPath).String()); status != "" {
+		ov.Status = model.TaskStatus(status).ToVideoStatus()
+	}
+	ovBody, err := common.Marshal(ov)
+	if err != nil {
+		return nil, err
+	}
+	return applyOpenAIVideoResponseFields(config, ovBody, responseBody, info)
 }
 
 func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy string) (*http.Response, error) {
@@ -224,8 +230,8 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if taskID == "" {
 		return nil, fmt.Errorf("invalid task_id")
 	}
-	url := joinURL(baseUrl, strings.ReplaceAll(profile.Fetch.Path, "{task_id}", taskID))
-	method := strings.ToUpper(strings.TrimSpace(profile.Fetch.Method))
+	url := joinURL(baseUrl, strings.ReplaceAll(profile.videoFetch().Path, "{task_id}", taskID))
+	method := strings.ToUpper(strings.TrimSpace(profile.videoFetch().Method))
 	if method == "" {
 		method = http.MethodGet
 	}
@@ -249,10 +255,13 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if strings.TrimSpace(key) != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
-	ApplyConfiguredHeaders(req, profile.Fetch.Headers, key, taskID)
+	ApplyConfiguredHeaders(req, profile.videoFetch().Headers, key, taskID)
 	client, err := service.GetHttpClientWithProxy(proxy)
 	if err != nil {
 		return nil, fmt.Errorf("new proxy http client failed: %w", err)
+	}
+	if client == nil {
+		client = http.DefaultClient
 	}
 	return client.Do(req)
 }
@@ -262,7 +271,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	if err != nil {
 		return nil, err
 	}
-	resp := profile.Fetch.Response
+	resp := profile.videoFetch().Response
 	status := mapStatus(resp.StatusMap, gjson.GetBytes(respBody, resp.StatusPath).String())
 	info := &relaycommon.TaskInfo{
 		TaskID:   gjson.GetBytes(respBody, resp.TaskIDPath).String(),
@@ -271,10 +280,18 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		Url:      gjson.GetBytes(respBody, resp.ResultURLPath).String(),
 		Progress: progressString(gjson.GetBytes(respBody, resp.ProgressPath)),
 	}
-	if totalTokens := int(gjson.GetBytes(respBody, "usage.total_tokens").Int()); totalTokens > 0 {
+	totalTokensPath := strings.TrimSpace(resp.TotalTokensPath)
+	if totalTokensPath == "" {
+		totalTokensPath = "usage.total_tokens"
+	}
+	if totalTokens := int(gjson.GetBytes(respBody, totalTokensPath).Int()); totalTokens > 0 {
 		info.TotalTokens = totalTokens
 	}
-	if completionTokens := int(gjson.GetBytes(respBody, "usage.completion_tokens").Int()); completionTokens > 0 {
+	completionTokensPath := strings.TrimSpace(resp.CompletionTokensPath)
+	if completionTokensPath == "" {
+		completionTokensPath = "usage.completion_tokens"
+	}
+	if completionTokens := int(gjson.GetBytes(respBody, completionTokensPath).Int()); completionTokens > 0 {
 		info.CompletionTokens = completionTokens
 		if info.TotalTokens == 0 {
 			info.TotalTokens = completionTokens
@@ -325,7 +342,7 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	if profile == nil {
 		return body, nil
 	}
-	return applyOpenAIVideoResponseFields(profile.Fetch.OpenAIResponse, body, originTask.Data, &relaycommon.RelayInfo{
+	return applyOpenAIVideoResponseFields(profile.videoFetch().OpenAIResponse, body, originTask.Data, &relaycommon.RelayInfo{
 		OriginModelName: originTask.Properties.OriginModelName,
 		ChannelMeta: &relaycommon.ChannelMeta{
 			UpstreamModelName: originTask.Properties.UpstreamModelName,
@@ -412,11 +429,45 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	if err != nil {
 		return nil, err
 	}
-	return buildConfiguredResponse(profile.Native.Fetch.Response, upstream, &relaycommon.RelayInfo{
+	if strings.EqualFold(strings.TrimSpace(profile.videoNative().Fetch.ResponseFormat), "task_response") {
+		if len(upstream) > 0 {
+			originTask.Data = upstream
+		}
+		return common.Marshal(dto.TaskResponse[any]{
+			Code: "success",
+			Data: configurableTaskModel2Dto(originTask),
+		})
+	}
+	return buildConfiguredResponse(profile.videoNative().Fetch.Response, upstream, &relaycommon.RelayInfo{
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
 			PublicTaskID: originTask.TaskID,
 		},
 	})
+}
+
+func configurableTaskModel2Dto(task *model.Task) *dto.TaskDto {
+	return &dto.TaskDto{
+		ID:         task.ID,
+		CreatedAt:  task.CreatedAt,
+		UpdatedAt:  task.UpdatedAt,
+		TaskID:     task.TaskID,
+		Platform:   string(task.Platform),
+		UserId:     task.UserId,
+		Group:      task.Group,
+		ChannelId:  task.ChannelId,
+		Quota:      task.Quota,
+		Action:     task.Action,
+		Status:     string(task.Status),
+		FailReason: task.FailReason,
+		ResultURL:  task.GetResultURL(),
+		SubmitTime: task.SubmitTime,
+		StartTime:  task.StartTime,
+		FinishTime: task.FinishTime,
+		Progress:   task.Progress,
+		Properties: task.Properties,
+		Username:   task.Username,
+		Data:       task.Data,
+	}
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
@@ -455,7 +506,7 @@ func (a *TaskAdaptor) isNativeSubmitRequest(c *gin.Context) bool {
 	return a.profile != nil &&
 		c != nil &&
 		c.Request != nil &&
-		nativeEndpointMatches(a.profile.Native.Submit, c.Request.Method, c.Request.URL.Path)
+		nativeEndpointMatches(a.profile.videoNative().Submit, c.Request.Method, c.Request.URL.Path)
 }
 
 func nativeEndpointMatches(endpoint NativeEndpointConfig, method, path string) bool {
@@ -471,7 +522,7 @@ func (a *TaskAdaptor) parseNativeTaskRequest(c *gin.Context) (relaycommon.TaskSu
 	if err := common.UnmarshalBodyReusable(c, &body); err != nil {
 		return relaycommon.TaskSubmitReq{}, err
 	}
-	mapped, err := buildMappedMap(a.profile.Native.Submit.Request.Fields, body, nil)
+	mapped, err := buildMappedMap(a.profile.videoNative().Submit.Request.Fields, body, nil)
 	if err != nil {
 		return relaycommon.TaskSubmitReq{}, err
 	}

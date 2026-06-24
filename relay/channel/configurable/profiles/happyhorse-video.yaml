@@ -5,162 +5,162 @@ accepted_modes:
   - openai.video.generations
 upstream_modes:
   - dashscope.happyhorse.video
-native:
+video:
+  native:
+    submit:
+      method: POST
+      path: /api/v1/services/aigc/video-generation/video-synthesis
+      request:
+        fields:
+          - to: model
+            from: body.model
+          - to: prompt
+            from: body.input.prompt
+          - to: size
+            from: body.parameters.resolution
+            omit_empty: true
+          - to: duration
+            from: body.parameters.duration
+            transform: to_int
+            omit_empty: true
+          - to: images
+            from: body.input.media.#(type!="video")#.url
+            omit_empty: true
+          - to: metadata.video_url
+            from: body.input.media.#(type=="video").url
+            omit_empty: true
+          - to: metadata.ratio
+            from: body.parameters.ratio
+            omit_empty: true
+          - to: metadata.watermark
+            from: body.parameters.watermark
+            omit_empty: true
+          - to: metadata.seed
+            from: body.parameters.seed
+            transform: to_int
+            omit_empty: true
+          - to: metadata.audio_setting
+            from: body.parameters.audio_setting
+            omit_empty: true
+      response:
+        passthrough: true
+        fields:
+          - to: output.task_id
+            from: public_task_id
+        task_id_path: output.task_id
+        status_path: output.task_status
+    fetch:
+      method: GET
+      path: /api/v1/tasks/{task_id}
+      response:
+        passthrough: true
+        fields:
+          - to: output.task_id
+            from: public_task_id
+  billing:
+    ratios:
+      - key: seconds
+        from: request.duration
+        default: 5
+      - key: size
+        value: 1
   submit:
     method: POST
     path: /api/v1/services/aigc/video-generation/video-synthesis
-    passthrough: true
-    request:
+    headers:
+      - name: X-DashScope-Async
+        value: enable
+    body:
       fields:
         - to: model
-          from: body.model
-        - to: prompt
-          from: body.input.prompt
-        - to: size
-          from: body.parameters.resolution
+          from: upstream_model
+        - to: input.prompt
+          from: request.prompt
+        - to: input.media
+          from: request.images
+          transform: media_objects
+          media_type: first_frame
+          first_only: true
+          when_model_contains: i2v
           omit_empty: true
-        - to: duration
-          from: body.parameters.duration
+        - to: input.media
+          from: request.images
+          transform: media_objects
+          media_type: reference_image
+          when_model_contains: r2v
+          omit_empty: true
+        - to: input.media
+          from: request.metadata.video_url
+          transform: media_objects
+          media_type: video
+          first_only: true
+          when_model_contains: video-edit
+          append: true
+          omit_empty: true
+        - to: input.media
+          from: request.images
+          transform: media_objects
+          media_type: reference_image
+          when_model_contains: video-edit
+          append: true
+          omit_empty: true
+        - to: parameters.resolution
+          from: request.size
+          omit_empty: true
+        - to: parameters.duration
+          from: request.seconds
+          fallback_from: request.duration
           transform: to_int
           omit_empty: true
-        - to: images
-          from: body.input.media.#(type!="video")#.url
+        - to: parameters.ratio
+          from: request.metadata.ratio
           omit_empty: true
-        - to: metadata.video_url
-          from: body.input.media.#(type=="video").url
+        - to: parameters.watermark
+          from: request.metadata.watermark
           omit_empty: true
-        - to: metadata.ratio
-          from: body.parameters.ratio
-          omit_empty: true
-        - to: metadata.watermark
-          from: body.parameters.watermark
-          omit_empty: true
-        - to: metadata.seed
-          from: body.parameters.seed
+        - to: parameters.seed
+          from: request.metadata.seed
           transform: to_int
           omit_empty: true
-        - to: metadata.audio_setting
-          from: body.parameters.audio_setting
+        - to: parameters.audio_setting
+          from: request.metadata.audio_setting
           omit_empty: true
     response:
-      passthrough: true
-      fields:
-        - to: output.task_id
-          from: public_task_id
       task_id_path: output.task_id
       status_path: output.task_status
+      status_map:
+        pending: QUEUED
+        running: IN_PROGRESS
+        succeeded: SUCCESS
+        failed: FAILURE
+        canceled: FAILURE
+        unknown: FAILURE
   fetch:
     method: GET
     path: /api/v1/tasks/{task_id}
     response:
-      passthrough: true
+      task_id_path: output.task_id
+      status_path: output.task_status
+      result_url_path: output.video_url
+      reason_path: output.message
+      status_map:
+        pending: QUEUED
+        running: IN_PROGRESS
+        succeeded: SUCCESS
+        failed: FAILURE
+        canceled: FAILURE
+        unknown: FAILURE
+    openai_response:
       fields:
-        - to: output.task_id
-          from: public_task_id
-billing:
-  ratios:
-    - key: seconds
-      from: request.duration
-      default: 5
-    - key: size
-      value: 1
-submit:
-  method: POST
-  path: /api/v1/services/aigc/video-generation/video-synthesis
-  headers:
-    - name: X-DashScope-Async
-      value: enable
-  body:
-    fields:
-      - to: model
-        from: upstream_model
-      - to: input.prompt
-        from: request.prompt
-      - to: input.media
-        from: request.images
-        transform: media_objects
-        media_type: first_frame
-        first_only: true
-        when_model_contains: i2v
-        omit_empty: true
-      - to: input.media
-        from: request.images
-        transform: media_objects
-        media_type: reference_image
-        when_model_contains: r2v
-        omit_empty: true
-      - to: input.media
-        from: request.metadata.video_url
-        transform: media_objects
-        media_type: video
-        first_only: true
-        when_model_contains: video-edit
-        append: true
-        omit_empty: true
-      - to: input.media
-        from: request.images
-        transform: media_objects
-        media_type: reference_image
-        when_model_contains: video-edit
-        append: true
-        omit_empty: true
-      - to: parameters.resolution
-        from: request.size
-        omit_empty: true
-      - to: parameters.duration
-        from: request.seconds
-        fallback_from: request.duration
-        transform: to_int
-        omit_empty: true
-      - to: parameters.ratio
-        from: request.metadata.ratio
-        omit_empty: true
-      - to: parameters.watermark
-        from: request.metadata.watermark
-        omit_empty: true
-      - to: parameters.seed
-        from: request.metadata.seed
-        transform: to_int
-        omit_empty: true
-      - to: parameters.audio_setting
-        from: request.metadata.audio_setting
-        omit_empty: true
-  response:
-    task_id_path: output.task_id
-    status_path: output.task_status
-    status_map:
-      pending: QUEUED
-      running: IN_PROGRESS
-      succeeded: SUCCESS
-      failed: FAILURE
-      canceled: FAILURE
-      unknown: FAILURE
-fetch:
-  method: GET
-  path: /api/v1/tasks/{task_id}
-  response:
-    task_id_path: output.task_id
-    status_path: output.task_status
-    result_url_path: output.video_url
-    reason_path: output.message
-    status_map:
-      pending: QUEUED
-      running: IN_PROGRESS
-      succeeded: SUCCESS
-      failed: FAILURE
-      canceled: FAILURE
-      unknown: FAILURE
-  openai_response:
-    fields:
-      - to: seconds
-        from: usage.duration
-        omit_empty: true
-      - to: metadata.request_id
-        from: request_id
-        omit_empty: true
-      - to: metadata.usage.duration
-        from: usage.duration
-        omit_empty: true
-      - to: metadata.usage.ratio
-        from: usage.ratio
-        omit_empty: true
+        - to: seconds
+          from: usage.duration
+          omit_empty: true
+        - to: metadata.request_id
+          from: request_id
+          omit_empty: true
+        - to: metadata.usage.duration
+          from: usage.duration
+          omit_empty: true
+        - to: metadata.usage.ratio
+          from: usage.ratio
+          omit_empty: true

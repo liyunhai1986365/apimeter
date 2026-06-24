@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	relaychannel "github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/ollama"
 	"github.com/QuantumNous/new-api/service"
@@ -49,6 +50,14 @@ type OpenAIModel struct {
 type OpenAIModelsResponse struct {
 	Data    []OpenAIModel `json:"data"`
 	Success bool          `json:"success"`
+}
+
+type ConfigurableProtocolProfileOption struct {
+	ID            string   `json:"id"`
+	Name          string   `json:"name"`
+	MediaType     string   `json:"media_type"`
+	AcceptedModes []string `json:"accepted_modes"`
+	UpstreamModes []string `json:"upstream_modes"`
 }
 
 func parseStatusFilter(statusParam string) int {
@@ -288,6 +297,27 @@ func FetchUpstreamModels(c *gin.Context) {
 		"success": true,
 		"message": "",
 		"data":    ids,
+	})
+}
+
+func GetConfigurableProtocolProfiles(c *gin.Context) {
+	profiles := configurable.ListProfiles()
+	options := make([]ConfigurableProtocolProfileOption, 0, len(profiles))
+	for _, profile := range profiles {
+		if profile == nil {
+			continue
+		}
+		options = append(options, ConfigurableProtocolProfileOption{
+			ID:            profile.ID,
+			Name:          profile.Name,
+			MediaType:     profile.MediaType,
+			AcceptedModes: append([]string(nil), profile.AcceptedModes...),
+			UpstreamModes: append([]string(nil), profile.UpstreamModes...),
+		})
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    options,
 	})
 }
 

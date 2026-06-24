@@ -88,6 +88,14 @@ export type CodexCredentialRefreshResponse = {
   }
 }
 
+export type ProtocolProfileOption = {
+  id: string
+  name: string
+  media_type: string
+  accepted_modes?: string[]
+  upstream_modes?: string[]
+}
+
 // ============================================================================
 // Base Channel CRUD Operations
 // ============================================================================
@@ -108,6 +116,15 @@ export async function getChannelFilterOptions(): Promise<{
   data?: Array<{ id: number; name: string; status: number }>
 }> {
   const res = await api.get('/api/channel/filter-options')
+  return res.data
+}
+
+export async function getProtocolProfiles(): Promise<{
+  success: boolean
+  message?: string
+  data?: ProtocolProfileOption[]
+}> {
+  const res = await api.get('/api/channel/protocol_profiles')
   return res.data
 }
 

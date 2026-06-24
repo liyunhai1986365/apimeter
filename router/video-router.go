@@ -66,7 +66,7 @@ func registerConfigurableNativeRoutes(router *gin.Engine) {
 }
 
 func registerConfigurableNativeSubmitRoute(router *gin.Engine, profile *configurable.Profile, registered map[string]bool) {
-	endpoint := profile.Native.Submit
+	endpoint := profile.VideoNativeSubmit()
 	if endpoint.Method == "" || endpoint.Path == "" {
 		return
 	}
@@ -79,7 +79,7 @@ func registerConfigurableNativeSubmitRoute(router *gin.Engine, profile *configur
 }
 
 func registerConfigurableNativeFetchRoute(router *gin.Engine, profile *configurable.Profile, registered map[string]bool) {
-	endpoint := profile.Native.Fetch
+	endpoint := profile.VideoNativeFetch()
 	if endpoint.Method == "" || endpoint.Path == "" {
 		return
 	}

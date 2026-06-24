@@ -16,13 +16,16 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if profile.ID != "generic-video-json" {
 		t.Fatalf("unexpected profile id: %s", profile.ID)
 	}
-	if profile.Submit.Path != "/v1/videos" {
-		t.Fatalf("unexpected submit path: %s", profile.Submit.Path)
+	if profile.Video == nil {
+		t.Fatal("expected generic-video-json video protocol")
 	}
-	if profile.Submit.Response.TaskIDPath != "id" {
-		t.Fatalf("unexpected submit task id path: %s", profile.Submit.Response.TaskIDPath)
+	if profile.Video.Submit.Path != "/v1/videos" {
+		t.Fatalf("unexpected submit path: %s", profile.Video.Submit.Path)
 	}
-	if profile.Fetch.Response.StatusMap["completed"] != "SUCCESS" {
+	if profile.Video.Submit.Response.TaskIDPath != "id" {
+		t.Fatalf("unexpected submit task id path: %s", profile.Video.Submit.Response.TaskIDPath)
+	}
+	if profile.Video.Fetch.Response.StatusMap["completed"] != "SUCCESS" {
 		t.Fatalf("unexpected completed status mapping")
 	}
 
@@ -30,11 +33,14 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if !ok {
 		t.Fatal("expected doubao-seedance-2 profile")
 	}
-	if seedance.Submit.Path != "/api/v3/contents/generations/tasks" {
-		t.Fatalf("unexpected seedance submit path: %s", seedance.Submit.Path)
+	if seedance.Video == nil {
+		t.Fatal("expected seedance video protocol")
 	}
-	if seedance.Fetch.Response.ResultURLPath != "content.video_url" {
-		t.Fatalf("unexpected seedance result url path: %s", seedance.Fetch.Response.ResultURLPath)
+	if seedance.Video.Submit.Path != "/api/v3/contents/generations/tasks" {
+		t.Fatalf("unexpected seedance submit path: %s", seedance.Video.Submit.Path)
+	}
+	if seedance.Video.Fetch.Response.ResultURLPath != "content.video_url" {
+		t.Fatalf("unexpected seedance result url path: %s", seedance.Video.Fetch.Response.ResultURLPath)
 	}
 	if len(seedance.Resources) != 4 {
 		t.Fatalf("expected seedance material resources, got %d", len(seedance.Resources))
@@ -120,5 +126,76 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 	if deleteAPIAsset.Public.Path != "/api/assets/{id}" || deleteAPIAsset.Upstream.Path != "/api/assets/{id}" {
 		t.Fatalf("unexpected api assets delete paths: public=%s upstream=%s", deleteAPIAsset.Public.Path, deleteAPIAsset.Upstream.Path)
+	}
+
+	serviceInference, ok := GetProfile("seedance2-service-inference")
+	if !ok {
+		t.Fatal("expected seedance2-service-inference profile")
+	}
+	if serviceInference.Video == nil {
+		t.Fatal("expected service inference video protocol")
+	}
+	if serviceInference.Video.Native.Submit.Path != "/api/v3/contents/generations/tasks" {
+		t.Fatalf("unexpected service inference native submit path: %s", serviceInference.Video.Native.Submit.Path)
+	}
+	if serviceInference.Video.Submit.Path != "/v1/video/generate" {
+		t.Fatalf("unexpected service inference upstream submit path: %s", serviceInference.Video.Submit.Path)
+	}
+	if serviceInference.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
+		t.Fatalf("unexpected service inference native fetch path: %s", serviceInference.Video.Native.Fetch.Path)
+	}
+	if serviceInference.Video.Fetch.Path != "/v1/video/tasks/{task_id}" {
+		t.Fatalf("unexpected service inference upstream fetch path: %s", serviceInference.Video.Fetch.Path)
+	}
+	if len(serviceInference.Resources) != 4 {
+		t.Fatalf("expected service inference asset resources, got %d", len(serviceInference.Resources))
+	}
+	groupCreate, ok := serviceInference.ResourceByID("asset_groups_create")
+	if !ok {
+		t.Fatal("expected service inference asset_groups_create resource")
+	}
+	if groupCreate.Public.Path != "/v1/asset-groups" || groupCreate.Upstream.Path != "/v1/asset-groups" {
+		t.Fatalf("unexpected asset group create paths: public=%s upstream=%s", groupCreate.Public.Path, groupCreate.Upstream.Path)
+	}
+	groupDetail, ok := serviceInference.ResourceByID("asset_group_detail")
+	if !ok {
+		t.Fatal("expected service inference asset_group_detail resource")
+	}
+	if groupDetail.Public.Path != "/v1/asset-groups/{group_id}" || groupDetail.Upstream.Path != "/v1/asset-groups/{group_id}" {
+		t.Fatalf("unexpected asset group detail paths: public=%s upstream=%s", groupDetail.Public.Path, groupDetail.Upstream.Path)
+	}
+	assetCreate, ok := serviceInference.ResourceByID("assets_create")
+	if !ok {
+		t.Fatal("expected service inference assets_create resource")
+	}
+	if assetCreate.Public.Path != "/v1/assets" || assetCreate.Upstream.Path != "/v1/assets" {
+		t.Fatalf("unexpected assets create paths: public=%s upstream=%s", assetCreate.Public.Path, assetCreate.Upstream.Path)
+	}
+	assetGet, ok := serviceInference.ResourceByID("assets_get")
+	if !ok {
+		t.Fatal("expected service inference assets_get resource")
+	}
+	if assetGet.Public.Path != "/v1/assets/get" || assetGet.Upstream.Path != "/v1/assets/get" {
+		t.Fatalf("unexpected assets get paths: public=%s upstream=%s", assetGet.Public.Path, assetGet.Upstream.Path)
+	}
+}
+
+func TestVideoProfilesUseVideoProtocolConfig(t *testing.T) {
+	for _, profile := range ListProfiles() {
+		if profile.MediaType != "video" {
+			continue
+		}
+		if profile.Video == nil {
+			t.Fatalf("video profile %s must use video protocol config", profile.ID)
+		}
+		if profile.Video.Submit.Path == "" {
+			t.Fatalf("video profile %s missing video submit path", profile.ID)
+		}
+		if profile.Video.Fetch.Path == "" {
+			t.Fatalf("video profile %s missing video fetch path", profile.ID)
+		}
+		if profile.Submit.Path != "" || profile.Fetch.Path != "" || profile.Native.Submit.Path != "" || profile.Native.Fetch.Path != "" {
+			t.Fatalf("video profile %s should keep video protocol under video block only", profile.ID)
+		}
 	}
 }
