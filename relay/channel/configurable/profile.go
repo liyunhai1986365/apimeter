@@ -73,14 +73,30 @@ type NativeEndpointConfig struct {
 }
 
 type ResourceConfig struct {
-	ID         string            `yaml:"id"`
-	Name       string            `yaml:"name"`
-	Public     EndpointConfig    `yaml:"public"`
-	Aliases    []EndpointConfig  `yaml:"aliases"`
-	Upstream   EndpointConfig    `yaml:"upstream"`
-	PathParams map[string]string `yaml:"path_params"`
-	Request    BodyConfig        `yaml:"request"`
-	Response   ResponseConfig    `yaml:"response"`
+	ID          string             `yaml:"id"`
+	Name        string             `yaml:"name"`
+	Public      EndpointConfig     `yaml:"public"`
+	Aliases     []EndpointConfig   `yaml:"aliases"`
+	Upstream    EndpointConfig     `yaml:"upstream"`
+	PreRequests []PreRequestConfig `yaml:"pre_requests"`
+	PathParams  map[string]string  `yaml:"path_params"`
+	Request     BodyConfig         `yaml:"request"`
+	Response    ResponseConfig     `yaml:"response"`
+}
+
+type PreRequestConfig struct {
+	ID            string              `yaml:"id"`
+	SkipIfPresent string              `yaml:"skip_if_present"`
+	ManagedState  *ManagedStateConfig `yaml:"managed_state"`
+	Upstream      EndpointConfig      `yaml:"upstream"`
+	Request       BodyConfig          `yaml:"request"`
+	Response      ResponseConfig      `yaml:"response"`
+}
+
+type ManagedStateConfig struct {
+	Key       string         `yaml:"key"`
+	ValuePath string         `yaml:"value_path"`
+	Validate  EndpointConfig `yaml:"validate"`
 }
 
 type BillingConfig struct {
@@ -105,17 +121,18 @@ type BodyConfig struct {
 }
 
 type FieldMapping struct {
-	To                string   `yaml:"to"`
-	From              string   `yaml:"from"`
-	FallbackFrom      string   `yaml:"fallback_from"`
-	FallbackFroms     []string `yaml:"fallback_froms"`
-	Transform         string   `yaml:"transform"`
-	MediaType         string   `yaml:"media_type"`
-	FirstOnly         bool     `yaml:"first_only"`
-	WhenModelContains string   `yaml:"when_model_contains"`
-	Append            bool     `yaml:"append"`
-	Value             any      `yaml:"value"`
-	OmitEmpty         bool     `yaml:"omit_empty"`
+	To                string         `yaml:"to"`
+	From              string         `yaml:"from"`
+	FallbackFrom      string         `yaml:"fallback_from"`
+	FallbackFroms     []string       `yaml:"fallback_froms"`
+	Transform         string         `yaml:"transform"`
+	MediaType         string         `yaml:"media_type"`
+	FirstOnly         bool           `yaml:"first_only"`
+	WhenModelContains string         `yaml:"when_model_contains"`
+	Append            bool           `yaml:"append"`
+	Value             any            `yaml:"value"`
+	ValueMap          map[string]any `yaml:"value_map"`
+	OmitEmpty         bool           `yaml:"omit_empty"`
 }
 
 type ResponseConfig struct {

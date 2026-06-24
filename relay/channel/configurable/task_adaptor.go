@@ -573,6 +573,7 @@ func buildMappedMap(fields []FieldMapping, source map[string]any, info *relaycom
 		if err != nil {
 			return nil, errors.Wrapf(err, "transform field %s", field.To)
 		}
+		value = applyFieldValueMap(value, field)
 		if field.OmitEmpty && isEmptyValue(value) {
 			continue
 		}
@@ -710,6 +711,21 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 	default:
 		return nil, fmt.Errorf("unsupported transform %q", transform)
 	}
+}
+
+func applyFieldValueMap(value any, field FieldMapping) any {
+	if len(field.ValueMap) == 0 || isEmptyValue(value) {
+		return value
+	}
+	if mapped, ok := field.ValueMap[fmt.Sprint(value)]; ok {
+		return mapped
+	}
+	if text, ok := value.(string); ok {
+		if mapped, ok := field.ValueMap[strings.ToLower(strings.TrimSpace(text))]; ok {
+			return mapped
+		}
+	}
+	return value
 }
 
 func seedanceTextContent(value any) []map[string]any {
@@ -882,6 +898,7 @@ func buildConfiguredResponse(config ResponseConfig, upstream []byte, info *relay
 			if err != nil {
 				return nil, err
 			}
+			value = applyFieldValueMap(value, field)
 			if field.OmitEmpty && isEmptyValue(value) {
 				continue
 			}
@@ -948,6 +965,7 @@ func applyOpenAIVideoResponseFields(config ResponseConfig, body []byte, upstream
 		if err != nil {
 			return nil, err
 		}
+		value = applyFieldValueMap(value, field)
 		if field.OmitEmpty && isEmptyValue(value) {
 			continue
 		}

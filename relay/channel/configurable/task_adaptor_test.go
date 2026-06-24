@@ -112,6 +112,22 @@ func TestBuildConfiguredResponsePrefersPrimarySourceBeforeFallbacks(t *testing.T
 	require.JSONEq(t, `{"data":{"Id":"asset-from-api"}}`, string(responseBody))
 }
 
+func TestBuildConfiguredResponseMapsConfiguredFieldValues(t *testing.T) {
+	responseBody, err := BuildConfiguredResponse(ResponseConfig{
+		Fields: []FieldMapping{
+			{
+				To:   "data.Status",
+				From: "status",
+				ValueMap: map[string]any{
+					"completed": "Active",
+				},
+			},
+		},
+	}, []byte(`{"status":"completed"}`), nil)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"data":{"Status":"Active"}}`, string(responseBody))
+}
+
 func TestTaskAdaptorBuildsHappyHorseTextToVideoRequest(t *testing.T) {
 	body := buildHappyHorseRequestBody(t, []byte(`{
 		"model":"happyhorse-1.0-t2v",

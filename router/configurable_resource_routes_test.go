@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/controller"
@@ -102,4 +103,50 @@ func TestConfigurableResourceRoutesAllowSharedPublicPathsAcrossProfiles(t *testi
 		}
 	}()
 	SetVideoRouter(r)
+}
+
+func TestConfigurableResourceRoutesAreRegisteredWithFullAPIRouterOrder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	SetApiRouter(r)
+	SetDashboardRouter(r)
+	SetRelayRouter(r)
+	SetVideoRouter(r)
+
+	assertRouteRegistered := func(method string, path string) {
+		t.Helper()
+		for _, route := range r.Routes() {
+			if route.Method == method && route.Path == path {
+				return
+			}
+		}
+		t.Fatalf("expected route %s %s to be registered in full router order", method, path)
+	}
+
+	assertRouteRegistered(http.MethodPost, "/api/assets/upload")
+	assertRouteRegistered(http.MethodPost, "/api/assets")
+	assertRouteRegistered(http.MethodGet, "/api/assets")
+	assertRouteRegistered(http.MethodGet, "/api/assets/:id")
+	assertRouteRegistered(http.MethodPost, "/material/assets")
+}
+
+func TestConfigurableResourceCommonAssetsUploadDoesNotFallThroughInFullRouterOrder(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	SetApiRouter(r)
+	SetDashboardRouter(r)
+	SetRelayRouter(r)
+	SetVideoRouter(r)
+	r.NoRoute(controller.RelayNotFound)
+
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/assets/upload", nil)
+	r.ServeHTTP(recorder, req)
+
+	if recorder.Code == http.StatusNotFound {
+		t.Fatalf("expected /api/assets/upload to hit configurable asset route, got status=%d body=%s", recorder.Code, recorder.Body.String())
+	}
+	if strings.Contains(recorder.Body.String(), "欢迎使用") {
+		t.Fatalf("expected /api/assets/upload not to fall through to welcome/status response, got body=%s", recorder.Body.String())
+	}
 }

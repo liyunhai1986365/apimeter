@@ -159,7 +159,7 @@ resources:
       path: /api/assets/upload
     upstream:
       method: POST
-      path: /api/assets/upload
+      path: /material/assets
     request:
       fields:
         - to: url
@@ -178,7 +178,7 @@ resources:
       path: /api/assets
     upstream:
       method: POST
-      path: /api/assets
+      path: /material/assets
     request:
       fields:
         - to: url
@@ -197,7 +197,7 @@ resources:
       path: /api/assets
     upstream:
       method: GET
-      path: /api/assets
+      path: /material/assets
     request:
       fields:
         - to: page
@@ -227,7 +227,9 @@ resources:
       path: /api/assets/{id}
     upstream:
       method: GET
-      path: /api/assets/{id}
+      path: /material/assets/{asset_id}
+    path_params:
+      asset_id: id
     response:
       passthrough: true
   - id: asset_delete
@@ -237,6 +239,8 @@ resources:
       path: /api/assets/{id}
     upstream:
       method: DELETE
-      path: /api/assets/{id}
+      path: /material/assets/{asset_id}
+    path_params:
+      asset_id: id
     response:
       passthrough: true

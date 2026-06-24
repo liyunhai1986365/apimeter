@@ -194,14 +194,93 @@ resources:
       path: /v1/asset-groups/{group_id}
     response:
       passthrough: true
+  - id: assets_upload
+    name: Assets Upload
+    public:
+      method: POST
+      path: /api/assets/upload
+    upstream:
+      method: POST
+      path: /v1/assets
+    pre_requests:
+      - id: asset_group
+        skip_if_present: body.group_id
+        managed_state:
+          key: asset_group_id
+          value_path: id
+          validate:
+            method: GET
+            path: /v1/asset-groups/{group_id}
+        upstream:
+          method: POST
+          path: /v1/asset-groups
+        request:
+          fields:
+            - to: name
+              value: jie222
+            - to: description
+              value: lifeng test
+    request:
+      fields:
+        - to: group_id
+          from: body.group_id
+          fallback_from: pre.asset_group.id
+        - to: url
+          from: body.url
+        - to: asset_type
+          from: body.asset_type
+        - to: name
+          from: body.name
+          omit_empty: true
+    response:
+      fields:
+        - to: code
+          value: 0
+        - to: message
+          value: ok
+        - to: data.Id
+          from: id
   - id: assets_create
     name: Assets Create
     public:
       method: POST
       path: /v1/assets
+    aliases:
+      - method: POST
+        path: /api/assets
     upstream:
       method: POST
       path: /v1/assets
+    pre_requests:
+      - id: asset_group
+        skip_if_present: body.group_id
+        managed_state:
+          key: asset_group_id
+          value_path: id
+          validate:
+            method: GET
+            path: /v1/asset-groups/{group_id}
+        upstream:
+          method: POST
+          path: /v1/asset-groups
+        request:
+          fields:
+            - to: name
+              value: jie222
+            - to: description
+              value: lifeng test
+    request:
+      fields:
+        - to: group_id
+          from: body.group_id
+          fallback_from: pre.asset_group.id
+        - to: url
+          from: body.url
+        - to: asset_type
+          from: body.asset_type
+        - to: name
+          from: body.name
+          omit_empty: true
     response:
       passthrough: true
   - id: assets_get
@@ -212,5 +291,45 @@ resources:
     upstream:
       method: POST
       path: /v1/assets/get
+    aliases:
+      - method: GET
+        path: /api/assets/{id}
+    request:
+      fields:
+        - to: asset_id
+          from: body.asset_id
+          fallback_from: path.id
+        - to: task_id
+          from: body.task_id
+          fallback_from: query.task_id
+          omit_empty: true
     response:
-      passthrough: true
+      fields:
+        - to: code
+          value: 0
+        - to: message
+          value: ok
+        - to: data.AssetType
+          from: asset_type
+        - to: data.CreateTime
+          from: created_at
+        - to: data.GroupId
+          from: group_id
+        - to: data.Id
+          from: id
+        - to: data.Name
+          from: name
+        - to: data.ProjectName
+          value: default
+        - to: data.Status
+          from: status
+          value_map:
+            completed: Active
+            processing: Processing
+            pending: Pending
+            failed: Failed
+            error: Failed
+        - to: data.URL
+          from: url
+        - to: data.UpdateTime
+          from: updated_at

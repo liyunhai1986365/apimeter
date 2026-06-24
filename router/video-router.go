@@ -1,6 +1,8 @@
 package router
 
 import (
+	"strings"
+
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
@@ -8,6 +10,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+type configurableAssetEndpoint struct {
+	method string
+	path   string
+}
 
 func SetVideoRouter(router *gin.Engine) {
 	// Video proxy: accepts either session auth (dashboard) or token auth (API clients)
@@ -58,6 +65,7 @@ func SetVideoRouter(router *gin.Engine) {
 func registerConfigurableNativeRoutes(router *gin.Engine) {
 	registeredNativeRoutes := map[string]bool{}
 	registeredResourceRoutes := map[string]bool{}
+	registerCommonConfigurableAssetRoutes(router, registeredResourceRoutes)
 	for _, profile := range configurable.ListProfiles() {
 		registerConfigurableNativeSubmitRoute(router, profile, registeredNativeRoutes)
 		registerConfigurableNativeFetchRoute(router, profile, registeredNativeRoutes)
@@ -102,14 +110,54 @@ func registerConfigurableResourceRoutes(router *gin.Engine, profile *configurabl
 			if endpoint.Method == "" || endpoint.Path == "" {
 				continue
 			}
-			key := endpoint.Method + " " + ginPath(endpoint.Path)
-			if registered[key] {
-				continue
-			}
-			registered[key] = true
-			router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayConfigurableResource)
+			registerConfigurableResourceEndpoint(router, registered, endpoint.Method, endpoint.Path)
 		}
 	}
+}
+
+func registerCommonConfigurableAssetRoutes(router *gin.Engine, registered map[string]bool) {
+	for _, endpoint := range commonConfigurableAssetEndpoints() {
+		registerConfigurableResourceEndpoint(router, registered, endpoint.method, endpoint.path)
+	}
+}
+
+func registerCommonConfigurableAssetAPIRoutes(apiRouter *gin.RouterGroup) {
+	for _, endpoint := range commonConfigurableAssetEndpoints() {
+		apiPath := "/" + strings.TrimPrefix(endpoint.path, "/api/")
+		apiRouter.Handle(endpoint.method, ginPath(apiPath), middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayConfigurableResource)
+	}
+}
+
+func commonConfigurableAssetEndpoints() []configurableAssetEndpoint {
+	return []configurableAssetEndpoint{
+		{method: "POST", path: "/api/assets/upload"},
+		{method: "POST", path: "/api/assets"},
+		{method: "GET", path: "/api/assets"},
+		{method: "GET", path: "/api/assets/{id}"},
+		{method: "DELETE", path: "/api/assets/{id}"},
+	}
+}
+
+func registerConfigurableResourceEndpoint(router *gin.Engine, registered map[string]bool, method string, path string) {
+	resolvedPath := ginPath(path)
+	key := method + " " + resolvedPath
+	if registered[key] {
+		return
+	}
+	registered[key] = true
+	if routeRegistered(router, method, resolvedPath) {
+		return
+	}
+	router.Handle(method, resolvedPath, middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayConfigurableResource)
+}
+
+func routeRegistered(router *gin.Engine, method string, path string) bool {
+	for _, route := range router.Routes() {
+		if route.Method == method && route.Path == path {
+			return true
+		}
+	}
+	return false
 }
 
 func ginPath(path string) string {
