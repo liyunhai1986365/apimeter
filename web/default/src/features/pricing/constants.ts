@@ -115,6 +115,7 @@ export const ENDPOINT_TYPES = {
   OPENAI_IMAGE_EDIT: 'openai-image-edit',
   EMBEDDINGS: 'embeddings',
   OPENAI_VIDEO: 'openai-video',
+  SEEDANCE2_NATIVE_VIDEO: 'seedance2-native-video',
 } as const
 
 export type EndpointTypeOption =
@@ -139,6 +140,7 @@ export function getEndpointTypeLabels(
     [ENDPOINT_TYPES.OPENAI_IMAGE_EDIT]: t('Image Edit'),
     [ENDPOINT_TYPES.EMBEDDINGS]: t('Embeddings'),
     [ENDPOINT_TYPES.OPENAI_VIDEO]: t('Video'),
+    [ENDPOINT_TYPES.SEEDANCE2_NATIVE_VIDEO]: t('Seedance2 Native Video'),
   }
 }
 

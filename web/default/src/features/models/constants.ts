@@ -173,7 +173,13 @@ export function getQuotaTypeConfig(
 
 export const ENDPOINT_TEMPLATES: Record<
   string,
-  { path: string; method: string; label?: string; docs_url?: string }
+  {
+    path: string
+    method: string
+    label?: string
+    docs_url?: string
+    config?: Record<string, unknown>
+  }
 > = {
   openai: { path: '/v1/chat/completions', method: 'POST' },
   'openai-response': { path: '/v1/responses', method: 'POST' },
@@ -196,7 +202,49 @@ export const ENDPOINT_TEMPLATES: Record<
     label: 'Gemini Native Image Generation',
   },
   embeddings: { path: '/v1/embeddings', method: 'POST' },
-  'openai-video': { path: '/v1/videos', method: 'POST' },
+  'openai-video': {
+    path: '/v1/video/generations',
+    method: 'POST',
+    label: 'OpenAI Video',
+    config: {
+      mode: 'openai_video',
+      submit_path: '/v1/video/generations',
+      fetch_path: '/v1/video/generations/{task_id}',
+      path_params: ['task_id'],
+      parameters: {
+        prompt: { type: 'string', required: true },
+        size: { type: 'string' },
+        seconds: { type: 'integer' },
+        images: { type: 'array' },
+        metadata: { type: 'object' },
+      },
+    },
+  },
+  'seedance2-native-video': {
+    path: '/api/v3/contents/generations/tasks',
+    method: 'POST',
+    label: 'Seedance2 Native Video',
+    config: {
+      protocol_profile_id: 'seedance2-service-inference',
+      mode: 'native_video',
+      submit_path: '/api/v3/contents/generations/tasks',
+      fetch_path: '/api/v3/contents/generations/tasks/{task_id}',
+      path_params: ['task_id'],
+      parameters: {
+        content: {
+          type: 'array',
+          required: true,
+          description: 'Text, image_url, video_url, or audio_url content items',
+        },
+        resolution: { type: 'string', enum: ['480p', '720p'] },
+        duration: { type: 'integer', default: 4 },
+        ratio: { type: 'string' },
+        watermark: { type: 'boolean' },
+        generate_audio: { type: 'boolean' },
+        return_last_frame: { type: 'boolean' },
+      },
+    },
+  },
 }
 
 // ============================================================================

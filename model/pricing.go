@@ -502,6 +502,9 @@ func parseEndpointInfoMap(rawEndpoints string) map[string]common.EndpointInfo {
 			if docsURL, ok := val["docsUrl"].(string); ok && ep.DocsURL == "" {
 				ep.DocsURL = strings.TrimSpace(docsURL)
 			}
+			if config, ok := val["config"].(map[string]interface{}); ok && len(config) > 0 {
+				ep.Config = config
+			}
 			result[k] = ep
 		default:
 			// ignore unsupported types

@@ -154,6 +154,7 @@ export type PricingData = {
       method?: string
       label?: string
       docs_url?: string
+      config?: Record<string, unknown>
     }
   >
   auto_groups: string[]

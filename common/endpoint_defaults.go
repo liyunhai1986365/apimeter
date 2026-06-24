@@ -11,10 +11,11 @@ import "github.com/QuantumNous/new-api/constant"
 // 例如：{"path":"/v1/chat/completions","method":"POST"}
 
 type EndpointInfo struct {
-	Path    string `json:"path"`
-	Method  string `json:"method"`
-	Label   string `json:"label,omitempty"`
-	DocsURL string `json:"docs_url,omitempty"`
+	Path    string                 `json:"path"`
+	Method  string                 `json:"method"`
+	Label   string                 `json:"label,omitempty"`
+	DocsURL string                 `json:"docs_url,omitempty"`
+	Config  map[string]interface{} `json:"config,omitempty"`
 }
 
 // defaultEndpointInfoMap 保存内置端点的默认 Path 与 Method
@@ -29,6 +30,46 @@ var defaultEndpointInfoMap = map[constant.EndpointType]EndpointInfo{
 	constant.EndpointTypeOpenAIImageEdit:       {Path: "/v1/images/edits", Method: "POST", Label: "OpenAI Image Edit"},
 	constant.EndpointTypeGeminiImageGeneration: {Path: "/v1beta/models/{model}:predict", Method: "POST", Label: "Gemini Native Image Generation"},
 	constant.EndpointTypeEmbeddings:            {Path: "/v1/embeddings", Method: "POST"},
+	constant.EndpointTypeOpenAIVideo:           {Path: "/v1/video/generations", Method: "POST", Label: "OpenAI Video"},
+	constant.EndpointTypeSeedance2NativeVideo: {
+		Path:   "/api/v3/contents/generations/tasks",
+		Method: "POST",
+		Label:  "Seedance2 Native Video",
+		Config: map[string]interface{}{
+			"protocol_profile_id": "seedance2-service-inference",
+			"mode":                "native_video",
+			"submit_path":         "/api/v3/contents/generations/tasks",
+			"fetch_path":          "/api/v3/contents/generations/tasks/{task_id}",
+			"path_params":         []interface{}{"task_id"},
+			"parameters": map[string]interface{}{
+				"content": map[string]interface{}{
+					"type":        "array",
+					"required":    true,
+					"description": "Text, image_url, video_url, or audio_url content items",
+				},
+				"resolution": map[string]interface{}{
+					"type": "string",
+					"enum": []interface{}{"480p", "720p"},
+				},
+				"duration": map[string]interface{}{
+					"type":    "integer",
+					"default": 4,
+				},
+				"ratio": map[string]interface{}{
+					"type": "string",
+				},
+				"watermark": map[string]interface{}{
+					"type": "boolean",
+				},
+				"generate_audio": map[string]interface{}{
+					"type": "boolean",
+				},
+				"return_last_frame": map[string]interface{}{
+					"type": "boolean",
+				},
+			},
+		},
+	},
 }
 
 // GetDefaultEndpointInfo 返回指定端点类型的默认信息以及是否存在

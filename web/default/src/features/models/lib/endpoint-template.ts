@@ -1,6 +1,9 @@
 type EndpointTemplateValue = {
   path: string
   method: string
+  label?: string
+  docs_url?: string
+  config?: Record<string, unknown>
 }
 
 export function appendEndpointTemplate(

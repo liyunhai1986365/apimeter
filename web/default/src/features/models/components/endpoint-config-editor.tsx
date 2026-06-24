@@ -70,6 +70,7 @@ function getEndpointOptionLabel(type: string, t: (key: string) => string) {
     'gemini-image-generation': t('Gemini Native Image Generation'),
     embeddings: t('Embeddings'),
     'openai-video': t('OpenAI Video'),
+    'seedance2-native-video': t('Seedance2 Native Video'),
   }
   return labels[type] ?? type
 }
@@ -83,6 +84,7 @@ function makeRowFromTemplate(type: string): EndpointConfigRow {
     method: template.method,
     label: template.label ?? '',
     docs_url: template.docs_url ?? '',
+    config: template.config,
   }
 }
 
@@ -297,6 +299,28 @@ export function EndpointConfigEditor({
               >
                 <Trash2 className='size-4' aria-hidden='true' />
               </Button>
+              {row.config && Object.keys(row.config).length > 0 && (
+                <div className='text-muted-foreground lg:col-span-6 rounded-md border border-dashed px-3 py-2 text-xs'>
+                  <span className='font-medium text-foreground'>
+                    {t('Call config')}
+                  </span>
+                  <code className='ml-2 font-mono'>
+                    {[
+                      typeof row.config.mode === 'string'
+                        ? row.config.mode
+                        : '',
+                      typeof row.config.submit_path === 'string'
+                        ? row.config.submit_path
+                        : row.path,
+                      typeof row.config.fetch_path === 'string'
+                        ? row.config.fetch_path
+                        : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' | ')}
+                  </code>
+                </div>
+              )}
             </div>
           ))}
         </div>

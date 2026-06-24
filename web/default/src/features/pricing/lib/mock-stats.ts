@@ -510,6 +510,7 @@ export type SupportedParameter = {
   enumValues?: string[]
   descriptionKey: string
   required?: boolean
+  location?: 'body' | 'path' | 'query'
 }
 
 const COMMON_CHAT_PARAMS: SupportedParameter[] = [
@@ -763,6 +764,82 @@ const VIDEO_PARAMS: SupportedParameter[] = [
   },
 ]
 
+const OPENAI_VIDEO_PARAMS: SupportedParameter[] = [
+  {
+    name: 'prompt',
+    type: 'string',
+    required: true,
+    descriptionKey: 'Text description of the desired video',
+  },
+  {
+    name: 'size',
+    type: 'enum',
+    enumValues: ['480p', '720p', '1080p'],
+    defaultValue: '720p',
+    descriptionKey: 'Output video resolution',
+  },
+  {
+    name: 'seconds',
+    type: 'integer',
+    defaultValue: 4,
+    range: '>= 1',
+    descriptionKey: 'Video length in seconds',
+  },
+  {
+    name: 'images',
+    type: 'array',
+    descriptionKey: 'Reference images for image-to-video generation',
+  },
+  {
+    name: 'metadata',
+    type: 'object',
+    descriptionKey: 'Provider-specific video generation options',
+  },
+]
+
+const SEEDANCE2_NATIVE_VIDEO_PARAMS: SupportedParameter[] = [
+  {
+    name: 'content',
+    type: 'array',
+    required: true,
+    descriptionKey: 'Text, image_url, video_url, or audio_url content items',
+  },
+  {
+    name: 'resolution',
+    type: 'enum',
+    enumValues: ['480p', '720p'],
+    defaultValue: '720p',
+    descriptionKey: 'Output video resolution',
+  },
+  {
+    name: 'duration',
+    type: 'integer',
+    defaultValue: 4,
+    range: '>= 1',
+    descriptionKey: 'Video length in seconds',
+  },
+  {
+    name: 'ratio',
+    type: 'string',
+    descriptionKey: 'Output aspect ratio',
+  },
+  {
+    name: 'watermark',
+    type: 'boolean',
+    descriptionKey: 'Whether to include a watermark',
+  },
+  {
+    name: 'generate_audio',
+    type: 'boolean',
+    descriptionKey: 'Whether to generate audio with the video',
+  },
+  {
+    name: 'return_last_frame',
+    type: 'boolean',
+    descriptionKey: 'Whether to return the final frame',
+  },
+]
+
 type ApiCategory = 'reasoning' | 'embedding' | 'image' | 'video' | 'chat'
 
 /**
@@ -790,12 +867,44 @@ function apiCategoryOf(model: PricingModel): ApiCategory {
 export function buildSupportedParameters(
   model: PricingModel
 ): SupportedParameter[] {
+  const endpoints = model.supported_endpoint_types ?? []
+  if (endpoints.includes('seedance2-native-video')) {
+    return SEEDANCE2_NATIVE_VIDEO_PARAMS
+  }
+  if (endpoints.includes('openai-video')) return OPENAI_VIDEO_PARAMS
+  if (endpoints.includes('image-generation')) return IMAGE_PARAMS
+  if (endpoints.includes('embeddings') || endpoints.includes('jina-rerank')) {
+    return EMBEDDING_PARAMS
+  }
+
   const cat = apiCategoryOf(model)
   if (cat === 'reasoning') return REASONING_PARAMS
   if (cat === 'embedding') return EMBEDDING_PARAMS
   if (cat === 'image') return IMAGE_PARAMS
   if (cat === 'video') return VIDEO_PARAMS
   return COMMON_CHAT_PARAMS
+}
+
+export function buildTaskQueryParameters(
+  model: PricingModel
+): SupportedParameter[] {
+  const endpoints = model.supported_endpoint_types ?? []
+  if (
+    !endpoints.includes('seedance2-native-video') &&
+    !endpoints.includes('openai-video')
+  ) {
+    return []
+  }
+
+  return [
+    {
+      name: 'task_id',
+      type: 'string',
+      required: true,
+      location: 'path',
+      descriptionKey: 'Task identifier returned by the generation request',
+    },
+  ]
 }
 
 export type RateLimit = {

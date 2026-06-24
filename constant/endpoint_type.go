@@ -14,6 +14,7 @@ const (
 	EndpointTypeGeminiImageGeneration EndpointType = "gemini-image-generation"
 	EndpointTypeEmbeddings            EndpointType = "embeddings"
 	EndpointTypeOpenAIVideo           EndpointType = "openai-video"
+	EndpointTypeSeedance2NativeVideo  EndpointType = "seedance2-native-video"
 	//EndpointTypeMidjourney     EndpointType = "midjourney-proxy"
 	//EndpointTypeSuno           EndpointType = "suno-proxy"
 	//EndpointTypeKling          EndpointType = "kling"

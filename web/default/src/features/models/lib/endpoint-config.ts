@@ -4,6 +4,7 @@ export type EndpointConfigRow = {
   method: string
   label: string
   docs_url: string
+  config?: Record<string, unknown>
 }
 
 const DEFAULT_METHOD = 'POST'
@@ -53,6 +54,10 @@ function normalizeRow(type: string, value: unknown): EndpointConfigRow | null {
     method: normalizeMethod(record.method),
     label: normalizeUrl(record.label),
     docs_url: normalizeUrl(record.docs_url ?? record.docsUrl),
+    config:
+      record.config && typeof record.config === 'object' && !Array.isArray(record.config)
+        ? (record.config as Record<string, unknown>)
+        : undefined,
   }
 }
 
@@ -102,6 +107,9 @@ export function serializeEndpointConfig(rows: EndpointConfigRow[]): string {
       method: normalizeMethod(row.method),
       ...(row.label.trim() ? { label: row.label.trim() } : {}),
       ...(row.docs_url.trim() ? { docs_url: row.docs_url.trim() } : {}),
+      ...(row.config && Object.keys(row.config).length > 0
+        ? { config: row.config }
+        : {}),
     }
   }
 

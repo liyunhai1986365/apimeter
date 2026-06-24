@@ -16,6 +16,7 @@ export function getEndpointFallbackLabel(type: string, t: TFunction): string {
     'gemini-image-generation': t('Gemini Native Image Generation'),
     embeddings: t('Embeddings'),
     'openai-video': t('OpenAI Video'),
+    'seedance2-native-video': t('Seedance2 Native Video'),
   }
 
   return labels[type] ?? type

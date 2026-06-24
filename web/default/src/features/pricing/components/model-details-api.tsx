@@ -34,7 +34,6 @@ import { getPublicServerAddress } from '@/lib/server-address'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { useStatus } from '@/hooks/use-status'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import {
   Table,
   TableBody,
@@ -51,6 +50,7 @@ import {
 import {
   buildRateLimits,
   buildSupportedParameters,
+  buildTaskQueryParameters,
   formatRateLimit,
   type SupportedParameter,
 } from '../lib/mock-stats'
@@ -94,6 +94,16 @@ type SampleContext = {
   modelName: string
   endpointType: string
   endpointPath: string
+  fetchPath?: string
+}
+
+type EndpointDisplay = {
+  type: string
+  path: string
+  fetchPath: string
+  method: string
+  label: string
+  docsUrl: string
 }
 
 function buildChatSample(lang: Lang, ctx: SampleContext): string {
@@ -437,6 +447,100 @@ function buildImageSample(lang: Lang, ctx: SampleContext): string {
   ].join('\n')
 }
 
+function buildVideoSample(lang: Lang, ctx: SampleContext): string {
+  const url = `${ctx.baseUrl}${ctx.endpointPath}`
+  const body =
+    ctx.endpointType === 'seedance2-native-video'
+      ? {
+          model: ctx.modelName,
+          content: [{ type: 'text', text: 'A cinematic ocean sunrise.' }],
+          resolution: '720p',
+          duration: 4,
+        }
+      : {
+          model: ctx.modelName,
+          prompt: 'A cinematic ocean sunrise.',
+          size: '720p',
+          seconds: 4,
+        }
+  const bodyJson = JSON.stringify(body, null, 2)
+
+  if (lang === 'curl') {
+    return [
+      `curl ${url} \\`,
+      `  -H "Authorization: Bearer $${ctx.apiKeyEnv}" \\`,
+      `  -H "Content-Type: application/json" \\`,
+      `  -d '${bodyJson.replace(/\n/g, '\n     ')}'`,
+    ].join('\n')
+  }
+
+  if (lang === 'python') {
+    return [
+      'import os',
+      'import requests',
+      '',
+      `response = requests.post(`,
+      `    "${url}",`,
+      `    headers={`,
+      `        "Authorization": f"Bearer {os.environ['${ctx.apiKeyEnv}']}",`,
+      `        "Content-Type": "application/json",`,
+      `    },`,
+      `    json=${bodyJson.replace(/\n/g, '\n    ')},`,
+      `)`,
+      `response.raise_for_status()`,
+      `task = response.json()`,
+      `print(task)`,
+    ].join('\n')
+  }
+
+  return [
+    `const response = await fetch('${url}', {`,
+    `  method: 'POST',`,
+    `  headers: {`,
+    `    Authorization: \`Bearer \${process.env.${ctx.apiKeyEnv}}\`,`,
+    `    'Content-Type': 'application/json',`,
+    `  },`,
+    `  body: JSON.stringify(${bodyJson}),`,
+    `})`,
+    '',
+    `const task = await response.json()`,
+    `console.log(task)`,
+  ].join('\n')
+}
+
+function buildTaskFetchSample(lang: Lang, ctx: SampleContext): string {
+  const url = `${ctx.baseUrl}${ctx.endpointPath.replace('{task_id}', 'task_123')}`
+
+  if (lang === 'curl') {
+    return [
+      `curl ${url} \\`,
+      `  -H "Authorization: Bearer $${ctx.apiKeyEnv}"`,
+    ].join('\n')
+  }
+
+  if (lang === 'python') {
+    return [
+      'import os',
+      'import requests',
+      '',
+      `response = requests.get(`,
+      `    "${url}",`,
+      `    headers={"Authorization": f"Bearer {os.environ['${ctx.apiKeyEnv}']}"},`,
+      `)`,
+      `response.raise_for_status()`,
+      `print(response.json())`,
+    ].join('\n')
+  }
+
+  return [
+    `const response = await fetch('${url}', {`,
+    `  headers: { Authorization: \`Bearer \${process.env.${ctx.apiKeyEnv}}\` },`,
+    `})`,
+    '',
+    `console.log(await response.json())`,
+  ].join('\n')
+}
+
 function buildSample(
   lang: Lang,
   endpointType: string,
@@ -447,7 +551,34 @@ function buildSample(
   if (endpointType === 'embeddings' || endpointType === 'jina-rerank')
     return buildEmbeddingSample(lang, ctx)
   if (endpointType === 'image-generation') return buildImageSample(lang, ctx)
+  if (
+    endpointType === 'openai-video' ||
+    endpointType === 'seedance2-native-video'
+  )
+    return buildVideoSample(lang, ctx)
   return buildChatSample(lang, ctx)
+}
+
+function buildEndpointSample(
+  lang: Lang,
+  endpoint: EndpointDisplay,
+  operation: 'submit' | 'fetch',
+  ctx: Omit<SampleContext, 'endpointType' | 'endpointPath' | 'fetchPath'>
+): string {
+  if (operation === 'fetch') {
+    return buildTaskFetchSample(lang, {
+      ...ctx,
+      endpointType: endpoint.type,
+      endpointPath: endpoint.fetchPath,
+    })
+  }
+
+  return buildSample(lang, endpoint.type, {
+    ...ctx,
+    endpointType: endpoint.type,
+    endpointPath: endpoint.path,
+    fetchPath: endpoint.fetchPath,
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -458,7 +589,13 @@ function CodeSamplesSection(props: {
   model: PricingModel
   endpointMap: Record<
     string,
-    { path?: string; method?: string; label?: string; docs_url?: string }
+    {
+      path?: string
+      method?: string
+      label?: string
+      docs_url?: string
+      config?: Record<string, unknown>
+    }
   >
 }) {
   const { t } = useTranslation()
@@ -480,6 +617,10 @@ function CodeSamplesSection(props: {
         return {
           type,
           path,
+          fetchPath:
+            typeof info.config?.fetch_path === 'string'
+              ? info.config.fetch_path
+              : '',
           method: info.method || 'POST',
           label: getEndpointLabel(type, props.endpointMap, t),
           docsUrl: info.docs_url || '',
@@ -501,13 +642,14 @@ function CodeSamplesSection(props: {
     return null
   }
 
-  const code = buildSample(lang, activeEndpoint.type, {
+  const code = buildEndpointSample(lang, activeEndpoint, 'submit', {
     baseUrl,
     apiKeyEnv: 'API_KEY',
     modelName: props.model.model_name || '',
-    endpointType: activeEndpoint.type,
-    endpointPath: activeEndpoint.path,
   })
+  const submitParams = buildSupportedParameters(props.model)
+  const fetchParams = buildTaskQueryParameters(props.model)
+  const submitTitle = activeEndpoint.fetchPath ? t('Create task') : t('Request')
 
   return (
     <section>
@@ -530,25 +672,6 @@ function CodeSamplesSection(props: {
           </Tabs>
         )}
 
-        {activeEndpoint.docsUrl && (
-          <Button
-            type='button'
-            variant='outline'
-            size='sm'
-            render={
-              <a
-                href={activeEndpoint.docsUrl}
-                target='_blank'
-                rel='noopener noreferrer'
-                className='h-8 gap-1.5 px-2.5 text-xs'
-              />
-            }
-          >
-            {t('Interface Docs')}
-            <ExternalLink className='size-3' />
-          </Button>
-        )}
-
         <Tabs
           value={lang}
           onValueChange={(v) => setLang(v as Lang)}
@@ -564,10 +687,44 @@ function CodeSamplesSection(props: {
         </Tabs>
       </div>
 
-      <div className='mt-3'>
-        <CodeBlock code={code} language={LANG_HIGHLIGHT[lang]}>
-          <CodeBlockCopyButton />
-        </CodeBlock>
+      {activeEndpoint.docsUrl && (
+        <div className='mt-3 text-xs'>
+          <span className='text-muted-foreground'>接口文档：</span>
+          <a
+            href={activeEndpoint.docsUrl}
+            target='_blank'
+            rel='noopener noreferrer'
+            className='text-primary inline-flex items-center gap-1 break-all font-medium hover:underline'
+          >
+            {activeEndpoint.docsUrl}
+            <ExternalLink className='size-3 shrink-0' />
+          </a>
+        </div>
+      )}
+
+      <div className='mt-3 space-y-4'>
+        <ApiEndpointSection
+          title={submitTitle}
+          method={activeEndpoint.method}
+          path={activeEndpoint.path}
+          code={code}
+          language={LANG_HIGHLIGHT[lang]}
+          params={submitParams}
+        />
+        {activeEndpoint.fetchPath && (
+          <ApiEndpointSection
+            title={t('Query task')}
+            method='GET'
+            path={activeEndpoint.fetchPath}
+            code={buildEndpointSample(lang, activeEndpoint, 'fetch', {
+              baseUrl,
+              apiKeyEnv: 'API_KEY',
+              modelName: props.model.model_name || '',
+            })}
+            language={LANG_HIGHLIGHT[lang]}
+            params={fetchParams}
+          />
+        )}
       </div>
 
       <p className='text-muted-foreground mt-2 text-xs'>
@@ -581,6 +738,48 @@ function CodeSamplesSection(props: {
   )
 }
 
+function ApiEndpointSection(props: {
+  title: string
+  method: string
+  path: string
+  code: string
+  language: BundledLanguage
+  params: SupportedParameter[]
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className='border-border/60 overflow-hidden rounded-lg border'>
+      <div className='bg-muted/20 border-border/60 border-b px-3 py-2'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <span className='text-xs font-semibold'>{props.title}</span>
+          <Badge
+            variant='secondary'
+            className='h-5 rounded-sm font-mono text-[10px]'
+          >
+            {props.method}
+          </Badge>
+          <code className='text-muted-foreground break-all font-mono text-xs'>
+            {props.path}
+          </code>
+        </div>
+      </div>
+      <div className='p-3'>
+        <div className='mb-2 text-muted-foreground text-xs font-medium'>
+          {t('Example request')}
+        </div>
+        <CodeBlock code={props.code} language={props.language}>
+          <CodeBlockCopyButton />
+        </CodeBlock>
+        {props.params.length > 0 && (
+          <div className='mt-3'>
+            <ParameterTable title={t('Parameters')} params={props.params} />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ---------------------------------------------------------------------------
 // Supported parameters table
 // ---------------------------------------------------------------------------
@@ -591,12 +790,38 @@ function SupportedParametersSection(props: { model: PricingModel }) {
     () => buildSupportedParameters(props.model),
     [props.model]
   )
+  const taskQueryParams = useMemo(
+    () => buildTaskQueryParameters(props.model),
+    [props.model]
+  )
 
-  if (params.length === 0) return null
+  if (params.length === 0 && taskQueryParams.length === 0) return null
 
   return (
     <section>
       <SectionTitle icon={Sigma}>{t('Supported parameters')}</SectionTitle>
+      <div className='space-y-3'>
+        {params.length > 0 && (
+          <ParameterTable title={t('Generation parameters')} params={params} />
+        )}
+        {taskQueryParams.length > 0 && (
+          <ParameterTable
+            title={t('Task query parameters')}
+            params={taskQueryParams}
+          />
+        )}
+      </div>
+    </section>
+  )
+}
+
+function ParameterTable(props: { title: string; params: SupportedParameter[] }) {
+  const { t } = useTranslation()
+  return (
+    <div>
+      <div className='text-muted-foreground mb-1.5 text-xs font-medium'>
+        {props.title}
+      </div>
       <div className='border-border/60 overflow-hidden rounded-lg border'>
         <Table>
           <TableHeader>
@@ -612,7 +837,7 @@ function SupportedParametersSection(props: { model: PricingModel }) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {params.map((p) => (
+            {props.params.map((p) => (
               <TableRow key={p.name} className='hover:bg-muted/20'>
                 <TableCell className='py-2 align-top'>
                   <div className='flex items-center gap-1.5'>
@@ -648,7 +873,7 @@ function SupportedParametersSection(props: { model: PricingModel }) {
           </TableBody>
         </Table>
       </div>
-    </section>
+    </div>
   )
 }
 
@@ -891,14 +1116,29 @@ function AuthSection() {
 
 export function ModelDetailsApi(props: {
   model: PricingModel
-  endpointMap: Record<string, { path?: string; method?: string }>
+  endpointMap: Record<
+    string,
+    {
+      path?: string
+      method?: string
+      label?: string
+      docs_url?: string
+      config?: Record<string, unknown>
+    }
+  >
   usableGroup: PricingUsableGroupMap
 }) {
+  const hasTaskEndpoint =
+    props.model.supported_endpoint_types?.some((type) => {
+      const config = props.endpointMap[type]?.config
+      return typeof config?.fetch_path === 'string' && config.fetch_path !== ''
+    }) ?? false
+
   return (
     <div className='space-y-6'>
       <CodeSamplesSection model={props.model} endpointMap={props.endpointMap} />
       <AuthSection />
-      <SupportedParametersSection model={props.model} />
+      {!hasTaskEndpoint && <SupportedParametersSection model={props.model} />}
       <RateLimitsSection
         model={props.model}
         usableGroup={props.usableGroup}
