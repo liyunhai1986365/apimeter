@@ -35,12 +35,14 @@ import { Route as authResetRouteImport } from './routes/(auth)/reset'
 import { Route as authOtpRouteImport } from './routes/(auth)/otp'
 import { Route as authOauthRouteImport } from './routes/(auth)/oauth'
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
+import { Route as AuthenticatedSystemTasksRouteRouteImport } from './routes/_authenticated/system-tasks/route'
 import { Route as AuthenticatedSystemSettingsRouteRouteImport } from './routes/_authenticated/system-settings/route'
 import { Route as PricingModelIdIndexRouteImport } from './routes/pricing/$modelId/index'
 import { Route as AuthenticatedWalletIndexRouteImport } from './routes/_authenticated/wallet/index'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedUserSubscriptionIndexRouteImport } from './routes/_authenticated/user-subscription/index'
 import { Route as AuthenticatedUsageLogsIndexRouteImport } from './routes/_authenticated/usage-logs/index'
+import { Route as AuthenticatedSystemTasksIndexRouteImport } from './routes/_authenticated/system-tasks/index'
 import { Route as AuthenticatedSystemSettingsIndexRouteImport } from './routes/_authenticated/system-settings/index'
 import { Route as AuthenticatedSuppliersIndexRouteImport } from './routes/_authenticated/suppliers/index'
 import { Route as AuthenticatedSubscriptionsIndexRouteImport } from './routes/_authenticated/subscriptions/index'
@@ -208,6 +210,12 @@ const authForgotPasswordRoute = authForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => authRouteRoute,
 } as any)
+const AuthenticatedSystemTasksRouteRoute =
+  AuthenticatedSystemTasksRouteRouteImport.update({
+    id: '/system-tasks',
+    path: '/system-tasks',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSystemSettingsRouteRoute =
   AuthenticatedSystemSettingsRouteRouteImport.update({
     id: '/system-settings',
@@ -241,6 +249,12 @@ const AuthenticatedUsageLogsIndexRoute =
     id: '/usage-logs/',
     path: '/usage-logs/',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSystemTasksIndexRoute =
+  AuthenticatedSystemTasksIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedSystemTasksRouteRoute,
   } as any)
 const AuthenticatedSystemSettingsIndexRoute =
   AuthenticatedSystemSettingsIndexRouteImport.update({
@@ -474,6 +488,7 @@ export interface FileRoutesByFullPath {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/user-agreement': typeof UserAgreementRoute
   '/system-settings': typeof AuthenticatedSystemSettingsRouteRouteWithChildren
+  '/system-tasks': typeof AuthenticatedSystemTasksRouteRouteWithChildren
   '/forgot-password': typeof authForgotPasswordRoute
   '/oauth': typeof authOauthRoute
   '/otp': typeof authOtpRoute
@@ -518,6 +533,7 @@ export interface FileRoutesByFullPath {
   '/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/suppliers/': typeof AuthenticatedSuppliersIndexRoute
   '/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
+  '/system-tasks/': typeof AuthenticatedSystemTasksIndexRoute
   '/usage-logs/': typeof AuthenticatedUsageLogsIndexRoute
   '/user-subscription/': typeof AuthenticatedUserSubscriptionIndexRoute
   '/users/': typeof AuthenticatedUsersIndexRoute
@@ -587,6 +603,7 @@ export interface FileRoutesByTo {
   '/subscriptions': typeof AuthenticatedSubscriptionsIndexRoute
   '/suppliers': typeof AuthenticatedSuppliersIndexRoute
   '/system-settings': typeof AuthenticatedSystemSettingsIndexRoute
+  '/system-tasks': typeof AuthenticatedSystemTasksIndexRoute
   '/usage-logs': typeof AuthenticatedUsageLogsIndexRoute
   '/user-subscription': typeof AuthenticatedUserSubscriptionIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
@@ -616,6 +633,7 @@ export interface FileRoutesById {
   '/privacy-policy': typeof PrivacyPolicyRoute
   '/user-agreement': typeof UserAgreementRoute
   '/_authenticated/system-settings': typeof AuthenticatedSystemSettingsRouteRouteWithChildren
+  '/_authenticated/system-tasks': typeof AuthenticatedSystemTasksRouteRouteWithChildren
   '/(auth)/forgot-password': typeof authForgotPasswordRoute
   '/(auth)/oauth': typeof authOauthRoute
   '/(auth)/otp': typeof authOtpRoute
@@ -660,6 +678,7 @@ export interface FileRoutesById {
   '/_authenticated/subscriptions/': typeof AuthenticatedSubscriptionsIndexRoute
   '/_authenticated/suppliers/': typeof AuthenticatedSuppliersIndexRoute
   '/_authenticated/system-settings/': typeof AuthenticatedSystemSettingsIndexRoute
+  '/_authenticated/system-tasks/': typeof AuthenticatedSystemTasksIndexRoute
   '/_authenticated/usage-logs/': typeof AuthenticatedUsageLogsIndexRoute
   '/_authenticated/user-subscription/': typeof AuthenticatedUserSubscriptionIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
@@ -688,6 +707,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/user-agreement'
     | '/system-settings'
+    | '/system-tasks'
     | '/forgot-password'
     | '/oauth'
     | '/otp'
@@ -732,6 +752,7 @@ export interface FileRouteTypes {
     | '/subscriptions/'
     | '/suppliers/'
     | '/system-settings/'
+    | '/system-tasks/'
     | '/usage-logs/'
     | '/user-subscription/'
     | '/users/'
@@ -801,6 +822,7 @@ export interface FileRouteTypes {
     | '/subscriptions'
     | '/suppliers'
     | '/system-settings'
+    | '/system-tasks'
     | '/usage-logs'
     | '/user-subscription'
     | '/users'
@@ -829,6 +851,7 @@ export interface FileRouteTypes {
     | '/privacy-policy'
     | '/user-agreement'
     | '/_authenticated/system-settings'
+    | '/_authenticated/system-tasks'
     | '/(auth)/forgot-password'
     | '/(auth)/oauth'
     | '/(auth)/otp'
@@ -873,6 +896,7 @@ export interface FileRouteTypes {
     | '/_authenticated/subscriptions/'
     | '/_authenticated/suppliers/'
     | '/_authenticated/system-settings/'
+    | '/_authenticated/system-tasks/'
     | '/_authenticated/usage-logs/'
     | '/_authenticated/user-subscription/'
     | '/_authenticated/users/'
@@ -1101,6 +1125,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof authForgotPasswordRouteImport
       parentRoute: typeof authRouteRoute
     }
+    '/_authenticated/system-tasks': {
+      id: '/_authenticated/system-tasks'
+      path: '/system-tasks'
+      fullPath: '/system-tasks'
+      preLoaderRoute: typeof AuthenticatedSystemTasksRouteRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/system-settings': {
       id: '/_authenticated/system-settings'
       path: '/system-settings'
@@ -1142,6 +1173,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/usage-logs/'
       preLoaderRoute: typeof AuthenticatedUsageLogsIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/system-tasks/': {
+      id: '/_authenticated/system-tasks/'
+      path: '/'
+      fullPath: '/system-tasks/'
+      preLoaderRoute: typeof AuthenticatedSystemTasksIndexRouteImport
+      parentRoute: typeof AuthenticatedSystemTasksRouteRoute
     }
     '/_authenticated/system-settings/': {
       id: '/_authenticated/system-settings/'
@@ -1493,8 +1531,23 @@ const AuthenticatedSystemSettingsRouteRouteWithChildren =
     AuthenticatedSystemSettingsRouteRouteChildren,
   )
 
+interface AuthenticatedSystemTasksRouteRouteChildren {
+  AuthenticatedSystemTasksIndexRoute: typeof AuthenticatedSystemTasksIndexRoute
+}
+
+const AuthenticatedSystemTasksRouteRouteChildren: AuthenticatedSystemTasksRouteRouteChildren =
+  {
+    AuthenticatedSystemTasksIndexRoute: AuthenticatedSystemTasksIndexRoute,
+  }
+
+const AuthenticatedSystemTasksRouteRouteWithChildren =
+  AuthenticatedSystemTasksRouteRoute._addFileChildren(
+    AuthenticatedSystemTasksRouteRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemSettingsRouteRoute: typeof AuthenticatedSystemSettingsRouteRouteWithChildren
+  AuthenticatedSystemTasksRouteRoute: typeof AuthenticatedSystemTasksRouteRouteWithChildren
   AuthenticatedChat2linkRoute: typeof AuthenticatedChat2linkRoute
   AuthenticatedBillingSectionRoute: typeof AuthenticatedBillingSectionRoute
   AuthenticatedChatChatIdRoute: typeof AuthenticatedChatChatIdRoute
@@ -1527,6 +1580,8 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSystemSettingsRouteRoute:
     AuthenticatedSystemSettingsRouteRouteWithChildren,
+  AuthenticatedSystemTasksRouteRoute:
+    AuthenticatedSystemTasksRouteRouteWithChildren,
   AuthenticatedChat2linkRoute: AuthenticatedChat2linkRoute,
   AuthenticatedBillingSectionRoute: AuthenticatedBillingSectionRoute,
   AuthenticatedChatChatIdRoute: AuthenticatedChatChatIdRoute,

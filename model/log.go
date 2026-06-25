@@ -1037,3 +1037,27 @@ func DeleteOldLog(ctx context.Context, targetTimestamp int64, limit int) (int64,
 
 	return total, nil
 }
+
+func CountOldLog(ctx context.Context, targetTimestamp int64) (int64, error) {
+	var total int64
+	if err := LOG_DB.WithContext(ctx).Model(&Log{}).Where("created_at < ?", targetTimestamp).Count(&total).Error; err != nil {
+		return 0, err
+	}
+	return total, nil
+}
+
+func DeleteOldLogBatch(ctx context.Context, targetTimestamp int64, limit int) (int64, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	if nil != ctx.Err() {
+		return 0, ctx.Err()
+	}
+
+	result := LOG_DB.WithContext(ctx).Where("created_at < ?", targetTimestamp).Limit(limit).Delete(&Log{})
+	if nil != result.Error {
+		return 0, result.Error
+	}
+
+	return result.RowsAffected, nil
+}

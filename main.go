@@ -111,7 +111,8 @@ func main() {
 		go controller.AutomaticallyUpdateChannels(frequency)
 	}
 
-	go controller.AutomaticallyTestChannels()
+	// Migrated to system task framework - keeping AutomaticallyAutoEnableOperationRecordChannels for now
+	// go controller.AutomaticallyTestChannels()  // ✅ Migrated to channelTestHandler
 	go controller.AutomaticallyAutoEnableOperationRecordChannels()
 
 	// Codex credential auto-refresh check every 10 minutes, refresh when expires within 1 day
@@ -136,20 +137,26 @@ func main() {
 	}
 	service.ConfigurableImageTaskFetcher = relay.FetchConfigurableImageTaskForPolling
 
-	// Channel upstream model update check task
-	controller.StartChannelUpstreamModelUpdateTask()
+	// Migrated to system task framework
+	// controller.StartChannelUpstreamModelUpdateTask()  // ✅ Migrated to modelUpdateHandler
 
 	// Global webhook monitor task
 	controller.StartGlobalWebhookMonitorTask()
 
-	if common.IsMasterNode && constant.UpdateTask {
-		gopool.Go(func() {
-			controller.UpdateMidjourneyTaskBulk()
-		})
-		gopool.Go(func() {
-			controller.UpdateTaskBulk()
-		})
-	}
+	// System task runner (unified scheduled task management)
+	controller.RegisterScheduledSystemTasks()
+	service.StartSystemTaskRunner()
+
+	// Migrated to system task framework
+	// if common.IsMasterNode && constant.UpdateTask {
+	// 	gopool.Go(func() {
+	// 		controller.UpdateMidjourneyTaskBulk()  // ✅ Migrated to midjourneyPollHandler
+	// 	})
+	// 	gopool.Go(func() {
+	// 		controller.UpdateTaskBulk()  // ✅ Migrated to asyncTaskPollHandler
+	// 	})
+	// }
+
 	if os.Getenv("BATCH_UPDATE_ENABLED") == "true" {
 		common.BatchUpdateEnabled = true
 		common.SysLog("batch update enabled with interval " + strconv.Itoa(common.BatchUpdateInterval) + "s")

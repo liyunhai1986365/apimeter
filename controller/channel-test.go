@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -1339,4 +1340,123 @@ func AutomaticallyAutoEnableOperationRecordChannels() {
 			}
 		}
 	})
+}
+
+// runChannelTestTask executes channel testing with progress reporting for the system task framework
+func runChannelTestTask(ctx context.Context, mode string, notify bool, reportProgress func(processed, total int)) (map[string]interface{}, error) {
+	testAllChannelsLock.Lock()
+	if testAllChannelsRunning {
+		testAllChannelsLock.Unlock()
+		return nil, errors.New("测试已在运行中")
+	}
+	testAllChannelsRunning = true
+	testAllChannelsLock.Unlock()
+
+	defer func() {
+		testAllChannelsLock.Lock()
+		testAllChannelsRunning = false
+		testAllChannelsLock.Unlock()
+	}()
+
+	channels, err := model.GetAllChannels(0, 0, true, false)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get channels: %w", err)
+	}
+
+	var disableThreshold = int64(common.ChannelDisableThreshold * 1000)
+	if disableThreshold == 0 {
+		disableThreshold = 10000000 // impossible value
+	}
+
+	total := len(channels)
+	processed := 0
+	disabled := 0
+	enabled := 0
+	failed := 0
+
+	for _, channel := range channels {
+		// Check context cancellation
+		if ctx.Err() != nil {
+			return map[string]interface{}{
+				"total":     total,
+				"processed": processed,
+				"disabled":  disabled,
+				"enabled":   enabled,
+				"failed":    failed,
+				"cancelled": true,
+			}, ctx.Err()
+		}
+
+		if channel.Status == common.ChannelStatusManuallyDisabled {
+			processed++
+			reportProgress(processed, total)
+			continue
+		}
+
+		isChannelEnabled := channel.Status == common.ChannelStatusEnabled
+		if isChannelEnabled {
+			if wasDisabled, err := disableChannelByAutoOperationIfNeeded(channel); err != nil {
+				common.SysError(fmt.Sprintf("channel auto operation check failed: channel_id=%d err=%v", channel.Id, err))
+				failed++
+			} else if wasDisabled {
+				disabled++
+				time.Sleep(common.RequestInterval)
+				processed++
+				reportProgress(processed, total)
+				continue
+			}
+		}
+
+		tik := time.Now()
+		result := testChannel(channel, "", "", shouldUseStreamForAutomaticChannelTest(channel))
+		tok := time.Now()
+		milliseconds := tok.Sub(tik).Milliseconds()
+
+		shouldBanChannel := false
+		newAPIError := result.newAPIError
+
+		if newAPIError != nil && !operation_setting.GetMonitorSetting().ChannelAutoOperationEnabled {
+			shouldBanChannel = service.ShouldDisableChannel(result.newAPIError)
+		}
+
+		if common.AutomaticDisableChannelEnabled && !shouldBanChannel {
+			if milliseconds > disableThreshold {
+				err := fmt.Errorf("响应时间 %.2fs 超过阈值 %.2fs", float64(milliseconds)/1000.0, float64(disableThreshold)/1000.0)
+				newAPIError = types.NewOpenAIError(err, types.ErrorCodeChannelResponseTimeExceeded, http.StatusRequestTimeout)
+				shouldBanChannel = true
+			}
+		}
+
+		if isChannelEnabled && shouldBanChannel && channel.GetAutoBan() {
+			processChannelError(result.context, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(result.context, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
+			disabled++
+		}
+
+		if !isChannelEnabled && service.ShouldEnableChannel(newAPIError, channel.Status) {
+			service.EnableChannel(channel.Id, common.GetContextKeyString(result.context, constant.ContextKeyChannelKey), channel.Name)
+			enabled++
+		}
+
+		channel.UpdateResponseTime(milliseconds)
+
+		if result.localErr != nil || newAPIError != nil {
+			failed++
+		}
+
+		processed++
+		reportProgress(processed, total)
+		time.Sleep(common.RequestInterval)
+	}
+
+	if notify {
+		service.NotifyRootUser(dto.NotifyTypeChannelTest, "通道测试完成", fmt.Sprintf("测试了 %d 个通道，禁用 %d 个，启用 %d 个", total, disabled, enabled))
+	}
+
+	return map[string]interface{}{
+		"total":     total,
+		"processed": processed,
+		"disabled":  disabled,
+		"enabled":   enabled,
+		"failed":    failed,
+	}, nil
 }

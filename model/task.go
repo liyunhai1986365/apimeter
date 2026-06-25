@@ -594,3 +594,13 @@ func (t *Task) ToOpenAIVideo() *dto.OpenAIVideo {
 	openAIVideo.SetMetadata("url", t.GetResultURL())
 	return openAIVideo
 }
+
+// HasUnfinishedSyncTasks checks if there are any unfinished async tasks
+func HasUnfinishedSyncTasks() bool {
+	var count int64
+	DB.Model(&Task{}).
+		Where("status IN ?", []string{"NOT_START", "SUBMITTED", "IN_PROGRESS", "QUEUED"}).
+		Limit(1).
+		Count(&count)
+	return count > 0
+}

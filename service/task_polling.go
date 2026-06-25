@@ -949,3 +949,125 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	}
 	// 3. 无调整，保持预扣额度
 }
+
+// RunTaskPollingOnce runs one iteration of async task polling with context and progress reporting
+func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, total int)) map[string]interface{} {
+	allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
+	totalTasks := len(allTasks)
+	
+	if totalTasks == 0 {
+		return map[string]interface{}{
+			"total_tasks": 0,
+			"processed":   0,
+		}
+	}
+
+	platformTask := make(map[constant.TaskPlatform][]*model.Task)
+	imageTaskChannelM := make(map[int][]string)
+	imageTaskM := make(map[string]*model.Task)
+	
+	for _, t := range allTasks {
+		if ctx.Err() != nil {
+			return map[string]interface{}{
+				"total_tasks": totalTasks,
+				"processed":   0,
+				"cancelled":   true,
+			}
+		}
+		
+		if isImageAsyncTask(t) {
+			upstreamID := t.GetUpstreamTaskID()
+			if upstreamID != "" {
+				imageTaskM[upstreamID] = t
+				imageTaskChannelM[t.ChannelId] = append(imageTaskChannelM[t.ChannelId], upstreamID)
+				continue
+			}
+		}
+		platformTask[t.Platform] = append(platformTask[t.Platform], t)
+	}
+	
+	processedChannels := 0
+	totalChannels := 0
+	for _, tasks := range platformTask {
+		for channelId := range groupTasksByChannel(tasks) {
+			totalChannels++
+			_ = channelId
+		}
+	}
+	totalChannels += len(imageTaskChannelM)
+	
+	for platform, tasks := range platformTask {
+		if len(tasks) == 0 {
+			continue
+		}
+		taskChannelM := make(map[int][]string)
+		taskM := make(map[string]*model.Task)
+		nullTaskIds := make([]int64, 0)
+		
+		for _, task := range tasks {
+			upstreamID := task.GetUpstreamTaskID()
+			if upstreamID == "" {
+				nullTaskIds = append(nullTaskIds, task.ID)
+				continue
+			}
+			for _, id := range splitTaskUpstreamIDs(upstreamID) {
+				taskM[id] = task
+				taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
+			}
+		}
+		
+		if len(nullTaskIds) > 0 {
+			err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
+				"status":   "FAILURE",
+				"progress": "100%",
+			})
+			if err != nil {
+				logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
+			}
+		}
+		
+		if len(taskChannelM) == 0 {
+			continue
+		}
+
+		for _ = range taskChannelM {
+			if ctx.Err() != nil {
+				break
+			}
+			processedChannels++
+			reportProgress(processedChannels, totalChannels)
+		}
+
+		DispatchPlatformUpdate(platform, taskChannelM, taskM)
+	}
+
+	if len(imageTaskChannelM) > 0 {
+		for _ = range imageTaskChannelM {
+			if ctx.Err() != nil {
+				break
+			}
+			processedChannels++
+			reportProgress(processedChannels, totalChannels)
+		}
+		
+		if err := UpdateImageTasks(ctx, imageTaskChannelM, imageTaskM); err != nil {
+			common.SysLog(fmt.Sprintf("UpdateImageTasks fail: %s", err))
+		}
+	}
+	
+	sweepTimedOutTasks(ctx)
+	
+	return map[string]interface{}{
+		"total_tasks":       totalTasks,
+		"processed_channels": processedChannels,
+		"total_channels":    totalChannels,
+	}
+}
+
+func groupTasksByChannel(tasks []*model.Task) map[int][]*model.Task {
+	result := make(map[int][]*model.Task)
+	for _, task := range tasks {
+		result[task.ChannelId] = append(result[task.ChannelId], task)
+	}
+	return result
+}

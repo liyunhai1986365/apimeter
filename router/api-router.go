@@ -514,5 +514,22 @@ func SetApiRouter(router *gin.Engine) {
 			deploymentsRoute.POST("/:id/extend", controller.ExtendDeployment)
 			deploymentsRoute.DELETE("/:id", controller.DeleteDeployment)
 		}
+
+		// System Tasks (scheduled task management)
+		systemTaskRoute := apiRouter.Group("/system/tasks")
+		systemTaskRoute.Use(middleware.RootAuth())
+		{
+			systemTaskRoute.GET("/", controller.ListSystemTasks)
+			systemTaskRoute.POST("/", controller.CreateLogCleanupSystemTask)
+			systemTaskRoute.GET("/current", controller.GetCurrentSystemTask)
+			systemTaskRoute.GET("/:id", controller.GetSystemTask)
+		}
+
+		// System Info (system instances and monitoring)
+		systemInfoRoute := apiRouter.Group("/system/info")
+		systemInfoRoute.Use(middleware.RootAuth())
+		{
+			systemInfoRoute.GET("/instances", controller.ListSystemInstances)
+		}
 	}
 }

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"regexp"
@@ -996,4 +997,178 @@ func DetectAllChannelUpstreamModelUpdates(c *gin.Context) {
 			"channel_detected_results": results,
 		},
 	})
+}
+
+// runChannelUpstreamModelUpdateTask is the system task framework version of runChannelUpstreamModelUpdateTaskOnce
+// It supports context cancellation, progress reporting, and returns a structured summary.
+func runChannelUpstreamModelUpdateTask(ctx context.Context, manual bool, autoApply bool, reportProgress func(processed, total int)) map[string]interface{} {
+	if !channelUpstreamModelUpdateTaskRunning.CompareAndSwap(false, true) {
+		return map[string]interface{}{
+			"error": "task already running",
+		}
+	}
+	defer channelUpstreamModelUpdateTaskRunning.Store(false)
+
+	checkedChannels := 0
+	failedChannels := 0
+	failedChannelIDs := make([]int, 0)
+	changedChannels := 0
+	detectedAddModels := 0
+	detectedRemoveModels := 0
+	autoAddedModels := 0
+	channelSummaries := make([]upstreamModelUpdateChannelSummary, 0)
+	addModelSamples := make([]string, 0)
+	removeModelSamples := make([]string, 0)
+	refreshNeeded := false
+
+	// First pass: count total channels to check
+	var totalToCheck int64
+	model.DB.Model(&model.Channel{}).
+		Where("status = ?", common.ChannelStatusEnabled).
+		Count(&totalToCheck)
+
+	lastID := 0
+	processed := 0
+	for {
+		// Check context cancellation
+		if ctx.Err() != nil {
+			return map[string]interface{}{
+				"checked_channels":        checkedChannels,
+				"changed_channels":        changedChannels,
+				"detected_add_models":     detectedAddModels,
+				"detected_remove_models":  detectedRemoveModels,
+				"failed_channels":         failedChannels,
+				"auto_added_models":       autoAddedModels,
+				"cancelled":               true,
+			}
+		}
+
+		var channels []*model.Channel
+		query := model.DB.
+			Select(channelUpstreamModelUpdateSelectFields).
+			Where("status = ?", common.ChannelStatusEnabled).
+			Order("id asc").
+			Limit(channelUpstreamModelUpdateTaskBatchSize)
+		if lastID > 0 {
+			query = query.Where("id > ?", lastID)
+		}
+		err := query.Find(&channels).Error
+		if err != nil {
+			common.SysLog(fmt.Sprintf("upstream model update task query failed: %v", err))
+			break
+		}
+		if len(channels) == 0 {
+			break
+		}
+		lastID = channels[len(channels)-1].Id
+
+		for _, channel := range channels {
+			if ctx.Err() != nil {
+				break
+			}
+
+			if channel == nil {
+				processed++
+				reportProgress(processed, int(totalToCheck))
+				continue
+			}
+
+			settings := channel.GetOtherSettings()
+			if !settings.UpstreamModelUpdateCheckEnabled {
+				processed++
+				reportProgress(processed, int(totalToCheck))
+				continue
+			}
+
+			checkedChannels++
+			// manual=true forces re-check, autoApply=true allows auto-adding detected models
+			modelsChanged, autoAdded, err := checkAndPersistChannelUpstreamModelUpdates(channel, &settings, manual, autoApply)
+			if err != nil {
+				failedChannels++
+				failedChannelIDs = append(failedChannelIDs, channel.Id)
+				common.SysLog(fmt.Sprintf("upstream model update check failed: channel_id=%d channel_name=%s err=%v", channel.Id, channel.Name, err))
+				processed++
+				reportProgress(processed, int(totalToCheck))
+				continue
+			}
+			currentAddModels := normalizeModelNames(settings.UpstreamModelUpdateLastDetectedModels)
+			currentRemoveModels := normalizeModelNames(settings.UpstreamModelUpdateLastRemovedModels)
+			currentAddCount := len(currentAddModels) + autoAdded
+			currentRemoveCount := len(currentRemoveModels)
+			detectedAddModels += currentAddCount
+			detectedRemoveModels += currentRemoveCount
+			if currentAddCount > 0 || currentRemoveCount > 0 {
+				changedChannels++
+				channelSummaries = append(channelSummaries, upstreamModelUpdateChannelSummary{
+					ChannelName: channel.Name,
+					AddCount:    currentAddCount,
+					RemoveCount: currentRemoveCount,
+				})
+			}
+			addModelSamples = mergeModelNames(addModelSamples, currentAddModels)
+			removeModelSamples = mergeModelNames(removeModelSamples, currentRemoveModels)
+			if modelsChanged {
+				refreshNeeded = true
+			}
+			autoAddedModels += autoAdded
+
+			processed++
+			reportProgress(processed, int(totalToCheck))
+
+			if common.RequestInterval > 0 {
+				time.Sleep(common.RequestInterval)
+			}
+		}
+
+		if len(channels) < channelUpstreamModelUpdateTaskBatchSize {
+			break
+		}
+	}
+
+	if refreshNeeded {
+		refreshChannelRuntimeCache()
+	}
+
+	if checkedChannels > 0 || common.DebugEnabled {
+		common.SysLog(fmt.Sprintf(
+			"upstream model update task done: checked_channels=%d changed_channels=%d detected_add_models=%d detected_remove_models=%d failed_channels=%d auto_added_models=%d",
+			checkedChannels,
+			changedChannels,
+			detectedAddModels,
+			detectedRemoveModels,
+			failedChannels,
+			autoAddedModels,
+		))
+	}
+
+	// Only send notifications for scheduled (non-manual) runs
+	if !manual && (changedChannels > 0 || failedChannels > 0) {
+		now := common.GetTimestamp()
+		if shouldSendUpstreamModelUpdateNotification(now, changedChannels, failedChannels) {
+			service.NotifyUpstreamModelUpdateWatchers(
+				"上游模型巡检通知",
+				buildUpstreamModelUpdateTaskNotificationContent(
+					checkedChannels,
+					changedChannels,
+					detectedAddModels,
+					detectedRemoveModels,
+					autoAddedModels,
+					failedChannelIDs,
+					channelSummaries,
+					addModelSamples,
+					removeModelSamples,
+				),
+			)
+		}
+	}
+
+	return map[string]interface{}{
+		"checked_channels":       checkedChannels,
+		"changed_channels":       changedChannels,
+		"detected_add_models":    detectedAddModels,
+		"detected_remove_models": detectedRemoveModels,
+		"failed_channels":        failedChannels,
+		"auto_added_models":      autoAddedModels,
+		"failed_channel_ids":     failedChannelIDs,
+	}
 }

@@ -226,6 +226,11 @@ export function buildSidebarData(
             activeUrls: ['/system-settings'],
             icon: Settings,
           },
+          {
+            title: t('System Tasks'),
+            url: '/system-tasks',
+            icon: Settings,
+          },
         ],
       },
     ],

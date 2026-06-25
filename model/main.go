@@ -331,6 +331,9 @@ func migrateDB() error {
 		&BillingStatement{},
 		&BillingStatementSummary{},
 		&ConfigurableResourceState{},
+		&SystemTask{},
+		&SystemTaskLock{},
+		&SystemInstance{},
 	)
 	if err != nil {
 		return err
