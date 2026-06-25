@@ -95,3 +95,20 @@ export async function getUptimeStatus() {
   )
   return res.data
 }
+
+// ----------------------------------------------------------------------------
+// Flow Data (Sankey Chart)
+// ----------------------------------------------------------------------------
+
+// Get flow quota data for Sankey chart visualization
+export async function getFlowQuotaData(params: {
+  start_timestamp: number
+  end_timestamp: number
+  username?: string
+}) {
+  const res = await api.get<{ success: boolean; data: any[] }>(
+    '/api/dashboard/flow',
+    { params }
+  )
+  return res.data
+}

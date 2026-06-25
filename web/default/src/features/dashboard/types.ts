@@ -151,3 +151,97 @@ export interface FAQItem {
   question: string
   answer: string
 }
+
+// ============================================================================
+// Flow Data Types (Sankey Chart)
+// ============================================================================
+
+export interface FlowQuotaDataItem {
+  user_id?: number
+  username?: string
+  node_name?: string
+  token_id?: number
+  token_name?: string
+  use_group?: string
+  channel_id?: number
+  channel_name?: string
+  model_name?: string
+  token_used?: number
+  count?: number
+  quota?: number
+}
+
+export type FlowMetric = 'quota' | 'tokens' | 'requests'
+
+export type FlowOverflowMode = 'aggregate' | 'hide'
+
+export type FlowRole = 'user' | 'admin' | 'root'
+
+export type FlowNodeKind =
+  | 'user'
+  | 'node'
+  | 'token'
+  | 'group'
+  | 'model'
+  | 'channel'
+
+export interface FlowNodeFilter {
+  kind: FlowNodeKind
+  id: string
+}
+
+export interface FlowLinkSelection {
+  source: string
+  target: string
+}
+
+export interface FlowBuildOptions {
+  role?: FlowRole
+  selectedUsers?: string[]
+  selectedNodes?: FlowNodeFilter[]
+  activeNode?: FlowNodeFilter
+  activeLink?: FlowLinkSelection
+  colorPalette?: readonly string[]
+  visibleStages?: FlowNodeKind[]
+  topNodeLimit?: number
+  overflowMode?: FlowOverflowMode
+  maskSensitive?: boolean
+  deletedTokenLabel?: (tokenId: number) => string
+  otherNodeLabel?: (kind: FlowNodeKind) => string
+}
+
+export interface DashboardFlowNode {
+  id: string
+  label: string
+  kind: FlowNodeKind
+  value: number
+  requests: number
+}
+
+export interface DashboardFlowLink {
+  source: string
+  target: string
+  value: number
+  requests: number
+}
+
+export interface DashboardFlowData {
+  nodes: DashboardFlowNode[]
+  links: DashboardFlowLink[]
+}
+
+export interface FlowUserFilterOption {
+  value: string
+  label: string
+  valueLabel: string
+  valueRaw: number
+  color: string
+}
+
+export interface FlowNodeFilterOption {
+  value: FlowNodeFilter
+  label: string
+  valueLabel: string
+  valueRaw: number
+  kind: FlowNodeKind
+}

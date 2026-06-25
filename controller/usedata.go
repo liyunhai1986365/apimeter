@@ -126,3 +126,23 @@ func GetUserUsageDimensionTrends(c *gin.Context) {
 		"data":    dates,
 	})
 }
+
+func GetFlowQuotaData(c *gin.Context) {
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	username := c.Query("username")
+	userId := c.GetInt("id")
+	role := c.GetInt("role")
+	
+	data, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, username, userId, role)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    data,
+	})
+}

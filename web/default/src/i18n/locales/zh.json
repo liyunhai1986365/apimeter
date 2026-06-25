@@ -2950,6 +2950,8 @@
     "Model deleted": "模型已删除",
     "Model deleted successfully": "模型删除成功",
     "Model Deployment": "模型部署",
+    "Traffic Flow": "流量流向",
+    "Visualize token routing and flow patterns": "可视化令牌路由和流量模式",
     "Model deployment service is disabled": "模型部署服务未启用",
     "Model Description": "模型描述",
     "Model details": "模型详情",

@@ -1219,3 +1219,14 @@ export function processUserChartData(
     },
   }
 }
+
+export function getDashboardChartColors(domainLength: number): string[] {
+  const scheme =
+    vchartDefaultDataScheme.find(
+      (item) => !item.maxDomainLength || domainLength <= item.maxDomainLength
+    ) ?? vchartDefaultDataScheme[vchartDefaultDataScheme.length - 1]
+
+  return scheme.scheme.filter(
+    (color): color is string => typeof color === 'string'
+  )
+}

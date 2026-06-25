@@ -83,6 +83,12 @@ const LazyUserCharts = lazy(() =>
   }))
 )
 
+const LazyFlowCharts = lazy(() =>
+  import('./components/flow/flow-charts').then((m) => ({
+    default: m.FlowCharts,
+  }))
+)
+
 function LogStatCardsFallback() {
   return (
     <div className='overflow-hidden rounded-lg border'>
@@ -321,6 +327,13 @@ export function Dashboard() {
             <FadeIn>
               <Suspense fallback={<ModelChartsFallback />}>
                 <LazyUserCharts />
+              </Suspense>
+            </FadeIn>
+          )}
+          {activeSection === 'flow' && (
+            <FadeIn>
+              <Suspense fallback={<ModelChartsFallback />}>
+                <LazyFlowCharts filters={modelFilters} />
               </Suspense>
             </FadeIn>
           )}

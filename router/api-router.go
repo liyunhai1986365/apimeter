@@ -26,6 +26,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.HEAD("/relay-temp-images/:id", controller.ServeRelayTempImage)
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
+		apiRouter.GET("/dashboard/flow", middleware.UserAuth(), controller.GetFlowQuotaData)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)

@@ -36,6 +36,12 @@ const DASHBOARD_SECTIONS = [
     build: () => null,
   },
   {
+    id: 'flow',
+    titleKey: 'Traffic Flow',
+    descriptionKey: 'Visualize token routing and flow patterns',
+    build: () => null,
+  },
+  {
     id: 'users',
     titleKey: 'User Analytics',
     descriptionKey: 'View user consumption statistics and charts',
