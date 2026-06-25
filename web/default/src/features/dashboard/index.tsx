@@ -154,6 +154,10 @@ const SECTION_META: Record<
     titleKey: 'Model Call Analytics',
     descriptionKey: 'View model call count analytics and charts',
   },
+  flow: {
+    titleKey: 'Traffic Flow',
+    descriptionKey: 'Visualize token routing and flow patterns',
+  },
   users: {
     titleKey: 'User Analytics',
     descriptionKey: 'View user consumption statistics and charts',

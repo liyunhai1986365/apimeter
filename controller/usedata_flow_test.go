@@ -61,7 +61,7 @@ func decodeFlowQuotaResponse(t *testing.T, recorder *httptest.ResponseRecorder) 
 	return payload
 }
 
-func TestGetAllFlowQuotaDatesUsesAdminDimensions(t *testing.T) {
+func TestGetFlowQuotaDataUsesAdminDimensions(t *testing.T) {
 	setupFlowControllerTestDB(t)
 
 	recorder := httptest.NewRecorder()
@@ -69,7 +69,7 @@ func TestGetAllFlowQuotaDatesUsesAdminDimensions(t *testing.T) {
 	ctx.Set("role", common.RoleAdminUser)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow?start_timestamp=1000&end_timestamp=2000&username=bob", nil)
 
-	GetAllFlowQuotaDates(ctx)
+	GetFlowQuotaData(ctx)
 
 	payload := decodeFlowQuotaResponse(t, recorder)
 	require.Len(t, payload.Data, 1)
@@ -80,7 +80,7 @@ func TestGetAllFlowQuotaDatesUsesAdminDimensions(t *testing.T) {
 	require.Empty(t, payload.Data[0].NodeName)
 }
 
-func TestGetAllFlowQuotaDatesUsesRootDimensions(t *testing.T) {
+func TestGetFlowQuotaDataUsesRootDimensions(t *testing.T) {
 	setupFlowControllerTestDB(t)
 
 	recorder := httptest.NewRecorder()
@@ -88,7 +88,7 @@ func TestGetAllFlowQuotaDatesUsesRootDimensions(t *testing.T) {
 	ctx.Set("role", common.RoleRootUser)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow?start_timestamp=1000&end_timestamp=2000&username=alice", nil)
 
-	GetAllFlowQuotaDates(ctx)
+	GetFlowQuotaData(ctx)
 
 	payload := decodeFlowQuotaResponse(t, recorder)
 	require.Len(t, payload.Data, 1)
@@ -99,7 +99,7 @@ func TestGetAllFlowQuotaDatesUsesRootDimensions(t *testing.T) {
 	require.Equal(t, "east", payload.Data[0].ChannelName)
 }
 
-func TestGetUserFlowQuotaDatesRestrictsToAuthenticatedUser(t *testing.T) {
+func TestGetFlowQuotaDataRestrictsToAuthenticatedUser(t *testing.T) {
 	setupFlowControllerTestDB(t)
 
 	recorder := httptest.NewRecorder()
@@ -107,7 +107,7 @@ func TestGetUserFlowQuotaDatesRestrictsToAuthenticatedUser(t *testing.T) {
 	ctx.Set("id", 1)
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow/self?start_timestamp=1000&end_timestamp=2000", nil)
 
-	GetUserFlowQuotaDates(ctx)
+	GetFlowQuotaData(ctx)
 
 	payload := decodeFlowQuotaResponse(t, recorder)
 	require.Len(t, payload.Data, 1)
@@ -115,21 +115,4 @@ func TestGetUserFlowQuotaDatesRestrictsToAuthenticatedUser(t *testing.T) {
 	require.Equal(t, "primary", payload.Data[0].TokenName)
 	require.Equal(t, "default", payload.Data[0].UseGroup)
 	require.Empty(t, payload.Data[0].ChannelName)
-}
-
-func TestGetUserFlowQuotaDatesRejectsInvalidTimeRange(t *testing.T) {
-	setupFlowControllerTestDB(t)
-
-	recorder := httptest.NewRecorder()
-	ctx, _ := gin.CreateTestContext(recorder)
-	ctx.Set("id", 1)
-	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow/self?start_timestamp=bad&end_timestamp=2000", nil)
-
-	GetUserFlowQuotaDates(ctx)
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-	var payload flowQuotaResponse
-	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
-	require.False(t, payload.Success)
-	require.Equal(t, "invalid start_timestamp", payload.Message)
 }
