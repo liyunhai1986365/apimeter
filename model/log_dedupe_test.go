@@ -132,6 +132,59 @@ func TestSumUsedQuotaAggregatesChannelCostFields(t *testing.T) {
 	require.Equal(t, 1050, stat.ProfitQuota)
 }
 
+func TestSumUsedQuotaSubtractsRefundLogs(t *testing.T) {
+	truncateTables(t)
+
+	now := time.Now().Unix()
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id:               144,
+			UserId:           1001,
+			Type:             LogTypeConsume,
+			CreatedAt:        100,
+			Quota:            1500,
+			PromptTokens:     10,
+			CompletionTokens: 20,
+			Other:            `{"cost_base_quota":1000,"cost_quota":800,"profit_quota":700}`,
+		},
+		{
+			Id:        145,
+			UserId:    1001,
+			Type:      LogTypeRefund,
+			CreatedAt: 101,
+			Quota:     500,
+			Other:     `{"cost_base_quota":400,"cost_quota":300,"profit_quota":200}`,
+		},
+		{
+			Id:               146,
+			UserId:           1001,
+			Type:             LogTypeConsume,
+			CreatedAt:        now,
+			Quota:            200,
+			PromptTokens:     3,
+			CompletionTokens: 4,
+			Other:            `{"cost_quota":100,"profit_quota":100}`,
+		},
+	}).Error)
+
+	stat, err := SumUsedQuota(LogTypeUnknown, 0, 0, "", "", "", 0, "")
+
+	require.NoError(t, err)
+	require.Equal(t, 1200, stat.Quota)
+	require.Equal(t, 600, stat.CostQuota)
+	require.Equal(t, 600, stat.ProfitQuota)
+	require.Equal(t, 1, stat.Rpm)
+	require.Equal(t, 7, stat.Tpm)
+
+	refundStat, err := SumUsedQuota(LogTypeRefund, 0, 0, "", "", "", 0, "")
+	require.NoError(t, err)
+	require.Equal(t, -500, refundStat.Quota)
+	require.Equal(t, -300, refundStat.CostQuota)
+	require.Equal(t, -200, refundStat.ProfitQuota)
+	require.Equal(t, 0, refundStat.Rpm)
+	require.Equal(t, 0, refundStat.Tpm)
+}
+
 func TestSumModelProfitStatsAggregatesByModelAndDate(t *testing.T) {
 	truncateTables(t)
 

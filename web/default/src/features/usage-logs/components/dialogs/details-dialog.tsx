@@ -67,6 +67,8 @@ import {
   isViolationFeeLog,
   getFirstResponseTimeColor,
   getResponseTimeColor,
+  isTaskPreConsumeLog,
+  formatSignedLogQuota,
 } from '../../lib/format'
 import {
   getLogTypeConfig,
@@ -139,6 +141,19 @@ function DetailSection(props: {
   )
 }
 
+function PreConsumedCostValue(props: { value: string }) {
+  const { t } = useTranslation()
+
+  return (
+    <span className='inline-flex flex-wrap items-center gap-1'>
+      <span className='rounded-sm bg-amber-100 px-1 py-px font-sans text-[10px] font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'>
+        {t('Pre-consumed')}
+      </span>
+      <span>{props.value}</span>
+    </span>
+  )
+}
+
 function BillingBreakdown(props: {
   log: UsageLog
   other: LogOtherData
@@ -152,8 +167,9 @@ function BillingBreakdown(props: {
   const isClaude = other.claude === true
   const isTieredExpr = other.billing_mode === 'tiered_expr'
   const tieredSummary = getTieredBillingSummary(other)
+  const isTaskPreConsume = isTaskPreConsumeLog(log)
 
-  const rows: Array<{ label: string; value: string }> = []
+  const rows: Array<{ label: string; value: React.ReactNode }> = []
   const priceOpts = { digitsLarge: 4, digitsSmall: 6, abbreviate: false }
   const fmtPrice = (usd: number) => formatBillingCurrencyFromUSD(usd, priceOpts)
   const baseInputUSD = other.model_ratio != null ? other.model_ratio * 2.0 : 0
@@ -348,7 +364,11 @@ function BillingBreakdown(props: {
 
   rows.push({
     label: t('Total Cost'),
-    value: formatLogQuota(log.quota),
+    value: isTaskPreConsume ? (
+      <PreConsumedCostValue value={formatSignedLogQuota(log)} />
+    ) : (
+      formatSignedLogQuota(log)
+    ),
   })
 
   if (rows.length === 0) return null

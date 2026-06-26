@@ -715,12 +715,33 @@ func logCostSnapshot(quota int, otherText string) (baseQuota int, costQuota int,
 	return baseQuota, costQuota, profitQuota
 }
 
+func usageStatLogTypes(logType int) []int {
+	switch logType {
+	case LogTypeUnknown:
+		return []int{LogTypeConsume, LogTypeRefund}
+	case LogTypeConsume, LogTypeRefund:
+		return []int{logType}
+	default:
+		return nil
+	}
+}
+
+func usageStatSign(logType int) int {
+	if logType == LogTypeRefund {
+		return -1
+	}
+	return 1
+}
+
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspaceName ...string) (stat Stat, err error) {
-	tx := LOG_DB.Table("logs").Select("sum(quota) quota")
+	statTypes := usageStatLogTypes(logType)
+	if len(statTypes) == 0 {
+		return stat, nil
+	}
 
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
-	costQuery := LOG_DB.Table("logs").Select("quota, other")
+	costQuery := LOG_DB.Table("logs").Select("type, quota, other")
 	workspace := ""
 	if len(workspaceName) > 0 {
 		workspace = workspaceName[0]
@@ -729,26 +750,23 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	if err != nil {
 		return stat, err
 	}
-	tx = applyTokenIDFilter(tx, "", tokenIDs, tokenIDsResolved)
 	rpmTpmQuery = applyTokenIDFilter(rpmTpmQuery, "", tokenIDs, tokenIDsResolved)
 	costQuery = applyTokenIDFilter(costQuery, "", tokenIDs, tokenIDsResolved)
 
 	if username != "" {
-		tx = tx.Where("username = ?", username)
 		rpmTpmQuery = rpmTpmQuery.Where("username = ?", username)
 		costQuery = costQuery.Where("username = ?", username)
 	}
 	if tokenName != "" {
-		tx = tx.Where("token_name = ?", tokenName)
 		rpmTpmQuery = rpmTpmQuery.Where("token_name = ?", tokenName)
 		costQuery = costQuery.Where("token_name = ?", tokenName)
 	}
 	if startTimestamp != 0 {
-		tx = tx.Where("created_at >= ?", startTimestamp)
+		rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", startTimestamp)
 		costQuery = costQuery.Where("created_at >= ?", startTimestamp)
 	}
 	if endTimestamp != 0 {
-		tx = tx.Where("created_at <= ?", endTimestamp)
+		rpmTpmQuery = rpmTpmQuery.Where("created_at <= ?", endTimestamp)
 		costQuery = costQuery.Where("created_at <= ?", endTimestamp)
 	}
 	if modelName != "" {
@@ -756,38 +774,33 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		if err != nil {
 			return stat, err
 		}
-		tx = tx.Where("model_name LIKE ? ESCAPE '!'", modelNamePattern)
 		rpmTpmQuery = rpmTpmQuery.Where("model_name LIKE ? ESCAPE '!'", modelNamePattern)
 		costQuery = costQuery.Where("model_name LIKE ? ESCAPE '!'", modelNamePattern)
 	}
 	if channel != 0 {
-		tx = tx.Where("channel_id = ?", channel)
 		rpmTpmQuery = rpmTpmQuery.Where("channel_id = ?", channel)
 		costQuery = costQuery.Where("channel_id = ?", channel)
 	}
 	if group != "" {
-		tx = tx.Where(logGroupCol+" = ?", group)
 		rpmTpmQuery = rpmTpmQuery.Where(logGroupCol+" = ?", group)
 		costQuery = costQuery.Where(logGroupCol+" = ?", group)
 	}
 
-	tx = tx.Where("type = ?", LogTypeConsume)
 	rpmTpmQuery = rpmTpmQuery.Where("type = ?", LogTypeConsume)
-	costQuery = costQuery.Where("type = ?", LogTypeConsume)
+	costQuery = costQuery.Where("type IN ?", statTypes)
 
 	// 只统计最近60秒的rpm和tpm
 	rpmTpmQuery = rpmTpmQuery.Where("created_at >= ?", time.Now().Add(-60*time.Second).Unix())
 
 	// 执行查询
-	if err := tx.Scan(&stat).Error; err != nil {
-		common.SysError("failed to query log stat: " + err.Error())
-		return stat, errors.New("查询统计数据失败")
-	}
-	if err := rpmTpmQuery.Scan(&stat).Error; err != nil {
-		common.SysError("failed to query rpm/tpm stat: " + err.Error())
-		return stat, errors.New("查询统计数据失败")
+	if logType == LogTypeUnknown || logType == LogTypeConsume {
+		if err := rpmTpmQuery.Scan(&stat).Error; err != nil {
+			common.SysError("failed to query rpm/tpm stat: " + err.Error())
+			return stat, errors.New("查询统计数据失败")
+		}
 	}
 	var costRows []struct {
+		Type  int
 		Quota int
 		Other string
 	}
@@ -796,10 +809,12 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 		return stat, errors.New("查询统计数据失败")
 	}
 	for _, row := range costRows {
+		sign := usageStatSign(row.Type)
 		baseQuota, costQuota, profitQuota := logCostSnapshot(row.Quota, row.Other)
-		stat.BaseQuota += baseQuota
-		stat.CostQuota += costQuota
-		stat.ProfitQuota += profitQuota
+		stat.Quota += sign * row.Quota
+		stat.BaseQuota += sign * baseQuota
+		stat.CostQuota += sign * costQuota
+		stat.ProfitQuota += sign * profitQuota
 	}
 
 	return stat, nil

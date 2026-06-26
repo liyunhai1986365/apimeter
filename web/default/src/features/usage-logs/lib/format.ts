@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { formatLogQuota } from '@/lib/format'
 import type { StatusBadgeProps } from '@/components/status-badge'
 import {
   BILLING_PRICING_VARS,
@@ -89,6 +90,26 @@ export function isViolationFeeLog(other: LogOtherData | null): boolean {
     Boolean(other.violation_fee_code) ||
     Boolean(other.violation_fee_marker)
   )
+}
+
+/**
+ * Task submit logs record the quota reserved before the async task settles.
+ * Later adjustment/refund entries carry task_id/pre_consumed_quota instead.
+ */
+export function isTaskPreConsumeLog(log: UsageLog): boolean {
+  if (log.type !== 2) return false
+  const other = parseLogOther(log.other)
+  return other?.is_task === true
+}
+
+export function getSignedLogQuota(log: UsageLog): number {
+  return log.type === 6 ? -Math.abs(log.quota) : log.quota
+}
+
+export function formatSignedLogQuota(log: UsageLog): string {
+  const quota = getSignedLogQuota(log)
+  if (quota < 0) return `-${formatLogQuota(Math.abs(quota))}`
+  return formatLogQuota(quota)
 }
 
 /**

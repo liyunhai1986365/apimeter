@@ -27,8 +27,10 @@ import {
   formatLogQuota,
   formatTimestampToDate,
 } from '@/lib/format'
-import { formatGroupDiscount } from '@/lib/group-discount'
-import type { GroupDiscountLabels } from '@/lib/group-discount'
+import {
+  formatGroupDiscount,
+  type GroupDiscountLabels,
+} from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -49,6 +51,8 @@ import {
   hasAnyCacheTokens,
   parseLogOther,
   isViolationFeeLog,
+  isTaskPreConsumeLog,
+  formatSignedLogQuota,
 } from '../../lib/format'
 import {
   isDisplayableLogType,
@@ -738,9 +742,9 @@ export function useCommonLogsColumns(
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
 
-        const quota = row.getValue('quota') as number
         const other = parseLogOther(log.other)
         const isSubscription = other?.billing_source === 'subscription'
+        const isTaskPreConsume = isTaskPreConsumeLog(log)
 
         if (isSubscription) {
           return (
@@ -748,9 +752,14 @@ export function useCommonLogsColumns(
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <span className='inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' />
+                    <span className='inline-flex flex-wrap items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300' />
                   }
                 >
+                  {isTaskPreConsume && (
+                    <span className='rounded-sm bg-amber-100 px-1 py-px text-[10px] font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'>
+                      {t('Pre-consumed')}
+                    </span>
+                  )}
                   <span
                     className='size-1.5 rounded-full bg-emerald-500'
                     aria-hidden='true'
@@ -759,7 +768,7 @@ export function useCommonLogsColumns(
                 </TooltipTrigger>
                 <TooltipContent>
                   <span>
-                    {t('Deducted by subscription')}: {formatLogQuota(quota)}
+                    {t('Deducted by subscription')}: {formatSignedLogQuota(log)}
                   </span>
                 </TooltipContent>
               </Tooltip>
@@ -767,7 +776,7 @@ export function useCommonLogsColumns(
           )
         }
 
-        const quotaStr = formatLogQuota(quota)
+        const quotaStr = formatSignedLogQuota(log)
         const profitQuota = other?.profit_quota
         const hasChannelProfit =
           isRoot && profitQuota != null && Number.isFinite(profitQuota)
@@ -780,7 +789,12 @@ export function useCommonLogsColumns(
 
         return (
           <div className='flex flex-col gap-0.5'>
-            <span className='border-border/80 bg-muted/60 inline-flex w-fit items-center rounded-md border px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums'>
+            <span className='border-border/80 bg-muted/60 inline-flex w-fit flex-wrap items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-xs font-semibold tabular-nums'>
+              {isTaskPreConsume && (
+                <span className='rounded-sm bg-amber-100 px-1 py-px font-sans text-[10px] font-medium text-amber-700 dark:bg-amber-950/50 dark:text-amber-300'>
+                  {t('Pre-consumed')}
+                </span>
+              )}
               {quotaStr}
             </span>
             {hasChannelProfit && (
