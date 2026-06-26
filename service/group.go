@@ -1,6 +1,7 @@
 package service
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/setting"
@@ -33,6 +34,11 @@ func GetUserUsableGroups(userGroup string) map[string]string {
 			groupsCopy[userGroup] = "用户分组"
 		}
 	}
+	if userGroups, configured := setting.GetUserGroupNamesFromDisplayConfig(); configured {
+		for _, group := range userGroups {
+			delete(groupsCopy, group)
+		}
+	}
 	return groupsCopy
 }
 
@@ -44,8 +50,27 @@ func GroupInUserUsableGroups(userGroup, groupName string) bool {
 // GetUserAutoGroup 根据用户分组获取自动分组设置
 func GetUserAutoGroup(userGroup string) []string {
 	groups := GetUserUsableGroups(userGroup)
+	configuredAutoGroups := setting.GetAutoGroups()
+	if len(configuredAutoGroups) == 0 {
+		autoGroups := make([]string, 0, len(groups))
+		displayGroups, configured := setting.GetTokenGroupNamesFromDisplayConfig()
+		if configured {
+			for _, group := range displayGroups {
+				if _, ok := groups[group]; ok {
+					autoGroups = append(autoGroups, group)
+				}
+			}
+			return autoGroups
+		}
+		for group := range groups {
+			autoGroups = append(autoGroups, group)
+		}
+		sort.Strings(autoGroups)
+		return autoGroups
+	}
+
 	autoGroups := make([]string, 0)
-	for _, group := range setting.GetAutoGroups() {
+	for _, group := range configuredAutoGroups {
 		if _, ok := groups[group]; ok {
 			autoGroups = append(autoGroups, group)
 		}

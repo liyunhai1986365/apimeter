@@ -18,6 +18,7 @@ type GroupDisplayGroup struct {
 	Group      string `json:"group"`
 	CategoryID string `json:"category_id"`
 	Order      int    `json:"order"`
+	UserGroup  bool   `json:"user_group,omitempty"`
 }
 
 type GroupDisplayConfig struct {
@@ -83,6 +84,7 @@ func NormalizeGroupDisplayConfig(config GroupDisplayConfig) GroupDisplayConfig {
 			Group:      name,
 			CategoryID: categoryID,
 			Order:      group.Order,
+			UserGroup:  group.UserGroup,
 		})
 	}
 
@@ -109,6 +111,32 @@ func NormalizeGroupDisplayConfig(config GroupDisplayConfig) GroupDisplayConfig {
 		Categories: categories,
 		Groups:     groups,
 	}
+}
+
+func GetUserGroupNamesFromDisplayConfig() ([]string, bool) {
+	groupDisplayConfigMutex.RLock()
+	defer groupDisplayConfigMutex.RUnlock()
+
+	groups := make([]string, 0, len(groupDisplayConfig.Groups))
+	for _, group := range groupDisplayConfig.Groups {
+		if group.UserGroup {
+			groups = append(groups, group.Group)
+		}
+	}
+	return groups, len(groupDisplayConfig.Groups) > 0
+}
+
+func GetTokenGroupNamesFromDisplayConfig() ([]string, bool) {
+	groupDisplayConfigMutex.RLock()
+	defer groupDisplayConfigMutex.RUnlock()
+
+	groups := make([]string, 0, len(groupDisplayConfig.Groups))
+	for _, group := range groupDisplayConfig.Groups {
+		if !group.UserGroup {
+			groups = append(groups, group.Group)
+		}
+	}
+	return groups, len(groupDisplayConfig.Groups) > 0
 }
 
 func GetGroupDisplayConfig() GroupDisplayConfig {

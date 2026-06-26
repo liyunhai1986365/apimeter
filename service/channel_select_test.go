@@ -170,6 +170,49 @@ func TestCacheGetRandomSatisfiedChannelAutoGroupAndCrossGroupRetry(t *testing.T)
 	require.Equal(t, "vip", selectedGroup)
 }
 
+func TestCacheGetRandomSatisfiedChannelAutoGroupDefaultsToVisibleGroups(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		_ = setting.UpdateGroupDisplayConfigByJSONString(`{"categories":[],"groups":[]}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`[]`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{
+		"default": "默认分组",
+		"backup": "备用分组",
+		"vip": "vip分组"
+	}`))
+	require.NoError(t, setting.UpdateGroupDisplayConfigByJSONString(`{
+		"categories": [],
+		"groups": [
+			{"group": "backup", "order": 10},
+			{"group": "default", "order": 20},
+			{"group": "vip", "order": 30, "user_group": true}
+		]
+	}`))
+	createChannelSelectFixture(t, db, 1501, "backup", 10)
+	createChannelSelectFixture(t, db, 1502, "default", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1501, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+}
+
 func TestCacheGetRandomSatisfiedChannelDoesNotResetRetryAtLastAutoGroup(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {

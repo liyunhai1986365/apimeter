@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -33,6 +33,7 @@ import {
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Select,
   SelectContent,
@@ -42,6 +43,10 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { StatusBadge } from '@/components/status-badge'
+import {
+  buildConfiguredGroupNameOptions,
+  buildConfiguredUserGroupNameOptions,
+} from './group-ratio-visual-editor'
 
 const OP_ADD = 'add' as const
 const OP_REMOVE = 'remove' as const
@@ -134,12 +139,16 @@ const OP_BADGE_MAP: Record<
 
 type GroupSpecialUsableRulesEditorProps = {
   value: string
+  groupRatio: string
+  userUsableGroups: string
+  groupDisplayConfig: string
   onChange: (value: string) => void
 }
 
 type GroupSectionProps = {
   groupName: string
   items: Rule[]
+  targetGroupOptions: string[]
   onUpdate: (id: string, field: keyof Rule, val: string) => void
   onRemove: (id: string) => void
   onAdd: (groupName: string) => void
@@ -267,14 +276,37 @@ function GroupSection(props: GroupSectionProps) {
                     </SelectGroup>
                   </SelectContent>
                 </Select>
-                <Input
+                <NativeSelect
                   className='flex-1'
-                  value={rule.targetGroup}
-                  placeholder={t('Group name')}
-                  onChange={(e) =>
-                    props.onUpdate(rule._id, 'targetGroup', e.target.value)
+                  value={
+                    props.targetGroupOptions.includes(rule.targetGroup)
+                      ? rule.targetGroup
+                      : ''
                   }
-                />
+                  onChange={(event) =>
+                    props.onUpdate(rule._id, 'targetGroup', event.target.value)
+                  }
+                  disabled={props.targetGroupOptions.length === 0}
+                >
+                  {props.targetGroupOptions.length === 0 ? (
+                    <NativeSelectOption value=''>
+                      {t('No groups available')}
+                    </NativeSelectOption>
+                  ) : (
+                    <>
+                      {!props.targetGroupOptions.includes(rule.targetGroup) && (
+                        <NativeSelectOption value=''>
+                          {t('Select a group')}
+                        </NativeSelectOption>
+                      )}
+                      {props.targetGroupOptions.map((group) => (
+                        <NativeSelectOption key={group} value={group}>
+                          {group}
+                        </NativeSelectOption>
+                      ))}
+                    </>
+                  )}
+                </NativeSelect>
                 {rule.op !== OP_REMOVE ? (
                   <Input
                     className='flex-1'
@@ -314,6 +346,30 @@ export function GroupSpecialUsableRulesEditor(
     flattenRules(safeParseJson(props.value))
   )
   const [newGroupName, setNewGroupName] = useState('')
+  const userGroupOptions = useMemo(
+    () =>
+      buildConfiguredUserGroupNameOptions(
+        props.groupRatio,
+        props.userUsableGroups,
+        props.groupDisplayConfig
+      ),
+    [props.groupDisplayConfig, props.groupRatio, props.userUsableGroups]
+  )
+  const targetGroupOptions = useMemo(
+    () =>
+      buildConfiguredGroupNameOptions(
+        props.groupRatio,
+        props.userUsableGroups,
+        props.groupDisplayConfig
+      ),
+    [props.groupDisplayConfig, props.groupRatio, props.userUsableGroups]
+  )
+
+  useEffect(() => {
+    setNewGroupName((current) =>
+      userGroupOptions.includes(current) ? current : (userGroupOptions[0] ?? '')
+    )
+  }, [userGroupOptions])
 
   const { onChange } = props
   const emitChange = useCallback(
@@ -361,16 +417,16 @@ export function GroupSpecialUsableRulesEditor(
           _id: uid(),
           userGroup: groupName,
           op: OP_APPEND,
-          targetGroup: '',
+          targetGroup: targetGroupOptions[0] ?? '',
           description: '',
         },
       ])
     },
-    [rules, emitChange]
+    [rules, emitChange, targetGroupOptions]
   )
 
   const addNewGroup = useCallback(() => {
-    const name = newGroupName.trim()
+    const name = (newGroupName || userGroupOptions[0] || '').trim()
     if (!name) return
     emitChange([
       ...rules,
@@ -378,12 +434,12 @@ export function GroupSpecialUsableRulesEditor(
         _id: uid(),
         userGroup: name,
         op: OP_APPEND,
-        targetGroup: '',
+        targetGroup: targetGroupOptions[0] ?? '',
         description: '',
       },
     ])
-    setNewGroupName('')
-  }, [rules, emitChange, newGroupName])
+    setNewGroupName(userGroupOptions[0] ?? '')
+  }, [rules, emitChange, newGroupName, targetGroupOptions, userGroupOptions])
 
   const grouped = useMemo(() => {
     const map: Record<string, Rule[]> = {}
@@ -421,6 +477,7 @@ export function GroupSpecialUsableRulesEditor(
                 key={group.name}
                 groupName={group.name}
                 items={group.items}
+                targetGroupOptions={targetGroupOptions}
                 onUpdate={updateRule}
                 onRemove={removeRule}
                 onAdd={addRuleToGroup}
@@ -430,19 +487,39 @@ export function GroupSpecialUsableRulesEditor(
           )}
 
           <div className='flex items-center justify-center gap-2 pt-2'>
-            <Input
+            <NativeSelect
               className='w-[200px]'
-              value={newGroupName}
-              placeholder={t('User group name')}
-              onChange={(e) => setNewGroupName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault()
-                  addNewGroup()
-                }
-              }}
-            />
-            <Button variant='outline' size='sm' onClick={addNewGroup}>
+              value={
+                userGroupOptions.includes(newGroupName) ? newGroupName : ''
+              }
+              onChange={(event) => setNewGroupName(event.target.value)}
+              disabled={userGroupOptions.length === 0}
+            >
+              {userGroupOptions.length === 0 ? (
+                <NativeSelectOption value=''>
+                  {t('No groups available')}
+                </NativeSelectOption>
+              ) : (
+                <>
+                  {!userGroupOptions.includes(newGroupName) && (
+                    <NativeSelectOption value=''>
+                      {t('Select a group')}
+                    </NativeSelectOption>
+                  )}
+                  {userGroupOptions.map((group) => (
+                    <NativeSelectOption key={group} value={group}>
+                      {group}
+                    </NativeSelectOption>
+                  ))}
+                </>
+              )}
+            </NativeSelect>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={addNewGroup}
+              disabled={userGroupOptions.length === 0}
+            >
               <Plus className='mr-1 h-4 w-4' />
               {t('Add group rules')}
             </Button>

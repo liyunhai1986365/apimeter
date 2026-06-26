@@ -11,7 +11,6 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/conversion"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
-	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
@@ -183,12 +182,12 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else if param.TokenGroup == "auto" {
-		if len(setting.GetAutoGroups()) == 0 {
-			return nil, selectGroup, errors.New("auto groups is not enabled")
-		}
 		autoGroups := GetUserAutoGroup(userGroup)
 		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](param.Ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
 			autoGroups = agentAutoGroups(agentCtx, userGroup)
+		}
+		if len(autoGroups) == 0 {
+			return nil, selectGroup, errors.New("auto groups is not enabled")
 		}
 
 		// startGroupIndex: the group index to start searching from

@@ -129,6 +129,9 @@ export const GroupRatioForm = memo(function GroupRatioForm({
 
             <GroupSpecialUsableRulesEditor
               value={form.watch('GroupSpecialUsableGroup')}
+              groupRatio={form.watch('GroupRatio')}
+              userUsableGroups={form.watch('UserUsableGroups')}
+              groupDisplayConfig={form.watch('GroupDisplayConfig')}
               onChange={(value) =>
                 handleFieldChange('GroupSpecialUsableGroup', value)
               }
