@@ -187,6 +187,27 @@ func ListSystemTasks(limit int) ([]*SystemTask, error) {
 	return tasks, err
 }
 
+func ListSystemTasksPage(startIdx int, pageSize int) ([]*SystemTask, int64, error) {
+	if startIdx < 0 {
+		startIdx = 0
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+
+	var total int64
+	if err := DB.Model(&SystemTask{}).Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+
+	var tasks []*SystemTask
+	err := DB.Order("id desc").Limit(pageSize).Offset(startIdx).Find(&tasks).Error
+	return tasks, total, err
+}
+
 // GetLatestSystemTask returns the most recent task row of the given type
 // (any status) so the scheduler can decide whether enough time has elapsed
 // since the last run. Returns (nil, nil) when no row exists.

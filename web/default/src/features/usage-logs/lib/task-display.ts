@@ -1,4 +1,5 @@
 import { taskActionMapper } from './mappers'
+import { formatTimestampToDate } from '@/lib/format'
 import { TASK_ACTIONS, TASK_STATUS } from '../constants'
 import type { TaskLog, TaskLogProperties } from '../types'
 
@@ -138,6 +139,10 @@ export function buildTaskLogSubtitle(log: TaskLog, t: TranslateFn): string {
   if (imageModelName) return imageModelName
 
   return `${t(log.platform)} · ${t(taskActionMapper.getLabel(log.action))}`
+}
+
+export function formatDrawingSubmitTime(submitTime?: number): string {
+  return formatTimestampToDate(submitTime, 'milliseconds')
 }
 
 export function getTaskLogVideoPreviewUrl(log: TaskLog): string {

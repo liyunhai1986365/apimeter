@@ -16,11 +16,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { getRouteApi } from '@tanstack/react-router'
+import {
+  getCoreRowModel,
+  getPaginationRowModel,
+  useReactTable,
+  type ColumnDef,
+} from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { Card } from '@/components/ui/card'
+import { DataTablePagination } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
-import { listSystemTasks, listSystemInstances } from '../api/system-tasks-api'
+import {
+  buildSystemTasksListParams,
+  listSystemTasks,
+  listSystemInstances,
+} from '../api/system-tasks-api'
 import {
   getTaskTypeLabel,
   getTaskStatusInfo,
@@ -30,35 +44,73 @@ import {
 } from '../lib/task-utils'
 import type { SystemTask, SystemInstance } from '../types'
 
+const route = getRouteApi('/_authenticated/system-tasks/')
+const systemTaskPaginationColumns: ColumnDef<SystemTask>[] = []
+
 export function SystemTasksPage() {
   const { t } = useTranslation()
   const [tasks, setTasks] = useState<SystemTask[]>([])
+  const [totalTasks, setTotalTasks] = useState(0)
   const [instances, setInstances] = useState<SystemInstance[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedTask, setSelectedTask] = useState<SystemTask | null>(null)
 
-  const loadData = async () => {
+  const { pagination, onPaginationChange, ensurePageInRange } =
+    useTableUrlState({
+      search: route.useSearch(),
+      navigate: route.useNavigate(),
+      pagination: { defaultPage: 1, defaultPageSize: 20 },
+      globalFilter: { enabled: false },
+    })
+
+  const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const [tasksData, instancesData] = await Promise.all([
-        listSystemTasks(50),
+      const [tasksPage, instancesData] = await Promise.all([
+        listSystemTasks(
+          buildSystemTasksListParams(
+            pagination.pageIndex + 1,
+            pagination.pageSize
+          )
+        ),
         listSystemInstances(),
       ])
-      setTasks(tasksData)
+      setTasks(tasksPage.items)
+      setTotalTasks(tasksPage.total)
       setInstances(instancesData)
     } catch (error) {
-      console.error('Failed to load system tasks:', error)
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('Failed to load system tasks')
+      )
     } finally {
       setLoading(false)
     }
-  }
+  }, [pagination.pageIndex, pagination.pageSize, t])
+
+  const table = useReactTable({
+    data: tasks,
+    columns: systemTaskPaginationColumns,
+    state: { pagination },
+    onPaginationChange,
+    manualPagination: true,
+    pageCount: Math.ceil(totalTasks / pagination.pageSize),
+    getCoreRowModel: getCoreRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+  })
 
   useEffect(() => {
     loadData()
     // Auto refresh every 10 seconds
     const interval = setInterval(loadData, 10000)
     return () => clearInterval(interval)
-  }, [])
+  }, [loadData])
+
+  const pageCount = table.getPageCount()
+  useEffect(() => {
+    ensurePageInRange(pageCount)
+  }, [pageCount, ensurePageInRange])
 
   if (loading && tasks.length === 0) {
     return (
@@ -176,6 +228,11 @@ export function SystemTasksPage() {
             </tbody>
           </table>
         </div>
+        {totalTasks > 0 && (
+          <div className="mt-4">
+            <DataTablePagination table={table} />
+          </div>
+        )}
       </Card>
 
       {/* Task Detail Modal */}
@@ -227,11 +284,11 @@ export function SystemTasksPage() {
                   <div>{formatTimestamp(selectedTask.updated_at)}</div>
                 </div>
 
-                {selectedTask.error_message && (
+                {(selectedTask.error_message || selectedTask.error) && (
                   <div>
                     <div className="text-sm font-medium text-neutral-500">{t('Error')}</div>
                     <div className="text-red-600 dark:text-red-400 font-mono text-sm">
-                      {selectedTask.error_message}
+                      {selectedTask.error_message || selectedTask.error}
                     </div>
                   </div>
                 )}

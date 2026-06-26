@@ -223,7 +223,7 @@ func CountAllUserTask(userId int, queryParams TaskQueryParams) int64 {
 func HasUnfinishedMidjourneyTasks() bool {
 	var count int64
 	DB.Model(&Midjourney{}).
-		Where("status IN ?", []string{"NOT_START", "SUBMITTED", "IN_PROGRESS", "MODAL"}).
+		Where("progress != ?", "100%").
 		Limit(1).
 		Count(&count)
 	return count > 0

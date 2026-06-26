@@ -257,6 +257,30 @@ func TestGetLatestSystemTasks(t *testing.T) {
 	assert.Nil(t, tasks["missing"])
 }
 
+func TestListSystemTasksPageReturnsTotalAndOffsetRows(t *testing.T) {
+	truncateTables(t)
+
+	first, err := CreateSystemTask("type_oldest", nil, nil)
+	require.NoError(t, err)
+	second, err := CreateSystemTask("type_middle", nil, nil)
+	require.NoError(t, err)
+	third, err := CreateSystemTask("type_newest", nil, nil)
+	require.NoError(t, err)
+
+	tasks, total, err := ListSystemTasksPage(0, 2)
+	require.NoError(t, err)
+	require.EqualValues(t, 3, total)
+	require.Len(t, tasks, 2)
+	assert.Equal(t, third.TaskID, tasks[0].TaskID)
+	assert.Equal(t, second.TaskID, tasks[1].TaskID)
+
+	tasks, total, err = ListSystemTasksPage(2, 2)
+	require.NoError(t, err)
+	require.EqualValues(t, 3, total)
+	require.Len(t, tasks, 1)
+	assert.Equal(t, first.TaskID, tasks[0].TaskID)
+}
+
 func TestRenewSystemTaskLock(t *testing.T) {
 	truncateTables(t)
 

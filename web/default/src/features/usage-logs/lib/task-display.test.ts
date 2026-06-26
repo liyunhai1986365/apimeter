@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
   buildTaskLogSubtitle,
+  formatDrawingSubmitTime,
   getTaskLogImagePreviewUrl,
   getTaskLogVideoPreviewUrl,
 } from './task-display'
@@ -54,6 +55,12 @@ describe('buildTaskLogSubtitle', () => {
       buildTaskLogSubtitle(log, (value) => value),
       'kling · Image to Video'
     )
+  })
+})
+
+describe('formatDrawingSubmitTime', () => {
+  test('formats Midjourney submit_time as milliseconds', () => {
+    assert.equal(formatDrawingSubmitTime(1779955200000), '2026-05-28 16:00:00')
   })
 })
 

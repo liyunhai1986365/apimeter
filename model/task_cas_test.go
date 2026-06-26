@@ -63,6 +63,10 @@ func TestMain(m *testing.M) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&Midjourney{},
+		&SystemTask{},
+		&SystemTaskLock{},
+		&SystemInstance{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -101,6 +105,10 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM account_ledger_entries")
 		DB.Exec("DELETE FROM billing_statements")
 		DB.Exec("DELETE FROM billing_statement_summaries")
+		DB.Exec("DELETE FROM midjourneys")
+		DB.Exec("DELETE FROM system_tasks")
+		DB.Exec("DELETE FROM system_task_locks")
+		DB.Exec("DELETE FROM system_instances")
 	})
 }
 
@@ -192,6 +200,18 @@ func TestGetAllUnFinishSyncTasksIncludesQueuedTaskWithCompleteProgress(t *testin
 
 	require.Len(t, tasks, 1)
 	assert.Equal(t, "task_queued_progress_complete", tasks[0].TaskID)
+}
+
+func TestHasUnfinishedMidjourneyTasksMatchesPollingQuery(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, DB.Create(&Midjourney{
+		MjId:     "mj_incomplete_blank_status",
+		Status:   "",
+		Progress: "0%",
+	}).Error)
+
+	assert.True(t, HasUnfinishedMidjourneyTasks())
 }
 
 // ---------------------------------------------------------------------------

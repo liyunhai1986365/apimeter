@@ -17,16 +17,37 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import {
+  normalizePagedData,
+  type NormalizedPagedData,
+} from '@/lib/paged-response'
 import type { SystemTask, SystemInstance } from '../types'
+
+export type ListSystemTasksParams = {
+  p?: number
+  page_size?: number
+}
+
+export function buildSystemTasksListParams(
+  page: number,
+  pageSize: number
+): Required<ListSystemTasksParams> {
+  return {
+    p: Math.max(1, page),
+    page_size: Math.max(1, pageSize),
+  }
+}
 
 /**
  * List system tasks
  */
-export async function listSystemTasks(limit = 100): Promise<SystemTask[]> {
+export async function listSystemTasks(
+  params: ListSystemTasksParams = {}
+): Promise<NormalizedPagedData<SystemTask>> {
   const response = await api.get('/api/system/tasks', {
-    params: { limit },
+    params,
   })
-  return response.data?.data || []
+  return normalizePagedData<SystemTask>(response.data)
 }
 
 /**

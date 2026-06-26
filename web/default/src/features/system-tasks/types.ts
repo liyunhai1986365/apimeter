@@ -40,9 +40,10 @@ export interface SystemTask {
   task_id: string
   type: SystemTaskType
   status: SystemTaskStatus
-  payload: Record<string, any> | null
-  state: Record<string, any> | null
-  result: Record<string, any> | null
+  payload: Record<string, unknown> | null
+  state: Record<string, unknown> | null
+  result: Record<string, unknown> | null
+  error?: string
   error_message: string
   created_at: number
   updated_at: number

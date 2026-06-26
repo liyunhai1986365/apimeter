@@ -37,7 +37,6 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatTimestampToDate } from '@/lib/format'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { MJ_TASK_TYPES } from '../../constants'
@@ -46,6 +45,7 @@ import {
   mjStatusMapper,
   mjSubmitResultMapper,
 } from '../../lib/mappers'
+import { formatDrawingSubmitTime } from '../../lib/task-display'
 import type { MidjourneyLog } from '../../types'
 import { ImageDialog } from '../dialogs/image-dialog'
 import { PromptDialog } from '../dialogs/prompt-dialog'
@@ -97,7 +97,7 @@ export function useDrawingLogsColumns(
         return (
           <div className='flex flex-col gap-0.5'>
             <span className='font-mono text-xs tabular-nums'>
-              {formatTimestampToDate(submitTime)}
+              {formatDrawingSubmitTime(submitTime)}
             </span>
             <StatusBadge
               label={t(mjStatusMapper.getLabel(log.status))}
