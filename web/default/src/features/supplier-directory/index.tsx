@@ -16,12 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { FormEvent, useMemo, useState } from 'react'
+import { type FormEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgePercent,
   Building2,
-  ChevronDown,
   KeyRound,
   Pencil,
   Plus,
@@ -34,6 +33,15 @@ import { formatGroupDiscount } from '@/lib/group-discount'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -53,6 +61,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { PageTransition } from '@/components/page-transition'
 import {
   CHANNEL_TYPE_OPTIONS,
@@ -64,7 +78,11 @@ import {
   getKeyPromptForType,
 } from '@/features/channels/lib/channel-utils'
 import { getPerfMetricsGroups } from '@/features/performance-metrics/api'
-import { GroupPerformanceInline } from '@/features/performance-metrics/components/group-performance-inline'
+import {
+  formatLatency,
+  formatThroughput,
+  formatUptimePct,
+} from '@/features/performance-metrics/lib/format'
 import type { PerfGroupSummary } from '@/features/performance-metrics/types'
 import { getPricing } from '@/features/pricing/api'
 import {
@@ -74,7 +92,11 @@ import {
   updateUserOwnedProvider,
 } from './api'
 import {
+  ALL_SUPPLIER_CATEGORY_VALUE,
+  ALL_SUPPLIER_VENDOR_VALUE,
   buildSupplierDirectoryData,
+  filterSupplierDirectoryItems,
+  type SupplierDirectoryCategory,
   type SupplierDirectoryItem,
 } from './lib/supplier-directory'
 import {
@@ -85,14 +107,11 @@ import {
   type UserOwnedProviderRow,
 } from './lib/user-owned-provider-form'
 
-type SupplierCategorySection = {
-  id: string
-  name: string
-  suppliers: SupplierDirectoryItem[]
-}
-
 export function SupplierDirectory() {
   const { t } = useTranslation()
+  const [selectedCategory, setSelectedCategory] = useState(
+    ALL_SUPPLIER_CATEGORY_VALUE
+  )
   const { data, isLoading } = useQuery({
     queryKey: ['pricing', 'supplier-directory'],
     queryFn: getPricing,
@@ -120,9 +139,14 @@ export function SupplierDirectory() {
   )
 
   const directory = useMemo(() => buildSupplierDirectoryData(data), [data])
-  const sections = useMemo(
-    () => groupSuppliersByCategory(directory.items),
-    [directory.items]
+  const filteredSuppliers = useMemo(
+    () =>
+      filterSupplierDirectoryItems(directory.items, {
+        category: selectedCategory,
+        vendor: ALL_SUPPLIER_VENDOR_VALUE,
+        search: '',
+      }),
+    [directory.items, selectedCategory]
   )
 
   if (isLoading) {
@@ -146,7 +170,7 @@ export function SupplierDirectory() {
         groupPerformance={groupPerformance}
       />
 
-      {sections.length === 0 ? (
+      {directory.items.length === 0 ? (
         <Empty className='min-h-[320px] border'>
           <EmptyHeader>
             <EmptyMedia variant='icon'>
@@ -159,34 +183,70 @@ export function SupplierDirectory() {
           </EmptyHeader>
         </Empty>
       ) : (
-        <SupplierCategorySections
-          sections={sections}
-          groupPerformance={groupPerformance}
-        />
+        <>
+          <section className='flex flex-col gap-3'>
+            <h2 className='font-semibold'>{t('System built-in suppliers')}</h2>
+            <SupplierCategoryFilter
+              categories={directory.categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
+          </section>
+          {filteredSuppliers.length === 0 ? (
+            <Empty className='min-h-[260px] border'>
+              <EmptyHeader>
+                <EmptyMedia variant='icon'>
+                  <Building2 />
+                </EmptyMedia>
+                <EmptyTitle>{t('No suppliers found')}</EmptyTitle>
+                <EmptyDescription>
+                  {t('No supplier metadata configured.')}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <SupplierCardsGrid
+              suppliers={filteredSuppliers}
+              groupPerformance={groupPerformance}
+            />
+          )}
+        </>
       )}
     </PageTransition>
   )
 }
 
-function groupSuppliersByCategory(
-  suppliers: SupplierDirectoryItem[]
-): SupplierCategorySection[] {
-  const sectionMap = new Map<string, SupplierCategorySection>()
+function SupplierCategoryFilter(props: {
+  categories: SupplierDirectoryCategory[]
+  selectedCategory: string
+  onSelectCategory: (category: string) => void
+}) {
+  const { t } = useTranslation()
 
-  for (const supplier of suppliers) {
-    const existing = sectionMap.get(supplier.categoryId)
-    if (existing) {
-      existing.suppliers.push(supplier)
-      continue
-    }
-    sectionMap.set(supplier.categoryId, {
-      id: supplier.categoryId,
-      name: supplier.categoryName,
-      suppliers: [supplier],
-    })
-  }
-
-  return [...sectionMap.values()]
+  return (
+    <div className='flex flex-wrap items-center gap-2'>
+      {props.categories.map((category) => {
+        const isSelected = props.selectedCategory === category.value
+        return (
+          <Button
+            key={category.value}
+            type='button'
+            size='sm'
+            variant={isSelected ? 'default' : 'outline'}
+            onClick={() => props.onSelectCategory(category.value)}
+            aria-pressed={isSelected}
+          >
+            {category.value === ALL_SUPPLIER_CATEGORY_VALUE
+              ? t('All')
+              : t(category.label)}
+            <span className='font-mono text-xs tabular-nums opacity-80'>
+              {category.count}
+            </span>
+          </Button>
+        )
+      })}
+    </div>
+  )
 }
 
 function UserOwnedProvidersSection(props: {
@@ -304,8 +364,8 @@ function UserOwnedProvidersSection(props: {
   }
 
   return (
-    <section className='bg-card rounded-lg border'>
-      <div className='flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between'>
+    <section className='flex flex-col gap-3'>
+      <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
         <div className='min-w-0'>
           <h2 className='font-semibold'>{t('My Providers')}</h2>
           <p className='text-muted-foreground text-xs'>
@@ -327,75 +387,36 @@ function UserOwnedProvidersSection(props: {
             </div>
           )}
           <Button size='sm' onClick={openCreateDialog}>
-            <Plus data-icon='start' />
+            <Plus data-icon='inline-start' />
             {t('Create Provider')}
           </Button>
         </div>
       </div>
 
-      <div className='divide-y'>
+      <div>
         {props.isLoading ? (
-          Array.from({ length: 2 }).map((_, index) => (
-            <Skeleton key={index} className='m-4 h-14 rounded-md' />
-          ))
+          <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+            {Array.from({ length: 2 }).map((_, index) => (
+              <Skeleton key={index} className='h-44 rounded-lg' />
+            ))}
+          </div>
         ) : props.providers.length === 0 ? (
-          <div className='text-muted-foreground px-4 py-6 text-sm'>
+          <div className='text-muted-foreground rounded-lg border px-4 py-6 text-sm'>
             {t('No custom providers yet.')}
           </div>
         ) : (
-          props.providers.map((provider) => (
-            <div
-              key={provider.id}
-              className='grid gap-2 px-4 py-3 text-sm md:grid-cols-[minmax(10rem,0.8fr)_minmax(8rem,0.5fr)_minmax(14rem,1fr)_minmax(9rem,0.55fr)_auto] md:items-center'
-            >
-              <div className='min-w-0'>
-                <div className='truncate font-medium'>{provider.name}</div>
-                <div className='text-muted-foreground truncate text-xs'>
-                  {provider.group}
-                </div>
-              </div>
-              <Badge variant='outline' className='w-fit font-normal'>
-                {t(getChannelTypeLabel(provider.type))}
-              </Badge>
-              <div className='text-muted-foreground min-w-0 truncate text-xs'>
-                {provider.models || '-'}
-              </div>
-              <div className='flex min-w-0 flex-col gap-0.5 md:items-end'>
-                <GroupPerformanceInline
-                  perf={props.groupPerformance[provider.group]}
-                  compact
-                  className='justify-start md:justify-end'
-                />
-                <div className='font-medium tabular-nums'>
-                  {formatLogQuota(provider.stats?.quota ?? 0)}
-                </div>
-                <div className='text-muted-foreground text-xs'>
-                  {t('Estimated spend')} ·{' '}
-                  {formatCompactNumber(provider.stats?.request_count ?? 0)}{' '}
-                  {t('Requests')}
-                </div>
-              </div>
-              <div className='flex justify-start gap-1 md:justify-end'>
-                <Button
-                  variant='ghost'
-                  size='icon-sm'
-                  onClick={() => openEditDialog(provider)}
-                  aria-label={t('Edit')}
-                >
-                  <Pencil />
-                </Button>
-                <Button
-                  variant='ghost'
-                  size='icon-sm'
-                  disabled={deleteMutation.isPending}
-                  onClick={() => deleteMutation.mutate(provider.id)}
-                  aria-label={t('Delete')}
-                >
-                  <Trash2 />
-                </Button>
-              </div>
-            </div>
-          ))
+          <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3'>
+            {props.providers.map((provider) => (
+              <UserOwnedProviderCard
+                key={provider.id}
+                provider={provider}
+                performance={props.groupPerformance[provider.group]}
+                isDeleting={deleteMutation.isPending}
+                onEdit={() => openEditDialog(provider)}
+                onDelete={() => deleteMutation.mutate(provider.id)}
+              />
+            ))}
+          </div>
         )}
       </div>
 
@@ -477,7 +498,7 @@ function UserOwnedProvidersSection(props: {
                 type='submit'
                 disabled={createMutation.isPending || updateMutation.isPending}
               >
-                <KeyRound data-icon='start' />
+                <KeyRound data-icon='inline-start' />
                 {editingProvider ? t('Update Provider') : t('Create Provider')}
               </Button>
             </DialogFooter>
@@ -485,6 +506,69 @@ function UserOwnedProvidersSection(props: {
         </DialogContent>
       </Dialog>
     </section>
+  )
+}
+
+function UserOwnedProviderCard(props: {
+  provider: UserOwnedProviderRow
+  performance?: PerfGroupSummary
+  isDeleting: boolean
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const { t } = useTranslation()
+  const models = getModelList(props.provider.models)
+  const modelCount = getModelCount(props.provider.models)
+
+  return (
+    <Card size='sm' className='min-h-44'>
+      <CardHeader>
+        <CardTitle className='min-w-0 truncate'>
+          {props.provider.name}
+        </CardTitle>
+        <CardDescription className='truncate'>
+          {props.provider.group}
+        </CardDescription>
+        <CardAction className='flex gap-1'>
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            onClick={props.onEdit}
+            aria-label={t('Edit')}
+          >
+            <Pencil />
+          </Button>
+          <Button
+            variant='ghost'
+            size='icon-sm'
+            disabled={props.isDeleting}
+            onClick={props.onDelete}
+            aria-label={t('Delete')}
+          >
+            <Trash2 />
+          </Button>
+        </CardAction>
+      </CardHeader>
+      <CardContent className='flex flex-1 flex-col gap-3'>
+        <div className='flex flex-wrap items-center gap-2'>
+          <Badge variant='outline' className='font-normal'>
+            {t(getChannelTypeLabel(props.provider.type))}
+          </Badge>
+          <SupplierPerformancePills performance={props.performance} />
+        </div>
+        <div className='grid grid-cols-2 gap-2'>
+          <SupplierMetric
+            label={t('Models')}
+            value={<ModelNamesTooltip count={modelCount} models={models} />}
+          />
+          <SupplierMetric
+            label={t('Estimated spend')}
+            value={formatLogQuota(props.provider.stats?.quota ?? 0)}
+          />
+        </div>
+      </CardContent>
+      <SupplierPerformanceFooter performance={props.performance} />
+    </Card>
   )
 }
 
@@ -841,49 +925,26 @@ function CheckboxField(props: {
   )
 }
 
-function SupplierCategorySections(props: {
-  sections: SupplierCategorySection[]
+function SupplierCardsGrid(props: {
+  suppliers: SupplierDirectoryItem[]
   groupPerformance: Record<string, PerfGroupSummary>
 }) {
-  const { t } = useTranslation()
-
   return (
-    <div className='flex flex-col gap-3'>
-      {props.sections.map((section) => (
-        <details
-          key={section.id}
-          open
-          className='group bg-card overflow-hidden rounded-lg border'
-        >
-          <summary className='hover:bg-muted/30 flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 transition-colors'>
-            <div className='flex min-w-0 items-center gap-2'>
-              <ChevronDown className='text-muted-foreground size-4 shrink-0 transition-transform group-open:rotate-180' />
-              <h2 className='truncate text-base font-semibold'>
-                {t(section.name)}
-              </h2>
-            </div>
-            <Badge variant='secondary' className='font-normal tabular-nums'>
-              {section.suppliers.length}
-            </Badge>
-          </summary>
-          <div className='divide-y border-t'>
-            {section.suppliers.map((supplier) => (
-              <SupplierRow
-                key={supplier.group}
-                supplier={supplier}
-                performance={
-                  supplier.performance ?? props.groupPerformance[supplier.group]
-                }
-              />
-            ))}
-          </div>
-        </details>
+    <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
+      {props.suppliers.map((supplier) => (
+        <SupplierCard
+          key={supplier.group}
+          supplier={supplier}
+          performance={
+            supplier.performance ?? props.groupPerformance[supplier.group]
+          }
+        />
       ))}
     </div>
   )
 }
 
-function SupplierRow({
+function SupplierCard({
   supplier,
   performance,
 }: {
@@ -895,29 +956,182 @@ function SupplierRow({
   const discount = formatGroupDiscount(supplier.ratio, discountLabels)
 
   return (
-    <div className='hover:bg-muted/30 grid gap-2 px-4 py-3 text-sm transition-colors md:grid-cols-[minmax(10rem,0.8fr)_minmax(14rem,1.4fr)_auto] md:items-center'>
-      <div className='min-w-0 truncate font-medium'>{supplier.group}</div>
-      <div className='text-muted-foreground min-w-0 truncate text-xs'>
-        {supplier.description ? t(supplier.description) : '-'}
+    <Card size='sm' className='hover:bg-muted/20 min-h-56 transition-colors'>
+      <CardHeader>
+        <CardTitle className='min-w-0 truncate'>{supplier.group}</CardTitle>
+        <CardDescription className='line-clamp-2 min-h-10'>
+          {supplier.description
+            ? t(supplier.description)
+            : t('No description available.')}
+        </CardDescription>
+        <CardAction>
+          <Badge variant='outline' className='font-normal'>
+            {t(supplier.categoryName)}
+          </Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent className='flex flex-1 flex-col gap-4'>
+        <div className='flex flex-wrap items-center gap-2'>
+          {discount ? (
+            <Badge className='border-info bg-info text-info-foreground'>
+              <BadgePercent data-icon='inline-start' />
+              {discount}
+            </Badge>
+          ) : (
+            <Badge
+              variant='outline'
+              className='text-muted-foreground font-normal'
+            >
+              {t('No active discounts')}
+            </Badge>
+          )}
+        </div>
+      </CardContent>
+      <SupplierPerformanceFooter performance={performance} />
+    </Card>
+  )
+}
+
+function SupplierMetric(props: { label: string; value: React.ReactNode }) {
+  return (
+    <div className='bg-muted/30 rounded-md border px-3 py-2'>
+      <div className='text-muted-foreground text-xs'>{props.label}</div>
+      <div className='text-lg font-semibold tabular-nums'>{props.value}</div>
+    </div>
+  )
+}
+
+function ModelNamesTooltip(props: { count: number; models: string[] }) {
+  const { t } = useTranslation()
+
+  if (props.count === 0) {
+    return <span>{props.count}</span>
+  }
+
+  return (
+    <TooltipProvider delay={120}>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type='button'
+              className='hover:text-primary font-inherit focus-visible:ring-ring/50 rounded-sm text-left tabular-nums underline-offset-4 outline-none hover:underline focus-visible:ring-2'
+              aria-label={t('Models')}
+            >
+              {props.count}
+            </button>
+          }
+        />
+        <TooltipContent side='top' className='max-w-80'>
+          <div className='flex max-w-72 flex-col gap-1.5'>
+            <div className='font-medium'>{t('Models')}</div>
+            <div className='flex flex-wrap gap-1'>
+              {props.models.map((model) => (
+                <span
+                  key={model}
+                  className='bg-background/15 rounded px-1.5 py-0.5 font-mono'
+                >
+                  {model}
+                </span>
+              ))}
+            </div>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  )
+}
+
+function SupplierPerformancePills(props: { performance?: PerfGroupSummary }) {
+  if (!props.performance || props.performance.request_count <= 0) {
+    return null
+  }
+
+  return (
+    <>
+      <Badge variant='outline' className='font-mono font-normal tabular-nums'>
+        TPS {formatThroughput(props.performance.avg_tps)}
+      </Badge>
+      <Badge variant='outline' className='font-mono font-normal tabular-nums'>
+        TTFT {formatLatency(props.performance.avg_ttft_ms)}
+      </Badge>
+    </>
+  )
+}
+
+function SupplierPerformanceFooter(props: { performance?: PerfGroupSummary }) {
+  const { t } = useTranslation()
+
+  if (!props.performance || props.performance.request_count <= 0) {
+    return (
+      <CardFooter className='text-muted-foreground justify-between gap-3 text-xs'>
+        {t('No performance data available')}
+      </CardFooter>
+    )
+  }
+
+  const successRate = Math.max(0, Math.min(100, props.performance.success_rate))
+
+  return (
+    <CardFooter className='flex-col items-stretch gap-3'>
+      <div className='flex items-center justify-between gap-3'>
+        <div className='text-muted-foreground text-xs'>{t('Success rate')}</div>
+        <div className='font-mono text-sm font-semibold tabular-nums'>
+          {formatUptimePct(props.performance.success_rate)}
+        </div>
       </div>
-      <div className='flex flex-wrap justify-start gap-2 md:justify-end'>
-        <GroupPerformanceInline perf={performance} compact />
-        {discount ? (
-          <Badge className='border-info bg-info text-info-foreground'>
-            <BadgePercent data-icon='inline-start' />
-            {discount}
-          </Badge>
-        ) : (
-          <Badge
-            variant='outline'
-            className='text-muted-foreground font-normal'
-          >
-            {t('No active discounts')}
-          </Badge>
-        )}
+      <div
+        className='bg-muted h-2 overflow-hidden rounded-full'
+        aria-label={`${t('Success rate')} ${formatUptimePct(
+          props.performance.success_rate
+        )}`}
+      >
+        <div
+          className='bg-primary h-full rounded-full'
+          style={{ width: `${successRate}%` }}
+        />
+      </div>
+      <div className='grid grid-cols-3 gap-2 text-xs'>
+        <PerformanceMetric
+          label='TTFT'
+          value={formatLatency(props.performance.avg_ttft_ms)}
+        />
+        <PerformanceMetric
+          label={t('Latency short')}
+          value={formatLatency(props.performance.avg_latency_ms)}
+        />
+        <PerformanceMetric
+          label='TPS'
+          value={formatThroughput(props.performance.avg_tps)}
+        />
+      </div>
+    </CardFooter>
+  )
+}
+
+function PerformanceMetric(props: { label: string; value: string }) {
+  return (
+    <div className='min-w-0'>
+      <div className='text-muted-foreground truncate'>{props.label}</div>
+      <div className='truncate font-mono font-semibold tabular-nums'>
+        {props.value}
       </div>
     </div>
   )
+}
+
+function getModelList(value: string | undefined) {
+  return (value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function getModelCount(value: string | undefined) {
+  return (value || '')
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean).length
 }
 
 function SupplierDirectorySkeleton() {
@@ -928,9 +1142,9 @@ function SupplierDirectorySkeleton() {
           <Skeleton className='h-7 w-40' />
         </div>
       </div>
-      <div className='flex flex-col gap-3'>
+      <div className='grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
         {Array.from({ length: 8 }).map((_, index) => (
-          <Skeleton key={index} className='h-14 rounded-lg' />
+          <Skeleton key={index} className='h-56 rounded-lg' />
         ))}
       </div>
     </div>
