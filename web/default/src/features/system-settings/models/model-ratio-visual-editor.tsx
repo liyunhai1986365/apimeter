@@ -541,6 +541,12 @@ export const ModelRatioVisualEditor = memo(
           'billing_setting.billing_expr',
           JSON.stringify(billingExprMap, null, 2)
         )
+
+        if (editData?.name === name) {
+          setEditData(null)
+          setEditorOpen(false)
+          setSheetOpen(false)
+        }
       },
       [
         modelPrice,
@@ -554,6 +560,7 @@ export const ModelRatioVisualEditor = memo(
         billingMode,
         billingExpr,
         onChange,
+        editData,
       ]
     )
 

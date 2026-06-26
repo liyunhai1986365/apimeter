@@ -2,9 +2,11 @@ package claude
 
 import (
 	"encoding/base64"
+	"encoding/json"
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/stretchr/testify/require"
 )
@@ -379,4 +381,53 @@ func TestRequestOpenAI2ClaudeMessage_ConvertsTextFileContentToText(t *testing.T)
 	require.Equal(t, "text", content[0].Type)
 	require.NotNil(t, content[0].Text)
 	require.Equal(t, "alpha\nbeta", *content[0].Text)
+}
+
+func TestRequestOpenAI2ClaudeMessage_PreservesToolUseWithEmptyArguments(t *testing.T) {
+	request := dto.GeneralOpenAIRequest{
+		Model: "claude-3-5-sonnet",
+		Messages: []dto.Message{
+			{
+				Role:    "assistant",
+				Content: nil,
+				ToolCalls: mustMarshalRawMessage(t, []dto.ToolCallRequest{
+					{
+						ID:   "call_123",
+						Type: "function",
+						Function: dto.FunctionRequest{
+							Name:      "lookup",
+							Arguments: "",
+						},
+					},
+				}),
+			},
+		},
+	}
+
+	claudeRequest, err := RequestOpenAI2ClaudeMessage(nil, request)
+	require.NoError(t, err)
+	require.NotEmpty(t, claudeRequest.Messages)
+	assistantMessage := claudeRequest.Messages[len(claudeRequest.Messages)-1]
+	require.Equal(t, "assistant", assistantMessage.Role)
+
+	content, ok := assistantMessage.Content.([]dto.ClaudeMediaMessage)
+	require.True(t, ok)
+	var toolUse *dto.ClaudeMediaMessage
+	for i := range content {
+		if content[i].Type == "tool_use" {
+			toolUse = &content[i]
+			break
+		}
+	}
+	require.NotNil(t, toolUse)
+	require.Equal(t, "call_123", toolUse.Id)
+	require.Equal(t, "lookup", toolUse.Name)
+	require.Equal(t, map[string]any{}, toolUse.Input)
+}
+
+func mustMarshalRawMessage(t *testing.T, value any) json.RawMessage {
+	t.Helper()
+	data, err := common.Marshal(value)
+	require.NoError(t, err)
+	return data
 }

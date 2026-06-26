@@ -55,7 +55,7 @@ import { CompactDateTimeRangePicker } from './compact-date-time-range-picker'
 import { useUsageLogsContext } from './usage-logs-provider'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
-const logTypeValues = ['0', '1', '2', '3', '4', '5', '6'] as const
+const logTypeValues = ['0', '1', '2', '3', '4', '5', '6', '7'] as const
 const ALL_GROUP_FILTER_VALUE = '__all_groups__'
 const ALL_CHANNEL_FILTER_VALUE = '__all_channels__'
 
