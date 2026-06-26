@@ -18,9 +18,11 @@ const (
 )
 
 type RetryPolicyRule struct {
-	Name       string                `json:"name,omitempty"`
-	Action     string                `json:"action"`
-	Conditions RetryPolicyConditions `json:"conditions,omitempty"`
+	Name        string                `json:"name,omitempty"`
+	Action      string                `json:"action"`
+	Conditions  RetryPolicyConditions `json:"conditions,omitempty"`
+	RetryGroups []string              `json:"retry_groups,omitempty"`
+	MaxRetries  int                   `json:"max_retries,omitempty"`
 
 	Models          []string          `json:"models,omitempty"`
 	ChannelIDs      []int             `json:"channel_ids,omitempty"`
@@ -57,6 +59,8 @@ type RetryPolicyDecision struct {
 	ShouldRetry bool
 	Source      string
 	RuleName    string
+	RetryGroups []string
+	MaxRetries  int
 }
 
 var AutomaticRetryPolicyRules []RetryPolicyRule
@@ -117,6 +121,12 @@ func ValidateRetryPolicyRule(rule RetryPolicyRule) error {
 	if action == "" {
 		return fmt.Errorf("action must be %q or %q", RetryPolicyActionRetry, RetryPolicyActionSkipRetry)
 	}
+	if rule.MaxRetries < 0 {
+		return fmt.Errorf("max_retries must be greater than or equal to 0")
+	}
+	if action == RetryPolicyActionSkipRetry && (len(cleanRetryGroups(rule.RetryGroups)) > 0 || rule.MaxRetries > 0) {
+		return fmt.Errorf("retry_groups and max_retries are only valid for retry rules")
+	}
 	conditions := rule.normalizedConditions()
 	if conditions.StatusCodes != "" {
 		if _, err := ParseHTTPStatusCodeRanges(conditions.StatusCodes); err != nil {
@@ -147,9 +157,28 @@ func matchRetryPolicyRules(input RetryPolicyInput, rules []RetryPolicyRule, sour
 			ShouldRetry: action == RetryPolicyActionRetry,
 			Source:      source,
 			RuleName:    rule.Name,
+			RetryGroups: cleanRetryGroups(rule.RetryGroups),
+			MaxRetries:  rule.MaxRetries,
 		}, true
 	}
 	return RetryPolicyDecision{}, false
+}
+
+func cleanRetryGroups(groups []string) []string {
+	if len(groups) == 0 {
+		return nil
+	}
+	clean := make([]string, 0, len(groups))
+	seen := make(map[string]bool, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" || seen[group] {
+			continue
+		}
+		seen[group] = true
+		clean = append(clean, group)
+	}
+	return clean
 }
 
 func (r RetryPolicyRule) matches(input RetryPolicyInput) bool {

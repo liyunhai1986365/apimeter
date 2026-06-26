@@ -12,6 +12,8 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/conversion"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -244,6 +246,57 @@ func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T)
 	require.NotNil(t, channel)
 	require.Equal(t, 1102, channel.Id)
 	require.Equal(t, "backup", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelUsesRetryPolicyRecoveryGroups(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	originalGroupRatio := ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		_ = ratio_setting.UpdateGroupRatioByJSONString(originalGroupRatio)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","codex-primary":"Codex主分组","codex-backup":"Codex备用分组"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"codex-primary":1,"codex-backup":1}`))
+	createChannelSelectFixture(t, db, 1401, "codex-primary", 10)
+	createChannelSelectFixture(t, db, 1402, "codex-backup", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	SetRetryPolicyRecovery(c, operation_setting.RetryPolicyDecision{
+		Matched:     true,
+		ShouldRetry: true,
+		Source:      operation_setting.RetryPolicySourceGlobal,
+		RuleName:    "codex encrypted recovery",
+		RetryGroups: []string{"codex-primary", "codex-backup"},
+		MaxRetries:  2,
+	})
+
+	retry := 1
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1401, channel.Id)
+	require.Equal(t, "codex-primary", selectedGroup)
+
+	retry = 2
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1402, channel.Id)
+	require.Equal(t, "codex-backup", selectedGroup)
 }
 
 func TestCacheGetRandomSatisfiedChannelDoesNotResetRetryAtLastPolicyGroup(t *testing.T) {

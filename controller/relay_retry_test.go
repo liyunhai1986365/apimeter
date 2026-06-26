@@ -3,11 +3,14 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
@@ -101,4 +104,102 @@ func TestShouldRetryGlobalPolicyOverridesStatusCodeFallback(t *testing.T) {
 	)
 
 	require.True(t, shouldRetry(c, err, 1))
+}
+
+func TestShouldRetryPolicyMaxRetriesCapsRecoveryAttempts(t *testing.T) {
+	origRules := operation_setting.AutomaticRetryPolicyRules
+	t.Cleanup(func() { operation_setting.AutomaticRetryPolicyRules = origRules })
+	operation_setting.AutomaticRetryPolicyRules = []operation_setting.RetryPolicyRule{
+		{
+			Name:        "codex encrypted recovery",
+			Action:      operation_setting.RetryPolicyActionRetry,
+			StatusCodes: "400",
+			MessageContains: []string{
+				"encrypted content",
+			},
+			RetryGroups: []string{"codex-primary"},
+			MaxRetries:  1,
+		},
+	}
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, true)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+	c.Set("original_model", "gpt-5")
+
+	err := types.NewOpenAIError(
+		errors.New("status_code=400, The encrypted content gAAA could not be verified"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusBadRequest,
+	)
+
+	require.True(t, shouldRetry(c, err, 2))
+	c.Set("relay_retry_index", 1)
+	require.False(t, shouldRetry(c, err, 1))
+}
+
+func TestShouldRetryChannelPolicyRecoveryOverridesAffinitySkip(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, true)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		RetryPolicyRules: []dto.RetryPolicyRule{
+			{
+				Name:        "channel codex recovery",
+				Action:      operation_setting.RetryPolicyActionRetry,
+				StatusCodes: "400",
+				MessageContains: []string{
+					"encrypted content",
+				},
+				RetryGroups: []string{"codex-primary"},
+				MaxRetries:  1,
+			},
+		},
+	})
+	c.Set("original_model", "gpt-5")
+	c.Set("relay_retry_index", 0)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"prompt_cache_key":"codex-session"}`))
+	c.Request.Header.Set("Content-Type", "application/json")
+	_, _ = service.GetPreferredChannelByAffinity(c, "gpt-5", "default")
+	require.True(t, service.ShouldSkipRetryAfterChannelAffinityFailure(c))
+
+	err := types.NewOpenAIError(
+		errors.New("status_code=400, The encrypted content gAAA could not be verified"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusBadRequest,
+	)
+
+	require.True(t, shouldRetry(c, err, 1))
+
+	recovery, ok := service.GetRetryPolicyRecovery(c)
+	require.True(t, ok)
+	require.Equal(t, operation_setting.RetryPolicySourceChannel, recovery.Source)
+	require.Equal(t, []string{"codex-primary"}, recovery.RetryGroups)
+	require.True(t, service.RetryPolicyRecoveryAllowsAffinityRetry(c))
+}
+
+func TestShouldRetryExistingRecoveryContextStillHonorsMaxRetries(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, true)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+	c.Set("original_model", "gpt-5")
+	service.SetRetryPolicyRecovery(c, operation_setting.RetryPolicyDecision{
+		Matched:     true,
+		ShouldRetry: true,
+		Source:      operation_setting.RetryPolicySourceGlobal,
+		RuleName:    "codex encrypted recovery",
+		RetryGroups: []string{"codex-primary"},
+		MaxRetries:  1,
+	})
+	c.Set("relay_retry_index", 1)
+
+	err := types.NewOpenAIError(
+		errors.New("upstream overloaded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	)
+
+	require.False(t, shouldRetry(c, err, 1))
 }

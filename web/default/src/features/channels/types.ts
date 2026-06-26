@@ -110,6 +110,8 @@ export interface RetryPolicyRule {
   error_codes?: string[]
   status_codes?: string
   message_contains?: string[]
+  retry_groups?: string[]
+  max_retries?: number
   conditions?: {
     models?: string[]
     channel_ids?: number[]

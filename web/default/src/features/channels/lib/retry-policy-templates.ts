@@ -51,6 +51,24 @@ export const RETRY_POLICY_TEMPLATES: RetryPolicyTemplate[] = [
       message_contains: ['temporary', 'overloaded', 'timeout'],
     },
   },
+  {
+    labelKey: 'Recover Codex encrypted content',
+    descriptionKey:
+      'Retry Codex encrypted-content verification failures through configured compatible groups',
+    rule: {
+      name: 'codex encrypted content recovery',
+      action: 'retry',
+      models: ['gpt-5'],
+      status_codes: '400',
+      message_contains: [
+        'encrypted content',
+        'could not be verified',
+        'could not be decrypted or parsed',
+      ],
+      retry_groups: ['codex-official-primary', 'codex-official-backup'],
+      max_retries: 2,
+    },
+  },
 ]
 
 export function formatRetryPolicyRule(rule: RetryPolicyRule): string {

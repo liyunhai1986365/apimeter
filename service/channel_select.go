@@ -101,6 +101,31 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	}
 	filter := BuildProtocolChannelFilter(param)
 
+	if recoveryGroup, ok := RetryPolicyRecoveryGroupForAttempt(param.Ctx, param.GetRetry()); ok {
+		if err := validateRetryPolicyRecoveryGroup(param.Ctx, recoveryGroup); err != nil {
+			return nil, recoveryGroup, err
+		}
+		if model.IsUserOwnedProviderGroup(recoveryGroup) {
+			channel, err = model.GetUserOwnedProviderChannelForGroup(common.GetContextKeyInt(param.Ctx, constant.ContextKeyUserId), recoveryGroup, param.ModelName)
+			if err == nil {
+				common.SetContextKey(param.Ctx, constant.ContextKeyTokenBillingSource, BillingSourceUserOwnedProvider)
+			}
+		} else {
+			channel, err = model.GetRandomSatisfiedChannelWithFilter(recoveryGroup, param.ModelName, 0, filter)
+		}
+		if errors.Is(err, model.ErrNoChannelMatchedFilter) {
+			return nil, recoveryGroup, unsupportedProtocolError(param)
+		}
+		if err != nil {
+			return nil, recoveryGroup, err
+		}
+		if channel == nil {
+			return nil, recoveryGroup, nil
+		}
+		common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, recoveryGroup)
+		return channel, recoveryGroup, nil
+	}
+
 	policyGroups := ResolveTokenGroupChain(param.Ctx, param.TokenGroup)
 	if len(policyGroups) > 0 {
 		startGroupIndex := 0

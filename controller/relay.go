@@ -223,6 +223,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		shouldTryNextModel := false
 		for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
 			relayInfo.RetryIndex = retryParam.GetRetry()
+			c.Set("relay_retry_index", retryParam.GetRetry())
 			channel, channelErr := getChannel(c, relayInfo, retryParam)
 			if channelErr != nil {
 				logger.LogError(c, channelErr.Error())
@@ -468,7 +469,8 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if !selectedChannelAllowsRetry(c) {
 		return false
 	}
-	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+	retryIndex, _ := c.Get("relay_retry_index")
+	if currentRetry, ok := retryIndex.(int); ok && service.RetryPolicyRecoveryExceeded(c, currentRetry) {
 		return false
 	}
 	if types.IsChannelError(openaiErr) {
@@ -494,7 +496,22 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 		return false
 	}
 	if decision := operation_setting.ShouldRetryByPolicy(buildRetryPolicyInput(c, openaiErr)); decision.Matched {
-		return decision.ShouldRetry
+		if !decision.ShouldRetry {
+			service.ClearRetryPolicyRecovery(c)
+			return false
+		}
+		if currentRetry, ok := retryIndex.(int); ok && decision.MaxRetries > 0 && currentRetry >= decision.MaxRetries {
+			service.SetRetryPolicyRecovery(c, decision)
+			return false
+		}
+		service.SetRetryPolicyRecovery(c, decision)
+		if service.ShouldSkipRetryAfterChannelAffinityFailure(c) && !service.RetryPolicyRecoveryAllowsAffinityRetry(c) {
+			return false
+		}
+		return true
+	}
+	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
+		return false
 	}
 	return operation_setting.ShouldRetryByStatusCode(code)
 }
@@ -538,6 +555,8 @@ func retryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_s
 			ErrorCodes:      rule.ErrorCodes,
 			StatusCodes:     rule.StatusCodes,
 			MessageContains: rule.MessageContains,
+			RetryGroups:     rule.RetryGroups,
+			MaxRetries:      rule.MaxRetries,
 			Conditions: operation_setting.RetryPolicyConditions{
 				Models:          rule.Conditions.Models,
 				ChannelIDs:      rule.Conditions.ChannelIDs,
@@ -595,6 +614,7 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
 		}
 		service.AppendChannelAffinityAdminInfo(c, adminInfo)
+		service.AppendRetryPolicyRecoveryAdminInfo(c, adminInfo)
 		other["admin_info"] = adminInfo
 		startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
 		if startTime.IsZero() {

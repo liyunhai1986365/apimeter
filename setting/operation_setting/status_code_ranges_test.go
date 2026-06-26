@@ -158,3 +158,34 @@ func TestRetryPolicyGlobalRulesApplyWhenChannelRulesMiss(t *testing.T) {
 	require.Equal(t, RetryPolicySourceGlobal, decision.Source)
 	require.True(t, decision.ShouldRetry)
 }
+
+func TestRetryPolicyDecisionCarriesRecoveryGroupsAndMaxRetries(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{
+			Name:        "codex encrypted recovery",
+			Action:      RetryPolicyActionRetry,
+			StatusCodes: "400",
+			MessageContains: []string{
+				"encrypted content",
+				"could not be verified",
+			},
+			RetryGroups: []string{"codex-primary", "codex-backup"},
+			MaxRetries:  2,
+		},
+	}
+
+	decision := ShouldRetryByPolicy(RetryPolicyInput{
+		StatusCode:   400,
+		ErrorMessage: "status_code=400, The encrypted content gAAA could not be verified",
+	})
+
+	require.True(t, decision.Matched)
+	require.True(t, decision.ShouldRetry)
+	require.Equal(t, RetryPolicySourceGlobal, decision.Source)
+	require.Equal(t, "codex encrypted recovery", decision.RuleName)
+	require.Equal(t, []string{"codex-primary", "codex-backup"}, decision.RetryGroups)
+	require.Equal(t, 2, decision.MaxRetries)
+}

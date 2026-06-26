@@ -21,9 +21,11 @@ type ChannelSettings struct {
 }
 
 type RetryPolicyRule struct {
-	Name       string                `json:"name,omitempty"`
-	Action     string                `json:"action"`
-	Conditions RetryPolicyConditions `json:"conditions,omitempty"`
+	Name        string                `json:"name,omitempty"`
+	Action      string                `json:"action"`
+	Conditions  RetryPolicyConditions `json:"conditions,omitempty"`
+	RetryGroups []string              `json:"retry_groups,omitempty"`
+	MaxRetries  int                   `json:"max_retries,omitempty"`
 
 	Models          []string          `json:"models,omitempty"`
 	ChannelIDs      []int             `json:"channel_ids,omitempty"`
