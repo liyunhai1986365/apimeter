@@ -27,9 +27,10 @@ import {
   SquareTerminal,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { AnimateInView } from '@/components/animate-in-view'
-import { Button } from '@/components/ui/button'
+import { shouldShowModelSellCliSection } from '@/lib/site-branding'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { AnimateInView } from '@/components/animate-in-view'
 
 const MACOS_INSTALL_COMMAND =
   'curl -fsSL https://static.modelsell.com/modelsell-cli/install.sh | sh'
@@ -47,6 +48,7 @@ export function AgentAccess() {
   const { t } = useTranslation()
   const [installTarget, setInstallTarget] = useState<'unix' | 'windows'>('unix')
   const [copied, setCopied] = useState(false)
+  const showModelSellCliSection = shouldShowModelSellCliSection()
   const installCommand =
     installTarget === 'unix' ? MACOS_INSTALL_COMMAND : WINDOWS_INSTALL_COMMAND
 
@@ -55,6 +57,8 @@ export function AgentAccess() {
     setCopied(true)
     window.setTimeout(() => setCopied(false), 1600)
   }
+
+  if (!showModelSellCliSection) return null
 
   return (
     <section className='relative z-10 px-6 py-16 md:py-24'>

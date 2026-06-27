@@ -5,6 +5,7 @@ import {
   getCliDisplayName,
   getSitePlanName,
   getSiteServerAddress,
+  shouldShowModelSellCliSection,
 } from './site-branding'
 
 describe('site branding helpers', () => {
@@ -31,5 +32,12 @@ describe('site branding helpers', () => {
     } finally {
       globalThis.window = originalWindow
     }
+  })
+
+  test('shows the ModelSell CLI section only on the ModelSell domain', () => {
+    assert.equal(shouldShowModelSellCliSection('modelsell.com'), true)
+    assert.equal(shouldShowModelSellCliSection('www.modelsell.com'), true)
+    assert.equal(shouldShowModelSellCliSection('agent.example.com'), false)
+    assert.equal(shouldShowModelSellCliSection('modelsell.com.evil.com'), false)
   })
 })

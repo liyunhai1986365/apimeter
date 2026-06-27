@@ -19,6 +19,10 @@ For commercial licensing, please contact support@quantumnous.com
 import { DEFAULT_SYSTEM_NAME } from '@/lib/constants'
 
 const MODELSELL_NAME = 'Modelsell'
+const MODELSELL_CLI_SECTION_HOSTS = new Set([
+  'modelsell.com',
+  'www.modelsell.com',
+])
 const DEFAULT_SERVER_ADDRESS = ''
 
 function trimSlash(value: string): string {
@@ -31,6 +35,13 @@ export function getSiteName(systemName?: string): string {
 
 export function getCliDisplayName(systemName?: string): string {
   return `${getSiteName(systemName)} CLI`
+}
+
+export function shouldShowModelSellCliSection(hostname?: string): boolean {
+  const host =
+    hostname ??
+    (typeof window !== 'undefined' ? window.location.hostname : undefined)
+  return MODELSELL_CLI_SECTION_HOSTS.has((host || '').trim().toLowerCase())
 }
 
 export function getSitePlanName(systemName?: string): string {
