@@ -31,7 +31,7 @@ func setupAgentGroupControllerTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	model.DB = db
 	model.LOG_DB = db
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.AgentUser{}, &model.AgentGroupRatio{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.AgentUser{}, &model.AgentGroupRatio{}, &model.AgentUserGroupConfig{}))
 
 	t.Cleanup(func() {
 		sqlDB, err := db.DB()
@@ -52,19 +52,24 @@ func TestGetUserGroupsUsesAgentConfiguredVisibleGroups(t *testing.T) {
 	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
 	require.NoError(t, model.DB.Create(&model.User{Id: 101, Username: "agent-user", Group: "default", Status: common.UserStatusEnabled}).Error)
 	require.NoError(t, model.DB.Create(&model.AgentUser{AgentId: 1, UserId: 101, Status: model.AgentUserStatusEnabled, Group: "starter"}).Error)
-	_, err := agentservice.UpsertGroupRatio(1, "starter", "default", 1, true, []string{"agent-vip"}, nil)
+	_, err := agentservice.UpsertGroupRatio(1, "starter", "default", "", 1, true)
 	require.NoError(t, err)
-	_, err = agentservice.UpsertGroupRatio(1, "agent-vip", "vip", 1.5, false, nil, nil)
+	_, err = agentservice.UpsertGroupRatio(1, "agent-vip", "vip", "", 1.5, false)
+	require.NoError(t, err)
+	_, err = agentservice.UpsertUserGroupConfig(1, "starter", []string{"agent-vip"})
 	require.NoError(t, err)
 	groups, err := agentservice.EffectiveGroupMap(1)
+	require.NoError(t, err)
+	userGroups, err := agentservice.UserGroupConfigMap(1)
 	require.NoError(t, err)
 
 	router := gin.New()
 	router.GET("/api/user/self/groups", func(c *gin.Context) {
 		c.Set("id", 101)
 		common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
-			AgentID: 1,
-			Groups:  groups,
+			AgentID:    1,
+			Groups:     groups,
+			UserGroups: userGroups,
 		})
 		GetUserGroups(c)
 	})

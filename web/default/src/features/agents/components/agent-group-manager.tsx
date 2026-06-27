@@ -38,18 +38,16 @@ type AgentGroupManagerProps = {
   groupRatios: AgentGroupRatio[]
   groupName: string
   systemGroupName: string
+  groupDescription: string
   groupRatio: string
   groupVisible: boolean
-  visibleGroups: string[]
-  removeGroups: string[]
   canSave: boolean
   isPending: boolean
   onGroupNameChange: (value: string) => void
   onSystemGroupNameChange: (value: string) => void
+  onGroupDescriptionChange: (value: string) => void
   onGroupRatioChange: (value: string) => void
   onGroupVisibleChange: (value: boolean) => void
-  onVisibleGroupsChange: (value: string[]) => void
-  onRemoveGroupsChange: (value: string[]) => void
   onSave: () => void
   onEdit: (rule: AgentGroupRatio) => void
 }
@@ -61,18 +59,21 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
     [props.groupRatios]
   )
   const systemGroupOptions = useMemo(() => {
-    const seen = new Set<string>()
-    return props.groupRatios.filter((item) => {
-      if (!item.system_group_name || seen.has(item.system_group_name)) {
-        return false
+    const groups = new Map<string, AgentGroupRatio>()
+    for (const item of props.groupRatios) {
+      if (!item.system_group_name || groups.has(item.system_group_name)) {
+        continue
       }
-      seen.add(item.system_group_name)
-      return true
-    })
+      groups.set(item.system_group_name, item)
+    }
+    return Array.from(groups.values()).sort((a, b) =>
+      a.system_group_name.localeCompare(b.system_group_name)
+    )
   }, [props.groupRatios])
   const selectedSystemGroup = systemGroupOptions.find(
     (item) => item.system_group_name === props.systemGroupName
   )
+  const selectedBaseRatio = selectedSystemGroup?.system_ratio ?? 0
   const visibleCount = configuredGroups.filter(
     (item) => item.visible && item.available
   ).length
@@ -80,31 +81,6 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
   const unavailableCount = configuredGroups.filter(
     (item) => !item.available
   ).length
-  const visibleGroupOptions = configuredGroups.filter(
-    (item) => item.available && item.group_name !== props.groupName
-  )
-  const toggleVisibleGroup = (groupName: string) => {
-    if (props.visibleGroups.includes(groupName)) {
-      props.onVisibleGroupsChange(
-        props.visibleGroups.filter((item) => item !== groupName)
-      )
-      return
-    }
-    props.onVisibleGroupsChange([...props.visibleGroups, groupName].sort())
-  }
-  const removeGroupOptions = configuredGroups.filter(
-    (item) => item.available && item.visible && item.group_name !== props.groupName
-  )
-  const toggleRemoveGroup = (groupName: string) => {
-    if (props.removeGroups.includes(groupName)) {
-      props.onRemoveGroupsChange(
-        props.removeGroups.filter((item) => item !== groupName)
-      )
-      return
-    }
-    props.onRemoveGroupsChange([...props.removeGroups, groupName].sort())
-  }
-
   return (
     <section className='rounded-lg border p-3'>
       <div className='mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between'>
@@ -112,7 +88,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
           <h3 className='text-sm font-semibold'>{t('Agent Groups')}</h3>
           <p className='text-muted-foreground mt-1 max-w-2xl text-xs'>
             {t(
-              'Create proxy-facing groups, map them to original system groups, and decide which groups users can choose.'
+              'Create proxy-facing groups, map each one to a system group, and customize the name and description users see.'
             )}
           </p>
         </div>
@@ -142,6 +118,19 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
 
           <div className='grid gap-1.5'>
             <span className='text-muted-foreground text-xs'>
+              {t('Group description')}
+            </span>
+            <Input
+              value={props.groupDescription}
+              onChange={(event) =>
+                props.onGroupDescriptionChange(event.target.value)
+              }
+              placeholder={t('Optional description')}
+            />
+          </div>
+
+          <div className='grid gap-2'>
+            <span className='text-muted-foreground text-xs'>
               {t('Original System Group')}
             </span>
             <select
@@ -161,7 +150,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
               ))}
             </select>
             <span className='text-muted-foreground text-[11px]'>
-              {t('Minimum discount')}: {selectedSystemGroup?.system_ratio ?? 0}
+              {t('Minimum discount')}: {selectedBaseRatio}
             </span>
           </div>
 
@@ -174,7 +163,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
               onChange={(event) => props.onGroupRatioChange(event.target.value)}
               type='number'
               step='0.01'
-              min={selectedSystemGroup?.system_ratio ?? 0}
+              min={selectedBaseRatio}
             />
           </div>
 
@@ -182,7 +171,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
             <div>
               <div className='text-xs font-medium'>{t('Visible to users')}</div>
               <div className='text-muted-foreground text-[11px]'>
-                {t('Hidden groups can still be assigned manually.')}
+                {t('Hidden agent groups can still be appended by user group rules.')}
               </div>
             </div>
             <Switch
@@ -191,74 +180,6 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                 props.onGroupVisibleChange(checked === true)
               }
             />
-          </div>
-
-          <div className='grid gap-2 rounded-md bg-muted/40 px-3 py-2'>
-            <div>
-              <div className='text-xs font-medium'>
-                {t('Additional groups for members')}
-              </div>
-              <div className='text-muted-foreground text-[11px]'>
-                {t(
-                  'Members still see globally visible groups; selected groups are appended to this user group.'
-                )}
-              </div>
-            </div>
-            <div className='flex max-h-32 flex-wrap gap-2 overflow-y-auto'>
-              {visibleGroupOptions.length === 0 ? (
-                <span className='text-muted-foreground text-xs'>
-                  {t('No available groups to append')}
-                </span>
-              ) : (
-                visibleGroupOptions.map((item) => (
-                  <button
-                    key={item.group_name}
-                    type='button'
-                    className='data-[selected=true]:bg-primary data-[selected=true]:text-primary-foreground rounded-md border px-2 py-1 text-xs'
-                    data-selected={props.visibleGroups.includes(
-                      item.group_name
-                    )}
-                    onClick={() => toggleVisibleGroup(item.group_name)}
-                  >
-                    {item.group_name}
-                  </button>
-                ))
-              )}
-            </div>
-          </div>
-
-          <div className='grid gap-2 rounded-md bg-muted/40 px-3 py-2'>
-            <div>
-              <div className='text-xs font-medium'>
-                {t('Removed groups for members')}
-              </div>
-              <div className='text-muted-foreground text-[11px]'>
-                {t(
-                  'Selected globally visible groups are hidden from members of this user group.'
-                )}
-              </div>
-            </div>
-            <div className='flex max-h-32 flex-wrap gap-2 overflow-y-auto'>
-              {removeGroupOptions.length === 0 ? (
-                <span className='text-muted-foreground text-xs'>
-                  {t('No visible groups to remove')}
-                </span>
-              ) : (
-                removeGroupOptions.map((item) => (
-                  <button
-                    key={item.group_name}
-                    type='button'
-                    className='data-[selected=true]:bg-destructive data-[selected=true]:text-destructive-foreground rounded-md border px-2 py-1 text-xs'
-                    data-selected={props.removeGroups.includes(
-                      item.group_name
-                    )}
-                    onClick={() => toggleRemoveGroup(item.group_name)}
-                  >
-                    {item.group_name}
-                  </button>
-                ))
-              )}
-            </div>
           </div>
 
           <Button
@@ -276,12 +197,11 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
             <TableHeader>
               <TableRow>
                 <TableHead>{t('Group')}</TableHead>
+                <TableHead>{t('Description')}</TableHead>
                 <TableHead>{t('Mapping')}</TableHead>
                 <TableHead>{t('Agent Discount')}</TableHead>
                 <TableHead>{t('Effective Discount')}</TableHead>
                 <TableHead>{t('Visibility')}</TableHead>
-                <TableHead>{t('Appended groups')}</TableHead>
-                <TableHead>{t('Removed groups')}</TableHead>
                 <TableHead>{t('Status')}</TableHead>
                 <TableHead>{t('Actions')}</TableHead>
               </TableRow>
@@ -289,7 +209,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
             <TableBody>
               {configuredGroups.length === 0 ? (
                 <TableEmpty
-                  colSpan={9}
+                  colSpan={8}
                   title={t('No Agent Groups')}
                   description={t(
                     'Create an agent group before assigning users or showing groups in pricing.'
@@ -303,10 +223,15 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                       {rule.group_name}
                     </TableCell>
                     <TableCell>
+                      <div className='text-muted-foreground max-w-[220px] truncate text-xs'>
+                        {rule.description || '-'}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <div className='flex items-center gap-2 text-xs'>
                         <Link2 className='text-muted-foreground size-3.5' />
                         <span className='font-mono'>
-                          {rule.system_group_name}
+                          {rule.system_group_name || '-'}
                         </span>
                       </div>
                     </TableCell>
@@ -323,20 +248,6 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                         )}
                         {rule.visible ? t('Visible') : t('Hidden')}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className='text-muted-foreground max-w-[180px] truncate text-xs'>
-                        {rule.visible_groups && rule.visible_groups.length > 0
-                          ? rule.visible_groups.join(', ')
-                          : t('No appended groups')}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className='text-muted-foreground max-w-[180px] truncate text-xs'>
-                        {rule.remove_groups && rule.remove_groups.length > 0
-                          ? rule.remove_groups.join(', ')
-                          : t('No removed groups')}
-                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge

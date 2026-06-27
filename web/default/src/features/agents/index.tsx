@@ -71,11 +71,13 @@ import { HeaderNavigationSection } from '@/features/system-settings/maintenance/
 import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
 import {
   createAgentDomain,
+  buildAgentUserGroupOptions,
   getAgentSelf,
   listAgentDomains,
   listAgentGroupRatios,
   listAgentLedger,
   listAgentUsers,
+  listAgentUserGroups,
   listAgentWithdrawals,
   parseAgentBranding,
   stringifyAgentBranding,
@@ -84,9 +86,11 @@ import {
   updateAgentUserGroup,
   updateAgentUserStatus,
   upsertAgentGroupRatio,
+  upsertAgentUserGroup,
   verifyAgentDomain,
 } from './api'
 import { AgentGroupManager } from './components/agent-group-manager'
+import { AgentUserGroupManager } from './components/agent-user-group-manager'
 import {
   AgentUsersPaginationControls,
   AgentUsersSearchControls,
@@ -97,6 +101,7 @@ import type {
   AgentGroupRatio,
   AgentLedger,
   AgentUser,
+  AgentUserGroupConfig,
   AgentWithdrawal,
 } from './types'
 
@@ -202,9 +207,12 @@ export function Agents() {
   const [withdrawMoney, setWithdrawMoney] = useState('')
   const [accountInfo, setAccountInfo] = useState('')
   const [systemGroupName, setSystemGroupName] = useState('default')
+  const [groupDescription, setGroupDescription] = useState('')
   const [groupVisible, setGroupVisible] = useState(true)
-  const [visibleGroups, setVisibleGroups] = useState<string[]>([])
-  const [removeGroups, setRemoveGroups] = useState<string[]>([])
+  const [userGroupName, setUserGroupName] = useState('')
+  const [userGroupVisibleGroups, setUserGroupVisibleGroups] = useState<
+    string[]
+  >([])
   const [userKeywordInput, setUserKeywordInput] = useState('')
   const [userKeyword, setUserKeyword] = useState('')
   const [userPage, setUserPage] = useState(1)
@@ -221,6 +229,10 @@ export function Agents() {
   const groupRatiosQuery = useQuery({
     queryKey: ['agent', 'group-ratios'],
     queryFn: () => listAgentGroupRatios(),
+  })
+  const userGroupsQuery = useQuery({
+    queryKey: ['agent', 'user-groups'],
+    queryFn: () => listAgentUserGroups(),
   })
   const usersQuery = useQuery({
     queryKey: ['agent', 'users', userPage, userPageSize, userKeyword],
@@ -292,6 +304,20 @@ export function Agents() {
     },
   })
 
+  const saveUserGroupMutation = useMutation({
+    mutationFn: upsertAgentUserGroup,
+    onSuccess: () => {
+      toast.success(t('User group saved'))
+      queryClient.invalidateQueries({ queryKey: ['agent', 'user-groups'] })
+      queryClient.invalidateQueries({ queryKey: ['agent', 'users'] })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
   const withdrawMutation = useMutation({
     mutationFn: submitAgentWithdrawal,
     onSuccess: () => {
@@ -355,28 +381,31 @@ export function Agents() {
   const users = usersPage.items
   const domains = domainsPage.items
   const groupRatios = groupRatiosQuery.data?.data ?? []
-  const configuredGroupRatios = groupRatios.filter((item) => item.configured)
+  const userGroups = userGroupsQuery.data?.data ?? []
+  const userGroupOptions = buildAgentUserGroupOptions(userGroups)
   const ledger = ledgerPage.items
   const withdrawals = withdrawalsPage.items
   const canCreateDomain = newDomain.trim() !== ''
   const selectedGroupBaseRatio =
-    groupRatios.find((item) => item.group_name === groupName)?.system_ratio ??
     groupRatios.find((item) => item.system_group_name === systemGroupName)
-      ?.system_ratio ??
-    0
+      ?.system_ratio ?? 0
   const canSaveGroupRatio =
     groupName.trim() !== '' &&
     systemGroupName.trim() !== '' &&
     Number(groupRatio) >= selectedGroupBaseRatio
+  const canSaveUserGroup = userGroupName.trim() !== ''
   const canSubmitWithdrawal =
     Number(withdrawMoney) > 0 && accountInfo.trim() !== ''
   const editAgentGroup = (rule: AgentGroupRatio) => {
     setGroupName(rule.group_name)
     setSystemGroupName(rule.system_group_name)
+    setGroupDescription(rule.description ?? '')
     setGroupRatio(String(rule.effective_ratio || rule.system_ratio || 1))
     setGroupVisible(rule.visible)
-    setVisibleGroups(rule.visible_groups ?? [])
-    setRemoveGroups(rule.remove_groups ?? [])
+  }
+  const editAgentUserGroup = (rule: AgentUserGroupConfig) => {
+    setUserGroupName(rule.group_name)
+    setUserGroupVisibleGroups(rule.visible_groups ?? [])
   }
   const searchAgentUsers = () => {
     setUserPage(1)
@@ -804,7 +833,7 @@ export function Agents() {
                                 value={user.group}
                                 disabled={
                                   updateUserGroupMutation.isPending ||
-                                  configuredGroupRatios.length === 0
+                                  userGroupOptions.length === 0
                                 }
                                 onChange={(event) =>
                                   updateUserGroupMutation.mutate({
@@ -813,12 +842,18 @@ export function Agents() {
                                   })
                                 }
                               >
-                                {configuredGroupRatios.map((item) => (
+                                {user.group &&
+                                !userGroupOptions.includes(user.group) ? (
+                                  <option value={user.group}>
+                                    {user.group}
+                                  </option>
+                                ) : null}
+                                {userGroupOptions.map((group) => (
                                   <option
-                                    key={item.group_name}
-                                    value={item.group_name}
+                                    key={group}
+                                    value={group}
                                   >
-                                    {item.group_name}
+                                    {group}
                                   </option>
                                 ))}
                               </select>
@@ -876,44 +911,60 @@ export function Agents() {
             </TabsContent>
 
             <TabsContent value='pricing'>
-              <AgentGroupManager
-                groupRatios={groupRatios}
-                groupName={groupName}
-                systemGroupName={systemGroupName}
-                groupRatio={groupRatio}
-                groupVisible={groupVisible}
-                visibleGroups={visibleGroups}
-                removeGroups={removeGroups}
-                canSave={canSaveGroupRatio}
-                isPending={saveGroupRatioMutation.isPending}
-                onGroupNameChange={setGroupName}
-                onSystemGroupNameChange={(nextSystemGroup) => {
-                  setSystemGroupName(nextSystemGroup)
-                  const nextRatio = groupRatios.find(
-                    (item) => item.system_group_name === nextSystemGroup
-                  )
-                  setGroupRatio(
-                    String(
-                      nextRatio?.effective_ratio ?? nextRatio?.system_ratio ?? 1
+              <div className='flex flex-col gap-4'>
+                <AgentUserGroupManager
+                  userGroups={userGroups}
+                  groupRatios={groupRatios}
+                  groupName={userGroupName}
+                  visibleGroups={userGroupVisibleGroups}
+                  canSave={canSaveUserGroup}
+                  isPending={saveUserGroupMutation.isPending}
+                  onGroupNameChange={setUserGroupName}
+                  onVisibleGroupsChange={setUserGroupVisibleGroups}
+                  onSave={() =>
+                    saveUserGroupMutation.mutate({
+                      group_name: userGroupName,
+                      visible_groups: userGroupVisibleGroups,
+                    })
+                  }
+                  onEdit={editAgentUserGroup}
+                />
+                <AgentGroupManager
+                  groupRatios={groupRatios}
+                  groupName={groupName}
+                  systemGroupName={systemGroupName}
+                  groupDescription={groupDescription}
+                  groupRatio={groupRatio}
+                  groupVisible={groupVisible}
+                  canSave={canSaveGroupRatio}
+                  isPending={saveGroupRatioMutation.isPending}
+                  onGroupNameChange={setGroupName}
+                  onSystemGroupNameChange={(nextSystemGroup) => {
+                    setSystemGroupName(nextSystemGroup)
+                    const nextRatio = groupRatios.find(
+                      (item) => item.system_group_name === nextSystemGroup
                     )
-                  )
-                }}
-                onGroupRatioChange={setGroupRatio}
-                onGroupVisibleChange={setGroupVisible}
-                onVisibleGroupsChange={setVisibleGroups}
-                onRemoveGroupsChange={setRemoveGroups}
-                onSave={() =>
-                  saveGroupRatioMutation.mutate({
-                    group_name: groupName,
-                    system_group_name: systemGroupName,
-                    ratio: Number(groupRatio),
-                    visible: groupVisible,
-                    visible_groups: visibleGroups,
-                    remove_groups: removeGroups,
-                  })
-                }
-                onEdit={editAgentGroup}
-              />
+                    setGroupRatio(
+                      String(
+                        nextRatio?.effective_ratio ?? nextRatio?.system_ratio ?? 1
+                      )
+                    )
+                  }}
+                  onGroupDescriptionChange={setGroupDescription}
+                  onGroupRatioChange={setGroupRatio}
+                  onGroupVisibleChange={setGroupVisible}
+                  onSave={() =>
+                    saveGroupRatioMutation.mutate({
+                      group_name: groupName,
+                      system_group_name: systemGroupName,
+                      description: groupDescription,
+                      ratio: Number(groupRatio),
+                      visible: groupVisible,
+                    })
+                  }
+                  onEdit={editAgentGroup}
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value='settlement'>

@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"strings"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
@@ -52,8 +54,10 @@ func GetPricing(c *gin.Context) {
 		if err == nil {
 			group = user.Group
 			groupForSystemRatio := group
-			if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, group); ok {
-				groupForSystemRatio = agentGroup.SystemGroupName
+			if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+				if groups := agentservice.ResolveSystemGroups(agentCtx, group); len(groups) > 0 {
+					groupForSystemRatio = groups[0]
+				}
 			}
 			for g := range groupRatio {
 				ratio, ok := ratio_setting.GetGroupGroupRatio(groupForSystemRatio, g)
@@ -77,7 +81,11 @@ func GetPricing(c *gin.Context) {
 		agentSystemGroups := make(map[string]struct{})
 		visibleGroups := agentservice.VisibleGroupsForUser(agentCtx, group)
 		for _, agentGroup := range visibleGroups {
-			agentUsableGroup[agentGroup.GroupName] = setting.GetUsableGroupDescription(agentGroup.SystemGroupName)
+			desc := strings.TrimSpace(agentGroup.Description)
+			if desc == "" {
+				desc = setting.GetUsableGroupDescription(agentGroup.SystemGroupName)
+			}
+			agentUsableGroup[agentGroup.GroupName] = desc
 			agentGroupRatio[agentGroup.GroupName] = agentGroup.EffectiveRatio
 			agentSystemGroups[agentGroup.SystemGroupName] = struct{}{}
 		}

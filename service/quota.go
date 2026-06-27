@@ -164,7 +164,9 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 	baseGroupRatio := actualGroupRatio
 	if relayInfo.AgentContext != nil {
 		displayGroup := relayInfo.UsingGroup
-		if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
+		if agentGroup, ok := agentservice.ResolveGroupForSelectedSystem(relayInfo.AgentContext, relayInfo.TokenGroup, relayInfo.UsingGroup); ok {
+			displayGroup = agentGroup.GroupName
+		} else if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
 			displayGroup = agentGroup.GroupName
 			relayInfo.UsingGroup = agentGroup.SystemGroupName
 			groupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)

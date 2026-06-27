@@ -136,8 +136,11 @@ func Distribute() func(c *gin.Context) {
 				var selectGroup string
 				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 				channelGroup := usingGroup
-				if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
-					channelGroup = agentGroup.SystemGroupName
+				agentCtx, _ := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
+				if agentCtx != nil {
+					if groups := agentservice.ResolveSystemGroups(agentCtx, usingGroup); len(groups) > 0 {
+						channelGroup = groups[0]
+					}
 				}
 				hasGroupPolicyChain := len(service.ResolveTokenGroupChain(c, usingGroup)) > 0
 				if model.IsUserOwnedProviderGroup(channelGroup) && !hasGroupPolicyChain {
@@ -160,13 +163,14 @@ func Distribute() func(c *gin.Context) {
 					}
 					if playgroundRequest.Group != "" {
 						checkUsingGroup := usingGroup
-						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
-							checkUsingGroup = agentGroup.SystemGroupName
+						if agentCtx != nil {
+							if groups := agentservice.ResolveSystemGroups(agentCtx, usingGroup); len(groups) > 0 {
+								checkUsingGroup = groups[0]
+							}
 						}
 						checkRequestedGroup := playgroundRequest.Group
 						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, playgroundRequest.Group); ok {
 							checkRequestedGroup = agentGroup.SystemGroupName
-							agentCtx, _ := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
 							if !agentservice.UserCanSeeGroup(agentCtx, usingGroup, agentGroup.GroupName) {
 								abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorGroupAccessDenied))
 								return
@@ -179,8 +183,10 @@ func Distribute() func(c *gin.Context) {
 						usingGroup = playgroundRequest.Group
 						common.SetContextKey(c, constant.ContextKeyUsingGroup, usingGroup)
 						channelGroup = usingGroup
-						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, usingGroup); ok {
-							channelGroup = agentGroup.SystemGroupName
+						if agentCtx != nil {
+							if groups := agentservice.ResolveSystemGroups(agentCtx, usingGroup); len(groups) > 0 {
+								channelGroup = groups[0]
+							}
 						}
 						if model.IsUserOwnedProviderGroup(channelGroup) {
 							ownedChannel, ownedErr := model.GetUserOwnedProviderChannelForGroup(c.GetInt("id"), channelGroup, modelRequest.Model)

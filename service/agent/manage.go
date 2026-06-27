@@ -40,16 +40,20 @@ type Balance struct {
 }
 
 type GroupRatioView struct {
-	GroupName       string   `json:"group_name"`
-	SystemGroupName string   `json:"system_group_name"`
-	SystemRatio     float64  `json:"system_ratio"`
-	ConfiguredRatio float64  `json:"configured_ratio"`
-	EffectiveRatio  float64  `json:"effective_ratio"`
-	Configured      bool     `json:"configured"`
-	Visible         bool     `json:"visible"`
-	Available       bool     `json:"available"`
-	VisibleGroups   []string `json:"visible_groups"`
-	RemoveGroups    []string `json:"remove_groups"`
+	GroupName       string  `json:"group_name"`
+	SystemGroupName string  `json:"system_group_name"`
+	Description     string  `json:"description"`
+	SystemRatio     float64 `json:"system_ratio"`
+	ConfiguredRatio float64 `json:"configured_ratio"`
+	EffectiveRatio  float64 `json:"effective_ratio"`
+	Configured      bool    `json:"configured"`
+	Visible         bool    `json:"visible"`
+	Available       bool    `json:"available"`
+}
+
+type UserGroupConfigView struct {
+	GroupName     string   `json:"group_name"`
+	VisibleGroups []string `json:"visible_groups"`
 }
 
 type LedgerView struct {
@@ -245,14 +249,13 @@ func ListGroupRatios(agentID int) ([]GroupRatioView, error) {
 		views = append(views, GroupRatioView{
 			GroupName:       group.GroupName,
 			SystemGroupName: group.SystemGroupName,
+			Description:     group.Description,
 			SystemRatio:     group.SystemRatio,
 			ConfiguredRatio: group.ConfiguredRatio,
 			EffectiveRatio:  group.EffectiveRatio,
 			Configured:      true,
 			Visible:         group.Visible,
 			Available:       group.Available,
-			VisibleGroups:   group.VisibleGroups,
-			RemoveGroups:    group.RemoveGroups,
 		})
 	}
 	for systemGroupName, systemRatio := range systemRatios {
@@ -262,14 +265,13 @@ func ListGroupRatios(agentID int) ([]GroupRatioView, error) {
 		views = append(views, GroupRatioView{
 			GroupName:       systemGroupName,
 			SystemGroupName: systemGroupName,
+			Description:     "",
 			SystemRatio:     systemRatio,
 			ConfiguredRatio: 0,
 			EffectiveRatio:  systemRatio,
 			Configured:      false,
 			Visible:         true,
 			Available:       true,
-			VisibleGroups:   nil,
-			RemoveGroups:    nil,
 		})
 	}
 	sort.Slice(views, func(i, j int) bool {
@@ -281,24 +283,90 @@ func ListGroupRatios(agentID int) ([]GroupRatioView, error) {
 	return views, nil
 }
 
-func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, ratio float64, visible bool, visibleGroups []string, removeGroups []string) (*model.AgentGroupRatio, error) {
+func UserGroupConfigMap(agentID int) (map[string]types.AgentUserGroup, error) {
+	configs, err := model.ListAgentUserGroupConfigs(agentID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]types.AgentUserGroup, len(configs))
+	for _, config := range configs {
+		groupName := strings.TrimSpace(config.GroupName)
+		if groupName == "" {
+			continue
+		}
+		result[groupName] = types.AgentUserGroup{
+			GroupName:     groupName,
+			VisibleGroups: parseVisibleGroups(config.VisibleGroups),
+		}
+	}
+	return result, nil
+}
+
+func ListUserGroupConfigs(agentID int) ([]UserGroupConfigView, error) {
+	configs, err := model.ListAgentUserGroupConfigs(agentID)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]UserGroupConfigView, 0, len(configs))
+	for _, config := range configs {
+		groupName := strings.TrimSpace(config.GroupName)
+		if groupName == "" {
+			continue
+		}
+		views = append(views, UserGroupConfigView{
+			GroupName:     groupName,
+			VisibleGroups: parseVisibleGroups(config.VisibleGroups),
+		})
+	}
+	return views, nil
+}
+
+func UpsertUserGroupConfig(agentID int, groupName string, visibleGroups []string) (*model.AgentUserGroupConfig, error) {
+	groupName = strings.TrimSpace(groupName)
+	visibleGroups = normalizeVisibleGroupsForGroup(groupName, visibleGroups)
+	if groupName == "" {
+		return nil, ErrAgentUserGroupNotAllowed
+	}
+	var config model.AgentUserGroupConfig
+	err := model.DB.Where("agent_id = ? AND group_name = ?", agentID, groupName).First(&config).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		config = model.AgentUserGroupConfig{
+			AgentId:       agentID,
+			GroupName:     groupName,
+			VisibleGroups: strings.Join(visibleGroups, ","),
+		}
+		err = model.DB.Create(&config).Error
+	} else {
+		err = model.DB.Model(&config).Updates(map[string]interface{}{
+			"visible_groups": strings.Join(visibleGroups, ","),
+		}).Error
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &config, nil
+}
+
+func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, description string, ratio float64, visible bool) (*model.AgentGroupRatio, error) {
 	groupName = strings.TrimSpace(groupName)
 	systemGroupName = strings.TrimSpace(systemGroupName)
-	visibleGroups = normalizeVisibleGroupsForGroup(groupName, visibleGroups)
-	removeGroups = normalizeVisibleGroupsForGroup(groupName, removeGroups)
-	if systemGroupName == "" {
-		systemGroupName = groupName
-	}
+	description = strings.TrimSpace(description)
 	if groupName == "" {
 		return nil, ErrAgentGroupRatioNotFound
+	}
+	if systemGroupName == "" {
+		systemGroupName = groupName
 	}
 	if !ratio_setting.ContainsGroupRatio(systemGroupName) {
 		return nil, ErrAgentSystemGroupNotFound
 	}
+	systemRatio := ratio_setting.GetGroupRatio(systemGroupName)
 	if ratio < 0 {
 		return nil, ErrInvalidAgentGroupRatio
 	}
-	systemRatio := ratio_setting.GetGroupRatio(systemGroupName)
 	if ratio < systemRatio {
 		return nil, ErrAgentGroupRatioBelowSystem
 	}
@@ -312,19 +380,17 @@ func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, rat
 			AgentId:         agentID,
 			GroupName:       groupName,
 			SystemGroupName: systemGroupName,
+			Description:     description,
 			Ratio:           ratio,
 			Visible:         visible,
-			VisibleGroups:   strings.Join(visibleGroups, ","),
-			RemoveGroups:    strings.Join(removeGroups, ","),
 		}
 		err = model.DB.Create(&groupRatio).Error
 	} else {
 		err = model.DB.Model(&groupRatio).Updates(map[string]interface{}{
 			"system_group_name": systemGroupName,
+			"description":       description,
 			"ratio":             ratio,
 			"visible":           visible,
-			"visible_groups":    strings.Join(visibleGroups, ","),
-			"remove_groups":     strings.Join(removeGroups, ","),
 		}).Error
 	}
 	if err != nil {
@@ -336,7 +402,7 @@ func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, rat
 func buildAgentGroup(configured *model.AgentGroupRatio, systemRatios map[string]float64) types.AgentGroup {
 	systemGroupName := strings.TrimSpace(configured.SystemGroupName)
 	if systemGroupName == "" {
-		systemGroupName = configured.GroupName
+		systemGroupName = strings.TrimSpace(configured.GroupName)
 	}
 	systemRatio, available := systemRatios[systemGroupName]
 	effectiveRatio := configured.Ratio
@@ -348,13 +414,12 @@ func buildAgentGroup(configured *model.AgentGroupRatio, systemRatios map[string]
 	return types.AgentGroup{
 		GroupName:       configured.GroupName,
 		SystemGroupName: systemGroupName,
+		Description:     strings.TrimSpace(configured.Description),
 		SystemRatio:     systemRatio,
 		ConfiguredRatio: configured.Ratio,
 		EffectiveRatio:  effectiveRatio,
 		Visible:         configured.Visible,
 		Available:       available,
-		VisibleGroups:   parseVisibleGroups(configured.VisibleGroups),
-		RemoveGroups:    parseVisibleGroups(configured.RemoveGroups),
 	}
 }
 
@@ -435,19 +500,12 @@ func UpdateUserGroup(agentID int, userID int, groupName string) error {
 	} else if !ok {
 		return model.ErrAgentUserNotFound
 	}
-	agentGroups, err := model.GetAgentGroupRatioConfigMap(agentID)
+	userGroups, err := model.GetAgentUserGroupConfigMap(agentID)
 	if err != nil {
 		return err
 	}
-	groupConfig, ok := agentGroups[groupName]
+	_, ok := userGroups[groupName]
 	if !ok {
-		return ErrAgentUserGroupNotAllowed
-	}
-	systemGroupName := strings.TrimSpace(groupConfig.SystemGroupName)
-	if systemGroupName == "" {
-		systemGroupName = groupConfig.GroupName
-	}
-	if !ratio_setting.ContainsGroupRatio(systemGroupName) {
 		return ErrAgentUserGroupNotAllowed
 	}
 	if err := model.DB.Model(&model.AgentUser{}).

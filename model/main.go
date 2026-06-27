@@ -324,6 +324,7 @@ func migrateDB() error {
 		&AgentUser{},
 		&AgentPricingRule{},
 		&AgentGroupRatio{},
+		&AgentUserGroupConfig{},
 		&AgentLedger{},
 		&AgentWithdrawal{},
 		&BillingUsageItem{},
@@ -397,6 +398,7 @@ func migrateDBFast() error {
 		{&AgentUser{}, "AgentUser"},
 		{&AgentPricingRule{}, "AgentPricingRule"},
 		{&AgentGroupRatio{}, "AgentGroupRatio"},
+		{&AgentUserGroupConfig{}, "AgentUserGroupConfig"},
 		{&AgentLedger{}, "AgentLedger"},
 		{&AgentWithdrawal{}, "AgentWithdrawal"},
 		{&BillingUsageItem{}, "BillingUsageItem"},
@@ -461,6 +463,11 @@ func migrateAgentGroupRatiosMappingColumns() error {
 	}
 	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "visible") {
 		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "Visible"); err != nil {
+			return err
+		}
+	}
+	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "description") {
+		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "Description"); err != nil {
 			return err
 		}
 	}

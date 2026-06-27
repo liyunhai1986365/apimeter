@@ -408,8 +408,10 @@ func TokenAuth() func(c *gin.Context) {
 		}
 		tokenGroup := token.Group
 		checkUserGroup := userGroup
-		if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, userGroup); ok {
-			checkUserGroup = agentGroup.SystemGroupName
+		if agentCtx != nil {
+			if groups := agentservice.ResolveSystemGroups(agentCtx, userGroup); len(groups) > 0 {
+				checkUserGroup = groups[0]
+			}
 		}
 		if tokenGroup != "" {
 			if tokenGroup != "auto" {

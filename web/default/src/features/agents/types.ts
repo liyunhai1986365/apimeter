@@ -91,14 +91,18 @@ export type AdminAgentDomain = AgentDomain & {
 export type AgentGroupRatio = {
   group_name: string
   system_group_name: string
+  description?: string
   system_ratio: number
   configured_ratio: number
   effective_ratio: number
   configured: boolean
   visible: boolean
   available: boolean
+}
+
+export type AgentUserGroupConfig = {
+  group_name: string
   visible_groups?: string[]
-  remove_groups?: string[]
 }
 
 export type AgentUser = {

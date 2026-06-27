@@ -7,19 +7,24 @@ type AgentContext struct {
 	DefaultMarkup float64
 	Branding      string
 	Groups        map[string]AgentGroup
+	UserGroups    map[string]AgentUserGroup
 	GroupRatios   map[string]float64
 }
 
 type AgentGroup struct {
 	GroupName       string
 	SystemGroupName string
+	Description     string
 	SystemRatio     float64
 	ConfiguredRatio float64
 	EffectiveRatio  float64
 	Visible         bool
 	Available       bool
-	VisibleGroups   []string
-	RemoveGroups    []string
+}
+
+type AgentUserGroup struct {
+	GroupName     string
+	VisibleGroups []string
 }
 
 type AgentBillingSnapshot struct {

@@ -124,12 +124,22 @@ type AgentGroupRatio struct {
 	AgentId         int     `json:"agent_id" gorm:"index:idx_agent_group_ratio_agent_group,priority:1;column:agent_id"`
 	GroupName       string  `json:"group_name" gorm:"type:varchar(64);index:idx_agent_group_ratio_agent_group,priority:2"`
 	SystemGroupName string  `json:"system_group_name" gorm:"type:varchar(64);index"`
+	Description     string  `json:"description" gorm:"type:varchar(255);default:''"`
 	Ratio           float64 `json:"ratio" gorm:"precision:10;scale:6;default:1"`
 	Visible         bool    `json:"visible"`
 	VisibleGroups   string  `json:"visible_groups" gorm:"type:text;column:visible_groups"`
 	RemoveGroups    string  `json:"remove_groups" gorm:"type:text;column:remove_groups"`
 	CreatedAt       int64   `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	UpdatedAt       int64   `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
+}
+
+type AgentUserGroupConfig struct {
+	Id            int    `json:"id"`
+	AgentId       int    `json:"agent_id" gorm:"uniqueIndex:idx_agent_user_group_agent_group,priority:1;column:agent_id"`
+	GroupName     string `json:"group_name" gorm:"type:varchar(64);uniqueIndex:idx_agent_user_group_agent_group,priority:2"`
+	VisibleGroups string `json:"visible_groups" gorm:"type:text;column:visible_groups"`
+	CreatedAt     int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+	UpdatedAt     int64  `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
 }
 
 type AgentLedger struct {
@@ -351,6 +361,26 @@ func ListAgentGroupRatios(agentId int) ([]*AgentGroupRatio, error) {
 		return nil, err
 	}
 	return ratios, nil
+}
+
+func ListAgentUserGroupConfigs(agentId int) ([]*AgentUserGroupConfig, error) {
+	groups := make([]*AgentUserGroupConfig, 0)
+	if err := DB.Where("agent_id = ?", agentId).Order("group_name asc").Find(&groups).Error; err != nil {
+		return nil, err
+	}
+	return groups, nil
+}
+
+func GetAgentUserGroupConfigMap(agentId int) (map[string]*AgentUserGroupConfig, error) {
+	groups, err := ListAgentUserGroupConfigs(agentId)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]*AgentUserGroupConfig, len(groups))
+	for _, group := range groups {
+		result[group.GroupName] = group
+	}
+	return result, nil
 }
 
 func ListAgentUsers(agentId int, keyword string, startIdx int, num int) ([]*AgentUserWithProfile, int64, error) {

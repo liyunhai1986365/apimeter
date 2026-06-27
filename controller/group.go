@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -40,9 +41,13 @@ func GetUserGroups(c *gin.Context) {
 			userGroup = agentUserGroup
 		}
 		for _, group := range agentservice.VisibleGroupsForUser(agentCtx, userGroup) {
+			desc := strings.TrimSpace(group.Description)
+			if desc == "" {
+				desc = setting.GetUsableGroupDescription(group.SystemGroupName)
+			}
 			usableGroups[group.GroupName] = map[string]interface{}{
 				"ratio": group.EffectiveRatio,
-				"desc":  setting.GetUsableGroupDescription(group.SystemGroupName),
+				"desc":  desc,
 			}
 		}
 		if channels, err := model.ListUserOwnedProviderChannels(userId); err == nil {

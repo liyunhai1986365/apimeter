@@ -58,6 +58,10 @@ func ResolveByHost(host string) (*Context, error) {
 	if err != nil {
 		return nil, err
 	}
+	userGroups, err := UserGroupConfigMap(agentWithDomain.Id)
+	if err != nil {
+		return nil, err
+	}
 	return &Context{
 		AgentID:       agentWithDomain.Id,
 		Domain:        agentWithDomain.Domain,
@@ -65,6 +69,7 @@ func ResolveByHost(host string) (*Context, error) {
 		DefaultMarkup: agentWithDomain.DefaultMarkup,
 		Branding:      agentWithDomain.Branding,
 		Groups:        groups,
+		UserGroups:    userGroups,
 		GroupRatios:   groupRatios,
 	}, nil
 }
@@ -117,10 +122,7 @@ func VisibleGroupsForUser(ctx *Context, userGroup string) map[string]types.Agent
 		}
 		result[group.GroupName] = group
 	}
-	if current, ok := ResolveGroup(ctx, userGroup); ok {
-		for _, groupName := range current.RemoveGroups {
-			delete(result, groupName)
-		}
+	if current, ok := ResolveUserGroup(ctx, userGroup); ok {
 		for _, groupName := range current.VisibleGroups {
 			group, ok := ResolveGroup(ctx, groupName)
 			if !ok {
@@ -141,6 +143,45 @@ func UserCanSeeGroup(ctx *Context, userGroup string, groupName string) bool {
 	}
 	_, ok := VisibleGroupsForUser(ctx, userGroup)[groupName]
 	return ok
+}
+
+func ResolveSystemGroups(ctx *Context, groupName string) []string {
+	if group, ok := ResolveGroup(ctx, groupName); ok {
+		if group.SystemGroupName != "" {
+			return []string{group.SystemGroupName}
+		}
+	}
+	if strings.TrimSpace(groupName) == "" {
+		return nil
+	}
+	return []string{strings.TrimSpace(groupName)}
+}
+
+func ResolveGroupForSelectedSystem(ctx *Context, requestedGroup string, selectedSystemGroup string) (types.AgentGroup, bool) {
+	group, ok := ResolveGroup(ctx, requestedGroup)
+	if !ok {
+		return types.AgentGroup{}, false
+	}
+	if selectedSystemGroup == "" || agentGroupContainsSystemGroup(group, selectedSystemGroup) {
+		return group, true
+	}
+	return types.AgentGroup{}, false
+}
+
+func agentGroupContainsSystemGroup(group types.AgentGroup, systemGroup string) bool {
+	systemGroup = strings.TrimSpace(systemGroup)
+	if systemGroup == "" {
+		return false
+	}
+	return group.SystemGroupName == systemGroup
+}
+
+func ResolveUserGroup(ctx *Context, groupName string) (types.AgentUserGroup, bool) {
+	if ctx == nil || strings.TrimSpace(groupName) == "" {
+		return types.AgentUserGroup{}, false
+	}
+	group, ok := ctx.UserGroups[groupName]
+	return group, ok
 }
 
 func ResolveGroup(ctx *Context, groupName string) (types.AgentGroup, bool) {

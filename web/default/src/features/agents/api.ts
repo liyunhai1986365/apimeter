@@ -24,12 +24,22 @@ import type {
   AgentBranding,
   AgentDomain,
   AgentGroupRatio,
+  AgentUserGroupConfig,
   AgentLedger,
   AgentPage,
   AgentSelfPayload,
   AgentUser,
   AgentWithdrawal,
 } from './types'
+
+export function buildAgentUserGroupOptions(
+  userGroups: AgentUserGroupConfig[]
+) {
+  return userGroups
+    .map((item) => item.group_name.trim())
+    .filter((groupName, index, groups) => groupName && groups.indexOf(groupName) === index)
+    .sort((a, b) => a.localeCompare(b))
+}
 
 export async function getAgentSelf() {
   const res = await api.get<{ success: boolean; data: AgentSelfPayload }>(
@@ -185,18 +195,48 @@ export async function listAgentGroupRatios() {
   return res.data
 }
 
-export async function upsertAgentGroupRatio(input: {
+type AgentGroupRatioPayloadInput = {
   group_name: string
   system_group_name: string
+  description?: string
   ratio: number
   visible: boolean
-  visible_groups?: string[]
-  remove_groups?: string[]
-}) {
+}
+
+export function buildAgentGroupRatioPayload(input: AgentGroupRatioPayloadInput) {
+  return {
+    group_name: input.group_name.trim(),
+    system_group_name: input.system_group_name.trim(),
+    description: input.description?.trim() ?? '',
+    ratio: input.ratio,
+    visible: input.visible,
+  }
+}
+
+export async function upsertAgentGroupRatio(input: AgentGroupRatioPayloadInput) {
   const res = await api.post<{ success: boolean; data: AgentGroupRatio }>(
     '/api/agent/group_ratios',
-    input
+    buildAgentGroupRatioPayload(input)
   )
+  return res.data
+}
+
+export async function listAgentUserGroups() {
+  const res = await api.get<{
+    success: boolean
+    data: AgentUserGroupConfig[]
+  }>('/api/agent/user_groups')
+  return res.data
+}
+
+export async function upsertAgentUserGroup(input: {
+  group_name: string
+  visible_groups?: string[]
+}) {
+  const res = await api.post<{
+    success: boolean
+    data: AgentUserGroupConfig
+  }>('/api/agent/user_groups', input)
   return res.data
 }
 
@@ -351,22 +391,37 @@ export async function upsertAdminAgentGroupRatio(input: {
   agentId: number
   group_name: string
   system_group_name: string
+  description?: string
   ratio: number
   visible: boolean
-  visible_groups?: string[]
-  remove_groups?: string[]
 }) {
   const res = await api.post<{ success: boolean; data: AgentGroupRatio }>(
     `/api/agents/${input.agentId}/group_ratios`,
-    {
-      group_name: input.group_name,
-      system_group_name: input.system_group_name,
-      ratio: input.ratio,
-      visible: input.visible,
-      visible_groups: input.visible_groups ?? [],
-      remove_groups: input.remove_groups ?? [],
-    }
+    buildAgentGroupRatioPayload(input)
   )
+  return res.data
+}
+
+export async function listAdminAgentUserGroups(agentId: number) {
+  const res = await api.get<{
+    success: boolean
+    data: AgentUserGroupConfig[]
+  }>(`/api/agents/${agentId}/user_groups`)
+  return res.data
+}
+
+export async function upsertAdminAgentUserGroup(input: {
+  agentId: number
+  group_name: string
+  visible_groups?: string[]
+}) {
+  const res = await api.post<{
+    success: boolean
+    data: AgentUserGroupConfig
+  }>(`/api/agents/${input.agentId}/user_groups`, {
+    group_name: input.group_name,
+    visible_groups: input.visible_groups ?? [],
+  })
   return res.data
 }
 

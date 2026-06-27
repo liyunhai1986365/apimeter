@@ -51,7 +51,9 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 	displayGroup := relayInfo.UsingGroup
-	if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
+	if group, ok := agentservice.ResolveGroupForSelectedSystem(relayInfo.AgentContext, relayInfo.TokenGroup, relayInfo.UsingGroup); ok {
+		displayGroup = group.GroupName
+	} else if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
 		displayGroup = group.GroupName
 		relayInfo.UsingGroup = group.SystemGroupName
 	}

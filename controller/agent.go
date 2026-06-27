@@ -35,12 +35,16 @@ type agentDomainRequest struct {
 }
 
 type agentGroupRatioRequest struct {
-	GroupName       string   `json:"group_name"`
-	SystemGroupName string   `json:"system_group_name"`
-	Ratio           float64  `json:"ratio"`
-	Visible         *bool    `json:"visible"`
-	VisibleGroups   []string `json:"visible_groups"`
-	RemoveGroups    []string `json:"remove_groups"`
+	GroupName       string  `json:"group_name"`
+	SystemGroupName string  `json:"system_group_name"`
+	Description     string  `json:"description"`
+	Ratio           float64 `json:"ratio"`
+	Visible         *bool   `json:"visible"`
+}
+
+type agentUserGroupConfigRequest struct {
+	GroupName     string   `json:"group_name"`
+	VisibleGroups []string `json:"visible_groups"`
 }
 
 type agentWithdrawalRequest struct {
@@ -400,6 +404,48 @@ func AgentListGroupRatios(c *gin.Context) {
 	common.ApiSuccess(c, ratios)
 }
 
+func AgentListUserGroupConfigs(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	groups, err := agentservice.ListUserGroupConfigs(agentID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, groups)
+}
+
+func AgentUpsertUserGroupConfig(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req agentUserGroupConfigRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	group, err := agentservice.UpsertUserGroupConfig(agentID, req.GroupName, req.VisibleGroups)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	views, err := agentservice.ListUserGroupConfigs(agentID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	for _, view := range views {
+		if view.GroupName == group.GroupName {
+			common.ApiSuccess(c, view)
+			return
+		}
+	}
+	common.ApiSuccess(c, agentservice.UserGroupConfigView{GroupName: group.GroupName})
+}
+
 func AgentUpsertGroupRatio(c *gin.Context) {
 	agentID, ok := currentAgentID(c)
 	if !ok {
@@ -414,7 +460,7 @@ func AgentUpsertGroupRatio(c *gin.Context) {
 	if req.Visible != nil {
 		visible = *req.Visible
 	}
-	ratio, err := agentservice.UpsertGroupRatio(agentID, req.GroupName, req.SystemGroupName, req.Ratio, visible, req.VisibleGroups, req.RemoveGroups)
+	ratio, err := agentservice.UpsertGroupRatio(agentID, req.GroupName, req.SystemGroupName, req.Description, req.Ratio, visible)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -433,13 +479,12 @@ func AgentUpsertGroupRatio(c *gin.Context) {
 	common.ApiSuccess(c, agentservice.GroupRatioView{
 		GroupName:       ratio.GroupName,
 		SystemGroupName: ratio.SystemGroupName,
+		Description:     ratio.Description,
 		ConfiguredRatio: ratio.Ratio,
 		EffectiveRatio:  ratio.Ratio,
 		Configured:      true,
 		Visible:         ratio.Visible,
 		Available:       true,
-		VisibleGroups:   req.VisibleGroups,
-		RemoveGroups:    req.RemoveGroups,
 	})
 }
 

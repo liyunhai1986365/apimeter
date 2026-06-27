@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
+  buildAgentGroupRatioPayload,
   buildAgentUserListParams,
+  buildAgentUserGroupOptions,
   parseAgentBranding,
   stringifyAgentBranding,
 } from './api'
@@ -55,5 +57,40 @@ describe('agent user list params', () => {
       p: 1,
       page_size: 20,
     })
+  })
+})
+
+describe('agent user group helpers', () => {
+  test('keeps user group options separate from pricing groups', () => {
+    assert.deepEqual(
+      buildAgentUserGroupOptions([
+        { group_name: 'member', visible_groups: ['default'] },
+        { group_name: 'vip-member', visible_groups: ['vip'] },
+      ]),
+      ['member', 'vip-member']
+    )
+  })
+})
+
+describe('agent group ratio payload helpers', () => {
+  test('sends one mapped system group with custom description', () => {
+    const payload = buildAgentGroupRatioPayload({
+      group_name: ' agent-pro ',
+      system_group_name: ' vip ',
+      description: ' Premium proxy group ',
+      ratio: 1.8,
+      visible: false,
+    })
+
+    assert.deepEqual(payload, {
+      group_name: 'agent-pro',
+      system_group_name: 'vip',
+      description: 'Premium proxy group',
+      ratio: 1.8,
+      visible: false,
+    })
+    assert.equal('system_group_names' in payload, false)
+    assert.equal('visible_groups' in payload, false)
+    assert.equal('remove_groups' in payload, false)
   })
 })
