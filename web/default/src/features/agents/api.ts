@@ -32,12 +32,13 @@ import type {
   AgentWithdrawal,
 } from './types'
 
-export function buildAgentUserGroupOptions(
-  userGroups: AgentUserGroupConfig[]
-) {
+export function buildAgentUserGroupOptions(userGroups: AgentUserGroupConfig[]) {
   return userGroups
     .map((item) => item.group_name.trim())
-    .filter((groupName, index, groups) => groupName && groups.indexOf(groupName) === index)
+    .filter(
+      (groupName, index, groups) =>
+        groupName && groups.indexOf(groupName) === index
+    )
     .sort((a, b) => a.localeCompare(b))
 }
 
@@ -203,7 +204,9 @@ type AgentGroupRatioPayloadInput = {
   visible: boolean
 }
 
-export function buildAgentGroupRatioPayload(input: AgentGroupRatioPayloadInput) {
+export function buildAgentGroupRatioPayload(
+  input: AgentGroupRatioPayloadInput
+) {
   return {
     group_name: input.group_name.trim(),
     system_group_name: input.system_group_name.trim(),
@@ -213,7 +216,87 @@ export function buildAgentGroupRatioPayload(input: AgentGroupRatioPayloadInput) 
   }
 }
 
-export async function upsertAgentGroupRatio(input: AgentGroupRatioPayloadInput) {
+export function getAgentGroupRatioEditValue(rule: AgentGroupRatio) {
+  if (rule.configured) {
+    return String(rule.configured_ratio ?? rule.system_ratio ?? 1)
+  }
+  return String(rule.system_ratio ?? 1)
+}
+
+export function getAgentSystemGroupDefaultRatio(
+  groupRatios: AgentGroupRatio[],
+  systemGroupName: string
+) {
+  return String(getAgentSystemGroupRatioFloor(groupRatios, systemGroupName) || 1)
+}
+
+export function getAgentGroupRatioInputFloor(
+  groupRatios: AgentGroupRatio[],
+  groupName: string,
+  systemGroupName: string
+) {
+  const trimmedGroupName = groupName.trim()
+  const configuredGroup = groupRatios.find(
+    (item) =>
+      item.configured &&
+      item.group_name === trimmedGroupName &&
+      item.system_group_name === systemGroupName
+  )
+  const configuredFloor = getAgentRatioFloor(configuredGroup)
+  if (configuredFloor != null) {
+    return configuredFloor
+  }
+  return getAgentSystemGroupRatioFloor(groupRatios, systemGroupName)
+}
+
+export function getAgentSystemGroupRatioFloor(
+  groupRatios: AgentGroupRatio[],
+  systemGroupName: string
+) {
+  const configuredSystemGroup = groupRatios.find(
+    (item) =>
+      item.configured &&
+      item.system_group_name === systemGroupName &&
+      getAgentRatioFloor(item) != null
+  )
+  if (configuredSystemGroup) {
+    return getAgentRatioFloor(configuredSystemGroup) ?? 0
+  }
+  const systemGroup = groupRatios.find(
+    (item) => item.system_group_name === systemGroupName
+  )
+  return systemGroup?.system_ratio ?? 0
+}
+
+export function getAgentGroupRatioTableValues(rule: AgentGroupRatio) {
+  return {
+    agentDiscount: rule.configured ? String(getAgentRatioFloor(rule) ?? '-') : '-',
+    effectiveDiscount: String(rule.effective_ratio),
+  }
+}
+
+export function getAgentUserGroupRatioFloor(rule: AgentGroupRatio) {
+  const agentRatio = getAgentRatioFloor(rule)
+  if (agentRatio != null) {
+    return agentRatio
+  }
+  return rule.system_ratio ?? 0
+}
+
+function getAgentRatioFloor(rule?: AgentGroupRatio) {
+  if (!rule) return undefined
+  if (rule.agent_ratio != null && rule.agent_ratio >= 0) {
+    return rule.agent_ratio
+  }
+  if (rule.configured && rule.configured_ratio >= 0) {
+    return rule.configured_ratio
+  }
+  return undefined
+}
+
+export async function upsertAgentGroupRatio(
+  input: AgentGroupRatioPayloadInput
+) {
   const res = await api.post<{ success: boolean; data: AgentGroupRatio }>(
     '/api/agent/group_ratios',
     buildAgentGroupRatioPayload(input)
@@ -229,14 +312,25 @@ export async function listAgentUserGroups() {
   return res.data
 }
 
-export async function upsertAgentUserGroup(input: {
+type AgentUserGroupPayloadInput = {
   group_name: string
   visible_groups?: string[]
-}) {
+  group_ratios?: Record<string, number>
+}
+
+export function buildAgentUserGroupPayload(input: AgentUserGroupPayloadInput) {
+  return {
+    group_name: input.group_name.trim(),
+    visible_groups: input.visible_groups ?? [],
+    group_ratios: input.group_ratios ?? {},
+  }
+}
+
+export async function upsertAgentUserGroup(input: AgentUserGroupPayloadInput) {
   const res = await api.post<{
     success: boolean
     data: AgentUserGroupConfig
-  }>('/api/agent/user_groups', input)
+  }>('/api/agent/user_groups', buildAgentUserGroupPayload(input))
   return res.data
 }
 
@@ -414,14 +508,13 @@ export async function upsertAdminAgentUserGroup(input: {
   agentId: number
   group_name: string
   visible_groups?: string[]
+  group_ratios?: Record<string, number>
 }) {
+  const payload = buildAgentUserGroupPayload(input)
   const res = await api.post<{
     success: boolean
     data: AgentUserGroupConfig
-  }>(`/api/agents/${input.agentId}/user_groups`, {
-    group_name: input.group_name,
-    visible_groups: input.visible_groups ?? [],
-  })
+  }>(`/api/agents/${input.agentId}/user_groups`, payload)
   return res.data
 }
 

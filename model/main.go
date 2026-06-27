@@ -493,11 +493,18 @@ func migrateAgentGroupRatiosMappingColumns() error {
 }
 
 func migrateAgentUserGroupColumn() error {
-	if DB == nil || !DB.Migrator().HasTable(&AgentUser{}) {
+	if DB == nil {
 		return nil
 	}
-	if !DB.Migrator().HasColumn(&AgentUser{}, "group") {
-		return DB.Migrator().AddColumn(&AgentUser{}, "Group")
+	if DB.Migrator().HasTable(&AgentUser{}) && !DB.Migrator().HasColumn(&AgentUser{}, "group") {
+		if err := DB.Migrator().AddColumn(&AgentUser{}, "Group"); err != nil {
+			return err
+		}
+	}
+	if DB.Migrator().HasTable(&AgentUserGroupConfig{}) && !DB.Migrator().HasColumn(&AgentUserGroupConfig{}, "group_ratios") {
+		if err := DB.Migrator().AddColumn(&AgentUserGroupConfig{}, "GroupRatios"); err != nil {
+			return err
+		}
 	}
 	return nil
 }

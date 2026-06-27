@@ -92,6 +92,7 @@ export type AgentGroupRatio = {
   group_name: string
   system_group_name: string
   description?: string
+  agent_ratio?: number
   system_ratio: number
   configured_ratio: number
   effective_ratio: number
@@ -103,6 +104,7 @@ export type AgentGroupRatio = {
 export type AgentUserGroupConfig = {
   group_name: string
   visible_groups?: string[]
+  group_ratios?: Record<string, number>
 }
 
 export type AgentUser = {

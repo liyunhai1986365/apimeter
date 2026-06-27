@@ -92,13 +92,14 @@ func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 	}
 
 	userGroup := common.GetContextKeyString(ctx, constant.ContextKeyUserGroup)
+	agentCtx, hasAgentCtx := common.GetContextKeyType[*types.AgentContext](ctx, constant.ContextKeyAgentContext)
 	if group, ok := agentservice.ResolveGroupFromRequest(ctx, userGroup); ok {
 		userGroup = group.SystemGroupName
 	}
 	if policy.Type == TokenGroupPolicyTypeRoutingStrategy {
 		fallback := GetUserAutoGroup(userGroup)
-		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
-			fallback = agentAutoGroups(agentCtx, userGroup)
+		if hasAgentCtx && agentCtx != nil {
+			fallback, _ = agentAutoGroups(agentCtx, userGroup)
 		}
 		return excludePolicyGroups(ResolveRoutingStrategyGroups(policy.Strategy, userGroup, fallback), policy.ExcludedGroups)
 	}
@@ -115,8 +116,8 @@ func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 		var expanded []string
 		if item == AutoGroupName {
 			expanded = GetUserAutoGroup(userGroup)
-			if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
-				expanded = agentAutoGroups(agentCtx, userGroup)
+			if hasAgentCtx && agentCtx != nil {
+				expanded, _ = agentAutoGroups(agentCtx, userGroup)
 			}
 		} else {
 			expanded = []string{item}

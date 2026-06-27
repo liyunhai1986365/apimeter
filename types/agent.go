@@ -15,6 +15,7 @@ type AgentGroup struct {
 	GroupName       string
 	SystemGroupName string
 	Description     string
+	AgentRatio      float64
 	SystemRatio     float64
 	ConfiguredRatio float64
 	EffectiveRatio  float64
@@ -25,6 +26,7 @@ type AgentGroup struct {
 type AgentUserGroup struct {
 	GroupName     string
 	VisibleGroups []string
+	GroupRatios   map[string]float64
 }
 
 type AgentBillingSnapshot struct {

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
@@ -225,4 +226,105 @@ func TestHandleGroupRatioUsesMappedAgentProxyGroup(t *testing.T) {
 	require.Equal(t, "agent-vip", info.AgentBillingSnapshot.Group)
 	require.Equal(t, 1.25, info.AgentBillingSnapshot.BaseGroupRatio)
 	require.Equal(t, 1.5, info.AgentBillingSnapshot.ChargedGroupRatio)
+}
+
+func TestHandleGroupRatioUsesAgentUserGroupOverride(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	info := &relaycommon.RelayInfo{
+		UserGroup:  "member",
+		UsingGroup: "agent-vip",
+		TokenGroup: "agent-vip",
+		AgentContext: &types.AgentContext{
+			AgentID: 3,
+			Domain:  "agent.example.com",
+			Groups: map[string]types.AgentGroup{
+				"agent-vip": {
+					GroupName:       "agent-vip",
+					SystemGroupName: "vip",
+					EffectiveRatio:  1.5,
+					Visible:         true,
+					Available:       true,
+				},
+			},
+			UserGroups: map[string]types.AgentUserGroup{
+				"member": {
+					GroupName: "member",
+					GroupRatios: map[string]float64{
+						"agent-vip": 1.7,
+					},
+				},
+			},
+			GroupRatios: map[string]float64{
+				"agent-vip": 1.5,
+			},
+		},
+	}
+
+	groupRatioInfo := HandleGroupRatio(ctx, info)
+
+	require.Equal(t, 1.7, groupRatioInfo.GroupRatio)
+	require.Equal(t, 1.25, groupRatioInfo.BaseGroupRatio)
+	require.True(t, groupRatioInfo.HasAgentRatio)
+	require.NotNil(t, info.AgentBillingSnapshot)
+	require.Equal(t, "agent-vip", info.AgentBillingSnapshot.Group)
+	require.Equal(t, 1.25, info.AgentBillingSnapshot.BaseGroupRatio)
+	require.Equal(t, 1.7, info.AgentBillingSnapshot.ChargedGroupRatio)
+}
+
+func TestHandleGroupRatioUsesSelectedAgentGroupFromAutoRouting(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":0.2}`))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	common.SetContextKey(ctx, constant.ContextKeyAgentSelectedGroup, "default22")
+	info := &relaycommon.RelayInfo{
+		UserGroup:  "member",
+		UsingGroup: "default",
+		TokenGroup: "auto",
+		AgentContext: &types.AgentContext{
+			AgentID: 3,
+			Domain:  "agent.example.com",
+			Groups: map[string]types.AgentGroup{
+				"default22": {
+					GroupName:       "default22",
+					SystemGroupName: "default",
+					EffectiveRatio:  0.24,
+					Visible:         true,
+					Available:       true,
+				},
+			},
+			UserGroups: map[string]types.AgentUserGroup{
+				"member": {
+					GroupName: "member",
+					GroupRatios: map[string]float64{
+						"default22": 0.31,
+					},
+				},
+			},
+			GroupRatios: map[string]float64{
+				"default22": 0.24,
+			},
+		},
+	}
+
+	groupRatioInfo := HandleGroupRatio(ctx, info)
+
+	require.Equal(t, 0.31, groupRatioInfo.GroupRatio)
+	require.Equal(t, 0.2, groupRatioInfo.BaseGroupRatio)
+	require.True(t, groupRatioInfo.HasAgentRatio)
+	require.NotNil(t, info.AgentBillingSnapshot)
+	require.Equal(t, "default22", info.AgentBillingSnapshot.Group)
+	require.Equal(t, 0.2, info.AgentBillingSnapshot.BaseGroupRatio)
+	require.Equal(t, 0.31, info.AgentBillingSnapshot.ChargedGroupRatio)
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -393,6 +394,42 @@ func TestRecalculate_PositiveDelta(t *testing.T) {
 	require.NotNil(t, log)
 	assert.Equal(t, model.LogTypeConsume, log.Type)
 	assert.Equal(t, actualQuota-preConsumed, log.Quota)
+}
+
+func TestRecalculateTaskQuotaByTokensUsesFrozenBillingGroupRatio(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+	originalGroupRatio := ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(originalGroupRatio))
+	})
+
+	const userID, tokenID, channelID = 16, 16, 16
+	const initQuota, preConsumed = 10000, 100
+	const tokenRemain = 5000
+
+	seedUser(t, userID, initQuota)
+	seedToken(t, tokenID, userID, "sk-recalc-agent-ratio", tokenRemain)
+	seedChannel(t, channelID)
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":0.2}`))
+
+	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.ModelRatio = 1
+	task.PrivateData.BillingContext.GroupRatio = 0.31
+
+	RecalculateTaskQuotaByTokens(ctx, task, 1000)
+
+	require.Equal(t, 310, task.Quota)
+	require.Equal(t, initQuota-210, getUserQuota(t, userID))
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeConsume, log.Type)
+	assert.Equal(t, 210, log.Quota)
+
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	assert.Equal(t, float64(0.31), other["group_ratio"])
+	assert.Equal(t, float64(310), other["actual_quota"])
 }
 
 func TestRecalculate_NegativeDelta(t *testing.T) {

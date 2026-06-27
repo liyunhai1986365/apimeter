@@ -24,6 +24,8 @@ type RoutingStrategyScore struct {
 	Score        float64 `json:"score"`
 }
 
+type routingStrategyGroupRatioFunc func(group string) float64
+
 type RoutingStrategyRefreshResult struct {
 	UpdatedSnapshots int `json:"updated_snapshots"`
 	UserGroups       int `json:"user_groups"`
@@ -108,7 +110,7 @@ func RefreshRoutingStrategySnapshots(ctx context.Context) (RoutingStrategyRefres
 			if manualOverride {
 				continue
 			}
-			scores := buildRoutingStrategyScores(strategy, groups, perfByGroup, cfg)
+			scores := buildRoutingStrategyScores(strategy, groups, perfByGroup, cfg, userGroupRatioForRoutingStrategy(userGroup))
 			groupNames := make([]string, 0, len(scores))
 			scoreMap := make(map[string]RoutingStrategyScore, len(scores))
 			for i := range scores {
@@ -143,17 +145,20 @@ func RefreshRoutingStrategySnapshots(ctx context.Context) (RoutingStrategyRefres
 	return RoutingStrategyRefreshResult{UpdatedSnapshots: updated, UserGroups: len(userGroups)}, nil
 }
 
-func buildRoutingStrategyScores(strategy string, groups []string, perfByGroup map[string]perfmetrics.GroupSummary, cfg routing_strategy_setting.RoutingStrategySetting) []RoutingStrategyScore {
+func buildRoutingStrategyScores(strategy string, groups []string, perfByGroup map[string]perfmetrics.GroupSummary, cfg routing_strategy_setting.RoutingStrategySetting, groupRatioFor routingStrategyGroupRatioFunc) []RoutingStrategyScore {
 	excluded := routingStrategyCSVSet(cfg.ExcludedGroups)
 	pinned := routingStrategyCSVList(cfg.PinnedGroups)
 	scores := make([]RoutingStrategyScore, 0, len(groups))
+	if groupRatioFor == nil {
+		groupRatioFor = ratio_setting.GetGroupRatio
+	}
 	for _, group := range groups {
 		group = strings.TrimSpace(group)
 		if group == "" || excluded[group] {
 			continue
 		}
 		perf := perfByGroup[group]
-		groupRatio := ratio_setting.GetGroupRatio(group)
+		groupRatio := groupRatioFor(group)
 		score := RoutingStrategyScore{
 			Group:        group,
 			GroupRatio:   groupRatio,
@@ -182,6 +187,12 @@ func buildRoutingStrategyScores(strategy string, groups []string, perfByGroup ma
 		return scores[i].Group < scores[j].Group
 	})
 	return scores
+}
+
+func userGroupRatioForRoutingStrategy(userGroup string) routingStrategyGroupRatioFunc {
+	return func(group string) float64 {
+		return GetUserGroupRatio(userGroup, group)
+	}
 }
 
 func calculateRoutingStrategyScore(strategy string, score RoutingStrategyScore, cfg routing_strategy_setting.RoutingStrategySetting) float64 {

@@ -126,7 +126,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		if channel == nil {
 			return nil, recoveryGroup, nil
 		}
-		common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, recoveryGroup)
+		setSelectedGroupContext(param.Ctx, recoveryGroup, recoveryGroup)
 		return channel, recoveryGroup, nil
 	}
 
@@ -134,6 +134,10 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	hasRoutingStrategyPolicy := IsRoutingStrategyTokenPolicy(param.Ctx)
 	if len(policyGroups) > 0 || hasRoutingStrategyPolicy {
 		startGroupIndex := 0
+		agentPolicyGroupNames := map[string]string{}
+		if agentCtx != nil {
+			_, agentPolicyGroupNames = agentAutoGroups(agentCtx, userGroup)
+		}
 		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
 		advanceGroupAfterFailure := hasRoutingStrategyPolicy && param.GetRetry() > 0
 
@@ -179,7 +183,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				param.SetRetry(0)
 				continue
 			}
-			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, policyGroup)
+			setSelectedGroupContext(param.Ctx, policyGroup, agentPolicyGroupNames[policyGroup])
 			selectGroup = policyGroup
 			logger.LogDebug(param.Ctx, "Policy selected group: %s", policyGroup)
 
@@ -195,8 +199,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	} else if param.TokenGroup == "auto" {
 		autoGroups := GetUserAutoGroup(userGroup)
+		agentAutoGroupNames := map[string]string{}
 		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](param.Ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
-			autoGroups = agentAutoGroups(agentCtx, userGroup)
+			autoGroups, agentAutoGroupNames = agentAutoGroups(agentCtx, userGroup)
 		}
 		if len(autoGroups) == 0 {
 			return nil, selectGroup, errors.New("auto groups is not enabled")
@@ -244,7 +249,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				param.SetRetry(0)
 				continue
 			}
-			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, autoGroup)
+			setSelectedGroupContext(param.Ctx, autoGroup, agentAutoGroupNames[autoGroup])
 			selectGroup = autoGroup
 			logger.LogDebug(param.Ctx, "Auto selected group: %s", autoGroup)
 
@@ -281,7 +286,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				continue
 			}
 			if channel != nil {
-				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroup, group)
+				setSelectedGroupContext(param.Ctx, group, "")
 				selectGroup = group
 				break
 			}
@@ -290,14 +295,44 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	return channel, selectGroup, nil
 }
 
-func agentAutoGroups(agentCtx *types.AgentContext, userGroup string) []string {
+func agentAutoGroups(agentCtx *types.AgentContext, userGroup string) ([]string, map[string]string) {
 	visibleGroups := agentservice.VisibleGroupsForUser(agentCtx, userGroup)
-	autoGroups := make([]string, 0, len(visibleGroups))
-	for _, group := range visibleGroups {
-		autoGroups = append(autoGroups, group.SystemGroupName)
+	agentGroupNames := make([]string, 0, len(visibleGroups))
+	for groupName := range visibleGroups {
+		agentGroupNames = append(agentGroupNames, groupName)
+	}
+	sort.Strings(agentGroupNames)
+	autoGroups := make([]string, 0, len(agentGroupNames))
+	agentGroupBySystemGroup := make(map[string]string, len(visibleGroups))
+	seenSystemGroups := make(map[string]struct{}, len(visibleGroups))
+	for _, groupName := range agentGroupNames {
+		group := visibleGroups[groupName]
+		systemGroupName := strings.TrimSpace(group.SystemGroupName)
+		if systemGroupName == "" {
+			continue
+		}
+		if _, exists := agentGroupBySystemGroup[systemGroupName]; !exists {
+			agentGroupBySystemGroup[systemGroupName] = group.GroupName
+		}
+		if _, exists := seenSystemGroups[systemGroupName]; exists {
+			continue
+		}
+		seenSystemGroups[systemGroupName] = struct{}{}
+		autoGroups = append(autoGroups, systemGroupName)
 	}
 	sort.Strings(autoGroups)
-	return autoGroups
+	return autoGroups, agentGroupBySystemGroup
+}
+
+func setSelectedGroupContext(ctx *gin.Context, systemGroup string, agentGroup string) {
+	common.SetContextKey(ctx, constant.ContextKeyAutoGroup, systemGroup)
+	if strings.TrimSpace(agentGroup) != "" {
+		common.SetContextKey(ctx, constant.ContextKeyAgentSelectedGroup, agentGroup)
+		return
+	}
+	if _, exists := common.GetContextKey(ctx, constant.ContextKeyAgentSelectedGroup); exists {
+		ctx.Set(string(constant.ContextKeyAgentSelectedGroup), "")
+	}
 }
 
 func shouldStopOnProtocolMismatch(param *RetryParam) bool {

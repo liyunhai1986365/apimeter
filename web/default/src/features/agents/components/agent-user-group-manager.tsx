@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Edit3, Save, Users } from 'lucide-react'
 import { useMemo } from 'react'
+import { Edit3, Save, Users } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -30,6 +30,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TableEmpty } from '@/components/data-table'
+import { getAgentUserGroupRatioFloor } from '../api'
 import type { AgentGroupRatio, AgentUserGroupConfig } from '../types'
 
 type AgentUserGroupManagerProps = {
@@ -37,10 +38,12 @@ type AgentUserGroupManagerProps = {
   groupRatios: AgentGroupRatio[]
   groupName: string
   visibleGroups: string[]
+  groupRatioOverrides: Record<string, number>
   canSave: boolean
   isPending: boolean
   onGroupNameChange: (value: string) => void
   onVisibleGroupsChange: (value: string[]) => void
+  onGroupRatioOverridesChange: (value: Record<string, number>) => void
   onSave: () => void
   onEdit: (rule: AgentUserGroupConfig) => void
 }
@@ -54,15 +57,46 @@ export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
       ),
     [props.groupRatios]
   )
+  const groupRatioDefaults = useMemo(() => {
+    const defaults = new Map<string, number>()
+    for (const item of availableSelectionGroups) {
+      defaults.set(
+        item.group_name,
+        getAgentUserGroupRatioFloor(item)
+      )
+    }
+    return defaults
+  }, [availableSelectionGroups])
 
   const toggleVisibleGroup = (groupName: string) => {
     if (props.visibleGroups.includes(groupName)) {
       props.onVisibleGroupsChange(
         props.visibleGroups.filter((item) => item !== groupName)
       )
+      const nextRatios = { ...props.groupRatioOverrides }
+      delete nextRatios[groupName]
+      props.onGroupRatioOverridesChange(nextRatios)
       return
     }
     props.onVisibleGroupsChange([...props.visibleGroups, groupName].sort())
+    props.onGroupRatioOverridesChange({
+      ...props.groupRatioOverrides,
+      [groupName]: groupRatioDefaults.get(groupName) ?? 1,
+    })
+  }
+
+  const updateGroupRatio = (groupName: string, value: string) => {
+    const nextRatios = { ...props.groupRatioOverrides }
+    const ratio = Number(value)
+    if (!Number.isFinite(ratio) || ratio < 0) {
+      delete nextRatios[groupName]
+    } else {
+      nextRatios[groupName] = Math.max(
+        ratio,
+        groupRatioDefaults.get(groupName) ?? 0
+      )
+    }
+    props.onGroupRatioOverridesChange(nextRatios)
   }
 
   return (
@@ -77,7 +111,7 @@ export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
           </p>
         </div>
         <div className='rounded-md border px-3 py-2 text-right text-xs'>
-          <div className='text-muted-foreground whitespace-nowrap text-[11px]'>
+          <div className='text-muted-foreground text-[11px] whitespace-nowrap'>
             {t('Configured')}
           </div>
           <div className='text-sm font-semibold'>{props.userGroups.length}</div>
@@ -97,7 +131,7 @@ export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
             />
           </div>
 
-          <div className='grid gap-2 rounded-md bg-muted/40 px-3 py-2'>
+          <div className='bg-muted/40 grid gap-2 rounded-md px-3 py-2'>
             <div>
               <div className='text-xs font-medium'>
                 {t('Appended selectable groups')}
@@ -130,6 +164,43 @@ export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
               )}
             </div>
           </div>
+
+          {props.visibleGroups.length > 0 ? (
+            <div className='grid gap-2 rounded-md border px-3 py-2'>
+              <div>
+                <div className='text-xs font-medium'>
+                  {t('User group ratios')}
+                </div>
+                <div className='text-muted-foreground text-[11px]'>
+                  {t(
+                    'Optional ratios for appended groups. Empty values use the agent group default.'
+                  )}
+                </div>
+              </div>
+              <div className='grid max-h-44 gap-2 overflow-y-auto'>
+                {props.visibleGroups.map((groupName) => (
+                  <label
+                    key={groupName}
+                    className='grid grid-cols-[minmax(0,1fr)_90px] items-center gap-2 text-xs'
+                  >
+                    <span className='truncate font-mono'>{groupName}</span>
+                    <Input
+                      value={
+                        props.groupRatioOverrides[groupName]?.toString() ?? ''
+                      }
+                      onChange={(event) =>
+                        updateGroupRatio(groupName, event.target.value)
+                      }
+                      type='number'
+                      step='0.01'
+                      min={groupRatioDefaults.get(groupName) ?? 0}
+                      placeholder={t('Default')}
+                    />
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <Button
             className='w-full'
@@ -172,6 +243,14 @@ export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
                           ? rule.visible_groups.join(', ')
                           : t('No appended groups')}
                       </div>
+                      {rule.group_ratios &&
+                      Object.keys(rule.group_ratios).length > 0 ? (
+                        <div className='text-muted-foreground mt-1 max-w-[260px] truncate text-[11px]'>
+                          {Object.entries(rule.group_ratios)
+                            .map(([group, ratio]) => `${group}: ${ratio}`)
+                            .join(', ')}
+                        </div>
+                      ) : null}
                     </TableCell>
                     <TableCell>
                       <Button

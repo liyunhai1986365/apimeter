@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Edit3, Eye, EyeOff, Link2, Save } from 'lucide-react'
 import { useMemo } from 'react'
+import { Edit3, Eye, EyeOff, Link2, Save } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TableEmpty } from '@/components/data-table'
+import { getAgentGroupRatioTableValues } from '../api'
 import type { AgentGroupRatio } from '../types'
 
 type AgentGroupManagerProps = {
@@ -40,6 +41,7 @@ type AgentGroupManagerProps = {
   systemGroupName: string
   groupDescription: string
   groupRatio: string
+  groupRatioFloor: number
   groupVisible: boolean
   canSave: boolean
   isPending: boolean
@@ -70,10 +72,6 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
       a.system_group_name.localeCompare(b.system_group_name)
     )
   }, [props.groupRatios])
-  const selectedSystemGroup = systemGroupOptions.find(
-    (item) => item.system_group_name === props.systemGroupName
-  )
-  const selectedBaseRatio = selectedSystemGroup?.system_ratio ?? 0
   const visibleCount = configuredGroups.filter(
     (item) => item.visible && item.available
   ).length
@@ -150,7 +148,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
               ))}
             </select>
             <span className='text-muted-foreground text-[11px]'>
-              {t('Minimum discount')}: {selectedBaseRatio}
+              {t('Minimum discount')}: {props.groupRatioFloor}
             </span>
           </div>
 
@@ -163,15 +161,17 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
               onChange={(event) => props.onGroupRatioChange(event.target.value)}
               type='number'
               step='0.01'
-              min={selectedBaseRatio}
+              min={props.groupRatioFloor}
             />
           </div>
 
-          <div className='flex items-center justify-between gap-3 rounded-md bg-muted/40 px-3 py-2'>
+          <div className='bg-muted/40 flex items-center justify-between gap-3 rounded-md px-3 py-2'>
             <div>
               <div className='text-xs font-medium'>{t('Visible to users')}</div>
               <div className='text-muted-foreground text-[11px]'>
-                {t('Hidden agent groups can still be appended by user group rules.')}
+                {t(
+                  'Hidden agent groups can still be appended by user group rules.'
+                )}
               </div>
             </div>
             <Switch
@@ -217,57 +217,58 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                   icon={<Link2 className='size-6' />}
                 />
               ) : (
-                configuredGroups.map((rule) => (
-                  <TableRow key={rule.group_name}>
-                    <TableCell className='font-mono text-xs'>
-                      {rule.group_name}
-                    </TableCell>
-                    <TableCell>
-                      <div className='text-muted-foreground max-w-[220px] truncate text-xs'>
-                        {rule.description || '-'}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className='flex items-center gap-2 text-xs'>
-                        <Link2 className='text-muted-foreground size-3.5' />
-                        <span className='font-mono'>
-                          {rule.system_group_name || '-'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {rule.configured ? rule.configured_ratio : '-'}
-                    </TableCell>
-                    <TableCell>{rule.effective_ratio}</TableCell>
-                    <TableCell>
-                      <Badge variant={rule.visible ? 'default' : 'outline'}>
-                        {rule.visible ? (
-                          <Eye className='size-3' />
-                        ) : (
-                          <EyeOff className='size-3' />
-                        )}
-                        {rule.visible ? t('Visible') : t('Hidden')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={rule.available ? 'default' : 'destructive'}
-                      >
-                        {rule.available ? t('Available') : t('Unavailable')}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant='ghost'
-                        size='sm'
-                        onClick={() => props.onEdit(rule)}
-                      >
-                        <Edit3 className='size-4' />
-                        {t('Edit')}
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
+                configuredGroups.map((rule) => {
+                  const tableValues = getAgentGroupRatioTableValues(rule)
+                  return (
+                    <TableRow key={rule.group_name}>
+                      <TableCell className='font-mono text-xs'>
+                        {rule.group_name}
+                      </TableCell>
+                      <TableCell>
+                        <div className='text-muted-foreground max-w-[220px] truncate text-xs'>
+                          {rule.description || '-'}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex items-center gap-2 text-xs'>
+                          <Link2 className='text-muted-foreground size-3.5' />
+                          <span className='font-mono'>
+                            {rule.system_group_name || '-'}
+                          </span>
+                        </div>
+                      </TableCell>
+                      <TableCell>{tableValues.agentDiscount}</TableCell>
+                      <TableCell>{tableValues.effectiveDiscount}</TableCell>
+                      <TableCell>
+                        <Badge variant={rule.visible ? 'default' : 'outline'}>
+                          {rule.visible ? (
+                            <Eye className='size-3' />
+                          ) : (
+                            <EyeOff className='size-3' />
+                          )}
+                          {rule.visible ? t('Visible') : t('Hidden')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={rule.available ? 'default' : 'destructive'}
+                        >
+                          {rule.available ? t('Available') : t('Unavailable')}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant='ghost'
+                          size='sm'
+                          onClick={() => props.onEdit(rule)}
+                        >
+                          <Edit3 className='size-4' />
+                          {t('Edit')}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
@@ -287,12 +288,14 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
 function MetricPill(props: { label: string; value: number; muted?: boolean }) {
   return (
     <div className='rounded-md border px-3 py-2 text-right'>
-      <div className='text-muted-foreground whitespace-nowrap text-[11px]'>
+      <div className='text-muted-foreground text-[11px] whitespace-nowrap'>
         {props.label}
       </div>
       <div
         className={
-          props.muted ? 'text-muted-foreground text-sm' : 'text-sm font-semibold'
+          props.muted
+            ? 'text-muted-foreground text-sm'
+            : 'text-sm font-semibold'
         }
       >
         {props.value}

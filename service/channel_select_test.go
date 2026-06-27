@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -211,6 +212,98 @@ func TestCacheGetRandomSatisfiedChannelAutoGroupDefaultsToVisibleGroups(t *testi
 	require.NotNil(t, channel)
 	require.Equal(t, 1501, channel.Id)
 	require.Equal(t, "backup", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelAgentAutoGroupKeepsAgentGroupContext(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`[]`))
+	createChannelSelectFixture(t, db, 1601, "default", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "member")
+	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+		AgentID: 3,
+		Groups: map[string]types.AgentGroup{
+			"default22": {
+				GroupName:       "default22",
+				SystemGroupName: "default",
+				Visible:         true,
+				Available:       true,
+			},
+		},
+		UserGroups: map[string]types.AgentUserGroup{
+			"member": {
+				GroupName:     "member",
+				VisibleGroups: []string{"default22"},
+			},
+		},
+	})
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1601, channel.Id)
+	require.Equal(t, "default", selectedGroup)
+	require.Equal(t, "default", common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
+	require.Equal(t, "default22", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
+}
+
+func TestCacheGetRandomSatisfiedChannelAgentPolicyAutoKeepsAgentGroupContext(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`[]`))
+	createChannelSelectFixture(t, db, 1602, "default", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "member")
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["auto"]}`)
+	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+		AgentID: 3,
+		Groups: map[string]types.AgentGroup{
+			"default22": {
+				GroupName:       "default22",
+				SystemGroupName: "default",
+				Visible:         true,
+				Available:       true,
+			},
+		},
+		UserGroups: map[string]types.AgentUserGroup{
+			"member": {
+				GroupName:     "member",
+				VisibleGroups: []string{"default22"},
+			},
+		},
+	})
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1602, channel.Id)
+	require.Equal(t, "default", selectedGroup)
+	require.Equal(t, "default22", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
 }
 
 func TestCacheGetRandomSatisfiedChannelDoesNotResetRetryAtLastAutoGroup(t *testing.T) {

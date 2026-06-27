@@ -16,8 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo, useState } from 'react'
-import type { ReactNode } from 'react'
+import { type ReactNode, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
@@ -80,6 +79,9 @@ import {
   completeAdminAgentWithdrawal,
   createAdminAgent,
   createAdminAgentDomain,
+  getAgentGroupRatioEditValue,
+  getAgentGroupRatioInputFloor,
+  getAgentSystemGroupDefaultRatio,
   listAdminAgentDomainsByAgent,
   listAdminAgentGroupRatios,
   listAdminAgentUserGroups,
@@ -187,6 +189,9 @@ export function AgentManagement() {
   const [userGroupVisibleGroups, setUserGroupVisibleGroups] = useState<
     string[]
   >([])
+  const [userGroupRatios, setUserGroupRatios] = useState<
+    Record<string, number>
+  >({})
   const [withdrawalRemark, setWithdrawalRemark] = useState('')
   const [selectedUsersKeywordInput, setSelectedUsersKeywordInput] = useState('')
   const [selectedUsersKeyword, setSelectedUsersKeyword] = useState('')
@@ -292,6 +297,7 @@ export function AgentManagement() {
     setBrandSiteStyle(branding.site_style ?? '')
     setUserGroupName('')
     setUserGroupVisibleGroups([])
+    setUserGroupRatios({})
     selectAgent(agent.id)
     setDetailAgentId(agent.id)
   }
@@ -452,10 +458,11 @@ export function AgentManagement() {
     newAgentSlug.trim() !== ''
   const canCreateDomain = selectedAgentId != null && newDomain.trim() !== ''
   const canBindUser = selectedAgentId != null && Number(bindUserId) > 0
-  const selectedGroupBaseRatio =
-    selectedGroupRatios.find(
-      (item) => item.system_group_name === systemGroupName
-    )?.system_ratio ?? 0
+  const selectedGroupBaseRatio = getAgentGroupRatioInputFloor(
+    selectedGroupRatios,
+    groupName,
+    systemGroupName
+  )
   const canSavePricing =
     selectedAgentId != null &&
     groupName.trim() !== '' &&
@@ -904,9 +911,11 @@ export function AgentManagement() {
         systemGroupName={systemGroupName}
         groupDescription={groupDescription}
         groupRatio={groupRatio}
+        groupRatioFloor={selectedGroupBaseRatio}
         groupVisible={groupVisible}
         userGroupName={userGroupName}
         userGroupVisibleGroups={userGroupVisibleGroups}
+        userGroupRatios={userGroupRatios}
         isDomainPending={createDomainMutation.isPending}
         isBindPending={bindUserMutation.isPending}
         isPricingPending={savePricingMutation.isPending}
@@ -931,11 +940,8 @@ export function AgentManagement() {
         }}
         onSystemGroupNameChange={(nextGroup) => {
           setSystemGroupName(nextGroup)
-          const nextRatio = selectedGroupRatios.find(
-            (item) => item.system_group_name === nextGroup
-          )
           setGroupRatio(
-            String(nextRatio?.effective_ratio ?? nextRatio?.system_ratio ?? 1)
+            getAgentSystemGroupDefaultRatio(selectedGroupRatios, nextGroup)
           )
         }}
         onGroupDescriptionChange={setGroupDescription}
@@ -943,6 +949,7 @@ export function AgentManagement() {
         onGroupVisibleChange={setGroupVisible}
         onUserGroupNameChange={setUserGroupName}
         onUserGroupVisibleGroupsChange={setUserGroupVisibleGroups}
+        onUserGroupRatiosChange={setUserGroupRatios}
         onBrandSiteNameChange={setBrandSiteName}
         onBrandLogoChange={setBrandLogo}
         onBrandHomePageContentChange={setBrandHomePageContent}
@@ -1036,6 +1043,7 @@ export function AgentManagement() {
             agentId: selectedAgentId,
             group_name: userGroupName,
             visible_groups: userGroupVisibleGroups,
+            group_ratios: userGroupRatios,
           })
         }
         onDomainStatusChange={(domain, status) =>
@@ -1182,9 +1190,11 @@ function AgentDetailDialog(props: {
   systemGroupName: string
   groupDescription: string
   groupRatio: string
+  groupRatioFloor: number
   groupVisible: boolean
   userGroupName: string
   userGroupVisibleGroups: string[]
+  userGroupRatios: Record<string, number>
   isDomainPending: boolean
   isBindPending: boolean
   isPricingPending: boolean
@@ -1210,6 +1220,7 @@ function AgentDetailDialog(props: {
   onGroupVisibleChange: (value: boolean) => void
   onUserGroupNameChange: (value: string) => void
   onUserGroupVisibleGroupsChange: (value: string[]) => void
+  onUserGroupRatiosChange: (value: Record<string, number>) => void
   onBrandSiteNameChange: (value: string) => void
   onBrandLogoChange: (value: string) => void
   onBrandHomePageContentChange: (value: string) => void
@@ -1521,9 +1532,7 @@ function AgentDetailDialog(props: {
 
             <div className='flex flex-col gap-3'>
               <div>
-                <h3 className='text-sm font-semibold'>
-                  {t('Agent Pricing')}
-                </h3>
+                <h3 className='text-sm font-semibold'>{t('Agent Pricing')}</h3>
                 <p className='text-muted-foreground mt-1 text-xs'>
                   {t(
                     'Configure user group choices and agent-facing pricing groups in one place.'
@@ -1536,16 +1545,19 @@ function AgentDetailDialog(props: {
                   groupRatios={props.groupRatios}
                   groupName={props.userGroupName}
                   visibleGroups={props.userGroupVisibleGroups}
+                  groupRatioOverrides={props.userGroupRatios}
                   canSave={props.canSaveUserGroup}
                   isPending={props.isUserGroupPending}
                   onGroupNameChange={props.onUserGroupNameChange}
                   onVisibleGroupsChange={props.onUserGroupVisibleGroupsChange}
+                  onGroupRatioOverridesChange={props.onUserGroupRatiosChange}
                   onSave={props.onSaveUserGroup}
                   onEdit={(rule) => {
                     props.onUserGroupNameChange(rule.group_name)
                     props.onUserGroupVisibleGroupsChange(
                       rule.visible_groups ?? []
                     )
+                    props.onUserGroupRatiosChange(rule.group_ratios ?? {})
                   }}
                 />
 
@@ -1555,6 +1567,7 @@ function AgentDetailDialog(props: {
                   systemGroupName={props.systemGroupName}
                   groupDescription={props.groupDescription}
                   groupRatio={props.groupRatio}
+                  groupRatioFloor={props.groupRatioFloor}
                   groupVisible={props.groupVisible}
                   canSave={props.canSavePricing}
                   isPending={props.isPricingPending}
@@ -1568,9 +1581,7 @@ function AgentDetailDialog(props: {
                     props.onGroupNameChange(rule.group_name)
                     props.onSystemGroupNameChange(rule.system_group_name)
                     props.onGroupDescriptionChange(rule.description ?? '')
-                    props.onGroupRatioChange(
-                      String(rule.effective_ratio || rule.system_ratio || 1)
-                    )
+                    props.onGroupRatioChange(getAgentGroupRatioEditValue(rule))
                     props.onGroupVisibleChange(rule.visible)
                   }}
                 />

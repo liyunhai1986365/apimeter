@@ -43,6 +43,7 @@ type GroupRatioView struct {
 	GroupName       string  `json:"group_name"`
 	SystemGroupName string  `json:"system_group_name"`
 	Description     string  `json:"description"`
+	AgentRatio      float64 `json:"agent_ratio"`
 	SystemRatio     float64 `json:"system_ratio"`
 	ConfiguredRatio float64 `json:"configured_ratio"`
 	EffectiveRatio  float64 `json:"effective_ratio"`
@@ -52,8 +53,9 @@ type GroupRatioView struct {
 }
 
 type UserGroupConfigView struct {
-	GroupName     string   `json:"group_name"`
-	VisibleGroups []string `json:"visible_groups"`
+	GroupName     string             `json:"group_name"`
+	VisibleGroups []string           `json:"visible_groups"`
+	GroupRatios   map[string]float64 `json:"group_ratios"`
 }
 
 type LedgerView struct {
@@ -203,8 +205,8 @@ func UpdateBranding(agentID int, branding string) (*model.Agent, error) {
 	return model.GetAgentById(agentID)
 }
 
-func EffectiveGroupRatioMap(agentID int) (map[string]float64, error) {
-	groupMap, err := EffectiveGroupMap(agentID)
+func EffectiveGroupRatioMap(agentID int, userGroups ...string) (map[string]float64, error) {
+	groupMap, err := EffectiveGroupMap(agentID, userGroups...)
 	if err != nil {
 		return nil, err
 	}
@@ -218,12 +220,16 @@ func EffectiveGroupRatioMap(agentID int) (map[string]float64, error) {
 	return result, nil
 }
 
-func EffectiveGroupMap(agentID int) (map[string]types.AgentGroup, error) {
+func EffectiveGroupMap(agentID int, userGroups ...string) (map[string]types.AgentGroup, error) {
 	configuredGroups, err := model.ListAgentGroupRatios(agentID)
 	if err != nil {
 		return nil, err
 	}
-	systemRatios := ratio_setting.GetGroupRatioCopy()
+	userGroup, err := resolveAgentOwnerUserGroup(agentID, userGroups...)
+	if err != nil {
+		return nil, err
+	}
+	systemRatios := effectiveSystemGroupRatioMap(userGroup)
 	result := make(map[string]types.AgentGroup, len(configuredGroups))
 	for _, configured := range configuredGroups {
 		group := buildAgentGroup(configured, systemRatios)
@@ -235,8 +241,12 @@ func EffectiveGroupMap(agentID int) (map[string]types.AgentGroup, error) {
 	return result, nil
 }
 
-func ListGroupRatios(agentID int) ([]GroupRatioView, error) {
-	systemRatios := ratio_setting.GetGroupRatioCopy()
+func ListGroupRatios(agentID int, userGroups ...string) ([]GroupRatioView, error) {
+	userGroup, err := resolveAgentOwnerUserGroup(agentID, userGroups...)
+	if err != nil {
+		return nil, err
+	}
+	systemRatios := effectiveSystemGroupRatioMap(userGroup)
 	configuredGroups, err := model.ListAgentGroupRatios(agentID)
 	if err != nil {
 		return nil, err
@@ -250,6 +260,7 @@ func ListGroupRatios(agentID int) ([]GroupRatioView, error) {
 			GroupName:       group.GroupName,
 			SystemGroupName: group.SystemGroupName,
 			Description:     group.Description,
+			AgentRatio:      group.AgentRatio,
 			SystemRatio:     group.SystemRatio,
 			ConfiguredRatio: group.ConfiguredRatio,
 			EffectiveRatio:  group.EffectiveRatio,
@@ -266,6 +277,7 @@ func ListGroupRatios(agentID int) ([]GroupRatioView, error) {
 			GroupName:       systemGroupName,
 			SystemGroupName: systemGroupName,
 			Description:     "",
+			AgentRatio:      systemRatio,
 			SystemRatio:     systemRatio,
 			ConfiguredRatio: 0,
 			EffectiveRatio:  systemRatio,
@@ -297,6 +309,7 @@ func UserGroupConfigMap(agentID int) (map[string]types.AgentUserGroup, error) {
 		result[groupName] = types.AgentUserGroup{
 			GroupName:     groupName,
 			VisibleGroups: parseVisibleGroups(config.VisibleGroups),
+			GroupRatios:   parseGroupRatios(config.GroupRatios),
 		}
 	}
 	return result, nil
@@ -316,19 +329,28 @@ func ListUserGroupConfigs(agentID int) ([]UserGroupConfigView, error) {
 		views = append(views, UserGroupConfigView{
 			GroupName:     groupName,
 			VisibleGroups: parseVisibleGroups(config.VisibleGroups),
+			GroupRatios:   parseGroupRatios(config.GroupRatios),
 		})
 	}
 	return views, nil
 }
 
-func UpsertUserGroupConfig(agentID int, groupName string, visibleGroups []string) (*model.AgentUserGroupConfig, error) {
+func UpsertUserGroupConfig(agentID int, groupName string, visibleGroups []string, groupRatios ...map[string]float64) (*model.AgentUserGroupConfig, error) {
 	groupName = strings.TrimSpace(groupName)
 	visibleGroups = normalizeVisibleGroupsForGroup(groupName, visibleGroups)
+	normalizedGroupRatios, err := normalizeGroupRatioOverridesForAgent(agentID, firstGroupRatioMap(groupRatios...))
+	if err != nil {
+		return nil, err
+	}
 	if groupName == "" {
 		return nil, ErrAgentUserGroupNotAllowed
 	}
+	groupRatiosJSON, err := marshalGroupRatios(normalizedGroupRatios)
+	if err != nil {
+		return nil, err
+	}
 	var config model.AgentUserGroupConfig
-	err := model.DB.Where("agent_id = ? AND group_name = ?", agentID, groupName).First(&config).Error
+	err = model.DB.Where("agent_id = ? AND group_name = ?", agentID, groupName).First(&config).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -337,11 +359,13 @@ func UpsertUserGroupConfig(agentID int, groupName string, visibleGroups []string
 			AgentId:       agentID,
 			GroupName:     groupName,
 			VisibleGroups: strings.Join(visibleGroups, ","),
+			GroupRatios:   groupRatiosJSON,
 		}
 		err = model.DB.Create(&config).Error
 	} else {
 		err = model.DB.Model(&config).Updates(map[string]interface{}{
 			"visible_groups": strings.Join(visibleGroups, ","),
+			"group_ratios":   groupRatiosJSON,
 		}).Error
 	}
 	if err != nil {
@@ -350,7 +374,7 @@ func UpsertUserGroupConfig(agentID int, groupName string, visibleGroups []string
 	return &config, nil
 }
 
-func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, description string, ratio float64, visible bool) (*model.AgentGroupRatio, error) {
+func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, description string, ratio float64, visible bool, userGroups ...string) (*model.AgentGroupRatio, error) {
 	groupName = strings.TrimSpace(groupName)
 	systemGroupName = strings.TrimSpace(systemGroupName)
 	description = strings.TrimSpace(description)
@@ -363,7 +387,11 @@ func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, des
 	if !ratio_setting.ContainsGroupRatio(systemGroupName) {
 		return nil, ErrAgentSystemGroupNotFound
 	}
-	systemRatio := ratio_setting.GetGroupRatio(systemGroupName)
+	userGroup, err := resolveAgentOwnerUserGroup(agentID, userGroups...)
+	if err != nil {
+		return nil, err
+	}
+	systemRatio := effectiveSystemGroupRatio(userGroup, systemGroupName)
 	if ratio < 0 {
 		return nil, ErrInvalidAgentGroupRatio
 	}
@@ -371,7 +399,7 @@ func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, des
 		return nil, ErrAgentGroupRatioBelowSystem
 	}
 	var groupRatio model.AgentGroupRatio
-	err := model.DB.Where("agent_id = ? AND group_name = ?", agentID, groupName).First(&groupRatio).Error
+	err = model.DB.Where("agent_id = ? AND group_name = ?", agentID, groupName).First(&groupRatio).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -399,6 +427,64 @@ func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, des
 	return &groupRatio, nil
 }
 
+func resolveAgentOwnerUserGroup(agentID int, userGroups ...string) (string, error) {
+	if userGroup := firstNonEmpty(userGroups...); userGroup != "" {
+		return userGroup, nil
+	}
+	agent, err := model.GetAgentById(agentID)
+	if err != nil {
+		if errors.Is(err, model.ErrAgentNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	if agent.OwnerUserId <= 0 {
+		return "", nil
+	}
+	user, err := model.GetUserById(agent.OwnerUserId, false)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return "", nil
+		}
+		return "", err
+	}
+	return strings.TrimSpace(user.Group), nil
+}
+
+func effectiveSystemGroupRatioMap(userGroup string) map[string]float64 {
+	systemRatios := ratio_setting.GetGroupRatioCopy()
+	userGroup = strings.TrimSpace(userGroup)
+	if userGroup == "" {
+		return systemRatios
+	}
+	for groupName := range systemRatios {
+		systemRatios[groupName] = effectiveSystemGroupRatio(userGroup, groupName)
+	}
+	return systemRatios
+}
+
+func effectiveSystemGroupRatio(userGroup string, systemGroupName string) float64 {
+	systemRatio := ratio_setting.GetGroupRatio(systemGroupName)
+	userGroup = strings.TrimSpace(userGroup)
+	if userGroup == "" {
+		return systemRatio
+	}
+	if userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(userGroup, systemGroupName); ok {
+		return userGroupRatio
+	}
+	return systemRatio
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
 func buildAgentGroup(configured *model.AgentGroupRatio, systemRatios map[string]float64) types.AgentGroup {
 	systemGroupName := strings.TrimSpace(configured.SystemGroupName)
 	if systemGroupName == "" {
@@ -415,6 +501,7 @@ func buildAgentGroup(configured *model.AgentGroupRatio, systemRatios map[string]
 		GroupName:       configured.GroupName,
 		SystemGroupName: systemGroupName,
 		Description:     strings.TrimSpace(configured.Description),
+		AgentRatio:      systemRatio,
 		SystemRatio:     systemRatio,
 		ConfiguredRatio: configured.Ratio,
 		EffectiveRatio:  effectiveRatio,
@@ -462,6 +549,85 @@ func parseVisibleGroups(raw string) []string {
 		return nil
 	}
 	return normalizeVisibleGroups(strings.Split(raw, ","))
+}
+
+func firstGroupRatioMap(values ...map[string]float64) map[string]float64 {
+	if len(values) == 0 {
+		return nil
+	}
+	return values[0]
+}
+
+func normalizeGroupRatioOverrides(groupRatios map[string]float64) map[string]float64 {
+	if len(groupRatios) == 0 {
+		return nil
+	}
+	result := make(map[string]float64, len(groupRatios))
+	for groupName, ratio := range groupRatios {
+		groupName = strings.TrimSpace(groupName)
+		if groupName == "" || ratio < 0 {
+			continue
+		}
+		result[groupName] = ratio
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func normalizeGroupRatioOverridesForAgent(agentID int, groupRatios map[string]float64) (map[string]float64, error) {
+	groupRatios = normalizeGroupRatioOverrides(groupRatios)
+	if len(groupRatios) == 0 {
+		return nil, nil
+	}
+	groups, err := EffectiveGroupMap(agentID)
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]float64, len(groupRatios))
+	for groupName, ratio := range groupRatios {
+		group, ok := groups[groupName]
+		if !ok || !group.Available {
+			continue
+		}
+		minRatio := group.AgentRatio
+		if minRatio < 0 {
+			minRatio = 0
+		}
+		if ratio < minRatio {
+			ratio = minRatio
+		}
+		result[groupName] = ratio
+	}
+	if len(result) == 0 {
+		return nil, nil
+	}
+	return result, nil
+}
+
+func parseGroupRatios(raw string) map[string]float64 {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil
+	}
+	var groupRatios map[string]float64
+	if err := common.UnmarshalJsonStr(raw, &groupRatios); err != nil {
+		return nil
+	}
+	return normalizeGroupRatioOverrides(groupRatios)
+}
+
+func marshalGroupRatios(groupRatios map[string]float64) (string, error) {
+	groupRatios = normalizeGroupRatioOverrides(groupRatios)
+	if len(groupRatios) == 0 {
+		return "", nil
+	}
+	data, err := common.Marshal(groupRatios)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
 }
 
 func UpdateUserGlobalStatus(agentID int, userID int, status int) error {

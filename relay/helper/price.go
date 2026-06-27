@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
@@ -76,7 +77,12 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 	groupRatioInfo.BaseGroupRatio = groupRatioInfo.GroupRatio
 
 	if relayInfo != nil && relayInfo.AgentContext != nil {
-		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[displayGroup]; ok {
+		if selectedAgentGroup := common.GetContextKeyString(ctx, constant.ContextKeyAgentSelectedGroup); selectedAgentGroup != "" {
+			if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, selectedAgentGroup); ok && group.SystemGroupName == relayInfo.UsingGroup {
+				displayGroup = group.GroupName
+			}
+		}
+		if agentRatio, ok := agentGroupRatioForUserGroup(relayInfo.AgentContext, userGroup, displayGroup); ok {
 			if agentRatio < groupRatioInfo.BaseGroupRatio {
 				agentRatio = groupRatioInfo.BaseGroupRatio
 			}
@@ -97,6 +103,19 @@ func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.
 	}
 
 	return groupRatioInfo
+}
+
+func agentGroupRatioForUserGroup(agentCtx *types.AgentContext, userGroup string, displayGroup string) (float64, bool) {
+	if agentCtx == nil {
+		return 0, false
+	}
+	if group, ok := agentservice.ResolveUserGroup(agentCtx, userGroup); ok && group.GroupRatios != nil {
+		if ratio, ok := group.GroupRatios[displayGroup]; ok {
+			return ratio, true
+		}
+	}
+	ratio, ok := agentCtx.GroupRatios[displayGroup]
+	return ratio, ok
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (types.PriceData, error) {

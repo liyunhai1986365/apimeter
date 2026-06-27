@@ -359,32 +359,15 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 	modelName := taskModelName(task)
 
 	// 获取模型价格和倍率
-	modelRatio, hasRatioSetting, _ := ratio_setting.GetModelRatio(modelName)
+	modelRatio, hasRatioSetting := taskBillingModelRatio(task, modelName)
 	// 只有配置了倍率(非固定价格)时才按 token 重新计费
 	if !hasRatioSetting || modelRatio <= 0 {
 		return
 	}
 
-	// 获取用户和组的倍率信息
-	group := task.Group
-	if group == "" {
-		user, err := model.GetUserById(task.UserId, false)
-		if err == nil {
-			group = user.Group
-		}
-	}
-	if group == "" {
+	finalGroupRatio := taskBillingGroupRatio(task)
+	if finalGroupRatio < 0 {
 		return
-	}
-
-	groupRatio := ratio_setting.GetGroupRatio(group)
-	userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group)
-
-	var finalGroupRatio float64
-	if hasUserGroupRatio {
-		finalGroupRatio = userGroupRatio
-	} else {
-		finalGroupRatio = groupRatio
 	}
 
 	// 计算 OtherRatios 乘积（视频折扣、时长等）
@@ -402,4 +385,38 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f, otherMultiplier=%.4f", totalTokens, modelRatio, finalGroupRatio, otherMultiplier)
 	RecalculateTaskQuota(ctx, task, actualQuota, reason)
+}
+
+func taskBillingGroupRatio(task *model.Task) float64 {
+	if task == nil {
+		return -1
+	}
+	if bc := task.PrivateData.BillingContext; bc != nil && bc.GroupRatio >= 0 {
+		return bc.GroupRatio
+	}
+	group := task.Group
+	if group == "" {
+		user, err := model.GetUserById(task.UserId, false)
+		if err == nil {
+			group = user.Group
+		}
+	}
+	if group == "" {
+		return -1
+	}
+	groupRatio := ratio_setting.GetGroupRatio(group)
+	if userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group); hasUserGroupRatio {
+		return userGroupRatio
+	}
+	return groupRatio
+}
+
+func taskBillingModelRatio(task *model.Task, modelName string) (float64, bool) {
+	if task != nil {
+		if bc := task.PrivateData.BillingContext; bc != nil && bc.ModelRatio > 0 {
+			return bc.ModelRatio, true
+		}
+	}
+	modelRatio, ok, _ := ratio_setting.GetModelRatio(modelName)
+	return modelRatio, ok
 }

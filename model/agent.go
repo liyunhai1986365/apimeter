@@ -138,6 +138,7 @@ type AgentUserGroupConfig struct {
 	AgentId       int    `json:"agent_id" gorm:"uniqueIndex:idx_agent_user_group_agent_group,priority:1;column:agent_id"`
 	GroupName     string `json:"group_name" gorm:"type:varchar(64);uniqueIndex:idx_agent_user_group_agent_group,priority:2"`
 	VisibleGroups string `json:"visible_groups" gorm:"type:text;column:visible_groups"`
+	GroupRatios   string `json:"group_ratios" gorm:"type:text;column:group_ratios"`
 	CreatedAt     int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	UpdatedAt     int64  `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
 }

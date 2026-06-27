@@ -43,8 +43,9 @@ type agentGroupRatioRequest struct {
 }
 
 type agentUserGroupConfigRequest struct {
-	GroupName     string   `json:"group_name"`
-	VisibleGroups []string `json:"visible_groups"`
+	GroupName     string             `json:"group_name"`
+	VisibleGroups []string           `json:"visible_groups"`
+	GroupRatios   map[string]float64 `json:"group_ratios"`
 }
 
 type agentWithdrawalRequest struct {
@@ -427,7 +428,7 @@ func AgentUpsertUserGroupConfig(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	group, err := agentservice.UpsertUserGroupConfig(agentID, req.GroupName, req.VisibleGroups)
+	group, err := agentservice.UpsertUserGroupConfig(agentID, req.GroupName, req.VisibleGroups, req.GroupRatios)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -480,6 +481,8 @@ func AgentUpsertGroupRatio(c *gin.Context) {
 		GroupName:       ratio.GroupName,
 		SystemGroupName: ratio.SystemGroupName,
 		Description:     ratio.Description,
+		AgentRatio:      ratio.Ratio,
+		SystemRatio:     ratio.Ratio,
 		ConfiguredRatio: ratio.Ratio,
 		EffectiveRatio:  ratio.Ratio,
 		Configured:      true,

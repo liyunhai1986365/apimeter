@@ -16,8 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   BadgeDollarSign,
@@ -72,6 +71,9 @@ import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
 import {
   createAgentDomain,
   buildAgentUserGroupOptions,
+  getAgentGroupRatioInputFloor,
+  getAgentGroupRatioEditValue,
+  getAgentSystemGroupDefaultRatio,
   getAgentSelf,
   listAgentDomains,
   listAgentGroupRatios,
@@ -213,6 +215,9 @@ export function Agents() {
   const [userGroupVisibleGroups, setUserGroupVisibleGroups] = useState<
     string[]
   >([])
+  const [userGroupRatios, setUserGroupRatios] = useState<
+    Record<string, number>
+  >({})
   const [userKeywordInput, setUserKeywordInput] = useState('')
   const [userKeyword, setUserKeyword] = useState('')
   const [userPage, setUserPage] = useState(1)
@@ -386,9 +391,11 @@ export function Agents() {
   const ledger = ledgerPage.items
   const withdrawals = withdrawalsPage.items
   const canCreateDomain = newDomain.trim() !== ''
-  const selectedGroupBaseRatio =
-    groupRatios.find((item) => item.system_group_name === systemGroupName)
-      ?.system_ratio ?? 0
+  const selectedGroupBaseRatio = getAgentGroupRatioInputFloor(
+    groupRatios,
+    groupName,
+    systemGroupName
+  )
   const canSaveGroupRatio =
     groupName.trim() !== '' &&
     systemGroupName.trim() !== '' &&
@@ -400,12 +407,13 @@ export function Agents() {
     setGroupName(rule.group_name)
     setSystemGroupName(rule.system_group_name)
     setGroupDescription(rule.description ?? '')
-    setGroupRatio(String(rule.effective_ratio || rule.system_ratio || 1))
+    setGroupRatio(getAgentGroupRatioEditValue(rule))
     setGroupVisible(rule.visible)
   }
   const editAgentUserGroup = (rule: AgentUserGroupConfig) => {
     setUserGroupName(rule.group_name)
     setUserGroupVisibleGroups(rule.visible_groups ?? [])
+    setUserGroupRatios(rule.group_ratios ?? {})
   }
   const searchAgentUsers = () => {
     setUserPage(1)
@@ -849,10 +857,7 @@ export function Agents() {
                                   </option>
                                 ) : null}
                                 {userGroupOptions.map((group) => (
-                                  <option
-                                    key={group}
-                                    value={group}
-                                  >
+                                  <option key={group} value={group}>
                                     {group}
                                   </option>
                                 ))}
@@ -917,14 +922,17 @@ export function Agents() {
                   groupRatios={groupRatios}
                   groupName={userGroupName}
                   visibleGroups={userGroupVisibleGroups}
+                  groupRatioOverrides={userGroupRatios}
                   canSave={canSaveUserGroup}
                   isPending={saveUserGroupMutation.isPending}
                   onGroupNameChange={setUserGroupName}
                   onVisibleGroupsChange={setUserGroupVisibleGroups}
+                  onGroupRatioOverridesChange={setUserGroupRatios}
                   onSave={() =>
                     saveUserGroupMutation.mutate({
                       group_name: userGroupName,
                       visible_groups: userGroupVisibleGroups,
+                      group_ratios: userGroupRatios,
                     })
                   }
                   onEdit={editAgentUserGroup}
@@ -935,18 +943,17 @@ export function Agents() {
                   systemGroupName={systemGroupName}
                   groupDescription={groupDescription}
                   groupRatio={groupRatio}
+                  groupRatioFloor={selectedGroupBaseRatio}
                   groupVisible={groupVisible}
                   canSave={canSaveGroupRatio}
                   isPending={saveGroupRatioMutation.isPending}
                   onGroupNameChange={setGroupName}
                   onSystemGroupNameChange={(nextSystemGroup) => {
                     setSystemGroupName(nextSystemGroup)
-                    const nextRatio = groupRatios.find(
-                      (item) => item.system_group_name === nextSystemGroup
-                    )
                     setGroupRatio(
-                      String(
-                        nextRatio?.effective_ratio ?? nextRatio?.system_ratio ?? 1
+                      getAgentSystemGroupDefaultRatio(
+                        groupRatios,
+                        nextSystemGroup
                       )
                     )
                   }}
