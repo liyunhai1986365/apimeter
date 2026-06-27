@@ -18,6 +18,8 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/gemini"
 	"github.com/QuantumNous/new-api/relay/channel/ollama"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -242,6 +244,17 @@ func GetChannelFilterOptions(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, options)
+}
+
+func GetChannelGroups(c *gin.Context) {
+	groupNames, configured := setting.GetTokenGroupNamesFromDisplayConfig()
+	if !configured {
+		groupNames = make([]string, 0)
+		for groupName := range ratio_setting.GetGroupRatioCopy() {
+			groupNames = append(groupNames, groupName)
+		}
+	}
+	common.ApiSuccess(c, groupNames)
 }
 
 func buildFetchModelsHeaders(channel *model.Channel, key string) (http.Header, error) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -147,6 +148,31 @@ func TestGetChannelFilterOptionsReturnsOnlyIdAndName(t *testing.T) {
 	require.Contains(t, recorder.Body.String(), "beta-channel")
 	require.NotContains(t, recorder.Body.String(), "sk-secret")
 	require.NotContains(t, recorder.Body.String(), "gpt-4o")
+}
+
+func TestGetChannelGroupsReturnsConfiguredNonUserGroups(t *testing.T) {
+	t.Cleanup(func() {
+		require.NoError(t, setting.UpdateGroupDisplayConfigByJSONString(`{"categories":[],"groups":[]}`))
+	})
+	require.NoError(t, setting.UpdateGroupDisplayConfigByJSONString(`{
+		"categories": [],
+		"groups": [
+			{"group": "default", "order": 10},
+			{"group": "vip-user", "order": 20, "user_group": true},
+			{"group": "backup", "order": 30}
+		]
+	}`))
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/channel/groups", nil)
+
+	GetChannelGroups(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"default"`)
+	require.Contains(t, recorder.Body.String(), `"backup"`)
+	require.NotContains(t, recorder.Body.String(), `"vip-user"`)
 }
 
 func TestBatchSetChannelGroupsControllerUpdatesAbilities(t *testing.T) {

@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { AxiosRequestConfig } from 'axios'
 import { api } from '@/lib/api'
-import { getGroups as getUserGroups } from '@/features/users/api'
 import type {
   AddChannelRequest,
   BatchDeleteParams,
@@ -603,9 +602,16 @@ export async function getOllamaVersion(
 // ============================================================================
 
 /**
- * Get all available groups (re-exported from users API for convenience)
+ * Get system-configured non-user groups for channel group filters.
  */
-export const getGroups = getUserGroups
+export async function getGroups(): Promise<{
+  success: boolean
+  message?: string
+  data?: string[]
+}> {
+  const res = await api.get('/api/channel/groups')
+  return res.data
+}
 
 // ============================================================================
 // Prefill Groups (Model Groups)
