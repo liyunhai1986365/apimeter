@@ -82,7 +82,7 @@ export function PublicHeader(props: PublicHeaderProps) {
 
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [scrolled, setScrolled] = useState(false)
+  const [hasScrolled, setHasScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [authPromptTarget, setAuthPromptTarget] =
     useState<AuthPromptTarget | null>(null)
@@ -106,7 +106,7 @@ export function PublicHeader(props: PublicHeaderProps) {
   const links = dynamicLinks.length > 0 ? dynamicLinks : navLinks
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20)
+    const onScroll = () => setHasScrolled(window.scrollY > 8)
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
@@ -182,32 +182,22 @@ export function PublicHeader(props: PublicHeaderProps) {
 
   return (
     <>
-      <header className='pointer-events-none fixed inset-x-0 top-[var(--invite-promo-banner-height,0px)] z-50'>
-        <div
-          className={cn(
-            'pointer-events-auto mx-auto transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
-            scrolled ? 'max-w-[52rem] px-3 pt-3' : 'max-w-7xl px-4 pt-0 md:px-6'
-          )}
-        >
-          <nav
-            className={cn(
-              'flex items-center justify-between transition-all duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]',
-              scrolled
-                ? 'bg-background/60 ring-border/50 h-12 rounded-2xl pr-1.5 pl-4 shadow-[0_2px_16px_-6px_rgba(0,0,0,0.08),0_0_0_0.5px_rgba(0,0,0,0.02)] ring-[0.5px] backdrop-blur-2xl dark:shadow-[0_2px_16px_-6px_rgba(0,0,0,0.4)]'
-                : 'h-16 px-2'
-            )}
-          >
+      <header
+        className={cn(
+          'pointer-events-none fixed inset-x-0 top-[var(--invite-promo-banner-height,0px)] z-50 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300',
+          hasScrolled
+            ? 'bg-background/72 border-border/50 supports-backdrop-filter:bg-background/64 border-b shadow-[0_12px_34px_-30px_var(--foreground)] backdrop-blur-2xl'
+            : 'border-b border-transparent bg-transparent'
+        )}
+      >
+        <div className='pointer-events-auto mx-auto max-w-7xl px-4 md:px-6'>
+          <nav className='flex h-16 items-center justify-between px-2'>
             {/* Logo */}
             <Link
               to={homeUrl}
               className='group flex shrink-0 items-center gap-3'
             >
-              <div
-                className={cn(
-                  'flex shrink-0 items-center justify-center transition-all duration-300 group-hover:scale-105',
-                  scrolled ? 'size-8' : 'size-10'
-                )}
-              >
+              <div className='flex size-10 shrink-0 items-center justify-center transition-all duration-300 group-hover:scale-105'>
                 {loading ? (
                   <Skeleton className='size-full rounded-xl' />
                 ) : customLogo ? (
@@ -221,12 +211,7 @@ export function PublicHeader(props: PublicHeaderProps) {
                   />
                 )}
               </div>
-              <span
-                className={cn(
-                  'font-semibold tracking-tight transition-[font-size,line-height] duration-300',
-                  scrolled ? 'text-base' : 'text-lg'
-                )}
-              >
+              <span className='text-lg font-semibold tracking-tight transition-[font-size,line-height] duration-300'>
                 {loading ? <Skeleton className='h-4 w-16' /> : displaySiteName}
               </span>
             </Link>

@@ -314,7 +314,9 @@ function ModelHeader(props: {
   variant?: ModelDetailsVariant
 }) {
   const { t } = useTranslation()
-  const [descriptionExpanded, setDescriptionExpanded] = useState(false)
+  const [expandedDescriptionModel, setExpandedDescriptionModel] = useState<
+    string | null
+  >(null)
   const [descriptionExpandable, setDescriptionExpandable] = useState(false)
   const descriptionRef = useRef<HTMLParagraphElement>(null)
   const model = props.model
@@ -329,10 +331,7 @@ function ModelHeader(props: {
     model.billing_mode === 'tiered_expr' &&
     Boolean(model.billing_expr) &&
     getDynamicPricingTiers(model).length === 0
-
-  useEffect(() => {
-    setDescriptionExpanded(false)
-  }, [description, model.model_name])
+  const descriptionExpanded = expandedDescriptionModel === model.model_name
 
   useEffect(() => {
     if (!isPage || !description || descriptionExpanded) return
@@ -429,7 +428,11 @@ function ModelHeader(props: {
             <button
               type='button'
               className='text-muted-foreground hover:text-foreground mt-2 text-xs font-medium transition-colors'
-              onClick={() => setDescriptionExpanded((current) => !current)}
+              onClick={() =>
+                setExpandedDescriptionModel((current) =>
+                  current === model.model_name ? null : model.model_name
+                )
+              }
               aria-expanded={descriptionExpanded}
             >
               {descriptionExpanded ? t('Collapse') : t('More...')}
@@ -1036,47 +1039,82 @@ export interface ModelDetailsContentProps {
   tokenUnit: TokenUnit
   showRechargePrice?: boolean
   variant?: ModelDetailsVariant
+  onBack?: () => void
 }
 
 export function ModelDetailsContent(props: ModelDetailsContentProps) {
-  const { t } = useTranslation()
   const showRechargePrice = props.showRechargePrice ?? false
   const variant = props.variant ?? 'compact'
   const isPage = variant === 'page'
+  const [activeTab, setActiveTab] = useState<TabValue>('overview')
+  const [showStickyNav, setShowStickyNav] = useState(false)
+  const tabsListRef = useRef<HTMLDivElement>(null)
   const metadata = useMemo(() => inferModelMetadata(props.model), [props.model])
 
   const isDynamic =
     props.model.billing_mode === 'tiered_expr' &&
     Boolean(props.model.billing_expr)
 
+  useEffect(() => {
+    if (!isPage || !props.onBack) {
+      return
+    }
+
+    const getOffset = () => {
+      const anchor = tabsListRef.current
+      const styles = anchor ? getComputedStyle(anchor) : null
+      const headerHeight =
+        parseFloat(
+          styles?.getPropertyValue('--app-header-height') ||
+            getComputedStyle(document.documentElement).getPropertyValue(
+              '--app-header-height'
+            )
+        ) || 48
+      const bannerHeight =
+        parseFloat(styles?.getPropertyValue('--invite-promo-banner-height')) ||
+        0
+
+      return headerHeight + bannerHeight + 20
+    }
+
+    const updateStickyState = () => {
+      const anchor = tabsListRef.current
+      if (!anchor) return
+
+      setShowStickyNav(anchor.getBoundingClientRect().top <= getOffset())
+    }
+
+    updateStickyState()
+    window.addEventListener('scroll', updateStickyState, { passive: true })
+    window.addEventListener('resize', updateStickyState)
+
+    return () => {
+      window.removeEventListener('scroll', updateStickyState)
+      window.removeEventListener('resize', updateStickyState)
+    }
+  }, [isPage, props.onBack])
+
   return (
     <div className={cn('@container/details space-y-4', isPage && 'space-y-8')}>
+      {isPage && props.onBack && showStickyNav && (
+        <ModelDetailsStickyNav
+          model={props.model}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onBack={props.onBack}
+        />
+      )}
+
       <ModelHeader model={props.model} variant={variant} />
 
-      <Tabs defaultValue='overview' className={cn('gap-4', isPage && 'gap-6')}>
-        <TabsList
-          className={cn(
-            'bg-muted/60 grid w-full grid-cols-2 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto',
-            isPage && 'rounded-2xl p-1.5'
-          )}
-        >
-          {TAB_VALUES.map((value) => {
-            const Icon = TAB_META[value].icon
-            return (
-              <TabsTrigger
-                key={value}
-                value={value}
-                className={cn(
-                  'h-8 min-w-0 gap-1.5 rounded-md px-3 text-xs sm:text-sm',
-                  isPage && 'h-10 rounded-xl text-sm'
-                )}
-              >
-                <Icon className='size-3.5' />
-                <span className='truncate'>{t(TAB_META[value].labelKey)}</span>
-              </TabsTrigger>
-            )
-          })}
-        </TabsList>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as TabValue)}
+        className={cn('gap-4', isPage && 'gap-6')}
+      >
+        <div ref={tabsListRef}>
+          <ModelDetailsTabsList page={isPage} />
+        </div>
 
         <TabsContent
           value='overview'
@@ -1129,6 +1167,101 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
           />
         </TabsContent>
       </Tabs>
+    </div>
+  )
+}
+
+function ModelDetailsTabsList(props: { compact?: boolean; page?: boolean }) {
+  const { t } = useTranslation()
+
+  return (
+    <TabsList
+      className={cn(
+        'bg-muted/60 grid w-full grid-cols-2 gap-1 rounded-lg p-1 group-data-horizontal/tabs:h-auto',
+        props.page && 'rounded-2xl p-1.5',
+        props.compact && 'h-9 w-auto min-w-44 rounded-full p-1'
+      )}
+    >
+      {TAB_VALUES.map((value) => {
+        const Icon = TAB_META[value].icon
+        return (
+          <TabsTrigger
+            key={value}
+            value={value}
+            className={cn(
+              'h-8 min-w-0 gap-1.5 rounded-md px-3 text-xs sm:text-sm',
+              props.page && 'h-10 rounded-xl text-sm',
+              props.compact && 'h-7 rounded-full px-2.5 text-xs'
+            )}
+          >
+            <Icon className='size-3.5' />
+            <span className='truncate'>{t(TAB_META[value].labelKey)}</span>
+          </TabsTrigger>
+        )
+      })}
+    </TabsList>
+  )
+}
+
+function ModelDetailsStickyNav(props: {
+  model: PricingModel
+  activeTab: TabValue
+  onTabChange: (value: TabValue) => void
+  onBack: () => void
+}) {
+  const { t } = useTranslation()
+  const vendorIcon = props.model.vendor_icon
+    ? getLobeIcon(props.model.vendor_icon, 18)
+    : null
+
+  return (
+    <div className='pointer-events-none fixed inset-x-0 top-[calc(var(--app-header-height,3rem)+var(--invite-promo-banner-height,0px)+1.25rem)] z-[60] px-6'>
+      <div className='bg-background/82 ring-border/70 supports-backdrop-filter:bg-background/72 pointer-events-auto mx-auto flex w-full max-w-6xl flex-col gap-2 rounded-2xl px-2 py-2 shadow-[0_18px_60px_-36px_var(--foreground)] ring-1 backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-3'>
+        <div className='flex min-w-0 items-center gap-2'>
+          <Button
+            variant='ghost'
+            size='icon'
+            onClick={props.onBack}
+            className='size-9 shrink-0 rounded-full'
+            aria-label={t('Back')}
+          >
+            <ArrowLeft />
+          </Button>
+          <div className='bg-muted/45 flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3 py-2 sm:max-w-[min(42vw,30rem)]'>
+            <span className='bg-background flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm'>
+              {vendorIcon ?? (
+                <Info className='text-muted-foreground size-3.5' />
+              )}
+            </span>
+            <div className='min-w-0'>
+              <p className='truncate font-mono text-sm leading-tight font-semibold'>
+                {props.model.model_name}
+              </p>
+              <p className='text-muted-foreground mt-0.5 flex min-w-0 items-center gap-1 text-[11px] leading-none'>
+                {props.model.vendor_name && (
+                  <span className='truncate'>{props.model.vendor_name}</span>
+                )}
+                {props.model.vendor_name && (
+                  <span className='text-muted-foreground/40'>/</span>
+                )}
+                <span className='shrink-0'>
+                  {props.model.quota_type === QUOTA_TYPE_VALUES.TOKEN
+                    ? t('Token-based')
+                    : t('Per Request')}
+                </span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <Tabs
+          value={props.activeTab}
+          onValueChange={(value) => props.onTabChange(value as TabValue)}
+          className='shrink-0'
+        >
+          <ModelDetailsTabsList compact />
+        </Tabs>
+      </div>
     </div>
   )
 }
@@ -1276,6 +1409,7 @@ export function ModelDetails() {
             tokenUnit={tokenUnit}
             showRechargePrice={search.rechargePrice ?? false}
             variant='page'
+            onBack={handleBack}
             endpointMap={
               (endpointMap as Record<
                 string,
