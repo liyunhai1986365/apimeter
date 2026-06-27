@@ -88,6 +88,15 @@ const defaultOperationsSettings: OperationsSettings = {
   'perf_metrics_setting.flush_interval': 5,
   'perf_metrics_setting.bucket_time': 'hour',
   'perf_metrics_setting.retention_days': 0,
+  'routing_strategy_setting.enabled': true,
+  'routing_strategy_setting.update_interval_minutes': 10,
+  'routing_strategy_setting.window_hours': 24,
+  'routing_strategy_setting.min_request_count': 3,
+  'routing_strategy_setting.smart_price_weight': 0.4,
+  'routing_strategy_setting.smart_speed_weight': 0.25,
+  'routing_strategy_setting.smart_success_weight': 0.35,
+  'routing_strategy_setting.excluded_groups': '',
+  'routing_strategy_setting.pinned_groups': '',
 }
 
 export function OperationsSettings() {
@@ -118,6 +127,7 @@ export function OperationsSettings() {
     | 'worker'
     | 'logs'
     | 'performance'
+    | 'routing-strategies'
     | 'update-checker'
   const sectionContent = getOperationsSectionContent(
     activeSection,

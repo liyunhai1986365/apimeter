@@ -22,8 +22,14 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import {
   ChevronDown,
+  Gauge,
   KeyRound,
+  Route,
   Settings2,
+  ShieldCheck,
+  Sparkles,
+  Tags,
+  Trash2,
   WalletCards,
   type LucideIcon,
 } from 'lucide-react'
@@ -33,6 +39,7 @@ import { getUserModels, getUserGroups } from '@/lib/api'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Collapsible,
@@ -49,6 +56,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Select,
   SelectContent,
@@ -66,6 +75,7 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { MultiSelect } from '@/components/multi-select'
@@ -78,6 +88,7 @@ import {
   buildApiKeyGroupOptions,
   getApiKeyFormSchema,
   type ApiKeyFormValues,
+  type ApiKeyRoutingStrategy,
   getApiKeyFormDefaultValues,
   shouldFallbackApiKeyGroup,
   transformFormDataToPayload,
@@ -85,7 +96,10 @@ import {
 } from '../lib'
 import { type ApiKey } from '../types'
 import { type ApiKeyGroupOption } from './api-key-group-combobox'
-import { ApiKeyGroupOrderSelector } from './api-key-group-order-selector'
+import {
+  ApiKeyGroupOrderSelector,
+  ApiKeyGroupPickerPopover,
+} from './api-key-group-order-selector'
 import { useApiKeys } from './api-keys-provider'
 
 type ApiKeyMutateDrawerProps = {
@@ -94,6 +108,61 @@ type ApiKeyMutateDrawerProps = {
   currentRow?: ApiKey
   side?: 'left' | 'right'
 }
+
+const SMART_ROUTING_OPTIONS: Array<{
+  value: ApiKeyRoutingStrategy
+  label: string
+  description: string
+  icon: LucideIcon
+  tone: string
+  selectedTone: string
+  iconTone: string
+}> = [
+  {
+    value: 'smart_auto',
+    label: 'Smart automatic',
+    description:
+      'Use the system-maintained ranking that balances price, speed, and recent success rate.',
+    icon: Sparkles,
+    tone: 'border-sky-200 bg-sky-50/70 hover:bg-sky-50 dark:border-sky-900/60 dark:bg-sky-950/20 dark:hover:bg-sky-950/30',
+    selectedTone:
+      'has-[[data-state=checked]]:border-sky-500 has-[[data-state=checked]]:bg-sky-50 has-[[data-state=checked]]:ring-sky-500/20 dark:has-[[data-state=checked]]:bg-sky-950/40',
+    iconTone: 'text-sky-600 dark:text-sky-400',
+  },
+  {
+    value: 'price_first',
+    label: 'Price first',
+    description:
+      'Prefer lower-cost suppliers in the selected available groups for budget-sensitive usage.',
+    icon: Tags,
+    tone: 'border-emerald-200 bg-emerald-50/70 hover:bg-emerald-50 dark:border-emerald-900/60 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/30',
+    selectedTone:
+      'has-[[data-state=checked]]:border-emerald-500 has-[[data-state=checked]]:bg-emerald-50 has-[[data-state=checked]]:ring-emerald-500/20 dark:has-[[data-state=checked]]:bg-emerald-950/40',
+    iconTone: 'text-emerald-600 dark:text-emerald-400',
+  },
+  {
+    value: 'speed_first',
+    label: 'Speed first',
+    description:
+      'Prefer suppliers with faster recent response times for latency-sensitive requests.',
+    icon: Gauge,
+    tone: 'border-amber-200 bg-amber-50/70 hover:bg-amber-50 dark:border-amber-900/60 dark:bg-amber-950/20 dark:hover:bg-amber-950/30',
+    selectedTone:
+      'has-[[data-state=checked]]:border-amber-500 has-[[data-state=checked]]:bg-amber-50 has-[[data-state=checked]]:ring-amber-500/20 dark:has-[[data-state=checked]]:bg-amber-950/40',
+    iconTone: 'text-amber-600 dark:text-amber-400',
+  },
+  {
+    value: 'success_first',
+    label: 'Success rate first',
+    description:
+      'Prefer suppliers with higher recent success rates for stability-sensitive usage.',
+    icon: ShieldCheck,
+    tone: 'border-teal-200 bg-teal-50/70 hover:bg-teal-50 dark:border-teal-900/60 dark:bg-teal-950/20 dark:hover:bg-teal-950/30',
+    selectedTone:
+      'has-[[data-state=checked]]:border-teal-500 has-[[data-state=checked]]:bg-teal-50 has-[[data-state=checked]]:ring-teal-500/20 dark:has-[[data-state=checked]]:bg-teal-950/40',
+    iconTone: 'text-teal-600 dark:text-teal-400',
+  },
+]
 
 type ApiKeyFormSectionProps = {
   title: string
@@ -270,6 +339,7 @@ export function ApiKeysMutateDrawer({
 
   // Correct group after groups load: if the form value is not in available groups, fall back.
   useEffect(() => {
+    if ((form.getValues('routing_mode') || 'smart') === 'smart') return
     if (groups.length === 0) return
     const currentChain = form.getValues('group_chain') || []
     const cleanChain = currentChain.filter(
@@ -369,6 +439,7 @@ export function ApiKeysMutateDrawer({
   const quotaPlaceholder = tokensOnly
     ? t('Enter quota in tokens')
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
+  const routingMode = form.watch('routing_mode') || 'smart'
   const selectedGroupChain = form.watch('group_chain')
   const unlimitedQuota = form.watch('unlimited_quota')
   const imageResponseFormat = form.watch('image_response_format')
@@ -431,53 +502,256 @@ export function ApiKeysMutateDrawer({
 
               <FormField
                 control={form.control}
-                name='group_chain'
+                name='routing_mode'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t(groupTerms.callOrder)}</FormLabel>
+                    <FormLabel>{t('Supplier routing')}</FormLabel>
                     <FormControl>
-                      <ApiKeyGroupOrderSelector
-                        options={groups}
-                        value={field.value}
-                        onChange={field.onChange}
-                        groupDisplay={pricingData?.group_display}
-                        vendors={pricingData?.vendors}
-                        models={pricingData?.data}
-                        groupPerformance={groupPerformance}
-                      />
+                      <Tabs
+                        value={field.value || 'smart'}
+                        onValueChange={(value) => {
+                          field.onChange(value)
+                          if (value === 'smart') {
+                            form.setValue('group_chain', [AUTO_GROUP_VALUE])
+                          } else {
+                            form.setValue('routing_excluded_groups', [])
+                          }
+                          if (
+                            value !== 'smart' &&
+                            (form.getValues('group_chain') || []).includes(
+                              AUTO_GROUP_VALUE
+                            )
+                          ) {
+                            const fallback =
+                              groups.find((g) => g.value === 'default')
+                                ?.value ??
+                              groups[0]?.value ??
+                              ''
+                            form.setValue(
+                              'group_chain',
+                              fallback ? [fallback] : []
+                            )
+                          }
+                        }}
+                        className='gap-3'
+                      >
+                        <TabsList className='grid h-auto w-full grid-cols-2'>
+                          <TabsTrigger value='smart' className='gap-1.5'>
+                            <Route className='size-4' />
+                            {t('Smart routing')}
+                          </TabsTrigger>
+                          <TabsTrigger value='manual' className='gap-1.5'>
+                            <Settings2 className='size-4' />
+                            {t('Specify suppliers')}
+                          </TabsTrigger>
+                        </TabsList>
+                        <TabsContent value='smart' className='mt-0'>
+                          <FormField
+                            control={form.control}
+                            name='routing_strategy'
+                            render={({ field: strategyField }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <RadioGroup
+                                    value={strategyField.value || 'smart_auto'}
+                                    onValueChange={strategyField.onChange}
+                                    className='grid gap-2 sm:grid-cols-2'
+                                  >
+                                    {SMART_ROUTING_OPTIONS.map((option) => {
+                                      const Icon = option.icon
+                                      return (
+                                        <Label
+                                          key={option.value}
+                                          htmlFor={`api-key-routing-${option.value}`}
+                                          className={cn(
+                                            'flex cursor-pointer items-start gap-2.5 rounded-lg border p-2.5 transition-colors has-[[data-state=checked]]:ring-2',
+                                            option.tone,
+                                            option.selectedTone
+                                          )}
+                                        >
+                                          <RadioGroupItem
+                                            id={`api-key-routing-${option.value}`}
+                                            value={option.value}
+                                            className='mt-0.5'
+                                          />
+                                          <Icon
+                                            className={cn(
+                                              'mt-0.5 size-4 shrink-0',
+                                              option.iconTone
+                                            )}
+                                          />
+                                          <span className='min-w-0'>
+                                            <span className='block text-sm font-medium'>
+                                              {t(option.label)}
+                                            </span>
+                                            <span className='text-muted-foreground mt-0.5 block text-xs leading-4'>
+                                              {t(option.description)}
+                                            </span>
+                                          </span>
+                                        </Label>
+                                      )
+                                    })}
+                                  </RadioGroup>
+                                </FormControl>
+                                <FormDescription>
+                                  {t(
+                                    'The system periodically updates supplier rankings. This key reads the latest maintained ranking for the selected strategy.'
+                                  )}
+                                </FormDescription>
+                                <FormField
+                                  control={form.control}
+                                  name='routing_excluded_groups'
+                                  render={({ field: excludedField }) => (
+                                    <FormItem>
+                                      <FormLabel>
+                                        {t('Ignored suppliers')}
+                                      </FormLabel>
+                                      <FormControl>
+                                        <div className='space-y-2'>
+                                          {(excludedField.value || []).length >
+                                            0 && (
+                                            <div className='flex flex-wrap gap-1.5'>
+                                              {(excludedField.value || []).map(
+                                                (group) => {
+                                                  const option = groups.find(
+                                                    (item) =>
+                                                      item.value === group
+                                                  )
+                                                  return (
+                                                    <Badge
+                                                      key={group}
+                                                      variant='secondary'
+                                                      className='gap-1 rounded-md px-2 py-1'
+                                                    >
+                                                      {option?.label || group}
+                                                      <Button
+                                                        type='button'
+                                                        variant='ghost'
+                                                        size='icon-sm'
+                                                        className='size-auto p-0'
+                                                        onClick={() =>
+                                                          excludedField.onChange(
+                                                            (
+                                                              excludedField.value ||
+                                                              []
+                                                            ).filter(
+                                                              (item) =>
+                                                                item !== group
+                                                            )
+                                                          )
+                                                        }
+                                                        aria-label={t('Remove')}
+                                                      >
+                                                        <Trash2 className='size-3' />
+                                                      </Button>
+                                                    </Badge>
+                                                  )
+                                                }
+                                              )}
+                                            </div>
+                                          )}
+                                          <ApiKeyGroupPickerPopover
+                                            options={groups}
+                                            selectedValues={
+                                              excludedField.value || []
+                                            }
+                                            onApply={(values) =>
+                                              excludedField.onChange([
+                                                ...(excludedField.value || []),
+                                                ...values.filter(
+                                                  (value) =>
+                                                    !(
+                                                      excludedField.value || []
+                                                    ).includes(value)
+                                                ),
+                                              ])
+                                            }
+                                            groupDisplay={
+                                              pricingData?.group_display
+                                            }
+                                            vendors={pricingData?.vendors}
+                                            models={pricingData?.data}
+                                            groupPerformance={groupPerformance}
+                                            triggerLabel={t(
+                                              'Select suppliers to ignore'
+                                            )}
+                                            applyLabel={t(
+                                              'Ignore selected suppliers'
+                                            )}
+                                          />
+                                        </div>
+                                      </FormControl>
+                                      <FormDescription>
+                                        {t(
+                                          'Ignored suppliers are removed from this smart routing key only.'
+                                        )}
+                                      </FormDescription>
+                                      <FormMessage />
+                                    </FormItem>
+                                  )}
+                                />
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </TabsContent>
+                        <TabsContent value='manual' className='mt-0'>
+                          <FormField
+                            control={form.control}
+                            name='group_chain'
+                            render={({ field: groupField }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <ApiKeyGroupOrderSelector
+                                    options={groups}
+                                    value={groupField.value}
+                                    onChange={groupField.onChange}
+                                    groupDisplay={pricingData?.group_display}
+                                    vendors={pricingData?.vendors}
+                                    models={pricingData?.data}
+                                    groupPerformance={groupPerformance}
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  {t(groupTerms.requestOrderDescription)}
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </TabsContent>
+                      </Tabs>
                     </FormControl>
-                    <FormDescription>
-                      {t(groupTerms.requestOrderDescription)}
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              {(selectedGroupChain || []).length > 1 && (
-                <FormField
-                  control={form.control}
-                  name='cross_group_retry'
-                  render={({ field }) => (
-                    <FormItem className='flex min-h-16 flex-row items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:min-h-20 sm:gap-4 sm:px-4 sm:py-3'>
-                      <div className='space-y-0.5'>
-                        <FormLabel className='text-sm'>
-                          {t(groupTerms.crossRetry)}
-                        </FormLabel>
-                        <FormDescription className='line-clamp-2 text-xs sm:line-clamp-none'>
-                          {t(groupTerms.crossRetryDescription)}
-                        </FormDescription>
-                      </div>
-                      <FormControl>
-                        <Switch
-                          checked={!!field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                      </FormControl>
-                    </FormItem>
-                  )}
-                />
-              )}
+              {routingMode === 'manual' &&
+                (selectedGroupChain || []).length > 1 && (
+                  <FormField
+                    control={form.control}
+                    name='cross_group_retry'
+                    render={({ field }) => (
+                      <FormItem className='flex min-h-16 flex-row items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:min-h-20 sm:gap-4 sm:px-4 sm:py-3'>
+                        <div className='space-y-0.5'>
+                          <FormLabel className='text-sm'>
+                            {t(groupTerms.crossRetry)}
+                          </FormLabel>
+                          <FormDescription className='line-clamp-2 text-xs sm:line-clamp-none'>
+                            {t(groupTerms.crossRetryDescription)}
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={!!field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
+                      </FormItem>
+                    )}
+                  />
+                )}
 
               <FormField
                 control={form.control}

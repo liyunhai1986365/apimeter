@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/routing_strategy_setting"
 )
 
 // RegisterScheduledSystemTasks wires the periodic channel test, upstream model
@@ -26,6 +27,8 @@ func RegisterScheduledSystemTasks() {
 	// Register async task polling handlers (implemented)
 	service.RegisterSystemTaskHandler(midjourneyPollHandler{})
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
+
+	service.RegisterSystemTaskHandler(routingStrategyRefreshHandler{})
 }
 
 // channelTestHandler runs the scheduled "test all channels" job. Enablement and
@@ -176,4 +179,27 @@ func (asyncTaskPollHandler) NewPayload() any { return nil }
 func (asyncTaskPollHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
 	summary := service.RunTaskPollingOnce(ctx, service.NewSystemTaskProgressReporter(task, runnerID))
 	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, summary, nil)
+}
+
+type routingStrategyRefreshHandler struct{}
+
+func (routingStrategyRefreshHandler) Type() string { return model.SystemTaskTypeRoutingRefresh }
+
+func (routingStrategyRefreshHandler) Enabled() bool {
+	return routing_strategy_setting.GetSetting().Enabled
+}
+
+func (routingStrategyRefreshHandler) Interval() time.Duration {
+	return time.Duration(routing_strategy_setting.GetUpdateIntervalMinutes()) * time.Minute
+}
+
+func (routingStrategyRefreshHandler) NewPayload() any { return nil }
+
+func (routingStrategyRefreshHandler) Run(ctx context.Context, task *model.SystemTask, runnerID string) {
+	result, err := service.RefreshRoutingStrategySnapshots(ctx)
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, result, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, result, nil)
 }

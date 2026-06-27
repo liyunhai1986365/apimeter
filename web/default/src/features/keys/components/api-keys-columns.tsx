@@ -18,11 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
 import { type ColumnDef } from '@tanstack/react-table'
+import { Ban } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getUserGroups } from '@/lib/api'
 import { formatTimestampToDate } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
+import { cn } from '@/lib/utils'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Tooltip,
@@ -33,8 +34,11 @@ import { DataTableColumnHeader } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
 import { API_KEY_STATUSES } from '../constants'
+import {
+  getApiKeyGroupDisplayItems,
+  getApiKeyRoutingStrategyLabel,
+} from '../lib/api-key-form'
 import { type ApiKey } from '../types'
-import { getApiKeyGroupDisplayItems } from '../lib/api-key-form'
 import {
   ApiKeyCell,
   ApiKeyQuotaCell,
@@ -152,6 +156,66 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
       cell: ({ row }) => {
         const apiKey = row.original
         const groupDisplay = getApiKeyGroupDisplayItems(apiKey)
+        if (groupDisplay.routingStrategy) {
+          const excludedGroups = groupDisplay.excludedGroups
+          return (
+            <span className='inline-flex max-w-[260px] items-center gap-1.5 overflow-hidden'>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className='inline-flex items-center gap-1.5 text-xs' />
+                  }
+                >
+                  <span className='border-primary/20 bg-primary/10 text-primary inline-flex rounded-md border px-2 py-0.5 text-xs font-medium'>
+                    {t(
+                      getApiKeyRoutingStrategyLabel(
+                        groupDisplay.routingStrategy
+                      )
+                    )}
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span className='text-xs'>{t('Smart routing')}</span>
+                </TooltipContent>
+              </Tooltip>
+              {excludedGroups.length > 0 && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span className='border-destructive/25 bg-destructive/10 text-destructive inline-flex min-w-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium' />
+                    }
+                  >
+                    <Ban className='size-3 shrink-0' />
+                    <span className='truncate'>{excludedGroups[0]}</span>
+                    {excludedGroups.length > 1 && (
+                      <span className='shrink-0'>
+                        +{excludedGroups.length - 1}
+                      </span>
+                    )}
+                  </TooltipTrigger>
+                  <TooltipContent side='bottom' className='max-w-64'>
+                    <div className='space-y-2'>
+                      <div className='flex items-center gap-1.5 text-xs font-medium'>
+                        <Ban className='size-3.5' />
+                        {t('Ignored suppliers')}
+                      </div>
+                      <div className='flex max-w-56 flex-wrap gap-1.5'>
+                        {excludedGroups.map((group) => (
+                          <GroupBadge
+                            key={group}
+                            group={group}
+                            ratio={groupRatios[group]}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </span>
+          )
+        }
+
         const primaryGroup = groupDisplay.allGroups[0]
 
         if (primaryGroup === 'auto') {
@@ -174,9 +238,7 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
               </TooltipTrigger>
               <TooltipContent>
                 <span className='text-xs'>
-                  {t(
-                    USER_FACING_GROUP_TERMS.autoDescription
-                  )}
+                  {t(USER_FACING_GROUP_TERMS.autoDescription)}
                 </span>
               </TooltipContent>
             </Tooltip>
@@ -212,10 +274,7 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
             <TooltipContent>
               <div className='space-y-1.5'>
                 {groupDisplay.allGroups.map((group, index) => (
-                  <div
-                    key={group}
-                    className='flex items-center gap-2 text-xs'
-                  >
+                  <div key={group} className='flex items-center gap-2 text-xs'>
                     <span className='text-muted-foreground w-4 text-right font-mono tabular-nums'>
                       {index + 1}
                     </span>

@@ -16,13 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import type { ApiKeyGroupOption } from '../components/api-key-group-combobox'
 
 export const AUTO_GROUP_VALUE = 'auto'
-export const AUTO_GROUP_LABEL = 'auto 自动供应商'
-export const AUTO_GROUP_DESCRIPTION =
-  USER_FACING_GROUP_TERMS.autoDescription
 
 type UserGroupInfo = {
   desc: string
@@ -31,31 +27,17 @@ type UserGroupInfo = {
 
 export function buildApiKeyGroupOptions(
   groupsRaw: Record<string, UserGroupInfo>,
-  includeAutoGroup: boolean,
-  selectedGroup?: string
+  _includeAutoGroup: boolean,
+  _selectedGroup?: string
 ): ApiKeyGroupOption[] {
-  const options = Object.entries(groupsRaw).map(([key, info]) => ({
-    value: key,
-    label: key === AUTO_GROUP_VALUE ? AUTO_GROUP_LABEL : key,
-    desc: info.desc || key,
-    ratio: info.ratio,
-  }))
-
-  if (
-    (includeAutoGroup || selectedGroup === AUTO_GROUP_VALUE) &&
-    !options.some((option) => option.value === AUTO_GROUP_VALUE)
-  ) {
-    return [
-      {
-        value: AUTO_GROUP_VALUE,
-        label: AUTO_GROUP_LABEL,
-        desc: AUTO_GROUP_DESCRIPTION,
-      },
-      ...options,
-    ]
-  }
-
-  return options
+  return Object.entries(groupsRaw)
+    .filter(([key]) => key !== AUTO_GROUP_VALUE)
+    .map(([key, info]) => ({
+      value: key,
+      label: key,
+      desc: info.desc || key,
+      ratio: info.ratio,
+    }))
 }
 
 export function shouldFallbackApiKeyGroup(

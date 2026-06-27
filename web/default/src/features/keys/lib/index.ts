@@ -22,6 +22,7 @@ For commercial licensing, please contact support@quantumnous.com
 export {
   getApiKeyFormSchema,
   type ApiKeyFormValues,
+  type ApiKeyRoutingStrategy,
   API_KEY_FORM_DEFAULT_VALUES,
   getApiKeyFormDefaultValues,
   transformFormDataToPayload,
@@ -29,8 +30,6 @@ export {
 } from './api-key-form'
 export {
   AUTO_GROUP_VALUE,
-  AUTO_GROUP_LABEL,
-  AUTO_GROUP_DESCRIPTION,
   buildApiKeyGroupOptions,
   shouldFallbackApiKeyGroup,
 } from './api-key-groups'

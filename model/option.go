@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/performance_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/setting/routing_strategy_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"gorm.io/gorm"
 )
@@ -184,6 +185,16 @@ func InitOptionMap() {
 	common.OptionMap["AutomaticRetryStatusCodes"] = operation_setting.AutomaticRetryStatusCodesToString()
 	common.OptionMap["AutomaticRetryPolicyRules"] = operation_setting.AutomaticRetryPolicyRulesToString()
 	common.OptionMap["ExposeRatioEnabled"] = strconv.FormatBool(ratio_setting.IsExposeRatioEnabled())
+	routingStrategySetting := routing_strategy_setting.GetSetting()
+	common.OptionMap["routing_strategy_setting.enabled"] = strconv.FormatBool(routingStrategySetting.Enabled)
+	common.OptionMap["routing_strategy_setting.update_interval_minutes"] = strconv.Itoa(routingStrategySetting.UpdateIntervalMinutes)
+	common.OptionMap["routing_strategy_setting.window_hours"] = strconv.Itoa(routingStrategySetting.WindowHours)
+	common.OptionMap["routing_strategy_setting.min_request_count"] = strconv.FormatInt(routingStrategySetting.MinRequestCount, 10)
+	common.OptionMap["routing_strategy_setting.smart_price_weight"] = strconv.FormatFloat(routingStrategySetting.SmartPriceWeight, 'f', -1, 64)
+	common.OptionMap["routing_strategy_setting.smart_speed_weight"] = strconv.FormatFloat(routingStrategySetting.SmartSpeedWeight, 'f', -1, 64)
+	common.OptionMap["routing_strategy_setting.smart_success_weight"] = strconv.FormatFloat(routingStrategySetting.SmartSuccessWeight, 'f', -1, 64)
+	common.OptionMap["routing_strategy_setting.excluded_groups"] = routingStrategySetting.ExcludedGroups
+	common.OptionMap["routing_strategy_setting.pinned_groups"] = routingStrategySetting.PinnedGroups
 
 	// 自动添加所有注册的模型配置
 	modelConfigs := config.GlobalConfig.ExportAllConfigs()

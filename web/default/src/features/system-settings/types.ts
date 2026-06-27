@@ -374,6 +374,50 @@ export type OperationsSettings = {
   'perf_metrics_setting.flush_interval': number
   'perf_metrics_setting.bucket_time': 'hour' | 'minute' | '5min'
   'perf_metrics_setting.retention_days': number
+  'routing_strategy_setting.enabled': boolean
+  'routing_strategy_setting.update_interval_minutes': number
+  'routing_strategy_setting.window_hours': number
+  'routing_strategy_setting.min_request_count': number
+  'routing_strategy_setting.smart_price_weight': number
+  'routing_strategy_setting.smart_speed_weight': number
+  'routing_strategy_setting.smart_success_weight': number
+  'routing_strategy_setting.excluded_groups': string
+  'routing_strategy_setting.pinned_groups': string
+}
+
+export type RoutingStrategy =
+  | 'smart_auto'
+  | 'price_first'
+  | 'speed_first'
+  | 'success_first'
+
+export type RoutingStrategySnapshot = {
+  id: number
+  strategy: RoutingStrategy
+  user_group: string
+  groups: string
+  scores: string
+  config: string
+  manual_override: boolean
+  updated_at: number
+}
+
+export type RoutingStrategySnapshotResponse = {
+  success: boolean
+  message: string
+  data?: {
+    snapshots: RoutingStrategySnapshot[]
+    strategies: RoutingStrategy[]
+  }
+}
+
+export type RoutingStrategyRefreshResponse = {
+  success: boolean
+  message: string
+  data?: {
+    updated_snapshots: number
+    user_groups: number
+  }
 }
 
 export type SecuritySettings = {

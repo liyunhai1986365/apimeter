@@ -131,14 +131,21 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	}
 
 	policyGroups := ResolveTokenGroupChain(param.Ctx, param.TokenGroup)
-	if len(policyGroups) > 0 {
+	hasRoutingStrategyPolicy := IsRoutingStrategyTokenPolicy(param.Ctx)
+	if len(policyGroups) > 0 || hasRoutingStrategyPolicy {
 		startGroupIndex := 0
 		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+		advanceGroupAfterFailure := hasRoutingStrategyPolicy && param.GetRetry() > 0
 
 		if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
 			if idx, ok := lastGroupIndex.(int); ok {
 				startGroupIndex = idx
 			}
+		}
+		if advanceGroupAfterFailure && startGroupIndex+1 < len(policyGroups) {
+			startGroupIndex++
+			common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, startGroupIndex)
+			param.SetRetry(0)
 		}
 
 		for i := startGroupIndex; i < len(policyGroups); i++ {

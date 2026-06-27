@@ -25,10 +25,20 @@ import { type ApiKeyFormData, type ApiKey } from '../types'
 import { AUTO_GROUP_VALUE } from './api-key-groups'
 
 const ORDERED_GROUP_POLICY_TYPE = 'ordered'
+const ROUTING_STRATEGY_POLICY_TYPE = 'routing_strategy'
+
+export type ApiKeyRoutingMode = 'smart' | 'manual'
+export type ApiKeyRoutingStrategy =
+  | 'smart_auto'
+  | 'price_first'
+  | 'speed_first'
+  | 'success_first'
 
 type OrderedGroupPolicy = {
   type?: string
   groups?: unknown
+  strategy?: unknown
+  excluded_groups?: unknown
 }
 
 // ============================================================================
@@ -47,6 +57,11 @@ export function getApiKeyFormSchema(t: TFunction) {
       group_chain: z
         .array(z.string())
         .min(1, t(USER_FACING_GROUP_TERMS.selectAtLeastOne)),
+      routing_mode: z.enum(['smart', 'manual']).optional(),
+      routing_strategy: z
+        .enum(['smart_auto', 'price_first', 'speed_first', 'success_first'])
+        .optional(),
+      routing_excluded_groups: z.array(z.string()).optional(),
       cross_group_retry: z.boolean().optional(),
       image_response_format: z
         .enum(['follow_request', 'url', 'b64_json'])
@@ -87,6 +102,9 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
   unlimited_quota: true,
   model_limits: [],
   allow_ips: '',
+  routing_mode: 'smart',
+  routing_strategy: 'smart_auto',
+  routing_excluded_groups: [],
   group_chain: [AUTO_GROUP_VALUE],
   cross_group_retry: true,
   image_response_format: 'follow_request',
@@ -97,6 +115,9 @@ export const API_KEY_FORM_DEFAULT_VALUES: ApiKeyFormValues = {
 export function getApiKeyFormDefaultValues(): ApiKeyFormValues {
   return {
     ...API_KEY_FORM_DEFAULT_VALUES,
+    routing_mode: 'smart',
+    routing_strategy: 'smart_auto',
+    routing_excluded_groups: [],
     group_chain: [AUTO_GROUP_VALUE],
     cross_group_retry: true,
   }
@@ -113,13 +134,31 @@ export function transformFormDataToPayload(
   data: ApiKeyFormValues
 ): ApiKeyFormData {
   const groupChain = normalizeGroupChain(data.group_chain)
+  const routingMode = data.routing_mode || 'smart'
+  const routingStrategy = data.routing_strategy || 'smart_auto'
+  const excludedGroups = normalizeConcreteGroupList(
+    data.routing_excluded_groups
+  )
   const groupPolicy =
-    groupChain.length === 1 && groupChain[0] === AUTO_GROUP_VALUE
-      ? ''
-      : JSON.stringify({
-          type: ORDERED_GROUP_POLICY_TYPE,
-          groups: groupChain,
-        })
+    routingMode === 'smart'
+      ? JSON.stringify(
+          excludedGroups.length > 0
+            ? {
+                type: ROUTING_STRATEGY_POLICY_TYPE,
+                strategy: routingStrategy,
+                excluded_groups: excludedGroups,
+              }
+            : {
+                type: ROUTING_STRATEGY_POLICY_TYPE,
+                strategy: routingStrategy,
+              }
+        )
+      : groupChain.length === 1 && groupChain[0] === AUTO_GROUP_VALUE
+        ? ''
+        : JSON.stringify({
+            type: ORDERED_GROUP_POLICY_TYPE,
+            groups: groupChain,
+          })
 
   return {
     name: data.name,
@@ -133,7 +172,10 @@ export function transformFormDataToPayload(
     model_limits_enabled: data.model_limits.length > 0,
     model_limits: data.model_limits.join(','),
     allow_ips: data.allow_ips || '',
-    group: groupChain[0] || AUTO_GROUP_VALUE,
+    group:
+      routingMode === 'smart'
+        ? AUTO_GROUP_VALUE
+        : groupChain[0] || AUTO_GROUP_VALUE,
     group_policy: groupPolicy,
     cross_group_retry: !!data.cross_group_retry,
     image_settings: {
@@ -154,6 +196,7 @@ export function transformApiKeyToFormDefaults(
   apiKey: ApiKey
 ): ApiKeyFormValues {
   const groupChain = parseApiKeyGroupChain(apiKey)
+  const routingPolicy = parseApiKeyRoutingPolicy(apiKey)
 
   return {
     name: apiKey.name,
@@ -169,6 +212,9 @@ export function transformApiKeyToFormDefaults(
       ? apiKey.model_limits.split(',').filter(Boolean)
       : [],
     allow_ips: apiKey.allow_ips || '',
+    routing_mode: routingPolicy.mode,
+    routing_strategy: routingPolicy.strategy,
+    routing_excluded_groups: routingPolicy.excludedGroups,
     group_chain: groupChain,
     cross_group_retry: !!apiKey.cross_group_retry,
     image_response_format: apiKey.image_settings?.format || 'follow_request',
@@ -178,6 +224,79 @@ export function transformApiKeyToFormDefaults(
         ? apiKey.image_settings.store
         : 'default',
     tokenCount: 1,
+  }
+}
+
+export function parseApiKeyRoutingPolicy(
+  apiKey: Pick<ApiKey, 'group' | 'group_policy'>
+): {
+  mode: ApiKeyRoutingMode
+  strategy: ApiKeyRoutingStrategy
+  excludedGroups: string[]
+} {
+  const policyText = apiKey.group_policy?.trim()
+  if (policyText) {
+    try {
+      const policy = JSON.parse(policyText) as OrderedGroupPolicy
+      if (
+        policy?.type === ROUTING_STRATEGY_POLICY_TYPE &&
+        typeof policy.strategy === 'string' &&
+        isApiKeyRoutingStrategy(policy.strategy)
+      ) {
+        return {
+          mode: 'smart',
+          strategy: policy.strategy,
+          excludedGroups: Array.isArray(policy.excluded_groups)
+            ? normalizeConcreteGroupList(
+                policy.excluded_groups.filter(
+                  (group): group is string => typeof group === 'string'
+                )
+              )
+            : [],
+        }
+      }
+    } catch (_error) {
+      // Fall through to manual mode.
+    }
+  }
+  if (parseApiKeyGroupChain(apiKey)[0] === AUTO_GROUP_VALUE) {
+    return {
+      mode: 'smart',
+      strategy: 'smart_auto',
+      excludedGroups: [],
+    }
+  }
+  return {
+    mode: 'manual',
+    strategy: 'smart_auto',
+    excludedGroups: [],
+  }
+}
+
+function isApiKeyRoutingStrategy(
+  value: string
+): value is ApiKeyRoutingStrategy {
+  return (
+    value === 'smart_auto' ||
+    value === 'price_first' ||
+    value === 'speed_first' ||
+    value === 'success_first'
+  )
+}
+
+export function getApiKeyRoutingStrategyLabel(
+  strategy: ApiKeyRoutingStrategy | undefined
+) {
+  switch (strategy) {
+    case 'price_first':
+      return 'Price first'
+    case 'speed_first':
+      return 'Speed first'
+    case 'success_first':
+      return 'Success rate first'
+    case 'smart_auto':
+    default:
+      return 'Smart automatic'
   }
 }
 
@@ -196,6 +315,20 @@ export function normalizeGroupChain(groups: string[] | undefined): string[] {
     return [AUTO_GROUP_VALUE]
   }
   return result.length > 0 ? result : [AUTO_GROUP_VALUE]
+}
+
+export function normalizeConcreteGroupList(
+  groups: string[] | undefined
+): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const group of groups || []) {
+    const value = group.trim()
+    if (!value || value === AUTO_GROUP_VALUE || seen.has(value)) continue
+    seen.add(value)
+    result.push(value)
+  }
+  return result
 }
 
 export function addGroupToChain(groups: string[], group: string): string[] {
@@ -260,7 +393,21 @@ export function getApiKeyGroupDisplayItems(
   visibleGroups: string[]
   hiddenGroups: string[]
   hiddenCount: number
+  routingStrategy?: ApiKeyRoutingStrategy
+  excludedGroups: string[]
 } {
+  const routingPolicy = parseApiKeyRoutingPolicy(apiKey)
+  if (routingPolicy.mode === 'smart') {
+    return {
+      allGroups: [],
+      visibleGroups: [],
+      hiddenGroups: [],
+      hiddenCount: 0,
+      routingStrategy: routingPolicy.strategy,
+      excludedGroups: routingPolicy.excludedGroups,
+    }
+  }
+
   const allGroups = parseApiKeyGroupChain(apiKey)
   const limit = Math.max(1, visibleLimit)
   const visibleGroups = allGroups.slice(0, limit)
@@ -271,5 +418,6 @@ export function getApiKeyGroupDisplayItems(
     visibleGroups,
     hiddenGroups,
     hiddenCount: hiddenGroups.length,
+    excludedGroups: [],
   }
 }

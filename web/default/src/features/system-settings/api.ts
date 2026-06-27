@@ -26,6 +26,8 @@ import type {
   UpdateOptionResponse,
   GlobalWebhookTestResponse,
   HistoricalBillingGenerationResponse,
+  RoutingStrategyRefreshResponse,
+  RoutingStrategySnapshotResponse,
   UpstreamChannelsResponse,
   UpstreamRatiosResponse,
 } from './types'
@@ -72,6 +74,33 @@ export async function generateRecentMonthlyBillingStatements() {
 export async function resetModelRatios() {
   const res = await api.post<UpdateOptionResponse>(
     '/api/option/rest_model_ratio'
+  )
+  return res.data
+}
+
+export async function getRoutingStrategySnapshots() {
+  const res = await api.get<RoutingStrategySnapshotResponse>(
+    '/api/option/routing-strategies'
+  )
+  return res.data
+}
+
+export async function refreshRoutingStrategySnapshots() {
+  const res = await api.post<RoutingStrategyRefreshResponse>(
+    '/api/option/routing-strategies/refresh'
+  )
+  return res.data
+}
+
+export async function saveRoutingStrategyOverride(request: {
+  strategy: string
+  user_group: string
+  groups: string[]
+  manual_override: boolean
+}) {
+  const res = await api.put<UpdateOptionResponse>(
+    '/api/option/routing-strategies/override',
+    request
   )
   return res.data
 }

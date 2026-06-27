@@ -291,6 +291,219 @@ func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T)
 	require.Equal(t, "backup", selectedGroup)
 }
 
+func TestCacheGetRandomSatisfiedChannelUsesRoutingStrategySnapshot(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, db.AutoMigrate(&model.RoutingStrategySnapshot{}))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default","vip","backup"]`))
+	createChannelSelectFixture(t, db, 1601, "default", 10)
+	createChannelSelectFixture(t, db, 1602, "vip", 10)
+	createChannelSelectFixture(t, db, 1603, "backup", 10)
+	require.NoError(t, model.UpsertRoutingStrategySnapshot(&model.RoutingStrategySnapshot{
+		Strategy:  model.RoutingStrategySpeedFirst,
+		UserGroup: "default",
+		Groups:    `["backup","vip","default"]`,
+		Scores:    `{"backup":{"group":"backup","rank":1},"vip":{"group":"vip","rank":2},"default":{"group":"default","rank":3}}`,
+		Config:    `{}`,
+	}))
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, true)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"speed_first"}`)
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1603, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesGroupAfterFailure(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	originalRetryTimes := common.RetryTimes
+	common.RetryTimes = 2
+	t.Cleanup(func() {
+		common.RetryTimes = originalRetryTimes
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, db.AutoMigrate(&model.RoutingStrategySnapshot{}))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default","vip","backup"]`))
+	createChannelSelectFixture(t, db, 1801, "vip", 10)
+	createChannelSelectFixture(t, db, 1802, "backup", 10)
+	require.NoError(t, model.UpsertRoutingStrategySnapshot(&model.RoutingStrategySnapshot{
+		Strategy:  model.RoutingStrategySmartAuto,
+		UserGroup: "default",
+		Groups:    `["vip","backup","default"]`,
+		Scores:    `{"vip":{"group":"vip","rank":1},"backup":{"group":"backup","rank":2},"default":{"group":"default","rank":3}}`,
+		Config:    `{}`,
+	}))
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"smart_auto"}`)
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1801, channel.Id)
+	require.Equal(t, "vip", selectedGroup)
+	autoGroup, exists := common.GetContextKey(c, constant.ContextKeyAutoGroup)
+	require.True(t, exists)
+	require.Equal(t, "vip", autoGroup)
+
+	retry++
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1802, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+	autoGroup, exists = common.GetContextKey(c, constant.ContextKeyAutoGroup)
+	require.True(t, exists)
+	require.Equal(t, "backup", autoGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelRoutingStrategyExcludesTokenGroups(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, db.AutoMigrate(&model.RoutingStrategySnapshot{}))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default","vip","backup"]`))
+	createChannelSelectFixture(t, db, 1901, "default", 10)
+	createChannelSelectFixture(t, db, 1902, "vip", 10)
+	createChannelSelectFixture(t, db, 1903, "backup", 10)
+	require.NoError(t, model.UpsertRoutingStrategySnapshot(&model.RoutingStrategySnapshot{
+		Strategy:  model.RoutingStrategyPriceFirst,
+		UserGroup: "default",
+		Groups:    `["vip","backup","default"]`,
+		Scores:    `{"vip":{"group":"vip","rank":1},"backup":{"group":"backup","rank":2},"default":{"group":"default","rank":3}}`,
+		Config:    `{}`,
+	}))
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"price_first","excluded_groups":["vip"]}`)
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1903, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelRoutingStrategyDoesNotFallbackWhenAllGroupsExcluded(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, db.AutoMigrate(&model.RoutingStrategySnapshot{}))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["vip"]`))
+	createChannelSelectFixture(t, db, 2001, "vip", 10)
+	require.NoError(t, model.UpsertRoutingStrategySnapshot(&model.RoutingStrategySnapshot{
+		Strategy:  model.RoutingStrategySmartAuto,
+		UserGroup: "default",
+		Groups:    `["vip"]`,
+		Scores:    `{"vip":{"group":"vip","rank":1}}`,
+		Config:    `{}`,
+	}))
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"smart_auto","excluded_groups":["vip"]}`)
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.Nil(t, channel)
+	require.Equal(t, "auto", selectedGroup)
+	_, exists := common.GetContextKey(c, constant.ContextKeyAutoGroup)
+	require.False(t, exists)
+}
+
+func TestCacheGetRandomSatisfiedChannelFallsBackWhenRoutingStrategySnapshotMissing(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, db.AutoMigrate(&model.RoutingStrategySnapshot{}))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default","vip"]`))
+	createChannelSelectFixture(t, db, 1701, "default", 10)
+	createChannelSelectFixture(t, db, 1702, "vip", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, true)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"success_first"}`)
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1701, channel.Id)
+	require.Equal(t, "default", selectedGroup)
+}
+
 func TestCacheGetRandomSatisfiedChannelUsesRetryPolicyRecoveryGroups(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	originalGroupRatio := ratio_setting.GroupRatio2JSONString()

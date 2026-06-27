@@ -335,6 +335,7 @@ func migrateDB() error {
 		&SystemTask{},
 		&SystemTaskLock{},
 		&SystemInstance{},
+		&RoutingStrategySnapshot{},
 	)
 	if err != nil {
 		return err

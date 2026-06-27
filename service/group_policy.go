@@ -14,13 +14,16 @@ import (
 )
 
 const (
-	TokenGroupPolicyTypeOrdered = "ordered"
-	AutoGroupName               = "auto"
+	TokenGroupPolicyTypeOrdered         = "ordered"
+	TokenGroupPolicyTypeRoutingStrategy = "routing_strategy"
+	AutoGroupName                       = "auto"
 )
 
 type TokenGroupPolicy struct {
-	Type   string   `json:"type"`
-	Groups []string `json:"groups"`
+	Type           string   `json:"type"`
+	Groups         []string `json:"groups,omitempty"`
+	Strategy       string   `json:"strategy,omitempty"`
+	ExcludedGroups []string `json:"excluded_groups,omitempty"`
 }
 
 func NormalizeTokenGroupPolicy(raw string, userGroup string) (string, string, error) {
@@ -34,6 +37,29 @@ func NormalizeTokenGroupPolicyForUser(raw string, userGroup string, userID int) 
 	}
 	if !ok {
 		return strings.TrimSpace(raw), "", nil
+	}
+	if policy.Type == TokenGroupPolicyTypeRoutingStrategy {
+		strategy := strings.TrimSpace(policy.Strategy)
+		if !model.ValidRoutingStrategy(strategy) {
+			return "", "", errors.New("unsupported routing strategy")
+		}
+		excludedGroups, err := normalizePolicyGroups(policy.ExcludedGroups, userGroup, userID)
+		if err != nil {
+			return "", "", err
+		}
+		if len(excludedGroups) == 1 && excludedGroups[0] == AutoGroupName {
+			excludedGroups = nil
+		}
+		normalizedPolicy := TokenGroupPolicy{
+			Type:           TokenGroupPolicyTypeRoutingStrategy,
+			Strategy:       strategy,
+			ExcludedGroups: excludedGroups,
+		}
+		data, err := common.Marshal(normalizedPolicy)
+		if err != nil {
+			return "", "", err
+		}
+		return AutoGroupName, string(data), nil
 	}
 	if policy.Type != TokenGroupPolicyTypeOrdered {
 		return "", "", errors.New("unsupported group policy type")
@@ -61,13 +87,23 @@ func NormalizeTokenGroupPolicyForUser(raw string, userGroup string, userID int) 
 func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 	raw := common.GetContextKeyString(ctx, constant.ContextKeyTokenGroupPolicy)
 	policy, ok, err := parseTokenGroupPolicy(raw)
-	if err != nil || !ok || policy.Type != TokenGroupPolicyTypeOrdered {
+	if err != nil || !ok {
 		return nil
 	}
 
 	userGroup := common.GetContextKeyString(ctx, constant.ContextKeyUserGroup)
 	if group, ok := agentservice.ResolveGroupFromRequest(ctx, userGroup); ok {
 		userGroup = group.SystemGroupName
+	}
+	if policy.Type == TokenGroupPolicyTypeRoutingStrategy {
+		fallback := GetUserAutoGroup(userGroup)
+		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+			fallback = agentAutoGroups(agentCtx, userGroup)
+		}
+		return excludePolicyGroups(ResolveRoutingStrategyGroups(policy.Strategy, userGroup, fallback), policy.ExcludedGroups)
+	}
+	if policy.Type != TokenGroupPolicyTypeOrdered {
+		return nil
 	}
 	chain := make([]string, 0, len(policy.Groups))
 	seen := make(map[string]bool)
@@ -98,6 +134,37 @@ func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 		return []string{strings.TrimSpace(tokenGroup)}
 	}
 	return chain
+}
+
+func excludePolicyGroups(groups []string, excludedGroups []string) []string {
+	excluded := make(map[string]bool, len(excludedGroups))
+	for _, group := range excludedGroups {
+		group = strings.TrimSpace(group)
+		if group != "" {
+			excluded[group] = true
+		}
+	}
+	if len(excluded) == 0 {
+		return groups
+	}
+	result := make([]string, 0, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" || excluded[group] {
+			continue
+		}
+		result = append(result, group)
+	}
+	return result
+}
+
+func IsRoutingStrategyTokenPolicy(ctx *gin.Context) bool {
+	if ctx == nil {
+		return false
+	}
+	raw := common.GetContextKeyString(ctx, constant.ContextKeyTokenGroupPolicy)
+	policy, ok, err := parseTokenGroupPolicy(raw)
+	return err == nil && ok && policy.Type == TokenGroupPolicyTypeRoutingStrategy
 }
 
 func parseTokenGroupPolicy(raw string) (TokenGroupPolicy, bool, error) {
