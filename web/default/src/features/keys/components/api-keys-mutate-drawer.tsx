@@ -100,6 +100,7 @@ import {
   ApiKeyGroupOrderSelector,
   ApiKeyGroupPickerPopover,
 } from './api-key-group-order-selector'
+import { ApiKeyOnboardingDialog } from './api-key-onboarding-dialog'
 import { useApiKeys } from './api-keys-provider'
 
 type ApiKeyMutateDrawerProps = {
@@ -276,6 +277,10 @@ export function ApiKeysMutateDrawer({
   const { triggerRefresh, selectedWorkspaceId } = useApiKeys()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [createdApiKey, setCreatedApiKey] = useState<{
+    key: string
+    name: string
+  } | null>(null)
 
   // Fetch models
   const { data: modelsData } = useQuery({
@@ -379,18 +384,25 @@ export function ApiKeysMutateDrawer({
         // Create mode - handle batch creation
         const count = data.tokenCount || 1
         let successCount = 0
+        let firstCreatedKey = ''
+        let firstCreatedName = ''
 
         for (let i = 0; i < count; i++) {
+          const tokenName =
+            i === 0 && data.name
+              ? data.name
+              : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`
           const result = await createApiKey({
             ...basePayload,
             workspace_id: selectedWorkspaceId || undefined,
-            name:
-              i === 0 && data.name
-                ? data.name
-                : `${data.name || 'default'}-${Math.random().toString(36).slice(2, 8)}`,
+            name: tokenName,
           })
           if (result.success) {
             successCount++
+            if (successCount === 1 && result.data?.key) {
+              firstCreatedKey = result.data.key
+              firstCreatedName = result.data.name || tokenName
+            }
           } else {
             toast.error(result.message || t(ERROR_MESSAGES.CREATE_FAILED))
             break
@@ -405,6 +417,12 @@ export function ApiKeysMutateDrawer({
           )
           onOpenChange(false)
           triggerRefresh()
+          if (successCount === 1 && firstCreatedKey) {
+            setCreatedApiKey({
+              key: firstCreatedKey,
+              name: firstCreatedName,
+            })
+          }
         }
       }
     } catch (_error) {
@@ -1108,6 +1126,14 @@ export function ApiKeysMutateDrawer({
           </Button>
         </SheetFooter>
       </SheetContent>
+      <ApiKeyOnboardingDialog
+        open={!!createdApiKey}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setCreatedApiKey(null)
+        }}
+        apiKey={createdApiKey?.key || ''}
+        apiKeyName={createdApiKey?.name}
+      />
     </Sheet>
   )
 }
