@@ -107,6 +107,8 @@ export type PricingSearchSearch = {
   endpointType?: string
   category?: string
   tag?: string
+  inputModality?: string
+  outputModality?: string
   tokenUnit?: TokenUnit
   view?: string
   rechargePrice?: boolean

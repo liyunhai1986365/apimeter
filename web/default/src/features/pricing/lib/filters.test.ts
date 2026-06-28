@@ -1,7 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { FILTER_ALL, MODEL_CATEGORIES, SORT_OPTIONS } from '../constants'
-import type { PricingModel, ModelCategory } from '../types'
+import {
+  FILTER_ALL,
+  MODALITY_TYPES,
+  MODEL_CATEGORIES,
+  SORT_OPTIONS,
+} from '../constants'
+import type { PricingModel, ModelCategory, Modality } from '../types'
 import { filterAndSortModels } from './filters'
 
 const baseFilters = {
@@ -12,10 +17,19 @@ const baseFilters = {
   endpointType: FILTER_ALL,
   category: MODEL_CATEGORIES.ALL,
   tag: FILTER_ALL,
+  inputModality: MODALITY_TYPES.ALL,
+  outputModality: MODALITY_TYPES.ALL,
   sortBy: SORT_OPTIONS.NAME,
 }
 
-function model(name: string, category?: ModelCategory): PricingModel {
+function model(
+  name: string,
+  category?: ModelCategory,
+  modalities?: {
+    input?: Modality[]
+    output?: Modality[]
+  }
+): PricingModel {
   return {
     id: 0,
     model_name: name,
@@ -24,6 +38,8 @@ function model(name: string, category?: ModelCategory): PricingModel {
     model_ratio: 1,
     completion_ratio: 1,
     enable_groups: [],
+    input_modalities: modalities?.input,
+    output_modalities: modalities?.output,
   }
 }
 
@@ -85,6 +101,35 @@ describe('pricing model filters', () => {
     assert.deepEqual(
       result.map((item) => item.model_name),
       ['z-newer-model', 'a-older-model']
+    )
+  })
+
+  test('filters model square results by input and output modality', () => {
+    const result = filterAndSortModels(
+      [
+        model('vision-chat', 'text', {
+          input: ['text', 'image'],
+          output: ['text'],
+        }),
+        model('image-generator', 'image', {
+          input: ['text'],
+          output: ['image'],
+        }),
+        model('audio-transcriber', 'audio', {
+          input: ['audio'],
+          output: ['text'],
+        }),
+      ],
+      {
+        ...baseFilters,
+        inputModality: MODALITY_TYPES.TEXT,
+        outputModality: MODALITY_TYPES.IMAGE,
+      }
+    )
+
+    assert.deepEqual(
+      result.map((item) => item.model_name),
+      ['image-generator']
     )
   })
 })

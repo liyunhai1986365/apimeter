@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { type TFunction } from 'i18next'
-import type { ModelCategory, TokenUnit } from './types'
+import type { Modality, ModelCategory, TokenUnit } from './types'
 
 // ----------------------------------------------------------------------------
 // Pricing Constants
@@ -101,6 +101,31 @@ export function getQuotaTypeLabels(
   }
 }
 
+/** Input / output modality options */
+export const MODALITY_TYPES = {
+  ALL: 'all',
+  TEXT: 'text',
+  IMAGE: 'image',
+  AUDIO: 'audio',
+  VIDEO: 'video',
+  FILE: 'file',
+} as const
+
+export type ModalityTypeOption = typeof MODALITY_TYPES.ALL | Modality
+
+export function getModalityTypeLabels(
+  t: TFunction
+): Record<ModalityTypeOption, string> {
+  return {
+    [MODALITY_TYPES.ALL]: t('All Modalities'),
+    [MODALITY_TYPES.TEXT]: t('Text'),
+    [MODALITY_TYPES.IMAGE]: t('Image'),
+    [MODALITY_TYPES.AUDIO]: t('Audio'),
+    [MODALITY_TYPES.VIDEO]: t('Video'),
+    [MODALITY_TYPES.FILE]: t('File'),
+  }
+}
+
 /** Endpoint type options */
 export const ENDPOINT_TYPES = {
   ALL: 'all',
@@ -151,6 +176,8 @@ export const FILTER_SECTIONS = {
   VENDOR: 'vendor',
   GROUP: 'group',
   TAG: 'tag',
+  INPUT_MODALITY: 'inputModality',
+  OUTPUT_MODALITY: 'outputModality',
 } as const
 
 /** Maximum number of tags to display in model row */

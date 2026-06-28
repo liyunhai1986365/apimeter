@@ -18,7 +18,6 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { useTranslation } from 'react-i18next'
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
 import {
@@ -26,6 +25,7 @@ import {
   EmptyState,
   PricingTable,
   PricingFilterBar,
+  PricingSidebar,
   PricingToolbar,
   ModelCardGrid,
 } from './components'
@@ -34,7 +34,6 @@ import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
 
 export function Pricing() {
-  const { t } = useTranslation()
   const navigate = useNavigate()
   const search = useSearch({ from: '/pricing/' })
 
@@ -48,6 +47,8 @@ export function Pricing() {
     quotaTypeFilter,
     endpointTypeFilter,
     categoryFilter,
+    inputModalityFilter,
+    outputModalityFilter,
     tokenUnit,
     viewMode,
     setSearchInput,
@@ -56,6 +57,8 @@ export function Pricing() {
     setQuotaTypeFilter,
     setEndpointTypeFilter,
     setCategoryFilter,
+    setInputModalityFilter,
+    setOutputModalityFilter,
     setTokenUnit,
     setViewMode,
     filteredModels,
@@ -122,7 +125,7 @@ export function Pricing() {
   if (isLoading) {
     return (
       <PublicLayout showMainContainer={false}>
-        <div className='mx-auto w-full max-w-[1800px] px-3 pt-16 pb-8 sm:px-6 sm:pt-20 sm:pb-10 xl:px-8'>
+        <div className='mx-auto w-full max-w-[1800px] px-3 pt-12 pb-8 sm:px-6 sm:pt-14 sm:pb-10 xl:px-8'>
           <LoadingSkeleton viewMode={viewMode} />
         </div>
       </PublicLayout>
@@ -131,55 +134,35 @@ export function Pricing() {
 
   return (
     <PublicLayout showMainContainer={false}>
-      <div className='relative'>
-        <div
-          aria-hidden
-          className='pointer-events-none absolute inset-x-0 top-0 h-[600px] opacity-20 dark:opacity-[0.10]'
-          style={{
-            background: [
-              'radial-gradient(ellipse 60% 50% at 20% 20%, oklch(0.72 0.18 250 / 80%) 0%, transparent 70%)',
-              'radial-gradient(ellipse 50% 40% at 80% 15%, oklch(0.65 0.15 200 / 60%) 0%, transparent 70%)',
-              'radial-gradient(ellipse 40% 35% at 50% 70%, oklch(0.70 0.12 280 / 40%) 0%, transparent 70%)',
-            ].join(', '),
-            maskImage:
-              'linear-gradient(to bottom, black 40%, transparent 100%)',
-            WebkitMaskImage:
-              'linear-gradient(to bottom, black 40%, transparent 100%)',
-          }}
-        />
-        <PageTransition className='relative mx-auto w-full max-w-[1800px] px-3 pt-16 pb-8 sm:px-6 sm:pt-20 sm:pb-10 xl:px-8'>
-          <header className='mx-auto mb-5 max-w-3xl pt-5 text-center sm:mb-10 sm:pt-10'>
-            <h1 className='text-[clamp(2rem,5.5vw,3.5rem)] leading-[1.15] font-bold tracking-tight'>
-              {t('Model Square')}
-            </h1>
-            <p className='text-muted-foreground/75 mx-auto mt-3 max-w-2xl text-sm leading-relaxed sm:mt-4 sm:text-base'>
-              {t(
-                'This site has {{count}} enabled models. Quickly compare pricing and capabilities.',
-                {
-                  count: models?.length || 0,
-                }
-              )}
-            </p>
-          </header>
+      <PageTransition className='mx-auto w-full max-w-[1800px] px-3 pt-12 pb-8 sm:px-6 sm:pt-14 sm:pb-10 xl:px-8'>
+        <div className='grid gap-3 lg:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)]'>
+          <PricingSidebar
+            quotaTypeFilter={quotaTypeFilter}
+            endpointTypeFilter={endpointTypeFilter}
+            vendorFilter={vendorFilter}
+            inputModalityFilter={inputModalityFilter}
+            outputModalityFilter={outputModalityFilter}
+            onQuotaTypeChange={setQuotaTypeFilter}
+            onEndpointTypeChange={setEndpointTypeFilter}
+            onVendorChange={setVendorFilter}
+            onInputModalityChange={setInputModalityFilter}
+            onOutputModalityChange={setOutputModalityFilter}
+            vendors={vendors || []}
+            models={models || []}
+            hasActiveFilters={hasActiveFilters}
+            activeFilterCount={activeFilterCount}
+            onClearFilters={clearFilters}
+            className='lg:sticky lg:top-18 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto'
+          />
 
-          <div className='space-y-4'>
-            <PricingFilterBar
-              quotaTypeFilter={quotaTypeFilter}
-              endpointTypeFilter={endpointTypeFilter}
-              categoryFilter={categoryFilter}
-              vendorFilter={vendorFilter}
-              onQuotaTypeChange={setQuotaTypeFilter}
-              onEndpointTypeChange={setEndpointTypeFilter}
-              onCategoryChange={setCategoryFilter}
-              onVendorChange={setVendorFilter}
-              vendors={vendors || []}
-              models={models || []}
-              hasActiveFilters={hasActiveFilters}
-              activeFilterCount={activeFilterCount}
-              onClearFilters={clearFilters}
-            />
+          <main className='min-w-0'>
+            <div className='bg-background/92 supports-[backdrop-filter]:bg-background/75 sticky top-14 z-30 -mx-1 mb-4 flex flex-col gap-3 rounded-b-xl px-1 pb-3 shadow-sm backdrop-blur sm:top-16 lg:top-18'>
+              <PricingFilterBar
+                categoryFilter={categoryFilter}
+                onCategoryChange={setCategoryFilter}
+                models={models || []}
+              />
 
-            <main className='min-w-0 space-y-4'>
               <PricingToolbar
                 filteredCount={filteredModels.length}
                 totalCount={models?.length}
@@ -194,12 +177,12 @@ export function Pricing() {
                 onViewModeChange={setViewMode}
                 hasActiveFilters={hasActiveFilters}
               />
+            </div>
 
-              {renderPricingContent()}
-            </main>
-          </div>
-        </PageTransition>
-      </div>
+            {renderPricingContent()}
+          </main>
+        </div>
+      </PageTransition>
     </PublicLayout>
   )
 }

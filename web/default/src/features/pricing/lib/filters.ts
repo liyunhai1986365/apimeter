@@ -22,9 +22,11 @@ import {
   QUOTA_TYPES,
   QUOTA_TYPE_VALUES,
   ENDPOINT_TYPES,
+  MODALITY_TYPES,
   MODEL_CATEGORIES,
 } from '../constants'
-import type { PricingModel } from '../types'
+import { inferModelMetadata } from './model-metadata'
+import type { Modality, PricingModel } from '../types'
 
 // ----------------------------------------------------------------------------
 // Filter Utilities
@@ -114,6 +116,32 @@ export function filterByCategory(
 }
 
 /**
+ * Filter models by inferred or explicit input modality
+ */
+export function filterByInputModality(
+  models: PricingModel[],
+  modality: string
+): PricingModel[] {
+  if (modality === MODALITY_TYPES.ALL) return models
+  return models.filter((m) =>
+    inferModelMetadata(m).input_modalities.includes(modality as Modality)
+  )
+}
+
+/**
+ * Filter models by inferred or explicit output modality
+ */
+export function filterByOutputModality(
+  models: PricingModel[],
+  modality: string
+): PricingModel[] {
+  if (modality === MODALITY_TYPES.ALL) return models
+  return models.filter((m) =>
+    inferModelMetadata(m).output_modalities.includes(modality as Modality)
+  )
+}
+
+/**
  * Get model price for sorting
  */
 function getModelPrice(model: PricingModel): number {
@@ -165,6 +193,8 @@ export function filterAndSortModels(
     endpointType: string
     category: string
     tag: string
+    inputModality: string
+    outputModality: string
     sortBy: string
   }
 ): PricingModel[] {
@@ -175,6 +205,8 @@ export function filterAndSortModels(
   result = filterByEndpointType(result, filters.endpointType)
   result = filterByCategory(result, filters.category)
   result = filterByTag(result, filters.tag)
+  result = filterByInputModality(result, filters.inputModality)
+  result = filterByOutputModality(result, filters.outputModality)
   result = sortModels(result, filters.sortBy)
 
   return result

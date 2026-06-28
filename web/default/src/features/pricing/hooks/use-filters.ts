@@ -23,6 +23,7 @@ import {
   SORT_OPTIONS,
   QUOTA_TYPES,
   ENDPOINT_TYPES,
+  MODALITY_TYPES,
   MODEL_CATEGORIES,
   DEFAULT_TOKEN_UNIT,
   VIEW_MODES,
@@ -40,6 +41,8 @@ type FilterState = {
   endpointType?: string
   category?: string
   tag?: string
+  inputModality?: string
+  outputModality?: string
   tokenUnit?: TokenUnit
   view?: ViewMode
   rechargePrice?: boolean
@@ -63,6 +66,8 @@ export function useFilters(models: PricingModel[]) {
     endpointType: search.endpointType,
     category: search.category as string | undefined,
     tag: search.tag,
+    inputModality: search.inputModality,
+    outputModality: search.outputModality,
     tokenUnit: search.tokenUnit,
     view: search.view,
     rechargePrice: search.rechargePrice,
@@ -76,6 +81,8 @@ export function useFilters(models: PricingModel[]) {
   const endpointTypeFilter = filterState.endpointType || ENDPOINT_TYPES.ALL
   const categoryFilter = filterState.category || MODEL_CATEGORIES.ALL
   const tagFilter = filterState.tag || FILTER_ALL
+  const inputModalityFilter = filterState.inputModality || MODALITY_TYPES.ALL
+  const outputModalityFilter = filterState.outputModality || MODALITY_TYPES.ALL
   const tokenUnit: TokenUnit =
     filterState.tokenUnit === 'K' ? 'K' : DEFAULT_TOKEN_UNIT
   const viewMode = normalizeViewMode(filterState.view)
@@ -133,6 +140,20 @@ export function useFilters(models: PricingModel[]) {
     (v: string) => updateFilters({ tag: v === FILTER_ALL ? undefined : v }),
     [updateFilters]
   )
+  const setInputModalityFilter = useCallback(
+    (v: string) =>
+      updateFilters({
+        inputModality: v === MODALITY_TYPES.ALL ? undefined : v,
+      }),
+    [updateFilters]
+  )
+  const setOutputModalityFilter = useCallback(
+    (v: string) =>
+      updateFilters({
+        outputModality: v === MODALITY_TYPES.ALL ? undefined : v,
+      }),
+    [updateFilters]
+  )
   const setTokenUnit = useCallback(
     (v: TokenUnit) =>
       updateFilters({ tokenUnit: v === DEFAULT_TOKEN_UNIT ? undefined : v }),
@@ -164,6 +185,8 @@ export function useFilters(models: PricingModel[]) {
       endpointType: endpointTypeFilter,
       category: categoryFilter,
       tag: tagFilter,
+      inputModality: inputModalityFilter,
+      outputModality: outputModalityFilter,
       sortBy,
     })
   }, [
@@ -175,6 +198,8 @@ export function useFilters(models: PricingModel[]) {
     endpointTypeFilter,
     categoryFilter,
     tagFilter,
+    inputModalityFilter,
+    outputModalityFilter,
     sortBy,
   ])
 
@@ -185,7 +210,9 @@ export function useFilters(models: PricingModel[]) {
       quotaTypeFilter !== QUOTA_TYPES.ALL ||
       endpointTypeFilter !== ENDPOINT_TYPES.ALL ||
       categoryFilter !== MODEL_CATEGORIES.ALL ||
-      tagFilter !== FILTER_ALL,
+      tagFilter !== FILTER_ALL ||
+      inputModalityFilter !== MODALITY_TYPES.ALL ||
+      outputModalityFilter !== MODALITY_TYPES.ALL,
     [
       vendorFilter,
       groupFilter,
@@ -193,6 +220,8 @@ export function useFilters(models: PricingModel[]) {
       endpointTypeFilter,
       categoryFilter,
       tagFilter,
+      inputModalityFilter,
+      outputModalityFilter,
     ]
   )
 
@@ -203,7 +232,9 @@ export function useFilters(models: PricingModel[]) {
       (quotaTypeFilter !== QUOTA_TYPES.ALL ? 1 : 0) +
       (endpointTypeFilter !== ENDPOINT_TYPES.ALL ? 1 : 0) +
       (categoryFilter !== MODEL_CATEGORIES.ALL ? 1 : 0) +
-      (tagFilter !== FILTER_ALL ? 1 : 0),
+      (tagFilter !== FILTER_ALL ? 1 : 0) +
+      (inputModalityFilter !== MODALITY_TYPES.ALL ? 1 : 0) +
+      (outputModalityFilter !== MODALITY_TYPES.ALL ? 1 : 0),
     [
       vendorFilter,
       groupFilter,
@@ -211,6 +242,8 @@ export function useFilters(models: PricingModel[]) {
       endpointTypeFilter,
       categoryFilter,
       tagFilter,
+      inputModalityFilter,
+      outputModalityFilter,
     ]
   )
 
@@ -222,6 +255,8 @@ export function useFilters(models: PricingModel[]) {
       endpointType: undefined,
       category: undefined,
       tag: undefined,
+      inputModality: undefined,
+      outputModality: undefined,
     })
   }, [updateFilters])
 
@@ -238,6 +273,8 @@ export function useFilters(models: PricingModel[]) {
     endpointTypeFilter,
     categoryFilter,
     tagFilter,
+    inputModalityFilter,
+    outputModalityFilter,
     tokenUnit,
     viewMode,
     showRechargePrice,
@@ -249,6 +286,8 @@ export function useFilters(models: PricingModel[]) {
     setEndpointTypeFilter,
     setCategoryFilter,
     setTagFilter,
+    setInputModalityFilter,
+    setOutputModalityFilter,
     setTokenUnit,
     setViewMode,
     setShowRechargePrice,
