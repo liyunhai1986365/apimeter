@@ -142,54 +142,34 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 	textOutTokens := usage.OutputTokenDetails.TextTokens
 	audioInputTokens := usage.InputTokenDetails.AudioTokens
 	audioOutTokens := usage.OutputTokenDetails.AudioTokens
-	groupRatio := ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
 	modelRatio, _, _ := ratio_setting.GetModelRatio(modelName)
 
 	autoGroup, exists := common.GetContextKey(ctx, constant.ContextKeyAutoGroup)
 	if exists {
-		groupRatio = ratio_setting.GetGroupRatio(autoGroup.(string))
-		logger.LogDebug(ctx, "final group ratio: %f", groupRatio)
+		logger.LogDebug(ctx, "final group: %s", autoGroup)
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
-	actualGroupRatio := groupRatio
-	userGroup := relayInfo.UserGroup
-	if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, userGroup); ok {
-		userGroup = agentGroup.SystemGroupName
+	groupRatio := agentservice.ResolveGroupRatio(ctx, relayInfo.AgentContext, relayInfo.UserGroup, relayInfo.TokenGroup, relayInfo.UsingGroup)
+	if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
+		relayInfo.UsingGroup = agentGroup.SystemGroupName
 	}
-	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(userGroup, relayInfo.UsingGroup)
-	if ok {
-		actualGroupRatio = userGroupRatio
-	}
-	baseGroupRatio := actualGroupRatio
-	if relayInfo.AgentContext != nil {
-		displayGroup := relayInfo.UsingGroup
-		if agentGroup, ok := agentservice.ResolveGroupForSelectedSystem(relayInfo.AgentContext, relayInfo.TokenGroup, relayInfo.UsingGroup); ok {
-			displayGroup = agentGroup.GroupName
-		} else if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
-			displayGroup = agentGroup.GroupName
-			relayInfo.UsingGroup = agentGroup.SystemGroupName
-			groupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
-			actualGroupRatio = groupRatio
-			if userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(userGroup, relayInfo.UsingGroup); ok {
-				actualGroupRatio = userGroupRatio
-			}
-			baseGroupRatio = actualGroupRatio
-		}
-		if agentRatio, ok := relayInfo.AgentContext.GroupRatios[displayGroup]; ok {
-			if agentRatio < baseGroupRatio {
-				agentRatio = baseGroupRatio
-			}
-			actualGroupRatio = agentRatio
-			relayInfo.AgentBillingSnapshot = &types.AgentBillingSnapshot{
-				AgentID:           relayInfo.AgentContext.AgentID,
-				Domain:            relayInfo.AgentContext.Domain,
-				Group:             displayGroup,
-				BaseGroupRatio:    baseGroupRatio,
-				ChargedGroupRatio: agentRatio,
-			}
+	if autoGroup, exists := common.GetContextKey(ctx, constant.ContextKeyAutoGroup); exists {
+		if group, ok := autoGroup.(string); ok && group != "" {
+			relayInfo.UsingGroup = group
 		}
 	}
+	relayInfo.AgentBillingSnapshot = groupRatio.Snapshot
+	relayInfo.PriceData.GroupRatioInfo = types.GroupRatioInfo{
+		GroupRatio:        groupRatio.GroupRatio,
+		GroupSpecialRatio: groupRatio.GroupSpecialRatio,
+		HasSpecialRatio:   groupRatio.HasSpecialRatio,
+		BaseGroupRatio:    groupRatio.BaseGroupRatio,
+		AgentGroupRatio:   groupRatio.AgentGroupRatio,
+		HasAgentRatio:     groupRatio.HasAgentRatio,
+	}
+	relayInfo.PriceData.ModelRatio = modelRatio
+	relayInfo.PriceData.UsePrice = relayInfo.UsePrice
 
 	quotaInfo := QuotaInfo{
 		InputDetails: TokenDetails{
@@ -203,7 +183,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		ModelName:  modelName,
 		UsePrice:   relayInfo.UsePrice,
 		ModelRatio: modelRatio,
-		GroupRatio: actualGroupRatio,
+		GroupRatio: groupRatio.GroupRatio,
 	}
 
 	quota := calculateAudioQuota(quotaInfo)

@@ -37,6 +37,7 @@ func TestMain(m *testing.M) {
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
+	model.InitColForTest()
 
 	if err := db.AutoMigrate(
 		&model.Task{},
@@ -48,6 +49,7 @@ func TestMain(m *testing.M) {
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
 		&model.SubscriptionPreConsumeRecord{},
+		&model.AgentLedger{},
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
 		&model.SystemInstance{},

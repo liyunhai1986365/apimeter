@@ -40,82 +40,32 @@ const seedance2TaskPreConsumeUSDPerSecond = 0.5
 
 // HandleGroupRatio checks for "auto_group" in the context and updates the group ratio and relayInfo.UsingGroup if present
 func HandleGroupRatio(ctx *gin.Context, relayInfo *relaycommon.RelayInfo) types.GroupRatioInfo {
-	groupRatioInfo := types.GroupRatioInfo{
-		GroupRatio:        1.0, // default ratio
-		GroupSpecialRatio: -1,
-	}
-
 	// check auto group
-	autoGroup, exists := ctx.Get("auto_group")
+	autoGroup, exists := common.GetContextKey(ctx, constant.ContextKeyAutoGroup)
 	if exists {
 		logger.LogDebug(ctx, "final group: %s", autoGroup)
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
-	displayGroup := relayInfo.UsingGroup
-	if group, ok := agentservice.ResolveGroupForSelectedSystem(relayInfo.AgentContext, relayInfo.TokenGroup, relayInfo.UsingGroup); ok {
-		displayGroup = group.GroupName
-	} else if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
-		displayGroup = group.GroupName
+
+	groupRatio := agentservice.ResolveGroupRatio(ctx, relayInfo.AgentContext, relayInfo.UserGroup, relayInfo.TokenGroup, relayInfo.UsingGroup)
+	if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
 		relayInfo.UsingGroup = group.SystemGroupName
 	}
-	userGroup := relayInfo.UserGroup
-	if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, userGroup); ok {
-		userGroup = group.SystemGroupName
-	}
-
-	// check user group special ratio
-	userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(userGroup, relayInfo.UsingGroup)
-	if ok {
-		// user group special ratio
-		groupRatioInfo.GroupSpecialRatio = userGroupRatio
-		groupRatioInfo.GroupRatio = userGroupRatio
-		groupRatioInfo.HasSpecialRatio = true
-	} else {
-		// normal group ratio
-		groupRatioInfo.GroupRatio = ratio_setting.GetGroupRatio(relayInfo.UsingGroup)
-	}
-	groupRatioInfo.BaseGroupRatio = groupRatioInfo.GroupRatio
-
-	if relayInfo != nil && relayInfo.AgentContext != nil {
-		if selectedAgentGroup := common.GetContextKeyString(ctx, constant.ContextKeyAgentSelectedGroup); selectedAgentGroup != "" {
-			if group, ok := agentservice.ResolveGroup(relayInfo.AgentContext, selectedAgentGroup); ok && group.SystemGroupName == relayInfo.UsingGroup {
-				displayGroup = group.GroupName
-			}
-		}
-		if agentRatio, ok := agentGroupRatioForUserGroup(relayInfo.AgentContext, userGroup, displayGroup); ok {
-			if agentRatio < groupRatioInfo.BaseGroupRatio {
-				agentRatio = groupRatioInfo.BaseGroupRatio
-			}
-			groupRatioInfo.GroupRatio = agentRatio
-			groupRatioInfo.AgentGroupRatio = agentRatio
-			groupRatioInfo.HasAgentRatio = true
-			if groupRatioInfo.HasSpecialRatio {
-				groupRatioInfo.GroupSpecialRatio = agentRatio
-			}
-			relayInfo.AgentBillingSnapshot = &types.AgentBillingSnapshot{
-				AgentID:           relayInfo.AgentContext.AgentID,
-				Domain:            relayInfo.AgentContext.Domain,
-				Group:             displayGroup,
-				BaseGroupRatio:    groupRatioInfo.BaseGroupRatio,
-				ChargedGroupRatio: agentRatio,
-			}
+	if autoGroup, exists := common.GetContextKey(ctx, constant.ContextKeyAutoGroup); exists {
+		if group, ok := autoGroup.(string); ok && group != "" {
+			relayInfo.UsingGroup = group
 		}
 	}
+	relayInfo.AgentBillingSnapshot = groupRatio.Snapshot
 
-	return groupRatioInfo
-}
-
-func agentGroupRatioForUserGroup(agentCtx *types.AgentContext, userGroup string, displayGroup string) (float64, bool) {
-	if agentCtx == nil {
-		return 0, false
+	return types.GroupRatioInfo{
+		GroupRatio:        groupRatio.GroupRatio,
+		GroupSpecialRatio: groupRatio.GroupSpecialRatio,
+		HasSpecialRatio:   groupRatio.HasSpecialRatio,
+		BaseGroupRatio:    groupRatio.BaseGroupRatio,
+		AgentGroupRatio:   groupRatio.AgentGroupRatio,
+		HasAgentRatio:     groupRatio.HasAgentRatio,
 	}
-	if group, ok := agentservice.ResolveUserGroup(agentCtx, userGroup); ok && group.GroupRatios != nil {
-		if ratio, ok := group.GroupRatios[displayGroup]; ok {
-			return ratio, true
-		}
-	}
-	ratio, ok := agentCtx.GroupRatios[displayGroup]
-	return ratio, ok
 }
 
 func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens int, meta *types.TokenCountMeta) (types.PriceData, error) {

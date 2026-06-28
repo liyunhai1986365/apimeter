@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -15,6 +16,18 @@ import (
 
 type Context = types.AgentContext
 type BillingSnapshot = types.AgentBillingSnapshot
+
+type GroupRatioResult struct {
+	GroupRatio        float64
+	GroupSpecialRatio float64
+	HasSpecialRatio   bool
+	BaseGroupRatio    float64
+	AgentGroupRatio   float64
+	HasAgentRatio     bool
+	DisplayGroup      string
+	UserGroup         string
+	Snapshot          *types.AgentBillingSnapshot
+}
 
 func NormalizeHost(host string) string {
 	host = strings.TrimSpace(strings.ToLower(host))
@@ -201,6 +214,95 @@ func ResolveGroupFromRequest(c *gin.Context, groupName string) (types.AgentGroup
 		return types.AgentGroup{}, false
 	}
 	return ResolveGroup(agentCtx, groupName)
+}
+
+func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, tokenGroup string, usingGroup string) GroupRatioResult {
+	result := GroupRatioResult{
+		GroupRatio:        1,
+		GroupSpecialRatio: -1,
+		DisplayGroup:      usingGroup,
+		UserGroup:         userGroup,
+	}
+
+	if autoGroup, exists := common.GetContextKey(ctx, constant.ContextKeyAutoGroup); exists {
+		if group, ok := autoGroup.(string); ok && strings.TrimSpace(group) != "" {
+			usingGroup = group
+		}
+	}
+
+	result.DisplayGroup = usingGroup
+	matchedAgentGroup := types.AgentGroup{}
+	hasMatchedAgentGroup := false
+	if group, ok := ResolveGroupForSelectedSystem(agentCtx, tokenGroup, usingGroup); ok {
+		result.DisplayGroup = group.GroupName
+		matchedAgentGroup = group
+		hasMatchedAgentGroup = true
+	} else if group, ok := ResolveGroup(agentCtx, usingGroup); ok {
+		result.DisplayGroup = group.GroupName
+		usingGroup = group.SystemGroupName
+		matchedAgentGroup = group
+		hasMatchedAgentGroup = true
+	}
+
+	if group, ok := ResolveGroup(agentCtx, result.UserGroup); ok {
+		result.UserGroup = group.SystemGroupName
+	}
+
+	if userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(result.UserGroup, usingGroup); ok {
+		result.GroupSpecialRatio = userGroupRatio
+		result.GroupRatio = userGroupRatio
+		result.HasSpecialRatio = true
+	} else {
+		result.GroupRatio = ratio_setting.GetGroupRatio(usingGroup)
+	}
+	result.BaseGroupRatio = result.GroupRatio
+
+	if agentCtx != nil {
+		if selectedAgentGroup := common.GetContextKeyString(ctx, constant.ContextKeyAgentSelectedGroup); selectedAgentGroup != "" {
+			if group, ok := ResolveGroup(agentCtx, selectedAgentGroup); ok && group.SystemGroupName == usingGroup {
+				result.DisplayGroup = group.GroupName
+				matchedAgentGroup = group
+				hasMatchedAgentGroup = true
+			}
+		}
+		if agentRatio, ok := GroupRatioForUserGroup(agentCtx, result.UserGroup, result.DisplayGroup); ok {
+			agentBaseRatio := result.BaseGroupRatio
+			if hasMatchedAgentGroup && matchedAgentGroup.AgentRatio > 0 {
+				agentBaseRatio = matchedAgentGroup.AgentRatio
+			}
+			if agentRatio < agentBaseRatio {
+				agentRatio = agentBaseRatio
+			}
+			result.GroupRatio = agentRatio
+			result.AgentGroupRatio = agentRatio
+			result.HasAgentRatio = true
+			if result.HasSpecialRatio {
+				result.GroupSpecialRatio = agentRatio
+			}
+			result.Snapshot = &types.AgentBillingSnapshot{
+				AgentID:           agentCtx.AgentID,
+				Domain:            agentCtx.Domain,
+				Group:             result.DisplayGroup,
+				BaseGroupRatio:    agentBaseRatio,
+				ChargedGroupRatio: agentRatio,
+			}
+		}
+	}
+
+	return result
+}
+
+func GroupRatioForUserGroup(agentCtx *Context, userGroup string, displayGroup string) (float64, bool) {
+	if agentCtx == nil {
+		return 0, false
+	}
+	if group, ok := ResolveUserGroup(agentCtx, userGroup); ok && group.GroupRatios != nil {
+		if ratio, ok := group.GroupRatios[displayGroup]; ok {
+			return ratio, true
+		}
+	}
+	ratio, ok := agentCtx.GroupRatios[displayGroup]
+	return ratio, ok
 }
 
 func ApplySnapshot(snapshot *BillingSnapshot, baseQuota int) int {
