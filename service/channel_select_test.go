@@ -384,6 +384,53 @@ func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T)
 	require.Equal(t, "backup", selectedGroup)
 }
 
+func TestCacheGetRandomSatisfiedChannelMapsAgentPolicyGroupToSystemGroup(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+	createChannelSelectFixture(t, db, 1111, "vip", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "member")
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["GPT 特价"]}`)
+	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+		AgentID: 10,
+		Groups: map[string]types.AgentGroup{
+			"GPT 特价": {
+				GroupName:       "GPT 特价",
+				SystemGroupName: "vip",
+				Visible:         false,
+				Available:       true,
+			},
+		},
+		UserGroups: map[string]types.AgentUserGroup{
+			"member": {
+				GroupName:     "member",
+				VisibleGroups: []string{"GPT 特价"},
+			},
+		},
+	})
+
+	retry := 0
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "GPT 特价",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1111, channel.Id)
+	require.Equal(t, "vip", selectedGroup)
+	require.Equal(t, "GPT 特价", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
+}
+
 func TestCacheGetRandomSatisfiedChannelUsesRoutingStrategySnapshot(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {

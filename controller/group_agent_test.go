@@ -31,7 +31,7 @@ func setupAgentGroupControllerTestDB(t *testing.T) *gorm.DB {
 	require.NoError(t, err)
 	model.DB = db
 	model.LOG_DB = db
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.AgentUser{}, &model.AgentGroupRatio{}, &model.AgentUserGroupConfig{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Agent{}, &model.AgentUser{}, &model.AgentGroupRatio{}, &model.AgentUserGroupConfig{}))
 
 	t.Cleanup(func() {
 		sqlDB, err := db.DB()

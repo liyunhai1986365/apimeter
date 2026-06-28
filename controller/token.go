@@ -12,7 +12,9 @@ import (
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
@@ -77,7 +79,18 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 		userGroup = c.GetString("group")
 	}
 	userId := c.GetInt("id")
-	group, policy, err := service.NormalizeTokenGroupPolicyForUser(token.GroupPolicy, userGroup, userId)
+	var agentCtx *types.AgentContext
+	if ctx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok {
+		agentCtx = ctx
+	}
+	if agentCtx != nil {
+		if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, userId, userGroup); err == nil {
+			userGroup = agentUserGroup
+		} else {
+			return err
+		}
+	}
+	group, policy, err := service.NormalizeTokenGroupPolicyForUserWithAgent(token.GroupPolicy, userGroup, userId, agentCtx)
 	if err != nil {
 		return err
 	}
@@ -86,7 +99,7 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 		token.GroupPolicy = policy
 	}
 	if token.GroupPolicy == "" {
-		if err := service.ValidateExplicitTokenGroupForUser(token.Group, userGroup, userId); err != nil {
+		if err := service.ValidateExplicitTokenGroupForUserWithAgent(token.Group, userGroup, userId, agentCtx); err != nil {
 			return err
 		}
 	}

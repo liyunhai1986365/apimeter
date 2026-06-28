@@ -183,7 +183,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				param.SetRetry(0)
 				continue
 			}
-			setSelectedGroupContext(param.Ctx, policyGroup, agentPolicyGroupNames[policyGroup])
+			setSelectedGroupContext(param.Ctx, policyGroup, agentPolicyGroupName(param.Ctx, policyGroup, agentPolicyGroupNames))
 			selectGroup = policyGroup
 			logger.LogDebug(param.Ctx, "Policy selected group: %s", policyGroup)
 
@@ -333,6 +333,15 @@ func setSelectedGroupContext(ctx *gin.Context, systemGroup string, agentGroup st
 	if _, exists := common.GetContextKey(ctx, constant.ContextKeyAgentSelectedGroup); exists {
 		ctx.Set(string(constant.ContextKeyAgentSelectedGroup), "")
 	}
+}
+
+func agentPolicyGroupName(ctx *gin.Context, systemGroup string, fallback map[string]string) string {
+	if ctx != nil {
+		if group := common.GetContextKeyString(ctx, agentPolicyGroupContextKey(systemGroup)); group != "" {
+			return group
+		}
+	}
+	return fallback[systemGroup]
 }
 
 func shouldStopOnProtocolMismatch(param *RetryParam) bool {

@@ -31,6 +31,10 @@ func NormalizeTokenGroupPolicy(raw string, userGroup string) (string, string, er
 }
 
 func NormalizeTokenGroupPolicyForUser(raw string, userGroup string, userID int) (string, string, error) {
+	return NormalizeTokenGroupPolicyForUserWithAgent(raw, userGroup, userID, nil)
+}
+
+func NormalizeTokenGroupPolicyForUserWithAgent(raw string, userGroup string, userID int, agentCtx *types.AgentContext) (string, string, error) {
 	policy, ok, err := parseTokenGroupPolicy(raw)
 	if err != nil {
 		return "", "", err
@@ -43,7 +47,7 @@ func NormalizeTokenGroupPolicyForUser(raw string, userGroup string, userID int) 
 		if !model.ValidRoutingStrategy(strategy) {
 			return "", "", errors.New("unsupported routing strategy")
 		}
-		excludedGroups, err := normalizePolicyGroups(policy.ExcludedGroups, userGroup, userID)
+		excludedGroups, err := normalizePolicyGroups(policy.ExcludedGroups, userGroup, userID, agentCtx)
 		if err != nil {
 			return "", "", err
 		}
@@ -65,7 +69,7 @@ func NormalizeTokenGroupPolicyForUser(raw string, userGroup string, userID int) 
 		return "", "", errors.New("unsupported group policy type")
 	}
 
-	groups, err := normalizePolicyGroups(policy.Groups, userGroup, userID)
+	groups, err := normalizePolicyGroups(policy.Groups, userGroup, userID, agentCtx)
 	if err != nil {
 		return "", "", err
 	}
@@ -119,6 +123,17 @@ func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 			if hasAgentCtx && agentCtx != nil {
 				expanded, _ = agentAutoGroups(agentCtx, userGroup)
 			}
+		} else if hasAgentCtx && agentCtx != nil {
+			if group, ok := agentservice.ResolveGroup(agentCtx, item); ok {
+				systemGroup := strings.TrimSpace(group.SystemGroupName)
+				if systemGroup == "" {
+					systemGroup = item
+				}
+				expanded = []string{systemGroup}
+				common.SetContextKey(ctx, agentPolicyGroupContextKey(systemGroup), group.GroupName)
+			} else {
+				expanded = []string{item}
+			}
 		} else {
 			expanded = []string{item}
 		}
@@ -135,6 +150,10 @@ func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 		return []string{strings.TrimSpace(tokenGroup)}
 	}
 	return chain
+}
+
+func agentPolicyGroupContextKey(systemGroup string) constant.ContextKey {
+	return constant.ContextKey("agent_policy_group:" + strings.TrimSpace(systemGroup))
 }
 
 func excludePolicyGroups(groups []string, excludedGroups []string) []string {
@@ -180,7 +199,7 @@ func parseTokenGroupPolicy(raw string) (TokenGroupPolicy, bool, error) {
 	return policy, true, nil
 }
 
-func normalizePolicyGroups(groups []string, userGroup string, userID int) ([]string, error) {
+func normalizePolicyGroups(groups []string, userGroup string, userID int, agentCtx *types.AgentContext) ([]string, error) {
 	cleanGroups := make([]string, 0, len(groups))
 	seen := make(map[string]bool)
 	userUsableGroups := GetUserUsableGroups(userGroup)
@@ -193,6 +212,21 @@ func normalizePolicyGroups(groups []string, userGroup string, userID int) ([]str
 			return []string{AutoGroupName}, nil
 		}
 		if seen[group] {
+			continue
+		}
+		if agentGroup, ok := agentservice.ResolveGroup(agentCtx, group); ok {
+			if !agentservice.UserCanSeeGroup(agentCtx, userGroup, agentGroup.GroupName) {
+				return nil, errors.New("无权访问 " + group + " 分组")
+			}
+			systemGroup := strings.TrimSpace(agentGroup.SystemGroupName)
+			if systemGroup == "" {
+				systemGroup = group
+			}
+			if !ratio_setting.ContainsGroupRatio(systemGroup) {
+				return nil, errors.New("分组 " + group + " 已被弃用")
+			}
+			seen[group] = true
+			cleanGroups = append(cleanGroups, group)
 			continue
 		}
 		if model.IsUserOwnedProviderGroup(group) {
@@ -230,8 +264,25 @@ func ValidateExplicitTokenGroup(group string, userGroup string) error {
 }
 
 func ValidateExplicitTokenGroupForUser(group string, userGroup string, userID int) error {
+	return ValidateExplicitTokenGroupForUserWithAgent(group, userGroup, userID, nil)
+}
+
+func ValidateExplicitTokenGroupForUserWithAgent(group string, userGroup string, userID int, agentCtx *types.AgentContext) error {
 	group = strings.TrimSpace(group)
 	if group == "" || group == AutoGroupName {
+		return nil
+	}
+	if agentGroup, ok := agentservice.ResolveGroup(agentCtx, group); ok {
+		if !agentservice.UserCanSeeGroup(agentCtx, userGroup, agentGroup.GroupName) {
+			return errors.New("无权访问 " + group + " 分组")
+		}
+		systemGroup := strings.TrimSpace(agentGroup.SystemGroupName)
+		if systemGroup == "" {
+			systemGroup = group
+		}
+		if !ratio_setting.ContainsGroupRatio(systemGroup) {
+			return errors.New("分组 " + group + " 已被弃用")
+		}
 		return nil
 	}
 	if model.IsUserOwnedProviderGroup(group) {

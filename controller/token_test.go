@@ -13,9 +13,12 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/mysql"
@@ -151,6 +154,25 @@ func setupTokenControllerTestDB(t *testing.T) *gorm.DB {
 
 	db := openTokenControllerTestDB(t)
 	migrateTokenControllerTestDB(t, db)
+	return db
+}
+
+func setupAgentTokenControllerTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	db := openTokenControllerTestDB(t)
+	if err := db.AutoMigrate(
+		&model.Workspace{},
+		&model.Token{},
+		&model.Log{},
+		&model.User{},
+		&model.Agent{},
+		&model.AgentUser{},
+		&model.AgentGroupRatio{},
+		&model.AgentUserGroupConfig{},
+	); err != nil {
+		t.Fatalf("failed to migrate agent token tables: %v", err)
+	}
 	return db
 }
 
@@ -941,6 +963,70 @@ func TestAddTokenUsesCurrentUserGroupForSpecialUsableGroups(t *testing.T) {
 	}
 	if detail.Group != "hidden" {
 		t.Fatalf("expected created token group hidden, got %q", detail.Group)
+	}
+}
+
+func TestAddTokenAllowsVisibleAgentGroupPolicy(t *testing.T) {
+	db := setupAgentTokenControllerTestDB(t)
+
+	requireNoError := func(err error) {
+		if err != nil {
+			t.Fatalf("failed to configure agent token test: %v", err)
+		}
+	}
+	requireNoError(ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
+	requireNoError(setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+	t.Cleanup(func() {
+		_ = ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+	})
+
+	requireNoError(db.Create(&model.User{Id: 1, Username: "agent-user", Group: "default", Status: common.UserStatusEnabled}).Error)
+	requireNoError(db.Create(&model.Agent{Id: 10, OwnerUserId: 1, Name: "代理站", Slug: "agent-site", Status: model.AgentStatusEnabled, DefaultMarkup: 1}).Error)
+	requireNoError(db.Create(&model.AgentUser{AgentId: 10, UserId: 1, Status: model.AgentUserStatusEnabled, Group: "member"}).Error)
+	_, err := agentservice.UpsertGroupRatio(10, "GPT 特价", "vip", "GPT 特价", 1.5, false)
+	requireNoError(err)
+	_, err = agentservice.UpsertUserGroupConfig(10, "member", []string{"GPT 特价"})
+	requireNoError(err)
+	groups, err := agentservice.EffectiveGroupMap(10)
+	requireNoError(err)
+	userGroups, err := agentservice.UserGroupConfigMap(10)
+	requireNoError(err)
+
+	body := map[string]any{
+		"name":                 "agent-visible-token",
+		"expired_time":         -1,
+		"remain_quota":         0,
+		"unlimited_quota":      true,
+		"model_limits_enabled": false,
+		"model_limits":         "",
+		"group":                "GPT 特价",
+		"group_policy":         `{"type":"ordered","groups":["GPT 特价"]}`,
+		"cross_group_retry":    true,
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 1)
+	common.SetContextKey(ctx, constant.ContextKeyAgentContext, &types.AgentContext{
+		AgentID:    10,
+		Groups:     groups,
+		UserGroups: userGroups,
+	})
+	AddToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected create response to allow visible agent group, got message: %s", response.Message)
+	}
+
+	var detail tokenResponseItem
+	if err := common.Unmarshal(response.Data, &detail); err != nil {
+		t.Fatalf("failed to decode token create response: %v", err)
+	}
+	if detail.Group != "GPT 特价" {
+		t.Fatalf("expected created token group GPT 特价, got %q", detail.Group)
+	}
+	if detail.GroupPolicy != `{"type":"ordered","groups":["GPT 特价"]}` {
+		t.Fatalf("expected stored agent group policy, got %q", detail.GroupPolicy)
 	}
 }
 
