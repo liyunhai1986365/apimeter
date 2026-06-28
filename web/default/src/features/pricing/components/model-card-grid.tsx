@@ -20,7 +20,9 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
+import { getLobeIcon } from '@/lib/lobe-icon'
 import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
+import { buildModelCardGroups } from '../lib/model-card-groups'
 import type { PricingModel, TokenUnit } from '../types'
 import { ModelCard } from './model-card'
 import type { ModelPerfBadgeData } from './model-perf-badge'
@@ -49,9 +51,29 @@ export function ModelCardGrid(props: ModelCardGridProps) {
     retry: false,
   })
 
-  const visibleModels = useMemo(
-    () => props.models.slice(0, visibleCount),
-    [props.models, visibleCount]
+  const vendorGroups = useMemo(() => {
+    let remaining = visibleCount
+    const groups = []
+
+    for (const group of buildModelCardGroups(props.models)) {
+      if (remaining <= 0) break
+      const models = group.models.slice(0, remaining)
+      if (models.length > 0) {
+        groups.push({
+          ...group,
+          models,
+        })
+      }
+      remaining -= models.length
+    }
+
+    return groups
+  }, [props.models, visibleCount])
+
+  const visibleModelCount = useMemo(
+    () =>
+      vendorGroups.reduce((count, group) => count + group.models.length, 0),
+    [vendorGroups]
   )
 
   const perfMap = useMemo(() => {
@@ -86,19 +108,54 @@ export function ModelCardGrid(props: ModelCardGridProps) {
 
   return (
     <div className='space-y-4 sm:space-y-5'>
-      <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
-        {visibleModels.map((model) => (
-          <ModelCard
-            key={model.id ?? model.model_name}
-            model={model}
-            tokenUnit={tokenUnit}
-            priceRate={props.priceRate}
-            usdExchangeRate={props.usdExchangeRate}
-            showRechargePrice={props.showRechargePrice}
-            perf={perfMap.get(model.model_name || '')}
-            onClick={() => props.onModelClick(model.model_name || '')}
-          />
-        ))}
+      <div className='flex flex-col gap-5'>
+        {vendorGroups.map((group) => {
+          const icon = group.icon ? getLobeIcon(group.icon, 24) : null
+
+          return (
+            <section key={group.key} className='flex flex-col gap-3'>
+              <div className='flex min-w-0 items-center justify-between gap-3 border-b pb-2'>
+                <div className='flex min-w-0 items-center gap-2.5'>
+                  <div className='bg-muted/60 ring-border/70 flex size-8 shrink-0 items-center justify-center rounded-lg ring-1'>
+                    {icon || (
+                      <span className='text-muted-foreground text-xs font-semibold'>
+                        {group.name.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  <div className='min-w-0'>
+                    <h2 className='truncate text-sm font-semibold'>
+                      {group.name}
+                    </h2>
+                    {group.description && (
+                      <p className='text-muted-foreground mt-0.5 line-clamp-1 text-xs'>
+                        {group.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <span className='text-muted-foreground shrink-0 text-xs tabular-nums'>
+                  {t('{{count}} models', { count: group.totalCount })}
+                </span>
+              </div>
+
+              <div className='grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4'>
+                {group.models.map((model) => (
+                  <ModelCard
+                    key={model.id ?? model.model_name}
+                    model={model}
+                    tokenUnit={tokenUnit}
+                    priceRate={props.priceRate}
+                    usdExchangeRate={props.usdExchangeRate}
+                    showRechargePrice={props.showRechargePrice}
+                    perf={perfMap.get(model.model_name || '')}
+                    onClick={() => props.onModelClick(model.model_name || '')}
+                  />
+                ))}
+              </div>
+            </section>
+          )
+        })}
       </div>
 
       <div
@@ -108,7 +165,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
         <div>
           {hasMore ? t('Scroll to load more models') : t('All models loaded')}
           <span className='ml-2 tabular-nums'>
-            {visibleModels.length.toLocaleString()} /{' '}
+            {visibleModelCount.toLocaleString()} /{' '}
             {props.models.length.toLocaleString()}
           </span>
         </div>
