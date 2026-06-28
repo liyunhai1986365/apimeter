@@ -51,19 +51,13 @@ type AgentUserGroupManagerProps = {
 export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
   const { t } = useTranslation()
   const availableSelectionGroups = useMemo(
-    () =>
-      props.groupRatios.filter(
-        (item) => item.configured && item.available && item.group_name
-      ),
+    () => props.groupRatios.filter((item) => item.available && item.group_name),
     [props.groupRatios]
   )
   const groupRatioDefaults = useMemo(() => {
     const defaults = new Map<string, number>()
     for (const item of availableSelectionGroups) {
-      defaults.set(
-        item.group_name,
-        getAgentUserGroupRatioFloor(item)
-      )
+      defaults.set(item.group_name, getAgentUserGroupRatioFloor(item))
     }
     return defaults
   }, [availableSelectionGroups])
@@ -106,7 +100,7 @@ export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
           <h3 className='text-sm font-semibold'>{t('User Groups')}</h3>
           <p className='text-muted-foreground mt-1 max-w-2xl text-xs'>
             {t(
-              'User groups are only used when assigning agent users. Appended groups expand the selectable model groups for members.'
+              'User groups are only used when assigning agent users. Rules can adjust which system groups members see and the discount they receive.'
             )}
           </p>
         </div>
@@ -138,7 +132,7 @@ export function AgentUserGroupManager(props: AgentUserGroupManagerProps) {
               </div>
               <div className='text-muted-foreground text-[11px]'>
                 {t(
-                  'These groups are appended to the selectable model groups for users in this user group.'
+                  'Select system groups this user group can access or override.'
                 )}
               </div>
             </div>

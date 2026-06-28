@@ -207,9 +207,10 @@ type AgentGroupRatioPayloadInput = {
 export function buildAgentGroupRatioPayload(
   input: AgentGroupRatioPayloadInput
 ) {
+  const systemGroupName = input.system_group_name.trim()
   return {
-    group_name: input.group_name.trim(),
-    system_group_name: input.system_group_name.trim(),
+    group_name: systemGroupName,
+    system_group_name: systemGroupName,
     description: input.description?.trim() ?? '',
     ratio: input.ratio,
     visible: input.visible,
@@ -218,61 +219,84 @@ export function buildAgentGroupRatioPayload(
 
 export function getAgentGroupRatioEditValue(rule: AgentGroupRatio) {
   if (rule.configured) {
-    return String(rule.configured_ratio ?? rule.system_ratio ?? 1)
+    return String(
+      rule.configured_ratio ?? rule.agent_ratio ?? rule.system_ratio ?? 1
+    )
   }
-  return String(rule.system_ratio ?? 1)
+  return String(rule.agent_ratio ?? rule.system_ratio ?? 1)
 }
 
 export function getAgentSystemGroupDefaultRatio(
   groupRatios: AgentGroupRatio[],
   systemGroupName: string
 ) {
-  return String(getAgentSystemGroupRatioFloor(groupRatios, systemGroupName) || 1)
+  return String(
+    getAgentSystemGroupRatioFloor(groupRatios, systemGroupName) || 1
+  )
 }
 
 export function getAgentGroupRatioInputFloor(
   groupRatios: AgentGroupRatio[],
-  groupName: string,
   systemGroupName: string
 ) {
-  const trimmedGroupName = groupName.trim()
-  const configuredGroup = groupRatios.find(
+  const trimmedSystemGroupName = systemGroupName.trim()
+  const configuredRule = groupRatios.find(
     (item) =>
       item.configured &&
-      item.group_name === trimmedGroupName &&
-      item.system_group_name === systemGroupName
+      item.system_group_name === trimmedSystemGroupName &&
+      getAgentRatioFloor(item) != null
   )
-  const configuredFloor = getAgentRatioFloor(configuredGroup)
+  const configuredFloor = getAgentRatioFloor(configuredRule)
   if (configuredFloor != null) {
     return configuredFloor
   }
-  return getAgentSystemGroupRatioFloor(groupRatios, systemGroupName)
+  return getAgentSystemGroupRatioFloor(groupRatios, trimmedSystemGroupName)
 }
 
 export function getAgentSystemGroupRatioFloor(
   groupRatios: AgentGroupRatio[],
   systemGroupName: string
 ) {
+  const trimmedSystemGroupName = systemGroupName.trim()
   const configuredSystemGroup = groupRatios.find(
     (item) =>
       item.configured &&
-      item.system_group_name === systemGroupName &&
+      item.system_group_name === trimmedSystemGroupName &&
       getAgentRatioFloor(item) != null
   )
   if (configuredSystemGroup) {
     return getAgentRatioFloor(configuredSystemGroup) ?? 0
   }
   const systemGroup = groupRatios.find(
-    (item) => item.system_group_name === systemGroupName
+    (item) => item.system_group_name === trimmedSystemGroupName
   )
-  return systemGroup?.system_ratio ?? 0
+  return getAgentRatioFloor(systemGroup) ?? systemGroup?.system_ratio ?? 0
 }
 
 export function getAgentGroupRatioTableValues(rule: AgentGroupRatio) {
   return {
-    agentDiscount: rule.configured ? String(getAgentRatioFloor(rule) ?? '-') : '-',
+    agentDiscount: String(getAgentRatioFloor(rule) ?? '-'),
     effectiveDiscount: String(rule.effective_ratio),
   }
+}
+
+export function buildAgentGroupRuleRows(groupRatios: AgentGroupRatio[]) {
+  return [...groupRatios]
+    .sort((a, b) => {
+      if (a.configured !== b.configured) return a.configured ? -1 : 1
+      return (a.system_group_name || a.group_name).localeCompare(
+        b.system_group_name || b.group_name
+      )
+    })
+    .map((rule) => ({
+      systemGroupName: rule.system_group_name || rule.group_name,
+      status: rule.configured ? 'configured' : 'system_default',
+      agentDiscount: String(getAgentRatioFloor(rule) ?? '-'),
+      effectiveDiscount: String(rule.effective_ratio),
+      baseDiscount: String(rule.system_ratio),
+      visible: rule.visible,
+      available: rule.available,
+    }))
 }
 
 export function getAgentUserGroupRatioFloor(rule: AgentGroupRatio) {

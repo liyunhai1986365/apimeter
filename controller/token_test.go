@@ -984,9 +984,9 @@ func TestAddTokenAllowsVisibleAgentGroupPolicy(t *testing.T) {
 	requireNoError(db.Create(&model.User{Id: 1, Username: "agent-user", Group: "default", Status: common.UserStatusEnabled}).Error)
 	requireNoError(db.Create(&model.Agent{Id: 10, OwnerUserId: 1, Name: "代理站", Slug: "agent-site", Status: model.AgentStatusEnabled, DefaultMarkup: 1}).Error)
 	requireNoError(db.Create(&model.AgentUser{AgentId: 10, UserId: 1, Status: model.AgentUserStatusEnabled, Group: "member"}).Error)
-	_, err := agentservice.UpsertGroupRatio(10, "GPT 特价", "vip", "GPT 特价", 1.5, false)
+	_, err := agentservice.UpsertGroupRatio(10, "vip", "vip", "代理销售规则", 1.5, false)
 	requireNoError(err)
-	_, err = agentservice.UpsertUserGroupConfig(10, "member", []string{"GPT 特价"})
+	_, err = agentservice.UpsertUserGroupConfig(10, "member", []string{"vip"})
 	requireNoError(err)
 	groups, err := agentservice.EffectiveGroupMap(10)
 	requireNoError(err)
@@ -1000,8 +1000,8 @@ func TestAddTokenAllowsVisibleAgentGroupPolicy(t *testing.T) {
 		"unlimited_quota":      true,
 		"model_limits_enabled": false,
 		"model_limits":         "",
-		"group":                "GPT 特价",
-		"group_policy":         `{"type":"ordered","groups":["GPT 特价"]}`,
+		"group":                "vip",
+		"group_policy":         `{"type":"ordered","groups":["vip"]}`,
 		"cross_group_retry":    true,
 	}
 
@@ -1022,10 +1022,10 @@ func TestAddTokenAllowsVisibleAgentGroupPolicy(t *testing.T) {
 	if err := common.Unmarshal(response.Data, &detail); err != nil {
 		t.Fatalf("failed to decode token create response: %v", err)
 	}
-	if detail.Group != "GPT 特价" {
-		t.Fatalf("expected created token group GPT 特价, got %q", detail.Group)
+	if detail.Group != "vip" {
+		t.Fatalf("expected created token group vip, got %q", detail.Group)
 	}
-	if detail.GroupPolicy != `{"type":"ordered","groups":["GPT 特价"]}` {
+	if detail.GroupPolicy != `{"type":"ordered","groups":["vip"]}` {
 		t.Fatalf("expected stored agent group policy, got %q", detail.GroupPolicy)
 	}
 }

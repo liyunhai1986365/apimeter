@@ -137,11 +137,6 @@ func Distribute() func(c *gin.Context) {
 				usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 				channelGroup := usingGroup
 				agentCtx, _ := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
-				if agentCtx != nil {
-					if groups := agentservice.ResolveSystemGroups(agentCtx, usingGroup); len(groups) > 0 {
-						channelGroup = groups[0]
-					}
-				}
 				hasGroupPolicyChain := len(service.ResolveTokenGroupChain(c, usingGroup)) > 0
 				if model.IsUserOwnedProviderGroup(channelGroup) && !hasGroupPolicyChain {
 					ownedChannel, ownedErr := model.GetUserOwnedProviderChannelForGroup(c.GetInt("id"), channelGroup, modelRequest.Model)
@@ -163,11 +158,6 @@ func Distribute() func(c *gin.Context) {
 					}
 					if playgroundRequest.Group != "" {
 						checkUsingGroup := usingGroup
-						if agentCtx != nil {
-							if groups := agentservice.ResolveSystemGroups(agentCtx, usingGroup); len(groups) > 0 {
-								checkUsingGroup = groups[0]
-							}
-						}
 						checkRequestedGroup := playgroundRequest.Group
 						if agentGroup, ok := agentservice.ResolveGroupFromRequest(c, playgroundRequest.Group); ok {
 							checkRequestedGroup = agentGroup.SystemGroupName
@@ -183,11 +173,6 @@ func Distribute() func(c *gin.Context) {
 						usingGroup = playgroundRequest.Group
 						common.SetContextKey(c, constant.ContextKeyUsingGroup, usingGroup)
 						channelGroup = usingGroup
-						if agentCtx != nil {
-							if groups := agentservice.ResolveSystemGroups(agentCtx, usingGroup); len(groups) > 0 {
-								channelGroup = groups[0]
-							}
-						}
 						if model.IsUserOwnedProviderGroup(channelGroup) {
 							ownedChannel, ownedErr := model.GetUserOwnedProviderChannelForGroup(c.GetInt("id"), channelGroup, modelRequest.Model)
 							if ownedErr != nil {

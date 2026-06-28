@@ -204,7 +204,6 @@ export function Agents() {
   const [headerNavModules, setHeaderNavModules] = useState('')
   const [siteStyle, setSiteStyle] = useState('')
   const [newDomain, setNewDomain] = useState('')
-  const [groupName, setGroupName] = useState('default')
   const [groupRatio, setGroupRatio] = useState('1')
   const [withdrawMoney, setWithdrawMoney] = useState('')
   const [accountInfo, setAccountInfo] = useState('')
@@ -393,22 +392,31 @@ export function Agents() {
   const canCreateDomain = newDomain.trim() !== ''
   const selectedGroupBaseRatio = getAgentGroupRatioInputFloor(
     groupRatios,
-    groupName,
     systemGroupName
   )
   const canSaveGroupRatio =
-    groupName.trim() !== '' &&
     systemGroupName.trim() !== '' &&
     Number(groupRatio) >= selectedGroupBaseRatio
   const canSaveUserGroup = userGroupName.trim() !== ''
   const canSubmitWithdrawal =
     Number(withdrawMoney) > 0 && accountInfo.trim() !== ''
   const editAgentGroup = (rule: AgentGroupRatio) => {
-    setGroupName(rule.group_name)
     setSystemGroupName(rule.system_group_name)
     setGroupDescription(rule.description ?? '')
     setGroupRatio(getAgentGroupRatioEditValue(rule))
     setGroupVisible(rule.visible)
+  }
+  const resetAgentGroupRuleForm = () => {
+    const rule = groupRatios.find(
+      (item) => item.system_group_name === systemGroupName
+    )
+    if (rule) {
+      editAgentGroup(rule)
+      return
+    }
+    setGroupDescription('')
+    setGroupRatio(getAgentSystemGroupDefaultRatio(groupRatios, systemGroupName))
+    setGroupVisible(true)
   }
   const editAgentUserGroup = (rule: AgentUserGroupConfig) => {
     setUserGroupName(rule.group_name)
@@ -939,7 +947,6 @@ export function Agents() {
                 />
                 <AgentGroupManager
                   groupRatios={groupRatios}
-                  groupName={groupName}
                   systemGroupName={systemGroupName}
                   groupDescription={groupDescription}
                   groupRatio={groupRatio}
@@ -947,22 +954,28 @@ export function Agents() {
                   groupVisible={groupVisible}
                   canSave={canSaveGroupRatio}
                   isPending={saveGroupRatioMutation.isPending}
-                  onGroupNameChange={setGroupName}
                   onSystemGroupNameChange={(nextSystemGroup) => {
                     setSystemGroupName(nextSystemGroup)
-                    setGroupRatio(
-                      getAgentSystemGroupDefaultRatio(
-                        groupRatios,
-                        nextSystemGroup
-                      )
+                    const rule = groupRatios.find(
+                      (item) => item.system_group_name === nextSystemGroup
                     )
+                    setGroupDescription(rule?.description ?? '')
+                    setGroupRatio(
+                      rule
+                        ? getAgentGroupRatioEditValue(rule)
+                        : getAgentSystemGroupDefaultRatio(
+                            groupRatios,
+                            nextSystemGroup
+                          )
+                    )
+                    setGroupVisible(rule?.visible ?? true)
                   }}
                   onGroupDescriptionChange={setGroupDescription}
                   onGroupRatioChange={setGroupRatio}
                   onGroupVisibleChange={setGroupVisible}
                   onSave={() =>
                     saveGroupRatioMutation.mutate({
-                      group_name: groupName,
+                      group_name: systemGroupName,
                       system_group_name: systemGroupName,
                       description: groupDescription,
                       ratio: Number(groupRatio),
@@ -970,6 +983,7 @@ export function Agents() {
                     })
                   }
                   onEdit={editAgentGroup}
+                  onResetForm={resetAgentGroupRuleForm}
                 />
               </div>
             </TabsContent>

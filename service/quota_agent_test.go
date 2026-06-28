@@ -44,8 +44,8 @@ func newRealtimeAgentRelayInfo() *relaycommon.RelayInfo {
 		TokenId:         200,
 		TokenKey:        "sk-agent-test",
 		UserGroup:       "member",
-		UsingGroup:      "agent-vip",
-		TokenGroup:      "agent-vip",
+		UsingGroup:      "vip",
+		TokenGroup:      "vip",
 		OriginModelName: "realtime-agent-test",
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelId: 300,
@@ -54,8 +54,8 @@ func newRealtimeAgentRelayInfo() *relaycommon.RelayInfo {
 			AgentID: 3,
 			Domain:  "agent.example.com",
 			Groups: map[string]types.AgentGroup{
-				"agent-vip": {
-					GroupName:       "agent-vip",
+				"vip": {
+					GroupName:       "vip",
 					SystemGroupName: "vip",
 					AgentRatio:      1.0,
 					EffectiveRatio:  1.1,
@@ -67,12 +67,12 @@ func newRealtimeAgentRelayInfo() *relaycommon.RelayInfo {
 				"member": {
 					GroupName: "member",
 					GroupRatios: map[string]float64{
-						"agent-vip": 1.1,
+						"vip": 1.1,
 					},
 				},
 			},
 			GroupRatios: map[string]float64{
-				"agent-vip": 1.1,
+				"vip": 1.1,
 			},
 		},
 	}
@@ -154,7 +154,7 @@ func TestPreWssConsumeQuotaUsesAgentConfiguredRatioAndSnapshot(t *testing.T) {
 	require.Equal(t, 1.2, info.PriceData.GroupRatioInfo.BaseGroupRatio)
 	require.True(t, info.PriceData.GroupRatioInfo.HasAgentRatio)
 	require.NotNil(t, info.AgentBillingSnapshot)
-	require.Equal(t, "agent-vip", info.AgentBillingSnapshot.Group)
+	require.Equal(t, "vip", info.AgentBillingSnapshot.Group)
 	require.Equal(t, 1.0, info.AgentBillingSnapshot.BaseGroupRatio)
 	require.Equal(t, 1.1, info.AgentBillingSnapshot.ChargedGroupRatio)
 	require.Equal(t, 100, agentservice.BaseQuotaFromCharged(info.AgentBillingSnapshot, 110))
@@ -218,7 +218,7 @@ func TestPreWssConsumeQuotaBillingRatioMatrix(t *testing.T) {
 			name: "agent user group override uses agent override ratio",
 			info: func() *relaycommon.RelayInfo {
 				info := newRealtimeAgentRelayInfo()
-				info.AgentContext.UserGroups["member"].GroupRatios["agent-vip"] = 1.3
+				info.AgentContext.UserGroups["member"].GroupRatios["vip"] = 1.3
 				return info
 			}(),
 			wantGroupRatio:    1.3,
@@ -254,7 +254,7 @@ func TestPreWssConsumeQuotaBillingRatioMatrix(t *testing.T) {
 			if tt.wantAgentSnapshot {
 				require.True(t, tt.info.PriceData.GroupRatioInfo.HasAgentRatio)
 				require.NotNil(t, tt.info.AgentBillingSnapshot)
-				require.Equal(t, "agent-vip", tt.info.AgentBillingSnapshot.Group)
+				require.Equal(t, "vip", tt.info.AgentBillingSnapshot.Group)
 				require.Equal(t, tt.wantAgentBase, tt.info.AgentBillingSnapshot.BaseGroupRatio)
 				require.Equal(t, tt.wantAgentCharged, tt.info.AgentBillingSnapshot.ChargedGroupRatio)
 			} else {
@@ -271,7 +271,7 @@ func TestAgentSettleConsumeWritesProfitFromAgentSnapshot(t *testing.T) {
 	snapshot := &types.AgentBillingSnapshot{
 		AgentID:           3,
 		Domain:            "agent.example.com",
-		Group:             "agent-vip",
+		Group:             "vip",
 		BaseGroupRatio:    1.0,
 		ChargedGroupRatio: 1.1,
 	}
@@ -356,7 +356,7 @@ func TestPostWssConsumeQuotaRecordsAgentProfitLedger(t *testing.T) {
 			name: "agent user group override records consume log and higher profit ledger",
 			info: func() *relaycommon.RelayInfo {
 				info := newRealtimeAgentRelayInfo()
-				info.AgentContext.UserGroups["member"].GroupRatios["agent-vip"] = 1.3
+				info.AgentContext.UserGroups["member"].GroupRatios["vip"] = 1.3
 				return info
 			}(),
 			wantQuota:      130,

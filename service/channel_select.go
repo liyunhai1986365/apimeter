@@ -95,13 +95,8 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	agentCtx, _ := common.GetContextKeyType[*types.AgentContext](param.Ctx, constant.ContextKeyAgentContext)
 	systemChannelGroups := []string{channelGroup}
 	if agentCtx != nil {
-		systemChannelGroups = agentservice.ResolveSystemGroups(agentCtx, param.TokenGroup)
-		if len(systemChannelGroups) > 0 {
-			channelGroup = systemChannelGroups[0]
-		}
-		if groups := agentservice.ResolveSystemGroups(agentCtx, userGroup); len(groups) > 0 {
-			userGroup = groups[0]
-		}
+		systemChannelGroups = []string{strings.TrimSpace(param.TokenGroup)}
+		channelGroup = strings.TrimSpace(param.TokenGroup)
 	}
 	filter := BuildProtocolChannelFilter(param)
 

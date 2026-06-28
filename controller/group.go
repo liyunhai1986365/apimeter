@@ -46,7 +46,7 @@ func GetUserGroups(c *gin.Context) {
 				desc = setting.GetUsableGroupDescription(group.SystemGroupName)
 			}
 			usableGroups[group.GroupName] = map[string]interface{}{
-				"ratio": group.EffectiveRatio,
+				"ratio": applyAgentUserGroupRatio(agentCtx, userGroup, group),
 				"desc":  desc,
 			}
 		}

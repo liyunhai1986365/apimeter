@@ -17,11 +17,27 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
-import { Edit3, Eye, EyeOff, Link2, Save } from 'lucide-react'
+import { Edit3, Eye, EyeOff, RotateCcw, Save, Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { Switch } from '@/components/ui/switch'
 import {
   Table,
@@ -31,13 +47,11 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { TableEmpty } from '@/components/data-table'
-import { getAgentGroupRatioTableValues } from '../api'
+import { buildAgentGroupRuleRows } from '../api'
 import type { AgentGroupRatio } from '../types'
 
 type AgentGroupManagerProps = {
   groupRatios: AgentGroupRatio[]
-  groupName: string
   systemGroupName: string
   groupDescription: string
   groupRatio: string
@@ -45,17 +59,21 @@ type AgentGroupManagerProps = {
   groupVisible: boolean
   canSave: boolean
   isPending: boolean
-  onGroupNameChange: (value: string) => void
   onSystemGroupNameChange: (value: string) => void
   onGroupDescriptionChange: (value: string) => void
   onGroupRatioChange: (value: string) => void
   onGroupVisibleChange: (value: boolean) => void
   onSave: () => void
   onEdit: (rule: AgentGroupRatio) => void
+  onResetForm: () => void
 }
 
 export function AgentGroupManager(props: AgentGroupManagerProps) {
   const { t } = useTranslation()
+  const ruleRows = useMemo(
+    () => buildAgentGroupRuleRows(props.groupRatios),
+    [props.groupRatios]
+  )
   const configuredGroups = useMemo(
     () => props.groupRatios.filter((item) => item.configured),
     [props.groupRatios]
@@ -79,209 +97,234 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
   const unavailableCount = configuredGroups.filter(
     (item) => !item.available
   ).length
+  const selectedRule = props.groupRatios.find(
+    (item) => item.system_group_name === props.systemGroupName
+  )
   return (
-    <section className='rounded-lg border p-3'>
-      <div className='mb-4 flex flex-col gap-2 md:flex-row md:items-start md:justify-between'>
-        <div>
-          <h3 className='text-sm font-semibold'>{t('Agent Groups')}</h3>
-          <p className='text-muted-foreground mt-1 max-w-2xl text-xs'>
-            {t(
-              'Create proxy-facing groups, map each one to a system group, and customize the name and description users see.'
-            )}
-          </p>
-        </div>
-        <div className='grid grid-cols-3 gap-2 text-xs'>
-          <MetricPill label={t('Configured')} value={configuredGroups.length} />
-          <MetricPill label={t('Visible')} value={visibleCount} />
-          <MetricPill
-            label={t('Unavailable')}
-            value={unavailableCount}
-            muted={unavailableCount === 0}
-          />
-        </div>
-      </div>
-
-      <div className='grid gap-4 xl:grid-cols-[340px_minmax(0,1fr)]'>
-        <div className='space-y-3 xl:border-r xl:pr-4'>
-          <div className='grid gap-1.5'>
-            <span className='text-muted-foreground text-xs'>
-              {t('Proxy group name')}
-            </span>
-            <Input
-              value={props.groupName}
-              onChange={(event) => props.onGroupNameChange(event.target.value)}
-              placeholder={t('Agent group name')}
+    <Card size='sm'>
+      <CardHeader>
+        <CardTitle>{t('Agent Group Rules')}</CardTitle>
+        <CardDescription>
+          {t(
+            'Configure rules on existing system groups. New system groups are available automatically and use system defaults until a rule is saved.'
+          )}
+        </CardDescription>
+        <CardAction>
+          <div className='grid grid-cols-3 gap-2 text-xs'>
+            <MetricPill
+              label={t('Configured')}
+              value={configuredGroups.length}
+            />
+            <MetricPill label={t('Visible')} value={visibleCount} />
+            <MetricPill
+              label={t('Unavailable')}
+              value={unavailableCount}
+              muted={unavailableCount === 0}
             />
           </div>
-
-          <div className='grid gap-1.5'>
-            <span className='text-muted-foreground text-xs'>
-              {t('Group description')}
-            </span>
-            <Input
-              value={props.groupDescription}
-              onChange={(event) =>
-                props.onGroupDescriptionChange(event.target.value)
-              }
-              placeholder={t('Optional description')}
-            />
-          </div>
-
-          <div className='grid gap-2'>
-            <span className='text-muted-foreground text-xs'>
-              {t('Original System Group')}
-            </span>
-            <select
-              className='border-input bg-background h-8 rounded-md border px-2 text-sm'
-              value={props.systemGroupName}
-              onChange={(event) =>
-                props.onSystemGroupNameChange(event.target.value)
-              }
-            >
-              {systemGroupOptions.map((item) => (
-                <option
-                  key={item.system_group_name}
-                  value={item.system_group_name}
+        </CardAction>
+      </CardHeader>
+      <CardContent>
+        <div className='grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]'>
+          <div className='flex flex-col gap-3'>
+            <FieldGroup>
+              <Field>
+                <FieldLabel>{t('System Group')}</FieldLabel>
+                <NativeSelect
+                  className='w-full'
+                  value={props.systemGroupName}
+                  onChange={(event) =>
+                    props.onSystemGroupNameChange(event.target.value)
+                  }
                 >
-                  {item.system_group_name}
-                </option>
-              ))}
-            </select>
-            <span className='text-muted-foreground text-[11px]'>
-              {t('Minimum discount')}: {props.groupRatioFloor}
-            </span>
-          </div>
+                  {systemGroupOptions.map((item) => (
+                    <NativeSelectOption
+                      key={item.system_group_name}
+                      value={item.system_group_name}
+                    >
+                      {item.system_group_name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelect>
+                <FieldDescription>
+                  {t('Minimum discount')}: {props.groupRatioFloor}
+                </FieldDescription>
+              </Field>
 
-          <div className='grid gap-1.5'>
-            <span className='text-muted-foreground text-xs'>
-              {t('Agent Discount')}
-            </span>
-            <Input
-              value={props.groupRatio}
-              onChange={(event) => props.onGroupRatioChange(event.target.value)}
-              type='number'
-              step='0.01'
-              min={props.groupRatioFloor}
-            />
-          </div>
-
-          <div className='bg-muted/40 flex items-center justify-between gap-3 rounded-md px-3 py-2'>
-            <div>
-              <div className='text-xs font-medium'>{t('Visible to users')}</div>
-              <div className='text-muted-foreground text-[11px]'>
-                {t(
-                  'Hidden agent groups can still be appended by user group rules.'
-                )}
-              </div>
-            </div>
-            <Switch
-              checked={props.groupVisible}
-              onCheckedChange={(checked) =>
-                props.onGroupVisibleChange(checked === true)
-              }
-            />
-          </div>
-
-          <Button
-            className='w-full'
-            disabled={!props.canSave || props.isPending}
-            onClick={props.onSave}
-          >
-            <Save />
-            {t('Save Group')}
-          </Button>
-        </div>
-
-        <div className='min-w-0'>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t('Group')}</TableHead>
-                <TableHead>{t('Description')}</TableHead>
-                <TableHead>{t('Mapping')}</TableHead>
-                <TableHead>{t('Agent Discount')}</TableHead>
-                <TableHead>{t('Effective Discount')}</TableHead>
-                <TableHead>{t('Visibility')}</TableHead>
-                <TableHead>{t('Status')}</TableHead>
-                <TableHead>{t('Actions')}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {configuredGroups.length === 0 ? (
-                <TableEmpty
-                  colSpan={8}
-                  title={t('No Agent Groups')}
-                  description={t(
-                    'Create an agent group before assigning users or showing groups in pricing.'
-                  )}
-                  icon={<Link2 className='size-6' />}
+              <Field>
+                <FieldLabel>{t('Rule description')}</FieldLabel>
+                <Input
+                  value={props.groupDescription}
+                  onChange={(event) =>
+                    props.onGroupDescriptionChange(event.target.value)
+                  }
+                  placeholder={t('Optional description')}
                 />
-              ) : (
-                configuredGroups.map((rule) => {
-                  const tableValues = getAgentGroupRatioTableValues(rule)
-                  return (
-                    <TableRow key={rule.group_name}>
-                      <TableCell className='font-mono text-xs'>
-                        {rule.group_name}
-                      </TableCell>
-                      <TableCell>
-                        <div className='text-muted-foreground max-w-[220px] truncate text-xs'>
-                          {rule.description || '-'}
+              </Field>
+
+              <Field>
+                <FieldLabel>{t('Sales Discount')}</FieldLabel>
+                <Input
+                  value={props.groupRatio}
+                  onChange={(event) =>
+                    props.onGroupRatioChange(event.target.value)
+                  }
+                  type='number'
+                  step='0.01'
+                  min={props.groupRatioFloor}
+                />
+                <FieldDescription>
+                  {selectedRule?.configured
+                    ? t('This sales discount is configured by the agent.')
+                    : t('No sales discount saved yet. Agent discount applies.')}
+                </FieldDescription>
+              </Field>
+
+              <Field orientation='horizontal'>
+                <Switch
+                  checked={props.groupVisible}
+                  onCheckedChange={(checked) =>
+                    props.onGroupVisibleChange(checked === true)
+                  }
+                />
+                <FieldContent>
+                  <FieldLabel>{t('Visible to users')}</FieldLabel>
+                  <FieldDescription>
+                    {t(
+                      'Hidden system groups can still be enabled by user group rules.'
+                    )}
+                  </FieldDescription>
+                </FieldContent>
+              </Field>
+            </FieldGroup>
+
+            <div className='grid grid-cols-2 gap-2'>
+              <Button
+                variant='outline'
+                disabled={props.isPending}
+                onClick={props.onResetForm}
+              >
+                <RotateCcw />
+                {t('Reset')}
+              </Button>
+              <Button
+                disabled={!props.canSave || props.isPending}
+                onClick={props.onSave}
+              >
+                <Save />
+                {selectedRule?.configured ? t('Update Rule') : t('Save Rule')}
+              </Button>
+            </div>
+          </div>
+
+          <div className='min-w-0'>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>{t('System Group')}</TableHead>
+                  <TableHead>{t('Rule Status')}</TableHead>
+                  <TableHead>{t('Base Discount')}</TableHead>
+                  <TableHead>{t('Agent Discount')}</TableHead>
+                  <TableHead>{t('Effective Discount')}</TableHead>
+                  <TableHead>{t('Visibility')}</TableHead>
+                  <TableHead>{t('Status')}</TableHead>
+                  <TableHead>{t('Actions')}</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {ruleRows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8}>
+                      <div className='flex flex-col items-center gap-2 py-8 text-center'>
+                        <Settings2 />
+                        <div className='text-sm font-medium'>
+                          {t('No System Groups')}
                         </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className='flex items-center gap-2 text-xs'>
-                          <Link2 className='text-muted-foreground size-3.5' />
-                          <span className='font-mono'>
-                            {rule.system_group_name || '-'}
-                          </span>
+                        <div className='text-muted-foreground text-xs'>
+                          {t('System groups will appear here automatically.')}
                         </div>
-                      </TableCell>
-                      <TableCell>{tableValues.agentDiscount}</TableCell>
-                      <TableCell>{tableValues.effectiveDiscount}</TableCell>
-                      <TableCell>
-                        <Badge variant={rule.visible ? 'default' : 'outline'}>
-                          {rule.visible ? (
-                            <Eye className='size-3' />
-                          ) : (
-                            <EyeOff className='size-3' />
-                          )}
-                          {rule.visible ? t('Visible') : t('Hidden')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={rule.available ? 'default' : 'destructive'}
-                        >
-                          {rule.available ? t('Available') : t('Unavailable')}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant='ghost'
-                          size='sm'
-                          onClick={() => props.onEdit(rule)}
-                        >
-                          <Edit3 className='size-4' />
-                          {t('Edit')}
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })
-              )}
-            </TableBody>
-          </Table>
-          {hiddenCount > 0 ? (
-            <p className='text-muted-foreground mt-2 text-xs'>
-              {t(
-                'Hidden groups are not shown in user token selection, but admins can assign them to users.'
-              )}
-            </p>
-          ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  ruleRows.map((row) => {
+                    const rule =
+                      props.groupRatios.find(
+                        (item) => item.system_group_name === row.systemGroupName
+                      ) ??
+                      ({
+                        group_name: row.systemGroupName,
+                        system_group_name: row.systemGroupName,
+                        system_ratio: Number(row.baseDiscount) || 0,
+                        configured_ratio: 0,
+                        effective_ratio: Number(row.effectiveDiscount) || 0,
+                        configured: false,
+                        visible: row.visible,
+                        available: row.available,
+                      } satisfies AgentGroupRatio)
+                    return (
+                      <TableRow key={row.systemGroupName}>
+                        <TableCell className='font-mono text-xs'>
+                          {row.systemGroupName}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              row.status === 'configured'
+                                ? 'default'
+                                : 'secondary'
+                            }
+                          >
+                            {row.status === 'configured'
+                              ? t('Configured')
+                              : t('System default')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{row.baseDiscount}</TableCell>
+                        <TableCell>{row.agentDiscount}</TableCell>
+                        <TableCell>{row.effectiveDiscount}</TableCell>
+                        <TableCell>
+                          <Badge variant={row.visible ? 'default' : 'outline'}>
+                            {row.visible ? <Eye /> : <EyeOff />}
+                            {row.visible ? t('Visible') : t('Hidden')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={row.available ? 'default' : 'destructive'}
+                          >
+                            {row.available ? t('Available') : t('Unavailable')}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant='ghost'
+                            size='sm'
+                            onClick={() => props.onEdit(rule)}
+                          >
+                            <Edit3 />
+                            {row.status === 'configured'
+                              ? t('Edit')
+                              : t('Create Rule')}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+            {hiddenCount > 0 ? (
+              <p className='text-muted-foreground mt-2 text-xs'>
+                {t(
+                  'Hidden system groups are not shown in user token selection unless a user group rule enables them.'
+                )}
+              </p>
+            ) : null}
+          </div>
         </div>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   )
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -229,14 +230,31 @@ func EffectiveGroupMap(agentID int, userGroups ...string) (map[string]types.Agen
 	if err != nil {
 		return nil, err
 	}
-	systemRatios := effectiveSystemGroupRatioMap(userGroup)
-	result := make(map[string]types.AgentGroup, len(configuredGroups))
+	systemRatios := agentTokenUsableSystemRatios(userGroup)
+	agentRatios := effectiveSystemGroupRatioMap(userGroup)
+	result := make(map[string]types.AgentGroup, len(systemRatios))
+	for systemGroupName, systemRatio := range systemRatios {
+		agentRatio := agentRatios[systemGroupName]
+		if agentRatio <= 0 {
+			agentRatio = systemRatio
+		}
+		result[systemGroupName] = types.AgentGroup{
+			GroupName:       systemGroupName,
+			SystemGroupName: systemGroupName,
+			AgentRatio:      agentRatio,
+			SystemRatio:     systemRatio,
+			ConfiguredRatio: 0,
+			EffectiveRatio:  agentRatio,
+			Visible:         true,
+			Available:       true,
+		}
+	}
 	for _, configured := range configuredGroups {
-		group := buildAgentGroup(configured, systemRatios)
+		group := buildAgentGroup(configured, systemRatios, agentRatios)
 		if !group.Available {
 			continue
 		}
-		result[group.GroupName] = group
+		result[group.SystemGroupName] = group
 	}
 	return result, nil
 }
@@ -246,7 +264,8 @@ func ListGroupRatios(agentID int, userGroups ...string) ([]GroupRatioView, error
 	if err != nil {
 		return nil, err
 	}
-	systemRatios := effectiveSystemGroupRatioMap(userGroup)
+	systemRatios := agentTokenUsableSystemRatios(userGroup)
+	agentRatios := effectiveSystemGroupRatioMap(userGroup)
 	configuredGroups, err := model.ListAgentGroupRatios(agentID)
 	if err != nil {
 		return nil, err
@@ -254,10 +273,13 @@ func ListGroupRatios(agentID int, userGroups ...string) ([]GroupRatioView, error
 	views := make([]GroupRatioView, 0, len(configuredGroups)+len(systemRatios))
 	configuredNames := make(map[string]struct{}, len(configuredGroups))
 	for _, configured := range configuredGroups {
-		group := buildAgentGroup(configured, systemRatios)
-		configuredNames[group.GroupName] = struct{}{}
+		group := buildAgentGroup(configured, systemRatios, agentRatios)
+		if !group.Available {
+			continue
+		}
+		configuredNames[group.SystemGroupName] = struct{}{}
 		views = append(views, GroupRatioView{
-			GroupName:       group.GroupName,
+			GroupName:       group.SystemGroupName,
 			SystemGroupName: group.SystemGroupName,
 			Description:     group.Description,
 			AgentRatio:      group.AgentRatio,
@@ -273,14 +295,18 @@ func ListGroupRatios(agentID int, userGroups ...string) ([]GroupRatioView, error
 		if _, ok := configuredNames[systemGroupName]; ok {
 			continue
 		}
+		agentRatio := agentRatios[systemGroupName]
+		if agentRatio <= 0 {
+			agentRatio = systemRatio
+		}
 		views = append(views, GroupRatioView{
 			GroupName:       systemGroupName,
 			SystemGroupName: systemGroupName,
 			Description:     "",
-			AgentRatio:      systemRatio,
+			AgentRatio:      agentRatio,
 			SystemRatio:     systemRatio,
 			ConfiguredRatio: 0,
-			EffectiveRatio:  systemRatio,
+			EffectiveRatio:  agentRatio,
 			Configured:      false,
 			Visible:         true,
 			Available:       true,
@@ -378,28 +404,29 @@ func UpsertGroupRatio(agentID int, groupName string, systemGroupName string, des
 	groupName = strings.TrimSpace(groupName)
 	systemGroupName = strings.TrimSpace(systemGroupName)
 	description = strings.TrimSpace(description)
-	if groupName == "" {
-		return nil, ErrAgentGroupRatioNotFound
-	}
 	if systemGroupName == "" {
 		systemGroupName = groupName
 	}
-	if !ratio_setting.ContainsGroupRatio(systemGroupName) {
-		return nil, ErrAgentSystemGroupNotFound
+	if systemGroupName == "" {
+		return nil, ErrAgentGroupRatioNotFound
 	}
+	groupName = systemGroupName
 	userGroup, err := resolveAgentOwnerUserGroup(agentID, userGroups...)
 	if err != nil {
 		return nil, err
 	}
-	systemRatio := effectiveSystemGroupRatio(userGroup, systemGroupName)
+	if !agentCanConfigureSystemGroup(userGroup, systemGroupName) {
+		return nil, ErrAgentSystemGroupNotFound
+	}
+	agentRatio := effectiveSystemGroupRatio(userGroup, systemGroupName)
 	if ratio < 0 {
 		return nil, ErrInvalidAgentGroupRatio
 	}
-	if ratio < systemRatio {
+	if ratio < agentRatio {
 		return nil, ErrAgentGroupRatioBelowSystem
 	}
 	var groupRatio model.AgentGroupRatio
-	err = model.DB.Where("agent_id = ? AND group_name = ?", agentID, groupName).First(&groupRatio).Error
+	err = model.DB.Where("agent_id = ? AND system_group_name = ?", agentID, systemGroupName).First(&groupRatio).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
@@ -475,6 +502,56 @@ func effectiveSystemGroupRatio(userGroup string, systemGroupName string) float64
 	return systemRatio
 }
 
+func agentTokenUsableSystemRatios(userGroup string) map[string]float64 {
+	systemRatios := ratio_setting.GetGroupRatioCopy()
+	userUsableGroups := agentOwnerTokenUsableGroups(userGroup)
+	result := make(map[string]float64, len(userUsableGroups))
+	for groupName := range userUsableGroups {
+		if ratio, ok := systemRatios[groupName]; ok {
+			result[groupName] = ratio
+		}
+	}
+	return result
+}
+
+func agentOwnerTokenUsableGroups(userGroup string) map[string]string {
+	groupsCopy := setting.GetUserUsableGroupsCopy()
+	userGroup = strings.TrimSpace(userGroup)
+	if userGroup != "" {
+		if specialSettings, ok := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup.Get(userGroup); ok {
+			for specialGroup, desc := range specialSettings {
+				if strings.HasPrefix(specialGroup, "-:") {
+					delete(groupsCopy, strings.TrimPrefix(specialGroup, "-:"))
+					continue
+				}
+				if strings.HasPrefix(specialGroup, "+:") {
+					groupsCopy[strings.TrimPrefix(specialGroup, "+:")] = desc
+					continue
+				}
+				groupsCopy[specialGroup] = desc
+			}
+		}
+		if _, ok := groupsCopy[userGroup]; !ok {
+			groupsCopy[userGroup] = "用户分组"
+		}
+	}
+	if userGroups, configured := setting.GetUserGroupNamesFromDisplayConfig(); configured {
+		for _, group := range userGroups {
+			delete(groupsCopy, group)
+		}
+	}
+	return groupsCopy
+}
+
+func agentCanConfigureSystemGroup(userGroup string, systemGroupName string) bool {
+	systemGroupName = strings.TrimSpace(systemGroupName)
+	if systemGroupName == "" {
+		return false
+	}
+	_, ok := agentTokenUsableSystemRatios(userGroup)[systemGroupName]
+	return ok
+}
+
 func firstNonEmpty(values ...string) string {
 	for _, value := range values {
 		value = strings.TrimSpace(value)
@@ -485,23 +562,27 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func buildAgentGroup(configured *model.AgentGroupRatio, systemRatios map[string]float64) types.AgentGroup {
+func buildAgentGroup(configured *model.AgentGroupRatio, systemRatios map[string]float64, agentRatios map[string]float64) types.AgentGroup {
 	systemGroupName := strings.TrimSpace(configured.SystemGroupName)
 	if systemGroupName == "" {
 		systemGroupName = strings.TrimSpace(configured.GroupName)
 	}
 	systemRatio, available := systemRatios[systemGroupName]
+	agentRatio := agentRatios[systemGroupName]
+	if agentRatio <= 0 {
+		agentRatio = systemRatio
+	}
 	effectiveRatio := configured.Ratio
 	if !available {
 		effectiveRatio = 0
-	} else if effectiveRatio < systemRatio {
-		effectiveRatio = systemRatio
+	} else if effectiveRatio < agentRatio {
+		effectiveRatio = agentRatio
 	}
 	return types.AgentGroup{
-		GroupName:       configured.GroupName,
+		GroupName:       systemGroupName,
 		SystemGroupName: systemGroupName,
 		Description:     strings.TrimSpace(configured.Description),
-		AgentRatio:      systemRatio,
+		AgentRatio:      agentRatio,
 		SystemRatio:     systemRatio,
 		ConfiguredRatio: configured.Ratio,
 		EffectiveRatio:  effectiveRatio,

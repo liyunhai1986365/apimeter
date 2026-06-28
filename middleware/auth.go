@@ -408,11 +408,6 @@ func TokenAuth() func(c *gin.Context) {
 		}
 		tokenGroup := token.Group
 		checkUserGroup := userGroup
-		if agentCtx != nil {
-			if groups := agentservice.ResolveSystemGroups(agentCtx, userGroup); len(groups) > 0 {
-				checkUserGroup = groups[0]
-			}
-		}
 		if tokenGroup != "" {
 			if tokenGroup != "auto" {
 				checkGroup := tokenGroup
@@ -445,9 +440,16 @@ func TokenAuth() func(c *gin.Context) {
 					return
 				}
 				// check common.UserUsableGroups[userGroup]
-				if _, ok := service.GetUserUsableGroups(checkUserGroup)[checkGroup]; !ok {
-					abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
-					return
+				if agentCtx != nil {
+					if !agentservice.UserCanSeeGroup(agentCtx, userGroup, checkGroup) {
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
+						return
+					}
+				} else {
+					if _, ok := service.GetUserUsableGroups(checkUserGroup)[checkGroup]; !ok {
+						abortWithOpenAiMessage(c, http.StatusForbidden, fmt.Sprintf("无权访问 %s 分组", tokenGroup))
+						return
+					}
 				}
 				// check group in common.GroupRatio
 				if !ratio_setting.ContainsGroupRatio(checkGroup) {

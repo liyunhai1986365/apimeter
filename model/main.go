@@ -472,16 +472,6 @@ func migrateAgentGroupRatiosMappingColumns() error {
 			return err
 		}
 	}
-	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "visible_groups") {
-		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "VisibleGroups"); err != nil {
-			return err
-		}
-	}
-	if !DB.Migrator().HasColumn(&AgentGroupRatio{}, "remove_groups") {
-		if err := DB.Migrator().AddColumn(&AgentGroupRatio{}, "RemoveGroups"); err != nil {
-			return err
-		}
-	}
 	if err := DB.Model(&AgentGroupRatio{}).
 		Where("system_group_name = '' OR system_group_name IS NULL").
 		Update("system_group_name", gorm.Expr("group_name")).Error; err != nil {

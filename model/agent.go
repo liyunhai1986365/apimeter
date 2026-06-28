@@ -127,8 +127,6 @@ type AgentGroupRatio struct {
 	Description     string  `json:"description" gorm:"type:varchar(255);default:''"`
 	Ratio           float64 `json:"ratio" gorm:"precision:10;scale:6;default:1"`
 	Visible         bool    `json:"visible"`
-	VisibleGroups   string  `json:"visible_groups" gorm:"type:text;column:visible_groups"`
-	RemoveGroups    string  `json:"remove_groups" gorm:"type:text;column:remove_groups"`
 	CreatedAt       int64   `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	UpdatedAt       int64   `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
 }
@@ -330,30 +328,6 @@ func ListAgentDomainsByStatus(status int, startIdx int, num int) ([]*AgentDomain
 		return nil, 0, err
 	}
 	return domains, total, nil
-}
-
-func GetAgentGroupRatioMap(agentId int) (map[string]float64, error) {
-	ratios := make([]*AgentGroupRatio, 0)
-	if err := DB.Where("agent_id = ?", agentId).Find(&ratios).Error; err != nil {
-		return nil, err
-	}
-	result := make(map[string]float64, len(ratios))
-	for _, ratio := range ratios {
-		result[ratio.GroupName] = ratio.Ratio
-	}
-	return result, nil
-}
-
-func GetAgentGroupRatioConfigMap(agentId int) (map[string]*AgentGroupRatio, error) {
-	ratios := make([]*AgentGroupRatio, 0)
-	if err := DB.Where("agent_id = ?", agentId).Find(&ratios).Error; err != nil {
-		return nil, err
-	}
-	result := make(map[string]*AgentGroupRatio, len(ratios))
-	for _, ratio := range ratios {
-		result[ratio.GroupName] = ratio
-	}
-	return result, nil
 }
 
 func ListAgentGroupRatios(agentId int) ([]*AgentGroupRatio, error) {

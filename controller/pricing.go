@@ -54,11 +54,6 @@ func GetPricing(c *gin.Context) {
 		if err == nil {
 			group = user.Group
 			groupForSystemRatio := group
-			if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
-				if groups := agentservice.ResolveSystemGroups(agentCtx, group); len(groups) > 0 {
-					groupForSystemRatio = groups[0]
-				}
-			}
 			for g := range groupRatio {
 				ratio, ok := ratio_setting.GetGroupGroupRatio(groupForSystemRatio, g)
 				if ok {

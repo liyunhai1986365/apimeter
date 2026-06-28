@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
+  buildAgentGroupRuleRows,
   buildAgentGroupRatioPayload,
   buildAgentUserGroupPayload,
   buildAgentUserListParams,
@@ -82,13 +83,13 @@ describe('agent user group helpers', () => {
     assert.deepEqual(
       buildAgentUserGroupPayload({
         group_name: ' member ',
-        visible_groups: ['agent-vip'],
-        group_ratios: { 'agent-vip': 1.7 },
+        visible_groups: ['vip'],
+        group_ratios: { vip: 1.7 },
       }),
       {
         group_name: 'member',
-        visible_groups: ['agent-vip'],
-        group_ratios: { 'agent-vip': 1.7 },
+        visible_groups: ['vip'],
+        group_ratios: { vip: 1.7 },
       }
     )
   })
@@ -112,19 +113,68 @@ describe('agent user group helpers', () => {
 })
 
 describe('agent group ratio payload helpers', () => {
-  test('sends one mapped system group with custom description', () => {
+  test('builds editable rule rows for every system group', () => {
+    assert.deepEqual(
+      buildAgentGroupRuleRows([
+        {
+          group_name: 'vip',
+          system_group_name: 'vip',
+          agent_ratio: 1.2,
+          system_ratio: 1.4,
+          configured_ratio: 1.6,
+          effective_ratio: 1.6,
+          configured: true,
+          visible: false,
+          available: true,
+        },
+        {
+          group_name: 'default',
+          system_group_name: 'default',
+          agent_ratio: 1.1,
+          system_ratio: 1,
+          configured_ratio: 0,
+          effective_ratio: 1.1,
+          configured: false,
+          visible: true,
+          available: true,
+        },
+      ]),
+      [
+        {
+          systemGroupName: 'vip',
+          status: 'configured',
+          agentDiscount: '1.2',
+          effectiveDiscount: '1.6',
+          baseDiscount: '1.4',
+          visible: false,
+          available: true,
+        },
+        {
+          systemGroupName: 'default',
+          status: 'system_default',
+          agentDiscount: '1.1',
+          effectiveDiscount: '1.1',
+          baseDiscount: '1',
+          visible: true,
+          available: true,
+        },
+      ]
+    )
+  })
+
+  test('sends system group as the rule key with custom description', () => {
     const payload = buildAgentGroupRatioPayload({
       group_name: ' agent-pro ',
       system_group_name: ' vip ',
-      description: ' Premium proxy group ',
+      description: ' Premium rule ',
       ratio: 1.8,
       visible: false,
     })
 
     assert.deepEqual(payload, {
-      group_name: 'agent-pro',
+      group_name: 'vip',
       system_group_name: 'vip',
-      description: 'Premium proxy group',
+      description: 'Premium rule',
       ratio: 1.8,
       visible: false,
     })
@@ -136,7 +186,7 @@ describe('agent group ratio payload helpers', () => {
   test('uses configured ratio for editing instead of effective ratio', () => {
     assert.equal(
       getAgentGroupRatioEditValue({
-        group_name: 'agent-vip',
+        group_name: 'vip',
         system_group_name: 'vip',
         system_ratio: 1.4,
         configured_ratio: 1.6,
@@ -164,7 +214,7 @@ describe('agent group ratio payload helpers', () => {
             available: true,
           },
           {
-            group_name: 'agent-vip',
+            group_name: 'vip',
             system_group_name: 'vip',
             agent_ratio: 1.2,
             system_ratio: 1.4,
@@ -184,7 +234,7 @@ describe('agent group ratio payload helpers', () => {
   test('shows agent initial ratio separately from effective ratio in table', () => {
     assert.deepEqual(
       getAgentGroupRatioTableValues({
-        group_name: 'default22',
+        group_name: 'OpenAI',
         system_group_name: 'OpenAI',
         agent_ratio: 0.2,
         system_ratio: 0.24,
@@ -199,6 +249,45 @@ describe('agent group ratio payload helpers', () => {
         effectiveDiscount: '0.24',
       }
     )
+  })
+
+  test('shows agent user-group discount when no sales rule is configured', () => {
+    assert.deepEqual(
+      getAgentGroupRatioTableValues({
+        group_name: 'vip',
+        system_group_name: 'vip',
+        agent_ratio: 1.4,
+        system_ratio: 1.25,
+        configured_ratio: 0,
+        effective_ratio: 1.4,
+        configured: false,
+        visible: true,
+        available: true,
+      }),
+      {
+        agentDiscount: '1.4',
+        effectiveDiscount: '1.4',
+      }
+    )
+  })
+
+  test('uses agent user-group discount as floor when no sales rule is configured', () => {
+    const groupRatios = [
+      {
+        group_name: 'vip',
+        system_group_name: 'vip',
+        agent_ratio: 1.4,
+        system_ratio: 1.25,
+        configured_ratio: 0,
+        effective_ratio: 1.4,
+        configured: false,
+        visible: true,
+        available: true,
+      },
+    ]
+
+    assert.equal(getAgentGroupRatioInputFloor(groupRatios, 'vip'), 1.4)
+    assert.equal(getAgentSystemGroupRatioFloor(groupRatios, 'vip'), 1.4)
   })
 
   test('uses agent initial ratio as floor when editing an existing agent group', () => {
@@ -216,10 +305,10 @@ describe('agent group ratio payload helpers', () => {
       },
     ]
 
-    assert.equal(getAgentGroupRatioInputFloor(groupRatios, 'svip', 'svip'), 1)
+    assert.equal(getAgentGroupRatioInputFloor(groupRatios, 'svip'), 1)
   })
 
-  test('uses agent initial ratio as floor when creating a new agent group for the same system group', () => {
+  test('uses agent initial ratio as floor for the system group rule', () => {
     const groupRatios = [
       {
         group_name: 'svip',
@@ -234,10 +323,7 @@ describe('agent group ratio payload helpers', () => {
       },
     ]
 
-    assert.equal(
-      getAgentGroupRatioInputFloor(groupRatios, 'new-svip', 'svip'),
-      1
-    )
+    assert.equal(getAgentGroupRatioInputFloor(groupRatios, ' svip '), 1)
     assert.equal(getAgentSystemGroupRatioFloor(groupRatios, 'svip'), 1)
   })
 
@@ -255,9 +341,6 @@ describe('agent group ratio payload helpers', () => {
       },
     ]
 
-    assert.equal(
-      getAgentGroupRatioInputFloor(groupRatios, 'new-svip', 'svip'),
-      1.2
-    )
+    assert.equal(getAgentGroupRatioInputFloor(groupRatios, 'svip'), 1.2)
   })
 })

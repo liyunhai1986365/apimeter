@@ -244,7 +244,11 @@ func normalizePolicyGroups(groups []string, userGroup string, userID int, agentC
 			cleanGroups = append(cleanGroups, group)
 			continue
 		}
-		if _, ok := userUsableGroups[group]; !ok {
+		if agentCtx != nil {
+			if !agentservice.UserCanSeeGroup(agentCtx, userGroup, group) {
+				return nil, errors.New("无权访问 " + group + " 分组")
+			}
+		} else if _, ok := userUsableGroups[group]; !ok {
 			return nil, errors.New("无权访问 " + group + " 分组")
 		}
 		if !ratio_setting.ContainsGroupRatio(group) {
@@ -298,7 +302,11 @@ func ValidateExplicitTokenGroupForUserWithAgent(group string, userGroup string, 
 		}
 		return nil
 	}
-	if _, ok := GetUserUsableGroups(userGroup)[group]; !ok {
+	if agentCtx != nil {
+		if !agentservice.UserCanSeeGroup(agentCtx, userGroup, group) {
+			return errors.New("无权访问 " + group + " 分组")
+		}
+	} else if _, ok := GetUserUsableGroups(userGroup)[group]; !ok {
 		return errors.New("无权访问 " + group + " 分组")
 	}
 	if !ratio_setting.ContainsGroupRatio(group) {

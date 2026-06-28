@@ -3,6 +3,7 @@ package controller
 import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
@@ -40,6 +41,22 @@ func applyAgentGroupRatio(c *gin.Context, groupName string, ratio float64) float
 	}
 	if agentRatio < ratio {
 		return ratio
+	}
+	return agentRatio
+}
+
+func applyAgentUserGroupRatio(agentCtx *types.AgentContext, userGroup string, group types.AgentGroup) float64 {
+	ratio := group.EffectiveRatio
+	agentRatio, exists := agentservice.GroupRatioForUserGroup(agentCtx, userGroup, group.GroupName)
+	if !exists {
+		return ratio
+	}
+	baseRatio := group.AgentRatio
+	if baseRatio <= 0 {
+		baseRatio = group.SystemRatio
+	}
+	if agentRatio < baseRatio {
+		return baseRatio
 	}
 	return agentRatio
 }

@@ -52,11 +52,11 @@ func TestGetUserGroupsUsesAgentConfiguredVisibleGroups(t *testing.T) {
 	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
 	require.NoError(t, model.DB.Create(&model.User{Id: 101, Username: "agent-user", Group: "default", Status: common.UserStatusEnabled}).Error)
 	require.NoError(t, model.DB.Create(&model.AgentUser{AgentId: 1, UserId: 101, Status: model.AgentUserStatusEnabled, Group: "starter"}).Error)
-	_, err := agentservice.UpsertGroupRatio(1, "starter", "default", "", 1, true)
+	_, err := agentservice.UpsertGroupRatio(1, "vip", "vip", "", 1.5, false)
 	require.NoError(t, err)
-	_, err = agentservice.UpsertGroupRatio(1, "agent-vip", "vip", "", 1.5, false)
-	require.NoError(t, err)
-	_, err = agentservice.UpsertUserGroupConfig(1, "starter", []string{"agent-vip"})
+	_, err = agentservice.UpsertUserGroupConfig(1, "starter", []string{"vip"}, map[string]float64{
+		"vip": 1.7,
+	})
 	require.NoError(t, err)
 	groups, err := agentservice.EffectiveGroupMap(1)
 	require.NoError(t, err)
@@ -87,8 +87,50 @@ func TestGetUserGroupsUsesAgentConfiguredVisibleGroups(t *testing.T) {
 	}
 	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
 	require.True(t, body.Success)
-	require.Contains(t, body.Data, "starter")
-	require.Contains(t, body.Data, "agent-vip")
-	require.Equal(t, 1.5, body.Data["agent-vip"].Ratio)
-	require.Equal(t, "vip分组", body.Data["agent-vip"].Desc)
+	require.Contains(t, body.Data, "default")
+	require.Contains(t, body.Data, "vip")
+	require.Equal(t, 1.7, body.Data["vip"].Ratio)
+	require.Equal(t, "vip分组", body.Data["vip"].Desc)
+}
+
+func TestGetSelfUsesAgentUserGroupInAgentContext(t *testing.T) {
+	setupAgentGroupControllerTestDB(t)
+
+	require.NoError(t, model.DB.Create(&model.User{
+		Id:       101,
+		Username: "agent-user",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentUser{
+		AgentId: 1,
+		UserId:  101,
+		Status:  model.AgentUserStatusEnabled,
+		Group:   "member",
+	}).Error)
+
+	router := gin.New()
+	router.GET("/api/user/self", func(c *gin.Context) {
+		c.Set("id", 101)
+		c.Set("role", common.RoleCommonUser)
+		common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+			AgentID: 1,
+		})
+		GetSelf(c)
+	})
+	req := httptest.NewRequest(http.MethodGet, "/api/user/self", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Group string `json:"group"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	require.True(t, body.Success)
+	require.Equal(t, "member", body.Data.Group)
 }

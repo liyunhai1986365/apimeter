@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/stretchr/testify/require"
 )
@@ -93,15 +94,16 @@ func TestVisibleGroupsForUserAppendsUserGroupConfiguredGroups(t *testing.T) {
 		require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"vip":{"edit_this":0.9}}`))
 	})
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25,"svip":1.5}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","svip":"svip分组"}`))
 
 	agent := createManageTestAgent(t, 10, "agent-a")
 	_, err := UpsertGroupRatio(agent.Id, "default", "default", "", 1, true)
 	require.NoError(t, err)
-	_, err = UpsertGroupRatio(agent.Id, "agent-vip", "vip", "", 1.5, true)
+	_, err = UpsertGroupRatio(agent.Id, "vip", "vip", "", 1.5, true)
 	require.NoError(t, err)
-	_, err = UpsertGroupRatio(agent.Id, "internal-svip", "svip", "", 1.8, false)
+	_, err = UpsertGroupRatio(agent.Id, "svip", "svip", "", 1.8, false)
 	require.NoError(t, err)
-	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"internal-svip"})
+	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"svip"})
 	require.NoError(t, err)
 
 	groups, err := EffectiveGroupMap(agent.Id)
@@ -112,9 +114,9 @@ func TestVisibleGroupsForUserAppendsUserGroupConfiguredGroups(t *testing.T) {
 
 	visibleGroups := VisibleGroupsForUser(ctx, "member")
 	require.Contains(t, visibleGroups, "default")
-	require.Contains(t, visibleGroups, "agent-vip")
-	require.Contains(t, visibleGroups, "internal-svip")
-	require.False(t, visibleGroups["internal-svip"].Visible)
+	require.Contains(t, visibleGroups, "vip")
+	require.Contains(t, visibleGroups, "svip")
+	require.False(t, visibleGroups["svip"].Visible)
 }
 
 func TestUserGroupConfigStoresGroupRatioOverrides(t *testing.T) {
@@ -125,23 +127,23 @@ func TestUserGroupConfigStoresGroupRatioOverrides(t *testing.T) {
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
 
 	agent := createManageTestAgent(t, 10, "agent-a")
-	_, err := UpsertGroupRatio(agent.Id, "agent-vip", "vip", "", 1.5, true)
+	_, err := UpsertGroupRatio(agent.Id, "vip", "vip", "", 1.5, true)
 	require.NoError(t, err)
-	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"agent-vip"}, map[string]float64{
-		"agent-vip": 1.3,
-		" ":         2,
-		"negative":  -1,
+	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"vip"}, map[string]float64{
+		"vip":      1.3,
+		" ":        2,
+		"negative": -1,
 	})
 	require.NoError(t, err)
 
 	views, err := ListUserGroupConfigs(agent.Id)
 	require.NoError(t, err)
 	require.Len(t, views, 1)
-	require.Equal(t, map[string]float64{"agent-vip": 1.3}, views[0].GroupRatios)
+	require.Equal(t, map[string]float64{"vip": 1.3}, views[0].GroupRatios)
 
 	userGroups, err := UserGroupConfigMap(agent.Id)
 	require.NoError(t, err)
-	require.Equal(t, map[string]float64{"agent-vip": 1.3}, userGroups["member"].GroupRatios)
+	require.Equal(t, map[string]float64{"vip": 1.3}, userGroups["member"].GroupRatios)
 }
 
 func TestUserGroupConfigRatioOverrideIsFlooredByAgentConfiguredRatio(t *testing.T) {
@@ -155,26 +157,26 @@ func TestUserGroupConfigRatioOverrideIsFlooredByAgentConfiguredRatio(t *testing.
 
 	owner := createManageTestUser(t, "agent-owner", "agent-owner", common.UserStatusEnabled)
 	agent := createManageTestAgent(t, owner.Id, "agent-a")
-	_, err := UpsertGroupRatio(agent.Id, "agent-vip", "vip", "", 0.24, true)
+	_, err := UpsertGroupRatio(agent.Id, "vip", "vip", "", 0.24, true)
 	require.NoError(t, err)
 
-	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"agent-vip"}, map[string]float64{
-		"agent-vip": 0.22,
+	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"vip"}, map[string]float64{
+		"vip": 0.22,
 	})
 	require.NoError(t, err)
 
 	userGroups, err := UserGroupConfigMap(agent.Id)
 	require.NoError(t, err)
-	require.Equal(t, map[string]float64{"agent-vip": 0.24}, userGroups["member"].GroupRatios)
+	require.Equal(t, map[string]float64{"vip": 0.24}, userGroups["member"].GroupRatios)
 
-	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"agent-vip"}, map[string]float64{
-		"agent-vip": 0.18,
+	_, err = UpsertUserGroupConfig(agent.Id, "member", []string{"vip"}, map[string]float64{
+		"vip": 0.18,
 	})
 	require.NoError(t, err)
 
 	userGroups, err = UserGroupConfigMap(agent.Id)
 	require.NoError(t, err)
-	require.Equal(t, map[string]float64{"agent-vip": 0.24}, userGroups["member"].GroupRatios)
+	require.Equal(t, map[string]float64{"vip": 0.24}, userGroups["member"].GroupRatios)
 }
 
 func TestUserGroupConfigRatioAllowsPriceBetweenAgentConfiguredAndEffectiveRatio(t *testing.T) {
@@ -185,6 +187,7 @@ func TestUserGroupConfigRatioAllowsPriceBetweenAgentConfiguredAndEffectiveRatio(
 	})
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"svip":1}`))
 	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"agent-owner":{"svip":1.2}}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","svip":"svip分组"}`))
 
 	owner := createManageTestUser(t, "agent-owner", "agent-owner", common.UserStatusEnabled)
 	agent := createManageTestAgent(t, owner.Id, "agent-a")
@@ -213,10 +216,10 @@ func TestAgentGroupRatiosUseOwnerSystemDiscountAsInitialRatio(t *testing.T) {
 	owner := createManageTestUser(t, "agent-owner", "default", common.UserStatusEnabled)
 	agent := createManageTestAgent(t, owner.Id, "agent-a")
 
-	_, err := UpsertGroupRatio(agent.Id, "agent-vip", "vip", "", 1.3, true)
+	_, err := UpsertGroupRatio(agent.Id, "vip", "vip", "", 1.3, true)
 	require.ErrorIs(t, err, ErrAgentGroupRatioBelowSystem)
 
-	_, err = UpsertGroupRatio(agent.Id, "agent-vip", "vip", "", 1.45, true)
+	_, err = UpsertGroupRatio(agent.Id, "vip", "vip", "", 1.45, true)
 	require.NoError(t, err)
 
 	ratios, err := ListGroupRatios(agent.Id)
@@ -224,25 +227,130 @@ func TestAgentGroupRatiosUseOwnerSystemDiscountAsInitialRatio(t *testing.T) {
 
 	var found GroupRatioView
 	for _, ratio := range ratios {
-		if ratio.GroupName == "agent-vip" {
+		if ratio.GroupName == "vip" {
 			found = ratio
 			break
 		}
 	}
 
-	require.Equal(t, "agent-vip", found.GroupName)
+	require.Equal(t, "vip", found.GroupName)
 	require.Equal(t, "vip", found.SystemGroupName)
 	require.Equal(t, 1.4, found.AgentRatio)
-	require.Equal(t, 1.4, found.SystemRatio)
+	require.Equal(t, 1.25, found.SystemRatio)
 	require.Equal(t, 1.45, found.ConfiguredRatio)
 	require.Equal(t, 1.45, found.EffectiveRatio)
 
 	groups, err := EffectiveGroupMap(agent.Id)
 	require.NoError(t, err)
-	require.Equal(t, 1.4, groups["agent-vip"].AgentRatio)
-	require.Equal(t, 1.4, groups["agent-vip"].SystemRatio)
-	require.Equal(t, 1.45, groups["agent-vip"].ConfiguredRatio)
-	require.Equal(t, 1.45, groups["agent-vip"].EffectiveRatio)
+	require.Equal(t, 1.4, groups["vip"].AgentRatio)
+	require.Equal(t, 1.25, groups["vip"].SystemRatio)
+	require.Equal(t, 1.45, groups["vip"].ConfiguredRatio)
+	require.Equal(t, 1.45, groups["vip"].EffectiveRatio)
+}
+
+func TestAgentGroupRatioViewSeparatesSystemAgentAndSalesDiscounts(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+		require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"vip":{"edit_this":0.9}}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"agent-owner":{"vip":1.4}}`))
+
+	owner := createManageTestUser(t, "agent-owner-view", "agent-owner", common.UserStatusEnabled)
+	agent := createManageTestAgent(t, owner.Id, "agent-view")
+
+	ratios, err := ListGroupRatios(agent.Id)
+	require.NoError(t, err)
+	views := make(map[string]GroupRatioView, len(ratios))
+	for _, ratio := range ratios {
+		views[ratio.SystemGroupName] = ratio
+	}
+
+	require.Equal(t, 1.25, views["vip"].SystemRatio)
+	require.Equal(t, 1.4, views["vip"].AgentRatio)
+	require.Equal(t, 0.0, views["vip"].ConfiguredRatio)
+	require.Equal(t, 1.4, views["vip"].EffectiveRatio)
+
+	_, err = UpsertGroupRatio(agent.Id, "vip", "vip", "", 1.5, true)
+	require.NoError(t, err)
+	ratios, err = ListGroupRatios(agent.Id)
+	require.NoError(t, err)
+	for _, ratio := range ratios {
+		views[ratio.SystemGroupName] = ratio
+	}
+	require.Equal(t, 1.25, views["vip"].SystemRatio)
+	require.Equal(t, 1.4, views["vip"].AgentRatio)
+	require.Equal(t, 1.5, views["vip"].ConfiguredRatio)
+	require.Equal(t, 1.5, views["vip"].EffectiveRatio)
+}
+
+func TestAgentAutomaticallyIncludesNewSystemGroupsWithAgentDiscount(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+		require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"vip":{"edit_this":0.9}}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"new-model":1.2}`))
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"agent-owner":{"new-model":1.35}}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","new-model":"新模型分组"}`))
+
+	owner := createManageTestUser(t, "agent-owner-auto", "agent-owner", common.UserStatusEnabled)
+	agent := createManageTestAgent(t, owner.Id, "agent-auto")
+
+	groups, err := EffectiveGroupMap(agent.Id)
+	require.NoError(t, err)
+
+	group := groups["new-model"]
+	require.Equal(t, "new-model", group.GroupName)
+	require.Equal(t, "new-model", group.SystemGroupName)
+	require.Equal(t, 1.2, group.SystemRatio)
+	require.Equal(t, 1.35, group.AgentRatio)
+	require.Equal(t, 0.0, group.ConfiguredRatio)
+	require.Equal(t, 1.35, group.EffectiveRatio)
+	require.True(t, group.Visible)
+	require.True(t, group.Available)
+}
+
+func TestAgentGroupRatiosOnlyIncludeOwnerTokenUsableSystemGroups(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+		require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"vip":{"edit_this":0.9}}`))
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25,"hidden":1.5}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+
+	owner := createManageTestUser(t, "agent-owner-usable", "default", common.UserStatusEnabled)
+	agent := createManageTestAgent(t, owner.Id, "agent-usable")
+
+	ratios, err := ListGroupRatios(agent.Id)
+	require.NoError(t, err)
+	views := make(map[string]GroupRatioView, len(ratios))
+	for _, ratio := range ratios {
+		views[ratio.SystemGroupName] = ratio
+	}
+
+	require.Contains(t, views, "default")
+	require.Contains(t, views, "vip")
+	require.NotContains(t, views, "hidden")
+}
+
+func TestUpsertGroupRatioRejectsOwnerTokenUnusableSystemGroup(t *testing.T) {
+	setupAgentTestDB(t)
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
+		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+	})
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"hidden":1.5}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+
+	owner := createManageTestUser(t, "agent-owner-hidden", "default", common.UserStatusEnabled)
+	agent := createManageTestAgent(t, owner.Id, "agent-hidden")
+
+	_, err := UpsertGroupRatio(agent.Id, "hidden", "hidden", "", 1.8, true)
+	require.ErrorIs(t, err, ErrAgentSystemGroupNotFound)
 }
 
 func createManageTestAgent(t *testing.T, ownerUserID int, slug string) *model.Agent {

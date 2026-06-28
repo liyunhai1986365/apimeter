@@ -205,8 +205,8 @@ func TestModelPriceHelperBillingRatioMatrix(t *testing.T) {
 			name: "agent user uses agent configured ratio",
 			info: &relaycommon.RelayInfo{
 				UserGroup:       "default",
-				UsingGroup:      "agent-vip",
-				TokenGroup:      "agent-vip",
+				UsingGroup:      "vip",
+				TokenGroup:      "vip",
 				OriginModelName: "matrix-test-model",
 				AgentContext:    testAgentContext(1.1, 1.5, nil),
 			},
@@ -221,11 +221,11 @@ func TestModelPriceHelperBillingRatioMatrix(t *testing.T) {
 			name: "agent user group override uses agent override ratio",
 			info: &relaycommon.RelayInfo{
 				UserGroup:       "member",
-				UsingGroup:      "agent-vip",
-				TokenGroup:      "agent-vip",
+				UsingGroup:      "vip",
+				TokenGroup:      "vip",
 				OriginModelName: "matrix-test-model",
 				AgentContext: testAgentContext(1.1, 1.5, map[string]float64{
-					"agent-vip": 1.7,
+					"vip": 1.7,
 				}),
 			},
 			wantGroupRatio:    1.7,
@@ -251,7 +251,7 @@ func TestModelPriceHelperBillingRatioMatrix(t *testing.T) {
 			if tt.wantAgentSnapshot {
 				require.True(t, priceData.GroupRatioInfo.HasAgentRatio)
 				require.NotNil(t, tt.info.AgentBillingSnapshot)
-				require.Equal(t, "agent-vip", tt.info.AgentBillingSnapshot.Group)
+				require.Equal(t, "vip", tt.info.AgentBillingSnapshot.Group)
 				require.Equal(t, tt.wantAgentBase, tt.info.AgentBillingSnapshot.BaseGroupRatio)
 				require.Equal(t, tt.wantAgentCharged, tt.info.AgentBillingSnapshot.ChargedGroupRatio)
 			} else {
@@ -267,8 +267,8 @@ func testAgentContext(agentRatio float64, configuredRatio float64, memberOverrid
 		AgentID: 3,
 		Domain:  "agent.example.com",
 		Groups: map[string]types.AgentGroup{
-			"agent-vip": {
-				GroupName:       "agent-vip",
+			"vip": {
+				GroupName:       "vip",
 				SystemGroupName: "vip",
 				AgentRatio:      agentRatio,
 				EffectiveRatio:  configuredRatio,
@@ -277,7 +277,7 @@ func testAgentContext(agentRatio float64, configuredRatio float64, memberOverrid
 			},
 		},
 		GroupRatios: map[string]float64{
-			"agent-vip": configuredRatio,
+			"vip": configuredRatio,
 		},
 	}
 	if memberOverrides != nil {
@@ -350,7 +350,7 @@ func TestHandleGroupRatioKeepsSystemUserBillingWithoutAgent(t *testing.T) {
 	require.Equal(t, "vip", info.UsingGroup)
 }
 
-func TestHandleGroupRatioUsesMappedAgentProxyGroup(t *testing.T) {
+func TestHandleGroupRatioUsesAgentSystemGroupRule(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Cleanup(func() {
 		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
@@ -360,15 +360,15 @@ func TestHandleGroupRatioUsesMappedAgentProxyGroup(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	info := &relaycommon.RelayInfo{
-		UserGroup:  "agent-vip",
-		UsingGroup: "agent-vip",
-		TokenGroup: "agent-vip",
+		UserGroup:  "vip",
+		UsingGroup: "vip",
+		TokenGroup: "vip",
 		AgentContext: &types.AgentContext{
 			AgentID: 3,
 			Domain:  "agent.example.com",
 			Groups: map[string]types.AgentGroup{
-				"agent-vip": {
-					GroupName:       "agent-vip",
+				"vip": {
+					GroupName:       "vip",
 					SystemGroupName: "vip",
 					AgentRatio:      1.1,
 					EffectiveRatio:  1.5,
@@ -377,7 +377,7 @@ func TestHandleGroupRatioUsesMappedAgentProxyGroup(t *testing.T) {
 				},
 			},
 			GroupRatios: map[string]float64{
-				"agent-vip": 1.5,
+				"vip": 1.5,
 			},
 		},
 	}
@@ -388,7 +388,7 @@ func TestHandleGroupRatioUsesMappedAgentProxyGroup(t *testing.T) {
 	require.True(t, groupRatioInfo.HasAgentRatio)
 	require.Equal(t, "vip", info.UsingGroup)
 	require.NotNil(t, info.AgentBillingSnapshot)
-	require.Equal(t, "agent-vip", info.AgentBillingSnapshot.Group)
+	require.Equal(t, "vip", info.AgentBillingSnapshot.Group)
 	require.Equal(t, 1.1, info.AgentBillingSnapshot.BaseGroupRatio)
 	require.Equal(t, 1.5, info.AgentBillingSnapshot.ChargedGroupRatio)
 }
@@ -404,14 +404,14 @@ func TestHandleGroupRatioUsesAgentUserGroupOverride(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(recorder)
 	info := &relaycommon.RelayInfo{
 		UserGroup:  "member",
-		UsingGroup: "agent-vip",
-		TokenGroup: "agent-vip",
+		UsingGroup: "vip",
+		TokenGroup: "vip",
 		AgentContext: &types.AgentContext{
 			AgentID: 3,
 			Domain:  "agent.example.com",
 			Groups: map[string]types.AgentGroup{
-				"agent-vip": {
-					GroupName:       "agent-vip",
+				"vip": {
+					GroupName:       "vip",
 					SystemGroupName: "vip",
 					AgentRatio:      1.1,
 					EffectiveRatio:  1.5,
@@ -423,12 +423,12 @@ func TestHandleGroupRatioUsesAgentUserGroupOverride(t *testing.T) {
 				"member": {
 					GroupName: "member",
 					GroupRatios: map[string]float64{
-						"agent-vip": 1.7,
+						"vip": 1.7,
 					},
 				},
 			},
 			GroupRatios: map[string]float64{
-				"agent-vip": 1.5,
+				"vip": 1.5,
 			},
 		},
 	}
@@ -439,7 +439,7 @@ func TestHandleGroupRatioUsesAgentUserGroupOverride(t *testing.T) {
 	require.Equal(t, 1.25, groupRatioInfo.BaseGroupRatio)
 	require.True(t, groupRatioInfo.HasAgentRatio)
 	require.NotNil(t, info.AgentBillingSnapshot)
-	require.Equal(t, "agent-vip", info.AgentBillingSnapshot.Group)
+	require.Equal(t, "vip", info.AgentBillingSnapshot.Group)
 	require.Equal(t, 1.1, info.AgentBillingSnapshot.BaseGroupRatio)
 	require.Equal(t, 1.7, info.AgentBillingSnapshot.ChargedGroupRatio)
 }
@@ -459,14 +459,14 @@ func TestHandleGroupRatioFloorsAgentChargeAtMatchedAgentRatio(t *testing.T) {
 	ctx, _ := gin.CreateTestContext(recorder)
 	info := &relaycommon.RelayInfo{
 		UserGroup:  "member",
-		UsingGroup: "agent-vip",
-		TokenGroup: "agent-vip",
+		UsingGroup: "vip",
+		TokenGroup: "vip",
 		AgentContext: &types.AgentContext{
 			AgentID: 3,
 			Domain:  "agent.example.com",
 			Groups: map[string]types.AgentGroup{
-				"agent-vip": {
-					GroupName:       "agent-vip",
+				"vip": {
+					GroupName:       "vip",
 					SystemGroupName: "vip",
 					AgentRatio:      1.0,
 					EffectiveRatio:  1.1,
@@ -478,12 +478,12 @@ func TestHandleGroupRatioFloorsAgentChargeAtMatchedAgentRatio(t *testing.T) {
 				"member": {
 					GroupName: "member",
 					GroupRatios: map[string]float64{
-						"agent-vip": 1.1,
+						"vip": 1.1,
 					},
 				},
 			},
 			GroupRatios: map[string]float64{
-				"agent-vip": 1.1,
+				"vip": 1.1,
 			},
 		},
 	}
@@ -494,7 +494,7 @@ func TestHandleGroupRatioFloorsAgentChargeAtMatchedAgentRatio(t *testing.T) {
 	require.Equal(t, 1.2, groupRatioInfo.BaseGroupRatio)
 	require.True(t, groupRatioInfo.HasAgentRatio)
 	require.NotNil(t, info.AgentBillingSnapshot)
-	require.Equal(t, "agent-vip", info.AgentBillingSnapshot.Group)
+	require.Equal(t, "vip", info.AgentBillingSnapshot.Group)
 	require.Equal(t, 1.0, info.AgentBillingSnapshot.BaseGroupRatio)
 	require.Equal(t, 1.1, info.AgentBillingSnapshot.ChargedGroupRatio)
 }
@@ -508,7 +508,7 @@ func TestHandleGroupRatioUsesSelectedAgentGroupFromAutoRouting(t *testing.T) {
 
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
-	common.SetContextKey(ctx, constant.ContextKeyAgentSelectedGroup, "default22")
+	common.SetContextKey(ctx, constant.ContextKeyAgentSelectedGroup, "default")
 	info := &relaycommon.RelayInfo{
 		UserGroup:  "member",
 		UsingGroup: "default",
@@ -517,8 +517,8 @@ func TestHandleGroupRatioUsesSelectedAgentGroupFromAutoRouting(t *testing.T) {
 			AgentID: 3,
 			Domain:  "agent.example.com",
 			Groups: map[string]types.AgentGroup{
-				"default22": {
-					GroupName:       "default22",
+				"default": {
+					GroupName:       "default",
 					SystemGroupName: "default",
 					AgentRatio:      0.24,
 					EffectiveRatio:  0.24,
@@ -530,12 +530,12 @@ func TestHandleGroupRatioUsesSelectedAgentGroupFromAutoRouting(t *testing.T) {
 				"member": {
 					GroupName: "member",
 					GroupRatios: map[string]float64{
-						"default22": 0.31,
+						"default": 0.31,
 					},
 				},
 			},
 			GroupRatios: map[string]float64{
-				"default22": 0.24,
+				"default": 0.24,
 			},
 		},
 	}
@@ -546,7 +546,7 @@ func TestHandleGroupRatioUsesSelectedAgentGroupFromAutoRouting(t *testing.T) {
 	require.Equal(t, 0.2, groupRatioInfo.BaseGroupRatio)
 	require.True(t, groupRatioInfo.HasAgentRatio)
 	require.NotNil(t, info.AgentBillingSnapshot)
-	require.Equal(t, "default22", info.AgentBillingSnapshot.Group)
+	require.Equal(t, "default", info.AgentBillingSnapshot.Group)
 	require.Equal(t, 0.24, info.AgentBillingSnapshot.BaseGroupRatio)
 	require.Equal(t, 0.31, info.AgentBillingSnapshot.ChargedGroupRatio)
 }

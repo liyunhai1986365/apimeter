@@ -180,7 +180,6 @@ export function AgentManagement() {
   const [brandSiteStyle, setBrandSiteStyle] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [bindUserId, setBindUserId] = useState('')
-  const [groupName, setGroupName] = useState('default')
   const [systemGroupName, setSystemGroupName] = useState('default')
   const [groupDescription, setGroupDescription] = useState('')
   const [groupRatio, setGroupRatio] = useState('1')
@@ -460,12 +459,10 @@ export function AgentManagement() {
   const canBindUser = selectedAgentId != null && Number(bindUserId) > 0
   const selectedGroupBaseRatio = getAgentGroupRatioInputFloor(
     selectedGroupRatios,
-    groupName,
     systemGroupName
   )
   const canSavePricing =
     selectedAgentId != null &&
-    groupName.trim() !== '' &&
     systemGroupName.trim() !== '' &&
     Number(groupRatio) >= selectedGroupBaseRatio
   const canSaveUserGroup =
@@ -907,7 +904,6 @@ export function AgentManagement() {
         brandSiteStyleConfig={brandSiteStyleConfig}
         newDomain={newDomain}
         bindUserId={bindUserId}
-        groupName={groupName}
         systemGroupName={systemGroupName}
         groupDescription={groupDescription}
         groupRatio={groupRatio}
@@ -935,14 +931,18 @@ export function AgentManagement() {
           setSelectedUsersPageSize(nextPageSize)
           setSelectedUsersPageNumber(1)
         }}
-        onGroupNameChange={(nextGroup) => {
-          setGroupName(nextGroup)
-        }}
         onSystemGroupNameChange={(nextGroup) => {
           setSystemGroupName(nextGroup)
-          setGroupRatio(
-            getAgentSystemGroupDefaultRatio(selectedGroupRatios, nextGroup)
+          const rule = selectedGroupRatios.find(
+            (item) => item.system_group_name === nextGroup
           )
+          setGroupDescription(rule?.description ?? '')
+          setGroupRatio(
+            rule
+              ? getAgentGroupRatioEditValue(rule)
+              : getAgentSystemGroupDefaultRatio(selectedGroupRatios, nextGroup)
+          )
+          setGroupVisible(rule?.visible ?? true)
         }}
         onGroupDescriptionChange={setGroupDescription}
         onGroupRatioChange={setGroupRatio}
@@ -1030,13 +1030,33 @@ export function AgentManagement() {
           selectedAgentId != null &&
           savePricingMutation.mutate({
             agentId: selectedAgentId,
-            group_name: groupName,
+            group_name: systemGroupName,
             system_group_name: systemGroupName,
             description: groupDescription,
             ratio: Number(groupRatio),
             visible: groupVisible,
           })
         }
+        onResetPricing={() => {
+          const rule = selectedGroupRatios.find(
+            (item) => item.system_group_name === systemGroupName
+          )
+          if (rule) {
+            setSystemGroupName(rule.system_group_name)
+            setGroupDescription(rule.description ?? '')
+            setGroupRatio(getAgentGroupRatioEditValue(rule))
+            setGroupVisible(rule.visible)
+            return
+          }
+          setGroupDescription('')
+          setGroupRatio(
+            getAgentSystemGroupDefaultRatio(
+              selectedGroupRatios,
+              systemGroupName
+            )
+          )
+          setGroupVisible(true)
+        }}
         onSaveUserGroup={() =>
           selectedAgentId != null &&
           saveUserGroupMutation.mutate({
@@ -1186,7 +1206,6 @@ function AgentDetailDialog(props: {
   brandSiteStyleConfig: ThemeCustomization
   newDomain: string
   bindUserId: string
-  groupName: string
   systemGroupName: string
   groupDescription: string
   groupRatio: string
@@ -1213,7 +1232,6 @@ function AgentDetailDialog(props: {
   onUsersClear: () => void
   onUsersPageChange: (page: number) => void
   onUsersPageSizeChange: (pageSize: number) => void
-  onGroupNameChange: (value: string) => void
   onSystemGroupNameChange: (value: string) => void
   onGroupDescriptionChange: (value: string) => void
   onGroupRatioChange: (value: string) => void
@@ -1231,6 +1249,7 @@ function AgentDetailDialog(props: {
   onCreateDomain: () => void
   onBindUser: () => void
   onSavePricing: () => void
+  onResetPricing: () => void
   onSaveUserGroup: () => void
   onDomainStatusChange: (domain: AgentDomain, status: number) => void
 }) {
@@ -1535,7 +1554,7 @@ function AgentDetailDialog(props: {
                 <h3 className='text-sm font-semibold'>{t('Agent Pricing')}</h3>
                 <p className='text-muted-foreground mt-1 text-xs'>
                   {t(
-                    'Configure user group choices and agent-facing pricing groups in one place.'
+                    'Configure system group rules and user group overrides in one place.'
                   )}
                 </p>
               </div>
@@ -1563,7 +1582,6 @@ function AgentDetailDialog(props: {
 
                 <AgentGroupManager
                   groupRatios={props.groupRatios}
-                  groupName={props.groupName}
                   systemGroupName={props.systemGroupName}
                   groupDescription={props.groupDescription}
                   groupRatio={props.groupRatio}
@@ -1571,19 +1589,18 @@ function AgentDetailDialog(props: {
                   groupVisible={props.groupVisible}
                   canSave={props.canSavePricing}
                   isPending={props.isPricingPending}
-                  onGroupNameChange={props.onGroupNameChange}
                   onSystemGroupNameChange={props.onSystemGroupNameChange}
                   onGroupDescriptionChange={props.onGroupDescriptionChange}
                   onGroupRatioChange={props.onGroupRatioChange}
                   onGroupVisibleChange={props.onGroupVisibleChange}
                   onSave={props.onSavePricing}
                   onEdit={(rule) => {
-                    props.onGroupNameChange(rule.group_name)
                     props.onSystemGroupNameChange(rule.system_group_name)
                     props.onGroupDescriptionChange(rule.description ?? '')
                     props.onGroupRatioChange(getAgentGroupRatioEditValue(rule))
                     props.onGroupVisibleChange(rule.visible)
                   }}
+                  onResetForm={props.onResetPricing}
                 />
               </div>
             </div>

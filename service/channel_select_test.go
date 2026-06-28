@@ -230,8 +230,8 @@ func TestCacheGetRandomSatisfiedChannelAgentAutoGroupKeepsAgentGroupContext(t *t
 	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
 		AgentID: 3,
 		Groups: map[string]types.AgentGroup{
-			"default22": {
-				GroupName:       "default22",
+			"default": {
+				GroupName:       "default",
 				SystemGroupName: "default",
 				Visible:         true,
 				Available:       true,
@@ -240,7 +240,7 @@ func TestCacheGetRandomSatisfiedChannelAgentAutoGroupKeepsAgentGroupContext(t *t
 		UserGroups: map[string]types.AgentUserGroup{
 			"member": {
 				GroupName:     "member",
-				VisibleGroups: []string{"default22"},
+				VisibleGroups: []string{"default"},
 			},
 		},
 	})
@@ -257,7 +257,7 @@ func TestCacheGetRandomSatisfiedChannelAgentAutoGroupKeepsAgentGroupContext(t *t
 	require.Equal(t, 1601, channel.Id)
 	require.Equal(t, "default", selectedGroup)
 	require.Equal(t, "default", common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
-	require.Equal(t, "default22", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
+	require.Equal(t, "default", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
 }
 
 func TestCacheGetRandomSatisfiedChannelAgentPolicyAutoKeepsAgentGroupContext(t *testing.T) {
@@ -277,8 +277,8 @@ func TestCacheGetRandomSatisfiedChannelAgentPolicyAutoKeepsAgentGroupContext(t *
 	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
 		AgentID: 3,
 		Groups: map[string]types.AgentGroup{
-			"default22": {
-				GroupName:       "default22",
+			"default": {
+				GroupName:       "default",
 				SystemGroupName: "default",
 				Visible:         true,
 				Available:       true,
@@ -287,7 +287,7 @@ func TestCacheGetRandomSatisfiedChannelAgentPolicyAutoKeepsAgentGroupContext(t *
 		UserGroups: map[string]types.AgentUserGroup{
 			"member": {
 				GroupName:     "member",
-				VisibleGroups: []string{"default22"},
+				VisibleGroups: []string{"default"},
 			},
 		},
 	})
@@ -303,7 +303,7 @@ func TestCacheGetRandomSatisfiedChannelAgentPolicyAutoKeepsAgentGroupContext(t *
 	require.NotNil(t, channel)
 	require.Equal(t, 1602, channel.Id)
 	require.Equal(t, "default", selectedGroup)
-	require.Equal(t, "default22", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
+	require.Equal(t, "default", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
 }
 
 func TestCacheGetRandomSatisfiedChannelDoesNotResetRetryAtLastAutoGroup(t *testing.T) {
@@ -384,7 +384,7 @@ func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T)
 	require.Equal(t, "backup", selectedGroup)
 }
 
-func TestCacheGetRandomSatisfiedChannelMapsAgentPolicyGroupToSystemGroup(t *testing.T) {
+func TestCacheGetRandomSatisfiedChannelUsesAgentSystemGroupPolicy(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {
 		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
@@ -398,12 +398,12 @@ func TestCacheGetRandomSatisfiedChannelMapsAgentPolicyGroupToSystemGroup(t *test
 
 	c, _ := gin.CreateTestContext(nil)
 	common.SetContextKey(c, constant.ContextKeyUserGroup, "member")
-	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["GPT 特价"]}`)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["vip"]}`)
 	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
 		AgentID: 10,
 		Groups: map[string]types.AgentGroup{
-			"GPT 特价": {
-				GroupName:       "GPT 特价",
+			"vip": {
+				GroupName:       "vip",
 				SystemGroupName: "vip",
 				Visible:         false,
 				Available:       true,
@@ -412,7 +412,7 @@ func TestCacheGetRandomSatisfiedChannelMapsAgentPolicyGroupToSystemGroup(t *test
 		UserGroups: map[string]types.AgentUserGroup{
 			"member": {
 				GroupName:     "member",
-				VisibleGroups: []string{"GPT 特价"},
+				VisibleGroups: []string{"vip"},
 			},
 		},
 	})
@@ -420,7 +420,7 @@ func TestCacheGetRandomSatisfiedChannelMapsAgentPolicyGroupToSystemGroup(t *test
 	retry := 0
 	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
 		Ctx:        c,
-		TokenGroup: "GPT 特价",
+		TokenGroup: "vip",
 		ModelName:  "gpt-test",
 		Retry:      &retry,
 	})
@@ -428,7 +428,7 @@ func TestCacheGetRandomSatisfiedChannelMapsAgentPolicyGroupToSystemGroup(t *test
 	require.NotNil(t, channel)
 	require.Equal(t, 1111, channel.Id)
 	require.Equal(t, "vip", selectedGroup)
-	require.Equal(t, "GPT 特价", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
+	require.Equal(t, "vip", common.GetContextKeyString(c, constant.ContextKeyAgentSelectedGroup))
 }
 
 func TestCacheGetRandomSatisfiedChannelUsesRoutingStrategySnapshot(t *testing.T) {

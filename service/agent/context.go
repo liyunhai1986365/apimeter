@@ -141,6 +141,12 @@ func VisibleGroupsForUser(ctx *Context, userGroup string) map[string]types.Agent
 			if !ok {
 				continue
 			}
+			if ratio, ok := current.GroupRatios[group.SystemGroupName]; ok {
+				if ratio < group.AgentRatio {
+					ratio = group.AgentRatio
+				}
+				group.EffectiveRatio = ratio
+			}
 			result[group.GroupName] = group
 		}
 	}
@@ -156,37 +162,6 @@ func UserCanSeeGroup(ctx *Context, userGroup string, groupName string) bool {
 	}
 	_, ok := VisibleGroupsForUser(ctx, userGroup)[groupName]
 	return ok
-}
-
-func ResolveSystemGroups(ctx *Context, groupName string) []string {
-	if group, ok := ResolveGroup(ctx, groupName); ok {
-		if group.SystemGroupName != "" {
-			return []string{group.SystemGroupName}
-		}
-	}
-	if strings.TrimSpace(groupName) == "" {
-		return nil
-	}
-	return []string{strings.TrimSpace(groupName)}
-}
-
-func ResolveGroupForSelectedSystem(ctx *Context, requestedGroup string, selectedSystemGroup string) (types.AgentGroup, bool) {
-	group, ok := ResolveGroup(ctx, requestedGroup)
-	if !ok {
-		return types.AgentGroup{}, false
-	}
-	if selectedSystemGroup == "" || agentGroupContainsSystemGroup(group, selectedSystemGroup) {
-		return group, true
-	}
-	return types.AgentGroup{}, false
-}
-
-func agentGroupContainsSystemGroup(group types.AgentGroup, systemGroup string) bool {
-	systemGroup = strings.TrimSpace(systemGroup)
-	if systemGroup == "" {
-		return false
-	}
-	return group.SystemGroupName == systemGroup
 }
 
 func ResolveUserGroup(ctx *Context, groupName string) (types.AgentUserGroup, bool) {
@@ -224,16 +199,18 @@ func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, to
 		UserGroup:         userGroup,
 	}
 
-	if autoGroup, exists := common.GetContextKey(ctx, constant.ContextKeyAutoGroup); exists {
-		if group, ok := autoGroup.(string); ok && strings.TrimSpace(group) != "" {
-			usingGroup = group
+	if ctx != nil {
+		if autoGroup, exists := common.GetContextKey(ctx, constant.ContextKeyAutoGroup); exists {
+			if group, ok := autoGroup.(string); ok && strings.TrimSpace(group) != "" {
+				usingGroup = group
+			}
 		}
 	}
 
 	result.DisplayGroup = usingGroup
 	matchedAgentGroup := types.AgentGroup{}
 	hasMatchedAgentGroup := false
-	if group, ok := ResolveGroupForSelectedSystem(agentCtx, tokenGroup, usingGroup); ok {
+	if group, ok := ResolveGroup(agentCtx, tokenGroup); ok {
 		result.DisplayGroup = group.GroupName
 		matchedAgentGroup = group
 		hasMatchedAgentGroup = true
@@ -258,8 +235,8 @@ func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, to
 	result.BaseGroupRatio = result.GroupRatio
 
 	if agentCtx != nil {
-		if selectedAgentGroup := common.GetContextKeyString(ctx, constant.ContextKeyAgentSelectedGroup); selectedAgentGroup != "" {
-			if group, ok := ResolveGroup(agentCtx, selectedAgentGroup); ok && group.SystemGroupName == usingGroup {
+		if selectedAgentGroup := getContextKeyString(ctx, constant.ContextKeyAgentSelectedGroup); selectedAgentGroup != "" {
+			if group, ok := ResolveGroup(agentCtx, selectedAgentGroup); ok && group.GroupName == usingGroup {
 				result.DisplayGroup = group.GroupName
 				matchedAgentGroup = group
 				hasMatchedAgentGroup = true
@@ -282,7 +259,7 @@ func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, to
 			result.Snapshot = &types.AgentBillingSnapshot{
 				AgentID:           agentCtx.AgentID,
 				Domain:            agentCtx.Domain,
-				Group:             result.DisplayGroup,
+				Group:             usingGroup,
 				BaseGroupRatio:    agentBaseRatio,
 				ChargedGroupRatio: agentRatio,
 			}
@@ -292,16 +269,27 @@ func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, to
 	return result
 }
 
+func getContextKeyString(ctx *gin.Context, key constant.ContextKey) string {
+	if ctx == nil {
+		return ""
+	}
+	return common.GetContextKeyString(ctx, key)
+}
+
 func GroupRatioForUserGroup(agentCtx *Context, userGroup string, displayGroup string) (float64, bool) {
 	if agentCtx == nil {
 		return 0, false
 	}
+	systemGroup := displayGroup
+	if group, ok := ResolveGroup(agentCtx, displayGroup); ok {
+		systemGroup = group.SystemGroupName
+	}
 	if group, ok := ResolveUserGroup(agentCtx, userGroup); ok && group.GroupRatios != nil {
-		if ratio, ok := group.GroupRatios[displayGroup]; ok {
+		if ratio, ok := group.GroupRatios[systemGroup]; ok {
 			return ratio, true
 		}
 	}
-	ratio, ok := agentCtx.GroupRatios[displayGroup]
+	ratio, ok := agentCtx.GroupRatios[systemGroup]
 	return ratio, ok
 }
 

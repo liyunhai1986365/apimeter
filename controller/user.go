@@ -426,6 +426,15 @@ func GetSelf(c *gin.Context) {
 
 	// 获取用户设置并提取sidebar_modules
 	userSetting := user.GetSetting()
+	group := user.Group
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, user.Id, user.Group); err == nil {
+			group = agentUserGroup
+		} else {
+			common.ApiError(c, err)
+			return
+		}
+	}
 
 	// 构建响应数据，包含用户信息和权限
 	responseData := map[string]interface{}{
@@ -440,7 +449,7 @@ func GetSelf(c *gin.Context) {
 		"oidc_id":           user.OidcId,
 		"wechat_id":         user.WeChatId,
 		"telegram_id":       user.TelegramId,
-		"group":             user.Group,
+		"group":             group,
 		"quota":             user.Quota,
 		"used_quota":        user.UsedQuota,
 		"request_count":     user.RequestCount,
