@@ -28,6 +28,9 @@ func (r Requirement) Supports(settings dto.ChannelSettings) bool {
 	if r.Empty() {
 		return true
 	}
+	if r.Conversion != "" && r.SourceMode == RequestModeGeminiGenerateContent {
+		return NativeModeSupported(settings, r.SourceMode) || NativeModeSupported(settings, r.TargetMode)
+	}
 	if r.Conversion != "" {
 		return SupportsConversion(settings, r.SourceMode, r.TargetMode, r.Conversion)
 	}
@@ -102,6 +105,9 @@ func RequirementFromMode(sourceMode RequestMode, modelName string) Requirement {
 
 func CanonicalRequirement(req Requirement) Requirement {
 	if req.Conversion == "" {
+		return req
+	}
+	if req.SourceMode == RequestModeGeminiGenerateContent {
 		return req
 	}
 	return Requirement{

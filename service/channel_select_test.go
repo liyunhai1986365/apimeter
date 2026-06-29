@@ -913,7 +913,7 @@ func TestBuildProtocolChannelFilterUsesConversionRequirement(t *testing.T) {
 	require.True(t, filter(&supported))
 }
 
-func TestBuildProtocolChannelFilterUsesGeminiImageCanonicalRequirement(t *testing.T) {
+func TestBuildProtocolChannelFilterAllowsGeminiImageNativeOrImageCanonical(t *testing.T) {
 	c, _ := gin.CreateTestContext(nil)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(`{
 		"contents":[{"parts":[{"text":"cat"}]}],
@@ -932,7 +932,7 @@ func TestBuildProtocolChannelFilterUsesGeminiImageCanonicalRequirement(t *testin
 			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
 		},
 	})
-	require.False(t, filter(&geminiOnly))
+	require.True(t, filter(&geminiOnly))
 
 	imageCapable := model.Channel{}
 	imageCapable.SetSetting(dto.ChannelSettings{
@@ -941,6 +941,28 @@ func TestBuildProtocolChannelFilterUsesGeminiImageCanonicalRequirement(t *testin
 		},
 	})
 	require.True(t, filter(&imageCapable))
+}
+
+func TestBuildProtocolChannelFilterAllowsNativeGeminiImageGenerateContent(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(`{
+		"contents":[{"parts":[{"text":"cat"}]}],
+		"generationConfig":{"responseModalities":["TEXT","IMAGE"]}
+	}`))
+
+	filter := BuildProtocolChannelFilter(&RetryParam{
+		Ctx:       c,
+		ModelName: "gemini-3.1-flash-image-preview",
+	})
+	require.NotNil(t, filter)
+
+	geminiNative := model.Channel{}
+	geminiNative.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+		},
+	})
+	require.True(t, filter(&geminiNative))
 }
 
 func TestCacheGetRandomSatisfiedChannelRejectsWhenAllImageChatChannelsCannotRunCanonicalImage(t *testing.T) {

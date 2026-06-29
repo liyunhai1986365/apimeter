@@ -38,6 +38,9 @@ func ApplyRequest(c *gin.Context, relayFormat types.RelayFormat, relayMode int, 
 		if !converter.Match(c, request) {
 			continue
 		}
+		if sourceMode == RequestModeGeminiGenerateContent && protocolConfigured(c) && nativeModeSupported(c, sourceMode) {
+			return request, nil, nil
+		}
 		if protocolConfigured(c) && !nativeModeSupported(c, sourceMode) && !nativeModeSupported(c, converter.To()) {
 			return nil, nil, fmt.Errorf("request mode %s is not supported by current channel", sourceMode)
 		}

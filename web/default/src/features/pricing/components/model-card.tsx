@@ -57,6 +57,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     ? getLobeIcon(props.model.vendor_icon, 18)
     : null
   const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
+  const description = props.model.description?.trim()
   const metadata = inferModelMetadata(props.model)
   const priceDisplay = buildModelCardPriceDisplay(props.model, {
     tokenUnit,
@@ -96,12 +97,12 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       onClick={props.onClick}
       onKeyDown={handleKeyDown}
       className={cn(
-        'group bg-background relative flex min-h-[238px] cursor-pointer flex-col overflow-hidden rounded-xl border px-3 pt-3 transition-all sm:px-4 sm:pt-4',
+        'group bg-background relative flex min-h-[264px] cursor-pointer flex-col overflow-hidden rounded-lg border transition-all',
         'hover:border-foreground/18 hover:bg-muted/10 focus-visible:ring-ring/50 hover:shadow-sm focus-visible:ring-2 focus-visible:outline-none'
       )}
     >
-      <div className='flex min-h-8 items-center justify-between gap-2'>
-        <div className='flex min-w-0 items-center gap-2.5'>
+      <div className='flex min-h-8 items-start justify-between gap-2 px-3 pt-3 sm:px-4 sm:pt-4'>
+        <div className='flex min-w-0 items-start gap-2.5'>
           <div className='flex size-5 shrink-0 items-center justify-center'>
             {vendorIcon || (
               <span className='text-muted-foreground text-[11px] font-semibold'>
@@ -137,8 +138,16 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         </div>
       </div>
 
+      {description && (
+        <div className='mt-3 px-3 py-1 sm:px-4'>
+          <p className='text-muted-foreground line-clamp-3 text-[13px] leading-5 break-words'>
+            {description}
+          </p>
+        </div>
+      )}
+
       <div
-        className='bg-muted/25 mt-3 flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2'
+        className='mt-3 flex min-w-0 items-center gap-2 px-3 sm:px-4'
         aria-label={`${t('Input modalities')} → ${t('Output modalities')}`}
       >
         <ModalityIcons
@@ -153,7 +162,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       </div>
 
       <div className='mt-3 flex flex-1 flex-col justify-end'>
-        <div className='bg-muted/30 border-border/70 -mx-3 min-h-[5.25rem] border-t px-3 py-2.5 sm:-mx-4 sm:px-4'>
+        <div className='bg-muted/30 border-border/70 min-h-[5.25rem] border-t px-3 py-2.5 sm:px-4'>
           <div className='flex items-center justify-between gap-2'>
             <span className='text-muted-foreground text-[11px] font-semibold tracking-wide uppercase'>
               {t(priceDisplay.billingLabelKey)}

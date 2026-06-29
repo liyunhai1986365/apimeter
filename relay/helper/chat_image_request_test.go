@@ -164,6 +164,29 @@ func TestApplyRequestAllowsGeminiImageConversionOnCanonicalImageChannel(t *testi
 	require.Equal(t, string(conversion.ConversionGeminiGenerateContentToImageGenerations), string(plan.ID))
 }
 
+func TestApplyRequestKeepsGeminiImageGenerateContentNativeWhenSupported(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{
+		"contents":[{"role":"user","parts":[{"text":"cat"}]}],
+		"generationConfig":{"responseModalities":["IMAGE"]}
+	}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+		},
+	})
+
+	request, err := GetAndValidateRequest(c, types.RelayFormatGemini)
+	require.NoError(t, err)
+	converted, plan, err := conversion.ApplyRequest(c, types.RelayFormatGemini, relayconstant.RelayModeGemini, request)
+	require.NoError(t, err)
+	require.Nil(t, plan)
+	require.Same(t, request, converted)
+}
+
 func TestApplyRequestRejectsImageChatWhenConversionDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := `{"model":"gpt-image-2","messages":[{"role":"user","content":"draw a river"}]}`
