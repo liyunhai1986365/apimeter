@@ -245,6 +245,22 @@ function buildTokenDisplay(
     })
   }
 
+  if (model.create_cache_ratio != null) {
+    entries.push({
+      key: 'create_cache',
+      labelKey: 'Cache Write',
+      original: formatGroupPrice(
+        model,
+        ORIGINAL_GROUP_KEY,
+        'create_cache',
+        ...args,
+        originalRatios
+      ),
+      current: formatPrice(model, 'create_cache', ...args),
+      unitLabel,
+    })
+  }
+
   return {
     kind: 'token',
     billingLabelKey: 'Token-based',
