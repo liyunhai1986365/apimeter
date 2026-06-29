@@ -79,3 +79,9 @@ export function buildModelCardGroups(
       )
     )
 }
+
+export function sortModelsByCardGroupOrder(
+  models: PricingModel[]
+): PricingModel[] {
+  return buildModelCardGroups(models).flatMap((group) => group.models)
+}

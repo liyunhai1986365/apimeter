@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { ReactNode } from 'react'
-import { ChevronDown, RotateCcw } from 'lucide-react'
+import { ChevronDown, ListFilter, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
@@ -280,14 +280,9 @@ export function PricingSidebar(props: PricingSidebarProps) {
       })),
   ]
 
-  return (
-    <aside
-      className={cn(
-        'bg-background/80 rounded-lg border px-2 pb-2 shadow-sm backdrop-blur',
-        props.className
-      )}
-    >
-      <div className='bg-background/95 border-border/70 sticky top-0 z-20 -mx-2 mb-2 flex items-center justify-between gap-2 rounded-t-lg border-b px-2 py-2 backdrop-blur'>
+  const content = (
+    <>
+      <div className='bg-background/95 border-border/70 sticky top-0 z-20 -mx-2 mb-2 hidden items-center justify-between gap-2 rounded-t-lg border-b px-2 py-2 backdrop-blur lg:flex'>
         <div className='flex min-w-0 items-center gap-2'>
           <span className='text-foreground text-xs font-semibold'>
             {t('Filter')}
@@ -349,6 +344,55 @@ export function PricingSidebar(props: PricingSidebarProps) {
           onChange={props.onEndpointTypeChange}
         />
       </div>
+    </>
+  )
+
+  return (
+    <aside
+      className={cn(
+        'bg-background/80 rounded-lg border px-2 pb-2 shadow-sm backdrop-blur',
+        props.className
+      )}
+    >
+      <Collapsible defaultOpen={false} className='lg:hidden'>
+        <div className='flex items-center justify-between gap-2 py-2'>
+          <CollapsibleTrigger
+            render={
+              <Button
+                type='button'
+                variant='ghost'
+                size='sm'
+                className='group h-7 gap-1.5 px-1.5 text-xs'
+              />
+            }
+          >
+            <ListFilter className='size-3.5' />
+            {t('Filter')}
+            {props.activeFilterCount > 0 && (
+              <Badge variant='secondary' className='h-5 px-1.5 text-[10px]'>
+                {props.activeFilterCount}
+              </Badge>
+            )}
+            <ChevronDown className='size-3.5 transition-transform group-data-[panel-open]:rotate-180' />
+          </CollapsibleTrigger>
+          <Button
+            type='button'
+            variant='ghost'
+            size='sm'
+            onClick={props.onClearFilters}
+            disabled={!props.hasActiveFilters}
+            className='h-7 gap-1 px-1.5 text-[11px]'
+          >
+            <RotateCcw className='size-3.5' />
+            {t('Reset')}
+          </Button>
+        </div>
+        <CollapsibleContent className='border-border/70 border-t pt-2'>
+          {content}
+        </CollapsibleContent>
+      </Collapsible>
+
+      <div className='hidden lg:block'>{content}</div>
     </aside>
   )
 }

@@ -29,5 +29,7 @@ declare module '@tanstack/react-table' {
     sortable?: boolean
     // Custom CSS classes to apply to the column cells
     className?: string
+    // Horizontal alignment for table headers and cells
+    align?: 'left' | 'right' | 'center'
   }
 }

@@ -54,7 +54,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const usdExchangeRate = props.usdExchangeRate ?? 1
   const showRechargePrice = props.showRechargePrice ?? false
   const vendorIcon = props.model.vendor_icon
-    ? getLobeIcon(props.model.vendor_icon, 22)
+    ? getLobeIcon(props.model.vendor_icon, 18)
     : null
   const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
   const metadata = inferModelMetadata(props.model)
@@ -102,9 +102,9 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     >
       <div className='flex min-h-8 items-center justify-between gap-2'>
         <div className='flex min-w-0 items-center gap-2.5'>
-          <div className='bg-muted/40 ring-border/60 flex size-8 shrink-0 items-center justify-center rounded-lg ring-1'>
+          <div className='flex size-5 shrink-0 items-center justify-center'>
             {vendorIcon || (
-              <span className='text-muted-foreground text-xs font-bold'>
+              <span className='text-muted-foreground text-[11px] font-semibold'>
                 {initial}
               </span>
             )}
@@ -136,10 +136,6 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           </Tooltip>
         </div>
       </div>
-
-      <p className='text-muted-foreground mt-3 line-clamp-2 min-h-[2.5rem] text-[13px] leading-5'>
-        {props.model.description || t('No description available.')}
-      </p>
 
       <div
         className='bg-muted/25 mt-3 flex min-w-0 items-center gap-2 rounded-lg px-2.5 py-2'

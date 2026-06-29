@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { PricingModel } from '../types'
-import { buildModelCardGroups } from './model-card-groups'
+import {
+  buildModelCardGroups,
+  sortModelsByCardGroupOrder,
+} from './model-card-groups'
 
 function model(input: Partial<PricingModel> & { model_name: string }): PricingModel {
   return {
@@ -47,6 +50,36 @@ describe('model card groups', () => {
     assert.deepEqual(
       groups[0].models.map((item) => item.model_name),
       ['a-early', 'z-late']
+    )
+  })
+
+  test('flattens models using the same vendor and model order as card groups', () => {
+    const sorted = sortModelsByCardGroupOrder([
+      model({
+        model_name: 'z-late',
+        vendor_id: 20,
+        vendor_name: 'Vendor B',
+        vendor_sort_order: 10,
+        sort_order: 20,
+      }),
+      model({
+        model_name: 'vendor-a-model',
+        vendor_id: 10,
+        vendor_name: 'Vendor A',
+        vendor_sort_order: 20,
+      }),
+      model({
+        model_name: 'a-early',
+        vendor_id: 20,
+        vendor_name: 'Vendor B',
+        vendor_sort_order: 10,
+        sort_order: 10,
+      }),
+    ])
+
+    assert.deepEqual(
+      sorted.map((item) => item.model_name),
+      ['a-early', 'z-late', 'vendor-a-model']
     )
   })
 })

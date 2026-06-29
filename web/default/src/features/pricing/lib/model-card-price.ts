@@ -44,6 +44,7 @@ export type ModelCardPriceEntry = {
   original: string
   current: string
   unitLabel: string
+  specLabel?: string
   featured?: boolean
 }
 
@@ -63,6 +64,7 @@ export type ModelCardPriceDisplayOptions = {
   priceRate?: number
   usdExchangeRate?: number
   discountLabels?: GroupDiscountLabels
+  includeAllDynamicTiers?: boolean
 }
 
 const ORIGINAL_GROUP_KEY = '__original__'
@@ -125,20 +127,29 @@ function buildDynamicDisplay(
   const unitLabel = tokenUnitLabel(shared.tokenUnit)
   const tiers = getDynamicPricingTiers(model)
   const tier = tiers[0] || null
+  const displayTiers = options.includeAllDynamicTiers ? tiers : [tier].filter(Boolean)
   const discountRatio = getLowestEnabledGroupRatio(model)
-  const originalEntries = getDynamicPriceEntries(tier, {
+  const originalEntries = displayTiers.flatMap((item) =>
+    getDynamicPriceEntries(item, {
+      ...shared,
+      groupRatioMultiplier: 1,
+    }).map((entry) => ({ ...entry, specLabel: item.label }))
+  )
+  const currentEntries = displayTiers.flatMap((item) =>
+    getDynamicPriceEntries(item, {
+      ...shared,
+      groupRatioMultiplier: discountRatio,
+    }).map((entry) => ({ ...entry, specLabel: item.label }))
+  )
+  const currentByKey = new Map(
+    currentEntries.map((entry) => [`${entry.key}:${entry.specLabel || ''}`, entry])
+  )
+  const fallbackOriginalEntries = getDynamicPriceEntries(tier, {
     ...shared,
     groupRatioMultiplier: 1,
   })
-  const currentEntries = getDynamicPriceEntries(tier, {
-    ...shared,
-    groupRatioMultiplier: discountRatio,
-  })
-  const currentByKey = new Map(
-    currentEntries.map((entry) => [entry.key, entry])
-  )
 
-  if (originalEntries.length === 0 && (model.billing_expr || '').trim()) {
+  if (fallbackOriginalEntries.length === 0 && (model.billing_expr || '').trim()) {
     return {
       kind: 'special',
       billingLabelKey: hasDynamicRequestRules(model)
@@ -159,13 +170,14 @@ function buildDynamicDisplay(
     discountLabel: getDiscountLabel(model, options.discountLabels),
     hasDiscount: discountRatio < 1,
     entries: originalEntries.map((entry, index) => {
-      const current = currentByKey.get(entry.key)
+      const current = currentByKey.get(`${entry.key}:${entry.specLabel || ''}`)
       return {
         key: entry.key,
         labelKey: entry.shortLabel,
         original: entry.formatted,
         current: current?.formatted ?? entry.formatted,
         unitLabel: entry.variable.unit === 'second' ? 'second' : unitLabel,
+        specLabel: entry.specLabel,
         featured: index < 2,
       }
     }),

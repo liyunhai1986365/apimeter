@@ -144,6 +144,8 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 			requestCount:   row.RequestCount,
 			successCount:   row.SuccessCount,
 			totalLatencyMs: row.TotalLatencyMs,
+			ttftSumMs:      row.TtftSumMs,
+			ttftCount:      row.TtftCount,
 			outputTokens:   row.OutputTokens,
 			generationMs:   row.GenerationMs,
 		}
@@ -167,28 +169,29 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 		cur.requestCount += snap.requestCount
 		cur.successCount += snap.successCount
 		cur.totalLatencyMs += snap.totalLatencyMs
+		cur.ttftSumMs += snap.ttftSumMs
+		cur.ttftCount += snap.ttftCount
 		cur.outputTokens += snap.outputTokens
 		cur.generationMs += snap.generationMs
 		totals[k.model] = cur
 		return true
 	})
 
+	return buildSummaryAllResult(totals), nil
+}
+
+func buildSummaryAllResult(totals map[string]counters) SummaryAllResult {
 	models := make([]ModelSummary, 0, len(totals))
 	for name, total := range totals {
 		if total.requestCount == 0 {
 			continue
 		}
-		avgLatency := total.totalLatencyMs / total.requestCount
-		successRate := float64(total.successCount) / float64(total.requestCount) * 100
-		avgTps := 0.0
-		if total.generationMs > 0 {
-			avgTps = float64(total.outputTokens) / (float64(total.generationMs) / 1000.0)
-		}
 		models = append(models, ModelSummary{
 			ModelName:    name,
-			AvgLatencyMs: avgLatency,
-			SuccessRate:  math.Round(successRate*100) / 100,
-			AvgTps:       math.Round(avgTps*100) / 100,
+			AvgTtftMs:    avg(total.ttftSumMs, total.ttftCount),
+			AvgLatencyMs: avg(total.totalLatencyMs, total.requestCount),
+			SuccessRate:  math.Round(successRate(total)*100) / 100,
+			AvgTps:       math.Round(avgTps(total)*100) / 100,
 			RequestCount: total.requestCount,
 		})
 	}
@@ -196,7 +199,7 @@ func QuerySummaryAll(hours int, groups []string) (SummaryAllResult, error) {
 		return models[i].RequestCount > models[j].RequestCount
 	})
 
-	return SummaryAllResult{Models: models}, nil
+	return SummaryAllResult{Models: models}
 }
 
 func QueryGroupSummary(hours int, groups []string) (GroupSummaryResult, error) {

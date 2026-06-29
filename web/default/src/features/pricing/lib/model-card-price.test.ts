@@ -125,6 +125,57 @@ describe('buildModelCardPriceDisplay', () => {
     )
   })
 
+  test('can include every dynamic pricing tier as price specs', () => {
+    const display = buildModelCardPriceDisplay(
+      tokenModel({
+        billing_mode: 'tiered_expr',
+        billing_expr:
+          'len <= 200000 ? tier("standard", p * 3 + c * 15) : tier("long_context", p * 6 + c * 22.5)',
+      }),
+      {
+        tokenUnit: 'M',
+        discountLabels: zhDiscountLabels,
+        includeAllDynamicTiers: true,
+      }
+    )
+
+    assert.equal(display.kind, 'dynamic')
+    assert.deepEqual(
+      display.entries.map((entry) => ({
+        key: entry.key,
+        spec: entry.specLabel,
+        original: entry.original,
+        current: entry.current,
+      })),
+      [
+        {
+          key: 'p',
+          spec: 'standard',
+          original: '$3',
+          current: '$1.5',
+        },
+        {
+          key: 'c',
+          spec: 'standard',
+          original: '$15',
+          current: '$7.5',
+        },
+        {
+          key: 'p',
+          spec: 'long_context',
+          original: '$6',
+          current: '$3',
+        },
+        {
+          key: 'c',
+          spec: 'long_context',
+          original: '$22.5',
+          current: '$11.25',
+        },
+      ]
+    )
+  })
+
   test('omits discount badges and original strikethrough when no group discount exists', () => {
     const display = buildModelCardPriceDisplay(
       tokenModel({

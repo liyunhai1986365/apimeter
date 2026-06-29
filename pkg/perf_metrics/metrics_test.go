@@ -53,3 +53,26 @@ func TestBuildGroupSummaryResult(t *testing.T) {
 		t.Fatalf("expected fast avg tps 40, got %f", result.Groups[0].AvgTps)
 	}
 }
+
+func TestBuildSummaryAllResultIncludesTTFT(t *testing.T) {
+	totals := map[string]counters{
+		"gpt-4o": {
+			requestCount:   3,
+			successCount:   2,
+			totalLatencyMs: 900,
+			ttftSumMs:      210,
+			ttftCount:      2,
+			outputTokens:   120,
+			generationMs:   3000,
+		},
+	}
+
+	result := buildSummaryAllResult(totals)
+
+	if len(result.Models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(result.Models))
+	}
+	if result.Models[0].AvgTtftMs != 105 {
+		t.Fatalf("expected avg ttft 105, got %d", result.Models[0].AvgTtftMs)
+	}
+}

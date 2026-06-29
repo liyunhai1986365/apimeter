@@ -16,17 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState, useCallback } from 'react'
+import { useMemo, useCallback } from 'react'
 import {
   flexRender,
   getCoreRowModel,
-  getPaginationRowModel,
   useReactTable,
-  type PaginationState,
 } from '@tanstack/react-table'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
 import {
-  Table,
   TableBody,
   TableCell,
   TableHead,
@@ -34,8 +33,10 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { TableSkeleton, TableEmpty } from '@/components/data-table'
-import { DataTablePagination } from '@/components/data-table/pagination'
-import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
+import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
+import type { PerfModelSummary } from '@/features/performance-metrics/types'
+import { DEFAULT_TOKEN_UNIT } from '../constants'
+import { sortModelsByCardGroupOrder } from '../lib/model-card-groups'
 import type { PricingModel, TokenUnit } from '../types'
 import { usePricingColumns } from './pricing-columns'
 
@@ -61,27 +62,36 @@ export function PricingTable(props: PricingTableProps) {
     onModelClick,
   } = props
 
-  const [pagination, setPagination] = useState<PaginationState>({
-    pageIndex: 0,
-    pageSize: DEFAULT_PRICING_PAGE_SIZE,
+  const perfQuery = useQuery({
+    queryKey: ['perf-metrics-summary', 24],
+    queryFn: () => getPerfMetricsSummary(24),
+    staleTime: 60 * 1000,
+    retry: false,
   })
+  const perfByModel = useMemo(() => {
+    const map = new Map<string, PerfModelSummary>()
+    for (const model of perfQuery.data?.data?.models ?? []) {
+      map.set(model.model_name, model)
+    }
+    return map
+  }, [perfQuery.data])
 
   const columns = usePricingColumns({
     tokenUnit,
     priceRate,
     usdExchangeRate,
     showRechargePrice,
+    perfByModel,
   })
+  const sortedModels = useMemo(
+    () => sortModelsByCardGroupOrder(models),
+    [models]
+  )
 
   const table = useReactTable({
-    data: models,
+    data: sortedModels,
     columns,
-    pageCount: Math.ceil(models.length / pagination.pageSize),
-    state: { pagination },
-    onPaginationChange: setPagination,
     getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
-    manualPagination: false,
   })
 
   const handleRowClick = useCallback(
@@ -93,24 +103,34 @@ export function PricingTable(props: PricingTableProps) {
 
   return (
     <div className='space-y-4'>
-      <div className='overflow-hidden rounded-lg border'>
-        <Table>
-          <TableHeader>
+      <div className='border-border/70 bg-background max-h-[calc(100vh-13rem)] overflow-auto rounded-lg border shadow-xs'>
+        <table className='w-full min-w-[1660px] caption-bottom border-separate border-spacing-0 text-sm'>
+          <TableHeader className='bg-background'>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    style={{ width: header.getSize() }}
-                    className='text-muted-foreground text-[10px] font-medium tracking-wider uppercase'
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
+                  (() => {
+                    const meta = header.column.columnDef.meta
+                    return (
+                      <TableHead
+                        key={header.id}
+                        style={{ width: header.getSize() }}
+                        className={cn(
+                          'border-border/70 text-muted-foreground h-10 border-b px-3 text-[10px] font-semibold tracking-wider uppercase',
+                          'bg-background sticky top-0 z-20 shadow-[0_1px_0_hsl(var(--border))]',
+                          meta.align === 'right' && 'text-right',
+                          meta.align === 'center' && 'text-center'
                         )}
-                  </TableHead>
+                      >
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                      </TableHead>
+                    )
+                  })()
                 ))}
               </TableRow>
             ))}
@@ -129,24 +149,32 @@ export function PricingTable(props: PricingTableProps) {
                 <TableRow
                   key={row.id}
                   onClick={() => handleRowClick(row.original)}
-                  className='hover:bg-muted/30 cursor-pointer transition-colors'
+                  className='hover:bg-muted/25 cursor-pointer transition-colors [&:last-child>td]:border-b-0'
                 >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext()
-                      )}
-                    </TableCell>
-                  ))}
+                  {row.getVisibleCells().map((cell) => {
+                    const meta = cell.column.columnDef.meta
+                    return (
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          'border-border/60 border-b px-3 py-3 align-middle',
+                          meta.align === 'right' && 'text-right',
+                          meta.align === 'center' && 'text-center'
+                        )}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    )
+                  })}
                 </TableRow>
               ))
             )}
           </TableBody>
-        </Table>
+        </table>
       </div>
-
-      {!isLoading && models.length > 0 && <DataTablePagination table={table} />}
     </div>
   )
 }
