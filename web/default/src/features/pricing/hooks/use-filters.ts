@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useCallback, useState } from 'react'
-import { useSearch } from '@tanstack/react-router'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import {
   FILTER_ALL,
   SORT_OPTIONS,
@@ -56,6 +56,7 @@ function normalizeViewMode(value: unknown): ViewMode {
 }
 
 export function useFilters(models: PricingModel[]) {
+  const navigate = useNavigate({ from: '/pricing/' })
   const search = useSearch({ from: '/pricing/' })
   const [filterState, setFilterState] = useState<FilterState>(() => ({
     search: search.search,
@@ -88,17 +89,23 @@ export function useFilters(models: PricingModel[]) {
   const viewMode = normalizeViewMode(filterState.view)
   const showRechargePrice = filterState.rechargePrice === true
 
-  const updateFilters = useCallback((updates: Record<string, unknown>) => {
-    setFilterState((prev) => {
-      const next: Record<string, unknown> = { ...prev, ...updates }
+  const updateFilters = useCallback(
+    (updates: Record<string, unknown>) => {
+      const next: Record<string, unknown> = { ...filterState, ...updates }
       for (const key of Object.keys(next)) {
         if (next[key] === undefined || next[key] === null) {
           delete next[key]
         }
       }
-      return next as FilterState
-    })
-  }, [])
+
+      setFilterState(next as FilterState)
+      navigate({
+        search: next,
+        replace: true,
+      })
+    },
+    [filterState, navigate]
+  )
 
   const setSearchInput = useCallback(
     (v: string) => updateFilters({ search: v || undefined }),

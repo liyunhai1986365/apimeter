@@ -37,13 +37,21 @@ export function Pricing() {
   const navigate = useNavigate()
   const search = useSearch({ from: '/pricing/' })
 
-  const { models, vendors, isLoading, priceRate, usdExchangeRate } =
-    usePricingData()
+  const {
+    models,
+    vendors,
+    groupRatio,
+    usableGroup,
+    isLoading,
+    priceRate,
+    usdExchangeRate,
+  } = usePricingData()
 
   const {
     searchInput,
     sortBy,
     vendorFilter,
+    groupFilter,
     quotaTypeFilter,
     endpointTypeFilter,
     categoryFilter,
@@ -54,6 +62,7 @@ export function Pricing() {
     setSearchInput,
     setSortBy,
     setVendorFilter,
+    setGroupFilter,
     setQuotaTypeFilter,
     setEndpointTypeFilter,
     setCategoryFilter,
@@ -140,14 +149,18 @@ export function Pricing() {
             quotaTypeFilter={quotaTypeFilter}
             endpointTypeFilter={endpointTypeFilter}
             vendorFilter={vendorFilter}
+            groupFilter={groupFilter}
             inputModalityFilter={inputModalityFilter}
             outputModalityFilter={outputModalityFilter}
             onQuotaTypeChange={setQuotaTypeFilter}
             onEndpointTypeChange={setEndpointTypeFilter}
             onVendorChange={setVendorFilter}
+            onGroupChange={setGroupFilter}
             onInputModalityChange={setInputModalityFilter}
             onOutputModalityChange={setOutputModalityFilter}
             vendors={vendors || []}
+            groups={Object.keys(usableGroup || {})}
+            groupRatios={groupRatio}
             models={models || []}
             hasActiveFilters={hasActiveFilters}
             activeFilterCount={activeFilterCount}
@@ -156,7 +169,7 @@ export function Pricing() {
           />
 
           <main className='min-w-0'>
-            <div className='bg-background/92 supports-[backdrop-filter]:bg-background/75 sticky top-14 z-30 -mx-1 mb-4 flex flex-col gap-3 rounded-b-xl px-1 pb-3 shadow-sm backdrop-blur sm:top-16 lg:top-18'>
+            <div className='bg-background/92 supports-[backdrop-filter]:bg-background/75 sticky top-14 z-30 -mx-1 mb-7 flex flex-col gap-2.5 rounded-b-xl px-1 pb-3 shadow-sm backdrop-blur sm:top-16 lg:top-18'>
               <PricingFilterBar
                 categoryFilter={categoryFilter}
                 onCategoryChange={setCategoryFilter}

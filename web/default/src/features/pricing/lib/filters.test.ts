@@ -28,7 +28,8 @@ function model(
   modalities?: {
     input?: Modality[]
     output?: Modality[]
-  }
+  },
+  overrides: Partial<PricingModel> = {}
 ): PricingModel {
   return {
     id: 0,
@@ -40,6 +41,7 @@ function model(
     enable_groups: [],
     input_modalities: modalities?.input,
     output_modalities: modalities?.output,
+    ...overrides,
   }
 }
 
@@ -130,6 +132,35 @@ describe('pricing model filters', () => {
     assert.deepEqual(
       result.map((item) => item.model_name),
       ['image-generator']
+    )
+  })
+
+  test('filters model square results by vendor and group from URL state', () => {
+    const result = filterAndSortModels(
+      [
+        model('vendor-a-default', 'text', undefined, {
+          vendor_name: 'Vendor A',
+          enable_groups: ['default'],
+        }),
+        model('vendor-a-vip', 'text', undefined, {
+          vendor_name: 'Vendor A',
+          enable_groups: ['vip'],
+        }),
+        model('vendor-b-vip', 'text', undefined, {
+          vendor_name: 'Vendor B',
+          enable_groups: ['vip'],
+        }),
+      ],
+      {
+        ...baseFilters,
+        vendor: 'Vendor A',
+        group: 'vip',
+      }
+    )
+
+    assert.deepEqual(
+      result.map((item) => item.model_name),
+      ['vendor-a-vip']
     )
   })
 })

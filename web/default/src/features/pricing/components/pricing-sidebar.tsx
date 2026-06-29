@@ -19,8 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 import type { ReactNode } from 'react'
 import { ChevronDown, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
+import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -45,6 +48,7 @@ type FilterOption = {
   value: string
   label: string
   count?: number
+  suffix?: string
   icon?: ReactNode
 }
 
@@ -59,14 +63,18 @@ export interface PricingSidebarProps {
   quotaTypeFilter: string
   endpointTypeFilter: string
   vendorFilter: string
+  groupFilter: string
   inputModalityFilter: string
   outputModalityFilter: string
   onQuotaTypeChange: (value: string) => void
   onEndpointTypeChange: (value: string) => void
   onVendorChange: (value: string) => void
+  onGroupChange: (value: string) => void
   onInputModalityChange: (value: string) => void
   onOutputModalityChange: (value: string) => void
   vendors: PricingVendor[]
+  groups: string[]
+  groupRatios?: Record<string, number>
   models: PricingModel[]
   hasActiveFilters: boolean
   activeFilterCount: number
@@ -116,6 +124,11 @@ function FilterChip(props: {
           )}
         >
           {props.option.count}
+        </span>
+      )}
+      {props.option.count == null && props.option.suffix && (
+        <span className='bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]'>
+          {props.option.suffix}
         </span>
       )}
     </button>
@@ -180,6 +193,7 @@ function buildModalityOptions(
 
 export function PricingSidebar(props: PricingSidebarProps) {
   const { t } = useTranslation()
+  const discountLabels = useGroupDiscountLabels()
   const quotaTypeLabels = getQuotaTypeLabels(t)
   const endpointTypeLabels = getEndpointTypeLabels(t)
   const modalityLabels = getModalityTypeLabels(t)
@@ -220,6 +234,22 @@ export function PricingSidebar(props: PricingSidebarProps) {
       count: countBy(props.models, (model) => model.quota_type === 1),
     },
   ]
+
+  const groupOptions: FilterOption[] = [
+    {
+      value: FILTER_ALL,
+      label: t(USER_FACING_GROUP_TERMS.all),
+      count: props.models.length,
+    },
+    ...props.groups.map((group) => ({
+      value: group,
+      label: group,
+      count: countBy(props.models, (model) =>
+        model.enable_groups?.includes(group)
+      ),
+      suffix: formatGroupDiscount(props.groupRatios?.[group], discountLabels),
+    })),
+  ].filter((option) => option.value === FILTER_ALL || (option.count ?? 0) > 0)
 
   const inputModalityOptions = buildModalityOptions(
     props.models,
@@ -293,6 +323,12 @@ export function PricingSidebar(props: PricingSidebarProps) {
           value={props.quotaTypeFilter}
           options={quotaOptions}
           onChange={props.onQuotaTypeChange}
+        />
+        <FilterSection
+          title={t(USER_FACING_GROUP_TERMS.plural)}
+          value={props.groupFilter}
+          options={groupOptions}
+          onChange={props.onGroupChange}
         />
         <FilterSection
           title={t('Input Modality')}

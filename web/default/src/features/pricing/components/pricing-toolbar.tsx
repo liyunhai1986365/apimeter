@@ -73,7 +73,7 @@ function SegmentedControl(props: {
     <div
       role='group'
       aria-label={props.ariaLabel}
-      className='bg-muted/60 inline-flex h-8 items-center rounded-lg border p-0.5'
+      className='bg-muted/50 inline-flex h-7 items-center rounded-md border p-0.5'
     >
       {props.options.map((option) => {
         const Icon = option.icon
@@ -85,8 +85,8 @@ function SegmentedControl(props: {
             onClick={() => props.onChange(option.value)}
             aria-pressed={isActive}
             className={cn(
-              'inline-flex h-full items-center justify-center rounded-md text-xs font-medium transition-all',
-              Icon && !option.label ? 'w-7' : 'gap-1.5 px-3',
+              'inline-flex h-full items-center justify-center rounded-sm text-xs font-medium transition-all',
+              Icon && !option.label ? 'w-6' : 'gap-1 px-2.5',
               isActive
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
@@ -129,10 +129,10 @@ export function PricingToolbar(props: PricingToolbarProps) {
   )
 
   return (
-    <div className='border-primary/15 bg-primary/5 rounded-xl border p-3 shadow-sm'>
-      <div className='flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between'>
-        <div className='flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center'>
-          <div className='text-muted-foreground flex shrink-0 items-baseline gap-1 text-sm'>
+    <div className='bg-background/95 rounded-lg border px-2.5 py-2 shadow-xs'>
+      <div className='flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between'>
+        <div className='flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center'>
+          <div className='text-muted-foreground flex shrink-0 items-baseline gap-1 text-xs'>
             <span className='text-foreground font-semibold tabular-nums'>
               {props.filteredCount.toLocaleString()}
             </span>
@@ -149,12 +149,12 @@ export function PricingToolbar(props: PricingToolbarProps) {
             onChange={props.onSearchChange}
             onClear={props.onClearSearch}
             placeholder={t('Search model name, provider, endpoint, or tag...')}
-            className='[&_input]:bg-background [&_input]:shadow-primary/10 w-full sm:w-[22rem] lg:w-[28rem] [&_input]:shadow-sm'
+            className='w-full sm:w-[20rem] lg:w-[24rem]'
           />
         </div>
 
-        <div className='flex flex-wrap items-center gap-2'>
-          <div className='hidden items-center gap-2 sm:flex'>
+        <div className='flex flex-wrap items-center gap-1.5'>
+          <div className='hidden items-center sm:flex'>
             <SegmentedControl
               options={[
                 { value: 'M', label: '/1M' },
@@ -173,7 +173,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
                   type='button'
                   variant='outline'
                   size='sm'
-                  className='h-8 gap-1.5 px-3 text-xs'
+                  className='h-7 gap-1.5 rounded-md px-2.5 text-xs'
                 />
               }
             >

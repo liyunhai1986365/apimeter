@@ -347,3 +347,9 @@ export function sortApiKeyGroupOptions(
   })
   return sorted
 }
+
+export function buildPricingGroupUrl(group: string) {
+  const params = new URLSearchParams()
+  params.set('group', group)
+  return `/pricing?${params.toString()}`
+}

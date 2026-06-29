@@ -55,6 +55,7 @@ import {
   ALL_VENDOR_VALUE,
   type ApiKeyGroupSort,
   buildApiKeyGroupFilterMetadata,
+  buildPricingGroupUrl,
   filterApiKeyGroupOptions,
   sortApiKeyGroupOptions,
 } from '../lib/api-key-group-filters'
@@ -486,24 +487,33 @@ export function ApiKeyGroupPickerPopover({
                   {sortedFilteredOptions.map((option) => {
                     const categoryLabel =
                       filterMetadata.groupCategoryLabels.get(option.value)
+                    const selected = pendingSet.has(option.value)
+                    const canOpenSupportedModels =
+                      option.value !== AUTO_GROUP_VALUE
 
                     return (
-                      <label
+                      <div
                         key={option.value}
                         className={cn(
-                          'hover:bg-muted/60 flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors',
-                          pendingSet.has(option.value) &&
-                            'border-primary/30 bg-primary/5'
+                          'hover:bg-muted/60 flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors',
+                          selected && 'border-primary/30 bg-primary/5'
                         )}
                       >
                         <Checkbox
-                          checked={pendingSet.has(option.value)}
+                          checked={selected}
                           onCheckedChange={(checked) =>
                             togglePendingGroup(option.value, checked === true)
                           }
                           className='mt-0.5'
                         />
-                        <span className='min-w-0 flex-1'>
+                        <button
+                          type='button'
+                          className='min-w-0 flex-1 cursor-pointer text-left'
+                          onClick={() =>
+                            togglePendingGroup(option.value, !selected)
+                          }
+                          aria-pressed={selected}
+                        >
                           <span className='flex min-w-0 items-center gap-2'>
                             <span className='truncate text-sm font-medium'>
                               {option.label}
@@ -518,21 +528,37 @@ export function ApiKeyGroupPickerPopover({
                                 </span>
                               </Badge>
                             )}
-                            {pendingSet.has(option.value) && (
+                            {selected && (
                               <Check className='text-primary size-4 shrink-0' />
                             )}
                           </span>
                           <GroupDescription desc={option.desc} />
+                        </button>
+                        <span className='flex shrink-0 flex-col items-end gap-1'>
+                          <span className='flex items-center gap-1.5'>
+                            <GroupPerformanceInline
+                              perf={groupPerformance?.[option.value]}
+                              compact
+                              className='hidden sm:flex'
+                            />
+                            <GroupRatioBadge ratio={option.ratio} />
+                          </span>
+                          {canOpenSupportedModels && (
+                            <a
+                              href={buildPricingGroupUrl(option.value)}
+                              target='_blank'
+                              rel='noopener noreferrer'
+                              className='text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-xs underline-offset-2 hover:underline'
+                              onClick={(event) => {
+                                event.stopPropagation()
+                              }}
+                              title={t('View supported models')}
+                            >
+                              {t('View supported models')}
+                            </a>
+                          )}
                         </span>
-                        <span className='flex shrink-0 items-center gap-1.5'>
-                          <GroupPerformanceInline
-                            perf={groupPerformance?.[option.value]}
-                            compact
-                            className='hidden sm:flex'
-                          />
-                          <GroupRatioBadge ratio={option.ratio} />
-                        </span>
-                      </label>
+                      </div>
                     )
                   })}
                 </div>

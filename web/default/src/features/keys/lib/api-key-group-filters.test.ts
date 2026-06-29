@@ -10,6 +10,7 @@ import type { ApiKeyGroupOption } from '../components/api-key-group-combobox'
 import {
   ALL_CATEGORY_VALUE,
   ALL_VENDOR_VALUE,
+  buildPricingGroupUrl,
   buildApiKeyGroupFilterMetadata,
   filterApiKeyGroupOptions,
   sortApiKeyGroupOptions,
@@ -216,6 +217,18 @@ describe('api key group filters', () => {
         }
       ).map((option) => option.value),
       ['standard', 'premium', 'economy']
+    )
+  })
+
+  test('builds model square urls for supplier groups', () => {
+    assert.equal(buildPricingGroupUrl('default'), '/pricing?group=default')
+    assert.equal(
+      buildPricingGroupUrl('provider group'),
+      '/pricing?group=provider+group'
+    )
+    assert.equal(
+      buildPricingGroupUrl('user_owned:1:7'),
+      '/pricing?group=user_owned%3A1%3A7'
     )
   })
 })
