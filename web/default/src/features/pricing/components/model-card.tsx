@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { memo } from 'react'
-import { ArrowRight, Copy, Percent } from 'lucide-react'
+import { ArrowRight, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
@@ -169,8 +169,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
             <div className='flex min-w-0 shrink-0 items-center gap-1.5'>
               {priceDisplay.discountLabel && (
-                <span className='inline-flex max-w-[92px] items-center gap-1 truncate rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/15 dark:text-emerald-300'>
-                  <Percent className='size-3 shrink-0' />
+                <span className='inline-flex max-w-[92px] items-center truncate rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/15 dark:text-emerald-300'>
                   <span className='truncate'>{priceDisplay.discountLabel}</span>
                 </span>
               )}
