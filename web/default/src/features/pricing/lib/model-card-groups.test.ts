@@ -82,4 +82,38 @@ describe('model card groups', () => {
       ['a-early', 'z-late', 'vendor-a-model']
     )
   })
+
+  test('prioritizes models that have metadata inside the same vendor group', () => {
+    const groups = buildModelCardGroups([
+      model({
+        model_name: 'configured-but-no-metadata',
+        vendor_id: 20,
+        vendor_name: 'Vendor B',
+        sort_order: 10,
+      }),
+      model({
+        model_name: 'metadata-created-high-order',
+        vendor_id: 20,
+        vendor_name: 'Vendor B',
+        sort_order: 30,
+        ...({ has_metadata: true } as Partial<PricingModel>),
+      }),
+      model({
+        model_name: 'metadata-created-low-order',
+        vendor_id: 20,
+        vendor_name: 'Vendor B',
+        sort_order: 20,
+        ...({ has_metadata: true } as Partial<PricingModel>),
+      }),
+    ])
+
+    assert.deepEqual(
+      groups[0].models.map((item) => item.model_name),
+      [
+        'metadata-created-low-order',
+        'metadata-created-high-order',
+        'configured-but-no-metadata',
+      ]
+    )
+  })
 })

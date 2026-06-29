@@ -271,6 +271,20 @@ export function useFilters(models: PricingModel[]) {
     updateFilters({ search: undefined })
   }, [updateFilters])
 
+  const clearAllFilters = useCallback(() => {
+    updateFilters({
+      search: undefined,
+      vendor: undefined,
+      group: undefined,
+      quotaType: undefined,
+      endpointType: undefined,
+      category: undefined,
+      tag: undefined,
+      inputModality: undefined,
+      outputModality: undefined,
+    })
+  }, [updateFilters])
+
   return {
     searchInput,
     sortBy,
@@ -304,5 +318,6 @@ export function useFilters(models: PricingModel[]) {
     availableTags,
     clearFilters,
     clearSearch,
+    clearAllFilters,
   }
 }

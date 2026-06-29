@@ -90,6 +90,21 @@ describe('pricing model filters', () => {
     )
   })
 
+  test('sorts models with substantive metadata before bare configured models', () => {
+    const bare = model('configured-but-bare', 'text')
+    bare.sort_order = 0
+    const curated = model('curated-model', 'text')
+    curated.sort_order = 100
+    curated.has_metadata = true
+
+    const result = filterAndSortModels([bare, curated], baseFilters)
+
+    assert.deepEqual(
+      result.map((item) => item.model_name),
+      ['curated-model', 'configured-but-bare']
+    )
+  })
+
   test('sorts equal model order by newest update time first', () => {
     const older = model('a-older-model', 'text')
     older.sort_order = 100

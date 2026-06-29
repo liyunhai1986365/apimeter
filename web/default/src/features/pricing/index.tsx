@@ -73,8 +73,8 @@ export function Pricing() {
     filteredModels,
     hasActiveFilters,
     activeFilterCount,
-    clearFilters,
     clearSearch,
+    clearAllFilters,
   } = useFilters(models || [])
 
   const handleModelClick = useCallback(
@@ -91,9 +91,8 @@ export function Pricing() {
   )
 
   const handleClearAll = useCallback(() => {
-    clearFilters()
-    clearSearch()
-  }, [clearFilters, clearSearch])
+    clearAllFilters()
+  }, [clearAllFilters])
 
   const renderPricingContent = () => {
     if (filteredModels.length === 0) {
@@ -164,7 +163,7 @@ export function Pricing() {
             models={models || []}
             hasActiveFilters={hasActiveFilters}
             activeFilterCount={activeFilterCount}
-            onClearFilters={clearFilters}
+            onClearFilters={clearAllFilters}
             className='lg:sticky lg:top-18 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto'
           />
 

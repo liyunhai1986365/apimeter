@@ -96,6 +96,7 @@ export type PricingModel = {
   input_modalities?: Modality[]
   output_modalities?: Modality[]
   capabilities?: ModelCapability[]
+  has_metadata?: boolean
 }
 
 export type PricingSearchSearch = {

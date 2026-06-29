@@ -33,6 +33,7 @@ type Pricing struct {
 	InputModalities        []string                `json:"input_modalities,omitempty"`
 	OutputModalities       []string                `json:"output_modalities,omitempty"`
 	Capabilities           []string                `json:"capabilities,omitempty"`
+	HasMetadata            bool                    `json:"has_metadata,omitempty"`
 	QuotaType              int                     `json:"quota_type"`
 	ModelRatio             float64                 `json:"model_ratio"`
 	ModelPrice             float64                 `json:"model_price"`
@@ -157,6 +158,7 @@ func updatePricing() {
 	var allMeta []Model
 	_ = DB.Find(&allMeta).Error
 	metaMap := make(map[string]*Model)
+	hasMetadataMap := make(map[string]bool)
 	primaryMetaMap := make(map[string]*Model)
 	aliasToPrimaryModel := make(map[string]string)
 	prefixList := make([]*Model, 0)
@@ -175,6 +177,7 @@ func updatePricing() {
 		}
 		if m.NameRule == NameRuleExact {
 			metaMap[m.ModelName] = m
+			hasMetadataMap[m.ModelName] = true
 		} else {
 			switch m.NameRule {
 			case NameRulePrefix:
@@ -193,6 +196,7 @@ func updatePricing() {
 			if strings.HasPrefix(pricingModel.Model, m.ModelName) {
 				if _, exists := metaMap[pricingModel.Model]; !exists {
 					metaMap[pricingModel.Model] = m
+					hasMetadataMap[pricingModel.Model] = true
 				}
 				if pricingModel.Model != m.ModelName {
 					if _, exists := aliasToPrimaryModel[pricingModel.Model]; !exists {
@@ -207,6 +211,7 @@ func updatePricing() {
 			if strings.HasSuffix(pricingModel.Model, m.ModelName) {
 				if _, exists := metaMap[pricingModel.Model]; !exists {
 					metaMap[pricingModel.Model] = m
+					hasMetadataMap[pricingModel.Model] = true
 				}
 				if pricingModel.Model != m.ModelName {
 					if _, exists := aliasToPrimaryModel[pricingModel.Model]; !exists {
@@ -221,6 +226,7 @@ func updatePricing() {
 			if strings.Contains(pricingModel.Model, m.ModelName) {
 				if _, exists := metaMap[pricingModel.Model]; !exists {
 					metaMap[pricingModel.Model] = m
+					hasMetadataMap[pricingModel.Model] = true
 				}
 				if pricingModel.Model != m.ModelName {
 					if _, exists := aliasToPrimaryModel[pricingModel.Model]; !exists {
@@ -233,6 +239,7 @@ func updatePricing() {
 	for alias, primary := range aliasToPrimaryModel {
 		if meta, ok := primaryMetaMap[primary]; ok {
 			metaMap[alias] = meta
+			hasMetadataMap[alias] = true
 		}
 	}
 
@@ -385,6 +392,7 @@ func updatePricing() {
 			if meta.Status != 1 {
 				continue
 			}
+			pricing.HasMetadata = hasMetadataMap[model]
 			pricing.Description = meta.Description
 			pricing.Icon = meta.Icon
 			pricing.Tags = meta.Tags
@@ -438,6 +446,9 @@ func updatePricing() {
 	}
 
 	sort.SliceStable(pricingMap, func(i, j int) bool {
+		if pricingMap[i].HasMetadata != pricingMap[j].HasMetadata {
+			return pricingMap[i].HasMetadata
+		}
 		if pricingMap[i].SortOrder == pricingMap[j].SortOrder {
 			if pricingMap[i].UpdatedTime != pricingMap[j].UpdatedTime {
 				return pricingMap[i].UpdatedTime > pricingMap[j].UpdatedTime

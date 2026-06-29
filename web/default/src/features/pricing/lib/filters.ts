@@ -149,6 +149,9 @@ function getModelPrice(model: PricingModel): number {
 }
 
 function compareModelOrder(a: PricingModel, b: PricingModel): number {
+  const metadataDelta =
+    Number(Boolean(b.has_metadata)) - Number(Boolean(a.has_metadata))
+  if (metadataDelta !== 0) return metadataDelta
   const orderDelta = (a.sort_order || 0) - (b.sort_order || 0)
   if (orderDelta !== 0) return orderDelta
   const updatedDelta = (b.updated_time || 0) - (a.updated_time || 0)
