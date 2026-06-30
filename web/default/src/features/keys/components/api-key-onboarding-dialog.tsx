@@ -49,6 +49,7 @@ import {
   CodeBlockCopyButton,
 } from '@/components/ai-elements/code-block'
 import { CopyButton } from '@/components/copy-button'
+import { API_KEY_ONBOARDING_OVERLAY_CLASS } from '../lib/api-key-onboarding-styles'
 
 type Provider = 'openai' | 'anthropic' | 'gemini'
 type Lang = 'curl' | 'python' | 'typescript' | 'javascript'
@@ -487,7 +488,10 @@ export function ApiKeyOnboardingDialog(props: ApiKeyOnboardingDialogProps) {
 
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
-      <DialogContent className='max-h-[calc(100dvh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-3xl'>
+      <DialogContent
+        overlayClassName={API_KEY_ONBOARDING_OVERLAY_CLASS}
+        className='max-h-[calc(100dvh-2rem)] gap-0 overflow-hidden p-0 sm:max-w-3xl'
+      >
         <DialogHeader className='border-b px-4 py-4 sm:px-5'>
           <div className='flex items-start gap-3'>
             <div className='bg-primary/10 text-primary border-primary/20 flex size-10 shrink-0 items-center justify-center rounded-lg border'>

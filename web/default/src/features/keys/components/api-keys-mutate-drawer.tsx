@@ -100,7 +100,6 @@ import {
   ApiKeyGroupOrderSelector,
   ApiKeyGroupPickerPopover,
 } from './api-key-group-order-selector'
-import { ApiKeyOnboardingDialog } from './api-key-onboarding-dialog'
 import { useApiKeys } from './api-keys-provider'
 
 type ApiKeyMutateDrawerProps = {
@@ -108,6 +107,7 @@ type ApiKeyMutateDrawerProps = {
   onOpenChange: (open: boolean) => void
   currentRow?: ApiKey
   side?: 'left' | 'right'
+  onApiKeyCreated?: (apiKey: { key: string; name: string }) => void
 }
 
 const SMART_ROUTING_OPTIONS: Array<{
@@ -270,6 +270,7 @@ export function ApiKeysMutateDrawer({
   onOpenChange,
   currentRow,
   side = 'right',
+  onApiKeyCreated,
 }: ApiKeyMutateDrawerProps) {
   const { t } = useTranslation()
   const groupTerms = USER_FACING_GROUP_TERMS
@@ -277,11 +278,6 @@ export function ApiKeysMutateDrawer({
   const { triggerRefresh, selectedWorkspaceId } = useApiKeys()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [createdApiKey, setCreatedApiKey] = useState<{
-    key: string
-    name: string
-  } | null>(null)
-
   // Fetch models
   const { data: modelsData } = useQuery({
     queryKey: ['user-models'],
@@ -418,7 +414,7 @@ export function ApiKeysMutateDrawer({
           onOpenChange(false)
           triggerRefresh()
           if (successCount === 1 && firstCreatedKey) {
-            setCreatedApiKey({
+            onApiKeyCreated?.({
               key: firstCreatedKey,
               name: firstCreatedName,
             })
@@ -1126,14 +1122,6 @@ export function ApiKeysMutateDrawer({
           </Button>
         </SheetFooter>
       </SheetContent>
-      <ApiKeyOnboardingDialog
-        open={!!createdApiKey}
-        onOpenChange={(nextOpen) => {
-          if (!nextOpen) setCreatedApiKey(null)
-        }}
-        apiKey={createdApiKey?.key || ''}
-        apiKeyName={createdApiKey?.name}
-      />
     </Sheet>
   )
 }
