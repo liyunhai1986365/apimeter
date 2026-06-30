@@ -31,12 +31,59 @@ function usageLog(overrides: Partial<UsageLog>): UsageLog {
 }
 
 describe('isTaskPreConsumeLog', () => {
-  test('marks task consume logs as pre-consumed charges', () => {
+  test('marks Seedance 2 task consume logs as pre-consumed charges', () => {
     assert.equal(
       isTaskPreConsumeLog(
-        usageLog({ other: JSON.stringify({ is_task: true }) })
+        usageLog({
+          model_name: 'doubao-seedance-2.0',
+          other: JSON.stringify({
+            is_task: true,
+            request_path: '/api/v3/contents/generations/tasks',
+          }),
+        })
       ),
       true
+    )
+
+    assert.equal(
+      isTaskPreConsumeLog(
+        usageLog({
+          model_name: 'dreamina-seedance-2-0-fast-260128',
+          other: JSON.stringify({
+            is_task: true,
+            request_path: '/api/v3/contents/generations/tasks',
+          }),
+        })
+      ),
+      true
+    )
+  })
+
+  test('does not mark non-Seedance task consume logs as pre-consumed charges', () => {
+    assert.equal(
+      isTaskPreConsumeLog(
+        usageLog({
+          model_name: 'other-video-model',
+          other: JSON.stringify({
+            is_task: true,
+            request_path: '/api/v3/contents/generations/tasks',
+          }),
+        })
+      ),
+      false
+    )
+
+    assert.equal(
+      isTaskPreConsumeLog(
+        usageLog({
+          model_name: 'doubao-seedance-1-5-pro-251215',
+          other: JSON.stringify({
+            is_task: true,
+            request_path: '/api/v3/contents/generations/tasks',
+          }),
+        })
+      ),
+      false
     )
   })
 
@@ -62,6 +109,34 @@ describe('isTaskPreConsumeLog', () => {
             task_id: 'task_123',
             pre_consumed_quota: 100,
             actual_quota: 130,
+          }),
+        })
+      ),
+      false
+    )
+  })
+
+  test('does not mark Suno submit logs as pre-consumed charges', () => {
+    assert.equal(
+      isTaskPreConsumeLog(
+        usageLog({
+          model_name: 'suno_music',
+          other: JSON.stringify({
+            is_task: true,
+            request_path: '/suno/submit/MUSIC',
+          }),
+        })
+      ),
+      false
+    )
+
+    assert.equal(
+      isTaskPreConsumeLog(
+        usageLog({
+          model_name: 'suno_lyrics',
+          other: JSON.stringify({
+            is_task: true,
+            request_path: '/suno/submit/LYRICS',
           }),
         })
       ),

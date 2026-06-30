@@ -491,7 +491,7 @@ func CountActiveSystemInstances(currentTimestamp int64) (int64, error) {
 	// Consider instances active if they've had a heartbeat in the last 2 minutes
 	heartbeatThreshold := currentTimestamp - 120
 	err := DB.Model(&SystemInstance{}).
-		Where("last_heartbeat >= ?", heartbeatThreshold).
+		Where("last_seen_at >= ?", heartbeatThreshold).
 		Count(&count).Error
 	return count, err
 }

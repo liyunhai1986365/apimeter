@@ -93,13 +93,28 @@ export function isViolationFeeLog(other: LogOtherData | null): boolean {
 }
 
 /**
- * Task submit logs record the quota reserved before the async task settles.
- * Later adjustment/refund entries carry task_id/pre_consumed_quota instead.
+ * Seedance 2 task submit logs use a fixed pre-consume amount before the async
+ * task settles. Later adjustment/refund entries carry task_id/pre_consumed_quota.
  */
 export function isTaskPreConsumeLog(log: UsageLog): boolean {
   if (log.type !== 2) return false
   const other = parseLogOther(log.other)
-  return other?.is_task === true
+  if (other?.is_task !== true) return false
+  return isSeedance2TaskPreConsumeLog(log, other)
+}
+
+function isSeedance2TaskPreConsumeLog(
+  log: UsageLog,
+  other: LogOtherData
+): boolean {
+  if (other.request_path !== '/api/v3/contents/generations/tasks') {
+    return false
+  }
+  const modelName = log.model_name?.toLowerCase() ?? ''
+  return (
+    modelName.includes('seedance-2.0') ||
+    modelName.includes('seedance-2-0')
+  )
 }
 
 export function getSignedLogQuota(log: UsageLog): number {

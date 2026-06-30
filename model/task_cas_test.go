@@ -214,6 +214,19 @@ func TestHasUnfinishedMidjourneyTasksMatchesPollingQuery(t *testing.T) {
 	assert.True(t, HasUnfinishedMidjourneyTasks())
 }
 
+func TestCountActiveSystemInstancesUsesLastSeenAt(t *testing.T) {
+	truncateTables(t)
+
+	now := int64(1_782_800_000)
+	require.NoError(t, UpsertSystemInstance("active-node", map[string]any{"role": "runner"}, now-300, now-10))
+	require.NoError(t, UpsertSystemInstance("stale-node", map[string]any{"role": "runner"}, now-300, now-300))
+
+	count, err := CountActiveSystemInstances(now)
+
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, count)
+}
+
 // ---------------------------------------------------------------------------
 // UpdateWithStatus CAS — DB integration tests
 // ---------------------------------------------------------------------------
