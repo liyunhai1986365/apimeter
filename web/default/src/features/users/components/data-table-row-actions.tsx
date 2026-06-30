@@ -30,6 +30,7 @@ import {
   ShieldAlert,
   Link2,
   CreditCard,
+  Mail,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -54,6 +55,7 @@ import {
 import { getUserActionMessage } from '../lib'
 import { type User, type ManageUserAction } from '../types'
 import { UserBindingDialog } from './dialogs/user-binding-dialog'
+import { UserEmailDialog } from './dialogs/user-email-dialog'
 import { useUsers } from './users-provider'
 
 interface DataTableRowActionsProps {
@@ -68,6 +70,7 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
   const [resetTwoFAOpen, setResetTwoFAOpen] = useState(false)
   const [bindingDialogOpen, setBindingDialogOpen] = useState(false)
   const [subscriptionsDialogOpen, setSubscriptionsDialogOpen] = useState(false)
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false)
 
   const handleEdit = () => {
     setCurrentRow(user)
@@ -225,6 +228,18 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
           <DropdownMenuItem
             onSelect={(event) => {
               event.preventDefault()
+              setEmailDialogOpen(true)
+            }}
+          >
+            {t('Send Email')}
+            <DropdownMenuShortcut>
+              <Mail size={16} />
+            </DropdownMenuShortcut>
+          </DropdownMenuItem>
+
+          <DropdownMenuItem
+            onSelect={(event) => {
+              event.preventDefault()
               setResetPasskeyOpen(true)
             }}
             disabled={isRoot}
@@ -293,6 +308,12 @@ export function DataTableRowActions({ row }: DataTableRowActionsProps) {
         onOpenChange={setSubscriptionsDialogOpen}
         user={{ id: user.id, username: user.username }}
         onSuccess={triggerRefresh}
+      />
+
+      <UserEmailDialog
+        open={emailDialogOpen}
+        onOpenChange={setEmailDialogOpen}
+        user={user}
       />
     </>
   )

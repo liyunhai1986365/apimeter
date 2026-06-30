@@ -913,6 +913,68 @@ type ManageRequest struct {
 	Mode   string `json:"mode"`
 }
 
+type adminUserEmailRequest struct {
+	Subject string `json:"subject"`
+	Content string `json:"content"`
+}
+
+var adminUserEmailSender = common.SendEmail
+
+func SendAdminUserEmail(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	var req adminUserEmailRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	req.Subject = strings.TrimSpace(req.Subject)
+	req.Content = strings.TrimSpace(req.Content)
+	if req.Subject == "" || req.Content == "" {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	user, err := model.GetUserById(id, false)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	myRole := c.GetInt("role")
+	if !canManageTargetRole(myRole, user.Role) {
+		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
+		return
+	}
+
+	receiver := strings.TrimSpace(user.Email)
+	if receiver == "" {
+		common.ApiErrorMsg(c, "用户未绑定邮箱")
+		return
+	}
+
+	if err := adminUserEmailSender(req.Subject, receiver, req.Content); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	adminInfo := map[string]interface{}{
+		"admin_id":       c.GetInt("id"),
+		"admin_username": c.GetString("username"),
+	}
+	model.RecordLogWithAdminInfo(user.Id, model.LogTypeManage, fmt.Sprintf("管理员向用户发送邮件: %s", req.Subject), adminInfo)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+	})
+}
+
 // ManageUser Only admin user can do this
 func ManageUser(c *gin.Context) {
 	var req ManageRequest

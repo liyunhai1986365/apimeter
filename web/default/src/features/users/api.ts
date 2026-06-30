@@ -25,6 +25,7 @@ import type {
   UserFormData,
   ManageUserAction,
   ManageUserQuotaPayload,
+  SendUserEmailPayload,
   ApiResponse,
 } from './types'
 
@@ -126,6 +127,17 @@ export async function resetUserPasskey(id: number): Promise<ApiResponse> {
  */
 export async function resetUserTwoFA(id: number): Promise<ApiResponse> {
   const res = await api.delete(`/api/user/${id}/2fa`)
+  return res.data
+}
+
+/**
+ * Send a custom email to a user with the configured system SMTP account.
+ */
+export async function sendUserEmail(
+  id: number,
+  payload: SendUserEmailPayload
+): Promise<ApiResponse> {
+  const res = await api.post(`/api/user/${id}/email`, payload)
   return res.data
 }
 

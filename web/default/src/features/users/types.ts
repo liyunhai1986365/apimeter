@@ -123,6 +123,11 @@ export interface ManageUserQuotaPayload {
   value: number
 }
 
+export interface SendUserEmailPayload {
+  subject: string
+  content: string
+}
+
 // ============================================================================
 // Dialog Types
 // ============================================================================
