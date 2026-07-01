@@ -260,21 +260,111 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if kling.Video.Submit.Path != "/v1/videos/text2video" {
 		t.Fatalf("unexpected kling default submit path: %s", kling.Video.Submit.Path)
 	}
-	if len(kling.Video.Submit.PathVariants) != 1 {
-		t.Fatalf("expected kling image-to-video path variant, got %#v", kling.Video.Submit.PathVariants)
-	}
-	if kling.Video.Submit.PathVariants[0].Path != "/v1/videos/image2video" {
-		t.Fatalf("unexpected kling image-to-video path: %s", kling.Video.Submit.PathVariants[0].Path)
-	}
 	if kling.Video.Fetch.Path != "/v1/videos/text2video/{task_id}" {
 		t.Fatalf("unexpected kling default fetch path: %s", kling.Video.Fetch.Path)
 	}
-	if len(kling.Video.Fetch.PathVariants) != 1 {
-		t.Fatalf("expected kling image-to-video fetch path variant, got %#v", kling.Video.Fetch.PathVariants)
-	}
-	if kling.Video.Fetch.PathVariants[0].Path != "/v1/videos/image2video/{task_id}" {
-		t.Fatalf("unexpected kling image-to-video fetch path: %s", kling.Video.Fetch.PathVariants[0].Path)
-	}
+	assertPathVariants(t, kling.Video.Submit, []string{
+		"/image-to-video/kling-3.0-turbo",
+		"/v1/videos/image2video",
+		"/v1/videos/omni-video",
+		"/v1/videos/motion-control",
+		"/v1/videos/multi-image2video",
+		"/v1/videos/video-extend",
+		"/v1/videos/advanced-lip-sync",
+		"/v1/videos/avatar/image2video",
+		"/v1/audio/text-to-audio",
+		"/v1/audio/video-to-audio",
+	})
+	assertPathVariants(t, kling.Video.Fetch, []string{
+		"/tasks",
+		"/v1/videos/image2video/{task_id}",
+		"/v1/videos/omni-video/{task_id}",
+		"/v1/videos/motion-control/{task_id}",
+		"/v1/videos/multi-image2video/{task_id}",
+		"/v1/videos/video-extend/{task_id}",
+		"/v1/videos/advanced-lip-sync/{task_id}",
+		"/v1/videos/avatar/image2video/{task_id}",
+		"/v1/audio/text-to-audio/{task_id}",
+		"/v1/audio/video-to-audio/{task_id}",
+	})
+	assertKlingResources(t, kling, []string{
+		"turbo_text2video_create",
+		"turbo_image2video_create",
+		"turbo_tasks_query",
+		"turbo_tasks_cursor",
+		"text2video_create",
+		"text2video_get",
+		"text2video_list",
+		"image2video_create",
+		"image2video_get",
+		"image2video_list",
+		"omni_video_create",
+		"omni_video_get",
+		"omni_video_list",
+		"motion_control_create",
+		"motion_control_get",
+		"motion_control_list",
+		"multi_image2video_create",
+		"multi_image2video_get",
+		"multi_image2video_list",
+		"multi_elements_init_selection",
+		"multi_elements_add_selection",
+		"multi_elements_delete_selection",
+		"multi_elements_clear_selection",
+		"multi_elements_preview_selection",
+		"multi_elements_task",
+		"multi_elements_get",
+		"multi_elements_list",
+		"video_extend_create",
+		"video_extend_get",
+		"video_extend_list",
+		"identify_face",
+		"lip_sync_create",
+		"lip_sync_get",
+		"lip_sync_list",
+		"avatar_image2video_create",
+		"avatar_image2video_get",
+		"avatar_image2video_list",
+		"tts",
+		"text_to_audio_create",
+		"text_to_audio_get",
+		"text_to_audio_list",
+		"video_to_audio_create",
+		"video_to_audio_get",
+		"video_to_audio_list",
+		"advanced_custom_elements_create",
+		"advanced_custom_elements_get",
+		"advanced_presets_elements",
+		"delete_advanced_elements",
+		"custom_voices_create",
+		"custom_voices_get",
+		"custom_voices_list",
+		"presets_voices_list",
+		"delete_voices",
+		"image_recognize",
+	})
+	assertKlingResourceModels(t, kling, map[string]string{
+		"turbo_text2video_create":         "kling-3.0-turbo",
+		"turbo_image2video_create":        "kling-3.0-turbo",
+		"video_extend_create":             "kling_extend",
+		"video_extend_get":                "kling_extend",
+		"video_extend_list":               "kling_extend",
+		"identify_face":                   "kling_image_recognize",
+		"avatar_image2video_create":       "kling_avatar_image2video",
+		"avatar_image2video_get":          "kling_avatar_image2video",
+		"avatar_image2video_list":         "kling_avatar_image2video",
+		"text_to_audio_create":            "kling_audio_text_to_audio",
+		"text_to_audio_get":               "kling_audio_text_to_audio",
+		"text_to_audio_list":              "kling_audio_text_to_audio",
+		"video_to_audio_create":           "kling_audio_video_to_audio",
+		"video_to_audio_get":              "kling_audio_video_to_audio",
+		"video_to_audio_list":             "kling_audio_video_to_audio",
+		"advanced_custom_elements_create": "kling_multi_elements_submit",
+		"advanced_custom_elements_get":    "kling_multi_elements_submit",
+		"advanced_presets_elements":       "kling_multi_elements_submit",
+		"delete_advanced_elements":        "kling_multi_elements_submit",
+		"image_recognize":                 "kling_image_recognize",
+	})
 	if kling.Video.Fetch.Response.ResultURLPath != "data.task_result.videos.0.url" {
 		t.Fatalf("unexpected kling result url path: %s", kling.Video.Fetch.Response.ResultURLPath)
 	}
@@ -287,6 +377,54 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 	if statusField == nil || statusField.ValueMap["completed"] != "Active" {
 		t.Fatalf("unexpected service inference assets get status map: %#v", assetGet.Response.Fields)
+	}
+}
+
+func assertPathVariants(t *testing.T, endpoint EndpointConfig, expected []string) {
+	t.Helper()
+	seen := map[string]bool{}
+	for _, variant := range endpoint.PathVariants {
+		seen[variant.Path] = true
+	}
+	for _, path := range expected {
+		if !seen[path] {
+			t.Fatalf("expected path variant %s in %#v", path, endpoint.PathVariants)
+		}
+	}
+}
+
+func assertKlingResources(t *testing.T, profile *Profile, expected []string) {
+	t.Helper()
+	for _, id := range expected {
+		resource, ok := profile.ResourceByID(id)
+		if !ok {
+			t.Fatalf("expected kling resource %s", id)
+		}
+		if resource.Public.Method == "" || resource.Public.Path == "" {
+			t.Fatalf("expected kling resource %s to expose a public endpoint: %#v", id, resource)
+		}
+		if resource.Upstream.Method == "" || resource.Upstream.Path == "" {
+			t.Fatalf("expected kling resource %s to map an upstream endpoint: %#v", id, resource)
+		}
+		if !resource.Response.Passthrough {
+			t.Fatalf("expected kling resource %s to passthrough response", id)
+		}
+	}
+}
+
+func assertKlingResourceModels(t *testing.T, profile *Profile, expected map[string]string) {
+	t.Helper()
+	for id, modelName := range expected {
+		resource, ok := profile.ResourceByID(id)
+		if !ok {
+			t.Fatalf("expected kling resource %s", id)
+		}
+		if resource.Model != modelName {
+			t.Fatalf("expected kling resource %s model %s, got %s", id, modelName, resource.Model)
+		}
+		if !resource.Billing.Enabled {
+			t.Fatalf("expected kling resource %s billing to be enabled", id)
+		}
 	}
 }
 

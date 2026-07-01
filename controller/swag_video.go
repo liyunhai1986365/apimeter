@@ -53,7 +53,7 @@ func VideoGenerationsTaskId(c *gin.Context) {
 // @Failure 401 {object} dto.OpenAIError "未授权"
 // @Failure 403 {object} dto.OpenAIError "无权限"
 // @Failure 500 {object} dto.OpenAIError "服务器内部错误"
-// @Router /kling/v1/videos/text2video [post]
+// @Router /kling/v2/videos/text2video [post]
 func KlingText2VideoGenerations(c *gin.Context) {
 }
 
@@ -97,7 +97,7 @@ type KlingCameraConfig struct {
 // @Failure 401 {object} dto.OpenAIError "未授权"
 // @Failure 403 {object} dto.OpenAIError "无权限"
 // @Failure 500 {object} dto.OpenAIError "服务器内部错误"
-// @Router /kling/v1/videos/image2video [post]
+// @Router /kling/v2/videos/image2video [post]
 func KlingImage2VideoGenerations(c *gin.Context) {
 }
 
@@ -122,7 +122,7 @@ type KlingImage2VideoRequest struct {
 // @Accept json
 // @Produce json
 // @Param task_id path string true "Task ID"
-// @Router /kling/v1/videos/image2video/{task_id} [get]
+// @Router /kling/v2/videos/image2video/{task_id} [get]
 func KlingImage2videoTaskId(c *gin.Context) {}
 
 // KlingText2videoTaskId godoc
@@ -132,5 +132,5 @@ func KlingImage2videoTaskId(c *gin.Context) {}
 // @Accept json
 // @Produce json
 // @Param task_id path string true "Task ID"
-// @Router /kling/v1/videos/text2video/{task_id} [get]
+// @Router /kling/v2/videos/text2video/{task_id} [get]
 func KlingText2videoTaskId(c *gin.Context) {}

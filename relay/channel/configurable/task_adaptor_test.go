@@ -658,6 +658,64 @@ func TestTaskAdaptorBuildsKlingImageToVideoRequest(t *testing.T) {
 	require.Equal(t, int64(10), gjson.GetBytes(body, "duration").Int())
 }
 
+func TestTaskAdaptorBuildsKlingTurboImageToVideoRequest(t *testing.T) {
+	body, upstreamURL := buildKlingRequest(t, []byte(`{
+		"model":"kling-3.0-turbo",
+		"prompt":"A girl sat on the train, looking out the window.",
+		"image":"https://example.com/start.jpg",
+		"duration":10,
+		"size":"1080p",
+		"metadata":{
+			"kling_capability":"turbo-image",
+			"callback_url":"https://example.com/callback",
+			"external_task_id":"order-10001",
+			"watermark_info":{"enabled":false}
+		}
+	}`), "kling-3.0-turbo")
+
+	require.Equal(t, "https://api-beijing.klingai.com/image-to-video/kling-3.0-turbo", upstreamURL)
+	require.Equal(t, "prompt", gjson.GetBytes(body, "contents.0.type").String())
+	require.Equal(t, "A girl sat on the train, looking out the window.", gjson.GetBytes(body, "contents.0.text").String())
+	require.Equal(t, "first_frame", gjson.GetBytes(body, "contents.1.type").String())
+	require.Equal(t, "https://example.com/start.jpg", gjson.GetBytes(body, "contents.1.url").String())
+	require.Equal(t, "1080p", gjson.GetBytes(body, "settings.resolution").String())
+	require.Equal(t, int64(10), gjson.GetBytes(body, "settings.duration").Int())
+	require.Equal(t, "order-10001", gjson.GetBytes(body, "options.external_task_id").String())
+	require.False(t, gjson.GetBytes(body, "model_name").Exists())
+}
+
+func TestTaskAdaptorBuildsKlingOmniVideoRequest(t *testing.T) {
+	body, upstreamURL := buildKlingRequest(t, []byte(`{
+		"model":"kling-o1",
+		"prompt":"角色走进雨夜街道",
+		"duration":5,
+		"metadata":{
+			"kling_capability":"omni-video",
+			"contents":[{"type":"prompt","text":"角色走进雨夜街道，并说一句台词"}],
+			"settings":{"duration":5,"aspect_ratio":"16:9"},
+			"callback_url":"https://example.com/callback"
+		}
+	}`), "kling-o1")
+
+	require.Equal(t, "https://api-beijing.klingai.com/v1/videos/omni-video", upstreamURL)
+	require.Equal(t, "kling-o1", gjson.GetBytes(body, "model_name").String())
+	require.Equal(t, "prompt", gjson.GetBytes(body, "contents.0.type").String())
+	require.Equal(t, "16:9", gjson.GetBytes(body, "settings.aspect_ratio").String())
+	require.Equal(t, "https://example.com/callback", gjson.GetBytes(body, "callback_url").String())
+}
+
+func TestTaskAdaptorBuildsKlingAudioRequest(t *testing.T) {
+	body, upstreamURL := buildKlingRequest(t, []byte(`{
+		"model":"kling-audio",
+		"prompt":"雨夜街道、远处车辆驶过",
+		"metadata":{"kling_capability":"text-to-audio"}
+	}`), "kling-audio")
+
+	require.Equal(t, "https://api-beijing.klingai.com/v1/audio/text-to-audio", upstreamURL)
+	require.Equal(t, "雨夜街道、远处车辆驶过", gjson.GetBytes(body, "prompt").String())
+	require.False(t, gjson.GetBytes(body, "model_name").Exists())
+}
+
 func TestTaskAdaptorParsesKlingTaskResponse(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	info := klingRelayInfo("kling-v2-6")
@@ -697,6 +755,18 @@ func TestTaskAdaptorFetchesKlingImageToVideoTaskFromConfiguredVariantPath(t *tes
 	})
 
 	require.Equal(t, "/v1/videos/image2video/kling-image-task", requestedPath)
+}
+
+func TestTaskAdaptorFetchesKlingTurboTaskFromConfiguredVariantPath(t *testing.T) {
+	requestedPath := fetchKlingTaskPath(t, map[string]any{
+		"task_id":              "kling-turbo-task",
+		"kling_capability":     "turbo",
+		"external_task_id":     "order-10001",
+		"external_task_ids":    "order-10001",
+		"kling_external_query": true,
+	})
+
+	require.Equal(t, "/tasks", requestedPath)
 }
 
 func TestTaskAdaptorBuildsKlingJWTAuthorizationHeaderFromProfile(t *testing.T) {

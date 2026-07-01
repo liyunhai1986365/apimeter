@@ -130,6 +130,83 @@ func TestConfigurableResourceRoutesAreRegisteredWithFullAPIRouterOrder(t *testin
 	assertRouteRegistered(http.MethodPost, "/material/assets")
 }
 
+func TestKlingConfigurableResourceRoutesAreRegistered(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	SetVideoRouter(r)
+
+	assertRouteRegistered := func(method string, path string) {
+		t.Helper()
+		for _, route := range r.Routes() {
+			if route.Method == method && route.Path == path {
+				return
+			}
+		}
+		t.Fatalf("expected route %s %s to be registered", method, path)
+	}
+
+	assertRouteRegistered(http.MethodPost, "/kling/text-to-video/kling-3.0-turbo")
+	assertRouteRegistered(http.MethodPost, "/kling/image-to-video/kling-3.0-turbo")
+	assertRouteRegistered(http.MethodPost, "/text-to-video/kling-3.0-turbo")
+	assertRouteRegistered(http.MethodPost, "/image-to-video/kling-3.0-turbo")
+	assertRouteRegistered(http.MethodGet, "/kling/tasks")
+	assertRouteRegistered(http.MethodPost, "/kling/tasks")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/text2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/text2video/:id")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/text2video")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/image2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/image2video/:id")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/image2video")
+	assertRouteRegistered(http.MethodPost, "/kling/v2/videos/text2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v2/videos/text2video/:task_id")
+	assertRouteRegistered(http.MethodPost, "/kling/v2/videos/image2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v2/videos/image2video/:task_id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/omni-video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/omni-video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/omni-video/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/motion-control")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/motion-control")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/motion-control/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/multi-image2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/multi-image2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/multi-image2video/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/multi-elements/init-selection")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/multi-elements/add-selection")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/multi-elements/delete-selection")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/multi-elements/clear-selection")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/multi-elements/preview-selection")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/multi-elements")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/multi-elements")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/multi-elements/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/video-extend")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/video-extend")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/video-extend/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/identify-face")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/advanced-lip-sync")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/advanced-lip-sync")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/advanced-lip-sync/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/avatar/image2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/avatar/image2video")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/videos/avatar/image2video/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/audio/tts")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/audio/text-to-audio")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/audio/text-to-audio")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/audio/text-to-audio/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/audio/video-to-audio")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/audio/video-to-audio")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/audio/video-to-audio/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/general/advanced-custom-elements")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/general/advanced-custom-elements/:id")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/general/advanced-presets-elements")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/general/delete-advanced-elements")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/general/custom-voices")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/general/custom-voices/:id")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/general/custom-voices")
+	assertRouteRegistered(http.MethodGet, "/kling/v1/general/presets-voices")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/general/delete-voices")
+	assertRouteRegistered(http.MethodPost, "/kling/v1/videos/image-recognize")
+}
+
 func TestConfigurableResourceCommonAssetsUploadDoesNotFallThroughInFullRouterOrder(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

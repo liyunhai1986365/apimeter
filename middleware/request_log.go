@@ -137,8 +137,8 @@ func isRelayRequestLogEndpoint(method string, path string) bool {
 		return isRelayMidjourneyRequestLogEndpoint(method, path[strings.Index(path, "/mj/")+len("/mj"):])
 	case strings.HasPrefix(path, "/suno/"):
 		return isRelaySunoRequestLogEndpoint(method, strings.TrimPrefix(path, "/suno"))
-	case strings.HasPrefix(path, "/kling/v1/"):
-		return isRelayKlingRequestLogEndpoint(method, strings.TrimPrefix(path, "/kling/v1"))
+	case strings.HasPrefix(path, "/kling/v2/"):
+		return isRelayKlingRequestLogEndpoint(method, strings.TrimPrefix(path, "/kling/v2"))
 	case path == "/jimeng" || path == "/jimeng/":
 		return method == http.MethodPost
 	default:
@@ -250,8 +250,8 @@ func isTaskFetchRequestLogPath(method string, path string) bool {
 		return strings.HasPrefix(path, "/v1/tasks/") ||
 			strings.HasPrefix(path, "/v1/video/generations/") ||
 			strings.HasPrefix(path, "/v1/videos/") ||
-			strings.HasPrefix(path, "/kling/v1/videos/text2video/") ||
-			strings.HasPrefix(path, "/kling/v1/videos/image2video/") ||
+			strings.HasPrefix(path, "/kling/v2/videos/text2video/") ||
+			strings.HasPrefix(path, "/kling/v2/videos/image2video/") ||
 			strings.HasPrefix(path, "/suno/fetch/") ||
 			strings.HasPrefix(path, "/mj/task/") ||
 			strings.Contains(path, "/mj/task/")

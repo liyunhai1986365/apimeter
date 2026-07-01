@@ -42,14 +42,14 @@ func SetVideoRouter(router *gin.Engine) {
 
 	registerConfigurableNativeRoutes(router)
 
-	klingV1Router := router.Group("/kling/v1")
-	klingV1Router.Use(middleware.RouteTag("relay"))
-	klingV1Router.Use(middleware.KlingRequestConvert(), middleware.TokenAuth(), middleware.Distribute())
+	klingV2Router := router.Group("/kling/v2")
+	klingV2Router.Use(middleware.RouteTag("relay"))
+	klingV2Router.Use(middleware.KlingRequestConvert(), middleware.TokenAuth(), middleware.Distribute())
 	{
-		klingV1Router.POST("/videos/text2video", controller.RelayTask)
-		klingV1Router.POST("/videos/image2video", controller.RelayTask)
-		klingV1Router.GET("/videos/text2video/:task_id", controller.RelayTaskFetch)
-		klingV1Router.GET("/videos/image2video/:task_id", controller.RelayTaskFetch)
+		klingV2Router.POST("/videos/text2video", controller.RelayTask)
+		klingV2Router.POST("/videos/image2video", controller.RelayTask)
+		klingV2Router.GET("/videos/text2video/:task_id", controller.RelayTaskFetch)
+		klingV2Router.GET("/videos/image2video/:task_id", controller.RelayTaskFetch)
 	}
 
 	// Jimeng official API routes - direct mapping to official API format

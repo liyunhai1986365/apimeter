@@ -16,7 +16,9 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -30,12 +32,28 @@ func RelayConfigurableResource(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
 		return
 	}
+	requestModel := configurableResourceRequestModel(c, resource)
+	if requestModel != "" {
+		common.SetContextKey(c, constant.ContextKeyOriginalModel, requestModel)
+		c.Set("upstream_model_name", requestModel)
+	}
 	c.Set(middleware.ContextKeyConfigurableResourceProfileID, profile.ID)
 	c.Set(middleware.ContextKeyConfigurableResourceID, resource.ID)
-	if apiErr := middleware.SetupContextForSelectedChannel(c, channelModel, ""); apiErr != nil {
+	if apiErr := middleware.SetupContextForSelectedChannel(c, channelModel, requestModel); apiErr != nil {
 		c.JSON(apiErr.StatusCode, gin.H{"error": apiErr.ToOpenAIError()})
 		return
 	}
+	billingInfo, apiErr := beginConfigurableResourceBilling(c, profile, resource, requestModel)
+	if apiErr != nil {
+		c.JSON(apiErr.StatusCode, gin.H{"error": apiErr.ToOpenAIError()})
+		return
+	}
+	billingSettled := false
+	defer func() {
+		if billingInfo != nil && !billingSettled && billingInfo.Billing != nil {
+			billingInfo.Billing.Refund(c)
+		}
+	}()
 
 	client, err := service.GetHttpClientWithProxy(channelModel.GetSetting().Proxy)
 	if err != nil {
@@ -66,6 +84,9 @@ func RelayConfigurableResource(c *gin.Context) {
 	))
 	resp, err := client.Do(upstreamReq)
 	if err != nil {
+		if billingInfo != nil {
+			service.ChargeViolationFeeIfNeeded(c, billingInfo, types.NewError(err, types.ErrorCodeDoRequestFailed))
+		}
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return
 	}
@@ -97,6 +118,16 @@ func RelayConfigurableResource(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
+		}
+	}
+	if billingInfo != nil {
+		if resp.StatusCode >= http.StatusBadRequest {
+			service.ChargeViolationFeeIfNeeded(c, billingInfo, types.NewErrorWithStatusCode(fmt.Errorf("configurable resource upstream status %d", resp.StatusCode), types.ErrorCodeBadResponseStatusCode, resp.StatusCode))
+		} else if err := service.SettleBilling(c, billingInfo, billingInfo.PriceData.Quota); err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		} else {
+			billingSettled = true
 		}
 	}
 	contentType := resp.Header.Get("Content-Type")
@@ -202,10 +233,10 @@ func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path s
 		resource *configurable.ResourceConfig
 	}
 	candidates := make([]candidate, 0, len(channels))
-	requestModel := configurableResourceRequestModel(c)
 	for i := range channels {
 		for _, group := range groups {
 			profile, resource, ok := configurableResourceForChannelEndpoint(&channels[i], method, path, group)
+			requestModel := configurableResourceRequestModel(c, resource)
 			if ok && configurableResourceChannelAbilityEnabled(&channels[i], group, requestModel) {
 				candidates = append(candidates, candidate{channel: &channels[i], profile: profile, resource: resource})
 				break
@@ -258,18 +289,65 @@ func configurableResourceForChannelEndpoint(channelModel *model.Channel, method,
 	return profile, resource, true
 }
 
-func configurableResourceRequestModel(c *gin.Context) string {
+func configurableResourceRequestModel(c *gin.Context, resource *configurable.ResourceConfig) string {
 	source, err := configurableResourceSource(c)
 	if err != nil {
 		return ""
 	}
-	modelName, _ := source["model"].(string)
-	if strings.TrimSpace(modelName) == "" {
-		if query, ok := source["query"].(map[string]any); ok {
-			modelName, _ = query["model"].(string)
+	modelName := firstConfigurableResourceModelName(source, "model", "model_name")
+	if modelName != "" {
+		return modelName
+	}
+	if query, ok := source["query"].(map[string]any); ok {
+		modelName = firstConfigurableResourceModelName(query, "model", "model_name")
+	}
+	if modelName != "" {
+		return modelName
+	}
+	if resource != nil {
+		return strings.TrimSpace(resource.Model)
+	}
+	return ""
+}
+
+func firstConfigurableResourceModelName(source map[string]any, keys ...string) string {
+	for _, key := range keys {
+		value, _ := source[key].(string)
+		if strings.TrimSpace(value) != "" {
+			return strings.TrimSpace(value)
 		}
 	}
-	return strings.TrimSpace(modelName)
+	return ""
+}
+
+func beginConfigurableResourceBilling(c *gin.Context, profile *configurable.Profile, resource *configurable.ResourceConfig, modelName string) (*relaycommon.RelayInfo, *types.NewAPIError) {
+	if profile == nil || resource == nil || !resource.Billing.Enabled {
+		return nil, nil
+	}
+	modelName = strings.TrimSpace(modelName)
+	if modelName == "" {
+		return nil, nil
+	}
+	info, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeGenRelayInfoFailed, types.ErrOptionWithStatusCode(http.StatusBadRequest))
+	}
+	info.OriginModelName = modelName
+	info.RequestModelName = modelName
+	info.CurrentModelName = modelName
+	info.ForcePreConsume = true
+	priceData, err := helper.ModelPriceHelperPerCall(c, info)
+	if err != nil {
+		return nil, types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))
+	}
+	info.PriceData = priceData
+	if priceData.FreeModel {
+		return info, nil
+	}
+	if apiErr := service.PreConsumeBilling(c, priceData.Quota, info); apiErr != nil {
+		return nil, apiErr
+	}
+	return info, nil
 }
 
 func configurableResourceChannelAbilityEnabled(channelModel *model.Channel, group string, modelName string) bool {

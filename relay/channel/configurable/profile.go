@@ -73,15 +73,21 @@ type NativeEndpointConfig struct {
 }
 
 type ResourceConfig struct {
-	ID          string             `yaml:"id"`
-	Name        string             `yaml:"name"`
-	Public      EndpointConfig     `yaml:"public"`
-	Aliases     []EndpointConfig   `yaml:"aliases"`
-	Upstream    EndpointConfig     `yaml:"upstream"`
-	PreRequests []PreRequestConfig `yaml:"pre_requests"`
-	PathParams  map[string]string  `yaml:"path_params"`
-	Request     BodyConfig         `yaml:"request"`
-	Response    ResponseConfig     `yaml:"response"`
+	ID          string                `yaml:"id"`
+	Name        string                `yaml:"name"`
+	Model       string                `yaml:"model"`
+	Billing     ResourceBillingConfig `yaml:"billing"`
+	Public      EndpointConfig        `yaml:"public"`
+	Aliases     []EndpointConfig      `yaml:"aliases"`
+	Upstream    EndpointConfig        `yaml:"upstream"`
+	PreRequests []PreRequestConfig    `yaml:"pre_requests"`
+	PathParams  map[string]string     `yaml:"path_params"`
+	Request     BodyConfig            `yaml:"request"`
+	Response    ResponseConfig        `yaml:"response"`
+}
+
+type ResourceBillingConfig struct {
+	Enabled bool `yaml:"enabled"`
 }
 
 type PreRequestConfig struct {

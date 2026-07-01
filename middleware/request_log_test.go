@@ -214,7 +214,7 @@ func TestRequestLogEndpointFilterOnlyAllowsRelayRequests(t *testing.T) {
 		{http.MethodPost, "/mj/submit/imagine"},
 		{http.MethodPost, "/relax/mj/submit/imagine"},
 		{http.MethodPost, "/suno/submit/music"},
-		{http.MethodPost, "/kling/v1/videos/text2video"},
+		{http.MethodPost, "/kling/v2/videos/text2video"},
 		{http.MethodPost, "/jimeng/"},
 	}
 	for _, tc := range allowed {
@@ -277,7 +277,7 @@ func TestTaskFetchRequestLogSkipsOnlyInProgressSuccessResponses(t *testing.T) {
 		{
 			name:       "failure task",
 			method:     http.MethodGet,
-			path:       "/kling/v1/videos/text2video/task_123",
+			path:       "/kling/v2/videos/text2video/task_123",
 			statusCode: http.StatusOK,
 			body:       `{"task_id":"task_123","task_status":"failed"}`,
 			wantSkip:   false,

@@ -21,15 +21,97 @@ video:
         value: Bearer {kling_jwt}
         transform: kling_jwt
     path_variants:
+      - path: /image-to-video/kling-3.0-turbo
+        field: request.metadata.kling_capability
+        equals: turbo-image
+      - path: /text-to-video/kling-3.0-turbo
+        field: request.metadata.kling_capability
+        equals: turbo-text
       - path: /v1/videos/image2video
         field: request.image
         non_empty: true
+      - path: /v1/videos/omni-video
+        field: request.metadata.kling_capability
+        equals: omni-video
+      - path: /v1/videos/motion-control
+        field: request.metadata.kling_capability
+        equals: motion-control
+      - path: /v1/videos/multi-image2video
+        field: request.metadata.kling_capability
+        equals: multi-image2video
+      - path: /v1/videos/multi-elements
+        field: request.metadata.kling_capability
+        equals: multi-elements
+      - path: /v1/videos/video-extend
+        field: request.metadata.kling_capability
+        equals: video-extend
+      - path: /v1/videos/advanced-lip-sync
+        field: request.metadata.kling_capability
+        equals: advanced-lip-sync
+      - path: /v1/videos/avatar/image2video
+        field: request.metadata.kling_capability
+        equals: avatar-image2video
+      - path: /v1/audio/text-to-audio
+        field: request.metadata.kling_capability
+        equals: text-to-audio
+      - path: /v1/audio/video-to-audio
+        field: request.metadata.kling_capability
+        equals: video-to-audio
     body:
       fields:
         - to: model_name
           from: upstream_model
+          when_model_contains: kling-v
+          omit_empty: true
+        - to: model_name
+          from: upstream_model
+          when_model_contains: kling-o
+          omit_empty: true
         - to: prompt
           from: request.prompt
+          omit_empty: true
+        - to: contents
+          from: request.metadata.contents
+          append: true
+          omit_empty: true
+        - to: contents.0.type
+          value: prompt
+          when_model_contains: kling-3.0-turbo
+        - to: contents.0.text
+          from: request.prompt
+          when_model_contains: kling-3.0-turbo
+        - to: contents.1.type
+          value: first_frame
+          when_model_contains: kling-3.0-turbo
+        - to: contents.1.url
+          from: request.image
+          when_model_contains: kling-3.0-turbo
+          omit_empty: true
+        - to: settings.resolution
+          from: request.size
+          when_model_contains: kling-3.0-turbo
+          omit_empty: true
+        - to: settings.duration
+          from: request.seconds
+          fallback_from: request.duration
+          transform: to_int
+          when_model_contains: kling-3.0-turbo
+          omit_empty: true
+        - to: settings
+          from: request.metadata.settings
+          omit_empty: true
+        - to: options.callback_url
+          from: request.metadata.callback_url
+          when_model_contains: kling-3.0-turbo
+          omit_empty: true
+        - to: options.external_task_id
+          from: request.metadata.external_task_id
+          when_model_contains: kling-3.0-turbo
+          omit_empty: true
+        - to: options.watermark_info
+          from: request.metadata.watermark_info
+          when_model_contains: kling-3.0-turbo
+          omit_empty: true
         - to: negative_prompt
           from: request.metadata.negative_prompt
           omit_empty: true
@@ -71,6 +153,29 @@ video:
         - to: external_task_id
           from: request.metadata.external_task_id
           omit_empty: true
+        - to: images
+          from: request.images
+          omit_empty: true
+        - to: video
+          from: request.metadata.video
+          fallback_from: request.metadata.video_url
+          omit_empty: true
+        - to: video_id
+          from: request.metadata.video_id
+          omit_empty: true
+        - to: audio
+          from: request.metadata.audio
+          fallback_from: request.metadata.audio_url
+          omit_empty: true
+        - to: face_id
+          from: request.metadata.face_id
+          omit_empty: true
+        - to: selection_id
+          from: request.metadata.selection_id
+          omit_empty: true
+        - to: trajectory
+          from: request.metadata.trajectory
+          omit_empty: true
     response:
       task_id_path: data.task_id
       status_path: data.task_status
@@ -95,9 +200,39 @@ video:
         value: Bearer {kling_jwt}
         transform: kling_jwt
     path_variants:
+      - path: /tasks
+        field: kling_capability
+        equals: turbo
       - path: /v1/videos/image2video/{task_id}
         field: action
         equals: generate
+      - path: /v1/videos/omni-video/{task_id}
+        field: kling_capability
+        equals: omni-video
+      - path: /v1/videos/motion-control/{task_id}
+        field: kling_capability
+        equals: motion-control
+      - path: /v1/videos/multi-image2video/{task_id}
+        field: kling_capability
+        equals: multi-image2video
+      - path: /v1/videos/multi-elements/{task_id}
+        field: kling_capability
+        equals: multi-elements
+      - path: /v1/videos/video-extend/{task_id}
+        field: kling_capability
+        equals: video-extend
+      - path: /v1/videos/advanced-lip-sync/{task_id}
+        field: kling_capability
+        equals: advanced-lip-sync
+      - path: /v1/videos/avatar/image2video/{task_id}
+        field: kling_capability
+        equals: avatar-image2video
+      - path: /v1/audio/text-to-audio/{task_id}
+        field: kling_capability
+        equals: text-to-audio
+      - path: /v1/audio/video-to-audio/{task_id}
+        field: kling_capability
+        equals: video-to-audio
     response:
       task_id_path: data.task_id
       status_path: data.task_status
@@ -128,3 +263,643 @@ video:
         - to: metadata.watermarked_url
           from: data.task_result.videos.0.watermarked_url
           omit_empty: true
+resources:
+  - id: turbo_text2video_create
+    name: Kling 3.0 Turbo Text To Video Create
+    model: kling-3.0-turbo
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/text-to-video/kling-3.0-turbo
+    aliases:
+      - method: POST
+        path: /text-to-video/kling-3.0-turbo
+    upstream:
+      method: POST
+      path: /text-to-video/kling-3.0-turbo
+      headers: &kling_jwt_headers
+        - name: Authorization
+          value: Bearer {kling_jwt}
+          transform: kling_jwt
+    response: &kling_passthrough_response
+      passthrough: true
+  - id: turbo_image2video_create
+    name: Kling 3.0 Turbo Image To Video Create
+    model: kling-3.0-turbo
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/image-to-video/kling-3.0-turbo
+    aliases:
+      - method: POST
+        path: /image-to-video/kling-3.0-turbo
+    upstream:
+      method: POST
+      path: /image-to-video/kling-3.0-turbo
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: turbo_tasks_query
+    name: Kling 3.0 Turbo Tasks Query
+    public:
+      method: GET
+      path: /kling/tasks
+    upstream:
+      method: GET
+      path: /tasks
+      headers: *kling_jwt_headers
+    request:
+      fields:
+        - to: task_ids
+          from: query.task_ids
+          omit_empty: true
+        - to: external_task_ids
+          from: query.external_task_ids
+          omit_empty: true
+    response:
+      passthrough: true
+  - id: turbo_tasks_cursor
+    name: Kling 3.0 Turbo Tasks Cursor
+    public:
+      method: POST
+      path: /kling/tasks
+    upstream:
+      method: POST
+      path: /tasks
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: text2video_create
+    name: Kling Text To Video Create
+    public:
+      method: POST
+      path: /kling/v1/videos/text2video
+    upstream:
+      method: POST
+      path: /v1/videos/text2video
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: text2video_get
+    name: Kling Text To Video Get
+    public:
+      method: GET
+      path: /kling/v1/videos/text2video/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/text2video/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: text2video_list
+    name: Kling Text To Video List
+    public:
+      method: GET
+      path: /kling/v1/videos/text2video
+    upstream:
+      method: GET
+      path: /v1/videos/text2video
+      headers: *kling_jwt_headers
+    request: &kling_page_query
+      fields:
+        - to: pageNum
+          from: query.pageNum
+          omit_empty: true
+        - to: pageSize
+          from: query.pageSize
+          omit_empty: true
+    response: *kling_passthrough_response
+  - id: image2video_create
+    name: Kling Image To Video Create
+    public:
+      method: POST
+      path: /kling/v1/videos/image2video
+    upstream:
+      method: POST
+      path: /v1/videos/image2video
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: image2video_get
+    name: Kling Image To Video Get
+    public:
+      method: GET
+      path: /kling/v1/videos/image2video/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/image2video/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: image2video_list
+    name: Kling Image To Video List
+    public:
+      method: GET
+      path: /kling/v1/videos/image2video
+    upstream:
+      method: GET
+      path: /v1/videos/image2video
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: omni_video_list
+    name: Kling Omni Video List
+    public:
+      method: GET
+      path: /kling/v1/videos/omni-video
+    upstream:
+      method: GET
+      path: /v1/videos/omni-video
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: omni_video_create
+    name: Kling Omni Video Create
+    public:
+      method: POST
+      path: /kling/v1/videos/omni-video
+    upstream:
+      method: POST
+      path: /v1/videos/omni-video
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: omni_video_get
+    name: Kling Omni Video Get
+    public:
+      method: GET
+      path: /kling/v1/videos/omni-video/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/omni-video/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: motion_control_list
+    name: Kling Motion Control List
+    public:
+      method: GET
+      path: /kling/v1/videos/motion-control
+    upstream:
+      method: GET
+      path: /v1/videos/motion-control
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: motion_control_create
+    name: Kling Motion Control Create
+    public:
+      method: POST
+      path: /kling/v1/videos/motion-control
+    upstream:
+      method: POST
+      path: /v1/videos/motion-control
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: motion_control_get
+    name: Kling Motion Control Get
+    public:
+      method: GET
+      path: /kling/v1/videos/motion-control/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/motion-control/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_image2video_list
+    name: Kling Multi Image To Video List
+    public:
+      method: GET
+      path: /kling/v1/videos/multi-image2video
+    upstream:
+      method: GET
+      path: /v1/videos/multi-image2video
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: multi_image2video_create
+    name: Kling Multi Image To Video Create
+    public:
+      method: POST
+      path: /kling/v1/videos/multi-image2video
+    upstream:
+      method: POST
+      path: /v1/videos/multi-image2video
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_image2video_get
+    name: Kling Multi Image To Video Get
+    public:
+      method: GET
+      path: /kling/v1/videos/multi-image2video/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/multi-image2video/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_elements_init_selection
+    name: Kling Multi Elements Init Selection
+    public:
+      method: POST
+      path: /kling/v1/videos/multi-elements/init-selection
+    upstream:
+      method: POST
+      path: /v1/videos/multi-elements/init-selection
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_elements_add_selection
+    name: Kling Multi Elements Add Selection
+    public:
+      method: POST
+      path: /kling/v1/videos/multi-elements/add-selection
+    upstream:
+      method: POST
+      path: /v1/videos/multi-elements/add-selection
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_elements_delete_selection
+    name: Kling Multi Elements Delete Selection
+    public:
+      method: POST
+      path: /kling/v1/videos/multi-elements/delete-selection
+    upstream:
+      method: POST
+      path: /v1/videos/multi-elements/delete-selection
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_elements_clear_selection
+    name: Kling Multi Elements Clear Selection
+    public:
+      method: POST
+      path: /kling/v1/videos/multi-elements/clear-selection
+    upstream:
+      method: POST
+      path: /v1/videos/multi-elements/clear-selection
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_elements_preview_selection
+    name: Kling Multi Elements Preview Selection
+    public:
+      method: POST
+      path: /kling/v1/videos/multi-elements/preview-selection
+    upstream:
+      method: POST
+      path: /v1/videos/multi-elements/preview-selection
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_elements_task
+    name: Kling Multi Elements Task
+    public:
+      method: POST
+      path: /kling/v1/videos/multi-elements
+    upstream:
+      method: POST
+      path: /v1/videos/multi-elements
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: multi_elements_list
+    name: Kling Multi Elements List
+    public:
+      method: GET
+      path: /kling/v1/videos/multi-elements
+    upstream:
+      method: GET
+      path: /v1/videos/multi-elements
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: multi_elements_get
+    name: Kling Multi Elements Get
+    public:
+      method: GET
+      path: /kling/v1/videos/multi-elements/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/multi-elements/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: video_extend_create
+    name: Kling Video Extend Create
+    model: kling_extend
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/videos/video-extend
+    upstream:
+      method: POST
+      path: /v1/videos/video-extend
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: video_extend_get
+    name: Kling Video Extend Get
+    model: kling_extend
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/videos/video-extend/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/video-extend/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: video_extend_list
+    name: Kling Video Extend List
+    model: kling_extend
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/videos/video-extend
+    upstream:
+      method: GET
+      path: /v1/videos/video-extend
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: identify_face
+    name: Kling Identify Face
+    model: kling_image_recognize
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/videos/identify-face
+    upstream:
+      method: POST
+      path: /v1/videos/identify-face
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: lip_sync_list
+    name: Kling Lip Sync List
+    public:
+      method: GET
+      path: /kling/v1/videos/advanced-lip-sync
+    upstream:
+      method: GET
+      path: /v1/videos/advanced-lip-sync
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: lip_sync_create
+    name: Kling Lip Sync Create
+    public:
+      method: POST
+      path: /kling/v1/videos/advanced-lip-sync
+    upstream:
+      method: POST
+      path: /v1/videos/advanced-lip-sync
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: lip_sync_get
+    name: Kling Lip Sync Get
+    public:
+      method: GET
+      path: /kling/v1/videos/advanced-lip-sync/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/advanced-lip-sync/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: avatar_image2video_list
+    name: Kling Avatar Image To Video List
+    model: kling_avatar_image2video
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/videos/avatar/image2video
+    upstream:
+      method: GET
+      path: /v1/videos/avatar/image2video
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: avatar_image2video_create
+    name: Kling Avatar Image To Video Create
+    model: kling_avatar_image2video
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/videos/avatar/image2video
+    upstream:
+      method: POST
+      path: /v1/videos/avatar/image2video
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: avatar_image2video_get
+    name: Kling Avatar Image To Video Get
+    model: kling_avatar_image2video
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/videos/avatar/image2video/{id}
+    upstream:
+      method: GET
+      path: /v1/videos/avatar/image2video/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: tts
+    name: Kling Avatar Text To Speech
+    public:
+      method: POST
+      path: /kling/v1/audio/tts
+    upstream:
+      method: POST
+      path: /v1/audio/tts
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: text_to_audio_list
+    name: Kling Text To Audio List
+    model: kling_audio_text_to_audio
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/audio/text-to-audio
+    upstream:
+      method: GET
+      path: /v1/audio/text-to-audio
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: text_to_audio_create
+    name: Kling Text To Audio Create
+    model: kling_audio_text_to_audio
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/audio/text-to-audio
+    upstream:
+      method: POST
+      path: /v1/audio/text-to-audio
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: text_to_audio_get
+    name: Kling Text To Audio Get
+    model: kling_audio_text_to_audio
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/audio/text-to-audio/{id}
+    upstream:
+      method: GET
+      path: /v1/audio/text-to-audio/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: video_to_audio_list
+    name: Kling Video To Audio List
+    model: kling_audio_video_to_audio
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/audio/video-to-audio
+    upstream:
+      method: GET
+      path: /v1/audio/video-to-audio
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: video_to_audio_create
+    name: Kling Video To Audio Create
+    model: kling_audio_video_to_audio
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/audio/video-to-audio
+    upstream:
+      method: POST
+      path: /v1/audio/video-to-audio
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: video_to_audio_get
+    name: Kling Video To Audio Get
+    model: kling_audio_video_to_audio
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/audio/video-to-audio/{id}
+    upstream:
+      method: GET
+      path: /v1/audio/video-to-audio/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: advanced_custom_elements_create
+    name: Kling Advanced Custom Elements Create
+    model: kling_multi_elements_submit
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/general/advanced-custom-elements
+    upstream:
+      method: POST
+      path: /v1/general/advanced-custom-elements
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: advanced_custom_elements_get
+    name: Kling Advanced Custom Elements Get
+    model: kling_multi_elements_submit
+    billing:
+      enabled: true
+    public:
+      method: GET
+      path: /kling/v1/general/advanced-custom-elements/{id}
+    upstream:
+      method: GET
+      path: /v1/general/advanced-custom-elements/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: advanced_presets_elements
+    name: Kling Advanced Presets Elements
+    model: kling_multi_elements_submit
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/general/advanced-presets-elements
+    upstream:
+      method: POST
+      path: /v1/general/advanced-presets-elements
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: delete_advanced_elements
+    name: Kling Delete Advanced Elements
+    model: kling_multi_elements_submit
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/general/delete-advanced-elements
+    upstream:
+      method: POST
+      path: /v1/general/delete-advanced-elements
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: custom_voices_create
+    name: Kling Custom Voices Create
+    public:
+      method: POST
+      path: /kling/v1/general/custom-voices
+    upstream:
+      method: POST
+      path: /v1/general/custom-voices
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: custom_voices_get
+    name: Kling Custom Voices Get
+    public:
+      method: GET
+      path: /kling/v1/general/custom-voices/{id}
+    upstream:
+      method: GET
+      path: /v1/general/custom-voices/{id}
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: custom_voices_list
+    name: Kling Custom Voices List
+    public:
+      method: GET
+      path: /kling/v1/general/custom-voices
+    upstream:
+      method: GET
+      path: /v1/general/custom-voices
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: presets_voices_list
+    name: Kling Presets Voices List
+    public:
+      method: GET
+      path: /kling/v1/general/presets-voices
+    upstream:
+      method: GET
+      path: /v1/general/presets-voices
+      headers: *kling_jwt_headers
+    request: *kling_page_query
+    response: *kling_passthrough_response
+  - id: delete_voices
+    name: Kling Delete Voices
+    public:
+      method: POST
+      path: /kling/v1/general/delete-voices
+    upstream:
+      method: POST
+      path: /v1/general/delete-voices
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response
+  - id: image_recognize
+    name: Kling Image Recognize
+    model: kling_image_recognize
+    billing:
+      enabled: true
+    public:
+      method: POST
+      path: /kling/v1/videos/image-recognize
+    upstream:
+      method: POST
+      path: /v1/videos/image-recognize
+      headers: *kling_jwt_headers
+    response: *kling_passthrough_response

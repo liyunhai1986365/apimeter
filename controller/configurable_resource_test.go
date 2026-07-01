@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -534,6 +535,140 @@ func TestRelayConfigurableResourceProxiesArkTaskAssetUploadAndQuery(t *testing.T
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
 	require.JSONEq(t, `{"model":"doubao-asset","input":{"action":"query","asset_id":"asset-20260701121457-xpd75"}}`, queryBody)
 	require.JSONEq(t, `{"code":"MissingParameter.Id","message":"The required parameter Id is missing.","data":{"ResponseMetadata":{"RequestId":"20260701122118A6D201C3CBA463E45365","Action":"GetAsset","Version":"2024-01-01","Service":"ark","Region":"cn-beijing","Error":{"Code":"MissingParameter.Id","Message":"The required parameter Id is missing.","Data":{"__Message.parameter":"Id"}}}}}`, recorder.Body.String())
+}
+
+func TestRelayConfigurableResourceBillsEndpointDefaultModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := openConfigurableResourceTestDB(t)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"kling_extend":0.002}`))
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(originalModelPrice))
+	})
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/v1/videos/video-extend", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"code":0,"data":{"task_id":"task_123"}}`))
+	}))
+	defer upstream.Close()
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       10,
+		Username: "resource-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:      10,
+		Name:        "resource-token",
+		Key:         "resourcetokenkey",
+		Status:      common.TokenStatusEnabled,
+		CreatedTime: 1,
+		ExpiredTime: -1,
+		RemainQuota: 100000,
+		Group:       "default",
+	}).Error)
+
+	channel := &model.Channel{
+		Id:          20,
+		Type:        constant.ChannelTypeConfigurable,
+		Key:         "upstream-secret",
+		Status:      common.ChannelStatusEnabled,
+		Name:        "kling-video",
+		Group:       "default",
+		Models:      "kling_extend",
+		BaseURL:     &upstream.URL,
+		CreatedTime: common.GetTimestamp(),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "kling-video"},
+	})
+	require.NoError(t, db.Create(channel).Error)
+	createConfigurableResourceAbility(t, db, channel.Id, "kling_extend", true, 0)
+
+	router := gin.New()
+	router.POST("/kling/v1/videos/video-extend", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/kling/v1/videos/video-extend", strings.NewReader(`{"video_id":"task_123"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer resourcetokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"code":0,"data":{"task_id":"task_123"}}`, recorder.Body.String())
+
+	var user model.User
+	require.NoError(t, db.First(&user, 10).Error)
+	require.Equal(t, 99000, user.Quota)
+	token, err := model.GetTokenByKey("resourcetokenkey", false)
+	require.NoError(t, err)
+	require.Equal(t, 99000, token.RemainQuota)
+}
+
+func TestRelayConfigurableResourceBillsAnyProfileWhenResourceBillingEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := openConfigurableResourceTestDB(t)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+	originalModelPrice := ratio_setting.ModelPrice2JSONString()
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"generic_resource_model":0.002}`))
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(originalModelPrice))
+	})
+	require.NoError(t, db.Create(&model.User{
+		Id:       10,
+		Username: "resource-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, db.Create(&model.Token{
+		Id:          1,
+		UserId:      10,
+		Name:        "resource-token",
+		Key:         "resourcetokenkey",
+		Status:      common.TokenStatusEnabled,
+		CreatedTime: 1,
+		ExpiredTime: -1,
+		RemainQuota: 100000,
+		Group:       "default",
+	}).Error)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/vendor/task", strings.NewReader(`{}`))
+	common.SetContextKey(c, constant.ContextKeyOriginalModel, "generic_resource_model")
+	common.SetContextKey(c, constant.ContextKeyUserId, 10)
+	common.SetContextKey(c, constant.ContextKeyUserQuota, 100000)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyUsingGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenId, 1)
+	common.SetContextKey(c, constant.ContextKeyTokenKey, "resourcetokenkey")
+	common.SetContextKey(c, constant.ContextKeyTokenGroup, "default")
+
+	info, apiErr := beginConfigurableResourceBilling(c, &configurable.Profile{ID: "generic-resource"}, &configurable.ResourceConfig{
+		Model:   "generic_resource_model",
+		Billing: configurable.ResourceBillingConfig{Enabled: true},
+	}, "generic_resource_model")
+
+	require.Nil(t, apiErr)
+	require.NotNil(t, info)
+	require.Equal(t, "generic_resource_model", info.OriginModelName)
+	require.Equal(t, 1000, info.PriceData.Quota)
+
+	var user model.User
+	require.NoError(t, db.First(&user, 10).Error)
+	require.Equal(t, 99000, user.Quota)
 }
 
 func TestRelayConfigurableResourceProxiesServiceInferenceAssetLifecycle(t *testing.T) {
@@ -1548,4 +1683,103 @@ func TestBuildConfigurableResourceRequestMapsQueryFields(t *testing.T) {
 	req, err := buildConfigurableResourceRequest(c, channel, resource)
 	require.NoError(t, err)
 	require.Equal(t, "https://upstream.example.com/material/assets?asset_type=Image&name=avatar", req.URL.String())
+}
+
+func TestBuildKlingConfigurableResourceRequestKeepsOriginalUpstreamEndpoint(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/kling/text-to-video/kling-3.0-turbo", bytes.NewReader([]byte(`{
+		"contents":[{"type":"prompt","text":"A train window shot"}]
+	}`)))
+	c.Request.Header.Set("Content-Type", "application/json")
+	require.NoError(t, func() error {
+		_, err := common.GetBodyStorage(c)
+		return err
+	}())
+
+	channel := &model.Channel{
+		BaseURL: common.GetPointer("https://api-beijing.klingai.com"),
+	}
+	profile, ok := configurable.GetProfile("kling-video")
+	require.True(t, ok)
+	resource, ok := profile.ResourceByID("turbo_text2video_create")
+	require.True(t, ok)
+
+	req, err := buildConfigurableResourceRequest(c, channel, resource)
+	require.NoError(t, err)
+	require.Equal(t, "https://api-beijing.klingai.com/text-to-video/kling-3.0-turbo", req.URL.String())
+	require.Equal(t, http.MethodPost, req.Method)
+}
+
+func TestBuildKlingV1ConfigurableResourceRequestPreservesOriginalBody(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	originalBody := []byte(`{
+		"model_name":"kling-v2-6",
+		"prompt":"一只猫在雨夜街道上奔跑",
+		"negative_prompt":"模糊",
+		"callback_url":"https://example.com/callback",
+		"custom_options":{"seed":123,"keep":true}
+	}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/kling/v1/videos/text2video", bytes.NewReader(originalBody))
+	c.Request.Header.Set("Content-Type", "application/json")
+	require.NoError(t, func() error {
+		_, err := common.GetBodyStorage(c)
+		return err
+	}())
+
+	channel := &model.Channel{
+		BaseURL: common.GetPointer("https://api-beijing.klingai.com"),
+	}
+	profile, ok := configurable.GetProfile("kling-video")
+	require.True(t, ok)
+	resource, ok := profile.ResourceByID("text2video_create")
+	require.True(t, ok)
+
+	req, err := buildConfigurableResourceRequest(c, channel, resource)
+	require.NoError(t, err)
+	require.Equal(t, "https://api-beijing.klingai.com/v1/videos/text2video", req.URL.String())
+	require.Equal(t, http.MethodPost, req.Method)
+	body, err := io.ReadAll(req.Body)
+	require.NoError(t, err)
+	require.JSONEq(t, string(originalBody), string(body))
+}
+
+func TestKlingConfigurableResourceRequestModelPrefersExplicitModelName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model_name":"kling-v2-6","prompt":"scene"}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/kling/v1/videos/motion-control", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	require.NoError(t, func() error {
+		_, err := common.GetBodyStorage(c)
+		return err
+	}())
+
+	resource := &configurable.ResourceConfig{Model: "fallback-model"}
+
+	require.Equal(t, "kling-v2-6", configurableResourceRequestModel(c, resource))
+}
+
+func TestKlingConfigurableResourceRequestModelUsesEndpointDefaultModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/kling/v1/videos/video-extend", bytes.NewReader([]byte(`{"video_id":"task_123"}`)))
+	c.Request.Header.Set("Content-Type", "application/json")
+	require.NoError(t, func() error {
+		_, err := common.GetBodyStorage(c)
+		return err
+	}())
+
+	profile, ok := configurable.GetProfile("kling-video")
+	require.True(t, ok)
+	resource, ok := profile.ResourceByID("video_extend_create")
+	require.True(t, ok)
+
+	modelName := configurableResourceRequestModel(c, resource)
+	require.Equal(t, "kling_extend", modelName)
+	common.SetContextKey(c, constant.ContextKeyOriginalModel, modelName)
+	c.Set("upstream_model_name", modelName)
+	require.Equal(t, "kling_extend", common.GetContextKeyString(c, constant.ContextKeyOriginalModel))
+	require.Equal(t, "kling_extend", c.GetString("upstream_model_name"))
 }
