@@ -922,6 +922,30 @@ func TestTaskAdaptorParsesSeedanceArkTaskAssetsOfficialResponses(t *testing.T) {
 	}
 }
 
+func TestTaskAdaptorBuildsSeedanceArkTaskAssetsURLsFromRootBaseURL(t *testing.T) {
+	info := seedanceArkTaskAssetsRelayInfo("doubao-seedance-2-0-mini-260615")
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+
+	url, err := adaptor.BuildRequestURL(info)
+	require.NoError(t, err)
+	require.Equal(t, "https://api.ephone.ai/doubao/api/v3/contents/generations/tasks", url)
+
+	var requestedPath string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedPath = r.URL.Path
+		require.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"cgt-20260701195008-fxr55","status":"succeeded"}`))
+	}))
+	defer upstream.Close()
+
+	resp, err := adaptor.FetchTask(upstream.URL, "sk-test", map[string]any{"task_id": "cgt-20260701195008-fxr55"}, "")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	require.Equal(t, "/doubao/api/v3/contents/generations/tasks/cgt-20260701195008-fxr55", requestedPath)
+}
+
 func TestTaskAdaptorParsesUsageTotalTokensBeforeCompletionTokens(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	info := &relaycommon.RelayInfo{
@@ -1423,7 +1447,7 @@ func seedanceArkTaskAssetsRelayInfo(upstreamModel string) *relaycommon.RelayInfo
 		OriginModelName: upstreamModel,
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelType:       constant.ChannelTypeConfigurable,
-			ChannelBaseUrl:    "https://api.ephone.ai/doubao",
+			ChannelBaseUrl:    "https://api.ephone.ai",
 			ApiKey:            "sk-test",
 			UpstreamModelName: upstreamModel,
 			ChannelSetting: dto.ChannelSettings{

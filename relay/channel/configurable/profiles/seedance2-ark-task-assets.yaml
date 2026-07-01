@@ -70,7 +70,7 @@ video:
         value: 1
   submit:
     method: POST
-    path: /api/v3/contents/generations/tasks
+    path: /doubao/api/v3/contents/generations/tasks
     body:
       fields:
         - to: model
@@ -135,7 +135,7 @@ video:
         cancelled: FAILURE
   fetch:
     method: GET
-    path: /api/v3/contents/generations/tasks/{task_id}
+    path: /doubao/api/v3/contents/generations/tasks/{task_id}
     response:
       task_id_path: id
       status_path: status
