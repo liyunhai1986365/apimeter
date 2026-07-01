@@ -19,6 +19,7 @@ import (
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/pkg/errors"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -26,9 +27,10 @@ import (
 
 type TaskAdaptor struct {
 	taskcommon.BaseBilling
-	apiKey  string
-	baseURL string
-	profile *Profile
+	apiKey             string
+	baseURL            string
+	profile            *Profile
+	selectedSubmitPath string
 }
 
 func ExtractNativeModel(c *gin.Context, profile *Profile) (string, error) {
@@ -75,9 +77,17 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		if info.ChannelMeta != nil && info.ChannelMeta.UpstreamModelName == "" {
 			info.ChannelMeta.UpstreamModelName = req.Model
 		}
+		a.selectedSubmitPath = a.selectVideoSubmitPath(req, info)
 		return nil
 	}
-	return relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
+	taskErr := relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
+	if taskErr != nil {
+		return taskErr
+	}
+	if req, err := relaycommon.GetTaskRequest(c); err == nil {
+		a.selectedSubmitPath = a.selectVideoSubmitPath(req, info)
+	}
+	return nil
 }
 
 func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, error) {
@@ -85,7 +95,11 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	if err != nil {
 		return "", err
 	}
-	return joinURL(a.baseURL, profile.videoSubmit().Path), nil
+	path := profile.videoSubmit().Path
+	if strings.TrimSpace(a.selectedSubmitPath) != "" {
+		path = a.selectedSubmitPath
+	}
+	return joinURL(a.baseURL, path), nil
 }
 
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
@@ -230,7 +244,8 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if taskID == "" {
 		return nil, fmt.Errorf("invalid task_id")
 	}
-	url := joinURL(baseUrl, strings.ReplaceAll(profile.videoFetch().Path, "{task_id}", taskID))
+	path := selectEndpointPath(profile.videoFetch(), body, nil)
+	url := joinURL(baseUrl, strings.ReplaceAll(path, "{task_id}", taskID))
 	method := strings.ToUpper(strings.TrimSpace(profile.videoFetch().Method))
 	if method == "" {
 		method = http.MethodGet
@@ -486,6 +501,29 @@ func (a *TaskAdaptor) requireProfile() (*Profile, error) {
 		return nil, fmt.Errorf("configurable protocol profile not found")
 	}
 	return a.profile, nil
+}
+
+func (a *TaskAdaptor) selectVideoSubmitPath(req relaycommon.TaskSubmitReq, info *relaycommon.RelayInfo) string {
+	if a.profile == nil {
+		return ""
+	}
+	source, err := taskRequestSource(req)
+	if err != nil {
+		return ""
+	}
+	return selectEndpointPath(a.profile.videoSubmit(), source, info)
+}
+
+func taskRequestSource(req relaycommon.TaskSubmitReq) (map[string]any, error) {
+	data, err := common.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	var source map[string]any
+	if err := common.Unmarshal(data, &source); err != nil {
+		return nil, err
+	}
+	return source, nil
 }
 
 func resolveProfile(info *relaycommon.RelayInfo) *Profile {
@@ -1026,6 +1064,42 @@ func ApplyConfiguredHeaders(req *http.Request, headers []HeaderConfig, apiKey st
 		}
 		value := strings.ReplaceAll(header.Value, "{api_key}", apiKey)
 		value = strings.ReplaceAll(value, "{task_id}", taskID)
+		value = applyHeaderTransform(header.Transform, value, apiKey)
 		req.Header.Set(name, value)
 	}
+}
+
+func applyHeaderTransform(transform string, value string, apiKey string) string {
+	switch strings.ToLower(strings.TrimSpace(transform)) {
+	case "":
+		return value
+	case "kling_jwt":
+		token, err := buildKlingJWT(apiKey)
+		if err != nil {
+			return strings.ReplaceAll(value, "{kling_jwt}", apiKey)
+		}
+		return strings.ReplaceAll(value, "{kling_jwt}", token)
+	default:
+		return value
+	}
+}
+
+func buildKlingJWT(apiKey string) (string, error) {
+	parts := strings.Split(apiKey, "|")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid kling api_key, required format access_key|secret_key")
+	}
+	accessKey := strings.TrimSpace(parts[0])
+	secretKey := strings.TrimSpace(parts[1])
+	if accessKey == "" || secretKey == "" {
+		return "", fmt.Errorf("invalid kling api_key, required format access_key|secret_key")
+	}
+	now := time.Now().Unix()
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
+		"iss": accessKey,
+		"exp": now + 1800,
+		"nbf": now - 5,
+	})
+	token.Header["typ"] = "JWT"
+	return token.SignedString([]byte(secretKey))
 }

@@ -620,6 +620,100 @@ func TestTaskAdaptorReturnsSeedanceServiceInferenceGenericSubmitShape(t *testing
 	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "task").Exists())
 }
 
+func TestTaskAdaptorBuildsKlingTextToVideoRequest(t *testing.T) {
+	body, upstreamURL := buildKlingRequest(t, []byte(`{
+		"model":"kling-v2-6",
+		"prompt":"一只猫在雨夜街道上奔跑",
+		"size":"1080p",
+		"seconds":"5",
+		"metadata":{"aspect_ratio":"16:9","negative_prompt":"模糊","cfg_scale":0.7}
+	}`), "kling-v2-6")
+
+	require.Equal(t, "https://api-beijing.klingai.com/v1/videos/text2video", upstreamURL)
+	require.Equal(t, "kling-v2-6", gjson.GetBytes(body, "model_name").String())
+	require.Equal(t, "一只猫在雨夜街道上奔跑", gjson.GetBytes(body, "prompt").String())
+	require.Equal(t, "1080p", gjson.GetBytes(body, "mode").String())
+	require.Equal(t, int64(5), gjson.GetBytes(body, "duration").Int())
+	require.Equal(t, "16:9", gjson.GetBytes(body, "aspect_ratio").String())
+	require.Equal(t, "模糊", gjson.GetBytes(body, "negative_prompt").String())
+	require.InDelta(t, 0.7, gjson.GetBytes(body, "cfg_scale").Float(), 0.0001)
+	require.False(t, gjson.GetBytes(body, "image").Exists())
+}
+
+func TestTaskAdaptorBuildsKlingImageToVideoRequest(t *testing.T) {
+	body, upstreamURL := buildKlingRequest(t, []byte(`{
+		"model":"kling-v2-6",
+		"prompt":"让图片中的人物缓慢转身",
+		"image":"https://example.com/start.png",
+		"metadata":{"image_tail":"https://example.com/end.png","aspect_ratio":"9:16"},
+		"duration":10
+	}`), "kling-v2-6")
+
+	require.Equal(t, "https://api-beijing.klingai.com/v1/videos/image2video", upstreamURL)
+	require.Equal(t, "kling-v2-6", gjson.GetBytes(body, "model_name").String())
+	require.Equal(t, "让图片中的人物缓慢转身", gjson.GetBytes(body, "prompt").String())
+	require.Equal(t, "https://example.com/start.png", gjson.GetBytes(body, "image").String())
+	require.Equal(t, "https://example.com/end.png", gjson.GetBytes(body, "image_tail").String())
+	require.Equal(t, "9:16", gjson.GetBytes(body, "aspect_ratio").String())
+	require.Equal(t, int64(10), gjson.GetBytes(body, "duration").Int())
+}
+
+func TestTaskAdaptorParsesKlingTaskResponse(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := klingRelayInfo("kling-v2-6")
+	adaptor.Init(info)
+
+	result, err := adaptor.ParseTaskResult([]byte(`{
+		"code": 0,
+		"data": {
+			"task_id": "kling-task",
+			"task_status": "succeed",
+			"task_result": {
+				"videos": [
+					{"url": "https://cdn.example/kling.mp4"}
+				]
+			}
+		}
+	}`))
+	require.NoError(t, err)
+	require.Equal(t, "SUCCESS", result.Status)
+	require.Equal(t, "kling-task", result.TaskID)
+	require.Equal(t, "https://cdn.example/kling.mp4", result.Url)
+}
+
+func TestTaskAdaptorFetchesKlingTextToVideoTaskFromConfiguredPath(t *testing.T) {
+	requestedPath := fetchKlingTaskPath(t, map[string]any{
+		"task_id": "kling-text-task",
+		"action":  constant.TaskActionTextGenerate,
+	})
+
+	require.Equal(t, "/v1/videos/text2video/kling-text-task", requestedPath)
+}
+
+func TestTaskAdaptorFetchesKlingImageToVideoTaskFromConfiguredVariantPath(t *testing.T) {
+	requestedPath := fetchKlingTaskPath(t, map[string]any{
+		"task_id": "kling-image-task",
+		"action":  constant.TaskActionGenerate,
+	})
+
+	require.Equal(t, "/v1/videos/image2video/kling-image-task", requestedPath)
+}
+
+func TestTaskAdaptorBuildsKlingJWTAuthorizationHeaderFromProfile(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := klingRelayInfo("kling-v2-6")
+	info.ChannelMeta.ApiKey = "access-key|secret-key"
+	adaptor.Init(info)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/videos/text2video", nil)
+	require.NoError(t, adaptor.BuildRequestHeader(nil, req, info))
+
+	auth := req.Header.Get("Authorization")
+	require.True(t, strings.HasPrefix(auth, "Bearer "), auth)
+	require.NotContains(t, auth, "access-key|secret-key")
+	require.Len(t, strings.Split(strings.TrimPrefix(auth, "Bearer "), "."), 3)
+}
+
 func TestTaskAdaptorReturnsSeedanceServiceInferenceGenericOpenAIShape(t *testing.T) {
 	db := openConfigurableTaskAdaptorTestDB(t)
 	channel := model.Channel{
@@ -1302,6 +1396,81 @@ func seedanceServiceInferenceRelayInfo(upstreamModel string) *relaycommon.RelayI
 			ChannelSetting: dto.ChannelSettings{
 				Protocol: &dto.ChannelProtocolSettings{
 					ProfileID: "seedance2-service-inference",
+				},
+			},
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+}
+
+func buildKlingRequest(t *testing.T, requestBody []byte, upstreamModel string) ([]byte, string) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", bytes.NewReader(requestBody))
+	c.Request.Header.Set("Content-Type", "application/json")
+	if _, err := common.GetBodyStorage(c); err != nil {
+		t.Fatalf("cache body: %v", err)
+	}
+
+	info := klingRelayInfo(upstreamModel)
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	if err := adaptor.ValidateRequestAndSetAction(c, info); err != nil {
+		t.Fatalf("validate request: %v", err)
+	}
+
+	upstreamURL, err := adaptor.BuildRequestURL(info)
+	if err != nil {
+		t.Fatalf("build url: %v", err)
+	}
+	reader, err := adaptor.BuildRequestBody(c, info)
+	if err != nil {
+		t.Fatalf("build body: %v", err)
+	}
+	mappedBody, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatalf("read mapped body: %v", err)
+	}
+	return mappedBody, upstreamURL
+}
+
+func fetchKlingTaskPath(t *testing.T, body map[string]any) string {
+	t.Helper()
+	var requestedPath string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requestedPath = r.URL.Path
+		require.Equal(t, http.MethodGet, r.Method)
+		auth := r.Header.Get("Authorization")
+		require.True(t, strings.HasPrefix(auth, "Bearer "), auth)
+		require.NotContains(t, auth, "access-key|secret-key")
+		require.Len(t, strings.Split(strings.TrimPrefix(auth, "Bearer "), "."), 3)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":0,"data":{"task_id":"kling-task","task_status":"succeed"}}`))
+	}))
+	defer upstream.Close()
+
+	info := klingRelayInfo("kling-v2-6")
+	info.ChannelMeta.ApiKey = "access-key|secret-key"
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	resp, err := adaptor.FetchTask(upstream.URL, "access-key|secret-key", body, "")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	return requestedPath
+}
+
+func klingRelayInfo(upstreamModel string) *relaycommon.RelayInfo {
+	return &relaycommon.RelayInfo{
+		OriginModelName: upstreamModel,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			ChannelBaseUrl:    "https://api-beijing.klingai.com",
+			ApiKey:            "sk-test",
+			UpstreamModelName: upstreamModel,
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					ProfileID: "kling-video",
 				},
 			},
 		},

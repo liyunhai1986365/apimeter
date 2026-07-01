@@ -112,8 +112,9 @@ type BillingRatioConfig struct {
 }
 
 type HeaderConfig struct {
-	Name  string `yaml:"name"`
-	Value string `yaml:"value"`
+	Name      string `yaml:"name"`
+	Value     string `yaml:"value"`
+	Transform string `yaml:"transform"`
 }
 
 type BodyConfig struct {

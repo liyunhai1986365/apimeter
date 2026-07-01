@@ -30,6 +30,9 @@ func KlingRequestConvert() func(c *gin.Context) {
 			"prompt":   prompt,
 			"metadata": originalReq,
 		}
+		if image, ok := originalReq["image"]; ok && image != "" {
+			unifiedReq["image"] = image
+		}
 
 		jsonData, err := common.Marshal(unifiedReq)
 		if err != nil {

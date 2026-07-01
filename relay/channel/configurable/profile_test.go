@@ -215,6 +215,35 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if assetGet.Response.Passthrough || len(assetGet.Response.Fields) == 0 {
 		t.Fatalf("expected service inference assets get response mapping: %#v", assetGet.Response)
 	}
+
+	kling, ok := GetProfile("kling-video")
+	if !ok {
+		t.Fatal("expected kling-video profile")
+	}
+	if kling.Video == nil {
+		t.Fatal("expected kling video protocol")
+	}
+	if kling.Video.Submit.Path != "/v1/videos/text2video" {
+		t.Fatalf("unexpected kling default submit path: %s", kling.Video.Submit.Path)
+	}
+	if len(kling.Video.Submit.PathVariants) != 1 {
+		t.Fatalf("expected kling image-to-video path variant, got %#v", kling.Video.Submit.PathVariants)
+	}
+	if kling.Video.Submit.PathVariants[0].Path != "/v1/videos/image2video" {
+		t.Fatalf("unexpected kling image-to-video path: %s", kling.Video.Submit.PathVariants[0].Path)
+	}
+	if kling.Video.Fetch.Path != "/v1/videos/text2video/{task_id}" {
+		t.Fatalf("unexpected kling default fetch path: %s", kling.Video.Fetch.Path)
+	}
+	if len(kling.Video.Fetch.PathVariants) != 1 {
+		t.Fatalf("expected kling image-to-video fetch path variant, got %#v", kling.Video.Fetch.PathVariants)
+	}
+	if kling.Video.Fetch.PathVariants[0].Path != "/v1/videos/image2video/{task_id}" {
+		t.Fatalf("unexpected kling image-to-video fetch path: %s", kling.Video.Fetch.PathVariants[0].Path)
+	}
+	if kling.Video.Fetch.Response.ResultURLPath != "data.task_result.videos.0.url" {
+		t.Fatalf("unexpected kling result url path: %s", kling.Video.Fetch.Response.ResultURLPath)
+	}
 	var statusField *FieldMapping
 	for i := range assetGet.Response.Fields {
 		if assetGet.Response.Fields[i].To == "data.Status" {
