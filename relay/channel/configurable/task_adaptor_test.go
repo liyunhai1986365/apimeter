@@ -861,6 +861,67 @@ func TestTaskAdaptorParsesSeedanceResponses(t *testing.T) {
 	}
 }
 
+func TestTaskAdaptorParsesSeedanceArkTaskAssetsOfficialResponses(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := seedanceArkTaskAssetsRelayInfo("doubao-seedance-2-0-mini-260615")
+	info.TaskRelayInfo = &relaycommon.TaskRelayInfo{
+		PublicTaskID: "task_public",
+	}
+	adaptor.Init(info)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", bytes.NewReader([]byte(`{
+		"model":"doubao-seedance-2-0-mini-260615",
+		"content":[{"type":"text","text":"一只猫在草地上奔跑"}]
+	}`)))
+	c.Request.Header.Set("Content-Type", "application/json")
+	if _, err := common.GetBodyStorage(c); err != nil {
+		t.Fatalf("cache body: %v", err)
+	}
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"id":"cgt-20260701195008-fxr55"}`))),
+	}
+	taskID, taskData, taskErr := adaptor.DoResponse(c, resp, info)
+	if taskErr != nil {
+		t.Fatalf("do response error: %v", taskErr)
+	}
+	if taskID != "cgt-20260701195008-fxr55" {
+		t.Fatalf("unexpected upstream task id: %s", taskID)
+	}
+	if !bytes.Contains(taskData, []byte("cgt-20260701195008-fxr55")) {
+		t.Fatalf("expected original task data, got %s", taskData)
+	}
+	if got := gjson.GetBytes(recorder.Body.Bytes(), "id").String(); got != "task_public" {
+		t.Fatalf("unexpected public response id: %s body=%s", got, recorder.Body.String())
+	}
+	if got := gjson.GetBytes(recorder.Body.Bytes(), "task_id").String(); got != "task_public" {
+		t.Fatalf("unexpected public task_id: %s body=%s", got, recorder.Body.String())
+	}
+	if got := gjson.GetBytes(recorder.Body.Bytes(), "object").String(); got != "video" {
+		t.Fatalf("unexpected object: %s body=%s", got, recorder.Body.String())
+	}
+
+	result, err := adaptor.ParseTaskResult([]byte(`{"id":"cgt-20260701195008-fxr55","status":"succeeded","content":{"video_url":"https://example.com/result.mp4"},"usage":{"completion_tokens":100858}}`))
+	if err != nil {
+		t.Fatalf("parse result: %v", err)
+	}
+	if result.TaskID != "cgt-20260701195008-fxr55" {
+		t.Fatalf("unexpected result task id: %s", result.TaskID)
+	}
+	if result.Status != "SUCCESS" {
+		t.Fatalf("unexpected status: %s", result.Status)
+	}
+	if result.Url != "https://example.com/result.mp4" {
+		t.Fatalf("unexpected url: %s", result.Url)
+	}
+	if result.TotalTokens != 100858 {
+		t.Fatalf("unexpected total tokens: %d", result.TotalTokens)
+	}
+}
+
 func TestTaskAdaptorParsesUsageTotalTokensBeforeCompletionTokens(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	info := &relaycommon.RelayInfo{
@@ -1350,6 +1411,24 @@ func seedanceRelayInfo(upstreamModel string) *relaycommon.RelayInfo {
 			ChannelSetting: dto.ChannelSettings{
 				Protocol: &dto.ChannelProtocolSettings{
 					ProfileID: "doubao-seedance-2",
+				},
+			},
+		},
+		TaskRelayInfo: &relaycommon.TaskRelayInfo{},
+	}
+}
+
+func seedanceArkTaskAssetsRelayInfo(upstreamModel string) *relaycommon.RelayInfo {
+	return &relaycommon.RelayInfo{
+		OriginModelName: upstreamModel,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			ChannelBaseUrl:    "https://api.ephone.ai/doubao",
+			ApiKey:            "sk-test",
+			UpstreamModelName: upstreamModel,
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					ProfileID: "seedance2-ark-task-assets",
 				},
 			},
 		},

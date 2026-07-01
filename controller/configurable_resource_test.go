@@ -446,6 +446,96 @@ func TestRelayConfigurableResourceSelectsAPIAssetsProfileAndMapsDetailIDToMateri
 	require.JSONEq(t, `{"code":0,"data":{"Id":"asset-direct","Status":"Active"}}`, recorder.Body.String())
 }
 
+func TestRelayConfigurableResourceProxiesArkTaskAssetUploadAndQuery(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	db := openConfigurableResourceTestDB(t)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1}`))
+
+	var uploadBody string
+	var queryBody string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodPost, r.Method)
+		require.Equal(t, "/v1/task/submit", r.URL.Path)
+		require.Equal(t, "Bearer upstream-secret", r.Header.Get("Authorization"))
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+		bodyBytes, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if strings.Contains(string(bodyBytes), `"action":"upload"`) {
+			uploadBody = string(bodyBytes)
+			_, _ = w.Write([]byte(`{"code":0,"message":"ok","data":{"Id":"asset-20260701121457-xpd75"}}`))
+			return
+		}
+		queryBody = string(bodyBytes)
+		_, _ = w.Write([]byte(`{"code":"MissingParameter.Id","message":"The required parameter Id is missing.","data":{"ResponseMetadata":{"RequestId":"20260701122118A6D201C3CBA463E45365","Action":"GetAsset","Version":"2024-01-01","Service":"ark","Region":"cn-beijing","Error":{"Code":"MissingParameter.Id","Message":"The required parameter Id is missing.","Data":{"__Message.parameter":"Id"}}}}}`))
+	}))
+	defer upstream.Close()
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       10,
+		Username: "resource-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:         10,
+		Name:           "resource-token",
+		Key:            "resourcetokenkey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100000,
+		UnlimitedQuota: true,
+		Group:          "default",
+	}).Error)
+
+	channel := &model.Channel{
+		Id:          20,
+		Type:        constant.ChannelTypeConfigurable,
+		Key:         "upstream-secret",
+		Status:      common.ChannelStatusEnabled,
+		Name:        "seedance2-ark-task-assets",
+		Group:       "default",
+		Models:      "doubao-asset",
+		BaseURL:     &upstream.URL,
+		CreatedTime: common.GetTimestamp(),
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-ark-task-assets"},
+	})
+	require.NoError(t, db.Create(channel).Error)
+	createConfigurableResourceAbility(t, db, channel.Id, "doubao-asset", true, 0)
+
+	router := gin.New()
+	router.POST("/api/assets/upload", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+	router.GET("/api/assets/:id", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/assets/upload", strings.NewReader(`{"name":"name test","url":"https://official-domestic.oss-cn-shenzhen.aliyuncs.com/01c755c3b673a8a361a96539faaaabff5b802b8c31dc4e218a2efe62457883ea.webp","asset_type":"Image"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer resourcetokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"code":0,"message":"ok","data":{"Id":"asset-20260701121457-xpd75"}}`, recorder.Body.String())
+	require.JSONEq(t, `{"model":"doubao-asset","input":{"action":"upload","asset_type":"Image","name":"name test","url":"https://official-domestic.oss-cn-shenzhen.aliyuncs.com/01c755c3b673a8a361a96539faaaabff5b802b8c31dc4e218a2efe62457883ea.webp"}}`, uploadBody)
+
+	recorder = httptest.NewRecorder()
+	request = httptest.NewRequest(http.MethodGet, "/api/assets/asset-20260701121457-xpd75?model=doubao-asset", nil)
+	request.Header.Set("Authorization", "Bearer resourcetokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{"model":"doubao-asset","input":{"action":"query","asset_id":"asset-20260701121457-xpd75"}}`, queryBody)
+	require.JSONEq(t, `{"code":"MissingParameter.Id","message":"The required parameter Id is missing.","data":{"ResponseMetadata":{"RequestId":"20260701122118A6D201C3CBA463E45365","Action":"GetAsset","Version":"2024-01-01","Service":"ark","Region":"cn-beijing","Error":{"Code":"MissingParameter.Id","Message":"The required parameter Id is missing.","Data":{"__Message.parameter":"Id"}}}}}`, recorder.Body.String())
+}
+
 func TestRelayConfigurableResourceProxiesServiceInferenceAssetLifecycle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := openConfigurableResourceTestDB(t)

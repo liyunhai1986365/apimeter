@@ -79,6 +79,10 @@ export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
     value: 'seedance2-service-inference',
   },
   {
+    label: 'Seedance2 Ark Task Assets',
+    value: 'seedance2-ark-task-assets',
+  },
+  {
     label: 'Apixo GPT Image 2',
     value: 'apixo-gpt-image-2',
   },

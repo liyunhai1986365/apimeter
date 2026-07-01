@@ -216,6 +216,40 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 		t.Fatalf("expected service inference assets get response mapping: %#v", assetGet.Response)
 	}
 
+	arkTaskAssets, ok := GetProfile("seedance2-ark-task-assets")
+	if !ok {
+		t.Fatal("expected seedance2-ark-task-assets profile")
+	}
+	if arkTaskAssets.Video == nil {
+		t.Fatal("expected ark task assets video protocol")
+	}
+	if arkTaskAssets.Video.Native.Submit.Path != "/api/v3/contents/generations/tasks" {
+		t.Fatalf("unexpected ark task assets native submit path: %s", arkTaskAssets.Video.Native.Submit.Path)
+	}
+	if arkTaskAssets.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
+		t.Fatalf("unexpected ark task assets native fetch path: %s", arkTaskAssets.Video.Native.Fetch.Path)
+	}
+	arkUpload, ok := arkTaskAssets.ResourceByID("assets_upload")
+	if !ok {
+		t.Fatal("expected ark task assets assets_upload resource")
+	}
+	if arkUpload.Public.Path != "/api/assets/upload" || arkUpload.Upstream.Path != "/v1/task/submit" {
+		t.Fatalf("unexpected ark task assets upload paths: public=%s upstream=%s", arkUpload.Public.Path, arkUpload.Upstream.Path)
+	}
+	if len(arkUpload.Request.Fields) == 0 || !arkUpload.Response.Passthrough {
+		t.Fatalf("expected ark task assets upload request mapping with passthrough response: %#v", arkUpload)
+	}
+	arkQuery, ok := arkTaskAssets.ResourceByID("asset_query")
+	if !ok {
+		t.Fatal("expected ark task assets asset_query resource")
+	}
+	if arkQuery.Public.Method != "GET" || arkQuery.Public.Path != "/api/assets/{id}" || arkQuery.Upstream.Method != "POST" || arkQuery.Upstream.Path != "/v1/task/submit" {
+		t.Fatalf("unexpected ark task assets query paths: public=%s %s upstream=%s %s", arkQuery.Public.Method, arkQuery.Public.Path, arkQuery.Upstream.Method, arkQuery.Upstream.Path)
+	}
+	if len(arkQuery.Request.Fields) == 0 || !arkQuery.Response.Passthrough {
+		t.Fatalf("expected ark task assets query request mapping with passthrough response: %#v", arkQuery)
+	}
+
 	kling, ok := GetProfile("kling-video")
 	if !ok {
 		t.Fatal("expected kling-video profile")
