@@ -1,0 +1,130 @@
+id: kling-video
+name: Kling Video
+media_type: video
+accepted_modes:
+  - openai.video.generations
+upstream_modes:
+  - kling.video
+video:
+  billing:
+    ratios:
+      - key: seconds
+        from: request.duration
+        default: 5
+      - key: size
+        value: 1
+  submit:
+    method: POST
+    path: /v1/videos/text2video
+    headers:
+      - name: Authorization
+        value: Bearer {kling_jwt}
+        transform: kling_jwt
+    path_variants:
+      - path: /v1/videos/image2video
+        field: request.image
+        non_empty: true
+    body:
+      fields:
+        - to: model_name
+          from: upstream_model
+        - to: prompt
+          from: request.prompt
+        - to: negative_prompt
+          from: request.metadata.negative_prompt
+          omit_empty: true
+        - to: cfg_scale
+          from: request.metadata.cfg_scale
+          omit_empty: true
+        - to: mode
+          from: request.metadata.mode
+          fallback_from: request.size
+          omit_empty: true
+        - to: duration
+          from: request.seconds
+          fallback_from: request.duration
+          transform: to_int
+          omit_empty: true
+        - to: aspect_ratio
+          from: request.metadata.aspect_ratio
+          fallback_from: request.metadata.ratio
+          omit_empty: true
+        - to: image
+          from: request.image
+          fallback_from: request.images.0
+          omit_empty: true
+        - to: image_tail
+          from: request.metadata.image_tail
+          omit_empty: true
+        - to: static_mask
+          from: request.metadata.static_mask
+          omit_empty: true
+        - to: dynamic_masks
+          from: request.metadata.dynamic_masks
+          omit_empty: true
+        - to: camera_control
+          from: request.metadata.camera_control
+          omit_empty: true
+        - to: callback_url
+          from: request.metadata.callback_url
+          omit_empty: true
+        - to: external_task_id
+          from: request.metadata.external_task_id
+          omit_empty: true
+    response:
+      task_id_path: data.task_id
+      status_path: data.task_status
+      status_map:
+        submitted: SUBMITTED
+        pending: QUEUED
+        queued: QUEUED
+        processing: IN_PROGRESS
+        running: IN_PROGRESS
+        succeed: SUCCESS
+        succeeded: SUCCESS
+        success: SUCCESS
+        completed: SUCCESS
+        failed: FAILURE
+        failure: FAILURE
+        error: FAILURE
+  fetch:
+    method: GET
+    path: /v1/videos/text2video/{task_id}
+    headers:
+      - name: Authorization
+        value: Bearer {kling_jwt}
+        transform: kling_jwt
+    path_variants:
+      - path: /v1/videos/image2video/{task_id}
+        field: action
+        equals: generate
+    response:
+      task_id_path: data.task_id
+      status_path: data.task_status
+      progress_path: data.task_status_msg
+      result_url_path: data.task_result.videos.0.url
+      reason_path: data.task_status_msg
+      status_map:
+        submitted: SUBMITTED
+        pending: QUEUED
+        queued: QUEUED
+        processing: IN_PROGRESS
+        running: IN_PROGRESS
+        succeed: SUCCESS
+        succeeded: SUCCESS
+        success: SUCCESS
+        completed: SUCCESS
+        failed: FAILURE
+        failure: FAILURE
+        error: FAILURE
+    openai_response:
+      fields:
+        - to: video_url
+          from: data.task_result.videos.0.url
+          omit_empty: true
+        - to: metadata.url
+          from: data.task_result.videos.0.url
+          omit_empty: true
+        - to: metadata.watermarked_url
+          from: data.task_result.videos.0.watermarked_url
+          omit_empty: true
