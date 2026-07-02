@@ -368,6 +368,34 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if kling.Video.Fetch.Response.ResultURLPath != "data.task_result.videos.0.url" {
 		t.Fatalf("unexpected kling result url path: %s", kling.Video.Fetch.Response.ResultURLPath)
 	}
+
+	wavespeed, ok := GetProfile("wavespeed-nano-banana-pro")
+	if !ok {
+		t.Fatal("expected wavespeed-nano-banana-pro profile")
+	}
+	if wavespeed.MediaType != "image" {
+		t.Fatalf("unexpected wavespeed media type: %s", wavespeed.MediaType)
+	}
+	if wavespeed.Submit.Path != "/api/v3/google/nano-banana-pro/text-to-image" {
+		t.Fatalf("unexpected wavespeed submit path: %s", wavespeed.Submit.Path)
+	}
+	assertPathVariants(t, wavespeed.Submit, []string{
+		"/api/v3/google/nano-banana-pro/edit",
+		"/api/v3/google/nano-banana-2/text-to-image",
+		"/api/v3/google/nano-banana-2/edit",
+		"/api/v3/google/nano-banana-2-lite/text-to-image",
+		"/api/v3/google/nano-banana-2-lite/edit",
+		"/api/v3/google/nano-banana/text-to-image",
+		"/api/v3/google/nano-banana/edit",
+		"/api/v3/openai/gpt-image-2/text-to-image",
+		"/api/v3/openai/gpt-image-2/edit",
+	})
+	if wavespeed.Fetch.Path != "/api/v3/predictions/{task_id}/result" {
+		t.Fatalf("unexpected wavespeed fetch path: %s", wavespeed.Fetch.Path)
+	}
+	if wavespeed.Fetch.Response.ResultURLPath != "data.outputs" {
+		t.Fatalf("unexpected wavespeed result url path: %s", wavespeed.Fetch.Response.ResultURLPath)
+	}
 	var statusField *FieldMapping
 	for i := range assetGet.Response.Fields {
 		if assetGet.Response.Fields[i].To == "data.Status" {

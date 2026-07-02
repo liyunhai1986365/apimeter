@@ -177,15 +177,34 @@ func selectEndpointPath(endpoint EndpointConfig, source map[string]any, info *re
 }
 
 func pathVariantMatches(variant PathVariant, source map[string]any, info *relaycommon.RelayInfo) bool {
+	if len(variant.Conditions) > 0 {
+		for _, condition := range variant.Conditions {
+			if !pathConditionMatches(condition, source, info) {
+				return false
+			}
+		}
+		return true
+	}
 	if strings.TrimSpace(variant.Field) == "" {
 		return false
 	}
-	value := valueFromSource(variant.Field, source, info)
-	if variant.NonEmpty != nil {
-		return !isEmptyValue(value) == *variant.NonEmpty
+	return pathConditionMatches(PathCondition{
+		Field:    variant.Field,
+		NonEmpty: variant.NonEmpty,
+		Equals:   variant.Equals,
+	}, source, info)
+}
+
+func pathConditionMatches(condition PathCondition, source map[string]any, info *relaycommon.RelayInfo) bool {
+	if strings.TrimSpace(condition.Field) == "" {
+		return false
 	}
-	if variant.Equals != nil {
-		return fmt.Sprint(value) == fmt.Sprint(variant.Equals)
+	value := valueFromSource(condition.Field, source, info)
+	if condition.NonEmpty != nil {
+		return !isEmptyValue(value) == *condition.NonEmpty
+	}
+	if condition.Equals != nil {
+		return fmt.Sprint(value) == fmt.Sprint(condition.Equals)
 	}
 	return !isEmptyValue(value)
 }

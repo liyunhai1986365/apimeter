@@ -52,7 +52,14 @@ type EndpointConfig struct {
 }
 
 type PathVariant struct {
-	Path     string `yaml:"path"`
+	Path       string          `yaml:"path"`
+	Field      string          `yaml:"field"`
+	NonEmpty   *bool           `yaml:"non_empty"`
+	Equals     any             `yaml:"equals"`
+	Conditions []PathCondition `yaml:"conditions"`
+}
+
+type PathCondition struct {
 	Field    string `yaml:"field"`
 	NonEmpty *bool  `yaml:"non_empty"`
 	Equals   any    `yaml:"equals"`

@@ -1,0 +1,126 @@
+id: wavespeed-nano-banana-pro
+name: WaveSpeed Nano Banana Pro
+media_type: image
+accepted_modes:
+  - openai.image.generations
+  - openai.image.edits
+upstream_modes:
+  - wavespeed.nano-banana-pro.image
+submit:
+  method: POST
+  path: /api/v3/google/nano-banana-pro/text-to-image
+  path_variants:
+    - path: /api/v3/openai/gpt-image-2/edit
+      conditions:
+        - field: request.model
+          equals: gpt-image-2
+        - field: request.image_urls
+          non_empty: true
+    - path: /api/v3/openai/gpt-image-2/text-to-image
+      conditions:
+        - field: request.model
+          equals: gpt-image-2
+        - field: request.image_urls
+          non_empty: false
+    - path: /api/v3/google/nano-banana-2/edit
+      conditions:
+        - field: request.model
+          equals: nano-banana-2
+        - field: request.image_urls
+          non_empty: true
+    - path: /api/v3/google/nano-banana-2/text-to-image
+      conditions:
+        - field: request.model
+          equals: nano-banana-2
+        - field: request.image_urls
+          non_empty: false
+    - path: /api/v3/google/nano-banana-2-lite/edit
+      conditions:
+        - field: request.model
+          equals: nano-banana-2-lite
+        - field: request.image_urls
+          non_empty: true
+    - path: /api/v3/google/nano-banana-2-lite/text-to-image
+      conditions:
+        - field: request.model
+          equals: nano-banana-2-lite
+        - field: request.image_urls
+          non_empty: false
+    - path: /api/v3/google/nano-banana/edit
+      conditions:
+        - field: request.model
+          equals: nano-banana
+        - field: request.image_urls
+          non_empty: true
+    - path: /api/v3/google/nano-banana/text-to-image
+      conditions:
+        - field: request.model
+          equals: nano-banana
+        - field: request.image_urls
+          non_empty: false
+    - path: /api/v3/google/nano-banana-pro/edit
+      field: request.image_urls
+      non_empty: true
+  headers:
+    - name: Authorization
+      value: "Bearer {api_key}"
+  body:
+    fields:
+      - to: prompt
+        from: request.prompt
+      - to: aspect_ratio
+        from: request.aspect_ratio
+        fallback_from: request.size
+        transform: image_aspect_ratio
+        omit_empty: true
+      - to: resolution
+        from: request.resolution
+        fallback_froms:
+          - request.image_size
+          - request.size
+        transform: image_resolution
+        omit_empty: true
+      - to: output_format
+        value: png
+      - to: output_format
+        from: request.output_format
+        omit_empty: true
+      - to: output_format
+        from: request.response_format
+        value_map:
+          url: png
+          b64_json: png
+        omit_empty: true
+      - to: quality
+        from: request.quality
+        omit_empty: true
+      - to: images
+        from: request.image_urls
+        omit_empty: true
+  response:
+    task_id_path: data.id
+    status_path: data.status
+fetch:
+  method: GET
+  path: /api/v3/predictions/{task_id}/result
+  headers:
+    - name: Authorization
+      value: "Bearer {api_key}"
+  response:
+    task_id_path: data.id
+    status_path: data.status
+    create_time_path: data.created_at
+    result_url_path: data.outputs
+    reason_path: data.error
+    status_map:
+      created: SUBMITTED
+      queued: QUEUED
+      pending: QUEUED
+      processing: IN_PROGRESS
+      running: IN_PROGRESS
+      completed: SUCCESS
+      success: SUCCESS
+      succeeded: SUCCESS
+      failed: FAILURE
+      failure: FAILURE
+      error: FAILURE
