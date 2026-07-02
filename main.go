@@ -226,9 +226,6 @@ func main() {
 		port = strconv.Itoa(*common.Port)
 	}
 
-	// Log startup success message
-	common.LogStartupSuccess(startTime, port)
-
 	srv := &http.Server{
 		Addr:    ":" + port,
 		Handler: server,
@@ -239,6 +236,8 @@ func main() {
 			common.FatalLog("failed to start HTTP server: " + err.Error())
 		}
 	}()
+
+	common.LogStartupSuccess(startTime, port)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
