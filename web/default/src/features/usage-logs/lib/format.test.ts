@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { UsageLog } from '../data/schema'
 import {
+  buildCacheBillingRows,
   formatSensitiveQuota,
   formatSignedLogQuota,
   isTaskPreConsumeLog,
@@ -172,5 +173,48 @@ describe('formatSensitiveQuota', () => {
 
   test('formats quota when sensitive values are visible', () => {
     assert.equal(formatSensitiveQuota(123, true), '$0.000246')
+  })
+})
+
+describe('buildCacheBillingRows', () => {
+  test('splits Claude 5m and 1h cache write prices and costs', () => {
+    const rows = buildCacheBillingRows({
+      claude: true,
+      model_ratio: 1,
+      group_ratio: 0.5,
+      cache_tokens: 1000,
+      cache_ratio: 0.1,
+      cache_creation_tokens_5m: 2000,
+      cache_creation_ratio_5m: 1.25,
+      cache_creation_tokens_1h: 3000,
+      cache_creation_ratio_1h: 2,
+    })
+
+    assert.deepEqual(rows, [
+      {
+        labelKey: 'Cache Read Price',
+        value: '$0.2/M',
+      },
+      {
+        labelKey: 'Cache Read Cost',
+        value: '$0.0001',
+      },
+      {
+        labelKey: 'Cache Write (5m) Price',
+        value: '$2.5/M',
+      },
+      {
+        labelKey: 'Cache Write (5m) Cost',
+        value: '$0.0025',
+      },
+      {
+        labelKey: 'Cache Write (1h) Price',
+        value: '$4/M',
+      },
+      {
+        labelKey: 'Cache Write (1h) Cost',
+        value: '$0.006',
+      },
+    ])
   })
 })

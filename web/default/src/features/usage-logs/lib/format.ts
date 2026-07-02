@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota } from '@/lib/format'
 import type { StatusBadgeProps } from '@/components/status-badge'
 import {
@@ -112,8 +113,7 @@ function isSeedance2TaskPreConsumeLog(
   }
   const modelName = log.model_name?.toLowerCase() ?? ''
   return (
-    modelName.includes('seedance-2.0') ||
-    modelName.includes('seedance-2-0')
+    modelName.includes('seedance-2.0') || modelName.includes('seedance-2-0')
   )
 }
 
@@ -132,6 +132,104 @@ export function formatSensitiveQuota(
   sensitiveVisible: boolean
 ): string {
   return sensitiveVisible ? formatLogQuota(quota) : '••••'
+}
+
+export type CacheBillingRow = {
+  labelKey: string
+  value: string
+}
+
+const CACHE_BILLING_PRICE_OPTS = {
+  digitsLarge: 4,
+  digitsSmall: 6,
+  abbreviate: false,
+} as const
+
+function formatCacheBillingPrice(usd: number): string {
+  return formatBillingCurrencyFromUSD(usd, CACHE_BILLING_PRICE_OPTS)
+}
+
+function positiveNumber(value: unknown): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0
+}
+
+function cacheCostUSD(
+  tokens: number,
+  pricePerMillionUSD: number,
+  groupRatio: number
+): number {
+  return (tokens / 1_000_000) * pricePerMillionUSD * groupRatio
+}
+
+export function buildCacheBillingRows(
+  other: LogOtherData | null | undefined
+): CacheBillingRow[] {
+  if (!other || other.claude !== true || !hasAnyCacheTokens(other)) return []
+
+  const baseInputUSD = positiveNumber(other.model_ratio) * 2
+  if (baseInputUSD <= 0) return []
+
+  const groupRatio = positiveNumber(other.group_ratio) || 1
+  const rows: CacheBillingRow[] = []
+
+  const addPriceAndCost = (
+    priceLabelKey: string,
+    costLabelKey: string,
+    tokens: number,
+    ratio: number
+  ) => {
+    if (ratio <= 0) return
+    const pricePerMillionUSD = baseInputUSD * ratio
+    rows.push({
+      labelKey: priceLabelKey,
+      value: `${formatCacheBillingPrice(pricePerMillionUSD)}/M`,
+    })
+    if (tokens > 0) {
+      rows.push({
+        labelKey: costLabelKey,
+        value: formatCacheBillingPrice(
+          cacheCostUSD(tokens, pricePerMillionUSD, groupRatio)
+        ),
+      })
+    }
+  }
+
+  addPriceAndCost(
+    'Cache Read Price',
+    'Cache Read Cost',
+    positiveNumber(other.cache_tokens),
+    positiveNumber(other.cache_ratio)
+  )
+
+  const cacheWrite5m = positiveNumber(other.cache_creation_tokens_5m)
+  const cacheWrite1h = positiveNumber(other.cache_creation_tokens_1h)
+  const hasSplitCacheWrite = cacheWrite5m > 0 || cacheWrite1h > 0
+
+  if (hasSplitCacheWrite) {
+    addPriceAndCost(
+      'Cache Write (5m) Price',
+      'Cache Write (5m) Cost',
+      cacheWrite5m,
+      positiveNumber(other.cache_creation_ratio_5m)
+    )
+    addPriceAndCost(
+      'Cache Write (1h) Price',
+      'Cache Write (1h) Cost',
+      cacheWrite1h,
+      positiveNumber(other.cache_creation_ratio_1h)
+    )
+    return rows
+  }
+
+  addPriceAndCost(
+    'Cache Write Price',
+    'Cache Write Cost',
+    positiveNumber(other.cache_creation_tokens),
+    positiveNumber(other.cache_creation_ratio)
+  )
+
+  return rows
 }
 
 /**

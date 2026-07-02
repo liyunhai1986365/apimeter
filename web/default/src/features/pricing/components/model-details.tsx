@@ -43,13 +43,12 @@ import {
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table'
+  buildDynamicTierPriceDisplayRows,
+  getDynamicPricingTiers,
+  isDynamicPricingModel,
+  type DynamicPriceEntry,
+  type DynamicTierPriceDisplayRow,
+} from '../lib/dynamic-price'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Tooltip,
@@ -67,11 +66,6 @@ import {
 import type { PerformanceGroup } from '@/features/performance-metrics/types'
 import { DEFAULT_TOKEN_UNIT, QUOTA_TYPE_VALUES } from '../constants'
 import { usePricingData } from '../hooks/use-pricing-data'
-import {
-  getDynamicPriceEntries,
-  getDynamicPricingTiers,
-  isDynamicPricingModel,
-} from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
@@ -85,7 +79,6 @@ import type {
   PricingModel,
   TokenUnit,
 } from '../types'
-import { DynamicPricingBreakdown } from './dynamic-pricing-breakdown'
 import { ModelDetailsApi, ModelDetailsProviderInfo } from './model-details-api'
 import {
   getUsableGroupDescription,
@@ -570,6 +563,212 @@ function ProviderPriceItem(props: {
   )
 }
 
+function ProviderCacheWritePriceGroup(props: {
+  renderTokenPrice: (type: PriceType) => string
+  renderOriginalTokenPrice: (type: PriceType) => string
+  hasDiscount: boolean
+  unit: string
+}) {
+  const { t } = useTranslation()
+  const rows: Array<{ label: string; type: PriceType }> = [
+    { label: t('Cache Write (5m)'), type: 'create_cache' },
+    { label: t('Cache Write (1h)'), type: 'create_cache_1h' },
+  ]
+
+  return (
+    <div className='flex min-w-52 shrink-0 flex-col justify-center gap-1 px-1 py-1'>
+      {rows.map((row) => (
+        <div
+          key={row.type}
+          className='flex items-baseline justify-between gap-3'
+        >
+          <span className='text-muted-foreground min-w-0 truncate text-xs font-medium'>
+            {row.label}
+          </span>
+          <span className='text-foreground flex shrink-0 items-baseline gap-1.5 font-mono text-sm font-semibold tabular-nums'>
+            {props.hasDiscount ? (
+              <span className='text-muted-foreground/45 text-xs font-medium line-through'>
+                {props.renderOriginalTokenPrice(row.type)}
+              </span>
+            ) : null}
+            {props.renderTokenPrice(row.type)}
+            <span className='text-muted-foreground/40 font-sans text-[10px]'>
+              / {props.unit}
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function DynamicCacheWritePriceGroup(props: {
+  entries: DynamicPriceEntry[]
+  originalEntries?: DynamicPriceEntry[]
+  unit?: string
+}) {
+  const { t } = useTranslation()
+  if (props.entries.length === 0) return null
+
+  const originalByField = new Map(
+    (props.originalEntries || []).map((entry) => [entry.field, entry])
+  )
+
+  return (
+    <div className='inline-flex min-w-52 flex-col gap-1 text-right'>
+      {props.entries.map((entry) => {
+        const originalEntry = originalByField.get(entry.field)
+        return (
+          <div
+            key={entry.field}
+            className='flex items-baseline justify-between gap-3'
+          >
+            <span className='text-muted-foreground min-w-0 truncate text-xs font-medium'>
+              {t(entry.shortLabel)}
+            </span>
+            <span className='text-foreground flex shrink-0 items-baseline gap-1.5 font-mono text-sm font-semibold tabular-nums'>
+              {originalEntry && (
+                <span className='text-muted-foreground/45 text-xs font-medium line-through'>
+                  {originalEntry.formatted}
+                </span>
+              )}
+              {entry.formatted}
+              {props.unit ? (
+                <span className='text-muted-foreground/40 font-sans text-[10px]'>
+                  / {props.unit}
+                </span>
+              ) : null}
+            </span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function DynamicProviderPriceItem(props: {
+  entry: DynamicPriceEntry
+  originalEntry?: DynamicPriceEntry
+  unit: string
+  featured?: boolean
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <ProviderPriceItem
+      label={t(props.entry.shortLabel)}
+      value={props.entry.formatted}
+      originalValue={props.originalEntry?.formatted}
+      unit={props.entry.variable.unit === 'second' ? t('second') : props.unit}
+      featured={props.featured}
+    />
+  )
+}
+
+function DynamicTierPriceRail(props: {
+  row: DynamicTierPriceDisplayRow
+  unit: string
+  showTierLabel: boolean
+}) {
+  const { t } = useTranslation()
+  const originalRegularByField = new Map(
+    props.row.originalRegularEntries.map((entry) => [entry.field, entry])
+  )
+  const featuredFields = new Set(['inputPrice', 'outputPrice'])
+
+  return (
+    <div className='flex min-w-max items-stretch gap-2'>
+      {props.showTierLabel && (
+        <div className='flex min-w-36 shrink-0 items-center px-1 py-1'>
+          <span className='text-muted-foreground rounded-md bg-muted/40 px-2 py-1 text-xs font-medium'>
+            {props.row.label || t('Default')}
+          </span>
+        </div>
+      )}
+      {props.row.regularEntries.map((entry) => (
+        <DynamicProviderPriceItem
+          key={entry.field}
+          entry={entry}
+          originalEntry={originalRegularByField.get(entry.field)}
+          unit={props.unit}
+          featured={featuredFields.has(entry.field)}
+        />
+      ))}
+      {props.row.cacheWriteEntries.length > 0 && (
+        <DynamicCacheWritePriceGroup
+          entries={props.row.cacheWriteEntries}
+          originalEntries={props.row.originalCacheWriteEntries}
+          unit={props.unit}
+        />
+      )}
+    </div>
+  )
+}
+
+function DynamicProviderPriceCard(props: {
+  group: string
+  groupDesc?: string
+  discountLabel?: string
+  rows: DynamicTierPriceDisplayRow[]
+  tokenUnitLabel: string
+  performance?: PerformanceGroup
+  performanceLoading?: boolean
+  isPage?: boolean
+}) {
+  const { t } = useTranslation()
+  const showTierLabel = props.rows.length > 1
+
+  return (
+    <Card
+      size='sm'
+      className={cn(
+        'border-border/80 bg-background/80 hover:border-foreground/20 hover:bg-background gap-0 py-0 shadow-none transition-colors',
+        props.isPage && 'rounded-2xl'
+      )}
+    >
+      <CardHeader className='flex flex-row items-center justify-between gap-3 border-b px-3 py-2.5 sm:px-4'>
+        <div className='flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden'>
+          <CardTitle className='min-w-0 shrink-0'>
+            <ProviderGroupTitle group={props.group} desc={props.groupDesc} />
+          </CardTitle>
+          {props.discountLabel && (
+            <span
+              className={cn(
+                'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
+                getDiscountBadgeClass()
+              )}
+            >
+              {props.discountLabel}
+            </span>
+          )}
+          {props.groupDesc && (
+            <CardDescription className='min-w-0 flex-1 truncate text-xs'>
+              {t(props.groupDesc)}
+            </CardDescription>
+          )}
+        </div>
+        <ProviderPerformanceInline
+          performance={props.performance}
+          isLoading={props.performanceLoading}
+        />
+      </CardHeader>
+
+      <CardContent className='overflow-x-auto px-3 py-3 sm:px-4'>
+        <div className='flex min-w-max flex-col gap-2'>
+          {props.rows.map((row) => (
+            <DynamicTierPriceRail
+              key={`${props.group}-${row.label}`}
+              row={row}
+              unit={props.tokenUnitLabel}
+              showTierLabel={showTierLabel}
+            />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 function ProviderPriceCard(props: {
   model: PricingModel
   group: string
@@ -583,6 +782,7 @@ function ProviderPriceCard(props: {
   priceRate: number
   usdExchangeRate: number
   extraPriceTypes: { label: string; type: PriceType }[]
+  showCacheWritePrices?: boolean
   performance?: PerformanceGroup
   performanceLoading?: boolean
   isPage?: boolean
@@ -702,6 +902,14 @@ function ProviderPriceCard(props: {
                 unit={priceUnit}
               />
             ))}
+            {props.showCacheWritePrices && (
+              <ProviderCacheWritePriceGroup
+                renderTokenPrice={renderTokenPrice}
+                renderOriginalTokenPrice={renderOriginalTokenPrice}
+                hasDiscount={hasDiscount}
+                unit={priceUnit}
+              />
+            )}
           </div>
         ) : (
           <div className='flex min-w-max'>
@@ -765,8 +973,6 @@ function GroupPricingSection(props: {
     const types: { label: string; type: PriceType }[] = []
     if (props.model.cache_ratio != null)
       types.push({ label: t('Cache Read'), type: 'cache' })
-    if (props.model.create_cache_ratio != null)
-      types.push({ label: t('Cache Write'), type: 'create_cache' })
     if (props.model.image_ratio != null)
       types.push({ label: t('Image'), type: 'image' })
     if (props.model.audio_ratio != null)
@@ -793,9 +999,6 @@ function GroupPricingSection(props: {
       </section>
     )
   }
-
-  const thClass =
-    'text-muted-foreground py-2 text-[10px] font-medium tracking-wider uppercase'
 
   if (isDynamicPricingModel(props.model)) {
     const dynamicTiers = getDynamicPricingTiers(props.model)
@@ -828,22 +1031,6 @@ function GroupPricingSection(props: {
       )
     }
 
-    const priceFields = Array.from(
-      new Map(
-        dynamicTiers
-          .flatMap((tier) =>
-            getDynamicPriceEntries(tier, {
-              tokenUnit: props.tokenUnit,
-              showRechargePrice,
-              priceRate: props.priceRate,
-              usdExchangeRate: props.usdExchangeRate,
-              groupRatioMultiplier: 1,
-            })
-          )
-          .map((entry) => [entry.field, entry])
-      ).values()
-    )
-
     return (
       <section>
         <SectionTitle className={cn(isPage && 'mb-4')}>
@@ -857,123 +1044,37 @@ function GroupPricingSection(props: {
               props.usableGroup,
               group
             )
+            const priceRows = buildDynamicTierPriceDisplayRows(
+              dynamicTiers,
+              {
+                tokenUnit: props.tokenUnit,
+                showRechargePrice,
+                priceRate: props.priceRate,
+                usdExchangeRate: props.usdExchangeRate,
+                groupRatioMultiplier: ratio,
+              },
+              ratio > 0 && ratio < 1
+                ? {
+                    tokenUnit: props.tokenUnit,
+                    showRechargePrice,
+                    priceRate: props.priceRate,
+                    usdExchangeRate: props.usdExchangeRate,
+                    groupRatioMultiplier: 1,
+                  }
+                : undefined
+            )
             return (
-              <div
+              <DynamicProviderPriceCard
                 key={group}
-                className={cn(
-                  'bg-background/80 overflow-hidden rounded-lg border',
-                  isPage && 'rounded-2xl'
-                )}
-              >
-                <div
-                  className={cn(
-                    'bg-muted/20 flex items-center justify-between gap-3 border-b px-3 py-2.5',
-                    isPage && 'px-4'
-                  )}
-                >
-                  <div className='flex min-w-0 flex-1 items-center gap-2.5 overflow-hidden'>
-                    <div className='min-w-0 shrink-0'>
-                      <ProviderGroupTitle group={group} desc={groupDesc} />
-                    </div>
-                    {discountLabel && (
-                      <span
-                        className={cn(
-                          'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
-                          getDiscountBadgeClass()
-                        )}
-                      >
-                        {discountLabel}
-                      </span>
-                    )}
-                    {groupDesc && (
-                      <p className='text-muted-foreground min-w-0 flex-1 truncate text-xs'>
-                        {t(groupDesc)}
-                      </p>
-                    )}
-                  </div>
-                  <ProviderPerformanceInline
-                    performance={performanceByGroup[group]}
-                    isLoading={metricsQuery.isLoading}
-                  />
-                </div>
-                <div className='overflow-x-auto p-3 pt-3 sm:p-4 sm:pt-3'>
-                  <Table className='text-sm'>
-                    <TableHeader>
-                      <TableRow className='hover:bg-transparent'>
-                        <TableHead className={thClass}>{t('Tier')}</TableHead>
-                        {priceFields.map((entry) => (
-                          <TableHead
-                            key={entry.field}
-                            className={`${thClass} text-right`}
-                          >
-                            {t(entry.shortLabel)}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {dynamicTiers.map((tier, tierIndex) => {
-                        const entries = getDynamicPriceEntries(tier, {
-                          tokenUnit: props.tokenUnit,
-                          showRechargePrice,
-                          priceRate: props.priceRate,
-                          usdExchangeRate: props.usdExchangeRate,
-                          groupRatioMultiplier: ratio,
-                        })
-                        const originalEntries =
-                          ratio > 0 && ratio < 1
-                            ? getDynamicPriceEntries(tier, {
-                                tokenUnit: props.tokenUnit,
-                                showRechargePrice,
-                                priceRate: props.priceRate,
-                                usdExchangeRate: props.usdExchangeRate,
-                                groupRatioMultiplier: 1,
-                              })
-                            : []
-                        const entryMap = new Map(
-                          entries.map((entry) => [entry.field, entry])
-                        )
-                        const originalEntryMap = new Map(
-                          originalEntries.map((entry) => [entry.field, entry])
-                        )
-
-                        return (
-                          <TableRow key={`${group}-${tier.label || tierIndex}`}>
-                            <TableCell className='text-muted-foreground py-2.5 text-xs'>
-                              {tier.label || t('Default')}
-                            </TableCell>
-                            {priceFields.map((fieldEntry) => {
-                              const entry = entryMap.get(fieldEntry.field)
-                              const originalEntry = originalEntryMap.get(
-                                fieldEntry.field
-                              )
-                              return (
-                                <TableCell
-                                  key={fieldEntry.field}
-                                  className='py-2.5 text-right font-mono'
-                                >
-                                  {entry ? (
-                                    <span className='inline-flex items-baseline justify-end gap-1.5'>
-                                      {originalEntry && (
-                                        <span className='text-muted-foreground/45 text-xs font-medium line-through'>
-                                          {originalEntry.formatted}
-                                        </span>
-                                      )}
-                                      <span>{entry.formatted}</span>
-                                    </span>
-                                  ) : (
-                                    '-'
-                                  )}
-                                </TableCell>
-                              )
-                            })}
-                          </TableRow>
-                        )
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
+                group={group}
+                groupDesc={groupDesc}
+                discountLabel={discountLabel}
+                rows={priceRows}
+                tokenUnitLabel={tokenUnitLabel}
+                performance={performanceByGroup[group]}
+                performanceLoading={metricsQuery.isLoading}
+                isPage={isPage}
+              />
             )
           })}
         </div>
@@ -1005,6 +1106,7 @@ function GroupPricingSection(props: {
               priceRate={props.priceRate}
               usdExchangeRate={props.usdExchangeRate}
               extraPriceTypes={extraPriceTypes}
+              showCacheWritePrices={props.model.create_cache_ratio != null}
               performance={performanceByGroup[group]}
               performanceLoading={metricsQuery.isLoading}
               isPage={isPage}
@@ -1050,10 +1152,6 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const [showStickyNav, setShowStickyNav] = useState(false)
   const tabsListRef = useRef<HTMLDivElement>(null)
   const metadata = useMemo(() => inferModelMetadata(props.model), [props.model])
-
-  const isDynamic =
-    props.model.billing_mode === 'tiered_expr' &&
-    Boolean(props.model.billing_expr)
 
   useEffect(() => {
     if (!isPage || !props.onBack) {
@@ -1126,9 +1224,6 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
               isPage && 'space-y-7 rounded-3xl p-5 md:p-6'
             )}
           >
-            {isDynamic && (
-              <DynamicPricingBreakdown billingExpr={props.model.billing_expr} />
-            )}
             <GroupPricingSection
               model={props.model}
               groupRatio={props.groupRatio}

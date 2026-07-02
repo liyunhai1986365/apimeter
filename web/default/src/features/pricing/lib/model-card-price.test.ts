@@ -62,7 +62,7 @@ describe('buildModelCardPriceDisplay', () => {
     )
   })
 
-  test('includes cache write price for token-based models with create cache ratio', () => {
+  test('omits cache write prices from token-based model cards', () => {
     const display = buildModelCardPriceDisplay(
       tokenModel({
         create_cache_ratio: 1.25,
@@ -96,14 +96,25 @@ describe('buildModelCardPriceDisplay', () => {
           current: '$3',
           unit: '1M',
         },
-        {
-          key: 'create_cache',
-          label: 'Cache Write',
-          original: '$2.5',
-          current: '$1.25',
-          unit: '1M',
-        },
       ]
+    )
+  })
+
+  test('omits cache write prices from dynamic model cards', () => {
+    const display = buildModelCardPriceDisplay(
+      tokenModel({
+        billing_mode: 'tiered_expr',
+        billing_expr: 'tier("base", p * 3 + c * 15 + cc * 3.75 + cc1h * 6)',
+      }),
+      {
+        tokenUnit: 'M',
+        discountLabels: zhDiscountLabels,
+      }
+    )
+
+    assert.deepEqual(
+      display.entries.map((entry) => entry.labelKey),
+      ['Input', 'Output']
     )
   })
 

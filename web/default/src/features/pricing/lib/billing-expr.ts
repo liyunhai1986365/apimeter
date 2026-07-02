@@ -97,7 +97,7 @@ export const BILLING_VARS: BillingVar[] = [
     field: 'cacheCreatePrice',
     tierField: 'cache_create_unit_cost',
     label: 'Cache create price',
-    shortLabel: 'Cache Write',
+    shortLabel: 'Cache Write (5m)',
     side: 'input',
     group: 'cache',
   },
@@ -300,7 +300,7 @@ function findTierCalls(expr: string): TierCall[] {
     if (start === -1) break
 
     let index = start + 'tier('.length
-    let labelEnd = index
+    let labelEnd: number
     let escaped = false
     for (labelEnd = index + 1; labelEnd < expr.length; labelEnd += 1) {
       const char = expr[labelEnd]
@@ -320,7 +320,7 @@ function findTierCalls(expr: string): TierCall[] {
     }
 
     const rawLabel = expr.slice(index, labelEnd + 1)
-    let label = ''
+    let label: string
     try {
       label = JSON.parse(rawLabel) as string
     } catch {

@@ -46,6 +46,11 @@ export type DynamicPriceEntry = {
   variable: BillingVar
 }
 
+export type DynamicPriceEntryGroups = {
+  regularEntries: DynamicPriceEntry[]
+  cacheWriteEntries: DynamicPriceEntry[]
+}
+
 export type DynamicPricingSummary = {
   tiers: ParsedTier[]
   tier: ParsedTier | null
@@ -58,7 +63,19 @@ export type DynamicPricingSummary = {
   secondaryEntries: DynamicPriceEntry[]
 }
 
+export type DynamicTierPriceDisplayRow = {
+  label: string
+  regularEntries: DynamicPriceEntry[]
+  cacheWriteEntries: DynamicPriceEntry[]
+  originalRegularEntries: DynamicPriceEntry[]
+  originalCacheWriteEntries: DynamicPriceEntry[]
+}
+
 const PRIMARY_DYNAMIC_FIELDS = new Set(['inputPrice', 'outputPrice'])
+const CACHE_WRITE_DYNAMIC_FIELDS = new Set([
+  'cacheCreatePrice',
+  'cacheCreate1hPrice',
+])
 
 export function isDynamicPricingModel(model: PricingModel): boolean {
   return model.billing_mode === 'tiered_expr' && Boolean(model.billing_expr)
@@ -181,6 +198,44 @@ export function getDynamicPriceEntries(
     const bPrimary = PRIMARY_DYNAMIC_FIELDS.has(b.field)
     if (aPrimary !== bPrimary) return aPrimary ? -1 : 1
     return 0
+  })
+}
+
+export function splitDynamicPriceEntriesForDisplay(
+  entries: DynamicPriceEntry[]
+): DynamicPriceEntryGroups {
+  return {
+    regularEntries: entries.filter(
+      (entry) => !CACHE_WRITE_DYNAMIC_FIELDS.has(entry.field)
+    ),
+    cacheWriteEntries: entries.filter((entry) =>
+      CACHE_WRITE_DYNAMIC_FIELDS.has(entry.field)
+    ),
+  }
+}
+
+export function buildDynamicTierPriceDisplayRows(
+  tiers: ParsedTier[],
+  options: DynamicPriceOptions,
+  originalOptions?: DynamicPriceOptions
+): DynamicTierPriceDisplayRow[] {
+  return tiers.map((tier, index) => {
+    const { regularEntries, cacheWriteEntries } =
+      splitDynamicPriceEntriesForDisplay(getDynamicPriceEntries(tier, options))
+    const {
+      regularEntries: originalRegularEntries,
+      cacheWriteEntries: originalCacheWriteEntries,
+    } = splitDynamicPriceEntriesForDisplay(
+      originalOptions ? getDynamicPriceEntries(tier, originalOptions) : []
+    )
+
+    return {
+      label: tier.label || `tier_${index + 1}`,
+      regularEntries,
+      cacheWriteEntries,
+      originalRegularEntries,
+      originalCacheWriteEntries,
+    }
   })
 }
 

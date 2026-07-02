@@ -68,6 +68,10 @@ export type ModelCardPriceDisplayOptions = {
 }
 
 const ORIGINAL_GROUP_KEY = '__original__'
+const MODEL_CARD_HIDDEN_DYNAMIC_FIELDS = new Set([
+  'cacheCreatePrice',
+  'cacheCreate1hPrice',
+])
 
 function getEnabledGroups(model: PricingModel): string[] {
   return Array.isArray(model.enable_groups) ? model.enable_groups : []
@@ -127,29 +131,41 @@ function buildDynamicDisplay(
   const unitLabel = tokenUnitLabel(shared.tokenUnit)
   const tiers = getDynamicPricingTiers(model)
   const tier = tiers[0] || null
-  const displayTiers = options.includeAllDynamicTiers ? tiers : [tier].filter(Boolean)
+  const displayTiers = options.includeAllDynamicTiers
+    ? tiers
+    : [tier].filter(Boolean)
   const discountRatio = getLowestEnabledGroupRatio(model)
   const originalEntries = displayTiers.flatMap((item) =>
     getDynamicPriceEntries(item, {
       ...shared,
       groupRatioMultiplier: 1,
-    }).map((entry) => ({ ...entry, specLabel: item.label }))
+    })
+      .filter((entry) => !MODEL_CARD_HIDDEN_DYNAMIC_FIELDS.has(entry.field))
+      .map((entry) => ({ ...entry, specLabel: item.label }))
   )
   const currentEntries = displayTiers.flatMap((item) =>
     getDynamicPriceEntries(item, {
       ...shared,
       groupRatioMultiplier: discountRatio,
-    }).map((entry) => ({ ...entry, specLabel: item.label }))
+    })
+      .filter((entry) => !MODEL_CARD_HIDDEN_DYNAMIC_FIELDS.has(entry.field))
+      .map((entry) => ({ ...entry, specLabel: item.label }))
   )
   const currentByKey = new Map(
-    currentEntries.map((entry) => [`${entry.key}:${entry.specLabel || ''}`, entry])
+    currentEntries.map((entry) => [
+      `${entry.key}:${entry.specLabel || ''}`,
+      entry,
+    ])
   )
   const fallbackOriginalEntries = getDynamicPriceEntries(tier, {
     ...shared,
     groupRatioMultiplier: 1,
   })
 
-  if (fallbackOriginalEntries.length === 0 && (model.billing_expr || '').trim()) {
+  if (
+    fallbackOriginalEntries.length === 0 &&
+    (model.billing_expr || '').trim()
+  ) {
     return {
       kind: 'special',
       billingLabelKey: hasDynamicRequestRules(model)
@@ -244,23 +260,6 @@ function buildTokenDisplay(
       unitLabel,
     })
   }
-
-  if (model.create_cache_ratio != null) {
-    entries.push({
-      key: 'create_cache',
-      labelKey: 'Cache Write',
-      original: formatGroupPrice(
-        model,
-        ORIGINAL_GROUP_KEY,
-        'create_cache',
-        ...args,
-        originalRatios
-      ),
-      current: formatPrice(model, 'create_cache', ...args),
-      unitLabel,
-    })
-  }
-
   return {
     kind: 'token',
     billingLabelKey: 'Token-based',

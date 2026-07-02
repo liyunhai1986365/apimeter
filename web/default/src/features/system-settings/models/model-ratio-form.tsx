@@ -224,13 +224,13 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               name='CreateCacheRatio'
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('Create cache ratio')}</FormLabel>
+                  <FormLabel>{t('Create cache ratio (5m)')}</FormLabel>
                   <FormControl>
                     <Textarea rows={8} {...field} />
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Ratio applied when creating cache entries for supported models.'
+                      'Configured create cache ratios are 5m ratios. 1h cache writes are automatically settled at 1.6x per model.'
                     )}
                   </FormDescription>
                   <FormMessage />

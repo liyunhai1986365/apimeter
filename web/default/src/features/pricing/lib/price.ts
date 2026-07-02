@@ -24,6 +24,24 @@ import type { PricingModel, TokenUnit, PriceType } from '../types'
 // Price Calculation Utilities
 // ----------------------------------------------------------------------------
 
+export const CACHE_CREATE_1H_PRICE_MULTIPLIER = 6 / 3.75
+
+export function deriveCacheCreate1hValue(value: number): number {
+  return value * CACHE_CREATE_1H_PRICE_MULTIPLIER
+}
+
+export function formatDerivedCacheCreate1hValue(
+  value: string | number | null | undefined
+): string {
+  if (value === '' || value === null || value === undefined) return ''
+
+  const numericValue = Number(value)
+  if (!Number.isFinite(numericValue)) return ''
+
+  const derived = deriveCacheCreate1hValue(numericValue)
+  return Number.parseFloat(derived.toFixed(12)).toString()
+}
+
 /**
  * Strip trailing zeros from formatted price string while preserving currency symbols
  */
@@ -98,6 +116,12 @@ function calculateTokenPrice(
     case 'create_cache':
       return hasRatio(model.create_cache_ratio)
         ? base * Number(model.create_cache_ratio)
+        : NaN
+    case 'create_cache_1h':
+      return hasRatio(model.create_cache_ratio)
+        ? base *
+            Number(model.create_cache_ratio) *
+            CACHE_CREATE_1H_PRICE_MULTIPLIER
         : NaN
     case 'image':
       return hasRatio(model.image_ratio)

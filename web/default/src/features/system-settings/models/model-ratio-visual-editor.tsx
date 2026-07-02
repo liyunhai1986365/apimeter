@@ -60,6 +60,7 @@ import {
   combineBillingExpr,
   splitBillingExprAndRequestRules,
 } from '@/features/pricing/lib/billing-expr'
+import { formatDerivedCacheCreate1hValue } from '@/features/pricing/lib/price'
 import { safeJsonParse } from '../utils/json-parser'
 import {
   ModelPricingEditorPanel,
@@ -113,6 +114,22 @@ const ratioToPrice = (ratio?: string, denominator?: string) => {
   const denominatorNumber = denominator ? toNumberOrNull(denominator) : 2
   if (ratioNumber === null || denominatorNumber === null) return ''
   return formatPricingNumber(ratioNumber * denominatorNumber)
+}
+
+const formatCacheCreatePriceDetail = (
+  createCacheRatio: string | undefined,
+  inputPrice: string,
+  t: (key: string) => string
+) => {
+  const createCachePrice = ratioToPrice(createCacheRatio, inputPrice)
+  if (!createCachePrice) return ''
+
+  const createCache1hPrice = formatDerivedCacheCreate1hValue(createCachePrice)
+  const auto1hSuffix = createCache1hPrice
+    ? ` · ${t('1h auto-settled')}: $${createCache1hPrice}`
+    : ''
+
+  return `${t('Cache write (5m)')} $${createCachePrice}${auto1hSuffix}`
 }
 
 const filterBySelectedValues = (
@@ -187,7 +204,7 @@ const getPriceDetail = (row: ModelRow, t: (key: string) => string) => {
     row.cacheRatio &&
       `${t('Cache')} $${ratioToPrice(row.cacheRatio, inputPrice)}`,
     row.createCacheRatio &&
-      `${t('Cache write')} $${ratioToPrice(row.createCacheRatio, inputPrice)}`,
+      formatCacheCreatePriceDetail(row.createCacheRatio, inputPrice, t),
   ].filter(Boolean)
 
   return details.length > 0 ? details.join(' · ') : t('Base input price only')

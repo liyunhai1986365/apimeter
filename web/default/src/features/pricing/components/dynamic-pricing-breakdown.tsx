@@ -48,7 +48,11 @@ import {
   type RequestRuleGroup,
   type TierCondition,
 } from '../lib/billing-expr'
-import { formatDynamicSecondPrice } from '../lib/dynamic-price'
+import {
+  getDynamicPriceEntries,
+  splitDynamicPriceEntriesForDisplay,
+  type DynamicPriceEntry,
+} from '../lib/dynamic-price'
 
 type DynamicPricingBreakdownProps = {
   billingExpr: string | null | undefined
@@ -96,6 +100,43 @@ function formatTokenHint(value: string | number): string {
     return `${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}K`
   }
   return String(n)
+}
+
+function formatDynamicEntryValue(
+  entry: DynamicPriceEntry,
+  rate: number,
+  symbol: string
+): string {
+  return entry.variable.unit === 'second'
+    ? entry.formatted
+    : `${symbol}${(entry.value * rate).toFixed(4)}`
+}
+
+function DynamicCacheWriteBreakdown(props: {
+  entries: DynamicPriceEntry[]
+  rate: number
+  symbol: string
+}) {
+  const { t } = useTranslation()
+  if (props.entries.length === 0) return null
+
+  return (
+    <div className='flex min-w-48 flex-col gap-1'>
+      {props.entries.map((entry) => (
+        <div
+          key={entry.field}
+          className='flex items-baseline justify-between gap-3'
+        >
+          <span className='text-muted-foreground min-w-0 truncate text-xs font-medium'>
+            {t(entry.shortLabel)}
+          </span>
+          <span className='text-foreground shrink-0 font-mono text-sm font-semibold'>
+            {formatDynamicEntryValue(entry, props.rate, props.symbol)}
+          </span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 function formatConditionSummary(
@@ -227,6 +268,15 @@ export function DynamicPricingBreakdown({
       (tier) => Number(tier[v.field as string as keyof ParsedTier] || 0) > 0
     )
   })
+  const { regularEntries: visibleRegularFields, cacheWriteEntries } =
+    splitDynamicPriceEntriesForDisplay(
+      getDynamicPriceEntries(
+        Object.fromEntries(
+          visiblePriceFields.map((v) => [v.field as string, 1])
+        ) as ParsedTier,
+        { tokenUnit: 'M' }
+      )
+    )
 
   return (
     <section className='min-w-0 py-3 sm:py-4'>
@@ -286,28 +336,46 @@ export function DynamicPricingBreakdown({
                     </div>
                   )}
                   <div className='grid grid-cols-2 gap-x-3 gap-y-1.5'>
-                    {visiblePriceFields.map((v) => {
-                      const value = Number(
-                        tier[v.field as string as keyof ParsedTier] || 0
+                    {visibleRegularFields.map((fieldEntry) => {
+                      const entries = getDynamicPriceEntries(tier, {
+                        tokenUnit: 'M',
+                        usdExchangeRate: rate,
+                      })
+                      const entry = entries.find(
+                        (item) => item.field === fieldEntry.field
                       )
                       return (
-                        <div key={v.field} className='min-w-0'>
+                        <div key={fieldEntry.field} className='min-w-0'>
                           <div className='text-muted-foreground truncate text-[10px] font-medium tracking-wider uppercase'>
-                            {t(v.shortLabel)}
+                            {t(fieldEntry.shortLabel)}
                           </div>
                           <div className='truncate font-mono text-sm font-semibold'>
-                            {value > 0
-                              ? v.unit === 'second'
-                                ? formatDynamicSecondPrice(value, {
-                                    tokenUnit: 'M',
-                                    usdExchangeRate: rate,
-                                  })
-                                : `${symbol}${(value * rate).toFixed(4)}`
+                            {entry
+                              ? formatDynamicEntryValue(entry, rate, symbol)
                               : '-'}
                           </div>
                         </div>
                       )
                     })}
+                    {cacheWriteEntries.length > 0 && (
+                      <div className='col-span-2 min-w-0'>
+                        <div className='text-muted-foreground mb-1 truncate text-[10px] font-medium tracking-wider uppercase'>
+                          {t('Cache Write')}
+                        </div>
+                        <DynamicCacheWriteBreakdown
+                          entries={
+                            splitDynamicPriceEntriesForDisplay(
+                              getDynamicPriceEntries(tier, {
+                                tokenUnit: 'M',
+                                usdExchangeRate: rate,
+                              })
+                            ).cacheWriteEntries
+                          }
+                          rate={rate}
+                          symbol={symbol}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               )
@@ -320,14 +388,19 @@ export function DynamicPricingBreakdown({
                   <TableHead className='text-muted-foreground py-2 text-[10px] font-medium tracking-wider uppercase'>
                     {t('Tier')}
                   </TableHead>
-                  {visiblePriceFields.map((v) => (
+                  {visibleRegularFields.map((entry) => (
                     <TableHead
-                      key={v.field}
+                      key={entry.field}
                       className='text-muted-foreground py-2 text-right text-[10px] font-medium tracking-wider uppercase'
                     >
-                      {t(v.shortLabel)}
+                      {t(entry.shortLabel)}
                     </TableHead>
                   ))}
+                  {cacheWriteEntries.length > 0 && (
+                    <TableHead className='text-muted-foreground py-2 text-right text-[10px] font-medium tracking-wider uppercase'>
+                      {t('Cache Write')}
+                    </TableHead>
+                  )}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -368,23 +441,22 @@ export function DynamicPricingBreakdown({
                           </div>
                         )}
                       </TableCell>
-                      {visiblePriceFields.map((v) => {
-                        const value = Number(
-                          tier[v.field as string as keyof ParsedTier] || 0
+                      {visibleRegularFields.map((fieldEntry) => {
+                        const entries = getDynamicPriceEntries(tier, {
+                          tokenUnit: 'M',
+                          usdExchangeRate: rate,
+                        })
+                        const entry = entries.find(
+                          (item) => item.field === fieldEntry.field
                         )
                         return (
                           <TableCell
-                            key={v.field}
+                            key={fieldEntry.field}
                             className='py-2.5 text-right align-top font-mono'
                           >
-                            {value > 0 ? (
+                            {entry ? (
                               <span className='font-semibold'>
-                                {v.unit === 'second'
-                                  ? formatDynamicSecondPrice(value, {
-                                      tokenUnit: 'M',
-                                      usdExchangeRate: rate,
-                                    })
-                                  : `${symbol}${(value * rate).toFixed(4)}`}
+                                {formatDynamicEntryValue(entry, rate, symbol)}
                               </span>
                             ) : (
                               '-'
@@ -392,6 +464,22 @@ export function DynamicPricingBreakdown({
                           </TableCell>
                         )
                       })}
+                      {cacheWriteEntries.length > 0 && (
+                        <TableCell className='py-2.5 text-right align-top'>
+                          <DynamicCacheWriteBreakdown
+                            entries={
+                              splitDynamicPriceEntriesForDisplay(
+                                getDynamicPriceEntries(tier, {
+                                  tokenUnit: 'M',
+                                  usdExchangeRate: rate,
+                                })
+                              ).cacheWriteEntries
+                            }
+                            rate={rate}
+                            symbol={symbol}
+                          />
+                        </TableCell>
+                      )}
                     </TableRow>
                   )
                 })}

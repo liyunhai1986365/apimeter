@@ -69,6 +69,7 @@ import {
   MODEL_CATEGORY_VALUES,
   getModelCategoryLabels,
 } from '@/features/pricing/constants'
+import { formatDerivedCacheCreate1hValue } from '@/features/pricing/lib/price'
 import type {
   ModelCapability,
   ModelCategory,
@@ -406,6 +407,30 @@ export function ModelMutateDrawer({
     return pricingSubMode === 'price'
       ? t(priceDescriptionKey)
       : t(ratioDescriptionKey)
+  }
+
+  const getCacheCreateFieldDescription = (value?: string) => {
+    const derived1hValue = formatDerivedCacheCreate1hValue(value)
+
+    if (pricingSubMode === 'price') {
+      return derived1hValue
+        ? t(
+            'Configured cache write price is the 5m price. 1h cache writes are automatically settled at 1.6x: ${{value}} per 1M tokens.',
+            { value: derived1hValue }
+          )
+        : t(
+            'Configured cache write price is the 5m price. 1h cache writes are automatically settled at 1.6x.'
+          )
+    }
+
+    return derived1hValue
+      ? t(
+          'Configured create cache ratio is the 5m ratio. 1h cache writes are automatically settled at 1.6x: {{value}}.',
+          { value: derived1hValue }
+        )
+      : t(
+          'Configured create cache ratio is the 5m ratio. 1h cache writes are automatically settled at 1.6x.'
+        )
   }
 
   // Load model data for editing and ratio configuration
@@ -1693,8 +1718,8 @@ export function ModelMutateDrawer({
                           <FormItem>
                             <FormLabel>
                               {pricingSubMode === 'price'
-                                ? t('Cache write price')
-                                : t('Create cache ratio')}
+                                ? t('Cache write price (5m)')
+                                : t('Create cache ratio (5m)')}
                             </FormLabel>
                             <FormControl>
                               <Input
@@ -1710,10 +1735,7 @@ export function ModelMutateDrawer({
                               />
                             </FormControl>
                             <FormDescription>
-                              {getAdvancedFieldDescription(
-                                'Ratio applied when creating cache entries for supported models.',
-                                'Token price for creating cache entries.'
-                              )}
+                              {getCacheCreateFieldDescription(field.value)}
                             </FormDescription>
                             <FormMessage />
                           </FormItem>

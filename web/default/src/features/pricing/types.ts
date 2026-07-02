@@ -169,6 +169,7 @@ export type PriceType =
   | 'output'
   | 'cache'
   | 'create_cache'
+  | 'create_cache_1h'
   | 'image'
   | 'audio_input'
   | 'audio_output'

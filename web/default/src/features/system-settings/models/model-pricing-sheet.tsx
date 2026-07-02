@@ -65,6 +65,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { combineBillingExpr } from '@/features/pricing/lib/billing-expr'
+import { formatDerivedCacheCreate1hValue } from '@/features/pricing/lib/price'
 import { formatPricingNumber } from './pricing-format'
 import { TieredPricingEditor } from './tiered-pricing-editor'
 
@@ -129,6 +130,7 @@ type PreviewRow = {
   key: string
   label: string
   value: string
+  description?: string
   multiline?: boolean
 }
 
@@ -181,8 +183,9 @@ const laneConfigs: Array<{
   },
   {
     key: 'createCache',
-    titleKey: 'Cache write price',
-    descriptionKey: 'Token price for creating cache entries.',
+    titleKey: 'Cache write price (5m)',
+    descriptionKey:
+      'Configured cache write price is the 5m price. 1h cache writes are automatically settled at 1.6x.',
     placeholder: '3.75',
   },
   {
@@ -339,11 +342,17 @@ function buildPreviewRows(
     },
     {
       key: 'createCache',
-      label: t('Cache write price'),
+      label: t('Cache write price (5m)'),
       value:
         laneEnabled.createCache && lanePrices.createCache
           ? `$${lanePrices.createCache}`
           : t('Empty'),
+      description:
+        laneEnabled.createCache && lanePrices.createCache
+          ? t('1h auto-settled: ${{value}} per 1M tokens', {
+              value: formatDerivedCacheCreate1hValue(lanePrices.createCache),
+            })
+          : t('1h cache writes are automatically settled at 1.6x.'),
     },
     {
       key: 'image',
@@ -828,6 +837,7 @@ export function ModelPricingEditorPanel({
                         return (
                           <PriceLane
                             key={lane.key}
+                            laneKey={lane.key}
                             title={t(lane.titleKey)}
                             description={t(lane.descriptionKey)}
                             placeholder={lane.placeholder}
@@ -939,6 +949,11 @@ export function ModelPricingEditorPanel({
                         >
                           {row.value}
                         </span>
+                        {row.description && (
+                          <span className='text-muted-foreground col-start-2 text-xs'>
+                            {row.description}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -992,6 +1007,7 @@ function PriceInput(props: {
 }
 
 function PriceLane(props: {
+  laneKey: LaneKey
   title: string
   description: string
   placeholder: string
@@ -1003,6 +1019,10 @@ function PriceLane(props: {
 }) {
   const { t } = useTranslation()
   const effectiveDisabled = props.disabled || !props.enabled
+  const derivedCacheCreate1hValue =
+    props.laneKey === 'createCache'
+      ? formatDerivedCacheCreate1hValue(props.value)
+      : ''
 
   return (
     <Field
@@ -1031,9 +1051,15 @@ function PriceLane(props: {
         onChange={props.onChange}
       />
       <FieldDescription>
-        {props.enabled
-          ? t('USD price per 1M tokens.')
-          : t('Disabled lanes are omitted on save.')}
+        {props.enabled && props.laneKey === 'createCache'
+          ? derivedCacheCreate1hValue
+            ? t('1h auto-settled: ${{value}} per 1M tokens', {
+                value: derivedCacheCreate1hValue,
+              })
+            : t('1h cache writes are automatically settled at 1.6x.')
+          : props.enabled
+            ? t('USD price per 1M tokens.')
+            : t('Disabled lanes are omitted on save.')}
       </FieldDescription>
     </Field>
   )

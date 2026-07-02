@@ -62,7 +62,7 @@ export const RATIO_TYPE_OPTIONS = [
   { label: 'Model ratio', value: 'model_ratio' },
   { label: 'Completion ratio', value: 'completion_ratio' },
   { label: 'Cache ratio', value: 'cache_ratio' },
-  { label: 'Create cache ratio', value: 'create_cache_ratio' },
+  { label: 'Create cache ratio (5m)', value: 'create_cache_ratio' },
   { label: 'Image ratio', value: 'image_ratio' },
   { label: 'Audio ratio', value: 'audio_ratio' },
   { label: 'Audio completion ratio', value: 'audio_completion_ratio' },
