@@ -53,6 +53,7 @@ import {
   isViolationFeeLog,
   isTaskPreConsumeLog,
   formatSignedLogQuota,
+  formatSensitiveQuota,
 } from '../../lib/format'
 import {
   isDisplayableLogType,
@@ -738,7 +739,8 @@ export function useCommonLogsColumns(
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('Cost')} />
       ),
-      cell: ({ row }) => {
+      cell: function CostCell({ row }) {
+        const { sensitiveVisible } = useUsageLogsContext()
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
 
@@ -800,7 +802,8 @@ export function useCommonLogsColumns(
             {hasChannelProfit && (
               <span className='flex flex-wrap gap-x-2 text-[11px] tabular-nums'>
                 <span className={profitClassName}>
-                  {t('Profit')} {formatLogQuota(profitQuota)}
+                  {t('Profit')}{' '}
+                  {formatSensitiveQuota(profitQuota, sensitiveVisible)}
                 </span>
               </span>
             )}

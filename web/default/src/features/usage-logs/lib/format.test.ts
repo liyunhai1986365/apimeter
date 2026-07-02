@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { UsageLog } from '../data/schema'
-import { formatSignedLogQuota, isTaskPreConsumeLog } from './format'
+import {
+  formatSensitiveQuota,
+  formatSignedLogQuota,
+  isTaskPreConsumeLog,
+} from './format'
 
 function usageLog(overrides: Partial<UsageLog>): UsageLog {
   return {
@@ -158,5 +162,15 @@ describe('formatSignedLogQuota', () => {
       formatSignedLogQuota(usageLog({ type: 2, quota: 100 })),
       '$0.0002'
     )
+  })
+})
+
+describe('formatSensitiveQuota', () => {
+  test('masks quota when sensitive values are hidden', () => {
+    assert.equal(formatSensitiveQuota(123, false), '••••')
+  })
+
+  test('formats quota when sensitive values are visible', () => {
+    assert.equal(formatSensitiveQuota(123, true), '$0.000246')
   })
 })

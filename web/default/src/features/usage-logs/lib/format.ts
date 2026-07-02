@@ -127,6 +127,13 @@ export function formatSignedLogQuota(log: UsageLog): string {
   return formatLogQuota(quota)
 }
 
+export function formatSensitiveQuota(
+  quota: number,
+  sensitiveVisible: boolean
+): string {
+  return sensitiveVisible ? formatLogQuota(quota) : '••••'
+}
+
 /**
  * Parse the 'other' field from JSON string to object
  */
