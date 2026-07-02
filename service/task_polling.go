@@ -950,11 +950,17 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 	// 3. 无调整，保持预扣额度
 }
 
+// SettleTaskBillingOnComplete lets non-polling task fetch paths reuse the
+// same terminal-state billing lifecycle as the async polling loop.
+func SettleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor, task *model.Task, taskResult *relaycommon.TaskInfo) {
+	settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
+}
+
 // RunTaskPollingOnce runs one iteration of async task polling with context and progress reporting
 func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, total int)) map[string]interface{} {
 	allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
 	totalTasks := len(allTasks)
-	
+
 	if totalTasks == 0 {
 		return map[string]interface{}{
 			"total_tasks": 0,
@@ -965,7 +971,7 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 	platformTask := make(map[constant.TaskPlatform][]*model.Task)
 	imageTaskChannelM := make(map[int][]string)
 	imageTaskM := make(map[string]*model.Task)
-	
+
 	for _, t := range allTasks {
 		if ctx.Err() != nil {
 			return map[string]interface{}{
@@ -974,7 +980,7 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 				"cancelled":   true,
 			}
 		}
-		
+
 		if isImageAsyncTask(t) {
 			upstreamID := t.GetUpstreamTaskID()
 			if upstreamID != "" {
@@ -985,7 +991,7 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 		}
 		platformTask[t.Platform] = append(platformTask[t.Platform], t)
 	}
-	
+
 	processedChannels := 0
 	totalChannels := 0
 	for _, tasks := range platformTask {
@@ -995,7 +1001,7 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 		}
 	}
 	totalChannels += len(imageTaskChannelM)
-	
+
 	for platform, tasks := range platformTask {
 		if len(tasks) == 0 {
 			continue
@@ -1003,7 +1009,7 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 		taskChannelM := make(map[int][]string)
 		taskM := make(map[string]*model.Task)
 		nullTaskIds := make([]int64, 0)
-		
+
 		for _, task := range tasks {
 			upstreamID := task.GetUpstreamTaskID()
 			if upstreamID == "" {
@@ -1015,7 +1021,7 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 				taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
 			}
 		}
-		
+
 		if len(nullTaskIds) > 0 {
 			err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
 				"status":   "FAILURE",
@@ -1025,7 +1031,7 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 				logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
 			}
 		}
-		
+
 		if len(taskChannelM) == 0 {
 			continue
 		}
@@ -1049,18 +1055,18 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 			processedChannels++
 			reportProgress(processedChannels, totalChannels)
 		}
-		
+
 		if err := UpdateImageTasks(ctx, imageTaskChannelM, imageTaskM); err != nil {
 			common.SysLog(fmt.Sprintf("UpdateImageTasks fail: %s", err))
 		}
 	}
-	
+
 	sweepTimedOutTasks(ctx)
-	
+
 	return map[string]interface{}{
-		"total_tasks":       totalTasks,
+		"total_tasks":        totalTasks,
 		"processed_channels": processedChannels,
-		"total_channels":    totalChannels,
+		"total_channels":     totalChannels,
 	}
 }
 

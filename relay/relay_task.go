@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -575,6 +576,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	ti, err := adaptor.ParseTaskResult(body)
 	if err == nil && ti != nil {
 		snap := task.Snapshot()
+		now := time.Now().Unix()
 		if ti.Status != "" {
 			task.Status = model.TaskStatus(ti.Status)
 		}
@@ -589,8 +591,30 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		if ti.Url != "" && !strings.HasPrefix(ti.Url, "data:") {
 			task.PrivateData.ResultURL = ti.Url
 		}
+		if task.Status == model.TaskStatusSuccess {
+			task.Progress = taskcommon.ProgressComplete
+			if task.FinishTime == 0 {
+				task.FinishTime = now
+			}
+		} else if task.Status == model.TaskStatusFailure {
+			task.Progress = taskcommon.ProgressComplete
+			if task.FinishTime == 0 {
+				task.FinishTime = now
+			}
+		}
+		if task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure {
+			task.Data = body
+		}
+		isDone := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
 		if !snap.Equal(task.Snapshot()) {
-			_, _ = task.UpdateWithStatus(snap.Status)
+			won, updateErr := task.UpdateWithStatus(snap.Status)
+			if updateErr == nil && won && isDone && snap.Status != task.Status {
+				if task.Status == model.TaskStatusSuccess {
+					service.SettleTaskBillingOnComplete(c.Request.Context(), adaptor, task, ti)
+				} else if task.Quota != 0 {
+					service.RefundTaskQuota(c.Request.Context(), task, task.FailReason)
+				}
+			}
 		}
 	}
 	if !returnNativeBody {
