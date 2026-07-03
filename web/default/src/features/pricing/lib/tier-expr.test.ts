@@ -7,6 +7,7 @@ import {
 import {
   buildDynamicTierPriceDisplayRows,
   getDynamicPriceEntries,
+  getDynamicPriceUnitLabelKey,
   splitDynamicPriceEntriesForDisplay,
 } from './dynamic-price'
 import { evalExprLocally } from './tier-expr'
@@ -84,6 +85,121 @@ describe('parseTiersFromExpr', () => {
     assert.equal(entries[0].field, 'perSecondPrice')
     assert.equal(entries[0].shortLabel, 'Per second')
     assert.equal(entries[0].formatted, '$0.5')
+  })
+
+  test('uses request as the unit label for per-request dynamic prices', () => {
+    const tiers = parseTiersFromExpr('tier("1k", 70000)')
+    const entries = getDynamicPriceEntries(tiers[0], {
+      tokenUnit: 'M',
+    })
+
+    assert.equal(entries.length, 1)
+    assert.equal(entries[0].field, 'perRequestPrice')
+    assert.equal(entries[0].shortLabel, '')
+    assert.equal(getDynamicPriceUnitLabelKey(entries[0], '1M'), 'request')
+  })
+
+  test('exposes constant request prices from param-based image tiers', () => {
+    const tiers = parseTiersFromExpr(
+      'param("resolution") == "0.5k" ? tier("0.5k", 0.045 * 1000000) : param("resolution") == "2k" ? tier("2k", 0.105 * 1000000) : tier("1k", 0.07 * 1000000)'
+    )
+
+    const rows = buildDynamicTierPriceDisplayRows(tiers, {
+      tokenUnit: 'M',
+    })
+
+    assert.deepEqual(
+      rows.map((row) => ({
+        label: row.label,
+        entries: row.regularEntries.map((entry) => ({
+          field: entry.field,
+          shortLabel: entry.shortLabel,
+          formatted: entry.formatted,
+        })),
+      })),
+      [
+        {
+          label: '0.5k',
+          entries: [
+            {
+              field: 'perRequestPrice',
+              shortLabel: '',
+              formatted: '$0.045',
+            },
+          ],
+        },
+        {
+          label: '2k',
+          entries: [
+            {
+              field: 'perRequestPrice',
+              shortLabel: '',
+              formatted: '$0.105',
+            },
+          ],
+        },
+        {
+          label: '1k',
+          entries: [
+            {
+              field: 'perRequestPrice',
+              shortLabel: '',
+              formatted: '$0.07',
+            },
+          ],
+        },
+      ]
+    )
+  })
+
+  test('exposes nano-banana resolution tier request prices', () => {
+    const tiers = parseTiersFromExpr(
+      'param("resolution") == "0.5k" ? tier("0.5k", 0.045 * 1000000) : param("resolution") == "2k" ? tier("2k", 0.105 * 1000000) : param("resolution") == "4k" ? tier("4k", 0.14 * 1000000) : tier("1k", 0.07 * 1000000)'
+    )
+
+    const rows = buildDynamicTierPriceDisplayRows(tiers, {
+      tokenUnit: 'M',
+    })
+
+    assert.deepEqual(
+      rows.map((row) => ({
+        label: row.label,
+        prices: row.regularEntries.map((entry) => entry.formatted),
+      })),
+      [
+        { label: '0.5k', prices: ['$0.045'] },
+        { label: '2k', prices: ['$0.105'] },
+        { label: '4k', prices: ['$0.14'] },
+        { label: '1k', prices: ['$0.07'] },
+      ]
+    )
+  })
+
+  test('exposes nano-banana request prices from quota-scaled constants with optional add-ons', () => {
+    const tiers = parseTiersFromExpr(`param("resolution") == "0.5k"
+      ? tier("0.5k", 45000 + (param("enable_web_search") == true ? 14000 : 0) + (param("enable_image_search") == true ? 14000 : 0))
+      : param("resolution") == "2k"
+        ? tier("2k", 105000 + (param("enable_web_search") == true ? 14000 : 0) + (param("enable_image_search") == true ? 14000 : 0))
+        : param("resolution") == "4k"
+          ? tier("4k", 140000 + (param("enable_web_search") == true ? 14000 : 0) + (param("enable_image_search") == true ? 14000 : 0))
+          : tier("1k", 70000 + (param("enable_web_search") == true ? 14000 : 0) + (param("enable_image_search") == true ? 14000 : 0))`)
+
+    const rows = buildDynamicTierPriceDisplayRows(tiers, {
+      tokenUnit: 'M',
+    })
+
+    assert.deepEqual(
+      rows.map((row) => ({
+        label: row.label,
+        prices: row.regularEntries.map((entry) => entry.formatted),
+      })),
+      [
+        { label: '0.5k', prices: ['$0.045'] },
+        { label: '2k', prices: ['$0.105'] },
+        { label: '4k', prices: ['$0.14'] },
+        { label: '1k', prices: ['$0.07'] },
+      ]
+    )
   })
 
   test('labels split cache write dynamic pricing entries by TTL', () => {

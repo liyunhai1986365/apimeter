@@ -71,14 +71,13 @@ submit:
       - to: aspect_ratio
         from: request.aspect_ratio
         fallback_from: request.size
-        transform: image_aspect_ratio
+        transform: wavespeed_image_aspect_ratio
         omit_empty: true
       - to: resolution
         from: request.resolution
         fallback_froms:
           - request.image_size
-          - request.size
-        transform: image_resolution
+        transform: wavespeed_image_resolution
         omit_empty: true
       - to: output_format
         value: png
@@ -93,6 +92,12 @@ submit:
         omit_empty: true
       - to: quality
         from: request.quality
+        omit_empty: true
+      - to: enable_web_search
+        from: request.enable_web_search
+        omit_empty: true
+      - to: enable_image_search
+        from: request.enable_image_search
         omit_empty: true
       - to: images
         from: request.image_urls

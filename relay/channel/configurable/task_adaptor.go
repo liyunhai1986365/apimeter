@@ -696,6 +696,11 @@ func valueFromSource(path string, request map[string]any, info *relaycommon.Rela
 }
 
 func fieldMatches(field FieldMapping, source map[string]any, info *relaycommon.RelayInfo) bool {
+	for _, condition := range field.Conditions {
+		if !pathConditionMatches(condition, source, info) {
+			return false
+		}
+	}
 	if strings.TrimSpace(field.WhenModelContains) == "" {
 		return true
 	}
@@ -740,6 +745,10 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 		return imageAspectRatio(value), nil
 	case "image_resolution":
 		return imageResolution(value), nil
+	case "wavespeed_image_aspect_ratio":
+		return wavespeedImageAspectRatio(value), nil
+	case "wavespeed_image_resolution":
+		return wavespeedImageResolution(value), nil
 	case "image_resolution_upper":
 		return imageResolutionUpper(value), nil
 	case "moxing_aspect_ratio":

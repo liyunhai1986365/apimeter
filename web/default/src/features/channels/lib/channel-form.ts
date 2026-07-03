@@ -94,6 +94,10 @@ export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
     label: 'Moxing GPT Image 2',
     value: 'moxing-gpt-image-2',
   },
+  {
+    label: 'WaveSpeed Nano Banana Pro',
+    value: 'wavespeed-nano-banana-pro',
+  },
 ]
 
 // ============================================================================

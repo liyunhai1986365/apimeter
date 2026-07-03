@@ -206,6 +206,9 @@ func pathConditionMatches(condition PathCondition, source map[string]any, info *
 	if condition.Equals != nil {
 		return fmt.Sprint(value) == fmt.Sprint(condition.Equals)
 	}
+	if strings.TrimSpace(condition.Contains) != "" {
+		return strings.Contains(strings.ToLower(fmt.Sprint(value)), strings.ToLower(strings.TrimSpace(condition.Contains)))
+	}
 	return !isEmptyValue(value)
 }
 
@@ -310,6 +313,36 @@ func moxingAspectRatio(value any) string {
 	return aspectRatio
 }
 
+func wavespeedImageAspectRatio(value any) string {
+	input := strings.ToLower(strings.TrimSpace(firstString(value)))
+	if input == "" {
+		return ""
+	}
+	if isSupportedWaveSpeedAspectRatio(input) {
+		return input
+	}
+	aspectRatio, _, ok := imageSizeToAspectRatioAndResolution(input)
+	if !ok || !isSupportedWaveSpeedAspectRatio(aspectRatio) {
+		return ""
+	}
+	return aspectRatio
+}
+
+func wavespeedImageResolution(value any) string {
+	input := strings.ToLower(strings.TrimSpace(firstString(value)))
+	if input == "" {
+		return ""
+	}
+	if resolution := normalizeWaveSpeedImageResolution(input); resolution != "" {
+		return resolution
+	}
+	_, resolution, ok := imageSizeToAspectRatioAndResolution(input)
+	if !ok {
+		return ""
+	}
+	return resolution
+}
+
 func imageSizeToAspectRatioAndResolution(size string) (string, string, bool) {
 	size = strings.ToLower(strings.TrimSpace(strings.ReplaceAll(size, "×", "x")))
 	if size == "auto" {
@@ -392,6 +425,23 @@ var moxingSupportedAspectRatios = map[string]struct{}{
 	"21:9": {},
 }
 
+var wavespeedSupportedAspectRatios = map[string]struct{}{
+	"1:1":  {},
+	"3:2":  {},
+	"2:3":  {},
+	"3:4":  {},
+	"4:3":  {},
+	"4:5":  {},
+	"5:4":  {},
+	"9:16": {},
+	"16:9": {},
+	"21:9": {},
+	"1:4":  {},
+	"4:1":  {},
+	"1:8":  {},
+	"8:1":  {},
+}
+
 func isSupportedImageAspectRatio(value string) bool {
 	value = strings.ToLower(strings.TrimSpace(value))
 	_, ok := apixoSupportedAspectRatios[value]
@@ -404,9 +454,26 @@ func isSupportedMoxingAspectRatio(value string) bool {
 	return ok
 }
 
+func isSupportedWaveSpeedAspectRatio(value string) bool {
+	value = strings.ToLower(strings.TrimSpace(value))
+	_, ok := wavespeedSupportedAspectRatios[value]
+	return ok
+}
+
 func normalizeImageResolution(value string) string {
 	switch strings.ToLower(strings.TrimSpace(value)) {
 	case "1k", "2k", "4k":
+		return strings.ToLower(strings.TrimSpace(value))
+	case "auto":
+		return "1k"
+	default:
+		return ""
+	}
+}
+
+func normalizeWaveSpeedImageResolution(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "0.5k", "1k", "2k", "4k":
 		return strings.ToLower(strings.TrimSpace(value))
 	case "auto":
 		return "1k"

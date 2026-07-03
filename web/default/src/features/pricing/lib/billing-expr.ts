@@ -42,7 +42,7 @@ export type BillingVar = {
   isBase?: boolean
   isConditionOnly?: boolean
   group?: string
-  unit?: 'tokens' | 'second'
+  unit?: 'tokens' | 'second' | 'request'
 }
 
 export const BILLING_VARS: BillingVar[] = [
@@ -73,6 +73,16 @@ export const BILLING_VARS: BillingVar[] = [
     side: 'output',
     group: 'time',
     unit: 'second',
+  },
+  {
+    key: 'request',
+    field: 'perRequestPrice',
+    tierField: 'per_request_unit_cost',
+    label: 'Per request price',
+    shortLabel: '',
+    side: 'output',
+    group: 'request',
+    unit: 'request',
   },
   {
     key: 'len',
@@ -172,7 +182,7 @@ export const BILLING_CACHE_VAR_MAP = BILLING_EXTRA_VARS.map((v) => ({
 }))
 
 const BILLING_VAR_REGEX = new RegExp(
-  `\\b(${BILLING_PRICING_VARS.filter((v) => v.unit !== 'second')
+  `\\b(${BILLING_PRICING_VARS.filter((v) => !v.unit || v.unit === 'tokens')
     .map((v) => v.key)
     .join('|')})\\s*\\*\\s*([\\d.eE+-]+)`,
   'g'
@@ -180,6 +190,12 @@ const BILLING_VAR_REGEX = new RegExp(
 
 const PARAM_DURATION_PRICE_REGEX =
   /param\("parameters\.duration"\)\s*\*\s*([\d.eE+-]+)\s*\*\s*1000000/g
+
+const CONSTANT_REQUEST_PRICE_REGEX =
+  /^(?:\(?\s*)?([\d.eE+-]+)\s*\*\s*1000000(?:\s*\)?)?$/
+
+const QUOTA_SCALED_REQUEST_PRICE_REGEX =
+  /^\s*([\d.eE+-]+)(?:\s*(?:\+|$))/
 
 // ---------------------------------------------------------------------------
 // Request rule constants
@@ -277,6 +293,16 @@ function parseTierBody(bodyStr: string): Record<string, number> {
   const durationRe = new RegExp(PARAM_DURATION_PRICE_REGEX.source, 'g')
   while ((m = durationRe.exec(bodyStr)) !== null) {
     if (!('duration' in coeffs)) coeffs.duration = Number(m[1])
+  }
+  const requestPriceMatch = bodyStr.trim().match(CONSTANT_REQUEST_PRICE_REGEX)
+  if (requestPriceMatch && !('request' in coeffs)) {
+    coeffs.request = Number(requestPriceMatch[1])
+  }
+  const quotaScaledRequestPriceMatch = bodyStr
+    .trim()
+    .match(QUOTA_SCALED_REQUEST_PRICE_REGEX)
+  if (quotaScaledRequestPriceMatch && !('request' in coeffs)) {
+    coeffs.request = Number(quotaScaledRequestPriceMatch[1]) / 1000000
   }
   const tier: Record<string, number> = {}
   for (const [varName, field] of Object.entries(BILLING_VAR_KEY_TO_FIELD)) {

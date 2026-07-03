@@ -44,6 +44,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import {
   buildDynamicTierPriceDisplayRows,
+  getDynamicPriceUnitLabelKey,
   getDynamicPricingTiers,
   isDynamicPricingModel,
   type DynamicPriceEntry,
@@ -533,14 +534,16 @@ function ProviderPriceItem(props: {
         'flex min-w-52 shrink-0 items-center justify-start gap-2 px-1 py-1'
       )}
     >
-      <span
-        className={cn(
-          'text-muted-foreground min-w-0 truncate text-xs font-medium',
-          props.featured && 'text-sm'
-        )}
-      >
-        {props.label}
-      </span>
+      {props.label ? (
+        <span
+          className={cn(
+            'text-muted-foreground min-w-0 truncate text-xs font-medium',
+            props.featured && 'text-sm'
+          )}
+        >
+          {props.label}
+        </span>
+      ) : null}
       <span
         className={cn(
           'text-foreground flex shrink-0 items-baseline gap-1.5 font-mono text-sm font-semibold tabular-nums',
@@ -653,13 +656,14 @@ function DynamicProviderPriceItem(props: {
   featured?: boolean
 }) {
   const { t } = useTranslation()
+  const unitLabel = getDynamicPriceUnitLabelKey(props.entry, props.unit)
 
   return (
     <ProviderPriceItem
       label={t(props.entry.shortLabel)}
       value={props.entry.formatted}
       originalValue={props.originalEntry?.formatted}
-      unit={props.entry.variable.unit === 'second' ? t('second') : props.unit}
+      unit={unitLabel === props.unit ? unitLabel : t(unitLabel)}
       featured={props.featured}
     />
   )

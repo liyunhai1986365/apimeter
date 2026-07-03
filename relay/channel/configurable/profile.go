@@ -63,6 +63,7 @@ type PathCondition struct {
 	Field    string `yaml:"field"`
 	NonEmpty *bool  `yaml:"non_empty"`
 	Equals   any    `yaml:"equals"`
+	Contains string `yaml:"contains"`
 }
 
 type NativeConfig struct {
@@ -143,6 +144,7 @@ type FieldMapping struct {
 	MediaType         string         `yaml:"media_type"`
 	FirstOnly         bool           `yaml:"first_only"`
 	WhenModelContains string         `yaml:"when_model_contains"`
+	Conditions        []PathCondition `yaml:"conditions"`
 	Append            bool           `yaml:"append"`
 	Value             any            `yaml:"value"`
 	ValueMap          map[string]any `yaml:"value_map"`

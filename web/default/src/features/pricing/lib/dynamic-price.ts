@@ -152,6 +152,36 @@ export function formatDynamicSecondPrice(
   })
 }
 
+export function formatDynamicRequestPrice(
+  valuePerRequestUSD: number,
+  options: DynamicPriceOptions
+): string {
+  const groupRatio = options.groupRatioMultiplier ?? 1
+  const priceRate = options.priceRate ?? 1
+  const usdExchangeRate = options.usdExchangeRate ?? 1
+  const displayPrice = applyRechargeRate(
+    valuePerRequestUSD * groupRatio,
+    options.showRechargePrice ?? false,
+    priceRate,
+    usdExchangeRate
+  )
+
+  return formatBillingCurrencyFromUSD(displayPrice, {
+    digitsLarge: 4,
+    digitsSmall: 6,
+    abbreviate: false,
+  })
+}
+
+export function getDynamicPriceUnitLabelKey(
+  entry: DynamicPriceEntry,
+  tokenUnitLabel: string
+): string {
+  if (entry.variable.unit === 'second') return 'second'
+  if (entry.variable.unit === 'request') return 'request'
+  return tokenUnitLabel
+}
+
 export function getDynamicPricingTiers(model: PricingModel): ParsedTier[] {
   if (!isDynamicPricingModel(model)) return []
   const { billingExpr } = splitBillingExprAndRequestRules(
@@ -189,6 +219,8 @@ export function getDynamicPriceEntries(
         formatted:
           variable.unit === 'second'
             ? formatDynamicSecondPrice(value, options)
+            : variable.unit === 'request'
+              ? formatDynamicRequestPrice(value, options)
             : formatDynamicUnitPrice(value, options),
         variable,
       },

@@ -148,17 +148,23 @@ func TestImageAdaptorBuildsDuomiGeminiTextToImagePayloadFromProfile(t *testing.T
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
 
 	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
-		Model:  "gemini-3-pro-image-preview",
+		Model:  "nano-banana-2",
 		Prompt: "中文海报",
-		Size:   "1K",
+		Extra: map[string]json.RawMessage{
+			"aspect_ratio":     []byte(`"16:9"`),
+			"resolution":       []byte(`"2k"`),
+			"provider_options": []byte(`{"duomi":{"oversea":true}}`),
+		},
 	})
 	require.NoError(t, err)
 
 	data, err := common.Marshal(payload)
 	require.NoError(t, err)
-	require.Equal(t, "gemini-3-pro-image-preview", gjson.GetBytes(data, "model").String())
+	require.Equal(t, "gemini-3.1-flash-lite-image", gjson.GetBytes(data, "model").String())
 	require.Equal(t, "中文海报", gjson.GetBytes(data, "prompt").String())
-	require.Equal(t, "1K", gjson.GetBytes(data, "image_size").String())
+	require.Equal(t, "16:9", gjson.GetBytes(data, "aspect_ratio").String())
+	require.Equal(t, "2K", gjson.GetBytes(data, "image_size").String())
+	require.True(t, gjson.GetBytes(data, "oversea").Bool())
 	require.False(t, gjson.GetBytes(data, "image_urls").Exists())
 
 	requestURL, err := adaptor.GetRequestURL(info)
@@ -180,16 +186,20 @@ func TestImageAdaptorBuildsDuomiGeminiImageEditPayloadFromProfile(t *testing.T) 
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
 
 	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
-		Model:  "gemini-2.5-flash-image",
+		Model:  "nano-banana-2",
 		Prompt: "改成红色字",
 		Image:  []byte(`"https://cdn.example.com/ref.jpg"`),
+		Extra: map[string]json.RawMessage{
+			"resolution": []byte(`"1k"`),
+		},
 	})
 	require.NoError(t, err)
 
 	data, err := common.Marshal(payload)
 	require.NoError(t, err)
-	require.Equal(t, "gemini-2.5-flash-image", gjson.GetBytes(data, "model").String())
+	require.Equal(t, "gemini-3-pro-image-preview", gjson.GetBytes(data, "model").String())
 	require.Equal(t, "改成红色字", gjson.GetBytes(data, "prompt").String())
+	require.Equal(t, "1K", gjson.GetBytes(data, "image_size").String())
 	require.Equal(t, "https://cdn.example.com/ref.jpg", gjson.GetBytes(data, "image_urls.0").String())
 
 	requestURL, err := adaptor.GetRequestURL(info)
@@ -318,8 +328,9 @@ func TestImageAdaptorBuildsWaveSpeedNanoBananaProTextToImagePayloadFromProfile(t
 	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
 		Model:  "nanp-banana-pro",
 		Prompt: "a precise product render",
-		Size:   "2048x1536",
 		Extra: map[string]json.RawMessage{
+			"aspect_ratio":  []byte(`"4:3"`),
+			"resolution":    []byte(`"2k"`),
 			"output_format": []byte(`"jpeg"`),
 		},
 	})
@@ -355,8 +366,11 @@ func TestImageAdaptorBuildsWaveSpeedNanoBananaProEditPayloadFromProfile(t *testi
 	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
 		Model:  "nanp-banana-pro",
 		Prompt: "replace the logo with blue text",
-		Size:   "1024x1024",
 		Image:  []byte(`["https://cdn.example.com/ref-a.png","https://cdn.example.com/ref-b.png"]`),
+		Extra: map[string]json.RawMessage{
+			"aspect_ratio": []byte(`"1:1"`),
+			"resolution":   []byte(`"1k"`),
+		},
 	})
 	require.NoError(t, err)
 
@@ -430,8 +444,11 @@ func TestImageAdaptorBuildsWaveSpeedNanoBanana2PayloadsFromProfile(t *testing.T)
 			payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
 				Model:  tc.model,
 				Prompt: "cat",
-				Size:   "1024x1024",
 				Image:  tc.image,
+				Extra: map[string]json.RawMessage{
+					"aspect_ratio": []byte(`"1:1"`),
+					"resolution":   []byte(`"1k"`),
+				},
 			})
 			require.NoError(t, err)
 
@@ -444,6 +461,40 @@ func TestImageAdaptorBuildsWaveSpeedNanoBanana2PayloadsFromProfile(t *testing.T)
 			require.Equal(t, tc.expected, requestURL)
 		})
 	}
+}
+
+func TestImageAdaptorBuildsWaveSpeedNanoBanana2AdvancedOptionsFromProfile(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	adaptor := &ImageAdaptor{}
+	info := configurableImageRelayInfoWithProfile("wavespeed-nano-banana-pro", "https://api.wavespeed.ai", "wavespeed-key", relayconstant.RelayModeImagesEdits)
+	adaptor.Init(info)
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	payload, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "nano-banana-2",
+		Prompt: "edit with live references",
+		Image:  []byte(`["https://cdn.example.com/ref-1.png","https://cdn.example.com/ref-2.png"]`),
+		Extra: map[string]json.RawMessage{
+			"aspect_ratio":        []byte(`"1:8"`),
+			"resolution":          []byte(`"0.5k"`),
+			"enable_web_search":   []byte(`true`),
+			"enable_image_search": []byte(`true`),
+			"output_format":       []byte(`"jpeg"`),
+		},
+	})
+	require.NoError(t, err)
+
+	data, err := common.Marshal(payload)
+	require.NoError(t, err)
+	require.Equal(t, "1:8", gjson.GetBytes(data, "aspect_ratio").String())
+	require.Equal(t, "0.5k", gjson.GetBytes(data, "resolution").String())
+	require.True(t, gjson.GetBytes(data, "enable_web_search").Bool())
+	require.True(t, gjson.GetBytes(data, "enable_image_search").Bool())
+	require.Equal(t, "jpeg", gjson.GetBytes(data, "output_format").String())
+	require.Equal(t, int64(2), gjson.GetBytes(data, "images.#").Int())
 }
 
 func TestImageAdaptorBuildsWaveSpeedGPTImage2PayloadsFromProfile(t *testing.T) {

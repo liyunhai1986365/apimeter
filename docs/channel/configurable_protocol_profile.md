@@ -6,18 +6,23 @@
 
 可配置协议渠道用于把“请求格式转换”和“渠道类型实现”解耦。系统仍然使用现有渠道、模型、分组、计费、任务、轮询机制，但具体上游请求路径、请求体字段映射、提交返回解析、轮询返回解析，可以由内置 YAML profile 描述。
 
-当前已落地的第一阶段能力：
+当前已落地能力：
 
 - 固定渠道类型：`999`
 - 配置文件位置：`relay/channel/configurable/profiles/*.yaml`
 - 配置文件随代码 `embed` 打包
 - 渠道通过 `setting.protocol.profile_id` 选择 profile
-- 支持通用 JSON 视频异步任务提交
+- 支持通用 JSON 图片和视频异步任务提交
 - 支持 profile 声明原生 `submit` / `fetch` 路由，原生请求体可透传给上游
 - 支持从原生请求中抽取模型、提示词、时长、媒体、计费统计字段，进入现有渠道选择、计费和任务轮询链路
+- 支持 `/v1/images/generations`、`/v1/images/edits` 这类 OpenAI Image 风格请求转化为上游协议
 - 支持 `/v1/video/generations`、`/v1/videos` 这类 OpenAI Video 风格请求转化为上游协议
+- 支持将图片任务查询结果转换为统一图片任务响应或 OpenAI Image 风格返回
 - 支持将任务查询结果转换为 OpenAI Video API 风格返回
 - 内置 `happyhorse-video` profile，可对接 DashScope HappyHorse 文生视频、图生视频、参考生视频和视频编辑
+- 内置 `wavespeed-nano-banana-pro`、`duomi-gemini-image` 等图片 profile，可对接 nano-banana 全系、gpt-image-2 等图片模型
+
+调用方接口说明见 [通用图片与视频生成接口](./generic_media_generation.md)。
 
 ## 渠道配置方式
 
@@ -178,10 +183,12 @@ fetch:
 | `to` | string | 写入上游请求体的 JSON path。 |
 | `from` | string | 取值来源。 |
 | `fallback_from` | string | 当 `from` 取值为空时使用的备用来源。 |
-| `transform` | string | 可选值转换。当前支持 `to_int`、`media_objects`。 |
+| `fallback_froms` | string[] | 当 `from` 和 `fallback_from` 取值为空时按顺序使用的备用来源。 |
+| `transform` | string | 可选值转换。当前支持 `to_int`、`media_objects`、`image_mode`、`image_aspect_ratio`、`image_resolution`、`image_resolution_upper`、`image_quality`、`moxing_aspect_ratio`、`wavespeed_image_aspect_ratio`、`wavespeed_image_resolution`、`seedance_text_content`、`seedance_image_content`、`seedance_video_content`、`seedance_audio_content`。 |
 | `media_type` | string | `media_objects` 使用，生成媒体对象的 `type`。 |
 | `first_only` | bool | `media_objects` 使用，只取第一个 URL。 |
 | `when_model_contains` | string | 仅当当前模型名包含该字符串时应用此字段。 |
+| `conditions` | object[] | 字段级条件，支持 `field`、`non_empty`、`equals`、`contains`，全部满足才应用该字段。 |
 | `append` | bool | 将转换结果追加到目标数组，适合把视频和参考图合并到同一 `media` 数组。 |
 | `value` | any | 固定值。设置后不需要 `from`。 |
 | `omit_empty` | bool | 值为空时是否省略该字段。 |
@@ -195,6 +202,13 @@ fetch:
 | `request.prompt` | 标准任务请求的 `prompt`。 |
 | `request.model` | 标准任务请求的 `model`。 |
 | `request.size` | 标准任务请求的 `size`。 |
+| `request.aspect_ratio` | 标准图片请求的 `aspect_ratio`。 |
+| `request.resolution` | 标准图片请求的 `resolution`。 |
+| `request.quality` | 标准图片请求的 `quality`。 |
+| `request.output_format` | 标准图片请求的 `output_format`。 |
+| `request.response_format` | OpenAI 兼容图片请求的 `response_format`。 |
+| `request.image_urls` | 图片请求归一后的参考图 URL 数组。 |
+| `request.provider_options.xxx` | 供应商私有配置，例如 `request.provider_options.duomi.oversea`。 |
 | `request.duration` | 标准任务请求的 `duration`。 |
 | `request.seconds` | 标准任务请求的 `seconds`。 |
 | `request.image` | 标准任务请求的单图字段。 |
@@ -643,6 +657,31 @@ fetch:
 - 参考生视频使用 `images`
 - 视频编辑使用 `metadata.video_url` 或 `metadata.video` 传入待编辑视频，`images` 传入参考图
 
+## 当前内置 Profile
+
+面向调用方的统一接口、请求示例和支持模型列表见 [通用图片与视频生成接口](./generic_media_generation.md)。
+
+### 图片 Profile
+
+| Profile ID | 名称 | 主要模型 | 入口 |
+| --- | --- | --- | --- |
+| `apixo-gpt-image-2` | Apixo GPT Image 2 | `gpt-image-2` | `/v1/images/generations`、`/v1/images/edits` |
+| `moxing-gpt-image-2` | Moxing GPT Image 2 | `gpt-image-2` | `/v1/images/generations`、`/v1/images/edits` |
+| `duomi-gemini-image` | Duomi Gemini Image | nano-banana 全系、Duomi Gemini 图片模型 | `/v1/images/generations`、`/v1/images/edits` |
+| `wavespeed-nano-banana-pro` | WaveSpeed Nano Banana Pro | `nanp-banana-pro`、`nano-banana`、`nano-banana-2`、`nano-banana-2-lite`、`gpt-image-2` | `/v1/images/generations`、`/v1/images/edits` |
+
+### 视频 Profile
+
+| Profile ID | 名称 | 主要模型/模型族 | 入口 |
+| --- | --- | --- | --- |
+| `generic-video-json` | Generic JSON Video Task | 自定义 JSON 视频模型 | `/v1/video/generations`、`/v1/videos` |
+| `happyhorse-video` | HappyHorse Video | `happyhorse-1.0-t2v`、`happyhorse-1.0-i2v`、`happyhorse-1.0-r2v`、`happyhorse-1.0-video-edit` | `/v1/video/generations`、`/v1/videos` |
+| `doubao-seedance-2` | Doubao Seedance 2.0 | `doubao-seedance-2.0` / `doubao-seedance-2-0-*` | `/v1/video/generations`、`/v1/videos` |
+| `doubao-seedance-2-api-assets` | Doubao Seedance 2.0 API Assets | Seedance 2.0 API Assets 形态 | `/v1/video/generations`、`/v1/videos` |
+| `seedance2-service-inference` | Seedance2 Service Inference | `dreamina-seedance-2-0-*` 等 | `/v1/video/generations`、`/v1/videos` |
+| `seedance2-ark-task-assets` | Seedance2 Ark Task Assets | `doubao-seedance-2-0-*` | `/v1/video/generations`、`/v1/videos` |
+| `kling-video` | Kling Video | `kling-v*`、`kling-o*`、`kling-3.0-turbo`、Kling 扩展能力 | `/v1/video/generations`、`/v1/videos` |
+
 7. 运行测试：
 
 ```bash
@@ -652,14 +691,14 @@ cd web/default && bun run typecheck
 
 ## 当前限制
 
-第一阶段配置能力已经可用于通用 JSON 异步视频任务，但仍有以下限制：
+当前配置能力已经可用于通用 JSON 异步图片和视频任务，但仍有以下限制：
 
-- 当前通用适配器主要覆盖 task/video 异步链路。
+- 当前通用适配器主要覆盖 image/task/video 异步链路。
 - 当前 `fetch` 的非 GET 请求 body 固定为 `{"task_id": "..."}`。
 - 当前默认鉴权为 `Authorization: Bearer {api_key}`，暂不支持通过 profile 关闭默认鉴权。
 - 当前 `ConvertToOpenAIVideo` 会优先读取一组常见结果 URL 路径，并支持通过 `fetch.openai_response.fields` 补充额外输出字段；复杂返回结构仍建议在 profile 中明确配置 `fetch.response.result_url_path` 和 `fetch.openai_response.fields`。
-- 当前未实现纯配置的同步图片、同步视频、图片编辑、复杂 multipart 上传。
-- 当前未实现纯配置的动态计费表达式；仍使用现有模型价格、渠道倍率、分组倍率。
+- 图片 profile 已支持 `/v1/images/generations`、`/v1/images/edits` 的 JSON 请求转换；复杂 multipart 上传仍建议走已有专用适配器或先转为 URL。
+- 动态计费表达式仍通过模型定价配置维护，不直接写在 profile YAML 中。
 
 ## 后续扩展建议
 
@@ -667,6 +706,6 @@ cd web/default && bun run typecheck
 
 1. 在 profile 中增加 `auth` 配置，支持 `bearer`、`api_key_header`、`query_key`、签名类鉴权。
 2. 在 profile 中增加 `request_content_type`，支持 JSON、multipart、form-data。
-3. 在任务私有数据中保存 `profile_id`，让任务查询和 OpenAI Video 转换完全按提交时 profile 解析。
-4. 增加 image profile，使 `/v1/images/generations`、`/v1/images/edits` 能使用相同配置体系。
-5. 增加更多 response transform 配置，把不同上游结果统一转换为 OpenAI Image、OpenAI Video 或通用 TaskResponse。
+3. 在任务私有数据中保存 `profile_id`，让任务查询和 OpenAI Image/OpenAI Video 转换完全按提交时 profile 解析。
+4. 增加更多 response transform 配置，把不同上游结果统一转换为 OpenAI Image、OpenAI Video 或通用 TaskResponse。
+5. 增加 profile 级能力声明，用于前端自动提示字段、尺寸、分辨率和计费分档。

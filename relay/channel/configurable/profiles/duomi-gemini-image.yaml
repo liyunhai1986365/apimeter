@@ -20,17 +20,37 @@ submit:
     fields:
       - to: model
         from: request.model
+      - to: model
+        value: gemini-3.1-flash-lite-image
+        conditions:
+          - field: request.model
+            contains: nano-banana
+          - field: request.image_urls
+            non_empty: false
+      - to: model
+        value: gemini-3-pro-image-preview
+        conditions:
+          - field: request.model
+            contains: nano-banana
+          - field: request.image_urls
+            non_empty: true
       - to: prompt
         from: request.prompt
       - to: aspect_ratio
         from: request.aspect_ratio
         omit_empty: true
       - to: image_size
-        from: request.image_size
-        fallback_from: request.size
+        from: request.resolution
+        fallback_froms:
+          - request.image_size
+          - request.size
+        transform: image_resolution_upper
         omit_empty: true
       - to: image_urls
         from: request.image_urls
+        omit_empty: true
+      - to: oversea
+        from: request.provider_options.duomi.oversea
         omit_empty: true
   response:
     task_id_path: data.task_id
