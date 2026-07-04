@@ -204,15 +204,17 @@ func Distribute() func(c *gin.Context) {
 								service.ClearChannelAffinityContext(c)
 							} else if usingGroup == "auto" {
 								userGroup := common.GetContextKeyString(c, constant.ContextKeyUserGroup)
-								autoGroups := service.GetUserAutoGroup(userGroup)
-								for _, g := range autoGroups {
-									if model.IsChannelEnabledForGroupModel(g, modelRequest.Model, preferred.Id) {
-										selectGroup = g
-										common.SetContextKey(c, constant.ContextKeyAutoGroup, g)
-										channel = preferred
-										service.MarkChannelAffinityUsed(c, g, preferred.Id)
-										break
-									}
+								groups := service.ResolveTokenGroupChain(c, usingGroup)
+								if len(groups) == 0 {
+									groups = service.GetUserAutoGroup(userGroup)
+								}
+								if len(groups) > 0 && model.IsChannelEnabledForGroupModel(groups[0], modelRequest.Model, preferred.Id) {
+									selectGroup = groups[0]
+									common.SetContextKey(c, constant.ContextKeyAutoGroup, groups[0])
+									channel = preferred
+									service.MarkChannelAffinityUsed(c, groups[0], preferred.Id)
+								} else {
+									service.ClearChannelAffinityContext(c)
 								}
 							} else if model.IsChannelEnabledForGroupModel(channelGroup, modelRequest.Model, preferred.Id) {
 								channel = preferred

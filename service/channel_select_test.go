@@ -499,7 +499,63 @@ func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesGroupAfterFailure(
 
 	c, _ := gin.CreateTestContext(nil)
 	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, true)
 	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"smart_auto"}`)
+
+	retry := common.RetryTimes
+	retryParam := &RetryParam{
+		Ctx:        c,
+		TokenGroup: "auto",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	}
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1801, channel.Id)
+	require.Equal(t, "vip", selectedGroup)
+	autoGroup, exists := common.GetContextKey(c, constant.ContextKeyAutoGroup)
+	require.True(t, exists)
+	require.Equal(t, "vip", autoGroup)
+	require.Equal(t, 0, retryParam.GetRetry())
+
+	retryParam.IncreaseRetry()
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1802, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+	autoGroup, exists = common.GetContextKey(c, constant.ContextKeyAutoGroup)
+	require.True(t, exists)
+	require.Equal(t, "backup", autoGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelRoutingStrategyStaysOnFirstGroupWithoutCrossGroupRetry(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, db.AutoMigrate(&model.RoutingStrategySnapshot{}))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","cheap":"低价分组","expensive":"高价分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["cheap","expensive"]`))
+	createChannelSelectFixture(t, db, 1811, "cheap", 10)
+	createChannelSelectFixture(t, db, 1812, "expensive", 10)
+	require.NoError(t, model.UpsertRoutingStrategySnapshot(&model.RoutingStrategySnapshot{
+		Strategy:  model.RoutingStrategyPriceFirst,
+		UserGroup: "default",
+		Groups:    `["cheap","expensive"]`,
+		Scores:    `{"cheap":{"group":"cheap","rank":1},"expensive":{"group":"expensive","rank":2}}`,
+		Config:    `{}`,
+	}))
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, false)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"price_first"}`)
 
 	retry := 0
 	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
@@ -510,11 +566,8 @@ func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesGroupAfterFailure(
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
-	require.Equal(t, 1801, channel.Id)
-	require.Equal(t, "vip", selectedGroup)
-	autoGroup, exists := common.GetContextKey(c, constant.ContextKeyAutoGroup)
-	require.True(t, exists)
-	require.Equal(t, "vip", autoGroup)
+	require.Equal(t, 1811, channel.Id)
+	require.Equal(t, "cheap", selectedGroup)
 
 	retry++
 	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(&RetryParam{
@@ -525,11 +578,9 @@ func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesGroupAfterFailure(
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
-	require.Equal(t, 1802, channel.Id)
-	require.Equal(t, "backup", selectedGroup)
-	autoGroup, exists = common.GetContextKey(c, constant.ContextKeyAutoGroup)
-	require.True(t, exists)
-	require.Equal(t, "backup", autoGroup)
+	require.Equal(t, 1811, channel.Id)
+	require.Equal(t, "cheap", selectedGroup)
+	require.Equal(t, "cheap", common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
 }
 
 func TestCacheGetRandomSatisfiedChannelRoutingStrategyExcludesTokenGroups(t *testing.T) {

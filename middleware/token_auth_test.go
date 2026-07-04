@@ -1,16 +1,19 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -397,6 +400,136 @@ func TestTokenAuthOwnedProviderPolicySkipsGroupsWithoutRequestedModel(t *testing
 	require.Equal(t, 9002, response.ChannelId)
 	require.Equal(t, secondGroup, response.AutoGroup)
 	require.Equal(t, service.BillingSourceUserOwnedProvider, response.BillingSource)
+}
+
+func TestDistributeAffinityRespectsRoutingStrategyGroupOrder(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.RoutingStrategySnapshot{}))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","cheap":"低价分组","expensive":"高价分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["expensive","cheap"]`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"cheap":0.5,"expensive":2}`))
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       10,
+		Username: "affinity-price-user",
+		Password: "password",
+		Group:    "default",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:         10,
+		Name:           "affinity-price-token",
+		Key:            "affinitypricekey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100000,
+		UnlimitedQuota: true,
+		Group:          "auto",
+		GroupPolicy:    `{"type":"ordered","groups":["expensive"]}`,
+	}).Error)
+
+	weight := uint(100)
+	priority := int64(10)
+	autoBan := 1
+	require.NoError(t, db.Create(&[]model.Channel{
+		{
+			Id:       10101,
+			Type:     constant.ChannelTypeOpenAI,
+			Key:      "cheap-key",
+			Status:   common.ChannelStatusEnabled,
+			Name:     "cheap-channel",
+			Group:    "cheap",
+			Models:   "gpt-test",
+			Weight:   &weight,
+			Priority: &priority,
+			AutoBan:  &autoBan,
+		},
+		{
+			Id:       10102,
+			Type:     constant.ChannelTypeOpenAI,
+			Key:      "expensive-key",
+			Status:   common.ChannelStatusEnabled,
+			Name:     "expensive-channel",
+			Group:    "expensive",
+			Models:   "gpt-test",
+			Weight:   &weight,
+			Priority: &priority,
+			AutoBan:  &autoBan,
+		},
+	}).Error)
+	require.NoError(t, db.Create(&[]model.Ability{
+		{Group: "cheap", Model: "gpt-test", ChannelId: 10101, Enabled: true, Priority: &priority, Weight: weight},
+		{Group: "expensive", Model: "gpt-test", ChannelId: 10102, Enabled: true, Priority: &priority, Weight: weight},
+	}).Error)
+	require.NoError(t, model.UpsertRoutingStrategySnapshot(&model.RoutingStrategySnapshot{
+		Strategy:  model.RoutingStrategyPriceFirst,
+		UserGroup: "default",
+		Groups:    `["cheap","expensive"]`,
+		Scores:    `{"cheap":{"group":"cheap","rank":1},"expensive":{"group":"expensive","rank":2}}`,
+		Config:    `{}`,
+	}))
+	model.InitChannelCache()
+
+	rule := operation_setting.ChannelAffinityRule{
+		Name:       "test-price-order-affinity",
+		ModelRegex: []string{"^gpt-test$"},
+		PathRegex:  []string{"/v1/chat/completions"},
+		KeySources: []operation_setting.ChannelAffinityKeySource{
+			{Type: "request_header", Key: "X-Affinity-Key"},
+		},
+		IncludeRuleName:  true,
+		IncludeModelName: true,
+	}
+	affinityValue := fmt.Sprintf("price-order-%d", time.Now().UnixNano())
+	affinitySetting := operation_setting.GetChannelAffinitySetting()
+	originalRules := affinitySetting.Rules
+	affinitySetting.Rules = append([]operation_setting.ChannelAffinityRule{rule}, originalRules...)
+	t.Cleanup(func() {
+		affinitySetting.Rules = originalRules
+	})
+
+	router := gin.New()
+	router.POST("/v1/chat/completions", TokenAuth(), Distribute(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"channel_id": common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+			"auto_group": common.GetContextKeyString(c, constant.ContextKeyAutoGroup),
+		})
+	})
+
+	firstRecorder := httptest.NewRecorder()
+	firstRequest := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-test"}`))
+	firstRequest.Header.Set("Content-Type", "application/json")
+	firstRequest.Header.Set("Authorization", "Bearer affinitypricekey")
+	firstRequest.Header.Set("X-Affinity-Key", affinityValue)
+	router.ServeHTTP(firstRecorder, firstRequest)
+	require.Equal(t, http.StatusOK, firstRecorder.Code, firstRecorder.Body.String())
+
+	var token model.Token
+	require.NoError(t, db.Where("key = ?", "affinitypricekey").First(&token).Error)
+	token.Group = "auto"
+	token.GroupPolicy = `{"type":"routing_strategy","strategy":"price_first"}`
+	require.NoError(t, token.Update())
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-test"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer affinitypricekey")
+	request.Header.Set("X-Affinity-Key", affinityValue)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	var response struct {
+		ChannelId int    `json:"channel_id"`
+		AutoGroup string `json:"auto_group"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, 10101, response.ChannelId)
+	require.Equal(t, "cheap", response.AutoGroup)
 }
 
 func TestTokenAuthAllowsSubscriptionKeyWithZeroTokenQuota(t *testing.T) {
