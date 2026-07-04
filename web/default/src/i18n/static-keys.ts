@@ -23,6 +23,7 @@ export const STATIC_I18N_KEYS = [
   'Home',
   'Agent Access',
   'Console',
+  'Model Price',
   'Model Square',
   'Rankings',
   'Docs',

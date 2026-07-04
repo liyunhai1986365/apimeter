@@ -134,7 +134,7 @@ const BUILT_IN_HEADER_NAV_ITEMS: Record<
   },
   pricing: {
     id: 'pricing',
-    titleKey: 'Model Square',
+    titleKey: 'Model Price',
     href: '/pricing',
     external: false,
     newWindow: false,
