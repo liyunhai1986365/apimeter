@@ -48,7 +48,8 @@ type quotaNotifyPlan struct {
 func defaultQuotaNotifyThresholds() []quotaNotifyPlan {
 	return []quotaNotifyPlan{
 		{threshold: int(10 * common.QuotaPerUnit), notifyType: dto.NotifyTypeQuotaExceed + "_usd_10"},
-		{threshold: int(common.QuotaPerUnit), notifyType: dto.NotifyTypeQuotaExceed + "_usd_1"},
+		{threshold: int(5 * common.QuotaPerUnit), notifyType: dto.NotifyTypeQuotaExceed + "_usd_5"},
+		{threshold: 0, notifyType: dto.NotifyTypeQuotaExceed + "_insufficient"},
 	}
 }
 
@@ -56,7 +57,14 @@ func quotaNotifyPlans(userQuota int, consumeQuota int, customThreshold float64) 
 	remainingQuota := userQuota - consumeQuota
 	if customThreshold > 0 {
 		threshold := int(customThreshold)
-		if remainingQuota >= threshold {
+		if userQuota > 0 && remainingQuota <= 0 {
+			return []quotaNotifyPlan{{
+				threshold:      0,
+				notifyType:     dto.NotifyTypeQuotaExceed + "_insufficient",
+				remainingQuota: remainingQuota,
+			}}
+		}
+		if userQuota < threshold || remainingQuota >= threshold {
 			return nil
 		}
 		return []quotaNotifyPlan{{
@@ -66,14 +74,107 @@ func quotaNotifyPlans(userQuota int, consumeQuota int, customThreshold float64) 
 		}}
 	}
 
-	plans := make([]quotaNotifyPlan, 0, 2)
+	plans := make([]quotaNotifyPlan, 0, 3)
+	var selected *quotaNotifyPlan
 	for _, plan := range defaultQuotaNotifyThresholds() {
-		if remainingQuota < plan.threshold {
+		crossedThreshold := userQuota >= plan.threshold && remainingQuota < plan.threshold
+		if plan.threshold == 0 {
+			crossedThreshold = userQuota > 0 && remainingQuota <= 0
+		}
+		if crossedThreshold {
 			plan.remainingQuota = remainingQuota
-			plans = append(plans, plan)
+			selected = &plan
 		}
 	}
+	if selected != nil {
+		plans = append(plans, *selected)
+	}
 	return plans
+}
+
+func filterQuotaNotifyPlansByState(plans []quotaNotifyPlan, state map[string]int) []quotaNotifyPlan {
+	if len(plans) == 0 || len(state) == 0 {
+		return plans
+	}
+	filtered := make([]quotaNotifyPlan, 0, len(plans))
+	for _, plan := range plans {
+		if sentThreshold, ok := state[plan.notifyType]; ok && sentThreshold == plan.threshold {
+			continue
+		}
+		filtered = append(filtered, plan)
+	}
+	return filtered
+}
+
+func markQuotaNotifyStateSent(state map[string]int, plan quotaNotifyPlan) map[string]int {
+	if state == nil {
+		state = make(map[string]int)
+	}
+	state[plan.notifyType] = plan.threshold
+	return state
+}
+
+func normalizeQuotaNotifyState(state map[string]int, remainingQuota int) bool {
+	if len(state) == 0 {
+		return false
+	}
+	changed := false
+	for notifyType, threshold := range state {
+		recovered := remainingQuota >= threshold
+		if threshold == 0 {
+			recovered = remainingQuota > 0
+		}
+		if recovered {
+			delete(state, notifyType)
+			changed = true
+		}
+	}
+	return changed
+}
+
+func persistUserQuotaNotifyState(userId int, state map[string]int) error {
+	user, err := model.GetUserById(userId, true)
+	if err != nil {
+		return err
+	}
+	setting := user.GetSetting()
+	setting.QuotaNotifyState = state
+	user.SetSetting(setting)
+	if err := model.DB.Model(&model.User{}).Where("id = ?", userId).Update("setting", user.Setting).Error; err != nil {
+		return err
+	}
+	return model.InvalidateUserCache(userId)
+}
+
+func reserveUserQuotaNotifyState(userId int, plan quotaNotifyPlan, remainingQuota int) (bool, error) {
+	for i := 0; i < 3; i++ {
+		user, err := model.GetUserById(userId, true)
+		if err != nil {
+			return false, err
+		}
+		setting := user.GetSetting()
+		if setting.QuotaNotifyState == nil {
+			setting.QuotaNotifyState = map[string]int{}
+		}
+		normalizeQuotaNotifyState(setting.QuotaNotifyState, remainingQuota)
+		if sentThreshold, ok := setting.QuotaNotifyState[plan.notifyType]; ok && sentThreshold == plan.threshold {
+			return false, nil
+		}
+		setting.QuotaNotifyState = markQuotaNotifyStateSent(setting.QuotaNotifyState, plan)
+
+		oldSetting := user.Setting
+		user.SetSetting(setting)
+		res := model.DB.Model(&model.User{}).
+			Where("id = ? AND setting = ?", userId, oldSetting).
+			Update("setting", user.Setting)
+		if res.Error != nil {
+			return false, res.Error
+		}
+		if res.RowsAffected == 1 {
+			return true, model.InvalidateUserCache(userId)
+		}
+	}
+	return false, fmt.Errorf("failed to reserve quota notify state for user %d after retries", userId)
 }
 
 func hasCustomModelRatio(modelName string, currentRatio float64) bool {
@@ -525,8 +626,29 @@ func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preCon
 	gopool.Go(func() {
 		userSetting := relayInfo.UserSetting
 		consumeQuota := quota + preConsumedQuota
-		plans := quotaNotifyPlans(relayInfo.UserQuota, consumeQuota, userSetting.QuotaWarningThreshold)
+		remainingQuota := relayInfo.UserQuota - consumeQuota
+		if userSetting.QuotaNotifyState == nil {
+			userSetting.QuotaNotifyState = map[string]int{}
+		}
+		stateChanged := normalizeQuotaNotifyState(userSetting.QuotaNotifyState, remainingQuota)
+		plans := filterQuotaNotifyPlansByState(
+			quotaNotifyPlans(relayInfo.UserQuota, consumeQuota, userSetting.QuotaWarningThreshold),
+			userSetting.QuotaNotifyState,
+		)
+		if stateChanged && len(plans) == 0 {
+			if err := persistUserQuotaNotifyState(relayInfo.UserId, userSetting.QuotaNotifyState); err != nil {
+				common.SysError(fmt.Sprintf("failed to persist quota notify state for user %d: %s", relayInfo.UserId, err.Error()))
+			}
+		}
 		for _, plan := range plans {
+			reserved, err := reserveUserQuotaNotifyState(relayInfo.UserId, plan, remainingQuota)
+			if err != nil {
+				common.SysError(fmt.Sprintf("failed to reserve quota notify state for user %d: %s", relayInfo.UserId, err.Error()))
+				continue
+			}
+			if !reserved {
+				continue
+			}
 			prompt := "您的额度即将用尽"
 			topUpLink := PaymentReturnURL("/console/topup")
 
@@ -552,9 +674,10 @@ func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preCon
 				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota), topUpLink, topUpLink}
 			}
 
-			err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values))
+			err = NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values))
 			if err != nil {
 				common.SysError(fmt.Sprintf("failed to send quota notify to user %d: %s", relayInfo.UserId, err.Error()))
+				continue
 			}
 		}
 	})
@@ -571,12 +694,33 @@ func checkAndSendSubscriptionQuotaNotify(relayInfo *relaycommon.RelayInfo) {
 
 		usedAfter := relayInfo.SubscriptionAmountUsedAfterPreConsume + relayInfo.SubscriptionPostDelta
 		remaining := relayInfo.SubscriptionAmountTotal - usedAfter
-		plans := quotaNotifyPlans(0, -int(remaining), relayInfo.UserSetting.QuotaWarningThreshold)
+		userSetting := relayInfo.UserSetting
+		if userSetting.QuotaNotifyState == nil {
+			userSetting.QuotaNotifyState = map[string]int{}
+		}
+		stateChanged := normalizeQuotaNotifyState(userSetting.QuotaNotifyState, int(remaining))
+		plans := filterQuotaNotifyPlansByState(
+			quotaNotifyPlans(int(relayInfo.SubscriptionAmountTotal), int(usedAfter), userSetting.QuotaWarningThreshold),
+			userSetting.QuotaNotifyState,
+		)
+		if stateChanged && len(plans) == 0 {
+			if err := persistUserQuotaNotifyState(relayInfo.UserId, userSetting.QuotaNotifyState); err != nil {
+				common.SysError(fmt.Sprintf("failed to persist subscription quota notify state for user %d: %s", relayInfo.UserId, err.Error()))
+			}
+		}
 
 		prompt := "您的订阅额度即将用尽"
 		topUpLink := PaymentReturnURL("/console/topup")
 
 		for _, plan := range plans {
+			reserved, err := reserveUserQuotaNotifyState(relayInfo.UserId, plan, int(remaining))
+			if err != nil {
+				common.SysError(fmt.Sprintf("failed to reserve subscription quota notify state for user %d: %s", relayInfo.UserId, err.Error()))
+				continue
+			}
+			if !reserved {
+				continue
+			}
 			var content string
 			var values []interface{}
 			notifyType := relayInfo.UserSetting.NotifyType
@@ -597,7 +741,60 @@ func checkAndSendSubscriptionQuotaNotify(relayInfo *relaycommon.RelayInfo) {
 
 			if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values)); err != nil {
 				common.SysError(fmt.Sprintf("failed to send subscription quota notify to user %d: %s", relayInfo.UserId, err.Error()))
+				continue
 			}
+		}
+	})
+}
+
+func checkAndSendInsufficientQuotaNotify(relayInfo *relaycommon.RelayInfo, remainingQuota int) {
+	if relayInfo == nil {
+		return
+	}
+	gopool.Go(func() {
+		userSetting := relayInfo.UserSetting
+		if userSetting.QuotaNotifyState == nil {
+			userSetting.QuotaNotifyState = map[string]int{}
+		}
+		plan := quotaNotifyPlan{
+			threshold:      0,
+			notifyType:     dto.NotifyTypeQuotaExceed + "_insufficient",
+			remainingQuota: remainingQuota,
+		}
+		if len(filterQuotaNotifyPlansByState([]quotaNotifyPlan{plan}, userSetting.QuotaNotifyState)) == 0 {
+			return
+		}
+		reserved, err := reserveUserQuotaNotifyState(relayInfo.UserId, plan, remainingQuota)
+		if err != nil {
+			common.SysError(fmt.Sprintf("failed to reserve insufficient quota notify state for user %d: %s", relayInfo.UserId, err.Error()))
+			return
+		}
+		if !reserved {
+			return
+		}
+
+		prompt := "您的额度不足"
+		topUpLink := PaymentReturnURL("/console/topup")
+		var content string
+		var values []interface{}
+		notifyType := userSetting.NotifyType
+		if notifyType == "" {
+			notifyType = dto.NotifyTypeEmail
+		}
+		if notifyType == dto.NotifyTypeBark {
+			content = "{{value}}，剩余额度：{{value}}，请及时充值"
+			values = []interface{}{prompt, logger.FormatQuota(remainingQuota)}
+		} else if notifyType == dto.NotifyTypeGotify {
+			content = "{{value}}，当前剩余额度为 {{value}}，请及时充值。"
+			values = []interface{}{prompt, logger.FormatQuota(remainingQuota)}
+		} else {
+			content = "{{value}}，当前剩余额度为 {{value}}，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='{{value}}'>{{value}}</a>"
+			values = []interface{}{prompt, logger.FormatQuota(remainingQuota), topUpLink, topUpLink}
+		}
+
+		if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values)); err != nil {
+			common.SysError(fmt.Sprintf("failed to send insufficient quota notify to user %d: %s", relayInfo.UserId, err.Error()))
+			return
 		}
 	})
 }
