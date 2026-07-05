@@ -402,6 +402,38 @@ export interface RetryRouteEvent {
   extra: string
 }
 
+export interface ErrorRequestLog {
+  id: number
+  created_at: number
+  log_id: number
+  request_id: string
+  upstream_request_id: string
+  user_id: number
+  username: string
+  token_id: number
+  token_name: string
+  model_name: string
+  group: string
+  is_stream: boolean
+  request_method: string
+  request_path: string
+  request_url: string
+  request_headers: string
+  request_body: string
+  request_hash: string
+  request_truncated: boolean
+  content_length: number
+  error_type: string
+  error_code: string
+  status_code: number
+}
+
+export interface GetErrorRequestLogResponse {
+  success: boolean
+  message?: string
+  data?: ErrorRequestLog
+}
+
 export interface GetRetryRouteEventsParams {
   p?: number
   page_size?: number

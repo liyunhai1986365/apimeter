@@ -1,10 +1,14 @@
 package controller
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/require"
 )
 
 func TestParseLogQueryIntAcceptsQuotedValues(t *testing.T) {
@@ -61,4 +65,46 @@ func TestBuildLogsStatDataOnlyIncludesCostForRoot(t *testing.T) {
 	if got := rootData["profit_quota"]; got != stat.ProfitQuota {
 		t.Fatalf("root profit_quota = %v, want %d", got, stat.ProfitQuota)
 	}
+}
+
+func TestGetErrorRequestLogReturnsRequestEvidence(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	require.NoError(t, model.RecordErrorRequestLog(&model.ErrorRequestLog{
+		LogId:          42,
+		RequestId:      "req-error",
+		RequestMethod:  http.MethodPost,
+		RequestPath:    "/v1/chat/completions",
+		RequestBody:    `{"model":"gpt-4o"}`,
+		RequestHash:    "hash-error",
+		RequestHeaders: `{"Authorization":"[REDACTED]"}`,
+		StatusCode:     http.StatusBadRequest,
+		ErrorCode:      "invalid_request",
+	}))
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "log_id", Value: "42"}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/log/error-request/42", nil)
+
+	GetErrorRequestLog(c)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"success":true`)
+	require.Contains(t, w.Body.String(), `"request_id":"req-error"`)
+	require.Contains(t, w.Body.String(), `"request_hash":"hash-error"`)
+	require.Contains(t, w.Body.String(), `"request_body":"{\"model\":\"gpt-4o\"}"`)
+}
+
+func TestGetErrorRequestLogRejectsInvalidLogID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Params = gin.Params{{Key: "log_id", Value: "abc"}}
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/log/error-request/abc", nil)
+
+	GetErrorRequestLog(c)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"success":false`)
 }
