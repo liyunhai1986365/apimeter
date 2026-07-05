@@ -111,6 +111,98 @@ func TestModelPriceHelperTieredCanPriceSeedanceRequestShape(t *testing.T) {
 	require.Equal(t, 2153, info.TieredBillingSnapshot.EstimatedQuotaAfterGroup)
 }
 
+func TestModelPriceHelperTieredUsesSeedancePerSecondBaseForOpenAIVideoGenerations(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(saved))
+	})
+
+	expr := `tier("expensive", c * 7.7)`
+	exprJSON, err := common.Marshal(expr)
+	require.NoError(t, err)
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode": `{"dreamina-seedance-2-0-ep":"tiered_expr"}`,
+		"billing_setting.billing_expr": `{"dreamina-seedance-2-0-ep":` + string(exprJSON) + `}`,
+	}))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	req := httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
+	req.Body = nil
+	req.ContentLength = 0
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+	ctx.Set("group", "default")
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "dreamina-seedance-2-0-ep",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+		RequestHeaders:  map[string]string{"Content-Type": "application/json"},
+		BillingRequestInput: &billingexpr.RequestInput{
+			Headers: map[string]string{"Content-Type": "application/json"},
+			Body:    []byte(`{"model":"dreamina-seedance-2-0-ep","duration":10}`),
+		},
+	}
+
+	priceData, err := ModelPriceHelper(ctx, info, 0, &types.TokenCountMeta{MaxTokens: 250000})
+	require.NoError(t, err)
+	require.Equal(t, int(0.5*common.QuotaPerUnit), priceData.QuotaToPreConsume)
+	require.NotNil(t, info.TieredBillingSnapshot)
+	require.Equal(t, "expensive", info.TieredBillingSnapshot.EstimatedTier)
+	require.Equal(t, 962500, info.TieredBillingSnapshot.EstimatedQuotaAfterGroup)
+}
+
+func TestModelPriceHelperTieredUsesSeedancePerSecondBaseForV1Video(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	saved := map[string]string{}
+	require.NoError(t, config.GlobalConfig.SaveToDB(func(key, value string) error {
+		saved[key] = value
+		return nil
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, config.GlobalConfig.LoadFromDB(saved))
+	})
+
+	require.NoError(t, config.GlobalConfig.LoadFromDB(map[string]string{
+		"billing_setting.billing_mode": `{"dreamina-seedance-2-0-fast-ep":"tiered_expr"}`,
+		"billing_setting.billing_expr": `{"dreamina-seedance-2-0-fast-ep":"tier(\"base\", c * 5.6)"}`,
+	}))
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	req := httptest.NewRequest(http.MethodPost, "/v1/video", nil)
+	req.Body = nil
+	req.ContentLength = 0
+	req.Header.Set("Content-Type", "application/json")
+	ctx.Request = req
+	ctx.Set("group", "default")
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "dreamina-seedance-2-0-fast-ep",
+		UserGroup:       "default",
+		UsingGroup:      "default",
+		RequestHeaders:  map[string]string{"Content-Type": "application/json"},
+		BillingRequestInput: &billingexpr.RequestInput{
+			Headers: map[string]string{"Content-Type": "application/json"},
+			Body:    []byte(`{"model":"dreamina-seedance-2-0-fast-ep","duration":8}`),
+		},
+	}
+
+	priceData, err := ModelPriceHelper(ctx, info, 0, &types.TokenCountMeta{MaxTokens: 250000})
+	require.NoError(t, err)
+	require.Equal(t, int(0.5*common.QuotaPerUnit), priceData.QuotaToPreConsume)
+	require.NotNil(t, info.TieredBillingSnapshot)
+	require.Equal(t, 700000, info.TieredBillingSnapshot.EstimatedQuotaAfterGroup)
+}
+
 func TestModelPriceHelperTieredKeepsEstimatedPreConsumeForNonSeedanceTask(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

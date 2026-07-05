@@ -323,7 +323,8 @@ func isSeedance2TaskPreConsume(c *gin.Context, modelName string) bool {
 	if c == nil || c.Request == nil || c.Request.URL == nil {
 		return false
 	}
-	if c.Request.URL.Path != "/api/v3/contents/generations/tasks" {
+	path := c.Request.URL.Path
+	if path != "/api/v3/contents/generations/tasks" && path != "/v1/video/generations" && path != "/v1/video" {
 		return false
 	}
 	normalizedModel := strings.ToLower(modelName)
