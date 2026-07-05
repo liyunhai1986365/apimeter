@@ -217,6 +217,10 @@ export interface LogOtherData {
   subscription_consumed?: number
   subscription_remain?: number
   subscription_total?: number
+  // Independent error request log references. Full request payload is stored
+  // outside the common log's other field.
+  error_request_log_id?: number
+  request_hash?: string
 }
 
 /**

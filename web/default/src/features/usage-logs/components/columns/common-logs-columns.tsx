@@ -16,9 +16,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { type ColumnDef } from '@tanstack/react-table'
-import { CircleAlert, Sparkles, KeyRound, Globe } from 'lucide-react'
+import {
+  CircleAlert,
+  Sparkles,
+  KeyRound,
+  Globe,
+  FileSearch,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
@@ -34,6 +40,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { Button } from '@/components/ui/button'
 import {
   Tooltip,
   TooltipContent,
@@ -43,6 +50,7 @@ import {
 import { DataTableColumnHeader } from '@/components/data-table'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import type { UsageLog } from '../../data/schema'
+import { hasErrorRequestLogRef } from '../../lib/error-request-log'
 import {
   formatModelName,
   getFirstResponseTimeColor,
@@ -63,6 +71,7 @@ import {
 } from '../../lib/utils'
 import type { LogOtherData } from '../../types'
 import { DetailsDialog } from '../dialogs/details-dialog'
+import { ErrorRequestLogDialog } from '../dialogs/error-request-log-dialog'
 import { ModelBadge } from '../model-badge'
 import { useUsageLogsContext } from '../usage-logs-provider'
 
@@ -845,8 +854,10 @@ export function useCommonLogsColumns(
       header: t('Details'),
       cell: function DetailsCell({ row }) {
         const [dialogOpen, setDialogOpen] = useState(false)
+        const [errorRequestOpen, setErrorRequestOpen] = useState(false)
         const log = row.original
         const other = parseLogOther(log.other)
+        const canViewErrorRequest = isAdmin && hasErrorRequestLogRef(log, other)
 
         const segments = buildDetailSegments(log, other, t, discountLabels)
         const primary = segments[0]
@@ -854,38 +865,63 @@ export function useCommonLogsColumns(
 
         return (
           <>
-            <button
-              type='button'
-              className='group flex max-w-[200px] items-center gap-1 text-left text-xs'
-              onClick={() => setDialogOpen(true)}
-              title={t('Click to view full details')}
-            >
-              {primary ? (
-                <span
-                  className={cn(
-                    'truncate leading-snug group-hover:underline',
-                    primary.muted
-                      ? 'text-muted-foreground/60'
-                      : primary.danger
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-foreground'
-                  )}
-                >
-                  {primary.text}
-                  {hasMore && (
-                    <span className='text-muted-foreground/40 ml-0.5'>
-                      +{segments.length - 1}
-                    </span>
-                  )}
-                </span>
-              ) : log.content ? (
-                <span className='text-muted-foreground truncate group-hover:underline'>
-                  {log.content}
-                </span>
-              ) : (
-                <span className='text-muted-foreground/40'>—</span>
+            <div className='flex max-w-[220px] items-center gap-1'>
+              <button
+                type='button'
+                className='group flex min-w-0 flex-1 items-center gap-1 text-left text-xs'
+                onClick={() => setDialogOpen(true)}
+                title={t('Click to view full details')}
+              >
+                {primary ? (
+                  <span
+                    className={cn(
+                      'truncate leading-snug group-hover:underline',
+                      primary.muted
+                        ? 'text-muted-foreground/60'
+                        : primary.danger
+                          ? 'text-red-600 dark:text-red-400'
+                          : 'text-foreground'
+                    )}
+                  >
+                    {primary.text}
+                    {hasMore && (
+                      <span className='text-muted-foreground/40 ml-0.5'>
+                        +{segments.length - 1}
+                      </span>
+                    )}
+                  </span>
+                ) : log.content ? (
+                  <span className='text-muted-foreground truncate group-hover:underline'>
+                    {log.content}
+                  </span>
+                ) : (
+                  <span className='text-muted-foreground/40'>—</span>
+                )}
+              </button>
+              {canViewErrorRequest && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Button
+                        variant='ghost'
+                        size='icon-xs'
+                        className='text-muted-foreground hover:text-foreground'
+                        onClick={(event: MouseEvent<HTMLButtonElement>) => {
+                          event.stopPropagation()
+                          setErrorRequestOpen(true)
+                        }}
+                        aria-label={t('View error request evidence')}
+                      />
+                    }
+                  >
+                    <FileSearch />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {t('View error request evidence')}
+                  </TooltipContent>
+                </Tooltip>
               )}
-            </button>
+            </div>
             <DetailsDialog
               log={log}
               isAdmin={isAdmin}
@@ -893,6 +929,13 @@ export function useCommonLogsColumns(
               open={dialogOpen}
               onOpenChange={setDialogOpen}
             />
+            {canViewErrorRequest && (
+              <ErrorRequestLogDialog
+                logId={log.id}
+                open={errorRequestOpen}
+                onOpenChange={setErrorRequestOpen}
+              />
+            )}
           </>
         )
       },
