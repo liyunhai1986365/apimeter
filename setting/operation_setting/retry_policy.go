@@ -31,6 +31,11 @@ type RetryPolicyRule struct {
 	MaxRetries  int                   `json:"max_retries,omitempty"`
 
 	Models          []string          `json:"models,omitempty"`
+	Groups          []string          `json:"groups,omitempty"`
+	RequestPaths    []string          `json:"request_paths,omitempty"`
+	Stream          *bool             `json:"stream,omitempty"`
+	TokenIDs        []int             `json:"token_ids,omitempty"`
+	WorkspaceIDs    []int             `json:"workspace_ids,omitempty"`
 	ChannelIDs      []int             `json:"channel_ids,omitempty"`
 	ChannelTypes    []int             `json:"channel_types,omitempty"`
 	ErrorTypes      []types.ErrorType `json:"error_types,omitempty"`
@@ -41,6 +46,11 @@ type RetryPolicyRule struct {
 
 type RetryPolicyConditions struct {
 	Models          []string          `json:"models,omitempty"`
+	Groups          []string          `json:"groups,omitempty"`
+	RequestPaths    []string          `json:"request_paths,omitempty"`
+	Stream          *bool             `json:"stream,omitempty"`
+	TokenIDs        []int             `json:"token_ids,omitempty"`
+	WorkspaceIDs    []int             `json:"workspace_ids,omitempty"`
 	ChannelIDs      []int             `json:"channel_ids,omitempty"`
 	ChannelTypes    []int             `json:"channel_types,omitempty"`
 	ErrorTypes      []types.ErrorType `json:"error_types,omitempty"`
@@ -57,14 +67,21 @@ type RetryPolicyTargets struct {
 }
 
 type RetryPolicyStrategy struct {
-	MaxRetries           int  `json:"max_retries,omitempty"`
-	ExcludeFailedChannel bool `json:"exclude_failed_channel,omitempty"`
-	PreferHealthy        bool `json:"prefer_healthy,omitempty"`
-	ProtectLast          bool `json:"protect_last,omitempty"`
+	MaxRetries           int   `json:"max_retries,omitempty"`
+	ExcludeFailedChannel bool  `json:"exclude_failed_channel,omitempty"`
+	PreferHealthy        bool  `json:"prefer_healthy,omitempty"`
+	ProtectLast          bool  `json:"protect_last,omitempty"`
+	RecordRequestLog     *bool `json:"record_request_log,omitempty"`
+	SampleRate           int   `json:"sample_rate,omitempty"`
 }
 
 type RetryPolicyInput struct {
 	ModelName    string
+	Group        string
+	RequestPath  string
+	IsStream     bool
+	TokenID      int
+	WorkspaceID  int
 	ChannelID    int
 	ChannelType  int
 	ErrorType    types.ErrorType
@@ -318,6 +335,21 @@ func (r RetryPolicyRule) matches(input RetryPolicyInput) bool {
 	if len(conditions.Models) > 0 && !containsFold(conditions.Models, input.ModelName) {
 		return false
 	}
+	if len(conditions.Groups) > 0 && !containsFold(conditions.Groups, input.Group) {
+		return false
+	}
+	if len(conditions.RequestPaths) > 0 && !containsString(conditions.RequestPaths, input.RequestPath) {
+		return false
+	}
+	if conditions.Stream != nil && *conditions.Stream != input.IsStream {
+		return false
+	}
+	if len(conditions.TokenIDs) > 0 && !containsInt(conditions.TokenIDs, input.TokenID) {
+		return false
+	}
+	if len(conditions.WorkspaceIDs) > 0 && !containsInt(conditions.WorkspaceIDs, input.WorkspaceID) {
+		return false
+	}
 	if len(conditions.ChannelIDs) > 0 && !containsInt(conditions.ChannelIDs, input.ChannelID) {
 		return false
 	}
@@ -343,6 +375,21 @@ func (r RetryPolicyRule) normalizedConditions() RetryPolicyConditions {
 	conditions := r.Conditions
 	if len(conditions.Models) == 0 {
 		conditions.Models = r.Models
+	}
+	if len(conditions.Groups) == 0 {
+		conditions.Groups = r.Groups
+	}
+	if len(conditions.RequestPaths) == 0 {
+		conditions.RequestPaths = r.RequestPaths
+	}
+	if conditions.Stream == nil {
+		conditions.Stream = r.Stream
+	}
+	if len(conditions.TokenIDs) == 0 {
+		conditions.TokenIDs = r.TokenIDs
+	}
+	if len(conditions.WorkspaceIDs) == 0 {
+		conditions.WorkspaceIDs = r.WorkspaceIDs
 	}
 	if len(conditions.ChannelIDs) == 0 {
 		conditions.ChannelIDs = r.ChannelIDs
@@ -390,6 +437,16 @@ func containsFold(values []string, target string) bool {
 	target = strings.TrimSpace(target)
 	for _, value := range values {
 		if strings.EqualFold(strings.TrimSpace(value), target) {
+			return true
+		}
+	}
+	return false
+}
+
+func containsString(values []string, target string) bool {
+	target = strings.TrimSpace(target)
+	for _, value := range values {
+		if strings.TrimSpace(value) == target {
 			return true
 		}
 	}

@@ -32,6 +32,11 @@ type RetryPolicyRule struct {
 	MaxRetries  int                   `json:"max_retries,omitempty"`
 
 	Models          []string          `json:"models,omitempty"`
+	Groups          []string          `json:"groups,omitempty"`
+	RequestPaths    []string          `json:"request_paths,omitempty"`
+	Stream          *bool             `json:"stream,omitempty"`
+	TokenIDs        []int             `json:"token_ids,omitempty"`
+	WorkspaceIDs    []int             `json:"workspace_ids,omitempty"`
 	ChannelIDs      []int             `json:"channel_ids,omitempty"`
 	ChannelTypes    []int             `json:"channel_types,omitempty"`
 	ErrorTypes      []types.ErrorType `json:"error_types,omitempty"`
@@ -42,6 +47,11 @@ type RetryPolicyRule struct {
 
 type RetryPolicyConditions struct {
 	Models          []string          `json:"models,omitempty"`
+	Groups          []string          `json:"groups,omitempty"`
+	RequestPaths    []string          `json:"request_paths,omitempty"`
+	Stream          *bool             `json:"stream,omitempty"`
+	TokenIDs        []int             `json:"token_ids,omitempty"`
+	WorkspaceIDs    []int             `json:"workspace_ids,omitempty"`
 	ChannelIDs      []int             `json:"channel_ids,omitempty"`
 	ChannelTypes    []int             `json:"channel_types,omitempty"`
 	ErrorTypes      []types.ErrorType `json:"error_types,omitempty"`
@@ -58,10 +68,12 @@ type RetryPolicyTargets struct {
 }
 
 type RetryPolicyStrategy struct {
-	MaxRetries           int  `json:"max_retries,omitempty"`
-	ExcludeFailedChannel bool `json:"exclude_failed_channel,omitempty"`
-	PreferHealthy        bool `json:"prefer_healthy,omitempty"`
-	ProtectLast          bool `json:"protect_last,omitempty"`
+	MaxRetries           int   `json:"max_retries,omitempty"`
+	ExcludeFailedChannel bool  `json:"exclude_failed_channel,omitempty"`
+	PreferHealthy        bool  `json:"prefer_healthy,omitempty"`
+	ProtectLast          bool  `json:"protect_last,omitempty"`
+	RecordRequestLog     *bool `json:"record_request_log,omitempty"`
+	SampleRate           int   `json:"sample_rate,omitempty"`
 }
 
 func (s ChannelSettings) ImageGenerationWithImageToEditEnabled() bool {

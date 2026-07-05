@@ -338,3 +338,50 @@ func TestValidateRetryPolicyRuleRejectsFailoverWithOnlyTargetModel(t *testing.T)
 
 	require.ErrorContains(t, err, "failover rules must configure at least one channel target")
 }
+
+func TestRetryPolicyRuleMatchesExtendedConditions(t *testing.T) {
+	stream := false
+	rule := RetryPolicyRule{
+		Name:   "workspace route",
+		Action: RetryPolicyActionFailover,
+		Conditions: RetryPolicyConditions{
+			Groups:       []string{"vip"},
+			RequestPaths: []string{"/v1/chat/completions"},
+			Stream:       &stream,
+			TokenIDs:     []int{12},
+			WorkspaceIDs: []int{34},
+			StatusCodes:  "429",
+		},
+		Targets: RetryPolicyTargets{Groups: []string{"backup"}},
+	}
+
+	decision, ok := matchRetryPolicyRules(RetryPolicyInput{
+		ModelName:   "gpt-4o",
+		Group:       "vip",
+		RequestPath: "/v1/chat/completions",
+		IsStream:    false,
+		TokenID:     12,
+		WorkspaceID: 34,
+		StatusCode:  429,
+	}, []RetryPolicyRule{rule}, RetryPolicySourceGlobal)
+
+	require.True(t, ok)
+	require.True(t, decision.ShouldRetry)
+	require.Equal(t, "workspace route", decision.RuleName)
+}
+
+func TestRetryPolicyRuleRejectsExtendedConditionMismatch(t *testing.T) {
+	stream := true
+	rule := RetryPolicyRule{
+		Name:   "stream only",
+		Action: RetryPolicyActionRetry,
+		Conditions: RetryPolicyConditions{
+			Stream: &stream,
+		},
+		MaxRetries: 1,
+	}
+
+	_, ok := matchRetryPolicyRules(RetryPolicyInput{IsStream: false}, []RetryPolicyRule{rule}, RetryPolicySourceGlobal)
+
+	require.False(t, ok)
+}

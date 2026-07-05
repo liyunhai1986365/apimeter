@@ -537,6 +537,15 @@ func buildRetryPolicyInput(c *gin.Context, err *types.NewAPIError) operation_set
 	}
 	input.ChannelID = common.GetContextKeyInt(c, constant.ContextKeyChannelId)
 	input.ChannelType = common.GetContextKeyInt(c, constant.ContextKeyChannelType)
+	input.Group = common.GetContextKeyString(c, constant.ContextKeyUserGroup)
+	if input.Group == "" {
+		input.Group = c.GetString("group")
+	}
+	if c.Request != nil && c.Request.URL != nil {
+		input.RequestPath = c.Request.URL.Path
+	}
+	input.IsStream = common.GetContextKeyBool(c, constant.ContextKeyIsStream)
+	input.TokenID = common.GetContextKeyInt(c, constant.ContextKeyTokenId)
 	if channelSetting, ok := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting); ok {
 		input.ChannelRules = retryPolicyRulesToOperationRules(channelSetting.RetryPolicyRules)
 	}
@@ -557,6 +566,11 @@ func retryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_s
 			Targets:         retryPolicyTargetsToOperationTargets(rule.Targets),
 			Strategy:        retryPolicyStrategyToOperationStrategy(rule.Strategy),
 			Models:          rule.Models,
+			Groups:          rule.Groups,
+			RequestPaths:    rule.RequestPaths,
+			Stream:          rule.Stream,
+			TokenIDs:        rule.TokenIDs,
+			WorkspaceIDs:    rule.WorkspaceIDs,
 			ChannelIDs:      rule.ChannelIDs,
 			ChannelTypes:    rule.ChannelTypes,
 			ErrorTypes:      rule.ErrorTypes,
@@ -567,6 +581,11 @@ func retryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_s
 			MaxRetries:      rule.MaxRetries,
 			Conditions: operation_setting.RetryPolicyConditions{
 				Models:          rule.Conditions.Models,
+				Groups:          rule.Conditions.Groups,
+				RequestPaths:    rule.Conditions.RequestPaths,
+				Stream:          rule.Conditions.Stream,
+				TokenIDs:        rule.Conditions.TokenIDs,
+				WorkspaceIDs:    rule.Conditions.WorkspaceIDs,
 				ChannelIDs:      rule.Conditions.ChannelIDs,
 				ChannelTypes:    rule.Conditions.ChannelTypes,
 				ErrorTypes:      rule.Conditions.ErrorTypes,
@@ -594,6 +613,8 @@ func retryPolicyStrategyToOperationStrategy(strategy dto.RetryPolicyStrategy) op
 		ExcludeFailedChannel: strategy.ExcludeFailedChannel,
 		PreferHealthy:        strategy.PreferHealthy,
 		ProtectLast:          strategy.ProtectLast,
+		RecordRequestLog:     strategy.RecordRequestLog,
+		SampleRate:           strategy.SampleRate,
 	}
 }
 
