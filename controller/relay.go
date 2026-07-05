@@ -473,11 +473,14 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if currentRetry, ok := retryIndex.(int); ok && service.RetryPolicyRecoveryExceeded(c, currentRetry) {
 		return false
 	}
-	if types.IsChannelError(openaiErr) {
-		return true
+	if decision := operation_setting.ShouldRetryByPolicy(buildRetryPolicyInput(c, openaiErr)); decision.Matched {
+		return shouldRetryByPolicyDecision(c, decision, retryIndex)
 	}
 	if types.IsSkipRetryError(openaiErr) {
 		return false
+	}
+	if types.IsChannelError(openaiErr) {
+		return true
 	}
 	if retryTimes <= 0 {
 		return false
@@ -495,25 +498,26 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	if operation_setting.IsAlwaysSkipRetryCode(openaiErr.GetErrorCode()) {
 		return false
 	}
-	if decision := operation_setting.ShouldRetryByPolicy(buildRetryPolicyInput(c, openaiErr)); decision.Matched {
-		if !decision.ShouldRetry {
-			service.ClearRetryPolicyRecovery(c)
-			return false
-		}
-		if currentRetry, ok := retryIndex.(int); ok && decision.MaxRetries > 0 && currentRetry >= decision.MaxRetries {
-			service.SetRetryPolicyRecovery(c, decision)
-			return false
-		}
-		service.SetRetryPolicyRecovery(c, decision)
-		if service.ShouldSkipRetryAfterChannelAffinityFailure(c) && !service.RetryPolicyRecoveryAllowsAffinityRetry(c) {
-			return false
-		}
-		return true
-	}
 	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {
 		return false
 	}
 	return operation_setting.ShouldRetryByStatusCode(code)
+}
+
+func shouldRetryByPolicyDecision(c *gin.Context, decision operation_setting.RetryPolicyDecision, retryIndex any) bool {
+	if !decision.ShouldRetry {
+		service.ClearRetryPolicyRecovery(c)
+		return false
+	}
+	if currentRetry, ok := retryIndex.(int); ok && decision.MaxRetries > 0 && currentRetry >= decision.MaxRetries {
+		service.SetRetryPolicyRecovery(c, decision)
+		return false
+	}
+	service.SetRetryPolicyRecovery(c, decision)
+	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) && !service.RetryPolicyRecoveryAllowsAffinityRetry(c) {
+		return false
+	}
+	return true
 }
 
 func buildRetryPolicyInput(c *gin.Context, err *types.NewAPIError) operation_setting.RetryPolicyInput {
@@ -546,8 +550,12 @@ func retryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_s
 	result := make([]operation_setting.RetryPolicyRule, 0, len(rules))
 	for _, rule := range rules {
 		result = append(result, operation_setting.RetryPolicyRule{
+			Enabled:         rule.Enabled,
+			Priority:        rule.Priority,
 			Name:            rule.Name,
 			Action:          rule.Action,
+			Targets:         retryPolicyTargetsToOperationTargets(rule.Targets),
+			Strategy:        retryPolicyStrategyToOperationStrategy(rule.Strategy),
 			Models:          rule.Models,
 			ChannelIDs:      rule.ChannelIDs,
 			ChannelTypes:    rule.ChannelTypes,
@@ -569,6 +577,24 @@ func retryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_s
 		})
 	}
 	return result
+}
+
+func retryPolicyTargetsToOperationTargets(targets dto.RetryPolicyTargets) operation_setting.RetryPolicyTargets {
+	return operation_setting.RetryPolicyTargets{
+		Groups:      targets.Groups,
+		ChannelIDs:  targets.ChannelIDs,
+		ChannelTags: targets.ChannelTags,
+		Model:       targets.Model,
+	}
+}
+
+func retryPolicyStrategyToOperationStrategy(strategy dto.RetryPolicyStrategy) operation_setting.RetryPolicyStrategy {
+	return operation_setting.RetryPolicyStrategy{
+		MaxRetries:           strategy.MaxRetries,
+		ExcludeFailedChannel: strategy.ExcludeFailedChannel,
+		PreferHealthy:        strategy.PreferHealthy,
+		ProtectLast:          strategy.ProtectLast,
+	}
 }
 
 func processChannelError(c *gin.Context, channelError types.ChannelError, err *types.NewAPIError) {

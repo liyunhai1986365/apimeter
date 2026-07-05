@@ -1066,8 +1066,12 @@ func channelRetryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []oper
 	result := make([]operation_setting.RetryPolicyRule, 0, len(rules))
 	for _, rule := range rules {
 		result = append(result, operation_setting.RetryPolicyRule{
+			Enabled:         rule.Enabled,
+			Priority:        rule.Priority,
 			Name:            rule.Name,
 			Action:          rule.Action,
+			Targets:         channelRetryPolicyTargetsToOperationTargets(rule.Targets),
+			Strategy:        channelRetryPolicyStrategyToOperationStrategy(rule.Strategy),
 			Models:          rule.Models,
 			ChannelIDs:      rule.ChannelIDs,
 			ChannelTypes:    rule.ChannelTypes,
@@ -1075,6 +1079,8 @@ func channelRetryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []oper
 			ErrorCodes:      rule.ErrorCodes,
 			StatusCodes:     rule.StatusCodes,
 			MessageContains: rule.MessageContains,
+			RetryGroups:     rule.RetryGroups,
+			MaxRetries:      rule.MaxRetries,
 			Conditions: operation_setting.RetryPolicyConditions{
 				Models:          rule.Conditions.Models,
 				ChannelIDs:      rule.Conditions.ChannelIDs,
@@ -1087,6 +1093,24 @@ func channelRetryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []oper
 		})
 	}
 	return result
+}
+
+func channelRetryPolicyTargetsToOperationTargets(targets dto.RetryPolicyTargets) operation_setting.RetryPolicyTargets {
+	return operation_setting.RetryPolicyTargets{
+		Groups:      targets.Groups,
+		ChannelIDs:  targets.ChannelIDs,
+		ChannelTags: targets.ChannelTags,
+		Model:       targets.Model,
+	}
+}
+
+func channelRetryPolicyStrategyToOperationStrategy(strategy dto.RetryPolicyStrategy) operation_setting.RetryPolicyStrategy {
+	return operation_setting.RetryPolicyStrategy{
+		MaxRetries:           strategy.MaxRetries,
+		ExcludeFailedChannel: strategy.ExcludeFailedChannel,
+		PreferHealthy:        strategy.PreferHealthy,
+		ProtectLast:          strategy.ProtectLast,
+	}
 }
 
 func (channel *Channel) GetSetting() dto.ChannelSettings {

@@ -189,3 +189,152 @@ func TestRetryPolicyDecisionCarriesRecoveryGroupsAndMaxRetries(t *testing.T) {
 	require.Equal(t, []string{"codex-primary", "codex-backup"}, decision.RetryGroups)
 	require.Equal(t, 2, decision.MaxRetries)
 }
+
+func TestRetryPolicyDecisionCarriesFailoverTargets(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{
+			Name:        "gpt failover",
+			Action:      RetryPolicyActionFailover,
+			Priority:    10,
+			StatusCodes: "500",
+			Targets: RetryPolicyTargets{
+				Groups:      []string{"backup"},
+				ChannelIDs:  []int{28},
+				ChannelTags: []string{"stable"},
+			},
+			Strategy: RetryPolicyStrategy{
+				MaxRetries:           2,
+				ExcludeFailedChannel: true,
+			},
+		},
+	}
+
+	decision := ShouldRetryByPolicy(RetryPolicyInput{
+		ModelName:    "gpt-5",
+		ChannelID:    12,
+		StatusCode:   500,
+		ErrorMessage: "upstream overloaded",
+	})
+
+	require.True(t, decision.Matched)
+	require.True(t, decision.ShouldRetry)
+	require.Equal(t, RetryPolicyActionFailover, decision.Action)
+	require.Equal(t, []string{"backup"}, decision.Targets.Groups)
+	require.Equal(t, []int{28}, decision.Targets.ChannelIDs)
+	require.Equal(t, []string{"stable"}, decision.Targets.ChannelTags)
+	require.Equal(t, 2, decision.MaxRetries)
+	require.Equal(t, 12, decision.ExcludeChannelID)
+}
+
+func TestRetryPolicyFailoverExcludesFailedChannelByDefault(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{
+			Name:        "default failover",
+			Action:      RetryPolicyActionFailover,
+			StatusCodes: "500",
+			Targets: RetryPolicyTargets{
+				Groups: []string{"backup"},
+			},
+		},
+	}
+
+	decision := ShouldRetryByPolicy(RetryPolicyInput{
+		ChannelID:    12,
+		StatusCode:   500,
+		ErrorMessage: "upstream overloaded",
+	})
+
+	require.True(t, decision.Matched)
+	require.Equal(t, RetryPolicyActionFailover, decision.Action)
+	require.Equal(t, 12, decision.ExcludeChannelID)
+}
+
+func TestRetryPolicySkipRetryWinsOverFailoverWithinSameSource(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{
+			Name:        "broad failover",
+			Action:      RetryPolicyActionFailover,
+			Priority:    100,
+			StatusCodes: "400-599",
+			Targets: RetryPolicyTargets{
+				Groups: []string{"backup"},
+			},
+		},
+		{
+			Name:        "invalid request must not retry",
+			Action:      RetryPolicyActionSkipRetry,
+			Priority:    1,
+			StatusCodes: "400",
+			ErrorCodes:  []types.ErrorCode{types.ErrorCodeInvalidRequest},
+		},
+	}
+
+	decision := ShouldRetryByPolicy(RetryPolicyInput{
+		ModelName:    "gpt-5",
+		StatusCode:   400,
+		ErrorCode:    types.ErrorCodeInvalidRequest,
+		ErrorMessage: "invalid request",
+	})
+
+	require.True(t, decision.Matched)
+	require.Equal(t, RetryPolicyActionSkipRetry, decision.Action)
+	require.False(t, decision.ShouldRetry)
+	require.Equal(t, "invalid request must not retry", decision.RuleName)
+}
+
+func TestAutomaticRetryPolicyRulesFromStringParsesFailoverRule(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	err := AutomaticRetryPolicyRulesFromString(`[
+		{
+			"name": "json failover",
+			"enabled": true,
+			"priority": 50,
+			"action": "failover",
+			"status_codes": "500-504",
+			"targets": {
+				"groups": ["backup"],
+				"channel_ids": [28],
+				"channel_tags": ["stable"]
+			},
+			"strategy": {
+				"max_retries": 2,
+				"exclude_failed_channel": true
+			}
+		}
+	]`)
+	require.NoError(t, err)
+	require.Len(t, AutomaticRetryPolicyRules, 1)
+
+	rule := AutomaticRetryPolicyRules[0]
+	require.Equal(t, RetryPolicyActionFailover, rule.Action)
+	require.Equal(t, 50, rule.Priority)
+	require.Equal(t, []string{"backup"}, rule.Targets.Groups)
+	require.Equal(t, []int{28}, rule.Targets.ChannelIDs)
+	require.Equal(t, []string{"stable"}, rule.Targets.ChannelTags)
+	require.Equal(t, 2, rule.Strategy.MaxRetries)
+	require.True(t, rule.Strategy.ExcludeFailedChannel)
+}
+
+func TestValidateRetryPolicyRuleRejectsFailoverWithOnlyTargetModel(t *testing.T) {
+	err := ValidateRetryPolicyRule(RetryPolicyRule{
+		Name:        "model-only failover",
+		Action:      RetryPolicyActionFailover,
+		StatusCodes: "500",
+		Targets: RetryPolicyTargets{
+			Model: "gpt-5-mini",
+		},
+	})
+
+	require.ErrorContains(t, err, "failover rules must configure at least one channel target")
+}

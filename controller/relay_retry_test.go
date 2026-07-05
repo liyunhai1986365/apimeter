@@ -203,3 +203,111 @@ func TestShouldRetryExistingRecoveryContextStillHonorsMaxRetries(t *testing.T) {
 
 	require.False(t, shouldRetry(c, err, 1))
 }
+
+func TestShouldRetryGlobalFailoverPolicySetsRecoveryTargets(t *testing.T) {
+	origRules := operation_setting.AutomaticRetryPolicyRules
+	t.Cleanup(func() { operation_setting.AutomaticRetryPolicyRules = origRules })
+	operation_setting.AutomaticRetryPolicyRules = []operation_setting.RetryPolicyRule{
+		{
+			Name:        "global failover 500",
+			Action:      operation_setting.RetryPolicyActionFailover,
+			StatusCodes: "500",
+			Targets: operation_setting.RetryPolicyTargets{
+				Groups:      []string{"backup"},
+				ChannelIDs:  []int{28},
+				ChannelTags: []string{"stable"},
+			},
+			Strategy: operation_setting.RetryPolicyStrategy{
+				MaxRetries:           2,
+				ExcludeFailedChannel: true,
+			},
+		},
+	}
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, true)
+	common.SetContextKey(c, constant.ContextKeyChannelId, 12)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+	c.Set("original_model", "gpt-5")
+	c.Set("relay_retry_index", 0)
+
+	err := types.NewOpenAIError(
+		errors.New("upstream overloaded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	)
+
+	require.True(t, shouldRetry(c, err, 1))
+	recovery, ok := service.GetRetryPolicyRecovery(c)
+	require.True(t, ok)
+	require.Equal(t, operation_setting.RetryPolicyActionFailover, recovery.Action)
+	require.Equal(t, []string{"backup"}, recovery.RetryGroups)
+	require.Equal(t, []int{28}, recovery.TargetChannelIDs)
+	require.Equal(t, []string{"stable"}, recovery.TargetTags)
+	require.Equal(t, 12, recovery.ExcludeChannelID)
+	require.Equal(t, 2, recovery.MaxRetries)
+}
+
+func TestShouldRetryPolicyCanRouteChannelErrors(t *testing.T) {
+	origRules := operation_setting.AutomaticRetryPolicyRules
+	t.Cleanup(func() { operation_setting.AutomaticRetryPolicyRules = origRules })
+	operation_setting.AutomaticRetryPolicyRules = []operation_setting.RetryPolicyRule{
+		{
+			Name:       "invalid key failover",
+			Action:     operation_setting.RetryPolicyActionFailover,
+			ErrorCodes: []types.ErrorCode{types.ErrorCodeChannelInvalidKey},
+			Targets: operation_setting.RetryPolicyTargets{
+				Groups: []string{"backup"},
+			},
+		},
+	}
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, true)
+	common.SetContextKey(c, constant.ContextKeyChannelId, 12)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+	c.Set("original_model", "gpt-5")
+	c.Set("relay_retry_index", 0)
+
+	err := types.NewError(
+		errors.New("channel invalid key"),
+		types.ErrorCodeChannelInvalidKey,
+	)
+
+	require.True(t, shouldRetry(c, err, 1))
+	recovery, ok := service.GetRetryPolicyRecovery(c)
+	require.True(t, ok)
+	require.Equal(t, operation_setting.RetryPolicyActionFailover, recovery.Action)
+	require.Equal(t, []string{"backup"}, recovery.RetryGroups)
+	require.Equal(t, 12, recovery.ExcludeChannelID)
+}
+
+func TestShouldRetryPolicyCanSkipChannelErrors(t *testing.T) {
+	origRules := operation_setting.AutomaticRetryPolicyRules
+	t.Cleanup(func() { operation_setting.AutomaticRetryPolicyRules = origRules })
+	operation_setting.AutomaticRetryPolicyRules = []operation_setting.RetryPolicyRule{
+		{
+			Name:       "invalid key stop",
+			Action:     operation_setting.RetryPolicyActionSkipRetry,
+			ErrorCodes: []types.ErrorCode{types.ErrorCodeChannelInvalidKey},
+		},
+	}
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, true)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+	c.Set("original_model", "gpt-5")
+	c.Set("relay_retry_index", 0)
+
+	err := types.NewError(
+		errors.New("channel invalid key"),
+		types.ErrorCodeChannelInvalidKey,
+	)
+
+	require.False(t, shouldRetry(c, err, 1))
+	_, ok := service.GetRetryPolicyRecovery(c)
+	require.False(t, ok)
+}

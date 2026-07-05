@@ -102,7 +102,9 @@ export interface ChannelSettings {
 
 export interface RetryPolicyRule {
   name?: string
-  action: 'retry' | 'skip_retry'
+  enabled?: boolean
+  priority?: number
+  action: 'retry' | 'failover' | 'skip_retry'
   models?: string[]
   channel_ids?: number[]
   channel_types?: number[]
@@ -112,6 +114,18 @@ export interface RetryPolicyRule {
   message_contains?: string[]
   retry_groups?: string[]
   max_retries?: number
+  targets?: {
+    groups?: string[]
+    channel_ids?: number[]
+    channel_tags?: string[]
+    model?: string
+  }
+  strategy?: {
+    max_retries?: number
+    exclude_failed_channel?: boolean
+    prefer_healthy?: boolean
+    protect_last?: boolean
+  }
   conditions?: {
     models?: string[]
     channel_ids?: number[]

@@ -99,30 +99,34 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		channelGroup = strings.TrimSpace(param.TokenGroup)
 	}
 	filter := BuildProtocolChannelFilter(param)
+	filter = combineChannelFilters(filter, RetryPolicyRecoveryFilter(param.Ctx))
 
-	if recoveryGroup, ok := RetryPolicyRecoveryGroupForAttempt(param.Ctx, param.GetRetry()); ok {
-		if err := validateRetryPolicyRecoveryGroup(param.Ctx, recoveryGroup); err != nil {
-			return nil, recoveryGroup, err
-		}
-		if model.IsUserOwnedProviderGroup(recoveryGroup) {
-			channel, err = model.GetUserOwnedProviderChannelForGroup(common.GetContextKeyInt(param.Ctx, constant.ContextKeyUserId), recoveryGroup, param.ModelName)
-			if err == nil {
-				common.SetContextKey(param.Ctx, constant.ContextKeyTokenBillingSource, BillingSourceUserOwnedProvider)
+	if recoveryGroups := RetryPolicyRecoveryGroupsForAttempt(param.Ctx, param.GetRetry(), param.ModelName); len(recoveryGroups) > 0 {
+		for _, recoveryGroup := range recoveryGroups {
+			if err := validateRetryPolicyRecoveryGroup(param.Ctx, recoveryGroup); err != nil {
+				return nil, recoveryGroup, err
 			}
-		} else {
-			channel, err = model.GetRandomSatisfiedChannelWithFilter(recoveryGroup, param.ModelName, 0, filter)
+			if model.IsUserOwnedProviderGroup(recoveryGroup) {
+				channel, err = model.GetUserOwnedProviderChannelForGroup(common.GetContextKeyInt(param.Ctx, constant.ContextKeyUserId), recoveryGroup, param.ModelName)
+				if err == nil {
+					common.SetContextKey(param.Ctx, constant.ContextKeyTokenBillingSource, BillingSourceUserOwnedProvider)
+				}
+			} else {
+				channel, err = model.GetRandomSatisfiedChannelWithFilter(recoveryGroup, param.ModelName, 0, filter)
+			}
+			if errors.Is(err, model.ErrNoChannelMatchedFilter) {
+				continue
+			}
+			if err != nil {
+				return nil, recoveryGroup, err
+			}
+			if channel == nil {
+				continue
+			}
+			setSelectedGroupContext(param.Ctx, recoveryGroup, recoveryGroup)
+			return channel, recoveryGroup, nil
 		}
-		if errors.Is(err, model.ErrNoChannelMatchedFilter) {
-			return nil, recoveryGroup, unsupportedProtocolError(param)
-		}
-		if err != nil {
-			return nil, recoveryGroup, err
-		}
-		if channel == nil {
-			return nil, recoveryGroup, nil
-		}
-		setSelectedGroupContext(param.Ctx, recoveryGroup, recoveryGroup)
-		return channel, recoveryGroup, nil
+		return nil, recoveryGroups[len(recoveryGroups)-1], unsupportedProtocolError(param)
 	}
 
 	policyGroups := ResolveTokenGroupChain(param.Ctx, param.TokenGroup)
@@ -282,6 +286,26 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	}
 	return channel, selectGroup, nil
+}
+
+func combineChannelFilters(filters ...model.ChannelFilter) model.ChannelFilter {
+	active := make([]model.ChannelFilter, 0, len(filters))
+	for _, filter := range filters {
+		if filter != nil {
+			active = append(active, filter)
+		}
+	}
+	if len(active) == 0 {
+		return nil
+	}
+	return func(channel *model.Channel) bool {
+		for _, filter := range active {
+			if !filter(channel) {
+				return false
+			}
+		}
+		return true
+	}
 }
 
 func agentAutoGroups(agentCtx *types.AgentContext, userGroup string) ([]string, map[string]string) {

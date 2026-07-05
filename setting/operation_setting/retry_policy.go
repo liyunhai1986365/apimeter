@@ -2,6 +2,7 @@ package operation_setting
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 
 const (
 	RetryPolicyActionRetry     = "retry"
+	RetryPolicyActionFailover  = "failover"
 	RetryPolicyActionSkipRetry = "skip_retry"
 
 	RetryPolicySourceChannel = "channel"
@@ -19,8 +21,12 @@ const (
 
 type RetryPolicyRule struct {
 	Name        string                `json:"name,omitempty"`
+	Enabled     *bool                 `json:"enabled,omitempty"`
+	Priority    int                   `json:"priority,omitempty"`
 	Action      string                `json:"action"`
 	Conditions  RetryPolicyConditions `json:"conditions,omitempty"`
+	Targets     RetryPolicyTargets    `json:"targets,omitempty"`
+	Strategy    RetryPolicyStrategy   `json:"strategy,omitempty"`
 	RetryGroups []string              `json:"retry_groups,omitempty"`
 	MaxRetries  int                   `json:"max_retries,omitempty"`
 
@@ -43,6 +49,20 @@ type RetryPolicyConditions struct {
 	MessageContains []string          `json:"message_contains,omitempty"`
 }
 
+type RetryPolicyTargets struct {
+	Groups      []string `json:"groups,omitempty"`
+	ChannelIDs  []int    `json:"channel_ids,omitempty"`
+	ChannelTags []string `json:"channel_tags,omitempty"`
+	Model       string   `json:"model,omitempty"`
+}
+
+type RetryPolicyStrategy struct {
+	MaxRetries           int  `json:"max_retries,omitempty"`
+	ExcludeFailedChannel bool `json:"exclude_failed_channel,omitempty"`
+	PreferHealthy        bool `json:"prefer_healthy,omitempty"`
+	ProtectLast          bool `json:"protect_last,omitempty"`
+}
+
 type RetryPolicyInput struct {
 	ModelName    string
 	ChannelID    int
@@ -55,12 +75,18 @@ type RetryPolicyInput struct {
 }
 
 type RetryPolicyDecision struct {
-	Matched     bool
-	ShouldRetry bool
-	Source      string
-	RuleName    string
-	RetryGroups []string
-	MaxRetries  int
+	Matched          bool
+	ShouldRetry      bool
+	Action           string
+	Source           string
+	RuleName         string
+	RetryGroups      []string
+	MaxRetries       int
+	Targets          RetryPolicyTargets
+	TargetChannelIDs []int
+	TargetTags       []string
+	TargetModel      string
+	ExcludeChannelID int
 }
 
 var AutomaticRetryPolicyRules []RetryPolicyRule
@@ -119,13 +145,18 @@ func ValidateRetryPolicyRulesJSON(s string) error {
 func ValidateRetryPolicyRule(rule RetryPolicyRule) error {
 	action := normalizeRetryPolicyAction(rule.Action)
 	if action == "" {
-		return fmt.Errorf("action must be %q or %q", RetryPolicyActionRetry, RetryPolicyActionSkipRetry)
+		return fmt.Errorf("action must be %q, %q, or %q", RetryPolicyActionRetry, RetryPolicyActionFailover, RetryPolicyActionSkipRetry)
 	}
-	if rule.MaxRetries < 0 {
+	maxRetries := effectiveRetryPolicyMaxRetries(rule)
+	if maxRetries < 0 {
 		return fmt.Errorf("max_retries must be greater than or equal to 0")
 	}
-	if action == RetryPolicyActionSkipRetry && (len(cleanRetryGroups(rule.RetryGroups)) > 0 || rule.MaxRetries > 0) {
-		return fmt.Errorf("retry_groups and max_retries are only valid for retry rules")
+	targets := normalizedRetryPolicyTargets(rule)
+	if action == RetryPolicyActionSkipRetry && (len(cleanRetryGroups(rule.RetryGroups)) > 0 || maxRetries > 0 || !targets.empty()) {
+		return fmt.Errorf("retry targets and max_retries are only valid for retry or failover rules")
+	}
+	if action == RetryPolicyActionFailover && len(targets.Groups) == 0 && len(targets.ChannelIDs) == 0 && len(targets.ChannelTags) == 0 {
+		return fmt.Errorf("failover rules must configure at least one channel target")
 	}
 	conditions := rule.normalizedConditions()
 	if conditions.StatusCodes != "" {
@@ -147,21 +178,65 @@ func ShouldRetryByPolicy(input RetryPolicyInput) RetryPolicyDecision {
 }
 
 func matchRetryPolicyRules(input RetryPolicyInput, rules []RetryPolicyRule, source string) (RetryPolicyDecision, bool) {
-	for _, rule := range rules {
+	orderedRules := orderedRetryPolicyRules(rules)
+	for _, rule := range orderedRules {
+		if rule.Enabled != nil && !*rule.Enabled {
+			continue
+		}
+		if normalizeRetryPolicyAction(rule.Action) != RetryPolicyActionSkipRetry || !rule.matches(input) {
+			continue
+		}
+		return buildRetryPolicyDecision(input, rule, source), true
+	}
+	for _, rule := range orderedRules {
+		if rule.Enabled != nil && !*rule.Enabled {
+			continue
+		}
 		if !rule.matches(input) {
 			continue
 		}
-		action := normalizeRetryPolicyAction(rule.Action)
-		return RetryPolicyDecision{
-			Matched:     true,
-			ShouldRetry: action == RetryPolicyActionRetry,
-			Source:      source,
-			RuleName:    rule.Name,
-			RetryGroups: cleanRetryGroups(rule.RetryGroups),
-			MaxRetries:  rule.MaxRetries,
-		}, true
+		return buildRetryPolicyDecision(input, rule, source), true
 	}
 	return RetryPolicyDecision{}, false
+}
+
+func buildRetryPolicyDecision(input RetryPolicyInput, rule RetryPolicyRule, source string) RetryPolicyDecision {
+	action := normalizeRetryPolicyAction(rule.Action)
+	targets := normalizedRetryPolicyTargets(rule)
+	maxRetries := effectiveRetryPolicyMaxRetries(rule)
+	retryGroups := cleanRetryGroups(rule.RetryGroups)
+	if len(targets.Groups) > 0 {
+		retryGroups = targets.Groups
+	}
+	excludeChannelID := 0
+	if action == RetryPolicyActionFailover {
+		excludeChannelID = input.ChannelID
+	}
+	return RetryPolicyDecision{
+		Matched:          true,
+		ShouldRetry:      action == RetryPolicyActionRetry || action == RetryPolicyActionFailover,
+		Action:           action,
+		Source:           source,
+		RuleName:         rule.Name,
+		RetryGroups:      retryGroups,
+		MaxRetries:       maxRetries,
+		Targets:          targets,
+		TargetChannelIDs: targets.ChannelIDs,
+		TargetTags:       targets.ChannelTags,
+		TargetModel:      strings.TrimSpace(targets.Model),
+		ExcludeChannelID: excludeChannelID,
+	}
+}
+
+func orderedRetryPolicyRules(rules []RetryPolicyRule) []RetryPolicyRule {
+	if len(rules) <= 1 {
+		return rules
+	}
+	ordered := append([]RetryPolicyRule(nil), rules...)
+	sort.SliceStable(ordered, func(i, j int) bool {
+		return ordered[i].Priority > ordered[j].Priority
+	})
+	return ordered
 }
 
 func cleanRetryGroups(groups []string) []string {
@@ -177,6 +252,63 @@ func cleanRetryGroups(groups []string) []string {
 		}
 		seen[group] = true
 		clean = append(clean, group)
+	}
+	return clean
+}
+
+func normalizedRetryPolicyTargets(rule RetryPolicyRule) RetryPolicyTargets {
+	targets := rule.Targets
+	if len(targets.Groups) == 0 {
+		targets.Groups = rule.RetryGroups
+	}
+	targets.Groups = cleanRetryGroups(targets.Groups)
+	targets.ChannelIDs = cleanRetryPolicyInts(targets.ChannelIDs)
+	targets.ChannelTags = cleanRetryPolicyStrings(targets.ChannelTags)
+	targets.Model = strings.TrimSpace(targets.Model)
+	return targets
+}
+
+func effectiveRetryPolicyMaxRetries(rule RetryPolicyRule) int {
+	if rule.Strategy.MaxRetries > 0 {
+		return rule.Strategy.MaxRetries
+	}
+	return rule.MaxRetries
+}
+
+func (targets RetryPolicyTargets) empty() bool {
+	return len(targets.Groups) == 0 && len(targets.ChannelIDs) == 0 && len(targets.ChannelTags) == 0 && strings.TrimSpace(targets.Model) == ""
+}
+
+func cleanRetryPolicyInts(values []int) []int {
+	if len(values) == 0 {
+		return nil
+	}
+	clean := make([]int, 0, len(values))
+	seen := make(map[int]bool, len(values))
+	for _, value := range values {
+		if value <= 0 || seen[value] {
+			continue
+		}
+		seen[value] = true
+		clean = append(clean, value)
+	}
+	return clean
+}
+
+func cleanRetryPolicyStrings(values []string) []string {
+	if len(values) == 0 {
+		return nil
+	}
+	clean := make([]string, 0, len(values))
+	seen := make(map[string]bool, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		key := strings.ToLower(value)
+		if value == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		clean = append(clean, value)
 	}
 	return clean
 }
@@ -237,6 +369,8 @@ func normalizeRetryPolicyAction(action string) string {
 	switch strings.ToLower(strings.TrimSpace(action)) {
 	case RetryPolicyActionRetry:
 		return RetryPolicyActionRetry
+	case RetryPolicyActionFailover:
+		return RetryPolicyActionFailover
 	case RetryPolicyActionSkipRetry:
 		return RetryPolicyActionSkipRetry
 	default:

@@ -22,8 +22,12 @@ type ChannelSettings struct {
 
 type RetryPolicyRule struct {
 	Name        string                `json:"name,omitempty"`
+	Enabled     *bool                 `json:"enabled,omitempty"`
+	Priority    int                   `json:"priority,omitempty"`
 	Action      string                `json:"action"`
 	Conditions  RetryPolicyConditions `json:"conditions,omitempty"`
+	Targets     RetryPolicyTargets    `json:"targets,omitempty"`
+	Strategy    RetryPolicyStrategy   `json:"strategy,omitempty"`
 	RetryGroups []string              `json:"retry_groups,omitempty"`
 	MaxRetries  int                   `json:"max_retries,omitempty"`
 
@@ -44,6 +48,20 @@ type RetryPolicyConditions struct {
 	ErrorCodes      []types.ErrorCode `json:"error_codes,omitempty"`
 	StatusCodes     string            `json:"status_codes,omitempty"`
 	MessageContains []string          `json:"message_contains,omitempty"`
+}
+
+type RetryPolicyTargets struct {
+	Groups      []string `json:"groups,omitempty"`
+	ChannelIDs  []int    `json:"channel_ids,omitempty"`
+	ChannelTags []string `json:"channel_tags,omitempty"`
+	Model       string   `json:"model,omitempty"`
+}
+
+type RetryPolicyStrategy struct {
+	MaxRetries           int  `json:"max_retries,omitempty"`
+	ExcludeFailedChannel bool `json:"exclude_failed_channel,omitempty"`
+	PreferHealthy        bool `json:"prefer_healthy,omitempty"`
+	ProtectLast          bool `json:"protect_last,omitempty"`
 }
 
 func (s ChannelSettings) ImageGenerationWithImageToEditEnabled() bool {

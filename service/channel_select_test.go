@@ -746,6 +746,92 @@ func TestCacheGetRandomSatisfiedChannelUsesRetryPolicyRecoveryGroups(t *testing.
 	require.Equal(t, "codex-backup", selectedGroup)
 }
 
+func TestCacheGetRandomSatisfiedChannelUsesRetryPolicyFailoverTargets(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	originalGroupRatio := ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		_ = ratio_setting.UpdateGroupRatioByJSONString(originalGroupRatio)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","backup":"备用分组"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"backup":1}`))
+	createChannelSelectFixture(t, db, 1501, "backup", 10)
+	createChannelSelectFixture(t, db, 1502, "backup", 10)
+	stableTag := "stable"
+	require.NoError(t, db.Model(&model.Channel{}).Where("id = ?", 1502).Update("tag", stableTag).Error)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	SetRetryPolicyRecovery(c, operation_setting.RetryPolicyDecision{
+		Matched:          true,
+		ShouldRetry:      true,
+		Action:           operation_setting.RetryPolicyActionFailover,
+		Source:           operation_setting.RetryPolicySourceGlobal,
+		RuleName:         "gpt failover",
+		RetryGroups:      []string{"backup"},
+		TargetChannelIDs: []int{1502},
+		TargetTags:       []string{"stable"},
+		ExcludeChannelID: 1501,
+		MaxRetries:       2,
+	})
+
+	retry := 1
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1502, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+}
+
+func TestCacheGetRandomSatisfiedChannelDerivesFailoverGroupsFromTargetChannel(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	originalGroupRatio := ratio_setting.GroupRatio2JSONString()
+	t.Cleanup(func() {
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		_ = ratio_setting.UpdateGroupRatioByJSONString(originalGroupRatio)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","backup":"备用分组"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"backup":1}`))
+	createChannelSelectFixture(t, db, 1511, "default", 10)
+	createChannelSelectFixture(t, db, 1512, "backup", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	SetRetryPolicyRecovery(c, operation_setting.RetryPolicyDecision{
+		Matched:          true,
+		ShouldRetry:      true,
+		Action:           operation_setting.RetryPolicyActionFailover,
+		Source:           operation_setting.RetryPolicySourceGlobal,
+		RuleName:         "target channel only failover",
+		TargetChannelIDs: []int{1512},
+		ExcludeChannelID: 1511,
+		MaxRetries:       2,
+	})
+
+	retry := 1
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "default",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, channel)
+	require.Equal(t, 1512, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+}
+
 func TestCacheGetRandomSatisfiedChannelDoesNotResetRetryAtLastPolicyGroup(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {

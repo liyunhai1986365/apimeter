@@ -66,4 +66,16 @@ describe('retry policy templates', () => {
     assert.ok(RETRY_POLICY_TEMPLATES.length >= 3)
     assert.equal(RETRY_POLICY_TEMPLATES[0].rule.action, 'retry')
   })
+
+  test('provides an insertable failover template with routing targets', () => {
+    const template = RETRY_POLICY_TEMPLATES.find(
+      (item) => item.rule.action === 'failover'
+    )
+
+    assert.ok(template)
+    assert.deepEqual(template.rule.targets?.groups, ['backup'])
+    assert.deepEqual(template.rule.targets?.channel_tags, ['stable'])
+    assert.equal(template.rule.strategy?.exclude_failed_channel, true)
+    assert.equal(template.rule.strategy?.max_retries, 2)
+  })
 })

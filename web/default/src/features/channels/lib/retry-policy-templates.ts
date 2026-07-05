@@ -52,6 +52,26 @@ export const RETRY_POLICY_TEMPLATES: RetryPolicyTemplate[] = [
     },
   },
   {
+    labelKey: 'Fail over to backup channels',
+    descriptionKey:
+      'Route matching upstream errors to configured backup groups, channels, or tags',
+    rule: {
+      name: 'temporary upstream failover',
+      action: 'failover',
+      priority: 100,
+      status_codes: '429,500-504',
+      message_contains: ['temporary', 'overloaded', 'timeout'],
+      targets: {
+        groups: ['backup'],
+        channel_tags: ['stable'],
+      },
+      strategy: {
+        max_retries: 2,
+        exclude_failed_channel: true,
+      },
+    },
+  },
+  {
     labelKey: 'Recover Codex encrypted content',
     descriptionKey:
       'Retry Codex encrypted-content verification failures through configured compatible groups',

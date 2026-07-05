@@ -2107,58 +2107,97 @@ export function MonitoringSettingsSection({
             />
           </div>
 
-          <FormField
-            control={form.control}
-            name='AutomaticRetryPolicyRules'
-            render={({ field }) => (
-              <FormItem>
-                <div className='flex items-center justify-between gap-3'>
-                  <FormLabel>{t('Global retry policy')}</FormLabel>
-                  <Select
-                    value=''
-                    onValueChange={(value) => {
-                      const template = RETRY_POLICY_TEMPLATES.find(
-                        (item) => item.labelKey === value
-                      )
-                      if (template) {
-                        field.onChange(
-                          insertRetryPolicyTemplate(field.value, template)
-                        )
-                      }
-                    }}
-                  >
-                    <SelectTrigger className='h-8 w-40'>
-                      <SelectValue placeholder={t('Insert template')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RETRY_POLICY_TEMPLATES.map((template) => (
-                        <SelectItem
-                          key={template.labelKey}
-                          value={template.labelKey}
-                        >
-                          {t(template.labelKey)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+          <Card>
+            <CardHeader>
+              <CardTitle>{t('Global retry and failover policy')}</CardTitle>
+              <CardDescription>
+                {t(
+                  'Match upstream errors and route the next retry to configured backup groups, channel IDs, or channel tags.'
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className='flex flex-col gap-4'>
+              <FormField
+                control={form.control}
+                name='AutomaticRetryPolicyRules'
+                render={({ field }) => (
+                  <FormItem>
+                    <div className='flex items-center justify-between gap-3'>
+                      <FormLabel>{t('Policy JSON')}</FormLabel>
+                      <Select
+                        value=''
+                        onValueChange={(value) => {
+                          const template = RETRY_POLICY_TEMPLATES.find(
+                            (item) => item.labelKey === value
+                          )
+                          if (template) {
+                            field.onChange(
+                              insertRetryPolicyTemplate(field.value, template)
+                            )
+                          }
+                        }}
+                      >
+                        <SelectTrigger className='h-8 w-40'>
+                          <SelectValue placeholder={t('Insert template')} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RETRY_POLICY_TEMPLATES.map((template) => (
+                            <SelectItem
+                              key={template.labelKey}
+                              value={template.labelKey}
+                            >
+                              {t(template.labelKey)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <FormControl>
+                      <Textarea
+                        rows={8}
+                        placeholder='[{"action":"failover","status_codes":"429,500-504","targets":{"groups":["backup"],"channel_tags":["stable"]},"strategy":{"max_retries":2,"exclude_failed_channel":true}}]'
+                        {...field}
+                        onChange={(event) => field.onChange(event.target.value)}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      {t(
+                        'Channel policy rules are matched before global rules; skip_retry stops routing, failover routes to target channel pools, and retry keeps the legacy retry behavior.'
+                      )}
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className='grid gap-3 text-sm md:grid-cols-3'>
+                <div className='rounded-md border bg-muted/30 p-3'>
+                  <div className='font-medium'>{t('Match errors')}</div>
+                  <p className='mt-1 text-muted-foreground'>
+                    {t(
+                      'Use models, channel_ids, channel_types, status_codes, error_codes, and message_contains.'
+                    )}
+                  </p>
                 </div>
-                <FormControl>
-                  <Textarea
-                    rows={6}
-                    placeholder='[{"models":["gpt-image-2"],"message_contains":["private ip"],"action":"retry"}]'
-                    {...field}
-                    onChange={(event) => field.onChange(event.target.value)}
-                  />
-                </FormControl>
-                <FormDescription>
-                  {t(
-                    'Global retry policy is used when the channel retry policy does not match; status code rules remain the fallback.'
-                  )}
-                </FormDescription>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                <div className='rounded-md border bg-muted/30 p-3'>
+                  <div className='font-medium'>{t('Route targets')}</div>
+                  <p className='mt-1 text-muted-foreground'>
+                    {t(
+                      'Use targets.groups, targets.channel_ids, or targets.channel_tags to choose the next channel pool.'
+                    )}
+                  </p>
+                </div>
+                <div className='rounded-md border bg-muted/30 p-3'>
+                  <div className='font-medium'>{t('Failover safety')}</div>
+                  <p className='mt-1 text-muted-foreground'>
+                    {t(
+                      'Failover avoids the failed channel by default; use strategy.max_retries to limit recovery attempts.'
+                    )}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           <Button type='submit' disabled={updateOption.isPending}>
             {updateOption.isPending
