@@ -229,6 +229,37 @@ func TestRetryPolicyDecisionCarriesFailoverTargets(t *testing.T) {
 	require.Equal(t, 12, decision.ExcludeChannelID)
 }
 
+func TestRetryPolicyDecisionCarriesRequestLogStrategy(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+
+	recordRequestLog := true
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{
+			Name:        "observe retry 500",
+			Action:      RetryPolicyActionFailover,
+			StatusCodes: "500",
+			Targets: RetryPolicyTargets{
+				Groups: []string{"backup"},
+			},
+			Strategy: RetryPolicyStrategy{
+				RecordRequestLog: &recordRequestLog,
+				SampleRate:       35,
+			},
+		},
+	}
+
+	decision := ShouldRetryByPolicy(RetryPolicyInput{
+		StatusCode:   500,
+		ErrorMessage: "upstream overloaded",
+	})
+
+	require.True(t, decision.Matched)
+	require.NotNil(t, decision.RecordRequestLog)
+	require.True(t, *decision.RecordRequestLog)
+	require.Equal(t, 35, decision.SampleRate)
+}
+
 func TestRetryPolicyFailoverExcludesFailedChannelByDefault(t *testing.T) {
 	orig := AutomaticRetryPolicyRules
 	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })

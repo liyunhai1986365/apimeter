@@ -104,6 +104,8 @@ type RetryPolicyDecision struct {
 	TargetTags       []string
 	TargetModel      string
 	ExcludeChannelID int
+	RecordRequestLog *bool
+	SampleRate       int
 }
 
 var AutomaticRetryPolicyRules []RetryPolicyRule
@@ -252,6 +254,8 @@ func buildRetryPolicyDecision(input RetryPolicyInput, rule RetryPolicyRule, sour
 		TargetTags:       targets.ChannelTags,
 		TargetModel:      strings.TrimSpace(targets.Model),
 		ExcludeChannelID: excludeChannelID,
+		RecordRequestLog: rule.Strategy.RecordRequestLog,
+		SampleRate:       rule.Strategy.SampleRate,
 	}
 }
 

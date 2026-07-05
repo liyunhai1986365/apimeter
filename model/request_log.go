@@ -374,6 +374,15 @@ func prepareRequestLogRecord(record *RequestLogRecord) {
 	record.Extra, _ = truncateContent(record.Extra, common.RequestLogMaxResponseBytes)
 }
 
+func PrepareRequestSnapshotForErrorLog(body string, headers string) (requestBody string, requestHash string, requestTruncated bool, requestHeaders string) {
+	record := RequestLogRecord{
+		RequestBody:    body,
+		RequestHeaders: headers,
+	}
+	prepareRequestLogRecord(&record)
+	return record.RequestBody, record.RequestHash, record.RequestTruncated, record.RequestHeaders
+}
+
 func hashContent(content string) string {
 	if content == "" {
 		return ""

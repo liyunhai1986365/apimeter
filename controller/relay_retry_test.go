@@ -2,10 +2,12 @@ package controller
 
 import (
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -382,6 +384,167 @@ func TestProcessChannelErrorLinksRetryRouteEventToErrorLog(t *testing.T) {
 	var updated model.RetryRouteEvent
 	require.NoError(t, model.DB.First(&updated, event.Id).Error)
 	require.Equal(t, log.Id, updated.LogId)
+}
+
+func TestRecordRelayErrorLogCapturesRequestSnapshotForNonChannelError(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	originalErrorLogEnabled := constant.ErrorLogEnabled
+	constant.ErrorLogEnabled = true
+	t.Cleanup(func() { constant.ErrorLogEnabled = originalErrorLogEnabled })
+	require.NoError(t, model.DB.Create(&model.User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	body := `{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}],"api_key":"sk-secret"}`
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions?debug=1", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request.Header.Set("Authorization", "Bearer sk-client")
+	c.Request.RemoteAddr = "203.0.113.10:12345"
+	storage, err := common.CreateBodyStorage([]byte(body))
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = storage.Close() })
+	c.Set(common.KeyBodyStorage, storage)
+	c.Request.Body = io.NopCloser(storage)
+	c.Set(common.RequestIdKey, "req-non-channel-error")
+	c.Set("id", 1)
+	c.Set("username", "alice")
+	c.Set("token_name", "prod-token")
+	c.Set("token_id", 3)
+	c.Set("original_model", "gpt-4o")
+	c.Set("group", "default")
+	common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now().Add(-2*time.Second))
+
+	apiErr := types.NewErrorWithStatusCode(
+		errors.New("invalid request payload"),
+		types.ErrorCodeInvalidRequest,
+		http.StatusBadRequest,
+	)
+
+	logID := recordRelayErrorLog(c, nil, apiErr)
+	require.NotZero(t, logID)
+
+	var log model.Log
+	require.NoError(t, model.LOG_DB.First(&log, logID).Error)
+	require.Equal(t, model.LogTypeError, log.Type)
+	require.Equal(t, "req-non-channel-error", log.RequestId)
+	require.Equal(t, "gpt-4o", log.ModelName)
+	require.Equal(t, 0, log.ChannelId)
+	require.Equal(t, 3, log.TokenId)
+
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	require.Equal(t, "/v1/chat/completions", other["request_path"])
+	require.Equal(t, "POST", other["request_method"])
+	require.Equal(t, "invalid_request", other["error_code"])
+	require.Equal(t, float64(http.StatusBadRequest), other["status_code"])
+	snapshot, ok := other["request_snapshot"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "/v1/chat/completions", snapshot["path"])
+	require.Equal(t, "POST", snapshot["method"])
+	require.Equal(t, "req-non-channel-error", snapshot["request_id"])
+	require.Equal(t, "gpt-4o", snapshot["model_name"])
+	require.NotEmpty(t, snapshot["request_hash"])
+	require.Contains(t, snapshot["request_body"], "gpt-4o")
+	require.NotContains(t, snapshot["request_body"], "sk-secret")
+	require.NotContains(t, snapshot["headers"], "sk-client")
+	lookup, ok := other["request_log_lookup"].(map[string]interface{})
+	require.True(t, ok)
+	require.Equal(t, "req-non-channel-error", lookup["request_id"])
+}
+
+func TestRecordRelayErrorLogSkipsDuplicateForChannelError(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	originalErrorLogEnabled := constant.ErrorLogEnabled
+	constant.ErrorLogEnabled = true
+	t.Cleanup(func() { constant.ErrorLogEnabled = originalErrorLogEnabled })
+	require.NoError(t, model.DB.Create(&model.User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	c.Request.RemoteAddr = "203.0.113.10:12345"
+	c.Set(common.RequestIdKey, "req-channel-dedup")
+	c.Set("id", 1)
+	c.Set("username", "alice")
+	c.Set("token_name", "prod-token")
+	c.Set("token_id", 3)
+	c.Set("original_model", "gpt-4o")
+	c.Set("group", "default")
+	c.Set("channel_id", 10)
+	c.Set("channel_name", "primary")
+	c.Set("channel_type", 1)
+
+	apiErr := types.NewOpenAIError(
+		errors.New("upstream exploded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	)
+	channelErr := types.ChannelError{ChannelId: 10}
+
+	firstID := recordRelayErrorLog(c, &channelErr, apiErr)
+	secondID := recordRelayErrorLog(c, nil, apiErr)
+
+	require.NotZero(t, firstID)
+	require.Equal(t, firstID, secondID)
+	var count int64
+	require.NoError(t, model.LOG_DB.Model(&model.Log{}).Where("type = ?", model.LogTypeError).Count(&count).Error)
+	require.Equal(t, int64(1), count)
+}
+
+func TestRecordRelayErrorLogKeepsEachChannelAttempt(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	originalErrorLogEnabled := constant.ErrorLogEnabled
+	constant.ErrorLogEnabled = true
+	t.Cleanup(func() { constant.ErrorLogEnabled = originalErrorLogEnabled })
+	require.NoError(t, model.DB.Create(&model.User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o"}`))
+	c.Request.RemoteAddr = "203.0.113.10:12345"
+	c.Set(common.RequestIdKey, "req-channel-attempts")
+	c.Set("id", 1)
+	c.Set("username", "alice")
+	c.Set("token_name", "prod-token")
+	c.Set("token_id", 3)
+	c.Set("original_model", "gpt-4o")
+	c.Set("group", "default")
+
+	c.Set("channel_id", 10)
+	c.Set("channel_name", "primary")
+	c.Set("channel_type", 1)
+	firstErr := types.NewOpenAIError(
+		errors.New("primary exploded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	)
+	firstChannel := types.ChannelError{ChannelId: 10}
+	firstID := recordRelayErrorLog(c, &firstChannel, firstErr)
+
+	c.Set("channel_id", 11)
+	c.Set("channel_name", "backup")
+	c.Set("channel_type", 1)
+	secondErr := types.NewOpenAIError(
+		errors.New("backup exploded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusBadGateway,
+	)
+	secondChannel := types.ChannelError{ChannelId: 11}
+	secondID := recordRelayErrorLog(c, &secondChannel, secondErr)
+	finalID := recordRelayErrorLog(c, nil, secondErr)
+
+	require.NotZero(t, firstID)
+	require.NotZero(t, secondID)
+	require.NotEqual(t, firstID, secondID)
+	require.Equal(t, secondID, finalID)
+
+	var logs []model.Log
+	require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeError).Order("id asc").Find(&logs).Error)
+	require.Len(t, logs, 2)
+	require.Equal(t, 10, logs[0].ChannelId)
+	require.Equal(t, 11, logs[1].ChannelId)
+	require.Contains(t, logs[0].Content, "primary exploded")
+	require.Contains(t, logs[1].Content, "backup exploded")
 }
 
 func TestShouldRetryPolicyCanRouteChannelErrors(t *testing.T) {
