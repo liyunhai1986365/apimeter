@@ -4,6 +4,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -42,4 +43,62 @@ func TestRecordErrorRequestLogTrimsAndStoresRequestEvidence(t *testing.T) {
 	byLogID, err := GetErrorRequestLogByLogID(12)
 	require.NoError(t, err)
 	require.Equal(t, saved.Id, byLogID.Id)
+}
+
+func TestEnqueueErrorRequestLogNeverBlocksWhenQueueIsFull(t *testing.T) {
+	originalQueue := errorRequestLogQueue
+	t.Cleanup(func() {
+		errorRequestLogQueue = originalQueue
+	})
+
+	errorRequestLogQueue = make(chan *ErrorRequestLog, 1)
+	errorRequestLogQueue <- &ErrorRequestLog{RequestId: "already-full"}
+
+	ok := EnqueueErrorRequestLog(&ErrorRequestLog{RequestId: "drop-me"})
+	require.False(t, ok)
+}
+
+func TestFlushErrorRequestLogPersistsAndAttachesReference(t *testing.T) {
+	truncateTables(t)
+
+	log := &Log{
+		Type:      LogTypeError,
+		UserId:    10,
+		ChannelId: 20,
+		ModelName: "gpt-4o",
+		TokenName: "prod-token",
+		Content:   "upstream failed",
+		TokenId:   30,
+		Other: common.MapToJsonStr(map[string]interface{}{
+			"request_hash": "hash-before",
+		}),
+	}
+	require.NoError(t, LOG_DB.Create(log).Error)
+	require.NotZero(t, log.Id)
+
+	record := &ErrorRequestLog{
+		LogId:         log.Id,
+		RequestId:     "req-async",
+		RequestHash:   "hash-after",
+		RequestBody:   `{"model":"gpt-4o"}`,
+		ErrorCode:     "bad_response",
+		StatusCode:    502,
+		RequestPath:   "/v1/chat/completions",
+		RequestMethod: "POST",
+	}
+
+	require.NoError(t, flushErrorRequestLog(record))
+	require.NotZero(t, record.Id)
+
+	var saved ErrorRequestLog
+	require.NoError(t, LOG_DB.First(&saved, record.Id).Error)
+	require.Equal(t, log.Id, saved.LogId)
+	require.Equal(t, "req-async", saved.RequestId)
+
+	var savedLog Log
+	require.NoError(t, LOG_DB.First(&savedLog, log.Id).Error)
+	other, err := common.StrToMap(savedLog.Other)
+	require.NoError(t, err)
+	require.Equal(t, float64(record.Id), other["error_request_log_id"])
+	require.Equal(t, "hash-after", other["request_hash"])
 }

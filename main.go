@@ -319,6 +319,7 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
+	model.StartErrorRequestLogWorker()
 	err = model.InitRequestLogStore()
 	if err != nil {
 		return err

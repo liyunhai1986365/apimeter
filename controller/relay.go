@@ -554,10 +554,22 @@ func buildRetryPolicyInput(c *gin.Context, err *types.NewAPIError) operation_set
 	}
 	input.IsStream = common.GetContextKeyBool(c, constant.ContextKeyIsStream)
 	input.TokenID = common.GetContextKeyInt(c, constant.ContextKeyTokenId)
+	input.WorkspaceID = retryPolicyInputWorkspaceID(input.TokenID)
 	if channelSetting, ok := common.GetContextKeyType[dto.ChannelSettings](c, constant.ContextKeyChannelSetting); ok {
 		input.ChannelRules = retryPolicyRulesToOperationRules(channelSetting.RetryPolicyRules)
 	}
 	return input
+}
+
+func retryPolicyInputWorkspaceID(tokenID int) int {
+	if tokenID <= 0 || model.DB == nil {
+		return 0
+	}
+	var token model.Token
+	if err := model.DB.Select("id", "workspace_id").Where("id = ?", tokenID).First(&token).Error; err != nil {
+		return 0
+	}
+	return token.WorkspaceId
 }
 
 func retryPolicyRulesToOperationRules(rules []dto.RetryPolicyRule) []operation_setting.RetryPolicyRule {
@@ -691,10 +703,8 @@ func recordRelayErrorLog(c *gin.Context, channelError *types.ChannelError, err *
 	if logID > 0 {
 		if requestRecord != nil {
 			requestRecord.LogId = logID
-			if recordErr := model.RecordErrorRequestLog(requestRecord); recordErr != nil {
-				logger.LogError(c, "failed to record error request log: "+recordErr.Error())
-			} else {
-				attachErrorRequestLogRef(c, logID, requestRecord)
+			if !model.EnqueueErrorRequestLog(requestRecord) {
+				logger.LogError(c, "error request log queue is full; dropped request evidence")
 			}
 		}
 		c.Set(ginKeyRelayErrorLogID, logID)
@@ -737,28 +747,6 @@ func buildRelayErrorLogOther(c *gin.Context, err *types.NewAPIError, channelId i
 	}
 	other["admin_info"] = buildRelayErrorAdminInfo(c)
 	return other
-}
-
-func attachErrorRequestLogRef(c *gin.Context, logID int, requestRecord *model.ErrorRequestLog) {
-	if logID <= 0 || requestRecord == nil || requestRecord.Id <= 0 {
-		return
-	}
-	var log model.Log
-	if err := model.LOG_DB.First(&log, logID).Error; err != nil {
-		logger.LogError(c, "failed to load error log for request log ref: "+err.Error())
-		return
-	}
-	other, _ := common.StrToMap(log.Other)
-	if other == nil {
-		other = map[string]interface{}{}
-	}
-	other["error_request_log_id"] = requestRecord.Id
-	if requestRecord.RequestHash != "" {
-		other["request_hash"] = requestRecord.RequestHash
-	}
-	if err := model.LOG_DB.Model(&model.Log{}).Where("id = ?", logID).Update("other", common.MapToJsonStr(other)).Error; err != nil {
-		logger.LogError(c, "failed to attach error request log ref: "+err.Error())
-	}
 }
 
 func buildRelayErrorAdminInfo(c *gin.Context) map[string]interface{} {

@@ -40,9 +40,10 @@ func openRelayRetryEventTestDB(t *testing.T) *gorm.DB {
 
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.RetryRouteEvent{}, &model.ErrorRequestLog{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Workspace{}, &model.Log{}, &model.RetryRouteEvent{}, &model.ErrorRequestLog{}))
 	model.DB = db
 	model.LOG_DB = db
+	model.InitErrorRequestLogQueue(100)
 
 	t.Cleanup(func() {
 		model.DB = originalDB
@@ -422,6 +423,7 @@ func TestRecordRelayErrorLogCapturesRequestSnapshotForNonChannelError(t *testing
 
 	logID := recordRelayErrorLog(c, nil, apiErr)
 	require.NotZero(t, logID)
+	require.NoError(t, model.FlushQueuedErrorRequestLogsForTest())
 
 	var log model.Log
 	require.NoError(t, model.LOG_DB.First(&log, logID).Error)
@@ -488,6 +490,7 @@ func TestRecordRelayErrorLogSkipsDuplicateForChannelError(t *testing.T) {
 
 	firstID := recordRelayErrorLog(c, &channelErr, apiErr)
 	secondID := recordRelayErrorLog(c, nil, apiErr)
+	require.NoError(t, model.FlushQueuedErrorRequestLogsForTest())
 
 	require.NotZero(t, firstID)
 	require.Equal(t, firstID, secondID)
@@ -537,6 +540,7 @@ func TestRecordRelayErrorLogKeepsEachChannelAttempt(t *testing.T) {
 	secondChannel := types.ChannelError{ChannelId: 11}
 	secondID := recordRelayErrorLog(c, &secondChannel, secondErr)
 	finalID := recordRelayErrorLog(c, nil, secondErr)
+	require.NoError(t, model.FlushQueuedErrorRequestLogsForTest())
 
 	require.NotZero(t, firstID)
 	require.NotZero(t, secondID)
@@ -585,6 +589,23 @@ func TestShouldRetryPolicyCanRouteChannelErrors(t *testing.T) {
 	require.Equal(t, operation_setting.RetryPolicyActionFailover, recovery.Action)
 	require.Equal(t, []string{"backup"}, recovery.RetryGroups)
 	require.Equal(t, 12, recovery.ExcludeChannelID)
+}
+
+func TestBuildRetryPolicyInputIncludesTokenWorkspace(t *testing.T) {
+	db := openRelayRetryEventTestDB(t)
+	require.NoError(t, db.Create(&model.Token{Id: 45, UserId: 1, WorkspaceId: 501, Name: "project-key", Key: "sk-project"}).Error)
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyTokenId, 45)
+
+	input := buildRetryPolicyInput(c, types.NewOpenAIError(
+		errors.New("upstream overloaded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	))
+
+	require.Equal(t, 501, input.WorkspaceID)
 }
 
 func TestShouldRetryPolicyCanSkipChannelErrors(t *testing.T) {

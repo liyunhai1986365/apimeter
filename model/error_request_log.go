@@ -2,8 +2,17 @@ package model
 
 import (
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
+)
+
+const defaultErrorRequestLogQueueSize = 1000
+
+var (
+	errorRequestLogQueue      chan *ErrorRequestLog
+	errorRequestLogWorkerOnce sync.Once
 )
 
 type ErrorRequestLog struct {
@@ -43,6 +52,94 @@ func RecordErrorRequestLog(record *ErrorRequestLog) error {
 	return LOG_DB.Create(record).Error
 }
 
+func InitErrorRequestLogQueue(size int) {
+	if size <= 0 {
+		size = defaultErrorRequestLogQueueSize
+	}
+	errorRequestLogQueue = make(chan *ErrorRequestLog, size)
+}
+
+func StartErrorRequestLogWorker() {
+	if errorRequestLogQueue == nil {
+		InitErrorRequestLogQueue(defaultErrorRequestLogQueueSize)
+	}
+	errorRequestLogWorkerOnce.Do(func() {
+		go runErrorRequestLogWorker()
+	})
+}
+
+func EnqueueErrorRequestLog(record *ErrorRequestLog) bool {
+	if record == nil {
+		return true
+	}
+	if errorRequestLogQueue == nil {
+		InitErrorRequestLogQueue(defaultErrorRequestLogQueueSize)
+	}
+	select {
+	case errorRequestLogQueue <- record:
+		return true
+	default:
+		return false
+	}
+}
+
+func runErrorRequestLogWorker() {
+	for record := range errorRequestLogQueue {
+		if err := flushErrorRequestLog(record); err != nil {
+			common.SysError("failed to record error request log: " + err.Error())
+		}
+	}
+}
+
+func flushErrorRequestLog(record *ErrorRequestLog) error {
+	if record == nil {
+		return nil
+	}
+	if err := RecordErrorRequestLog(record); err != nil {
+		return err
+	}
+	attachErrorRequestLogRef(record)
+	return nil
+}
+
+func FlushQueuedErrorRequestLogsForTest() error {
+	if errorRequestLogQueue == nil {
+		return nil
+	}
+	for {
+		select {
+		case record := <-errorRequestLogQueue:
+			if err := flushErrorRequestLog(record); err != nil {
+				return err
+			}
+		default:
+			return nil
+		}
+	}
+}
+
+func attachErrorRequestLogRef(record *ErrorRequestLog) {
+	if record == nil || record.LogId <= 0 || record.Id <= 0 || LOG_DB == nil {
+		return
+	}
+	var log Log
+	if err := LOG_DB.First(&log, record.LogId).Error; err != nil {
+		common.SysError("failed to load error log for request log ref: " + err.Error())
+		return
+	}
+	other, _ := common.StrToMap(log.Other)
+	if other == nil {
+		other = map[string]interface{}{}
+	}
+	other["error_request_log_id"] = record.Id
+	if record.RequestHash != "" {
+		other["request_hash"] = record.RequestHash
+	}
+	if err := LOG_DB.Model(&Log{}).Where("id = ?", record.LogId).Update("other", common.MapToJsonStr(other)).Error; err != nil {
+		common.SysError("failed to attach error request log ref: " + err.Error())
+	}
+}
+
 func GetErrorRequestLogByLogID(logID int) (*ErrorRequestLog, error) {
 	if logID <= 0 {
 		return nil, nil
@@ -67,4 +164,7 @@ func trimErrorRequestLog(record *ErrorRequestLog) {
 	record.RequestHash = strings.TrimSpace(record.RequestHash)
 	record.ErrorType = strings.TrimSpace(record.ErrorType)
 	record.ErrorCode = strings.TrimSpace(record.ErrorCode)
+	if record.CreatedAt == 0 {
+		record.CreatedAt = time.Now().Unix()
+	}
 }
