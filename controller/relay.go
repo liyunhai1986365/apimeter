@@ -680,7 +680,8 @@ func recordRelayErrorLog(c *gin.Context, channelError *types.ChannelError, err *
 		channelId = channelError.ChannelId
 	}
 
-	other := buildRelayErrorLogOther(c, err, channelId, channelName, channelType)
+	requestRecord := buildRelayErrorRequestLog(c, err)
+	other := buildRelayErrorLogOther(c, err, channelId, channelName, channelType, requestRecord)
 	startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
 	if startTime.IsZero() {
 		startTime = time.Now()
@@ -688,6 +689,14 @@ func recordRelayErrorLog(c *gin.Context, channelError *types.ChannelError, err *
 	useTimeSeconds := int(time.Since(startTime).Seconds())
 	logID := model.CreateErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
 	if logID > 0 {
+		if requestRecord != nil {
+			requestRecord.LogId = logID
+			if recordErr := model.RecordErrorRequestLog(requestRecord); recordErr != nil {
+				logger.LogError(c, "failed to record error request log: "+recordErr.Error())
+			} else {
+				attachErrorRequestLogRef(c, logID, requestRecord)
+			}
+		}
 		c.Set(ginKeyRelayErrorLogID, logID)
 		c.Set(relayErrorLogDedupKey(c, channelError, err), logID)
 		service.AttachRetryRouteLog(c, logID)
@@ -705,7 +714,7 @@ func relayErrorLogDedupKey(c *gin.Context, channelError *types.ChannelError, err
 	return fmt.Sprintf("relay_error_log_id:%d:%d:%s:%s", channelId, err.StatusCode, err.GetErrorCode(), err.Error())
 }
 
-func buildRelayErrorLogOther(c *gin.Context, err *types.NewAPIError, channelId int, channelName string, channelType int) map[string]interface{} {
+func buildRelayErrorLogOther(c *gin.Context, err *types.NewAPIError, channelId int, channelName string, channelType int, requestRecord *model.ErrorRequestLog) map[string]interface{} {
 	other := make(map[string]interface{})
 	if c.Request != nil && c.Request.URL != nil {
 		other["request_path"] = c.Request.URL.Path
@@ -723,9 +732,33 @@ func buildRelayErrorLogOther(c *gin.Context, err *types.NewAPIError, channelId i
 	other["request_log_lookup"] = map[string]interface{}{
 		"request_id": c.GetString(common.RequestIdKey),
 	}
-	other["request_snapshot"] = buildRelayErrorRequestSnapshot(c)
+	if requestRecord != nil && requestRecord.RequestHash != "" {
+		other["request_hash"] = requestRecord.RequestHash
+	}
 	other["admin_info"] = buildRelayErrorAdminInfo(c)
 	return other
+}
+
+func attachErrorRequestLogRef(c *gin.Context, logID int, requestRecord *model.ErrorRequestLog) {
+	if logID <= 0 || requestRecord == nil || requestRecord.Id <= 0 {
+		return
+	}
+	var log model.Log
+	if err := model.LOG_DB.First(&log, logID).Error; err != nil {
+		logger.LogError(c, "failed to load error log for request log ref: "+err.Error())
+		return
+	}
+	other, _ := common.StrToMap(log.Other)
+	if other == nil {
+		other = map[string]interface{}{}
+	}
+	other["error_request_log_id"] = requestRecord.Id
+	if requestRecord.RequestHash != "" {
+		other["request_hash"] = requestRecord.RequestHash
+	}
+	if err := model.LOG_DB.Model(&model.Log{}).Where("id = ?", logID).Update("other", common.MapToJsonStr(other)).Error; err != nil {
+		logger.LogError(c, "failed to attach error request log ref: "+err.Error())
+	}
 }
 
 func buildRelayErrorAdminInfo(c *gin.Context) map[string]interface{} {
@@ -748,43 +781,46 @@ func buildRelayErrorAdminInfo(c *gin.Context) map[string]interface{} {
 	return adminInfo
 }
 
-func buildRelayErrorRequestSnapshot(c *gin.Context) map[string]interface{} {
-	snapshot := map[string]interface{}{
-		"request_id": c.GetString(common.RequestIdKey),
-		"model_name": common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
-		"token_id":   common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		"user_id":    common.GetContextKeyInt(c, constant.ContextKeyUserId),
-		"group":      common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
-		"is_stream":  common.GetContextKeyBool(c, constant.ContextKeyIsStream),
+func buildRelayErrorRequestLog(c *gin.Context, err *types.NewAPIError) *model.ErrorRequestLog {
+	record := &model.ErrorRequestLog{
+		RequestId:         c.GetString(common.RequestIdKey),
+		UpstreamRequestId: c.GetString(common.UpstreamRequestIdKey),
+		UserId:            common.GetContextKeyInt(c, constant.ContextKeyUserId),
+		Username:          common.GetContextKeyString(c, constant.ContextKeyUserName),
+		TokenId:           common.GetContextKeyInt(c, constant.ContextKeyTokenId),
+		TokenName:         c.GetString("token_name"),
+		ModelName:         common.GetContextKeyString(c, constant.ContextKeyOriginalModel),
+		Group:             common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+		IsStream:          common.GetContextKeyBool(c, constant.ContextKeyIsStream),
+		ErrorType:         string(err.GetErrorType()),
+		ErrorCode:         string(err.GetErrorCode()),
+		StatusCode:        err.StatusCode,
 	}
-	if snapshot["model_name"] == "" {
-		snapshot["model_name"] = c.GetString("original_model")
+	if record.ModelName == "" {
+		record.ModelName = c.GetString("original_model")
 	}
-	if snapshot["group"] == "" {
-		snapshot["group"] = c.GetString("group")
+	if record.Group == "" {
+		record.Group = c.GetString("group")
 	}
 	if c.Request != nil {
-		snapshot["method"] = c.Request.Method
+		record.RequestMethod = c.Request.Method
 		if c.Request.URL != nil {
-			snapshot["path"] = c.Request.URL.Path
-			snapshot["url"] = c.Request.URL.RequestURI()
+			record.RequestPath = c.Request.URL.Path
+			record.RequestURL = c.Request.URL.RequestURI()
 		}
-		snapshot["content_length"] = c.Request.ContentLength
+		record.ContentLength = c.Request.ContentLength
 	}
 	body := readRelayErrorRequestBody(c)
 	headers := relayErrorRequestHeaders(c)
 	requestBody, requestHash, requestTruncated, requestHeaders := model.PrepareRequestSnapshotForErrorLog(body, headers)
-	if requestBody != "" {
-		snapshot["request_body"] = requestBody
+	record.RequestBody = requestBody
+	record.RequestHash = requestHash
+	record.RequestTruncated = requestTruncated
+	record.RequestHeaders = requestHeaders
+	if record.RequestId == "" && record.RequestHash == "" && record.RequestPath == "" {
+		return nil
 	}
-	if requestHash != "" {
-		snapshot["request_hash"] = requestHash
-	}
-	snapshot["request_truncated"] = requestTruncated
-	if requestHeaders != "" {
-		snapshot["headers"] = requestHeaders
-	}
-	return snapshot
+	return record
 }
 
 func readRelayErrorRequestBody(c *gin.Context) string {

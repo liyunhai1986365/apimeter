@@ -40,7 +40,7 @@ func openRelayRetryEventTestDB(t *testing.T) *gorm.DB {
 
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.RetryRouteEvent{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.RetryRouteEvent{}, &model.ErrorRequestLog{}))
 	model.DB = db
 	model.LOG_DB = db
 
@@ -437,19 +437,24 @@ func TestRecordRelayErrorLogCapturesRequestSnapshotForNonChannelError(t *testing
 	require.Equal(t, "POST", other["request_method"])
 	require.Equal(t, "invalid_request", other["error_code"])
 	require.Equal(t, float64(http.StatusBadRequest), other["status_code"])
-	snapshot, ok := other["request_snapshot"].(map[string]interface{})
-	require.True(t, ok)
-	require.Equal(t, "/v1/chat/completions", snapshot["path"])
-	require.Equal(t, "POST", snapshot["method"])
-	require.Equal(t, "req-non-channel-error", snapshot["request_id"])
-	require.Equal(t, "gpt-4o", snapshot["model_name"])
-	require.NotEmpty(t, snapshot["request_hash"])
-	require.Contains(t, snapshot["request_body"], "gpt-4o")
-	require.NotContains(t, snapshot["request_body"], "sk-secret")
-	require.NotContains(t, snapshot["headers"], "sk-client")
+	require.NotContains(t, other, "request_snapshot")
+	require.NotEmpty(t, other["error_request_log_id"])
+	require.NotEmpty(t, other["request_hash"])
 	lookup, ok := other["request_log_lookup"].(map[string]interface{})
 	require.True(t, ok)
 	require.Equal(t, "req-non-channel-error", lookup["request_id"])
+
+	var requestLog model.ErrorRequestLog
+	require.NoError(t, model.LOG_DB.First(&requestLog, int(other["error_request_log_id"].(float64))).Error)
+	require.Equal(t, log.Id, requestLog.LogId)
+	require.Equal(t, "req-non-channel-error", requestLog.RequestId)
+	require.Equal(t, "/v1/chat/completions", requestLog.RequestPath)
+	require.Equal(t, "POST", requestLog.RequestMethod)
+	require.Equal(t, "gpt-4o", requestLog.ModelName)
+	require.NotEmpty(t, requestLog.RequestHash)
+	require.Contains(t, requestLog.RequestBody, "gpt-4o")
+	require.NotContains(t, requestLog.RequestBody, "sk-secret")
+	require.NotContains(t, requestLog.RequestHeaders, "sk-client")
 }
 
 func TestRecordRelayErrorLogSkipsDuplicateForChannelError(t *testing.T) {

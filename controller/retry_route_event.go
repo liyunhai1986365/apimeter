@@ -47,6 +47,10 @@ type retryRouteRuleTestDecision struct {
 	ExcludeChannelID int                                  `json:"exclude_channel_id"`
 }
 
+type retryRouteRuleStatsResponse struct {
+	Items []model.RetryRouteRuleStat `json:"items"`
+}
+
 func GetRetryRouteEvents(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	events, total, err := model.GetRetryRouteEvents(parseRetryRouteEventQuery(c, pageInfo))
@@ -78,6 +82,15 @@ func GetRetryRouteEventStats(c *gin.Context) {
 	common.ApiSuccess(c, stats)
 }
 
+func GetRetryRouteRuleStats(c *gin.Context) {
+	stats, err := model.GetRetryRouteRuleStats(parseRetryRouteEventQuery(c, common.GetPageQuery(c)))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, retryRouteRuleStatsResponse{Items: stats})
+}
+
 func TestRetryRouteRules(c *gin.Context) {
 	var req retryRouteRuleTestRequest
 	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
@@ -101,6 +114,8 @@ func parseRetryRouteEventQuery(c *gin.Context, pageInfo *common.PageInfo) model.
 		UserId:          parseRetryRouteQueryInt(c.Query("user_id")),
 		TokenName:       c.Query("token_name"),
 		TokenId:         parseRetryRouteQueryInt(c.Query("token_id")),
+		LogId:           parseRetryRouteQueryInt(c.Query("log_id")),
+		RequestHash:     c.Query("request_hash"),
 		ModelName:       c.Query("model_name"),
 		RuleName:        c.Query("rule_name"),
 		Action:          c.Query("action"),

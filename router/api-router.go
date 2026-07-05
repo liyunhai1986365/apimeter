@@ -409,6 +409,7 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			retryRoute.GET("/events", controller.GetRetryRouteEvents)
 			retryRoute.GET("/events/stat", controller.GetRetryRouteEventStats)
+			retryRoute.GET("/events/stat/rules", controller.GetRetryRouteRuleStats)
 			retryRoute.GET("/events/:id", controller.GetRetryRouteEvent)
 			retryRoute.POST("/rules/test", controller.TestRetryRouteRules)
 		}

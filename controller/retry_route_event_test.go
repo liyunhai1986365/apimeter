@@ -95,6 +95,53 @@ func TestGetRetryRouteEventStatsReturnsBreakdowns(t *testing.T) {
 	require.Contains(t, w.Body.String(), `"skip_retry":1`)
 }
 
+func TestGetRetryRouteRuleStatsReturnsRuleRecovery(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	require.NoError(t, model.RecordRetryRouteEvent(&model.RetryRouteEvent{
+		RequestId:     "req-rule-api-1",
+		RuleSource:    "global",
+		RuleName:      "global failover 500",
+		Action:        operation_setting.RetryPolicyActionFailover,
+		RequestHash:   "hash-api",
+		LogId:         301,
+		Matched:       true,
+		Routed:        true,
+		FinalSuccess:  true,
+		FinalStatus:   "success",
+		StatusCode:    http.StatusInternalServerError,
+		ErrorCode:     "bad_response_status_code",
+		OriginalModel: "gpt-4o",
+	}))
+	require.NoError(t, model.RecordRetryRouteEvent(&model.RetryRouteEvent{
+		RequestId:     "req-rule-api-2",
+		RuleSource:    "global",
+		RuleName:      "global failover 500",
+		Action:        operation_setting.RetryPolicyActionFailover,
+		RequestHash:   "hash-api",
+		LogId:         302,
+		Matched:       true,
+		Routed:        true,
+		FinalSuccess:  false,
+		FinalStatus:   "failed",
+		StatusCode:    http.StatusInternalServerError,
+		ErrorCode:     "bad_response_status_code",
+		OriginalModel: "gpt-4o",
+	}))
+
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/retry-route/events/stat/rules?request_hash=hash-api", nil)
+
+	GetRetryRouteRuleStats(c)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Contains(t, w.Body.String(), `"rule_name":"global failover 500"`)
+	require.Contains(t, w.Body.String(), `"total":2`)
+	require.Contains(t, w.Body.String(), `"final_success":1`)
+	require.Contains(t, w.Body.String(), `"recovery_success_rate":0.5`)
+}
+
 func TestTestRetryRouteRulesUsesSubmittedRules(t *testing.T) {
 	orig := operation_setting.AutomaticRetryPolicyRules
 	t.Cleanup(func() { operation_setting.AutomaticRetryPolicyRules = orig })
@@ -154,4 +201,15 @@ func TestParseRetryRouteEventQueryTrimsQuotedInts(t *testing.T) {
 
 	require.Equal(t, 10, query.SourceChannelId)
 	require.Equal(t, 500, query.StatusCode)
+}
+
+func TestParseRetryRouteEventQueryIncludesRequestHashAndLogId(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/retry-route/events?request_hash=abc123&log_id='42'", nil)
+
+	query := parseRetryRouteEventQuery(c, common.GetPageQuery(c))
+
+	require.Equal(t, "abc123", query.RequestHash)
+	require.Equal(t, 42, query.LogId)
 }

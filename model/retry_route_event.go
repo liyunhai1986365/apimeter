@@ -56,6 +56,8 @@ type RetryRouteEventQuery struct {
 	UserId          int
 	TokenName       string
 	TokenId         int
+	LogId           int
+	RequestHash     string
 	ModelName       string
 	RuleName        string
 	Action          string
@@ -85,6 +87,18 @@ type RetryRouteEventStats struct {
 	TargetChannelTop    map[string]int64 `json:"target_channel_top"`
 	ModelBreakdown      map[string]int64 `json:"model_breakdown"`
 	ErrorCodeBreakdown  map[string]int64 `json:"error_code_breakdown"`
+}
+
+type RetryRouteRuleStat struct {
+	RuleSource          string  `json:"rule_source"`
+	RuleName            string  `json:"rule_name"`
+	Action              string  `json:"action"`
+	Total               int64   `json:"total"`
+	Routed              int64   `json:"routed"`
+	FinalSuccess        int64   `json:"final_success"`
+	FinalFailed         int64   `json:"final_failed"`
+	RecoverySuccessRate float64 `json:"recovery_success_rate"`
+	AvgUseTimeMs        int64   `json:"avg_use_time_ms"`
 }
 
 func RecordRetryRouteEvent(event *RetryRouteEvent) error {
@@ -199,6 +213,48 @@ func GetRetryRouteEventStats(query RetryRouteEventQuery) (RetryRouteEventStats, 
 	return stats, nil
 }
 
+func GetRetryRouteRuleStats(query RetryRouteEventQuery) ([]RetryRouteRuleStat, error) {
+	type row struct {
+		RuleSource   string `gorm:"column:rule_source"`
+		RuleName     string `gorm:"column:rule_name"`
+		Action       string `gorm:"column:action"`
+		Total        int64  `gorm:"column:total"`
+		Routed       int64  `gorm:"column:routed"`
+		FinalSuccess int64  `gorm:"column:final_success"`
+		AvgUseTimeMs int64  `gorm:"column:avg_use_time_ms"`
+	}
+	rows := make([]row, 0)
+	err := applyRetryRouteEventFilters(DB.Model(&RetryRouteEvent{}), query).
+		Select("rule_source, rule_name, action, COUNT(*) AS total, SUM(CASE WHEN routed = ? THEN 1 ELSE 0 END) AS routed, SUM(CASE WHEN final_success = ? THEN 1 ELSE 0 END) AS final_success, AVG(use_time_ms) AS avg_use_time_ms", commonTrueVal, commonTrueVal).
+		Where("matched = ?", true).
+		Where("rule_name <> ?", "").
+		Group("rule_source, rule_name, action").
+		Order("total desc").
+		Limit(50).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	stats := make([]RetryRouteRuleStat, 0, len(rows))
+	for _, item := range rows {
+		stat := RetryRouteRuleStat{
+			RuleSource:   strings.TrimSpace(item.RuleSource),
+			RuleName:     strings.TrimSpace(item.RuleName),
+			Action:       strings.TrimSpace(item.Action),
+			Total:        item.Total,
+			Routed:       item.Routed,
+			FinalSuccess: item.FinalSuccess,
+			AvgUseTimeMs: item.AvgUseTimeMs,
+		}
+		stat.FinalFailed = stat.Total - stat.FinalSuccess
+		if stat.Total > 0 {
+			stat.RecoverySuccessRate = float64(stat.FinalSuccess) / float64(stat.Total)
+		}
+		stats = append(stats, stat)
+	}
+	return stats, nil
+}
+
 func applyRetryRouteEventFilters(tx *gorm.DB, query RetryRouteEventQuery) *gorm.DB {
 	if query.RequestId = strings.TrimSpace(query.RequestId); query.RequestId != "" {
 		tx = tx.Where("request_id = ?", query.RequestId)
@@ -214,6 +270,12 @@ func applyRetryRouteEventFilters(tx *gorm.DB, query RetryRouteEventQuery) *gorm.
 	}
 	if query.TokenId > 0 {
 		tx = tx.Where("token_id = ?", query.TokenId)
+	}
+	if query.LogId > 0 {
+		tx = tx.Where("log_id = ?", query.LogId)
+	}
+	if query.RequestHash = strings.TrimSpace(query.RequestHash); query.RequestHash != "" {
+		tx = tx.Where("request_hash = ?", query.RequestHash)
 	}
 	if query.ModelName = strings.TrimSpace(query.ModelName); query.ModelName != "" {
 		tx = tx.Where("original_model LIKE ?", "%"+query.ModelName+"%")
