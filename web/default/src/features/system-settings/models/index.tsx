@@ -74,6 +74,7 @@ const defaultModelSettings: ModelSettings = {
   'model_fallback.rules': '[]',
   'model_deployment.ionet.api_key': '',
   'model_deployment.ionet.enabled': false,
+  AutomaticRetryPolicyRules: '[]',
 }
 
 export function ModelSettings() {

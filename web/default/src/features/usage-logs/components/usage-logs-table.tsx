@@ -45,6 +45,7 @@ import { usageLogsManualRefreshQueryOptions } from '../lib/query-options'
 import { fetchLogsByCategory } from '../lib/utils'
 import type { LogCategory } from '../types'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
+import { RetryRouteEventsFilterBar } from './retry-route-events-filter-bar'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
 
 const route = getRouteApi('/_authenticated/usage-logs/$section')
@@ -182,7 +183,9 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
 
   const isCommon = logCategory === 'common'
   const usesCompactRows =
-    logCategory === 'common' || logCategory === 'channel-operations'
+    logCategory === 'common' ||
+    logCategory === 'channel-operations' ||
+    logCategory === 'retry-route-events'
 
   return (
     <DataTablePage
@@ -200,6 +203,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       toolbar={
         isCommon ? (
           <CommonLogsFilterBar table={table} />
+        ) : logCategory === 'retry-route-events' ? (
+          <RetryRouteEventsFilterBar table={table} />
         ) : logCategory === 'channel-operations' ? null : (
           <TaskLogsFilterBar table={table} logCategory={logCategory} />
         )

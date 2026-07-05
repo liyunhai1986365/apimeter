@@ -23,6 +23,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { useCommonLogsColumns } from '../components/columns/common-logs-columns'
 import { useDrawingLogsColumns } from '../components/columns/drawing-logs-columns'
 import { useOperationRecordsColumns } from '../components/columns/operation-records-columns'
+import { useRetryRouteEventsColumns } from '../components/columns/retry-route-events-columns'
 import { useTaskLogsColumns } from '../components/columns/task-logs-columns'
 import type { LogCategory } from '../types'
 
@@ -38,6 +39,7 @@ export function useColumnsByCategory(
 ): ColumnDef<any>[] {
   const commonColumns = useCommonLogsColumns(isAdmin, isRoot)
   const operationRecordsColumns = useOperationRecordsColumns()
+  const retryRouteEventsColumns = useRetryRouteEventsColumns()
   const drawingColumns = useDrawingLogsColumns(isAdmin)
   const taskColumns = useTaskLogsColumns(isAdmin)
 
@@ -46,6 +48,8 @@ export function useColumnsByCategory(
       return commonColumns
     case 'channel-operations':
       return operationRecordsColumns
+    case 'retry-route-events':
+      return retryRouteEventsColumns
     case 'drawing':
       return drawingColumns
     case 'task':

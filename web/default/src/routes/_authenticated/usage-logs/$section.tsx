@@ -31,6 +31,7 @@ const usageLogsSearchSchema = z.object({
   pageSize: z.number().optional().catch(20),
   type: z.array(z.enum(logTypeValues)).optional().catch([]),
   filter: z.string().optional().catch(''),
+  status: z.string().optional().catch(''),
   model: z.string().optional().catch(''),
   token: z.string().optional().catch(''),
   workspace: z.string().optional().catch(''),
@@ -54,7 +55,6 @@ export const Route = createFileRoute('/_authenticated/usage-logs/$section')({
     // type 仅 common 使用，非 common 时清掉 URL 里的 type
     if (
       params.section !== 'common' &&
-      params.section !== 'channel-operations' &&
       Array.isArray(search?.type) &&
       (search?.type?.length ?? 0) > 0
     ) {

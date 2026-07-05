@@ -26,6 +26,7 @@ import type {
   GetModelProfitStatsResponse,
   GetChannelOperationRecordsParams,
   GetMidjourneyLogsParams,
+  GetRetryRouteEventsParams,
   GetTaskLogsParams,
   UserInfo,
 } from './types'
@@ -96,6 +97,9 @@ export const getUserLogStats = (
 export const getChannelOperationRecords = (
   params: GetChannelOperationRecordsParams = {}
 ) => fetchLogs('/api/channel/operation_records', params, true)
+
+export const getRetryRouteEvents = (params: GetRetryRouteEventsParams = {}) =>
+  fetchLogs('/api/retry-route/events', params, true)
 
 export async function getUserInfo(
   userId: number

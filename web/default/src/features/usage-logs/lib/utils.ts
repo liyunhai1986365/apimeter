@@ -27,6 +27,7 @@ import {
   getAllTaskLogs,
   getUserTaskLogs,
   getChannelOperationRecords,
+  getRetryRouteEvents,
 } from '../api'
 import {
   LOG_TYPES,
@@ -38,6 +39,7 @@ import type {
   GetLogsResponse,
   FetchLogsConfig,
   GetMidjourneyLogsParams,
+  GetRetryRouteEventsParams,
   GetTaskLogsParams,
 } from '../types'
 
@@ -301,10 +303,42 @@ export async function fetchLogsByCategory(
         : undefined,
       start_timestamp: baseParams.start_timestamp,
       end_timestamp: baseParams.end_timestamp,
-      model_name: searchParams.model
-        ? String(searchParams.model)
-        : undefined,
+      model_name: searchParams.model ? String(searchParams.model) : undefined,
     })
+  }
+
+  if (logCategory === 'retry-route-events') {
+    const baseParams = buildBaseParams({
+      page,
+      pageSize,
+      searchParams,
+    })
+    const sourceChannelId = normalizeNumericFilterValue(searchParams.channel)
+    const tokenId = normalizeNumericFilterValue(searchParams.token)
+    const params: GetRetryRouteEventsParams = {
+      p: baseParams.p,
+      page_size: baseParams.page_size,
+      start_timestamp: baseParams.start_timestamp,
+      end_timestamp: baseParams.end_timestamp,
+      request_id: searchParams.requestId
+        ? String(searchParams.requestId)
+        : undefined,
+      username:
+        isAdmin && searchParams.username
+          ? String(searchParams.username)
+          : undefined,
+      token_name:
+        searchParams.token && !tokenId ? String(searchParams.token) : undefined,
+      token_id: tokenId ? Number(tokenId) : undefined,
+      model_name: searchParams.model ? String(searchParams.model) : undefined,
+      action: searchParams.filter ? String(searchParams.filter) : undefined,
+      source_channel_id: sourceChannelId ? Number(sourceChannelId) : undefined,
+      target_group: searchParams.group ? String(searchParams.group) : undefined,
+      final_status: searchParams.status
+        ? String(searchParams.status)
+        : undefined,
+    }
+    return await getRetryRouteEvents(params)
   }
 
   // For drawing and task logs

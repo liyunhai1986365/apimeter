@@ -53,10 +53,6 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
-import {
-  insertRetryPolicyTemplate,
-  RETRY_POLICY_TEMPLATES,
-} from '@/features/channels/lib'
 import { sendGlobalWebhookTest } from '../api'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
@@ -67,16 +63,6 @@ const numericString = z.string().refine((value) => {
   if (!trimmed) return true
   return !Number.isNaN(Number(trimmed)) && Number(trimmed) >= 0
 }, 'Enter a non-negative number or leave empty')
-
-const jsonArrayString = z.string().refine((value) => {
-  const trimmed = value.trim()
-  if (!trimmed) return true
-  try {
-    return Array.isArray(JSON.parse(trimmed))
-  } catch {
-    return false
-  }
-}, 'Must be a valid JSON array')
 
 const autoDisableRuleSchema = z
   .object({
@@ -172,7 +158,6 @@ const monitoringSchema = z
     AutomaticDisableKeywords: z.string(),
     AutomaticDisableStatusCodes: z.string(),
     AutomaticRetryStatusCodes: z.string(),
-    AutomaticRetryPolicyRules: jsonArrayString,
     monitor_setting: z.object({
       auto_test_channel_enabled: z.boolean(),
       auto_test_channel_minutes: z.coerce
@@ -309,7 +294,6 @@ type MonitoringSettingsSectionProps = {
     AutomaticDisableKeywords: string
     AutomaticDisableStatusCodes: string
     AutomaticRetryStatusCodes: string
-    AutomaticRetryPolicyRules: string
     'monitor_setting.auto_test_channel_enabled': boolean
     'monitor_setting.auto_test_channel_minutes': number
     'monitor_setting.channel_auto_operation_enabled': boolean
@@ -463,7 +447,6 @@ type NormalizedMonitoringValues = {
   AutomaticDisableKeywords: string
   AutomaticDisableStatusCodes: string
   AutomaticRetryStatusCodes: string
-  AutomaticRetryPolicyRules: string
   'monitor_setting.auto_test_channel_enabled': boolean
   'monitor_setting.auto_test_channel_minutes': number
   'monitor_setting.channel_auto_operation_enabled': boolean
@@ -502,7 +485,6 @@ const buildFormDefaults = (
   ),
   AutomaticDisableStatusCodes: defaults.AutomaticDisableStatusCodes ?? '',
   AutomaticRetryStatusCodes: defaults.AutomaticRetryStatusCodes ?? '',
-  AutomaticRetryPolicyRules: defaults.AutomaticRetryPolicyRules ?? '[]',
   monitor_setting: {
     auto_test_channel_enabled:
       defaults['monitor_setting.auto_test_channel_enabled'],
@@ -566,9 +548,6 @@ const normalizeDefaults = (
   AutomaticRetryStatusCodes: parseHttpStatusCodeRules(
     defaults.AutomaticRetryStatusCodes ?? ''
   ).normalized,
-  AutomaticRetryPolicyRules: (
-    defaults.AutomaticRetryPolicyRules ?? '[]'
-  ).trim(),
   'monitor_setting.auto_test_channel_enabled':
     defaults['monitor_setting.auto_test_channel_enabled'],
   'monitor_setting.auto_test_channel_minutes':
@@ -635,7 +614,6 @@ const normalizeFormValues = (
   AutomaticRetryStatusCodes: parseHttpStatusCodeRules(
     values.AutomaticRetryStatusCodes
   ).normalized,
-  AutomaticRetryPolicyRules: values.AutomaticRetryPolicyRules.trim() || '[]',
   'monitor_setting.auto_test_channel_enabled':
     values.monitor_setting.auto_test_channel_enabled,
   'monitor_setting.auto_test_channel_minutes':
@@ -1977,9 +1955,7 @@ export function MonitoringSettingsSection({
                         min={1}
                         step={1}
                         value={String(field.value ?? '')}
-                        onChange={(event) =>
-                          field.onChange(event.target.value)
-                        }
+                        onChange={(event) => field.onChange(event.target.value)}
                       />
                     </FormControl>
                     <FormDescription>
@@ -1997,18 +1973,14 @@ export function MonitoringSettingsSection({
                 name='monitor_setting.channel_auto_enable_cooldown_minutes'
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>
-                      {t('Auto-enable cooldown (minutes)')}
-                    </FormLabel>
+                    <FormLabel>{t('Auto-enable cooldown (minutes)')}</FormLabel>
                     <FormControl>
                       <Input
                         type='number'
                         min={0}
                         step={1}
                         value={String(field.value ?? '')}
-                        onChange={(event) =>
-                          field.onChange(event.target.value)
-                        }
+                        onChange={(event) => field.onChange(event.target.value)}
                       />
                     </FormControl>
                     <FormDescription>
@@ -2106,98 +2078,6 @@ export function MonitoringSettingsSection({
               )}
             />
           </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('Global retry and failover policy')}</CardTitle>
-              <CardDescription>
-                {t(
-                  'Match upstream errors and route the next retry to configured backup groups, channel IDs, or channel tags.'
-                )}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className='flex flex-col gap-4'>
-              <FormField
-                control={form.control}
-                name='AutomaticRetryPolicyRules'
-                render={({ field }) => (
-                  <FormItem>
-                    <div className='flex items-center justify-between gap-3'>
-                      <FormLabel>{t('Policy JSON')}</FormLabel>
-                      <Select
-                        value=''
-                        onValueChange={(value) => {
-                          const template = RETRY_POLICY_TEMPLATES.find(
-                            (item) => item.labelKey === value
-                          )
-                          if (template) {
-                            field.onChange(
-                              insertRetryPolicyTemplate(field.value, template)
-                            )
-                          }
-                        }}
-                      >
-                        <SelectTrigger className='h-8 w-40'>
-                          <SelectValue placeholder={t('Insert template')} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {RETRY_POLICY_TEMPLATES.map((template) => (
-                            <SelectItem
-                              key={template.labelKey}
-                              value={template.labelKey}
-                            >
-                              {t(template.labelKey)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <FormControl>
-                      <Textarea
-                        rows={8}
-                        placeholder='[{"action":"failover","status_codes":"429,500-504","targets":{"groups":["backup"],"channel_tags":["stable"]},"strategy":{"max_retries":2,"exclude_failed_channel":true}}]'
-                        {...field}
-                        onChange={(event) => field.onChange(event.target.value)}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t(
-                        'Channel policy rules are matched before global rules; skip_retry stops routing, failover routes to target channel pools, and retry keeps the legacy retry behavior.'
-                      )}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className='grid gap-3 text-sm md:grid-cols-3'>
-                <div className='rounded-md border bg-muted/30 p-3'>
-                  <div className='font-medium'>{t('Match errors')}</div>
-                  <p className='mt-1 text-muted-foreground'>
-                    {t(
-                      'Use models, channel_ids, channel_types, status_codes, error_codes, and message_contains.'
-                    )}
-                  </p>
-                </div>
-                <div className='rounded-md border bg-muted/30 p-3'>
-                  <div className='font-medium'>{t('Route targets')}</div>
-                  <p className='mt-1 text-muted-foreground'>
-                    {t(
-                      'Use targets.groups, targets.channel_ids, or targets.channel_tags to choose the next channel pool.'
-                    )}
-                  </p>
-                </div>
-                <div className='rounded-md border bg-muted/30 p-3'>
-                  <div className='font-medium'>{t('Failover safety')}</div>
-                  <p className='mt-1 text-muted-foreground'>
-                    {t(
-                      'Failover avoids the failed channel by default; use strategy.max_retries to limit recovery attempts.'
-                    )}
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
 
           <Button type='submit' disabled={updateOption.isPending}>
             {updateOption.isPending

@@ -25,6 +25,7 @@ import { GeminiSettingsCard } from './gemini-settings-card'
 import { GlobalSettingsCard } from './global-settings-card'
 import { GrokSettingsCard } from './grok-settings-card'
 import { ModelFallbackSettingsCard } from './model-fallback-settings-card'
+import { RetryRoutingSettingsCard } from './retry-routing-settings-card'
 
 function formatJsonForEditor(value: string, fallback: string) {
   const raw = (value ?? '').toString().trim()
@@ -159,6 +160,18 @@ const MODELS_SECTIONS = [
           'model_fallback.failure_status_codes':
             settings['model_fallback.failure_status_codes'],
           'model_fallback.rules': settings['model_fallback.rules'],
+        }}
+      />
+    ),
+  },
+  {
+    id: 'retry-routing',
+    titleKey: 'Retry Routing',
+    descriptionKey: 'Configure system retry and failover routing rules',
+    build: (settings: ModelSettings) => (
+      <RetryRoutingSettingsCard
+        defaultValues={{
+          AutomaticRetryPolicyRules: settings.AutomaticRetryPolicyRules,
         }}
       />
     ),

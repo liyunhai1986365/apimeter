@@ -51,6 +51,10 @@ const SECTION_META: Record<
     titleKey: 'Operation Records',
     descriptionKey: 'Review automatic channel disable and enable records',
   },
+  'retry-route-events': {
+    titleKey: 'Retry Route Events',
+    descriptionKey: 'Review retry, failover, and skip-retry routing decisions',
+  },
   drawing: {
     titleKey: 'Drawing Logs',
     descriptionKey: 'View and manage your drawing logs',
@@ -130,7 +134,7 @@ function UsageLogsContent() {
           <div className='space-y-4'>
             {showTaskSwitcher && (
               <Tabs value={activeCategory} onValueChange={handleSectionChange}>
-                <TabsList className='group-data-horizontal/tabs:h-auto max-w-full flex-wrap justify-start'>
+                <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
                   {visibleSections.map((section) => (
                     <TabsTrigger key={section} value={section}>
                       {t(SECTION_META[section].titleKey)}

@@ -309,6 +309,7 @@ export function ModelMutateDrawer({
       'model_fallback.rules': '[]',
       'model_deployment.ionet.api_key': '',
       'model_deployment.ionet.enabled': false,
+      AutomaticRetryPolicyRules: '[]',
     }
     return getOptionValue(systemOptionsData.data, defaultModelSettings)
   }, [systemOptionsData])

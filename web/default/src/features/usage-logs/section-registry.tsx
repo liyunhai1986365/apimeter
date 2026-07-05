@@ -35,6 +35,12 @@ const USAGE_LOGS_SECTIONS = [
     build: () => null, // Content is rendered directly in the page component
   },
   {
+    id: 'retry-route-events',
+    titleKey: 'Retry Route Events',
+    descriptionKey: 'Review retry, failover, and skip-retry routing decisions',
+    build: () => null, // Content is rendered directly in the page component
+  },
+  {
     id: 'drawing',
     titleKey: 'Drawing Logs',
     descriptionKey: 'View and manage your drawing logs',

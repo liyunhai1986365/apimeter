@@ -224,6 +224,7 @@ export type ModelSettings = {
   'model_fallback.rules': string
   'model_deployment.ionet.api_key': string
   'model_deployment.ionet.enabled': boolean
+  AutomaticRetryPolicyRules: string
 }
 
 export type BillingSettings = {
@@ -326,7 +327,6 @@ export type OperationsSettings = {
   AutomaticDisableKeywords: string
   AutomaticDisableStatusCodes: string
   AutomaticRetryStatusCodes: string
-  AutomaticRetryPolicyRules: string
   'monitor_setting.auto_test_channel_enabled': boolean
   'monitor_setting.auto_test_channel_minutes': number
   'monitor_setting.channel_auto_operation_enabled': boolean

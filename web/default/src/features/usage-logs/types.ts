@@ -28,7 +28,12 @@ import type { UsageLog } from './data/schema'
 /**
  * Log category for different log types
  */
-export type LogCategory = 'common' | 'channel-operations' | 'drawing' | 'task'
+export type LogCategory =
+  | 'common'
+  | 'channel-operations'
+  | 'retry-route-events'
+  | 'drawing'
+  | 'task'
 
 // ============================================================================
 // Filter Types
@@ -175,7 +180,6 @@ export interface LogOtherData {
   po?: string[]
   billing_source?: string
   group?: string
-  request_path?: string
   stream_status?: {
     status?: string
     end_reason?: string
@@ -355,11 +359,82 @@ export interface ChannelOperationRecord {
   created_at: number
 }
 
+export interface RetryRouteEvent {
+  id: number
+  created_at: number
+  updated_at: number
+  request_id: string
+  upstream_request_id: string
+  attempt_index: number
+  user_id: number
+  username: string
+  token_id: number
+  token_name: string
+  workspace_id: number
+  workspace_name: string
+  original_model: string
+  upstream_model: string
+  is_stream: boolean
+  request_path: string
+  rule_source: string
+  rule_name: string
+  action: string
+  matched: boolean
+  routed: boolean
+  final_success: boolean
+  final_status: string
+  source_channel_id: number
+  source_channel_name: string
+  source_channel_type: number
+  target_channel_id: number
+  target_channel_name: string
+  target_channel_type: number
+  source_group: string
+  target_group: string
+  status_code: number
+  error_type: string
+  error_code: string
+  error_message: string
+  log_id: number
+  request_hash: string
+  response_hash: string
+  use_time_ms: number
+  extra: string
+}
+
+export interface GetRetryRouteEventsParams {
+  p?: number
+  page_size?: number
+  request_id?: string
+  username?: string
+  user_id?: number
+  token_name?: string
+  token_id?: number
+  model_name?: string
+  rule_name?: string
+  action?: string
+  source_channel_id?: number
+  target_channel_id?: number
+  source_group?: string
+  target_group?: string
+  status_code?: number
+  error_code?: string
+  error_type?: string
+  final_status?: string
+  start_timestamp?: number
+  end_timestamp?: number
+}
+
 export interface GetLogsResponse {
   success: boolean
   message?: string
   data?: {
-    items: UsageLog[] | ChannelOperationRecord[] | MidjourneyLog[] | TaskLog[]
+    items:
+      | UsageLog[]
+      | ChannelOperationRecord[]
+      | RetryRouteEvent[]
+      | MidjourneyLog[]
+      | TaskLog[]
     total: number
     page: number
     page_size: number
