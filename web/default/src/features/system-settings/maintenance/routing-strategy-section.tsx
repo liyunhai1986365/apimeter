@@ -49,10 +49,10 @@ import {
 } from '../api'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
-import type { OperationsSettings, RoutingStrategy } from '../types'
+import type { ModelSettings, RoutingStrategy } from '../types'
 
 type RoutingStrategyFormValues = Pick<
-  OperationsSettings,
+  ModelSettings,
   | 'routing_strategy_setting.enabled'
   | 'routing_strategy_setting.update_interval_minutes'
   | 'routing_strategy_setting.window_hours'

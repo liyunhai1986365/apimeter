@@ -310,6 +310,15 @@ export function ModelMutateDrawer({
       'model_deployment.ionet.api_key': '',
       'model_deployment.ionet.enabled': false,
       AutomaticRetryPolicyRules: '[]',
+      'routing_strategy_setting.enabled': true,
+      'routing_strategy_setting.update_interval_minutes': 10,
+      'routing_strategy_setting.window_hours': 24,
+      'routing_strategy_setting.min_request_count': 3,
+      'routing_strategy_setting.smart_price_weight': 0.4,
+      'routing_strategy_setting.smart_speed_weight': 0.25,
+      'routing_strategy_setting.smart_success_weight': 0.35,
+      'routing_strategy_setting.excluded_groups': '',
+      'routing_strategy_setting.pinned_groups': '',
     }
     return getOptionValue(systemOptionsData.data, defaultModelSettings)
   }, [systemOptionsData])

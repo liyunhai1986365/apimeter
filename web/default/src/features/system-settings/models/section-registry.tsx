@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { ChannelAffinitySection } from '../general/channel-affinity'
 import { IoNetDeploymentSettingsSection } from '../integrations/ionet-deployment-settings-section'
+import { RoutingStrategySection } from '../maintenance/routing-strategy-section'
 import type { ModelSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
 import { ClaudeSettingsCard } from './claude-settings-card'
@@ -172,6 +173,35 @@ const MODELS_SECTIONS = [
       <RetryRoutingSettingsCard
         defaultValues={{
           AutomaticRetryPolicyRules: settings.AutomaticRetryPolicyRules,
+        }}
+      />
+    ),
+  },
+  {
+    id: 'routing-strategies',
+    titleKey: 'Routing Strategies',
+    descriptionKey: 'Maintain smart supplier routing rankings',
+    build: (settings: ModelSettings) => (
+      <RoutingStrategySection
+        defaultValues={{
+          'routing_strategy_setting.enabled':
+            settings['routing_strategy_setting.enabled'] ?? true,
+          'routing_strategy_setting.update_interval_minutes':
+            settings['routing_strategy_setting.update_interval_minutes'] ?? 10,
+          'routing_strategy_setting.window_hours':
+            settings['routing_strategy_setting.window_hours'] ?? 24,
+          'routing_strategy_setting.min_request_count':
+            settings['routing_strategy_setting.min_request_count'] ?? 3,
+          'routing_strategy_setting.smart_price_weight':
+            settings['routing_strategy_setting.smart_price_weight'] ?? 0.4,
+          'routing_strategy_setting.smart_speed_weight':
+            settings['routing_strategy_setting.smart_speed_weight'] ?? 0.25,
+          'routing_strategy_setting.smart_success_weight':
+            settings['routing_strategy_setting.smart_success_weight'] ?? 0.35,
+          'routing_strategy_setting.excluded_groups':
+            settings['routing_strategy_setting.excluded_groups'] ?? '',
+          'routing_strategy_setting.pinned_groups':
+            settings['routing_strategy_setting.pinned_groups'] ?? '',
         }}
       />
     ),

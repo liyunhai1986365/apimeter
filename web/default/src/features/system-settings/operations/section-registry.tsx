@@ -22,7 +22,6 @@ import { MonitoringSettingsSection } from '../integrations/monitoring-settings-s
 import { WorkerSettingsSection } from '../integrations/worker-settings-section'
 import { LogSettingsSection } from '../maintenance/log-settings-section'
 import { PerformanceSection } from '../maintenance/performance-section'
-import { RoutingStrategySection } from '../maintenance/routing-strategy-section'
 import { UpdateCheckerSection } from '../maintenance/update-checker-section'
 import type { OperationsSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
@@ -181,35 +180,6 @@ const OPERATIONS_SECTIONS = [
             settings['perf_metrics_setting.bucket_time'] ?? 'hour',
           'perf_metrics_setting.retention_days':
             settings['perf_metrics_setting.retention_days'] ?? 0,
-        }}
-      />
-    ),
-  },
-  {
-    id: 'routing-strategies',
-    titleKey: 'Routing Strategies',
-    descriptionKey: 'Maintain smart supplier routing rankings',
-    build: (settings: OperationsSettings) => (
-      <RoutingStrategySection
-        defaultValues={{
-          'routing_strategy_setting.enabled':
-            settings['routing_strategy_setting.enabled'] ?? true,
-          'routing_strategy_setting.update_interval_minutes':
-            settings['routing_strategy_setting.update_interval_minutes'] ?? 10,
-          'routing_strategy_setting.window_hours':
-            settings['routing_strategy_setting.window_hours'] ?? 24,
-          'routing_strategy_setting.min_request_count':
-            settings['routing_strategy_setting.min_request_count'] ?? 3,
-          'routing_strategy_setting.smart_price_weight':
-            settings['routing_strategy_setting.smart_price_weight'] ?? 0.4,
-          'routing_strategy_setting.smart_speed_weight':
-            settings['routing_strategy_setting.smart_speed_weight'] ?? 0.25,
-          'routing_strategy_setting.smart_success_weight':
-            settings['routing_strategy_setting.smart_success_weight'] ?? 0.35,
-          'routing_strategy_setting.excluded_groups':
-            settings['routing_strategy_setting.excluded_groups'] ?? '',
-          'routing_strategy_setting.pinned_groups':
-            settings['routing_strategy_setting.pinned_groups'] ?? '',
         }}
       />
     ),

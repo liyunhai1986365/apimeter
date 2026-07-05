@@ -225,6 +225,15 @@ export type ModelSettings = {
   'model_deployment.ionet.api_key': string
   'model_deployment.ionet.enabled': boolean
   AutomaticRetryPolicyRules: string
+  'routing_strategy_setting.enabled': boolean
+  'routing_strategy_setting.update_interval_minutes': number
+  'routing_strategy_setting.window_hours': number
+  'routing_strategy_setting.min_request_count': number
+  'routing_strategy_setting.smart_price_weight': number
+  'routing_strategy_setting.smart_speed_weight': number
+  'routing_strategy_setting.smart_success_weight': number
+  'routing_strategy_setting.excluded_groups': string
+  'routing_strategy_setting.pinned_groups': string
 }
 
 export type BillingSettings = {
@@ -374,15 +383,6 @@ export type OperationsSettings = {
   'perf_metrics_setting.flush_interval': number
   'perf_metrics_setting.bucket_time': 'hour' | 'minute' | '5min'
   'perf_metrics_setting.retention_days': number
-  'routing_strategy_setting.enabled': boolean
-  'routing_strategy_setting.update_interval_minutes': number
-  'routing_strategy_setting.window_hours': number
-  'routing_strategy_setting.min_request_count': number
-  'routing_strategy_setting.smart_price_weight': number
-  'routing_strategy_setting.smart_speed_weight': number
-  'routing_strategy_setting.smart_success_weight': number
-  'routing_strategy_setting.excluded_groups': string
-  'routing_strategy_setting.pinned_groups': string
 }
 
 export type RoutingStrategy =
