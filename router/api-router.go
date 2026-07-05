@@ -404,6 +404,15 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.GET("/self", middleware.UserAuth(), controller.GetUserLogs)
 		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 
+		retryRoute := apiRouter.Group("/retry-route")
+		retryRoute.Use(middleware.AdminAuth())
+		{
+			retryRoute.GET("/events", controller.GetRetryRouteEvents)
+			retryRoute.GET("/events/stat", controller.GetRetryRouteEventStats)
+			retryRoute.GET("/events/:id", controller.GetRetryRouteEvent)
+			retryRoute.POST("/rules/test", controller.TestRetryRouteRules)
+		}
+
 		billingRoute := apiRouter.Group("/billing")
 		billingRoute.GET("/account-ledger", middleware.UserAuth(), controller.ListAccountLedgerEntries)
 		billingRoute.GET("/breakdowns", middleware.UserAuth(), controller.ListBillingBreakdowns)

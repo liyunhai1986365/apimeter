@@ -194,6 +194,16 @@ func ShouldRetryByPolicy(input RetryPolicyInput) RetryPolicyDecision {
 	return RetryPolicyDecision{}
 }
 
+func TestRetryPolicyRules(input RetryPolicyInput, rules []RetryPolicyRule) (RetryPolicyDecision, error) {
+	if err := ValidateRetryPolicyRules(rules); err != nil {
+		return RetryPolicyDecision{}, err
+	}
+	if decision, ok := matchRetryPolicyRules(input, rules, RetryPolicySourceGlobal); ok {
+		return decision, nil
+	}
+	return RetryPolicyDecision{}, nil
+}
+
 func matchRetryPolicyRules(input RetryPolicyInput, rules []RetryPolicyRule, source string) (RetryPolicyDecision, bool) {
 	orderedRules := orderedRetryPolicyRules(rules)
 	for _, rule := range orderedRules {

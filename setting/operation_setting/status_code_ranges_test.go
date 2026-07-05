@@ -385,3 +385,31 @@ func TestRetryPolicyRuleRejectsExtendedConditionMismatch(t *testing.T) {
 
 	require.False(t, ok)
 }
+
+func TestRetryPolicyRulesCanBeTestedWithoutMutatingGlobalRules(t *testing.T) {
+	orig := AutomaticRetryPolicyRules
+	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
+	AutomaticRetryPolicyRules = []RetryPolicyRule{
+		{Name: "global skip", Action: RetryPolicyActionSkipRetry, StatusCodes: "500"},
+	}
+
+	decision, err := TestRetryPolicyRules(RetryPolicyInput{
+		ModelName:    "gpt-4o",
+		StatusCode:   500,
+		ErrorMessage: "temporary upstream failure",
+	}, []RetryPolicyRule{
+		{
+			Name:        "adhoc failover",
+			Action:      RetryPolicyActionFailover,
+			StatusCodes: "500",
+			Targets:     RetryPolicyTargets{Groups: []string{"backup"}},
+		},
+	})
+
+	require.NoError(t, err)
+	require.True(t, decision.Matched)
+	require.Equal(t, "adhoc failover", decision.RuleName)
+	require.Equal(t, RetryPolicySourceGlobal, decision.Source)
+	require.Equal(t, RetryPolicyActionFailover, decision.Action)
+	require.Equal(t, "global skip", AutomaticRetryPolicyRules[0].Name)
+}
