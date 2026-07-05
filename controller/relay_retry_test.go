@@ -10,12 +10,52 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
+
+func openRelayRetryEventTestDB(t *testing.T) *gorm.DB {
+	t.Helper()
+
+	originalDB := model.DB
+	originalLogDB := model.LOG_DB
+	originalSQLite := common.UsingSQLite
+	originalMySQL := common.UsingMySQL
+	originalPostgreSQL := common.UsingPostgreSQL
+	originalRedisEnabled := common.RedisEnabled
+
+	common.UsingSQLite = true
+	common.UsingMySQL = false
+	common.UsingPostgreSQL = false
+	common.RedisEnabled = false
+	model.InitColForTest()
+
+	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}, &model.RetryRouteEvent{}))
+	model.DB = db
+	model.LOG_DB = db
+
+	t.Cleanup(func() {
+		model.DB = originalDB
+		model.LOG_DB = originalLogDB
+		common.UsingSQLite = originalSQLite
+		common.UsingMySQL = originalMySQL
+		common.UsingPostgreSQL = originalPostgreSQL
+		common.RedisEnabled = originalRedisEnabled
+		if sqlDB, err := db.DB(); err == nil {
+			_ = sqlDB.Close()
+		}
+	})
+
+	return db
+}
 
 func TestShouldRetryRespectsSelectedChannelRetrySwitch(t *testing.T) {
 	originalRetryTimes := common.RetryTimes
@@ -247,6 +287,101 @@ func TestShouldRetryGlobalFailoverPolicySetsRecoveryTargets(t *testing.T) {
 	require.Equal(t, []string{"stable"}, recovery.TargetTags)
 	require.Equal(t, 12, recovery.ExcludeChannelID)
 	require.Equal(t, 2, recovery.MaxRetries)
+}
+
+func TestShouldRetryRecordsRetryRouteEvent(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	origRules := operation_setting.AutomaticRetryPolicyRules
+	t.Cleanup(func() { operation_setting.AutomaticRetryPolicyRules = origRules })
+	operation_setting.AutomaticRetryPolicyRules = []operation_setting.RetryPolicyRule{
+		{
+			Name:        "global failover 500",
+			Action:      operation_setting.RetryPolicyActionFailover,
+			StatusCodes: "500",
+			Targets: operation_setting.RetryPolicyTargets{
+				Groups: []string{"backup"},
+			},
+			Strategy: operation_setting.RetryPolicyStrategy{
+				MaxRetries: 1,
+			},
+		},
+	}
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	c.Set(common.RequestIdKey, "req-retry-event")
+	c.Set("relay_retry_index", 0)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, true)
+	common.SetContextKey(c, constant.ContextKeyChannelId, 10)
+	common.SetContextKey(c, constant.ContextKeyChannelName, "primary")
+	common.SetContextKey(c, constant.ContextKeyOriginalModel, "gpt-4o")
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+
+	err := types.NewOpenAIError(
+		errors.New("upstream exploded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	)
+
+	require.True(t, shouldRetry(c, err, 1))
+
+	events, total, getErr := model.GetRetryRouteEvents(model.RetryRouteEventQuery{RequestId: "req-retry-event", Page: 1, PageSize: 20})
+	require.NoError(t, getErr)
+	require.Equal(t, int64(1), total)
+	require.Equal(t, "global failover 500", events[0].RuleName)
+	require.Equal(t, operation_setting.RetryPolicyActionFailover, events[0].Action)
+	require.Equal(t, 10, events[0].SourceChannelId)
+	require.Equal(t, "gpt-4o", events[0].OriginalModel)
+}
+
+func TestProcessChannelErrorLinksRetryRouteEventToErrorLog(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	originalErrorLogEnabled := constant.ErrorLogEnabled
+	constant.ErrorLogEnabled = true
+	t.Cleanup(func() { constant.ErrorLogEnabled = originalErrorLogEnabled })
+	require.NoError(t, model.DB.Create(&model.User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+
+	event := &model.RetryRouteEvent{
+		RequestId:       "req-error-log-link",
+		RuleName:        "global failover 500",
+		Action:          operation_setting.RetryPolicyActionFailover,
+		Matched:         true,
+		SourceChannelId: 10,
+	}
+	require.NoError(t, model.RecordRetryRouteEvent(event))
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	c.Request.RemoteAddr = "203.0.113.10:12345"
+	c.Set(common.RequestIdKey, "req-error-log-link")
+	c.Set("id", 1)
+	c.Set("username", "alice")
+	c.Set("token_name", "prod-token")
+	c.Set("token_id", 3)
+	c.Set("original_model", "gpt-4o")
+	c.Set("group", "default")
+	c.Set("channel_id", 10)
+	c.Set("channel_name", "primary")
+	c.Set("channel_type", 1)
+	service.SetCurrentRetryRouteEventID(c, event.Id)
+
+	err := types.NewOpenAIError(
+		errors.New("upstream exploded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	)
+	processChannelError(c, types.ChannelError{ChannelId: 10}, err)
+
+	var log model.Log
+	require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeError).First(&log).Error)
+	require.Equal(t, "req-error-log-link", log.RequestId)
+	require.Contains(t, log.Other, "retry_route_event_ids")
+	require.Contains(t, log.Other, "request_log_lookup")
+
+	var updated model.RetryRouteEvent
+	require.NoError(t, model.DB.First(&updated, event.Id).Error)
+	require.Equal(t, log.Id, updated.LogId)
 }
 
 func TestShouldRetryPolicyCanRouteChannelErrors(t *testing.T) {

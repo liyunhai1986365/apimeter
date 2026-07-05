@@ -94,3 +94,19 @@ func TestRecordErrorLogOmitsIPWhenUserSettingDisablesIPLog(t *testing.T) {
 	require.NoError(t, LOG_DB.Where("type = ?", LogTypeError).First(&log).Error)
 	require.Empty(t, log.Ip)
 }
+
+func TestCreateErrorLogReturnsCreatedLogID(t *testing.T) {
+	setupLogIPRecordTest(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+
+	ctx := newLogIPRecordContext()
+	logID := CreateErrorLog(ctx, 1, 2, "gpt-test", "prod-token", "failed", 3, 4, false, "default", map[string]interface{}{
+		"request_log_lookup": map[string]interface{}{"request_id": "req-log"},
+	})
+
+	require.NotZero(t, logID)
+	var log Log
+	require.NoError(t, LOG_DB.First(&log, logID).Error)
+	require.Equal(t, "failed", log.Content)
+	require.Contains(t, log.Other, "request_log_lookup")
+}

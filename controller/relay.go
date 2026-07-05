@@ -97,6 +97,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		if newAPIError != nil {
+			service.MarkRetryRouteFinal(c, false, "failed")
 			logger.LogError(c, fmt.Sprintf("relay error: %s", newAPIError.Error()))
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			switch relayFormat {
@@ -112,6 +113,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 					"error": newAPIError.ToOpenAIError(),
 				})
 			}
+		} else {
+			service.MarkRetryRouteFinal(c, true, "success")
 		}
 	}()
 
@@ -459,6 +462,7 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 	if newAPIError != nil {
 		return nil, newAPIError
 	}
+	service.UpdateCurrentRetryRouteTarget(c, channel, selectGroup)
 	return channel, nil
 }
 
@@ -474,7 +478,7 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 		return false
 	}
 	if decision := operation_setting.ShouldRetryByPolicy(buildRetryPolicyInput(c, openaiErr)); decision.Matched {
-		return shouldRetryByPolicyDecision(c, decision, retryIndex)
+		return shouldRetryByPolicyDecision(c, decision, retryIndex, openaiErr)
 	}
 	if types.IsSkipRetryError(openaiErr) {
 		return false
@@ -504,8 +508,9 @@ func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) b
 	return operation_setting.ShouldRetryByStatusCode(code)
 }
 
-func shouldRetryByPolicyDecision(c *gin.Context, decision operation_setting.RetryPolicyDecision, retryIndex any) bool {
+func shouldRetryByPolicyDecision(c *gin.Context, decision operation_setting.RetryPolicyDecision, retryIndex any, openaiErr *types.NewAPIError) bool {
 	if !decision.ShouldRetry {
+		service.RecordRetryRouteDecision(c, decision, openaiErr)
 		service.ClearRetryPolicyRecovery(c)
 		return false
 	}
@@ -517,6 +522,7 @@ func shouldRetryByPolicyDecision(c *gin.Context, decision operation_setting.Retr
 	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) && !service.RetryPolicyRecoveryAllowsAffinityRetry(c) {
 		return false
 	}
+	service.RecordRetryRouteDecision(c, decision, openaiErr)
 	return true
 }
 
@@ -646,6 +652,12 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 		other["channel_id"] = channelId
 		other["channel_name"] = c.GetString("channel_name")
 		other["channel_type"] = c.GetInt("channel_type")
+		if eventID, ok := service.GetCurrentRetryRouteEventID(c); ok {
+			other["retry_route_event_ids"] = []int{eventID}
+		}
+		other["request_log_lookup"] = map[string]interface{}{
+			"request_id": c.GetString(common.RequestIdKey),
+		}
 		adminInfo := make(map[string]interface{})
 		adminInfo["use_channel"] = c.GetStringSlice("use_channel")
 		if c.GetString("model_fallback_model") != "" {
@@ -668,7 +680,8 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			startTime = time.Now()
 		}
 		useTimeSeconds := int(time.Since(startTime).Seconds())
-		model.RecordErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
+		logID := model.CreateErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
+		service.AttachRetryRouteLog(c, logID)
 	}
 
 }
