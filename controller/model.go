@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/helper"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
@@ -175,6 +177,106 @@ func buildOpenAIModel(modelName string, ownerByModel map[string]string) dto.Open
 	return oaiModel
 }
 
+func pricingPromptCost(modelName string) string {
+	if price, ok := ratio_setting.GetModelPrice(modelName, false); ok {
+		return fmt.Sprintf("%.6f", price)
+	}
+	ratio, ok, _ := ratio_setting.GetModelRatio(modelName)
+	if !ok {
+		return "0"
+	}
+	return fmt.Sprintf("%.6f", ratio)
+}
+
+func pricingCompletionCost(modelName string) string {
+	ratio := ratio_setting.GetCompletionRatio(modelName)
+	return fmt.Sprintf("%.6f", ratio)
+}
+
+func buildModelMetadataPricing(pricing model.Pricing) []dto.ModelMetadataPricing {
+	prompt := pricingPromptCost(pricing.ModelName)
+	completion := pricingCompletionCost(pricing.ModelName)
+	image := "0"
+	if pricing.ImageRatio != nil {
+		image = fmt.Sprintf("%.6f", *pricing.ImageRatio)
+	}
+
+	label := strings.TrimSpace(pricing.Category)
+	if label == "" {
+		label = "chat"
+	}
+
+	return []dto.ModelMetadataPricing{
+		{
+			RangeStart:     0,
+			RangeEnd:       nil,
+			Label:          label,
+			InputMode:      "",
+			Resolution:     "",
+			Prompt:         prompt,
+			Completion:     completion,
+			Image:          image,
+			Request:        "0",
+			Duration:       "0",
+			InputCacheRead: "0",
+		},
+	}
+}
+
+func listModelMetadataVendorLogoMap() map[int]string {
+	vendors := model.GetVendors()
+	logoByID := make(map[int]string, len(vendors))
+	for _, vendor := range vendors {
+		if vendor.ID == 0 {
+			continue
+		}
+		logoByID[vendor.ID] = vendor.Icon
+	}
+	return logoByID
+}
+
+func buildModelMetadataItems(modelNames []string) []dto.ModelMetadata {
+	pricings := model.GetPricing()
+	pricingByName := make(map[string]model.Pricing, len(pricings))
+	for _, pricing := range pricings {
+		pricingByName[pricing.ModelName] = pricing
+	}
+	logoByVendorID := listModelMetadataVendorLogoMap()
+
+	items := make([]dto.ModelMetadata, 0, len(modelNames))
+	for _, modelName := range modelNames {
+		pricing, ok := pricingByName[modelName]
+		if !ok {
+			pricing = model.Pricing{ModelName: modelName}
+		}
+		item := dto.ModelMetadata{
+			Id:                modelName,
+			Name:              modelName,
+			InputModalities:   pricing.InputModalities,
+			OutputModalities:  pricing.OutputModalities,
+			ContextLength:     pricing.ContextLength,
+			MaxOutputLength:   pricing.MaxOutputTokens,
+			Currency:          "USD",
+			Description:       pricing.Description,
+			ProviderLogoURL:   logoByVendorID[pricing.VendorID],
+			Pricing:           buildModelMetadataPricing(pricing),
+			SupportedFeatures: pricing.Capabilities,
+			IsReady:           true,
+		}
+		if item.InputModalities == nil {
+			item.InputModalities = []string{}
+		}
+		if item.OutputModalities == nil {
+			item.OutputModalities = []string{}
+		}
+		if item.SupportedFeatures == nil {
+			item.SupportedFeatures = []string{}
+		}
+		items = append(items, item)
+	}
+	return items
+}
+
 type modelListGroups struct {
 	userGroup   string
 	tokenGroup  string
@@ -319,6 +421,50 @@ func ListModels(c *gin.Context, modelType int) {
 			"object":  "list",
 		})
 	}
+}
+
+func ListModelMetadata(c *gin.Context) {
+	groups, err := getModelListGroups(c)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"success": false,
+			"message": "get user group failed",
+		})
+		return
+	}
+
+	modelSet := make(map[string]struct{})
+	if common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled) {
+		if raw, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit); ok {
+			if tokenModelLimit, ok := raw.(map[string]bool); ok {
+				for modelName := range tokenModelLimit {
+					if strings.TrimSpace(modelName) != "" {
+						modelSet[modelName] = struct{}{}
+					}
+				}
+			}
+		}
+	} else {
+		for _, group := range groups.ownerGroups {
+			for _, modelName := range model.GetGroupEnabledModels(group) {
+				if strings.TrimSpace(modelName) != "" {
+					modelSet[modelName] = struct{}{}
+				}
+			}
+		}
+	}
+
+	modelNames := make([]string, 0, len(modelSet))
+	for modelName := range modelSet {
+		modelNames = append(modelNames, modelName)
+	}
+	sort.Strings(modelNames)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"data":    buildModelMetadataItems(modelNames),
+		"object":  "list",
+	})
 }
 
 func ChannelListModels(c *gin.Context) {

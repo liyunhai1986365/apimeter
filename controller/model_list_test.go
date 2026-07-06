@@ -26,6 +26,12 @@ type listModelsResponse struct {
 	Object  string             `json:"object"`
 }
 
+type listModelMetadataResponse struct {
+	Success bool                `json:"success"`
+	Data    []dto.ModelMetadata `json:"data"`
+	Object  string              `json:"object"`
+}
+
 func setupModelListControllerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -146,6 +152,17 @@ func decodeListModelsResponse(t *testing.T, recorder *httptest.ResponseRecorder)
 	return ids
 }
 
+func decodeListModelMetadataResponse(t *testing.T, recorder *httptest.ResponseRecorder) []dto.ModelMetadata {
+	t.Helper()
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload listModelMetadataResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.True(t, payload.Success)
+	require.Equal(t, "list", payload.Object)
+	return payload.Data
+}
+
 func pricingByModelName(pricings []model.Pricing) map[string]model.Pricing {
 	byName := make(map[string]model.Pricing, len(pricings))
 	for _, pricing := range pricings {
@@ -239,6 +256,80 @@ func TestListModelsTokenLimitIncludesTieredBillingModel(t *testing.T) {
 	require.NotContains(t, ids, "zz-token-tiered-empty-expr-model")
 	require.NotContains(t, ids, "zz-token-tiered-missing-expr-model")
 	require.NotContains(t, ids, "zz-token-unpriced-model")
+}
+
+func TestListModelMetadataReturnsExtendedModelCatalogFields(t *testing.T) {
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.Create(&model.User{
+		Id:       1001,
+		Username: "model-metadata-user",
+		Password: "password",
+		Group:    "default",
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, db.Create(&model.Vendor{
+		Id:     77,
+		Name:   "Metadata Provider",
+		Icon:   "https://cdn.example.com/provider.svg",
+		Status: 1,
+	}).Error)
+	require.NoError(t, db.Create(&model.Channel{
+		Id:     1,
+		Name:   "metadata-channel",
+		Type:   constant.ChannelTypeOpenAI,
+		Status: common.ChannelStatusEnabled,
+		Key:    "sk-metadata",
+	}).Error)
+	require.NoError(t, db.Create(&model.Model{
+		ModelName:        "zz-metadata-model",
+		Description:      "metadata model description",
+		Category:         "image",
+		Status:           1,
+		SyncOfficial:     1,
+		VendorID:         77,
+		ContextLength:    128000,
+		MaxOutputTokens:  8192,
+		InputModalities:  "text,image",
+		OutputModalities: "image",
+		Capabilities:     "vision,tools",
+	}).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     "default",
+		Model:     "zz-metadata-model",
+		ChannelId: 1,
+		Enabled:   true,
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/v1/model-metadata", nil)
+	ctx.Set("id", 1001)
+
+	ListModelMetadata(ctx)
+
+	items := decodeListModelMetadataResponse(t, recorder)
+	require.Len(t, items, 1)
+	item := items[0]
+	require.Equal(t, "zz-metadata-model", item.Id)
+	require.Equal(t, "zz-metadata-model", item.Name)
+	require.ElementsMatch(t, []string{"text", "image"}, item.InputModalities)
+	require.ElementsMatch(t, []string{"image"}, item.OutputModalities)
+	require.Equal(t, 128000, item.ContextLength)
+	require.Equal(t, 8192, item.MaxOutputLength)
+	require.Equal(t, "USD", item.Currency)
+	require.Equal(t, "metadata model description", item.Description)
+	require.Equal(t, "https://cdn.example.com/provider.svg", item.ProviderLogoURL)
+	require.ElementsMatch(t, []string{"vision", "tools"}, item.SupportedFeatures)
+	require.True(t, item.IsReady)
+	require.NotEmpty(t, item.Pricing)
+	require.Equal(t, 0, item.Pricing[0].RangeStart)
+	require.Nil(t, item.Pricing[0].RangeEnd)
+	require.Equal(t, "image", item.Pricing[0].Label)
+	require.NotEmpty(t, item.Pricing[0].Prompt)
+	require.NotEmpty(t, item.Pricing[0].Completion)
+	require.Equal(t, "0", item.Pricing[0].Request)
+	require.Equal(t, "0", item.Pricing[0].Duration)
+	require.Equal(t, "0", item.Pricing[0].InputCacheRead)
 }
 
 func TestPricingUsesModelMetaAliasesToMergePublicModels(t *testing.T) {
