@@ -17,6 +17,12 @@ type flowQuotaResponse struct {
 	Data    []model.FlowQuotaData `json:"data"`
 }
 
+type tokenQuotaResponse struct {
+	Success bool                            `json:"success"`
+	Message string                          `json:"message"`
+	Data    []model.UsageDimensionTrendData `json:"data"`
+}
+
 func setupFlowControllerTestDB(t *testing.T) {
 	t.Helper()
 	db := setupModelListControllerTestDB(t)
@@ -52,10 +58,57 @@ func setupFlowControllerTestDB(t *testing.T) {
 	}).Error)
 }
 
+func setupTokenQuotaControllerTestDB(t *testing.T) {
+	t.Helper()
+	db := setupModelListControllerTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.Token{}, &model.QuotaData{}))
+	require.NoError(t, model.DB.Create(&model.Token{Id: 11, UserId: 1, Key: "sk-primary", Name: "primary"}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{Id: 22, UserId: 2, Key: "sk-other", Name: "other"}).Error)
+	require.NoError(t, model.DB.Create(&model.QuotaData{
+		UserID:    1,
+		Username:  "alice",
+		TokenID:   11,
+		ModelName: "gpt-a",
+		CreatedAt: 1100,
+		Count:     2,
+		Quota:     100,
+		TokenUsed: 40,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.QuotaData{
+		UserID:    1,
+		Username:  "alice",
+		TokenID:   11,
+		ModelName: "gpt-b",
+		CreatedAt: 1100,
+		Count:     1,
+		Quota:     50,
+		TokenUsed: 20,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.QuotaData{
+		UserID:    2,
+		Username:  "bob",
+		TokenID:   22,
+		ModelName: "gpt-a",
+		CreatedAt: 1100,
+		Count:     7,
+		Quota:     700,
+		TokenUsed: 300,
+	}).Error)
+}
+
 func decodeFlowQuotaResponse(t *testing.T, recorder *httptest.ResponseRecorder) flowQuotaResponse {
 	t.Helper()
 	require.Equal(t, http.StatusOK, recorder.Code)
 	var payload flowQuotaResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
+	require.True(t, payload.Success, payload.Message)
+	return payload
+}
+
+func decodeTokenQuotaResponse(t *testing.T, recorder *httptest.ResponseRecorder) tokenQuotaResponse {
+	t.Helper()
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var payload tokenQuotaResponse
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &payload))
 	require.True(t, payload.Success, payload.Message)
 	return payload
@@ -115,4 +168,23 @@ func TestGetFlowQuotaDataRestrictsToAuthenticatedUser(t *testing.T) {
 	require.Equal(t, "primary", payload.Data[0].TokenName)
 	require.Equal(t, "default", payload.Data[0].UseGroup)
 	require.Empty(t, payload.Data[0].ChannelName)
+}
+
+func TestGetUserTokenQuotaDataRestrictsToAuthenticatedUser(t *testing.T) {
+	setupTokenQuotaControllerTestDB(t)
+
+	recorder := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(recorder)
+	ctx.Set("id", 1)
+	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/self/tokens?start_timestamp=1000&end_timestamp=2000", nil)
+
+	GetUserTokenQuotaData(ctx)
+
+	payload := decodeTokenQuotaResponse(t, recorder)
+	require.Len(t, payload.Data, 1)
+	require.Equal(t, 11, payload.Data[0].TokenId)
+	require.Equal(t, "primary", payload.Data[0].TokenName)
+	require.Equal(t, 3, payload.Data[0].Count)
+	require.Equal(t, 60, payload.Data[0].TokenUsed)
+	require.Equal(t, 150, payload.Data[0].Quota)
 }

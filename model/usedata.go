@@ -184,6 +184,58 @@ func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*Quota
 	return quotaDatas, err
 }
 
+func GetSelfTokenQuotaData(startTime int64, endTime int64, userId int) (trendData []*UsageDimensionTrendData, err error) {
+	var rows []*UsageDimensionTrendData
+	tx := DB.Table("quota_data").
+		Select("token_id, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
+		Where("user_id = ?", userId)
+	if startTime != 0 {
+		tx = tx.Where("created_at >= ?", startTime)
+	}
+	if endTime != 0 {
+		tx = tx.Where("created_at <= ?", endTime)
+	}
+	if err = tx.Group("token_id, created_at").Order("created_at asc, token_id asc").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	enrichUsageDimensionTrendTokenNames(rows)
+	return rows, nil
+}
+
+func enrichUsageDimensionTrendTokenNames(trendData []*UsageDimensionTrendData) {
+	if len(trendData) == 0 {
+		return
+	}
+	tokenIdSet := make(map[int]struct{})
+	for _, item := range trendData {
+		if item != nil && item.TokenId > 0 {
+			tokenIdSet[item.TokenId] = struct{}{}
+		}
+	}
+	if len(tokenIdSet) == 0 {
+		return
+	}
+	tokenIds := make([]int, 0, len(tokenIdSet))
+	for tokenId := range tokenIdSet {
+		tokenIds = append(tokenIds, tokenId)
+	}
+	var tokens []Token
+	if err := DB.Select("id", "name").Where("id IN ?", tokenIds).Find(&tokens).Error; err != nil {
+		common.SysError("failed to query usage trend token names: " + err.Error())
+		return
+	}
+	tokenNames := make(map[int]string, len(tokens))
+	for _, token := range tokens {
+		tokenNames[token.Id] = token.Name
+	}
+	for _, item := range trendData {
+		if item == nil {
+			continue
+		}
+		item.TokenName = tokenNames[item.TokenId]
+	}
+}
+
 func GetAllQuotaDates(startTime int64, endTime int64, username string) (quotaData []*QuotaData, err error) {
 	if username != "" {
 		return GetQuotaDataByUsername(username, startTime, endTime)

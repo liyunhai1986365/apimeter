@@ -6,7 +6,7 @@ describe('dashboard section registry', () => {
   test('keeps billing out of dashboard sections', () => {
     assert.deepEqual(
       [...DASHBOARD_SECTION_IDS],
-      ['overview', 'models', 'users']
+      ['overview', 'models', 'flow', 'tokens', 'users']
     )
   })
 })

@@ -19,14 +19,17 @@ For commercial licensing, please contact support@quantumnous.com
 import { useEffect, useMemo, useState, useRef, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { VChart } from '@visactor/react-vchart'
-import { Users, Loader2 } from 'lucide-react'
+import { KeyRound, Users, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getRollingDateRange, type TimeGranularity } from '@/lib/time'
 import { VCHART_OPTION } from '@/lib/vchart'
 import { useThemeCustomization } from '@/context/theme-customization-provider'
 import { useTheme } from '@/context/theme-provider'
 import { Skeleton } from '@/components/ui/skeleton'
-import { getUserQuotaDataByUsers } from '@/features/dashboard/api'
+import {
+  getSelfTokenQuotaData,
+  getUserQuotaDataByUsers,
+} from '@/features/dashboard/api'
 import {
   TIME_GRANULARITY_OPTIONS,
   TIME_RANGE_PRESETS,
@@ -35,9 +38,13 @@ import {
   getDefaultDays,
   getSavedGranularity,
   saveGranularity,
+  processTokenChartData,
   processUserChartData,
 } from '@/features/dashboard/lib'
-import type { ProcessedUserChartData } from '@/features/dashboard/types'
+import type {
+  ProcessedTokenChartData,
+  ProcessedUserChartData,
+} from '@/features/dashboard/types'
 
 let themeManagerPromise: Promise<
   (typeof import('@visactor/vchart'))['ThemeManager']
@@ -61,11 +68,14 @@ const USER_CHARTS: {
 ]
 
 const TOP_USER_LIMIT_OPTIONS = [5, 10, 20, 50]
+const TOP_TOKEN_LIMIT_OPTIONS = [5, 10, 20, 50]
+type AnalyticsTab = 'users' | 'tokens'
 
-export function UserCharts() {
+function AnalyticsCharts(props: { mode: AnalyticsTab }) {
   const { t } = useTranslation()
   const { resolvedTheme } = useTheme()
   const { customization } = useThemeCustomization()
+  const activeTab = props.mode
   const [themeReady, setThemeReady] = useState(false)
   const themeManagerRef = useRef<
     (typeof import('@visactor/vchart'))['ThemeManager'] | null
@@ -78,6 +88,7 @@ export function UserCharts() {
     getDefaultDays(timeGranularity)
   )
   const [topUserLimit, setTopUserLimit] = useState(10)
+  const [topTokenLimit, setTopTokenLimit] = useState(10)
   const [timeRange, setTimeRange] = useState(() => {
     const days = getDefaultDays(timeGranularity)
     const { start, end } = getRollingDateRange(days)
@@ -128,6 +139,15 @@ export function UserCharts() {
     queryKey: ['dashboard', 'user-quota', timeRange],
     queryFn: () => getUserQuotaDataByUsers(timeRange),
     select: (res) => (res.success ? res.data : []),
+    enabled: activeTab === 'users',
+    staleTime: 60_000,
+  })
+
+  const { data: tokenData, isLoading: isTokenLoading } = useQuery({
+    queryKey: ['dashboard', 'self-token-quota', timeRange],
+    queryFn: () => getSelfTokenQuotaData(timeRange),
+    select: (res) => (res.success ? res.data : []),
+    enabled: activeTab === 'tokens',
     staleTime: 60_000,
   })
 
@@ -147,9 +167,53 @@ export function UserCharts() {
       t,
       topUserLimit,
       customization.preset,
-      customization.radius,
     ]
   )
+
+  const tokenChartData = useMemo(
+    () =>
+      processTokenChartData(
+        isTokenLoading ? [] : (tokenData ?? []),
+        timeGranularity,
+        t,
+        topTokenLimit,
+        customization.preset
+      ),
+    [
+      tokenData,
+      isTokenLoading,
+      timeGranularity,
+      t,
+      topTokenLimit,
+      customization.preset,
+    ]
+  )
+
+  const visibleCharts: Array<{
+    value: string
+    labelKey: string
+    specKey: keyof ProcessedUserChartData | keyof ProcessedTokenChartData
+    icon: typeof Users
+  }> =
+    activeTab === 'users'
+      ? USER_CHARTS.map((chart) => ({ ...chart, icon: Users }))
+      : [
+          {
+            value: 'rank',
+            labelKey: 'Token Consumption Ranking',
+            specKey: 'spec_token_rank',
+            icon: KeyRound,
+          },
+          {
+            value: 'trend',
+            labelKey: 'Token Consumption Trend',
+            specKey: 'spec_token_trend',
+            icon: KeyRound,
+          },
+        ]
+
+  const activeLimit = activeTab === 'users' ? topUserLimit : topTokenLimit
+  const activeLoading = activeTab === 'users' ? isLoading : isTokenLoading
 
   return (
     <div className='space-y-3'>
@@ -192,15 +256,22 @@ export function UserCharts() {
 
         <div className='flex shrink-0 items-center gap-1.5 rounded-lg border p-0.5'>
           <span className='text-muted-foreground px-2 text-xs font-medium'>
-            {t('Top Users')}
+            {activeTab === 'users' ? t('Top Users') : t('Top Tokens')}
           </span>
-          {TOP_USER_LIMIT_OPTIONS.map((limit) => (
+          {(activeTab === 'users'
+            ? TOP_USER_LIMIT_OPTIONS
+            : TOP_TOKEN_LIMIT_OPTIONS
+          ).map((limit) => (
             <button
               key={limit}
               type='button'
-              onClick={() => setTopUserLimit(limit)}
+              onClick={() =>
+                activeTab === 'users'
+                  ? setTopUserLimit(limit)
+                  : setTopTokenLimit(limit)
+              }
               className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                topUserLimit === limit
+                activeLimit === limit
                   ? 'bg-primary text-primary-foreground shadow-sm'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               }`}
@@ -210,14 +281,18 @@ export function UserCharts() {
           ))}
         </div>
 
-        {isLoading && (
+        {activeLoading && (
           <Loader2 className='text-muted-foreground size-4 animate-spin' />
         )}
       </div>
 
       <div className='grid gap-3'>
-        {USER_CHARTS.map((chart) => {
-          const spec = chartData[chart.specKey]
+        {visibleCharts.map((chart) => {
+          const spec =
+            activeTab === 'users'
+              ? chartData[chart.specKey as keyof ProcessedUserChartData]
+              : tokenChartData[chart.specKey as keyof ProcessedTokenChartData]
+          const Icon = chart.icon
 
           return (
             <div
@@ -225,18 +300,18 @@ export function UserCharts() {
               className='overflow-hidden rounded-lg border'
             >
               <div className='flex w-full items-center gap-2 border-b px-3 py-2 sm:px-5 sm:py-3'>
-                <Users className='text-muted-foreground/60 size-4' />
+                <Icon className='text-muted-foreground/60 size-4' />
                 <div className='text-sm font-semibold'>{t(chart.labelKey)}</div>
               </div>
 
               <div className='h-[300px] p-1.5 sm:h-96 sm:p-2'>
-                {isLoading ? (
+                {activeLoading ? (
                   <Skeleton className='h-full w-full' />
                 ) : (
                   themeReady &&
                   spec && (
                     <VChart
-                      key={`user-${chart.value}-${topUserLimit}-${resolvedTheme}-${customization.preset}`}
+                      key={`${activeTab}-${chart.value}-${activeLimit}-${resolvedTheme}-${customization.preset}`}
                       spec={{
                         ...spec,
                         theme: resolvedTheme === 'dark' ? 'dark' : 'light',
@@ -253,4 +328,12 @@ export function UserCharts() {
       </div>
     </div>
   )
+}
+
+export function UserCharts() {
+  return <AnalyticsCharts mode='users' />
+}
+
+export function TokenCharts() {
+  return <AnalyticsCharts mode='tokens' />
 }

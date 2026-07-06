@@ -42,6 +42,12 @@ const DASHBOARD_SECTIONS = [
     build: () => null,
   },
   {
+    id: 'tokens',
+    titleKey: 'Token Analytics',
+    descriptionKey: 'View token consumption statistics and charts',
+    build: () => null,
+  },
+  {
     id: 'users',
     titleKey: 'User Analytics',
     descriptionKey: 'View user consumption statistics and charts',

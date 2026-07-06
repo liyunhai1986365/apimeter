@@ -132,6 +132,74 @@ func TestGetFlowQuotaDataUsesQuotaDataRoleSpecificDimensions(t *testing.T) {
 	require.Equal(t, 175, selfRows[0].Quota)
 }
 
+func TestGetSelfTokenQuotaDataGroupsOnlyAuthenticatedUserTokens(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, DB.Create(&Token{Id: 11, UserId: 1, Key: "sk-primary", Name: "primary"}).Error)
+	require.NoError(t, DB.Create(&Token{Id: 22, UserId: 1, Key: "sk-worker", Name: "worker"}).Error)
+	require.NoError(t, DB.Create(&Token{Id: 33, UserId: 2, Key: "sk-other", Name: "other"}).Error)
+
+	seedFlowQuotaData(t, QuotaData{
+		UserID:    1,
+		Username:  "alice",
+		TokenID:   11,
+		ModelName: "gpt-a",
+		CreatedAt: 1000,
+		Count:     2,
+		Quota:     100,
+		TokenUsed: 40,
+	})
+	seedFlowQuotaData(t, QuotaData{
+		UserID:    1,
+		Username:  "alice",
+		TokenID:   11,
+		ModelName: "gpt-b",
+		CreatedAt: 1000,
+		Count:     3,
+		Quota:     70,
+		TokenUsed: 30,
+	})
+	seedFlowQuotaData(t, QuotaData{
+		UserID:    1,
+		Username:  "alice",
+		TokenID:   22,
+		ModelName: "gpt-a",
+		CreatedAt: 1100,
+		Count:     1,
+		Quota:     25,
+		TokenUsed: 10,
+	})
+	seedFlowQuotaData(t, QuotaData{
+		UserID:    2,
+		Username:  "bob",
+		TokenID:   33,
+		ModelName: "gpt-a",
+		CreatedAt: 1000,
+		Count:     9,
+		Quota:     900,
+		TokenUsed: 300,
+	})
+
+	rows, err := GetSelfTokenQuotaData(900, 1200, 1)
+	require.NoError(t, err)
+	require.Len(t, rows, 2)
+	require.Equal(t, UsageDimensionTrendData{
+		CreatedAt: 1000,
+		TokenId:   11,
+		TokenName: "primary",
+		Count:     5,
+		TokenUsed: 70,
+		Quota:     170,
+	}, *rows[0])
+	require.Equal(t, UsageDimensionTrendData{
+		CreatedAt: 1100,
+		TokenId:   22,
+		TokenName: "worker",
+		Count:     1,
+		TokenUsed: 10,
+		Quota:     25,
+	}, *rows[1])
+}
+
 func TestLogQuotaDataSplitsRowsByUseGroupTokenChannelAndNode(t *testing.T) {
 	truncateTables(t)
 	CacheQuotaDataLock.Lock()

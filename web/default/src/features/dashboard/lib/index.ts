@@ -35,6 +35,7 @@ export {
 export {
   processChartData,
   processDimensionTrendChartData,
+  processTokenChartData,
   processUserChartData,
 } from './charts'
 export {

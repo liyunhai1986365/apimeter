@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 import type {
   QuotaDataItem,
+  FlowQuotaDataItem,
   UsageDimensionTrendItem,
   UptimeGroupResult,
 } from './types'
@@ -88,6 +89,17 @@ export async function getUserQuotaDataByUsers(params: {
   return res.data
 }
 
+export async function getSelfTokenQuotaData(params: {
+  start_timestamp: number
+  end_timestamp: number
+}) {
+  const res = await api.get<{
+    success: boolean
+    data: UsageDimensionTrendItem[]
+  }>('/api/data/self/tokens', { params })
+  return res.data
+}
+
 // Get uptime monitoring status for all services
 export async function getUptimeStatus() {
   const res = await api.get<{ success: boolean; data: UptimeGroupResult[] }>(
@@ -106,7 +118,7 @@ export async function getFlowQuotaData(params: {
   end_timestamp: number
   username?: string
 }) {
-  const res = await api.get<{ success: boolean; data: any[] }>(
+  const res = await api.get<{ success: boolean; data: FlowQuotaDataItem[] }>(
     '/api/dashboard/flow',
     { params }
   )

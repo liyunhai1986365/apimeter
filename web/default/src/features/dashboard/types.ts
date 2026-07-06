@@ -125,6 +125,11 @@ export interface ProcessedUserChartData {
   spec_user_trend: VChartSpec
 }
 
+export interface ProcessedTokenChartData {
+  spec_token_rank: VChartSpec
+  spec_token_trend: VChartSpec
+}
+
 export interface ProcessedDimensionTrendChartData {
   spec_trend: VChartSpec
   totalQuotaDisplay: string

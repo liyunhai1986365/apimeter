@@ -83,6 +83,12 @@ const LazyUserCharts = lazy(() =>
   }))
 )
 
+const LazyTokenCharts = lazy(() =>
+  import('./components/users/user-charts').then((m) => ({
+    default: m.TokenCharts,
+  }))
+)
+
 const LazyFlowCharts = lazy(() =>
   import('./components/flow/flow-charts').then((m) => ({
     default: m.FlowCharts,
@@ -157,6 +163,10 @@ const SECTION_META: Record<
   flow: {
     titleKey: 'Traffic Flow',
     descriptionKey: 'Visualize token routing and flow patterns',
+  },
+  tokens: {
+    titleKey: 'Token Analytics',
+    descriptionKey: 'View token consumption statistics and charts',
   },
   users: {
     titleKey: 'User Analytics',
@@ -331,6 +341,13 @@ export function Dashboard() {
             <FadeIn>
               <Suspense fallback={<ModelChartsFallback />}>
                 <LazyUserCharts />
+              </Suspense>
+            </FadeIn>
+          )}
+          {activeSection === 'tokens' && (
+            <FadeIn>
+              <Suspense fallback={<ModelChartsFallback />}>
+                <LazyTokenCharts />
               </Suspense>
             </FadeIn>
           )}
