@@ -16,18 +16,36 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import {
+  Boxes,
+  Image as ImageIcon,
+  Mic2,
+  Shapes,
+  Type as TypeIcon,
+  type LucideIcon,
+  Video,
+  Workflow,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import {
-  MODEL_CATEGORIES,
-  getModelCategoryLabels,
-} from '../constants'
+import { MODEL_CATEGORIES, getModelCategoryLabels } from '../constants'
 import type { PricingModel } from '../types'
 
 type CategoryTab = {
   value: string
   label: string
   count: number
+  icon: LucideIcon
+}
+
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  [MODEL_CATEGORIES.ALL]: Boxes,
+  [MODEL_CATEGORIES.TEXT]: TypeIcon,
+  [MODEL_CATEGORIES.VECTOR]: Workflow,
+  [MODEL_CATEGORIES.IMAGE]: ImageIcon,
+  [MODEL_CATEGORIES.AUDIO]: Mic2,
+  [MODEL_CATEGORIES.VIDEO]: Video,
+  [MODEL_CATEGORIES.OTHER]: Shapes,
 }
 
 export interface PricingFilterBarProps {
@@ -52,12 +70,14 @@ export function PricingFilterBar(props: PricingFilterBarProps) {
       value: MODEL_CATEGORIES.ALL,
       label: categoryLabels[MODEL_CATEGORIES.ALL],
       count: props.models.length,
+      icon: CATEGORY_ICONS[MODEL_CATEGORIES.ALL],
     },
     ...Object.entries(categoryLabels)
       .filter(([value]) => value !== MODEL_CATEGORIES.ALL)
       .map(([value, label]) => ({
         value,
         label,
+        icon: CATEGORY_ICONS[value] ?? Shapes,
         count: countBy(
           props.models,
           (model) => (model.category || MODEL_CATEGORIES.TEXT) === value
@@ -76,6 +96,7 @@ export function PricingFilterBar(props: PricingFilterBarProps) {
       <div className='flex gap-1 overflow-x-auto'>
         {categoryTabs.map((tab) => {
           const active = props.categoryFilter === tab.value
+          const Icon = tab.icon
           return (
             <button
               key={tab.value}
@@ -90,6 +111,7 @@ export function PricingFilterBar(props: PricingFilterBarProps) {
                   : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
               )}
             >
+              <Icon className='size-3.5 shrink-0' aria-hidden='true' />
               <span>{tab.label}</span>
               <span
                 className={cn(
