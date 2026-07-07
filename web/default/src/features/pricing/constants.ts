@@ -17,6 +17,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { type TFunction } from 'i18next'
+import {
+  AudioLines,
+  Binary,
+  FileText,
+  Image,
+  LayoutGrid,
+  Shapes,
+  Video,
+  type LucideIcon,
+} from 'lucide-react'
 import type { Modality, ModelCategory, TokenUnit } from './types'
 
 // ----------------------------------------------------------------------------
@@ -63,9 +73,7 @@ export const MODEL_CATEGORY_VALUES = [
   MODEL_CATEGORIES.OTHER,
 ] as const
 
-export type ModelCategoryOption =
-  | typeof MODEL_CATEGORIES.ALL
-  | ModelCategory
+export type ModelCategoryOption = typeof MODEL_CATEGORIES.ALL | ModelCategory
 
 export function getModelCategoryLabels(
   t: TFunction
@@ -78,6 +86,47 @@ export function getModelCategoryLabels(
     [MODEL_CATEGORIES.AUDIO]: t('Audio'),
     [MODEL_CATEGORIES.VIDEO]: t('Video'),
     [MODEL_CATEGORIES.OTHER]: t('Other'),
+  }
+}
+
+export type ModelCategoryIconStyle = {
+  icon: LucideIcon
+  className: string
+}
+
+export function getModelCategoryIconStyles(): Record<
+  ModelCategoryOption,
+  ModelCategoryIconStyle
+> {
+  return {
+    [MODEL_CATEGORIES.ALL]: {
+      icon: LayoutGrid,
+      className: 'text-slate-500',
+    },
+    [MODEL_CATEGORIES.TEXT]: {
+      icon: FileText,
+      className: 'text-sky-600',
+    },
+    [MODEL_CATEGORIES.VECTOR]: {
+      icon: Binary,
+      className: 'text-emerald-600',
+    },
+    [MODEL_CATEGORIES.IMAGE]: {
+      icon: Image,
+      className: 'text-rose-600',
+    },
+    [MODEL_CATEGORIES.AUDIO]: {
+      icon: AudioLines,
+      className: 'text-amber-600',
+    },
+    [MODEL_CATEGORIES.VIDEO]: {
+      icon: Video,
+      className: 'text-violet-600',
+    },
+    [MODEL_CATEGORIES.OTHER]: {
+      icon: Shapes,
+      className: 'text-zinc-600',
+    },
   }
 }
 

@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -145,6 +146,121 @@ func TestUpdateImageTasksUsesConfigurableImageFetcher(t *testing.T) {
 	require.Equal(t, model.TaskStatus(model.TaskStatusSuccess), reloaded.Status)
 	require.Equal(t, "100%", reloaded.Progress)
 	require.Equal(t, "https://file.apixo.ai/output.png", reloaded.PrivateData.ResultURL)
+}
+
+func TestUpdateImageTasksRefundsFailedAsyncImageTask(t *testing.T) {
+	truncate(t)
+
+	upstreamTaskID := "failed-image-task"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/tasks/"+upstreamTaskID, r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"failed-image-task","state":"failed","progress":100,"error":{"message":"upstream rejected prompt"},"data":{"images":[]}}`))
+	}))
+	defer upstream.Close()
+
+	require.NoError(t, model.DB.Create(&model.User{
+		Id:       7,
+		Username: "image-user",
+		Quota:    1000,
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{
+		Id:          33,
+		UserId:      7,
+		Name:        "image-token",
+		Key:         "sk-token",
+		Status:      common.TokenStatusEnabled,
+		RemainQuota: 500,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{
+		Id:      11,
+		Type:    constant.ChannelTypeOpenAI,
+		Key:     "sk-upstream",
+		BaseURL: &upstream.URL,
+		Status:  common.ChannelStatusEnabled,
+		Name:    "async-image",
+	}).Error)
+
+	now := time.Now().Unix()
+	task := &model.Task{
+		TaskID:     upstreamTaskID,
+		UserId:     7,
+		ChannelId:  11,
+		TokenId:    33,
+		TokenName:  "image-token",
+		Action:     constant.TaskActionGenerate,
+		Status:     model.TaskStatusSubmitted,
+		Progress:   "0%",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		SubmitTime: now,
+		Quota:      123,
+		Platform:   constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI)),
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: upstreamTaskID,
+			AsyncImage:     true,
+			TokenId:        33,
+			BillingSource:  BillingSourceWallet,
+			BillingContext: &model.TaskBillingContext{
+				OriginModelName: "gpt-image-2",
+				PerCallBilling:  true,
+			},
+		},
+	}
+	require.NoError(t, model.DB.Create(task).Error)
+
+	err := UpdateImageTasks(context.Background(), map[int][]string{11: []string{upstreamTaskID}}, map[string]*model.Task{upstreamTaskID: task})
+	require.NoError(t, err)
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", upstreamTaskID).First(&reloaded).Error)
+	require.Equal(t, model.TaskStatus(model.TaskStatusFailure), reloaded.Status)
+	require.Equal(t, "100%", reloaded.Progress)
+	require.Equal(t, "upstream rejected prompt", reloaded.FailReason)
+
+	var user model.User
+	require.NoError(t, model.DB.Where("id = ?", 7).First(&user).Error)
+	require.Equal(t, 1123, user.Quota)
+
+	var token model.Token
+	require.NoError(t, model.DB.Where("id = ?", 33).First(&token).Error)
+	require.Equal(t, 623, token.RemainQuota)
+}
+
+func TestRunTaskPollingOnceSkipsLocalAsyncImageTaskWithoutUpstreamID(t *testing.T) {
+	truncate(t)
+	originLimit := constant.TaskQueryLimit
+	constant.TaskQueryLimit = 10
+	t.Cleanup(func() { constant.TaskQueryLimit = originLimit })
+
+	now := time.Now().Unix()
+	require.NoError(t, model.DB.Create(&model.Task{
+		TaskID:     "task_local_image",
+		UserId:     7,
+		ChannelId:  11,
+		Action:     constant.TaskActionGenerate,
+		Status:     model.TaskStatusSubmitted,
+		Progress:   "0%",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		SubmitTime: now,
+		Platform:   constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI)),
+		PrivateData: model.TaskPrivateData{
+			AsyncImage: true,
+		},
+		Data: []byte(`{"model":"gpt-image-2","prompt":"cat"}`),
+	}).Error)
+
+	result := RunTaskPollingOnce(context.Background(), func(processed, total int) {})
+	require.Equal(t, 1, result["total_tasks"])
+	require.Equal(t, 0, result["processed_channels"])
+	require.Equal(t, 0, result["total_channels"])
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", "task_local_image").First(&reloaded).Error)
+	require.Equal(t, model.TaskStatus(model.TaskStatusSubmitted), reloaded.Status)
+	require.Empty(t, reloaded.PrivateData.UpstreamTaskID)
 }
 
 func TestUpdateVideoTasksPollsConfigurableProfile(t *testing.T) {

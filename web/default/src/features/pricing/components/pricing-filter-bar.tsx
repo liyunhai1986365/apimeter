@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   MODEL_CATEGORIES,
+  getModelCategoryIconStyles,
   getModelCategoryLabels,
 } from '../constants'
 import type { PricingModel } from '../types'
@@ -47,6 +48,7 @@ function countBy(
 export function PricingFilterBar(props: PricingFilterBarProps) {
   const { t } = useTranslation()
   const categoryLabels = getModelCategoryLabels(t)
+  const categoryIconStyles = getModelCategoryIconStyles()
   const categoryTabs: CategoryTab[] = [
     {
       value: MODEL_CATEGORIES.ALL,
@@ -76,6 +78,9 @@ export function PricingFilterBar(props: PricingFilterBarProps) {
       <div className='flex gap-1 overflow-x-auto'>
         {categoryTabs.map((tab) => {
           const active = props.categoryFilter === tab.value
+          const iconStyle =
+            categoryIconStyles[tab.value as keyof typeof categoryIconStyles]
+          const Icon = iconStyle.icon
           return (
             <button
               key={tab.value}
@@ -90,6 +95,16 @@ export function PricingFilterBar(props: PricingFilterBarProps) {
                   : 'text-muted-foreground hover:bg-muted/70 hover:text-foreground'
               )}
             >
+              <span
+                className={cn(
+                  'inline-flex size-5 items-center justify-center',
+                  active ? iconStyle.className : 'text-muted-foreground'
+                )}
+                data-category-icon={tab.value}
+                aria-hidden='true'
+              >
+                <Icon className='size-3.5' strokeWidth={2.2} />
+              </span>
               <span>{tab.label}</span>
               <span
                 className={cn(

@@ -1,11 +1,13 @@
 package relay
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -780,6 +782,277 @@ func TestImageTaskResponseWithURLImagesStoresBase64(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, gjsonGetString(t, body, "data.images.0.url"), "https://cdn.example.com/api/relay-temp-images/")
 	require.Empty(t, gjsonGetString(t, body, "data.images.0.b64_json"))
+}
+
+func TestLocalImageTaskResponseFromOpenAIImageBody(t *testing.T) {
+	now := time.Unix(1779125744, 0)
+	body, err := localImageTaskResponseFromOpenAIImageBody("task_local", "generate", now, []byte(`{
+		"created": 1779125740,
+		"data": [
+			{"url":"https://cdn.example.com/output.png","b64_json":"","revised_prompt":""}
+		],
+		"usage": {"total_tokens": 10}
+	}`))
+
+	require.NoError(t, err)
+	require.JSONEq(t, `{
+		"id":"task_local",
+		"state":"succeeded",
+		"progress":100,
+		"create_time":1779125740,
+		"update_time":1779125744,
+		"action":"generate",
+		"data":{"images":[{"url":"https://cdn.example.com/output.png"}]}
+	}`, string(body))
+}
+
+func TestImageTaskFetchReturnsStoredLocalAsyncImageTask(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+
+	now := time.Now().Unix()
+	require.NoError(t, model.DB.Create(&model.Task{
+		TaskID:     "task_local",
+		UserId:     7,
+		ChannelId:  11,
+		Action:     constant.TaskActionGenerate,
+		Status:     model.TaskStatusSuccess,
+		Progress:   "100%",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		SubmitTime: now,
+		FinishTime: now,
+		Platform:   constant.TaskPlatform("1"),
+		Data: []byte(`{
+			"id":"task_local",
+			"state":"succeeded",
+			"progress":100,
+			"create_time":1779125744,
+			"update_time":1779125807,
+			"action":"generate",
+			"data":{"images":[{"url":"https://cdn.example.com/output.png"}]}
+		}`),
+		PrivateData: model.TaskPrivateData{
+			AsyncImage: true,
+		},
+	}).Error)
+
+	router := gin.New()
+	router.GET("/v1/tasks/:id", func(c *gin.Context) {
+		c.Set("id", 7)
+		if taskErr := ImageTaskFetch(c); taskErr != nil {
+			c.JSON(taskErr.StatusCode, taskErr)
+		}
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/v1/tasks/task_local", nil)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.JSONEq(t, `{
+		"id":"task_local",
+		"state":"succeeded",
+		"progress":100,
+		"create_time":1779125744,
+		"update_time":1779125807,
+		"action":"generate",
+		"data":{"images":[{"url":"https://cdn.example.com/output.png"}]}
+	}`, recorder.Body.String())
+}
+
+func TestRunLocalImageAsyncTaskStoresRecorderImageResponse(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/images/generations", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}]}`))
+	}))
+	defer upstream.Close()
+
+	baseURL := upstream.URL
+	require.NoError(t, model.DB.Create(&model.Channel{
+		Id:      11,
+		Type:    constant.ChannelTypeOpenAI,
+		Key:     "sk-upstream",
+		BaseURL: &baseURL,
+		Status:  common.ChannelStatusEnabled,
+		Name:    "sync-image",
+	}).Error)
+
+	body := []byte(`{"model":"gpt-image-2","prompt":"cat"}`)
+	info := &relaycommon.RelayInfo{
+		UserId:          7,
+		UsingGroup:      "default",
+		OriginModelName: "gpt-image-2",
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:  "/v1/images/generations",
+		Request:         &dto.ImageRequest{Model: "gpt-image-2", Prompt: "cat"},
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: baseURL,
+			ApiKey:         "sk-upstream",
+		},
+		PriceData: types.PriceData{QuotaToPreConsume: 123},
+	}
+	task, apiErr := insertLocalImageAsyncTask(info, body)
+	require.Nil(t, apiErr)
+
+	recorder := httptest.NewRecorder()
+	sourceCtx, _ := gin.CreateTestContext(recorder)
+	sourceCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	sourceCtx.Request.Header.Set("Content-Type", "application/json")
+	c := cloneImageAsyncGinContext(sourceCtx, body)
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	c.Set(string(constant.ContextKeyChannelId), 11)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), baseURL)
+
+	runLocalImageAsyncTask(c, info, task)
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", task.TaskID).First(&reloaded).Error)
+	require.Equal(t, model.TaskStatus(model.TaskStatusSuccess), reloaded.Status)
+	require.Equal(t, "https://cdn.example.com/output.png", reloaded.PrivateData.ResultURL)
+	require.JSONEq(t, `{
+		"id":"`+task.TaskID+`",
+		"state":"succeeded",
+		"progress":100,
+		"create_time":1779125744,
+		"update_time":`+strconv.FormatInt(reloaded.UpdatedAt, 10)+`,
+		"action":"generate",
+		"data":{"images":[{"url":"https://cdn.example.com/output.png"}]}
+	}`, string(reloaded.Data))
+}
+
+func TestImageHelperAsyncTrueReturnsLocalTaskImmediatelyForSyncProvider(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/images/generations", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}]}`))
+	}))
+	defer upstream.Close()
+
+	body := []byte(`{"model":"gpt-image-2","prompt":"cat"}`)
+	info := &relaycommon.RelayInfo{
+		UserId:              7,
+		UsingGroup:          "default",
+		OriginModelName:     "gpt-image-2",
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:      "/v1/images/generations",
+		Request:             &dto.ImageRequest{Model: "gpt-image-2", Prompt: "cat"},
+		IsAsyncImageRequest: true,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: upstream.URL,
+			ApiKey:         "sk-upstream",
+		},
+		PriceData: types.PriceData{QuotaToPreConsume: 123},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	c.Set(string(constant.ContextKeyChannelId), 11)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+
+	apiErr := ImageHelper(c, info)
+	require.Nil(t, apiErr)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "generate", gjsonGetString(t, recorder.Body.Bytes(), "action"))
+	require.Equal(t, "queued", gjsonGetString(t, recorder.Body.Bytes(), "state"))
+	taskID := gjsonGetString(t, recorder.Body.Bytes(), "id")
+	require.NotEmpty(t, taskID)
+
+	var task model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", taskID).First(&task).Error)
+	require.True(t, task.PrivateData.AsyncImage)
+	require.Empty(t, task.PrivateData.UpstreamTaskID)
+
+	require.Eventually(t, func() bool {
+		var reloaded model.Task
+		if err := model.DB.Where("task_id = ?", taskID).First(&reloaded).Error; err != nil {
+			return false
+		}
+		return reloaded.Status == model.TaskStatusSuccess
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestImageHelperAsyncTrueBindsLocalTaskToUpstreamAsyncID(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/images/generations", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"upstream-image-task"}`))
+	}))
+	defer upstream.Close()
+
+	body := []byte(`{"model":"gpt-image-2","prompt":"cat"}`)
+	info := &relaycommon.RelayInfo{
+		UserId:              7,
+		UsingGroup:          "default",
+		OriginModelName:     "gpt-image-2",
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:      "/v1/images/generations",
+		Request:             &dto.ImageRequest{Model: "gpt-image-2", Prompt: "cat"},
+		IsAsyncImageRequest: true,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: upstream.URL,
+			ApiKey:         "sk-upstream",
+		},
+		PriceData: types.PriceData{QuotaToPreConsume: 123},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	c.Set(string(constant.ContextKeyChannelId), 11)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+
+	apiErr := ImageHelper(c, info)
+	require.Nil(t, apiErr)
+	localTaskID := gjsonGetString(t, recorder.Body.Bytes(), "id")
+	require.NotEmpty(t, localTaskID)
+	require.NotEqual(t, "upstream-image-task", localTaskID)
+
+	require.Eventually(t, func() bool {
+		var task model.Task
+		if err := model.DB.Where("task_id = ?", localTaskID).First(&task).Error; err != nil {
+			return false
+		}
+		return task.PrivateData.UpstreamTaskID == "upstream-image-task" &&
+			task.Status == model.TaskStatusSubmitted
+	}, time.Second, 10*time.Millisecond)
+
+	var count int64
+	require.NoError(t, model.DB.Model(&model.Task{}).Where("task_id = ?", "upstream-image-task").Count(&count).Error)
+	require.Zero(t, count)
 }
 
 func TestWaitImageAsyncSubmitResponseUsesConfigurableDuomiGeminiProfile(t *testing.T) {
