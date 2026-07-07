@@ -17,12 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   flexRender,
   getCoreRowModel,
   useReactTable,
 } from '@tanstack/react-table'
-import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
@@ -108,7 +108,7 @@ export function PricingTable(props: PricingTableProps) {
           <TableHeader className='bg-background'>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map((header) =>
                   (() => {
                     const meta = header.column.columnDef.meta
                     return (
@@ -131,7 +131,7 @@ export function PricingTable(props: PricingTableProps) {
                       </TableHead>
                     )
                   })()
-                ))}
+                )}
               </TableRow>
             ))}
           </TableHeader>
@@ -149,7 +149,7 @@ export function PricingTable(props: PricingTableProps) {
                 <TableRow
                   key={row.id}
                   onClick={() => handleRowClick(row.original)}
-                  className='hover:bg-muted/25 cursor-pointer transition-colors [&:last-child>td]:border-b-0'
+                  className='hover:bg-muted/25 group cursor-pointer transition-colors [&:last-child>td]:border-b-0'
                 >
                   {row.getVisibleCells().map((cell) => {
                     const meta = cell.column.columnDef.meta

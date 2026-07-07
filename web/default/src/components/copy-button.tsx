@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type ReactNode } from 'react'
+import { type MouseEventHandler, type ReactNode } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
@@ -37,6 +37,7 @@ interface CopyButtonProps {
   size?: 'default' | 'sm' | 'lg' | 'icon'
   tooltip?: string
   successTooltip?: string
+  onClick?: MouseEventHandler<HTMLButtonElement>
   'aria-label'?: string
 }
 
@@ -49,6 +50,7 @@ export function CopyButton({
   size = 'icon',
   tooltip,
   successTooltip,
+  onClick,
   'aria-label': ariaLabel,
 }: CopyButtonProps) {
   const { t } = useTranslation()
@@ -64,7 +66,10 @@ export function CopyButton({
       variant={variant}
       size={size}
       className={cn('shrink-0', className)}
-      onClick={() => copyToClipboard(value)}
+      onClick={(event) => {
+        onClick?.(event)
+        copyToClipboard(value)
+      }}
       aria-label={isCopied ? copiedAriaLabel : resolvedAriaLabel}
     >
       {isCopied ? (

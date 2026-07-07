@@ -17,11 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { type ColumnDef } from '@tanstack/react-table'
-import { useTranslation } from 'react-i18next'
 import { ArrowRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
+import { CopyButton } from '@/components/copy-button'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
 import {
   formatLatency,
@@ -38,6 +39,7 @@ import {
 import { inferModelMetadata } from '../lib/model-metadata'
 import type { PricingModel, TokenUnit } from '../types'
 import { ModalityIcons } from './model-details-modalities'
+import { stopPricingTableRowClick } from './pricing-table-events'
 
 // ----------------------------------------------------------------------------
 // Pricing Table Columns
@@ -76,7 +78,9 @@ function renderPriceEntries(
     <div className='flex min-w-[8.5rem] flex-col items-end gap-1 text-right leading-5'>
       {entries.map((entry) => {
         const isRequestUnit = entry.unitLabel === 'request'
-        const unit = isRequestUnit ? t('each') : formatPriceUnit(entry.unitLabel, t)
+        const unit = isRequestUnit
+          ? t('each')
+          : formatPriceUnit(entry.unitLabel, t)
         const hasDiscount =
           display.hasDiscount && entry.original !== entry.current
         const specLabel = entry.specLabel || ''
@@ -88,7 +92,7 @@ function renderPriceEntries(
               </span>
             )}
             {hasDiscount && (
-              <span className='text-muted-foreground/55 mr-2 font-mono text-[10px] line-through tabular-nums'>
+              <span className='text-muted-foreground/55 mr-2 font-mono text-[10px] tabular-nums line-through'>
                 {entry.original}
               </span>
             )}
@@ -112,9 +116,7 @@ function renderRequestPrice(
   const entries = findPriceEntries(display, ['request'])
   if (entries.length === 0) return EMPTY_CELL
 
-  return (
-    renderPriceEntries(entries, display, t)
-  )
+  return renderPriceEntries(entries, display, t)
 }
 
 function renderRawExpression(
@@ -228,6 +230,15 @@ export function usePricingColumns(
                 {model.model_name}
               </div>
             </div>
+            <CopyButton
+              value={model.model_name || ''}
+              className='size-6 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 focus-visible:opacity-100'
+              iconClassName='size-3'
+              tooltip={t('Copy model name')}
+              successTooltip={t('Copied!')}
+              aria-label={t('Copy model name')}
+              onClick={stopPricingTableRowClick}
+            />
           </div>
         )
       },
