@@ -2,18 +2,42 @@ package service
 
 import (
 	"encoding/base64"
+	"fmt"
 	"math"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 )
+
+func attachQuotaSaturationToOther(other map[string]interface{}, clamp *common.QuotaClamp) {
+	if clamp == nil || other == nil {
+		return
+	}
+	adminInfo, ok := other["admin_info"].(map[string]interface{})
+	if !ok || adminInfo == nil {
+		adminInfo = make(map[string]interface{})
+		other["admin_info"] = adminInfo
+	}
+	adminInfo["quota_saturation"] = clamp.AuditMap()
+}
+
+func attachQuotaSaturation(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, other map[string]interface{}) {
+	if relayInfo == nil || relayInfo.QuotaClamp == nil {
+		return
+	}
+	clamp := relayInfo.QuotaClamp
+	attachQuotaSaturationToOther(other, clamp)
+	logger.LogWarn(ctx, fmt.Sprintf("quota saturation on consume log: op=%s kind=%s original=%g clamped=%d user=%d model=%s",
+		clamp.Op, clamp.Kind, clamp.Original, clamp.Clamped, relayInfo.UserId, relayInfo.OriginModelName))
+}
 
 func roundFloat(value float64, places int) float64 {
 	if places <= 0 {
@@ -43,11 +67,11 @@ func appendChannelCostInfo(other map[string]interface{}, relayInfo *relaycommon.
 
 	baseQuota := revenueQuota
 	if groupRatio > 0 {
-		baseQuota = int(math.Round(float64(revenueQuota) / groupRatio))
+		baseQuota = common.QuotaRound(float64(revenueQuota) / groupRatio)
 	}
 
 	channelRatio := channelRatioFromRelayInfo(relayInfo)
-	costQuota := int(math.Round(float64(baseQuota) * channelRatio))
+	costQuota := common.QuotaRound(float64(baseQuota) * channelRatio)
 	profitQuota := revenueQuota - costQuota
 	profitRate := 0.0
 	if revenueQuota != 0 {

@@ -254,6 +254,9 @@ func RecalculateTaskQuotaByTieredExpr(ctx context.Context, task *model.Task, tas
 	extraOther["actual_total_tokens"] = totalTokens
 	extraOther["actual_prompt_tokens"] = promptTokens
 	extraOther["actual_completion_tokens"] = taskResult.CompletionTokens
+	if tieredResult != nil && tieredResult.Clamp != nil {
+		attachQuotaSaturationToOther(extraOther, tieredResult.Clamp)
+	}
 	recalculateTaskQuota(ctx, task, actualQuota, reason, extraOther)
 	return true
 }
@@ -384,10 +387,14 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 	}
 
 	// 计算实际应扣费额度: totalTokens * modelRatio * groupRatio * otherMultiplier
-	actualQuota := int(float64(totalTokens) * modelRatio * finalGroupRatio * otherMultiplier)
+	actualQuota, clamp := common.QuotaFromFloatChecked(float64(totalTokens) * modelRatio * finalGroupRatio * otherMultiplier)
 
 	reason := fmt.Sprintf("token重算：tokens=%d, modelRatio=%.2f, groupRatio=%.2f, otherMultiplier=%.4f", totalTokens, modelRatio, finalGroupRatio, otherMultiplier)
-	RecalculateTaskQuota(ctx, task, actualQuota, reason)
+	extraOther := map[string]interface{}{}
+	if clamp != nil {
+		attachQuotaSaturationToOther(extraOther, clamp)
+	}
+	recalculateTaskQuota(ctx, task, actualQuota, reason, extraOther)
 }
 
 func taskBillingGroupRatio(task *model.Task) float64 {

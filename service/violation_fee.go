@@ -91,12 +91,11 @@ func calcViolationFeeQuota(amount, groupRatio float64) int {
 	quota := decimal.NewFromFloat(amount).
 		Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
 		Mul(decimal.NewFromFloat(groupRatio)).
-		Round(0).
-		IntPart()
-	if quota <= 0 {
+		Round(0)
+	if quota.LessThanOrEqual(decimal.Zero) {
 		return 0
 	}
-	return int(quota)
+	return common.QuotaFromDecimal(quota)
 }
 
 // ChargeViolationFeeIfNeeded charges an additional fee after the normal flow finishes (including refund).

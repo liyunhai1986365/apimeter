@@ -1,10 +1,12 @@
 package service
 
 import (
+	"math"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
@@ -67,6 +69,53 @@ func TestCalculateTextQuotaSummaryUnifiedForClaudeSemantic(t *testing.T) {
 	require.Equal(t, messageSummary.CacheCreationTokens1h, chatSummary.CacheCreationTokens1h)
 	require.True(t, chatSummary.IsClaudeUsageSemantic)
 	require.Equal(t, 1488, chatSummary.Quota)
+}
+
+func TestCalculateTextQuotaSummarySaturatesOversizedQuota(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	w := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(w)
+
+	relayInfo := &relaycommon.RelayInfo{
+		RelayFormat:     types.RelayFormatOpenAI,
+		OriginModelName: "oversized-model",
+		PriceData: types.PriceData{
+			ModelRatio:      1e18,
+			CompletionRatio: 1,
+			GroupRatioInfo: types.GroupRatioInfo{
+				GroupRatio: 1e18,
+			},
+		},
+		StartTime: time.Now(),
+	}
+
+	summary := calculateTextQuotaSummary(ctx, relayInfo, &dto.Usage{
+		PromptTokens: 1_000_000,
+		TotalTokens:  1_000_000,
+	})
+
+	require.Equal(t, common.MaxQuota, summary.Quota)
+	require.NotNil(t, relayInfo.QuotaClamp)
+	require.Equal(t, common.QuotaClampOverflow, relayInfo.QuotaClamp.Kind)
+}
+
+func TestComposeTieredTextQuotaSaturatesSurchargeOverflow(t *testing.T) {
+	relayInfo := &relaycommon.RelayInfo{
+		TieredBillingSnapshot: &billingexpr.BillingSnapshot{GroupRatio: 1},
+	}
+	summary := textQuotaSummary{
+		ToolCallSurchargeQuota: decimal.NewFromFloat(math.MaxFloat64),
+	}
+	result := &billingexpr.TieredResult{
+		ActualQuotaBeforeGroup: 100,
+		ActualQuotaAfterGroup:  100,
+	}
+
+	quota := composeTieredTextQuota(relayInfo, summary, 100, result)
+
+	require.Equal(t, common.MaxQuota, quota)
+	require.NotNil(t, relayInfo.QuotaClamp)
+	require.Equal(t, common.QuotaClampOverflow, relayInfo.QuotaClamp.Kind)
 }
 
 func TestCalculateTextQuotaSummaryUsesSplitClaudeCacheCreationRatios(t *testing.T) {

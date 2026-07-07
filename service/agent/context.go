@@ -1,7 +1,6 @@
 package agent
 
 import (
-	"math"
 	"net"
 	"strings"
 
@@ -301,7 +300,7 @@ func BaseQuotaFromCharged(snapshot *BillingSnapshot, chargedQuota int) int {
 	if snapshot == nil || snapshot.AgentID == 0 || snapshot.BaseGroupRatio <= 0 || snapshot.ChargedGroupRatio <= 0 {
 		return chargedQuota
 	}
-	return int(math.Round(float64(chargedQuota) * snapshot.BaseGroupRatio / snapshot.ChargedGroupRatio))
+	return common.QuotaRound(float64(chargedQuota) * snapshot.BaseGroupRatio / snapshot.ChargedGroupRatio)
 }
 
 func SettleConsume(snapshot *BillingSnapshot, userID int, logID int, baseQuota int, chargedQuota int) error {
