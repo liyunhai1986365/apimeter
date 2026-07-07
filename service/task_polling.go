@@ -104,13 +104,14 @@ func TaskPollingLoop() {
 		imageTaskM := make(map[string]*model.Task)
 		for _, t := range allTasks {
 			if isImageAsyncTask(t) {
-				upstreamID := strings.TrimSpace(t.PrivateData.UpstreamTaskID)
+				upstreamID := t.GetUpstreamTaskID()
 				if upstreamID != "" {
 					imageTaskM[upstreamID] = t
 					imageTaskChannelM[t.ChannelId] = append(imageTaskChannelM[t.ChannelId], upstreamID)
 					continue
 				}
-				continue
+				// Fall through to the standard grouping path so the existing
+				// null task_id repair logic marks malformed tasks as failed.
 			}
 			platformTask[t.Platform] = append(platformTask[t.Platform], t)
 		}
@@ -580,31 +581,10 @@ func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string
 		return nil
 	}
 
-	isDone := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
-	won, err := task.UpdateWithStatus(snap.Status)
-	if err != nil {
+	if _, err := task.UpdateWithStatus(snap.Status); err != nil {
 		return fmt.Errorf("update image task failed: %w", err)
 	}
-	if won && isDone && snap.Status != task.Status {
-		if task.Status == model.TaskStatusFailure {
-			if task.Quota != 0 {
-				RefundTaskQuota(ctx, task, task.FailReason)
-			}
-		} else if task.Status == model.TaskStatusSuccess {
-			settleImageTaskBillingOnComplete(ctx, task)
-		}
-	}
 	return nil
-}
-
-func settleImageTaskBillingOnComplete(ctx context.Context, task *model.Task) {
-	if task == nil {
-		return
-	}
-	if bc := task.PrivateData.BillingContext; bc != nil && bc.PerCallBilling {
-		logger.LogInfo(ctx, fmt.Sprintf("图片任务 %s 按次计费，跳过差额结算", task.TaskID))
-		return
-	}
 }
 
 func fetchImageTaskResultForChannel(ch *model.Channel, task *model.Task, upstreamTaskID, key, proxy, baseURL string) ([]byte, int, error) {
@@ -1002,13 +982,12 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 		}
 
 		if isImageAsyncTask(t) {
-			upstreamID := strings.TrimSpace(t.PrivateData.UpstreamTaskID)
+			upstreamID := t.GetUpstreamTaskID()
 			if upstreamID != "" {
 				imageTaskM[upstreamID] = t
 				imageTaskChannelM[t.ChannelId] = append(imageTaskChannelM[t.ChannelId], upstreamID)
 				continue
 			}
-			continue
 		}
 		platformTask[t.Platform] = append(platformTask[t.Platform], t)
 	}
