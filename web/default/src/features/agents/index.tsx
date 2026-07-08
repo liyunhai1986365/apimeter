@@ -72,8 +72,9 @@ import {
   createAgentDomain,
   buildAgentUserGroupOptions,
   getAgentGroupRatioInputFloor,
-  getAgentGroupRatioEditValue,
+  getAgentGroupRatioFormDraft,
   getAgentSystemGroupDefaultRatio,
+  getAgentUserGroupFormDraft,
   getAgentSelf,
   listAgentDomains,
   listAgentGroupRatios,
@@ -401,10 +402,11 @@ export function Agents() {
   const canSubmitWithdrawal =
     Number(withdrawMoney) > 0 && accountInfo.trim() !== ''
   const editAgentGroup = (rule: AgentGroupRatio) => {
-    setSystemGroupName(rule.system_group_name)
-    setGroupDescription(rule.description ?? '')
-    setGroupRatio(getAgentGroupRatioEditValue(rule))
-    setGroupVisible(rule.visible)
+    const draft = getAgentGroupRatioFormDraft(rule)
+    setSystemGroupName(draft.systemGroupName)
+    setGroupDescription(draft.description)
+    setGroupRatio(draft.ratio)
+    setGroupVisible(draft.visible)
   }
   const resetAgentGroupRuleForm = () => {
     const rule = groupRatios.find(
@@ -419,9 +421,16 @@ export function Agents() {
     setGroupVisible(true)
   }
   const editAgentUserGroup = (rule: AgentUserGroupConfig) => {
-    setUserGroupName(rule.group_name)
-    setUserGroupVisibleGroups(rule.visible_groups ?? [])
-    setUserGroupRatios(rule.group_ratios ?? {})
+    const draft = getAgentUserGroupFormDraft(rule)
+    setUserGroupName(draft.groupName)
+    setUserGroupVisibleGroups(draft.visibleGroups)
+    setUserGroupRatios(draft.groupRatios)
+  }
+  const resetAgentUserGroupForm = () => {
+    const draft = getAgentUserGroupFormDraft()
+    setUserGroupName(draft.groupName)
+    setUserGroupVisibleGroups(draft.visibleGroups)
+    setUserGroupRatios(draft.groupRatios)
   }
   const searchAgentUsers = () => {
     setUserPage(1)
@@ -944,6 +953,7 @@ export function Agents() {
                     })
                   }
                   onEdit={editAgentUserGroup}
+                  onResetForm={resetAgentUserGroupForm}
                 />
                 <AgentGroupManager
                   groupRatios={groupRatios}
@@ -962,7 +972,7 @@ export function Agents() {
                     setGroupDescription(rule?.description ?? '')
                     setGroupRatio(
                       rule
-                        ? getAgentGroupRatioEditValue(rule)
+                        ? getAgentGroupRatioFormDraft(rule).ratio
                         : getAgentSystemGroupDefaultRatio(
                             groupRatios,
                             nextSystemGroup

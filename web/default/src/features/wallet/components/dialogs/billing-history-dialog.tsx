@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyFromUSD } from '@/lib/currency'
@@ -57,8 +57,11 @@ import { useBillingHistory } from '../../hooks/use-billing-history'
 import {
   getStatusConfig,
   getPaymentMethodName,
+  getPaymentProviderName,
   formatTimestamp,
 } from '../../lib/billing'
+import { summarizeBillingHistory } from '../../lib/billing-history'
+import type { TopupStatusFilter } from '../../types'
 
 interface BillingHistoryDialogProps {
   open: boolean
@@ -76,12 +79,16 @@ export function BillingHistoryDialog({
     page,
     pageSize,
     keyword,
+    statusFilter,
+    dateRange,
     loading,
     completing,
     isAdmin,
     handlePageChange,
     handlePageSizeChange,
     handleSearch,
+    handleStatusFilterChange,
+    handleDateRangeChange,
     handleCompleteOrder,
   } = useBillingHistory()
 
@@ -89,6 +96,14 @@ export function BillingHistoryDialog({
   const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
 
   const totalPages = Math.ceil(total / pageSize)
+  const summary = useMemo(() => summarizeBillingHistory(records), [records])
+  const statusOptions: Array<{ value: TopupStatusFilter; label: string }> = [
+    { value: 'all', label: t('All Statuses') },
+    { value: 'success', label: t('Success') },
+    { value: 'pending', label: t('Pending') },
+    { value: 'expired', label: t('Expired') },
+    { value: 'failed', label: t('Failed') },
+  ]
 
   const handleConfirmComplete = async () => {
     if (confirmTradeNo) {
@@ -110,9 +125,9 @@ export function BillingHistoryDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className='min-h-0 flex-1 space-y-3 sm:space-y-4'>
+          <div className='flex min-h-0 flex-1 flex-col gap-3 sm:gap-4'>
             {/* Search and Filter Bar */}
-            <div className='flex items-center gap-2'>
+            <div className='grid gap-2 sm:grid-cols-2 lg:grid-cols-[minmax(0,1fr)_150px_150px_150px_112px]'>
               <div className='relative flex-1'>
                 <Search className='text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2' />
                 <Input
@@ -122,6 +137,45 @@ export function BillingHistoryDialog({
                   className='h-9 pl-10'
                 />
               </div>
+              <Select
+                items={statusOptions}
+                value={statusFilter}
+                onValueChange={(value) =>
+                  value !== null &&
+                  handleStatusFilterChange(value as TopupStatusFilter)
+                }
+              >
+                <SelectTrigger className='h-9 w-full'>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {statusOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Input
+                type='date'
+                aria-label={t('Start date')}
+                value={dateRange.startDate}
+                onChange={(e) =>
+                  handleDateRangeChange({ startDate: e.target.value })
+                }
+                className='h-9'
+              />
+              <Input
+                type='date'
+                aria-label={t('End date')}
+                value={dateRange.endDate}
+                onChange={(e) =>
+                  handleDateRangeChange({ endDate: e.target.value })
+                }
+                className='h-9'
+              />
               <Select
                 items={[
                   { value: '10', label: t('10 / page') },
@@ -134,7 +188,7 @@ export function BillingHistoryDialog({
                   value !== null && handlePageSizeChange(parseInt(value))
                 }
               >
-                <SelectTrigger className='h-9 w-[92px] sm:w-32'>
+                <SelectTrigger className='h-9 w-full'>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent alignItemWithTrigger={false}>
@@ -146,6 +200,33 @@ export function BillingHistoryDialog({
                   </SelectGroup>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className='grid gap-2 sm:grid-cols-2 lg:grid-cols-5'>
+              {[
+                [t('Matching orders'), formatNumber(total)],
+                [t('Current page'), formatNumber(summary.currentPageCount)],
+                [
+                  t('Successful amount'),
+                  formatCurrencyFromUSD(summary.successAmount, {
+                    digitsLarge: 2,
+                    digitsSmall: 2,
+                    abbreviate: false,
+                  }),
+                ],
+                [t('Payment total'), formatNumber(summary.paymentTotal)],
+                [t('Pending orders'), formatNumber(summary.pendingCount)],
+              ].map(([label, value]) => (
+                <div
+                  key={label}
+                  className='bg-muted/30 flex min-h-16 flex-col justify-center rounded-md border px-3 py-2'
+                >
+                  <div className='text-muted-foreground text-xs'>{label}</div>
+                  <div className='text-foreground truncate text-sm font-semibold'>
+                    {value}
+                  </div>
+                </div>
+              ))}
             </div>
 
             {/* Records List */}
@@ -191,7 +272,7 @@ export function BillingHistoryDialog({
                       >
                         {/* Header Row */}
                         <div className='flex items-start justify-between gap-2'>
-                          <div className='flex-1 space-y-1'>
+                          <div className='flex min-w-0 flex-1 flex-col gap-1'>
                             <div className='flex min-w-0 items-center gap-2'>
                               <code className='text-foreground truncate font-mono text-sm'>
                                 {record.trade_no}
@@ -208,17 +289,6 @@ export function BillingHistoryDialog({
                                   <Copy className='h-3 w-3' />
                                 )}
                               </Button>
-                              {isAdmin && record.user_id != null && (
-                                <StatusBadge
-                                  label={`${t('User ID')}: ${record.user_id}`}
-                                  variant='neutral'
-                                  size='sm'
-                                  copyText={String(record.user_id)}
-                                />
-                              )}
-                            </div>
-                            <div className='text-muted-foreground text-xs'>
-                              {formatTimestamp(record.create_time)}
                             </div>
                           </div>
                           <StatusBadge
@@ -230,20 +300,12 @@ export function BillingHistoryDialog({
                         </div>
 
                         {/* Details Grid */}
-                        <div className='mt-3 grid grid-cols-2 gap-3 sm:mt-4 sm:grid-cols-3 sm:gap-4'>
+                        <div className='mt-3 grid gap-3 sm:mt-4 sm:grid-cols-2 lg:grid-cols-3'>
                           <div className='space-y-1'>
                             <Label className='text-muted-foreground text-xs'>
-                              {t('Payment Method')}
+                              {t('Top-up Amount')}
                             </Label>
-                            <div className='text-sm font-medium'>
-                              {getPaymentMethodName(record.payment_method, t)}
-                            </div>
-                          </div>
-                          <div className='space-y-1'>
-                            <Label className='text-muted-foreground text-xs'>
-                              {t('Amount')}
-                            </Label>
-                            <div className='text-sm font-semibold'>
+                            <div className='text-sm font-semibold tabular-nums'>
                               {formatCurrencyFromUSD(record.amount, {
                                 digitsLarge: 2,
                                 digitsSmall: 2,
@@ -253,10 +315,56 @@ export function BillingHistoryDialog({
                           </div>
                           <div className='space-y-1'>
                             <Label className='text-muted-foreground text-xs'>
-                              {t('Payment')}
+                              {t('Paid Amount')}
                             </Label>
-                            <div className='text-sm font-semibold text-red-600'>
+                            <div className='text-sm font-semibold tabular-nums'>
                               {formatNumber(record.money)}
+                            </div>
+                          </div>
+                          <div className='space-y-1'>
+                            <Label className='text-muted-foreground text-xs'>
+                              {t('Payment Method')}
+                            </Label>
+                            <div className='truncate text-sm font-medium'>
+                              {getPaymentMethodName(record.payment_method, t)}
+                            </div>
+                          </div>
+                          <div className='space-y-1'>
+                            <Label className='text-muted-foreground text-xs'>
+                              {t('User')}
+                            </Label>
+                            <div className='truncate text-sm font-medium'>
+                              #{record.user_id}
+                              {record.username ? ` · ${record.username}` : ''}
+                            </div>
+                          </div>
+                          <div className='space-y-1'>
+                            <Label className='text-muted-foreground text-xs'>
+                              {t('Payment Provider')}
+                            </Label>
+                            <div className='truncate text-sm font-medium'>
+                              {getPaymentProviderName(
+                                record.payment_provider,
+                                t
+                              )}
+                            </div>
+                          </div>
+                          <div className='space-y-1'>
+                            <Label className='text-muted-foreground text-xs'>
+                              {t('Created at')}
+                            </Label>
+                            <div className='text-sm'>
+                              {formatTimestamp(record.create_time)}
+                            </div>
+                          </div>
+                          <div className='space-y-1'>
+                            <Label className='text-muted-foreground text-xs'>
+                              {t('Completed at')}
+                            </Label>
+                            <div className='text-sm'>
+                              {record.complete_time
+                                ? formatTimestamp(record.complete_time)
+                                : t('Not completed')}
                             </div>
                           </div>
                         </div>

@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Edit3, Eye, EyeOff, RotateCcw, Save, Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +29,14 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import {
   Field,
   FieldContent,
@@ -70,6 +78,7 @@ type AgentGroupManagerProps = {
 
 export function AgentGroupManager(props: AgentGroupManagerProps) {
   const { t } = useTranslation()
+  const [editorOpen, setEditorOpen] = useState(false)
   const ruleRows = useMemo(
     () => buildAgentGroupRuleRows(props.groupRatios),
     [props.groupRatios]
@@ -100,130 +109,44 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
   const selectedRule = props.groupRatios.find(
     (item) => item.system_group_name === props.systemGroupName
   )
+
+  const openRuleEditor = (rule: AgentGroupRatio) => {
+    props.onEdit(rule)
+    setEditorOpen(true)
+  }
+
   return (
-    <Card size='sm'>
-      <CardHeader>
-        <CardTitle>{t('Agent Group Rules')}</CardTitle>
-        <CardDescription>
-          {t(
-            'Configure rules on existing system groups. New system groups are available automatically and use system defaults until a rule is saved.'
-          )}
-        </CardDescription>
-        <CardAction>
-          <div className='grid grid-cols-3 gap-2 text-xs'>
-            <MetricPill
-              label={t('Configured')}
-              value={configuredGroups.length}
-            />
-            <MetricPill label={t('Visible')} value={visibleCount} />
-            <MetricPill
-              label={t('Unavailable')}
-              value={unavailableCount}
-              muted={unavailableCount === 0}
-            />
-          </div>
-        </CardAction>
-      </CardHeader>
-      <CardContent>
-        <div className='grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)]'>
-          <div className='flex flex-col gap-3'>
-            <FieldGroup>
-              <Field>
-                <FieldLabel>{t('System Group')}</FieldLabel>
-                <NativeSelect
-                  className='w-full'
-                  value={props.systemGroupName}
-                  onChange={(event) =>
-                    props.onSystemGroupNameChange(event.target.value)
-                  }
-                >
-                  {systemGroupOptions.map((item) => (
-                    <NativeSelectOption
-                      key={item.system_group_name}
-                      value={item.system_group_name}
-                    >
-                      {item.system_group_name}
-                    </NativeSelectOption>
-                  ))}
-                </NativeSelect>
-                <FieldDescription>
-                  {t('Minimum discount')}: {props.groupRatioFloor}
-                </FieldDescription>
-              </Field>
-
-              <Field>
-                <FieldLabel>{t('Rule description')}</FieldLabel>
-                <Input
-                  value={props.groupDescription}
-                  onChange={(event) =>
-                    props.onGroupDescriptionChange(event.target.value)
-                  }
-                  placeholder={t('Optional description')}
-                />
-              </Field>
-
-              <Field>
-                <FieldLabel>{t('Sales Discount')}</FieldLabel>
-                <Input
-                  value={props.groupRatio}
-                  onChange={(event) =>
-                    props.onGroupRatioChange(event.target.value)
-                  }
-                  type='number'
-                  step='0.01'
-                  min={props.groupRatioFloor}
-                />
-                <FieldDescription>
-                  {selectedRule?.configured
-                    ? t('This sales discount is configured by the agent.')
-                    : t('No sales discount saved yet. Agent discount applies.')}
-                </FieldDescription>
-              </Field>
-
-              <Field orientation='horizontal'>
-                <Switch
-                  checked={props.groupVisible}
-                  onCheckedChange={(checked) =>
-                    props.onGroupVisibleChange(checked === true)
-                  }
-                />
-                <FieldContent>
-                  <FieldLabel>{t('Visible to users')}</FieldLabel>
-                  <FieldDescription>
-                    {t(
-                      'Hidden system groups can still be enabled by user group rules.'
-                    )}
-                  </FieldDescription>
-                </FieldContent>
-              </Field>
-            </FieldGroup>
-
-            <div className='grid grid-cols-2 gap-2'>
-              <Button
-                variant='outline'
-                disabled={props.isPending}
-                onClick={props.onResetForm}
-              >
-                <RotateCcw />
-                {t('Reset')}
-              </Button>
-              <Button
-                disabled={!props.canSave || props.isPending}
-                onClick={props.onSave}
-              >
-                <Save />
-                {selectedRule?.configured ? t('Update Rule') : t('Save Rule')}
-              </Button>
+    <>
+      <Card size='sm'>
+        <CardHeader>
+          <CardTitle>{t('Agent Group Rules')}</CardTitle>
+          <CardDescription>
+            {t(
+              'Configure rules on existing system groups. New system groups are available automatically and use system defaults until a rule is saved.'
+            )}
+          </CardDescription>
+          <CardAction>
+            <div className='grid grid-cols-3 gap-2 text-xs'>
+              <MetricPill
+                label={t('Configured')}
+                value={configuredGroups.length}
+              />
+              <MetricPill label={t('Visible')} value={visibleCount} />
+              <MetricPill
+                label={t('Unavailable')}
+                value={unavailableCount}
+                muted={unavailableCount === 0}
+              />
             </div>
-          </div>
-
+          </CardAction>
+        </CardHeader>
+        <CardContent>
           <div className='min-w-0'>
             <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>{t('System Group')}</TableHead>
                   <TableHead>{t('Rule Status')}</TableHead>
-                  <TableHead>{t('Base Discount')}</TableHead>
                   <TableHead>{t('Agent Discount')}</TableHead>
                   <TableHead>{t('Effective Discount')}</TableHead>
                   <TableHead>{t('Visibility')}</TableHead>
@@ -234,7 +157,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
               <TableBody>
                 {ruleRows.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8}>
+                    <TableCell colSpan={7}>
                       <div className='flex flex-col items-center gap-2 py-8 text-center'>
                         <Settings2 />
                         <div className='text-sm font-medium'>
@@ -255,7 +178,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                       ({
                         group_name: row.systemGroupName,
                         system_group_name: row.systemGroupName,
-                        system_ratio: Number(row.baseDiscount) || 0,
+                        system_ratio: 0,
                         configured_ratio: 0,
                         effective_ratio: Number(row.effectiveDiscount) || 0,
                         configured: false,
@@ -280,7 +203,6 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                               : t('System default')}
                           </Badge>
                         </TableCell>
-                        <TableCell>{row.baseDiscount}</TableCell>
                         <TableCell>{row.agentDiscount}</TableCell>
                         <TableCell>{row.effectiveDiscount}</TableCell>
                         <TableCell>
@@ -300,7 +222,7 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                           <Button
                             variant='ghost'
                             size='sm'
-                            onClick={() => props.onEdit(rule)}
+                            onClick={() => openRuleEditor(rule)}
                           >
                             <Edit3 />
                             {row.status === 'configured'
@@ -322,9 +244,113 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
               </p>
             ) : null}
           </div>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+
+      <Dialog open={editorOpen} onOpenChange={setEditorOpen}>
+        <DialogContent className='sm:max-w-lg'>
+          <DialogHeader>
+            <DialogTitle>
+              {selectedRule?.configured ? t('Edit Rule') : t('Create Rule')}
+            </DialogTitle>
+            <DialogDescription>
+              {t(
+                'Update the agent-facing discount and visibility for this system group.'
+              )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <FieldGroup>
+            <Field>
+              <FieldLabel>{t('System Group')}</FieldLabel>
+              <NativeSelect
+                className='w-full'
+                value={props.systemGroupName}
+                onChange={(event) =>
+                  props.onSystemGroupNameChange(event.target.value)
+                }
+              >
+                {systemGroupOptions.map((item) => (
+                  <NativeSelectOption
+                    key={item.system_group_name}
+                    value={item.system_group_name}
+                  >
+                    {item.system_group_name}
+                  </NativeSelectOption>
+                ))}
+              </NativeSelect>
+              <FieldDescription>
+                {t('Minimum discount')}: {props.groupRatioFloor}
+              </FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel>{t('Rule description')}</FieldLabel>
+              <Input
+                value={props.groupDescription}
+                onChange={(event) =>
+                  props.onGroupDescriptionChange(event.target.value)
+                }
+                placeholder={t('Optional description')}
+              />
+            </Field>
+
+            <Field>
+              <FieldLabel>{t('Sales Discount')}</FieldLabel>
+              <Input
+                value={props.groupRatio}
+                onChange={(event) =>
+                  props.onGroupRatioChange(event.target.value)
+                }
+                type='number'
+                step='0.01'
+                min={props.groupRatioFloor}
+              />
+              <FieldDescription>
+                {selectedRule?.configured
+                  ? t('This sales discount is configured by the agent.')
+                  : t('No sales discount saved yet. Agent discount applies.')}
+              </FieldDescription>
+            </Field>
+
+            <Field orientation='horizontal'>
+              <Switch
+                checked={props.groupVisible}
+                onCheckedChange={(checked) =>
+                  props.onGroupVisibleChange(checked === true)
+                }
+              />
+              <FieldContent>
+                <FieldLabel>{t('Visible to users')}</FieldLabel>
+                <FieldDescription>
+                  {t(
+                    'Hidden system groups can still be enabled by user group rules.'
+                  )}
+                </FieldDescription>
+              </FieldContent>
+            </Field>
+          </FieldGroup>
+
+          <DialogFooter>
+            <Button
+              variant='outline'
+              disabled={props.isPending}
+              onClick={props.onResetForm}
+            >
+              <RotateCcw />
+              {t('Reset')}
+            </Button>
+            <Button
+              disabled={!props.canSave || props.isPending}
+              onClick={props.onSave}
+            >
+              <Save />
+              {selectedRule?.configured ? t('Update Rule') : t('Save Rule')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 

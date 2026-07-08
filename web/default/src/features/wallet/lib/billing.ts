@@ -45,6 +45,10 @@ export const STATUS_CONFIG: Record<TopupStatus, StatusConfig> = {
     variant: 'danger',
     label: 'Expired',
   },
+  failed: {
+    variant: 'danger',
+    label: 'Failed',
+  },
 }
 
 /**
@@ -62,6 +66,16 @@ export const PAYMENT_METHOD_NAMES: Record<string, string> = {
   alipay: 'Alipay',
   wxpay: 'WeChat Pay',
   waffo: 'Waffo',
+  waffo_pancake: 'Waffo Pancake',
+  creem: 'Creem',
+}
+
+export const PAYMENT_PROVIDER_NAMES: Record<string, string> = {
+  epay: 'Epay',
+  stripe: 'Stripe',
+  creem: 'Creem',
+  waffo: 'Waffo',
+  waffo_pancake: 'Waffo Pancake',
 }
 
 /**
@@ -72,6 +86,17 @@ export function getPaymentMethodName(
   t?: (key: string) => string
 ): string {
   const name = PAYMENT_METHOD_NAMES[method] || method
+  return t ? t(name) : name
+}
+
+export function getPaymentProviderName(
+  provider: string | undefined,
+  t?: (key: string) => string
+): string {
+  if (!provider) {
+    return t ? t('Not recorded') : 'Not recorded'
+  }
+  const name = PAYMENT_PROVIDER_NAMES[provider] || provider
   return t ? t(name) : name
 }
 

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -447,16 +448,20 @@ func GetUserTopUps(c *gin.Context) {
 	userId := c.GetInt("id")
 	pageInfo := common.GetPageQuery(c)
 	keyword := c.Query("keyword")
+	topupQuery, err := topUpQueryFromRequest(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 
 	var (
 		topups []*model.TopUp
 		total  int64
-		err    error
 	)
 	if keyword != "" {
-		topups, total, err = model.SearchUserTopUps(userId, keyword, pageInfo)
+		topups, total, err = model.SearchUserTopUps(userId, keyword, topupQuery, pageInfo)
 	} else {
-		topups, total, err = model.GetUserTopUps(userId, pageInfo)
+		topups, total, err = model.GetUserTopUps(userId, topupQuery, pageInfo)
 	}
 	if err != nil {
 		common.ApiError(c, err)
@@ -472,16 +477,20 @@ func GetUserTopUps(c *gin.Context) {
 func GetAllTopUps(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	keyword := c.Query("keyword")
+	topupQuery, err := topUpQueryFromRequest(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 
 	var (
 		topups []*model.TopUp
 		total  int64
-		err    error
 	)
 	if keyword != "" {
-		topups, total, err = model.SearchAllTopUps(keyword, pageInfo)
+		topups, total, err = model.SearchAllTopUps(keyword, topupQuery, pageInfo)
 	} else {
-		topups, total, err = model.GetAllTopUps(pageInfo)
+		topups, total, err = model.GetAllTopUps(topupQuery, pageInfo)
 	}
 	if err != nil {
 		common.ApiError(c, err)
@@ -491,6 +500,41 @@ func GetAllTopUps(c *gin.Context) {
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(topups)
 	common.ApiSuccess(c, pageInfo)
+}
+
+func normalizeTopUpStatusFilter(status string) (string, error) {
+	switch status {
+	case "", common.TopUpStatusSuccess, common.TopUpStatusPending, common.TopUpStatusExpired, common.TopUpStatusFailed:
+		return status, nil
+	default:
+		return "", errors.New("无效的订单状态")
+	}
+}
+
+func topUpQueryFromRequest(c *gin.Context) (model.TopUpQuery, error) {
+	status, err := normalizeTopUpStatusFilter(c.Query("status"))
+	if err != nil {
+		return model.TopUpQuery{}, err
+	}
+	query := model.TopUpQuery{Status: status}
+	if raw := c.Query("start_time"); raw != "" {
+		startTime, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || startTime < 0 {
+			return model.TopUpQuery{}, errors.New("无效的开始时间")
+		}
+		query.StartTime = startTime
+	}
+	if raw := c.Query("end_time"); raw != "" {
+		endTime, err := strconv.ParseInt(raw, 10, 64)
+		if err != nil || endTime < 0 {
+			return model.TopUpQuery{}, errors.New("无效的结束时间")
+		}
+		query.EndTime = endTime
+	}
+	if query.StartTime > 0 && query.EndTime > 0 && query.StartTime > query.EndTime {
+		return model.TopUpQuery{}, errors.New("开始时间不能晚于结束时间")
+	}
+	return query, nil
 }
 
 type AdminCompleteTopupRequest struct {

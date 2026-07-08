@@ -79,9 +79,10 @@ import {
   completeAdminAgentWithdrawal,
   createAdminAgent,
   createAdminAgentDomain,
-  getAgentGroupRatioEditValue,
+  getAgentGroupRatioFormDraft,
   getAgentGroupRatioInputFloor,
   getAgentSystemGroupDefaultRatio,
+  getAgentUserGroupFormDraft,
   listAdminAgentDomainsByAgent,
   listAdminAgentGroupRatios,
   listAdminAgentUserGroups,
@@ -939,7 +940,7 @@ export function AgentManagement() {
           setGroupDescription(rule?.description ?? '')
           setGroupRatio(
             rule
-              ? getAgentGroupRatioEditValue(rule)
+              ? getAgentGroupRatioFormDraft(rule).ratio
               : getAgentSystemGroupDefaultRatio(selectedGroupRatios, nextGroup)
           )
           setGroupVisible(rule?.visible ?? true)
@@ -1042,10 +1043,11 @@ export function AgentManagement() {
             (item) => item.system_group_name === systemGroupName
           )
           if (rule) {
-            setSystemGroupName(rule.system_group_name)
-            setGroupDescription(rule.description ?? '')
-            setGroupRatio(getAgentGroupRatioEditValue(rule))
-            setGroupVisible(rule.visible)
+            const draft = getAgentGroupRatioFormDraft(rule)
+            setSystemGroupName(draft.systemGroupName)
+            setGroupDescription(draft.description)
+            setGroupRatio(draft.ratio)
+            setGroupVisible(draft.visible)
             return
           }
           setGroupDescription('')
@@ -1572,11 +1574,16 @@ function AgentDetailDialog(props: {
                   onGroupRatioOverridesChange={props.onUserGroupRatiosChange}
                   onSave={props.onSaveUserGroup}
                   onEdit={(rule) => {
-                    props.onUserGroupNameChange(rule.group_name)
-                    props.onUserGroupVisibleGroupsChange(
-                      rule.visible_groups ?? []
-                    )
-                    props.onUserGroupRatiosChange(rule.group_ratios ?? {})
+                    const draft = getAgentUserGroupFormDraft(rule)
+                    props.onUserGroupNameChange(draft.groupName)
+                    props.onUserGroupVisibleGroupsChange(draft.visibleGroups)
+                    props.onUserGroupRatiosChange(draft.groupRatios)
+                  }}
+                  onResetForm={() => {
+                    const draft = getAgentUserGroupFormDraft()
+                    props.onUserGroupNameChange(draft.groupName)
+                    props.onUserGroupVisibleGroupsChange(draft.visibleGroups)
+                    props.onUserGroupRatiosChange(draft.groupRatios)
                   }}
                 />
 
@@ -1595,10 +1602,11 @@ function AgentDetailDialog(props: {
                   onGroupVisibleChange={props.onGroupVisibleChange}
                   onSave={props.onSavePricing}
                   onEdit={(rule) => {
-                    props.onSystemGroupNameChange(rule.system_group_name)
-                    props.onGroupDescriptionChange(rule.description ?? '')
-                    props.onGroupRatioChange(getAgentGroupRatioEditValue(rule))
-                    props.onGroupVisibleChange(rule.visible)
+                    const draft = getAgentGroupRatioFormDraft(rule)
+                    props.onSystemGroupNameChange(draft.systemGroupName)
+                    props.onGroupDescriptionChange(draft.description)
+                    props.onGroupRatioChange(draft.ratio)
+                    props.onGroupVisibleChange(draft.visible)
                   }}
                   onResetForm={props.onResetPricing}
                 />

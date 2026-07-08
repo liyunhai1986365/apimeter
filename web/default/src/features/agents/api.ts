@@ -226,6 +226,15 @@ export function getAgentGroupRatioEditValue(rule: AgentGroupRatio) {
   return String(rule.agent_ratio ?? rule.system_ratio ?? 1)
 }
 
+export function getAgentGroupRatioFormDraft(rule: AgentGroupRatio) {
+  return {
+    systemGroupName: rule.system_group_name || rule.group_name,
+    description: rule.description ?? '',
+    ratio: getAgentGroupRatioEditValue(rule),
+    visible: rule.visible,
+  }
+}
+
 export function getAgentSystemGroupDefaultRatio(
   groupRatios: AgentGroupRatio[],
   systemGroupName: string
@@ -347,6 +356,14 @@ export function buildAgentUserGroupPayload(input: AgentUserGroupPayloadInput) {
     group_name: input.group_name.trim(),
     visible_groups: input.visible_groups ?? [],
     group_ratios: input.group_ratios ?? {},
+  }
+}
+
+export function getAgentUserGroupFormDraft(rule?: AgentUserGroupConfig) {
+  return {
+    groupName: rule?.group_name ?? '',
+    visibleGroups: [...(rule?.visible_groups ?? [])],
+    groupRatios: { ...(rule?.group_ratios ?? {}) },
   }
 }
 

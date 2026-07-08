@@ -38,6 +38,8 @@ import type {
   WaffoPaymentResponse,
   WaffoPancakePaymentRequest,
   WaffoPancakePaymentResponse,
+  TopupStatusFilter,
+  TopupDateRangeFilter,
 } from './types'
 
 // ============================================================================
@@ -192,15 +194,17 @@ export async function transferAffiliateQuota(
 export async function getUserBillingHistory(
   page: number,
   pageSize: number,
-  keyword?: string
+  keyword?: string,
+  status?: TopupStatusFilter,
+  dateRange?: TopupDateRangeFilter
 ): Promise<ApiResponse<BillingHistoryResponse>> {
-  const params = new URLSearchParams({
-    p: page.toString(),
-    page_size: pageSize.toString(),
-  })
-  if (keyword) {
-    params.append('keyword', keyword)
-  }
+  const params = buildBillingHistoryParams(
+    page,
+    pageSize,
+    keyword,
+    status,
+    dateRange
+  )
   const res = await api.get(`/api/user/topup/self?${params.toString()}`)
   return res.data
 }
@@ -211,8 +215,28 @@ export async function getUserBillingHistory(
 export async function getAllBillingHistory(
   page: number,
   pageSize: number,
-  keyword?: string
+  keyword?: string,
+  status?: TopupStatusFilter,
+  dateRange?: TopupDateRangeFilter
 ): Promise<ApiResponse<BillingHistoryResponse>> {
+  const params = buildBillingHistoryParams(
+    page,
+    pageSize,
+    keyword,
+    status,
+    dateRange
+  )
+  const res = await api.get(`/api/user/topup?${params.toString()}`)
+  return res.data
+}
+
+export function buildBillingHistoryParams(
+  page: number,
+  pageSize: number,
+  keyword?: string,
+  status?: TopupStatusFilter,
+  dateRange?: TopupDateRangeFilter
+): URLSearchParams {
   const params = new URLSearchParams({
     p: page.toString(),
     page_size: pageSize.toString(),
@@ -220,8 +244,41 @@ export async function getAllBillingHistory(
   if (keyword) {
     params.append('keyword', keyword)
   }
-  const res = await api.get(`/api/user/topup?${params.toString()}`)
-  return res.data
+  if (status && status !== 'all') {
+    params.append('status', status)
+  }
+  appendTopupDateRangeParams(params, dateRange)
+  return params
+}
+
+function appendTopupDateRangeParams(
+  params: URLSearchParams,
+  dateRange?: TopupDateRangeFilter
+) {
+  if (dateRange?.startDate) {
+    const startTime = dateToUnixSeconds(dateRange.startDate, 'start')
+    if (startTime !== null) {
+      params.append('start_time', startTime.toString())
+    }
+  }
+  if (dateRange?.endDate) {
+    const endTime = dateToUnixSeconds(dateRange.endDate, 'end')
+    if (endTime !== null) {
+      params.append('end_time', endTime.toString())
+    }
+  }
+}
+
+function dateToUnixSeconds(value: string, boundary: 'start' | 'end') {
+  const date =
+    boundary === 'start'
+      ? new Date(`${value}T00:00:00`)
+      : new Date(`${value}T23:59:59`)
+  const timestamp = date.getTime()
+  if (Number.isNaN(timestamp)) {
+    return null
+  }
+  return Math.floor(timestamp / 1000)
 }
 
 /**

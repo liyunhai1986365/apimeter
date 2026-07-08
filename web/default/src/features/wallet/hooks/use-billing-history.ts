@@ -26,7 +26,11 @@ import {
   completeOrder,
   isApiSuccess,
 } from '../api'
-import type { TopupRecord } from '../types'
+import type {
+  TopupDateRangeFilter,
+  TopupRecord,
+  TopupStatusFilter,
+} from '../types'
 
 // ============================================================================
 // Billing History Hook
@@ -48,6 +52,11 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   const [page, setPage] = useState(initialPage)
   const [pageSize, setPageSize] = useState(initialPageSize)
   const [keyword, setKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState<TopupStatusFilter>('all')
+  const [dateRange, setDateRange] = useState<TopupDateRangeFilter>({
+    startDate: '',
+    endDate: '',
+  })
   const [loading, setLoading] = useState(false)
   const [completing, setCompleting] = useState(false)
 
@@ -58,8 +67,20 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     setLoading(true)
     try {
       const response = isAdmin
-        ? await getAllBillingHistory(page, pageSize, keyword)
-        : await getUserBillingHistory(page, pageSize, keyword)
+        ? await getAllBillingHistory(
+            page,
+            pageSize,
+            keyword,
+            statusFilter,
+            dateRange
+          )
+        : await getUserBillingHistory(
+            page,
+            pageSize,
+            keyword,
+            statusFilter,
+            dateRange
+          )
 
       if (isApiSuccess(response) && response.data) {
         setRecords(response.data.items || [])
@@ -80,7 +101,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     } finally {
       setLoading(false)
     }
-  }, [isAdmin, page, pageSize, keyword])
+  }, [isAdmin, page, pageSize, keyword, statusFilter, dateRange])
 
   /**
    * Complete a pending order (admin only)
@@ -139,6 +160,31 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     setPage(1) // Reset to first page when searching
   }, [])
 
+  /**
+   * Filter by order status
+   */
+  const handleStatusFilterChange = useCallback(
+    (newStatus: TopupStatusFilter) => {
+      setStatusFilter(newStatus)
+      setPage(1)
+    },
+    []
+  )
+
+  /**
+   * Filter by order creation date range
+   */
+  const handleDateRangeChange = useCallback(
+    (nextRange: Partial<TopupDateRangeFilter>) => {
+      setDateRange((current) => ({
+        ...current,
+        ...nextRange,
+      }))
+      setPage(1)
+    },
+    []
+  )
+
   // Fetch data when dependencies change
   useEffect(() => {
     fetchBillingHistory()
@@ -150,12 +196,16 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     page,
     pageSize,
     keyword,
+    statusFilter,
+    dateRange,
     loading,
     completing,
     isAdmin,
     handlePageChange,
     handlePageSizeChange,
     handleSearch,
+    handleStatusFilterChange,
+    handleDateRangeChange,
     handleCompleteOrder,
     refresh: fetchBillingHistory,
   }

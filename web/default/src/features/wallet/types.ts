@@ -253,7 +253,13 @@ export interface UserWalletData {
 /**
  * Topup record status
  */
-export type TopupStatus = 'success' | 'pending' | 'expired'
+export type TopupStatus = 'success' | 'pending' | 'expired' | 'failed'
+export type TopupStatusFilter = 'all' | TopupStatus
+
+export interface TopupDateRangeFilter {
+  startDate: string
+  endDate: string
+}
 
 /**
  * Topup billing record
@@ -263,6 +269,8 @@ export interface TopupRecord {
   id: number
   /** User ID */
   user_id: number
+  /** Username */
+  username?: string
   /** Topup amount (quota) */
   amount: number
   /** Payment amount (actual money paid) */
@@ -271,6 +279,8 @@ export interface TopupRecord {
   trade_no: string
   /** Payment method type */
   payment_method: string
+  /** Payment gateway/provider */
+  payment_provider?: string
   /** Creation timestamp */
   create_time: number
   /** Completion timestamp */

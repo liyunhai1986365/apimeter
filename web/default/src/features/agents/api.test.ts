@@ -7,10 +7,12 @@ import {
   buildAgentUserListParams,
   buildAgentUserGroupOptions,
   getAgentGroupRatioEditValue,
+  getAgentGroupRatioFormDraft,
   getAgentGroupRatioInputFloor,
   getAgentSystemGroupRatioFloor,
   getAgentGroupRatioTableValues,
   getAgentSystemGroupDefaultRatio,
+  getAgentUserGroupFormDraft,
   getAgentUserGroupRatioFloor,
   parseAgentBranding,
   stringifyAgentBranding,
@@ -110,6 +112,32 @@ describe('agent user group helpers', () => {
       1
     )
   })
+
+  test('builds an empty user group draft when creating from the list', () => {
+    assert.deepEqual(getAgentUserGroupFormDraft(), {
+      groupName: '',
+      visibleGroups: [],
+      groupRatios: {},
+    })
+  })
+
+  test('copies user group rules into an edit draft without sharing arrays', () => {
+    const rule = {
+      group_name: 'vip-users',
+      visible_groups: ['default', 'vip'],
+      group_ratios: { vip: 1.4 },
+    }
+    const draft = getAgentUserGroupFormDraft(rule)
+
+    rule.visible_groups.push('hidden')
+    rule.group_ratios.vip = 2
+
+    assert.deepEqual(draft, {
+      groupName: 'vip-users',
+      visibleGroups: ['default', 'vip'],
+      groupRatios: { vip: 1.4 },
+    })
+  })
 })
 
 describe('agent group ratio payload helpers', () => {
@@ -196,6 +224,28 @@ describe('agent group ratio payload helpers', () => {
         available: true,
       }),
       '1.6'
+    )
+  })
+
+  test('builds an agent group edit draft from the selected system group rule', () => {
+    assert.deepEqual(
+      getAgentGroupRatioFormDraft({
+        group_name: 'vip',
+        system_group_name: 'vip',
+        description: 'VIP visible rule',
+        system_ratio: 1.4,
+        configured_ratio: 1.6,
+        effective_ratio: 1.6,
+        configured: true,
+        visible: false,
+        available: true,
+      }),
+      {
+        systemGroupName: 'vip',
+        description: 'VIP visible rule',
+        ratio: '1.6',
+        visible: false,
+      }
     )
   })
 
