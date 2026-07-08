@@ -1070,28 +1070,9 @@ function SupplierPerformanceFooter(props: { performance?: PerfGroupSummary }) {
     )
   }
 
-  const successRate = Math.max(0, Math.min(100, props.performance.success_rate))
-
   return (
     <CardFooter className='flex-col items-stretch gap-3'>
-      <div className='flex items-center justify-between gap-3'>
-        <div className='text-muted-foreground text-xs'>{t('Success rate')}</div>
-        <div className='font-mono text-sm font-semibold tabular-nums'>
-          {formatUptimePct(props.performance.success_rate)}
-        </div>
-      </div>
-      <div
-        className='bg-muted h-2 overflow-hidden rounded-full'
-        aria-label={`${t('Success rate')} ${formatUptimePct(
-          props.performance.success_rate
-        )}`}
-      >
-        <div
-          className='bg-primary h-full rounded-full'
-          style={{ width: `${successRate}%` }}
-        />
-      </div>
-      <div className='grid grid-cols-3 gap-2 text-xs'>
+      <div className='grid grid-cols-4 gap-2 text-xs'>
         <PerformanceMetric
           label='TTFT'
           value={formatLatency(props.performance.avg_ttft_ms)}
@@ -1103,6 +1084,10 @@ function SupplierPerformanceFooter(props: { performance?: PerfGroupSummary }) {
         <PerformanceMetric
           label='TPS'
           value={formatThroughput(props.performance.avg_tps)}
+        />
+        <PerformanceMetric
+          label={t('Success rate')}
+          value={formatUptimePct(props.performance.success_rate)}
         />
       </div>
     </CardFooter>
