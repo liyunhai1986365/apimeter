@@ -21,8 +21,8 @@ import { ChevronDown, ListFilter, RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
-import { cn } from '@/lib/utils'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
+import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,6 +43,11 @@ import {
 import { inferModelMetadata } from '../lib/model-metadata'
 import { sortVendorsByConfiguredOrder } from '../lib/vendor-order'
 import type { PricingModel, PricingVendor } from '../types'
+import {
+  PRICING_SUPPLIER_FILTER_DEFAULT_OPEN,
+  PRICING_VENDOR_FILTER_DEFAULT_OPEN,
+  shouldFilterSectionDefaultOpen,
+} from './pricing-sidebar-state'
 
 type FilterOption = {
   value: string
@@ -57,6 +62,7 @@ type FilterSectionProps = {
   value: string
   options: FilterOption[]
   onChange: (value: string) => void
+  defaultOpen?: boolean
 }
 
 export interface PricingSidebarProps {
@@ -110,7 +116,9 @@ function FilterChip(props: {
     >
       <span className='flex min-w-0 items-center gap-1.5'>
         {props.option.icon && (
-          <span className='flex shrink-0 items-center'>{props.option.icon}</span>
+          <span className='flex shrink-0 items-center'>
+            {props.option.icon}
+          </span>
         )}
         <span className='truncate'>{props.option.label}</span>
       </span>
@@ -138,7 +146,7 @@ function FilterChip(props: {
 function FilterSection(props: FilterSectionProps) {
   return (
     <Collapsible
-      defaultOpen
+      defaultOpen={shouldFilterSectionDefaultOpen(props.defaultOpen)}
       className='border-border/70 border-b pb-2.5 last:border-b-0 last:pb-0'
     >
       <CollapsibleTrigger className='group flex w-full items-center justify-between py-2 text-left'>
@@ -312,6 +320,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
           value={props.vendorFilter}
           options={vendorOptions}
           onChange={props.onVendorChange}
+          defaultOpen={PRICING_VENDOR_FILTER_DEFAULT_OPEN}
         />
         <FilterSection
           title={t('Pricing Type')}
@@ -324,6 +333,7 @@ export function PricingSidebar(props: PricingSidebarProps) {
           value={props.groupFilter}
           options={groupOptions}
           onChange={props.onGroupChange}
+          defaultOpen={PRICING_SUPPLIER_FILTER_DEFAULT_OPEN}
         />
         <FilterSection
           title={t('Input Modality')}
