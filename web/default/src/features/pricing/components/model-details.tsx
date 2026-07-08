@@ -19,7 +19,13 @@ For commercial licensing, please contact support@quantumnous.com
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
-import { ArrowLeft, ChevronDown, Code2, Info } from 'lucide-react'
+import {
+  CircleDollarSign,
+  ArrowLeft,
+  ChevronDown,
+  Code2,
+  Info,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
@@ -42,14 +48,6 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
-import {
-  buildDynamicTierPriceDisplayRows,
-  getDynamicPriceUnitLabelKey,
-  getDynamicPricingTiers,
-  isDynamicPricingModel,
-  type DynamicPriceEntry,
-  type DynamicTierPriceDisplayRow,
-} from '../lib/dynamic-price'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Tooltip,
@@ -67,7 +65,16 @@ import {
 import type { PerformanceGroup } from '@/features/performance-metrics/types'
 import { DEFAULT_TOKEN_UNIT, QUOTA_TYPE_VALUES } from '../constants'
 import { usePricingData } from '../hooks/use-pricing-data'
+import {
+  buildDynamicTierPriceDisplayRows,
+  getDynamicPriceUnitLabelKey,
+  getDynamicPricingTiers,
+  isDynamicPricingModel,
+  type DynamicPriceEntry,
+  type DynamicTierPriceDisplayRow,
+} from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
+import { isModelPriceFreeForRatio } from '../lib/model-card-price'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
 import { toGroupUptimeSeries } from '../lib/performance-series'
@@ -566,6 +573,21 @@ function ProviderPriceItem(props: {
   )
 }
 
+function ProviderFreePriceItem() {
+  const { t } = useTranslation()
+
+  return (
+    <div className='flex min-w-52 shrink-0 items-center justify-start gap-1.5 px-1 py-1'>
+      <span className='bg-primary/10 text-primary inline-flex size-6 shrink-0 items-center justify-center rounded-full'>
+        <CircleDollarSign className='size-3.5' aria-hidden='true' />
+      </span>
+      <span className='text-foreground text-sm leading-none font-bold'>
+        {t('Free')}
+      </span>
+    </div>
+  )
+}
+
 function ProviderCacheWritePriceGroup(props: {
   renderTokenPrice: (type: PriceType) => string
   renderOriginalTokenPrice: (type: PriceType) => string
@@ -684,7 +706,7 @@ function DynamicTierPriceRail(props: {
     <div className='flex min-w-max items-stretch gap-2'>
       {props.showTierLabel && (
         <div className='flex min-w-36 shrink-0 items-center px-1 py-1'>
-          <span className='text-muted-foreground rounded-md bg-muted/40 px-2 py-1 text-xs font-medium'>
+          <span className='text-muted-foreground bg-muted/40 rounded-md px-2 py-1 text-xs font-medium'>
             {props.row.label || t('Default')}
           </span>
         </div>
@@ -835,6 +857,7 @@ function ProviderPriceCard(props: {
       props.usdExchangeRate,
       { ...props.groupRatio, [props.group]: 1 }
     )
+  const isFree = isModelPriceFreeForRatio(props.model, props.ratio)
   const hasDiscount = props.ratio > 0 && props.ratio < 1
 
   return (
@@ -873,7 +896,9 @@ function ProviderPriceCard(props: {
       </CardHeader>
 
       <CardContent className='overflow-x-auto px-3 py-3 sm:px-4'>
-        {isTokenBased ? (
+        {isFree ? (
+          <ProviderFreePriceItem />
+        ) : isTokenBased ? (
           <div className='flex min-w-max items-stretch gap-2'>
             <ProviderPriceItem
               label={t('Input')}

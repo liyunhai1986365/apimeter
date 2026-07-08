@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { memo } from 'react'
-import { ArrowRight, Copy } from 'lucide-react'
+import { CircleDollarSign, ArrowRight, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { cn } from '@/lib/utils'
@@ -180,6 +180,17 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             <code className='text-muted-foreground mt-1.5 line-clamp-2 font-mono text-[11px] leading-4 break-all'>
               {priceDisplay.rawExpression}
             </code>
+          ) : priceDisplay.isFree ? (
+            <div className='mt-2 flex min-h-[1.75rem] items-center gap-1.5'>
+              <span className='bg-primary/10 text-primary inline-flex size-6 shrink-0 items-center justify-center rounded-full'>
+                <CircleDollarSign className='size-3.5' aria-hidden='true' />
+              </span>
+              <div className='min-w-0'>
+                <div className='text-foreground text-sm leading-none font-bold'>
+                  {t('Free')}
+                </div>
+              </div>
+            </div>
           ) : (
             <div className='mt-1.5 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1'>
               {featuredEntries.map((entry) => (

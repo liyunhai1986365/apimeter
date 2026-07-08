@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { PricingModel } from '../types'
-import { buildModelCardPriceDisplay } from './model-card-price'
+import {
+  buildModelCardPriceDisplay,
+  isModelPriceFreeForRatio,
+} from './model-card-price'
 
 const zhDiscountLabels = {
   originalPrice: '原价',
@@ -100,6 +103,26 @@ describe('buildModelCardPriceDisplay', () => {
     )
   })
 
+  test('marks zero-ratio token model cards as free without discount labels', () => {
+    const display = buildModelCardPriceDisplay(
+      tokenModel({
+        model_ratio: 0,
+      }),
+      {
+        tokenUnit: 'M',
+        discountLabels: zhDiscountLabels,
+      }
+    )
+
+    assert.equal(display.isFree, true)
+    assert.equal(display.discountLabel, undefined)
+    assert.equal(display.hasDiscount, false)
+    assert.deepEqual(
+      display.entries.map((entry) => entry.current),
+      ['$0', '$0']
+    )
+  })
+
   test('omits cache write prices from dynamic model cards', () => {
     const display = buildModelCardPriceDisplay(
       tokenModel({
@@ -139,6 +162,33 @@ describe('buildModelCardPriceDisplay', () => {
         labelKey: 'Request',
         original: '$0.02',
         current: '$0.01',
+        unitLabel: 'request',
+        featured: true,
+      },
+    ])
+  })
+
+  test('marks zero-price per-request model cards as free without discount labels', () => {
+    const display = buildModelCardPriceDisplay(
+      tokenModel({
+        quota_type: 1,
+        model_price: 0,
+      }),
+      {
+        tokenUnit: 'M',
+        discountLabels: zhDiscountLabels,
+      }
+    )
+
+    assert.equal(display.isFree, true)
+    assert.equal(display.discountLabel, undefined)
+    assert.equal(display.hasDiscount, false)
+    assert.deepEqual(display.entries, [
+      {
+        key: 'request',
+        labelKey: 'Request',
+        original: '$0',
+        current: '$0',
         unitLabel: 'request',
         featured: true,
       },
@@ -250,5 +300,24 @@ describe('buildModelCardPriceDisplay', () => {
     assert.equal(display.hasDiscount, false)
     assert.equal(display.entries[0].original, '$2')
     assert.equal(display.entries[0].current, '$2')
+  })
+})
+
+describe('isModelPriceFreeForRatio', () => {
+  test('treats a zero group ratio as free for token-based model details', () => {
+    assert.equal(isModelPriceFreeForRatio(tokenModel(), 0), true)
+  })
+
+  test('treats a zero group ratio as free for per-request model details', () => {
+    assert.equal(
+      isModelPriceFreeForRatio(
+        tokenModel({
+          quota_type: 1,
+          model_price: 0.02,
+        }),
+        0
+      ),
+      true
+    )
   })
 })
