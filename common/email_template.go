@@ -23,6 +23,13 @@ var (
 func emailKind(subject string, content string) emailTemplateKind {
 	lower := strings.ToLower(subject + " " + content)
 	switch {
+	case strings.Contains(lower, "announcement-type:"):
+		return emailTemplateKind{
+			Label:       "Platform announcement",
+			Title:       subject,
+			Intro:       "平台发布了新的公告，请查看下方详情。",
+			AccentColor: "#4f46e5",
+		}
 	case strings.Contains(subject, "邮箱验证") || strings.Contains(lower, "verification"):
 		return emailTemplateKind{
 			Label:       "Security check",

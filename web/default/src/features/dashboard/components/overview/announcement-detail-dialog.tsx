@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 import { formatDateTimeObject } from '@/lib/time'
+import { cn } from '@/lib/utils'
 import {
   Dialog,
   DialogContent,
@@ -40,6 +41,20 @@ interface AnnouncementDetailModalProps {
   } | null
 }
 
+function MarkdownPreviewPanel({
+  children,
+  className,
+}: {
+  children: string
+  className?: string
+}) {
+  return (
+    <div className={cn('bg-muted/20 rounded-md border px-4 py-3', className)}>
+      <Markdown>{children}</Markdown>
+    </div>
+  )
+}
+
 export function AnnouncementDetailModal({
   open,
   onOpenChange,
@@ -50,7 +65,9 @@ export function AnnouncementDetailModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-lg'>
         <DialogHeader>
-          <DialogTitle>{t('Announcement Details')}</DialogTitle>
+          <DialogTitle>
+            {announcement?.title || t('Announcement Details')}
+          </DialogTitle>
           {announcement?.publishDate && (
             <DialogDescription>
               {t('Published:')}{' '}
@@ -61,19 +78,20 @@ export function AnnouncementDetailModal({
         <ScrollArea className='max-h-[60vh] pr-4'>
           <div className='space-y-4'>
             {announcement?.content && (
-              <div>
-                <h4 className='mb-2 font-medium'>{t('Content')}</h4>
-                <Markdown>{announcement.content}</Markdown>
+              <div className='flex flex-col gap-2'>
+                <MarkdownPreviewPanel>
+                  {announcement.content}
+                </MarkdownPreviewPanel>
               </div>
             )}
             {announcement?.extra && (
-              <div>
+              <div className='flex flex-col gap-2'>
                 <h4 className='mb-2 font-medium'>
                   {t('Additional Information')}
                 </h4>
-                <Markdown className='text-muted-foreground'>
+                <MarkdownPreviewPanel className='text-muted-foreground'>
                   {announcement.extra}
-                </Markdown>
+                </MarkdownPreviewPanel>
               </div>
             )}
           </div>

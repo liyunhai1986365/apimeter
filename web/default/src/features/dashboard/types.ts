@@ -141,9 +141,16 @@ export interface ProcessedDimensionTrendChartData {
 
 export interface AnnouncementItem {
   id?: number
+  title: string
   content: string
   publishDate?: string
-  type?: 'default' | 'ongoing' | 'success' | 'warning' | 'error'
+  type?:
+    | 'product_update'
+    | 'system_maintenance'
+    | 'model_release'
+    | 'pricing_update'
+    | 'incident'
+    | 'general'
   extra?: string
 }
 

@@ -24,6 +24,7 @@ import { NotificationButton } from '@/components/notification-button'
 import { NotificationDialog } from '@/components/notification-dialog'
 import { ProfileDropdown } from '@/components/profile-dropdown'
 import { Search } from '@/components/search'
+import { SystemNoticeBanner } from '@/components/system-notice-banner'
 import { defaultTopNavLinks } from '../config/top-nav.config'
 import { type TopNavLink } from '../types'
 import { Header } from './header'
@@ -106,6 +107,11 @@ export function AppHeader({
 
   return (
     <>
+      <SystemNoticeBanner
+        notice={notifications.notice}
+        hidden={notifications.isNoticeClosed}
+        onCloseToday={notifications.closeToday}
+      />
       <Header>
         <SystemBrand variant='inline' />
 
@@ -141,10 +147,8 @@ export function AppHeader({
           onOpenChange={notifications.setDialogOpen}
           activeTab={notifications.activeTab}
           onTabChange={notifications.setActiveTab}
-          notice={notifications.notice}
           announcements={notifications.announcements}
           loading={notifications.loading}
-          onCloseToday={notifications.closeToday}
         />
       )}
     </>

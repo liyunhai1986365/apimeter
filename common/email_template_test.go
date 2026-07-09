@@ -60,3 +60,20 @@ func TestRenderEmailTemplateUsesOperationsStyleForChannelNotice(t *testing.T) {
 		t.Fatalf("expected channel notice content to be preserved, got %s", html)
 	}
 }
+
+func TestRenderEmailTemplateUsesAnnouncementStyle(t *testing.T) {
+	html := renderEmailTemplate("模型发布公告", "<!-- announcement-type:model_release --><p>新增模型已上线</p>")
+
+	if !strings.Contains(html, "Platform announcement") {
+		t.Fatalf("expected announcement status label, got %s", html)
+	}
+	if !strings.Contains(html, "模型发布公告") {
+		t.Fatalf("expected announcement subject as title, got %s", html)
+	}
+	if !strings.Contains(html, "新增模型已上线") {
+		t.Fatalf("expected announcement body to be preserved, got %s", html)
+	}
+	if !strings.Contains(html, "#4f46e5") {
+		t.Fatalf("expected announcement accent color, got %s", html)
+	}
+}

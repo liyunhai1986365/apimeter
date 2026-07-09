@@ -21,6 +21,12 @@ import { useQuery } from '@tanstack/react-query'
 import { useNotificationStore } from '@/stores/notification-store'
 import { getNotice } from '@/lib/api'
 import { useStatus } from '@/hooks/use-status'
+import {
+  type AnnouncementCategory,
+  filterAnnouncementsByCategory,
+} from '@/features/dashboard/lib/announcement-categories'
+
+export type NotificationDialogTab = AnnouncementCategory
 
 function hashString(input: string): string {
   let hash = 0
@@ -63,9 +69,7 @@ function getAnnouncementKey(item: Record<string, unknown>): string {
  */
 export function useNotifications() {
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [activeTab, setActiveTab] = useState<'notice' | 'announcements'>(
-    'notice'
-  )
+  const [activeTab, setActiveTab] = useState<NotificationDialogTab>('all')
 
   // Fetch Notice from API
   const {
@@ -88,8 +92,6 @@ export function useNotifications() {
 
   // Notification store
   const {
-    lastReadNotice,
-    markNoticeRead,
     markAnnouncementsRead,
     isAnnouncementRead,
     isNoticeClosed,
@@ -103,9 +105,6 @@ export function useNotifications() {
 
   // Calculate unread counts
   const unreadCounts = useMemo(() => {
-    const noticeUnread =
-      noticeContent && noticeContent !== lastReadNotice ? 1 : 0
-
     const announcementsUnread = announcements.filter(
       (item: Record<string, unknown>) => {
         const key = getAnnouncementKey(item)
@@ -114,30 +113,43 @@ export function useNotifications() {
     ).length
 
     return {
-      notice: noticeUnread,
+      notice: 0,
       announcements: announcementsUnread,
-      total: noticeUnread + announcementsUnread,
+      total: announcementsUnread,
     }
-  }, [noticeContent, lastReadNotice, announcements, isAnnouncementRead])
+  }, [announcements, isAnnouncementRead])
 
   // Handle dialog open
-  const handleOpenDialog = (tab?: 'notice' | 'announcements') => {
-    // Mark Notice as read when opening dialog
-    if (noticeContent) {
-      markNoticeRead(noticeContent)
+  const handleOpenDialog = (tab?: NotificationDialogTab) => {
+    const nextTab = tab || 'all'
+    const categoryAnnouncements = filterAnnouncementsByCategory(
+      announcements,
+      nextTab
+    )
+
+    if (categoryAnnouncements.length > 0) {
+      const allKeys = categoryAnnouncements.map(
+        (item: Record<string, unknown>) => getAnnouncementKey(item)
+      )
+      markAnnouncementsRead(allKeys)
     }
 
-    setActiveTab(tab || 'notice')
+    setActiveTab(nextTab)
     setDialogOpen(true)
   }
 
   // Handle tab change - mark announcements as read when switching to that tab
-  const handleTabChange = (tab: 'notice' | 'announcements') => {
+  const handleTabChange = (tab: NotificationDialogTab) => {
     setActiveTab(tab)
 
-    if (tab === 'announcements' && announcements.length > 0) {
-      const allKeys = announcements.map((item: Record<string, unknown>) =>
-        getAnnouncementKey(item)
+    const categoryAnnouncements = filterAnnouncementsByCategory(
+      announcements,
+      tab
+    )
+
+    if (categoryAnnouncements.length > 0) {
+      const allKeys = categoryAnnouncements.map(
+        (item: Record<string, unknown>) => getAnnouncementKey(item)
       )
       markAnnouncementsRead(allKeys)
     }
@@ -160,6 +172,11 @@ export function useNotifications() {
     unreadCount: unreadCounts.total,
     unreadNoticeCount: unreadCounts.notice,
     unreadAnnouncementsCount: unreadCounts.announcements,
+    unreadModelReleaseCount: announcements.filter(
+      (item: Record<string, unknown>) =>
+        item.type === 'model_release' &&
+        !isAnnouncementRead(getAnnouncementKey(item))
+    ).length,
 
     // Dialog state
     dialogOpen,

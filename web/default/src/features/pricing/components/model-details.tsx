@@ -96,6 +96,11 @@ import { ModalityIcons } from './model-details-modalities'
 import { ModelDetailsPerformance } from './model-details-performance'
 import { ModelDetailsQuickStats } from './model-details-quick-stats'
 import { UptimeSparkline } from './model-details-uptime-sparkline'
+import {
+  getPublicTopChromeHeight,
+  PRICING_DETAILS_TOP_PADDING_CLASS,
+  PUBLIC_TOP_CHROME_HEIGHT,
+} from './pricing-layout'
 
 // ----------------------------------------------------------------------------
 // Local UI helpers
@@ -1190,18 +1195,12 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
     const getOffset = () => {
       const anchor = tabsListRef.current
       const styles = anchor ? getComputedStyle(anchor) : null
-      const headerHeight =
-        parseFloat(
-          styles?.getPropertyValue('--app-header-height') ||
-            getComputedStyle(document.documentElement).getPropertyValue(
-              '--app-header-height'
-            )
-        ) || 48
-      const bannerHeight =
-        parseFloat(styles?.getPropertyValue('--invite-promo-banner-height')) ||
-        0
+      const chromeHeight =
+        getPublicTopChromeHeight(styles) ||
+        getPublicTopChromeHeight(getComputedStyle(document.documentElement)) ||
+        48
 
-      return headerHeight + bannerHeight + 20
+      return chromeHeight + 20
     }
 
     const updateStickyState = () => {
@@ -1339,7 +1338,10 @@ function ModelDetailsStickyNav(props: {
     : null
 
   return (
-    <div className='pointer-events-none fixed inset-x-0 top-[calc(var(--app-header-height,3rem)+var(--invite-promo-banner-height,0px)+1.25rem)] z-[60] px-6'>
+    <div
+      className='pointer-events-none fixed inset-x-0 z-[60] px-6'
+      style={{ top: `calc(${PUBLIC_TOP_CHROME_HEIGHT} + 1.25rem)` }}
+    >
       <div className='bg-background/82 ring-border/70 supports-backdrop-filter:bg-background/72 pointer-events-auto mx-auto flex w-full max-w-6xl flex-col gap-2 rounded-2xl px-2 py-2 shadow-[0_18px_60px_-36px_var(--foreground)] ring-1 backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-3'>
         <div className='flex min-w-0 items-center gap-2'>
           <Button
@@ -1460,7 +1462,9 @@ export function ModelDetails() {
   if (isLoading) {
     return (
       <PublicLayout showMainContainer={false}>
-        <div className='mx-auto w-full max-w-6xl px-6 pt-24 pb-12 md:pt-32 md:pb-16'>
+        <div
+          className={`mx-auto w-full max-w-6xl px-6 pb-12 md:pb-16 ${PRICING_DETAILS_TOP_PADDING_CLASS}`}
+        >
           <Skeleton className='mb-6 h-8 w-24 rounded-full' />
           <div className='space-y-3'>
             <Skeleton className='h-14 w-full max-w-3xl' />
@@ -1511,7 +1515,9 @@ export function ModelDetails() {
           aria-hidden='true'
           className='absolute inset-0 -z-10 bg-[linear-gradient(to_right,var(--border)_1px,transparent_1px),linear-gradient(to_bottom,var(--border)_1px,transparent_1px)] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_20%,black_20%,transparent_100%)] bg-[size:4rem_4rem] opacity-[0.08]'
         />
-        <div className='mx-auto w-full max-w-6xl px-6 pt-24 pb-14 md:pt-32 md:pb-20'>
+        <div
+          className={`mx-auto w-full max-w-6xl px-6 pb-14 md:pb-20 ${PRICING_DETAILS_TOP_PADDING_CLASS}`}
+        >
           <Button
             variant='ghost'
             size='sm'

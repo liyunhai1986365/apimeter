@@ -54,6 +54,8 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { Markdown } from '@/components/ui/markdown'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -71,17 +73,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { StatusBadge } from '@/components/status-badge'
+import {
+  ANNOUNCEMENT_TYPE_OPTIONS,
+  type AnnouncementType,
+} from '@/features/dashboard/lib/announcement-categories'
+import { sendAnnouncementEmail } from '../api'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 
 type Announcement = {
   id: number
+  title: string
   content: string
   publishDate: string
-  type: 'default' | 'ongoing' | 'success' | 'warning' | 'error'
+  type: AnnouncementType
   extra?: string
 }
 
@@ -91,52 +100,33 @@ type AnnouncementsSectionProps = {
 }
 
 const announcementSchema = z.object({
+  title: z
+    .string()
+    .min(1, 'Title is required')
+    .max(120, 'Title must be less than 120 characters'),
   content: z
     .string()
     .min(1, 'Content is required')
-    .max(500, 'Content must be less than 500 characters'),
+    .max(10000, 'Content must be less than 10000 characters'),
   publishDate: z.string().min(1, 'Publish date is required'),
-  type: z.enum(['default', 'ongoing', 'success', 'warning', 'error']),
+  type: z.enum([
+    'product_update',
+    'system_maintenance',
+    'model_release',
+    'pricing_update',
+    'incident',
+    'general',
+  ]),
   extra: z
     .string()
     .max(100, 'Extra must be less than 100 characters')
     .optional(),
+  sendEmail: z.boolean().optional(),
 })
 
 type AnnouncementFormValues = z.infer<typeof announcementSchema>
 
-const typeOptions = [
-  {
-    value: 'default',
-    label: 'Default',
-    color: 'bg-gray-500',
-    badgeVariant: 'neutral' as const,
-  },
-  {
-    value: 'ongoing',
-    label: 'Ongoing',
-    color: 'bg-blue-500',
-    badgeVariant: 'info' as const,
-  },
-  {
-    value: 'success',
-    label: 'Success',
-    color: 'bg-green-500',
-    badgeVariant: 'success' as const,
-  },
-  {
-    value: 'warning',
-    label: 'Warning',
-    color: 'bg-orange-500',
-    badgeVariant: 'warning' as const,
-  },
-  {
-    value: 'error',
-    label: 'Error',
-    color: 'bg-red-500',
-    badgeVariant: 'danger' as const,
-  },
-]
+const typeOptions = ANNOUNCEMENT_TYPE_OPTIONS
 
 export function AnnouncementsSection({
   enabled,
@@ -157,12 +147,17 @@ export function AnnouncementsSection({
   const form = useForm<AnnouncementFormValues>({
     resolver: zodResolver(announcementSchema),
     defaultValues: {
+      title: '',
       content: '',
       publishDate: new Date().toISOString(),
-      type: 'default',
+      type: 'general',
       extra: '',
+      sendEmail: false,
     },
   })
+
+  const previewTitle = form.watch('title')
+  const previewContent = form.watch('content')
 
   useEffect(() => {
     try {
@@ -172,6 +167,7 @@ export function AnnouncementsSection({
           parsed.map((item, idx) => ({
             ...item,
             id: item.id || idx + 1,
+            title: item.title || '',
           }))
         )
       }
@@ -200,10 +196,12 @@ export function AnnouncementsSection({
   const handleAdd = () => {
     setEditingAnnouncement(null)
     form.reset({
+      title: '',
       content: '',
       publishDate: new Date().toISOString(),
-      type: 'default',
+      type: 'general',
       extra: '',
+      sendEmail: false,
     })
     setShowDialog(true)
   }
@@ -211,10 +209,12 @@ export function AnnouncementsSection({
   const handleEdit = (announcement: Announcement) => {
     setEditingAnnouncement(announcement)
     form.reset({
+      title: announcement.title,
       content: announcement.content,
       publishDate: announcement.publishDate,
       type: announcement.type,
       extra: announcement.extra || '',
+      sendEmail: false,
     })
     setShowDialog(true)
   }
@@ -257,30 +257,69 @@ export function AnnouncementsSection({
     setEditingAnnouncement(null)
   }
 
-  const handleSubmitForm = (values: AnnouncementFormValues) => {
+  const saveAnnouncementList = async (nextAnnouncements: Announcement[]) => {
+    await updateOption.mutateAsync({
+      key: 'console_setting.announcements',
+      value: JSON.stringify(nextAnnouncements),
+    })
+    setAnnouncements(nextAnnouncements)
+    setHasChanges(false)
+  }
+
+  const handleSubmitForm = async (values: AnnouncementFormValues) => {
+    const { sendEmail, ...announcementValues } = values
+    let nextAnnouncements: Announcement[]
     if (editingAnnouncement) {
-      setAnnouncements((prev) =>
-        prev.map((item) =>
-          item.id === editingAnnouncement.id ? { ...item, ...values } : item
-        )
+      nextAnnouncements = announcements.map((item) =>
+        item.id === editingAnnouncement.id
+          ? { ...item, ...announcementValues }
+          : item
       )
-      toast.success(t('Announcement updated. Click "Save Settings" to apply.'))
     } else {
       const newId = Math.max(...announcements.map((item) => item.id), 0) + 1
-      setAnnouncements((prev) => [...prev, { id: newId, ...values }])
-      toast.success(t('Announcement added. Click "Save Settings" to apply.'))
+      nextAnnouncements = [
+        ...announcements,
+        { id: newId, ...announcementValues },
+      ]
     }
-    setHasChanges(true)
-    setShowDialog(false)
+
+    try {
+      await saveAnnouncementList(nextAnnouncements)
+
+      if (sendEmail) {
+        const result = await sendAnnouncementEmail({
+          title: announcementValues.title,
+          content: announcementValues.content,
+          type: announcementValues.type,
+        })
+
+        if (!result.success) {
+          toast.error(result.message || t('Failed to send announcement email'))
+        } else {
+          toast.success(
+            t('Announcement email sent to {{sent}} of {{total}} users', {
+              sent: result.data?.sent ?? 0,
+              total: result.data?.total ?? 0,
+            })
+          )
+        }
+      } else {
+        toast.success(
+          editingAnnouncement
+            ? t('Announcement updated successfully')
+            : t('Announcement added successfully')
+        )
+      }
+
+      setShowDialog(false)
+    } catch {
+      toast.error(t('Failed to save announcements'))
+    }
   }
 
   const handleSaveAll = async () => {
     try {
-      await updateOption.mutateAsync({
-        key: 'console_setting.announcements',
-        value: JSON.stringify(announcements),
-      })
-      setHasChanges(false)
+      await saveAnnouncementList(announcements)
       toast.success(t('Announcements saved successfully'))
     } catch {
       toast.error(t('Failed to save announcements'))
@@ -327,7 +366,7 @@ export function AnnouncementsSection({
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
             <Button onClick={handleAdd} size='sm'>
-              <Plus className='mr-2 h-4 w-4' />
+              <Plus data-icon='inline-start' />
               {t('Add Announcement')}
             </Button>
             <Button
@@ -336,7 +375,7 @@ export function AnnouncementsSection({
               variant='destructive'
               disabled={selectedIds.length === 0}
             >
-              <Trash2 className='mr-2 h-4 w-4' />
+              <Trash2 data-icon='inline-start' />
               {t('Delete (')}
               {selectedIds.length})
             </Button>
@@ -346,7 +385,7 @@ export function AnnouncementsSection({
               variant='secondary'
               disabled={!hasChanges || updateOption.isPending}
             >
-              <Save className='mr-2 h-4 w-4' />
+              <Save data-icon='inline-start' />
               {updateOption.isPending ? t('Saving...') : t('Save Settings')}
             </Button>
           </div>
@@ -371,6 +410,7 @@ export function AnnouncementsSection({
                     onCheckedChange={toggleSelectAll}
                   />
                 </TableHead>
+                <TableHead>{t('Title')}</TableHead>
                 <TableHead>{t('Content')}</TableHead>
                 <TableHead>{t('Publish Date')}</TableHead>
                 <TableHead>{t('Type')}</TableHead>
@@ -381,7 +421,7 @@ export function AnnouncementsSection({
             <TableBody>
               {sortedAnnouncements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className='h-24 text-center'>
+                  <TableCell colSpan={7} className='h-24 text-center'>
                     {t(
                       'No announcements yet. Click "Add Announcement" to create one.'
                     )}
@@ -398,8 +438,18 @@ export function AnnouncementsSection({
                         }
                       />
                     </TableCell>
+                    <TableCell className='max-w-56'>
+                      <div className='flex flex-col gap-1'>
+                        <span
+                          className='truncate text-sm font-medium'
+                          title={announcement.title}
+                        >
+                          {announcement.title}
+                        </span>
+                      </div>
+                    </TableCell>
                     <TableCell
-                      className='max-w-xs truncate'
+                      className='text-muted-foreground max-w-xs truncate'
                       title={announcement.content}
                     >
                       {announcement.content}
@@ -418,11 +468,11 @@ export function AnnouncementsSection({
                     </TableCell>
                     <TableCell>
                       <StatusBadge
-                        label={
+                        label={t(
                           typeOptions.find(
                             (opt) => opt.value === announcement.type
-                          )?.label
-                        }
+                          )?.label ?? 'General Announcement'
+                        )}
                         variant={
                           typeOptions.find(
                             (opt) => opt.value === announcement.type
@@ -444,14 +494,14 @@ export function AnnouncementsSection({
                           size='sm'
                           variant='ghost'
                         >
-                          <Edit className='h-4 w-4' />
+                          <Edit data-icon='inline-start' />
                         </Button>
                         <Button
                           onClick={() => handleDelete(announcement)}
                           size='sm'
                           variant='ghost'
                         >
-                          <Trash2 className='h-4 w-4' />
+                          <Trash2 data-icon='inline-start' />
                         </Button>
                       </div>
                     </TableCell>
@@ -464,7 +514,7 @@ export function AnnouncementsSection({
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className='max-w-2xl'>
+        <DialogContent className='flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden max-sm:w-screen max-sm:max-w-none max-sm:rounded-none sm:max-w-[min(92vw,1200px)]'>
           <DialogHeader>
             <DialogTitle>
               {editingAnnouncement
@@ -478,125 +528,217 @@ export function AnnouncementsSection({
           <Form {...form}>
             <form
               onSubmit={form.handleSubmit(handleSubmitForm)}
-              className='space-y-4'
+              className='flex min-h-0 flex-1 flex-col gap-4'
             >
-              <FormField
-                control={form.control}
-                name='content'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Content')}</FormLabel>
-                    <FormControl>
-                      <Textarea
-                        placeholder={t(
-                          'Enter announcement content (supports Markdown/HTML)'
-                        )}
-                        rows={4}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t('Maximum 500 characters. Supports Markdown and HTML.')}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='publishDate'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Publish Date')}</FormLabel>
-                    <FormControl>
-                      <DateTimePicker
-                        value={field.value ? new Date(field.value) : undefined}
-                        onChange={(date) =>
-                          field.onChange(date ? date.toISOString() : '')
-                        }
-                        placeholder={t('Select publish date')}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t(
-                        'Date and time when this announcement should be displayed'
-                      )}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='type'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Type')}</FormLabel>
-                    <Select
-                      items={[
-                        ...typeOptions.map((option) => ({
-                          value: option.value,
-                          label: (
-                            <div className='flex items-center gap-2'>
-                              <div
-                                className={`h-3 w-3 rounded-full ${option.color}`}
-                              />
-                              {option.label}
-                            </div>
-                          ),
-                        })),
-                      ]}
-                      onValueChange={field.onChange}
-                      value={field.value}
-                    >
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue
-                            placeholder={t('Select announcement type')}
+              <ScrollArea className='min-h-0 flex-1 pr-4'>
+                <div className='flex flex-col gap-4 pb-1'>
+                  <FormField
+                    control={form.control}
+                    name='title'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Title')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t('Enter announcement title')}
+                            {...field}
                           />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent alignItemWithTrigger={false}>
-                        <SelectGroup>
-                          {typeOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              <div className='flex items-center gap-2'>
-                                <div
-                                  className={`h-3 w-3 rounded-full ${option.color}`}
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Used as the announcement title and email subject line.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='content'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Content')}</FormLabel>
+                        <Tabs defaultValue='write' className='gap-3'>
+                          <TabsList>
+                            <TabsTrigger value='write'>
+                              {t('Write')}
+                            </TabsTrigger>
+                            <TabsTrigger value='preview'>
+                              {t('Preview')}
+                            </TabsTrigger>
+                          </TabsList>
+                          <div className='min-w-0'>
+                            <TabsContent value='write'>
+                              <FormControl>
+                                <Textarea
+                                  placeholder={t(
+                                    'Enter announcement content (supports Markdown/HTML)'
+                                  )}
+                                  rows={18}
+                                  className='min-h-[420px] w-full resize-y font-mono text-sm leading-relaxed'
+                                  {...field}
                                 />
-                                {option.label}
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name='extra'
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('Extra Notes (Optional)')}</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder={t('Additional information')}
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      {t(
-                        'Optional supplementary information (max 100 characters)'
+                              </FormControl>
+                            </TabsContent>
+                            <TabsContent value='preview'>
+                              <ScrollArea className='bg-muted/20 h-[420px] rounded-md border p-4'>
+                                {previewContent ? (
+                                  <div className='flex flex-col gap-3'>
+                                    {previewTitle && (
+                                      <h3 className='text-base font-semibold'>
+                                        {previewTitle}
+                                      </h3>
+                                    )}
+                                    <Markdown>{previewContent}</Markdown>
+                                  </div>
+                                ) : (
+                                  <div className='text-muted-foreground flex h-[388px] items-center justify-center text-sm'>
+                                    {t('Markdown preview')}
+                                  </div>
+                                )}
+                              </ScrollArea>
+                            </TabsContent>
+                          </div>
+                        </Tabs>
+                        <FormDescription>
+                          {t(
+                            'Maximum 10000 characters. Supports Markdown and HTML.'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <div className='grid gap-4 lg:grid-cols-2'>
+                    <FormField
+                      control={form.control}
+                      name='publishDate'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Publish Date')}</FormLabel>
+                          <FormControl>
+                            <DateTimePicker
+                              value={
+                                field.value ? new Date(field.value) : undefined
+                              }
+                              onChange={(date) =>
+                                field.onChange(date ? date.toISOString() : '')
+                              }
+                              placeholder={t('Select publish date')}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            {t(
+                              'Date and time when this announcement should be displayed'
+                            )}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
+                    />
+                    <FormField
+                      control={form.control}
+                      name='type'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Type')}</FormLabel>
+                          <Select
+                            items={[
+                              ...typeOptions.map((option) => ({
+                                value: option.value,
+                                label: (
+                                  <div className='flex items-center gap-2'>
+                                    <div
+                                      className={`size-3 rounded-full ${option.color}`}
+                                    />
+                                    {t(option.label)}
+                                  </div>
+                                ),
+                              })),
+                            ]}
+                            onValueChange={field.onChange}
+                            value={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue
+                                  placeholder={t('Select announcement type')}
+                                />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent alignItemWithTrigger={false}>
+                              <SelectGroup>
+                                {typeOptions.map((option) => (
+                                  <SelectItem
+                                    key={option.value}
+                                    value={option.value}
+                                  >
+                                    <div className='flex items-center gap-2'>
+                                      <div
+                                        className={`size-3 rounded-full ${option.color}`}
+                                      />
+                                      {t(option.label)}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  <FormField
+                    control={form.control}
+                    name='extra'
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t('Extra Notes (Optional)')}</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder={t('Additional information')}
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          {t(
+                            'Optional supplementary information (max 100 characters)'
+                          )}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name='sendEmail'
+                    render={({ field }) => (
+                      <FormItem className='border-border flex flex-row items-start gap-3 rounded-md border p-3'>
+                        <FormControl>
+                          <Checkbox
+                            checked={field.value}
+                            onCheckedChange={(checked) =>
+                              field.onChange(checked === true)
+                            }
+                          />
+                        </FormControl>
+                        <div className='flex flex-col gap-1'>
+                          <FormLabel>{t('Send announcement email')}</FormLabel>
+                          <FormDescription>
+                            {t(
+                              'After saving, send this announcement to all enabled users with an email address.'
+                            )}
+                          </FormDescription>
+                        </div>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </ScrollArea>
+              <DialogFooter className='border-border border-t pt-4'>
                 <Button
                   type='button'
                   variant='outline'
@@ -604,8 +746,12 @@ export function AnnouncementsSection({
                 >
                   {t('Cancel')}
                 </Button>
-                <Button type='submit'>
-                  {editingAnnouncement ? t('Update') : t('Add')}
+                <Button type='submit' disabled={updateOption.isPending}>
+                  {updateOption.isPending
+                    ? t('Saving...')
+                    : editingAnnouncement
+                      ? t('Update')
+                      : t('Add')}
                 </Button>
               </DialogFooter>
             </form>

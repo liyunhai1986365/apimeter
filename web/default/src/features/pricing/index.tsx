@@ -29,6 +29,11 @@ import {
   PricingToolbar,
   ModelCardGrid,
 } from './components'
+import {
+  PRICING_PAGE_TOP_PADDING_CLASS,
+  PRICING_SIDEBAR_STICKY_CLASS,
+  PRICING_STICKY_TOP_CLASS,
+} from './components/pricing-layout'
 import { VIEW_MODES } from './constants'
 import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
@@ -133,7 +138,9 @@ export function Pricing() {
   if (isLoading) {
     return (
       <PublicLayout showMainContainer={false}>
-        <div className='mx-auto w-full max-w-[1800px] px-3 pt-12 pb-8 sm:px-6 sm:pt-14 sm:pb-10 xl:px-8'>
+        <div
+          className={`mx-auto w-full max-w-[1800px] px-3 pb-8 sm:px-6 sm:pb-10 xl:px-8 ${PRICING_PAGE_TOP_PADDING_CLASS}`}
+        >
           <LoadingSkeleton viewMode={viewMode} />
         </div>
       </PublicLayout>
@@ -142,7 +149,9 @@ export function Pricing() {
 
   return (
     <PublicLayout showMainContainer={false}>
-      <PageTransition className='mx-auto w-full max-w-[1800px] px-3 pt-12 pb-8 sm:px-6 sm:pt-14 sm:pb-10 xl:px-8'>
+      <PageTransition
+        className={`mx-auto w-full max-w-[1800px] px-3 pb-8 sm:px-6 sm:pb-10 xl:px-8 ${PRICING_PAGE_TOP_PADDING_CLASS}`}
+      >
         <div className='grid gap-3 lg:grid-cols-[13rem_minmax(0,1fr)] xl:grid-cols-[14rem_minmax(0,1fr)]'>
           <PricingSidebar
             quotaTypeFilter={quotaTypeFilter}
@@ -164,11 +173,13 @@ export function Pricing() {
             hasActiveFilters={hasActiveFilters}
             activeFilterCount={activeFilterCount}
             onClearFilters={clearAllFilters}
-            className='lg:sticky lg:top-18 lg:max-h-[calc(100vh-5rem)] lg:overflow-y-auto'
+            className={`lg:sticky lg:overflow-y-auto ${PRICING_SIDEBAR_STICKY_CLASS}`}
           />
 
           <main className='min-w-0'>
-            <div className='bg-background/92 supports-[backdrop-filter]:bg-background/75 sticky top-14 z-30 -mx-1 mb-7 flex flex-col gap-2.5 rounded-b-xl px-1 pb-3 shadow-sm backdrop-blur sm:top-16 lg:top-18'>
+            <div
+              className={`bg-background/92 supports-[backdrop-filter]:bg-background/75 sticky z-30 -mx-1 mb-7 flex flex-col gap-2.5 rounded-b-xl px-1 pb-3 shadow-sm backdrop-blur ${PRICING_STICKY_TOP_CLASS}`}
+            >
               <PricingFilterBar
                 categoryFilter={categoryFilter}
                 onCategoryChange={setCategoryFilter}

@@ -116,29 +116,31 @@ export function getChartColor(index: number): string {
  * Announcement status types
  */
 export type AnnouncementType =
-  | 'default'
-  | 'ongoing'
-  | 'success'
-  | 'warning'
-  | 'error'
+  | 'product_update'
+  | 'system_maintenance'
+  | 'model_release'
+  | 'pricing_update'
+  | 'incident'
+  | 'general'
 
 /**
  * Announcement status color mapping
  */
 export const ANNOUNCEMENT_TYPE_COLORS: Record<AnnouncementType, string> = {
-  default: 'bg-neutral',
-  ongoing: 'bg-info',
-  success: 'bg-success',
-  warning: 'bg-warning',
-  error: 'bg-destructive',
+  product_update: 'bg-info',
+  system_maintenance: 'bg-warning',
+  model_release: 'bg-chart-4',
+  pricing_update: 'bg-success',
+  incident: 'bg-destructive',
+  general: 'bg-neutral',
 }
 
 /**
  * Get announcement status color class
  */
 export function getAnnouncementColorClass(type?: string): string {
-  const validType = (type || 'default') as AnnouncementType
-  return ANNOUNCEMENT_TYPE_COLORS[validType] || ANNOUNCEMENT_TYPE_COLORS.default
+  const validType = (type || 'general') as AnnouncementType
+  return ANNOUNCEMENT_TYPE_COLORS[validType] || ANNOUNCEMENT_TYPE_COLORS.general
 }
 
 /**

@@ -30,20 +30,8 @@ export function Markdown({ children, className }: MarkdownProps) {
   return (
     <div
       className={cn(
-        'prose prose-sm dark:prose-invert max-w-none',
-        'prose-headings:font-semibold prose-headings:tracking-tight',
-        'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
-        'prose-p:leading-relaxed prose-p:my-2',
-        'prose-a:text-primary prose-a:no-underline hover:prose-a:underline',
-        'prose-code:bg-muted prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none',
-        'prose-pre:bg-muted prose-pre:border',
-        'prose-blockquote:border-l-primary prose-blockquote:bg-muted/50 prose-blockquote:py-1',
-        'prose-ul:my-2 prose-ol:my-2 prose-li:my-1',
-        'prose-table:border prose-thead:bg-muted',
-        'prose-td:border prose-th:border prose-td:px-3 prose-th:px-3',
-        'prose-img:rounded-lg prose-img:shadow-sm',
+        'max-w-none text-sm [overflow-wrap:anywhere] break-words',
         '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
-        '[overflow-wrap:anywhere] break-words',
         className
       )}
     >
@@ -51,9 +39,129 @@ export function Markdown({ children, className }: MarkdownProps) {
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeRaw]}
         components={{
-          // 自定义组件渲染（可选）
-          a: ({ node, ...props }) => (
-            <a {...props} target='_blank' rel='noopener noreferrer' />
+          h1: ({ node, className, ...props }) => (
+            <h1
+              className={cn(
+                'mt-5 mb-3 text-2xl leading-tight font-semibold tracking-tight',
+                className
+              )}
+              {...props}
+            />
+          ),
+          h2: ({ node, className, ...props }) => (
+            <h2
+              className={cn(
+                'mt-5 mb-2.5 text-xl leading-tight font-semibold tracking-tight',
+                className
+              )}
+              {...props}
+            />
+          ),
+          h3: ({ node, className, ...props }) => (
+            <h3
+              className={cn(
+                'mt-4 mb-2 text-lg leading-snug font-semibold tracking-tight',
+                className
+              )}
+              {...props}
+            />
+          ),
+          h4: ({ node, className, ...props }) => (
+            <h4
+              className={cn(
+                'mt-4 mb-2 text-base leading-snug font-semibold',
+                className
+              )}
+              {...props}
+            />
+          ),
+          p: ({ node, className, ...props }) => (
+            <p
+              className={cn('text-foreground my-2 leading-relaxed', className)}
+              {...props}
+            />
+          ),
+          a: ({ node, className, ...props }) => (
+            <a
+              {...props}
+              className={cn(
+                'text-primary underline-offset-4 hover:underline',
+                className
+              )}
+              target='_blank'
+              rel='noopener noreferrer'
+            />
+          ),
+          ul: ({ node, className, ...props }) => (
+            <ul
+              className={cn('my-2 list-disc space-y-1 pl-5', className)}
+              {...props}
+            />
+          ),
+          ol: ({ node, className, ...props }) => (
+            <ol
+              className={cn('my-2 list-decimal space-y-1 pl-5', className)}
+              {...props}
+            />
+          ),
+          li: ({ node, className, ...props }) => (
+            <li className={cn('leading-relaxed', className)} {...props} />
+          ),
+          blockquote: ({ node, className, ...props }) => (
+            <blockquote
+              className={cn(
+                'border-l-primary bg-muted/50 text-muted-foreground my-3 border-l-2 py-1 pr-3 pl-4',
+                className
+              )}
+              {...props}
+            />
+          ),
+          code: ({ node, className, ...props }) => (
+            <code
+              className={cn(
+                'bg-muted rounded px-1 py-0.5 text-[0.875em]',
+                className
+              )}
+              {...props}
+            />
+          ),
+          pre: ({ node, className, ...props }) => (
+            <pre
+              className={cn(
+                'bg-muted my-3 overflow-x-auto rounded-md border p-3 text-sm',
+                className
+              )}
+              {...props}
+            />
+          ),
+          table: ({ node, className, ...props }) => (
+            <div className='my-3 overflow-x-auto'>
+              <table
+                className={cn(
+                  'w-full border-collapse border text-sm',
+                  className
+                )}
+                {...props}
+              />
+            </div>
+          ),
+          th: ({ node, className, ...props }) => (
+            <th
+              className={cn(
+                'bg-muted border px-3 py-2 text-left font-semibold',
+                className
+              )}
+              {...props}
+            />
+          ),
+          td: ({ node, className, ...props }) => (
+            <td className={cn('border px-3 py-2', className)} {...props} />
+          ),
+          img: ({ node, className, ...props }) => (
+            <img
+              className={cn('my-3 rounded-lg shadow-sm', className)}
+              {...props}
+            />
           ),
         }}
       >

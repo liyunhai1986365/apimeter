@@ -17,11 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { TFunction } from 'i18next'
-import { Bell, Megaphone } from 'lucide-react'
+import { Cpu, Megaphone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getAnnouncementColorClass } from '@/lib/colors'
 import { formatDateTimeObject } from '@/lib/time'
 import { cn } from '@/lib/utils'
+import type { NotificationDialogTab } from '@/hooks/use-notifications'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -34,8 +35,16 @@ import { Markdown } from '@/components/ui/markdown'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { StatusBadge } from '@/components/status-badge'
+import {
+  ANNOUNCEMENT_CATEGORY_OPTIONS,
+  type AnnouncementCategory,
+  filterAnnouncementsByCategory,
+  getAnnouncementCategoryLabel,
+} from '@/features/dashboard/lib/announcement-categories'
 
 interface AnnouncementItem {
+  title?: string
   type?: string
   content?: string
   extra?: string
@@ -45,12 +54,10 @@ interface AnnouncementItem {
 interface NotificationDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  activeTab: 'notice' | 'announcements'
-  onTabChange: (tab: 'notice' | 'announcements') => void
-  notice: string
+  activeTab: NotificationDialogTab
+  onTabChange: (tab: NotificationDialogTab) => void
   announcements: AnnouncementItem[]
   loading: boolean
-  onCloseToday: () => void
 }
 
 /**
@@ -131,30 +138,17 @@ function EmptyState({ message }: { message: string }) {
   )
 }
 
-/**
- * Notice tab content
- */
-function NoticeContent({
-  notice,
-  loading,
-  t,
+function MarkdownPreviewPanel({
+  children,
+  className,
 }: {
-  notice: string
-  loading: boolean
-  t: TFunction
+  children: string
+  className?: string
 }) {
-  if (loading) {
-    return <EmptyState message={t('Loading...')} />
-  }
-
-  if (!notice) {
-    return <EmptyState message={t('No announcements at this time')} />
-  }
-
   return (
-    <ScrollArea className='h-[50vh] pr-4'>
-      <Markdown>{notice}</Markdown>
-    </ScrollArea>
+    <div className={cn('bg-muted/20 rounded-md border px-4 py-3', className)}>
+      <Markdown>{children}</Markdown>
+    </div>
   )
 }
 
@@ -175,7 +169,7 @@ function AnnouncementsContent({
   }
 
   if (announcements.length === 0) {
-    return <EmptyState message={t('No system announcements')} />
+    return <EmptyState message={t('No announcements at this time')} />
   }
 
   return (
@@ -198,10 +192,13 @@ function AnnouncementsContent({
                 <div className='flex items-start gap-3'>
                   <AnnouncementDot type={item.type} />
                   <div className='min-w-0 flex-1 space-y-2'>
+                    {item.title && (
+                      <div className='text-sm font-semibold'>{item.title}</div>
+                    )}
                     {/* Content */}
-                    <div className='text-sm'>
-                      <Markdown>{item.content || ''}</Markdown>
-                    </div>
+                    <MarkdownPreviewPanel className='text-sm'>
+                      {item.content || ''}
+                    </MarkdownPreviewPanel>
 
                     {/* Extra info */}
                     {item.extra && (
@@ -212,9 +209,28 @@ function AnnouncementsContent({
 
                     {/* Time */}
                     {absoluteTime && (
-                      <div className='text-muted-foreground text-xs'>
-                        {relativeTime && `${relativeTime} • `}
-                        {absoluteTime}
+                      <div className='flex flex-wrap items-center gap-2'>
+                        <StatusBadge
+                          label={t(getAnnouncementCategoryLabel(item.type))}
+                          variant={
+                            item.type === 'incident'
+                              ? 'danger'
+                              : item.type === 'system_maintenance'
+                                ? 'warning'
+                                : item.type === 'model_release'
+                                  ? 'purple'
+                                  : item.type === 'pricing_update'
+                                    ? 'success'
+                                    : item.type === 'product_update'
+                                      ? 'info'
+                                      : 'neutral'
+                          }
+                          copyable={false}
+                        />
+                        <span className='text-muted-foreground text-xs'>
+                          {relativeTime && `${relativeTime} • `}
+                          {absoluteTime}
+                        </span>
                       </div>
                     )}
                   </div>
@@ -237,12 +253,15 @@ export function NotificationDialog({
   onOpenChange,
   activeTab,
   onTabChange,
-  notice,
   announcements,
   loading,
-  onCloseToday,
 }: NotificationDialogProps) {
   const { t } = useTranslation()
+  const timelineAnnouncements = filterAnnouncementsByCategory(
+    announcements,
+    'all'
+  )
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='max-h-[90vh] sm:max-w-2xl'>
@@ -254,34 +273,52 @@ export function NotificationDialog({
           value={activeTab}
           onValueChange={onTabChange as (value: string) => void}
         >
-          <TabsList className='grid w-full grid-cols-2'>
-            <TabsTrigger value='notice' className='gap-1.5'>
-              <Bell className='h-3.5 w-3.5' />
-              {t('Notice')}
-            </TabsTrigger>
-            <TabsTrigger value='announcements' className='gap-1.5'>
-              <Megaphone className='h-3.5 w-3.5' />
-              {t('Timeline')}
-            </TabsTrigger>
+          <TabsList className='grid h-auto w-full grid-cols-2 sm:grid-cols-4'>
+            {ANNOUNCEMENT_CATEGORY_OPTIONS.map((option) => (
+              <TabsTrigger
+                key={option.value}
+                value={option.value}
+                className='gap-1.5'
+              >
+                {option.value === 'model_release' ? (
+                  <Cpu data-icon='inline-start' />
+                ) : (
+                  <Megaphone data-icon='inline-start' />
+                )}
+                {t(option.label)}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
-          <TabsContent value='notice' className='mt-4'>
-            <NoticeContent notice={notice} loading={loading} t={t} />
-          </TabsContent>
-
-          <TabsContent value='announcements' className='mt-4'>
+          <TabsContent value='all' className='mt-4'>
             <AnnouncementsContent
-              announcements={announcements}
+              announcements={timelineAnnouncements}
               loading={loading}
               t={t}
             />
           </TabsContent>
+
+          {ANNOUNCEMENT_CATEGORY_OPTIONS.filter(
+            (option) => option.value !== 'all'
+          ).map((option) => (
+            <TabsContent
+              key={option.value}
+              value={option.value}
+              className='mt-4'
+            >
+              <AnnouncementsContent
+                announcements={filterAnnouncementsByCategory(
+                  announcements,
+                  option.value as AnnouncementCategory
+                )}
+                loading={loading}
+                t={t}
+              />
+            </TabsContent>
+          ))}
         </Tabs>
 
         <DialogFooter className='gap-2'>
-          <Button variant='outline' onClick={onCloseToday}>
-            {t('Close Today')}
-          </Button>
           <Button onClick={() => onOpenChange(false)}>{t('Close')}</Button>
         </DialogFooter>
       </DialogContent>

@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/QuantumNous/new-api/setting/model_setting"
@@ -116,6 +117,12 @@ func GetOptions(c *gin.Context) {
 type OptionUpdateRequest struct {
 	Key   string `json:"key"`
 	Value any    `json:"value"`
+}
+
+type AnnouncementEmailRequest struct {
+	Title   string `json:"title"`
+	Content string `json:"content"`
+	Type    string `json:"type"`
 }
 
 func UpdateOption(c *gin.Context) {
@@ -368,5 +375,46 @@ func UpdateOption(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
+	})
+}
+
+func SendAnnouncementEmail(c *gin.Context) {
+	var req AnnouncementEmailRequest
+	if err := common.DecodeJson(c.Request.Body, &req); err != nil {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	req.Title = strings.TrimSpace(req.Title)
+	req.Content = strings.TrimSpace(req.Content)
+	req.Type = strings.TrimSpace(req.Type)
+	if req.Title == "" || req.Content == "" {
+		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+
+	summary, err := service.BroadcastAnnouncementEmail(service.BroadcastAnnouncementEmailRequest{
+		Title:   req.Title,
+		Content: req.Content,
+		Type:    req.Type,
+	})
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+
+	adminInfo := map[string]interface{}{
+		"admin_id":       c.GetInt("id"),
+		"admin_username": c.GetString("username"),
+		"sent":           summary.Sent,
+		"failed":         summary.Failed,
+		"total":          summary.Total,
+	}
+	model.RecordLogWithAdminInfo(c.GetInt("id"), model.LogTypeManage, fmt.Sprintf("管理员群发公告邮件: %s", req.Title), adminInfo)
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "",
+		"data":    summary,
 	})
 }

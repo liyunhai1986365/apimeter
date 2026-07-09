@@ -39,6 +39,17 @@ export type UpdateOptionResponse = {
   message: string
 }
 
+export type AnnouncementEmailResponse = {
+  success: boolean
+  message: string
+  data?: {
+    total: number
+    sent: number
+    failed: number
+    errors?: string[]
+  }
+}
+
 export type GlobalWebhookTestResponse = {
   success: boolean
   message: string

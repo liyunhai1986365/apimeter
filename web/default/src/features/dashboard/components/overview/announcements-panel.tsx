@@ -16,15 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { memo, useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { Megaphone } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { getAnnouncementColorClass } from '@/lib/colors'
 import { formatDateTimeObject } from '@/lib/time'
 import { cn } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { StatusBadge } from '@/components/status-badge'
 import { useAnnouncements } from '@/features/dashboard/hooks/use-status-data'
-import { getPreviewText } from '@/features/dashboard/lib'
+import {
+  ANNOUNCEMENT_CATEGORY_OPTIONS,
+  filterAnnouncementsByCategory,
+  getAnnouncementCategoryLabel,
+  type AnnouncementCategory,
+} from '@/features/dashboard/lib/announcement-categories'
 import type { AnnouncementItem } from '@/features/dashboard/types'
 import { PanelWrapper } from '../ui/panel-wrapper'
 import { AnnouncementDetailModal } from './announcement-detail-dialog'
@@ -45,9 +52,16 @@ const AnnouncementStatusDot = memo(function AnnouncementStatusDot(props: {
 export function AnnouncementsPanel() {
   const { t } = useTranslation()
   const { items: list, loading } = useAnnouncements()
+  const [activeCategory, setActiveCategory] =
+    useState<AnnouncementCategory>('all')
   const [selectedAnnouncement, setSelectedAnnouncement] =
     useState<AnnouncementItem | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
+
+  const filteredList = useMemo(
+    () => filterAnnouncementsByCategory(list, activeCategory),
+    [list, activeCategory]
+  )
 
   const handleAnnouncementClick = (item: AnnouncementItem) => {
     setSelectedAnnouncement(item)
@@ -69,9 +83,32 @@ export function AnnouncementsPanel() {
       height='h-80'
       contentClassName='p-0'
     >
+      <div className='border-border/60 border-b px-3 py-2 sm:px-5'>
+        <Tabs
+          value={activeCategory}
+          onValueChange={(value) =>
+            setActiveCategory(value as AnnouncementCategory)
+          }
+        >
+          <TabsList className='w-full'>
+            {ANNOUNCEMENT_CATEGORY_OPTIONS.map((option) => (
+              <TabsTrigger key={option.value} value={option.value}>
+                {t(option.label)}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+      </div>
       <ScrollArea className='h-80'>
         <div>
-          {list.map((item: AnnouncementItem, idx: number) => {
+          {filteredList.length === 0 && (
+            <div className='flex h-40 items-center justify-center px-5 text-center'>
+              <p className='text-muted-foreground text-sm'>
+                {t('No announcements at this time')}
+              </p>
+            </div>
+          )}
+          {filteredList.map((item: AnnouncementItem, idx: number) => {
             const key = item.id ?? `announcement-${idx}`
             return (
               <button
@@ -80,21 +117,38 @@ export function AnnouncementsPanel() {
                 onClick={() => handleAnnouncementClick(item)}
                 className={cn(
                   'group hover:bg-muted/40 w-full px-3 py-3 text-left transition-colors sm:px-5 sm:py-3.5',
-                  idx < list.length - 1 && 'border-border/60 border-b'
+                  idx < filteredList.length - 1 && 'border-border/60 border-b'
                 )}
               >
                 <div className='flex items-start gap-2.5'>
                   <AnnouncementStatusDot type={item.type} />
                   <div className='flex min-w-0 flex-1 flex-col gap-1'>
                     <p className='line-clamp-1 text-sm font-medium'>
-                      {getPreviewText(item.content)}
+                      {item.title}
                     </p>
-                    <div className='flex items-center justify-between'>
+                    <div className='flex items-center justify-between gap-2'>
                       {item.publishDate && (
                         <time className='text-muted-foreground/60 text-xs'>
                           {formatDateTimeObject(new Date(item.publishDate))}
                         </time>
                       )}
+                      <StatusBadge
+                        label={t(getAnnouncementCategoryLabel(item.type))}
+                        variant={
+                          item.type === 'incident'
+                            ? 'danger'
+                            : item.type === 'system_maintenance'
+                              ? 'warning'
+                              : item.type === 'model_release'
+                                ? 'purple'
+                                : item.type === 'pricing_update'
+                                  ? 'success'
+                                  : item.type === 'product_update'
+                                    ? 'info'
+                                    : 'neutral'
+                        }
+                        copyable={false}
+                      />
                       <span className='text-muted-foreground/40 text-xs opacity-0 transition-opacity group-hover:opacity-100'>
                         {t('Click for details')}
                       </span>

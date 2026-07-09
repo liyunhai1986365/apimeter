@@ -31,6 +31,8 @@ const STATUS_RELATED_KEYS = [
   'SidebarModulesAdmin',
   'CustomerServiceScript',
   'Notice',
+  'console_setting.announcements',
+  'console_setting.announcements_enabled',
   'LogConsumeEnabled',
   'QuotaPerUnit',
   'USDExchangeRate',
