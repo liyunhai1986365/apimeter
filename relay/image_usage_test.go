@@ -5,6 +5,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/stretchr/testify/require"
@@ -100,4 +101,17 @@ func TestImageResponseBodyWithUsageKeepsExistingUsage(t *testing.T) {
 
 	require.False(t, injected)
 	require.Nil(t, updated)
+}
+
+func TestAttachImageBillingResponseBodyKeepsRequestBody(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		BillingRequestInput: &billingexpr.RequestInput{
+			Body: []byte(`{"size":"2K"}`),
+		},
+	}
+
+	attachImageBillingResponseBody(info, []byte(`{"data":[{"size":"3104x1312"}]}`))
+
+	require.Equal(t, []byte(`{"size":"2K"}`), info.BillingRequestInput.Body)
+	require.Equal(t, []byte(`{"data":[{"size":"3104x1312"}]}`), info.BillingRequestInput.ResponseBody)
 }

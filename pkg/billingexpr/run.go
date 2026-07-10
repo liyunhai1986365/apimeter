@@ -3,6 +3,8 @@ package billingexpr
 import (
 	"fmt"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,16 +55,16 @@ func runProgram(prog *vm.Program, params TokenParams, request RequestInput) (flo
 	headers := normalizeHeaders(request.Headers)
 
 	env := map[string]interface{}{
-		"p":    params.P,
-		"c":    params.C,
-		"len":  params.Len,
-		"cr":   params.CR,
-		"cc":   params.CC,
-		"cc1h": params.CC1h,
-		"img":  params.Img,
+		"p":     params.P,
+		"c":     params.C,
+		"len":   params.Len,
+		"cr":    params.CR,
+		"cc":    params.CC,
+		"cc1h":  params.CC1h,
+		"img":   params.Img,
 		"img_o": params.ImgO,
-		"ai":   params.AI,
-		"ao":   params.AO,
+		"ai":    params.AI,
+		"ao":    params.AO,
 		"tier": func(name string, value float64) float64 {
 			trace.MatchedTier = name
 			trace.Cost = value
@@ -72,15 +74,10 @@ func runProgram(prog *vm.Program, params TokenParams, request RequestInput) (flo
 			return headers[strings.ToLower(strings.TrimSpace(key))]
 		},
 		"param": func(path string) interface{} {
-			path = strings.TrimSpace(path)
-			if path == "" || len(request.Body) == 0 {
-				return nil
-			}
-			result := gjson.GetBytes(request.Body, path)
-			if !result.Exists() {
-				return nil
-			}
-			return result.Value()
+			return jsonPathValue(request.Body, path)
+		},
+		"response": func(path string) interface{} {
+			return jsonPathValue(request.ResponseBody, path)
 		},
 		"has": func(source interface{}, substr string) bool {
 			if source == nil || substr == "" {
@@ -88,16 +85,17 @@ func runProgram(prog *vm.Program, params TokenParams, request RequestInput) (flo
 			}
 			return strings.Contains(fmt.Sprint(source), substr)
 		},
+		"pixels":  pixelsFromSizeValue,
 		"hour":    func(tz string) int { return timeInZone(tz).Hour() },
 		"minute":  func(tz string) int { return timeInZone(tz).Minute() },
 		"weekday": func(tz string) int { return int(timeInZone(tz).Weekday()) },
 		"month":   func(tz string) int { return int(timeInZone(tz).Month()) },
 		"day":     func(tz string) int { return timeInZone(tz).Day() },
 		"max":     math.Max,
-		"min":   math.Min,
-		"abs":   math.Abs,
-		"ceil":  math.Ceil,
-		"floor": math.Floor,
+		"min":     math.Min,
+		"abs":     math.Abs,
+		"ceil":    math.Ceil,
+		"floor":   math.Floor,
 	}
 
 	out, err := expr.Run(prog, env)
@@ -109,6 +107,80 @@ func runProgram(prog *vm.Program, params TokenParams, request RequestInput) (flo
 		return 0, trace, fmt.Errorf("expr result is %T, want float64", out)
 	}
 	return f, trace, nil
+}
+
+func jsonPathValue(body []byte, path string) interface{} {
+	path = strings.TrimSpace(path)
+	if path == "" || len(body) == 0 {
+		return nil
+	}
+	result := gjson.GetBytes(body, path)
+	if !result.Exists() {
+		return nil
+	}
+	return result.Value()
+}
+
+var sizePixelsPattern = regexp.MustCompile(`(?i)(\d+(?:\.\d+)?)\s*(?:x|×|\*)\s*(\d+(?:\.\d+)?)`)
+
+func pixelsFromSizeValue(value interface{}) float64 {
+	if value == nil {
+		return 0
+	}
+	switch v := value.(type) {
+	case float64:
+		if v > 0 {
+			return v
+		}
+		return 0
+	case float32:
+		if v > 0 {
+			return float64(v)
+		}
+		return 0
+	case int:
+		if v > 0 {
+			return float64(v)
+		}
+		return 0
+	case int64:
+		if v > 0 {
+			return float64(v)
+		}
+		return 0
+	case jsonNumberLike:
+		if f, err := strconv.ParseFloat(v.String(), 64); err == nil && f > 0 {
+			return f
+		}
+		return 0
+	}
+	text := strings.TrimSpace(fmt.Sprint(value))
+	if text == "" {
+		return 0
+	}
+	switch strings.ToLower(text) {
+	case "1k":
+		return 1024 * 1024
+	case "2k":
+		return 2048 * 2048
+	}
+	if f, err := strconv.ParseFloat(text, 64); err == nil && f > 0 {
+		return f
+	}
+	match := sizePixelsPattern.FindStringSubmatch(text)
+	if len(match) != 3 {
+		return 0
+	}
+	width, widthErr := strconv.ParseFloat(match[1], 64)
+	height, heightErr := strconv.ParseFloat(match[2], 64)
+	if widthErr != nil || heightErr != nil || width <= 0 || height <= 0 {
+		return 0
+	}
+	return width * height
+}
+
+type jsonNumberLike interface {
+	String() string
 }
 
 func timeInZone(tz string) time.Time {

@@ -248,6 +248,77 @@ func TestRequestProbeMultipleRulesMultiply(t *testing.T) {
 	}
 }
 
+func TestRequestProbePixelsHelperForImageSizeTiers(t *testing.T) {
+	exprStr := `pixels(param("size")) <= 2360000 ? tier("lte_236mp", 0.30 * 1000000) : tier("gt_236mp", 0.60 * 1000000)`
+
+	cost, trace, err := billingexpr.RunExprWithRequest(
+		exprStr,
+		billingexpr.TokenParams{},
+		billingexpr.RequestInput{Body: []byte(`{"size":"1536x1536"}`)},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(cost-300000) > 1e-6 {
+		t.Errorf("cost = %f, want 300000", cost)
+	}
+	if trace.MatchedTier != "lte_236mp" {
+		t.Errorf("tier = %s, want lte_236mp", trace.MatchedTier)
+	}
+
+	cost, trace, err = billingexpr.RunExprWithRequest(
+		exprStr,
+		billingexpr.TokenParams{},
+		billingexpr.RequestInput{Body: []byte(`{"size":"2048x2048"}`)},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(cost-600000) > 1e-6 {
+		t.Errorf("cost = %f, want 600000", cost)
+	}
+	if trace.MatchedTier != "gt_236mp" {
+		t.Errorf("tier = %s, want gt_236mp", trace.MatchedTier)
+	}
+
+	cost, trace, err = billingexpr.RunExprWithRequest(
+		exprStr,
+		billingexpr.TokenParams{},
+		billingexpr.RequestInput{Body: []byte(`{"size":"2K"}`)},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(cost-600000) > 1e-6 {
+		t.Errorf("cost = %f, want 600000", cost)
+	}
+	if trace.MatchedTier != "gt_236mp" {
+		t.Errorf("tier = %s, want gt_236mp", trace.MatchedTier)
+	}
+}
+
+func TestResponseProbePixelsHelperForActualImageSizeTiers(t *testing.T) {
+	exprStr := `pixels(response("data.0.size")) <= 2360000 ? tier("lte_236mp", 0.30 * 1000000) : tier("gt_236mp", 0.60 * 1000000)`
+
+	cost, trace, err := billingexpr.RunExprWithRequest(
+		exprStr,
+		billingexpr.TokenParams{},
+		billingexpr.RequestInput{
+			Body:         []byte(`{"size":"2K"}`),
+			ResponseBody: []byte(`{"data":[{"size":"3104x1312"}]}`),
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if math.Abs(cost-600000) > 1e-6 {
+		t.Errorf("cost = %f, want 600000", cost)
+	}
+	if trace.MatchedTier != "gt_236mp" {
+		t.Errorf("tier = %s, want gt_236mp", trace.MatchedTier)
+	}
+}
+
 func TestCeilFloor(t *testing.T) {
 	cost, _, err := billingexpr.RunExpr("ceil(p / 1000) * 0.5", billingexpr.TokenParams{P: 1500})
 	if err != nil {

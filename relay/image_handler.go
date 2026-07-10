@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/conversion"
@@ -196,6 +197,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		logContent = append(logContent, fmt.Sprintf("生成数量 %d", imageN))
 	}
 
+	attachImageBillingResponseBody(info, responseCapture.BodyBytes())
 	service.PostTextConsumeQuota(c, info, usageData, logContent)
 	if wrapped, wrapErr := maybeWrapImageResponse(c, info, responseCapture.BodyBytes(), usageData); wrapErr != nil {
 		return wrapErr
@@ -210,6 +212,16 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		logger.LogError(c, fmt.Sprintf("image response write failed: %s", err.Error()))
 	}
 	return nil
+}
+
+func attachImageBillingResponseBody(info *relaycommon.RelayInfo, body []byte) {
+	if info == nil || len(body) == 0 {
+		return
+	}
+	if info.BillingRequestInput == nil {
+		info.BillingRequestInput = &billingexpr.RequestInput{}
+	}
+	info.BillingRequestInput.ResponseBody = append(info.BillingRequestInput.ResponseBody[:0], body...)
 }
 
 func logImageCapturedResponse(c *gin.Context, responseCapture *imageResponseCapture) {

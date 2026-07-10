@@ -77,8 +77,10 @@ Powered by [expr-lang/expr](https://github.com/expr-lang/expr). Expressions are 
 |----------|-----------|---------|
 | `tier` | `tier(name, value) → float64` | Records which pricing tier matched; must wrap the cost expression |
 | `param` | `param(path) → any` | Reads a JSON path from the request body (uses gjson) |
+| `response` | `response(path) → any` | Reads a JSON path from the upstream response body when available; useful for final settlement values returned by image/video APIs |
 | `header` | `header(key) → string` | Reads a request header value |
 | `has` | `has(source, substr) → bool` | Substring check |
+| `pixels` | `pixels(value) → float64` | Parses image size strings such as `1024x1024`, `1024×1024`, `1024*1024`, `1K`, or `2K` into total pixels; numeric values pass through |
 | `hour` | `hour(tz) → int` | Current hour in timezone (0-23) |
 | `minute` | `minute(tz) → int` | Current minute (0-59) |
 | `weekday` | `weekday(tz) → int` | Day of week (0=Sunday, 6=Saturday) |
@@ -103,6 +105,12 @@ len <= 200000
 
 # Image model (no separate cache/audio pricing — those tokens stay in p/c)
 tier("base", p * 2 + c * 8 + img * 2.5)
+
+# Image model priced by actual output pixels when the response returns data[].size.
+# Fixed $/request prices are scaled by 1M because v1 converts $/1M-token expression output to quota.
+pixels(response("data.0.size") != nil ? response("data.0.size") : param("size")) <= 2360000
+  ? tier("lte_236mp", 0.30 * 1000000)
+  : tier("gt_236mp", 0.60 * 1000000)
 
 # Multimodal with audio
 tier("base", p * 0.43 + c * 3.06 + img * 0.78 + ai * 3.81 + ao * 15.11)

@@ -54,6 +54,36 @@ describe('evalExprLocally', () => {
     assert.ok(Math.abs(result.cost - 638.88888889) < 0.00000001)
     assert.equal(result.matchedTier, '480_720p_no_video_input')
   })
+
+  test('supports pixels helper used by image-size pricing expressions', () => {
+    const result = evalExprLocally(
+      `pixels("2048x2048") > 2360000
+        ? tier("gt_236mp", 0.60 * 1000000)
+        : tier("lte_236mp", 0.30 * 1000000)`,
+      0,
+      0,
+      emptyExtras
+    )
+
+    assert.equal(result.error, null)
+    assert.equal(result.cost, 600000)
+    assert.equal(result.matchedTier, 'gt_236mp')
+  })
+
+  test('supports named image resolution tiers in pixels helper', () => {
+    const result = evalExprLocally(
+      `pixels("2K") > 2360000
+        ? tier("gt_236mp", 0.60 * 1000000)
+        : tier("lte_236mp", 0.30 * 1000000)`,
+      0,
+      0,
+      emptyExtras
+    )
+
+    assert.equal(result.error, null)
+    assert.equal(result.cost, 600000)
+    assert.equal(result.matchedTier, 'gt_236mp')
+  })
 })
 
 describe('parseTiersFromExpr', () => {
@@ -198,6 +228,27 @@ describe('parseTiersFromExpr', () => {
         { label: '2k', prices: ['$0.105'] },
         { label: '4k', prices: ['$0.14'] },
         { label: '1k', prices: ['$0.07'] },
+      ]
+    )
+  })
+
+  test('exposes pixel-threshold image request prices', () => {
+    const tiers = parseTiersFromExpr(
+      'pixels(param("size")) <= 2360000 ? tier("lte_236mp", 0.30 * 1000000) : tier("gt_236mp", 0.60 * 1000000)'
+    )
+
+    const rows = buildDynamicTierPriceDisplayRows(tiers, {
+      tokenUnit: 'M',
+    })
+
+    assert.deepEqual(
+      rows.map((row) => ({
+        label: row.label,
+        prices: row.regularEntries.map((entry) => entry.formatted),
+      })),
+      [
+        { label: 'lte_236mp', prices: ['$0.3'] },
+        { label: 'gt_236mp', prices: ['$0.6'] },
       ]
     )
   })

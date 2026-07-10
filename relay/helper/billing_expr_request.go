@@ -68,6 +68,9 @@ func cloneRequestInput(src billingexpr.RequestInput) billingexpr.RequestInput {
 	if len(src.Body) > 0 {
 		input.Body = append([]byte(nil), src.Body...)
 	}
+	if len(src.ResponseBody) > 0 {
+		input.ResponseBody = append([]byte(nil), src.ResponseBody...)
+	}
 	return input
 }
 

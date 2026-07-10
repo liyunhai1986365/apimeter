@@ -278,6 +278,34 @@ function timeInZone(tz: string): Date {
   }
 }
 
+const SIZE_PIXELS_REGEX = /(\d+(?:\.\d+)?)\s*(?:x|×|\*)\s*(\d+(?:\.\d+)?)/i
+
+function pixelsFromSizeValue(value: unknown): number {
+  if (value == null) return 0
+  if (typeof value === 'number')
+    return Number.isFinite(value) && value > 0 ? value : 0
+  const text = String(value).trim()
+  if (!text) return 0
+  const normalized = text.toLowerCase()
+  if (normalized === '1k') return 1024 * 1024
+  if (normalized === '2k') return 2048 * 2048
+  const numeric = Number(text)
+  if (Number.isFinite(numeric) && numeric > 0) return numeric
+  const match = text.match(SIZE_PIXELS_REGEX)
+  if (!match) return 0
+  const width = Number(match[1])
+  const height = Number(match[2])
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
+    return 0
+  }
+  return width * height
+}
+
 export function evalExprLocally(
   exprStr: string,
   promptTokens: number,
@@ -311,6 +339,8 @@ export function evalExprLocally(
       floor: Math.floor,
       header: () => '',
       param: () => null,
+      response: () => null,
+      pixels: pixelsFromSizeValue,
       has: (source: unknown, substr: string) => {
         if (source == null || !substr) return false
         return String(source).includes(substr)

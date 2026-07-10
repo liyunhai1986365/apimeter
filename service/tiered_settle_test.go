@@ -289,6 +289,26 @@ func TestTryTieredSettle_RequestProbeInfluencesBilling(t *testing.T) {
 	}
 }
 
+func TestTryTieredSettle_ResponseProbeInfluencesImageSizeBilling(t *testing.T) {
+	exprStr := `pixels(response("data.0.size") != nil ? response("data.0.size") : param("size")) <= 2360000 ? tier("lte_236mp", 0.30 * 1000000) : tier("gt_236mp", 0.60 * 1000000)`
+	info := makeRelayInfo(exprStr, 1.0, 0, 0)
+	info.BillingRequestInput = &billingexpr.RequestInput{
+		Body:         []byte(`{"size":"2K"}`),
+		ResponseBody: []byte(`{"data":[{"size":"3104x1312"}]}`),
+	}
+
+	ok, quota, result := TryTieredSettle(info, billingexpr.TokenParams{})
+	if !ok {
+		t.Fatal("expected tiered settle")
+	}
+	if quota != 300000 {
+		t.Fatalf("quota = %d, want 300000", quota)
+	}
+	if result.MatchedTier != "gt_236mp" {
+		t.Fatalf("tier = %s, want gt_236mp", result.MatchedTier)
+	}
+}
+
 func TestTryTieredSettle_NoRequestInput_FallsBackToDefault(t *testing.T) {
 	info := makeRelayInfo(probeExpr, 1.0, 1000, 500)
 	// No BillingRequestInput set — param("service_tier") returns nil, not "fast"
