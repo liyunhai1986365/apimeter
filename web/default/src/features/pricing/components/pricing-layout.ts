@@ -16,13 +16,28 @@ export const PRICING_DETAILS_TOP_PADDING_CLASS =
 function readCssPx(styles: CSSStyleDeclaration | null, name: string): number {
   if (!styles) return 0
 
-  return parseFloat(styles.getPropertyValue(name)) || 0
+  const value = styles.getPropertyValue(name).trim()
+  const number = parseFloat(value) || 0
+
+  return value.endsWith('rem') ? number * 16 : number
 }
 
 export function getPublicTopChromeHeight(styles: CSSStyleDeclaration | null) {
+  const headerHeight =
+    readCssPx(styles, '--app-header-height') || 4 * 16
+
   return (
-    readCssPx(styles, '--app-header-height') +
+    headerHeight +
     readCssPx(styles, '--invite-promo-banner-height') +
     readCssPx(styles, '--system-notice-banner-height')
   )
+}
+
+export function getFloatingPublicTopChromeHeight(
+  styles: CSSStyleDeclaration | null
+) {
+  const headerHeight =
+    readCssPx(styles, '--app-header-height') || 4 * 16
+
+  return headerHeight + readCssPx(styles, '--system-notice-banner-height')
 }

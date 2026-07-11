@@ -53,6 +53,7 @@ export function PublicLayout(props: PublicLayoutProps) {
       className='bg-background text-foreground relative min-h-svh overflow-x-clip'
       style={
         {
+          '--app-header-height': '4rem',
           '--invite-promo-banner-height': showInvitePromoBanner
             ? '2.5rem'
             : '0px',

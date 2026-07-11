@@ -43,6 +43,7 @@ import { ThemeSwitch } from '@/components/theme-switch'
 import { defaultTopNavLinks } from '../config/top-nav.config'
 import type { TopNavLink } from '../types'
 import { HeaderLogo } from './header-logo'
+import { getPublicHeaderTopClass } from './public-header-layout'
 
 const AUTH_PROMPT_SECONDS = 5
 
@@ -187,10 +188,11 @@ export function PublicHeader(props: PublicHeaderProps) {
     <>
       <header
         className={cn(
-          'pointer-events-none fixed inset-x-0 top-[calc(var(--invite-promo-banner-height,0px)+var(--system-notice-banner-height,0px))] z-50 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-300',
+          'pointer-events-none fixed inset-x-0 z-50 transition-[top,background-color,border-color,box-shadow,backdrop-filter] duration-300',
           hasScrolled
-            ? 'bg-background/72 border-border/50 supports-backdrop-filter:bg-background/64 border-b shadow-[0_12px_34px_-30px_var(--foreground)] backdrop-blur-2xl'
-            : 'border-b border-transparent bg-transparent'
+            ? 'bg-background/72 border-border/50 border-b shadow-[0_12px_34px_-30px_var(--foreground)] backdrop-blur-2xl supports-backdrop-filter:bg-background/64'
+            : 'border-b border-transparent bg-transparent',
+          getPublicHeaderTopClass(hasScrolled)
         )}
       >
         <div className='pointer-events-auto mx-auto max-w-7xl px-4 md:px-6'>

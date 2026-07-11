@@ -26,6 +26,7 @@ import {
   Code2,
   Info,
 } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
@@ -95,11 +96,14 @@ import {
 import { ModalityIcons } from './model-details-modalities'
 import { ModelDetailsPerformance } from './model-details-performance'
 import { ModelDetailsQuickStats } from './model-details-quick-stats'
+import {
+  MODEL_DETAILS_STICKY_BAR_CLASS,
+  MODEL_DETAILS_STICKY_INFO_CLASS,
+} from './model-details-sticky-layout'
 import { UptimeSparkline } from './model-details-uptime-sparkline'
 import {
-  getPublicTopChromeHeight,
+  getFloatingPublicTopChromeHeight,
   PRICING_DETAILS_TOP_PADDING_CLASS,
-  PUBLIC_TOP_CHROME_HEIGHT,
 } from './pricing-layout'
 
 // ----------------------------------------------------------------------------
@@ -1184,6 +1188,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   const isPage = variant === 'page'
   const [activeTab, setActiveTab] = useState<TabValue>('overview')
   const [showStickyNav, setShowStickyNav] = useState(false)
+  const [stickyTop, setStickyTop] = useState(64)
   const tabsListRef = useRef<HTMLDivElement>(null)
   const metadata = useMemo(() => inferModelMetadata(props.model), [props.model])
 
@@ -1196,18 +1201,21 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
       const anchor = tabsListRef.current
       const styles = anchor ? getComputedStyle(anchor) : null
       const chromeHeight =
-        getPublicTopChromeHeight(styles) ||
-        getPublicTopChromeHeight(getComputedStyle(document.documentElement)) ||
-        48
+        getFloatingPublicTopChromeHeight(styles) ||
+        getFloatingPublicTopChromeHeight(
+          getComputedStyle(document.documentElement)
+        )
 
-      return chromeHeight + 20
+      return chromeHeight
     }
 
     const updateStickyState = () => {
       const anchor = tabsListRef.current
       if (!anchor) return
 
-      setShowStickyNav(anchor.getBoundingClientRect().top <= getOffset())
+      const offset = getOffset()
+      setStickyTop(offset)
+      setShowStickyNav(anchor.getBoundingClientRect().top <= offset)
     }
 
     updateStickyState()
@@ -1221,76 +1229,81 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
   }, [isPage, props.onBack])
 
   return (
-    <div className={cn('@container/details space-y-4', isPage && 'space-y-8')}>
+    <>
       {isPage && props.onBack && showStickyNav && (
         <ModelDetailsStickyNav
           model={props.model}
           activeTab={activeTab}
           onTabChange={setActiveTab}
           onBack={props.onBack}
+          top={stickyTop}
         />
       )}
 
-      <ModelHeader model={props.model} variant={variant} />
-
-      <Tabs
-        value={activeTab}
-        onValueChange={(value) => setActiveTab(value as TabValue)}
-        className={cn('gap-4', isPage && 'gap-6')}
+      <div
+        className={cn('@container/details space-y-4', isPage && 'space-y-8')}
       >
-        <div ref={tabsListRef}>
-          <ModelDetailsTabsList page={isPage} />
-        </div>
+        <ModelHeader model={props.model} variant={variant} />
 
-        <TabsContent
-          value='overview'
-          className={cn('space-y-6 outline-none', isPage && 'space-y-8')}
+        <Tabs
+          value={activeTab}
+          onValueChange={(value) => setActiveTab(value as TabValue)}
+          className={cn('gap-4', isPage && 'gap-6')}
         >
-          <section
-            className={cn(
-              'bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm',
-              isPage && 'space-y-7 rounded-3xl p-5 md:p-6'
-            )}
+          <div ref={tabsListRef}>
+            <ModelDetailsTabsList page={isPage} />
+          </div>
+
+          <TabsContent
+            value='overview'
+            className={cn('space-y-6 outline-none', isPage && 'space-y-8')}
           >
-            <GroupPricingSection
+            <section
+              className={cn(
+                'bg-card/60 space-y-5 rounded-xl border p-4 shadow-sm',
+                isPage && 'space-y-7 rounded-3xl p-5 md:p-6'
+              )}
+            >
+              <GroupPricingSection
+                model={props.model}
+                groupRatio={props.groupRatio}
+                usableGroup={props.usableGroup}
+                groupDisplay={props.groupDisplay}
+                priceRate={props.priceRate}
+                usdExchangeRate={props.usdExchangeRate}
+                tokenUnit={props.tokenUnit}
+                showRechargePrice={showRechargePrice}
+                variant={variant}
+              />
+            </section>
+
+            <ModelDetailsPerformance
               model={props.model}
-              groupRatio={props.groupRatio}
               usableGroup={props.usableGroup}
-              groupDisplay={props.groupDisplay}
-              priceRate={props.priceRate}
-              usdExchangeRate={props.usdExchangeRate}
-              tokenUnit={props.tokenUnit}
-              showRechargePrice={showRechargePrice}
+            />
+
+            <ModelDetailsQuickStats metadata={metadata} />
+
+            <ModelSignalsSection
+              capabilities={metadata.capabilities}
+              input={metadata.input_modalities}
+              output={metadata.output_modalities}
               variant={variant}
             />
-          </section>
 
-          <ModelDetailsPerformance
-            model={props.model}
-            usableGroup={props.usableGroup}
-          />
+            <ModelDetailsProviderInfo model={props.model} />
+          </TabsContent>
 
-          <ModelDetailsQuickStats metadata={metadata} />
-
-          <ModelSignalsSection
-            capabilities={metadata.capabilities}
-            input={metadata.input_modalities}
-            output={metadata.output_modalities}
-            variant={variant}
-          />
-
-          <ModelDetailsProviderInfo model={props.model} />
-        </TabsContent>
-
-        <TabsContent value='api' className='outline-none'>
-          <ModelDetailsApi
-            model={props.model}
-            endpointMap={props.endpointMap}
-            usableGroup={props.usableGroup}
-          />
-        </TabsContent>
-      </Tabs>
-    </div>
+          <TabsContent value='api' className='outline-none'>
+            <ModelDetailsApi
+              model={props.model}
+              endpointMap={props.endpointMap}
+              usableGroup={props.usableGroup}
+            />
+          </TabsContent>
+        </Tabs>
+      </div>
+    </>
   )
 }
 
@@ -1331,30 +1344,31 @@ function ModelDetailsStickyNav(props: {
   activeTab: TabValue
   onTabChange: (value: TabValue) => void
   onBack: () => void
+  top: number
 }) {
   const { t } = useTranslation()
   const vendorIcon = props.model.vendor_icon
     ? getLobeIcon(props.model.vendor_icon, 18)
     : null
 
-  return (
+  return createPortal(
     <div
       className='pointer-events-none fixed inset-x-0 z-[60] px-6'
-      style={{ top: `calc(${PUBLIC_TOP_CHROME_HEIGHT} + 1.25rem)` }}
+      style={{ top: props.top }}
     >
-      <div className='bg-background/82 ring-border/70 supports-backdrop-filter:bg-background/72 pointer-events-auto mx-auto flex w-full max-w-6xl flex-col gap-2 rounded-2xl px-2 py-2 shadow-[0_18px_60px_-36px_var(--foreground)] ring-1 backdrop-blur-2xl sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:px-3'>
-        <div className='flex min-w-0 items-center gap-2'>
+      <div className={MODEL_DETAILS_STICKY_BAR_CLASS}>
+        <div className='flex min-w-0 items-center gap-1.5'>
           <Button
             variant='ghost'
             size='icon'
             onClick={props.onBack}
-            className='size-9 shrink-0 rounded-full'
+            className='size-8 shrink-0 rounded-full'
             aria-label={t('Back')}
           >
             <ArrowLeft />
           </Button>
-          <div className='bg-muted/45 flex min-w-0 flex-1 items-center gap-2 rounded-xl px-3 py-2 sm:max-w-[min(42vw,30rem)]'>
-            <span className='bg-background flex size-7 shrink-0 items-center justify-center rounded-full border shadow-sm'>
+          <div className={MODEL_DETAILS_STICKY_INFO_CLASS}>
+            <span className='bg-background flex size-6 shrink-0 items-center justify-center rounded-full border shadow-sm'>
               {vendorIcon ?? (
                 <Info className='text-muted-foreground size-3.5' />
               )}
@@ -1388,7 +1402,8 @@ function ModelDetailsStickyNav(props: {
           <ModelDetailsTabsList compact />
         </Tabs>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 
