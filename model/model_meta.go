@@ -119,8 +119,7 @@ func GetVendorModelCounts() (map[int64]int64, error) {
 }
 
 func GetAllModels(offset int, limit int) ([]*Model, error) {
-	var models []*Model
-	err := DB.Order("sort_order ASC").Order("id ASC").Offset(offset).Limit(limit).Find(&models).Error
+	models, _, err := SearchModels("", "", "", "", offset, limit)
 	return models, err
 }
 
@@ -268,7 +267,7 @@ func GetPreferredModelOwnerChannelTypes(modelNames []string, groups []string) (m
 	return result, nil
 }
 
-func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Model, int64, error) {
+func SearchModels(keyword string, vendor string, status string, syncOfficial string, offset int, limit int) ([]*Model, int64, error) {
 	var models []*Model
 	db := DB.Model(&Model{})
 	if keyword != "" {
@@ -282,6 +281,12 @@ func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Mode
 			db = db.Joins("JOIN vendors ON vendors.id = models.vendor_id").Where("vendors.name LIKE ?", "%"+vendor+"%")
 		}
 	}
+	if statusValue, ok := parseModelStatusFilter(status); ok {
+		db = db.Where("models.status = ?", statusValue)
+	}
+	if syncValue, ok := parseModelSyncFilter(syncOfficial); ok {
+		db = db.Where("models.sync_official = ?", syncValue)
+	}
 	var total int64
 	if err := db.Count(&total).Error; err != nil {
 		return nil, 0, err
@@ -290,4 +295,32 @@ func SearchModels(keyword string, vendor string, offset int, limit int) ([]*Mode
 		return nil, 0, err
 	}
 	return models, total, nil
+}
+
+func parseModelStatusFilter(status string) (int, bool) {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "", "all":
+		return 0, false
+	case "enabled", "1":
+		return 1, true
+	case "disabled", "0":
+		return 0, true
+	default:
+		value, err := strconv.Atoi(status)
+		return value, err == nil
+	}
+}
+
+func parseModelSyncFilter(syncOfficial string) (int, bool) {
+	switch strings.ToLower(strings.TrimSpace(syncOfficial)) {
+	case "", "all":
+		return 0, false
+	case "yes", "1":
+		return 1, true
+	case "no", "0":
+		return 0, true
+	default:
+		value, err := strconv.Atoi(syncOfficial)
+		return value, err == nil
+	}
 }
