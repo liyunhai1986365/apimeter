@@ -28,7 +28,9 @@ import {
   isExternalHeaderNavHref,
   isHeaderNavBuiltInModule,
   mergeHeaderNavOrder,
+  normalizeOpenMosaicBaseUrl,
   serializeHeaderNavModules,
+  withAICreationBaseUrl,
   withHeaderNavModuleEnabled,
   withHeaderNavModuleNewWindow,
   withHeaderNavModuleRequireAuth,
@@ -57,6 +59,8 @@ type HeaderNavigationSectionProps = {
 const BUILT_IN_DESCRIPTIONS: Record<HeaderNavBuiltInModule, string> = {
   home: 'Landing page with system overview.',
   agentAccess: 'Agent integration documentation and onboarding guide.',
+  aiCreation:
+    'Open the configured OpenMosaic site, sign in automatically, and enter image creation.',
   console: 'User dashboard and quota controls.',
   pricing: 'Public model catalog and pricing page.',
   subscription: 'Public subscription plan storefront and billing guide.',
@@ -87,8 +91,11 @@ const createCustomLinkId = (
 function normalizeConfig(config: HeaderNavModules): HeaderNavModules {
   return {
     ...config,
+    aiCreation: { ...config.aiCreation },
     pricing: { ...config.pricing },
+    subscription: { ...config.subscription },
     rankings: { ...config.rankings },
+    newWindow: { ...config.newWindow },
     order: mergeHeaderNavOrder(config.order, config.customLinks),
     customLinks: config.customLinks.map((link) => ({ ...link })),
   }
@@ -204,6 +211,16 @@ export function HeaderNavigationSection({
   }
 
   const onSubmit = async () => {
+    if (
+      navConfig.aiCreation.enabled &&
+      !normalizeOpenMosaicBaseUrl(navConfig.aiCreation.baseUrl)
+    ) {
+      toast.error(
+        t('Enter a valid OpenMosaic site origin before enabling AI Creation.')
+      )
+      return
+    }
+
     const serialized = serializeHeaderNavModules(navConfig)
     if (serialized === initialSerialized) return
 
@@ -244,7 +261,8 @@ export function HeaderNavigationSection({
               const newWindow = getHeaderNavModuleNewWindow(navConfig, id)
               const supportsAuth =
                 id === 'pricing' || id === 'subscription' || id === 'rankings'
-              const supportsNewWindow = item.external || id === 'docs'
+              const supportsNewWindow =
+                id !== 'aiCreation' && (item.external || id === 'docs')
 
               return (
                 <div
@@ -261,6 +279,33 @@ export function HeaderNavigationSection({
                     <p className='text-muted-foreground text-sm'>
                       {t(BUILT_IN_DESCRIPTIONS[id])}
                     </p>
+                    {id === 'aiCreation' ? (
+                      <div className='max-w-xl space-y-2 pt-2'>
+                        <Label htmlFor='openmosaic-site-url'>
+                          {t('OpenMosaic site URL')}
+                        </Label>
+                        <Input
+                          id='openmosaic-site-url'
+                          type='url'
+                          value={navConfig.aiCreation.baseUrl}
+                          onChange={(event) =>
+                            setNavConfig((current) =>
+                              withAICreationBaseUrl(current, event.target.value)
+                            )
+                          }
+                          placeholder='https://openmosaic.example.com'
+                          aria-describedby='openmosaic-site-url-description'
+                        />
+                        <p
+                          id='openmosaic-site-url-description'
+                          className='text-muted-foreground text-xs'
+                        >
+                          {t(
+                            'Enter the site origin only. The menu starts Modelsell SSO and lands on /image.'
+                          )}
+                        </p>
+                      </div>
+                    ) : null}
                     {supportsAuth ? (
                       <div className='flex items-center gap-2 pt-2'>
                         <Switch

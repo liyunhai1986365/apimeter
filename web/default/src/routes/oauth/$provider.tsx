@@ -28,8 +28,11 @@ import i18next from 'i18next'
 import { toast } from 'sonner'
 import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 import { api, getSelf } from '@/lib/api'
+import { getAICreationSSOUrlFromStatus } from '@/lib/nav-modules'
 import { OAuthCallbackScreen } from '@/features/auth/components/oauth-callback-screen'
 import { OAUTH_BIND_STORAGE_KEY } from '@/features/auth/constants'
+import { resolveAuthRedirect } from '@/features/auth/lib/auth-redirect'
+import { consumeOAuthRedirect } from '@/features/auth/lib/oauth-redirect-storage'
 
 type OAuthRequestConfig = AxiosRequestConfig & {
   skipBusinessError?: boolean
@@ -143,8 +146,26 @@ function OAuthCallback() {
       }
 
       const redirectAfterLogin = (target?: string) => {
-        const to = target || search?.redirect || '/dashboard'
-        safeNavigate(to)
+        const storedRedirect = consumeOAuthRedirect(search?.state)
+        const status = (() => {
+          try {
+            const rawStatus = window.localStorage.getItem('status')
+            return rawStatus
+              ? (JSON.parse(rawStatus) as Record<string, unknown>)
+              : null
+          } catch {
+            return null
+          }
+        })()
+        const redirect = resolveAuthRedirect(
+          target || storedRedirect || search?.redirect,
+          getAICreationSSOUrlFromStatus(status)
+        )
+        if (redirect.external) {
+          window.location.assign(redirect.target)
+        } else {
+          safeNavigate(redirect.target)
+        }
         toast.success(i18next.t('Signed in successfully!'))
       }
 

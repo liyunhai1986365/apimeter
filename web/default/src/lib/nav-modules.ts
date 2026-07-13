@@ -18,11 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 export type ModuleAccess = { enabled: boolean; requireAuth: boolean }
 
+export type AICreationConfig = { enabled: boolean; baseUrl: string }
+
 export type HeaderNavModule = 'rankings' | 'pricing' | 'subscription'
 
 export type HeaderNavBuiltInModule =
   | 'home'
   | 'agentAccess'
+  | 'aiCreation'
   | 'console'
   | 'pricing'
   | 'subscription'
@@ -58,6 +61,7 @@ export type HeaderNavNewWindow = Partial<
 export type HeaderNavModules = {
   home: boolean
   agentAccess: boolean
+  aiCreation: AICreationConfig
   console: boolean
   pricing: ModuleAccess
   subscription: ModuleAccess
@@ -70,6 +74,7 @@ export type HeaderNavModules = {
   [key: string]:
     | boolean
     | ModuleAccess
+    | AICreationConfig
     | HeaderNavNewWindow
     | string[]
     | HeaderNavCustomLink[]
@@ -78,6 +83,7 @@ export type HeaderNavModules = {
 const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   home: true,
   agentAccess: true,
+  aiCreation: { enabled: false, baseUrl: '' },
   console: true,
   pricing: { enabled: true, requireAuth: false },
   subscription: { enabled: true, requireAuth: false },
@@ -91,6 +97,7 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   order: [
     'home',
     'agentAccess',
+    'aiCreation',
     'console',
     'subscription',
     'pricing',
@@ -123,6 +130,13 @@ const BUILT_IN_HEADER_NAV_ITEMS: Record<
     titleKey: 'Agent Access',
     href: '/docs/apps',
     external: false,
+    newWindow: false,
+  },
+  aiCreation: {
+    id: 'aiCreation',
+    titleKey: 'AI Creation',
+    href: '',
+    external: true,
     newWindow: false,
   },
   console: {
@@ -175,6 +189,7 @@ export const BUILT_IN_HEADER_NAV_ORDER =
 function cloneHeaderNavDefaults(): HeaderNavModules {
   return {
     ...DEFAULT_HEADER_NAV_MODULES,
+    aiCreation: { ...DEFAULT_HEADER_NAV_MODULES.aiCreation },
     pricing: { ...DEFAULT_HEADER_NAV_MODULES.pricing },
     subscription: { ...DEFAULT_HEADER_NAV_MODULES.subscription },
     rankings: { ...DEFAULT_HEADER_NAV_MODULES.rankings },
@@ -221,6 +236,40 @@ function parseAccess(raw: unknown, fallback: ModuleAccess): ModuleAccess {
     }
   }
   return { ...fallback }
+}
+
+export function normalizeOpenMosaicBaseUrl(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw.trim()) return ''
+
+  try {
+    const url = new URL(raw.trim())
+    if (
+      (url.protocol !== 'http:' && url.protocol !== 'https:') ||
+      url.username ||
+      url.password ||
+      url.pathname !== '/' ||
+      url.search ||
+      url.hash
+    ) {
+      return ''
+    }
+    return url.origin
+  } catch {
+    return ''
+  }
+}
+
+function parseAICreation(
+  raw: unknown,
+  fallback: AICreationConfig
+): AICreationConfig {
+  if (!raw || typeof raw !== 'object') return { ...fallback }
+
+  const record = raw as Record<string, unknown>
+  return {
+    enabled: parseHeaderNavBoolean(record.enabled, fallback.enabled),
+    baseUrl: normalizeOpenMosaicBaseUrl(record.baseUrl),
+  }
 }
 
 function parseHeaderNavRecord(raw: unknown): Record<string, unknown> | null {
@@ -318,6 +367,10 @@ export function parseHeaderNavModules(raw: unknown): HeaderNavModules {
   }
 
   Object.entries(parsed).forEach(([key, value]) => {
+    if (key === 'aiCreation') {
+      result.aiCreation = parseAICreation(value, result.aiCreation)
+      return
+    }
     if (key === 'pricing' || key === 'subscription' || key === 'rankings') {
       result[key] = parseAccess(value, result[key] as ModuleAccess)
       return
@@ -366,6 +419,7 @@ export function getHeaderNavModuleEnabled(
   modules: HeaderNavModules,
   id: HeaderNavBuiltInModule
 ): boolean {
+  if (id === 'aiCreation') return modules.aiCreation.enabled
   if (id === 'pricing' || id === 'subscription' || id === 'rankings') {
     return modules[id].enabled
   }
@@ -376,6 +430,7 @@ export function getHeaderNavModuleRequireAuth(
   modules: HeaderNavModules,
   id: HeaderNavBuiltInModule
 ): boolean {
+  if (id === 'aiCreation') return true
   if (id === 'pricing' || id === 'subscription' || id === 'rankings') {
     return modules[id].requireAuth
   }
@@ -397,6 +452,15 @@ export function withHeaderNavModuleEnabled(
   id: HeaderNavBuiltInModule,
   enabled: boolean
 ): HeaderNavModules {
+  if (id === 'aiCreation') {
+    return {
+      ...modules,
+      aiCreation: {
+        ...modules.aiCreation,
+        enabled,
+      },
+    }
+  }
   if (id === 'pricing' || id === 'subscription' || id === 'rankings') {
     return {
       ...modules,
@@ -408,6 +472,19 @@ export function withHeaderNavModuleEnabled(
   }
 
   return { ...modules, [id]: enabled }
+}
+
+export function withAICreationBaseUrl(
+  modules: HeaderNavModules,
+  baseUrl: string
+): HeaderNavModules {
+  return {
+    ...modules,
+    aiCreation: {
+      ...modules.aiCreation,
+      baseUrl,
+    },
+  }
 }
 
 export function withHeaderNavModuleRequireAuth(
@@ -445,6 +522,10 @@ export function withHeaderNavModuleNewWindow(
 export function serializeHeaderNavModules(modules: HeaderNavModules): string {
   const normalized: HeaderNavModules = {
     ...modules,
+    aiCreation: {
+      ...modules.aiCreation,
+      baseUrl: normalizeOpenMosaicBaseUrl(modules.aiCreation.baseUrl),
+    },
     pricing: { ...modules.pricing },
     subscription: { ...modules.subscription },
     rankings: { ...modules.rankings },
@@ -519,6 +600,19 @@ export function getOrderedHeaderNavItems(
     const item = BUILT_IN_HEADER_NAV_ITEMS[builtInId]
     if (!item) return acc
 
+    if (builtInId === 'aiCreation') {
+      const href = getAICreationSSOUrl(modules)
+      if (href) {
+        acc.push({
+          ...item,
+          href,
+          enabled: true,
+          requireAuth: true,
+        })
+      }
+      return acc
+    }
+
     if (
       builtInId === 'pricing' ||
       builtInId === 'subscription' ||
@@ -557,6 +651,20 @@ export function getOrderedHeaderNavItems(
 
     return acc
   }, [])
+}
+
+export function getAICreationSSOUrl(
+  modules: HeaderNavModules
+): string | undefined {
+  const baseUrl = normalizeOpenMosaicBaseUrl(modules.aiCreation.baseUrl)
+  if (!modules.aiCreation.enabled || !baseUrl) return undefined
+  return `${baseUrl}/api/auth/modelsell/start?redirect=%2Fimage`
+}
+
+export function getAICreationSSOUrlFromStatus(
+  status: Record<string, unknown> | null
+): string | undefined {
+  return getAICreationSSOUrl(parseHeaderNavModulesFromStatus(status))
 }
 
 function getCachedStatus(): Record<string, unknown> | null {

@@ -19,10 +19,108 @@ For commercial licensing, please contact support@quantumnous.com
 import { describe, expect, it } from 'vitest'
 import {
   getOrderedHeaderNavItems,
+  getAICreationSSOUrlFromStatus,
   parseHeaderNavModules,
+  serializeHeaderNavModules,
+  withAICreationBaseUrl,
 } from '../src/lib/nav-modules'
 
 describe('header navigation modules', () => {
+  it('keeps AI Creation disabled until an OpenMosaic origin is configured', () => {
+    const modules = parseHeaderNavModules('')
+
+    expect(modules.aiCreation).toEqual({ enabled: false, baseUrl: '' })
+    expect(
+      getOrderedHeaderNavItems(modules).some((item) => item.id === 'aiCreation')
+    ).toBe(false)
+  })
+
+  it('builds the AI Creation SSO link for the configured OpenMosaic origin', () => {
+    const modules = parseHeaderNavModules({
+      aiCreation: {
+        enabled: true,
+        baseUrl: 'https://openmosaic.example.com/',
+      },
+    })
+
+    expect(modules.aiCreation).toEqual({
+      enabled: true,
+      baseUrl: 'https://openmosaic.example.com',
+    })
+    expect(getOrderedHeaderNavItems(modules)).toContainEqual(
+      expect.objectContaining({
+        id: 'aiCreation',
+        titleKey: 'AI Creation',
+        href: 'https://openmosaic.example.com/api/auth/modelsell/start?redirect=%2Fimage',
+        external: true,
+        newWindow: false,
+        requireAuth: true,
+      })
+    )
+  })
+
+  it('hides AI Creation when the configured OpenMosaic origin is invalid', () => {
+    const modules = parseHeaderNavModules({
+      aiCreation: {
+        enabled: true,
+        baseUrl: 'javascript:alert(1)',
+      },
+    })
+
+    expect(modules.aiCreation).toEqual({ enabled: true, baseUrl: '' })
+    expect(
+      getOrderedHeaderNavItems(modules).some((item) => item.id === 'aiCreation')
+    ).toBe(false)
+  })
+
+  it('preserves the normalized AI Creation configuration when serialized', () => {
+    const modules = parseHeaderNavModules({
+      aiCreation: {
+        enabled: true,
+        baseUrl: 'http://localhost:9520/',
+      },
+    })
+
+    const serialized = JSON.parse(serializeHeaderNavModules(modules))
+
+    expect(serialized.aiCreation).toEqual({
+      enabled: true,
+      baseUrl: 'http://localhost:9520',
+    })
+    expect(serialized.order).toContain('aiCreation')
+  })
+
+  it('updates the OpenMosaic origin without changing the AI Creation switch', () => {
+    const modules = parseHeaderNavModules({
+      aiCreation: { enabled: true, baseUrl: '' },
+    })
+
+    const updated = withAICreationBaseUrl(
+      modules,
+      'https://create.example.com/'
+    )
+
+    expect(updated.aiCreation).toEqual({
+      enabled: true,
+      baseUrl: 'https://create.example.com/',
+    })
+  })
+
+  it('resolves the configured AI Creation URL directly from public status', () => {
+    expect(
+      getAICreationSSOUrlFromStatus({
+        HeaderNavModules: JSON.stringify({
+          aiCreation: {
+            enabled: true,
+            baseUrl: 'https://create.example.com',
+          },
+        }),
+      })
+    ).toBe(
+      'https://create.example.com/api/auth/modelsell/start?redirect=%2Fimage'
+    )
+  })
+
   it('includes Agent Access after Home by default', () => {
     const modules = parseHeaderNavModules('')
     const items = getOrderedHeaderNavItems(modules)

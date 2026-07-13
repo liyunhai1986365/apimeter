@@ -24,6 +24,7 @@ import { Link } from '@tanstack/react-router'
 import { Loader2, LogIn, KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { getAICreationSSOUrlFromStatus } from '@/lib/nav-modules'
 import {
   buildAssertionResult,
   prepareCredentialRequestOptions,
@@ -93,7 +94,11 @@ export function UserAuthForm({
     setTurnstileToken,
     validateTurnstile,
   } = useTurnstile()
-  const { handleLoginSuccess, redirectTo2FA } = useAuthRedirect()
+  const aiCreationSSOUrl = getAICreationSSOUrlFromStatus(
+    status as unknown as Record<string, unknown> | null
+  )
+  const { handleLoginSuccess, redirectTo2FA } =
+    useAuthRedirect(aiCreationSSOUrl)
 
   const {
     userAgreementEnabled: hasUserAgreement,
@@ -172,7 +177,7 @@ export function UserAuthForm({
 
       if (res.success) {
         if (res.data?.require_2fa) {
-          redirectTo2FA()
+          redirectTo2FA(redirectTo)
           return
         }
 
@@ -401,6 +406,7 @@ export function UserAuthForm({
         {/* OAuth Providers */}
         <OAuthProviders
           status={status}
+          redirectTo={redirectTo}
           disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
           onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
           isWeChatLoading={isWeChatSubmitting}

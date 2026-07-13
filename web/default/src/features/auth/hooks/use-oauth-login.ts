@@ -29,6 +29,7 @@ import {
   buildOIDCOAuthUrl,
   buildLinuxDOOAuthUrl,
 } from '../lib/oauth'
+import { storeOAuthRedirect } from '../lib/oauth-redirect-storage'
 import type { SystemStatus, CustomOAuthProviderInfo } from '../types'
 
 type LogoutRequestConfig = AxiosRequestConfig & {
@@ -38,7 +39,10 @@ type LogoutRequestConfig = AxiosRequestConfig & {
 /**
  * Hook for managing OAuth login
  */
-export function useOAuthLogin(status: SystemStatus | null) {
+export function useOAuthLogin(
+  status: SystemStatus | null,
+  redirectTo?: string
+) {
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [githubButtonText, setGithubButtonText] = useState('')
@@ -105,6 +109,7 @@ export function useOAuthLogin(status: SystemStatus | null) {
         return
       }
 
+      storeOAuthRedirect(state, redirectTo)
       const url = buildGitHubOAuthUrl(status.github_client_id, state)
       window.open(url, '_self')
     } catch (_error) {
@@ -130,6 +135,7 @@ export function useOAuthLogin(status: SystemStatus | null) {
         return
       }
 
+      storeOAuthRedirect(state, redirectTo)
       const url = buildDiscordOAuthUrl(status.discord_client_id, state)
       window.open(url, '_self')
     } catch (_error) {
@@ -151,6 +157,7 @@ export function useOAuthLogin(status: SystemStatus | null) {
         return
       }
 
+      storeOAuthRedirect(state, redirectTo)
       const url = buildOIDCOAuthUrl(
         status.oidc_authorization_endpoint,
         status.oidc_client_id,
@@ -176,6 +183,7 @@ export function useOAuthLogin(status: SystemStatus | null) {
         return
       }
 
+      storeOAuthRedirect(state, redirectTo)
       const url = buildLinuxDOOAuthUrl(status.linuxdo_client_id, state)
       window.open(url, '_self')
     } catch (_error) {
@@ -201,6 +209,7 @@ export function useOAuthLogin(status: SystemStatus | null) {
         return
       }
 
+      storeOAuthRedirect(state, redirectTo)
       const redirectUri = `${window.location.origin}/oauth/${provider.slug}`
       const url = new URL(provider.authorization_endpoint)
       url.searchParams.set('client_id', provider.client_id)

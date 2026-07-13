@@ -16,15 +16,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { z } from 'zod'
-import { createFileRoute } from '@tanstack/react-router'
-import { Otp } from '@/features/auth/otp'
+export type AuthRedirectTarget = {
+  target: string
+  external: boolean
+}
 
-const searchSchema = z.object({
-  redirect: z.string().optional(),
-})
+export function resolveAuthRedirect(
+  redirectTo?: string,
+  allowedExternalRedirect?: string
+): AuthRedirectTarget {
+  if (redirectTo?.startsWith('/') && !redirectTo.startsWith('//')) {
+    return { target: redirectTo, external: false }
+  }
 
-export const Route = createFileRoute('/(auth)/otp')({
-  component: Otp,
-  validateSearch: searchSchema,
-})
+  if (redirectTo && redirectTo === allowedExternalRedirect) {
+    return { target: redirectTo, external: true }
+  }
+
+  return { target: '/dashboard', external: false }
+}

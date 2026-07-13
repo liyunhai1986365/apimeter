@@ -22,6 +22,7 @@ export const STATIC_I18N_KEYS = [
   // Header navigation
   'Home',
   'Agent Access',
+  'AI Creation',
   'Console',
   'Model Price',
   'Model Square',
@@ -30,6 +31,10 @@ export const STATIC_I18N_KEYS = [
   'About',
   'Open in new window',
   'Open OpenMosaic',
+  'Open the configured OpenMosaic site, sign in automatically, and enter image creation.',
+  'OpenMosaic site URL',
+  'Enter the site origin only. The menu starts Modelsell SSO and lands on /image.',
+  'Enter a valid OpenMosaic site origin before enabling AI Creation.',
   'Invited Top-Up Reward Rate',
   'Percentage of an invited user top-up awarded to the inviter after 24 hours. Set 0 to disable.',
   'Invited Top-Up Reward Count Limit',

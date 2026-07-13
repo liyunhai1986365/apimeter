@@ -20,11 +20,13 @@ import { useState } from 'react'
 import type { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useSearch } from '@tanstack/react-router'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { useAuthStore } from '@/stores/auth-store'
+import { getAICreationSSOUrlFromStatus } from '@/lib/nav-modules'
 import { cn } from '@/lib/utils'
+import { useStatus } from '@/hooks/use-status'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -49,24 +51,27 @@ import {
   BACKUP_CODE_LENGTH,
 } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
-import { saveUserId } from '@/features/auth/lib/storage'
 import {
   isValidOTP,
   isValidBackupCode,
   formatBackupCode,
   cleanBackupCode,
 } from '@/features/auth/lib/validation'
-import type { User } from '@/features/users/types'
 
 type OtpFormProps = React.HTMLAttributes<HTMLFormElement>
 
 export function OtpForm({ className, ...props }: OtpFormProps) {
   const { t } = useTranslation()
+  const { redirect } = useSearch({ from: '/(auth)/otp' })
+  const { status } = useStatus()
   const [isLoading, setIsLoading] = useState(false)
   const [useBackupCode, setUseBackupCode] = useState(false)
 
-  const { auth } = useAuthStore()
-  const { redirectToLogin } = useAuthRedirect()
+  const aiCreationSSOUrl = getAICreationSSOUrlFromStatus(
+    status as unknown as Record<string, unknown> | null
+  )
+  const { handleLoginSuccess, redirectToLogin } =
+    useAuthRedirect(aiCreationSSOUrl)
 
   const form = useForm<z.infer<typeof otpFormSchema>>({
     resolver: zodResolver(otpFormSchema),
@@ -106,16 +111,8 @@ export function OtpForm({ className, ...props }: OtpFormProps) {
         throw new Error('No user data received from login')
       }
 
-      // Update auth store
-      auth.setUser(userData as User)
-
-      // Store user ID in localStorage for compatibility
-      if (userData.id) {
-        saveUserId(userData.id)
-      }
-
       toast.success(t('Signed in'))
-      redirectToLogin() // This will redirect to dashboard via the redirect logic
+      await handleLoginSuccess(userData, redirect)
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('2FA verification error:', error)

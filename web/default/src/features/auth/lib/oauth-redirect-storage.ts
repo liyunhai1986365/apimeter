@@ -16,15 +16,28 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { z } from 'zod'
-import { createFileRoute } from '@tanstack/react-router'
-import { Otp } from '@/features/auth/otp'
+const OAUTH_REDIRECT_STORAGE_PREFIX = 'oauth-login-redirect:'
 
-const searchSchema = z.object({
-  redirect: z.string().optional(),
-})
+export function storeOAuthRedirect(state: string, redirectTo?: string): void {
+  if (!redirectTo || typeof window === 'undefined') return
+  try {
+    window.sessionStorage.setItem(
+      `${OAUTH_REDIRECT_STORAGE_PREFIX}${state}`,
+      redirectTo
+    )
+  } catch {
+    /* empty */
+  }
+}
 
-export const Route = createFileRoute('/(auth)/otp')({
-  component: Otp,
-  validateSearch: searchSchema,
-})
+export function consumeOAuthRedirect(state?: string): string | undefined {
+  if (!state || typeof window === 'undefined') return undefined
+  const key = `${OAUTH_REDIRECT_STORAGE_PREFIX}${state}`
+  try {
+    const redirectTo = window.sessionStorage.getItem(key) ?? undefined
+    window.sessionStorage.removeItem(key)
+    return redirectTo
+  } catch {
+    return undefined
+  }
+}

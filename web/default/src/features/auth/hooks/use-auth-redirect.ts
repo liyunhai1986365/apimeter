@@ -21,6 +21,7 @@ import i18n from 'i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { getSelf } from '@/lib/api'
 import type { User } from '@/features/users/types'
+import { resolveAuthRedirect } from '../lib/auth-redirect'
 import { saveUserId } from '../lib/storage'
 
 function getSavedLanguage(user: User): string | undefined {
@@ -44,7 +45,7 @@ function getSavedLanguage(user: User): string | undefined {
 /**
  * Hook for handling authentication redirects and user data management
  */
-export function useAuthRedirect() {
+export function useAuthRedirect(allowedExternalRedirect?: string) {
   const navigate = useNavigate()
   const { auth } = useAuthStore()
 
@@ -86,15 +87,23 @@ export function useAuthRedirect() {
     }
 
     // Navigate to target page
-    const targetPath = redirectTo || '/dashboard'
-    navigate({ to: targetPath, replace: true })
+    const redirect = resolveAuthRedirect(redirectTo, allowedExternalRedirect)
+    if (redirect.external) {
+      window.location.assign(redirect.target)
+      return
+    }
+    navigate({ to: redirect.target, replace: true })
   }
 
   /**
    * Redirect to 2FA page
    */
-  const redirectTo2FA = () => {
-    navigate({ to: '/otp', replace: true })
+  const redirectTo2FA = (redirectTo?: string) => {
+    navigate({
+      to: '/otp',
+      search: redirectTo ? { redirect: redirectTo } : undefined,
+      replace: true,
+    })
   }
 
   /**
