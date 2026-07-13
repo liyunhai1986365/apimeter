@@ -158,6 +158,12 @@ func SetApiRouter(router *gin.Engine) {
 			}
 		}
 
+		openMosaicRoute := apiRouter.Group("/integrations/openmosaic")
+		{
+			openMosaicRoute.GET("/authorize", middleware.BrowserSessionAuth(), controller.AuthorizeOpenMosaicSSO)
+			openMosaicRoute.POST("/exchange", middleware.CriticalRateLimit(), controller.ExchangeOpenMosaicSSO)
+		}
+
 		// Subscription billing (plans, purchase, admin management)
 		apiRouter.GET("/subscription/plans", controller.GetSubscriptionPlans)
 

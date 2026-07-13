@@ -184,6 +184,31 @@ func UserAuth() func(c *gin.Context) {
 	}
 }
 
+// BrowserSessionAuth authenticates top-level browser navigations using only the
+// signed dashboard session. It intentionally does not accept management tokens.
+func BrowserSessionAuth() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		id, idOK := session.Get("id").(int)
+		username, usernameOK := session.Get("username").(string)
+		role, roleOK := session.Get("role").(int)
+		status, statusOK := session.Get("status").(int)
+		if !idOK || id <= 0 || !usernameOK || !roleOK || !statusOK || status != common.UserStatusEnabled || !validUserInfo(username, role) {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"message": common.TranslateMessage(c, i18n.MsgAuthNotLoggedIn),
+			})
+			c.Abort()
+			return
+		}
+		c.Set("id", id)
+		c.Set("username", username)
+		c.Set("role", role)
+		c.Set("status", status)
+		c.Next()
+	}
+}
+
 func AdminAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		authHelper(c, common.RoleAdminUser)

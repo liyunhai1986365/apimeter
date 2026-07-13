@@ -29,6 +29,7 @@ export const STATIC_I18N_KEYS = [
   'Docs',
   'About',
   'Open in new window',
+  'Open OpenMosaic',
   'Invited Top-Up Reward Rate',
   'Percentage of an invited user top-up awarded to the inviter after 24 hours. Set 0 to disable.',
   'Invited Top-Up Reward Count Limit',

@@ -316,6 +316,10 @@ docker run --name new-api -d --restart always \
 | `CRYPTO_SECRET` | Encryption secret (required for Redis) | - |
 | `SQL_DSN` | Database connection string | - |
 | `REDIS_CONN_STRING` | Redis connection string | - |
+| `OPENMOSAIC_SSO_CLIENT_SECRET` | Shared secret used only by the OpenMosaic server-to-server code exchange | - |
+| `OPENMOSAIC_SSO_REDIRECT_URIS` | Comma-separated exact OpenMosaic SSO callback allowlist | - |
+| `OPENMOSAIC_SSO_TRUST_LEGACY_EMAILS` | Treat pre-migration non-empty emails as verified. Enable only after auditing historical registration rules | `false` |
+| `VITE_OPENMOSAIC_URL` | OpenMosaic public origin injected when building `web/default`; enables the signed-in menu entry | - |
 | `REQUEST_LOG_STORAGE` | Request/response investigation log backend. Only `openobserve` is supported. | `openobserve` |
 | `REQUEST_LOG_OPENOBSERVE_ENDPOINT` | OpenObserve endpoint. Required when request logging is enabled. | - |
 | `STREAMING_TIMEOUT` | Streaming timeout (seconds) | `300` |
