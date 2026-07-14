@@ -87,6 +87,9 @@ func conversionEnabled(c *gin.Context, id ConversionID) bool {
 
 func conversionAllowed(c *gin.Context, id ConversionID) bool {
 	settings, ok := channelSettings(c)
+	if isGeminiImageBridgeConversion(id) {
+		return ok && ConversionEnabled(settings, id)
+	}
 	if !ok || settings.Protocol == nil || len(settings.Protocol.EnabledConversions) == 0 {
 		return true
 	}
@@ -101,6 +104,11 @@ func protocolConfigured(c *gin.Context) bool {
 func nativeModeSupported(c *gin.Context, mode RequestMode) bool {
 	settings, ok := channelSettings(c)
 	return !ok || NativeModeSupported(settings, mode)
+}
+
+func explicitNativeModeSupported(c *gin.Context, mode RequestMode) bool {
+	settings, ok := channelSettings(c)
+	return ok && ExplicitNativeModeSupported(settings, mode)
 }
 
 func ConversionEnabled(settings dto.ChannelSettings, id ConversionID) bool {

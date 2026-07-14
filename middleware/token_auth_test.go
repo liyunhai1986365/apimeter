@@ -143,6 +143,42 @@ func TestTokenAuthAllowsAutoTokenGroupAndDistributorSelectsDefaultAutoGroup(t *t
 	require.Equal(t, 1001, response.ChannelId)
 }
 
+func TestDistributeRejectsFixedImageChannelWithoutExplicitProtocolCapability(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+
+	autoBan := 1
+	require.NoError(t, db.Create(&model.Channel{
+		Id:      9101,
+		Type:    constant.ChannelTypeGemini,
+		Key:     "upstream-key",
+		Status:  common.ChannelStatusEnabled,
+		Name:    "unconfigured-fixed-image-channel",
+		Group:   "default",
+		Models:  "custom-provider-photo-v9",
+		AutoBan: &autoBan,
+	}).Error)
+
+	router := gin.New()
+	router.POST("/v1/images/generations", func(c *gin.Context) {
+		c.Set("id", 1)
+		common.SetContextKey(c, constant.ContextKeyTokenSpecificChannelId, "9101")
+		c.Next()
+	}, Distribute(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"channel_id": common.GetContextKeyInt(c, constant.ContextKeyChannelId)})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{
+		"model":"custom-provider-photo-v9",
+		"prompt":"cat"
+	}`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusServiceUnavailable, recorder.Code, recorder.Body.String())
+	require.Contains(t, recorder.Body.String(), "openai.image.generations")
+}
+
 func TestTokenAuthAllowsOwnedProviderGroupAndDistributorUsesOwnedChannel(t *testing.T) {
 	db := openTokenAuthTestDB(t)
 

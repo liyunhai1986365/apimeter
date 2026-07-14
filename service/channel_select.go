@@ -98,8 +98,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		systemChannelGroups = []string{strings.TrimSpace(param.TokenGroup)}
 		channelGroup = strings.TrimSpace(param.TokenGroup)
 	}
-	filter := BuildProtocolChannelFilter(param)
-	filter = combineChannelFilters(filter, RetryPolicyRecoveryFilter(param.Ctx))
+	filter := combineChannelFilters(BuildProtocolChannelFilter(param), RetryPolicyRecoveryFilter(param.Ctx))
 
 	if recoveryGroups := RetryPolicyRecoveryGroupsForAttempt(param.Ctx, param.GetRetry(), param.ModelName); len(recoveryGroups) > 0 {
 		for _, recoveryGroup := range recoveryGroups {
@@ -108,7 +107,10 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			if model.IsUserOwnedProviderGroup(recoveryGroup) {
 				channel, err = model.GetUserOwnedProviderChannelForGroup(common.GetContextKeyInt(param.Ctx, constant.ContextKeyUserId), recoveryGroup, param.ModelName)
-				if err == nil {
+				if err == nil && ValidateProtocolChannel(param, channel) != nil {
+					err = model.ErrNoChannelMatchedFilter
+					channel = nil
+				} else if err == nil {
 					common.SetContextKey(param.Ctx, constant.ContextKeyTokenBillingSource, BillingSourceUserOwnedProvider)
 				}
 			} else {
@@ -155,7 +157,12 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 
 			if model.IsUserOwnedProviderGroup(policyGroup) {
 				channel, err = model.GetUserOwnedProviderChannelForGroup(common.GetContextKeyInt(param.Ctx, constant.ContextKeyUserId), policyGroup, param.ModelName)
-				if err == nil {
+				if err == nil && ValidateProtocolChannel(param, channel) != nil {
+					channel = nil
+					if shouldStopOnProtocolMismatch(param) {
+						return nil, policyGroup, unsupportedProtocolError(param)
+					}
+				} else if err == nil {
 					common.SetContextKey(param.Ctx, constant.ContextKeyTokenBillingSource, BillingSourceUserOwnedProvider)
 				} else if shouldStopOnProtocolMismatch(param) {
 					return nil, policyGroup, err
@@ -419,6 +426,24 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 		}
 		return channelReq.Supports(channel.GetSetting())
 	}
+}
+
+func ValidateProtocolChannel(param *RetryParam, channel *model.Channel) error {
+	if param == nil || param.Ctx == nil {
+		return nil
+	}
+	requirement := conversion.RequirementFromHTTPRequest(param.Ctx, param.ModelName)
+	if requirement.Intent != conversion.MediaIntentImageGenerate {
+		return nil
+	}
+	filter := BuildProtocolChannelFilter(param)
+	if filter == nil {
+		return nil
+	}
+	if channel == nil || !filter(channel) {
+		return unsupportedProtocolError(param)
+	}
+	return nil
 }
 
 func configurableNativeProfileIDsFromContext(c *gin.Context, fallbackProfileID string) []string {

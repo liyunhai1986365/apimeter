@@ -253,6 +253,14 @@ func Distribute() func(c *gin.Context) {
 				}
 			}
 		}
+		if err := service.ValidateProtocolChannel(&service.RetryParam{
+			Ctx:        c,
+			ModelName:  modelRequest.Model,
+			TokenGroup: common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+		}, channel); err != nil {
+			abortWithOpenAiMessage(c, http.StatusServiceUnavailable, err.Error(), types.ErrorCodeModelNotFound)
+			return
+		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
 		SetupContextForSelectedChannel(c, channel, modelRequest.Model)
 		c.Next()

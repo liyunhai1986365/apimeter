@@ -3494,21 +3494,31 @@ export function ChannelMutateDrawer({
                         name='protocol_native_modes'
                         render={({ field }) => (
                           <FormItem className='px-4 py-3'>
-                            <FormLabel>{t('Native Request Modes')}</FormLabel>
+                            <FormLabel>
+                              {t('Supported API Endpoints')}
+                            </FormLabel>
                             <FormControl>
                               <MultiSelect
                                 options={REQUEST_MODE_OPTIONS.map((option) => ({
-                                  label: t(option.label),
+                                  label: [
+                                    t(option.label),
+                                    option.endpoint,
+                                    ...('aliases' in option
+                                      ? option.aliases || []
+                                      : []),
+                                  ].join(' · '),
                                   value: option.value,
                                 }))}
                                 selected={field.value || []}
                                 onChange={field.onChange}
-                                placeholder={t('Select native request modes')}
+                                placeholder={t(
+                                  'Select supported API endpoints'
+                                )}
                               />
                             </FormControl>
                             <FormDescription>
                               {t(
-                                'Leave empty to use default protocol support for this channel'
+                                'Image requests only use channels that explicitly select the required endpoint and any required conversion'
                               )}
                             </FormDescription>
                             <FormMessage />
@@ -3539,7 +3549,7 @@ export function ChannelMutateDrawer({
                             </FormControl>
                             <FormDescription>
                               {t(
-                                'Configured channels only use the selected conversions'
+                                'Only explicitly selected protocol conversions are enabled'
                               )}
                             </FormDescription>
                             <FormMessage />

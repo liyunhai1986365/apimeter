@@ -42,6 +42,9 @@ func IsOpenAIResponseOnlyModel(modelName string) bool {
 }
 
 func IsImageGenerationModel(modelName string) bool {
+	if IsGeminiImageGenerationModel(modelName) {
+		return true
+	}
 	modelName = strings.ToLower(modelName)
 	for _, m := range ImageGenerationModels {
 		if strings.Contains(modelName, m) {
@@ -52,6 +55,11 @@ func IsImageGenerationModel(modelName string) bool {
 		}
 	}
 	return false
+}
+
+func IsGeminiImageGenerationModel(modelName string) bool {
+	modelName = strings.ToLower(strings.TrimSpace(modelName))
+	return strings.HasPrefix(modelName, "gemini") && strings.Contains(modelName, "image")
 }
 
 func IsOpenAITextModel(modelName string) bool {

@@ -945,6 +945,36 @@ func TestShouldForceConvertImageRequestForConfigurableImageProfile(t *testing.T)
 	require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{Model: "any-image-model"}))
 }
 
+func TestShouldForceConvertGeminiImageRequestForGeminiNativeAdaptor(t *testing.T) {
+	tests := []struct {
+		name    string
+		apiType int
+	}{
+		{name: "Gemini", apiType: constant.APITypeGemini},
+		{name: "Vertex", apiType: constant.APITypeVertexAi},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{
+				RelayMode: relayconstant.RelayModeImagesGenerations,
+				ChannelMeta: &relaycommon.ChannelMeta{
+					ApiType:           tt.apiType,
+					UpstreamModelName: "custom-provider-photo-v9",
+					ChannelSetting: dto.ChannelSettings{
+						PassThroughBodyEnabled: true,
+					},
+				},
+			}
+
+			require.True(t, shouldForceConvertImageRequest(info, &dto.ImageRequest{
+				Model:  "custom-provider-photo-v9",
+				Prompt: "cat",
+			}))
+		})
+	}
+}
+
 func TestShouldNotForceConvertImageRequestWhenUserResponseFormatBeatsChannelFallback(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		RelayMode: relayconstant.RelayModeImagesGenerations,

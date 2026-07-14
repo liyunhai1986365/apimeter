@@ -1105,10 +1105,120 @@ func TestBuildProtocolChannelFilterUsesConversionRequirement(t *testing.T) {
 }
 
 func TestBuildProtocolChannelFilterAllowsGeminiImageNativeOrImageCanonical(t *testing.T) {
+	for _, prefix := range []string{"/v1/models/", "/v1beta/models/"} {
+		t.Run(prefix, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(nil)
+			c.Request = httptest.NewRequest(http.MethodPost, prefix+"gemini-3.1-flash-image-preview:generateContent", strings.NewReader(`{
+				"contents":[{"parts":[{"text":"cat"}]}],
+				"generationConfig":{"responseModalities":["TEXT","IMAGE"]}
+			}`))
+
+			filter := BuildProtocolChannelFilter(&RetryParam{
+				Ctx:       c,
+				ModelName: "gemini-3.1-flash-image-preview",
+			})
+			require.NotNil(t, filter)
+
+			geminiOnly := model.Channel{}
+			geminiOnly.SetSetting(dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+				},
+			})
+			require.True(t, filter(&geminiOnly))
+
+			imageCapable := model.Channel{}
+			imageCapable.SetSetting(dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+				},
+			})
+			require.False(t, filter(&imageCapable))
+
+			imageCapable.SetSetting(dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{
+					NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+					EnabledConversions: []string{
+						string(conversion.ConversionGeminiGenerateContentToImageGenerations),
+					},
+				},
+			})
+			require.True(t, filter(&imageCapable))
+		})
+	}
+}
+
+func TestBuildProtocolChannelFilterRequiresImagenGenerateContentConversion(t *testing.T) {
 	c, _ := gin.CreateTestContext(nil)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(`{
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/imagen-4.0-generate-001:generateContent", strings.NewReader(`{
 		"contents":[{"parts":[{"text":"cat"}]}],
-		"generationConfig":{"responseModalities":["TEXT","IMAGE"]}
+		"generationConfig":{"responseModalities":["IMAGE"]}
+	}`))
+
+	filter := BuildProtocolChannelFilter(&RetryParam{
+		Ctx:       c,
+		ModelName: "imagen-4.0-generate-001",
+	})
+	require.NotNil(t, filter)
+
+	geminiNative := model.Channel{}
+	geminiNative.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+		},
+	})
+	require.False(t, filter(&geminiNative))
+
+	imageWithConversion := model.Channel{}
+	imageWithConversion.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{
+				string(conversion.ConversionGeminiGenerateContentToImageGenerations),
+			},
+		},
+	})
+	require.True(t, filter(&imageWithConversion))
+}
+
+func TestBuildProtocolChannelFilterKeepsOpenAIImagenOnPredictCapability(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{
+		"model":"imagen-4.0-generate-001",
+		"prompt":"cat"
+	}`))
+
+	filter := BuildProtocolChannelFilter(&RetryParam{
+		Ctx:       c,
+		ModelName: "imagen-4.0-generate-001",
+	})
+	require.NotNil(t, filter)
+
+	imageNative := model.Channel{}
+	imageNative.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+		},
+	})
+	require.True(t, filter(&imageNative))
+
+	geminiTarget := model.Channel{}
+	geminiTarget.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+			EnabledConversions: []string{
+				string(conversion.ConversionOpenAIImageGenerationsToGeminiGenerateContent),
+			},
+		},
+	})
+	require.False(t, filter(&geminiTarget))
+}
+
+func TestBuildProtocolChannelFilterAllowsOpenAIOrGeminiForOpenAIGeminiImageRequest(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{
+		"model":"gemini-3.1-flash-image-preview",
+		"prompt":"cat"
 	}`))
 
 	filter := BuildProtocolChannelFilter(&RetryParam{
@@ -1117,21 +1227,87 @@ func TestBuildProtocolChannelFilterAllowsGeminiImageNativeOrImageCanonical(t *te
 	})
 	require.NotNil(t, filter)
 
-	geminiOnly := model.Channel{}
-	geminiOnly.SetSetting(dto.ChannelSettings{
-		Protocol: &dto.ChannelProtocolSettings{
-			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
-		},
-	})
-	require.True(t, filter(&geminiOnly))
-
-	imageCapable := model.Channel{}
-	imageCapable.SetSetting(dto.ChannelSettings{
+	openAIImage := model.Channel{}
+	openAIImage.SetSetting(dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
 			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
 		},
 	})
-	require.True(t, filter(&imageCapable))
+	require.True(t, filter(&openAIImage))
+
+	geminiNative := model.Channel{}
+	geminiNative.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+		},
+	})
+	require.False(t, filter(&geminiNative))
+
+	geminiNative.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+			EnabledConversions: []string{
+				string(conversion.ConversionOpenAIImageGenerationsToGeminiGenerateContent),
+			},
+		},
+	})
+	require.True(t, filter(&geminiNative))
+
+	chatOnly := model.Channel{}
+	chatOnly.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIChat)},
+		},
+	})
+	require.False(t, filter(&chatOnly))
+}
+
+func TestBuildProtocolChannelFilterRequiresExplicitImageCapabilityForAnyModel(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{
+		"model":"custom-provider-photo-v9",
+		"prompt":"cat"
+	}`))
+
+	filter := BuildProtocolChannelFilter(&RetryParam{
+		Ctx:       c,
+		ModelName: "custom-provider-photo-v9",
+	})
+	require.NotNil(t, filter)
+
+	unconfigured := model.Channel{}
+	require.False(t, filter(&unconfigured))
+
+	emptyProtocol := model.Channel{}
+	emptyProtocol.SetSetting(dto.ChannelSettings{Protocol: &dto.ChannelProtocolSettings{}})
+	require.False(t, filter(&emptyProtocol))
+
+	sourceNative := model.Channel{}
+	sourceNative.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+		},
+	})
+	require.True(t, filter(&sourceNative))
+
+	targetWithoutConversion := model.Channel{}
+	targetWithoutConversion.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+		},
+	})
+	require.False(t, filter(&targetWithoutConversion))
+
+	targetWithConversion := model.Channel{}
+	targetWithConversion.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+			EnabledConversions: []string{
+				string(conversion.ConversionOpenAIImageGenerationsToGeminiGenerateContent),
+			},
+		},
+	})
+	require.True(t, filter(&targetWithConversion))
 }
 
 func TestBuildProtocolChannelFilterAllowsNativeGeminiImageGenerateContent(t *testing.T) {

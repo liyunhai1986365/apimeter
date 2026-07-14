@@ -14,10 +14,12 @@ import (
 )
 
 type Requirement struct {
-	SourceMode RequestMode
-	TargetMode RequestMode
-	Conversion ConversionID
-	Intent     MediaIntent
+	SourceMode        RequestMode
+	TargetMode        RequestMode
+	Conversion        ConversionID
+	Intent            MediaIntent
+	RequireConversion bool
+	SourceOnly        bool
 }
 
 func (r Requirement) Empty() bool {
@@ -28,8 +30,16 @@ func (r Requirement) Supports(settings dto.ChannelSettings) bool {
 	if r.Empty() {
 		return true
 	}
-	if r.Conversion != "" && r.SourceMode == RequestModeGeminiGenerateContent {
-		return NativeModeSupported(settings, r.SourceMode) || NativeModeSupported(settings, r.TargetMode)
+	if isGeminiImageBridgeConversion(r.Conversion) {
+		if r.RequireConversion {
+			return ExplicitNativeModeSupported(settings, r.TargetMode) &&
+				ConversionEnabled(settings, r.Conversion)
+		}
+		if r.SourceOnly {
+			return ExplicitNativeModeSupported(settings, r.SourceMode)
+		}
+		return ExplicitNativeModeSupported(settings, r.SourceMode) ||
+			(ExplicitNativeModeSupported(settings, r.TargetMode) && ConversionEnabled(settings, r.Conversion))
 	}
 	if r.Conversion != "" {
 		return SupportsConversion(settings, r.SourceMode, r.TargetMode, r.Conversion)
@@ -67,6 +77,9 @@ func RequirementFromHTTPRequest(c *gin.Context, modelName string) Requirement {
 	}
 	relayMode := relayconstant.Path2RelayMode(c.Request.URL.Path)
 	sourceMode := ModeFromRelay(types.RelayFormatOpenAI, relayMode)
+	if relayMode == relayconstant.RelayModeImagesGenerations || relayMode == relayconstant.RelayModeImagesEdits {
+		sourceMode = ModeFromRelay(types.RelayFormatOpenAIImage, relayMode)
+	}
 	if relayMode == relayconstant.RelayModeGemini {
 		sourceMode = RequestModeGeminiGenerateContent
 	}
@@ -76,10 +89,11 @@ func RequirementFromHTTPRequest(c *gin.Context, modelName string) Requirement {
 	}
 	if sourceMode == RequestModeGeminiGenerateContent && isGeminiImageGenerationHTTPRequest(c, modelName) {
 		return Requirement{
-			SourceMode: sourceMode,
-			TargetMode: RequestModeOpenAIImageGenerations,
-			Conversion: ConversionGeminiGenerateContentToImageGenerations,
-			Intent:     MediaIntentImageGenerate,
+			SourceMode:        sourceMode,
+			TargetMode:        RequestModeOpenAIImageGenerations,
+			Conversion:        ConversionGeminiGenerateContentToImageGenerations,
+			Intent:            MediaIntentImageGenerate,
+			RequireConversion: isImagenGenerationModel(modelName),
 		}
 	}
 	return RequirementFromMode(sourceMode, modelName)
@@ -97,17 +111,38 @@ func RequirementFromMode(sourceMode RequestMode, modelName string) Requirement {
 			Intent:     MediaIntentImageGenerate,
 		}
 	}
+	if sourceMode == RequestModeOpenAIImageGenerations {
+		return Requirement{
+			SourceMode: sourceMode,
+			TargetMode: RequestModeGeminiGenerateContent,
+			Conversion: ConversionOpenAIImageGenerationsToGeminiGenerateContent,
+			Intent:     MediaIntentImageGenerate,
+			SourceOnly: isImagenGenerationModel(modelName),
+		}
+	}
 	return Requirement{
 		SourceMode: sourceMode,
 		TargetMode: sourceMode,
 	}
 }
 
+func ExplicitNativeModeSupported(settings dto.ChannelSettings, mode RequestMode) bool {
+	if settings.Protocol == nil || len(settings.Protocol.NativeModes) == 0 {
+		return false
+	}
+	for _, nativeMode := range settings.Protocol.NativeModes {
+		if nativeMode == string(mode) {
+			return true
+		}
+	}
+	return false
+}
+
 func CanonicalRequirement(req Requirement) Requirement {
 	if req.Conversion == "" {
 		return req
 	}
-	if req.SourceMode == RequestModeGeminiGenerateContent {
+	if isGeminiImageBridgeConversion(req.Conversion) {
 		return req
 	}
 	return Requirement{
@@ -115,6 +150,15 @@ func CanonicalRequirement(req Requirement) Requirement {
 		TargetMode: req.TargetMode,
 		Intent:     req.Intent,
 	}
+}
+
+func isGeminiImageBridgeConversion(id ConversionID) bool {
+	return id == ConversionGeminiGenerateContentToImageGenerations ||
+		id == ConversionOpenAIImageGenerationsToGeminiGenerateContent
+}
+
+func isImagenGenerationModel(modelName string) bool {
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(modelName)), "imagen")
 }
 
 func isGeminiImageGenerationHTTPRequest(c *gin.Context, modelName string) bool {

@@ -31,13 +31,42 @@ const jsonArrayString = z.string().refine((value) => {
 }, 'Must be a valid JSON array')
 
 export const REQUEST_MODE_OPTIONS = [
-  { label: 'OpenAI Chat', value: 'openai.chat' },
-  { label: 'OpenAI Image Generations', value: 'openai.image.generations' },
-  { label: 'OpenAI Image Edits', value: 'openai.image.edits' },
-  { label: 'OpenAI Video Generations', value: 'openai.video.generations' },
-  { label: 'OpenAI Responses', value: 'openai.responses' },
-  { label: 'Claude Messages', value: 'claude.messages' },
-  { label: 'Gemini Generate Content', value: 'gemini.generate_content' },
+  {
+    label: 'OpenAI Chat',
+    value: 'openai.chat',
+    endpoint: 'POST /v1/chat/completions',
+  },
+  {
+    label: 'OpenAI Image Generations',
+    value: 'openai.image.generations',
+    endpoint: 'POST /v1/images/generations',
+  },
+  {
+    label: 'OpenAI Image Edits',
+    value: 'openai.image.edits',
+    endpoint: 'POST /v1/images/edits',
+  },
+  {
+    label: 'OpenAI Video Generations',
+    value: 'openai.video.generations',
+    endpoint: 'POST /v1/video/generations',
+  },
+  {
+    label: 'OpenAI Responses',
+    value: 'openai.responses',
+    endpoint: 'POST /v1/responses',
+  },
+  {
+    label: 'Claude Messages',
+    value: 'claude.messages',
+    endpoint: 'POST /v1/messages',
+  },
+  {
+    label: 'Gemini Generate Content',
+    value: 'gemini.generate_content',
+    endpoint: 'POST /v1beta/models/{model}:generateContent',
+    aliases: ['POST /v1/models/{model}:generateContent'],
+  },
 ]
 
 export const CONVERSION_OPTION_OPENAI_CHAT_TO_IMAGE_GENERATIONS =
@@ -45,6 +74,9 @@ export const CONVERSION_OPTION_OPENAI_CHAT_TO_IMAGE_GENERATIONS =
 
 export const CONVERSION_OPTION_GEMINI_GENERATE_CONTENT_TO_IMAGE_GENERATIONS =
   'gemini.generate_content_to_openai.image.generations'
+
+export const CONVERSION_OPTION_OPENAI_IMAGE_GENERATIONS_TO_GEMINI =
+  'openai.image.generations_to_gemini.generate_content'
 
 export const CONVERSION_OPTIONS = [
   {
@@ -54,6 +86,10 @@ export const CONVERSION_OPTIONS = [
   {
     label: 'Gemini Generate Content to OpenAI Image Generations',
     value: CONVERSION_OPTION_GEMINI_GENERATE_CONTENT_TO_IMAGE_GENERATIONS,
+  },
+  {
+    label: 'OpenAI Image Generations to Gemini Generate Content',
+    value: CONVERSION_OPTION_OPENAI_IMAGE_GENERATIONS_TO_GEMINI,
   },
 ]
 

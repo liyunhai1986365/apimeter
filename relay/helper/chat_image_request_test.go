@@ -110,6 +110,14 @@ func TestApplyRequestConvertsGeminiImageGenerateContentToImageRequest(t *testing
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{
+				string(conversion.ConversionGeminiGenerateContentToImageGenerations),
+			},
+		},
+	})
 
 	request, err := GetAndValidateRequest(c, types.RelayFormatGemini)
 	require.NoError(t, err)
@@ -152,6 +160,9 @@ func TestApplyRequestAllowsGeminiImageConversionOnCanonicalImageChannel(t *testi
 	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
 			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{
+				string(conversion.ConversionGeminiGenerateContentToImageGenerations),
+			},
 		},
 	})
 
@@ -185,6 +196,76 @@ func TestApplyRequestKeepsGeminiImageGenerateContentNativeWhenSupported(t *testi
 	require.NoError(t, err)
 	require.Nil(t, plan)
 	require.Same(t, request, converted)
+}
+
+func TestApplyRequestRejectsGeminiImageOnUnconfiguredGeminiChannel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{
+		"contents":[{"role":"user","parts":[{"text":"cat"}]}],
+		"generationConfig":{"responseModalities":["IMAGE"]}
+	}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	common.SetContextKey(c, constant.ContextKeyChannelType, constant.ChannelTypeGemini)
+
+	request, err := GetAndValidateRequest(c, types.RelayFormatGemini)
+	require.NoError(t, err)
+	converted, plan, err := conversion.ApplyRequest(c, types.RelayFormatGemini, relayconstant.RelayModeGemini, request)
+	require.Error(t, err)
+	require.Nil(t, plan)
+	require.Nil(t, converted)
+	require.Contains(t, err.Error(), string(conversion.RequestModeOpenAIImageGenerations))
+}
+
+func TestApplyRequestConvertsGeminiImageOnGeminiChannelConfiguredAsImageOnly(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{
+		"contents":[{"role":"user","parts":[{"text":"cat"}]}],
+		"generationConfig":{"responseModalities":["IMAGE"]}
+	}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/gemini-3.1-flash-image-preview:generateContent", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	common.SetContextKey(c, constant.ContextKeyChannelType, constant.ChannelTypeGemini)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeOpenAIImageGenerations)},
+			EnabledConversions: []string{
+				string(conversion.ConversionGeminiGenerateContentToImageGenerations),
+			},
+		},
+	})
+
+	request, err := GetAndValidateRequest(c, types.RelayFormatGemini)
+	require.NoError(t, err)
+	converted, plan, err := conversion.ApplyRequest(c, types.RelayFormatGemini, relayconstant.RelayModeGemini, request)
+	require.NoError(t, err)
+	require.NotNil(t, plan)
+	require.IsType(t, &dto.ImageRequest{}, converted)
+}
+
+func TestApplyRequestRejectsImagenGenerateContentNativePassThrough(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := `{
+		"contents":[{"role":"user","parts":[{"text":"cat"}]}],
+		"generationConfig":{"responseModalities":["IMAGE"]}
+	}`
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1beta/models/imagen-4.0-generate-001:generateContent", strings.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			NativeModes: []string{string(conversion.RequestModeGeminiGenerateContent)},
+		},
+	})
+
+	request, err := GetAndValidateRequest(c, types.RelayFormatGemini)
+	require.NoError(t, err)
+	converted, plan, err := conversion.ApplyRequest(c, types.RelayFormatGemini, relayconstant.RelayModeGemini, request)
+	require.Error(t, err)
+	require.Nil(t, plan)
+	require.Nil(t, converted)
 }
 
 func TestApplyRequestRejectsImageChatWhenConversionDisabled(t *testing.T) {

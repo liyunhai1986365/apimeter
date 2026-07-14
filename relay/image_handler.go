@@ -254,6 +254,11 @@ func shouldForceConvertImageRequest(info *relaycommon.RelayInfo, request *dto.Im
 	if configurableImageProfileFromSettings(settings) != nil {
 		return true
 	}
+	if info.ChannelMeta != nil &&
+		(info.ApiType == constant.APITypeGemini || info.ApiType == constant.APITypeVertexAi) &&
+		(info.RelayMode == relayconstant.RelayModeImagesGenerations || info.RelayMode == relayconstant.RelayModeImagesEdits) {
+		return true
+	}
 	tokenSettings := info.TokenImageSettings.Normalized()
 	if tokenSettings.Format == dto.TokenImageFormatURL || tokenSettings.Format == dto.TokenImageFormatB64JSON {
 		return true
