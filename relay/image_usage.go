@@ -182,6 +182,18 @@ func imageAPIUsageFromUsage(usage *dto.Usage) imageAPIUsage {
 	if usage == nil {
 		return imageAPIUsage{}
 	}
+	inputTokens := usage.InputTokens
+	if inputTokens == 0 {
+		inputTokens = usage.PromptTokens
+	}
+	outputTokens := usage.OutputTokens
+	if outputTokens == 0 {
+		outputTokens = usage.CompletionTokens
+	}
+	totalTokens := usage.TotalTokens
+	if totalTokens == 0 {
+		totalTokens = inputTokens + outputTokens
+	}
 	inputDetails := imageAPITokenDetails{
 		TextTokens:  usage.PromptTokensDetails.TextTokens,
 		ImageTokens: usage.PromptTokensDetails.ImageTokens,
@@ -199,9 +211,9 @@ func imageAPIUsageFromUsage(usage *dto.Usage) imageAPIUsage {
 		outputDetails.ImageTokens = usage.OutputTokensDetails.ImageTokens
 	}
 	return imageAPIUsage{
-		InputTokens:         usage.InputTokens,
-		OutputTokens:        usage.OutputTokens,
-		TotalTokens:         usage.TotalTokens,
+		InputTokens:         inputTokens,
+		OutputTokens:        outputTokens,
+		TotalTokens:         totalTokens,
 		InputTokensDetails:  inputDetails,
 		OutputTokensDetails: outputDetails,
 	}

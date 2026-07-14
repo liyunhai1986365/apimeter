@@ -1209,6 +1209,90 @@ func TestLocalAsyncImageSettlesActualUsageAfterCompletion(t *testing.T) {
 	require.Equal(t, 4700, token.RemainQuota)
 }
 
+func TestLocalAsyncGeminiGenerateContentImageSettlesActualUsage(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+	common.LogConsumeEnabled = true
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
+	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
+	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1beta/models/gemini-3-pro-image-preview:generateContent", r.URL.Path)
+		require.Equal(t, "sk-gemini", r.Header.Get("x-goog-api-key"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="}}]}}],
+			"usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":200,"totalTokenCount":300}
+		}`))
+	}))
+	defer upstream.Close()
+
+	const userID, tokenID, channelID = 731, 732, 733
+	require.NoError(t, model.DB.AutoMigrate(&model.User{}, &model.Token{}, &model.Log{}))
+	require.NoError(t, model.DB.Create(&model.User{Id: userID, Username: "gemini-image-user", Quota: 9000, Status: common.UserStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{Id: tokenID, UserId: userID, Name: "gemini-image-token", Key: "sk-token", Status: common.TokenStatusEnabled, RemainQuota: 4000}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: channelID, Type: constant.ChannelTypeGemini, Key: "sk-gemini", BaseURL: &upstream.URL, Status: common.ChannelStatusEnabled, Name: "gemini-image"}).Error)
+
+	body := []byte(`{"model":"gemini-3-pro-image-preview","prompt":"cat"}`)
+	info := &relaycommon.RelayInfo{
+		UserId: userID, TokenId: tokenID, TokenKey: "sk-token", UsingGroup: "default",
+		OriginModelName: "gemini-3-pro-image-preview", RelayMode: relayconstant.RelayModeImagesGenerations,
+		RequestURLPath: "/v1/images/generations?async=true",
+		Request:        &dto.ImageRequest{Model: "gemini-3-pro-image-preview", Prompt: "cat"}, IsAsyncImageRequest: true,
+		FinalPreConsumedQuota: 1000, BillingSource: service.BillingSourceWallet,
+		PriceData: types.PriceData{ModelRatio: 1, CompletionRatio: 1, GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1}},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeGemini)
+	c.Set(string(constant.ContextKeyChannelId), channelID)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-gemini")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+
+	require.Nil(t, ImageHelper(c, info))
+	taskID := gjson.GetBytes(recorder.Body.Bytes(), "id").String()
+	require.NotEmpty(t, taskID)
+	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "usage").Exists())
+	require.Eventually(t, func() bool {
+		var task model.Task
+		if err := model.DB.Where("task_id = ?", taskID).First(&task).Error; err != nil {
+			return false
+		}
+		var channel model.Channel
+		if err := model.DB.Where("id = ?", channelID).First(&channel).Error; err != nil {
+			return false
+		}
+		var logCount int64
+		if err := model.LOG_DB.Model(&model.Log{}).
+			Where("user_id = ? AND type = ?", userID, model.LogTypeConsume).
+			Count(&logCount).Error; err != nil {
+			return false
+		}
+		return task.Status == model.TaskStatusSuccess && task.Quota == 300 &&
+			channel.UsedQuota == 300 && logCount == 1
+	}, time.Second, 10*time.Millisecond)
+	var task model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", taskID).First(&task).Error)
+	require.Equal(t, 300, task.Quota)
+	require.Equal(t, int64(100), gjson.GetBytes(task.Data, "usage.input_tokens").Int())
+	require.Equal(t, int64(200), gjson.GetBytes(task.Data, "usage.output_tokens").Int())
+
+	var user model.User
+	require.NoError(t, model.DB.Where("id = ?", userID).First(&user).Error)
+	require.Equal(t, 9700, user.Quota)
+	var token model.Token
+	require.NoError(t, model.DB.Where("id = ?", tokenID).First(&token).Error)
+	require.Equal(t, 4700, token.RemainQuota)
+}
+
 func TestImageHelperAsyncTrueEstimatesUsageWhenSyncProviderOmitsUsage(t *testing.T) {
 	setupImageTaskTestDB(t)
 	gin.SetMode(gin.TestMode)

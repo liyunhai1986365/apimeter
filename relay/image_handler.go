@@ -180,7 +180,8 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	usageData := usage.(*dto.Usage)
-	if ensureEstimatedImageUsageIfMissing(info, request, usageData) && responseCapture.HasBody() {
+	estimatedUsage := ensureEstimatedImageUsageIfMissing(info, request, usageData)
+	if responseCapture.HasBody() && (estimatedUsage || isLocalImageAsyncWorker(c)) {
 		if body, injected := imageResponseBodyWithUsage(responseCapture.BodyBytes(), usageData); injected {
 			responseCapture.ReplaceBody(responseCapture.Status(), body)
 		}
