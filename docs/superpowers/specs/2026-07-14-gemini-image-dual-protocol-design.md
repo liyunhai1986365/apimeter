@@ -115,6 +115,33 @@ eligible because the gateway has a corresponding conversion path.
 For all other models, existing `native_modes` and `enabled_conversions`
 semantics remain unchanged.
 
+## Channel Configuration
+
+The default-theme channel form exposes protocol capabilities as API endpoints
+while continuing to persist the existing `protocol.native_modes` values. This
+avoids a second endpoint-capability field that could disagree with routing.
+
+The endpoint selector maps at least these image entries:
+
+- `POST /v1/images/generations` -> `openai.image.generations`;
+- `POST /v1/images/edits` -> `openai.image.edits`;
+- `POST /v1beta/models/{model}:generateContent` and the `/v1/models` alias ->
+  `gemini.generate_content`.
+
+Other existing request modes remain selectable with their public endpoint
+labels. An empty selection preserves the channel-type defaults. Once any mode
+is selected, the saved `native_modes` list is authoritative for protocol-aware
+channel filtering.
+
+The conversion selector exposes both Gemini image bridge directions:
+
+- `gemini.generate_content -> openai.image.generations`;
+- `openai.image.generations -> gemini.generate_content`.
+
+The form continues to save these values in `protocol.enabled_conversions` and
+must round-trip unknown values so channels created by newer servers are not
+silently damaged when edited by the current UI.
+
 ## Error Handling
 
 - Missing prompt remains an invalid image request.
@@ -139,7 +166,9 @@ Add focused regression coverage for:
 6. channel selection allowing either native mode for matching models;
 7. preservation of the current source mode when it is native;
 8. non-matching Gemini and Imagen models retaining existing behavior;
-9. the existing Gemini-to-OpenAI-image conversion remaining green.
+9. the existing Gemini-to-OpenAI-image conversion remaining green;
+10. endpoint selections saving and loading through `protocol.native_modes`;
+11. both Gemini image bridge conversions appearing in the channel form.
 
 Verification will use focused Go tests for `common`, `relay/conversion`,
 `relay/channel/gemini`, `relay/channel/vertex`, `relay/helper`, and `service`,
