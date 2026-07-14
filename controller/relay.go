@@ -232,7 +232,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			channel, channelErr := getChannel(c, relayInfo, retryParam)
 			if channelErr != nil {
 				logger.LogError(c, channelErr.Error())
-				newAPIError = channelErr
+				newAPIError = relayErrorAfterChannelSelectionFailure(relayInfo, channelErr)
 				break
 			}
 
@@ -293,6 +293,13 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 			perfmetrics.RecordRelaySample(relayInfo, false, 0)
 		})
 	}
+}
+
+func relayErrorAfterChannelSelectionFailure(info *relaycommon.RelayInfo, channelErr *types.NewAPIError) *types.NewAPIError {
+	if info != nil && info.LastError != nil {
+		return info.LastError
+	}
+	return channelErr
 }
 
 func shouldRecordPerfFailure(err *types.NewAPIError) bool {
