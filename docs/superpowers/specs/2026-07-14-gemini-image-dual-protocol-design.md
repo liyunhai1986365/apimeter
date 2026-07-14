@@ -2,21 +2,26 @@
 
 ## Goal
 
-Make every model whose normalized name starts with `gemini` and contains
-`image` available through both of these client-facing request modes by default:
+Allow every image model to be requested through the OpenAI image endpoint, and
+allow models whose normalized name starts with `gemini` and contains `image`
+to bridge these two client-facing request modes when the selected channel is
+explicitly configured for the capability:
 
 - OpenAI image generation: `POST /v1/images/generations`
 - Gemini native image generation: `POST /v1beta/models/{model}:generateContent`
   and the existing `/v1/models/{model}:generateContent` alias
 
-The gateway keeps a request native when the selected channel supports its
-source mode. When the selected channel only supports the other mode, the
-gateway converts the request and converts the response back to the client's
-source format.
+The gateway keeps a request native when the selected channel explicitly
+supports its source mode. When the selected channel explicitly supports the
+other mode and enables the corresponding conversion, the gateway converts the
+request and converts the response back to the client's source format. Missing
+image protocol configuration means the channel does not support that request.
 
 ## Scope
 
-The automatic behavior applies only when the model name, after trimming and
+`POST /v1/images/generations` accepts any non-empty model name and delegates
+model validity to channel selection and the selected adaptor. The automatic
+Gemini request/response bridge applies when the model name, after trimming and
 lowercasing, satisfies both conditions:
 
 1. starts with `gemini`;
@@ -57,8 +62,8 @@ requests, while preserving native OpenAI image channels.
 
 A profile can already translate OpenAI image requests into a Gemini-native
 provider contract. However, it requires `ChannelTypeConfigurable` and an
-explicit `profile_id`, so it does not meet the requirement that ordinary Gemini
-and Vertex channels support both request forms by default.
+explicit `profile_id`, so it does not provide capability configuration for
+ordinary Gemini, Vertex, and OpenAI-compatible image channels.
 
 ## Request Flow
 
@@ -103,14 +108,22 @@ Keep the existing conversion:
 
 ## Channel Selection
 
-For matching Gemini image models, channel filtering accepts either:
+For an OpenAI image request using any model name, channel filtering accepts a
+channel only when it explicitly declares one of these valid capability paths:
 
-- `gemini.generate_content`; or
-- `openai.image.generations`.
+- native `openai.image.generations`; or
+- native `gemini.generate_content` together with the enabled conversion
+  `openai.image.generations_to_gemini.generate_content`.
+
+For a Gemini native image request, the symmetric paths are native
+`gemini.generate_content`, or native `openai.image.generations` together with
+`gemini.generate_content_to_openai.image.generations`.
 
 The source mode remains preferred. A channel that explicitly declares the
-source mode is not converted. A channel that declares only the other mode is
-eligible because the gateway has a corresponding conversion path.
+source mode is not converted. A channel with no protocol configuration, an
+empty `native_modes` list, or a missing required conversion is excluded from
+the image request. This strict behavior is scoped to image protocol routing;
+unrelated request modes retain their existing compatibility behavior.
 
 For all other models, existing `native_modes` and `enabled_conversions`
 semantics remain unchanged.
@@ -129,9 +142,9 @@ The endpoint selector maps at least these image entries:
   `gemini.generate_content`.
 
 Other existing request modes remain selectable with their public endpoint
-labels. An empty selection preserves the channel-type defaults. Once any mode
-is selected, the saved `native_modes` list is authoritative for protocol-aware
-channel filtering.
+labels. For image protocol routing, an empty selection means the channel does
+not support an image endpoint. The saved `native_modes` list is authoritative
+for protocol-aware image channel filtering.
 
 The conversion selector exposes both Gemini image bridge directions:
 
@@ -168,7 +181,9 @@ Add focused regression coverage for:
 8. non-matching Gemini and Imagen models retaining existing behavior;
 9. the existing Gemini-to-OpenAI-image conversion remaining green;
 10. endpoint selections saving and loading through `protocol.native_modes`;
-11. both Gemini image bridge conversions appearing in the channel form.
+11. both Gemini image bridge conversions appearing in the channel form;
+12. arbitrary image model names reaching configured native image channels;
+13. channels with missing endpoint or conversion configuration being rejected.
 
 Verification will use focused Go tests for `common`, `relay/conversion`,
 `relay/channel/gemini`, `relay/channel/vertex`, `relay/helper`, and `service`,
