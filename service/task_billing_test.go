@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -503,6 +504,107 @@ func TestRecalculate_ActualQuotaZero(t *testing.T) {
 	// No change (early return)
 	assert.Equal(t, initQuota, getUserQuota(t, userID))
 	assert.Equal(t, int64(0), countLogs(t))
+}
+
+func TestSettleImageTaskUsageKeepsUserOwnedProviderFree(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 31, 32, 33
+	seedUser(t, userID, 10000)
+	seedToken(t, tokenID, userID, "sk-user-owned", 5000)
+	seedChannel(t, channelID)
+	task := makeTask(userID, channelID, 0, tokenID, BillingSourceUserOwnedProvider, 0)
+	task.PrivateData.BillingContext.ModelRatio = 1
+	task.PrivateData.BillingContext.GroupRatio = 1
+	task.PrivateData.BillingContext.CompletionRatio = 1
+	require.NoError(t, model.DB.Create(task).Error)
+
+	SettleImageTaskUsage(ctx, task, &dto.Usage{InputTokens: 100, OutputTokens: 200, TotalTokens: 300}, []byte(`{"usage":{"input_tokens":100,"output_tokens":200,"total_tokens":300}}`))
+
+	require.Equal(t, 10000, getUserQuota(t, userID))
+	require.Equal(t, 5000, getTokenRemainQuota(t, tokenID))
+	require.Equal(t, 0, task.Quota)
+}
+
+func TestSettleImageTaskUsageUsesFinalResponseForTieredBilling(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 34, 35, 36
+	const preConsumed = 500
+	seedUser(t, userID, 9500)
+	seedToken(t, tokenID, userID, "sk-image-response-tier", 4500)
+	seedChannel(t, channelID)
+
+	expr := `response("billing.units") == 2 ? tier("actual", 2000) : tier("fallback", 1000)`
+	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	task.TaskID = "task_image_response_tier"
+	task.PrivateData.BillingContext.ModelRatio = 1
+	task.PrivateData.BillingContext.GroupRatio = 1
+	task.PrivateData.BillingContext.CompletionRatio = 1
+	task.PrivateData.BillingContext.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+		BillingMode:              "tiered_expr",
+		ModelName:                "test-model",
+		ExprString:               expr,
+		ExprHash:                 billingexpr.ExprHashString(expr),
+		GroupRatio:               1,
+		EstimatedQuotaAfterGroup: preConsumed,
+		EstimatedTier:            "fallback",
+		QuotaPerUnit:             common.QuotaPerUnit,
+		ExprVersion:              billingexpr.ExprVersion(expr),
+	}
+	require.NoError(t, model.DB.Create(task).Error)
+
+	responseBody := []byte(`{"billing":{"units":2},"usage":{"input_tokens":1,"total_tokens":1}}`)
+	SettleImageTaskUsage(ctx, task, &dto.Usage{InputTokens: 1, TotalTokens: 1}, responseBody)
+
+	const actualQuota = 1000
+	require.Equal(t, 9000, getUserQuota(t, userID))
+	require.Equal(t, 4000, getTokenRemainQuota(t, tokenID))
+	require.Equal(t, actualQuota, task.Quota)
+	var persisted model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", task.TaskID).First(&persisted).Error)
+	require.Equal(t, actualQuota, persisted.Quota)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	require.Equal(t, actualQuota, log.Quota)
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	require.Equal(t, "actual", other["matched_tier"])
+}
+
+func TestSettleImageTaskUsageAdjustsSubscriptionAgainstPreConsume(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID, subscriptionID = 37, 38, 39, 40
+	const preConsumed, actualQuota = 1000, 300
+	const subscriptionUsed int64 = 5000
+	seedUser(t, userID, 0)
+	seedToken(t, tokenID, userID, "sk-image-subscription", 4000)
+	seedChannel(t, channelID)
+	seedSubscription(t, subscriptionID, userID, 10000, subscriptionUsed)
+
+	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceSubscription, subscriptionID)
+	task.TaskID = "task_image_subscription"
+	task.PrivateData.BillingContext.ModelRatio = 1
+	task.PrivateData.BillingContext.GroupRatio = 1
+	task.PrivateData.BillingContext.CompletionRatio = 1
+	require.NoError(t, model.DB.Create(task).Error)
+
+	SettleImageTaskUsage(ctx, task, &dto.Usage{InputTokens: 100, OutputTokens: 200, TotalTokens: 300}, nil)
+
+	require.Equal(t, subscriptionUsed-int64(preConsumed-actualQuota), getSubscriptionUsed(t, subscriptionID))
+	require.Equal(t, 4000+preConsumed-actualQuota, getTokenRemainQuota(t, tokenID))
+	require.Equal(t, actualQuota, task.Quota)
+	var persisted model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", task.TaskID).First(&persisted).Error)
+	require.Equal(t, actualQuota, persisted.Quota)
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	require.Equal(t, model.LogTypeConsume, log.Type)
+	require.Equal(t, actualQuota, log.Quota)
 }
 
 func TestRecalculate_Subscription_NegativeDelta(t *testing.T) {

@@ -582,6 +582,20 @@ func ImageTaskResponseFromProfile(taskID string, profile *Profile, upstream []by
 			response.Error = map[string]any{"message": reason}
 		}
 	}
+	if totalTokens := int(gjson.GetBytes(upstream, resp.TotalTokensPath).Int()); totalTokens > 0 {
+		completionTokens := int(gjson.GetBytes(upstream, resp.CompletionTokensPath).Int())
+		promptTokens := totalTokens - completionTokens
+		if promptTokens < 0 {
+			promptTokens = 0
+		}
+		response.Usage = &dto.Usage{
+			PromptTokens: promptTokens, CompletionTokens: completionTokens, TotalTokens: totalTokens,
+			InputTokens: promptTokens, OutputTokens: completionTokens,
+		}
+	}
+	if response.Usage == nil {
+		response.Usage = commonImageTaskUsage(upstream)
+	}
 	normalized, err := common.Marshal(response)
 	if err != nil {
 		return dto.ImageTaskResponse{}, true, err
@@ -591,6 +605,39 @@ func ImageTaskResponseFromProfile(taskID string, profile *Profile, upstream []by
 		return dto.ImageTaskResponse{}, true, err
 	}
 	return parsed, true, nil
+}
+
+func commonImageTaskUsage(upstream []byte) *dto.Usage {
+	for _, prefix := range []string{"usage", "data.usage", "usage_metadata", "data.usage_metadata"} {
+		usageNode := gjson.GetBytes(upstream, prefix)
+		if !usageNode.Exists() || !usageNode.IsObject() {
+			continue
+		}
+		var usage dto.Usage
+		if err := common.Unmarshal([]byte(usageNode.Raw), &usage); err != nil {
+			continue
+		}
+		if usage.TotalTokens == 0 && usage.PromptTokens == 0 && usage.CompletionTokens == 0 && usage.InputTokens == 0 && usage.OutputTokens == 0 {
+			usage.PromptTokens = int(usageNode.Get("promptTokenCount").Int())
+			usage.CompletionTokens = int(usageNode.Get("candidatesTokenCount").Int())
+			usage.TotalTokens = int(usageNode.Get("totalTokenCount").Int())
+			usage.InputTokens = usage.PromptTokens
+			usage.OutputTokens = usage.CompletionTokens
+		}
+		if usage.PromptTokens == 0 {
+			usage.PromptTokens = usage.InputTokens
+		}
+		if usage.CompletionTokens == 0 {
+			usage.CompletionTokens = usage.OutputTokens
+		}
+		if usage.TotalTokens == 0 {
+			usage.TotalTokens = usage.PromptTokens + usage.CompletionTokens
+		}
+		if usage.TotalTokens > 0 || usage.PromptTokens > 0 || usage.CompletionTokens > 0 {
+			return &usage
+		}
+	}
+	return nil
 }
 
 func imageTaskUnixTime(result gjson.Result) int64 {

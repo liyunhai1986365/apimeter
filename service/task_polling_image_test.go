@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -145,6 +147,197 @@ func TestUpdateImageTasksUsesConfigurableImageFetcher(t *testing.T) {
 	require.Equal(t, model.TaskStatus(model.TaskStatusSuccess), reloaded.Status)
 	require.Equal(t, "100%", reloaded.Progress)
 	require.Equal(t, "https://file.apixo.ai/output.png", reloaded.PrivateData.ResultURL)
+}
+
+func TestRunTaskPollingOnceSkipsLocalAsyncImageTaskWithoutUpstreamID(t *testing.T) {
+	truncate(t)
+	originLimit := constant.TaskQueryLimit
+	constant.TaskQueryLimit = 10
+	t.Cleanup(func() { constant.TaskQueryLimit = originLimit })
+
+	now := time.Now().Unix()
+	require.NoError(t, model.DB.Create(&model.Task{
+		TaskID:     "task_local_image",
+		UserId:     7,
+		ChannelId:  11,
+		Action:     constant.TaskActionGenerate,
+		Status:     model.TaskStatusSubmitted,
+		Progress:   "0%",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		SubmitTime: now,
+		Platform:   constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI)),
+		PrivateData: model.TaskPrivateData{
+			AsyncImage: true,
+		},
+		Data: []byte(`{"model":"gpt-image-2","prompt":"cat"}`),
+	}).Error)
+
+	result := RunTaskPollingOnce(context.Background(), func(processed, total int) {})
+	require.Equal(t, 1, result["total_tasks"])
+	require.Equal(t, 0, result["processed_channels"])
+	require.Equal(t, 0, result["total_channels"])
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", "task_local_image").First(&reloaded).Error)
+	require.Equal(t, model.TaskStatus(model.TaskStatusSubmitted), reloaded.Status)
+}
+
+func TestUpdateImageTasksSettlesActualUsageAgainstPreConsume(t *testing.T) {
+	tests := []struct {
+		name              string
+		inputTokens       int
+		outputTokens      int
+		completionRatio   float64
+		expectedQuota     int
+		expectedUserQuota int
+		expectedToken     int
+	}{
+		{
+			name:              "refunds over pre-consume",
+			inputTokens:       100,
+			outputTokens:      200,
+			completionRatio:   1,
+			expectedQuota:     300,
+			expectedUserQuota: 9700,
+			expectedToken:     4700,
+		},
+		{
+			name:              "charges under pre-consume",
+			inputTokens:       500,
+			outputTokens:      1000,
+			completionRatio:   1,
+			expectedQuota:     1500,
+			expectedUserQuota: 8500,
+			expectedToken:     3500,
+		},
+	}
+
+	for index, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			truncate(t)
+			upstreamTaskID := fmt.Sprintf("usage-image-task-%d", index)
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = fmt.Fprintf(w, `{
+					"id":%q,
+					"state":"succeeded",
+					"progress":100,
+					"data":{"images":[{"url":"https://cdn.example.com/output.png"}]},
+					"usage":{"input_tokens":%d,"output_tokens":%d,"total_tokens":%d}
+				}`, upstreamTaskID, tt.inputTokens, tt.outputTokens, tt.inputTokens+tt.outputTokens)
+			}))
+			defer upstream.Close()
+
+			const userID, tokenID, channelID = 701, 702, 703
+			require.NoError(t, model.DB.Create(&model.User{
+				Id: userID, Username: "image-usage-user", Quota: 9000, Status: common.UserStatusEnabled,
+			}).Error)
+			require.NoError(t, model.DB.Create(&model.Token{
+				Id: tokenID, UserId: userID, Name: "image-usage-token", Key: "sk-token",
+				Status: common.TokenStatusEnabled, RemainQuota: 4000,
+			}).Error)
+			require.NoError(t, model.DB.Create(&model.Channel{
+				Id: channelID, Type: constant.ChannelTypeOpenAI, Key: "sk-upstream",
+				BaseURL: &upstream.URL, Status: common.ChannelStatusEnabled, Name: "usage-image",
+			}).Error)
+
+			now := time.Now().Unix()
+			task := &model.Task{
+				TaskID: upstreamTaskID, UserId: userID, ChannelId: channelID, TokenId: tokenID,
+				Action: constant.TaskActionGenerate, Status: model.TaskStatusSubmitted, Progress: "0%",
+				CreatedAt: now, UpdatedAt: now, SubmitTime: now, Quota: 1000,
+				Platform:   constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI)),
+				Properties: model.Properties{OriginModelName: "usage-image-model"},
+				PrivateData: model.TaskPrivateData{
+					UpstreamTaskID: upstreamTaskID, AsyncImage: true,
+					BillingSource: BillingSourceWallet, TokenId: tokenID,
+					BillingContext: &model.TaskBillingContext{
+						OriginModelName: "usage-image-model", ModelRatio: 1, GroupRatio: 1,
+						CompletionRatio: tt.completionRatio,
+					},
+				},
+			}
+			require.NoError(t, model.DB.Create(task).Error)
+
+			err := UpdateImageTasks(context.Background(), map[int][]string{
+				channelID: {upstreamTaskID},
+			}, map[string]*model.Task{upstreamTaskID: task})
+			require.NoError(t, err)
+
+			var reloaded model.Task
+			require.NoError(t, model.DB.Where("task_id = ?", upstreamTaskID).First(&reloaded).Error)
+			require.Equal(t, model.TaskStatus(model.TaskStatusSuccess), reloaded.Status)
+			require.Equal(t, tt.expectedQuota, reloaded.Quota)
+			require.NotNil(t, reloaded.PrivateData.BillingContext)
+
+			var user model.User
+			require.NoError(t, model.DB.Where("id = ?", userID).First(&user).Error)
+			require.Equal(t, tt.expectedUserQuota, user.Quota)
+			var token model.Token
+			require.NoError(t, model.DB.Where("id = ?", tokenID).First(&token).Error)
+			require.Equal(t, tt.expectedToken, token.RemainQuota)
+
+			var channel model.Channel
+			require.NoError(t, model.DB.Where("id = ?", channelID).First(&channel).Error)
+			require.Equal(t, int64(tt.expectedQuota), channel.UsedQuota)
+			var logs []model.Log
+			require.NoError(t, model.LOG_DB.Where("user_id = ? AND type = ?", userID, model.LogTypeConsume).Find(&logs).Error)
+			require.Len(t, logs, 1)
+			require.Equal(t, tt.expectedQuota, logs[0].Quota)
+			require.Equal(t, tt.inputTokens, logs[0].PromptTokens)
+			require.Equal(t, tt.outputTokens, logs[0].CompletionTokens)
+
+			// Reprocessing the same terminal payload must not bill twice.
+			require.NoError(t, UpdateImageTasks(context.Background(), map[int][]string{
+				channelID: {upstreamTaskID},
+			}, map[string]*model.Task{upstreamTaskID: &reloaded}))
+			var afterRepeat model.User
+			require.NoError(t, model.DB.Where("id = ?", userID).First(&afterRepeat).Error)
+			require.Equal(t, tt.expectedUserQuota, afterRepeat.Quota)
+			var logsAfterRepeat int64
+			require.NoError(t, model.LOG_DB.Model(&model.Log{}).Where("user_id = ? AND type = ?", userID, model.LogTypeConsume).Count(&logsAfterRepeat).Error)
+			require.Equal(t, int64(1), logsAfterRepeat)
+		})
+	}
+}
+
+func TestUpdateImageTasksUsesFrozenCompletionRatio(t *testing.T) {
+	truncate(t)
+	upstreamTaskID := "usage-image-completion-ratio"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"usage-image-completion-ratio","state":"succeeded","progress":100,
+			"data":{"images":[{"url":"https://cdn.example.com/output.png"}]},
+			"usage":{"input_tokens":100,"output_tokens":200,"total_tokens":300}
+		}`))
+	}))
+	defer upstream.Close()
+
+	const userID, tokenID, channelID = 711, 712, 713
+	require.NoError(t, model.DB.Create(&model.User{Id: userID, Username: "ratio-user", Quota: 9000, Status: common.UserStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{Id: tokenID, UserId: userID, Name: "ratio-token", Key: "sk-token", Status: common.TokenStatusEnabled, RemainQuota: 4000}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: channelID, Type: constant.ChannelTypeOpenAI, Key: "sk-upstream", BaseURL: &upstream.URL, Status: common.ChannelStatusEnabled, Name: "ratio-image"}).Error)
+
+	now := time.Now().Unix()
+	task := &model.Task{
+		TaskID: upstreamTaskID, UserId: userID, ChannelId: channelID, TokenId: tokenID,
+		Action: constant.TaskActionGenerate, Status: model.TaskStatusSubmitted, Progress: "0%",
+		CreatedAt: now, UpdatedAt: now, SubmitTime: now, Quota: 1000,
+		Platform:   constant.TaskPlatform(strconv.Itoa(constant.ChannelTypeOpenAI)),
+		Properties: model.Properties{OriginModelName: "usage-image-model"},
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: upstreamTaskID, AsyncImage: true, BillingSource: BillingSourceWallet, TokenId: tokenID,
+			BillingContext: &model.TaskBillingContext{OriginModelName: "usage-image-model", ModelRatio: 1, GroupRatio: 1, CompletionRatio: 2},
+		},
+	}
+	require.NoError(t, model.DB.Create(task).Error)
+	require.NoError(t, UpdateImageTasks(context.Background(), map[int][]string{channelID: {upstreamTaskID}}, map[string]*model.Task{upstreamTaskID: task}))
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", upstreamTaskID).First(&reloaded).Error)
+	require.Equal(t, 500, reloaded.Quota)
 }
 
 func TestUpdateVideoTasksPollsConfigurableProfile(t *testing.T) {

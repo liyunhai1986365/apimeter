@@ -349,9 +349,9 @@ type RecordTaskBillingLogParams struct {
 	Other            map[string]interface{}
 }
 
-func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
+func RecordTaskBillingLog(params RecordTaskBillingLogParams) int {
 	if params.LogType == LogTypeConsume && !common.LogConsumeEnabled {
-		return
+		return 0
 	}
 	username, _ := GetUsernameById(params.UserId, false)
 	tokenName := ""
@@ -379,7 +379,9 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) {
 	err := LOG_DB.Create(log).Error
 	if err != nil {
 		common.SysLog("failed to record task billing log: " + err.Error())
+		return 0
 	}
+	return log.Id
 }
 
 func dedupeRepeatedErrorLogsByRequestId(tx *gorm.DB, applyFilters func(*gorm.DB, string) *gorm.DB) *gorm.DB {

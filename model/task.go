@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	commonRelay "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/types"
 	"gorm.io/gorm"
 )
 
@@ -117,11 +118,20 @@ type TaskBillingContext struct {
 	ModelPrice            float64                      `json:"model_price,omitempty"`             // 模型单价
 	GroupRatio            float64                      `json:"group_ratio,omitempty"`             // 分组倍率
 	ModelRatio            float64                      `json:"model_ratio,omitempty"`             // 模型倍率
+	CompletionRatio       float64                      `json:"completion_ratio,omitempty"`        // 输出倍率
+	CacheRatio            float64                      `json:"cache_ratio,omitempty"`             // 缓存读取倍率
+	CacheCreationRatio    float64                      `json:"cache_creation_ratio,omitempty"`    // 缓存创建倍率
+	CacheCreation5mRatio  float64                      `json:"cache_creation_5m_ratio,omitempty"` // 5 分钟缓存创建倍率
+	CacheCreation1hRatio  float64                      `json:"cache_creation_1h_ratio,omitempty"` // 1 小时缓存创建倍率
+	ImageRatio            float64                      `json:"image_ratio,omitempty"`             // 图片输入倍率
+	AudioRatio            float64                      `json:"audio_ratio,omitempty"`             // 音频输入倍率
+	AudioCompletionRatio  float64                      `json:"audio_completion_ratio,omitempty"`  // 音频输出倍率
 	OtherRatios           map[string]float64           `json:"other_ratios,omitempty"`            // 附加倍率（时长、分辨率等）
 	OriginModelName       string                       `json:"origin_model_name,omitempty"`       // 模型名称，必须为OriginModelName
 	PerCallBilling        bool                         `json:"per_call_billing,omitempty"`        // 按次计费：跳过轮询阶段的差额结算
 	TieredBillingSnapshot *billingexpr.BillingSnapshot `json:"tiered_billing_snapshot,omitempty"` // 表达式计费快照
 	BillingRequestInput   *billingexpr.RequestInput    `json:"billing_request_input,omitempty"`   // 表达式计费请求上下文
+	AgentBillingSnapshot  *types.AgentBillingSnapshot  `json:"agent_billing_snapshot,omitempty"`  // 代理计费快照
 }
 
 // GetUpstreamTaskID 获取上游真实 task ID（用于与 provider 通信）

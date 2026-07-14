@@ -593,6 +593,47 @@ func TestImageTaskResponseFromProfileExtractsBase64Images(t *testing.T) {
 	require.Equal(t, "data:image/png;base64,ZmFrZQ==", response.Data.Images[0].B64Json)
 }
 
+func TestImageTaskResponseFromProfilePreservesCommonUsage(t *testing.T) {
+	profile, ok := GetProfile("wavespeed-nano-banana-pro")
+	require.True(t, ok)
+
+	response, handled, err := ImageTaskResponseFromProfile("pred-usage", profile, []byte(`{
+		"data": {
+			"id":"pred-usage",
+			"status":"completed",
+			"outputs":["https://cdn.example.com/output.png"],
+			"usage":{"input_tokens":120,"output_tokens":880,"total_tokens":1000}
+		}
+	}`))
+
+	require.NoError(t, err)
+	require.True(t, handled)
+	require.NotNil(t, response.Usage)
+	require.Equal(t, 120, response.Usage.InputTokens)
+	require.Equal(t, 880, response.Usage.OutputTokens)
+	require.Equal(t, 1000, response.Usage.TotalTokens)
+}
+
+func TestImageTaskResponseFromProfilePreservesGeminiUsageMetadata(t *testing.T) {
+	profile, ok := GetProfile("wavespeed-nano-banana-pro")
+	require.True(t, ok)
+
+	response, handled, err := ImageTaskResponseFromProfile("pred-gemini-usage", profile, []byte(`{
+		"data": {
+			"id":"pred-gemini-usage","status":"completed",
+			"outputs":["https://cdn.example.com/output.png"],
+			"usage_metadata":{"promptTokenCount":20,"candidatesTokenCount":80,"totalTokenCount":100}
+		}
+	}`))
+
+	require.NoError(t, err)
+	require.True(t, handled)
+	require.NotNil(t, response.Usage)
+	require.Equal(t, 20, response.Usage.PromptTokens)
+	require.Equal(t, 80, response.Usage.CompletionTokens)
+	require.Equal(t, 100, response.Usage.TotalTokens)
+}
+
 func configurableImageRelayInfo(relayMode int) *relaycommon.RelayInfo {
 	return configurableImageRelayInfoWithProfile("apixo-gpt-image-2", "https://api.apixo.ai", "apixo-key", relayMode)
 }

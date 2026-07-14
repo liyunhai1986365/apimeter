@@ -104,14 +104,13 @@ func TaskPollingLoop() {
 		imageTaskM := make(map[string]*model.Task)
 		for _, t := range allTasks {
 			if isImageAsyncTask(t) {
-				upstreamID := t.GetUpstreamTaskID()
+				upstreamID := strings.TrimSpace(t.PrivateData.UpstreamTaskID)
 				if upstreamID != "" {
 					imageTaskM[upstreamID] = t
 					imageTaskChannelM[t.ChannelId] = append(imageTaskChannelM[t.ChannelId], upstreamID)
 					continue
 				}
-				// Fall through to the standard grouping path so the existing
-				// null task_id repair logic marks malformed tasks as failed.
+				continue
 			}
 			platformTask[t.Platform] = append(platformTask[t.Platform], t)
 		}
@@ -581,8 +580,23 @@ func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string
 		return nil
 	}
 
-	if _, err := task.UpdateWithStatus(snap.Status); err != nil {
+	won, err := task.UpdateWithStatus(snap.Status)
+	if err != nil {
 		return fmt.Errorf("update image task failed: %w", err)
+	}
+	if !won {
+		logger.LogWarn(ctx, fmt.Sprintf("Image task %s already transitioned, skip billing", task.TaskID))
+		return nil
+	}
+	if snap.Status != task.Status {
+		switch task.Status {
+		case model.TaskStatusSuccess:
+			SettleImageTaskUsage(ctx, task, upstream.Usage, body)
+		case model.TaskStatusFailure:
+			if task.Quota != 0 {
+				RefundTaskQuota(ctx, task, task.FailReason)
+			}
+		}
 	}
 	return nil
 }
@@ -982,12 +996,13 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 		}
 
 		if isImageAsyncTask(t) {
-			upstreamID := t.GetUpstreamTaskID()
+			upstreamID := strings.TrimSpace(t.PrivateData.UpstreamTaskID)
 			if upstreamID != "" {
 				imageTaskM[upstreamID] = t
 				imageTaskChannelM[t.ChannelId] = append(imageTaskChannelM[t.ChannelId], upstreamID)
 				continue
 			}
+			continue
 		}
 		platformTask[t.Platform] = append(platformTask[t.Platform], t)
 	}

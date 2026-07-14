@@ -3,6 +3,7 @@ package relay
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,10 +16,13 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 )
 
@@ -122,10 +126,32 @@ type imageAsyncTaskResponse struct {
 	UpdateTime int64                  `json:"update_time"`
 	Action     string                 `json:"action"`
 	Data       dto.ImageTaskData      `json:"data"`
+	Usage      *dto.Usage             `json:"usage,omitempty"`
 	Error      map[string]interface{} `json:"error,omitempty"`
 }
 
 const defaultImageAsyncWaitTimeoutSeconds = 600
+const localImageAsyncRecorderKey = "local_image_async_recorder"
+const localImageAsyncWorkerKey = "local_image_async_worker"
+const localImageAsyncTaskKey = "local_image_async_task"
+
+type localImageAsyncResponseRecorder struct {
+	header http.Header
+	body   bytes.Buffer
+	code   int
+}
+
+func newLocalImageAsyncResponseRecorder() *localImageAsyncResponseRecorder {
+	return &localImageAsyncResponseRecorder{header: make(http.Header), code: http.StatusOK}
+}
+
+func (r *localImageAsyncResponseRecorder) Header() http.Header { return r.header }
+
+func (r *localImageAsyncResponseRecorder) Write(data []byte) (int, error) {
+	return r.body.Write(data)
+}
+
+func (r *localImageAsyncResponseRecorder) WriteHeader(statusCode int) { r.code = statusCode }
 
 func parseImageAsyncSubmitResponse(body []byte) (string, bool) {
 	var payload imageAsyncSubmitResponse
@@ -135,6 +161,52 @@ func parseImageAsyncSubmitResponse(body []byte) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+func isImageAsyncSubmitBody(body []byte) bool {
+	_, ok := parseImageAsyncSubmitResponse(body)
+	if !ok {
+		return false
+	}
+	var imageResponse dto.ImageResponse
+	return common.Unmarshal(body, &imageResponse) != nil || len(imageResponse.Data) == 0
+}
+
+func imageAsyncSubmitResponseWithoutUsage(body []byte) ([]byte, error) {
+	var payload map[string]json.RawMessage
+	if err := common.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	delete(payload, "usage")
+	return common.Marshal(payload)
+}
+
+func shouldWrapLocalImageAsync(info *relaycommon.RelayInfo) bool {
+	if info == nil || !info.IsAsyncImageRequest || info.RelayMode != relayconstant.RelayModeImagesGenerations {
+		return false
+	}
+	settings := dto.ChannelSettings{}
+	if info.ChannelMeta != nil {
+		settings = info.ChannelMeta.ChannelSetting
+	} else {
+		settings = info.ChannelSetting
+	}
+	if settings.Protocol != nil {
+		if profile := configurableImageProfileFromSettings(settings); profile != nil &&
+			strings.TrimSpace(profile.Submit.Response.TaskIDPath) != "" &&
+			strings.TrimSpace(profile.Fetch.Path) != "" {
+			return false
+		}
+	}
+	if info.ChannelMeta != nil && isKnownOpenAICompatibleNativeAsyncImageUpstream(info.ChannelMeta.ChannelBaseUrl) {
+		return false
+	}
+	return true
+}
+
+func isKnownOpenAICompatibleNativeAsyncImageUpstream(baseURL string) bool {
+	baseURL = strings.ToLower(strings.TrimSpace(baseURL))
+	return strings.Contains(baseURL, "duomiapi.com")
 }
 
 func newImageSubmitUncertainError(err error, errorCode types.ErrorCode, statusCode int) *types.NewAPIError {
@@ -175,14 +247,25 @@ func insertImageAsyncTask(info *relaycommon.RelayInfo, upstreamTaskID string, re
 		}
 	}
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
-		ModelPrice:      info.PriceData.ModelPrice,
-		GroupRatio:      info.PriceData.GroupRatioInfo.GroupRatio,
-		ModelRatio:      info.PriceData.ModelRatio,
-		OtherRatios:     info.PriceData.OtherRatios,
-		OriginModelName: info.OriginModelName,
-		PerCallBilling:  info.PriceData.UsePrice,
+		ModelPrice:            info.PriceData.ModelPrice,
+		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		ModelRatio:            info.PriceData.ModelRatio,
+		CompletionRatio:       info.PriceData.CompletionRatio,
+		CacheRatio:            info.PriceData.CacheRatio,
+		CacheCreationRatio:    info.PriceData.CacheCreationRatio,
+		CacheCreation5mRatio:  info.PriceData.CacheCreation5mRatio,
+		CacheCreation1hRatio:  info.PriceData.CacheCreation1hRatio,
+		ImageRatio:            info.PriceData.ImageRatio,
+		AudioRatio:            info.PriceData.AudioRatio,
+		AudioCompletionRatio:  info.PriceData.AudioCompletionRatio,
+		OtherRatios:           info.PriceData.OtherRatios,
+		OriginModelName:       info.OriginModelName,
+		PerCallBilling:        info.PriceData.UsePrice,
+		TieredBillingSnapshot: info.TieredBillingSnapshot,
+		BillingRequestInput:   info.BillingRequestInput,
+		AgentBillingSnapshot:  info.AgentBillingSnapshot,
 	}
-	task.Quota = info.PriceData.QuotaToPreConsume
+	task.Quota = imageAsyncPreConsumedQuota(info)
 	task.Data = responseBody
 	task.Action = constant.TaskActionGenerate
 	task.Status = model.TaskStatusSubmitted
@@ -192,6 +275,328 @@ func insertImageAsyncTask(info *relaycommon.RelayInfo, upstreamTaskID string, re
 		return newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 	}
 	return nil
+}
+
+func insertLocalImageAsyncTask(info *relaycommon.RelayInfo, requestBody []byte) (*model.Task, *types.NewAPIError) {
+	if info == nil {
+		return nil, newImageSubmitUncertainError(fmt.Errorf("missing relay info"), types.ErrorCodeInvalidRequest, http.StatusInternalServerError)
+	}
+	task := model.InitTask(constant.TaskPlatform(strconv.Itoa(info.ChannelType)), info)
+	task.PrivateData.AsyncImage = true
+	task.PrivateData.BillingSource = info.BillingSource
+	task.PrivateData.SubscriptionId = info.SubscriptionId
+	task.PrivateData.TokenId = info.TokenId
+	task.TokenId = info.TokenId
+	if info.TokenId > 0 {
+		if token, err := model.GetTokenById(info.TokenId); err == nil {
+			task.TokenName = token.Name
+		}
+	}
+	task.PrivateData.BillingContext = &model.TaskBillingContext{
+		ModelPrice:            info.PriceData.ModelPrice,
+		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		ModelRatio:            info.PriceData.ModelRatio,
+		CompletionRatio:       info.PriceData.CompletionRatio,
+		CacheRatio:            info.PriceData.CacheRatio,
+		CacheCreationRatio:    info.PriceData.CacheCreationRatio,
+		CacheCreation5mRatio:  info.PriceData.CacheCreation5mRatio,
+		CacheCreation1hRatio:  info.PriceData.CacheCreation1hRatio,
+		ImageRatio:            info.PriceData.ImageRatio,
+		AudioRatio:            info.PriceData.AudioRatio,
+		AudioCompletionRatio:  info.PriceData.AudioCompletionRatio,
+		OtherRatios:           info.PriceData.OtherRatios,
+		OriginModelName:       info.OriginModelName,
+		PerCallBilling:        info.PriceData.UsePrice,
+		TieredBillingSnapshot: info.TieredBillingSnapshot,
+		BillingRequestInput:   info.BillingRequestInput,
+		AgentBillingSnapshot:  info.AgentBillingSnapshot,
+	}
+	task.Quota = imageAsyncPreConsumedQuota(info)
+	task.Data = requestBody
+	task.Action = constant.TaskActionGenerate
+	task.Status = model.TaskStatusSubmitted
+	task.Progress = "0%"
+	if err := task.Insert(); err != nil {
+		return nil, newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	return task, nil
+}
+
+func imageAsyncPreConsumedQuota(info *relaycommon.RelayInfo) int {
+	if info == nil {
+		return 0
+	}
+	if info.Billing != nil {
+		return info.Billing.GetPreConsumedQuota()
+	}
+	if info.FinalPreConsumedQuota != 0 {
+		return info.FinalPreConsumedQuota
+	}
+	return info.PriceData.QuotaToPreConsume
+}
+
+func createLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, requestBody []byte) (*model.Task, []byte, *types.NewAPIError) {
+	task, apiErr := insertLocalImageAsyncTask(info, requestBody)
+	if apiErr != nil {
+		return nil, nil, apiErr
+	}
+	body, err := imageTaskStateResponseBytes(task, dto.ImageTaskData{}, nil)
+	if err != nil {
+		return nil, nil, newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	startLocalImageAsyncTask(c, info, task, requestBody)
+	return task, body, nil
+}
+
+func startLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, task *model.Task, requestBody []byte) {
+	if c == nil || info == nil || task == nil {
+		return
+	}
+	asyncInfo := *info
+	asyncInfo.IsAsyncImageRequest = true
+	asyncInfo.PriceData.OtherRatios = cloneImageAsyncRatios(info.PriceData.OtherRatios)
+	asyncInfo.BillingRequestInput = cloneImageAsyncBillingRequestInput(info.BillingRequestInput)
+	asyncContext := cloneImageAsyncGinContext(c, requestBody)
+	if asyncContext.Request != nil && asyncContext.Request.URL != nil {
+		asyncInfo.RequestURLPath = asyncContext.Request.URL.String()
+	}
+	gopool.Go(func() {
+		runLocalImageAsyncTask(asyncContext, &asyncInfo, task)
+	})
+}
+
+func cloneImageAsyncRatios(source map[string]float64) map[string]float64 {
+	if len(source) == 0 {
+		return nil
+	}
+	clone := make(map[string]float64, len(source))
+	for key, value := range source {
+		clone[key] = value
+	}
+	return clone
+}
+
+func cloneImageAsyncBillingRequestInput(source *billingexpr.RequestInput) *billingexpr.RequestInput {
+	if source == nil {
+		return nil
+	}
+	clone := &billingexpr.RequestInput{}
+	if len(source.Headers) > 0 {
+		clone.Headers = make(map[string]string, len(source.Headers))
+		for key, value := range source.Headers {
+			clone.Headers[key] = value
+		}
+	}
+	clone.Body = append([]byte(nil), source.Body...)
+	clone.ResponseBody = append([]byte(nil), source.ResponseBody...)
+	return clone
+}
+
+func cloneImageAsyncGinContext(c *gin.Context, requestBody []byte) *gin.Context {
+	recorder := newLocalImageAsyncResponseRecorder()
+	asyncCtx, _ := gin.CreateTestContext(recorder)
+	asyncCtx.Set(localImageAsyncRecorderKey, recorder)
+	asyncCtx.Set(localImageAsyncWorkerKey, true)
+	method := http.MethodPost
+	target := "/v1/images/generations?async=true"
+	if c != nil && c.Request != nil {
+		method = c.Request.Method
+		target = c.Request.URL.String()
+	}
+	request, err := http.NewRequest(method, target, bytes.NewReader(requestBody))
+	if err != nil {
+		request, _ = http.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(requestBody))
+	}
+	asyncCtx.Request = request
+	query := asyncCtx.Request.URL.Query()
+	query.Del("async")
+	asyncCtx.Request.URL.RawQuery = query.Encode()
+	if c != nil && c.Request != nil {
+		asyncCtx.Request.Header = c.Request.Header.Clone()
+		asyncCtx.Request.RemoteAddr = c.Request.RemoteAddr
+		asyncCtx.Request.Host = c.Request.Host
+	}
+	if c != nil {
+		contextCopy := c.Copy()
+		for key, value := range contextCopy.Keys {
+			if key != common.KeyBodyStorage {
+				asyncCtx.Set(key, value)
+			}
+		}
+	}
+	if storage, err := common.CreateBodyStorage(requestBody); err == nil {
+		asyncCtx.Set(common.KeyBodyStorage, storage)
+	}
+	return asyncCtx
+}
+
+func runLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, task *model.Task) {
+	defer common.CleanupBodyStorage(c)
+	snapshot := task.Snapshot()
+	task.Status = model.TaskStatusInProgress
+	task.StartTime = common.GetTimestamp()
+	if won, err := task.UpdateWithStatus(snapshot.Status); err != nil || !won {
+		return
+	}
+	c.Set(localImageAsyncTaskKey, task)
+
+	apiErr := ImageHelper(c, info)
+	if reloaded, exists, err := model.GetByOnlyTaskId(task.TaskID); err == nil && exists {
+		task = reloaded
+	}
+	recorderValue, _ := c.Get(localImageAsyncRecorderKey)
+	recorder, _ := recorderValue.(*localImageAsyncResponseRecorder)
+	if apiErr == nil && recorder != nil && isImageAsyncSubmitBody(recorder.body.Bytes()) {
+		return
+	}
+	if apiErr != nil {
+		finishLocalImageAsyncTask(c, info, task, nil, apiErr)
+		return
+	}
+	if recorder == nil || recorder.body.Len() == 0 {
+		finishLocalImageAsyncTask(c, info, task, nil, newImageSubmitUncertainError(fmt.Errorf("image response body is empty"), types.ErrorCodeBadResponseBody, http.StatusBadGateway))
+		return
+	}
+	finishLocalImageAsyncTask(c, info, task, recorder.body.Bytes(), nil)
+}
+
+func finishLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, task *model.Task, responseBody []byte, apiErr *types.NewAPIError) {
+	if task == nil || task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure {
+		return
+	}
+	snapshot := task.Snapshot()
+	now := time.Now()
+	task.FinishTime = now.Unix()
+	task.UpdatedAt = now.Unix()
+	task.Progress = "100%"
+	if apiErr != nil {
+		task.Status = model.TaskStatusFailure
+		task.FailReason = apiErr.Error()
+		task.Data, _ = imageTaskStateResponseBytes(task, dto.ImageTaskData{}, map[string]interface{}{
+			"message": task.FailReason,
+			"code":    string(apiErr.GetErrorCode()),
+		})
+		if won, err := task.UpdateWithStatus(snapshot.Status); err == nil && won {
+			if info != nil && info.Billing != nil {
+				info.Billing.Refund(c)
+			} else if task.Quota != 0 {
+				service.RefundTaskQuota(context.Background(), task, task.FailReason)
+			}
+		}
+		return
+	}
+
+	taskBody, err := localImageTaskResponseFromOpenAIImageBody(task.TaskID, task.Action, now, responseBody)
+	if err != nil {
+		finishLocalImageAsyncTask(c, info, task, nil, newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError))
+		return
+	}
+	task.Status = model.TaskStatusSuccess
+	task.FailReason = ""
+	task.Data = taskBody
+	var taskResponse dto.ImageTaskResponse
+	if common.Unmarshal(taskBody, &taskResponse) == nil {
+		task.PrivateData.ResultURL = firstRelayImageURL(taskResponse.Data.Images)
+	}
+	if won, err := task.UpdateWithStatus(snapshot.Status); err == nil && won {
+		service.SettleImageTaskUsage(context.Background(), task, taskResponse.Usage, responseBody)
+	}
+}
+
+func isLocalImageAsyncWorker(c *gin.Context) bool {
+	return c != nil && c.GetBool(localImageAsyncWorkerKey)
+}
+
+func bindLocalImageAsyncTaskToUpstream(c *gin.Context, info *relaycommon.RelayInfo, responseBody []byte) *types.NewAPIError {
+	if !isLocalImageAsyncWorker(c) {
+		return nil
+	}
+	if !isImageAsyncSubmitBody(responseBody) {
+		return nil
+	}
+	value, ok := c.Get(localImageAsyncTaskKey)
+	if !ok {
+		return nil
+	}
+	task, ok := value.(*model.Task)
+	if !ok || task == nil {
+		return nil
+	}
+	upstreamTaskID, ok := parseImageAsyncSubmitResponse(responseBody)
+	if !ok {
+		return nil
+	}
+	snapshot := task.Snapshot()
+	task.PrivateData.UpstreamTaskID = upstreamTaskID
+	task.Data = responseBody
+	task.Status = model.TaskStatusSubmitted
+	task.Progress = "0%"
+	if info != nil {
+		task.Platform = constant.TaskPlatform(strconv.Itoa(info.ChannelType))
+		task.ChannelId = info.ChannelId
+	}
+	if _, err := task.UpdateWithStatus(snapshot.Status); err != nil {
+		return newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	return nil
+}
+
+func imageTaskStateResponseBytes(task *model.Task, data dto.ImageTaskData, errData map[string]interface{}) ([]byte, error) {
+	if task == nil {
+		return nil, fmt.Errorf("missing task")
+	}
+	progress, _ := strconv.Atoi(strings.TrimSuffix(strings.TrimSpace(task.Progress), "%"))
+	createdAt := task.CreatedAt
+	if createdAt == 0 {
+		createdAt = task.SubmitTime
+	}
+	updatedAt := task.UpdatedAt
+	if updatedAt == 0 {
+		updatedAt = common.GetTimestamp()
+	}
+	action := task.Action
+	if action == "" {
+		action = constant.TaskActionGenerate
+	}
+	return common.Marshal(imageAsyncTaskResponse{
+		ID: task.TaskID, State: mapTaskStatusToSimple(task.Status), Progress: progress,
+		CreateTime: createdAt, UpdateTime: updatedAt, Action: action, Data: data, Error: errData,
+	})
+}
+
+func localImageTaskResponseFromOpenAIImageBody(taskID, action string, now time.Time, body []byte) ([]byte, error) {
+	var response dto.ImageResponse
+	if err := common.Unmarshal(body, &response); err != nil {
+		return nil, err
+	}
+	images := make([]dto.ImageTaskImage, 0, len(response.Data))
+	for _, image := range response.Data {
+		if strings.TrimSpace(image.Url) == "" && strings.TrimSpace(image.B64Json) == "" {
+			continue
+		}
+		images = append(images, dto.ImageTaskImage{URL: strings.TrimSpace(image.Url), B64Json: strings.TrimSpace(image.B64Json)})
+	}
+	if len(images) == 0 {
+		return nil, fmt.Errorf("image response has no images")
+	}
+	createdAt := response.Created
+	if createdAt == 0 {
+		createdAt = now.Unix()
+	}
+	if action == "" {
+		action = constant.TaskActionGenerate
+	}
+	var usageResponse dto.SimpleResponse
+	_ = common.Unmarshal(body, &usageResponse)
+	var usage *dto.Usage
+	if imageUsageHasAnyTokens(&usageResponse.Usage) {
+		usageCopy := usageResponse.Usage
+		usage = &usageCopy
+	}
+	return common.Marshal(imageAsyncTaskResponse{
+		ID: taskID, State: "succeeded", Progress: 100, CreateTime: createdAt,
+		UpdateTime: now.Unix(), Action: action, Data: dto.ImageTaskData{Images: images}, Usage: usage,
+	})
 }
 
 func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, responseBody []byte) ([]byte, *types.NewAPIError) {
@@ -750,6 +1155,14 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 	if !exist {
 		return service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
 	}
+	if task.PrivateData.AsyncImage && strings.TrimSpace(task.PrivateData.UpstreamTaskID) == "" {
+		output, err := convertLocalImageTaskResponse(task)
+		if err != nil {
+			return service.TaskErrorWrapper(err, "convert_task_failed", http.StatusInternalServerError)
+		}
+		c.Data(http.StatusOK, "application/json", output)
+		return nil
+	}
 
 	body, statusCode, err := fetchImageTaskFromUpstream(task)
 	if err != nil {
@@ -768,6 +1181,20 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 	c.Writer.WriteHeader(http.StatusOK)
 	_, _ = c.Writer.Write(output)
 	return nil
+}
+
+func convertLocalImageTaskResponse(task *model.Task) ([]byte, error) {
+	if task == nil {
+		return nil, fmt.Errorf("missing task")
+	}
+	if len(task.Data) > 0 {
+		var response dto.ImageTaskResponse
+		if err := common.Unmarshal(task.Data, &response); err == nil &&
+			response.ID == task.TaskID && strings.TrimSpace(response.State) != "" {
+			return imageTaskResponseWithURLImages(nil, task.Data)
+		}
+	}
+	return imageTaskStateResponseBytes(task, dto.ImageTaskData{}, nil)
 }
 
 func fetchImageTaskFromUpstream(task *model.Task) ([]byte, int, error) {

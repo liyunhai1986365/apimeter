@@ -148,6 +148,9 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		newAPIError = types.NewError(err, types.ErrorCodeGenRelayInfoFailed)
 		return
 	}
+	if relayInfo.IsAsyncImageRequest && relayInfo.RelayMode == relayconstant.RelayModeImagesGenerations {
+		relayInfo.ForcePreConsume = true
+	}
 
 	needSensitiveCheck := setting.ShouldCheckPromptSensitive()
 	needCountToken := constant.CountToken
@@ -1061,11 +1064,20 @@ func RelayTask(c *gin.Context) {
 			ModelPrice:            relayInfo.PriceData.ModelPrice,
 			GroupRatio:            relayInfo.PriceData.GroupRatioInfo.GroupRatio,
 			ModelRatio:            relayInfo.PriceData.ModelRatio,
+			CompletionRatio:       relayInfo.PriceData.CompletionRatio,
+			CacheRatio:            relayInfo.PriceData.CacheRatio,
+			CacheCreationRatio:    relayInfo.PriceData.CacheCreationRatio,
+			CacheCreation5mRatio:  relayInfo.PriceData.CacheCreation5mRatio,
+			CacheCreation1hRatio:  relayInfo.PriceData.CacheCreation1hRatio,
+			ImageRatio:            relayInfo.PriceData.ImageRatio,
+			AudioRatio:            relayInfo.PriceData.AudioRatio,
+			AudioCompletionRatio:  relayInfo.PriceData.AudioCompletionRatio,
 			OtherRatios:           relayInfo.PriceData.OtherRatios,
 			OriginModelName:       relayInfo.OriginModelName,
 			PerCallBilling:        common.StringsContains(constant.TaskPricePatches, relayInfo.OriginModelName) || relayInfo.PriceData.UsePrice,
 			TieredBillingSnapshot: relayInfo.TieredBillingSnapshot,
 			BillingRequestInput:   relayInfo.BillingRequestInput,
+			AgentBillingSnapshot:  relayInfo.AgentBillingSnapshot,
 		}
 		task.Quota = result.Quota
 		task.Data = result.TaskData

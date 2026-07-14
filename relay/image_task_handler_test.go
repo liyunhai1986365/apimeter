@@ -1,11 +1,13 @@
 package relay
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -27,6 +29,25 @@ import (
 	"gorm.io/gorm"
 )
 
+type imageAsyncBillingStub struct {
+	settleCalls int
+	refundCalls int
+	quota       int
+}
+
+func (s *imageAsyncBillingStub) Settle(int) error {
+	s.settleCalls++
+	return nil
+}
+
+func (s *imageAsyncBillingStub) Refund(*gin.Context) { s.refundCalls++ }
+
+func (s *imageAsyncBillingStub) NeedsRefund() bool { return s.refundCalls == 0 }
+
+func (s *imageAsyncBillingStub) GetPreConsumedQuota() int { return s.quota }
+
+func (s *imageAsyncBillingStub) Reserve(int) error { return nil }
+
 func setupImageTaskTestDB(t *testing.T) {
 	t.Helper()
 
@@ -35,6 +56,8 @@ func setupImageTaskTestDB(t *testing.T) {
 	originalSQLite := common.UsingSQLite
 	originalMySQL := common.UsingMySQL
 	originalPostgreSQL := common.UsingPostgreSQL
+	originalRedisEnabled := common.RedisEnabled
+	originalLogConsumeEnabled := common.LogConsumeEnabled
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Task{}, &model.Channel{}))
@@ -43,6 +66,8 @@ func setupImageTaskTestDB(t *testing.T) {
 	common.UsingSQLite = true
 	common.UsingMySQL = false
 	common.UsingPostgreSQL = false
+	common.RedisEnabled = false
+	common.LogConsumeEnabled = false
 
 	t.Cleanup(func() {
 		model.DB = originalDB
@@ -50,6 +75,8 @@ func setupImageTaskTestDB(t *testing.T) {
 		common.UsingSQLite = originalSQLite
 		common.UsingMySQL = originalMySQL
 		common.UsingPostgreSQL = originalPostgreSQL
+		common.RedisEnabled = originalRedisEnabled
+		common.LogConsumeEnabled = originalLogConsumeEnabled
 		sqlDB, err := db.DB()
 		if err == nil {
 			_ = sqlDB.Close()
@@ -780,6 +807,459 @@ func TestImageTaskResponseWithURLImagesStoresBase64(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, gjsonGetString(t, body, "data.images.0.url"), "https://cdn.example.com/api/relay-temp-images/")
 	require.Empty(t, gjsonGetString(t, body, "data.images.0.b64_json"))
+}
+
+func TestShouldWrapSyncImageProviderForAsyncRequest(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		IsAsyncImageRequest: true,
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenAI,
+		},
+	}
+
+	require.True(t, shouldWrapLocalImageAsync(info))
+}
+
+func TestShouldKeepNativeAsyncImageProfile(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		IsAsyncImageRequest: true,
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeConfigurable,
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{ProfileID: "apixo-gpt-image-2"},
+			},
+		},
+	}
+
+	require.False(t, shouldWrapLocalImageAsync(info))
+}
+
+func TestShouldKeepKnownOpenAICompatibleNativeAsyncUpstream(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		IsAsyncImageRequest: true,
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+		},
+	}
+
+	require.False(t, shouldWrapLocalImageAsync(info))
+}
+
+func TestShouldWrapSyncProviderEvenWhenAsyncWaitTimeoutIsConfigured(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		IsAsyncImageRequest: true,
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenAI,
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{ImageAsyncWaitTimeoutSeconds: common.GetPointer(30)},
+			},
+		},
+	}
+
+	require.True(t, shouldWrapLocalImageAsync(info))
+}
+
+func TestImageResponseWithIDIsNotAsyncSubmitBody(t *testing.T) {
+	body := []byte(`{"id":"image-response-id","created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}]}`)
+
+	require.False(t, isImageAsyncSubmitBody(body))
+}
+
+func TestImageAsyncSubmitResponseOmitsUsage(t *testing.T) {
+	body, err := imageAsyncSubmitResponseWithoutUsage([]byte(`{
+		"id":"task-native",
+		"object":"image.task",
+		"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}
+	}`))
+
+	require.NoError(t, err)
+	require.Equal(t, "task-native", gjson.GetBytes(body, "id").String())
+	require.False(t, gjson.GetBytes(body, "usage").Exists())
+}
+
+func TestNativeAsyncImageSubmitDefersBillingAndOmitsUsage(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"id":"native-image-task",
+			"object":"image.task",
+			"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}
+		}`))
+	}))
+	defer upstream.Close()
+
+	body := []byte(`{"model":"gpt-image-2","prompt":"cat"}`)
+	billing := &imageAsyncBillingStub{quota: 1000}
+	info := &relaycommon.RelayInfo{
+		UserId: 7, UsingGroup: "default", OriginModelName: "gpt-image-2",
+		RelayMode: relayconstant.RelayModeImagesGenerations, RequestURLPath: "/v1/images/generations?async=true",
+		Request: &dto.ImageRequest{Model: "gpt-image-2", Prompt: "cat"}, IsAsyncImageRequest: true,
+		Billing: billing,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenAI, ChannelId: 11,
+			ChannelBaseUrl: "https://duomiapi.com", ApiKey: "sk-upstream",
+		},
+	}
+	// Route the known-native URL to the local test server after capability detection.
+	info.ChannelMeta.ChannelBaseUrl = upstream.URL + "/duomiapi.com"
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	c.Set(string(constant.ContextKeyChannelId), 11)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), info.ChannelMeta.ChannelBaseUrl)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+
+	require.Nil(t, ImageHelper(c, info))
+	require.Equal(t, "native-image-task", gjson.GetBytes(recorder.Body.Bytes(), "id").String())
+	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "usage").Exists())
+	require.Zero(t, billing.settleCalls)
+	require.Zero(t, billing.refundCalls)
+}
+
+func TestBindLocalImageAsyncTaskIgnoresCompletedImageResponseWithID(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+
+	info := &relaycommon.RelayInfo{
+		UserId:          7,
+		UsingGroup:      "default",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenAI,
+			ChannelId:   11,
+		},
+	}
+	task, apiErr := insertLocalImageAsyncTask(info, []byte(`{"model":"gpt-image-2","prompt":"cat"}`))
+	require.Nil(t, apiErr)
+	task.Status = model.TaskStatusInProgress
+	require.NoError(t, task.Update())
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Set(localImageAsyncWorkerKey, true)
+	c.Set(localImageAsyncTaskKey, task)
+	body := []byte(`{"id":"image-response-id","created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}]}`)
+
+	require.Nil(t, bindLocalImageAsyncTaskToUpstream(c, info, body))
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", task.TaskID).First(&reloaded).Error)
+	require.Empty(t, reloaded.PrivateData.UpstreamTaskID)
+	require.Equal(t, model.TaskStatus(model.TaskStatusInProgress), reloaded.Status)
+}
+
+func TestFinishLocalImageAsyncTaskRefundsFailureOnlyOnce(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+
+	info := &relaycommon.RelayInfo{
+		UserId:          7,
+		UsingGroup:      "default",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenAI,
+			ChannelId:   11,
+		},
+	}
+	task, apiErr := insertLocalImageAsyncTask(info, []byte(`{"model":"gpt-image-2","prompt":"cat"}`))
+	require.Nil(t, apiErr)
+	task.Status = model.TaskStatusInProgress
+	require.NoError(t, task.Update())
+
+	billing := &imageAsyncBillingStub{quota: 123}
+	info.Billing = billing
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", nil)
+	failure := newImageSubmitUncertainError(fmt.Errorf("upstream failed"), types.ErrorCodeBadResponse, http.StatusBadGateway)
+
+	finishLocalImageAsyncTask(c, info, task, nil, failure)
+	finishLocalImageAsyncTask(c, info, task, nil, failure)
+
+	require.Equal(t, 1, billing.refundCalls)
+	require.Zero(t, billing.settleCalls)
+	var reloaded model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", task.TaskID).First(&reloaded).Error)
+	require.Equal(t, model.TaskStatus(model.TaskStatusFailure), reloaded.Status)
+	require.Equal(t, "100%", reloaded.Progress)
+	require.Contains(t, reloaded.FailReason, "upstream failed")
+}
+
+func TestImageTaskFetchReturnsStoredLocalAsyncImageTask(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+
+	now := time.Now().Unix()
+	require.NoError(t, model.DB.Create(&model.Task{
+		TaskID:     "task_local",
+		UserId:     7,
+		ChannelId:  11,
+		Action:     constant.TaskActionGenerate,
+		Status:     model.TaskStatusSuccess,
+		Progress:   "100%",
+		CreatedAt:  now,
+		UpdatedAt:  now,
+		SubmitTime: now,
+		FinishTime: now,
+		Platform:   constant.TaskPlatform("1"),
+		Data: []byte(`{
+			"id":"task_local",
+			"state":"succeeded",
+			"progress":100,
+			"create_time":1779125744,
+			"update_time":1779125807,
+			"action":"generate",
+			"data":{"images":[{"url":"https://cdn.example.com/output.png"}]}
+		}`),
+		PrivateData: model.TaskPrivateData{AsyncImage: true},
+	}).Error)
+
+	router := gin.New()
+	router.GET("/v1/tasks/:id", func(c *gin.Context) {
+		c.Set("id", 7)
+		if taskErr := ImageTaskFetch(c); taskErr != nil {
+			c.JSON(taskErr.StatusCode, taskErr)
+		}
+	})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/v1/tasks/task_local", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.Equal(t, "task_local", gjson.GetBytes(recorder.Body.Bytes(), "id").String())
+	require.Equal(t, "succeeded", gjson.GetBytes(recorder.Body.Bytes(), "state").String())
+	require.Equal(t, "https://cdn.example.com/output.png", gjson.GetBytes(recorder.Body.Bytes(), "data.images.0.url").String())
+}
+
+func TestConvertLocalImageTaskResponseDoesNotExposeStoredRequestWithID(t *testing.T) {
+	task := &model.Task{
+		TaskID:   "task_local",
+		Status:   model.TaskStatusSubmitted,
+		Progress: "0%",
+		Action:   constant.TaskActionGenerate,
+		Data:     []byte(`{"id":"client-supplied-id","model":"gpt-image-2","prompt":"cat"}`),
+		PrivateData: model.TaskPrivateData{
+			AsyncImage: true,
+		},
+	}
+
+	body, err := convertLocalImageTaskResponse(task)
+	require.NoError(t, err)
+	require.Equal(t, "task_local", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "queued", gjson.GetBytes(body, "state").String())
+	require.False(t, gjson.GetBytes(body, "prompt").Exists())
+}
+
+func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/images/generations", r.URL.Path)
+		require.Empty(t, r.URL.Query().Get("async"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
+	}))
+	defer upstream.Close()
+
+	body := []byte(`{"model":"gpt-image-2","prompt":"cat"}`)
+	info := &relaycommon.RelayInfo{
+		UserId:              7,
+		UsingGroup:          "default",
+		OriginModelName:     "gpt-image-2",
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:      "/v1/images/generations?async=true",
+		Request:             &dto.ImageRequest{Model: "gpt-image-2", Prompt: "cat"},
+		IsAsyncImageRequest: true,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: upstream.URL,
+			ApiKey:         "sk-upstream",
+		},
+		PriceData: types.PriceData{QuotaToPreConsume: 123},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	c.Set(string(constant.ContextKeyChannelId), 11)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+
+	require.Nil(t, ImageHelper(c, info))
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "queued", gjson.GetBytes(recorder.Body.Bytes(), "state").String())
+	taskID := gjson.GetBytes(recorder.Body.Bytes(), "id").String()
+	require.NotEmpty(t, taskID)
+
+	require.Eventually(t, func() bool {
+		var task model.Task
+		if err := model.DB.Where("task_id = ?", taskID).First(&task).Error; err != nil {
+			return false
+		}
+		return task.Status == model.TaskStatusSuccess &&
+			task.PrivateData.ResultURL == "https://cdn.example.com/output.png" &&
+			gjson.GetBytes(task.Data, "state").String() == "succeeded"
+	}, time.Second, 10*time.Millisecond)
+
+	var task model.Task
+	require.NoError(t, model.DB.Where("task_id = ?", taskID).First(&task).Error)
+	require.Empty(t, task.PrivateData.UpstreamTaskID)
+	require.Equal(t, strconv.Itoa(constant.ChannelTypeOpenAI), string(task.Platform))
+}
+
+func TestLocalAsyncImageSettlesActualUsageAfterCompletion(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+	common.LogConsumeEnabled = true
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"created":1779125744,
+			"data":[{"url":"https://cdn.example.com/output.png"}],
+			"usage":{"input_tokens":100,"output_tokens":200,"total_tokens":300}
+		}`))
+	}))
+	defer upstream.Close()
+
+	const userID, tokenID, channelID = 721, 722, 723
+	require.NoError(t, model.DB.AutoMigrate(&model.User{}, &model.Token{}, &model.Log{}))
+	require.NoError(t, model.DB.Create(&model.User{Id: userID, Username: "local-usage-user", Quota: 9000, Status: common.UserStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{Id: tokenID, UserId: userID, Name: "local-usage-token", Key: "sk-token", Status: common.TokenStatusEnabled, RemainQuota: 4000}).Error)
+	require.NoError(t, model.DB.Create(&model.Channel{Id: channelID, Type: constant.ChannelTypeOpenAI, Key: "sk-upstream", BaseURL: &upstream.URL, Status: common.ChannelStatusEnabled, Name: "local-usage-image"}).Error)
+
+	body := []byte(`{"model":"usage-image-model","prompt":"cat"}`)
+	info := &relaycommon.RelayInfo{
+		UserId: userID, TokenId: tokenID, TokenKey: "sk-token", UsingGroup: "default",
+		OriginModelName: "usage-image-model", RelayMode: relayconstant.RelayModeImagesGenerations,
+		RequestURLPath: "/v1/images/generations?async=true",
+		Request:        &dto.ImageRequest{Model: "usage-image-model", Prompt: "cat"}, IsAsyncImageRequest: true,
+		FinalPreConsumedQuota: 1000, BillingSource: service.BillingSourceWallet,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType: constant.ChannelTypeOpenAI, ChannelId: channelID,
+			ChannelBaseUrl: upstream.URL, ApiKey: "sk-upstream",
+		},
+		PriceData: types.PriceData{ModelRatio: 1, CompletionRatio: 1, GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1}},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	c.Set(string(constant.ContextKeyChannelId), channelID)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+
+	require.Nil(t, ImageHelper(c, info))
+	taskID := gjson.GetBytes(recorder.Body.Bytes(), "id").String()
+	require.NotEmpty(t, taskID)
+	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "usage").Exists())
+	require.Eventually(t, func() bool {
+		var task model.Task
+		if err := model.DB.Where("task_id = ?", taskID).First(&task).Error; err != nil {
+			return false
+		}
+		var channel model.Channel
+		if err := model.DB.Where("id = ?", channelID).First(&channel).Error; err != nil {
+			return false
+		}
+		var logCount int64
+		if err := model.LOG_DB.Model(&model.Log{}).
+			Where("user_id = ? AND type = ?", userID, model.LogTypeConsume).
+			Count(&logCount).Error; err != nil {
+			return false
+		}
+		return task.Status == model.TaskStatusSuccess && task.Quota == 300 &&
+			channel.UsedQuota == 300 && logCount == 1
+	}, time.Second, 10*time.Millisecond)
+
+	var user model.User
+	require.NoError(t, model.DB.Where("id = ?", userID).First(&user).Error)
+	require.Equal(t, 9700, user.Quota)
+	var token model.Token
+	require.NoError(t, model.DB.Where("id = ?", tokenID).First(&token).Error)
+	require.Equal(t, 4700, token.RemainQuota)
+}
+
+func TestImageHelperAsyncTrueEstimatesUsageWhenSyncProviderOmitsUsage(t *testing.T) {
+	setupImageTaskTestDB(t)
+	gin.SetMode(gin.TestMode)
+	service.InitHttpClient()
+	service.InitTokenEncoders()
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}]}`))
+	}))
+	defer upstream.Close()
+
+	body := []byte(`{"model":"gpt-image-2","prompt":"cat"}`)
+	info := &relaycommon.RelayInfo{
+		UserId:              7,
+		UsingGroup:          "default",
+		OriginModelName:     "gpt-image-2",
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:      "/v1/images/generations?async=true",
+		Request:             &dto.ImageRequest{Model: "gpt-image-2", Prompt: "cat"},
+		IsAsyncImageRequest: true,
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ChannelId:      11,
+			ChannelBaseUrl: upstream.URL,
+			ApiKey:         "sk-upstream",
+		},
+	}
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+	c.Set(string(constant.ContextKeyChannelId), 11)
+	c.Set(string(constant.ContextKeyChannelKey), "sk-upstream")
+	c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
+	storage, err := common.CreateBodyStorage(body)
+	require.NoError(t, err)
+	c.Set(common.KeyBodyStorage, storage)
+
+	require.Nil(t, ImageHelper(c, info))
+	taskID := gjson.GetBytes(recorder.Body.Bytes(), "id").String()
+	require.NotEmpty(t, taskID)
+	require.Eventually(t, func() bool {
+		var task model.Task
+		if err := model.DB.Where("task_id = ?", taskID).First(&task).Error; err != nil {
+			return false
+		}
+		return task.Status == model.TaskStatusSuccess
+	}, time.Second, 10*time.Millisecond)
 }
 
 func TestWaitImageAsyncSubmitResponseUsesConfigurableDuomiGeminiProfile(t *testing.T) {

@@ -36,6 +36,22 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	if err != nil {
 		return types.NewError(fmt.Errorf("failed to copy request to ImageRequest: %w", err), types.ErrorCodeInvalidRequest, types.ErrOptionWithSkipRetry())
 	}
+	if info.IsAsyncImageRequest && !isLocalImageAsyncWorker(c) && shouldWrapLocalImageAsync(info) {
+		storage, err := common.GetBodyStorage(c)
+		if err != nil {
+			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
+		requestBody, err := storage.Bytes()
+		if err != nil {
+			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+		}
+		_, taskBody, asyncErr := createLocalImageAsyncTask(c, info, requestBody)
+		if asyncErr != nil {
+			return asyncErr
+		}
+		c.Data(http.StatusOK, "application/json", taskBody)
+		return nil
+	}
 
 	err = helper.ModelMappedHelper(c, info, request)
 	if err != nil {
@@ -135,10 +151,32 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		} else if len(syncBody) > 0 {
 			responseCapture.ReplaceBody(http.StatusOK, syncBody)
 		} else {
-			if asyncErr := recordImageAsyncSubmitResponse(info, responseCapture.BodyBytes()); asyncErr != nil {
+			if info.IsAsyncImageRequest && isImageAsyncSubmitBody(responseCapture.BodyBytes()) {
+				body, err := imageAsyncSubmitResponseWithoutUsage(responseCapture.BodyBytes())
+				if err != nil {
+					return newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+				}
+				responseCapture.ReplaceBody(responseCapture.Status(), body)
+			}
+			if !isLocalImageAsyncWorker(c) {
+				if asyncErr := recordImageAsyncSubmitResponse(info, responseCapture.BodyBytes()); asyncErr != nil {
+					return asyncErr
+				}
+			}
+			if asyncErr := bindLocalImageAsyncTaskToUpstream(c, info, responseCapture.BodyBytes()); asyncErr != nil {
 				return asyncErr
 			}
 		}
+	}
+
+	if isLocalImageAsyncWorker(c) && responseCapture.HasBody() && isImageAsyncSubmitBody(responseCapture.BodyBytes()) {
+		return nil
+	}
+	if info.IsAsyncImageRequest && responseCapture.HasBody() && isImageAsyncSubmitBody(responseCapture.BodyBytes()) {
+		if err := responseCapture.WriteCaptured(); err != nil {
+			logger.LogError(c, fmt.Sprintf("image async submit response write failed: %s", err.Error()))
+		}
+		return nil
 	}
 
 	usageData := usage.(*dto.Usage)
@@ -198,7 +236,9 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	attachImageBillingResponseBody(info, responseCapture.BodyBytes())
-	service.PostTextConsumeQuota(c, info, usageData, logContent)
+	if !isLocalImageAsyncWorker(c) {
+		service.PostTextConsumeQuota(c, info, usageData, logContent)
+	}
 	if wrapped, wrapErr := maybeWrapImageResponse(c, info, responseCapture.BodyBytes(), usageData); wrapErr != nil {
 		return wrapErr
 	} else if wrapped {

@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -266,6 +269,173 @@ func RecalculateTaskQuotaByTieredExpr(ctx context.Context, task *model.Task, tas
 // reason 用于日志记录（例如 "token重算" 或 "adaptor调整"）。
 func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string) {
 	recalculateTaskQuota(ctx, task, actualQuota, reason, nil)
+}
+
+// SettleImageTaskUsage recalculates a completed image task from the frozen
+// submission-time pricing snapshot and adjusts the pre-consumed quota.
+func SettleImageTaskUsage(ctx context.Context, task *model.Task, usage *dto.Usage, responseBody []byte) {
+	if task == nil || usage == nil || !imageTaskUsageHasTokens(usage) {
+		return
+	}
+	usage = normalizeImageTaskUsage(usage)
+	bc := task.PrivateData.BillingContext
+	if bc == nil {
+		return
+	}
+	if task.PrivateData.BillingSource == BillingSourceUserOwnedProvider {
+		settleImageTaskActualQuota(ctx, task, 0, normalizeImageTaskUsage(usage), nil)
+		return
+	}
+	if bc.PerCallBilling {
+		settleImageTaskActualQuota(ctx, task, task.Quota, normalizeImageTaskUsage(usage), nil)
+		return
+	}
+	relayInfo := imageTaskSettlementRelayInfo(task, responseBody)
+	ginContext := &gin.Context{}
+	summary := calculateTextQuotaSummary(ginContext, relayInfo, usage)
+	tieredUsedVars := map[string]bool(nil)
+	if relayInfo.TieredBillingSnapshot != nil {
+		tieredUsedVars = billingexpr.UsedVars(relayInfo.TieredBillingSnapshot.ExprString)
+	}
+	var tieredResult *billingexpr.TieredResult
+	if ok, quota, result := TryTieredSettle(relayInfo, BuildTieredTokenParams(usage, usage.UsageSemantic == "anthropic", tieredUsedVars)); ok {
+		summary.Quota = composeTieredTextQuota(relayInfo, summary, quota, result)
+		tieredResult = result
+	}
+	settleImageTaskActualQuota(ctx, task, summary.Quota, usage, tieredResult)
+}
+
+func normalizeImageTaskUsage(usage *dto.Usage) *dto.Usage {
+	if usage == nil {
+		return nil
+	}
+	normalized := *usage
+	if normalized.PromptTokens == 0 {
+		normalized.PromptTokens = normalized.InputTokens
+	}
+	if normalized.CompletionTokens == 0 {
+		normalized.CompletionTokens = normalized.OutputTokens
+	}
+	if normalized.TotalTokens == 0 {
+		normalized.TotalTokens = normalized.PromptTokens + normalized.CompletionTokens
+	}
+	if normalized.InputTokensDetails != nil {
+		normalized.PromptTokensDetails = *normalized.InputTokensDetails
+	}
+	if normalized.OutputTokensDetails != nil {
+		normalized.CompletionTokenDetails = *normalized.OutputTokensDetails
+	}
+	return &normalized
+}
+
+func imageTaskUsageHasTokens(usage *dto.Usage) bool {
+	return usage != nil && (usage.PromptTokens != 0 || usage.CompletionTokens != 0 ||
+		usage.TotalTokens != 0 || usage.InputTokens != 0 || usage.OutputTokens != 0)
+}
+
+func imageTaskUsageOther(usage *dto.Usage) map[string]interface{} {
+	promptTokens := usage.PromptTokens
+	completionTokens := usage.CompletionTokens
+	if promptTokens == 0 {
+		promptTokens = usage.InputTokens
+	}
+	if completionTokens == 0 {
+		completionTokens = usage.OutputTokens
+	}
+	totalTokens := usage.TotalTokens
+	if totalTokens == 0 {
+		totalTokens = promptTokens + completionTokens
+	}
+	return map[string]interface{}{
+		"actual_prompt_tokens":     promptTokens,
+		"actual_completion_tokens": completionTokens,
+		"actual_total_tokens":      totalTokens,
+	}
+}
+
+func imageTaskSettlementRelayInfo(task *model.Task, responseBody []byte) *relaycommon.RelayInfo {
+	bc := task.PrivateData.BillingContext
+	requestInput := &billingexpr.RequestInput{}
+	if bc.BillingRequestInput != nil {
+		*requestInput = *bc.BillingRequestInput
+		requestInput.Headers = cloneTaskBillingHeaders(bc.BillingRequestInput.Headers)
+		requestInput.Body = append([]byte(nil), bc.BillingRequestInput.Body...)
+	}
+	requestInput.ResponseBody = append([]byte(nil), responseBody...)
+	return &relaycommon.RelayInfo{
+		UserId:                task.UserId,
+		UsingGroup:            task.Group,
+		OriginModelName:       taskModelName(task),
+		StartTime:             time.Unix(task.SubmitTime, 0),
+		BillingRequestInput:   requestInput,
+		TieredBillingSnapshot: bc.TieredBillingSnapshot,
+		PriceData: types.PriceData{
+			ModelPrice: bc.ModelPrice, ModelRatio: bc.ModelRatio,
+			CompletionRatio: bc.CompletionRatio, CacheRatio: bc.CacheRatio,
+			CacheCreationRatio: bc.CacheCreationRatio, CacheCreation5mRatio: bc.CacheCreation5mRatio,
+			CacheCreation1hRatio: bc.CacheCreation1hRatio, ImageRatio: bc.ImageRatio,
+			AudioRatio: bc.AudioRatio, AudioCompletionRatio: bc.AudioCompletionRatio,
+			OtherRatios: bc.OtherRatios, UsePrice: bc.PerCallBilling,
+			GroupRatioInfo: types.GroupRatioInfo{GroupRatio: bc.GroupRatio},
+		},
+	}
+}
+
+func cloneTaskBillingHeaders(source map[string]string) map[string]string {
+	if len(source) == 0 {
+		return nil
+	}
+	clone := make(map[string]string, len(source))
+	for key, value := range source {
+		clone[key] = value
+	}
+	return clone
+}
+
+func settleImageTaskActualQuota(ctx context.Context, task *model.Task, actualQuota int, usage *dto.Usage, tieredResult *billingexpr.TieredResult) {
+	if actualQuota < 0 {
+		return
+	}
+	preConsumedQuota := task.Quota
+	quotaDelta := actualQuota - preConsumedQuota
+	if quotaDelta != 0 {
+		if err := taskAdjustFunding(task, quotaDelta); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("图片任务差额结算资金调整失败 task %s: %s", task.TaskID, err.Error()))
+			return
+		}
+		taskAdjustTokenQuota(ctx, task, quotaDelta)
+	}
+	task.Quota = actualQuota
+	if err := model.DB.Model(task).Update("quota", actualQuota).Error; err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("更新图片任务实际扣费失败 task %s: %s", task.TaskID, err.Error()))
+	}
+	model.UpdateUserUsedQuotaAndRequestCount(task.UserId, actualQuota)
+	model.UpdateChannelUsedQuota(task.ChannelId, actualQuota)
+	other := taskBillingOther(task)
+	for key, value := range imageTaskUsageOther(usage) {
+		other[key] = value
+	}
+	other["task_id"] = task.TaskID
+	other["pre_consumed_quota"] = preConsumedQuota
+	other["actual_quota"] = actualQuota
+	if tieredResult != nil && task.PrivateData.BillingContext.TieredBillingSnapshot != nil {
+		InjectTieredBillingSnapshotInfo(other, task.PrivateData.BillingContext.TieredBillingSnapshot, tieredResult)
+	}
+	relayInfo := imageTaskSettlementRelayInfo(task, nil)
+	appendChannelCostInfo(other, relayInfo, actualQuota)
+	logID := model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+		UserId: task.UserId, LogType: model.LogTypeConsume, Content: "image usage",
+		ChannelId: task.ChannelId, ModelName: taskModelName(task), Quota: actualQuota,
+		PromptTokens:     intFromMap(other, "actual_prompt_tokens"),
+		CompletionTokens: intFromMap(other, "actual_completion_tokens"),
+		TokenId:          task.PrivateData.TokenId, Group: task.Group, Other: other,
+	})
+	if snapshot := task.PrivateData.BillingContext.AgentBillingSnapshot; snapshot != nil {
+		baseQuota := agentservice.BaseQuotaFromCharged(snapshot, actualQuota)
+		if err := agentservice.SettleConsume(snapshot, task.UserId, logID, baseQuota, actualQuota); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("图片任务代理计费结算失败 task %s: %s", task.TaskID, err.Error()))
+		}
+	}
 }
 
 func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string, extraOther map[string]interface{}) {

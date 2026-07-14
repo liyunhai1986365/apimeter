@@ -8,6 +8,7 @@ type ImageTaskResponse struct {
 	UpdateTime int64          `json:"update_time"`
 	Action     string         `json:"action"`
 	Data       ImageTaskData  `json:"data"`
+	Usage      *Usage         `json:"usage,omitempty"`
 	Error      map[string]any `json:"error,omitempty"`
 }
 
