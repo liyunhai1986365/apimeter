@@ -98,6 +98,9 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 		token.Group = group
 		token.GroupPolicy = policy
 	}
+	if strings.TrimSpace(token.Group) == "" && strings.TrimSpace(token.GroupPolicy) == "" {
+		token.Group = service.AutoGroupName
+	}
 	if token.GroupPolicy == "" {
 		if err := service.ValidateExplicitTokenGroupForUserWithAgent(token.Group, userGroup, userId, agentCtx); err != nil {
 			return err

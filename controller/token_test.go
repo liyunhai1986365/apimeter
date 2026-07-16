@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -896,6 +897,51 @@ func TestAddTokenPersistsOrderedGroupPolicy(t *testing.T) {
 	}
 	if token.GroupPolicy != `{"type":"ordered","groups":["vip","backup"]}` {
 		t.Fatalf("expected stored ordered group policy, got %q", token.GroupPolicy)
+	}
+}
+
+func TestAddTokenDefaultsEmptyGroupToAuto(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	setTokenTestGroups(t)
+
+	body := map[string]any{
+		"name":                 "auto-default-token",
+		"expired_time":         -1,
+		"remain_quota":         0,
+		"unlimited_quota":      true,
+		"model_limits_enabled": false,
+		"model_limits":         "",
+		"group":                "",
+		"group_policy":         "",
+		"cross_group_retry":    true,
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 1)
+	ctx.Set("group", "default")
+	AddToken(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected create response to succeed, got message: %s", response.Message)
+	}
+
+	var detail tokenResponseItem
+	if err := common.Unmarshal(response.Data, &detail); err != nil {
+		t.Fatalf("failed to decode token create response: %v", err)
+	}
+	if detail.Group != service.AutoGroupName {
+		t.Fatalf("expected empty group to default to auto, got %q", detail.Group)
+	}
+	if detail.GroupPolicy != "" {
+		t.Fatalf("expected empty group policy to remain empty, got %q", detail.GroupPolicy)
+	}
+
+	var token model.Token
+	if err := db.First(&token, detail.ID).Error; err != nil {
+		t.Fatalf("failed to load created token: %v", err)
+	}
+	if token.Group != service.AutoGroupName {
+		t.Fatalf("expected stored group auto, got %q", token.Group)
 	}
 }
 

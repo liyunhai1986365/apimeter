@@ -10,7 +10,9 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -141,6 +143,133 @@ func TestTokenAuthAllowsAutoTokenGroupAndDistributorSelectsDefaultAutoGroup(t *t
 	require.Equal(t, "auto", response.UsingGroup)
 	require.Equal(t, "default", response.AutoGroup)
 	require.Equal(t, 1001, response.ChannelId)
+}
+
+func TestTokenAuthDefaultsLegacyEmptyTokenGroupToAuto(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+	seedTokenAuthAutoGroupFixture(t, db)
+	require.NoError(t, db.Model(&model.Token{}).Where("key = ?", "autotokenkey").Update("group", "").Error)
+
+	router := gin.New()
+	router.POST("/v1/chat/completions", TokenAuth(), Distribute(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"using_group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+			"token_group": common.GetContextKeyString(c, constant.ContextKeyTokenGroup),
+			"auto_group":  common.GetContextKeyString(c, constant.ContextKeyAutoGroup),
+			"channel_id":  common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+		})
+	})
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-test"}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer autotokenkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	var response struct {
+		UsingGroup string `json:"using_group"`
+		TokenGroup string `json:"token_group"`
+		AutoGroup  string `json:"auto_group"`
+		ChannelId  int    `json:"channel_id"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, service.AutoGroupName, response.UsingGroup)
+	require.Equal(t, service.AutoGroupName, response.TokenGroup)
+	require.Equal(t, "default", response.AutoGroup)
+	require.Equal(t, 1001, response.ChannelId)
+}
+
+func TestTokenAuthDefaultsLegacyEmptyGroupToAutoForConfigurableNativeVideo(t *testing.T) {
+	db := openTokenAuthTestDB(t)
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组"}`))
+	require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"渠道特供":1}`))
+
+	require.NoError(t, db.Create(&model.User{
+		Id:       1,
+		Username: "native-video-user",
+		Password: "password",
+		Group:    "渠道特供",
+		Quota:    100000,
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}).Error)
+	require.NoError(t, db.Create(&model.Token{
+		UserId:         1,
+		Name:           "legacy-empty-group-token",
+		Key:            "legacyemptygroupkey",
+		Status:         common.TokenStatusEnabled,
+		CreatedTime:    1,
+		AccessedTime:   1,
+		ExpiredTime:    -1,
+		RemainQuota:    100000,
+		UnlimitedQuota: true,
+		Group:          "",
+	}).Error)
+
+	weight := uint(100)
+	priority := int64(10)
+	autoBan := 1
+	channel := model.Channel{
+		Id:       1049,
+		Type:     constant.ChannelTypeConfigurable,
+		Key:      "upstream-key",
+		Status:   common.ChannelStatusEnabled,
+		Name:     "seedance-configurable",
+		Group:    "default",
+		Models:   "doubao-seedance-2-0-mini-260615",
+		Weight:   &weight,
+		Priority: &priority,
+		AutoBan:  &autoBan,
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-ark-task-assets"},
+	})
+	require.NoError(t, db.Create(&channel).Error)
+	require.NoError(t, db.Create(&model.Ability{
+		Group:     "default",
+		Model:     "doubao-seedance-2-0-mini-260615",
+		ChannelId: channel.Id,
+		Enabled:   true,
+		Priority:  &priority,
+		Weight:    weight,
+	}).Error)
+	model.InitChannelCache()
+
+	router := gin.New()
+	router.POST(
+		"/api/v3/contents/generations/tasks",
+		ConfigurableNativeProfile("doubao-seedance-2", relayconstant.RelayModeVideoSubmit),
+		TokenAuth(),
+		Distribute(),
+		func(c *gin.Context) {
+			c.JSON(http.StatusOK, gin.H{
+				"using_group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+				"auto_group":  common.GetContextKeyString(c, constant.ContextKeyAutoGroup),
+				"channel_id":  common.GetContextKeyInt(c, constant.ContextKeyChannelId),
+			})
+		},
+	)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", strings.NewReader(`{"model":"doubao-seedance-2-0-mini-260615","content":[{"type":"text","text":"test"}]}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer legacyemptygroupkey")
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+
+	var response struct {
+		UsingGroup string `json:"using_group"`
+		AutoGroup  string `json:"auto_group"`
+		ChannelId  int    `json:"channel_id"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.Equal(t, service.AutoGroupName, response.UsingGroup)
+	require.Equal(t, "default", response.AutoGroup)
+	require.Equal(t, channel.Id, response.ChannelId)
 }
 
 func TestDistributeRejectsFixedImageChannelWithoutExplicitProtocolCapability(t *testing.T) {

@@ -431,7 +431,10 @@ func TokenAuth() func(c *gin.Context) {
 			userGroup = agentUserGroup
 			common.SetContextKey(c, constant.ContextKeyUserGroup, userGroup)
 		}
-		tokenGroup := token.Group
+		tokenGroup := strings.TrimSpace(token.Group)
+		if tokenGroup == "" {
+			tokenGroup = service.AutoGroupName
+		}
 		checkUserGroup := userGroup
 		if tokenGroup != "" {
 			if tokenGroup != "auto" {
@@ -512,7 +515,11 @@ func SetupContextForToken(c *gin.Context, token *model.Token, parts ...string) e
 	} else {
 		c.Set("token_model_limit_enabled", false)
 	}
-	common.SetContextKey(c, constant.ContextKeyTokenGroup, token.Group)
+	tokenGroup := strings.TrimSpace(token.Group)
+	if tokenGroup == "" {
+		tokenGroup = service.AutoGroupName
+	}
+	common.SetContextKey(c, constant.ContextKeyTokenGroup, tokenGroup)
 	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, token.GroupPolicy)
 	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, token.CrossGroupRetry)
 	common.SetContextKey(c, constant.ContextKeyTokenBillingSource, token.BillingSource)
