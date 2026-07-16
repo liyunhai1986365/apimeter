@@ -57,6 +57,7 @@ type PathVariant struct {
 	NonEmpty   *bool           `yaml:"non_empty"`
 	Equals     any             `yaml:"equals"`
 	Conditions []PathCondition `yaml:"conditions"`
+	Response   *ResponseConfig `yaml:"response,omitempty"`
 }
 
 type PathCondition struct {
@@ -85,6 +86,7 @@ type ResourceConfig struct {
 	Name        string                `yaml:"name"`
 	Model       string                `yaml:"model"`
 	Billing     ResourceBillingConfig `yaml:"billing"`
+	AsyncTask   AsyncTaskConfig       `yaml:"async_task"`
 	Public      EndpointConfig        `yaml:"public"`
 	Aliases     []EndpointConfig      `yaml:"aliases"`
 	Upstream    EndpointConfig        `yaml:"upstream"`
@@ -96,6 +98,13 @@ type ResourceConfig struct {
 
 type ResourceBillingConfig struct {
 	Enabled bool `yaml:"enabled"`
+}
+
+type AsyncTaskConfig struct {
+	Enabled  bool           `yaml:"enabled"`
+	Platform string         `yaml:"platform"`
+	Action   string         `yaml:"action"`
+	Response ResponseConfig `yaml:"response"`
 }
 
 type PreRequestConfig struct {
@@ -136,19 +145,19 @@ type BodyConfig struct {
 }
 
 type FieldMapping struct {
-	To                string         `yaml:"to"`
-	From              string         `yaml:"from"`
-	FallbackFrom      string         `yaml:"fallback_from"`
-	FallbackFroms     []string       `yaml:"fallback_froms"`
-	Transform         string         `yaml:"transform"`
-	MediaType         string         `yaml:"media_type"`
-	FirstOnly         bool           `yaml:"first_only"`
-	WhenModelContains string         `yaml:"when_model_contains"`
+	To                string          `yaml:"to"`
+	From              string          `yaml:"from"`
+	FallbackFrom      string          `yaml:"fallback_from"`
+	FallbackFroms     []string        `yaml:"fallback_froms"`
+	Transform         string          `yaml:"transform"`
+	MediaType         string          `yaml:"media_type"`
+	FirstOnly         bool            `yaml:"first_only"`
+	WhenModelContains string          `yaml:"when_model_contains"`
 	Conditions        []PathCondition `yaml:"conditions"`
-	Append            bool           `yaml:"append"`
-	Value             any            `yaml:"value"`
-	ValueMap          map[string]any `yaml:"value_map"`
-	OmitEmpty         bool           `yaml:"omit_empty"`
+	Append            bool            `yaml:"append"`
+	Value             any             `yaml:"value"`
+	ValueMap          map[string]any  `yaml:"value_map"`
+	OmitEmpty         bool            `yaml:"omit_empty"`
 }
 
 type ResponseConfig struct {

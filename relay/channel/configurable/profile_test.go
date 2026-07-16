@@ -276,7 +276,7 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 		"/v1/audio/video-to-audio",
 	})
 	assertPathVariants(t, kling.Video.Fetch, []string{
-		"/tasks",
+		"/tasks?task_ids={task_id}",
 		"/v1/videos/image2video/{task_id}",
 		"/v1/videos/omni-video/{task_id}",
 		"/v1/videos/motion-control/{task_id}",
@@ -287,6 +287,39 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 		"/v1/audio/text-to-audio/{task_id}",
 		"/v1/audio/video-to-audio/{task_id}",
 	})
+	turboText, ok := kling.ResourceByID("turbo_text2video_create")
+	if !ok || !turboText.AsyncTask.Enabled || turboText.AsyncTask.Response.TaskIDPath != "data.id" {
+		t.Fatalf("expected Kling Turbo text resource async task metadata, got %#v", turboText)
+	}
+	turboImage, ok := kling.ResourceByID("turbo_image2video_create")
+	if !ok || !turboImage.AsyncTask.Enabled || turboImage.AsyncTask.Action != "kling-turbo" {
+		t.Fatalf("expected Kling Turbo image resource async task metadata, got %#v", turboImage)
+	}
+	klingAsyncResources := map[string]string{
+		"text2video_create":         "textGenerate",
+		"image2video_create":        "generate",
+		"omni_video_create":         "omni-video",
+		"motion_control_create":     "motion-control",
+		"multi_image2video_create":  "multi-image2video",
+		"multi_elements_task":       "multi-elements",
+		"video_extend_create":       "video-extend",
+		"lip_sync_create":           "advanced-lip-sync",
+		"avatar_image2video_create": "avatar-image2video",
+		"text_to_audio_create":      "text-to-audio",
+		"video_to_audio_create":     "video-to-audio",
+	}
+	for resourceID, action := range klingAsyncResources {
+		resource, ok := kling.ResourceByID(resourceID)
+		if !ok {
+			t.Fatalf("expected Kling async resource %s", resourceID)
+		}
+		if !resource.AsyncTask.Enabled || resource.AsyncTask.Action != action {
+			t.Fatalf("unexpected Kling async task metadata for %s: %#v", resourceID, resource.AsyncTask)
+		}
+		if resource.AsyncTask.Response.TaskIDPath != "data.task_id" || resource.AsyncTask.Response.StatusPath != "data.task_status" {
+			t.Fatalf("unexpected Kling async response metadata for %s: %#v", resourceID, resource.AsyncTask.Response)
+		}
+	}
 	assertKlingResources(t, kling, []string{
 		"turbo_text2video_create",
 		"turbo_image2video_create",

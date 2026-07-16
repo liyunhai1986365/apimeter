@@ -559,6 +559,32 @@ headers:
 
 如果新模型需要按 `seconds`、`size`、`resolution` 等计费，可通过 profile 的 `billing.ratios` 从归一化请求中抽取参与计费和统计的字段。
 
+## Resource 异步任务持久化
+
+通过 `resources` 暴露的官方兼容创建接口，如需进入系统异步任务、消费日志和轮询链路，必须显式配置 `async_task`：
+
+```yaml
+resources:
+  - id: provider_video_create
+    model: provider-video-model
+    billing:
+      enabled: true
+    async_task:
+      enabled: true
+      action: provider-video
+      response:
+        task_id_path: data.id
+        status_path: data.status
+        status_map:
+          submitted: SUBMITTED
+          succeeded: SUCCESS
+          failed: FAILURE
+```
+
+`platform` 默认使用渠道类型，`action` 会随任务保存并用于选择轮询路径。未配置 `async_task.enabled` 的资源继续保持同步透传行为，不会写入 `tasks`。
+
+同一 Profile 的不同轮询路径如果返回结构不同，可以在 `fetch.path_variants[].response` 中覆盖默认的 `fetch.response`。
+
 ## 新增模型接入步骤
 
 1. 新增 YAML profile：

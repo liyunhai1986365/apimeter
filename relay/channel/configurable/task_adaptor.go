@@ -31,6 +31,7 @@ type TaskAdaptor struct {
 	baseURL            string
 	profile            *Profile
 	selectedSubmitPath string
+	selectedFetchResp  *ResponseConfig
 }
 
 func ExtractNativeModel(c *gin.Context, profile *Profile) (string, error) {
@@ -244,9 +245,18 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 	if taskID == "" {
 		return nil, fmt.Errorf("invalid task_id")
 	}
-	path := selectEndpointPath(profile.videoFetch(), body, nil)
+	fetch := profile.videoFetch()
+	path := fetch.Path
+	a.selectedFetchResp = nil
+	for _, variant := range fetch.PathVariants {
+		if pathVariantMatches(variant, body, nil) {
+			path = variant.Path
+			a.selectedFetchResp = variant.Response
+			break
+		}
+	}
 	url := joinURL(baseUrl, strings.ReplaceAll(path, "{task_id}", taskID))
-	method := strings.ToUpper(strings.TrimSpace(profile.videoFetch().Method))
+	method := strings.ToUpper(strings.TrimSpace(fetch.Method))
 	if method == "" {
 		method = http.MethodGet
 	}
@@ -287,6 +297,13 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		return nil, err
 	}
 	resp := profile.videoFetch().Response
+	if a.selectedFetchResp != nil {
+		resp = *a.selectedFetchResp
+	}
+	return ParseConfiguredTaskInfo(resp, respBody), nil
+}
+
+func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.TaskInfo {
 	status := mapStatus(resp.StatusMap, gjson.GetBytes(respBody, resp.StatusPath).String())
 	info := &relaycommon.TaskInfo{
 		TaskID:   gjson.GetBytes(respBody, resp.TaskIDPath).String(),
@@ -322,7 +339,7 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 			info.Progress = "10%"
 		}
 	}
-	return info, nil
+	return info
 }
 
 func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error) {

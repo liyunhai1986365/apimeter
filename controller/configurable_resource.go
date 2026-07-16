@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -120,6 +121,14 @@ func RelayConfigurableResource(c *gin.Context) {
 			return
 		}
 	}
+	var asyncTaskInfo *relaycommon.TaskInfo
+	if resp.StatusCode < http.StatusBadRequest && resource.AsyncTask.Enabled {
+		asyncTaskInfo = configurable.ParseConfiguredTaskInfo(resource.AsyncTask.Response, responseBody)
+		if strings.TrimSpace(asyncTaskInfo.TaskID) == "" {
+			c.JSON(http.StatusBadGateway, gin.H{"error": "configurable async task id is empty"})
+			return
+		}
+	}
 	if billingInfo != nil {
 		if resp.StatusCode >= http.StatusBadRequest {
 			service.ChargeViolationFeeIfNeeded(c, billingInfo, types.NewErrorWithStatusCode(fmt.Errorf("configurable resource upstream status %d", resp.StatusCode), types.ErrorCodeBadResponseStatusCode, resp.StatusCode))
@@ -130,11 +139,90 @@ func RelayConfigurableResource(c *gin.Context) {
 			billingSettled = true
 		}
 	}
+	if asyncTaskInfo != nil {
+		if err := persistConfigurableResourceTask(c, channelModel, resource, billingInfo, asyncTaskInfo, responseBody); err != nil {
+			common.SysError("insert configurable async task error: " + err.Error())
+		}
+	}
 	contentType := resp.Header.Get("Content-Type")
 	if strings.TrimSpace(contentType) == "" {
 		contentType = "application/json"
 	}
 	c.Data(resp.StatusCode, contentType, responseBody)
+}
+
+func persistConfigurableResourceTask(c *gin.Context, channelModel *model.Channel, resource *configurable.ResourceConfig, info *relaycommon.RelayInfo, taskInfo *relaycommon.TaskInfo, responseBody []byte) error {
+	if c == nil || channelModel == nil || resource == nil || info == nil {
+		return fmt.Errorf("invalid configurable async task context")
+	}
+	if taskInfo == nil {
+		return fmt.Errorf("invalid configurable async task response")
+	}
+	upstreamTaskID := strings.TrimSpace(taskInfo.TaskID)
+	if upstreamTaskID == "" {
+		return fmt.Errorf("configurable async task id is empty")
+	}
+	info.InitChannelMeta(c)
+	info.Action = strings.TrimSpace(resource.AsyncTask.Action)
+	if info.Action == "" {
+		info.Action = constant.TaskActionGenerate
+	}
+	service.LogTaskConsumption(c, info)
+
+	platform := strings.TrimSpace(resource.AsyncTask.Platform)
+	if platform == "" {
+		platform = fmt.Sprintf("%d", channelModel.Type)
+	}
+	task := model.InitTask(constant.TaskPlatform(platform), info)
+	task.PrivateData.UpstreamTaskID = upstreamTaskID
+	task.PrivateData.BillingSource = info.BillingSource
+	task.PrivateData.SubscriptionId = info.SubscriptionId
+	task.PrivateData.TokenId = info.TokenId
+	task.TokenId = info.TokenId
+	task.TokenName = c.GetString("token_name")
+	task.PrivateData.BillingContext = configurableResourceTaskBillingContext(info)
+	task.Quota = info.PriceData.Quota
+	task.Data = responseBody
+	task.Action = info.Action
+	task.Status = model.TaskStatus(taskInfo.Status)
+	if task.Status == "" || task.Status == model.TaskStatusUnknown {
+		task.Status = model.TaskStatusSubmitted
+	}
+	switch task.Status {
+	case model.TaskStatusSuccess, model.TaskStatusFailure:
+		task.Progress = "100%"
+		task.FinishTime = time.Now().Unix()
+	case model.TaskStatusInProgress:
+		task.Progress = "30%"
+		task.StartTime = time.Now().Unix()
+	case model.TaskStatusQueued:
+		task.Progress = "20%"
+	default:
+		task.Progress = "10%"
+	}
+	return task.Insert()
+}
+
+func configurableResourceTaskBillingContext(info *relaycommon.RelayInfo) *model.TaskBillingContext {
+	return &model.TaskBillingContext{
+		ModelPrice:            info.PriceData.ModelPrice,
+		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		ModelRatio:            info.PriceData.ModelRatio,
+		CompletionRatio:       info.PriceData.CompletionRatio,
+		CacheRatio:            info.PriceData.CacheRatio,
+		CacheCreationRatio:    info.PriceData.CacheCreationRatio,
+		CacheCreation5mRatio:  info.PriceData.CacheCreation5mRatio,
+		CacheCreation1hRatio:  info.PriceData.CacheCreation1hRatio,
+		ImageRatio:            info.PriceData.ImageRatio,
+		AudioRatio:            info.PriceData.AudioRatio,
+		AudioCompletionRatio:  info.PriceData.AudioCompletionRatio,
+		OtherRatios:           info.PriceData.OtherRatios,
+		OriginModelName:       info.OriginModelName,
+		PerCallBilling:        common.StringsContains(constant.TaskPricePatches, info.OriginModelName) || info.PriceData.UsePrice,
+		TieredBillingSnapshot: info.TieredBillingSnapshot,
+		BillingRequestInput:   info.BillingRequestInput,
+		AgentBillingSnapshot:  info.AgentBillingSnapshot,
+	}
 }
 
 func selectConfigurableResourceRoute(c *gin.Context, profileID, resourceID string) (*model.Channel, *configurable.Profile, *configurable.ResourceConfig, error) {
@@ -321,13 +409,10 @@ func firstConfigurableResourceModelName(source map[string]any, keys ...string) s
 }
 
 func beginConfigurableResourceBilling(c *gin.Context, profile *configurable.Profile, resource *configurable.ResourceConfig, modelName string) (*relaycommon.RelayInfo, *types.NewAPIError) {
-	if profile == nil || resource == nil || !resource.Billing.Enabled {
+	if profile == nil || resource == nil || (!resource.Billing.Enabled && !resource.AsyncTask.Enabled) {
 		return nil, nil
 	}
 	modelName = strings.TrimSpace(modelName)
-	if modelName == "" {
-		return nil, nil
-	}
 	info, err := relaycommon.GenRelayInfo(c, types.RelayFormatTask, nil, nil)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeGenRelayInfoFailed, types.ErrOptionWithStatusCode(http.StatusBadRequest))
@@ -336,6 +421,9 @@ func beginConfigurableResourceBilling(c *gin.Context, profile *configurable.Prof
 	info.RequestModelName = modelName
 	info.CurrentModelName = modelName
 	info.ForcePreConsume = true
+	if !resource.Billing.Enabled || modelName == "" {
+		return info, nil
+	}
 	priceData, err := helper.ModelPriceHelperPerCall(c, info)
 	if err != nil {
 		return nil, types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithStatusCode(http.StatusBadRequest))

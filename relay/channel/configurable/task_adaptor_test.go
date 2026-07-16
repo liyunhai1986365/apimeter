@@ -757,16 +757,67 @@ func TestTaskAdaptorFetchesKlingImageToVideoTaskFromConfiguredVariantPath(t *tes
 	require.Equal(t, "/v1/videos/image2video/kling-image-task", requestedPath)
 }
 
+func TestTaskAdaptorFetchesAllKlingV1TasksFromConfiguredActionPaths(t *testing.T) {
+	tests := []struct {
+		action string
+		path   string
+	}{
+		{action: "omni-video", path: "/v1/videos/omni-video/task-id"},
+		{action: "motion-control", path: "/v1/videos/motion-control/task-id"},
+		{action: "multi-image2video", path: "/v1/videos/multi-image2video/task-id"},
+		{action: "multi-elements", path: "/v1/videos/multi-elements/task-id"},
+		{action: "video-extend", path: "/v1/videos/video-extend/task-id"},
+		{action: "advanced-lip-sync", path: "/v1/videos/advanced-lip-sync/task-id"},
+		{action: "avatar-image2video", path: "/v1/videos/avatar/image2video/task-id"},
+		{action: "text-to-audio", path: "/v1/audio/text-to-audio/task-id"},
+		{action: "video-to-audio", path: "/v1/audio/video-to-audio/task-id"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.action, func(t *testing.T) {
+			requestedPath := fetchKlingTaskPath(t, map[string]any{
+				"task_id": "task-id",
+				"action":  tt.action,
+			})
+			require.Equal(t, tt.path, requestedPath)
+		})
+	}
+}
+
 func TestTaskAdaptorFetchesKlingTurboTaskFromConfiguredVariantPath(t *testing.T) {
 	requestedPath := fetchKlingTaskPath(t, map[string]any{
-		"task_id":              "kling-turbo-task",
-		"kling_capability":     "turbo",
-		"external_task_id":     "order-10001",
-		"external_task_ids":    "order-10001",
-		"kling_external_query": true,
+		"task_id": "kling-turbo-task",
+		"action":  "kling-turbo",
 	})
 
-	require.Equal(t, "/tasks", requestedPath)
+	require.Equal(t, "/tasks?task_ids=kling-turbo-task", requestedPath)
+}
+
+func TestTaskAdaptorParsesKlingTurboTaskResponse(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := klingRelayInfo("kling-3.0-turbo")
+	adaptor.Init(info)
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/tasks", r.URL.Path)
+		require.Equal(t, "kling-turbo-task", r.URL.Query().Get("task_ids"))
+		_, _ = w.Write([]byte(`{"code":0,"data":[{"id":"kling-turbo-task","status":"succeeded","outputs":[{"type":"video","url":"https://cdn.example/turbo.mp4"}],"message":""}]}`))
+	}))
+	defer server.Close()
+
+	resp, err := adaptor.FetchTask(server.URL, "access-key|secret-key", map[string]any{
+		"task_id": "kling-turbo-task",
+		"action":  "kling-turbo",
+	}, "")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	result, err := adaptor.ParseTaskResult(body)
+	require.NoError(t, err)
+	require.Equal(t, "kling-turbo-task", result.TaskID)
+	require.Equal(t, string(model.TaskStatusSuccess), result.Status)
+	require.Equal(t, "https://cdn.example/turbo.mp4", result.Url)
 }
 
 func TestTaskAdaptorBuildsKlingJWTAuthorizationHeaderFromProfile(t *testing.T) {
@@ -1612,7 +1663,7 @@ func fetchKlingTaskPath(t *testing.T, body map[string]any) string {
 	t.Helper()
 	var requestedPath string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestedPath = r.URL.Path
+		requestedPath = r.URL.RequestURI()
 		require.Equal(t, http.MethodGet, r.Method)
 		auth := r.Header.Get("Authorization")
 		require.True(t, strings.HasPrefix(auth, "Bearer "), auth)

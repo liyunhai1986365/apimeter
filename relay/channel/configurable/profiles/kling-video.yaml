@@ -200,38 +200,56 @@ video:
         value: Bearer {kling_jwt}
         transform: kling_jwt
     path_variants:
-      - path: /tasks
-        field: kling_capability
-        equals: turbo
+      - path: /tasks?task_ids={task_id}
+        field: action
+        equals: kling-turbo
+        response:
+          task_id_path: data.0.id
+          status_path: data.0.status
+          result_url_path: data.0.outputs.0.url
+          reason_path: data.0.message
+          status_map:
+            submitted: SUBMITTED
+            pending: QUEUED
+            queued: QUEUED
+            processing: IN_PROGRESS
+            running: IN_PROGRESS
+            succeed: SUCCESS
+            succeeded: SUCCESS
+            success: SUCCESS
+            completed: SUCCESS
+            failed: FAILURE
+            failure: FAILURE
+            error: FAILURE
       - path: /v1/videos/image2video/{task_id}
         field: action
         equals: generate
       - path: /v1/videos/omni-video/{task_id}
-        field: kling_capability
+        field: action
         equals: omni-video
       - path: /v1/videos/motion-control/{task_id}
-        field: kling_capability
+        field: action
         equals: motion-control
       - path: /v1/videos/multi-image2video/{task_id}
-        field: kling_capability
+        field: action
         equals: multi-image2video
       - path: /v1/videos/multi-elements/{task_id}
-        field: kling_capability
+        field: action
         equals: multi-elements
       - path: /v1/videos/video-extend/{task_id}
-        field: kling_capability
+        field: action
         equals: video-extend
       - path: /v1/videos/advanced-lip-sync/{task_id}
-        field: kling_capability
+        field: action
         equals: advanced-lip-sync
       - path: /v1/videos/avatar/image2video/{task_id}
-        field: kling_capability
+        field: action
         equals: avatar-image2video
       - path: /v1/audio/text-to-audio/{task_id}
-        field: kling_capability
+        field: action
         equals: text-to-audio
       - path: /v1/audio/video-to-audio/{task_id}
-        field: kling_capability
+        field: action
         equals: video-to-audio
     response:
       task_id_path: data.task_id
@@ -269,6 +287,25 @@ resources:
     model: kling-3.0-turbo
     billing:
       enabled: true
+    async_task: &kling_turbo_async_task
+      enabled: true
+      action: kling-turbo
+      response:
+        task_id_path: data.id
+        status_path: data.status
+        status_map:
+          submitted: SUBMITTED
+          pending: QUEUED
+          queued: QUEUED
+          processing: IN_PROGRESS
+          running: IN_PROGRESS
+          succeed: SUCCESS
+          succeeded: SUCCESS
+          success: SUCCESS
+          completed: SUCCESS
+          failed: FAILURE
+          failure: FAILURE
+          error: FAILURE
     public:
       method: POST
       path: /kling/text-to-video/kling-3.0-turbo
@@ -289,6 +326,7 @@ resources:
     model: kling-3.0-turbo
     billing:
       enabled: true
+    async_task: *kling_turbo_async_task
     public:
       method: POST
       path: /kling/image-to-video/kling-3.0-turbo
@@ -331,6 +369,25 @@ resources:
     response: *kling_passthrough_response
   - id: text2video_create
     name: Kling Text To Video Create
+    async_task:
+      enabled: true
+      action: textGenerate
+      response: &kling_v1_async_response
+        task_id_path: data.task_id
+        status_path: data.task_status
+        status_map:
+          submitted: SUBMITTED
+          pending: QUEUED
+          queued: QUEUED
+          processing: IN_PROGRESS
+          running: IN_PROGRESS
+          succeed: SUCCESS
+          succeeded: SUCCESS
+          success: SUCCESS
+          completed: SUCCESS
+          failed: FAILURE
+          failure: FAILURE
+          error: FAILURE
     public:
       method: POST
       path: /kling/v1/videos/text2video
@@ -369,6 +426,10 @@ resources:
     response: *kling_passthrough_response
   - id: image2video_create
     name: Kling Image To Video Create
+    async_task:
+      enabled: true
+      action: generate
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/image2video
@@ -411,6 +472,10 @@ resources:
     response: *kling_passthrough_response
   - id: omni_video_create
     name: Kling Omni Video Create
+    async_task:
+      enabled: true
+      action: omni-video
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/omni-video
@@ -442,6 +507,10 @@ resources:
     response: *kling_passthrough_response
   - id: motion_control_create
     name: Kling Motion Control Create
+    async_task:
+      enabled: true
+      action: motion-control
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/motion-control
@@ -473,6 +542,10 @@ resources:
     response: *kling_passthrough_response
   - id: multi_image2video_create
     name: Kling Multi Image To Video Create
+    async_task:
+      enabled: true
+      action: multi-image2video
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/multi-image2video
@@ -543,6 +616,10 @@ resources:
     response: *kling_passthrough_response
   - id: multi_elements_task
     name: Kling Multi Elements Task
+    async_task:
+      enabled: true
+      action: multi-elements
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/multi-elements
@@ -577,6 +654,10 @@ resources:
     model: kling_extend
     billing:
       enabled: true
+    async_task:
+      enabled: true
+      action: video-extend
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/video-extend
@@ -638,6 +719,10 @@ resources:
     response: *kling_passthrough_response
   - id: lip_sync_create
     name: Kling Lip Sync Create
+    async_task:
+      enabled: true
+      action: advanced-lip-sync
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/advanced-lip-sync
@@ -675,6 +760,10 @@ resources:
     model: kling_avatar_image2video
     billing:
       enabled: true
+    async_task:
+      enabled: true
+      action: avatar-image2video
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/videos/avatar/image2video
@@ -725,6 +814,10 @@ resources:
     model: kling_audio_text_to_audio
     billing:
       enabled: true
+    async_task:
+      enabled: true
+      action: text-to-audio
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/audio/text-to-audio
@@ -765,6 +858,10 @@ resources:
     model: kling_audio_video_to_audio
     billing:
       enabled: true
+    async_task:
+      enabled: true
+      action: video-to-audio
+      response: *kling_v1_async_response
     public:
       method: POST
       path: /kling/v1/audio/video-to-audio
