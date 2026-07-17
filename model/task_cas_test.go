@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	DB = db
 	LOG_DB = db
 
-	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
+	common.UsingSQLite = true
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
@@ -38,22 +38,37 @@ func TestMain(m *testing.M) {
 		&Task{},
 		&User{},
 		&Token{},
-		&PasskeyCredential{},
-		&TwoFA{},
-		&TwoFABackupCode{},
+		&Workspace{},
 		&Log{},
 		&Channel{},
-		&QuotaData{},
 		&Ability{},
+		&NewAPISupplier{},
+		&NewAPISupplierChannel{},
+		&QuotaData{},
 		&TopUp{},
+		&AffiliateTopUpReward{},
 		&SubscriptionPlan{},
 		&SubscriptionOrder{},
 		&UserSubscription{},
-		&UserOAuthBinding{},
+		&SubscriptionPreConsumeRecord{},
+		&Agent{},
+		&AgentDomain{},
+		&AgentUser{},
+		&AgentPricingRule{},
+		&AgentGroupRatio{},
+		&AgentLedger{},
+		&AgentWithdrawal{},
 		&PerfMetric{},
-		&SystemInstance{},
+		&BillingUsageItem{},
+		&AccountLedgerEntry{},
+		&BillingStatement{},
+		&BillingStatementSummary{},
+		&RetryRouteEvent{},
+		&ErrorRequestLog{},
+		&Midjourney{},
 		&SystemTask{},
 		&SystemTaskLock{},
+		&SystemInstance{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -65,24 +80,39 @@ func truncateTables(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
 		DB.Exec("DELETE FROM tasks")
-		DB.Exec("DELETE FROM passkey_credentials")
-		DB.Exec("DELETE FROM two_fa_backup_codes")
-		DB.Exec("DELETE FROM two_fas")
-		DB.Exec("DELETE FROM tokens")
-		DB.Exec("DELETE FROM user_oauth_bindings")
 		DB.Exec("DELETE FROM users")
+		DB.Exec("DELETE FROM tokens")
+		DB.Exec("DELETE FROM workspaces")
 		DB.Exec("DELETE FROM logs")
 		DB.Exec("DELETE FROM channels")
-		DB.Exec("DELETE FROM quota_data")
 		DB.Exec("DELETE FROM abilities")
+		DB.Exec("DELETE FROM new_api_suppliers")
+		DB.Exec("DELETE FROM new_api_supplier_channels")
+		DB.Exec("DELETE FROM quota_data")
 		DB.Exec("DELETE FROM top_ups")
+		DB.Exec("DELETE FROM affiliate_top_up_rewards")
 		DB.Exec("DELETE FROM subscription_orders")
 		DB.Exec("DELETE FROM subscription_plans")
 		DB.Exec("DELETE FROM user_subscriptions")
+		DB.Exec("DELETE FROM subscription_pre_consume_records")
+		DB.Exec("DELETE FROM agents")
+		DB.Exec("DELETE FROM agent_domains")
+		DB.Exec("DELETE FROM agent_users")
+		DB.Exec("DELETE FROM agent_pricing_rules")
+		DB.Exec("DELETE FROM agent_group_ratios")
+		DB.Exec("DELETE FROM agent_ledgers")
+		DB.Exec("DELETE FROM agent_withdrawals")
 		DB.Exec("DELETE FROM perf_metrics")
-		DB.Exec("DELETE FROM system_instances")
-		DB.Exec("DELETE FROM system_task_locks")
+		DB.Exec("DELETE FROM billing_usage_items")
+		DB.Exec("DELETE FROM account_ledger_entries")
+		DB.Exec("DELETE FROM billing_statements")
+		DB.Exec("DELETE FROM billing_statement_summaries")
+		DB.Exec("DELETE FROM midjourneys")
 		DB.Exec("DELETE FROM system_tasks")
+		DB.Exec("DELETE FROM system_task_locks")
+		DB.Exec("DELETE FROM system_instances")
+		DB.Exec("DELETE FROM retry_route_events")
+		DB.Exec("DELETE FROM error_request_logs")
 	})
 }
 
@@ -155,6 +185,50 @@ func TestSnapshot_Roundtrip(t *testing.T) {
 	assert.Equal(t, task.FailReason, snap.FailReason)
 	assert.Equal(t, task.PrivateData.ResultURL, snap.ResultURL)
 	assert.JSONEq(t, string(task.Data), string(snap.Data))
+}
+
+func TestGetAllUnFinishSyncTasksIncludesQueuedTaskWithCompleteProgress(t *testing.T) {
+	truncateTables(t)
+	insertTask(t, &Task{
+		TaskID:   "task_queued_progress_complete",
+		Status:   TaskStatusQueued,
+		Progress: "100%",
+	})
+	insertTask(t, &Task{
+		TaskID:   "task_success",
+		Status:   TaskStatusSuccess,
+		Progress: "100%",
+	})
+
+	tasks := GetAllUnFinishSyncTasks(10)
+
+	require.Len(t, tasks, 1)
+	assert.Equal(t, "task_queued_progress_complete", tasks[0].TaskID)
+}
+
+func TestHasUnfinishedMidjourneyTasksMatchesPollingQuery(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, DB.Create(&Midjourney{
+		MjId:     "mj_incomplete_blank_status",
+		Status:   "",
+		Progress: "0%",
+	}).Error)
+
+	assert.True(t, HasUnfinishedMidjourneyTasks())
+}
+
+func TestCountActiveSystemInstancesUsesLastSeenAt(t *testing.T) {
+	truncateTables(t)
+
+	now := int64(1_782_800_000)
+	require.NoError(t, UpsertSystemInstance("active-node", map[string]any{"role": "runner"}, now-300, now-10))
+	require.NoError(t, UpsertSystemInstance("stale-node", map[string]any{"role": "runner"}, now-300, now-300))
+
+	count, err := CountActiveSystemInstances(now)
+
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, count)
 }
 
 // ---------------------------------------------------------------------------
