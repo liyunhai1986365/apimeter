@@ -69,6 +69,10 @@ func TestMain(m *testing.M) {
 		&SystemTask{},
 		&SystemTaskLock{},
 		&SystemInstance{},
+		&TwoFA{},
+		&TwoFABackupCode{},
+		&PasskeyCredential{},
+		&UserOAuthBinding{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -111,6 +115,10 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM system_tasks")
 		DB.Exec("DELETE FROM system_task_locks")
 		DB.Exec("DELETE FROM system_instances")
+		DB.Exec("DELETE FROM two_fas")
+		DB.Exec("DELETE FROM two_fa_backup_codes")
+		DB.Exec("DELETE FROM passkey_credentials")
+		DB.Exec("DELETE FROM user_oauth_bindings")
 		DB.Exec("DELETE FROM retry_route_events")
 		DB.Exec("DELETE FROM error_request_logs")
 	})
