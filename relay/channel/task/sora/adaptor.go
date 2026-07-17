@@ -92,6 +92,9 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if info.Action == constant.TaskActionRemix {
 		return validateRemixRequest(c)
 	}
+	if isGrokVideoRequest(info) && !strings.HasPrefix(c.GetHeader("Content-Type"), "application/json") {
+		return service.TaskErrorWrapperLocal(fmt.Errorf("grok video requests must use application/json"), "invalid_request", http.StatusBadRequest)
+	}
 	return relaycommon.ValidateMultipartDirect(c, info)
 }
 
@@ -140,7 +143,11 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 // BuildRequestHeader sets required headers.
 func (a *TaskAdaptor) BuildRequestHeader(c *gin.Context, req *http.Request, info *relaycommon.RelayInfo) error {
 	req.Header.Set("Authorization", "Bearer "+a.apiKey)
-	req.Header.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+	if isGrokVideoRequest(info) {
+		req.Header.Set("Content-Type", "application/json")
+	} else {
+		req.Header.Set("Content-Type", c.Request.Header.Get("Content-Type"))
+	}
 	return nil
 }
 
@@ -154,6 +161,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		return nil, errors.Wrap(err, "read_body_bytes_failed")
 	}
 	contentType := c.GetHeader("Content-Type")
+	if isGrokVideoRequest(info) && !strings.HasPrefix(contentType, "application/json") {
+		return nil, fmt.Errorf("grok video requests must use application/json")
+	}
 
 	if strings.HasPrefix(contentType, "application/json") {
 		var bodyMap map[string]interface{}
@@ -218,6 +228,11 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	}
 
 	return common.ReaderOnly(storage), nil
+}
+
+func isGrokVideoRequest(info *relaycommon.RelayInfo) bool {
+	return info != nil && (strings.HasPrefix(info.OriginModelName, "grok-imagine-video") ||
+		strings.HasPrefix(info.UpstreamModelName, "grok-imagine-video"))
 }
 
 // DoRequest delegates to common helper.
