@@ -204,7 +204,7 @@ func main() {
 		Path:     "/",
 		MaxAge:   2592000, // 30 days
 		HttpOnly: true,
-		Secure:   false,
+		Secure:   common.SessionCookieSecure,
 		// Lax keeps the signed session on top-level OAuth/SSO GET redirects while
 		// still withholding it from cross-site POST requests and embedded frames.
 		SameSite: http.SameSiteLaxMode,
