@@ -24,6 +24,13 @@ func UsingMainDatabase(databaseType string) bool {
 	}
 }
 
+func SetDatabaseTypes(mainType, logType string) {
+	UsingSQLite = mainType == DatabaseTypeSQLite
+	UsingPostgreSQL = mainType == DatabaseTypePostgreSQL
+	UsingMySQL = mainType == DatabaseTypeMySQL
+	LogSqlType = logType
+}
+
 var UsingClickHouse = false
 
 var SQLitePath = "one-api.db?_busy_timeout=30000"
