@@ -54,7 +54,9 @@ function SemiLocaleWrapper({ children }) {
 
 // initialization
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
+const rootElement = document.getElementById('root');
+rootElement.querySelector('[data-seo-shell="true"]')?.remove();
+const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
     <StatusProvider>

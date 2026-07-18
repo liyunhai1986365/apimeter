@@ -25,6 +25,7 @@ export type SEODescriptor = {
   description: string
   robots: 'index, follow' | 'noindex, nofollow'
   canonicalPath?: string
+  structuredData?: Record<string, unknown>
 }
 
 const PRIVATE_PREFIXES = [
@@ -90,31 +91,97 @@ export function resolveSEODescriptor(
 
   if (path === '/') {
     return {
-      title: `${t('Models unified API gateway')} | ${siteName}`,
-      description: homeDescription,
+      title: `${t('AI Model APIs, Pricing & Access')} | ${siteName}`,
+      description: t(
+        'Compare and access AI model providers, API pricing, supported endpoints and capabilities on {{site}}.',
+        { site: siteName }
+      ),
       robots: 'index, follow',
       canonicalPath: '/',
+      structuredData: {
+        '@context': 'https://schema.org',
+        '@graph': [
+          { '@type': 'WebSite', name: siteName, url: '/' },
+          { '@type': 'Organization', name: siteName, url: '/' },
+        ],
+      },
     }
   }
 
   const publicPage = getPublicPageTitle(path, t)
   if (publicPage) {
-    return {
+    const descriptor: SEODescriptor = {
       title: `${publicPage} | ${siteName}`,
       description: `${publicPage} - ${siteName}. ${t('Powerful API Management Platform')}`,
       robots: 'index, follow',
       canonicalPath: path,
     }
+    if (path === '/pricing') {
+      descriptor.title = `${t('AI Model API Pricing & Comparison')} | ${siteName}`
+      descriptor.description = t(
+        'Compare AI model API pricing, supported endpoints, capabilities and access options on {{site}}.',
+        { site: siteName }
+      )
+    }
+    descriptor.structuredData =
+      path === '/pricing'
+        ? {
+            '@context': 'https://schema.org',
+            '@type': 'CollectionPage',
+            name: t('AI Model API Pricing & Comparison'),
+            url: path,
+          }
+        : {
+            '@context': 'https://schema.org',
+            '@type': 'WebPage',
+            name: publicPage,
+            url: path,
+          }
+    return descriptor
   }
 
   if (path.startsWith('/pricing/')) {
     const modelName = decodePathSegment(path.slice('/pricing/'.length))
     if (modelName) {
       return {
-        title: `${modelName} ${t('Model Price')} | ${siteName}`,
-        description: `${modelName} ${t('Model Price')} - ${siteName}.`,
+        title: `${t('{{model}} API Pricing & Access', { model: modelName })} | ${siteName}`,
+        description: t(
+          'Compare {{model}} API pricing, supported endpoints, capabilities and access options on {{site}}.',
+          { model: modelName, site: siteName }
+        ),
         robots: 'index, follow',
         canonicalPath: `/pricing/${encodeURIComponent(modelName)}`,
+        structuredData: {
+          '@context': 'https://schema.org',
+          '@graph': [
+            {
+              '@type': 'WebPage',
+              name: t('{{model}} API Pricing & Access', { model: modelName }),
+              url: `/pricing/${encodeURIComponent(modelName)}`,
+              about: {
+                '@type': 'Service',
+                name: `${modelName} API`,
+              },
+            },
+            {
+              '@type': 'BreadcrumbList',
+              itemListElement: [
+                {
+                  '@type': 'ListItem',
+                  position: 1,
+                  name: t('AI Model API Pricing & Comparison'),
+                  item: '/pricing',
+                },
+                {
+                  '@type': 'ListItem',
+                  position: 2,
+                  name: modelName,
+                  item: `/pricing/${encodeURIComponent(modelName)}`,
+                },
+              ],
+            },
+          ],
+        },
       }
     }
   }

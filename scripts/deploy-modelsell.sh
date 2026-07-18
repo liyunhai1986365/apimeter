@@ -128,6 +128,8 @@ init_context() {
   DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-30}"
   DEPLOY_STOP_TIMEOUT="${DEPLOY_STOP_TIMEOUT:-135}"
   DEPLOY_KEEP_RELEASES="${DEPLOY_KEEP_RELEASES:-5}"
+  DEPLOY_SEO_VERIFY="${DEPLOY_SEO_VERIFY:-true}"
+  DEPLOY_SEO_CANONICAL_URL="${DEPLOY_SEO_CANONICAL_URL:-https://modelsell.com}"
 
   require_var DEPLOY_HOST
   require_var DEPLOY_REMOTE_DIR
@@ -206,6 +208,7 @@ build_package() {
 
   install -m 0755 "$ROOT_DIR/scripts/start-modelsell.sh" "$BUILD_DIR/start-modelsell.sh"
   install -m 0755 "$ROOT_DIR/scripts/rollback-modelsell.sh" "$BUILD_DIR/rollback-modelsell.sh"
+  install -m 0755 "$ROOT_DIR/scripts/verify-modelsell-seo.sh" "$BUILD_DIR/verify-modelsell-seo.sh"
 
   log "Package artifact: $ARCHIVE_PATH"
   (
@@ -213,7 +216,8 @@ build_package() {
     COPYFILE_DISABLE=1 tar --no-xattrs -czf "$ARCHIVE_NAME" \
       "$DEPLOY_BINARY_NAME" \
       start-modelsell.sh \
-      rollback-modelsell.sh
+      rollback-modelsell.sh \
+      verify-modelsell-seo.sh
   )
 }
 
@@ -250,7 +254,7 @@ run_remote_deploy() {
   local apply_release="$1"
   local install_env="$2"
 
-  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' STOP_TIMEOUT='$DEPLOY_STOP_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' bash -s" <<'REMOTE_SCRIPT'
+  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' STOP_TIMEOUT='$DEPLOY_STOP_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' SEO_VERIFY='$DEPLOY_SEO_VERIFY' SEO_CANONICAL_URL='$DEPLOY_SEO_CANONICAL_URL' bash -s" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 RELEASES_DIR="$REMOTE_DIR/releases"
@@ -356,6 +360,17 @@ wait_service_healthy() {
   return 1
 }
 
+verify_seo() {
+  [[ "$SEO_VERIFY" == "true" ]] || return 0
+  local verifier="$CURRENT_LINK/verify-modelsell-seo.sh"
+  [[ -x "$verifier" ]] || {
+    warn "SEO verifier is missing: $verifier"
+    return 1
+  }
+  log "SEO verification: origin=http://127.0.0.1:${APP_PORT} canonical=${SEO_CANONICAL_URL}"
+  "$verifier" "http://127.0.0.1:${APP_PORT}" "$SEO_CANONICAL_URL"
+}
+
 stop_service() {
   log "Stopping service (graceful timeout=${STOP_TIMEOUT}s): $SERVICE_NAME"
   local stop_rc=0
@@ -382,6 +397,7 @@ ensure_app_port_available() {
 }
 
 start_and_verify() {
+  local verify_release_seo="${1:-false}"
   stop_service || return 1
   ensure_app_port_available || return 1
   log "Starting service with release: $(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
@@ -389,7 +405,10 @@ start_and_verify() {
     warn "systemctl start failed: $SERVICE_NAME"
     return 1
   fi
-  wait_service_healthy
+  wait_service_healthy || return 1
+  if [[ "$verify_release_seo" == "true" ]]; then
+    verify_seo
+  fi
 }
 
 rollback_service() {
@@ -408,7 +427,7 @@ rollback_service() {
   fi
 
   systemctl daemon-reload || true
-  if start_and_verify; then
+  if start_and_verify false; then
     warn "Rollback completed"
   else
     warn "Rollback health check failed"
@@ -474,9 +493,11 @@ if [[ "$APPLY_RELEASE" == "1" ]]; then
   chmod +x "$RELEASE_DIR/$BINARY_NAME"
   [[ -e "$RELEASE_DIR/start-modelsell.sh" ]] && chmod +x "$RELEASE_DIR/start-modelsell.sh"
   [[ -e "$RELEASE_DIR/rollback-modelsell.sh" ]] && chmod +x "$RELEASE_DIR/rollback-modelsell.sh"
+  [[ -e "$RELEASE_DIR/verify-modelsell-seo.sh" ]] && chmod +x "$RELEASE_DIR/verify-modelsell-seo.sh"
   mkdir -p "$REMOTE_DIR/bin"
   [[ -e "$RELEASE_DIR/start-modelsell.sh" ]] && install -m 0755 "$RELEASE_DIR/start-modelsell.sh" "$REMOTE_DIR/bin/start-modelsell.sh"
   [[ -e "$RELEASE_DIR/rollback-modelsell.sh" ]] && install -m 0755 "$RELEASE_DIR/rollback-modelsell.sh" "$REMOTE_DIR/bin/rollback-modelsell.sh"
+  [[ -e "$RELEASE_DIR/verify-modelsell-seo.sh" ]] && install -m 0755 "$RELEASE_DIR/verify-modelsell-seo.sh" "$REMOTE_DIR/bin/verify-modelsell-seo.sh"
 fi
 
 if [[ "$INSTALL_ENV" == "1" ]]; then
@@ -497,7 +518,7 @@ start_service_log_stream
 if [[ "$APPLY_RELEASE" == "1" ]]; then
   log "Switching current release: ${PREVIOUS_TARGET:-<none>} -> $RELEASE_DIR"
   ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"
-  if ! start_and_verify; then
+  if ! start_and_verify true; then
     rollback_service "$PREVIOUS_TARGET"
     exit 1
   fi
@@ -506,7 +527,7 @@ if [[ "$APPLY_RELEASE" == "1" ]]; then
 fi
 
 if [[ -x "$CURRENT_LINK/$BINARY_NAME" ]]; then
-  if ! start_and_verify; then
+  if ! start_and_verify false; then
     rollback_service "$PREVIOUS_TARGET"
     exit 1
   fi

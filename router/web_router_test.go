@@ -8,6 +8,8 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -26,9 +28,9 @@ func TestRenderIndexPageUsesSystemNameForInitialTitle(t *testing.T) {
 
 	rendered := renderIndexPage(c, html)
 
-	require.Contains(t, string(rendered), `<title>Unified AI API Gateway | ModelSell</title>`)
+	require.Contains(t, string(rendered), `<title>AI Model APIs, Pricing &amp; Access | ModelSell</title>`)
 	require.Contains(t, string(rendered), `<meta name="robots" content="index, follow" />`)
-	require.Contains(t, string(rendered), `property="og:title" content="Unified AI API Gateway | ModelSell"`)
+	require.Contains(t, string(rendered), `property="og:title" content="AI Model APIs, Pricing &amp; Access | ModelSell"`)
 	require.NotContains(t, string(rendered), `<title>New API</title>`)
 }
 
@@ -48,8 +50,8 @@ func TestRenderIndexPageUsesAgentSiteNameForInitialTitle(t *testing.T) {
 
 	rendered := renderIndexPage(c, html)
 
-	require.Contains(t, string(rendered), `<title>Unified AI API Gateway | Agent &amp; Site</title>`)
-	require.Contains(t, string(rendered), `<meta name="title" content="Unified AI API Gateway | Agent &amp; Site" />`)
+	require.Contains(t, string(rendered), `<title>AI Model APIs, Pricing &amp; Access | Agent &amp; Site</title>`)
+	require.Contains(t, string(rendered), `<meta name="title" content="AI Model APIs, Pricing &amp; Access | Agent &amp; Site" />`)
 	require.NotContains(t, string(rendered), `<title>New API</title>`)
 }
 
@@ -66,13 +68,18 @@ func TestRenderIndexPageReplacesLoadingPlaceholderTitle(t *testing.T) {
 
 	rendered := renderIndexPage(c, html)
 
-	require.Contains(t, string(rendered), `<title>Unified AI API Gateway | ModelSell</title>`)
-	require.Contains(t, string(rendered), `<meta name="title" content="Unified AI API Gateway | ModelSell" />`)
+	require.Contains(t, string(rendered), `<title>AI Model APIs, Pricing &amp; Access | ModelSell</title>`)
+	require.Contains(t, string(rendered), `<meta name="title" content="AI Model APIs, Pricing &amp; Access | ModelSell" />`)
 	require.NotContains(t, string(rendered), `<title>loading</title>`)
 }
 
 func TestResolveSEOPageUsesCanonicalPathWithoutQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = ""
+	t.Cleanup(func() {
+		system_setting.ServerAddress = oldServerAddress
+	})
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest("GET", "https://example.com/pricing?search=gpt&group=vip", nil)
@@ -84,6 +91,50 @@ func TestResolveSEOPageUsesCanonicalPathWithoutQuery(t *testing.T) {
 	require.Equal(t, http.StatusOK, page.Status)
 	require.Equal(t, "https://example.com/pricing", page.Canonical)
 	require.Equal(t, "index, follow", page.Robots)
+}
+
+func TestRequestOriginUsesConfiguredPrimarySiteForMainDomain(t *testing.T) {
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com/base?ignored=true"
+	t.Cleanup(func() {
+		system_setting.ServerAddress = oldServerAddress
+	})
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "https://www.modelsell.com/pricing", nil)
+
+	require.Equal(t, "https://modelsell.com", requestOrigin(c))
+}
+
+func TestRequestOriginKeepsAgentCustomDomain(t *testing.T) {
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() {
+		system_setting.ServerAddress = oldServerAddress
+	})
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "https://modelsell.com/pricing", nil)
+	c.Request.Header.Set("X-Forwarded-Proto", "https")
+	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+		Domain: "agent.example.com",
+	})
+
+	require.Equal(t, "https://agent.example.com", requestOrigin(c))
+}
+
+func TestRequestOriginIgnoresDefaultLocalhostOnPublicRequest(t *testing.T) {
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "http://localhost:3000"
+	t.Cleanup(func() {
+		system_setting.ServerAddress = oldServerAddress
+	})
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "https://gateway.example.com/pricing", nil)
+	c.Request.Header.Set("X-Forwarded-Proto", "https")
+
+	require.Equal(t, "https://gateway.example.com", requestOrigin(c))
 }
 
 func TestResolveSEOPageMarksUnknownPathAsRealNotFound(t *testing.T) {
@@ -100,6 +151,11 @@ func TestResolveSEOPageMarksUnknownPathAsRealNotFound(t *testing.T) {
 
 func TestServeRobotsTXTIncludesRequestScopedSitemap(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = ""
+	t.Cleanup(func() {
+		system_setting.ServerAddress = oldServerAddress
+	})
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest("GET", "https://agent.example.com/robots.txt", nil)
@@ -111,6 +167,24 @@ func TestServeRobotsTXTIncludesRequestScopedSitemap(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "Disallow: /api/")
 	require.Contains(t, recorder.Body.String(), "Sitemap: https://agent.example.com/sitemap.xml")
+}
+
+func TestSEOSystemRoutesSupportHeadRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	engine := gin.New()
+	engine.GET("/robots.txt", serveRobotsTXT)
+	engine.HEAD("/robots.txt", serveRobotsTXT)
+	engine.GET("/sitemap.xml", serveSitemapXML)
+	engine.HEAD("/sitemap.xml", serveSitemapXML)
+
+	for _, path := range []string{"/robots.txt", "/sitemap.xml"} {
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodHead, path, nil)
+		engine.ServeHTTP(recorder, request)
+
+		require.Equal(t, http.StatusOK, recorder.Code, path)
+		require.NotContains(t, recorder.Header().Get("Content-Type"), "text/html", path)
+	}
 }
 
 func TestBuildSEOBlockEscapesValues(t *testing.T) {
@@ -137,7 +211,87 @@ func TestRenderSEOMetadataKeepsDollarSignsLiteral(t *testing.T) {
 
 	rendered := renderSEOMetadata(c, `<head><!--seo-meta-start--><title>New API</title><!--seo-meta-end--></head>`)
 
-	require.Contains(t, rendered, `Unified AI API Gateway | Price $1`)
+	require.Contains(t, rendered, `AI Model APIs, Pricing &amp; Access | Price $1`)
+}
+
+func TestModelPageJSONLDDescribesAPIServiceWithoutFakeOffer(t *testing.T) {
+	jsonLD := modelPageJSONLD("https://example.com", model.Pricing{
+		ModelName:       "gpt-4.1-mini",
+		ModelRatio:      0.2,
+		CompletionRatio: 4,
+		SupportedEndpointTypes: []constant.EndpointType{
+			constant.EndpointTypeOpenAI,
+			constant.EndpointTypeOpenAIResponse,
+		},
+	}, "Compare gpt-4.1-mini API pricing.")
+
+	require.Contains(t, jsonLD, `"@type":"Service"`)
+	require.Contains(t, jsonLD, `"name":"gpt-4.1-mini API"`)
+	require.Contains(t, jsonLD, `OpenAI Responses API`)
+	require.Contains(t, jsonLD, `POST /v1/chat/completions`)
+	require.Contains(t, jsonLD, `POST /v1/responses`)
+	require.Contains(t, jsonLD, `"name":"Base input price"`)
+	require.Contains(t, jsonLD, `"value":"$0.4 per 1M tokens"`)
+	require.NotContains(t, jsonLD, `"Offer"`)
+}
+
+func TestSEOModelPriceItemsUsePublicBillingSemantics(t *testing.T) {
+	require.Equal(t, []seoPriceItem{
+		{Label: "Base input price", Value: "$0.5 per 1M tokens"},
+		{Label: "Base output price", Value: "$2 per 1M tokens"},
+	}, seoModelPriceItems(model.Pricing{
+		ModelRatio:      0.25,
+		CompletionRatio: 4,
+	}))
+
+	require.Equal(t, []seoPriceItem{
+		{Label: "Base price", Value: "$0.02 per request"},
+	}, seoModelPriceItems(model.Pricing{
+		QuotaType:  1,
+		ModelPrice: 0.02,
+	}))
+
+	require.Equal(t, []seoPriceItem{
+		{Label: "Billing model", Value: "Dynamic usage-based pricing"},
+	}, seoModelPriceItems(model.Pricing{
+		BillingMode: "tiered_expr",
+		BillingExpr: `tier("base", p * 2.5 + c * 15)`,
+	}))
+}
+
+func TestModelPageJSONLDIncludesCanonicalModelAliases(t *testing.T) {
+	jsonLD := modelPageJSONLD("https://example.com", model.Pricing{
+		ModelName:    "primary-model",
+		AliasModels:  []string{"primary-model-latest", "primary-model-preview"},
+		Capabilities: []string{"function_calling", "vision"},
+	}, "Primary model API pricing.")
+
+	require.Contains(t, jsonLD, `"alternateName":["primary-model-latest","primary-model-preview"]`)
+	require.Contains(t, jsonLD, `"category":"function calling, vision"`)
+}
+
+func TestBuildSEOShellRendersModelPriceAndSearchableDetails(t *testing.T) {
+	page := seoPage{
+		Path:        "/pricing/gpt-4.1-mini",
+		Description: "gpt-4.1-mini API pricing.",
+		Model: &model.Pricing{
+			ModelName:              "gpt-4.1-mini",
+			ModelRatio:             0.2,
+			CompletionRatio:        4,
+			AliasModels:            []string{"gpt-4.1-mini-latest"},
+			Capabilities:           []string{"function_calling", "vision"},
+			SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI},
+		},
+	}
+
+	shell := buildSEOShell(nil, page)
+	require.Contains(t, shell, `gpt-4.1-mini API pricing &amp; access`)
+	require.Contains(t, shell, `$0.4 per 1M tokens`)
+	require.Contains(t, shell, `$1.6 per 1M tokens`)
+	require.Contains(t, shell, `OpenAI Chat Completions API`)
+	require.Contains(t, shell, `POST /v1/chat/completions`)
+	require.Contains(t, shell, `gpt-4.1-mini-latest`)
+	require.Contains(t, shell, `function calling, vision`)
 }
 
 func TestServeFrontendPageReturnsNotFoundHTMLForUnknownPath(t *testing.T) {

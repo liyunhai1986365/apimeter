@@ -31,7 +31,9 @@ func SetWebRouter(router *gin.Engine, assets ThemeAssets) {
 	router.Use(middleware.Cache())
 	router.Use(static.Serve("/", themeFS))
 	router.GET("/robots.txt", serveRobotsTXT)
+	router.HEAD("/robots.txt", serveRobotsTXT)
 	router.GET("/sitemap.xml", serveSitemapXML)
+	router.HEAD("/sitemap.xml", serveSitemapXML)
 	router.GET("/index.html", func(c *gin.Context) {
 		c.Set(middleware.RouteTagKey, "web")
 		c.Header("Cache-Control", "no-cache")

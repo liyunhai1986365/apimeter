@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useRouterState } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useSystemConfigStore } from '@/stores/system-config-store'
@@ -48,6 +48,42 @@ function upsertCanonical(href?: string): void {
   if (!element) document.head.append(canonical)
 }
 
+function upsertStructuredData(
+  data: Record<string, unknown> | undefined,
+  origin: string
+): void {
+  const existing = document.head.querySelector<HTMLScriptElement>(
+    'script[data-seo-jsonld="true"]'
+  )
+  if (!data) {
+    existing?.remove()
+    return
+  }
+  const script = existing ?? document.createElement('script')
+  script.type = 'application/ld+json'
+  script.dataset.seoJsonld = 'true'
+  script.textContent = JSON.stringify(absolutizeStructuredData(data, origin))
+  if (!existing) document.head.append(script)
+}
+
+function absolutizeStructuredData(value: unknown, origin: string): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => absolutizeStructuredData(item, origin))
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [
+        key,
+        absolutizeStructuredData(item, origin),
+      ])
+    )
+  }
+  if (typeof value === 'string' && value.startsWith('/')) {
+    return new URL(value, origin).toString()
+  }
+  return value
+}
+
 export function SEOManager() {
   const { i18n, t } = useTranslation()
   const pathname = useRouterState({
@@ -57,6 +93,30 @@ export function SEOManager() {
     select: (state) => state.statusCode,
   })
   const systemName = useSystemConfigStore((state) => state.config.systemName)
+  const serverAddress = useSystemConfigStore(
+    (state) => state.config.serverAddress
+  )
+  const initialPathname = useRef(pathname)
+  const initialCanonical = useRef(
+    document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href
+  )
+  const canonicalOrigin = useRef(
+    getCanonicalOrigin(
+      document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')
+        ?.href,
+      getCanonicalOrigin(serverAddress, window.location.origin)
+    )
+  )
+  const initialTitle = useRef(document.title)
+  const initialDescription = useRef(
+    document.head.querySelector<HTMLMetaElement>('meta[name="description"]')
+      ?.content
+  )
+  const initialStructuredData = useRef(
+    document.head.querySelector<HTMLScriptElement>(
+      'script[data-seo-jsonld="true"]'
+    )?.textContent
+  )
 
   useEffect(() => {
     const descriptor = resolveSEODescriptor(pathname, systemName, t)
@@ -65,9 +125,28 @@ export function SEOManager() {
       descriptor.robots = 'noindex, nofollow'
       descriptor.canonicalPath = undefined
     }
-    const canonical = descriptor.canonicalPath
-      ? new URL(descriptor.canonicalPath, window.location.origin).toString()
+    let canonical = descriptor.canonicalPath
+      ? new URL(descriptor.canonicalPath, canonicalOrigin.current).toString()
       : undefined
+    const preserveServerModelMetadata =
+      pathname === initialPathname.current &&
+      pathname.startsWith('/pricing/') &&
+      Boolean(initialCanonical.current)
+    if (preserveServerModelMetadata) {
+      canonical = initialCanonical.current
+      descriptor.title = initialTitle.current
+      descriptor.description =
+        initialDescription.current ?? descriptor.description
+      if (initialStructuredData.current) {
+        try {
+          descriptor.structuredData = JSON.parse(
+            initialStructuredData.current
+          ) as Record<string, unknown>
+        } catch {
+          /* keep the client-generated fallback */
+        }
+      }
+    }
 
     document.documentElement.lang = getHTMLLanguage(i18n.resolvedLanguage)
     document.title = descriptor.title
@@ -104,7 +183,20 @@ export function SEOManager() {
       content: descriptor.description,
     })
     upsertCanonical(canonical)
+    upsertStructuredData(descriptor.structuredData, canonicalOrigin.current)
   }, [i18n.resolvedLanguage, pathname, routeStatusCode, systemName, t])
 
   return null
+}
+
+function getCanonicalOrigin(
+  canonical: string | undefined,
+  fallback: string
+): string {
+  if (!canonical) return fallback
+  try {
+    return new URL(canonical).origin
+  } catch {
+    return fallback
+  }
 }

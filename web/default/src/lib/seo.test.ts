@@ -7,7 +7,12 @@ import {
   resolveSEODescriptor,
 } from './seo'
 
-const t = ((key: string) => key) as TFunction
+const t = ((key: string, options?: Record<string, string>) =>
+  Object.entries(options ?? {}).reduce(
+    (value, [name, replacement]) =>
+      value.replaceAll(`{{${name}}}`, replacement),
+    key
+  )) as TFunction
 
 describe('SEO helpers', () => {
   test('normalizes canonical paths without trailing slashes', () => {
@@ -22,7 +27,14 @@ describe('SEO helpers', () => {
   test('indexes public pages and strips filter state from canonical URLs', () => {
     const descriptor = resolveSEODescriptor('/pricing/', 'ModelSell', t)
 
-    assert.equal(descriptor.title, 'Model Price | ModelSell')
+    assert.equal(
+      descriptor.title,
+      'AI Model API Pricing & Comparison | ModelSell'
+    )
+    assert.equal(
+      descriptor.description,
+      'Compare AI model API pricing, supported endpoints, capabilities and access options on ModelSell.'
+    )
     assert.equal(descriptor.canonicalPath, '/pricing')
     assert.equal(descriptor.robots, 'index, follow')
   })
@@ -34,7 +46,14 @@ describe('SEO helpers', () => {
       t
     )
 
-    assert.equal(descriptor.title, 'gpt-4.1 mini Model Price | ModelSell')
+    assert.equal(
+      descriptor.title,
+      'gpt-4.1 mini API Pricing & Access | ModelSell'
+    )
+    assert.equal(
+      descriptor.description,
+      'Compare gpt-4.1 mini API pricing, supported endpoints, capabilities and access options on ModelSell.'
+    )
     assert.equal(descriptor.canonicalPath, '/pricing/gpt-4.1%20mini')
     assert.equal(descriptor.robots, 'index, follow')
   })
