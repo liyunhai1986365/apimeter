@@ -16,7 +16,7 @@ type embedFileSystem struct {
 }
 
 func (e *embedFileSystem) Exists(prefix string, path string) bool {
-	if path == "/index.html" || path == "index.html" {
+	if path == "/index.html" || path == "index.html" || path == "/robots.txt" || path == "robots.txt" || path == "/sitemap.xml" || path == "sitemap.xml" {
 		return false
 	}
 	_, err := e.Open(path)

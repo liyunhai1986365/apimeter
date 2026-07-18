@@ -111,16 +111,12 @@ declare module '@tanstack/react-router' {
 
 // Render the app
 const rootElement = document.getElementById('root')!
-// Set document.title and favicon from cached status, then refresh from network
+// Set cached branding before React mounts; SEOManager owns route-specific titles.
 ;(function initSystemBranding() {
   try {
     if (typeof window === 'undefined' || typeof document === 'undefined') return
     const apply = (name: string) => {
-      document.title = name
-      const metaTitle = document.querySelector(
-        'meta[name="title"]'
-      ) as HTMLMetaElement | null
-      if (metaTitle) metaTitle.setAttribute('content', name)
+      document.documentElement.dataset.siteName = name
     }
     // Cache-first
     try {

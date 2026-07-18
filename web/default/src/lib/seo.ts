@@ -1,0 +1,164 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+import type { TFunction } from 'i18next'
+import { toIntlLocale } from '@/i18n/languages'
+import { getSiteName } from '@/lib/site-branding'
+
+export type SEODescriptor = {
+  title: string
+  description: string
+  robots: 'index, follow' | 'noindex, nofollow'
+  canonicalPath?: string
+}
+
+const PRIVATE_PREFIXES = [
+  '/agent-management',
+  '/agents',
+  '/billing',
+  '/channels',
+  '/chat',
+  '/console',
+  '/dashboard',
+  '/keys',
+  '/model-billing',
+  '/model-monitor',
+  '/model-profit',
+  '/models',
+  '/oauth',
+  '/playground',
+  '/profile',
+  '/provider',
+  '/redemption-codes',
+  '/setup',
+  '/subscriptions',
+  '/suppliers',
+  '/system-settings',
+  '/system-tasks',
+  '/usage-logs',
+  '/user-subscription',
+  '/users',
+  '/wallet',
+]
+
+const PRIVATE_PATHS = new Set([
+  '/forgot-password',
+  '/invite',
+  '/login',
+  '/otp',
+  '/register',
+  '/reset',
+  '/sign-in',
+  '/sign-up',
+  '/user/reset',
+])
+
+export function normalizeSEOPath(pathname: string): string {
+  if (!pathname || pathname === '/index.html') return '/'
+  return pathname !== '/' ? pathname.replace(/\/+$/, '') : pathname
+}
+
+export function getHTMLLanguage(language?: string | null): string {
+  return toIntlLocale(language) ?? 'en'
+}
+
+export function resolveSEODescriptor(
+  pathname: string,
+  systemName: string | undefined,
+  t: TFunction
+): SEODescriptor {
+  const siteName = getSiteName(systemName)
+  const path = normalizeSEOPath(pathname)
+  const homeDescription = t(
+    'Unify OpenAI, Claude, Gemini, DeepSeek and private channels with shared keys, billing, fallback routing, and live request visibility.'
+  )
+
+  if (path === '/') {
+    return {
+      title: `${t('Models unified API gateway')} | ${siteName}`,
+      description: homeDescription,
+      robots: 'index, follow',
+      canonicalPath: '/',
+    }
+  }
+
+  const publicPage = getPublicPageTitle(path, t)
+  if (publicPage) {
+    return {
+      title: `${publicPage} | ${siteName}`,
+      description: `${publicPage} - ${siteName}. ${t('Powerful API Management Platform')}`,
+      robots: 'index, follow',
+      canonicalPath: path,
+    }
+  }
+
+  if (path.startsWith('/pricing/')) {
+    const modelName = decodePathSegment(path.slice('/pricing/'.length))
+    if (modelName) {
+      return {
+        title: `${modelName} ${t('Model Price')} | ${siteName}`,
+        description: `${modelName} ${t('Model Price')} - ${siteName}.`,
+        robots: 'index, follow',
+        canonicalPath: `/pricing/${encodeURIComponent(modelName)}`,
+      }
+    }
+  }
+
+  if (isPrivatePath(path)) {
+    return {
+      title: siteName,
+      description: homeDescription,
+      robots: 'noindex, nofollow',
+    }
+  }
+
+  return {
+    title: `${t('Oops! Page Not Found!')} | ${siteName}`,
+    description: homeDescription,
+    robots: 'noindex, nofollow',
+  }
+}
+
+function getPublicPageTitle(path: string, t: TFunction): string | undefined {
+  const titles: Record<string, string> = {
+    '/about': t('About'),
+    '/pricing': t('Model Price'),
+    '/privacy-policy': t('Privacy Policy'),
+    '/rankings': t('Rankings'),
+    '/subscription': t('Subscriptions'),
+    '/user-agreement': t('User Agreement'),
+  }
+  return titles[path]
+}
+
+function decodePathSegment(value: string): string | undefined {
+  if (!value || value.includes('/')) return undefined
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return undefined
+  }
+}
+
+function isPrivatePath(path: string): boolean {
+  if (PRIVATE_PATHS.has(path)) return true
+  if (/^\/(401|403|404|500|503)$/.test(path)) return true
+  return PRIVATE_PREFIXES.some(
+    (prefix) => path === prefix || path.startsWith(`${prefix}/`)
+  )
+}

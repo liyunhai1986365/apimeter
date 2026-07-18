@@ -34,6 +34,7 @@ import { useStatus } from '@/hooks/use-status'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { Toaster } from '@/components/ui/sonner'
 import { NavigationProgress } from '@/components/navigation-progress'
+import { SEOManager } from '@/components/seo-manager'
 import { saveAffiliateCode } from '@/features/auth/lib/storage'
 import { GeneralError } from '@/features/errors/general-error'
 import { NotFoundError } from '@/features/errors/not-found-error'
@@ -53,6 +54,7 @@ function RootComponent() {
   return (
     <ThemeCustomizationProvider>
       <AgentThemeCustomizationSync />
+      <SEOManager />
       <NavigationProgress />
       <Outlet />
       <Toaster duration={5000} />

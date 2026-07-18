@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
+import { useTranslation } from 'react-i18next'
 import { PublicLayout } from '@/components/layout'
 import { PageTransition } from '@/components/page-transition'
 import {
@@ -39,6 +40,7 @@ import { useFilters } from './hooks/use-filters'
 import { usePricingData } from './hooks/use-pricing-data'
 
 export function Pricing() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const search = useSearch({ from: '/pricing/' })
 
@@ -177,6 +179,7 @@ export function Pricing() {
           />
 
           <main className='min-w-0'>
+            <h1 className='sr-only'>{t('Model Price')}</h1>
             <div
               className={`bg-background/92 supports-[backdrop-filter]:bg-background/75 sticky z-30 -mx-1 mb-7 flex flex-col gap-2.5 rounded-b-xl px-1 pb-3 shadow-sm backdrop-blur ${PRICING_STICKY_TOP_CLASS}`}
             >
