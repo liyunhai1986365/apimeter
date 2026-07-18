@@ -30,10 +30,15 @@ type ImageRequest struct {
 	OutputCompression json.RawMessage `json:"output_compression,omitempty"`
 	PartialImages     json.RawMessage `json:"partial_images,omitempty"`
 	// Stream            bool            `json:"stream,omitempty"`
-	Images        json.RawMessage `json:"images,omitempty"`
-	Mask          json.RawMessage `json:"mask,omitempty"`
-	InputFidelity json.RawMessage `json:"input_fidelity,omitempty"`
-	Watermark     *bool           `json:"watermark,omitempty"`
+	Images                           json.RawMessage `json:"images,omitempty"`
+	Mask                             json.RawMessage `json:"mask,omitempty"`
+	InputFidelity                    json.RawMessage `json:"input_fidelity,omitempty"`
+	Watermark                        *bool           `json:"watermark,omitempty"`
+	SequentialImageGeneration        string          `json:"sequential_image_generation,omitempty"`
+	SequentialImageGenerationOptions json.RawMessage `json:"sequential_image_generation_options,omitempty"`
+	Stream                           *bool           `json:"stream,omitempty"`
+	Tools                            json.RawMessage `json:"tools,omitempty"`
+	OptimizePromptOptions            json.RawMessage `json:"optimize_prompt_options,omitempty"`
 	// zhipu 4v
 	WatermarkEnabled json.RawMessage `json:"watermark_enabled,omitempty"`
 	UserId           json.RawMessage `json:"user_id,omitempty"`
@@ -285,7 +290,12 @@ func parsePartialImages(raw json.RawMessage) int {
 }
 
 func (i *ImageRequest) IsStream(c *gin.Context) bool {
-	return false
+	if i.Stream == nil || !*i.Stream {
+		return false
+	}
+	// Seedream 5.0 is the image family with a documented SSE contract. Keep
+	// legacy image providers on their existing non-streaming response path.
+	return strings.Contains(strings.ToLower(i.Model), "seedream-5-0")
 }
 
 func (i *ImageRequest) SetModelName(modelName string) {

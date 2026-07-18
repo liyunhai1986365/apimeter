@@ -106,6 +106,9 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if size := SeedreamSizeFromRequest(request); size != "" {
+		request.Size = size
+	}
 	switch info.RelayMode {
 	case constant.RelayModeImagesGenerations:
 		return request, nil
@@ -386,6 +389,9 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 			return handleTTSWebSocketResponse(c, requestURL, volcRequest, info, encoding)
 		}
 		return handleTTSResponse(c, resp, info, encoding)
+	}
+	if info.RelayMode == constant.RelayModeImagesGenerations && info.IsStream {
+		return handleImageStreamResponse(c, resp, info)
 	}
 
 	adaptor := openai.Adaptor{}

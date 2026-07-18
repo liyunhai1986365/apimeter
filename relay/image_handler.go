@@ -134,15 +134,23 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	originalWriter := c.Writer
-	responseCapture := newImageResponseCapture(originalWriter)
-	c.Writer = responseCapture
+	var responseCapture *imageResponseCapture
+	if !info.IsStream {
+		responseCapture = newImageResponseCapture(originalWriter)
+		c.Writer = responseCapture
+	}
 
 	usage, newAPIError := adaptor.DoResponse(c, httpResp, info)
-	c.Writer = originalWriter
+	if responseCapture != nil {
+		c.Writer = originalWriter
+	}
 	if newAPIError != nil {
 		// reset status code 重置状态码
 		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
 		return markImageSubmitUncertainError(newAPIError)
+	}
+	if info.IsStream {
+		return finishStreamImageBilling(c, info, request, usage)
 	}
 
 	if responseCapture.HasBody() {
@@ -255,6 +263,37 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	return nil
 }
 
+func finishStreamImageBilling(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest, usage any) *types.NewAPIError {
+	usageData, ok := usage.(*dto.Usage)
+	if !ok || usageData == nil {
+		return types.NewErrorWithStatusCode(fmt.Errorf("invalid image stream usage type: %T", usage), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	ensureEstimatedImageUsageIfMissing(info, request, usageData)
+
+	imageN := uint(1)
+	if request.N != nil {
+		imageN = *request.N
+	}
+	if info.PriceData.UsePrice {
+		if _, hasN := info.PriceData.OtherRatios["n"]; !hasN {
+			info.PriceData.AddOtherRatio("n", float64(imageN))
+		}
+	}
+	if usageData.TotalTokens == 0 {
+		usageData.TotalTokens = 1
+	}
+	if usageData.PromptTokens == 0 {
+		usageData.PromptTokens = 1
+	}
+
+	logContent := []string{"流式输出"}
+	if request.Size != "" {
+		logContent = append(logContent, fmt.Sprintf("大小 %s", request.Size))
+	}
+	service.PostTextConsumeQuota(c, info, usageData, logContent)
+	return nil
+}
+
 func attachImageBillingResponseBody(info *relaycommon.RelayInfo, body []byte) {
 	if info == nil || len(body) == 0 {
 		return
@@ -305,6 +344,19 @@ func shouldForceConvertImageRequest(info *relaycommon.RelayInfo, request *dto.Im
 		return true
 	}
 	if strings.TrimSpace(request.ResponseFormat) == "" && settings.OpenAIImageResponseFormatOverride() != "" {
+		return true
+	}
+	// Volcengine's Seedream API expects a pixel size. Convert the documented
+	// aspect_ratio/resolution pair before pass-through serialization.
+	modelName := request.Model
+	if info.ChannelMeta != nil && info.ApiType == constant.APITypeVolcEngine &&
+		info.UpstreamModelName != "" {
+		modelName = info.UpstreamModelName
+	}
+	if info.ChannelMeta != nil && info.ApiType == constant.APITypeVolcEngine &&
+		strings.Contains(strings.ToLower(modelName), "seedream") &&
+		strings.TrimSpace(request.Size) == "" &&
+		len(request.Extra["aspect_ratio"]) > 0 {
 		return true
 	}
 	if !imageconv.RequestHasImageInput(request) {
