@@ -82,5 +82,10 @@ assert_heredoc_syntax REMOTE_STOP
 
 [[ -x "$SEO_VERIFY_SCRIPT" ]] || fail 'SEO verification script must be executable'
 bash -n "$SEO_VERIFY_SCRIPT" || fail 'invalid SEO verification script syntax'
+grep -Fq 'match($0, /<loc>[^<]+\/pricing\/[^<]+/)' "$SEO_VERIFY_SCRIPT" || \
+  fail 'SEO verifier must extract the first model URL without a SIGPIPE-prone pipeline'
+if grep -Eq 'grep .*\|[[:space:]]*head' "$SEO_VERIFY_SCRIPT"; then
+  fail 'SEO verifier must not use grep | head under pipefail'
+fi
 
 printf 'deploy-modelsell script safety checks passed\n'

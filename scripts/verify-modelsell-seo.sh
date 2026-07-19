@@ -52,7 +52,12 @@ pass "robots.txt"
 fetch "/sitemap.xml" "sitemap"
 assert_content_type "sitemap" "application/xml"
 assert_body_contains "sitemap" "<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">"
-model_url="$(grep -oE '<loc>[^<]+/pricing/[^<]+' "$TMP_DIR/sitemap.body" | head -n 1 | sed 's#^<loc>##')"
+model_url="$(awk '
+  match($0, /<loc>[^<]+\/pricing\/[^<]+/) {
+    print substr($0, RSTART + 5, RLENGTH - 5)
+    exit
+  }
+' "$TMP_DIR/sitemap.body")"
 [[ -n "$model_url" ]] || fail "sitemap contains no model detail URL"
 model_path="${model_url#"$CANONICAL_BASE_URL"}"
 [[ "$model_path" == /pricing/* ]] || fail "sitemap model URL does not use canonical origin: $model_url"
