@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { getCookie } from '@/lib/cookies'
+import { useLocation } from '@tanstack/react-router'
 import { cn } from '@/lib/utils'
 import { LayoutProvider } from '@/context/layout-provider'
 import { SearchProvider } from '@/context/search-provider'
@@ -33,6 +34,7 @@ type AuthenticatedLayoutProps = {
 
 export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
   const defaultOpen = getCookie('sidebar_state') !== 'false'
+  const isAICreation = useLocation({ select: (location) => location.pathname === '/ai-creation' })
 
   return (
     <LayoutProvider>
@@ -42,7 +44,7 @@ export function AuthenticatedLayout(props: AuthenticatedLayoutProps) {
             <SkipToMain />
             <AppHeader />
             <div className='flex min-h-0 w-full flex-1'>
-              <AppSidebar />
+              {!isAICreation && <AppSidebar />}
               <SidebarInset
                 className={cn(
                   '@container/content',

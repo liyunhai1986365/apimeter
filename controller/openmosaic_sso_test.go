@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -88,4 +89,38 @@ func TestOpenMosaicSSORedirectAllowlistUsesExactMatch(t *testing.T) {
 	require.True(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example/auth/modelsell/callback"))
 	require.False(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example/auth/modelsell/callback/extra"))
 	require.False(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example.evil.test/auth/modelsell/callback"))
+}
+
+func TestEmbeddedOpenMosaicSSOAuthorizesSameOriginSession(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	redirectURI := setupOpenMosaicSSOControllerTest(t)
+	user := model.User{Username: "embedded-sso", Email: "embedded@example.com", EmailVerifiedAt: time.Now().Unix(), Status: common.UserStatusEnabled, Role: common.RoleCommonUser}
+	require.NoError(t, model.DB.Create(&user).Error)
+
+	body := []byte(`{"redirect_uri":"` + redirectURI + `","site_origin":"https://proxy.example"}`)
+	req := httptest.NewRequest(http.MethodPost, "https://proxy.example/api/integrations/openmosaic/embedded-authorize", bytes.NewReader(body))
+	req.Host = "proxy.example"
+	req.Header.Set("Origin", "https://proxy.example")
+	response := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(response)
+	ctx.Request = req
+	ctx.Set("id", user.Id)
+	AuthorizeEmbeddedOpenMosaicSSO(ctx)
+
+	require.Equal(t, http.StatusOK, response.Code)
+	require.Contains(t, response.Body.String(), `"site_origin":"https://proxy.example"`)
+	var code model.OpenMosaicSSOAuthorizationCode
+	require.NoError(t, model.DB.First(&code).Error)
+	require.Equal(t, "https://proxy.example", code.SiteOrigin)
+}
+
+func TestTopLevelOpenMosaicSSORejectsProxySiteBinding(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	redirectURI := setupOpenMosaicSSOControllerTest(t)
+	req := httptest.NewRequest(http.MethodGet, "/api/integrations/openmosaic/authorize?redirect_uri="+url.QueryEscape(redirectURI)+"&state=test&site_origin=https%3A%2F%2Fproxy.example", nil)
+	response := httptest.NewRecorder()
+	ctx, _ := gin.CreateTestContext(response)
+	ctx.Request = req
+	AuthorizeOpenMosaicSSO(ctx)
+	require.Equal(t, http.StatusBadRequest, response.Code)
 }

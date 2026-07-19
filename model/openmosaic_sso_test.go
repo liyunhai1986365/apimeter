@@ -112,3 +112,13 @@ func TestOpenMosaicSSORejectsExpiredOrMismatchedCode(t *testing.T) {
 	_, err = ConsumeOpenMosaicSSOAuthorizationCode(DB, expiredCode, "https://openmosaic.example/auth/modelsell/callback", time.Now())
 	require.ErrorIs(t, err, ErrOpenMosaicSSOCodeInvalid)
 }
+
+func TestOpenMosaicSSOCodeIsBoundToProxySiteOrigin(t *testing.T) {
+	setupOpenMosaicSSOTestDB(t)
+	user := User{Username: "proxy-sso", Status: common.UserStatusEnabled, Role: common.RoleCommonUser}
+	require.NoError(t, DB.Create(&user).Error)
+	rawCode, err := CreateOpenMosaicSSOAuthorizationCodeForSite(DB, user.Id, "https://openmosaic.example/auth/modelsell/callback", "https://proxy.example", time.Minute)
+	require.NoError(t, err)
+	_, err = ConsumeOpenMosaicSSOAuthorizationCodeForSite(DB, rawCode, "https://openmosaic.example/auth/modelsell/callback", "https://attacker.example", time.Now())
+	require.ErrorIs(t, err, ErrOpenMosaicSSOCodeInvalid)
+}

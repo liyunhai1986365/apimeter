@@ -35,7 +35,7 @@ describe('header navigation modules', () => {
     ).toBe(false)
   })
 
-  it('builds the AI Creation SSO link for the configured OpenMosaic origin', () => {
+  it('builds the embedded AI Creation route for the configured OpenMosaic origin', () => {
     const modules = parseHeaderNavModules({
       aiCreation: {
         enabled: true,
@@ -51,8 +51,8 @@ describe('header navigation modules', () => {
       expect.objectContaining({
         id: 'aiCreation',
         titleKey: 'AI Creation',
-        href: 'https://openmosaic.example.com/api/auth/modelsell/start?redirect=%2Fimage',
-        external: true,
+        href: '/ai-creation',
+        external: false,
         newWindow: false,
         requireAuth: true,
       })
@@ -116,9 +116,7 @@ describe('header navigation modules', () => {
           },
         }),
       })
-    ).toBe(
-      'https://create.example.com/api/auth/modelsell/start?redirect=%2Fimage'
-    )
+    ).toBe('/ai-creation')
   })
 
   it('includes Agent Access after Home by default', () => {

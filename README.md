@@ -316,10 +316,10 @@ docker run --name new-api -d --restart always \
 | `CRYPTO_SECRET` | Encryption secret (required for Redis) | - |
 | `SQL_DSN` | Database connection string | - |
 | `REDIS_CONN_STRING` | Redis connection string | - |
-| `OPENMOSAIC_SSO_CLIENT_SECRET` | Shared secret used only by the OpenMosaic server-to-server code exchange | - |
+| `OPENMOSAIC_SSO_CLIENT_SECRET` | Authorization code copied from the matching OpenMosaic proxy-site configuration; used only by server-to-server exchange | - |
 | `OPENMOSAIC_SSO_REDIRECT_URIS` | Comma-separated exact OpenMosaic SSO callback allowlist | - |
 | `OPENMOSAIC_SSO_TRUST_LEGACY_EMAILS` | Treat pre-migration non-empty emails as verified. Enable only after auditing historical registration rules | `false` |
-| `VITE_OPENMOSAIC_URL` | OpenMosaic public origin injected when building `web/default`; enables the signed-in menu entry | - |
+| `VITE_OPENMOSAIC_URL` | Legacy OpenMosaic origin for the profile shortcut. The AI Creation iframe uses `HeaderNavModules.aiCreation.baseUrl` | - |
 | `REQUEST_LOG_STORAGE` | Request/response investigation log backend. Only `openobserve` is supported. | `openobserve` |
 | `REQUEST_LOG_OPENOBSERVE_ENDPOINT` | OpenObserve endpoint. Required when request logging is enabled. | - |
 | `STREAMING_TIMEOUT` | Streaming timeout (seconds) | `300` |
@@ -340,6 +340,8 @@ docker run --name new-api -d --restart always \
 📖 **Request log storage:** [docs/request-log-storage.md](docs/request-log-storage.md)
 
 </details>
+
+For embedded AI Creation, enable the header module and set `HeaderNavModules.aiCreation.baseUrl` to the OpenMosaic Origin. Copy the matching plaintext authorization code from OpenMosaic Admin into `OPENMOSAIC_SSO_CLIENT_SECRET`, and add the exact OpenMosaic callback URL to `OPENMOSAIC_SSO_REDIRECT_URIS`. The browser receives only a 60-second single-use ticket; the authorization code and generated API key remain in server-to-server traffic.
 
 ### 🔧 Deployment Methods
 

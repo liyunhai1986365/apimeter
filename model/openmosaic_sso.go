@@ -28,6 +28,7 @@ type OpenMosaicSSOAuthorizationCode struct {
 	CodeHash    string     `gorm:"type:char(64);not null;uniqueIndex"`
 	UserId      int        `gorm:"not null;index"`
 	RedirectURI string     `gorm:"type:varchar(512);not null"`
+	SiteOrigin  string     `gorm:"type:varchar(512);not null;default:''"`
 	ExpiresAt   time.Time  `gorm:"not null;index"`
 	ConsumedAt  *time.Time `gorm:"index"`
 	CreatedAt   time.Time
@@ -93,6 +94,10 @@ func EnsureOpenMosaicSSOToken(tx *gorm.DB, userID int) (*Token, error) {
 }
 
 func CreateOpenMosaicSSOAuthorizationCode(tx *gorm.DB, userID int, redirectURI string, ttl time.Duration) (string, error) {
+	return CreateOpenMosaicSSOAuthorizationCodeForSite(tx, userID, redirectURI, "", ttl)
+}
+
+func CreateOpenMosaicSSOAuthorizationCodeForSite(tx *gorm.DB, userID int, redirectURI string, siteOrigin string, ttl time.Duration) (string, error) {
 	redirectURI = strings.TrimSpace(redirectURI)
 	if userID <= 0 || redirectURI == "" {
 		return "", ErrOpenMosaicSSOCodeInvalid
@@ -107,6 +112,7 @@ func CreateOpenMosaicSSOAuthorizationCode(tx *gorm.DB, userID int, redirectURI s
 		CodeHash:    openMosaicSSOCodeHash(rawCode),
 		UserId:      userID,
 		RedirectURI: redirectURI,
+		SiteOrigin:  strings.TrimSpace(siteOrigin),
 		ExpiresAt:   time.Now().Add(ttl),
 	}
 	if err := tx.Create(&code).Error; err != nil {
@@ -116,6 +122,10 @@ func CreateOpenMosaicSSOAuthorizationCode(tx *gorm.DB, userID int, redirectURI s
 }
 
 func ConsumeOpenMosaicSSOAuthorizationCode(tx *gorm.DB, rawCode string, redirectURI string, now time.Time) (*OpenMosaicSSOClaim, error) {
+	return ConsumeOpenMosaicSSOAuthorizationCodeForSite(tx, rawCode, redirectURI, "", now)
+}
+
+func ConsumeOpenMosaicSSOAuthorizationCodeForSite(tx *gorm.DB, rawCode string, redirectURI string, siteOrigin string, now time.Time) (*OpenMosaicSSOClaim, error) {
 	if strings.TrimSpace(rawCode) == "" || strings.TrimSpace(redirectURI) == "" {
 		return nil, ErrOpenMosaicSSOCodeInvalid
 	}
@@ -125,7 +135,7 @@ func ConsumeOpenMosaicSSOAuthorizationCode(tx *gorm.DB, rawCode string, redirect
 		if err := db.Clauses(clause.Locking{Strength: "UPDATE"}).Where("code_hash = ?", openMosaicSSOCodeHash(rawCode)).First(&code).Error; err != nil {
 			return ErrOpenMosaicSSOCodeInvalid
 		}
-		if code.ConsumedAt != nil || !code.ExpiresAt.After(now) || code.RedirectURI != redirectURI {
+		if code.ConsumedAt != nil || !code.ExpiresAt.After(now) || code.RedirectURI != redirectURI || code.SiteOrigin != strings.TrimSpace(siteOrigin) {
 			return ErrOpenMosaicSSOCodeInvalid
 		}
 		consumedAt := now

@@ -135,8 +135,8 @@ const BUILT_IN_HEADER_NAV_ITEMS: Record<
   aiCreation: {
     id: 'aiCreation',
     titleKey: 'AI Creation',
-    href: '',
-    external: true,
+    href: '/ai-creation',
+    external: false,
     newWindow: false,
   },
   console: {
@@ -601,11 +601,9 @@ export function getOrderedHeaderNavItems(
     if (!item) return acc
 
     if (builtInId === 'aiCreation') {
-      const href = getAICreationSSOUrl(modules)
-      if (href) {
+      if (modules.aiCreation.enabled && modules.aiCreation.baseUrl) {
         acc.push({
           ...item,
-          href,
           enabled: true,
           requireAuth: true,
         })
@@ -658,7 +656,7 @@ export function getAICreationSSOUrl(
 ): string | undefined {
   const baseUrl = normalizeOpenMosaicBaseUrl(modules.aiCreation.baseUrl)
   if (!modules.aiCreation.enabled || !baseUrl) return undefined
-  return `${baseUrl}/api/auth/modelsell/start?redirect=%2Fimage`
+  return '/ai-creation'
 }
 
 export function getAICreationSSOUrlFromStatus(

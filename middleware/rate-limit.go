@@ -18,6 +18,11 @@ var defNext = func(c *gin.Context) {
 	c.Next()
 }
 
+const (
+	openMosaicEmbeddedAuthorizeRateLimitNum      = 60
+	openMosaicEmbeddedAuthorizeRateLimitDuration = int64(60)
+)
+
 func redisRateLimiter(c *gin.Context, maxRequestNum int, duration int64, mark string) {
 	ctx := context.Background()
 	rdb := common.RDB
@@ -106,6 +111,12 @@ func CriticalRateLimit() func(c *gin.Context) {
 		return rateLimitFactory(common.CriticalRateLimitNum, common.CriticalRateLimitDuration, "CT")
 	}
 	return defNext
+}
+
+// OpenMosaicEmbeddedAuthorizeRateLimit limits short-lived iframe tickets per
+// authenticated user without consuming the shared critical-action allowance.
+func OpenMosaicEmbeddedAuthorizeRateLimit() func(c *gin.Context) {
+	return userRateLimitFactory(openMosaicEmbeddedAuthorizeRateLimitNum, openMosaicEmbeddedAuthorizeRateLimitDuration, "OM")
 }
 
 func DownloadRateLimit() func(c *gin.Context) {

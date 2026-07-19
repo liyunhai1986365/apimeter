@@ -21,12 +21,12 @@ import { resolveAuthRedirect } from '../src/features/auth/lib/auth-redirect'
 
 describe('resolveAuthRedirect', () => {
   const aiCreationUrl =
-    'https://openmosaic.example.com/api/auth/modelsell/start?redirect=%2Fimage'
+    '/ai-creation'
 
-  it('allows the configured AI Creation SSO URL after login', () => {
+  it('allows the configured AI Creation route after login', () => {
     expect(resolveAuthRedirect(aiCreationUrl, aiCreationUrl)).toEqual({
       target: aiCreationUrl,
-      external: true,
+      external: false,
     })
   })
 

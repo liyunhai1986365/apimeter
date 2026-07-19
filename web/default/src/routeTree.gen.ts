@@ -24,6 +24,7 @@ import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
 import { Route as ConsoleTopupRouteImport } from './routes/console/topup'
 import { Route as ConsoleLogRouteImport } from './routes/console/log'
 import { Route as AuthenticatedChat2linkRouteImport } from './routes/_authenticated/chat2link'
+import { Route as AuthenticatedAiCreationRouteImport } from './routes/_authenticated/ai-creation'
 import { Route as errors503RouteImport } from './routes/(errors)/503'
 import { Route as errors500RouteImport } from './routes/(errors)/500'
 import { Route as errors404RouteImport } from './routes/(errors)/404'
@@ -153,6 +154,11 @@ const ConsoleLogRoute = ConsoleLogRouteImport.update({
 const AuthenticatedChat2linkRoute = AuthenticatedChat2linkRouteImport.update({
   id: '/chat2link',
   path: '/chat2link',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAiCreationRoute = AuthenticatedAiCreationRouteImport.update({
+  id: '/ai-creation',
+  path: '/ai-creation',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const errors503Route = errors503RouteImport.update({
@@ -500,6 +506,7 @@ export interface FileRoutesByFullPath {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/ai-creation': typeof AuthenticatedAiCreationRoute
   '/chat2link': typeof AuthenticatedChat2linkRoute
   '/console/log': typeof ConsoleLogRoute
   '/console/topup': typeof ConsoleTopupRoute
@@ -570,6 +577,7 @@ export interface FileRoutesByTo {
   '/404': typeof errors404Route
   '/500': typeof errors500Route
   '/503': typeof errors503Route
+  '/ai-creation': typeof AuthenticatedAiCreationRoute
   '/chat2link': typeof AuthenticatedChat2linkRoute
   '/console/log': typeof ConsoleLogRoute
   '/console/topup': typeof ConsoleTopupRoute
@@ -645,6 +653,7 @@ export interface FileRoutesById {
   '/(errors)/404': typeof errors404Route
   '/(errors)/500': typeof errors500Route
   '/(errors)/503': typeof errors503Route
+  '/_authenticated/ai-creation': typeof AuthenticatedAiCreationRoute
   '/_authenticated/chat2link': typeof AuthenticatedChat2linkRoute
   '/console/log': typeof ConsoleLogRoute
   '/console/topup': typeof ConsoleTopupRoute
@@ -719,6 +728,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/ai-creation'
     | '/chat2link'
     | '/console/log'
     | '/console/topup'
@@ -789,6 +799,7 @@ export interface FileRouteTypes {
     | '/404'
     | '/500'
     | '/503'
+    | '/ai-creation'
     | '/chat2link'
     | '/console/log'
     | '/console/topup'
@@ -863,6 +874,7 @@ export interface FileRouteTypes {
     | '/(errors)/404'
     | '/(errors)/500'
     | '/(errors)/503'
+    | '/_authenticated/ai-creation'
     | '/_authenticated/chat2link'
     | '/console/log'
     | '/console/topup'
@@ -1046,6 +1058,13 @@ declare module '@tanstack/react-router' {
       path: '/chat2link'
       fullPath: '/chat2link'
       preLoaderRoute: typeof AuthenticatedChat2linkRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/ai-creation': {
+      id: '/_authenticated/ai-creation'
+      path: '/ai-creation'
+      fullPath: '/ai-creation'
+      preLoaderRoute: typeof AuthenticatedAiCreationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/(errors)/503': {
@@ -1548,6 +1567,7 @@ const AuthenticatedSystemTasksRouteRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSystemSettingsRouteRoute: typeof AuthenticatedSystemSettingsRouteRouteWithChildren
   AuthenticatedSystemTasksRouteRoute: typeof AuthenticatedSystemTasksRouteRouteWithChildren
+  AuthenticatedAiCreationRoute: typeof AuthenticatedAiCreationRoute
   AuthenticatedChat2linkRoute: typeof AuthenticatedChat2linkRoute
   AuthenticatedBillingSectionRoute: typeof AuthenticatedBillingSectionRoute
   AuthenticatedChatChatIdRoute: typeof AuthenticatedChatChatIdRoute
@@ -1582,6 +1602,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedSystemSettingsRouteRouteWithChildren,
   AuthenticatedSystemTasksRouteRoute:
     AuthenticatedSystemTasksRouteRouteWithChildren,
+  AuthenticatedAiCreationRoute: AuthenticatedAiCreationRoute,
   AuthenticatedChat2linkRoute: AuthenticatedChat2linkRoute,
   AuthenticatedBillingSectionRoute: AuthenticatedBillingSectionRoute,
   AuthenticatedChatChatIdRoute: AuthenticatedChatChatIdRoute,
