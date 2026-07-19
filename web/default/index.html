@@ -29,7 +29,31 @@
     <meta name="twitter:image" content="/logo.png" />
     <!--seo-meta-end-->
 
-    <meta name="theme-color" content="#fff" />
+    <meta name="theme-color" content="#1c1c1c" />
+    <script>
+      ;(() => {
+        const savedTheme = document.cookie
+          .split('; ')
+          .find((entry) => entry.startsWith('vite-ui-theme='))
+          ?.split('=')[1]
+        const resolvedTheme =
+          savedTheme === 'light' || savedTheme === 'dark'
+            ? savedTheme
+            : savedTheme === 'system'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light'
+              : 'dark'
+
+        document.documentElement.classList.add(resolvedTheme)
+        document
+          .querySelector("meta[name='theme-color']")
+          ?.setAttribute(
+            'content',
+            resolvedTheme === 'dark' ? '#1c1c1c' : '#ffffff'
+          )
+      })()
+    </script>
     <!--umami-->
     <!--Google Analytics-->
   </head>
