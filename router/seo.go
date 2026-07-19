@@ -25,6 +25,8 @@ const (
 	defaultSEODescription  = "A unified AI API gateway for OpenAI, Claude, Gemini, DeepSeek and private model providers, with centralized keys, billing and routing."
 	seoBlockStart          = "<!--seo-meta-start-->"
 	seoBlockEnd            = "<!--seo-meta-end-->"
+	seoShellBootStyle      = `<style data-seo-shell-boot="true">html[data-seo-client="pending"] [data-seo-shell="true"]{display:none!important}</style>`
+	seoShellBootScript     = `<script data-seo-shell-boot="true">document.documentElement.dataset.seoClient="pending";window.setTimeout(function(){delete document.documentElement.dataset.seoClient},8000)</script>`
 	seoModelDirectoryLimit = 500
 )
 
@@ -100,6 +102,12 @@ func buildSEOBlock(page seoPage) string {
 	}
 	if page.JSONLD != "" {
 		builder.WriteString(`    <script type="application/ld+json" data-seo-jsonld="true">` + page.JSONLD + `</script>` + "\n")
+	}
+	if page.Robots == "index, follow" {
+		// JS-capable browsers hide the crawlable fallback before first paint. If
+		// the client bundle never starts, the inline timeout reveals it again.
+		builder.WriteString("    " + seoShellBootStyle + "\n")
+		builder.WriteString("    " + seoShellBootScript + "\n")
 	}
 	builder.WriteString("    " + seoBlockEnd)
 	return builder.String()

@@ -205,6 +205,29 @@ func TestBuildSEOBlockEscapesValues(t *testing.T) {
 	require.Equal(t, 1, strings.Count(block, seoBlockStart))
 }
 
+func TestBuildSEOBlockHidesShellBeforeClientFirstPaint(t *testing.T) {
+	block := buildSEOBlock(seoPage{
+		Title:  "ModelSell",
+		Robots: "index, follow",
+		Type:   "website",
+	})
+
+	require.Contains(t, block, seoShellBootStyle)
+	require.Contains(t, block, seoShellBootScript)
+	require.Less(t, strings.Index(block, seoShellBootStyle), strings.Index(block, seoBlockEnd))
+	require.Less(t, strings.Index(block, seoShellBootScript), strings.Index(block, seoBlockEnd))
+}
+
+func TestBuildSEOBlockDoesNotHidePagesWithoutShell(t *testing.T) {
+	block := buildSEOBlock(seoPage{
+		Title:  "Sign in",
+		Robots: "noindex, nofollow",
+		Type:   "website",
+	})
+
+	require.NotContains(t, block, `data-seo-shell-boot="true"`)
+}
+
 func TestRenderSEOMetadataKeepsDollarSignsLiteral(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	oldSystemName := common.SystemName

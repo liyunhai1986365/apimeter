@@ -77,3 +77,4 @@ root.render(
     </StatusProvider>
   </React.StrictMode>,
 );
+delete document.documentElement.dataset.seoClient;

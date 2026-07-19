@@ -168,3 +168,4 @@ root.render(
     </QueryClientProvider>
   </StrictMode>
 )
+delete document.documentElement.dataset.seoClient
