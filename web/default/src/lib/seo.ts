@@ -16,8 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { TFunction } from 'i18next'
 import { toIntlLocale } from '@/i18n/languages'
+import type { TFunction } from 'i18next'
 import { getSiteName } from '@/lib/site-branding'
 
 export type SEODescriptor = {
@@ -101,8 +101,19 @@ export function resolveSEODescriptor(
       structuredData: {
         '@context': 'https://schema.org',
         '@graph': [
-          { '@type': 'WebSite', name: siteName, url: '/' },
-          { '@type': 'Organization', name: siteName, url: '/' },
+          {
+            '@type': 'WebSite',
+            '@id': '/#website',
+            name: siteName,
+            url: '/',
+            publisher: { '@id': '/#organization' },
+          },
+          {
+            '@type': 'Organization',
+            '@id': '/#organization',
+            name: siteName,
+            url: '/',
+          },
         ],
       },
     }
@@ -128,14 +139,18 @@ export function resolveSEODescriptor(
         ? {
             '@context': 'https://schema.org',
             '@type': 'CollectionPage',
+            '@id': '/pricing#webpage',
             name: t('AI Model API Pricing & Comparison'),
             url: path,
+            isPartOf: { '@id': '/#website' },
           }
         : {
             '@context': 'https://schema.org',
             '@type': 'WebPage',
+            '@id': `${path}#webpage`,
             name: publicPage,
             url: path,
+            isPartOf: { '@id': '/#website' },
           }
     return descriptor
   }
@@ -156,15 +171,23 @@ export function resolveSEODescriptor(
           '@graph': [
             {
               '@type': 'WebPage',
+              '@id': `/pricing/${encodeURIComponent(modelName)}#webpage`,
               name: t('{{model}} API Pricing & Access', { model: modelName }),
               url: `/pricing/${encodeURIComponent(modelName)}`,
-              about: {
-                '@type': 'Service',
-                name: `${modelName} API`,
+              isPartOf: { '@id': '/#website' },
+              mainEntity: {
+                '@id': `/pricing/${encodeURIComponent(modelName)}#service`,
               },
             },
             {
+              '@type': 'Service',
+              '@id': `/pricing/${encodeURIComponent(modelName)}#service`,
+              name: `${modelName} API`,
+              provider: { '@id': '/#organization' },
+            },
+            {
               '@type': 'BreadcrumbList',
+              '@id': `/pricing/${encodeURIComponent(modelName)}#breadcrumb`,
               itemListElement: [
                 {
                   '@type': 'ListItem',

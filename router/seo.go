@@ -83,6 +83,7 @@ func buildSEOBlock(page seoPage) string {
 		builder.WriteString(`    <link rel="canonical" href="` + canonical + `" />` + "\n")
 	}
 	builder.WriteString(`    <meta property="og:type" content="` + pageType + `" />` + "\n")
+	builder.WriteString(`    <meta property="og:site_name" content="` + html.EscapeString(seoSiteName(page.Title)) + `" />` + "\n")
 	builder.WriteString(`    <meta property="og:title" content="` + title + `" />` + "\n")
 	builder.WriteString(`    <meta property="og:description" content="` + description + `" />` + "\n")
 	if canonical != "" {
@@ -91,7 +92,7 @@ func buildSEOBlock(page seoPage) string {
 	if image != "" {
 		builder.WriteString(`    <meta property="og:image" content="` + image + `" />` + "\n")
 	}
-	builder.WriteString(`    <meta name="twitter:card" content="summary_large_image" />` + "\n")
+	builder.WriteString(`    <meta name="twitter:card" content="summary" />` + "\n")
 	builder.WriteString(`    <meta name="twitter:title" content="` + title + `" />` + "\n")
 	builder.WriteString(`    <meta name="twitter:description" content="` + description + `" />` + "\n")
 	if image != "" {
@@ -102,6 +103,13 @@ func buildSEOBlock(page seoPage) string {
 	}
 	builder.WriteString("    " + seoBlockEnd)
 	return builder.String()
+}
+
+func seoSiteName(title string) string {
+	if _, siteName, ok := strings.Cut(title, " | "); ok && strings.TrimSpace(siteName) != "" {
+		return strings.TrimSpace(siteName)
+	}
+	return strings.TrimSpace(title)
 }
 
 func renderSEOShell(c *gin.Context, page string, metadata seoPage) string {
@@ -152,6 +160,9 @@ func seoShellLinks(c *gin.Context) []seoShellLink {
 	if common.GetTheme() == "default" && seoModuleIsPublic(c, "subscription") {
 		links = append(links, seoShellLink{Path: "/subscription", Label: "Subscriptions"})
 	}
+	if common.GetTheme() == "default" && seoModuleIsPublic(c, "rankings") {
+		links = append(links, seoShellLink{Path: "/rankings", Label: "Rankings"})
+	}
 	links = append(links, seoShellLink{Path: "/about", Label: "About"})
 	return links
 }
@@ -182,7 +193,8 @@ func seoShellHeading(metadata seoPage) string {
 
 func seoShellPageContent(c *gin.Context, metadata seoPage) string {
 	if metadata.Path == "/" {
-		return `<div style="margin-top:32px;display:flex;flex-wrap:wrap;gap:12px"><a href="/pricing" style="padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-weight:600">Explore AI model API pricing</a><a href="/sign-up" style="padding:12px 18px;border:1px solid #d1d5db;border-radius:10px;color:#111827;text-decoration:none;font-weight:600">Get started</a></div>`
+		return `<div style="margin-top:32px;display:flex;flex-wrap:wrap;gap:12px"><a href="/pricing" style="padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-weight:600">Explore AI model API pricing</a><a href="/sign-up" style="padding:12px 18px;border:1px solid #d1d5db;border-radius:10px;color:#111827;text-decoration:none;font-weight:600">Get started</a></div>` +
+			`<section aria-labelledby="one-api" style="margin-top:56px;max-width:820px"><h2 id="one-api" style="font-size:28px">One API for leading AI model providers</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Use one gateway for OpenAI, Anthropic Claude, Google Gemini, DeepSeek and other model providers. Compare model capabilities and pricing before choosing the API that fits your application.</p><p><a href="/pricing" style="color:#4f46e5">Compare all available model APIs and prices</a></p></section>`
 	}
 	if metadata.Path == "/pricing" {
 		pricing := seoPublicPricing(c)
@@ -265,6 +277,15 @@ func seoShellPageContent(c *gin.Context, metadata seoPage) string {
 		builder.WriteString(`<p style="margin-top:36px"><a href="/pricing" style="color:#4f46e5">Back to AI model API pricing</a></p>`)
 		return builder.String()
 	}
+	if metadata.Path == "/about" {
+		return `<section aria-labelledby="unified-gateway" style="margin-top:48px;max-width:820px"><h2 id="unified-gateway" style="font-size:28px">A unified gateway for AI applications</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">` + html.EscapeString(indexPageTitle(c)) + ` brings model discovery, compatible API access, centralized keys, usage visibility and billing controls into one platform.</p><p><a href="/pricing" style="color:#4f46e5">Explore supported AI models and API pricing</a></p></section>`
+	}
+	if metadata.Path == "/subscription" {
+		return `<section aria-labelledby="api-plans" style="margin-top:48px;max-width:820px"><h2 id="api-plans" style="font-size:28px">API access plans</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Review available plans for predictable AI API access, then compare individual model prices and capabilities before subscribing.</p><p><a href="/pricing" style="color:#4f46e5">Compare model API pricing</a></p></section>`
+	}
+	if metadata.Path == "/rankings" {
+		return `<section aria-labelledby="usage-rankings" style="margin-top:48px;max-width:820px"><h2 id="usage-rankings" style="font-size:28px">Model and provider activity</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Use current activity rankings alongside model capabilities and pricing to evaluate APIs for your application.</p><p><a href="/pricing" style="color:#4f46e5">Browse the AI model API directory</a></p></section>`
+	}
 	return ""
 }
 
@@ -305,25 +326,30 @@ func resolveSEOPage(c *gin.Context) seoPage {
 			page.Title = "Subscriptions | " + siteName
 			page.Description = "Explore API subscription plans available on " + siteName + "."
 			page.Robots = "index, follow"
+			page.JSONLD = publicPageJSONLD(origin, page.Title, page.Description, path)
 		}
 	case "/rankings":
 		if seoModuleIsPublic(c, "rankings") {
 			page.Title = "Rankings | " + siteName
 			page.Description = "View current API usage rankings on " + siteName + "."
 			page.Robots = "index, follow"
+			page.JSONLD = publicPageJSONLD(origin, page.Title, page.Description, path)
 		}
 	case "/about":
 		page.Title = "About | " + siteName
 		page.Description = "Learn more about " + siteName + " and its unified AI API gateway."
 		page.Robots = "index, follow"
+		page.JSONLD = publicPageJSONLD(origin, page.Title, page.Description, path)
 	case "/user-agreement":
 		page.Title = "User Agreement | " + siteName
 		page.Description = "Read the user agreement for " + siteName + "."
 		page.Robots = "index, follow"
+		page.JSONLD = publicPageJSONLD(origin, page.Title, page.Description, path)
 	case "/privacy-policy":
 		page.Title = "Privacy Policy | " + siteName
 		page.Description = "Read the privacy policy for " + siteName + "."
 		page.Robots = "index, follow"
+		page.JSONLD = publicPageJSONLD(origin, page.Title, page.Description, path)
 	default:
 		if pricing, ok := seoPricingModel(c, path); ok {
 			page.Model = &pricing
@@ -337,6 +363,9 @@ func resolveSEOPage(c *gin.Context) seoPage {
 			page.Title = "Page Not Found | " + siteName
 			page.Canonical = ""
 		}
+	}
+	if page.Robots != "index, follow" {
+		page.Canonical = ""
 	}
 
 	return page
@@ -683,6 +712,52 @@ func requestOrigin(c *gin.Context) string {
 	return requestOriginForHost(c, c.Request.Host)
 }
 
+func redirectCanonicalSEOURL() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request == nil || (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) || !isCanonicalSEORequest(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
+		path := c.Request.URL.EscapedPath()
+		if path == "" || path == "/index.html" {
+			path = "/"
+		} else if path != "/" {
+			path = strings.TrimRight(path, "/")
+		}
+		origin := requestOriginForHost(c, c.Request.Host)
+		canonicalOrigin := origin
+		if seoAgentContext(c) == nil {
+			if configured := validSEOOrigin(system_setting.ServerAddress); configured != "" && !isLocalSEOHost(requestHostname(c.Request.Host)) {
+				parsed, _ := url.Parse(configured)
+				if !isLocalSEOHost(parsed.Hostname()) {
+					canonicalOrigin = configured
+				}
+			}
+		}
+		if path == c.Request.URL.EscapedPath() && canonicalOrigin == origin {
+			c.Next()
+			return
+		}
+
+		target := absoluteSiteURL(canonicalOrigin, path)
+		if c.Request.URL.RawQuery != "" {
+			target += "?" + c.Request.URL.RawQuery
+		}
+		c.Redirect(http.StatusMovedPermanently, target)
+		c.Abort()
+	}
+}
+
+func isCanonicalSEORequest(path string) bool {
+	for _, prefix := range []string{"/api", "/v1", "/assets", "/static"} {
+		if path == prefix || strings.HasPrefix(path, prefix+"/") {
+			return false
+		}
+	}
+	return true
+}
+
 func requestHostname(host string) string {
 	parsed, err := url.Parse("//" + strings.TrimSpace(host))
 	if err != nil {
@@ -745,9 +820,11 @@ func absoluteSiteURL(origin string, path string) string {
 }
 
 func websiteJSONLD(siteName string, origin string, image string) string {
+	websiteID := absoluteSiteURL(origin, "/#website")
+	organizationID := absoluteSiteURL(origin, "/#organization")
 	items := []map[string]any{
-		{"@type": "WebSite", "name": siteName, "url": absoluteSiteURL(origin, "/")},
-		{"@type": "Organization", "name": siteName, "url": absoluteSiteURL(origin, "/"), "logo": image},
+		{"@type": "WebSite", "@id": websiteID, "name": siteName, "url": absoluteSiteURL(origin, "/"), "publisher": map[string]any{"@id": organizationID}},
+		{"@type": "Organization", "@id": organizationID, "name": siteName, "url": absoluteSiteURL(origin, "/"), "logo": map[string]any{"@type": "ImageObject", "url": image}},
 	}
 	payload := map[string]any{"@context": "https://schema.org", "@graph": items}
 	data, err := common.Marshal(payload)
@@ -759,10 +836,15 @@ func websiteJSONLD(siteName string, origin string, image string) string {
 
 func modelPageJSONLD(origin string, pricing model.Pricing, description string) string {
 	canonical := absoluteSiteURL(origin, "/pricing/"+url.PathEscape(pricing.ModelName))
+	websiteID := absoluteSiteURL(origin, "/#website")
+	organizationID := absoluteSiteURL(origin, "/#organization")
+	serviceID := canonical + "#service"
 	service := map[string]any{
 		"@type":       "Service",
+		"@id":         serviceID,
 		"name":        pricing.ModelName + " API",
 		"description": description,
+		"provider":    map[string]any{"@id": organizationID},
 	}
 	if endpointNames := seoEndpointNames(pricing.SupportedEndpointTypes); len(endpointNames) > 0 {
 		service["serviceType"] = strings.Join(endpointNames, ", ")
@@ -793,19 +875,41 @@ func modelPageJSONLD(origin string, pricing model.Pricing, description string) s
 		"@graph": []map[string]any{
 			{
 				"@type":       "WebPage",
+				"@id":         canonical + "#webpage",
 				"name":        pricing.ModelName + " API Pricing & Access",
 				"description": description,
 				"url":         canonical,
-				"about":       service,
+				"isPartOf":    map[string]any{"@id": websiteID},
+				"mainEntity":  map[string]any{"@id": serviceID},
 			},
+			service,
 			{
 				"@type": "BreadcrumbList",
+				"@id":   canonical + "#breadcrumb",
 				"itemListElement": []map[string]any{
 					{"@type": "ListItem", "position": 1, "name": "AI Model API Pricing", "item": absoluteSiteURL(origin, "/pricing")},
 					{"@type": "ListItem", "position": 2, "name": pricing.ModelName, "item": canonical},
 				},
 			},
 		},
+	}
+	data, err := common.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func publicPageJSONLD(origin string, title string, description string, path string) string {
+	canonical := absoluteSiteURL(origin, path)
+	payload := map[string]any{
+		"@context":    "https://schema.org",
+		"@type":       "WebPage",
+		"@id":         canonical + "#webpage",
+		"name":        title,
+		"description": description,
+		"url":         canonical,
+		"isPartOf":    map[string]any{"@id": absoluteSiteURL(origin, "/#website")},
 	}
 	data, err := common.Marshal(payload)
 	if err != nil {
@@ -853,8 +957,10 @@ func pricingCollectionJSONLD(origin string, pricing []model.Pricing) string {
 	payload := map[string]any{
 		"@context":   "https://schema.org",
 		"@type":      "CollectionPage",
+		"@id":        absoluteSiteURL(origin, "/pricing#webpage"),
 		"name":       "AI Model API Pricing & Comparison",
 		"url":        absoluteSiteURL(origin, "/pricing"),
+		"isPartOf":   map[string]any{"@id": absoluteSiteURL(origin, "/#website")},
 		"mainEntity": map[string]any{"@type": "ItemList", "itemListElement": items},
 	}
 	data, err := common.Marshal(payload)
@@ -897,8 +1003,7 @@ func serveRobotsTXT(c *gin.Context) {
 	c.Header("Content-Type", "text/plain; charset=utf-8")
 	origin := requestOrigin(c)
 	body := "User-agent: *\nAllow: /\n" +
-		"Disallow: /api/\nDisallow: /v1/\nDisallow: /console/\nDisallow: /dashboard/\n" +
-		"Disallow: /system-settings/\nDisallow: /oauth/\nDisallow: /sign-in\nDisallow: /sign-up\n" +
+		"Disallow: /api/\nDisallow: /v1/\n" +
 		"Sitemap: " + absoluteSiteURL(origin, "/sitemap.xml") + "\n"
 	c.String(http.StatusOK, body)
 }

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -166,6 +167,8 @@ func TestServeRobotsTXTIncludesRequestScopedSitemap(t *testing.T) {
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "Disallow: /api/")
+	require.NotContains(t, recorder.Body.String(), "Disallow: /sign-in")
+	require.NotContains(t, recorder.Body.String(), "Disallow: /dashboard/")
 	require.Contains(t, recorder.Body.String(), "Sitemap: https://agent.example.com/sitemap.xml")
 }
 
@@ -197,6 +200,8 @@ func TestBuildSEOBlockEscapesValues(t *testing.T) {
 
 	require.Contains(t, block, `A &amp; B &lt;Site&gt;`)
 	require.Contains(t, block, `quoted &#34;description&#34;`)
+	require.Contains(t, block, `property="og:site_name" content="A &amp; B &lt;Site&gt;"`)
+	require.Contains(t, block, `name="twitter:card" content="summary"`)
 	require.Equal(t, 1, strings.Count(block, seoBlockStart))
 }
 
@@ -226,7 +231,10 @@ func TestModelPageJSONLDDescribesAPIServiceWithoutFakeOffer(t *testing.T) {
 	}, "Compare gpt-4.1-mini API pricing.")
 
 	require.Contains(t, jsonLD, `"@type":"Service"`)
+	require.Contains(t, jsonLD, `"@id":"https://example.com/pricing/gpt-4.1-mini#service"`)
 	require.Contains(t, jsonLD, `"name":"gpt-4.1-mini API"`)
+	require.Contains(t, jsonLD, `"provider":{"@id":"https://example.com/#organization"}`)
+	require.Contains(t, jsonLD, `"mainEntity":{"@id":"https://example.com/pricing/gpt-4.1-mini#service"}`)
 	require.Contains(t, jsonLD, `OpenAI Responses API`)
 	require.Contains(t, jsonLD, `POST /v1/chat/completions`)
 	require.Contains(t, jsonLD, `POST /v1/responses`)
@@ -294,6 +302,22 @@ func TestBuildSEOShellRendersModelPriceAndSearchableDetails(t *testing.T) {
 	require.Contains(t, shell, `function calling, vision`)
 }
 
+func TestBuildSEOShellAddsPublicPageContentAndNavigation(t *testing.T) {
+	oldTheme := common.GetTheme()
+	common.SetTheme("default")
+	t.Cleanup(func() { common.SetTheme(oldTheme) })
+
+	home := buildSEOShell(nil, seoPage{Path: "/", Description: "AI model APIs."})
+	require.Contains(t, home, `One API for leading AI model providers`)
+	require.Contains(t, home, `OpenAI, Anthropic Claude, Google Gemini, DeepSeek`)
+	require.Contains(t, home, `href="/rankings"`)
+
+	about := buildSEOShell(nil, seoPage{Path: "/about", Description: "About."})
+	require.Contains(t, about, `A unified gateway for AI applications`)
+	require.Contains(t, about, html.EscapeString(common.SystemName)+` brings model discovery`)
+	require.Contains(t, about, `href="/pricing"`)
+}
+
 func TestServeFrontendPageReturnsNotFoundHTMLForUnknownPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	assets := ThemeAssets{
@@ -307,8 +331,79 @@ func TestServeFrontendPageReturnsNotFoundHTMLForUnknownPath(t *testing.T) {
 
 	require.Equal(t, http.StatusNotFound, recorder.Code)
 	require.Contains(t, recorder.Header().Get("Content-Type"), "text/html")
+	require.Equal(t, "noindex, nofollow", recorder.Header().Get("X-Robots-Tag"))
 	require.Contains(t, recorder.Body.String(), `content="noindex, nofollow"`)
 	require.Contains(t, recorder.Body.String(), `<div id="root"></div>`)
+}
+
+func TestResolveSEOPageRemovesCanonicalFromPrivatePath(t *testing.T) {
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "https://example.com/sign-in", nil)
+
+	page := resolveSEOPage(c)
+
+	require.Equal(t, "noindex, nofollow", page.Robots)
+	require.Empty(t, page.Canonical)
+}
+
+func TestCanonicalSEOURLRedirectsDuplicatePublicURLs(t *testing.T) {
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() { system_setting.ServerAddress = oldServerAddress })
+
+	engine := gin.New()
+	engine.Use(redirectCanonicalSEOURL())
+	engine.GET("/*path", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	tests := []struct {
+		name     string
+		url      string
+		expected string
+	}{
+		{name: "www host", url: "https://www.modelsell.com/pricing?search=gpt", expected: "https://modelsell.com/pricing?search=gpt"},
+		{name: "index document", url: "https://modelsell.com/index.html", expected: "https://modelsell.com/"},
+		{name: "trailing slash", url: "https://modelsell.com/about/", expected: "https://modelsell.com/about"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			request := httptest.NewRequest(http.MethodGet, test.url, nil)
+			engine.ServeHTTP(recorder, request)
+			require.Equal(t, http.StatusMovedPermanently, recorder.Code)
+			require.Equal(t, test.expected, recorder.Header().Get("Location"))
+		})
+	}
+}
+
+func TestCanonicalSEOURLDoesNotRedirectAPIRoutesOrAgentDomains(t *testing.T) {
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() { system_setting.ServerAddress = oldServerAddress })
+
+	for _, test := range []struct {
+		path       string
+		withAgent  bool
+		statusCode int
+	}{
+		{path: "/api/status", statusCode: http.StatusNoContent},
+		{path: "/pricing", withAgent: true, statusCode: http.StatusNoContent},
+	} {
+		engine := gin.New()
+		if test.withAgent {
+			engine.Use(func(c *gin.Context) {
+				common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{Domain: "agent.example.com"})
+			})
+		}
+		engine.Use(redirectCanonicalSEOURL())
+		engine.GET(test.path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+		recorder := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, "https://agent.example.com"+test.path, nil)
+		engine.ServeHTTP(recorder, request)
+
+		require.Equal(t, test.statusCode, recorder.Code, test.path)
+		require.Empty(t, recorder.Header().Get("Location"), test.path)
+	}
 }
 
 func TestKnownFrontendPathsMatchPublicAndPrivateRoutes(t *testing.T) {

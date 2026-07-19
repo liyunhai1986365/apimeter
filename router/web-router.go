@@ -29,6 +29,7 @@ func SetWebRouter(router *gin.Engine, assets ThemeAssets) {
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.Use(middleware.GlobalWebRateLimit())
 	router.Use(middleware.Cache())
+	router.Use(redirectCanonicalSEOURL())
 	router.Use(static.Serve("/", themeFS))
 	router.GET("/robots.txt", serveRobotsTXT)
 	router.HEAD("/robots.txt", serveRobotsTXT)
@@ -57,6 +58,9 @@ func serveFrontendPage(c *gin.Context, assets ThemeAssets) {
 	c.Set(middleware.RouteTagKey, "web")
 	page := resolveSEOPage(c)
 	c.Header("Cache-Control", "no-cache")
+	if page.Robots != "index, follow" {
+		c.Header("X-Robots-Tag", "noindex, nofollow")
+	}
 	c.Data(page.Status, "text/html; charset=utf-8", currentIndexPage(c, assets))
 }
 

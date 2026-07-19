@@ -23,7 +23,10 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 import { getHTMLLanguage, resolveSEODescriptor } from '@/lib/seo'
 import { getSiteName } from '@/lib/site-branding'
 
-function upsertMeta(selector: string, attributes: Record<string, string>): void {
+function upsertMeta(
+  selector: string,
+  attributes: Record<string, string>
+): void {
   let element = document.head.querySelector<HTMLMetaElement>(selector)
   if (!element) {
     element = document.createElement('meta')
@@ -32,6 +35,17 @@ function upsertMeta(selector: string, attributes: Record<string, string>): void 
   Object.entries(attributes).forEach(([name, value]) => {
     element?.setAttribute(name, value)
   })
+}
+
+function upsertOptionalMeta(
+  selector: string,
+  attributes: Record<string, string> | undefined
+): void {
+  if (!attributes) {
+    document.head.querySelector(selector)?.remove()
+    return
+  }
+  upsertMeta(selector, attributes)
 }
 
 function upsertCanonical(href?: string): void {
@@ -166,17 +180,30 @@ export function SEOManager() {
       property: 'og:title',
       content: descriptor.title,
     })
+    upsertMeta('meta[property="og:site_name"]', {
+      property: 'og:site_name',
+      content: getSiteName(systemName),
+    })
     upsertMeta('meta[property="og:description"]', {
       property: 'og:description',
       content: descriptor.description,
     })
-    upsertMeta('meta[property="og:url"]', {
-      property: 'og:url',
-      content: canonical ?? window.location.origin,
-    })
+    upsertOptionalMeta(
+      'meta[property="og:url"]',
+      canonical
+        ? {
+            property: 'og:url',
+            content: canonical,
+          }
+        : undefined
+    )
     upsertMeta('meta[name="twitter:title"]', {
       name: 'twitter:title',
       content: descriptor.title,
+    })
+    upsertMeta('meta[name="twitter:card"]', {
+      name: 'twitter:card',
+      content: 'summary',
     })
     upsertMeta('meta[name="twitter:description"]', {
       name: 'twitter:description',

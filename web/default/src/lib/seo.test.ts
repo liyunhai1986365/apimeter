@@ -1,11 +1,7 @@
+import type { TFunction } from 'i18next'
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import type { TFunction } from 'i18next'
-import {
-  getHTMLLanguage,
-  normalizeSEOPath,
-  resolveSEODescriptor,
-} from './seo'
+import { getHTMLLanguage, normalizeSEOPath, resolveSEODescriptor } from './seo'
 
 const t = ((key: string, options?: Record<string, string>) =>
   Object.entries(options ?? {}).reduce(
@@ -37,6 +33,9 @@ describe('SEO helpers', () => {
     )
     assert.equal(descriptor.canonicalPath, '/pricing')
     assert.equal(descriptor.robots, 'index, follow')
+    assert.deepEqual(descriptor.structuredData?.isPartOf, {
+      '@id': '/#website',
+    })
   })
 
   test('uses model names for pricing detail metadata', () => {
@@ -56,6 +55,12 @@ describe('SEO helpers', () => {
     )
     assert.equal(descriptor.canonicalPath, '/pricing/gpt-4.1%20mini')
     assert.equal(descriptor.robots, 'index, follow')
+    const graph = descriptor.structuredData?.['@graph'] as Array<
+      Record<string, unknown>
+    >
+    assert.equal(graph[0]?.['@id'], '/pricing/gpt-4.1%20mini#webpage')
+    assert.equal(graph[1]?.['@type'], 'Service')
+    assert.deepEqual(graph[1]?.provider, { '@id': '/#organization' })
   })
 
   test('keeps authentication and dashboard pages out of search results', () => {
