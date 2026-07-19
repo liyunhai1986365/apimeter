@@ -378,7 +378,8 @@ export function SignUpForm({
         {/* Submit Button */}
         <Button
           type='submit'
-          className='mt-1 h-11 w-full justify-center gap-2 rounded-lg'
+          size='lg'
+          className='mt-1 h-12 w-full justify-center'
           disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}

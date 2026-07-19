@@ -16,10 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useStatus } from '@/hooks/use-status'
 import { AuthLayout } from '../auth-layout'
+import { AuthModeSwitch } from '../components/auth-mode-switch'
 import { LegalRegisterNotice } from '../components/legal-register-notice'
 import { SignUpForm } from './components/sign-up-form'
 
@@ -29,30 +29,20 @@ export function SignUp() {
 
   return (
     <AuthLayout>
-      <div className='w-full space-y-8'>
-        <div className='space-y-3'>
-          <div className='space-y-2'>
-            <p className='text-primary text-sm font-medium'>
-              {t('Start building')}
-            </p>
-            <h2 className='text-3xl leading-tight font-semibold tracking-tight'>
-              {t('Create your gateway account')}
-            </h2>
-            <p className='text-muted-foreground text-sm leading-6'>
-              {t(
-                'Join the platform to issue keys, route requests, and track usage from day one.'
-              )}
-            </p>
-          </div>
-          <p className='text-muted-foreground text-sm'>
-            {t('Already have an account?')}{' '}
-            <Link
-              to='/sign-in'
-              className='hover:text-primary font-medium underline underline-offset-4'
-            >
-              {t('Sign in')}
-            </Link>
-            .
+      <div className='flex w-full flex-col gap-8'>
+        <AuthModeSwitch activeMode='sign-up' />
+
+        <div className='flex flex-col gap-2'>
+          <p className='text-primary text-sm font-medium'>
+            {t('Start building')}
+          </p>
+          <h2 className='text-3xl leading-tight font-semibold tracking-tight'>
+            {t('Create your gateway account')}
+          </h2>
+          <p className='text-muted-foreground text-sm leading-6'>
+            {t(
+              'Join the platform to issue keys, route requests, and track usage from day one.'
+            )}
           </p>
         </div>
 

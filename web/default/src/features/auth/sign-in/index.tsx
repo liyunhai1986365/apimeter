@@ -16,10 +16,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Link, useSearch } from '@tanstack/react-router'
+import { useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useStatus } from '@/hooks/use-status'
 import { AuthLayout } from '../auth-layout'
+import { AuthModeSwitch } from '../components/auth-mode-switch'
 import { UserAuthForm } from './components/user-auth-form'
 
 export function SignIn() {
@@ -29,34 +30,26 @@ export function SignIn() {
 
   return (
     <AuthLayout>
-      <div className='w-full space-y-8'>
-        <div className='space-y-3'>
-          <div className='space-y-2'>
-            <p className='text-primary text-sm font-medium'>
-              {t('Welcome back')}
-            </p>
-            <h2 className='text-3xl leading-tight font-semibold tracking-tight'>
-              {t('Sign in to your workspace')}
-            </h2>
-            <p className='text-muted-foreground text-sm leading-6'>
-              {t(
-                'Manage model access, billing, keys, and routing from a single console.'
-              )}
-            </p>
-          </div>
-          {!status?.self_use_mode_enabled &&
-            status?.register_enabled !== false && (
-              <p className='text-muted-foreground text-sm'>
-                {t("Don't have an account?")}{' '}
-                <Link
-                  to='/sign-up'
-                  className='hover:text-primary font-medium underline underline-offset-4'
-                >
-                  {t('Sign up')}
-                </Link>
-                .
-              </p>
+      <div className='flex w-full flex-col gap-8'>
+        <AuthModeSwitch
+          activeMode='sign-in'
+          showSignUp={
+            !status?.self_use_mode_enabled && status?.register_enabled !== false
+          }
+        />
+
+        <div className='flex flex-col gap-2'>
+          <p className='text-primary text-sm font-medium'>
+            {t('Welcome back')}
+          </p>
+          <h2 className='text-3xl leading-tight font-semibold tracking-tight'>
+            {t('Sign in to your workspace')}
+          </h2>
+          <p className='text-muted-foreground text-sm leading-6'>
+            {t(
+              'Manage model access, billing, keys, and routing from a single console.'
             )}
+          </p>
         </div>
 
         <UserAuthForm redirectTo={redirect} />
