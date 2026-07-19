@@ -74,6 +74,13 @@ describe('SEO helpers', () => {
     )
   })
 
+  test('uses the AI creation tools title for the private creation page', () => {
+    const descriptor = resolveSEODescriptor('/ai-creation', 'ModelSell', t)
+
+    assert.equal(descriptor.title, 'AI Creation Tools | ModelSell')
+    assert.equal(descriptor.robots, 'noindex, nofollow')
+  })
+
   test('marks unknown pages noindex and maps interface languages to HTML tags', () => {
     assert.equal(
       resolveSEODescriptor('/unknown', 'ModelSell', t).canonicalPath,

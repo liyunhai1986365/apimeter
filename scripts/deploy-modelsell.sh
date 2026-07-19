@@ -126,7 +126,6 @@ init_context() {
   DEPLOY_ARCH_LABEL="${DEPLOY_ARCH_LABEL:-x86_64}"
   DEPLOY_HEALTH_PATH="${DEPLOY_HEALTH_PATH:-/api/status}"
   DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-30}"
-  DEPLOY_STOP_TIMEOUT="${DEPLOY_STOP_TIMEOUT:-135}"
   DEPLOY_KEEP_RELEASES="${DEPLOY_KEEP_RELEASES:-5}"
   DEPLOY_SEO_VERIFY="${DEPLOY_SEO_VERIFY:-true}"
   DEPLOY_SEO_CANONICAL_URL="${DEPLOY_SEO_CANONICAL_URL:-https://modelsell.com}"
@@ -254,7 +253,7 @@ run_remote_deploy() {
   local apply_release="$1"
   local install_env="$2"
 
-  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' STOP_TIMEOUT='$DEPLOY_STOP_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' SEO_VERIFY='$DEPLOY_SEO_VERIFY' SEO_CANONICAL_URL='$DEPLOY_SEO_CANONICAL_URL' bash -s" <<'REMOTE_SCRIPT'
+  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' SEO_VERIFY='$DEPLOY_SEO_VERIFY' SEO_CANONICAL_URL='$DEPLOY_SEO_CANONICAL_URL' bash -s" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 RELEASES_DIR="$REMOTE_DIR/releases"
@@ -292,19 +291,6 @@ start_service_log_stream() {
 trap stop_service_log_stream EXIT
 trap 'stop_service_log_stream; exit 130' INT TERM
 
-resolve_stop_timeout() {
-  if ! [[ "$STOP_TIMEOUT" =~ ^[0-9]+$ ]] || (( STOP_TIMEOUT < 1 )); then
-    STOP_TIMEOUT=135
-  fi
-
-  local app_timeout
-  app_timeout="$(sed -n 's/^[[:space:]]*SHUTDOWN_TIMEOUT_SECONDS[[:space:]]*=[[:space:]]*//p' "$REMOTE_DIR/.env" 2>/dev/null \
-    | tail -n 1 | tr -d '[:space:]"' || true)"
-  if [[ "$app_timeout" =~ ^[0-9]+$ ]] && (( STOP_TIMEOUT <= app_timeout )); then
-    STOP_TIMEOUT=$((app_timeout + 15))
-  fi
-}
-
 install_service_config() {
   cat >"/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
@@ -320,7 +306,9 @@ EnvironmentFile=${REMOTE_DIR}/.env
 ExecStart=${REMOTE_DIR}/current/${BINARY_NAME} --port ${APP_PORT} --log-dir ${REMOTE_DIR}/logs
 Restart=always
 RestartSec=5
-TimeoutStopSec=${STOP_TIMEOUT}s
+KillMode=control-group
+KillSignal=SIGKILL
+TimeoutStopSec=5s
 LimitNOFILE=65535
 
 [Install]
@@ -372,7 +360,7 @@ verify_seo() {
 }
 
 stop_service() {
-  log "Stopping service (graceful timeout=${STOP_TIMEOUT}s): $SERVICE_NAME"
+  log "Stopping service immediately (SIGKILL): $SERVICE_NAME"
   local stop_rc=0
   systemctl stop "$SERVICE_NAME" || stop_rc=$?
 
@@ -511,7 +499,6 @@ if [[ "$INSTALL_ENV" == "1" ]]; then
   chmod 600 "$REMOTE_DIR/.env"
 fi
 
-resolve_stop_timeout
 install_service_config
 start_service_log_stream
 

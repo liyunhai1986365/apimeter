@@ -31,7 +31,6 @@ assert_heredoc_syntax() {
 
 assert_contains 'DEPLOY_HEALTH_PATH="${DEPLOY_HEALTH_PATH:-/api/status}"'
 assert_contains 'DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-30}"'
-assert_contains 'DEPLOY_STOP_TIMEOUT="${DEPLOY_STOP_TIMEOUT:-135}"'
 assert_contains 'DEPLOY_KEEP_RELEASES="${DEPLOY_KEEP_RELEASES:-5}"'
 assert_contains 'DEPLOY_SEO_VERIFY="${DEPLOY_SEO_VERIFY:-true}"'
 assert_contains 'DEPLOY_SEO_CANONICAL_URL="${DEPLOY_SEO_CANONICAL_URL:-https://modelsell.com}"'
@@ -40,7 +39,10 @@ assert_contains 'PREVIOUS_TARGET="$(readlink -f "$CURRENT_LINK" 2>/dev/null || t
 assert_contains 'ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"'
 assert_contains 'rollback_service "$PREVIOUS_TARGET"'
 assert_contains "curl -sS --max-time 3 -o /dev/null -w '%{http_code}' \"\$url\""
-assert_contains 'TimeoutStopSec=${STOP_TIMEOUT}s'
+assert_contains 'KillMode=control-group'
+assert_contains 'KillSignal=SIGKILL'
+assert_contains 'TimeoutStopSec=5s'
+assert_contains 'Stopping service immediately (SIGKILL)'
 assert_contains 'systemctl stop "$SERVICE_NAME" || stop_rc=$?'
 assert_contains 'systemctl reset-failed "$SERVICE_NAME"'
 assert_contains 'ensure_app_port_available || return 1'
@@ -67,6 +69,10 @@ assert_contains 'manual-rollback:*)'
 
 if grep -Fq 'systemctl restart "$SERVICE_NAME"' "$SCRIPT"; then
   fail 'automatic deploy must not treat a stop timeout from systemctl restart as a new-release failure'
+fi
+
+if grep -Fq 'DEPLOY_STOP_TIMEOUT' "$SCRIPT" || grep -Fq 'SHUTDOWN_TIMEOUT_SECONDS' "$SCRIPT"; then
+  fail 'automatic deploy must not wait for application request draining'
 fi
 
 assert_heredoc_syntax REMOTE_SCRIPT

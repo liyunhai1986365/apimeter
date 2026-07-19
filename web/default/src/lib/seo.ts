@@ -31,6 +31,7 @@ export type SEODescriptor = {
 const PRIVATE_PREFIXES = [
   '/agent-management',
   '/agents',
+  '/ai-creation',
   '/billing',
   '/channels',
   '/chat',
@@ -211,7 +212,10 @@ export function resolveSEODescriptor(
 
   if (isPrivatePath(path)) {
     return {
-      title: siteName,
+      title:
+        path === '/ai-creation'
+          ? `${t('AI Creation Tools')} | ${siteName}`
+          : siteName,
       description: homeDescription,
       robots: 'noindex, nofollow',
     }

@@ -15,7 +15,7 @@
 ./scripts/deploy-modelsell.sh --manual-service-stop
 ```
 
-自动部署会实时输出 systemd journal，以及每次健康检查的服务状态、PID 和 HTTP 状态码。应用默认最多等待流式请求 120 秒，systemd 的停止上限由 `DEPLOY_STOP_TIMEOUT` 控制，默认 135 秒；该值会自动提高到运行时 `SHUTDOWN_TIMEOUT_SECONDS + 15`，避免旧进程正常排空时被误判为新版本失败。
+自动部署会实时输出 systemd journal，以及每次健康检查的服务状态、PID 和 HTTP 状态码。部署生成的 systemd 服务使用 `SIGKILL` 立即停止旧进程，不等待流式请求排空；发布时仍在执行的请求会被中断，应用也不会执行 graceful shutdown 阶段的收尾逻辑。
 
 查看当前 release、systemd 状态和健康检查：
 
