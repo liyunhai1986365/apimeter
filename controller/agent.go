@@ -378,19 +378,6 @@ func AgentListDomains(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	for i, domain := range domains {
-		if domain.Status == model.AgentDomainStatusActive {
-			continue
-		}
-		verified, verifyErr := agentservice.TryAutoVerifyDomainCNAME(c.Request.Context(), agentID, domain.Id)
-		if verifyErr != nil {
-			common.ApiError(c, verifyErr)
-			return
-		}
-		if verified != nil {
-			domains[i] = verified
-		}
-	}
 	agentservice.FillDomainCNAMETargets(domains)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(domains)
@@ -408,36 +395,6 @@ func AgentCreateDomain(c *gin.Context) {
 		return
 	}
 	domain, err := agentservice.CreateDomain(agentID, req.Domain)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	verified, verifyErr := agentservice.TryAutoVerifyDomainCNAME(c.Request.Context(), agentID, domain.Id)
-	if verifyErr != nil {
-		common.ApiError(c, verifyErr)
-		return
-	}
-	if verified != nil {
-		domain = verified
-	}
-	common.ApiSuccess(c, domain)
-}
-
-func AgentVerifyDomainCNAME(c *gin.Context) {
-	agentID, ok := currentAgentID(c)
-	if !ok {
-		return
-	}
-	domainParam := c.Param("domain_id")
-	if domainParam == "" {
-		domainParam = c.Param("id")
-	}
-	id, err := strconv.Atoi(domainParam)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	domain, err := agentservice.VerifyDomainCNAME(c.Request.Context(), agentID, id)
 	if err != nil {
 		common.ApiError(c, err)
 		return

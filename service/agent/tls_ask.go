@@ -47,10 +47,9 @@ func CanIssueTLSCertificateForDomain(rawDomain string) (bool, error) {
 	err := model.DB.Model(&model.AgentDomain{}).
 		Joins("JOIN agents ON agents.id = agent_domains.agent_id").
 		Where(
-			"agent_domains.domain = ? AND agent_domains.status = ? AND agent_domains.verified_at > ? AND agents.status = ?",
+			"agent_domains.domain = ? AND agent_domains.status = ? AND agents.status = ?",
 			domain,
 			model.AgentDomainStatusActive,
-			0,
 			model.AgentStatusEnabled,
 		).
 		Count(&count).Error
@@ -77,10 +76,9 @@ func canIssueTLSCertificateForCNAMETarget(domain string) (bool, error) {
 	err := model.DB.Model(&model.AgentDomain{}).
 		Joins("JOIN agents ON agents.id = agent_domains.agent_id").
 		Where(
-			"agent_domains.verify_token = ? AND agent_domains.status = ? AND agent_domains.verified_at > ? AND agents.status = ?",
+			"agent_domains.verify_token = ? AND agent_domains.status = ? AND agents.status = ?",
 			verifyToken,
 			model.AgentDomainStatusActive,
-			0,
 			model.AgentStatusEnabled,
 		).
 		Count(&count).Error

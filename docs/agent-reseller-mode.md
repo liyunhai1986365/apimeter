@@ -233,9 +233,8 @@ web/default/src/features/agents/
 | id | int | 主键 |
 | agent_id | int | 代理 ID |
 | domain | varchar(255) | 域名，唯一 |
-| status | int | pending / active / disabled |
-| verify_token | varchar(128) | 域名验证 token |
-| verified_at | bigint | 验证时间 |
+| status | int | active / disabled |
+| verify_token | varchar(128) | 唯一 CNAME 目标 token |
 | force_https | bool | 是否强制 HTTPS |
 | created_at | bigint | 创建时间 |
 | updated_at | bigint | 更新时间 |
@@ -462,15 +461,15 @@ available = sum(agent_ledger.profit_quota)
 域名绑定：
 
 - 代理提交域名。
-- 系统生成 `verify_token`。
-- 代理通过 CNAME 验证：用户域名 CNAME 到 `<verify_token>.<AGENT_CNAME_BASE_DOMAIN>`。
+- 系统登记并直接启用域名，同时生成唯一 `verify_token`。
+- 用户域名可将 CNAME 指向 `<verify_token>.<AGENT_CNAME_BASE_DOMAIN>`，也可通过 CDN 或其他反向代理接入。
 - 主站管理员可启用或禁用域名。
 
 自动 SSL：
 
 - 服务端提供 `GET /api/agent/domains/tls-ask?domain=<domain>` 供 Caddy On-Demand TLS 调用。
-- 只有 `agents.status = enabled`、`agent_domains.status = active` 且 `agent_domains.verified_at > 0` 的域名会返回 200。
-- 未绑定、未验证、已禁用域名或代理已禁用时返回 403，不做默认证书兜底。
+- 只有 `agents.status = enabled` 且 `agent_domains.status = active` 的已登记域名会返回 200。
+- 未登记、已禁用域名或代理已禁用时返回 403，不做默认证书兜底。
 - 可配置 `AGENT_TLS_ASK_SECRET`，配置后 Caddy 的 ask URL 需带 `secret` 参数。
 
 推荐 Caddy 配置：
@@ -523,7 +522,6 @@ available = sum(agent_ledger.profit_quota)
 - `PUT /api/agents/:id/status`
 - `GET /api/agents/:id/domains`
 - `POST /api/agents/:id/domains`
-- `POST /api/agents/:id/domains/:domain_id/verify`
 - `PUT /api/agents/:id/domains/:domain_id/status`
 - `GET /api/agents/:id/pricing_rules`
 - `POST /api/agents/:id/pricing_rules`
@@ -541,7 +539,6 @@ available = sum(agent_ledger.profit_quota)
 - `GET /api/agent/self`
 - `GET /api/agent/domains`
 - `POST /api/agent/domains`
-- `POST /api/agent/domains/:id/verify`
 - `PUT /api/agent/domains/:id/status`
 - `GET /api/agent/pricing_rules`
 - `POST /api/agent/pricing_rules`
@@ -724,7 +721,7 @@ available = sum(agent_ledger.profit_quota)
 - 支付 return URL 支持代理域名。
 - 充值记录打上代理维度。
 - 代理 branding 覆盖前端站点名、logo、公告。
-- 域名验证支持 TXT 或 CNAME。
+- 代理域名支持通过 CDN 或其他反向代理接入。
 
 验收：
 

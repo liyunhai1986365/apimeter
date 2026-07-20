@@ -236,7 +236,7 @@ func CreateDomain(agentID int, rawDomain string) (*model.AgentDomain, error) {
 	agentDomain := &model.AgentDomain{
 		AgentId:     agentID,
 		Domain:      domain,
-		Status:      model.AgentDomainStatusPending,
+		Status:      model.AgentDomainStatusActive,
 		VerifyToken: token,
 		ForceHttps:  true,
 	}
@@ -264,10 +264,7 @@ func isAgentDomainDuplicateError(err error) bool {
 func ActivateDomain(agentID int, domainID int) error {
 	return model.DB.Model(&model.AgentDomain{}).
 		Where("id = ? AND agent_id = ?", domainID, agentID).
-		Updates(map[string]interface{}{
-			"status":      model.AgentDomainStatusActive,
-			"verified_at": common.GetTimestamp(),
-		}).Error
+		Update("status", model.AgentDomainStatusActive).Error
 }
 
 func UpdateDomainStatus(agentID int, domainID int, status int) error {

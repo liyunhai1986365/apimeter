@@ -588,10 +588,9 @@ func TestAgentDomainAndGroupRatioCRUD(t *testing.T) {
 	domain, err := CreateDomain(agent.Id, " Agent.Example.com:443 ")
 	require.NoError(t, err)
 	require.Equal(t, "agent.example.com", domain.Domain)
-	require.Equal(t, model.AgentDomainStatusPending, domain.Status)
+	require.Equal(t, model.AgentDomainStatusActive, domain.Status)
 	require.NotEmpty(t, domain.VerifyToken)
 
-	require.NoError(t, ActivateDomain(agent.Id, domain.Id))
 	ctx, err := ResolveByHost("agent.example.com")
 	require.NoError(t, err)
 	require.NotNil(t, ctx)

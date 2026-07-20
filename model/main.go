@@ -352,6 +352,9 @@ func migrateDB() error {
 			return err
 		}
 	}
+	if err := activateLegacyPendingAgentDomains(); err != nil {
+		return err
+	}
 	if err := BackfillTaskTokenFields(); err != nil {
 		return err
 	}
@@ -452,11 +455,23 @@ func migrateDBFast() error {
 	if err := migrateAgentUserGroupColumn(); err != nil {
 		return err
 	}
+	if err := activateLegacyPendingAgentDomains(); err != nil {
+		return err
+	}
 	if err := BackfillTaskTokenFields(); err != nil {
 		return err
 	}
 	common.SysLog("database migrated")
 	return nil
+}
+
+func activateLegacyPendingAgentDomains() error {
+	if DB == nil || !DB.Migrator().HasTable(&AgentDomain{}) {
+		return nil
+	}
+	return DB.Model(&AgentDomain{}).
+		Where("status = ?", AgentDomainStatusPending).
+		Update("status", AgentDomainStatusActive).Error
 }
 
 func migrateAgentGroupRatiosMappingColumns() error {

@@ -22,7 +22,6 @@ import { useNavigate } from '@tanstack/react-router'
 import {
   BarChart3,
   BadgeDollarSign,
-  CheckCircle2,
   Copy,
   Globe2,
   RefreshCcw,
@@ -103,7 +102,6 @@ import {
   updateAgentUserStatus,
   upsertAgentGroupRatio,
   upsertAgentUserGroup,
-  verifyAgentDomain,
 } from './api'
 import { AgentAnalyticsOverview } from './components/agent-analytics-overview'
 import { AgentBalanceDialog } from './components/agent-balance-dialog'
@@ -301,19 +299,6 @@ export function Agents() {
     onSuccess: () => {
       toast.success(t('Domain added'))
       setNewDomain('')
-      refreshAgent()
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : t('Operation failed')
-      )
-    },
-  })
-
-  const verifyDomainMutation = useMutation({
-    mutationFn: verifyAgentDomain,
-    onSuccess: () => {
-      toast.success(t('Domain verified'))
       refreshAgent()
     },
     onError: (error) => {
@@ -791,7 +776,7 @@ export function Agents() {
                       </h3>
                       <p className='text-muted-foreground mt-1 text-xs'>
                         {t(
-                          'Add a custom domain, point its CNAME to the target, then verify it.'
+                          'Add a custom domain, then point its CNAME to the target.'
                         )}
                       </p>
                     </div>
@@ -822,13 +807,12 @@ export function Agents() {
                         <TableHead>{t('Domain')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
                         <TableHead>{t('CNAME Target')}</TableHead>
-                        <TableHead>{t('Actions')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {domains.length === 0 ? (
                         <TableEmpty
-                          colSpan={4}
+                          colSpan={3}
                           title={t('No Domains')}
                           description={t(
                             'Add a domain before using this agent site.'
@@ -864,22 +848,6 @@ export function Agents() {
                                   </Button>
                                 ) : null}
                               </div>
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant='outline'
-                                size='sm'
-                                disabled={
-                                  item.status === 1 ||
-                                  verifyDomainMutation.isPending
-                                }
-                                onClick={() =>
-                                  verifyDomainMutation.mutate({ id: item.id })
-                                }
-                              >
-                                <CheckCircle2 className='size-4' />
-                                {t('Verify Domain')}
-                              </Button>
                             </TableCell>
                           </TableRow>
                         ))

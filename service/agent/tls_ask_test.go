@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCanIssueTLSCertificateForDomainRequiresActiveVerifiedDomainAndEnabledAgent(t *testing.T) {
+func TestCanIssueTLSCertificateForDomainRequiresActiveDomainAndEnabledAgent(t *testing.T) {
 	setupAgentTestDB(t)
 
 	require.NoError(t, model.DB.Create(&model.Agent{
@@ -21,10 +21,9 @@ func TestCanIssueTLSCertificateForDomainRequiresActiveVerifiedDomainAndEnabledAg
 		DefaultMarkup: 1,
 	}).Error)
 	require.NoError(t, model.DB.Create(&model.AgentDomain{
-		AgentId:    1,
-		Domain:     "api.customer.com",
-		Status:     model.AgentDomainStatusActive,
-		VerifiedAt: common.GetTimestamp(),
+		AgentId: 1,
+		Domain:  "api.customer.com",
+		Status:  model.AgentDomainStatusActive,
 	}).Error)
 
 	allowed, err := CanIssueTLSCertificateForDomain("API.Customer.com:443")
@@ -33,7 +32,7 @@ func TestCanIssueTLSCertificateForDomainRequiresActiveVerifiedDomainAndEnabledAg
 	require.True(t, allowed)
 }
 
-func TestCanIssueTLSCertificateForDomainAllowsVerifiedCNAMETarget(t *testing.T) {
+func TestCanIssueTLSCertificateForDomainAllowsActiveCNAMETarget(t *testing.T) {
 	setupAgentTestDB(t)
 	common.OptionMapRWMutex.Lock()
 	if common.OptionMap == nil {
@@ -62,7 +61,6 @@ func TestCanIssueTLSCertificateForDomainAllowsVerifiedCNAMETarget(t *testing.T) 
 		Domain:      "lovtokens.com",
 		Status:      model.AgentDomainStatusActive,
 		VerifyToken: "verify-token",
-		VerifiedAt:  common.GetTimestamp(),
 	}).Error)
 
 	allowed, err := CanIssueTLSCertificateForDomain("verify-token.agent-cname.modelsell.com")
@@ -71,7 +69,7 @@ func TestCanIssueTLSCertificateForDomainAllowsVerifiedCNAMETarget(t *testing.T) 
 	require.True(t, allowed)
 }
 
-func TestCanIssueTLSCertificateForDomainRejectsInactiveUnverifiedOrDisabledAgentDomains(t *testing.T) {
+func TestCanIssueTLSCertificateForDomainRejectsInactiveOrDisabledAgentDomains(t *testing.T) {
 	setupAgentTestDB(t)
 
 	require.NoError(t, model.DB.Create(&model.Agent{
@@ -94,28 +92,19 @@ func TestCanIssueTLSCertificateForDomainRejectsInactiveUnverifiedOrDisabledAgent
 	}).Error)
 	require.NoError(t, model.DB.Create([]*model.AgentDomain{
 		{
-			AgentId:    1,
-			Domain:     "pending.customer.com",
-			Status:     model.AgentDomainStatusPending,
-			VerifiedAt: common.GetTimestamp(),
+			AgentId: 1,
+			Domain:  "pending.customer.com",
+			Status:  model.AgentDomainStatusPending,
 		},
 		{
-			AgentId:    1,
-			Domain:     "unverified.customer.com",
-			Status:     model.AgentDomainStatusActive,
-			VerifiedAt: 0,
-		},
-		{
-			AgentId:    2,
-			Domain:     "disabled-agent.customer.com",
-			Status:     model.AgentDomainStatusActive,
-			VerifiedAt: common.GetTimestamp(),
+			AgentId: 2,
+			Domain:  "disabled-agent.customer.com",
+			Status:  model.AgentDomainStatusActive,
 		},
 	}).Error)
 
 	for _, domain := range []string{
 		"pending.customer.com",
-		"unverified.customer.com",
 		"disabled-agent.customer.com",
 		"missing.customer.com",
 	} {

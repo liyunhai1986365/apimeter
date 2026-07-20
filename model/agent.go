@@ -66,7 +66,6 @@ type AgentDomain struct {
 	Status      int    `json:"status" gorm:"type:int;index"`
 	VerifyToken string `json:"verify_token" gorm:"type:varchar(128)"`
 	CNAMETarget string `json:"cname_target" gorm:"-"`
-	VerifiedAt  int64  `json:"verified_at" gorm:"bigint;default:0;column:verified_at"`
 	ForceHttps  bool   `json:"force_https" gorm:"column:force_https"`
 	CreatedAt   int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	UpdatedAt   int64  `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`

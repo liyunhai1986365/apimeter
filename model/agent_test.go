@@ -98,6 +98,28 @@ func TestListAgentDomainsByStatus(t *testing.T) {
 	assert.Equal(t, 2001, domains[0].OwnerUserId)
 }
 
+func TestActivateLegacyPendingAgentDomains(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, DB.Create(&AgentDomain{
+		AgentId: 1,
+		Domain:  "pending.example.com",
+		Status:  AgentDomainStatusPending,
+	}).Error)
+	require.NoError(t, DB.Create(&AgentDomain{
+		AgentId: 2,
+		Domain:  "disabled.example.com",
+		Status:  AgentDomainStatusDisabled,
+	}).Error)
+
+	require.NoError(t, activateLegacyPendingAgentDomains())
+
+	var domains []AgentDomain
+	require.NoError(t, DB.Order("id ASC").Find(&domains).Error)
+	require.Equal(t, AgentDomainStatusActive, domains[0].Status)
+	require.Equal(t, AgentDomainStatusDisabled, domains[1].Status)
+}
+
 func TestUserHasAgentConsole(t *testing.T) {
 	t.Run("returns true for agent owner", func(t *testing.T) {
 		truncateTables(t)

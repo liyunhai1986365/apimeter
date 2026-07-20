@@ -30,7 +30,6 @@ import {
   Typography,
 } from '@douyinfe/semi-ui';
 import {
-  IconCheckCircleStroked,
   IconCopy,
   IconGlobe,
   IconRefresh,
@@ -101,7 +100,6 @@ const AgentConsole = () => {
   const [loading, setLoading] = useState(true);
   const [savingBranding, setSavingBranding] = useState(false);
   const [creatingDomain, setCreatingDomain] = useState(false);
-  const [verifyingDomainId, setVerifyingDomainId] = useState(null);
   const [self, setSelf] = useState(null);
   const [domains, setDomains] = useState([]);
   const [siteName, setSiteName] = useState('');
@@ -193,24 +191,6 @@ const AgentConsole = () => {
     }
   };
 
-  const verifyDomain = async (domainId) => {
-    setVerifyingDomainId(domainId);
-    try {
-      const res = await API.post(`/api/agent/domains/${domainId}/verify`);
-
-      if (!res.data?.success) {
-        throw new Error(res.data?.message || '域名验证失败');
-      }
-
-      showSuccess('域名验证成功');
-      await loadAgent();
-    } catch (error) {
-      showError(error);
-    } finally {
-      setVerifyingDomainId(null);
-    }
-  };
-
   useEffect(() => {
     loadAgent();
   }, []);
@@ -258,26 +238,8 @@ const AgentConsole = () => {
           </Space>
         ),
       },
-      {
-        title: '操作',
-        dataIndex: 'id',
-        width: 120,
-        render: (value, record) => (
-          <Button
-            icon={<IconCheckCircleStroked />}
-            size='small'
-            theme='outline'
-            type='primary'
-            disabled={record.status === 1}
-            loading={verifyingDomainId === value}
-            onClick={() => verifyDomain(value)}
-          >
-            验证
-          </Button>
-        ),
-      },
     ],
-    [verifyingDomainId],
+    [],
   );
 
   const agent = self?.agent;
@@ -409,7 +371,7 @@ const AgentConsole = () => {
                 empty={
                   <Empty
                     title='暂无域名'
-                    description='添加域名后，将 CNAME 指向目标地址并点击验证。'
+                    description='添加域名后，将 CNAME 指向目标地址。'
                   />
                 }
               />

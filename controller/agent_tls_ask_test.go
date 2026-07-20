@@ -47,7 +47,7 @@ func setupAgentTLSAskControllerTestDB(t *testing.T) {
 	})
 }
 
-func TestAgentDomainTLSAskAllowsVerifiedActiveAgentDomain(t *testing.T) {
+func TestAgentDomainTLSAskAllowsActiveAgentDomain(t *testing.T) {
 	setupAgentTLSAskControllerTestDB(t)
 	require.NoError(t, model.DB.Create(&model.Agent{
 		Id:            1,
@@ -59,10 +59,9 @@ func TestAgentDomainTLSAskAllowsVerifiedActiveAgentDomain(t *testing.T) {
 		DefaultMarkup: 1,
 	}).Error)
 	require.NoError(t, model.DB.Create(&model.AgentDomain{
-		AgentId:    1,
-		Domain:     "api.customer.com",
-		Status:     model.AgentDomainStatusActive,
-		VerifiedAt: common.GetTimestamp(),
+		AgentId: 1,
+		Domain:  "api.customer.com",
+		Status:  model.AgentDomainStatusActive,
 	}).Error)
 
 	router := gin.New()
