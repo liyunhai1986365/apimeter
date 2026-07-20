@@ -18,11 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { type ReactNode, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
   BadgeDollarSign,
   Check,
   CircleDollarSign,
   Globe2,
+  Eye,
   Plus,
   RefreshCcw,
   Save,
@@ -91,6 +93,7 @@ import {
   listAdminAgentWithdrawals,
   parseAgentBranding,
   stringifyAgentBranding,
+  switchAgentViewContext,
   updateAdminAgent,
   updateAdminAgentDomainStatus,
   upsertAdminAgentGroupRatio,
@@ -163,6 +166,7 @@ function withdrawalVariant(
 
 export function AgentManagement() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [selectedAgentId, setSelectedAgentId] = useState<number | null>(null)
   const [detailAgentId, setDetailAgentId] = useState<number | null>(null)
@@ -452,6 +456,19 @@ export function AgentManagement() {
     },
   })
 
+  const viewAgentMutation = useMutation({
+    mutationFn: switchAgentViewContext,
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['agent'] })
+      navigate({ to: '/agents' })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
   const canCreateAgent =
     Number(newAgentOwnerId) > 0 &&
     newAgentName.trim() !== '' &&
@@ -596,6 +613,17 @@ export function AgentManagement() {
                             </TableCell>
                             <TableCell className='text-right'>
                               <div className='inline-flex gap-2'>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  disabled={viewAgentMutation.isPending}
+                                  onClick={() =>
+                                    viewAgentMutation.mutate(agent.id)
+                                  }
+                                >
+                                  <Eye />
+                                  {t('View Agent Console')}
+                                </Button>
                                 <Button
                                   size='sm'
                                   variant='outline'

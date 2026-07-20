@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
+import { ROLE } from '@/lib/roles'
 import { Agents } from '@/features/agents'
 
 export const Route = createFileRoute('/_authenticated/agents/')({
@@ -26,7 +27,9 @@ export const Route = createFileRoute('/_authenticated/agents/')({
     const user = auth.user
     const canUseAgentConsole = Boolean(
       user &&
-        (user.has_agent === true || user.permissions?.agent_console === true)
+      (user.role >= ROLE.ADMIN ||
+        user.has_agent === true ||
+        user.permissions?.agent_console === true)
     )
 
     if (!canUseAgentConsole) {

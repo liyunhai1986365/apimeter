@@ -256,6 +256,8 @@ func SetApiRouter(router *gin.Engine) {
 		agentSelfRoute.Use(middleware.AgentOwnerAuth())
 		{
 			agentSelfRoute.GET("/self", controller.GetAgentSelf)
+			agentSelfRoute.POST("/view-context", controller.SwitchAgentViewContext)
+			agentSelfRoute.DELETE("/view-context", controller.ClearAgentViewContext)
 			agentSelfRoute.PUT("/self/branding", controller.UpdateAgentSelfBranding)
 			agentSelfRoute.GET("/domains", controller.AgentListDomains)
 			agentSelfRoute.POST("/domains", controller.AgentCreateDomain)
@@ -266,6 +268,8 @@ func SetApiRouter(router *gin.Engine) {
 			agentSelfRoute.GET("/user_groups", controller.AgentListUserGroupConfigs)
 			agentSelfRoute.POST("/user_groups", controller.AgentUpsertUserGroupConfig)
 			agentSelfRoute.GET("/users", controller.AgentListUsers)
+			agentSelfRoute.GET("/analytics", controller.AgentGetAnalytics)
+			agentSelfRoute.GET("/analytics/logs", controller.AgentListAnalyticsLogs)
 			agentSelfRoute.POST("/users", controller.AgentBindUser)
 			agentSelfRoute.PUT("/users/:user_id/status", controller.AgentUpdateUserStatus)
 			agentSelfRoute.PUT("/users/:user_id/group", controller.AgentUpdateUserGroup)

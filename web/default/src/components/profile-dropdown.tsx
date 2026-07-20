@@ -18,7 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import { User, Wallet, LogOut, Settings, ExternalLink } from 'lucide-react'
+import {
+  User,
+  Wallet,
+  LogOut,
+  Settings,
+  ExternalLink,
+  Store,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
@@ -30,6 +37,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -45,13 +53,16 @@ export function ProfileDropdown() {
   const user = useAuthStore((state) => state.auth.user)
   const { displayName, roleLabel } = useUserDisplay(user)
   const isSuperAdmin = user?.role === ROLE.SUPER_ADMIN
+  const hasAgentIdentity = user?.has_agent === true
   const avatarName = user?.username || displayName
   const avatarFallback = getUserAvatarFallback(avatarName)
   const avatarFallbackStyle = useMemo(
     () => getUserAvatarStyle(avatarName),
     [avatarName]
   )
-  const openMosaicUrl = String(import.meta.env.VITE_OPENMOSAIC_URL || '').replace(/\/$/, '')
+  const openMosaicUrl = String(
+    import.meta.env.VITE_OPENMOSAIC_URL || ''
+  ).replace(/\/$/, '')
 
   return (
     <>
@@ -100,47 +111,61 @@ export function ProfileDropdown() {
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem onClick={() => navigate({ to: '/profile' })}>
-            <User className='size-4' />
-            {t('Profile')}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            {hasAgentIdentity ? (
+              <DropdownMenuItem onClick={() => navigate({ to: '/agents' })}>
+                <Store />
+                {t('Switch to Agent Identity')}
+              </DropdownMenuItem>
+            ) : null}
 
-          <DropdownMenuItem onClick={() => navigate({ to: '/wallet' })}>
-            <Wallet className='size-4' />
-            {t('Wallet')}
-          </DropdownMenuItem>
-
-          {openMosaicUrl && (
-            <DropdownMenuItem
-              onClick={() => {
-                window.location.href = `${openMosaicUrl}/api/auth/modelsell/start?redirect=%2Fhome`
-              }}
-            >
-              <ExternalLink className='size-4' />
-              {t('Open OpenMosaic')}
+            <DropdownMenuItem onClick={() => navigate({ to: '/profile' })}>
+              <User className='size-4' />
+              {t('Profile')}
             </DropdownMenuItem>
-          )}
 
-          {isSuperAdmin && (
-            <DropdownMenuItem
-              onClick={() =>
-                navigate({
-                  to: '/system-settings/site/$section',
-                  params: { section: 'system-info' },
-                })
-              }
-            >
-              <Settings className='size-4' />
-              {t('System Settings')}
+            <DropdownMenuItem onClick={() => navigate({ to: '/wallet' })}>
+              <Wallet className='size-4' />
+              {t('Wallet')}
             </DropdownMenuItem>
-          )}
+
+            {openMosaicUrl && (
+              <DropdownMenuItem
+                onClick={() => {
+                  window.location.href = `${openMosaicUrl}/api/auth/modelsell/start?redirect=%2Fhome`
+                }}
+              >
+                <ExternalLink className='size-4' />
+                {t('Open OpenMosaic')}
+              </DropdownMenuItem>
+            )}
+
+            {isSuperAdmin && (
+              <DropdownMenuItem
+                onClick={() =>
+                  navigate({
+                    to: '/system-settings/site/$section',
+                    params: { section: 'system-info' },
+                  })
+                }
+              >
+                <Settings className='size-4' />
+                {t('System Settings')}
+              </DropdownMenuItem>
+            )}
+          </DropdownMenuGroup>
 
           <DropdownMenuSeparator />
 
-          <DropdownMenuItem variant='destructive' onClick={() => setOpen(true)}>
-            <LogOut className='size-4' />
-            {t('Sign out')}
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              variant='destructive'
+              onClick={() => setOpen(true)}
+            >
+              <LogOut className='size-4' />
+              {t('Sign out')}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 

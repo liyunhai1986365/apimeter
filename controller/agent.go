@@ -11,10 +11,12 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 )
 
 const currentAgentIDKey = "current_agent_id"
+const agentViewSessionKey = "agent_view_id"
 
 type agentRequest struct {
 	OwnerUserId        int     `json:"owner_user_id"`
@@ -64,6 +66,10 @@ type agentUserRequest struct {
 	GroupName string `json:"group_name"`
 }
 
+type agentViewRequest struct {
+	AgentId int `json:"agent_id"`
+}
+
 func GetAgentSelf(c *gin.Context) {
 	agentID, ok := currentAgentID(c)
 	if !ok {
@@ -81,10 +87,87 @@ func GetAgentSelf(c *gin.Context) {
 	}
 	agentCtx, _ := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
 	common.ApiSuccess(c, gin.H{
-		"agent":   agent,
-		"context": agentCtx,
-		"balance": balance,
+		"agent":        agent,
+		"context":      agentCtx,
+		"balance":      balance,
+		"view_context": buildAgentViewContext(c, agent),
 	})
+}
+
+func SwitchAgentViewContext(c *gin.Context) {
+	if c.GetInt("role") < common.RoleAdminUser {
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "只有管理员可以切换代理查看身份"})
+		return
+	}
+	var req agentViewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	agent, err := model.GetAgentById(req.AgentId)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	session := sessions.Default(c)
+	session.Set(agentViewSessionKey, agent.Id)
+	if err := session.Save(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.Set(currentAgentIDKey, agent.Id)
+	common.ApiSuccess(c, buildAgentViewContext(c, agent))
+}
+
+func ClearAgentViewContext(c *gin.Context) {
+	session := sessions.Default(c)
+	session.Delete(agentViewSessionKey)
+	if err := session.Save(); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.Set(currentAgentIDKey, 0)
+	if c.GetInt("role") >= common.RoleAdminUser {
+		common.ApiSuccess(c, gin.H{
+			"mode":         "none",
+			"agent_id":     0,
+			"own_agent_id": 0,
+			"can_switch":   true,
+		})
+		return
+	}
+	ownAgent, err := model.GetAgentByConsoleUserId(c.GetInt("id"))
+	if err != nil && !errors.Is(err, model.ErrAgentNotFound) {
+		common.ApiError(c, err)
+		return
+	}
+	if ownAgent == nil {
+		common.ApiSuccess(c, gin.H{
+			"mode":         "none",
+			"agent_id":     0,
+			"own_agent_id": 0,
+			"can_switch":   c.GetInt("role") >= common.RoleAdminUser,
+		})
+		return
+	}
+	common.ApiSuccess(c, buildAgentViewContext(c, ownAgent))
+}
+
+func buildAgentViewContext(c *gin.Context, agent *model.Agent) gin.H {
+	ownAgentID := 0
+	if ownAgent, err := model.GetAgentByConsoleUserId(c.GetInt("id")); err == nil {
+		ownAgentID = ownAgent.Id
+	}
+	mode := "admin"
+	if c.GetInt("role") < common.RoleAdminUser && agent != nil && agent.Id == ownAgentID {
+		mode = "own"
+	}
+	return gin.H{
+		"mode":         mode,
+		"agent_id":     agent.Id,
+		"own_agent_id": ownAgentID,
+		"can_switch":   c.GetInt("role") >= common.RoleAdminUser,
+	}
 }
 
 func UpdateAgentSelfBranding(c *gin.Context) {
@@ -507,6 +590,75 @@ func AgentListUsers(c *gin.Context) {
 	common.ApiSuccess(c, pageInfo)
 }
 
+func AgentGetAnalytics(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	startTimestamp, endTimestamp, ok := agentAnalyticsTimeRange(c)
+	if !ok {
+		return
+	}
+	bucketSeconds := int64(86400)
+	if endTimestamp-startTimestamp <= 2*86400 {
+		bucketSeconds = 3600
+	}
+	analytics, err := agentservice.GetAnalytics(agentID, startTimestamp, endTimestamp, bucketSeconds)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, analytics)
+}
+
+func AgentListAnalyticsLogs(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	startTimestamp, endTimestamp, ok := agentAnalyticsTimeRange(c)
+	if !ok {
+		return
+	}
+	logType, _ := strconv.Atoi(c.Query("type"))
+	pageInfo := common.GetPageQuery(c)
+	logs, total, err := model.GetAgentAnalyticsLogs(agentID, model.AgentAnalyticsLogFilters{
+		StartTimestamp: startTimestamp,
+		EndTimestamp:   endTimestamp,
+		Type:           logType,
+		Username:       c.Query("username"),
+		ModelName:      c.Query("model_name"),
+		RequestId:      c.Query("request_id"),
+	}, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	pageInfo.SetTotal(int(total))
+	pageInfo.SetItems(logs)
+	common.ApiSuccess(c, pageInfo)
+}
+
+func agentAnalyticsTimeRange(c *gin.Context) (int64, int64, bool) {
+	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
+	if endTimestamp <= 0 {
+		endTimestamp = common.GetTimestamp()
+	}
+	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
+	if startTimestamp <= 0 {
+		startTimestamp = endTimestamp - 7*86400
+	}
+	if startTimestamp >= endTimestamp {
+		common.ApiErrorMsg(c, "开始时间必须早于结束时间")
+		return 0, 0, false
+	}
+	if endTimestamp-startTimestamp > 90*86400 {
+		common.ApiErrorMsg(c, "统计时间跨度不能超过 90 天")
+		return 0, 0, false
+	}
+	return startTimestamp, endTimestamp, true
+}
+
 func AgentBindUser(c *gin.Context) {
 	agentID, ok := currentAgentID(c)
 	if !ok {
@@ -718,6 +870,17 @@ func currentAgentID(c *gin.Context) (int, bool) {
 	if err == nil && id > 0 {
 		return id, true
 	}
+	if c.GetInt("role") >= common.RoleAdminUser {
+		if id := agentViewIDFromSession(c); id > 0 {
+			if _, err := model.GetAgentById(id); err == nil {
+				c.Set(currentAgentIDKey, id)
+				return id, true
+			}
+			session := sessions.Default(c)
+			session.Delete(agentViewSessionKey)
+			_ = session.Save()
+		}
+	}
 	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
 		return agentCtx.AgentID, true
 	}
@@ -732,6 +895,20 @@ func currentAgentID(c *gin.Context) (int, bool) {
 	}
 	common.ApiErrorMsg(c, "当前域名未配置代理站点")
 	return 0, false
+}
+
+func agentViewIDFromSession(c *gin.Context) int {
+	value := sessions.Default(c).Get(agentViewSessionKey)
+	switch typed := value.(type) {
+	case int:
+		return typed
+	case int64:
+		return int(typed)
+	case float64:
+		return int(typed)
+	default:
+		return 0
+	}
 }
 
 func ensureUserAgent(c *gin.Context) (*model.Agent, error) {

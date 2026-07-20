@@ -53,7 +53,7 @@ export type AgentBalance = {
 export type AgentSelfPayload = {
   agent: Agent
   balance: AgentBalance
-  context: {
+  context?: {
     AgentID: number
     Domain: string
     OwnerUserID: number
@@ -61,6 +61,82 @@ export type AgentSelfPayload = {
     Branding: string
     GroupRatios?: Record<string, number>
   }
+  view_context: AgentViewContext
+}
+
+export type AgentViewContext = {
+  mode: 'own' | 'admin' | 'none'
+  agent_id: number
+  own_agent_id: number
+  can_switch: boolean
+}
+
+export type AgentAnalyticsSummary = {
+  total_users: number
+  active_users: number
+  new_users: number
+  usage_users: number
+  total_requests: number
+  successful_requests: number
+  failed_requests: number
+  total_tokens: number
+  total_quota: number
+  profit_quota: number
+  profit_amount: number
+  currency: string
+  success_rate: number
+}
+
+export type AgentAnalyticsTrendPoint = {
+  timestamp: number
+  requests: number
+  errors: number
+  tokens: number
+  quota: number
+}
+
+export type AgentAnalyticsModelItem = {
+  model_name: string
+  requests: number
+  tokens: number
+  quota: number
+}
+
+export type AgentAnalyticsUserItem = {
+  user_id: number
+  username: string
+  requests: number
+  errors: number
+  tokens: number
+  quota: number
+}
+
+export type AgentAnalyticsLogItem = {
+  id: number
+  user_id: number
+  username: string
+  created_at: number
+  type: number
+  token_name: string
+  model_name: string
+  quota: number
+  prompt_tokens: number
+  completion_tokens: number
+  use_time: number
+  is_stream: boolean
+  group: string
+  request_id?: string
+}
+
+export type AgentAnalytics = {
+  start_timestamp: number
+  end_timestamp: number
+  bucket_seconds: number
+  summary: AgentAnalyticsSummary
+  trend: AgentAnalyticsTrendPoint[]
+  top_models: AgentAnalyticsModelItem[]
+  top_users: AgentAnalyticsUserItem[]
+  recent_logs: AgentAnalyticsLogItem[]
 }
 
 export type AgentPage<T> = {

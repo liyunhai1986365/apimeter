@@ -20,6 +20,8 @@ import { api } from '@/lib/api'
 import type {
   AdminAgentDomain,
   Agent,
+  AgentAnalytics,
+  AgentAnalyticsLogItem,
   AgentBalance,
   AgentBranding,
   AgentDomain,
@@ -28,6 +30,7 @@ import type {
   AgentLedger,
   AgentPage,
   AgentSelfPayload,
+  AgentViewContext,
   AgentUser,
   AgentWithdrawal,
 } from './types'
@@ -46,6 +49,49 @@ export async function getAgentSelf() {
   const res = await api.get<{ success: boolean; data: AgentSelfPayload }>(
     '/api/agent/self'
   )
+  return res.data
+}
+
+export async function switchAgentViewContext(agentId: number) {
+  const res = await api.post<{ success: boolean; data: AgentViewContext }>(
+    '/api/agent/view-context',
+    { agent_id: agentId }
+  )
+  return res.data
+}
+
+export async function clearAgentViewContext() {
+  const res = await api.delete<{ success: boolean; data: AgentViewContext }>(
+    '/api/agent/view-context'
+  )
+  return res.data
+}
+
+export async function getAgentAnalytics(params: {
+  start_timestamp: number
+  end_timestamp: number
+}) {
+  const res = await api.get<{ success: boolean; data: AgentAnalytics }>(
+    '/api/agent/analytics',
+    { params }
+  )
+  return res.data
+}
+
+export async function listAgentAnalyticsLogs(params: {
+  p?: number
+  page_size?: number
+  start_timestamp: number
+  end_timestamp: number
+  type?: number
+  username?: string
+  model_name?: string
+  request_id?: string
+}) {
+  const res = await api.get<{
+    success: boolean
+    data: AgentPage<AgentAnalyticsLogItem>
+  }>('/api/agent/analytics/logs', { params })
   return res.data
 }
 

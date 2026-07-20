@@ -18,15 +18,21 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from '@tanstack/react-router'
 import {
+  BarChart3,
   BadgeDollarSign,
   CheckCircle2,
   Copy,
   Globe2,
   RefreshCcw,
   Save,
+  ScrollText,
+  Settings2,
+  ShieldCheck,
   Store,
   Users,
+  UserRound,
   Wallet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -46,6 +52,12 @@ import {
   type ThemeCustomization,
 } from '@/lib/theme-customization'
 import { cn } from '@/lib/utils'
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -70,6 +82,7 @@ import { HeaderNavigationSection } from '@/features/system-settings/maintenance/
 import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
 import {
   createAgentDomain,
+  clearAgentViewContext,
   buildAgentUserGroupOptions,
   getAgentGroupRatioInputFloor,
   getAgentGroupRatioFormDraft,
@@ -92,7 +105,9 @@ import {
   upsertAgentUserGroup,
   verifyAgentDomain,
 } from './api'
+import { AgentAnalyticsOverview } from './components/agent-analytics-overview'
 import { AgentGroupManager } from './components/agent-group-manager'
+import { AgentUsageLogs } from './components/agent-usage-logs'
 import { AgentUserGroupManager } from './components/agent-user-group-manager'
 import {
   AgentUsersPaginationControls,
@@ -198,6 +213,7 @@ function withdrawalVariant(
 
 export function Agents() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [siteName, setSiteName] = useState('')
   const [logo, setLogo] = useState('')
@@ -364,6 +380,19 @@ export function Agents() {
     },
   })
 
+  const clearViewContextMutation = useMutation({
+    mutationFn: clearAgentViewContext,
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: ['agent'] })
+      navigate({ to: '/agent-management' })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
   const self = selfQuery.data?.data
   const balance = self?.balance
   const agentDomain = self?.context?.Domain || self?.agent?.slug || '-'
@@ -487,7 +516,50 @@ export function Agents() {
         </Button>
       </SectionPageLayout.Actions>
       <SectionPageLayout.Content>
-        <div className='space-y-4'>
+        <div className='flex flex-col gap-4'>
+          {self ? (
+            <Alert className='pr-2 sm:pr-52'>
+              {self.view_context.mode === 'admin' ? <ShieldCheck /> : <Store />}
+              <AlertTitle>
+                {self.view_context.mode === 'admin'
+                  ? t('Administrator View: {{name}}', {
+                      name: self.agent.name,
+                    })
+                  : t('Agent Identity: {{name}}', { name: self.agent.name })}
+              </AlertTitle>
+              <AlertDescription>
+                {self.view_context.mode === 'admin'
+                  ? t(
+                      'You are viewing the complete console for this agent. Your administrator account and permissions remain unchanged.'
+                    )
+                  : t(
+                      'You are using your agent identity. All data below belongs to users under this agent.'
+                    )}
+              </AlertDescription>
+              <AlertAction className='static col-span-full mt-2 justify-self-start sm:absolute sm:mt-0'>
+                {self.view_context.mode === 'admin' ? (
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    disabled={clearViewContextMutation.isPending}
+                    onClick={() => clearViewContextMutation.mutate()}
+                  >
+                    <Settings2 data-icon='inline-start' />
+                    {t('Back to Agent Management')}
+                  </Button>
+                ) : (
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => navigate({ to: '/dashboard' })}
+                  >
+                    <UserRound data-icon='inline-start' />
+                    {t('Switch to User Identity')}
+                  </Button>
+                )}
+              </AlertAction>
+            </Alert>
+          ) : null}
           <div className='grid gap-3 md:grid-cols-4'>
             <MetricCard
               label={t('Agent Name')}
@@ -517,11 +589,15 @@ export function Agents() {
             />
           </div>
 
-          <Tabs defaultValue='overview'>
-            <TabsList>
-              <TabsTrigger value='overview'>
-                <Store className='size-4' />
-                {t('Overview')}
+          <Tabs defaultValue='analytics'>
+            <TabsList className='max-w-full flex-wrap justify-start group-data-horizontal/tabs:h-auto'>
+              <TabsTrigger value='analytics'>
+                <BarChart3 />
+                {t('Data Overview')}
+              </TabsTrigger>
+              <TabsTrigger value='logs'>
+                <ScrollText />
+                {t('Usage Logs')}
               </TabsTrigger>
               <TabsTrigger value='users'>
                 <Users className='size-4' />
@@ -531,13 +607,25 @@ export function Agents() {
                 <BadgeDollarSign className='size-4' />
                 {t('Pricing')}
               </TabsTrigger>
+              <TabsTrigger value='site'>
+                <Settings2 />
+                {t('Site Settings')}
+              </TabsTrigger>
               <TabsTrigger value='settlement'>
                 <Wallet className='size-4' />
                 {t('Settlement')}
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value='overview'>
+            <TabsContent value='analytics'>
+              <AgentAnalyticsOverview />
+            </TabsContent>
+
+            <TabsContent value='logs'>
+              <AgentUsageLogs />
+            </TabsContent>
+
+            <TabsContent value='site'>
               <div className='grid gap-4 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]'>
                 <section className='rounded-lg border p-3'>
                   <div className='mb-3 flex items-center justify-between gap-2'>
