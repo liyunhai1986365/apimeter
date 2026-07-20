@@ -18,14 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
-import {
-  User,
-  Wallet,
-  LogOut,
-  Settings,
-  ExternalLink,
-  Store,
-} from 'lucide-react'
+import { User, Wallet, LogOut, Settings, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
@@ -53,7 +46,6 @@ export function ProfileDropdown() {
   const user = useAuthStore((state) => state.auth.user)
   const { displayName, roleLabel } = useUserDisplay(user)
   const isSuperAdmin = user?.role === ROLE.SUPER_ADMIN
-  const hasAgentIdentity = user?.has_agent === true
   const avatarName = user?.username || displayName
   const avatarFallback = getUserAvatarFallback(avatarName)
   const avatarFallbackStyle = useMemo(
@@ -112,13 +104,6 @@ export function ProfileDropdown() {
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
-            {hasAgentIdentity ? (
-              <DropdownMenuItem onClick={() => navigate({ to: '/agents' })}>
-                <Store />
-                {t('Switch to Agent Identity')}
-              </DropdownMenuItem>
-            ) : null}
-
             <DropdownMenuItem onClick={() => navigate({ to: '/profile' })}>
               <User className='size-4' />
               {t('Profile')}

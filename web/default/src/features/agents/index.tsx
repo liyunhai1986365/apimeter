@@ -32,7 +32,6 @@ import {
   ShieldCheck,
   Store,
   Users,
-  UserRound,
   Wallet,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -518,7 +517,11 @@ export function Agents() {
       <SectionPageLayout.Content>
         <div className='flex flex-col gap-4'>
           {self ? (
-            <Alert className='pr-2 sm:pr-52'>
+            <Alert
+              className={cn(
+                self.view_context.mode === 'admin' && 'pr-2 sm:pr-52'
+              )}
+            >
               {self.view_context.mode === 'admin' ? <ShieldCheck /> : <Store />}
               <AlertTitle>
                 {self.view_context.mode === 'admin'
@@ -536,8 +539,8 @@ export function Agents() {
                       'You are using your agent identity. All data below belongs to users under this agent.'
                     )}
               </AlertDescription>
-              <AlertAction className='static col-span-full mt-2 justify-self-start sm:absolute sm:mt-0'>
-                {self.view_context.mode === 'admin' ? (
+              {self.view_context.mode === 'admin' ? (
+                <AlertAction className='static col-span-full mt-2 justify-self-start sm:absolute sm:mt-0'>
                   <Button
                     variant='outline'
                     size='sm'
@@ -547,17 +550,8 @@ export function Agents() {
                     <Settings2 data-icon='inline-start' />
                     {t('Back to Agent Management')}
                   </Button>
-                ) : (
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    onClick={() => navigate({ to: '/dashboard' })}
-                  >
-                    <UserRound data-icon='inline-start' />
-                    {t('Switch to User Identity')}
-                  </Button>
-                )}
-              </AlertAction>
+                </AlertAction>
+              ) : null}
             </Alert>
           ) : null}
           <div className='grid gap-3 md:grid-cols-4'>
