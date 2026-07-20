@@ -70,6 +70,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { CopyButton } from '@/components/copy-button'
 import { TableEmpty } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { SectionPageLayout } from '@/components/layout'
@@ -77,12 +78,14 @@ import { LongText } from '@/components/long-text'
 import { ThemeCustomizationEditor } from '@/components/theme-customization-editor'
 import { HeaderNavigationSection } from '@/features/system-settings/maintenance/header-navigation-section'
 import {
+  addAdminAgentBalance,
   bindAdminAgentUser,
   completeAdminAgentWithdrawal,
   createAdminAgent,
   createAdminAgentDomain,
   getAgentGroupRatioFormDraft,
   getAgentGroupRatioInputFloor,
+  getAdminAgentBalance,
   getAgentSystemGroupDefaultRatio,
   getAgentUserGroupFormDraft,
   listAdminAgentDomainsByAgent,
@@ -99,6 +102,7 @@ import {
   upsertAdminAgentGroupRatio,
   upsertAdminAgentUserGroup,
 } from './api'
+import { AgentBalanceDialog } from './components/agent-balance-dialog'
 import { AgentGroupManager } from './components/agent-group-manager'
 import { AgentUserGroupManager } from './components/agent-user-group-manager'
 import {
@@ -197,6 +201,9 @@ export function AgentManagement() {
     Record<string, number>
   >({})
   const [withdrawalRemark, setWithdrawalRemark] = useState('')
+  const [balanceAgent, setBalanceAgent] = useState<Agent | null>(null)
+  const [balanceAmount, setBalanceAmount] = useState('')
+  const [balanceRemark, setBalanceRemark] = useState('')
   const [selectedUsersKeywordInput, setSelectedUsersKeywordInput] = useState('')
   const [selectedUsersKeyword, setSelectedUsersKeyword] = useState('')
   const [selectedUsersPageNumber, setSelectedUsersPageNumber] = useState(1)
@@ -248,6 +255,12 @@ export function AgentManagement() {
   const withdrawalsQuery = useQuery({
     queryKey: ['admin', 'agents', 'withdrawals'],
     queryFn: () => listAdminAgentWithdrawals(undefined, 1, 50),
+  })
+
+  const balanceQuery = useQuery({
+    queryKey: ['admin', 'agents', balanceAgent?.id, 'balance'],
+    queryFn: () => getAdminAgentBalance(balanceAgent?.id ?? 0),
+    enabled: balanceAgent != null,
   })
 
   const agentsPage = useMemo(
@@ -456,6 +469,27 @@ export function AgentManagement() {
     },
   })
 
+  const addBalanceMutation = useMutation({
+    mutationFn: addAdminAgentBalance,
+    onSuccess: () => {
+      toast.success(t('Agent settlement balance added'))
+      if (balanceAgent) {
+        queryClient.invalidateQueries({
+          queryKey: ['admin', 'agents', balanceAgent.id, 'balance'],
+        })
+      }
+      setBalanceAgent(null)
+      setBalanceAmount('')
+      setBalanceRemark('')
+      refresh()
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
   const viewAgentMutation = useMutation({
     mutationFn: switchAgentViewContext,
     onSuccess: () => {
@@ -564,6 +598,9 @@ export function AgentManagement() {
                         <TableHead>{t('Owner User ID')}</TableHead>
                         <TableHead>{t('Slug')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
+                        <TableHead className='text-right'>
+                          {t('Available Balance')}
+                        </TableHead>
                         <TableHead>{t('Created At')}</TableHead>
                         <TableHead className='text-right'>
                           {t('Actions')}
@@ -572,10 +609,10 @@ export function AgentManagement() {
                     </TableHeader>
                     <TableBody>
                       {agentsQuery.isLoading ? (
-                        <LoadingRow colSpan={6} />
+                        <LoadingRow colSpan={7} />
                       ) : agents.length === 0 ? (
                         <TableEmpty
-                          colSpan={6}
+                          colSpan={7}
                           title={t('No Agents')}
                           description={t('Agent records will appear here.')}
                           icon={<Store className='size-6' />}
@@ -608,11 +645,30 @@ export function AgentManagement() {
                                 {t(agentStatusLabel(agent.status))}
                               </Badge>
                             </TableCell>
+                            <TableCell className='text-right font-medium tabular-nums'>
+                              {formatSettlementAmount(
+                                agent.balance?.available_amount,
+                                agent.balance?.currency ??
+                                  agent.settlement_currency
+                              )}
+                            </TableCell>
                             <TableCell>
                               {formatTimestampToDate(agent.created_at)}
                             </TableCell>
                             <TableCell className='text-right'>
                               <div className='inline-flex gap-2'>
+                                <Button
+                                  size='sm'
+                                  variant='outline'
+                                  onClick={() => {
+                                    setBalanceAgent(agent)
+                                    setBalanceAmount('')
+                                    setBalanceRemark('')
+                                  }}
+                                >
+                                  <CircleDollarSign data-icon='inline-start' />
+                                  {t('Add Balance')}
+                                </Button>
                                 <Button
                                   size='sm'
                                   variant='outline'
@@ -906,6 +962,47 @@ export function AgentManagement() {
         }
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
+      />
+
+      <AgentBalanceDialog
+        open={balanceAgent != null}
+        title={t('Add Agent Settlement Balance')}
+        description={t(
+          'Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.',
+          { name: balanceAgent?.name ?? '' }
+        )}
+        amount={balanceAmount}
+        currency={normalizeSettlementCurrency(
+          balanceQuery.data?.data.currency ?? balanceAgent?.settlement_currency
+        )}
+        availableAmount={
+          balanceQuery.data?.data
+            ? formatSettlementAmount(
+                balanceQuery.data.data.available_amount,
+                balanceQuery.data.data.currency
+              )
+            : undefined
+        }
+        remark={balanceRemark}
+        showRemark
+        isPending={addBalanceMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBalanceAgent(null)
+            setBalanceAmount('')
+            setBalanceRemark('')
+          }
+        }}
+        onAmountChange={setBalanceAmount}
+        onRemarkChange={setBalanceRemark}
+        onSubmit={() =>
+          balanceAgent &&
+          addBalanceMutation.mutate({
+            agentId: balanceAgent.id,
+            amount_money: Number(balanceAmount),
+            remark: balanceRemark,
+          })
+        }
       />
 
       <AgentDetailDialog
@@ -1437,6 +1534,7 @@ function AgentDetailDialog(props: {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('Domain')}</TableHead>
+                      <TableHead>{t('CNAME Target')}</TableHead>
                       <TableHead>{t('Status')}</TableHead>
                       <TableHead className='text-right'>
                         {t('Actions')}
@@ -1446,7 +1544,7 @@ function AgentDetailDialog(props: {
                   <TableBody>
                     {props.domains.length === 0 ? (
                       <TableEmpty
-                        colSpan={3}
+                        colSpan={4}
                         title={t('No Domains')}
                         description={t(
                           'Add a domain before using this agent site.'
@@ -1458,6 +1556,24 @@ function AgentDetailDialog(props: {
                         <TableRow key={domain.id}>
                           <TableCell className='max-w-[220px] truncate font-medium'>
                             {domain.domain}
+                          </TableCell>
+                          <TableCell>
+                            <div className='flex min-w-[180px] items-center gap-1'>
+                              <LongText
+                                className='max-w-[220px] font-mono text-xs'
+                                contentClassName='max-w-xs break-all'
+                              >
+                                {domain.cname_target || '-'}
+                              </LongText>
+                              {domain.cname_target ? (
+                                <CopyButton
+                                  value={domain.cname_target}
+                                  tooltip={t('Copy')}
+                                  successTooltip={t('Copied')}
+                                  aria-label={t('Copy')}
+                                />
+                              ) : null}
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Badge variant={domainStatusVariant(domain.status)}>

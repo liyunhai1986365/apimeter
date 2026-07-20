@@ -23,7 +23,7 @@ func setupAgentViewContextTestDB(t *testing.T) *model.Agent {
 	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:agent-view-context-%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
 	require.NoError(t, err)
 	model.DB = db
-	require.NoError(t, model.DB.AutoMigrate(&model.Agent{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.Agent{}, &model.AgentLedger{}, &model.AgentWithdrawal{}))
 	agent := &model.Agent{
 		OwnerUserId:   1001,
 		Name:          "Selected Agent",
@@ -51,6 +51,7 @@ func newAgentViewContextTestRouter(role int) *gin.Engine {
 		id, ok := currentAgentID(c)
 		c.JSON(http.StatusOK, gin.H{"id": id, "ok": ok})
 	})
+	router.GET("/agents", AdminListAgents)
 	return router
 }
 
@@ -88,4 +89,28 @@ func TestAgentViewContextRejectsOrdinaryUsers(t *testing.T) {
 	request.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(recorder, request)
 	require.Equal(t, http.StatusForbidden, recorder.Code)
+}
+
+func TestAdminListAgentsIncludesAvailableBalance(t *testing.T) {
+	agent := setupAgentViewContextTestDB(t)
+	require.NoError(t, model.DB.Create(&model.AgentLedger{
+		AgentId:      agent.Id,
+		Type:         model.AgentLedgerTypeAdjustment,
+		ProfitQuota:  1000,
+		BalanceAfter: 1000,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentWithdrawal{
+		AgentId:     agent.Id,
+		AmountQuota: 250,
+		Status:      model.AgentWithdrawalStatusPending,
+	}).Error)
+	router := newAgentViewContextTestRouter(common.RoleAdminUser)
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "/agents?p=1&page_size=20", nil)
+	router.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Contains(t, recorder.Body.String(), `"available_quota":750`)
+	require.Contains(t, recorder.Body.String(), `"pending_withdrawal_quota":250`)
 }

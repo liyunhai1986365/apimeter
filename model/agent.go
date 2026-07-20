@@ -30,6 +30,7 @@ const (
 	AgentLedgerTypeConsumeProfit = "consume_profit"
 	AgentLedgerTypeWithdraw      = "withdraw"
 	AgentLedgerTypeAdjustment    = "adjustment"
+	AgentLedgerTypeUserTopup     = "user_topup"
 
 	AgentWithdrawalStatusPending   = "pending"
 	AgentWithdrawalStatusApproved  = "approved"
@@ -142,16 +143,18 @@ type AgentUserGroupConfig struct {
 }
 
 type AgentLedger struct {
-	Id           int    `json:"id"`
-	AgentId      int    `json:"agent_id" gorm:"index;column:agent_id"`
-	UserId       int    `json:"user_id" gorm:"index;column:user_id"`
-	LogId        int    `json:"log_id" gorm:"index;column:log_id"`
-	Type         string `json:"type" gorm:"type:varchar(32);index"`
-	BaseQuota    int    `json:"base_quota" gorm:"type:int;default:0;column:base_quota"`
-	ChargedQuota int    `json:"charged_quota" gorm:"type:int;default:0;column:charged_quota"`
-	ProfitQuota  int    `json:"profit_quota" gorm:"type:int;default:0;column:profit_quota"`
-	BalanceAfter int    `json:"balance_after" gorm:"type:int;default:0;column:balance_after"`
-	CreatedAt    int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+	Id             int    `json:"id"`
+	AgentId        int    `json:"agent_id" gorm:"index;column:agent_id"`
+	UserId         int    `json:"user_id" gorm:"index;column:user_id"`
+	OperatorUserId int    `json:"operator_user_id" gorm:"index;column:operator_user_id"`
+	LogId          int    `json:"log_id" gorm:"index;column:log_id"`
+	Type           string `json:"type" gorm:"type:varchar(32);index"`
+	BaseQuota      int    `json:"base_quota" gorm:"type:int;default:0;column:base_quota"`
+	ChargedQuota   int    `json:"charged_quota" gorm:"type:int;default:0;column:charged_quota"`
+	ProfitQuota    int    `json:"profit_quota" gorm:"type:int;default:0;column:profit_quota"`
+	BalanceAfter   int    `json:"balance_after" gorm:"type:int;default:0;column:balance_after"`
+	Remark         string `json:"remark" gorm:"type:text"`
+	CreatedAt      int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 }
 
 type AgentWithdrawal struct {

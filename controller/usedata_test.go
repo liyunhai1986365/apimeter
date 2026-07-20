@@ -17,6 +17,11 @@ type usageDimensionTrendAPIResponse struct {
 	Data    []model.UsageDimensionTrendData `json:"data"`
 }
 
+type quotaDataAPIResponse struct {
+	Success bool              `json:"success"`
+	Data    []model.QuotaData `json:"data"`
+}
+
 func setupUseDataControllerTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 
@@ -68,4 +73,50 @@ func TestGetAllUsageDimensionTrendsUsesCurrentAdminAccount(t *testing.T) {
 	require.Len(t, response.Data, 1)
 	require.Equal(t, "admin-key", response.Data[0].TokenName)
 	require.Equal(t, "Admin Workspace", response.Data[0].WorkspaceName)
+}
+
+func TestGetUserQuotaDatesMergesTaskRefundWithPreConsume(t *testing.T) {
+	db := setupUseDataControllerTestDB(t)
+
+	require.NoError(t, db.Create(&[]model.Log{
+		{
+			Id:        600,
+			UserId:    1001,
+			Username:  "alice",
+			Type:      model.LogTypeConsume,
+			CreatedAt: 3600,
+			ModelName: "seedance-2.0",
+			Quota:     1000,
+		},
+		{
+			Id:               601,
+			UserId:           1001,
+			Username:         "alice",
+			Type:             model.LogTypeRefund,
+			CreatedAt:        3600,
+			ModelName:        "seedance-2.0",
+			Quota:            700,
+			PromptTokens:     10,
+			CompletionTokens: 20,
+			Other:            `{"pre_consumed_quota":1000,"actual_quota":300}`,
+		},
+	}).Error)
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/data/self?start_timestamp=0&end_timestamp=10000", nil, 1001)
+
+	GetUserQuotaDates(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response quotaDataAPIResponse
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	var totalQuota, totalCount, totalTokens int
+	for _, item := range response.Data {
+		totalQuota += item.Quota
+		totalCount += item.Count
+		totalTokens += item.TokenUsed
+	}
+	require.Equal(t, 300, totalQuota)
+	require.Equal(t, 1, totalCount)
+	require.Equal(t, 30, totalTokens)
 }

@@ -28,6 +28,7 @@ export type Agent = {
   branding: string
   created_at: number
   updated_at: number
+  balance?: AgentBalance
 }
 
 export type AgentBranding = {
@@ -213,6 +214,7 @@ export type AgentLedger = {
   agent_id: number
   user_id: number
   log_id: number
+  operator_user_id: number
   type: string
   base_quota: number
   charged_quota: number
@@ -223,6 +225,7 @@ export type AgentLedger = {
   charged_amount: number
   profit_amount: number
   balance_after_amount: number
+  remark: string
   created_at: number
 }
 

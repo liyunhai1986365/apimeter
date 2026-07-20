@@ -16,13 +16,7 @@ func GetAllQuotaDates(c *gin.Context) {
 	username := c.Query("username")
 	tokenName := c.Query("token_name")
 	workspaceName := c.Query("workspace_name")
-	var dates []*model.QuotaData
-	var err error
-	if tokenName != "" || workspaceName != "" {
-		dates, err = model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, 0)
-	} else {
-		dates, err = model.GetAllQuotaDates(startTimestamp, endTimestamp, username)
-	}
+	dates, err := model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, 0)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -83,13 +77,7 @@ func GetUserQuotaDates(c *gin.Context) {
 		})
 		return
 	}
-	var dates []*model.QuotaData
-	var err error
-	if tokenName != "" || workspaceName != "" {
-		dates, err = model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, "", tokenName, workspaceName, userId)
-	} else {
-		dates, err = model.GetQuotaDataByUserId(userId, startTimestamp, endTimestamp)
-	}
+	dates, err := model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, "", tokenName, workspaceName, userId)
 	if err != nil {
 		common.ApiError(c, err)
 		return

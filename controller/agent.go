@@ -58,6 +58,11 @@ type agentWithdrawalRequest struct {
 	AdminRemark string  `json:"admin_remark"`
 }
 
+type agentBalanceRequest struct {
+	AmountMoney float64 `json:"amount_money"`
+	Remark      string  `json:"remark"`
+}
+
 type agentUserRequest struct {
 	UserId    int    `json:"user_id"`
 	Status    int    `json:"status"`
@@ -68,6 +73,11 @@ type agentUserRequest struct {
 
 type agentViewRequest struct {
 	AgentId int `json:"agent_id"`
+}
+
+type agentListItem struct {
+	model.Agent
+	Balance *agentservice.Balance `json:"balance"`
 }
 
 func GetAgentSelf(c *gin.Context) {
@@ -195,8 +205,17 @@ func AdminListAgents(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	balances, err := agentservice.GetBalances(agents)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	items := make([]*agentListItem, 0, len(agents))
+	for _, item := range agents {
+		items = append(items, &agentListItem{Agent: *item, Balance: balances[item.Id]})
+	}
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(agents)
+	pageInfo.SetItems(items)
 	common.ApiSuccess(c, pageInfo)
 }
 
@@ -748,12 +767,72 @@ func AgentAdjustUserQuota(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "用户不属于当前代理"})
 		return
 	}
-	if err := model.DeltaUpdateUserQuota(userID, req.Delta); err != nil {
+	if req.Delta <= 0 {
+		common.ApiError(c, agentservice.ErrInvalidAgentBalanceAmount)
+		return
+	}
+	if _, err := agentservice.FundUserBalanceQuota(agentID, c.GetInt("id"), userID, req.Delta); err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	model.RecordLog(c.GetInt("id"), model.LogTypeManage, "代理调整用户额度")
 	common.ApiSuccess(c, gin.H{"user_id": userID, "delta": req.Delta})
+}
+
+func AgentFundUserBalance(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	userID, err := strconv.Atoi(c.Param("user_id"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	var req agentBalanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	balance, err := agentservice.FundUserBalanceAmount(agentID, c.GetInt("id"), userID, req.AmountMoney)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RecordLog(c.GetInt("id"), model.LogTypeManage, "代理使用结算余额给用户充值")
+	common.ApiSuccess(c, gin.H{"user_id": userID, "balance": balance})
+}
+
+func AdminGetAgentBalance(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	balance, err := agentservice.GetBalance(agentID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, balance)
+}
+
+func AdminAddAgentBalance(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req agentBalanceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	balance, err := agentservice.AddBalanceAmount(agentID, c.GetInt("id"), req.AmountMoney, req.Remark)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RecordLog(c.GetInt("id"), model.LogTypeManage, "管理员增加代理结算余额")
+	common.ApiSuccess(c, balance)
 }
 
 func AgentListUserTokens(c *gin.Context) {

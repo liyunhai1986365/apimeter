@@ -468,6 +468,19 @@ export async function updateAgentUserGroup(input: {
   return res.data
 }
 
+export async function fundAgentUserBalance(input: {
+  userId: number
+  amount_money: number
+}) {
+  const res = await api.post<{
+    success: boolean
+    data: { user_id: number; balance: AgentBalance }
+  }>(`/api/agent/users/${input.userId}/balance`, {
+    amount_money: input.amount_money,
+  })
+  return res.data
+}
+
 export async function listAgentLedger(page = 1, pageSize = 20) {
   const res = await api.get<{ success: boolean; data: AgentPage<AgentLedger> }>(
     '/api/agent/ledger',
@@ -620,6 +633,28 @@ export async function listAdminAgentWithdrawals(
       ...(agentId == null ? {} : { agent_id: agentId }),
     },
   })
+  return res.data
+}
+
+export async function getAdminAgentBalance(agentId: number) {
+  const res = await api.get<{ success: boolean; data: AgentBalance }>(
+    `/api/agents/${agentId}/balance`
+  )
+  return res.data
+}
+
+export async function addAdminAgentBalance(input: {
+  agentId: number
+  amount_money: number
+  remark?: string
+}) {
+  const res = await api.post<{ success: boolean; data: AgentBalance }>(
+    `/api/agents/${input.agentId}/balance`,
+    {
+      amount_money: input.amount_money,
+      remark: input.remark?.trim() ?? '',
+    }
+  )
   return res.data
 }
 

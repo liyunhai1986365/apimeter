@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var (
@@ -23,6 +24,7 @@ var (
 	ErrAgentGroupRatioBelowSystem = errors.New("agent group ratio cannot be lower than system group ratio")
 	ErrAgentSystemGroupNotFound   = errors.New("agent system group not found")
 	ErrInsufficientAgentBalance   = errors.New("insufficient agent balance")
+	ErrInvalidAgentBalanceAmount  = errors.New("agent balance amount must be greater than 0")
 	ErrInvalidWithdrawalStatus    = errors.New("invalid withdrawal status")
 	ErrInvalidAgentUserStatus     = errors.New("invalid agent user status")
 	ErrAgentUserGroupNotAllowed   = errors.New("agent user group is not allowed")
@@ -64,6 +66,7 @@ type LedgerView struct {
 	AgentId            int     `json:"agent_id"`
 	UserId             int     `json:"user_id"`
 	LogId              int     `json:"log_id"`
+	OperatorUserId     int     `json:"operator_user_id"`
 	Type               string  `json:"type"`
 	BaseQuota          int     `json:"base_quota"`
 	ChargedQuota       int     `json:"charged_quota"`
@@ -74,6 +77,7 @@ type LedgerView struct {
 	ChargedAmount      float64 `json:"charged_amount"`
 	ProfitAmount       float64 `json:"profit_amount"`
 	BalanceAfterAmount float64 `json:"balance_after_amount"`
+	Remark             string  `json:"remark"`
 	CreatedAt          int64   `json:"created_at"`
 }
 
@@ -103,6 +107,82 @@ func GetBalance(agentID int) (*Balance, error) {
 	}
 	fillBalanceAmounts(balance, currency)
 	return balance, nil
+}
+
+func GetBalances(agents []*model.Agent) (map[int]*Balance, error) {
+	balances := make(map[int]*Balance, len(agents))
+	if len(agents) == 0 {
+		return balances, nil
+	}
+
+	agentIDs := make([]int, 0, len(agents))
+	for _, item := range agents {
+		if item == nil {
+			continue
+		}
+		agentIDs = append(agentIDs, item.Id)
+		balances[item.Id] = &Balance{}
+	}
+	if len(agentIDs) == 0 {
+		return balances, nil
+	}
+
+	type ledgerTotal struct {
+		AgentId     int `gorm:"column:agent_id"`
+		ProfitQuota int `gorm:"column:profit_quota"`
+	}
+	var ledgerTotals []ledgerTotal
+	if err := model.DB.Model(&model.AgentLedger{}).
+		Select("agent_id, COALESCE(SUM(profit_quota), 0) AS profit_quota").
+		Where("agent_id IN ?", agentIDs).
+		Group("agent_id").
+		Scan(&ledgerTotals).Error; err != nil {
+		return nil, err
+	}
+	for _, total := range ledgerTotals {
+		if balance := balances[total.AgentId]; balance != nil {
+			balance.ProfitQuota = total.ProfitQuota
+		}
+	}
+
+	type withdrawalTotal struct {
+		AgentId     int    `gorm:"column:agent_id"`
+		Status      string `gorm:"column:status"`
+		AmountQuota int    `gorm:"column:amount_quota"`
+	}
+	var withdrawalTotals []withdrawalTotal
+	if err := model.DB.Model(&model.AgentWithdrawal{}).
+		Select("agent_id, status, COALESCE(SUM(amount_quota), 0) AS amount_quota").
+		Where("agent_id IN ? AND status IN ?", agentIDs, []string{
+			model.AgentWithdrawalStatusPending,
+			model.AgentWithdrawalStatusApproved,
+		}).
+		Group("agent_id, status").
+		Scan(&withdrawalTotals).Error; err != nil {
+		return nil, err
+	}
+	for _, total := range withdrawalTotals {
+		balance := balances[total.AgentId]
+		if balance == nil {
+			continue
+		}
+		switch total.Status {
+		case model.AgentWithdrawalStatusPending:
+			balance.PendingWithdrawalQuota = total.AmountQuota
+		case model.AgentWithdrawalStatusApproved:
+			balance.ApprovedWithdrawalQuota = total.AmountQuota
+		}
+	}
+
+	for _, item := range agents {
+		if item == nil {
+			continue
+		}
+		balance := balances[item.Id]
+		balance.AvailableQuota = balance.ProfitQuota - balance.PendingWithdrawalQuota - balance.ApprovedWithdrawalQuota
+		fillBalanceAmounts(balance, item.SettlementCurrency)
+	}
+	return balances, nil
 }
 
 func BuildLedgerViews(agentID int, ledgers []*model.AgentLedger) ([]*LedgerView, error) {
@@ -769,6 +849,9 @@ func SubmitWithdrawal(agentID int, amountQuota int, amountMoney float64, account
 	}
 	var created *model.AgentWithdrawal
 	err := model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockAgentBalance(tx, agentID); err != nil {
+			return err
+		}
 		balance, err := getBalanceWithTx(tx, agentID)
 		if err != nil {
 			return err
@@ -792,6 +875,102 @@ func SubmitWithdrawal(agentID int, amountQuota int, amountMoney float64, account
 	return created, err
 }
 
+func AddBalanceAmount(agentID int, operatorUserID int, amountMoney float64, remark string) (*Balance, error) {
+	if amountMoney <= 0 || math.IsNaN(amountMoney) || math.IsInf(amountMoney, 0) {
+		return nil, ErrInvalidAgentBalanceAmount
+	}
+	currency, err := getSettlementCurrencyWithTx(model.DB, agentID)
+	if err != nil {
+		return nil, err
+	}
+	amountQuota := settlementAmountToQuota(amountMoney, currency)
+	if amountQuota <= 0 {
+		return nil, ErrInvalidAgentBalanceAmount
+	}
+	err = model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockAgentBalance(tx, agentID); err != nil {
+			return err
+		}
+		balance, err := getBalanceWithTx(tx, agentID)
+		if err != nil {
+			return err
+		}
+		return tx.Create(&model.AgentLedger{
+			AgentId:        agentID,
+			OperatorUserId: operatorUserID,
+			Type:           model.AgentLedgerTypeAdjustment,
+			ProfitQuota:    amountQuota,
+			BalanceAfter:   balance.ProfitQuota + amountQuota,
+			Remark:         strings.TrimSpace(remark),
+		}).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return GetBalance(agentID)
+}
+
+func FundUserBalanceAmount(agentID int, operatorUserID int, userID int, amountMoney float64) (*Balance, error) {
+	if amountMoney <= 0 || math.IsNaN(amountMoney) || math.IsInf(amountMoney, 0) {
+		return nil, ErrInvalidAgentBalanceAmount
+	}
+	currency, err := getSettlementCurrencyWithTx(model.DB, agentID)
+	if err != nil {
+		return nil, err
+	}
+	amountQuota := settlementAmountToQuota(amountMoney, currency)
+	return FundUserBalanceQuota(agentID, operatorUserID, userID, amountQuota)
+}
+
+func FundUserBalanceQuota(agentID int, operatorUserID int, userID int, amountQuota int) (*Balance, error) {
+	if amountQuota <= 0 {
+		return nil, ErrInvalidAgentBalanceAmount
+	}
+	err := model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockAgentBalance(tx, agentID); err != nil {
+			return err
+		}
+		var membership model.AgentUser
+		if err := tx.Where("agent_id = ? AND user_id = ? AND status = ?", agentID, userID, model.AgentUserStatusEnabled).
+			First(&membership).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return model.ErrAgentUserNotFound
+			}
+			return err
+		}
+		balance, err := getBalanceWithTx(tx, agentID)
+		if err != nil {
+			return err
+		}
+		if balance.AvailableQuota < amountQuota {
+			return ErrInsufficientAgentBalance
+		}
+		result := tx.Model(&model.User{}).Where("id = ?", userID).
+			Update("quota", gorm.Expr("quota + ?", amountQuota))
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.Create(&model.AgentLedger{
+			AgentId:        agentID,
+			UserId:         userID,
+			OperatorUserId: operatorUserID,
+			Type:           model.AgentLedgerTypeUserTopup,
+			ProfitQuota:    -amountQuota,
+			BalanceAfter:   balance.ProfitQuota - amountQuota,
+		}).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	if err := model.InvalidateUserCache(userID); err != nil {
+		common.SysLog("failed to invalidate agent-funded user quota cache: " + err.Error())
+	}
+	return GetBalance(agentID)
+}
+
 func SubmitWithdrawalAmount(agentID int, amountMoney float64, accountInfo string) (*model.AgentWithdrawal, error) {
 	if amountMoney <= 0 {
 		return nil, ErrInsufficientAgentBalance
@@ -813,6 +992,12 @@ func CompleteWithdrawal(withdrawalID int, status string, adminRemark string) err
 	}
 	return model.DB.Transaction(func(tx *gorm.DB) error {
 		var withdrawal model.AgentWithdrawal
+		if err := tx.First(&withdrawal, "id = ?", withdrawalID).Error; err != nil {
+			return err
+		}
+		if err := lockAgentBalance(tx, withdrawal.AgentId); err != nil {
+			return err
+		}
 		if err := tx.First(&withdrawal, "id = ?", withdrawalID).Error; err != nil {
 			return err
 		}
@@ -861,6 +1046,15 @@ func CompleteWithdrawal(withdrawalID int, status string, adminRemark string) err
 		}
 		return ErrInvalidWithdrawalStatus
 	})
+}
+
+func lockAgentBalance(tx *gorm.DB, agentID int) error {
+	query := tx.Select("id").Where("id = ?", agentID)
+	if !common.UsingSQLite {
+		query = query.Clauses(clause.Locking{Strength: "UPDATE"})
+	}
+	var agent model.Agent
+	return query.First(&agent).Error
 }
 
 func getBalanceWithTx(tx *gorm.DB, agentID int) (*Balance, error) {
@@ -944,6 +1138,7 @@ func buildLedgerView(ledger *model.AgentLedger, currency string) *LedgerView {
 		AgentId:            ledger.AgentId,
 		UserId:             ledger.UserId,
 		LogId:              ledger.LogId,
+		OperatorUserId:     ledger.OperatorUserId,
 		Type:               ledger.Type,
 		BaseQuota:          ledger.BaseQuota,
 		ChargedQuota:       ledger.ChargedQuota,
@@ -954,6 +1149,7 @@ func buildLedgerView(ledger *model.AgentLedger, currency string) *LedgerView {
 		ChargedAmount:      quotaToSettlementAmount(ledger.ChargedQuota, normalizedCurrency),
 		ProfitAmount:       quotaToSettlementAmount(ledger.ProfitQuota, normalizedCurrency),
 		BalanceAfterAmount: quotaToSettlementAmount(ledger.BalanceAfter, normalizedCurrency),
+		Remark:             ledger.Remark,
 		CreatedAt:          ledger.CreatedAt,
 	}
 }

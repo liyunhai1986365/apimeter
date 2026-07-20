@@ -88,6 +88,7 @@ import {
   getAgentSystemGroupDefaultRatio,
   getAgentUserGroupFormDraft,
   getAgentSelf,
+  fundAgentUserBalance,
   listAgentDomains,
   listAgentGroupRatios,
   listAgentLedger,
@@ -105,6 +106,7 @@ import {
   verifyAgentDomain,
 } from './api'
 import { AgentAnalyticsOverview } from './components/agent-analytics-overview'
+import { AgentBalanceDialog } from './components/agent-balance-dialog'
 import { AgentGroupManager } from './components/agent-group-manager'
 import { AgentUsageLogs } from './components/agent-usage-logs'
 import { AgentUserGroupManager } from './components/agent-user-group-manager'
@@ -210,6 +212,14 @@ function withdrawalVariant(
   return 'outline'
 }
 
+function ledgerTypeLabel(type: string) {
+  if (type === 'consume_profit') return 'Consumption Profit'
+  if (type === 'withdraw') return 'Withdrawal Deduction'
+  if (type === 'adjustment') return 'Settlement Balance Adjustment'
+  if (type === 'user_topup') return 'User Balance Top-up'
+  return type
+}
+
 export function Agents() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -223,6 +233,8 @@ export function Agents() {
   const [groupRatio, setGroupRatio] = useState('1')
   const [withdrawMoney, setWithdrawMoney] = useState('')
   const [accountInfo, setAccountInfo] = useState('')
+  const [fundUser, setFundUser] = useState<AgentUser | null>(null)
+  const [fundUserAmount, setFundUserAmount] = useState('')
   const [systemGroupName, setSystemGroupName] = useState('default')
   const [groupDescription, setGroupDescription] = useState('')
   const [groupVisible, setGroupVisible] = useState(true)
@@ -371,6 +383,23 @@ export function Agents() {
     onSuccess: () => {
       toast.success(t('User group updated'))
       queryClient.invalidateQueries({ queryKey: ['agent', 'users'] })
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error ? error.message : t('Operation failed')
+      )
+    },
+  })
+
+  const fundUserMutation = useMutation({
+    mutationFn: fundAgentUserBalance,
+    onSuccess: () => {
+      toast.success(t('User balance added'))
+      setFundUser(null)
+      setFundUserAmount('')
+      queryClient.invalidateQueries({ queryKey: ['agent', 'self'] })
+      queryClient.invalidateQueries({ queryKey: ['agent', 'users'] })
+      queryClient.invalidateQueries({ queryKey: ['agent', 'ledger'] })
     },
     onError: (error) => {
       toast.error(
@@ -975,24 +1004,37 @@ export function Agents() {
                             {formatTimestampToDate(user.last_login_at)}
                           </TableCell>
                           <TableCell>
-                            <Button
-                              variant='outline'
-                              size='sm'
-                              disabled={updateUserStatusMutation.isPending}
-                              onClick={() =>
-                                updateUserStatusMutation.mutate({
-                                  userId: user.user_id,
-                                  status:
-                                    user.status === USER_STATUS.ENABLED
-                                      ? USER_STATUS.DISABLED
-                                      : USER_STATUS.ENABLED,
-                                })
-                              }
-                            >
-                              {user.status === USER_STATUS.ENABLED
-                                ? t('Disable')
-                                : t('Enable')}
-                            </Button>
+                            <div className='flex items-center gap-2'>
+                              <Button
+                                variant='outline'
+                                size='sm'
+                                onClick={() => {
+                                  setFundUser(user)
+                                  setFundUserAmount('')
+                                }}
+                              >
+                                <BadgeDollarSign data-icon='inline-start' />
+                                {t('Add Balance')}
+                              </Button>
+                              <Button
+                                variant='outline'
+                                size='sm'
+                                disabled={updateUserStatusMutation.isPending}
+                                onClick={() =>
+                                  updateUserStatusMutation.mutate({
+                                    userId: user.user_id,
+                                    status:
+                                      user.status === USER_STATUS.ENABLED
+                                        ? USER_STATUS.DISABLED
+                                        : USER_STATUS.ENABLED,
+                                  })
+                                }
+                              >
+                                {user.status === USER_STATUS.ENABLED
+                                  ? t('Disable')
+                                  : t('Enable')}
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))
@@ -1174,15 +1216,17 @@ export function Agents() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t('Type')}</TableHead>
+                      <TableHead>{t('User')}</TableHead>
                       <TableHead>{t('Profit')}</TableHead>
                       <TableHead>{t('Balance')}</TableHead>
+                      <TableHead>{t('Remark')}</TableHead>
                       <TableHead>{t('Created At')}</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {ledger.length === 0 ? (
                       <TableEmpty
-                        colSpan={4}
+                        colSpan={6}
                         title={t('No Ledger Records')}
                         description={t(
                           'Agent income and withdrawal records will appear here.'
@@ -1192,7 +1236,10 @@ export function Agents() {
                     ) : (
                       ledger.map((item) => (
                         <TableRow key={item.id}>
-                          <TableCell>{item.type}</TableCell>
+                          <TableCell>{t(ledgerTypeLabel(item.type))}</TableCell>
+                          <TableCell>
+                            {item.user_id > 0 ? `#${item.user_id}` : '-'}
+                          </TableCell>
                           <TableCell>
                             {formatSettlementAmount(
                               item.profit_amount,
@@ -1205,6 +1252,7 @@ export function Agents() {
                               item.currency
                             )}
                           </TableCell>
+                          <TableCell>{item.remark || '-'}</TableCell>
                           <TableCell>
                             {formatTimestampToDate(item.created_at)}
                           </TableCell>
@@ -1216,6 +1264,37 @@ export function Agents() {
               </section>
             </TabsContent>
           </Tabs>
+          <AgentBalanceDialog
+            open={fundUser != null}
+            title={t('Add User Balance')}
+            description={t(
+              'Add balance to {{username}} using the agent settlement balance.',
+              { username: fundUser?.username ?? '' }
+            )}
+            amount={fundUserAmount}
+            currency={normalizeSettlementCurrency(
+              balance?.currency ?? self?.agent.settlement_currency
+            )}
+            availableAmount={formatSettlementAmount(
+              balance?.available_amount,
+              balance?.currency ?? self?.agent.settlement_currency
+            )}
+            isPending={fundUserMutation.isPending}
+            onOpenChange={(open) => {
+              if (!open) {
+                setFundUser(null)
+                setFundUserAmount('')
+              }
+            }}
+            onAmountChange={setFundUserAmount}
+            onSubmit={() =>
+              fundUser &&
+              fundUserMutation.mutate({
+                userId: fundUser.user_id,
+                amount_money: Number(fundUserAmount),
+              })
+            }
+          />
         </div>
       </SectionPageLayout.Content>
     </SectionPageLayout>

@@ -6106,6 +6106,19 @@
     "Zero retention": "Zero retention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Add Agent Settlement Balance": "Add Agent Settlement Balance",
+    "Add Balance": "Add Balance",
+    "Add User Balance": "Add User Balance",
+    "Add balance to {{username}} using the agent settlement balance.": "Add balance to {{username}} using the agent settlement balance.",
+    "Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.": "Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.",
+    "Agent settlement balance added": "Agent settlement balance added",
+    "Available settlement balance: {{amount}}": "Available settlement balance: {{amount}}",
+    "Consumption Profit": "Consumption Profit",
+    "Optional funding note": "Optional funding note",
+    "Settlement Balance Adjustment": "Settlement Balance Adjustment",
+    "User Balance Top-up": "User Balance Top-up",
+    "User balance added": "User balance added",
+    "Withdrawal Deduction": "Withdrawal Deduction"
   }
 }

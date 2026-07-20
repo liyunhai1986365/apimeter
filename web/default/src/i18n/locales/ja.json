@@ -6106,6 +6106,19 @@
     "Zero retention": "データ保持なし",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V 4",
-    "Zoom": "ズーム"
+    "Zoom": "ズーム",
+    "Add Agent Settlement Balance": "代理店の精算残高を追加",
+    "Add Balance": "残高を追加",
+    "Add User Balance": "ユーザー残高を追加",
+    "Add balance to {{username}} using the agent settlement balance.": "代理店の精算残高を使用して {{username}} の残高を追加します。",
+    "Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.": "{{name}} に出金可能な精算残高を追加します。この操作は代理店元帳に記録されます。",
+    "Agent settlement balance added": "代理店の精算残高を追加しました",
+    "Available settlement balance: {{amount}}": "利用可能な精算残高：{{amount}}",
+    "Consumption Profit": "利用利益",
+    "Optional funding note": "入金メモ（任意）",
+    "Settlement Balance Adjustment": "精算残高調整",
+    "User Balance Top-up": "ユーザー残高チャージ",
+    "User balance added": "ユーザー残高を追加しました",
+    "Withdrawal Deduction": "出金控除"
   }
 }

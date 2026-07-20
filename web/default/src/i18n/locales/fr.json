@@ -6106,6 +6106,19 @@
     "Zero retention": "Aucune rétention",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Add Agent Settlement Balance": "Ajouter au solde de règlement de l'agent",
+    "Add Balance": "Ajouter du solde",
+    "Add User Balance": "Ajouter du solde utilisateur",
+    "Add balance to {{username}} using the agent settlement balance.": "Ajoutez du solde à {{username}} à partir du solde de règlement de l'agent.",
+    "Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.": "Ajoutez un solde de règlement retirable à {{name}}. L'opération est enregistrée dans le registre de l'agent.",
+    "Agent settlement balance added": "Solde de règlement de l'agent ajouté",
+    "Available settlement balance: {{amount}}": "Solde de règlement disponible : {{amount}}",
+    "Consumption Profit": "Bénéfice sur consommation",
+    "Optional funding note": "Note de financement facultative",
+    "Settlement Balance Adjustment": "Ajustement du solde de règlement",
+    "User Balance Top-up": "Rechargement du solde utilisateur",
+    "User balance added": "Solde utilisateur ajouté",
+    "Withdrawal Deduction": "Déduction de retrait"
   }
 }

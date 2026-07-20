@@ -919,9 +919,19 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 	if err != nil {
 		return nil, err
 	}
+	bucketExpr := logTimeBucketExpr(3600)
 	tx := LOG_DB.Table("logs").
-		Select("model_name, sum(1) as count, sum(quota) as quota, sum(prompt_tokens) + sum(completion_tokens) as token_used, created_at").
-		Where("type = ?", LogTypeConsume)
+		Select(
+			fmt.Sprintf("model_name, sum(CASE WHEN type = ? OR (type = ? AND other LIKE ? AND content <> ?) THEN 0 ELSE 1 END) as count, "+
+				"sum(CASE WHEN type = ? THEN -quota ELSE quota END) as quota, "+
+				"sum(prompt_tokens) + sum(completion_tokens) as token_used, %s as created_at", bucketExpr),
+			LogTypeRefund,
+			LogTypeConsume,
+			`%"pre_consumed_quota"%`,
+			"image usage",
+			LogTypeRefund,
+		).
+		Where("type IN ?", []int{LogTypeConsume, LogTypeRefund})
 	tx = applyTokenIDFilter(tx, "", tokenIDs, tokenIDsResolved)
 	if userId > 0 {
 		tx = tx.Where("user_id = ?", userId)
@@ -938,8 +948,18 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 	if endTime != 0 {
 		tx = tx.Where("created_at <= ?", endTime)
 	}
-	err = tx.Group("model_name, created_at").Find(&quotaData).Error
+	err = tx.Group(fmt.Sprintf("model_name, %s", bucketExpr)).Order("created_at ASC, model_name ASC").Find(&quotaData).Error
 	return quotaData, err
+}
+
+func logTimeBucketExpr(bucketSize int64) string {
+	if common.UsingClickHouse {
+		return fmt.Sprintf("intDiv(created_at, %d) * %d", bucketSize, bucketSize)
+	}
+	if common.UsingMySQL {
+		return fmt.Sprintf("FLOOR(created_at / %d) * %d", bucketSize, bucketSize)
+	}
+	return fmt.Sprintf("(created_at / %d) * %d", bucketSize, bucketSize)
 }
 
 func GetUsageDimensionTrendsFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int) (trendData []*UsageDimensionTrendData, err error) {
@@ -947,9 +967,19 @@ func GetUsageDimensionTrendsFromLogs(startTime int64, endTime int64, username st
 	if err != nil {
 		return nil, err
 	}
+	bucketExpr := logTimeBucketExpr(3600)
 	tx := LOG_DB.Table("logs").
-		Select("token_id, token_name, sum(1) as count, sum(quota) as quota, sum(prompt_tokens) + sum(completion_tokens) as token_used, created_at").
-		Where("type = ?", LogTypeConsume)
+		Select(
+			fmt.Sprintf("token_id, token_name, sum(CASE WHEN type = ? OR (type = ? AND other LIKE ? AND content <> ?) THEN 0 ELSE 1 END) as count, "+
+				"sum(CASE WHEN type = ? THEN -quota ELSE quota END) as quota, "+
+				"sum(prompt_tokens) + sum(completion_tokens) as token_used, %s as created_at", bucketExpr),
+			LogTypeRefund,
+			LogTypeConsume,
+			`%"pre_consumed_quota"%`,
+			"image usage",
+			LogTypeRefund,
+		).
+		Where("type IN ?", []int{LogTypeConsume, LogTypeRefund})
 	tx = applyTokenIDFilter(tx, "", tokenIDs, tokenIDsResolved)
 	if userId > 0 {
 		tx = tx.Where("user_id = ?", userId)
@@ -966,7 +996,7 @@ func GetUsageDimensionTrendsFromLogs(startTime int64, endTime int64, username st
 	if endTime != 0 {
 		tx = tx.Where("created_at <= ?", endTime)
 	}
-	if err = tx.Group("token_id, token_name, created_at").Find(&trendData).Error; err != nil {
+	if err = tx.Group(fmt.Sprintf("token_id, token_name, %s", bucketExpr)).Find(&trendData).Error; err != nil {
 		return nil, err
 	}
 	enrichUsageDimensionTrendWorkspaces(trendData)

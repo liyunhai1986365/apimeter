@@ -294,6 +294,7 @@ func TestSettleConsumeWritesProfitLedger(t *testing.T) {
 
 func TestWithdrawalLifecycle(t *testing.T) {
 	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
 
 	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1, Domain: "agent.example.com"}, 100, 200, 1000, 1300))
 
@@ -357,6 +358,44 @@ func TestGetBalanceReturnsSettlementAmounts(t *testing.T) {
 	require.Equal(t, int(common.QuotaPerUnit), balance.ProfitQuota)
 	require.InDelta(t, 7, balance.ProfitAmount, 0.000001)
 	require.InDelta(t, 7, balance.AvailableAmount, 0.000001)
+}
+
+func TestGetBalancesReturnsAvailableAmountsForAgentList(t *testing.T) {
+	setupAgentTestDB(t)
+	oldExchangeRate := operation_setting.USDExchangeRate
+	operation_setting.USDExchangeRate = 7
+	t.Cleanup(func() {
+		operation_setting.USDExchangeRate = oldExchangeRate
+	})
+
+	agents := []*model.Agent{
+		{Id: 1, Name: "USD Agent", Slug: "usd-agent", Status: model.AgentStatusEnabled, SettlementCurrency: "USD"},
+		{Id: 2, Name: "RMB Agent", Slug: "rmb-agent", Status: model.AgentStatusEnabled, SettlementCurrency: "RMB"},
+	}
+	require.NoError(t, model.DB.Create(&agents).Error)
+	require.NoError(t, model.DB.Create(&[]model.AgentLedger{
+		{AgentId: 1, Type: model.AgentLedgerTypeConsumeProfit, ProfitQuota: 1000},
+		{AgentId: 1, Type: model.AgentLedgerTypeUserTopup, ProfitQuota: -100},
+		{AgentId: 2, Type: model.AgentLedgerTypeAdjustment, ProfitQuota: 500},
+	}).Error)
+	require.NoError(t, model.DB.Create(&[]model.AgentWithdrawal{
+		{AgentId: 1, AmountQuota: 200, Status: model.AgentWithdrawalStatusPending},
+		{AgentId: 1, AmountQuota: 100, Status: model.AgentWithdrawalStatusApproved},
+		{AgentId: 1, AmountQuota: 999, Status: model.AgentWithdrawalStatusPaid},
+	}).Error)
+
+	balances, err := GetBalances(agents)
+	require.NoError(t, err)
+	require.Len(t, balances, 2)
+	require.Equal(t, 900, balances[1].ProfitQuota)
+	require.Equal(t, 200, balances[1].PendingWithdrawalQuota)
+	require.Equal(t, 100, balances[1].ApprovedWithdrawalQuota)
+	require.Equal(t, 600, balances[1].AvailableQuota)
+	require.Equal(t, "USD", balances[1].Currency)
+	require.InDelta(t, float64(600)/common.QuotaPerUnit, balances[1].AvailableAmount, 0.000001)
+	require.Equal(t, 500, balances[2].AvailableQuota)
+	require.Equal(t, "RMB", balances[2].Currency)
+	require.InDelta(t, float64(500)/common.QuotaPerUnit*7, balances[2].AvailableAmount, 0.000001)
 }
 
 func TestBuildLedgerViewsReturnsSettlementAmounts(t *testing.T) {
@@ -426,11 +465,110 @@ func TestSubmitWithdrawalAmountUsesSettlementCurrency(t *testing.T) {
 
 func TestSubmitWithdrawalRejectsOverAvailable(t *testing.T) {
 	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
 
 	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1}, 100, 200, 1000, 1100))
 
 	_, err := SubmitWithdrawal(1, 101, 1.01, "bank account")
 	require.Error(t, err)
+}
+
+func TestAddBalanceAmountCreatesAuditedAdjustment(t *testing.T) {
+	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{
+		Id:                 1,
+		Name:               "Agent One",
+		Slug:               "agent-one",
+		Status:             model.AgentStatusEnabled,
+		SettlementCurrency: "USD",
+	}).Error)
+
+	balance, err := AddBalanceAmount(1, 9001, 2.5, "manual funding")
+	require.NoError(t, err)
+	require.Equal(t, int(2.5*common.QuotaPerUnit), balance.ProfitQuota)
+	require.Equal(t, balance.ProfitQuota, balance.AvailableQuota)
+
+	var ledger model.AgentLedger
+	require.NoError(t, model.DB.Where("agent_id = ?", 1).First(&ledger).Error)
+	require.Equal(t, model.AgentLedgerTypeAdjustment, ledger.Type)
+	require.Equal(t, 9001, ledger.OperatorUserId)
+	require.Equal(t, "manual funding", ledger.Remark)
+	require.Equal(t, balance.ProfitQuota, ledger.BalanceAfter)
+}
+
+func TestAgentBalanceMutationsRejectNonPositiveAmounts(t *testing.T) {
+	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
+
+	_, err := AddBalanceAmount(1, 9001, 0, "")
+	require.ErrorIs(t, err, ErrInvalidAgentBalanceAmount)
+	_, err = FundUserBalanceAmount(1, 9001, 100, -1)
+	require.ErrorIs(t, err, ErrInvalidAgentBalanceAmount)
+}
+
+func TestFundUserBalanceUsesAvailableAgentBalance(t *testing.T) {
+	setupAgentTestDB(t)
+	agent := &model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}
+	user := &model.User{Username: "funded-user", Quota: 100, Group: "default", Status: common.UserStatusEnabled}
+	require.NoError(t, model.DB.Create(agent).Error)
+	require.NoError(t, model.DB.Create(user).Error)
+	require.NoError(t, model.BindUserToAgent(agent.Id, user.Id, model.AgentUserSourceDomain))
+	require.NoError(t, model.DB.Create(&model.AgentLedger{
+		AgentId:      agent.Id,
+		Type:         model.AgentLedgerTypeAdjustment,
+		ProfitQuota:  1000,
+		BalanceAfter: 1000,
+	}).Error)
+
+	balance, err := FundUserBalanceQuota(agent.Id, 77, user.Id, 400)
+	require.NoError(t, err)
+	require.Equal(t, 600, balance.ProfitQuota)
+	require.Equal(t, 600, balance.AvailableQuota)
+
+	var updated model.User
+	require.NoError(t, model.DB.First(&updated, user.Id).Error)
+	require.Equal(t, 500, updated.Quota)
+
+	var ledger model.AgentLedger
+	require.NoError(t, model.DB.Where("agent_id = ? AND type = ?", agent.Id, model.AgentLedgerTypeUserTopup).First(&ledger).Error)
+	require.Equal(t, user.Id, ledger.UserId)
+	require.Equal(t, 77, ledger.OperatorUserId)
+	require.Equal(t, -400, ledger.ProfitQuota)
+	require.Equal(t, 600, ledger.BalanceAfter)
+}
+
+func TestFundUserBalanceRejectsUnavailableAndUnboundFunds(t *testing.T) {
+	setupAgentTestDB(t)
+	agent := &model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}
+	user := &model.User{Username: "funded-user", AffCode: "funded-user-aff", Quota: 100, Group: "default", Status: common.UserStatusEnabled}
+	otherUser := &model.User{Username: "other-user", AffCode: "other-user-aff", Quota: 50, Group: "default", Status: common.UserStatusEnabled}
+	require.NoError(t, model.DB.Create(agent).Error)
+	require.NoError(t, model.DB.Create(user).Error)
+	require.NoError(t, model.DB.Create(otherUser).Error)
+	require.NoError(t, model.BindUserToAgent(agent.Id, user.Id, model.AgentUserSourceDomain))
+	require.NoError(t, model.DB.Create(&model.AgentLedger{
+		AgentId:      agent.Id,
+		Type:         model.AgentLedgerTypeAdjustment,
+		ProfitQuota:  1000,
+		BalanceAfter: 1000,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentWithdrawal{
+		AgentId:     agent.Id,
+		AmountQuota: 700,
+		Status:      model.AgentWithdrawalStatusPending,
+	}).Error)
+
+	_, err := FundUserBalanceQuota(agent.Id, 77, user.Id, 301)
+	require.ErrorIs(t, err, ErrInsufficientAgentBalance)
+	_, err = FundUserBalanceQuota(agent.Id, 77, otherUser.Id, 100)
+	require.ErrorIs(t, err, model.ErrAgentUserNotFound)
+
+	var fundedUser model.User
+	require.NoError(t, model.DB.First(&fundedUser, user.Id).Error)
+	require.Equal(t, 100, fundedUser.Quota)
+	var topupCount int64
+	require.NoError(t, model.DB.Model(&model.AgentLedger{}).Where("type = ?", model.AgentLedgerTypeUserTopup).Count(&topupCount).Error)
+	require.Zero(t, topupCount)
 }
 
 func TestAgentDomainAndGroupRatioCRUD(t *testing.T) {

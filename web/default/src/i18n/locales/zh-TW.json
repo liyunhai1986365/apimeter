@@ -5185,6 +5185,19 @@
     "Zero retention": "零數據保留",
     "Zhipu": "智譜",
     "Zhipu V4": "智譜 V4",
-    "Zoom": "縮放"
+    "Zoom": "縮放",
+    "Add Agent Settlement Balance": "增加代理結算餘額",
+    "Add Balance": "增加餘額",
+    "Add User Balance": "增加用戶餘額",
+    "Add balance to {{username}} using the agent settlement balance.": "使用代理結算餘額為 {{username}} 增加帳戶餘額。",
+    "Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.": "為 {{name}} 增加可提現結算餘額，本次操作將記錄在代理流水中。",
+    "Agent settlement balance added": "代理結算餘額已增加",
+    "Available settlement balance: {{amount}}": "可用結算餘額：{{amount}}",
+    "Consumption Profit": "消費利潤",
+    "Optional funding note": "選填入帳備註",
+    "Settlement Balance Adjustment": "結算餘額調整",
+    "User Balance Top-up": "用戶餘額充值",
+    "User balance added": "用戶餘額已增加",
+    "Withdrawal Deduction": "提現扣減"
   }
 }

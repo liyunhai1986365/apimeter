@@ -6106,6 +6106,19 @@
     "Zero retention": "Без хранения данных",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Add Agent Settlement Balance": "Пополнить расчётный баланс агента",
+    "Add Balance": "Пополнить баланс",
+    "Add User Balance": "Пополнить баланс пользователя",
+    "Add balance to {{username}} using the agent settlement balance.": "Пополнить баланс {{username}} за счёт расчётного баланса агента.",
+    "Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.": "Добавить доступные для вывода средства на расчётный баланс {{name}}. Операция будет записана в журнал агента.",
+    "Agent settlement balance added": "Расчётный баланс агента пополнен",
+    "Available settlement balance: {{amount}}": "Доступный расчётный баланс: {{amount}}",
+    "Consumption Profit": "Прибыль от использования",
+    "Optional funding note": "Необязательное примечание к пополнению",
+    "Settlement Balance Adjustment": "Корректировка расчётного баланса",
+    "User Balance Top-up": "Пополнение баланса пользователя",
+    "User balance added": "Баланс пользователя пополнен",
+    "Withdrawal Deduction": "Списание при выводе"
   }
 }

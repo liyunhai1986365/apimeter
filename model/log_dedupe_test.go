@@ -367,6 +367,73 @@ func TestGetQuotaDatesFromLogsFiltersByWorkspaceAndToken(t *testing.T) {
 	require.Equal(t, 30, data[0].TokenUsed)
 }
 
+func TestGetQuotaDatesFromLogsSubtractsTaskRefunds(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id:        61,
+			UserId:    1001,
+			Username:  "alice",
+			Type:      LogTypeConsume,
+			CreatedAt: 3610,
+			TokenId:   221,
+			TokenName: "seedance-key",
+			ModelName: "seedance-2.0",
+			Quota:     1000,
+		},
+		{
+			Id:               62,
+			UserId:           1001,
+			Username:         "alice",
+			Type:             LogTypeRefund,
+			CreatedAt:        3650,
+			TokenId:          221,
+			TokenName:        "seedance-key",
+			ModelName:        "seedance-2.0",
+			Quota:            700,
+			PromptTokens:     10,
+			CompletionTokens: 20,
+			Other:            `{"pre_consumed_quota":1000,"actual_quota":300}`,
+		},
+	}).Error)
+
+	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0)
+
+	require.NoError(t, err)
+	require.Len(t, data, 1)
+	require.Equal(t, "seedance-2.0", data[0].ModelName)
+	require.Equal(t, int64(3600), data[0].CreatedAt)
+	require.Equal(t, 1, data[0].Count)
+	require.Equal(t, 300, data[0].Quota)
+	require.Equal(t, 30, data[0].TokenUsed)
+}
+
+func TestGetQuotaDatesFromLogsDoesNotCountTaskSupplementTwice(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 63, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3610, ModelName: "seedance-2.0", Quota: 1000, Other: `{"is_task":true}`},
+		{Id: 64, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3650, ModelName: "seedance-2.0", Quota: 200, PromptTokens: 10, CompletionTokens: 20, Content: "tiered_expr", Other: `{"pre_consumed_quota":1000,"actual_quota":1200}`},
+		{Id: 65, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3660, ModelName: "gpt-image", Quota: 500, PromptTokens: 30, CompletionTokens: 40, Content: "image usage", Other: `{"pre_consumed_quota":100,"actual_quota":500}`},
+	}).Error)
+
+	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0)
+
+	require.NoError(t, err)
+	require.Len(t, data, 2)
+	byModel := make(map[string]*QuotaData)
+	for _, item := range data {
+		byModel[item.ModelName] = item
+	}
+	require.Equal(t, 1, byModel["seedance-2.0"].Count)
+	require.Equal(t, 1200, byModel["seedance-2.0"].Quota)
+	require.Equal(t, 30, byModel["seedance-2.0"].TokenUsed)
+	require.Equal(t, 1, byModel["gpt-image"].Count)
+	require.Equal(t, 500, byModel["gpt-image"].Quota)
+	require.Equal(t, 70, byModel["gpt-image"].TokenUsed)
+}
+
 func TestGetUsageDimensionTrendsFromLogsAggregatesTokensAndEnrichesWorkspaces(t *testing.T) {
 	truncateTables(t)
 
@@ -408,6 +475,24 @@ func TestGetUsageDimensionTrendsFromLogsAggregatesTokensAndEnrichesWorkspaces(t 
 	require.Equal(t, 1, betaItem.Count)
 	require.Equal(t, 450, betaItem.Quota)
 	require.Equal(t, 110, betaItem.TokenUsed)
+}
+
+func TestGetUsageDimensionTrendsFromLogsSubtractsRefundQuota(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, DB.Create(&Token{Id: 225, UserId: 1001, Name: "seedance-key", Key: "seedance-key-value"}).Error)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 75, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3610, TokenId: 225, TokenName: "seedance-key", Quota: 1000},
+		{Id: 76, UserId: 1001, Username: "alice", Type: LogTypeRefund, CreatedAt: 3650, TokenId: 225, TokenName: "seedance-key", Quota: 700, PromptTokens: 10, CompletionTokens: 20},
+	}).Error)
+
+	data, err := GetUsageDimensionTrendsFromLogs(0, 10000, "alice", "", "", 0)
+
+	require.NoError(t, err)
+	require.Len(t, data, 1)
+	require.Equal(t, int64(3600), data[0].CreatedAt)
+	require.Equal(t, 1, data[0].Count)
+	require.Equal(t, 300, data[0].Quota)
+	require.Equal(t, 30, data[0].TokenUsed)
 }
 
 func TestTaskLogsFilterByTokenAndWorkspaceName(t *testing.T) {

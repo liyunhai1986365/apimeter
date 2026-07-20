@@ -6106,6 +6106,19 @@
     "Zero retention": "Không lưu dữ liệu",
     "Zhipu": "Zhipu",
     "Zhipu V4": "Zhipu V4",
-    "Zoom": "Zoom"
+    "Zoom": "Zoom",
+    "Add Agent Settlement Balance": "Cộng số dư quyết toán đại lý",
+    "Add Balance": "Cộng số dư",
+    "Add User Balance": "Cộng số dư người dùng",
+    "Add balance to {{username}} using the agent settlement balance.": "Cộng số dư cho {{username}} từ số dư quyết toán của đại lý.",
+    "Add withdrawable settlement balance to {{name}}. The operation is recorded in the agent ledger.": "Cộng số dư quyết toán có thể rút cho {{name}}. Thao tác được ghi vào sổ cái đại lý.",
+    "Agent settlement balance added": "Đã cộng số dư quyết toán đại lý",
+    "Available settlement balance: {{amount}}": "Số dư quyết toán khả dụng: {{amount}}",
+    "Consumption Profit": "Lợi nhuận sử dụng",
+    "Optional funding note": "Ghi chú nạp tiền không bắt buộc",
+    "Settlement Balance Adjustment": "Điều chỉnh số dư quyết toán",
+    "User Balance Top-up": "Nạp số dư người dùng",
+    "User balance added": "Đã cộng số dư người dùng",
+    "Withdrawal Deduction": "Khấu trừ rút tiền"
   }
 }
