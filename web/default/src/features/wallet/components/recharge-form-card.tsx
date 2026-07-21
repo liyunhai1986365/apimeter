@@ -336,19 +336,19 @@ export function RechargeFormCard({
 
                       const button = (
                         <Button
-                          variant='outline'
+                          variant={isStripe ? 'default' : 'outline'}
                           onClick={() => onPaymentMethodSelect(method)}
                           disabled={disabled || !!paymentLoading}
                           className={cn(
                             'h-9 w-full min-w-0 justify-start gap-2 rounded-lg px-3',
                             isStripe &&
-                              'h-12 justify-center border-[#635BFF] bg-[#635BFF] text-base font-semibold text-white shadow-lg shadow-[#635BFF]/20 transition-all hover:border-[#5148E5] hover:bg-[#5148E5] hover:text-white focus-visible:ring-[#635BFF]/40 disabled:opacity-70'
+                              'h-12 justify-center text-base font-semibold shadow-lg disabled:opacity-70'
                           )}
                         >
                           {paymentLoading === method.type ? (
                             <Loader2 className='h-4 w-4 animate-spin' />
                           ) : isStripe ? (
-                            <SiStripe className='h-5 w-5 text-white' />
+                            <SiStripe className='text-primary-foreground size-5' />
                           ) : (
                             getPaymentIcon(
                               method.type,
