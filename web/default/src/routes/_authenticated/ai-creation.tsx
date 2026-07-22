@@ -8,6 +8,7 @@ License, or (at your option) any later version.
 */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { normalizeInterfaceLanguage } from '@/i18n/languages'
 import { LoaderCircle } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { api } from '@/lib/api'
@@ -15,6 +16,7 @@ import {
   normalizeOpenMosaicBaseUrl,
   parseHeaderNavModulesFromStatus,
 } from '@/lib/nav-modules'
+import { buildOpenMosaicEmbedUrl } from '@/lib/openmosaic-language'
 
 type EmbeddedAuthorization = {
   code: string
@@ -40,16 +42,20 @@ function readCachedStatus(): Record<string, unknown> | null {
 }
 
 function AICreationPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [src, setSrc] = useState('')
   const [error, setError] = useState('')
   const authorizationRequestRef = useRef<{
     origin: string
+    language: string
     promise: Promise<EmbeddedAuthorization>
   } | null>(null)
   const status = useMemo(() => readCachedStatus(), [])
   const openMosaicOrigin = normalizeOpenMosaicBaseUrl(
     parseHeaderNavModulesFromStatus(status).aiCreation.baseUrl
+  )
+  const interfaceLanguage = normalizeInterfaceLanguage(
+    i18n.resolvedLanguage || i18n.language
   )
 
   useEffect(() => {
@@ -59,10 +65,12 @@ function AICreationPage() {
       try {
         if (
           !authorizationRequestRef.current ||
-          authorizationRequestRef.current.origin !== openMosaicOrigin
+          authorizationRequestRef.current.origin !== openMosaicOrigin ||
+          authorizationRequestRef.current.language !== interfaceLanguage
         ) {
           authorizationRequestRef.current = {
             origin: openMosaicOrigin,
+            language: interfaceLanguage,
             promise: api
               .post(
                 '/api/integrations/openmosaic/embedded-authorize',
@@ -84,11 +92,12 @@ function AICreationPage() {
         }
         pending = authorizationRequestRef.current
         const data = await pending.promise
-        const url = new URL('/auth/modelsell/embed', openMosaicOrigin)
-        url.searchParams.set('code', data.code)
-        url.searchParams.set('site_origin', data.site_origin)
-        url.searchParams.set('redirect', '/image')
-        if (!cancelled) setSrc(url.toString())
+        const url = buildOpenMosaicEmbedUrl(
+          openMosaicOrigin,
+          data,
+          interfaceLanguage
+        )
+        if (!cancelled) setSrc(url)
       } catch (cause) {
         if (
           pending &&
@@ -108,7 +117,7 @@ function AICreationPage() {
     return () => {
       cancelled = true
     }
-  }, [openMosaicOrigin, t])
+  }, [interfaceLanguage, openMosaicOrigin, t])
 
   const displayError =
     error ||
