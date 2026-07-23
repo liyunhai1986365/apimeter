@@ -29,6 +29,8 @@ import (
 	"gorm.io/gorm"
 )
 
+const imageTaskTestPNGBase64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+
 type imageAsyncBillingStub struct {
 	settleCalls int
 	refundCalls int
@@ -166,6 +168,7 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 	info := &relaycommon.RelayInfo{
 		StartTime:       time.Unix(1779125700, 0),
 		OriginModelName: "gpt-image-2",
+		Request:         &dto.ImageRequest{ResponseFormat: "url"},
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelType:    constant.ChannelTypeOpenAI,
 			ChannelId:      11,
@@ -192,11 +195,8 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 	}`, recorder.Body.String())
 }
 
-func TestConvertImageAsyncResultStoresBase64AsURLByDefault(t *testing.T) {
+func TestConvertImageAsyncResultReturnsBase64ByDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
-	t.Setenv("API_TEMP_IMAGE_PUBLIC_BASE_URL", "https://cdn.example.com")
-	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -207,8 +207,8 @@ func TestConvertImageAsyncResultStoresBase64AsURLByDefault(t *testing.T) {
 		"data":{"images":[{"b64_json":"data:image/png;base64,ZmFrZS1pbWFnZQ=="}]}
 	}`))
 	require.NoError(t, err)
-	require.Contains(t, gjsonGetString(t, body, "data.0.url"), "https://cdn.example.com/api/relay-temp-images/")
-	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
+	require.Equal(t, "ZmFrZS1pbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
+	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
 }
 
 func TestConvertImageAsyncResultReturnsBase64WhenRequested(t *testing.T) {
@@ -227,6 +227,25 @@ func TestConvertImageAsyncResultReturnsBase64WhenRequested(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "ZmFrZS1pbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
 	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
+}
+
+func TestNormalizeOpenAIImageResponseReturnsBase64ByDefault(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{}, []byte(`{
+		"created": 1779125744,
+		"data": [{"b64_json":"data:image/png;base64,ZmFrZS1pbWFnZQ=="}],
+		"usage": {"total_tokens": 3}
+	}`))
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.Equal(t, "ZmFrZS1pbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
+	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
+	require.Equal(t, int64(3), gjson.GetBytes(body, "usage.total_tokens").Int())
 }
 
 func TestNormalizeOpenAIImageResponseStoresBase64AsURLWhenURLRequested(t *testing.T) {
@@ -1074,7 +1093,7 @@ func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
 		require.Equal(t, "/v1/images/generations", r.URL.Path)
 		require.Empty(t, r.URL.Query().Get("async"))
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`))
+		_, _ = fmt.Fprintf(w, `{"created":1779125744,"data":[{"b64_json":%q}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2}}`, imageTaskTestPNGBase64)
 	}))
 	defer upstream.Close()
 
@@ -1120,8 +1139,9 @@ func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {
 			return false
 		}
 		return task.Status == model.TaskStatusSuccess &&
-			task.PrivateData.ResultURL == "https://cdn.example.com/output.png" &&
-			gjson.GetBytes(task.Data, "state").String() == "succeeded"
+			task.PrivateData.ResultURL == "" &&
+			gjson.GetBytes(task.Data, "state").String() == "succeeded" &&
+			gjson.GetBytes(task.Data, "data.images.0.b64_json").String() == imageTaskTestPNGBase64
 	}, time.Second, 10*time.Millisecond)
 
 	var task model.Task
@@ -1138,11 +1158,11 @@ func TestLocalAsyncImageSettlesActualUsageAfterCompletion(t *testing.T) {
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{
+		_, _ = fmt.Fprintf(w, `{
 			"created":1779125744,
-			"data":[{"url":"https://cdn.example.com/output.png"}],
+			"data":[{"b64_json":%q}],
 			"usage":{"input_tokens":100,"output_tokens":200,"total_tokens":300}
-		}`))
+		}`, imageTaskTestPNGBase64)
 	}))
 	defer upstream.Close()
 
@@ -1301,7 +1321,7 @@ func TestImageHelperAsyncTrueEstimatesUsageWhenSyncProviderOmitsUsage(t *testing
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"created":1779125744,"data":[{"url":"https://cdn.example.com/output.png"}]}`))
+		_, _ = fmt.Fprintf(w, `{"created":1779125744,"data":[{"b64_json":%q}]}`, imageTaskTestPNGBase64)
 	}))
 	defer upstream.Close()
 
@@ -1362,6 +1382,7 @@ func TestWaitImageAsyncSubmitResponseUsesConfigurableDuomiGeminiProfile(t *testi
 	info := &relaycommon.RelayInfo{
 		StartTime:       time.Unix(1779125700, 0),
 		OriginModelName: "gemini-3-pro-image-preview",
+		Request:         &dto.ImageRequest{ResponseFormat: "url"},
 		ChannelMeta: &relaycommon.ChannelMeta{
 			ChannelType:    constant.ChannelTypeConfigurable,
 			ChannelId:      11,

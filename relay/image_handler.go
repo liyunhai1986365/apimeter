@@ -63,6 +63,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
+	originalRelayMode := info.RelayMode
 
 	var requestBody io.Reader
 
@@ -111,11 +112,15 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 
 	statusCodeMappingStr := c.GetString("status_code_mapping")
+	originalWriter := c.Writer
 
 	resp, err := adaptor.DoRequest(c, info, requestBody)
 	if err != nil {
 		return newImageSubmitUncertainError(err, types.ErrorCodeDoRequestFailed, http.StatusInternalServerError)
 	}
+	var responseCapture *imageResponseCapture
+	var usage any
+	responseHandledBySplit := false
 	var httpResp *http.Response
 	if resp != nil {
 		httpResp = resp.(*http.Response)
@@ -126,31 +131,40 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 				httpResp.StatusCode = http.StatusOK
 			} else {
 				newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, false)
-				// reset status code 重置状态码
-				service.ResetStatusCode(newAPIError, statusCodeMappingStr)
-				return newAPIError
+				if shouldSplitImageNAfterError(c, originalRelayMode, info, request, newAPIError) {
+					logger.LogInfo(c, fmt.Sprintf("image upstream rejected n=%d; retrying as concurrent single-image submissions", *request.N))
+					responseCapture, usage, newAPIError = submitSplitImageRequests(c, info, request, c.Writer, statusCodeMappingStr)
+					if newAPIError == nil {
+						responseHandledBySplit = true
+					}
+				}
+				if !responseHandledBySplit {
+					// reset status code 重置状态码
+					service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+					return newAPIError
+				}
 			}
 		}
 	}
 
-	originalWriter := c.Writer
-	var responseCapture *imageResponseCapture
-	if !info.IsStream {
-		responseCapture = newImageResponseCapture(originalWriter)
-		c.Writer = responseCapture
-	}
+	if !responseHandledBySplit {
+		if !info.IsStream {
+			responseCapture = newImageResponseCapture(originalWriter)
+			c.Writer = responseCapture
+		}
 
-	usage, newAPIError := adaptor.DoResponse(c, httpResp, info)
-	if responseCapture != nil {
-		c.Writer = originalWriter
-	}
-	if newAPIError != nil {
-		// reset status code 重置状态码
-		service.ResetStatusCode(newAPIError, statusCodeMappingStr)
-		return markImageSubmitUncertainError(newAPIError)
-	}
-	if info.IsStream {
-		return finishStreamImageBilling(c, info, request, usage)
+		usage, newAPIError = adaptor.DoResponse(c, httpResp, info)
+		if responseCapture != nil {
+			c.Writer = originalWriter
+		}
+		if newAPIError != nil {
+			// reset status code 重置状态码
+			service.ResetStatusCode(newAPIError, statusCodeMappingStr)
+			return markImageSubmitUncertainError(newAPIError)
+		}
+		if info.IsStream {
+			return finishStreamImageBilling(c, info, request, usage)
+		}
 	}
 
 	if responseCapture.HasBody() {

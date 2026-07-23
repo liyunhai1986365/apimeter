@@ -775,7 +775,7 @@ type imageResponsePolicy struct {
 
 func buildImageResponsePolicy(info *relaycommon.RelayInfo) imageResponsePolicy {
 	policy := imageResponsePolicy{
-		format: "url",
+		format: "b64_json",
 		store:  dto.TokenImageStoreDefault,
 	}
 	if info != nil {
