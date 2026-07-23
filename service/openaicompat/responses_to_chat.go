@@ -31,10 +31,15 @@ func ResponsesResponseToChatCompletionsResponse(resp *dto.OpenAIResponsesRespons
 		}
 		if resp.Usage.InputTokensDetails != nil {
 			usage.PromptTokensDetails.CachedTokens = resp.Usage.InputTokensDetails.CachedTokens
+			usage.PromptTokensDetails.CacheWriteTokens = resp.Usage.InputTokensDetails.CacheWriteTokens
 			usage.PromptTokensDetails.ImageTokens = resp.Usage.InputTokensDetails.ImageTokens
 			usage.PromptTokensDetails.AudioTokens = resp.Usage.InputTokensDetails.AudioTokens
 		}
-		if resp.Usage.CompletionTokenDetails.ReasoningTokens != 0 {
+		if resp.Usage.OutputTokensDetails != nil {
+			usage.CompletionTokenDetails.ReasoningTokens = resp.Usage.OutputTokensDetails.ReasoningTokens
+			usage.CompletionTokenDetails.AudioTokens = resp.Usage.OutputTokensDetails.AudioTokens
+			usage.CompletionTokenDetails.ImageTokens = resp.Usage.OutputTokensDetails.ImageTokens
+		} else if resp.Usage.CompletionTokenDetails.ReasoningTokens != 0 {
 			usage.CompletionTokenDetails.ReasoningTokens = resp.Usage.CompletionTokenDetails.ReasoningTokens
 		}
 	}

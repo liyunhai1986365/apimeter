@@ -47,6 +47,31 @@ type OpenAITextResponse struct {
 	Usage   `json:"usage"`
 }
 
+// MarshalJSON keeps the public Chat Completions usage schema separate from the
+// shared internal usage model, which also carries Responses, image, and Claude
+// billing fields.
+func (o OpenAITextResponse) MarshalJSON() ([]byte, error) {
+	type openAITextResponseJSON struct {
+		Id      string                     `json:"id"`
+		Model   string                     `json:"model"`
+		Object  string                     `json:"object"`
+		Created any                        `json:"created"`
+		Choices []OpenAITextResponseChoice `json:"choices"`
+		Error   any                        `json:"error,omitempty"`
+		Usage   OpenAIChatUsage            `json:"usage"`
+	}
+
+	return common.Marshal(openAITextResponseJSON{
+		Id:      o.Id,
+		Model:   o.Model,
+		Object:  o.Object,
+		Created: o.Created,
+		Choices: o.Choices,
+		Error:   o.Error,
+		Usage:   o.Usage.ToOpenAIChatUsage(),
+	})
+}
+
 // GetOpenAIError 从动态错误类型中提取OpenAIError结构
 func (o *OpenAITextResponse) GetOpenAIError() *types.OpenAIError {
 	return GetOpenAIError(o.Error)
@@ -149,6 +174,37 @@ type ChatCompletionsStreamResponse struct {
 	Usage             *Usage                                `json:"usage"`
 }
 
+// MarshalJSON applies the same Chat Completions usage boundary to locally
+// generated stream chunks. Upstream chunks that are passed through untouched
+// retain their original JSON.
+func (c ChatCompletionsStreamResponse) MarshalJSON() ([]byte, error) {
+	type chatCompletionsStreamResponseJSON struct {
+		Id                string                                `json:"id"`
+		Object            string                                `json:"object"`
+		Created           int64                                 `json:"created"`
+		Model             string                                `json:"model"`
+		SystemFingerprint *string                               `json:"system_fingerprint"`
+		Choices           []ChatCompletionsStreamResponseChoice `json:"choices"`
+		Usage             *OpenAIChatUsage                      `json:"usage"`
+	}
+
+	var usage *OpenAIChatUsage
+	if c.Usage != nil {
+		chatUsage := c.Usage.ToOpenAIChatUsage()
+		usage = &chatUsage
+	}
+
+	return common.Marshal(chatCompletionsStreamResponseJSON{
+		Id:                c.Id,
+		Object:            c.Object,
+		Created:           c.Created,
+		Model:             c.Model,
+		SystemFingerprint: c.SystemFingerprint,
+		Choices:           c.Choices,
+		Usage:             usage,
+	})
+}
+
 func (c *ChatCompletionsStreamResponse) IsFinished() bool {
 	if len(c.Choices) == 0 {
 		return false
@@ -243,6 +299,59 @@ type Usage struct {
 	Cost any `json:"cost,omitempty"`
 }
 
+type OpenAIChatUsage struct {
+	PromptTokens            int                                `json:"prompt_tokens"`
+	CompletionTokens        int                                `json:"completion_tokens"`
+	TotalTokens             int                                `json:"total_tokens"`
+	PromptTokensDetails     *OpenAIChatPromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
+	CompletionTokensDetails *OpenAIChatCompletionTokensDetails `json:"completion_tokens_details,omitempty"`
+}
+
+type OpenAIChatPromptTokensDetails struct {
+	CachedTokens     int `json:"cached_tokens"`
+	AudioTokens      int `json:"audio_tokens"`
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
+}
+
+type OpenAIChatCompletionTokensDetails struct {
+	ReasoningTokens          int `json:"reasoning_tokens"`
+	AudioTokens              int `json:"audio_tokens"`
+	AcceptedPredictionTokens int `json:"accepted_prediction_tokens"`
+	RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
+}
+
+func (u Usage) ToOpenAIChatUsage() OpenAIChatUsage {
+	chatUsage := OpenAIChatUsage{
+		PromptTokens:     u.PromptTokens,
+		CompletionTokens: u.CompletionTokens,
+		TotalTokens:      u.TotalTokens,
+	}
+
+	if u.PromptTokensDetails.CachedTokens != 0 ||
+		u.PromptTokensDetails.AudioTokens != 0 ||
+		u.PromptTokensDetails.CacheWriteTokens != 0 {
+		chatUsage.PromptTokensDetails = &OpenAIChatPromptTokensDetails{
+			CachedTokens:     u.PromptTokensDetails.CachedTokens,
+			AudioTokens:      u.PromptTokensDetails.AudioTokens,
+			CacheWriteTokens: u.PromptTokensDetails.CacheWriteTokens,
+		}
+	}
+
+	if u.CompletionTokenDetails.ReasoningTokens != 0 ||
+		u.CompletionTokenDetails.AudioTokens != 0 ||
+		u.CompletionTokenDetails.AcceptedPredictionTokens != 0 ||
+		u.CompletionTokenDetails.RejectedPredictionTokens != 0 {
+		chatUsage.CompletionTokensDetails = &OpenAIChatCompletionTokensDetails{
+			ReasoningTokens:          u.CompletionTokenDetails.ReasoningTokens,
+			AudioTokens:              u.CompletionTokenDetails.AudioTokens,
+			AcceptedPredictionTokens: u.CompletionTokenDetails.AcceptedPredictionTokens,
+			RejectedPredictionTokens: u.CompletionTokenDetails.RejectedPredictionTokens,
+		}
+	}
+
+	return chatUsage
+}
+
 type OpenAIVideoResponse struct {
 	Id        string `json:"id" example:"file-abc123"`
 	Object    string `json:"object" example:"file"`
@@ -274,10 +383,12 @@ func (d InputTokenDetails) CacheCreationTokensTotal() int {
 }
 
 type OutputTokenDetails struct {
-	TextTokens      int `json:"text_tokens"`
-	AudioTokens     int `json:"audio_tokens"`
-	ImageTokens     int `json:"image_tokens"`
-	ReasoningTokens int `json:"reasoning_tokens"`
+	TextTokens               int `json:"text_tokens"`
+	AudioTokens              int `json:"audio_tokens"`
+	ImageTokens              int `json:"image_tokens"`
+	ReasoningTokens          int `json:"reasoning_tokens"`
+	AcceptedPredictionTokens int `json:"accepted_prediction_tokens,omitempty"`
+	RejectedPredictionTokens int `json:"rejected_prediction_tokens,omitempty"`
 }
 
 type OpenAIResponsesResponse struct {
