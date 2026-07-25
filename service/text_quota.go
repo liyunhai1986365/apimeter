@@ -210,6 +210,29 @@ func modelBillingInputTokens(summary textQuotaSummary) int64 {
 	return inputTokens
 }
 
+// normalizedLogInputTokens returns the total input token count for dashboard
+// reporting. OpenAI-style prompt_tokens already includes cache tokens, whereas
+// native Anthropic input_tokens excludes cache reads and writes.
+func normalizedLogInputTokens(relayInfo *relaycommon.RelayInfo, usage *dto.Usage, summary textQuotaSummary) int {
+	if usage == nil {
+		return summary.PromptTokens
+	}
+	cacheRead := usage.PromptTokensDetails.CachedTokens
+	cacheWrite := usage.PromptTokensDetails.CacheCreationTokensTotal()
+	if relayInfo != nil && relayInfo.ChannelMeta != nil && relayInfo.ChannelType == constant.ChannelTypeOpenRouter && summary.IsClaudeUsageSemantic {
+		// OpenRouter exposes Claude usage on the OpenAI surface, where prompt_tokens
+		// is already the total input count and cached_tokens is a detail field.
+		return usage.PromptTokens
+	}
+	if relayInfo != nil && relayInfo.GetFinalRequestRelayFormat() == types.RelayFormatClaude {
+		return usage.PromptTokens + cacheRead + cacheWrite
+	}
+	if usage.UsageSource != "" && usage.InputTokens > 0 {
+		return usage.InputTokens
+	}
+	return usage.PromptTokens
+}
+
 func calculateTextQuotaSummary(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage) textQuotaSummary {
 	summary := textQuotaSummary{
 		ModelName:            relayInfo.OriginModelName,
@@ -533,7 +556,10 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	logID := model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
 		ChannelId:        relayInfo.ChannelId,
 		PromptTokens:     summary.PromptTokens,
+		InputTokens:      normalizedLogInputTokens(relayInfo, originUsage, summary),
 		CompletionTokens: summary.CompletionTokens,
+		CacheReadTokens:  summary.CacheTokens,
+		CacheWriteTokens: cacheWriteTokens,
 		ModelName:        logModel,
 		TokenName:        summary.TokenName,
 		Quota:            summary.Quota,

@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useState } from 'react'
 import { useAuthStore } from '@/stores/auth-store'
-import { formatNumber, formatQuota } from '@/lib/format'
+import { formatNumber, formatQuota, formatTokenCount } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getUserQuotaDates } from '@/features/dashboard/api'
@@ -46,6 +46,7 @@ export function LogStatCards(props: LogStatCardsProps) {
     totalQuota: number
     totalCount: number
     totalTokens: number
+    totalCacheTokens: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
@@ -98,6 +99,7 @@ export function LogStatCards(props: LogStatCardsProps) {
     rpm: stats?.totalCount ?? 0,
     quota: stats?.totalQuota ?? 0,
     tpm: stats?.totalTokens ?? 0,
+    cacheTokens: stats?.totalCacheTokens ?? 0,
   }
 
   const items = statCardsConfig.map((config) => ({
@@ -105,14 +107,18 @@ export function LogStatCards(props: LogStatCardsProps) {
     value:
       config.key === 'quota'
         ? formatQuota(config.getValue(adaptedStats, timeRangeMinutes))
-        : formatNumber(config.getValue(adaptedStats, timeRangeMinutes)),
+        : config.key === 'tokens' ||
+            config.key === 'cacheTokens' ||
+            config.key === 'avgTpm'
+          ? formatTokenCount(config.getValue(adaptedStats, timeRangeMinutes))
+          : formatNumber(config.getValue(adaptedStats, timeRangeMinutes)),
     desc: config.description,
     icon: config.icon,
   }))
 
   return (
     <div className='overflow-hidden rounded-lg border'>
-      <div className='divide-border/60 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-5'>
+      <div className='divide-border/60 grid grid-cols-2 divide-x sm:grid-cols-3 lg:grid-cols-6'>
         {items.map((it, idx) => {
           const Icon = it.icon
           return (

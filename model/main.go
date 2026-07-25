@@ -535,6 +535,9 @@ func migrateLOGDB() error {
 	if err = LOG_DB.AutoMigrate(&BillingUsageItem{}, &AccountLedgerEntry{}, &BillingStatement{}, &BillingStatementSummary{}); err != nil {
 		return err
 	}
+	if err = BackfillLogTokenMetrics(); err != nil {
+		return err
+	}
 	return nil
 }
 

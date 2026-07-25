@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/types"
 
@@ -31,7 +32,10 @@ type Log struct {
 	ModelName         string `json:"model_name" gorm:"index;index:index_username_model_name,priority:1;default:''"`
 	Quota             int    `json:"quota" gorm:"default:0"`
 	PromptTokens      int    `json:"prompt_tokens" gorm:"default:0"`
+	InputTokens       int    `json:"input_tokens" gorm:"default:0"`
 	CompletionTokens  int    `json:"completion_tokens" gorm:"default:0"`
+	CacheReadTokens   int    `json:"cache_read_tokens" gorm:"default:0"`
+	CacheWriteTokens  int    `json:"cache_write_tokens" gorm:"default:0"`
 	UseTime           int    `json:"use_time" gorm:"default:0"`
 	IsStream          bool   `json:"is_stream"`
 	ChannelId         int    `json:"channel" gorm:"index"`
@@ -273,7 +277,10 @@ func CreateErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 type RecordConsumeLogParams struct {
 	ChannelId        int                    `json:"channel_id"`
 	PromptTokens     int                    `json:"prompt_tokens"`
+	InputTokens      int                    `json:"input_tokens"`
 	CompletionTokens int                    `json:"completion_tokens"`
+	CacheReadTokens  int                    `json:"cache_read_tokens"`
+	CacheWriteTokens int                    `json:"cache_write_tokens"`
 	ModelName        string                 `json:"model_name"`
 	TokenName        string                 `json:"token_name"`
 	Quota            int                    `json:"quota"`
@@ -294,6 +301,25 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	requestId := c.GetString(common.RequestIdKey)
 	upstreamRequestId := c.GetString(common.UpstreamRequestIdKey)
 	otherStr := common.MapToJsonStr(params.Other)
+	if params.CacheReadTokens == 0 {
+		params.CacheReadTokens = billingValueInt(params.Other, "cache_tokens", 0)
+	}
+	if params.CacheWriteTokens == 0 {
+		params.CacheWriteTokens = billingValueInt(params.Other, "cache_write_tokens", 0)
+		if params.CacheWriteTokens == 0 {
+			params.CacheWriteTokens = billingValueInt(params.Other, "cache_creation_tokens", 0)
+		}
+	}
+	if params.InputTokens == 0 {
+		params.InputTokens = billingValueInt(params.Other, "input_tokens_total", 0)
+		if params.InputTokens == 0 {
+			params.InputTokens = params.PromptTokens
+			usageSemantic, _ := params.Other["usage_semantic"].(string)
+			if usageSemantic == "anthropic" {
+				params.InputTokens += params.CacheReadTokens + params.CacheWriteTokens
+			}
+		}
+	}
 	// 判断是否需要记录 IP
 	needRecordIp := true
 	if settingMap, err := GetUserSetting(userId, false); err == nil {
@@ -306,7 +332,10 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		Type:             LogTypeConsume,
 		Content:          params.Content,
 		PromptTokens:     params.PromptTokens,
+		InputTokens:      params.InputTokens,
 		CompletionTokens: params.CompletionTokens,
+		CacheReadTokens:  params.CacheReadTokens,
+		CacheWriteTokens: params.CacheWriteTokens,
 		TokenName:        params.TokenName,
 		ModelName:        params.ModelName,
 		Quota:            params.Quota,
@@ -333,16 +362,18 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 	if common.DataExportEnabled {
 		gopool.Go(func() {
 			LogQuotaData(QuotaDataLogParams{
-				UserID:    userId,
-				Username:  username,
-				ModelName: params.ModelName,
-				Quota:     params.Quota,
-				CreatedAt: common.GetTimestamp(),
-				TokenUsed: params.PromptTokens + params.CompletionTokens,
-				TokenID:   params.TokenId,
-				UseGroup:  params.Group,
-				ChannelID: params.ChannelId,
-				NodeName:  common.NodeName,
+				UserID:           userId,
+				Username:         username,
+				ModelName:        params.ModelName,
+				Quota:            params.Quota,
+				CreatedAt:        common.GetTimestamp(),
+				TokenUsed:        params.InputTokens + params.CompletionTokens,
+				CacheReadTokens:  params.CacheReadTokens,
+				CacheWriteTokens: params.CacheWriteTokens,
+				TokenID:          params.TokenId,
+				UseGroup:         params.Group,
+				ChannelID:        params.ChannelId,
+				NodeName:         common.NodeName,
 			})
 		})
 	}
@@ -935,7 +966,10 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 		Select(
 			fmt.Sprintf("model_name, sum(CASE WHEN type = ? OR (type = ? AND other LIKE ? AND content <> ?) THEN 0 ELSE 1 END) as count, "+
 				"sum(CASE WHEN type = ? THEN -quota ELSE quota END) as quota, "+
-				"sum(prompt_tokens) + sum(completion_tokens) as token_used, %s as created_at", bucketExpr),
+				"sum(CASE WHEN input_tokens > 0 THEN input_tokens ELSE prompt_tokens END) + sum(completion_tokens) as token_used, "+
+				"sum(cache_read_tokens) as cache_read_tokens, "+
+				"sum(cache_write_tokens) as cache_write_tokens, "+
+				"sum(cache_read_tokens) + sum(cache_write_tokens) as cache_token_used, %s as created_at", bucketExpr),
 			LogTypeRefund,
 			LogTypeConsume,
 			`%"pre_consumed_quota"%`,
@@ -963,6 +997,117 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 	return quotaData, err
 }
 
+// BackfillLogTokenMetrics normalizes legacy consume logs that contain cache
+// details or an explicit input total. Ordinary logs keep using prompt_tokens as
+// the dashboard fallback, avoiding unnecessary writes to the entire log table.
+func BackfillLogTokenMetrics() error {
+	if LOG_DB == nil {
+		return nil
+	}
+	const batchSize = 1000
+	lastID := 0
+	for {
+		var logs []Log
+		query := LOG_DB.Model(&Log{}).
+			Where("id > ?", lastID).
+			Where("type IN ?", []int{LogTypeConsume, LogTypeRefund}).
+			Where("input_tokens = 0 AND cache_read_tokens = 0 AND cache_write_tokens = 0").
+			Where("other LIKE ? OR "+
+				"(other LIKE ? AND other NOT LIKE ? AND other NOT LIKE ?) OR "+
+				"(other LIKE ? AND other NOT LIKE ? AND other NOT LIKE ?) OR "+
+				"(other LIKE ? AND other NOT LIKE ? AND other NOT LIKE ?)",
+				"%\"input_tokens_total\":%",
+				"%\"cache_tokens\":%", "%\"cache_tokens\":0,%", "%\"cache_tokens\":0}%",
+				"%\"cache_write_tokens\":%", "%\"cache_write_tokens\":0,%", "%\"cache_write_tokens\":0}%",
+				"%\"cache_creation_tokens\":%", "%\"cache_creation_tokens\":0,%", "%\"cache_creation_tokens\":0}%")
+		if err := query.Order("id ASC").Limit(batchSize).Find(&logs).Error; err != nil {
+			return err
+		}
+		if len(logs) == 0 {
+			return nil
+		}
+		channelTypes, err := logChannelTypes(logs)
+		if err != nil {
+			return err
+		}
+		if err := LOG_DB.Transaction(func(tx *gorm.DB) error {
+			for i := range logs {
+				log := &logs[i]
+				lastID = log.Id
+				other, _ := common.StrToMap(log.Other)
+				cacheRead := billingValueInt(other, "cache_tokens", 0)
+				cacheWrite := billingValueInt(other, "cache_write_tokens", 0)
+				if cacheWrite == 0 {
+					cacheWrite = billingValueInt(other, "cache_creation_tokens", 0)
+				}
+				input := billingValueInt(other, "input_tokens_total", 0)
+				if input == 0 && cacheRead == 0 && cacheWrite == 0 {
+					continue
+				}
+				if input == 0 {
+					input = log.PromptTokens
+					usageSemantic, _ := other["usage_semantic"].(string)
+					channelType := channelTypes[log.ChannelId]
+					cacheIsSeparate := usageSemantic == "anthropic" || channelType == constant.ChannelTypeAnthropic
+					if channelType == constant.ChannelTypeOpenRouter {
+						cacheIsSeparate = false
+					}
+					if cacheIsSeparate {
+						input += cacheRead + cacheWrite
+					}
+				}
+				if err := tx.Model(&Log{}).Where("id = ?", log.Id).Updates(map[string]interface{}{
+					"input_tokens":       input,
+					"cache_read_tokens":  cacheRead,
+					"cache_write_tokens": cacheWrite,
+				}).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			return err
+		}
+		if len(logs) < batchSize {
+			return nil
+		}
+	}
+}
+
+func logChannelTypes(logs []Log) (map[int]int, error) {
+	typesByID := make(map[int]int)
+	if DB == nil {
+		return typesByID, nil
+	}
+	channelIDs := make([]int, 0)
+	seen := make(map[int]struct{})
+	for i := range logs {
+		channelID := logs[i].ChannelId
+		if channelID <= 0 {
+			continue
+		}
+		if _, ok := seen[channelID]; ok {
+			continue
+		}
+		seen[channelID] = struct{}{}
+		channelIDs = append(channelIDs, channelID)
+	}
+	if len(channelIDs) == 0 {
+		return typesByID, nil
+	}
+	var channels []struct {
+		Id   int
+		Type int
+	}
+	if err := DB.Model(&Channel{}).Select("id", "type").Where("id IN ?", channelIDs).Find(&channels).Error; err != nil {
+		return nil, err
+	}
+	for i := range channels {
+		typesByID[channels[i].Id] = channels[i].Type
+	}
+	return typesByID, nil
+}
+
 func logTimeBucketExpr(bucketSize int64) string {
 	if common.UsingClickHouse {
 		return fmt.Sprintf("intDiv(created_at, %d) * %d", bucketSize, bucketSize)
@@ -983,7 +1128,10 @@ func GetUsageDimensionTrendsFromLogs(startTime int64, endTime int64, username st
 		Select(
 			fmt.Sprintf("token_id, token_name, sum(CASE WHEN type = ? OR (type = ? AND other LIKE ? AND content <> ?) THEN 0 ELSE 1 END) as count, "+
 				"sum(CASE WHEN type = ? THEN -quota ELSE quota END) as quota, "+
-				"sum(prompt_tokens) + sum(completion_tokens) as token_used, %s as created_at", bucketExpr),
+				"sum(CASE WHEN input_tokens > 0 THEN input_tokens ELSE prompt_tokens END) + sum(completion_tokens) as token_used, "+
+				"sum(cache_read_tokens) as cache_read_tokens, "+
+				"sum(cache_write_tokens) as cache_write_tokens, "+
+				"sum(cache_read_tokens) + sum(cache_write_tokens) as cache_token_used, %s as created_at", bucketExpr),
 			LogTypeRefund,
 			LogTypeConsume,
 			`%"pre_consumed_quota"%`,

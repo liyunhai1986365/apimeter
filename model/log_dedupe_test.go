@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/stretchr/testify/require"
 )
 
@@ -365,6 +366,57 @@ func TestGetQuotaDatesFromLogsFiltersByWorkspaceAndToken(t *testing.T) {
 	require.Equal(t, "gpt-alpha", data[0].ModelName)
 	require.Equal(t, 150, data[0].Quota)
 	require.Equal(t, 30, data[0].TokenUsed)
+}
+
+func TestGetQuotaDatesFromLogsIncludesAndSeparatesCacheTokens(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, DB.Create(&[]Channel{
+		{Id: 301, Type: constant.ChannelTypeAnthropic},
+		{Id: 302, Type: constant.ChannelTypeOpenRouter},
+	}).Error)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id:               53,
+			UserId:           1001,
+			Username:         "alice",
+			Type:             LogTypeConsume,
+			CreatedAt:        3600,
+			ModelName:        "claude-test",
+			ChannelId:        301,
+			PromptTokens:     100,
+			CompletionTokens: 20,
+			Other:            `{"cache_tokens":30,"cache_write_tokens":10}`,
+		},
+		{
+			Id:               54,
+			UserId:           1001,
+			Username:         "alice",
+			Type:             LogTypeConsume,
+			CreatedAt:        3600,
+			ModelName:        "gpt-test",
+			ChannelId:        302,
+			PromptTokens:     100,
+			CompletionTokens: 20,
+			Other:            `{"cache_tokens":30}`,
+		},
+	}).Error)
+	require.NoError(t, BackfillLogTokenMetrics())
+
+	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0, nil)
+
+	require.NoError(t, err)
+	require.Len(t, data, 2)
+	byModel := make(map[string]*QuotaData, len(data))
+	for _, item := range data {
+		byModel[item.ModelName] = item
+	}
+	require.Equal(t, 160, byModel["claude-test"].TokenUsed)
+	require.Equal(t, 30, byModel["claude-test"].CacheReadTokens)
+	require.Equal(t, 10, byModel["claude-test"].CacheWriteTokens)
+	require.Equal(t, 40, byModel["claude-test"].CacheTokenUsed)
+	require.Equal(t, 120, byModel["gpt-test"].TokenUsed)
+	require.Equal(t, 30, byModel["gpt-test"].CacheTokenUsed)
 }
 
 func TestGetQuotaDatesFromLogsSubtractsTaskRefunds(t *testing.T) {

@@ -20,6 +20,7 @@ import {
   Hash,
   Coins,
   Layers,
+  Database,
   Gauge,
   Zap,
   Flame,
@@ -59,9 +60,16 @@ export function useModelStatCardsConfig(): StatCardConfig[] {
     {
       key: 'tokens',
       title: t('Total Tokens'),
-      description: t('Statistical tokens'),
-      icon: Layers,
+      description: t('Includes cache tokens'),
+      icon: Database,
       getValue: (stat) => stat?.tpm ?? 0,
+    },
+    {
+      key: 'cacheTokens',
+      title: t('Cache Tokens'),
+      description: t('Read and write cache tokens'),
+      icon: Layers,
+      getValue: (stat) => stat?.cacheTokens ?? 0,
     },
     {
       key: 'avgRpm',

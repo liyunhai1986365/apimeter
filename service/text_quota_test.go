@@ -561,3 +561,36 @@ func TestModelBillingInputTokensKeepsClaudeSemanticInput(t *testing.T) {
 
 	require.Equal(t, int64(1000), modelBillingInputTokens(summary))
 }
+
+func TestNormalizedLogInputTokensUsesProviderUsageSemantics(t *testing.T) {
+	usage := &dto.Usage{
+		PromptTokens:  100,
+		InputTokens:   100,
+		UsageSemantic: "anthropic",
+		PromptTokensDetails: dto.InputTokenDetails{
+			CachedTokens:         30,
+			CachedCreationTokens: 10,
+		},
+	}
+	summary := textQuotaSummary{
+		PromptTokens:          100,
+		CacheTokens:           30,
+		CacheCreationTokens:   10,
+		IsClaudeUsageSemantic: true,
+	}
+
+	nativeClaude := &relaycommon.RelayInfo{FinalRequestRelayFormat: types.RelayFormatClaude}
+	require.Equal(t, 140, normalizedLogInputTokens(nativeClaude, usage, summary))
+
+	openRouterClaude := &relaycommon.RelayInfo{
+		ChannelMeta:             &relaycommon.ChannelMeta{ChannelType: constant.ChannelTypeOpenRouter},
+		FinalRequestRelayFormat: types.RelayFormatClaude,
+	}
+	require.Equal(t, 100, normalizedLogInputTokens(openRouterClaude, usage, summary))
+
+	usage.UsageSemantic = "openai"
+	require.Equal(t, 100, normalizedLogInputTokens(&relaycommon.RelayInfo{}, usage, summary))
+
+	gemini := &relaycommon.RelayInfo{FinalRequestRelayFormat: types.RelayFormatGemini}
+	require.Equal(t, 100, normalizedLogInputTokens(gemini, usage, summary))
+}

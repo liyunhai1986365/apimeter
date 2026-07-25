@@ -42,6 +42,23 @@ export function formatCompactNumber(value: number | null | undefined): string {
   }).format(value as number)
 }
 
+export function formatTokenCount(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value as number)) return '-'
+
+  const numericValue = value as number
+  const absoluteValue = Math.abs(numericValue)
+  const units = [
+    { threshold: 1_000_000_000_000, divisor: 1_000_000_000_000, suffix: 'T' },
+    { threshold: 1_000_000_000, divisor: 1_000_000_000, suffix: 'B' },
+    { threshold: 1_000_000, divisor: 1_000_000, suffix: 'M' },
+  ]
+
+  const unit = units.find((item) => absoluteValue >= item.threshold)
+  if (!unit) return formatNumber(numericValue)
+
+  return `${(numericValue / unit.divisor).toFixed(3)} ${unit.suffix}`
+}
+
 export function formatPercent(value: number | null | undefined): string {
   if (value == null || Number.isNaN(value as number)) return '-'
   return Intl.NumberFormat(undefined, {

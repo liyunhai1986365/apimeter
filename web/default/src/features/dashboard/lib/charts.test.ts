@@ -19,6 +19,36 @@ For commercial licensing, please contact support@quantumnous.com
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { processTokenChartData } from './charts'
+import { calculateDashboardStats } from './stats'
+
+describe('calculateDashboardStats', () => {
+  test('keeps total and cache token metrics separate', () => {
+    assert.deepEqual(
+      calculateDashboardStats([
+        {
+          created_at: 1_700_000_000,
+          token_used: 160,
+          cache_token_used: 40,
+          count: 1,
+          quota: 100,
+        },
+        {
+          created_at: 1_700_003_600,
+          token_used: 120,
+          cache_token_used: 30,
+          count: 2,
+          quota: 200,
+        },
+      ]),
+      {
+        totalQuota: 300,
+        totalCount: 3,
+        totalTokens: 280,
+        totalCacheTokens: 70,
+      }
+    )
+  })
+})
 
 describe('processTokenChartData', () => {
   test('builds current-user token ranking and trend specs from token aggregates', () => {
