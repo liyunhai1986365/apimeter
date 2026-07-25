@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
+import { getSelfUsageStat } from '@/lib/api'
 import { getCurrencyLabel, isCurrencyDisplayEnabled } from '@/lib/currency'
 import { formatNumber, formatQuota } from '@/lib/format'
 import { computeTimeRange } from '@/lib/time'
@@ -147,7 +148,7 @@ export function SummaryCards() {
 
   const summaryTimeRange = useMemo(() => computeTimeRange(1), [])
   const remainQuota = Number(user?.quota ?? 0)
-  const usedQuota = Number(user?.used_quota ?? 0)
+  const storedUsedQuota = Number(user?.used_quota ?? 0)
   const requestCount = Number(user?.request_count ?? 0)
 
   const usageTrendQuery = useQuery({
@@ -166,6 +167,14 @@ export function SummaryCards() {
       }),
     staleTime: 60 * 1000,
   })
+
+  const totalUsageQuery = useQuery({
+    queryKey: ['user', 'self', 'usage-stat'],
+    queryFn: getSelfUsageStat,
+    staleTime: 60 * 1000,
+  })
+
+  const usedQuota = Number(totalUsageQuery.data?.data?.quota ?? storedUsedQuota)
 
   const summaryValues = useMemo(() => {
     return {

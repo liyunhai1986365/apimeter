@@ -24,6 +24,7 @@ import type { UserWalletData } from '../types'
 
 interface WalletStatsCardProps {
   user: UserWalletData | null
+  totalUsedQuota?: number
   loading?: boolean
 }
 
@@ -54,7 +55,7 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
     },
     {
       label: t('Total Usage'),
-      value: formatQuota(props.user?.used_quota ?? 0),
+      value: formatQuota(props.totalUsedQuota ?? props.user?.used_quota ?? 0),
       description: t('Total consumed quota'),
       icon: BarChart3,
     },

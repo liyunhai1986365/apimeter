@@ -17,8 +17,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState, useEffect, useCallback } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { getSelf } from '@/lib/api'
+import { getSelf, getSelfUsageStat } from '@/lib/api'
 import { useStatus } from '@/hooks/use-status'
 import { SectionPageLayout } from '@/components/layout'
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
@@ -74,6 +75,11 @@ export function Wallet(props: WalletProps) {
     useState<CreemProduct | null>(null)
 
   const { status } = useStatus()
+  const totalUsageQuery = useQuery({
+    queryKey: ['user', 'self', 'usage-stat'],
+    queryFn: getSelfUsageStat,
+    staleTime: 60 * 1000,
+  })
   const { topupInfo, presetAmounts, loading: topupLoading } = useTopupInfo()
   const {
     amount: paymentAmount,
@@ -255,7 +261,11 @@ export function Wallet(props: WalletProps) {
         </SectionPageLayout.Description>
         <SectionPageLayout.Content>
           <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6'>
-            <WalletStatsCard user={user} loading={userLoading} />
+            <WalletStatsCard
+              user={user}
+              totalUsedQuota={totalUsageQuery.data?.data?.quota}
+              loading={userLoading}
+            />
 
             <div className='grid gap-4 sm:gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.46fr)] xl:items-start'>
               <div id='wallet-add-funds' className='scroll-mt-4'>

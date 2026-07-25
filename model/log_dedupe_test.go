@@ -186,6 +186,21 @@ func TestSumUsedQuotaSubtractsRefundLogs(t *testing.T) {
 	require.Equal(t, 0, refundStat.Tpm)
 }
 
+func TestSumUsedQuotaByUserMatchesDashboardNetLedger(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 147, UserId: 1001, Username: "old-name", Type: LogTypeConsume, CreatedAt: 100, Quota: 1000},
+		{Id: 148, UserId: 1001, Username: "new-name", Type: LogTypeRefund, CreatedAt: 101, Quota: 700},
+		{Id: 149, UserId: 2002, Username: "new-name", Type: LogTypeConsume, CreatedAt: 102, Quota: 9000},
+	}).Error)
+
+	stat, err := SumUsedQuotaByUser(1001, LogTypeUnknown, 0, 0, "", "", 0, "", "", nil)
+
+	require.NoError(t, err)
+	require.Equal(t, 300, stat.Quota)
+}
+
 func TestSumModelProfitStatsAggregatesByModelAndDate(t *testing.T) {
 	truncateTables(t)
 

@@ -67,6 +67,29 @@ func TestBuildLogsStatDataOnlyIncludesCostForRoot(t *testing.T) {
 	}
 }
 
+func TestGetLogsSelfStatUsesNetLedgerForCurrentUser(t *testing.T) {
+	db := setupUseDataControllerTestDB(t)
+	require.NoError(t, db.Create(&[]model.Log{
+		{Id: 301, UserId: 1001, Username: "old-name", Type: model.LogTypeConsume, CreatedAt: 100, Quota: 1000},
+		{Id: 302, UserId: 1001, Username: "new-name", Type: model.LogTypeRefund, CreatedAt: 101, Quota: 700},
+		{Id: 303, UserId: 2002, Username: "new-name", Type: model.LogTypeConsume, CreatedAt: 102, Quota: 9000},
+	}).Error)
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/log/self/stat", nil, 1001)
+	GetLogsSelfStat(ctx)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var response struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Quota int `json:"quota"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &response))
+	require.True(t, response.Success)
+	require.Equal(t, 300, response.Data.Quota)
+}
+
 func TestGetErrorRequestLogReturnsRequestEvidence(t *testing.T) {
 	openRelayRetryEventTestDB(t)
 	require.NoError(t, model.RecordErrorRequestLog(&model.ErrorRequestLog{

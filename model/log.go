@@ -789,6 +789,14 @@ func usageStatSign(logType int) int {
 }
 
 func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspace string, allowedWorkspaceIds []int) (stat Stat, err error) {
+	return sumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, workspace, 0, allowedWorkspaceIds)
+}
+
+func SumUsedQuotaByUser(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, channel int, group string, workspace string, allowedWorkspaceIds []int) (stat Stat, err error) {
+	return sumUsedQuota(logType, startTimestamp, endTimestamp, modelName, "", tokenName, channel, group, workspace, userId, allowedWorkspaceIds)
+}
+
+func sumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspace string, userId int, allowedWorkspaceIds []int) (stat Stat, err error) {
 	statTypes := usageStatLogTypes(logType)
 	if len(statTypes) == 0 {
 		return stat, nil
@@ -797,7 +805,7 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
 	costQuery := LOG_DB.Table("logs").Select("type, quota, other")
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace, allowedWorkspaceIds)
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspace, allowedWorkspaceIds)
 	if err != nil {
 		return stat, err
 	}
@@ -807,6 +815,10 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	if username != "" {
 		rpmTpmQuery = rpmTpmQuery.Where("username = ?", username)
 		costQuery = costQuery.Where("username = ?", username)
+	}
+	if userId > 0 {
+		rpmTpmQuery = rpmTpmQuery.Where("user_id = ?", userId)
+		costQuery = costQuery.Where("user_id = ?", userId)
 	}
 	if tokenName != "" {
 		rpmTpmQuery = rpmTpmQuery.Where("token_name = ?", tokenName)

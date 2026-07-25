@@ -202,12 +202,6 @@ func GetLogsSelfStat(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	username := c.GetString("username")
-	if scope.IsSubaccount {
-		// Logs are written under the owner's username; the workspace filter already
-		// scopes them, and the actor's own username would match nothing.
-		username = ""
-	}
 	logType, _ := strconv.Atoi(c.Query("type"))
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
@@ -216,7 +210,7 @@ func GetLogsSelfStat(c *gin.Context) {
 	modelName := c.Query("model_name")
 	channel := parseLogQueryInt(c.Query("channel"))
 	group := c.Query("group")
-	quotaNum, err := model.SumUsedQuota(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, workspaceName, scope.WorkspaceFilter())
+	quotaNum, err := model.SumUsedQuotaByUser(scope.OwnerUserId, logType, startTimestamp, endTimestamp, modelName, tokenName, channel, group, workspaceName, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return

@@ -179,6 +179,22 @@ export async function getSelf() {
   return res.data
 }
 
+export interface SelfUsageStatResponse {
+  success: boolean
+  message?: string
+  data?: {
+    quota: number
+    rpm: number
+    tpm: number
+  }
+}
+
+// Get the current user's net lifetime usage from the consume/refund ledger.
+export async function getSelfUsageStat(): Promise<SelfUsageStatResponse> {
+  const res = await api.get<SelfUsageStatResponse>('/api/log/self/stat')
+  return res.data
+}
+
 // Get user available models
 export async function getUserModels(): Promise<{
   success: boolean
