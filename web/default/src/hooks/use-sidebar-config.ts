@@ -111,7 +111,6 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/billing': { section: 'personal', module: 'topup' },
   '/billing/monthly': { section: 'personal', module: 'topup' },
   '/billing/reconciliation': { section: 'personal', module: 'topup' },
-  '/billing/ledger': { section: 'personal', module: 'topup' },
   '/keys': { section: 'console', module: 'token' },
   '/workspaces': { section: 'console', module: 'token' },
   '/provider': { section: 'console', module: 'supplier_directory' },

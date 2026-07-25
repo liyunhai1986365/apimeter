@@ -1013,15 +1013,30 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 // details or an explicit input total. Ordinary logs keep using prompt_tokens as
 // the dashboard fallback, avoiding unnecessary writes to the entire log table.
 func BackfillLogTokenMetrics() error {
+	_, err := BackfillLogTokenMetricsAfter(0)
+	return err
+}
+
+// BackfillLogTokenMetricsAfter normalizes legacy logs after the supplied ID.
+// It captures the current maximum ID before processing so concurrently inserted
+// logs are left for the next run instead of being covered by an advanced marker.
+func BackfillLogTokenMetricsAfter(lastID int) (int, error) {
 	if LOG_DB == nil {
-		return nil
+		return lastID, nil
+	}
+	var targetID int
+	if err := LOG_DB.Model(&Log{}).Select("COALESCE(MAX(id), 0)").Scan(&targetID).Error; err != nil {
+		return lastID, err
+	}
+	if targetID <= lastID {
+		return lastID, nil
 	}
 	const batchSize = 1000
-	lastID := 0
 	for {
 		var logs []Log
 		query := LOG_DB.Model(&Log{}).
 			Where("id > ?", lastID).
+			Where("id <= ?", targetID).
 			Where("type IN ?", []int{LogTypeConsume, LogTypeRefund}).
 			Where("input_tokens = 0 AND cache_read_tokens = 0 AND cache_write_tokens = 0").
 			Where("other LIKE ? OR "+
@@ -1033,14 +1048,14 @@ func BackfillLogTokenMetrics() error {
 				"%\"cache_write_tokens\":%", "%\"cache_write_tokens\":0,%", "%\"cache_write_tokens\":0}%",
 				"%\"cache_creation_tokens\":%", "%\"cache_creation_tokens\":0,%", "%\"cache_creation_tokens\":0}%")
 		if err := query.Order("id ASC").Limit(batchSize).Find(&logs).Error; err != nil {
-			return err
+			return lastID, err
 		}
 		if len(logs) == 0 {
-			return nil
+			return targetID, nil
 		}
 		channelTypes, err := logChannelTypes(logs)
 		if err != nil {
-			return err
+			return lastID, err
 		}
 		if err := LOG_DB.Transaction(func(tx *gorm.DB) error {
 			for i := range logs {
@@ -1078,10 +1093,10 @@ func BackfillLogTokenMetrics() error {
 			}
 			return nil
 		}); err != nil {
-			return err
+			return lastID, err
 		}
 		if len(logs) < batchSize {
-			return nil
+			return targetID, nil
 		}
 	}
 }

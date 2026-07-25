@@ -93,6 +93,67 @@ func TestBuildRankingsSnapshotAggregatesMappedLogsUnderModelPrimaryName(t *testi
 	}
 }
 
+func TestBuildRankingsSnapshotUsesNormalizedInputTokens(t *testing.T) {
+	setupRankingsTestDB(t)
+	now := time.Unix(1_800_000_000, 0)
+
+	require.NoError(t, model.LOG_DB.Create(&[]model.Log{
+		{
+			CreatedAt:        now.Add(-time.Hour).Unix(),
+			Type:             model.LogTypeConsume,
+			ModelName:        "claude-native",
+			PromptTokens:     20,
+			InputTokens:      100,
+			CompletionTokens: 10,
+			CacheReadTokens:  70,
+			CacheWriteTokens: 10,
+		},
+		{
+			CreatedAt:        now.Add(-50 * time.Minute).Unix(),
+			Type:             model.LogTypeConsume,
+			ModelName:        "gpt-cached",
+			PromptTokens:     100,
+			InputTokens:      100,
+			CompletionTokens: 10,
+			CacheReadTokens:  70,
+		},
+		{
+			CreatedAt:       now.Add(-40 * time.Minute).Unix(),
+			Type:            model.LogTypeConsume,
+			ModelName:       "claude-cache-only",
+			InputTokens:     80,
+			CacheReadTokens: 80,
+		},
+		{
+			CreatedAt:        now.Add(-30 * time.Minute).Unix(),
+			Type:             model.LogTypeConsume,
+			ModelName:        "legacy-model",
+			PromptTokens:     30,
+			CompletionTokens: 5,
+		},
+	}).Error)
+
+	snapshot, err := buildRankingsSnapshot(rankingPeriodConfig{
+		id:          "week",
+		duration:    7 * 24 * time.Hour,
+		bucketSize:  24 * 3600,
+		labelLayout: "Jan 2",
+		hasPrevious: true,
+	}, now)
+	require.NoError(t, err)
+
+	tokensByModel := make(map[string]int64, len(snapshot.Models))
+	for _, item := range snapshot.Models {
+		tokensByModel[item.ModelName] = item.TotalTokens
+	}
+	require.Equal(t, map[string]int64{
+		"claude-native":     110,
+		"gpt-cached":        110,
+		"claude-cache-only": 80,
+		"legacy-model":      35,
+	}, tokensByModel)
+}
+
 func TestMergeRankingQuotaTotalsAggregatesAliasesToPrimaryModel(t *testing.T) {
 	aliasMap := buildRankingAliasMap([]model.Pricing{
 		{ModelName: "gpt-main", AliasModels: []string{"gpt-main-v2", "gpt-main-preview"}},

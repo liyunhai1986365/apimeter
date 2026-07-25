@@ -8,35 +8,7 @@ export type BillingApiResponse<T> = {
   data: T
 }
 
-export type BillingSource = 'wallet' | 'subscription' | string
 export type BillingStatementStatus = 'open' | 'confirmed' | 'exception' | string
-export type AccountLedgerEntryType =
-  | 'topup'
-  | 'consume'
-  | 'refund'
-  | 'adjustment'
-  | string
-
-export type AccountLedgerEntry = {
-  id: number
-  user_id: number
-  account_type: BillingSource
-  entry_type: AccountLedgerEntryType
-  amount: number
-  balance_before: number
-  balance_after: number
-  source_type: string
-  source_id: string
-  log_id: number
-  request_id: string
-  model_name: string
-  token_id: number
-  token_name: string
-  occurred_at: number
-  ledger_date: string
-  ledger_month: string
-  content: string
-}
 
 export type BillingStatement = {
   id: number
@@ -115,15 +87,6 @@ export type DailyBillingReconciliation = {
   difference_amount: number
   request_count: number
   status: BillingStatementStatus
-}
-
-export type AccountLedgerParams = {
-  month?: string
-  start_time?: number
-  end_time?: number
-  entry_type?: string
-  limit?: number
-  offset?: number
 }
 
 export type BillingStatementParams = {

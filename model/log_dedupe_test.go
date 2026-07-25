@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/stretchr/testify/require"
 )
@@ -432,6 +433,52 @@ func TestGetQuotaDatesFromLogsIncludesAndSeparatesCacheTokens(t *testing.T) {
 	require.Equal(t, 40, byModel["claude-test"].CacheTokenUsed)
 	require.Equal(t, 120, byModel["gpt-test"].TokenUsed)
 	require.Equal(t, 30, byModel["gpt-test"].CacheTokenUsed)
+}
+
+func TestBackfillLogTokenMetricsAfterSkipsCompletedWatermark(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 53, Type: LogTypeConsume, PromptTokens: 100, Other: `{"cache_tokens":30}`},
+		{Id: 54, Type: LogTypeConsume, PromptTokens: 200, Other: `{"cache_tokens":40}`},
+	}).Error)
+
+	watermark, err := BackfillLogTokenMetricsAfter(53)
+
+	require.NoError(t, err)
+	require.Equal(t, 54, watermark)
+	var logs []Log
+	require.NoError(t, LOG_DB.Order("id ASC").Find(&logs).Error)
+	require.Zero(t, logs[0].InputTokens)
+	require.Zero(t, logs[0].CacheReadTokens)
+	require.Equal(t, 200, logs[1].InputTokens)
+	require.Equal(t, 40, logs[1].CacheReadTokens)
+}
+
+func TestMigrateLogTokenMetricsPersistsAdvancedWatermark(t *testing.T) {
+	truncateTables(t)
+	common.OptionMapRWMutex.Lock()
+	originalOptionMap := common.OptionMap
+	common.OptionMap = map[string]string{LogTokenMetricsBackfillWatermarkOption: "61"}
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap = originalOptionMap
+		common.OptionMapRWMutex.Unlock()
+	})
+	require.NoError(t, DB.Create(&Option{Key: LogTokenMetricsBackfillWatermarkOption, Value: "61"}).Error)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 61, Type: LogTypeConsume, PromptTokens: 100, Other: `{"cache_tokens":30}`},
+		{Id: 62, Type: LogTypeConsume, PromptTokens: 200, Other: `{"cache_tokens":40}`},
+	}).Error)
+
+	require.NoError(t, migrateLogTokenMetrics())
+
+	var option Option
+	require.NoError(t, DB.First(&option, "key = ?", LogTokenMetricsBackfillWatermarkOption).Error)
+	require.Equal(t, "62", option.Value)
+	common.OptionMapRWMutex.RLock()
+	require.Equal(t, "62", common.OptionMap[LogTokenMetricsBackfillWatermarkOption])
+	common.OptionMapRWMutex.RUnlock()
 }
 
 func TestGetQuotaDatesFromLogsSubtractsTaskRefunds(t *testing.T) {

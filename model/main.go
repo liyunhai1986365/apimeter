@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -88,6 +89,8 @@ func InitColForTest() {
 var DB *gorm.DB
 
 var LOG_DB *gorm.DB
+
+const LogTokenMetricsBackfillWatermarkOption = "LogTokenMetricsBackfillWatermark"
 
 func createRootAccountIfNeed() error {
 	var user User
@@ -237,7 +240,10 @@ func InitDB() (err error) {
 func InitLogDB() (err error) {
 	if os.Getenv("LOG_SQL_DSN") == "" {
 		LOG_DB = DB
-		return
+		if !common.IsMasterNode {
+			return nil
+		}
+		return migrateLogTokenMetrics()
 	}
 	db, err := chooseDB("LOG_SQL_DSN", true)
 	if err == nil {
@@ -535,9 +541,31 @@ func migrateLOGDB() error {
 	if err = LOG_DB.AutoMigrate(&BillingUsageItem{}, &AccountLedgerEntry{}, &BillingStatement{}, &BillingStatementSummary{}); err != nil {
 		return err
 	}
-	if err = BackfillLogTokenMetrics(); err != nil {
+	return migrateLogTokenMetrics()
+}
+
+func migrateLogTokenMetrics() error {
+	common.OptionMapRWMutex.RLock()
+	value, exists := common.OptionMap[LogTokenMetricsBackfillWatermarkOption]
+	common.OptionMapRWMutex.RUnlock()
+
+	watermark := 0
+	if exists {
+		parsed, err := strconv.Atoi(strings.TrimSpace(value))
+		if err != nil || parsed < 0 {
+			return fmt.Errorf("invalid %s value %q", LogTokenMetricsBackfillWatermarkOption, value)
+		}
+		watermark = parsed
+	}
+
+	nextWatermark, err := BackfillLogTokenMetricsAfter(watermark)
+	if err != nil {
 		return err
 	}
+	if err := UpdateOption(LogTokenMetricsBackfillWatermarkOption, strconv.Itoa(nextWatermark)); err != nil {
+		return fmt.Errorf("persist %s: %w", LogTokenMetricsBackfillWatermarkOption, err)
+	}
+	common.SysLog(fmt.Sprintf("log token metrics backfill completed: watermark %d -> %d", watermark, nextWatermark))
 	return nil
 }
 

@@ -1,7 +1,5 @@
 import { api } from '@/lib/api'
 import type {
-  AccountLedgerEntry,
-  AccountLedgerParams,
   BillingApiResponse,
   BillingBackfillResult,
   BillingBreakdownParams,
@@ -11,16 +9,6 @@ import type {
   BillingStatementSummary,
   DailyBillingReconciliation,
 } from './types'
-
-export async function getAccountLedgerEntries(
-  params: AccountLedgerParams = {}
-): Promise<BillingApiResponse<AccountLedgerEntry[]>> {
-  const res = await api.get<BillingApiResponse<AccountLedgerEntry[]>>(
-    '/api/billing/account-ledger',
-    { params }
-  )
-  return res.data
-}
 
 export async function getBillingMonthlyStatements(
   params: BillingStatementParams = {}

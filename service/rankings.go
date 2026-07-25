@@ -427,7 +427,11 @@ func buildRankingUsageFromLogs(rows []model.RankingConsumeLogRow, bucketSize int
 	tokensByModel := make(map[string]int64)
 	tokensByBucketAndModel := make(map[int64]map[string]int64)
 	for _, row := range rows {
-		tokens := int64(row.PromptTokens + row.CompletionTokens)
+		inputTokens := row.InputTokens
+		if inputTokens <= 0 {
+			inputTokens = row.PromptTokens
+		}
+		tokens := int64(inputTokens) + int64(row.CompletionTokens)
 		if tokens <= 0 {
 			continue
 		}

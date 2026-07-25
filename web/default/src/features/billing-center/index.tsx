@@ -3,8 +3,6 @@ import { getRouteApi, useNavigate } from '@tanstack/react-router'
 import {
   Activity,
   AlertTriangle,
-  ArrowDownCircle,
-  ArrowUpCircle,
   DatabaseZap,
   Download,
   Gauge,
@@ -19,7 +17,6 @@ import dayjs from '@/lib/dayjs'
 import {
   formatNumber,
   formatQuota,
-  formatTimestampToDate,
   formatTokens,
 } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -34,14 +31,6 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import {
   Table,
@@ -57,14 +46,12 @@ import {
   exportBillingBreakdowns,
   exportBillingMonthlyStatement,
   generateBillingMonthlyStatement,
-  getAccountLedgerEntries,
   getBillingBreakdowns,
   getBillingMonthlyStatementSummaries,
   getBillingMonthlyStatements,
   getDailyBillingReconciliations,
 } from './api'
 import type {
-  AccountLedgerEntry,
   BillingBreakdownRow,
   BillingCenterSectionId,
   BillingStatement,
@@ -73,35 +60,12 @@ import type {
 } from './types'
 
 const route = getRouteApi('/_authenticated/billing/$section')
-const ALL_ENTRY_TYPES = 'all'
-
-function startOfDate(date: string) {
-  return date ? dayjs(date).startOf('day').unix() : undefined
-}
-
-function endOfDate(date: string) {
-  return date ? dayjs(date).endOf('day').unix() : undefined
-}
-
-function sourceLabel(value: string, t: (key: string) => string) {
-  if (value === 'wallet') return t('Wallet')
-  if (value === 'subscription') return t('Subscription')
-  return value || '-'
-}
 
 function statusLabel(value: string, t: (key: string) => string) {
   if (value === 'confirmed') return t('Confirmed')
   if (value === 'exception') return t('Exception')
   if (value === 'open') return t('Open')
   if (value === 'estimated') return t('Estimated')
-  return value || '-'
-}
-
-function entryTypeLabel(value: string, t: (key: string) => string) {
-  if (value === 'topup') return t('Top-up')
-  if (value === 'consume') return t('Usage')
-  if (value === 'refund') return t('Refund')
-  if (value === 'adjustment') return t('Adjustment')
   return value || '-'
 }
 
@@ -745,196 +709,6 @@ function DailyReconciliationTab() {
   )
 }
 
-function AccountLedgerTab() {
-  const { t } = useTranslation()
-  const [startDate, setStartDate] = useState(() =>
-    dayjs().subtract(29, 'day').format('YYYY-MM-DD')
-  )
-  const [endDate, setEndDate] = useState(() => dayjs().format('YYYY-MM-DD'))
-  const [entryType, setEntryType] = useState(ALL_ENTRY_TYPES)
-  const [rows, setRows] = useState<AccountLedgerEntry[]>([])
-  const [loading, setLoading] = useState(false)
-
-  const fetchRows = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await getAccountLedgerEntries({
-        start_time: startOfDate(startDate),
-        end_time: endOfDate(endDate),
-        entry_type: entryType === ALL_ENTRY_TYPES ? undefined : entryType,
-        limit: 300,
-      })
-      if (response.success) setRows(response.data ?? [])
-    } finally {
-      setLoading(false)
-    }
-  }, [endDate, entryType, startDate])
-
-  useEffect(() => {
-    void fetchRows()
-  }, [fetchRows])
-
-  const totals = useMemo(
-    () =>
-      rows.reduce(
-        (acc, row) => {
-          if (row.entry_type === 'consume') acc.consume += Math.abs(row.amount)
-          if (row.entry_type === 'topup') acc.topup += row.amount
-          if (row.entry_type === 'refund') acc.refund += row.amount
-          acc.lastBalance = row.balance_after
-          return acc
-        },
-        { consume: 0, topup: 0, refund: 0, lastBalance: 0 }
-      ),
-    [rows]
-  )
-
-  return (
-    <div className='space-y-4'>
-      <FilterShell>
-        <label className='min-w-36 flex-1 space-y-1 md:max-w-44'>
-          <span className='text-muted-foreground text-xs'>
-            {t('Start date')}
-          </span>
-          <Input
-            type='date'
-            value={startDate}
-            onChange={(event) => setStartDate(event.target.value)}
-          />
-        </label>
-        <label className='min-w-36 flex-1 space-y-1 md:max-w-44'>
-          <span className='text-muted-foreground text-xs'>{t('End date')}</span>
-          <Input
-            type='date'
-            value={endDate}
-            onChange={(event) => setEndDate(event.target.value)}
-          />
-        </label>
-        <label className='min-w-44 space-y-1'>
-          <span className='text-muted-foreground text-xs'>{t('Type')}</span>
-          <Select
-            value={entryType}
-            onValueChange={(value) => setEntryType(value ?? ALL_ENTRY_TYPES)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value={ALL_ENTRY_TYPES}>{t('All types')}</SelectItem>
-                <SelectItem value='topup'>{t('Top-up')}</SelectItem>
-                <SelectItem value='consume'>{t('Usage')}</SelectItem>
-                <SelectItem value='refund'>{t('Refund')}</SelectItem>
-                <SelectItem value='adjustment'>{t('Adjustment')}</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </label>
-        <Button
-          type='button'
-          variant='outline'
-          onClick={() => void fetchRows()}
-          disabled={loading}
-          className='md:ml-auto'
-        >
-          <RefreshCw
-            className={cn('size-4', loading && 'animate-spin')}
-            aria-hidden='true'
-          />
-          {t('Refresh')}
-        </Button>
-      </FilterShell>
-
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-        <MetricCard
-          title={t('Ledger consume total')}
-          value={formatQuota(totals.consume)}
-          icon={WalletCards}
-        />
-        <MetricCard
-          title={t('Top-up')}
-          value={formatQuota(totals.topup)}
-          icon={ArrowUpCircle}
-          tone='positive'
-        />
-        <MetricCard
-          title={t('Refund')}
-          value={formatQuota(totals.refund)}
-          icon={ArrowDownCircle}
-        />
-        <MetricCard
-          title={t('Latest balance')}
-          value={formatQuota(totals.lastBalance)}
-          icon={Scale}
-          tone='accent'
-        />
-      </div>
-
-      <div className='overflow-hidden rounded-lg border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('Time')}</TableHead>
-              <TableHead>{t('Type')}</TableHead>
-              <TableHead>{t('Account')}</TableHead>
-              <TableHead>{t('Model')}</TableHead>
-              <TableHead>{t('Key')}</TableHead>
-              <TableHead>{t('Request ID')}</TableHead>
-              <TableHead className='text-right'>{t('Amount')}</TableHead>
-              <TableHead className='text-right'>
-                {t('Balance before')}
-              </TableHead>
-              <TableHead className='text-right'>{t('Balance after')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell className='text-xs whitespace-nowrap'>
-                  {formatTimestampToDate(row.occurred_at)}
-                </TableCell>
-                <TableCell>{entryTypeLabel(row.entry_type, t)}</TableCell>
-                <TableCell>{sourceLabel(row.account_type, t)}</TableCell>
-                <TableCell>
-                  {row.model_name ? (
-                    <Badge variant='outline'>{row.model_name}</Badge>
-                  ) : (
-                    '-'
-                  )}
-                </TableCell>
-                <TableCell>{row.token_name || '-'}</TableCell>
-                <TableCell className='max-w-52 truncate'>
-                  {row.request_id || '-'}
-                </TableCell>
-                <TableCell
-                  className={cn(
-                    'text-right tabular-nums',
-                    signedQuotaClass(row.amount)
-                  )}
-                >
-                  {formatQuota(row.amount)}
-                </TableCell>
-                <TableCell className='text-right tabular-nums'>
-                  {formatQuota(row.balance_before)}
-                </TableCell>
-                <TableCell className='text-right font-medium tabular-nums'>
-                  {formatQuota(row.balance_after)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {!loading && rows.length === 0 && (
-          <EmptyBillingState
-            title={t('No account ledger records found')}
-            description={t('Try changing the date range or filters')}
-          />
-        )}
-      </div>
-    </div>
-  )
-}
-
 const BILLING_SECTION_META: Record<
   BillingCenterSectionId,
   {
@@ -954,12 +728,6 @@ const BILLING_SECTION_META: Record<
     descriptionKey:
       'Match usage facts with account ledger consumption and inspect differences',
     icon: Scale,
-  },
-  ledger: {
-    titleKey: 'Account ledger',
-    descriptionKey:
-      'Review balance-changing entries from top-ups, usage, refunds, and adjustments',
-    icon: WalletCards,
   },
 }
 
@@ -1004,7 +772,6 @@ export function BillingCenter() {
           <Separator />
           {activeSection === 'monthly' && <MonthlyStatementsTab />}
           {activeSection === 'reconciliation' && <DailyReconciliationTab />}
-          {activeSection === 'ledger' && <AccountLedgerTab />}
         </div>
       </SectionPageLayout.Content>
     </SectionPageLayout>
