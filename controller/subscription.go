@@ -97,7 +97,7 @@ func GetSubscriptionTokenKey(c *gin.Context) {
 		})
 		return
 	}
-	token, err := model.GetTokenByIds(sub.TokenId, userId)
+	token, err := model.GetTokenByIds(sub.TokenId, userId, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return

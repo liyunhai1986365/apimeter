@@ -16,7 +16,7 @@ func GetAllQuotaDates(c *gin.Context) {
 	username := c.Query("username")
 	tokenName := c.Query("token_name")
 	workspaceName := c.Query("workspace_name")
-	dates, err := model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, 0)
+	dates, err := model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, 0, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -51,7 +51,7 @@ func GetAllUsageDimensionTrends(c *gin.Context) {
 	username := c.Query("username")
 	tokenName := c.Query("token_name")
 	workspaceName := c.Query("workspace_name")
-	dates, err := model.GetUsageDimensionTrendsFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, userId)
+	dates, err := model.GetUsageDimensionTrendsFromLogs(startTimestamp, endTimestamp, username, tokenName, workspaceName, userId, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -64,7 +64,11 @@ func GetAllUsageDimensionTrends(c *gin.Context) {
 }
 
 func GetUserQuotaDates(c *gin.Context) {
-	userId := c.GetInt("id")
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	tokenName := c.Query("token_name")
@@ -77,7 +81,7 @@ func GetUserQuotaDates(c *gin.Context) {
 		})
 		return
 	}
-	dates, err := model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, "", tokenName, workspaceName, userId)
+	dates, err := model.GetQuotaDatesFromLogs(startTimestamp, endTimestamp, "", tokenName, workspaceName, scope.OwnerUserId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -91,7 +95,11 @@ func GetUserQuotaDates(c *gin.Context) {
 }
 
 func GetUserUsageDimensionTrends(c *gin.Context) {
-	userId := c.GetInt("id")
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	tokenName := c.Query("token_name")
@@ -103,7 +111,7 @@ func GetUserUsageDimensionTrends(c *gin.Context) {
 		})
 		return
 	}
-	dates, err := model.GetUsageDimensionTrendsFromLogs(startTimestamp, endTimestamp, "", tokenName, workspaceName, userId)
+	dates, err := model.GetUsageDimensionTrendsFromLogs(startTimestamp, endTimestamp, "", tokenName, workspaceName, scope.OwnerUserId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -116,7 +124,11 @@ func GetUserUsageDimensionTrends(c *gin.Context) {
 }
 
 func GetUserTokenQuotaData(c *gin.Context) {
-	userId := c.GetInt("id")
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 	if endTimestamp-startTimestamp > 2592000 {
@@ -126,7 +138,7 @@ func GetUserTokenQuotaData(c *gin.Context) {
 		})
 		return
 	}
-	dates, err := model.GetSelfTokenQuotaData(startTimestamp, endTimestamp, userId)
+	dates, err := model.GetSelfTokenQuotaData(startTimestamp, endTimestamp, scope.OwnerUserId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -145,7 +157,19 @@ func GetFlowQuotaData(c *gin.Context) {
 	userId := c.GetInt("id")
 	role := c.GetInt("role")
 
-	data, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, username, userId, role)
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if scope.IsSubaccount {
+		// A workspace account reads the owner's flow data through the self branch,
+		// restricted to its own workspaces — never the admin/root aggregates.
+		username = ""
+		userId = scope.OwnerUserId
+		role = common.RoleCommonUser
+	}
+	data, err := model.GetFlowQuotaData(startTimestamp, endTimestamp, username, userId, role, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return

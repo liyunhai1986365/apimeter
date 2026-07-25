@@ -20,7 +20,7 @@ func TestGetUserLogsDeduplicatesErrorLogsByRequestID(t *testing.T) {
 		{Id: 6, UserId: 1001, Type: LogTypeConsume, CreatedAt: 105, RequestId: "req_same", Content: "consume"},
 	}).Error)
 
-	logs, total, err := GetUserLogs(1001, LogTypeUnknown, 0, 0, "", "", 0, 20, "", "", "")
+	logs, total, err := GetUserLogs(1001, LogTypeUnknown, 0, 0, "", "", 0, 20, "", "", "", "", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, int64(5), total)
@@ -65,7 +65,7 @@ func TestGetUserLogsFiltersByWorkspaceName(t *testing.T) {
 		{Id: 32, UserId: 1001, Type: LogTypeConsume, CreatedAt: 101, TokenId: 202, TokenName: "beta-key", Content: "beta usage"},
 	}).Error)
 
-	logs, total, err := GetUserLogs(1001, LogTypeUnknown, 0, 0, "", "", 0, 20, "", "", "", "Project Alpha")
+	logs, total, err := GetUserLogs(1001, LogTypeUnknown, 0, 0, "", "", 0, 20, "", "", "", "Project Alpha", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, int64(1), total)
@@ -88,7 +88,7 @@ func TestSumUsedQuotaFiltersByTokenAndWorkspaceName(t *testing.T) {
 		{Id: 42, UserId: 1001, Type: LogTypeConsume, CreatedAt: 101, TokenId: 212, TokenName: "shared-key", Quota: 300, PromptTokens: 11, CompletionTokens: 13},
 	}).Error)
 
-	stat, err := SumUsedQuota(LogTypeConsume, 0, 0, "", "", "shared-key", 0, "", "Workspace Alpha")
+	stat, err := SumUsedQuota(LogTypeConsume, 0, 0, "", "", "shared-key", 0, "", "Workspace Alpha", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, 100, stat.Quota)
@@ -124,7 +124,7 @@ func TestSumUsedQuotaAggregatesChannelCostFields(t *testing.T) {
 		},
 	}).Error)
 
-	stat, err := SumUsedQuota(LogTypeConsume, 0, 0, "", "", "", 0, "")
+	stat, err := SumUsedQuota(LogTypeConsume, 0, 0, "", "", "", 0, "", "", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, 2100, stat.Quota)
@@ -167,7 +167,7 @@ func TestSumUsedQuotaSubtractsRefundLogs(t *testing.T) {
 		},
 	}).Error)
 
-	stat, err := SumUsedQuota(LogTypeUnknown, 0, 0, "", "", "", 0, "")
+	stat, err := SumUsedQuota(LogTypeUnknown, 0, 0, "", "", "", 0, "", "", nil)
 
 	require.NoError(t, err)
 	require.Equal(t, 1200, stat.Quota)
@@ -176,7 +176,7 @@ func TestSumUsedQuotaSubtractsRefundLogs(t *testing.T) {
 	require.Equal(t, 1, stat.Rpm)
 	require.Equal(t, 7, stat.Tpm)
 
-	refundStat, err := SumUsedQuota(LogTypeRefund, 0, 0, "", "", "", 0, "")
+	refundStat, err := SumUsedQuota(LogTypeRefund, 0, 0, "", "", "", 0, "", "", nil)
 	require.NoError(t, err)
 	require.Equal(t, -500, refundStat.Quota)
 	require.Equal(t, -300, refundStat.CostQuota)
@@ -358,7 +358,7 @@ func TestGetQuotaDatesFromLogsFiltersByWorkspaceAndToken(t *testing.T) {
 		{Id: 52, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 7200, TokenId: 222, TokenName: "analytics-key", ModelName: "gpt-beta", Quota: 450, PromptTokens: 30, CompletionTokens: 40},
 	}).Error)
 
-	data, err := GetQuotaDatesFromLogs(0, 10000, "", "analytics-key", "Analytics Alpha", 0)
+	data, err := GetQuotaDatesFromLogs(0, 10000, "", "analytics-key", "Analytics Alpha", 0, nil)
 
 	require.NoError(t, err)
 	require.Len(t, data, 1)
@@ -398,7 +398,7 @@ func TestGetQuotaDatesFromLogsSubtractsTaskRefunds(t *testing.T) {
 		},
 	}).Error)
 
-	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0)
+	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0, nil)
 
 	require.NoError(t, err)
 	require.Len(t, data, 1)
@@ -418,7 +418,7 @@ func TestGetQuotaDatesFromLogsDoesNotCountTaskSupplementTwice(t *testing.T) {
 		{Id: 65, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3660, ModelName: "gpt-image", Quota: 500, PromptTokens: 30, CompletionTokens: 40, Content: "image usage", Other: `{"pre_consumed_quota":100,"actual_quota":500}`},
 	}).Error)
 
-	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0)
+	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0, nil)
 
 	require.NoError(t, err)
 	require.Len(t, data, 2)
@@ -451,7 +451,7 @@ func TestGetUsageDimensionTrendsFromLogsAggregatesTokensAndEnrichesWorkspaces(t 
 		{Id: 74, UserId: 1001, Username: "alice", Type: LogTypeError, CreatedAt: 3600, TokenId: 223, TokenName: "alpha-dimension-key", Quota: 900},
 	}).Error)
 
-	data, err := GetUsageDimensionTrendsFromLogs(0, 10000, "", "", "", 0)
+	data, err := GetUsageDimensionTrendsFromLogs(0, 10000, "", "", "", 0, nil)
 
 	require.NoError(t, err)
 	require.Len(t, data, 2)
@@ -485,7 +485,7 @@ func TestGetUsageDimensionTrendsFromLogsSubtractsRefundQuota(t *testing.T) {
 		{Id: 76, UserId: 1001, Username: "alice", Type: LogTypeRefund, CreatedAt: 3650, TokenId: 225, TokenName: "seedance-key", Quota: 700, PromptTokens: 10, CompletionTokens: 20},
 	}).Error)
 
-	data, err := GetUsageDimensionTrendsFromLogs(0, 10000, "alice", "", "", 0)
+	data, err := GetUsageDimensionTrendsFromLogs(0, 10000, "alice", "", "", 0, nil)
 
 	require.NoError(t, err)
 	require.Len(t, data, 1)

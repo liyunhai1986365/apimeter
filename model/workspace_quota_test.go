@@ -227,7 +227,7 @@ func TestResetUserTokenWorkspaceQuotaOnlyResetsSelectedToken(t *testing.T) {
 		{Id: 632, UserId: 1001, WorkspaceId: workspace.Id, Name: "single-side", Key: "single-side-key", RemainQuota: 20, UsedQuota: 300, Status: common.TokenStatusEnabled},
 	}).Error)
 
-	token, err := ResetUserTokenWorkspaceQuota(1001, 631, now)
+	token, err := ResetUserTokenWorkspaceQuota(1001, 631, now, nil)
 
 	require.NoError(t, err)
 	require.Equal(t, 2100000, token.RemainQuota)

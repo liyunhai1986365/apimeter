@@ -290,6 +290,7 @@ func migrateDB() error {
 	err := DB.AutoMigrate(
 		&Channel{},
 		&Workspace{},
+		&WorkspaceMember{},
 		&Token{},
 		&User{},
 		&PasskeyCredential{},
@@ -355,6 +356,9 @@ func migrateDB() error {
 	if err := activateLegacyPendingAgentDomains(); err != nil {
 		return err
 	}
+	if err := migrateWorkspaceMembers(); err != nil {
+		return err
+	}
 	if err := BackfillTaskTokenFields(); err != nil {
 		return err
 	}
@@ -362,7 +366,6 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
-
 	var wg sync.WaitGroup
 
 	migrations := []struct {
@@ -371,6 +374,7 @@ func migrateDBFast() error {
 	}{
 		{&Channel{}, "Channel"},
 		{&Workspace{}, "Workspace"},
+		{&WorkspaceMember{}, "WorkspaceMember"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
 		{&PasskeyCredential{}, "PasskeyCredential"},
@@ -456,6 +460,9 @@ func migrateDBFast() error {
 		return err
 	}
 	if err := activateLegacyPendingAgentDomains(); err != nil {
+		return err
+	}
+	if err := migrateWorkspaceMembers(); err != nil {
 		return err
 	}
 	if err := BackfillTaskTokenFields(); err != nil {

@@ -17,10 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { Link } from '@tanstack/react-router'
+import { UserMultipleIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { X, User, Wallet, LogOut } from 'lucide-react'
 import { AnimatePresence, motion, type Variants } from 'motion/react'
 import { useTranslation } from 'react-i18next'
 import type { AuthUser } from '@/stores/auth-store'
+import { canManageTeamSettings } from '@/lib/workspace-account'
 import useDialogState from '@/hooks/use-dialog'
 import { useUserDisplay } from '@/hooks/use-user-display'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -79,6 +82,7 @@ function MobileUserProfile({ user, onNavigate }: MobileUserProfileProps) {
   const { t } = useTranslation()
   const [signOutOpen, setSignOutOpen] = useDialogState()
   const { displayName, initials, roleLabel } = useUserDisplay(user)
+  const showTeamSettings = canManageTeamSettings(user)
 
   if (!user) return null
 
@@ -128,6 +132,17 @@ function MobileUserProfile({ user, onNavigate }: MobileUserProfileProps) {
           <Wallet className='size-4' />
           {t('Wallet')}
         </Link>
+
+        {showTeamSettings && (
+          <Link
+            to='/workspaces'
+            onClick={onNavigate}
+            className='text-primary/60 hover:text-primary/80 border-border flex items-center gap-2.5 border-b p-2.5 transition-colors'
+          >
+            <HugeiconsIcon icon={UserMultipleIcon} />
+            {t('Team settings')}
+          </Link>
+        )}
 
         {/* Sign out - consistent style */}
         <Button

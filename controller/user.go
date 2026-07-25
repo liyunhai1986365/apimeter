@@ -129,20 +129,27 @@ func setupLogin(user *model.User, c *gin.Context) {
 		return
 	}
 	hasAgentConsole := userHasAgentConsole(user.Id, user.Role)
+	if user.ParentUserId > 0 {
+		hasAgentConsole = false
+	}
 	permissions := calculateUserPermissions(user.Role)
 	permissions["agent_console"] = hasAgentConsole
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
 		"data": map[string]interface{}{
-			"id":           user.Id,
-			"username":     user.Username,
-			"display_name": user.DisplayName,
-			"role":         user.Role,
-			"status":       user.Status,
-			"group":        group,
-			"has_agent":    hasAgentConsole,
-			"permissions":  permissions,
+			"id":                   user.Id,
+			"username":             user.Username,
+			"display_name":         user.DisplayName,
+			"role":                 user.Role,
+			"status":               user.Status,
+			"group":                group,
+			"has_agent":            hasAgentConsole,
+			"permissions":          permissions,
+			"workspace_subaccount": user.ParentUserId > 0,
+			"parent_user_id":       user.ParentUserId,
+			"must_change_password": user.MustChangePassword,
+			"allowed_modules":      workspaceAccountAllowedModules(user.ParentUserId > 0),
 		},
 	})
 }
@@ -434,6 +441,9 @@ func GetSelf(c *gin.Context) {
 
 	// 计算用户权限信息
 	hasAgentConsole := userHasAgentConsole(user.Id, userRole)
+	if user.ParentUserId > 0 {
+		hasAgentConsole = false
+	}
 	permissions := calculateUserPermissions(userRole)
 	permissions["agent_console"] = hasAgentConsole
 
@@ -451,32 +461,41 @@ func GetSelf(c *gin.Context) {
 
 	// 构建响应数据，包含用户信息和权限
 	responseData := map[string]interface{}{
-		"id":                user.Id,
-		"username":          user.Username,
-		"display_name":      user.DisplayName,
-		"role":              user.Role,
-		"status":            user.Status,
-		"email":             user.Email,
-		"github_id":         user.GitHubId,
-		"discord_id":        user.DiscordId,
-		"oidc_id":           user.OidcId,
-		"wechat_id":         user.WeChatId,
-		"telegram_id":       user.TelegramId,
-		"group":             group,
-		"quota":             user.Quota,
-		"used_quota":        user.UsedQuota,
-		"request_count":     user.RequestCount,
-		"aff_code":          user.AffCode,
-		"aff_count":         user.AffCount,
-		"aff_quota":         user.AffQuota,
-		"aff_history_quota": user.AffHistoryQuota,
-		"inviter_id":        user.InviterId,
-		"linux_do_id":       user.LinuxDOId,
-		"setting":           userSettingResponseJSON(user.Setting),
-		"stripe_customer":   user.StripeCustomer,
-		"has_agent":         hasAgentConsole,
-		"sidebar_modules":   userSetting.SidebarModules, // 正确提取sidebar_modules字段
-		"permissions":       permissions,                // 新增权限字段
+		"id":                   user.Id,
+		"username":             user.Username,
+		"display_name":         user.DisplayName,
+		"role":                 user.Role,
+		"status":               user.Status,
+		"email":                user.Email,
+		"github_id":            user.GitHubId,
+		"discord_id":           user.DiscordId,
+		"oidc_id":              user.OidcId,
+		"wechat_id":            user.WeChatId,
+		"telegram_id":          user.TelegramId,
+		"group":                group,
+		"quota":                user.Quota,
+		"used_quota":           user.UsedQuota,
+		"request_count":        user.RequestCount,
+		"aff_code":             user.AffCode,
+		"aff_count":            user.AffCount,
+		"aff_quota":            user.AffQuota,
+		"aff_history_quota":    user.AffHistoryQuota,
+		"inviter_id":           user.InviterId,
+		"linux_do_id":          user.LinuxDOId,
+		"setting":              userSettingResponseJSON(user.Setting),
+		"stripe_customer":      user.StripeCustomer,
+		"has_agent":            hasAgentConsole,
+		"sidebar_modules":      userSetting.SidebarModules, // 正确提取sidebar_modules字段
+		"permissions":          permissions,                // 新增权限字段
+		"workspace_subaccount": user.ParentUserId > 0,
+		"parent_user_id":       user.ParentUserId,
+		"must_change_password": user.MustChangePassword,
+		"allowed_modules":      workspaceAccountAllowedModules(user.ParentUserId > 0),
+	}
+	if user.ParentUserId > 0 {
+		for _, key := range []string{"quota", "used_quota", "request_count", "aff_code", "aff_count", "aff_quota", "aff_history_quota", "inviter_id", "stripe_customer"} {
+			delete(responseData, key)
+		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -594,7 +613,12 @@ func generateDefaultSidebarConfig(userRole int) string {
 func GetUserModels(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
-		id = c.GetInt("id")
+		scope, scopeErr := workspaceAccessScope(c)
+		if scopeErr != nil {
+			common.ApiError(c, scopeErr)
+			return
+		}
+		id = scope.OwnerUserId
 	}
 	user, err := model.GetUserCache(id)
 	if err != nil {
@@ -711,6 +735,18 @@ func UpdateSelf(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
+	currentUser, err := model.GetUserById(c.GetInt("id"), false)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if currentUser.MustChangePassword {
+		password, ok := requestData["password"].(string)
+		if !ok || strings.TrimSpace(password) == "" {
+			common.ApiErrorMsg(c, "password change required")
+			return
+		}
+	}
 
 	// 检查是否是用户设置更新请求 (sidebar_modules 或 language)
 	if sidebarModules, sidebarExists := requestData["sidebar_modules"]; sidebarExists {
@@ -808,12 +844,25 @@ func UpdateSelf(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if updatePassword {
+		if err := model.MarkUserPasswordChanged(cleanUser.Id); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+	}
 
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
 	})
 	return
+}
+
+func workspaceAccountAllowedModules(isSubaccount bool) []string {
+	if !isSubaccount {
+		return nil
+	}
+	return []string{"workspace", "token", "log", "usage", "profile"}
 }
 
 func checkUpdatePassword(originalPassword string, newPassword string, userId int) (updatePassword bool, err error) {

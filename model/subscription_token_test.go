@@ -306,16 +306,16 @@ func TestUserTokenQueriesExcludeSubscriptionDedicatedKeys(t *testing.T) {
 		UserSubscriptionId: 9006,
 	}).Error)
 
-	count, err := CountUserTokens(7006)
+	count, err := CountUserTokens(7006, 0, nil)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), count)
 
-	tokens, err := GetAllUserTokens(7006, 0, 10)
+	tokens, err := GetAllUserTokens(7006, 0, 10, 0, nil)
 	require.NoError(t, err)
 	require.Len(t, tokens, 1)
 	assert.Equal(t, "normal-key", tokens[0].Name)
 
-	tokens, total, err := SearchUserTokens(7006, "%key", "", 0, 10)
+	tokens, total, err := SearchUserTokens(7006, "%key", "", 0, 10, 0, nil)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), total)
 	require.Len(t, tokens, 1)

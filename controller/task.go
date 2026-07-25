@@ -46,26 +46,30 @@ func GetAllTask(c *gin.Context) {
 
 func GetUserTask(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
-
-	userId := c.GetInt("id")
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
 	endTimestamp, _ := strconv.ParseInt(c.Query("end_timestamp"), 10, 64)
 
 	queryParams := model.SyncTaskQueryParams{
-		Platform:       constant.TaskPlatform(c.Query("platform")),
-		TaskID:         c.Query("task_id"),
-		TokenName:      c.Query("token_name"),
-		WorkspaceName:  c.Query("workspace_name"),
-		Status:         c.Query("status"),
-		Action:         c.Query("action"),
-		StartTimestamp: startTimestamp,
-		EndTimestamp:   endTimestamp,
-		ChannelID:      c.Query("channel_id"),
+		Platform:            constant.TaskPlatform(c.Query("platform")),
+		TaskID:              c.Query("task_id"),
+		TokenName:           c.Query("token_name"),
+		WorkspaceName:       c.Query("workspace_name"),
+		Status:              c.Query("status"),
+		Action:              c.Query("action"),
+		StartTimestamp:      startTimestamp,
+		EndTimestamp:        endTimestamp,
+		ChannelID:           c.Query("channel_id"),
+		AllowedWorkspaceIds: scope.WorkspaceFilter(),
 	}
 
-	items := model.TaskGetAllUserTask(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
-	total := model.TaskCountAllUserTask(userId, queryParams)
+	items := model.TaskGetAllUserTask(scope.OwnerUserId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
+	total := model.TaskCountAllUserTask(scope.OwnerUserId, queryParams)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(tasksToDto(items, false))
 	common.ApiSuccess(c, pageInfo)

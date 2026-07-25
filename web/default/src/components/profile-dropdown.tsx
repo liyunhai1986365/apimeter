@@ -18,11 +18,14 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo } from 'react'
 import { useNavigate } from '@tanstack/react-router'
+import { UserMultipleIcon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { User, Wallet, LogOut, Settings, ExternalLink } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { ROLE } from '@/lib/roles'
+import { canManageTeamSettings } from '@/lib/workspace-account'
 import useDialogState from '@/hooks/use-dialog'
 import { useUserDisplay } from '@/hooks/use-user-display'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
@@ -46,6 +49,7 @@ export function ProfileDropdown() {
   const user = useAuthStore((state) => state.auth.user)
   const { displayName, roleLabel } = useUserDisplay(user)
   const isSuperAdmin = user?.role === ROLE.SUPER_ADMIN
+  const showTeamSettings = canManageTeamSettings(user)
   const avatarName = user?.username || displayName
   const avatarFallback = getUserAvatarFallback(avatarName)
   const avatarFallbackStyle = useMemo(
@@ -113,6 +117,13 @@ export function ProfileDropdown() {
               <Wallet className='size-4' />
               {t('Wallet')}
             </DropdownMenuItem>
+
+            {showTeamSettings && (
+              <DropdownMenuItem onClick={() => navigate({ to: '/workspaces' })}>
+                <HugeiconsIcon icon={UserMultipleIcon} />
+                {t('Team settings')}
+              </DropdownMenuItem>
+            )}
 
             {openMosaicUrl && (
               <DropdownMenuItem

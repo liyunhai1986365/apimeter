@@ -21,20 +21,21 @@ const (
 )
 
 type Workspace struct {
-	Id                      int            `json:"id"`
-	UserId                  int            `json:"user_id" gorm:"index"`
-	Name                    string         `json:"name" gorm:"type:varchar(64);index"`
-	Description             string         `json:"description" gorm:"type:varchar(255);default:''"`
-	IsDefault               bool           `json:"is_default" gorm:"index;default:false"`
-	Status                  int            `json:"status" gorm:"default:1"`
-	QuotaResetEnabled       bool           `json:"quota_reset_enabled" gorm:"default:false"`
-	QuotaResetPeriod        string         `json:"quota_reset_period" gorm:"type:varchar(16);default:''"`
-	QuotaResetAmount        int            `json:"quota_reset_amount" gorm:"default:0"`
-	QuotaResetLastAppliedAt int64          `json:"quota_reset_last_applied_at" gorm:"bigint;default:0"`
-	QuotaResetNextAt        int64          `json:"quota_reset_next_at" gorm:"bigint;default:0;index"`
-	CreatedTime             int64          `json:"created_time" gorm:"bigint"`
-	UpdatedTime             int64          `json:"updated_time" gorm:"bigint"`
-	DeletedAt               gorm.DeletedAt `gorm:"index"`
+	Id                      int                   `json:"id"`
+	UserId                  int                   `json:"user_id" gorm:"index"`
+	AccessUsers             []WorkspaceAccessUser `json:"access_users" gorm:"-"`
+	Name                    string                `json:"name" gorm:"type:varchar(64);index"`
+	Description             string                `json:"description" gorm:"type:varchar(255);default:''"`
+	IsDefault               bool                  `json:"is_default" gorm:"index;default:false"`
+	Status                  int                   `json:"status" gorm:"default:1"`
+	QuotaResetEnabled       bool                  `json:"quota_reset_enabled" gorm:"default:false"`
+	QuotaResetPeriod        string                `json:"quota_reset_period" gorm:"type:varchar(16);default:''"`
+	QuotaResetAmount        int                   `json:"quota_reset_amount" gorm:"default:0"`
+	QuotaResetLastAppliedAt int64                 `json:"quota_reset_last_applied_at" gorm:"bigint;default:0"`
+	QuotaResetNextAt        int64                 `json:"quota_reset_next_at" gorm:"bigint;default:0;index"`
+	CreatedTime             int64                 `json:"created_time" gorm:"bigint"`
+	UpdatedTime             int64                 `json:"updated_time" gorm:"bigint"`
+	DeletedAt               gorm.DeletedAt        `gorm:"index"`
 }
 
 type WorkspaceWithTokenCount struct {
@@ -140,44 +141,94 @@ func ResolveUserWorkspace(userId int, workspaceId int) (*Workspace, error) {
 	return EnsureDefaultWorkspace(userId)
 }
 
-func ListUserWorkspaces(userId int) ([]WorkspaceWithTokenCount, error) {
+// ListUserWorkspaces returns the owner's workspaces. allowedWorkspaceIds restricts the
+// result to a workspace account's memberships; nil means "no restriction" (owner view).
+func ListUserWorkspaces(userId int, allowedWorkspaceIds []int) ([]WorkspaceWithTokenCount, error) {
 	if userId <= 0 {
 		return nil, errors.New("userId 无效")
 	}
 	if _, err := EnsureDefaultWorkspace(userId); err != nil {
 		return nil, err
 	}
+	if allowedWorkspaceIds != nil && len(allowedWorkspaceIds) == 0 {
+		return []WorkspaceWithTokenCount{}, nil
+	}
 	var workspaces []Workspace
-	if err := DB.Where("user_id = ?", userId).Order("is_default desc, id asc").Find(&workspaces).Error; err != nil {
+	query := DB.Where("user_id = ?", userId)
+	if allowedWorkspaceIds != nil {
+		query = query.Where("id IN ?", allowedWorkspaceIds)
+	}
+	if err := query.Order("is_default desc, id asc").Find(&workspaces).Error; err != nil {
+		return nil, err
+	}
+	workspaceIds := make([]int, 0, len(workspaces))
+	for _, workspace := range workspaces {
+		workspaceIds = append(workspaceIds, workspace.Id)
+	}
+	accessUsers, err := ListWorkspaceAccessUsers(workspaceIds)
+	if err != nil {
+		return nil, err
+	}
+	tokenCounts, err := countTokensByWorkspace(userId, workspaceIds)
+	if err != nil {
 		return nil, err
 	}
 	result := make([]WorkspaceWithTokenCount, 0, len(workspaces))
 	for _, workspace := range workspaces {
-		var count int64
-		if err := DB.Model(&Token{}).
-			Where("user_id = ? AND workspace_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, workspace.Id, "subscription").
-			Count(&count).Error; err != nil {
-			return nil, err
+		workspace.AccessUsers = accessUsers[workspace.Id]
+		if workspace.AccessUsers == nil {
+			workspace.AccessUsers = []WorkspaceAccessUser{}
 		}
 		result = append(result, WorkspaceWithTokenCount{
 			Workspace:  workspace,
-			TokenCount: count,
+			TokenCount: tokenCounts[workspace.Id],
 		})
 	}
 	return result, nil
 }
 
-func ListUserWorkspaceFilterOptions(userId int) ([]WorkspaceFilterOption, error) {
+// countTokensByWorkspace aggregates billable token counts in one query instead of one per workspace.
+func countTokensByWorkspace(userId int, workspaceIds []int) (map[int]int64, error) {
+	counts := map[int]int64{}
+	if len(workspaceIds) == 0 {
+		return counts, nil
+	}
+	var rows []struct {
+		WorkspaceId int
+		Total       int64
+	}
+	if err := DB.Model(&Token{}).
+		Select("workspace_id, count(*) as total").
+		Where("user_id = ? AND workspace_id IN ? AND (billing_source IS NULL OR billing_source <> ?)", userId, workspaceIds, "subscription").
+		Group("workspace_id").
+		Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		counts[row.WorkspaceId] = row.Total
+	}
+	return counts, nil
+}
+
+// ListUserWorkspaceFilterOptions mirrors ListUserWorkspaces' scoping rules.
+func ListUserWorkspaceFilterOptions(userId int, allowedWorkspaceIds []int) ([]WorkspaceFilterOption, error) {
 	if userId <= 0 {
 		return nil, errors.New("userId 无效")
 	}
 	if _, err := EnsureDefaultWorkspace(userId); err != nil {
 		return nil, err
 	}
+	if allowedWorkspaceIds != nil && len(allowedWorkspaceIds) == 0 {
+		return []WorkspaceFilterOption{}, nil
+	}
 	var options []WorkspaceFilterOption
-	err := DB.Model(&Workspace{}).
+	query := DB.Model(&Workspace{}).
 		Select("id", "name", "is_default").
-		Where("user_id = ?", userId).
+		Where("user_id = ?", userId)
+	if allowedWorkspaceIds != nil {
+		query = query.Where("id IN ?", allowedWorkspaceIds)
+	}
+	err := query.
 		Order("is_default desc, id asc").
 		Scan(&options).Error
 	return options, err
@@ -350,11 +401,11 @@ func ResetUserWorkspaceQuotaNow(userId int, workspaceId int, now time.Time) (Wor
 	return workspace.QuotaResetConfig(), nil
 }
 
-func ResetUserTokenWorkspaceQuota(userId int, tokenId int, now time.Time) (*Token, error) {
+func ResetUserTokenWorkspaceQuota(userId int, tokenId int, now time.Time, allowedWorkspaceIds []int) (*Token, error) {
 	if userId <= 0 || tokenId <= 0 {
 		return nil, errors.New("令牌参数无效")
 	}
-	token, err := GetTokenByIds(tokenId, userId)
+	token, err := GetTokenByIds(tokenId, userId, allowedWorkspaceIds)
 	if err != nil {
 		return nil, err
 	}
@@ -556,6 +607,9 @@ func DeleteUserWorkspace(userId int, workspaceId int) error {
 		if err := tx.Model(&Token{}).
 			Where("user_id = ? AND workspace_id = ?", userId, workspaceId).
 			Update("workspace_id", defaultWorkspace.Id).Error; err != nil {
+			return err
+		}
+		if err := deleteWorkspaceMembersByWorkspaceTx(tx, workspaceId); err != nil {
 			return err
 		}
 		return tx.Delete(workspace).Error

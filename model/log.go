@@ -44,16 +44,35 @@ type Log struct {
 	Other             string `json:"other"`
 }
 
-func resolveTokenIDsForFilters(userId int, tokenName string, workspaceName string) ([]int, bool, error) {
+// resolveTokenIDsForFilters turns a workspace filter into the token ids a log query
+// may touch. Logs may live in a separate LOG_DB, so this always runs against the main
+// DB and the resulting ids are the only thing crossing over.
+//
+// allowedWorkspaceIds is the caller's authorization restriction: nil means the caller
+// is unrestricted, a non-nil empty slice means it can reach nothing. workspaceName is
+// the user-supplied display filter. Both are applied in a single query.
+//
+// The second return value reports whether a token-id filter must be applied at all.
+func resolveTokenIDsForFilters(userId int, tokenName string, workspaceName string, allowedWorkspaceIds []int) ([]int, bool, error) {
 	tokenName = strings.TrimSpace(tokenName)
 	workspaceName = strings.TrimSpace(workspaceName)
-	if workspaceName == "" {
+	if workspaceName == "" && allowedWorkspaceIds == nil {
 		return nil, false, nil
 	}
+	if allowedWorkspaceIds != nil && len(allowedWorkspaceIds) == 0 {
+		return []int{}, true, nil
+	}
+	// Deliberately unscoped on tokens: a deleted token's history must stay visible to
+	// the workspace account exactly as it stays visible to the owner.
 	query := DB.Table("tokens").
 		Select("tokens.id").
-		Joins("JOIN workspaces ON workspaces.id = tokens.workspace_id").
-		Where("workspaces.name = ?", workspaceName)
+		Joins("JOIN workspaces ON workspaces.id = tokens.workspace_id")
+	if workspaceName != "" {
+		query = query.Where("workspaces.name = ?", workspaceName)
+	}
+	if allowedWorkspaceIds != nil {
+		query = query.Where("tokens.workspace_id IN ?", allowedWorkspaceIds)
+	}
 	if userId > 0 {
 		query = query.Where("tokens.user_id = ?", userId)
 	}
@@ -401,7 +420,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if len(workspaceName) > 0 {
 		workspace = workspaceName[0]
 	}
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace)
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace, nil)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -496,7 +515,7 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 
 const logSearchCountLimit = 10000
 
-func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, workspaceName ...string) (logs []*Log, total int64, err error) {
+func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, workspace string, allowedWorkspaceIds []int) (logs []*Log, total int64, err error) {
 	var modelNamePattern string
 	if modelName != "" {
 		modelNamePattern, err = sanitizeLikePattern(modelName)
@@ -504,11 +523,7 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 			return nil, 0, err
 		}
 	}
-	workspace := ""
-	if len(workspaceName) > 0 {
-		workspace = workspaceName[0]
-	}
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspace)
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspace, allowedWorkspaceIds)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -742,7 +757,7 @@ func usageStatSign(logType int) int {
 	return 1
 }
 
-func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspaceName ...string) (stat Stat, err error) {
+func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspace string, allowedWorkspaceIds []int) (stat Stat, err error) {
 	statTypes := usageStatLogTypes(logType)
 	if len(statTypes) == 0 {
 		return stat, nil
@@ -751,11 +766,7 @@ func SumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	// 为rpm和tpm创建单独的查询
 	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
 	costQuery := LOG_DB.Table("logs").Select("type, quota, other")
-	workspace := ""
-	if len(workspaceName) > 0 {
-		workspace = workspaceName[0]
-	}
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace)
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace, allowedWorkspaceIds)
 	if err != nil {
 		return stat, err
 	}
@@ -835,7 +846,7 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 	if len(workspaceName) > 0 {
 		workspace = workspaceName[0]
 	}
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace)
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace, nil)
 	if err != nil {
 		return summary, err
 	}
@@ -914,8 +925,8 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 	return summary, nil
 }
 
-func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int) (quotaData []*QuotaData, err error) {
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspaceName)
+func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int, allowedWorkspaceIds []int) (quotaData []*QuotaData, err error) {
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspaceName, allowedWorkspaceIds)
 	if err != nil {
 		return nil, err
 	}
@@ -962,8 +973,8 @@ func logTimeBucketExpr(bucketSize int64) string {
 	return fmt.Sprintf("(created_at / %d) * %d", bucketSize, bucketSize)
 }
 
-func GetUsageDimensionTrendsFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int) (trendData []*UsageDimensionTrendData, err error) {
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspaceName)
+func GetUsageDimensionTrendsFromLogs(startTime int64, endTime int64, username string, tokenName string, workspaceName string, userId int, allowedWorkspaceIds []int) (trendData []*UsageDimensionTrendData, err error) {
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspaceName, allowedWorkspaceIds)
 	if err != nil {
 		return nil, err
 	}

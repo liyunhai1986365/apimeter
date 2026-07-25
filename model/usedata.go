@@ -184,11 +184,27 @@ func GetQuotaDataGroupByUser(startTime int64, endTime int64) (quotaData []*Quota
 	return quotaDatas, err
 }
 
-func GetSelfTokenQuotaData(startTime int64, endTime int64, userId int) (trendData []*UsageDimensionTrendData, err error) {
+// applyQuotaDataWorkspaceScope restricts a quota_data query to the caller's workspaces.
+// nil means unrestricted; a non-nil empty slice means nothing is visible. quota_data
+// lives in the main DB, so the token set is expressed as a subquery instead of an
+// unbounded id list.
+func applyQuotaDataWorkspaceScope(query *gorm.DB, allowedWorkspaceIds []int) *gorm.DB {
+	if allowedWorkspaceIds == nil {
+		return query
+	}
+	if len(allowedWorkspaceIds) == 0 {
+		return query.Where("1 = 0")
+	}
+	return query.Where("quota_data.token_id IN (?)",
+		DB.Table("tokens").Select("id").Where("workspace_id IN ?", allowedWorkspaceIds))
+}
+
+func GetSelfTokenQuotaData(startTime int64, endTime int64, userId int, allowedWorkspaceIds []int) (trendData []*UsageDimensionTrendData, err error) {
 	var rows []*UsageDimensionTrendData
 	tx := DB.Table("quota_data").
 		Select("token_id, created_at, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
 		Where("user_id = ?", userId)
+	tx = applyQuotaDataWorkspaceScope(tx, allowedWorkspaceIds)
 	if startTime != 0 {
 		tx = tx.Where("created_at >= ?", startTime)
 	}

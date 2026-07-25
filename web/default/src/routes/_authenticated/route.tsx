@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { useAuthStore } from '@/stores/auth-store'
 import { getSelf } from '@/lib/api'
+import { getWorkspaceAccountRedirect } from '@/lib/workspace-account'
 import { AuthenticatedLayout } from '@/components/layout'
 
 // 内存中的验证标记，避免同一会话中重复验证
@@ -36,6 +37,8 @@ export const Route = createFileRoute('/_authenticated')({
       })
     }
 
+    let currentUser = auth.user
+
     // 本地有用户信息，但需要验证 session 是否有效（每个会话只验证一次）
     if (!sessionVerified) {
       // 仅 401 视为 session 失效；网络错误/超时/5xx 返回 null 放行，下次导航重验
@@ -47,6 +50,7 @@ export const Route = createFileRoute('/_authenticated')({
       if (res?.success && res.data) {
         // 验证成功，更新用户信息（可能有变化）
         auth.setUser(res.data)
+        currentUser = res.data
         sessionVerified = true
       } else if (res) {
         // 验证失败，清除本地缓存并跳转登录页
@@ -56,6 +60,14 @@ export const Route = createFileRoute('/_authenticated')({
           search: { redirect: location.href },
         })
       }
+    }
+
+    const workspaceAccountRedirect = getWorkspaceAccountRedirect(
+      currentUser,
+      location.pathname
+    )
+    if (workspaceAccountRedirect) {
+      throw redirect({ to: workspaceAccountRedirect })
     }
   },
   component: AuthenticatedLayout,

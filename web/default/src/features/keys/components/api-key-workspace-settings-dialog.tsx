@@ -17,9 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Save, Settings2, Trash2 } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  AddTeamIcon,
+  Alert02Icon,
+  Delete02Icon,
+  FloppyDiskIcon,
+  Settings02Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import {
   AlertDialog,
@@ -32,6 +41,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -39,10 +49,23 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
+import { Spinner } from '@/components/ui/spinner'
 import { Textarea } from '@/components/ui/textarea'
+import {
+  getWorkspaceSubaccounts,
+  setWorkspaceAccess,
+} from '@/features/workspace-subaccounts/api'
+import { WorkspaceSubaccountFormDialog } from '@/features/workspace-subaccounts/components/workspace-subaccount-form-dialog'
 import { deleteWorkspace, updateWorkspace } from '../api'
 import { ERROR_MESSAGES } from '../constants'
 import {
@@ -63,6 +86,10 @@ export function ApiKeyWorkspaceSettingsDialog({
   onOpenChange,
 }: ApiKeyWorkspaceSettingsDialogProps) {
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
+  const isWorkspaceSubaccount = useAuthStore(
+    (state) => state.auth.user?.workspace_subaccount === true
+  )
   const {
     selectedWorkspace,
     workspaces,
@@ -74,14 +101,43 @@ export function ApiKeyWorkspaceSettingsDialog({
   const [description, setDescription] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isSavingAccess, setIsSavingAccess] = useState(false)
+  const [accessUserIds, setAccessUserIds] = useState<number[]>([])
+  const [subaccountDialogOpen, setSubaccountDialogOpen] = useState(false)
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
 
   useEffect(() => {
     if (open && selectedWorkspace) {
       setName(selectedWorkspace.name)
       setDescription(selectedWorkspace.description || '')
+      setAccessUserIds(selectedWorkspace.access_users.map((user) => user.id))
     }
   }, [open, selectedWorkspace])
+
+  const subaccountsQuery = useQuery({
+    queryKey: ['workspace-subaccounts'],
+    queryFn: getWorkspaceSubaccounts,
+    enabled: open && !isWorkspaceSubaccount,
+  })
+
+  const subaccounts = subaccountsQuery.data?.data || []
+
+  const hasAccessChanges = useMemo(() => {
+    if (!selectedWorkspace) return false
+    const currentIds = selectedWorkspace.access_users
+      .map((user) => user.id)
+      .sort((left, right) => left - right)
+    const nextIds = [...accessUserIds].sort((left, right) => left - right)
+    return currentIds.join(',') !== nextIds.join(',')
+  }, [accessUserIds, selectedWorkspace])
+
+  const toggleAccessUser = (userId: number, checked: boolean) => {
+    setAccessUserIds((current) =>
+      checked
+        ? [...new Set([...current, userId])]
+        : current.filter((id) => id !== userId)
+    )
+  }
 
   const normalizedForm = useMemo(() => {
     try {
@@ -160,25 +216,60 @@ export function ApiKeyWorkspaceSettingsDialog({
     }
   }
 
+  const handleSaveAccess = async () => {
+    if (!selectedWorkspace || selectedWorkspace.is_default) return
+
+    setIsSavingAccess(true)
+    try {
+      const result = await setWorkspaceAccess(
+        selectedWorkspace.id,
+        accessUserIds
+      )
+      if (!result.success) {
+        toast.error(result.message || t('Failed to update workspace access'))
+        return
+      }
+      await refreshWorkspaces(selectedWorkspace.id)
+      toast.success(t('Workspace access updated successfully'))
+    } catch {
+      toast.error(t('Failed to update workspace access'))
+    } finally {
+      setIsSavingAccess(false)
+    }
+  }
+
+  const handleCreateSubaccount = () => {
+    onOpenChange(false)
+    setSubaccountDialogOpen(true)
+  }
+
+  const handleSubaccountSaved = () => {
+    void queryClient.invalidateQueries({ queryKey: ['workspace-subaccounts'] })
+    void refreshWorkspaces(selectedWorkspace?.id)
+    onOpenChange(true)
+  }
+
+  if (isWorkspaceSubaccount) return null
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className='max-h-[90vh] overflow-y-auto sm:max-w-[680px]'>
           <DialogHeader>
             <DialogTitle className='flex items-center gap-2'>
-              <Settings2 className='size-4' />
+              <HugeiconsIcon icon={Settings02Icon} />
               {t('Workspace settings')}
             </DialogTitle>
             <DialogDescription>
               {t(
-                'Update the current workspace profile, quota rule, and lifecycle.'
+                'Update the current workspace profile, access, quota rule, and lifecycle.'
               )}
             </DialogDescription>
           </DialogHeader>
 
           {selectedWorkspace ? (
-            <div className='space-y-6'>
-              <section className='space-y-3'>
+            <div className='flex flex-col gap-6'>
+              <section className='flex flex-col gap-3'>
                 <div>
                   <h3 className='text-sm font-semibold'>
                     {t('Workspace profile')}
@@ -188,9 +279,11 @@ export function ApiKeyWorkspaceSettingsDialog({
                   </p>
                 </div>
 
-                <div className='grid gap-3 sm:grid-cols-2'>
-                  <div className='space-y-2'>
-                    <Label htmlFor='workspace-settings-name'>{t('Name')}</Label>
+                <FieldGroup>
+                  <Field>
+                    <FieldLabel htmlFor='workspace-settings-name'>
+                      {t('Name')}
+                    </FieldLabel>
                     <Input
                       id='workspace-settings-name'
                       value={name}
@@ -198,11 +291,11 @@ export function ApiKeyWorkspaceSettingsDialog({
                       placeholder={t('Workspace name')}
                       maxLength={64}
                     />
-                  </div>
-                  <div className='space-y-2 sm:col-span-2'>
-                    <Label htmlFor='workspace-settings-description'>
+                  </Field>
+                  <Field>
+                    <FieldLabel htmlFor='workspace-settings-description'>
                       {t('Description')}
-                    </Label>
+                    </FieldLabel>
                     <Textarea
                       id='workspace-settings-description'
                       value={description}
@@ -211,8 +304,8 @@ export function ApiKeyWorkspaceSettingsDialog({
                       maxLength={255}
                       className='min-h-20'
                     />
-                  </div>
-                </div>
+                  </Field>
+                </FieldGroup>
 
                 <div className='flex justify-end'>
                   <Button
@@ -220,7 +313,10 @@ export function ApiKeyWorkspaceSettingsDialog({
                     disabled={!hasChanges || isSaving}
                     onClick={handleSave}
                   >
-                    <Save className='size-4' />
+                    <HugeiconsIcon
+                      icon={FloppyDiskIcon}
+                      data-icon='inline-start'
+                    />
                     {isSaving ? t('Saving') : t('Save workspace')}
                   </Button>
                 </div>
@@ -228,7 +324,130 @@ export function ApiKeyWorkspaceSettingsDialog({
 
               <Separator />
 
-              <section className='space-y-3'>
+              <section className='flex flex-col gap-3'>
+                <div>
+                  <h3 className='text-sm font-semibold'>
+                    {t('Workspace access')}
+                  </h3>
+                  <p className='text-muted-foreground mt-1 text-xs'>
+                    {t(
+                      'Add or remove subaccounts that can access this workspace and its API keys.'
+                    )}
+                  </p>
+                </div>
+                {selectedWorkspace.is_default ? (
+                  <Alert>
+                    <AlertTitle>
+                      {t(
+                        'Default workspace is only accessible to the main account'
+                      )}
+                    </AlertTitle>
+                    <AlertDescription>
+                      {t(
+                        'Move API keys to another workspace before granting access.'
+                      )}
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className='flex flex-col gap-3'>
+                    <FieldSet>
+                      <FieldLegend variant='label'>
+                        {t('Workspace members')}
+                      </FieldLegend>
+                      <FieldDescription>
+                        {t('{{count}} subaccounts selected', {
+                          count: accessUserIds.length,
+                        })}
+                      </FieldDescription>
+                      <FieldGroup
+                        data-slot='checkbox-group'
+                        className='max-h-56 gap-3 overflow-y-auto pr-1'
+                      >
+                        {subaccountsQuery.isLoading ? (
+                          <FieldDescription className='flex items-center gap-2'>
+                            <Spinner />
+                            {t('Loading...')}
+                          </FieldDescription>
+                        ) : subaccounts.length > 0 ? (
+                          subaccounts.map((account) => {
+                            const isSelected = accessUserIds.includes(
+                              account.id
+                            )
+                            const wasAssigned =
+                              selectedWorkspace.access_users.some(
+                                (user) => user.id === account.id
+                              )
+                            const isDisabled =
+                              account.status !== 1 && !wasAssigned
+                            return (
+                              <Field
+                                key={account.id}
+                                orientation='horizontal'
+                                data-disabled={isDisabled || undefined}
+                              >
+                                <Checkbox
+                                  id={`workspace-member-${account.id}`}
+                                  checked={isSelected}
+                                  onCheckedChange={(checked) =>
+                                    toggleAccessUser(
+                                      account.id,
+                                      checked === true
+                                    )
+                                  }
+                                  disabled={isSavingAccess || isDisabled}
+                                />
+                                <FieldLabel
+                                  htmlFor={`workspace-member-${account.id}`}
+                                  className='min-w-0 flex-col items-start gap-0.5 font-normal'
+                                >
+                                  <span className='truncate'>
+                                    {account.display_name || account.username}
+                                  </span>
+                                  <span className='text-muted-foreground truncate text-xs'>
+                                    @{account.username}
+                                    {account.status !== 1
+                                      ? ` (${t('Disabled')})`
+                                      : ''}
+                                  </span>
+                                </FieldLabel>
+                              </Field>
+                            )
+                          })
+                        ) : (
+                          <FieldDescription>
+                            {t('No subaccounts yet.')}
+                          </FieldDescription>
+                        )}
+                      </FieldGroup>
+                    </FieldSet>
+                    <div className='flex flex-col gap-2 sm:flex-row sm:justify-between'>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={handleCreateSubaccount}
+                      >
+                        <HugeiconsIcon
+                          icon={AddTeamIcon}
+                          data-icon='inline-start'
+                        />
+                        {t('Add subaccount')}
+                      </Button>
+                      <Button
+                        type='button'
+                        disabled={!hasAccessChanges || isSavingAccess}
+                        onClick={handleSaveAccess}
+                      >
+                        {isSavingAccess && <Spinner data-icon='inline-start' />}
+                        {t('Save members')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              <Separator />
+
+              <section className='flex flex-col gap-3'>
                 <div>
                   <h3 className='text-sm font-semibold'>
                     {t('Quota management')}
@@ -247,7 +466,7 @@ export function ApiKeyWorkspaceSettingsDialog({
 
               <Separator />
 
-              <section className='space-y-3'>
+              <section className='flex flex-col gap-3'>
                 <div>
                   <h3 className='text-sm font-semibold'>
                     {t('Delete workspace')}
@@ -259,7 +478,7 @@ export function ApiKeyWorkspaceSettingsDialog({
                   </p>
                 </div>
                 <Alert variant={deleteAllowed ? 'default' : 'destructive'}>
-                  <AlertTriangle className='size-4' />
+                  <HugeiconsIcon icon={Alert02Icon} />
                   <AlertTitle>
                     {deleteAllowed
                       ? t('This action cannot be undone.')
@@ -281,7 +500,7 @@ export function ApiKeyWorkspaceSettingsDialog({
                   disabled={!deleteAllowed}
                   onClick={() => setDeleteConfirmOpen(true)}
                 >
-                  <Trash2 className='size-4' />
+                  <HugeiconsIcon icon={Delete02Icon} data-icon='inline-start' />
                   {t('Delete current workspace')}
                 </Button>
               </section>
@@ -323,6 +542,15 @@ export function ApiKeyWorkspaceSettingsDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <WorkspaceSubaccountFormDialog
+        open={subaccountDialogOpen}
+        onOpenChange={setSubaccountDialogOpen}
+        account={null}
+        workspaces={workspaces}
+        fixedWorkspace={selectedWorkspace}
+        onSaved={handleSubaccountSaved}
+      />
     </>
   )
 }

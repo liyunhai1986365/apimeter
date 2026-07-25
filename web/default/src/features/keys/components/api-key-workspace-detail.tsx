@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useQuery } from '@tanstack/react-query'
 import { KeyRound, Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/stores/auth-store'
 import { formatQuota } from '@/lib/format'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -91,6 +92,9 @@ function WorkspaceUsageStatsStrip({
 
 export function ApiKeyWorkspaceDetail() {
   const { t } = useTranslation()
+  const isWorkspaceSubaccount = useAuthStore(
+    (state) => state.auth.user?.workspace_subaccount === true
+  )
   const { selectedWorkspace, isLoadingWorkspaces, setOpen } = useApiKeys()
   const usageStatsQuery = useQuery({
     queryKey: ['workspace-usage-stats', selectedWorkspace?.id],
@@ -154,7 +158,7 @@ export function ApiKeyWorkspaceDetail() {
           </div>
         </div>
         <div className='flex shrink-0 items-start gap-3 lg:ml-auto'>
-          {selectedWorkspace && (
+          {selectedWorkspace && !isWorkspaceSubaccount && (
             <>
               <WorkspaceQuotaManagement
                 workspaceId={selectedWorkspace.id}

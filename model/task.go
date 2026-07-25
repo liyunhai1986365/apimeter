@@ -175,24 +175,27 @@ func (p TaskPrivateData) Value() (driver.Value, error) {
 
 // SyncTaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
 type SyncTaskQueryParams struct {
-	Platform       constant.TaskPlatform
-	ChannelID      string
-	TaskID         string
-	TokenName      string
-	WorkspaceName  string
-	UserID         string
-	Action         string
-	Status         string
-	StartTimestamp int64
-	EndTimestamp   int64
-	UserIDs        []int
+	Platform         constant.TaskPlatform
+	ChannelID        string
+	TaskID           string
+	TokenName        string
+	WorkspaceName    string
+	UserID           string
+	Action           string
+	Status           string
+	StartTimestamp   int64
+	EndTimestamp     int64
+	UserIDs          []int
+	// AllowedWorkspaceIds is the caller's authorization restriction:
+	// nil = unrestricted, non-nil empty = nothing is visible.
+	AllowedWorkspaceIds []int
 }
 
 func applyTaskTokenFilters(query *gorm.DB, userId int, queryParams SyncTaskQueryParams) *gorm.DB {
 	if queryParams.TokenName != "" {
 		query = query.Where("token_name = ?", queryParams.TokenName)
 	}
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, queryParams.TokenName, queryParams.WorkspaceName)
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, queryParams.TokenName, queryParams.WorkspaceName, queryParams.AllowedWorkspaceIds)
 	if err != nil {
 		return query.Where("1 = 0")
 	}

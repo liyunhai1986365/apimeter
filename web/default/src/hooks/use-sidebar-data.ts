@@ -50,6 +50,7 @@ import { type SidebarData } from '@/components/layout/types'
 type SidebarUser =
   | {
       has_agent?: boolean
+      workspace_subaccount?: boolean
       permissions?: {
         agent_console?: boolean
       }
@@ -65,6 +66,53 @@ export function buildSidebarData(
     user &&
     (user.has_agent === true || user.permissions?.agent_console === true)
   )
+
+  if (user?.workspace_subaccount) {
+    return {
+      workspaces: [
+        {
+          id: WORKSPACE_IDS.DEFAULT,
+          name: '',
+          logo: Command,
+          plan: '',
+        },
+      ],
+      navGroups: [
+        {
+          id: 'general',
+          title: t('General'),
+          items: [
+            {
+              title: t('Usage Overview'),
+              url: '/dashboard/overview',
+              icon: Activity,
+            },
+            {
+              title: t('API Keys'),
+              url: '/keys',
+              icon: Key,
+            },
+            {
+              title: t('Usage Logs'),
+              url: '/usage-logs/common',
+              icon: FileText,
+            },
+          ],
+        },
+        {
+          id: 'personal',
+          title: t('Personal'),
+          items: [
+            {
+              title: t('Profile'),
+              url: '/profile',
+              icon: User,
+            },
+          ],
+        },
+      ],
+    }
+  }
 
   return {
     workspaces: [

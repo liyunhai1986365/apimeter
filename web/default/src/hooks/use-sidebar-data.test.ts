@@ -30,6 +30,25 @@ describe('buildSidebarData', () => {
     assert.ok(urls.includes('/model-profit'))
   })
 
+  test('keeps team settings out of the sidebar', () => {
+    const data = buildSidebarData((key) => key, null)
+    const urls = flattenUrls(data)
+    const general = data.navGroups.find((group) => group.id === 'general')
+
+    assert.equal(
+      data.navGroups.some((group) => group.id === 'organization'),
+      false
+    )
+    assert.ok(!urls.includes('/workspaces'))
+    assert.ok(!urls.includes('/workspace-accounts'))
+    assert.ok(
+      general?.items.some(
+        (item) =>
+          item.title === 'API Keys' && 'url' in item && item.url === '/keys'
+      )
+    )
+  })
+
   test('adds provider directory between subscription and profile', () => {
     const data = buildSidebarData((key) => key, null)
     const urls = flattenUrls(data)
@@ -48,6 +67,26 @@ describe('buildSidebarData', () => {
     assert.equal(
       personalUrls.indexOf('/profile'),
       personalUrls.indexOf('/provider') + 1
+    )
+  })
+
+  test('limits workspace accounts to their operational pages', () => {
+    const data = buildSidebarData((key) => key, {
+      workspace_subaccount: true,
+    })
+    const general = data.navGroups.find((group) => group.id === 'general')
+
+    assert.deepEqual(flattenUrls(data), [
+      '/dashboard/overview',
+      '/keys',
+      '/usage-logs/common',
+      '/profile',
+    ])
+    assert.ok(
+      general?.items.some(
+        (item) =>
+          item.title === 'API Keys' && 'url' in item && item.url === '/keys'
+      )
     )
   })
 })

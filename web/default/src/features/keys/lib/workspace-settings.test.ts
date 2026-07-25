@@ -15,6 +15,7 @@ function workspace(id: number, name: string, isDefault = false): Workspace {
     description: '',
     is_default: isDefault,
     status: 1,
+    access_users: [],
     created_time: 0,
     updated_time: 0,
     token_count: 0,

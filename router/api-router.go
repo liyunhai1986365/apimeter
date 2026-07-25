@@ -26,7 +26,7 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.HEAD("/relay-temp-images/:id", controller.ServeRelayTempImage)
 		apiRouter.GET("/uptime/status", controller.GetUptimeKumaStatus)
 		apiRouter.GET("/models", middleware.UserAuth(), controller.DashboardListModels)
-		apiRouter.GET("/dashboard/flow", middleware.UserAuth(), controller.GetFlowQuotaData)
+		apiRouter.GET("/dashboard/flow", middleware.UserAuth(), middleware.WorkspaceAccountScope(), controller.GetFlowQuotaData)
 		apiRouter.GET("/status/test", middleware.AdminAuth(), controller.TestStatus)
 		apiRouter.GET("/notice", controller.GetNotice)
 		apiRouter.GET("/user-agreement", controller.GetUserAgreement)
@@ -85,13 +85,13 @@ func SetApiRouter(router *gin.Engine) {
 			selfRoute.Use(middleware.UserAuth())
 			selfRoute.Use(middleware.AgentUserAuth())
 			{
-				selfRoute.GET("/self/groups", controller.GetUserGroups)
+				selfRoute.GET("/self/groups", middleware.WorkspaceAccountScope(), controller.GetUserGroups)
 				selfRoute.GET("/self/providers", controller.ListUserOwnedProviders)
 				selfRoute.POST("/self/providers", controller.CreateUserOwnedProvider)
 				selfRoute.PUT("/self/providers/:id", controller.UpdateUserOwnedProvider)
 				selfRoute.DELETE("/self/providers/:id", controller.DeleteUserOwnedProvider)
 				selfRoute.GET("/self", controller.GetSelf)
-				selfRoute.GET("/models", controller.GetUserModels)
+				selfRoute.GET("/models", middleware.WorkspaceAccountScope(), controller.GetUserModels)
 				selfRoute.PUT("/self", controller.UpdateSelf)
 				selfRoute.DELETE("/self", controller.DeleteSelf)
 				selfRoute.GET("/token", controller.GenerateAccessToken)
@@ -358,7 +358,7 @@ func SetApiRouter(router *gin.Engine) {
 			channelRoute.POST("/upstream_updates/detect_all", middleware.RootAuth(), controller.DetectAllChannelUpstreamModelUpdates)
 		}
 		tokenRoute := apiRouter.Group("/token")
-		tokenRoute.Use(middleware.UserAuth())
+		tokenRoute.Use(middleware.UserAuth(), middleware.WorkspaceAccountScope())
 		{
 			tokenRoute.GET("/", controller.GetAllTokens)
 			tokenRoute.GET("/search", middleware.SearchRateLimit(), controller.SearchTokens)
@@ -373,17 +373,33 @@ func SetApiRouter(router *gin.Engine) {
 			tokenRoute.POST("/batch/keys", middleware.CriticalRateLimit(), middleware.DisableCache(), controller.GetTokenKeysBatch)
 		}
 		workspaceRoute := apiRouter.Group("/workspaces")
-		workspaceRoute.Use(middleware.UserAuth())
+		workspaceRoute.Use(middleware.UserAuth(), middleware.WorkspaceAccountScope())
 		{
 			workspaceRoute.GET("/", controller.ListWorkspaces)
 			workspaceRoute.GET("", controller.ListWorkspaces)
 			workspaceRoute.GET("/:id/usage", controller.GetWorkspaceUsageStats)
 			workspaceRoute.GET("/:id/quota-reset", controller.GetWorkspaceQuotaResetConfig)
-			workspaceRoute.PUT("/:id/quota-reset", controller.UpdateWorkspaceQuotaResetConfig)
-			workspaceRoute.POST("/:id/quota-reset/reset", controller.ResetWorkspaceQuotaNow)
-			workspaceRoute.POST("/", controller.CreateWorkspace)
-			workspaceRoute.PUT("/:id", controller.UpdateWorkspace)
-			workspaceRoute.DELETE("/:id", controller.DeleteWorkspace)
+			workspaceRoute.PUT("/:id/quota-reset", middleware.RequireWorkspaceMainAccount(), controller.UpdateWorkspaceQuotaResetConfig)
+			workspaceRoute.POST("/:id/quota-reset/reset", middleware.RequireWorkspaceMainAccount(), controller.ResetWorkspaceQuotaNow)
+			workspaceRoute.POST("/", middleware.RequireWorkspaceMainAccount(), controller.CreateWorkspace)
+			workspaceRoute.PUT("/:id", middleware.RequireWorkspaceMainAccount(), controller.UpdateWorkspace)
+			workspaceRoute.DELETE("/:id", middleware.RequireWorkspaceMainAccount(), controller.DeleteWorkspace)
+			workspaceRoute.PUT("/:id/access", middleware.RequireWorkspaceMainAccount(), controller.SetWorkspaceAccess)
+			workspaceRoute.DELETE("/:id/access", middleware.RequireWorkspaceMainAccount(), controller.RevokeWorkspaceAccess)
+		}
+		workspaceSubaccountRoute := apiRouter.Group("/workspace-subaccounts")
+		workspaceSubaccountRoute.Use(middleware.UserAuth(), middleware.RequireWorkspaceMainAccount())
+		{
+			workspaceSubaccountRoute.GET("", controller.ListWorkspaceSubaccounts)
+			workspaceSubaccountRoute.GET("/", controller.ListWorkspaceSubaccounts)
+			workspaceSubaccountRoute.POST("", controller.CreateWorkspaceSubaccount)
+			workspaceSubaccountRoute.POST("/", controller.CreateWorkspaceSubaccount)
+			workspaceSubaccountRoute.GET("/:id", controller.GetWorkspaceSubaccount)
+			workspaceSubaccountRoute.PUT("/:id", controller.UpdateWorkspaceSubaccount)
+			workspaceSubaccountRoute.PUT("/:id/status", controller.UpdateWorkspaceSubaccountStatus)
+			workspaceSubaccountRoute.PUT("/:id/workspaces", controller.SetWorkspaceSubaccountWorkspaces)
+			workspaceSubaccountRoute.POST("/:id/reset-password", controller.ResetWorkspaceSubaccountPassword)
+			workspaceSubaccountRoute.DELETE("/:id", controller.DeleteWorkspaceSubaccount)
 		}
 
 		usageRoute := apiRouter.Group("/usage")
@@ -412,12 +428,12 @@ func SetApiRouter(router *gin.Engine) {
 		logRoute.DELETE("/", middleware.AdminAuth(), controller.DeleteHistoryLogs)
 		logRoute.GET("/stat", middleware.AdminAuth(), controller.GetLogsStat)
 		logRoute.GET("/model_profit_stats", middleware.RootAuth(), controller.GetLogsModelProfitStats)
-		logRoute.GET("/self/stat", middleware.UserAuth(), controller.GetLogsSelfStat)
+		logRoute.GET("/self/stat", middleware.UserAuth(), middleware.WorkspaceAccountScope(), controller.GetLogsSelfStat)
 		logRoute.GET("/channel_affinity_usage_cache", middleware.AdminAuth(), controller.GetChannelAffinityUsageCacheStats)
 		logRoute.GET("/error-request/:log_id", middleware.AdminAuth(), controller.GetErrorRequestLog)
 		logRoute.GET("/search", middleware.AdminAuth(), controller.SearchAllLogs)
-		logRoute.GET("/self", middleware.UserAuth(), controller.GetUserLogs)
-		logRoute.GET("/self/search", middleware.UserAuth(), middleware.SearchRateLimit(), controller.SearchUserLogs)
+		logRoute.GET("/self", middleware.UserAuth(), middleware.WorkspaceAccountScope(), controller.GetUserLogs)
+		logRoute.GET("/self/search", middleware.UserAuth(), middleware.WorkspaceAccountScope(), middleware.SearchRateLimit(), controller.SearchUserLogs)
 
 		retryRoute := apiRouter.Group("/retry-route")
 		retryRoute.Use(middleware.AdminAuth())
@@ -445,9 +461,9 @@ func SetApiRouter(router *gin.Engine) {
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)
 		dataRoute.GET("/dimensions", middleware.AdminAuth(), controller.GetAllUsageDimensionTrends)
 		dataRoute.GET("/users", middleware.AdminAuth(), controller.GetQuotaDatesByUser)
-		dataRoute.GET("/self", middleware.UserAuth(), controller.GetUserQuotaDates)
-		dataRoute.GET("/self/dimensions", middleware.UserAuth(), controller.GetUserUsageDimensionTrends)
-		dataRoute.GET("/self/tokens", middleware.UserAuth(), controller.GetUserTokenQuotaData)
+		dataRoute.GET("/self", middleware.UserAuth(), middleware.WorkspaceAccountScope(), controller.GetUserQuotaDates)
+		dataRoute.GET("/self/dimensions", middleware.UserAuth(), middleware.WorkspaceAccountScope(), controller.GetUserUsageDimensionTrends)
+		dataRoute.GET("/self/tokens", middleware.UserAuth(), middleware.WorkspaceAccountScope(), controller.GetUserTokenQuotaData)
 
 		logRoute.Use(middleware.CORS(), middleware.CriticalRateLimit())
 		{
@@ -474,7 +490,7 @@ func SetApiRouter(router *gin.Engine) {
 
 		taskRoute := apiRouter.Group("/task")
 		{
-			taskRoute.GET("/self", middleware.UserAuth(), controller.GetUserTask)
+			taskRoute.GET("/self", middleware.UserAuth(), middleware.WorkspaceAccountScope(), controller.GetUserTask)
 			taskRoute.GET("/", middleware.AdminAuth(), controller.GetAllTask)
 		}
 

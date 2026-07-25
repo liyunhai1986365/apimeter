@@ -1,15 +1,19 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func withHeaderNavModules(t *testing.T, raw string) {
@@ -36,6 +40,23 @@ func withHeaderNavModules(t *testing.T, raw string) {
 
 func performHeaderNavRequest(t *testing.T, handler gin.HandlerFunc, authenticated bool) *httptest.ResponseRecorder {
 	t.Helper()
+	if authenticated {
+		originalDB := model.DB
+		originalRedisEnabled := common.RedisEnabled
+		common.RedisEnabled = false
+		db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:header-nav-%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
+		require.NoError(t, err)
+		require.NoError(t, db.AutoMigrate(&model.User{}))
+		model.DB = db
+		require.NoError(t, db.Create(&model.User{
+			Id: 1, Username: "tester", Password: "hashed", Role: common.RoleCommonUser,
+			Status: common.UserStatusEnabled, Group: "default", AffCode: "hnav",
+		}).Error)
+		t.Cleanup(func() {
+			model.DB = originalDB
+			common.RedisEnabled = originalRedisEnabled
+		})
+	}
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

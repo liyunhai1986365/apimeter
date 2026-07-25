@@ -7,6 +7,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -120,6 +121,7 @@ func TestGetFlowQuotaDataUsesAdminDimensions(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Set("role", common.RoleAdminUser)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{})
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow?start_timestamp=1000&end_timestamp=2000&username=bob", nil)
 
 	GetFlowQuotaData(ctx)
@@ -139,6 +141,7 @@ func TestGetFlowQuotaDataUsesRootDimensions(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Set("role", common.RoleRootUser)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{})
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow?start_timestamp=1000&end_timestamp=2000&username=alice", nil)
 
 	GetFlowQuotaData(ctx)
@@ -158,6 +161,7 @@ func TestGetFlowQuotaDataRestrictsToAuthenticatedUser(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Set("id", 1)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{ActorUserId: 1, OwnerUserId: 1})
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/flow/self?start_timestamp=1000&end_timestamp=2000", nil)
 
 	GetFlowQuotaData(ctx)
@@ -176,6 +180,7 @@ func TestGetUserTokenQuotaDataRestrictsToAuthenticatedUser(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Set("id", 1)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{ActorUserId: 1, OwnerUserId: 1})
 	ctx.Request = httptest.NewRequest(http.MethodGet, "/api/data/self/tokens?start_timestamp=1000&end_timestamp=2000", nil)
 
 	GetUserTokenQuotaData(ctx)

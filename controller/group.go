@@ -35,8 +35,15 @@ func GetUserGroups(c *gin.Context) {
 	usableGroups := make(map[string]map[string]interface{})
 	userGroup := ""
 	userId := c.GetInt("id")
+	isSubaccount := false
+	if value, ok := c.Get("workspace_access_scope"); ok {
+		if scope, valid := value.(*service.WorkspaceAccessScope); valid && scope != nil {
+			userId = scope.OwnerUserId
+			isSubaccount = scope.IsSubaccount
+		}
+	}
 	userGroup, _ = model.GetUserGroup(userId, false)
-	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil && !isSubaccount {
 		if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, userId, userGroup); err == nil {
 			userGroup = agentUserGroup
 		}
@@ -83,12 +90,14 @@ func GetUserGroups(c *gin.Context) {
 			"desc":  setting.GetUsableGroupDescription("auto"),
 		}
 	}
-	if channels, err := model.ListUserOwnedProviderChannels(userId); err == nil {
-		for _, channel := range channels {
-			usableGroups[channel.Group] = map[string]interface{}{
-				"ratio": "自有",
-				"desc":  channel.Name,
-				"scope": model.ChannelScopeUserOwned,
+	if !isSubaccount {
+		if channels, err := model.ListUserOwnedProviderChannels(userId); err == nil {
+			for _, channel := range channels {
+				usableGroups[channel.Group] = map[string]interface{}{
+					"ratio": "自有",
+					"desc":  channel.Name,
+					"scope": model.ChannelScopeUserOwned,
+				}
 			}
 		}
 	}

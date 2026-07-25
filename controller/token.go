@@ -48,16 +48,21 @@ func tokenWorkspaceIDFromQuery(c *gin.Context) (int, error) {
 	return workspaceId, nil
 }
 
-func prepareTokenWorkspaceFilter(c *gin.Context, userId int) (int, error) {
-	if _, err := model.EnsureDefaultWorkspace(userId); err != nil {
-		return 0, err
+func prepareTokenWorkspaceFilter(c *gin.Context, scope *service.WorkspaceAccessScope) (int, error) {
+	if !scope.IsSubaccount {
+		if _, err := model.EnsureDefaultWorkspace(scope.OwnerUserId); err != nil {
+			return 0, err
+		}
 	}
 	workspaceId, err := tokenWorkspaceIDFromQuery(c)
 	if err != nil {
 		return 0, err
 	}
 	if workspaceId > 0 {
-		if _, err := model.GetUserWorkspaceByID(userId, workspaceId); err != nil {
+		if !scope.CanAccessWorkspace(workspaceId) {
+			return 0, fmt.Errorf("workspace not found or unavailable")
+		}
+		if _, err := model.GetUserWorkspaceByID(scope.OwnerUserId, workspaceId); err != nil {
 			return 0, err
 		}
 	}
@@ -68,8 +73,16 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 	if token == nil {
 		return nil
 	}
+	userId := c.GetInt("id")
+	isSubaccount := false
+	if scope, ok := c.Get("workspace_access_scope"); ok {
+		if workspaceScope, valid := scope.(*service.WorkspaceAccessScope); valid {
+			userId = workspaceScope.OwnerUserId
+			isSubaccount = workspaceScope.IsSubaccount
+		}
+	}
 	userGroup := ""
-	if dbGroup, err := model.GetUserGroup(c.GetInt("id"), false); err == nil {
+	if dbGroup, err := model.GetUserGroup(userId, false); err == nil {
 		userGroup = strings.TrimSpace(dbGroup)
 	}
 	if userGroup == "" {
@@ -78,9 +91,8 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 	if userGroup == "" {
 		userGroup = c.GetString("group")
 	}
-	userId := c.GetInt("id")
 	var agentCtx *types.AgentContext
-	if ctx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok {
+	if ctx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && !isSubaccount {
 		agentCtx = ctx
 	}
 	if agentCtx != nil {
@@ -109,15 +121,45 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 	return nil
 }
 
+func tokenUsesUserOwnedProvider(token *model.Token) bool {
+	if token == nil {
+		return false
+	}
+	if model.IsUserOwnedProviderGroup(strings.TrimSpace(token.Group)) {
+		return true
+	}
+	if strings.TrimSpace(token.GroupPolicy) == "" {
+		return false
+	}
+	var policy service.TokenGroupPolicy
+	if err := common.Unmarshal([]byte(token.GroupPolicy), &policy); err != nil {
+		return false
+	}
+	for _, group := range append(policy.Groups, policy.ExcludedGroups...) {
+		if model.IsUserOwnedProviderGroup(strings.TrimSpace(group)) {
+			return true
+		}
+	}
+	return false
+}
+
+func getTokenForWorkspaceScope(scope *service.WorkspaceAccessScope, id int) (*model.Token, error) {
+	return model.GetTokenByIds(id, scope.OwnerUserId, scope.WorkspaceFilter())
+}
+
 func GetAllTokens(c *gin.Context) {
-	userId := c.GetInt("id")
-	pageInfo := common.GetPageQuery(c)
-	workspaceId, err := prepareTokenWorkspaceFilter(c, userId)
+	scope, err := workspaceAccessScope(c)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	tokens, err := model.GetAllUserTokens(userId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), workspaceId)
+	pageInfo := common.GetPageQuery(c)
+	workspaceId, err := prepareTokenWorkspaceFilter(c, scope)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	tokens, err := model.GetAllUserTokens(scope.OwnerUserId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), workspaceId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -130,20 +172,24 @@ func GetAllTokens(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	total, _ := model.CountUserTokens(userId, workspaceId)
+	total, _ := model.CountUserTokens(scope.OwnerUserId, workspaceId, scope.WorkspaceFilter())
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)
 }
 
 func GetTokenFilterOptions(c *gin.Context) {
-	userId := c.GetInt("id")
-	workspaces, err := model.ListUserWorkspaceFilterOptions(userId)
+	scope, err := workspaceAccessScope(c)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	tokens, err := model.GetUserTokenFilterOptions(userId)
+	workspaces, err := model.ListUserWorkspaceFilterOptions(scope.OwnerUserId, scope.WorkspaceFilter())
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	tokens, err := model.GetUserTokenFilterOptions(scope.OwnerUserId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -155,18 +201,22 @@ func GetTokenFilterOptions(c *gin.Context) {
 }
 
 func SearchTokens(c *gin.Context) {
-	userId := c.GetInt("id")
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	keyword := c.Query("keyword")
 	token := c.Query("token")
 
 	pageInfo := common.GetPageQuery(c)
 
-	workspaceId, err := prepareTokenWorkspaceFilter(c, userId)
+	workspaceId, err := prepareTokenWorkspaceFilter(c, scope)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	tokens, total, err := model.SearchUserTokens(userId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), workspaceId)
+	tokens, total, err := model.SearchUserTokens(scope.OwnerUserId, keyword, token, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), workspaceId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -186,12 +236,16 @@ func SearchTokens(c *gin.Context) {
 
 func GetToken(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
-	userId := c.GetInt("id")
+	scope, scopeErr := workspaceAccessScope(c)
+	if scopeErr != nil {
+		common.ApiError(c, scopeErr)
+		return
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	token, err := model.GetTokenByIds(id, userId)
+	token, err := getTokenForWorkspaceScope(scope, id)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -209,12 +263,16 @@ func GetToken(c *gin.Context) {
 
 func GetTokenKey(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
-	userId := c.GetInt("id")
+	scope, scopeErr := workspaceAccessScope(c)
+	if scopeErr != nil {
+		common.ApiError(c, scopeErr)
+		return
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	token, err := model.GetTokenByIds(id, userId)
+	token, err := getTokenForWorkspaceScope(scope, id)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -227,7 +285,7 @@ func GetTokenKey(c *gin.Context) {
 func GetTokenStatus(c *gin.Context) {
 	tokenId := c.GetInt("token_id")
 	userId := c.GetInt("id")
-	token, err := model.GetTokenByIds(tokenId, userId)
+	token, err := model.GetTokenByIds(tokenId, userId, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -295,8 +353,13 @@ func GetTokenUsage(c *gin.Context) {
 }
 
 func AddToken(c *gin.Context) {
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	token := model.Token{}
-	err := c.ShouldBindJSON(&token)
+	err = c.ShouldBindJSON(&token)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -305,13 +368,25 @@ func AddToken(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgTokenNameTooLong)
 		return
 	}
-	workspace, err := model.ResolveUserWorkspace(c.GetInt("id"), token.WorkspaceId)
+	if scope.IsSubaccount && token.WorkspaceId <= 0 {
+		common.ApiErrorMsg(c, "workspace is required")
+		return
+	}
+	if scope.IsSubaccount && !scope.CanAccessWorkspace(token.WorkspaceId) {
+		common.ApiErrorMsg(c, "workspace not found or unavailable")
+		return
+	}
+	workspace, err := model.ResolveUserWorkspace(scope.OwnerUserId, token.WorkspaceId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
 	if err := normalizeTokenGroupForRequest(c, &token); err != nil {
 		common.ApiError(c, err)
+		return
+	}
+	if scope.IsSubaccount && tokenUsesUserOwnedProvider(&token) {
+		common.ApiErrorMsg(c, "workspace accounts cannot use user-owned providers")
 		return
 	}
 	// 非无限额度时，检查额度值是否超出有效范围
@@ -328,7 +403,8 @@ func AddToken(c *gin.Context) {
 	}
 	// 检查用户令牌数量是否已达上限
 	maxTokens := operation_setting.GetMaxUserTokens()
-	count, err := model.CountUserTokens(c.GetInt("id"))
+	// The per-user token cap counts the owner's whole tenant, so it stays unscoped.
+	count, err := model.CountUserTokens(scope.OwnerUserId, 0, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -347,7 +423,7 @@ func AddToken(c *gin.Context) {
 		return
 	}
 	cleanToken := model.Token{
-		UserId:             c.GetInt("id"),
+		UserId:             scope.OwnerUserId,
 		WorkspaceId:        workspace.Id,
 		WorkspaceName:      workspace.Name,
 		Name:               token.Name,
@@ -379,8 +455,15 @@ func AddToken(c *gin.Context) {
 
 func DeleteToken(c *gin.Context) {
 	id, _ := strconv.Atoi(c.Param("id"))
-	userId := c.GetInt("id")
-	err := model.DeleteTokenById(id, userId)
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	token, err := getTokenForWorkspaceScope(scope, id)
+	if err == nil {
+		err = token.Delete()
+	}
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -397,8 +480,16 @@ func ResetTokenQuota(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	userId := c.GetInt("id")
-	token, err := model.ResetUserTokenWorkspaceQuota(userId, id, time.Time{})
+	scope, scopeErr := workspaceAccessScope(c)
+	if scopeErr != nil {
+		common.ApiError(c, scopeErr)
+		return
+	}
+	if _, err := getTokenForWorkspaceScope(scope, id); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	token, err := model.ResetUserTokenWorkspaceQuota(scope.OwnerUserId, id, time.Time{}, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -411,10 +502,14 @@ func ResetTokenQuota(c *gin.Context) {
 }
 
 func UpdateToken(c *gin.Context) {
-	userId := c.GetInt("id")
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	statusOnly := c.Query("status_only")
 	token := model.Token{}
-	err := c.ShouldBindJSON(&token)
+	err = c.ShouldBindJSON(&token)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -426,6 +521,10 @@ func UpdateToken(c *gin.Context) {
 	if statusOnly == "" {
 		if err := normalizeTokenGroupForRequest(c, &token); err != nil {
 			common.ApiError(c, err)
+			return
+		}
+		if scope.IsSubaccount && tokenUsesUserOwnedProvider(&token) {
+			common.ApiErrorMsg(c, "workspace accounts cannot use user-owned providers")
 			return
 		}
 	}
@@ -440,7 +539,7 @@ func UpdateToken(c *gin.Context) {
 			return
 		}
 	}
-	cleanToken, err := model.GetTokenByIds(token.Id, userId)
+	cleanToken, err := getTokenForWorkspaceScope(scope, token.Id)
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -459,7 +558,11 @@ func UpdateToken(c *gin.Context) {
 		cleanToken.Status = token.Status
 	} else {
 		if token.WorkspaceId > 0 {
-			workspace, err := model.GetUserWorkspaceByID(userId, token.WorkspaceId)
+			if !scope.CanAccessWorkspace(token.WorkspaceId) {
+				common.ApiErrorMsg(c, "workspace not found or unavailable")
+				return
+			}
+			workspace, err := model.GetUserWorkspaceByID(scope.OwnerUserId, token.WorkspaceId)
 			if err != nil {
 				common.ApiError(c, err)
 				return
@@ -508,8 +611,12 @@ func DeleteTokenBatch(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
-	userId := c.GetInt("id")
-	count, err := model.BatchDeleteTokens(tokenBatch.Ids, userId)
+	scope, scopeErr := workspaceAccessScope(c)
+	if scopeErr != nil {
+		common.ApiError(c, scopeErr)
+		return
+	}
+	count, err := model.BatchDeleteTokens(tokenBatch.Ids, scope.OwnerUserId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return
@@ -531,8 +638,12 @@ func GetTokenKeysBatch(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgBatchTooMany, map[string]any{"Max": 100})
 		return
 	}
-	userId := c.GetInt("id")
-	tokens, err := model.GetTokenKeysByIds(tokenBatch.Ids, userId)
+	scope, scopeErr := workspaceAccessScope(c)
+	if scopeErr != nil {
+		common.ApiError(c, scopeErr)
+		return
+	}
+	tokens, err := model.GetTokenKeysByIds(tokenBatch.Ids, scope.OwnerUserId, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)
 		return

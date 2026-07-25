@@ -39,6 +39,8 @@ import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-p
 import { Route as AuthenticatedSystemTasksRouteRouteImport } from './routes/_authenticated/system-tasks/route'
 import { Route as AuthenticatedSystemSettingsRouteRouteImport } from './routes/_authenticated/system-settings/route'
 import { Route as PricingModelIdIndexRouteImport } from './routes/pricing/$modelId/index'
+import { Route as AuthenticatedWorkspacesIndexRouteImport } from './routes/_authenticated/workspaces/index'
+import { Route as AuthenticatedWorkspaceAccountsIndexRouteImport } from './routes/_authenticated/workspace-accounts/index'
 import { Route as AuthenticatedWalletIndexRouteImport } from './routes/_authenticated/wallet/index'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedUserSubscriptionIndexRouteImport } from './routes/_authenticated/user-subscription/index'
@@ -58,6 +60,7 @@ import { Route as AuthenticatedModelBillingIndexRouteImport } from './routes/_au
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
+import { Route as AuthenticatedChangePasswordIndexRouteImport } from './routes/_authenticated/change-password/index'
 import { Route as AuthenticatedBillingIndexRouteImport } from './routes/_authenticated/billing/index'
 import { Route as AuthenticatedAgentsIndexRouteImport } from './routes/_authenticated/agents/index'
 import { Route as AuthenticatedAgentManagementIndexRouteImport } from './routes/_authenticated/agent-management/index'
@@ -233,6 +236,18 @@ const PricingModelIdIndexRoute = PricingModelIdIndexRouteImport.update({
   path: '/pricing/$modelId/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedWorkspacesIndexRoute =
+  AuthenticatedWorkspacesIndexRouteImport.update({
+    id: '/workspaces/',
+    path: '/workspaces/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedWorkspaceAccountsIndexRoute =
+  AuthenticatedWorkspaceAccountsIndexRouteImport.update({
+    id: '/workspace-accounts/',
+    path: '/workspace-accounts/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedWalletIndexRoute =
   AuthenticatedWalletIndexRouteImport.update({
     id: '/wallet/',
@@ -343,6 +358,12 @@ const AuthenticatedChannelsIndexRoute =
   AuthenticatedChannelsIndexRouteImport.update({
     id: '/channels/',
     path: '/channels/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedChangePasswordIndexRoute =
+  AuthenticatedChangePasswordIndexRouteImport.update({
+    id: '/change-password/',
+    path: '/change-password/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedBillingIndexRoute =
@@ -526,6 +547,7 @@ export interface FileRoutesByFullPath {
   '/agent-management/': typeof AuthenticatedAgentManagementIndexRoute
   '/agents/': typeof AuthenticatedAgentsIndexRoute
   '/billing/': typeof AuthenticatedBillingIndexRoute
+  '/change-password/': typeof AuthenticatedChangePasswordIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
@@ -545,6 +567,8 @@ export interface FileRoutesByFullPath {
   '/user-subscription/': typeof AuthenticatedUserSubscriptionIndexRoute
   '/users/': typeof AuthenticatedUsersIndexRoute
   '/wallet/': typeof AuthenticatedWalletIndexRoute
+  '/workspace-accounts/': typeof AuthenticatedWorkspaceAccountsIndexRoute
+  '/workspaces/': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
   '/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
@@ -597,6 +621,7 @@ export interface FileRoutesByTo {
   '/agent-management': typeof AuthenticatedAgentManagementIndexRoute
   '/agents': typeof AuthenticatedAgentsIndexRoute
   '/billing': typeof AuthenticatedBillingIndexRoute
+  '/change-password': typeof AuthenticatedChangePasswordIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
@@ -616,6 +641,8 @@ export interface FileRoutesByTo {
   '/user-subscription': typeof AuthenticatedUserSubscriptionIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/wallet': typeof AuthenticatedWalletIndexRoute
+  '/workspace-accounts': typeof AuthenticatedWorkspaceAccountsIndexRoute
+  '/workspaces': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId': typeof PricingModelIdIndexRoute
   '/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
@@ -673,6 +700,7 @@ export interface FileRoutesById {
   '/_authenticated/agent-management/': typeof AuthenticatedAgentManagementIndexRoute
   '/_authenticated/agents/': typeof AuthenticatedAgentsIndexRoute
   '/_authenticated/billing/': typeof AuthenticatedBillingIndexRoute
+  '/_authenticated/change-password/': typeof AuthenticatedChangePasswordIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
@@ -692,6 +720,8 @@ export interface FileRoutesById {
   '/_authenticated/user-subscription/': typeof AuthenticatedUserSubscriptionIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/wallet/': typeof AuthenticatedWalletIndexRoute
+  '/_authenticated/workspace-accounts/': typeof AuthenticatedWorkspaceAccountsIndexRoute
+  '/_authenticated/workspaces/': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
   '/_authenticated/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/_authenticated/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
@@ -748,6 +778,7 @@ export interface FileRouteTypes {
     | '/agent-management/'
     | '/agents/'
     | '/billing/'
+    | '/change-password/'
     | '/channels/'
     | '/dashboard/'
     | '/keys/'
@@ -767,6 +798,8 @@ export interface FileRouteTypes {
     | '/user-subscription/'
     | '/users/'
     | '/wallet/'
+    | '/workspace-accounts/'
+    | '/workspaces/'
     | '/pricing/$modelId/'
     | '/system-settings/auth/$section'
     | '/system-settings/billing/$section'
@@ -819,6 +852,7 @@ export interface FileRouteTypes {
     | '/agent-management'
     | '/agents'
     | '/billing'
+    | '/change-password'
     | '/channels'
     | '/dashboard'
     | '/keys'
@@ -838,6 +872,8 @@ export interface FileRouteTypes {
     | '/user-subscription'
     | '/users'
     | '/wallet'
+    | '/workspace-accounts'
+    | '/workspaces'
     | '/pricing/$modelId'
     | '/system-settings/auth/$section'
     | '/system-settings/billing/$section'
@@ -894,6 +930,7 @@ export interface FileRouteTypes {
     | '/_authenticated/agent-management/'
     | '/_authenticated/agents/'
     | '/_authenticated/billing/'
+    | '/_authenticated/change-password/'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
     | '/_authenticated/keys/'
@@ -913,6 +950,8 @@ export interface FileRouteTypes {
     | '/_authenticated/user-subscription/'
     | '/_authenticated/users/'
     | '/_authenticated/wallet/'
+    | '/_authenticated/workspace-accounts/'
+    | '/_authenticated/workspaces/'
     | '/pricing/$modelId/'
     | '/_authenticated/system-settings/auth/$section'
     | '/_authenticated/system-settings/billing/$section'
@@ -1165,6 +1204,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PricingModelIdIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/workspaces/': {
+      id: '/_authenticated/workspaces/'
+      path: '/workspaces'
+      fullPath: '/workspaces/'
+      preLoaderRoute: typeof AuthenticatedWorkspacesIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/workspace-accounts/': {
+      id: '/_authenticated/workspace-accounts/'
+      path: '/workspace-accounts'
+      fullPath: '/workspace-accounts/'
+      preLoaderRoute: typeof AuthenticatedWorkspaceAccountsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/wallet/': {
       id: '/_authenticated/wallet/'
       path: '/wallet'
@@ -1296,6 +1349,13 @@ declare module '@tanstack/react-router' {
       path: '/channels'
       fullPath: '/channels/'
       preLoaderRoute: typeof AuthenticatedChannelsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/change-password/': {
+      id: '/_authenticated/change-password/'
+      path: '/change-password'
+      fullPath: '/change-password/'
+      preLoaderRoute: typeof AuthenticatedChangePasswordIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/billing/': {
@@ -1578,6 +1638,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentManagementIndexRoute: typeof AuthenticatedAgentManagementIndexRoute
   AuthenticatedAgentsIndexRoute: typeof AuthenticatedAgentsIndexRoute
   AuthenticatedBillingIndexRoute: typeof AuthenticatedBillingIndexRoute
+  AuthenticatedChangePasswordIndexRoute: typeof AuthenticatedChangePasswordIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
@@ -1595,6 +1656,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUserSubscriptionIndexRoute: typeof AuthenticatedUserSubscriptionIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
   AuthenticatedWalletIndexRoute: typeof AuthenticatedWalletIndexRoute
+  AuthenticatedWorkspaceAccountsIndexRoute: typeof AuthenticatedWorkspaceAccountsIndexRoute
+  AuthenticatedWorkspacesIndexRoute: typeof AuthenticatedWorkspacesIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1614,6 +1677,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedAgentManagementIndexRoute,
   AuthenticatedAgentsIndexRoute: AuthenticatedAgentsIndexRoute,
   AuthenticatedBillingIndexRoute: AuthenticatedBillingIndexRoute,
+  AuthenticatedChangePasswordIndexRoute: AuthenticatedChangePasswordIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
@@ -1633,6 +1697,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedUserSubscriptionIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
   AuthenticatedWalletIndexRoute: AuthenticatedWalletIndexRoute,
+  AuthenticatedWorkspaceAccountsIndexRoute:
+    AuthenticatedWorkspaceAccountsIndexRoute,
+  AuthenticatedWorkspacesIndexRoute: AuthenticatedWorkspacesIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

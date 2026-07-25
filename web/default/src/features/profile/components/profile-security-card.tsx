@@ -34,6 +34,7 @@ import { DeleteAccountDialog } from './dialogs/delete-account-dialog'
 interface ProfileSecurityCardProps {
   profile: UserProfile | null
   loading: boolean
+  workspaceAccount?: boolean
 }
 
 type DialogKey = 'password' | 'token' | 'delete'
@@ -41,6 +42,7 @@ type DialogKey = 'password' | 'token' | 'delete'
 export function ProfileSecurityCard({
   profile,
   loading,
+  workspaceAccount = false,
 }: ProfileSecurityCardProps) {
   const { t } = useTranslation()
   const dialogs = useDialogs<DialogKey>()
@@ -71,20 +73,24 @@ export function ProfileSecurityCard({
       action: () => dialogs.open('password'),
       variant: 'default' as const,
     },
-    {
-      icon: Key,
-      title: t('Access Token'),
-      description: t('Generate and manage your API access token'),
-      action: () => dialogs.open('token'),
-      variant: 'default' as const,
-    },
-    {
-      icon: Trash2,
-      title: t('Delete Account'),
-      description: t('Permanently delete your account and all data'),
-      action: () => dialogs.open('delete'),
-      variant: 'destructive' as const,
-    },
+    ...(!workspaceAccount
+      ? [
+          {
+            icon: Key,
+            title: t('Access Token'),
+            description: t('Generate and manage your API access token'),
+            action: () => dialogs.open('token'),
+            variant: 'default' as const,
+          },
+          {
+            icon: Trash2,
+            title: t('Delete Account'),
+            description: t('Permanently delete your account and all data'),
+            action: () => dialogs.open('delete'),
+            variant: 'destructive' as const,
+          },
+        ]
+      : []),
   ]
 
   return (
@@ -135,20 +141,24 @@ export function ProfileSecurityCard({
         username={profile.username}
       />
 
-      <AccessTokenDialog
-        open={dialogs.isOpen('token')}
-        onOpenChange={(open) =>
-          open ? dialogs.open('token') : dialogs.close('token')
-        }
-      />
+      {!workspaceAccount && (
+        <>
+          <AccessTokenDialog
+            open={dialogs.isOpen('token')}
+            onOpenChange={(open) =>
+              open ? dialogs.open('token') : dialogs.close('token')
+            }
+          />
 
-      <DeleteAccountDialog
-        open={dialogs.isOpen('delete')}
-        onOpenChange={(open) =>
-          open ? dialogs.open('delete') : dialogs.close('delete')
-        }
-        username={profile.username}
-      />
+          <DeleteAccountDialog
+            open={dialogs.isOpen('delete')}
+            onOpenChange={(open) =>
+              open ? dialogs.open('delete') : dialogs.close('delete')
+            }
+            username={profile.username}
+          />
+        </>
+      )}
     </>
   )
 }

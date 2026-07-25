@@ -109,23 +109,28 @@ func (token *Token) GetIpLimits() []string {
 	return ipLimits
 }
 
-func GetAllUserTokens(userId int, startIdx int, num int, workspaceIds ...int) ([]*Token, error) {
+// GetAllUserTokens lists the owner's tokens. allowedWorkspaceIds is the caller's
+// workspace restriction: nil means unrestricted (see applyTokenWorkspaceScope).
+func GetAllUserTokens(userId int, startIdx int, num int, workspaceId int, allowedWorkspaceIds []int) ([]*Token, error) {
 	var tokens []*Token
 	var err error
 	query := DB.Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
-	if len(workspaceIds) > 0 && workspaceIds[0] > 0 {
-		query = query.Where("workspace_id = ?", workspaceIds[0])
+	query = applyTokenWorkspaceScope(query, allowedWorkspaceIds)
+	if workspaceId > 0 {
+		query = query.Where("workspace_id = ?", workspaceId)
 	}
 	err = query.
 		Order("id desc").Limit(num).Offset(startIdx).Find(&tokens).Error
 	return tokens, err
 }
 
-func GetUserTokenFilterOptions(userId int) ([]TokenFilterOption, error) {
+func GetUserTokenFilterOptions(userId int, allowedWorkspaceIds []int) ([]TokenFilterOption, error) {
 	var options []TokenFilterOption
-	err := DB.Model(&Token{}).
+	query := DB.Model(&Token{}).
 		Select("id", "name", "workspace_id").
-		Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription").
+		Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
+	query = applyTokenWorkspaceScope(query, allowedWorkspaceIds)
+	err := query.
 		Order("id desc").
 		Scan(&options).Error
 	return options, err
@@ -170,7 +175,7 @@ func sanitizeLikePattern(input string) (string, error) {
 
 const searchHardLimit = 100
 
-func SearchUserTokens(userId int, keyword string, token string, offset int, limit int, workspaceIds ...int) (tokens []*Token, total int64, err error) {
+func SearchUserTokens(userId int, keyword string, token string, offset int, limit int, workspaceId int, allowedWorkspaceIds []int) (tokens []*Token, total int64, err error) {
 	// model 层强制截断
 	if limit <= 0 || limit > searchHardLimit {
 		limit = searchHardLimit
@@ -187,7 +192,7 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 	maxTokens := operation_setting.GetMaxUserTokens()
 	hasFuzzy := strings.Contains(keyword, "%") || strings.Contains(token, "%")
 	if hasFuzzy {
-		count, err := CountUserTokens(userId)
+		count, err := CountUserTokens(userId, 0, allowedWorkspaceIds)
 		if err != nil {
 			common.SysLog("failed to count user tokens: " + err.Error())
 			return nil, 0, errors.New("获取令牌数量失败")
@@ -198,8 +203,9 @@ func SearchUserTokens(userId int, keyword string, token string, offset int, limi
 	}
 
 	baseQuery := DB.Model(&Token{}).Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
-	if len(workspaceIds) > 0 && workspaceIds[0] > 0 {
-		baseQuery = baseQuery.Where("workspace_id = ?", workspaceIds[0])
+	baseQuery = applyTokenWorkspaceScope(baseQuery, allowedWorkspaceIds)
+	if workspaceId > 0 {
+		baseQuery = baseQuery.Where("workspace_id = ?", workspaceId)
 	}
 
 	// 非空才加 LIKE 条件，空则跳过（不过滤该字段）
@@ -322,13 +328,18 @@ func ValidateUserToken(key string) (token *Token, err error) {
 	return nil, fmt.Errorf("%w: %v", ErrDatabase, err)
 }
 
-func GetTokenByIds(id int, userId int) (*Token, error) {
+func GetTokenByIds(id int, userId int, allowedWorkspaceIds []int) (*Token, error) {
 	if id == 0 || userId == 0 {
 		return nil, errors.New("id 或 userId 为空！")
 	}
-	token := Token{Id: id, UserId: userId}
-	var err error = nil
-	err = DB.First(&token, "id = ? and user_id = ?", id, userId).Error
+	var token Token
+	query := DB.Where("id = ? AND user_id = ?", id, userId)
+	if allowedWorkspaceIds != nil {
+		// Workspace accounts may never reach subscription keys.
+		query = query.Where("billing_source IS NULL OR billing_source <> ?", "subscription")
+	}
+	query = applyTokenWorkspaceScope(query, allowedWorkspaceIds)
+	err := query.First(&token).Error
 	return &token, err
 }
 
@@ -531,18 +542,32 @@ func decreaseTokenQuota(id int, quota int) (err error) {
 }
 
 // CountUserTokens returns total number of tokens for the given user, used for pagination
-func CountUserTokens(userId int, workspaceIds ...int) (int64, error) {
+func CountUserTokens(userId int, workspaceId int, allowedWorkspaceIds []int) (int64, error) {
 	var total int64
 	query := DB.Model(&Token{}).Where("user_id = ? AND (billing_source IS NULL OR billing_source <> ?)", userId, "subscription")
-	if len(workspaceIds) > 0 && workspaceIds[0] > 0 {
-		query = query.Where("workspace_id = ?", workspaceIds[0])
+	query = applyTokenWorkspaceScope(query, allowedWorkspaceIds)
+	if workspaceId > 0 {
+		query = query.Where("workspace_id = ?", workspaceId)
 	}
 	err := query.Count(&total).Error
 	return total, err
 }
 
+// applyTokenWorkspaceScope restricts a token query to the caller's workspaces.
+// nil means "no restriction" (main account); a non-nil but empty slice means the
+// caller can reach nothing and must never fall back to the owner's full set.
+func applyTokenWorkspaceScope(query *gorm.DB, allowedWorkspaceIds []int) *gorm.DB {
+	if allowedWorkspaceIds == nil {
+		return query
+	}
+	if len(allowedWorkspaceIds) == 0 {
+		return query.Where("1 = 0")
+	}
+	return query.Where("workspace_id IN ?", allowedWorkspaceIds)
+}
+
 // BatchDeleteTokens 删除指定用户的一组令牌，返回成功删除数量
-func BatchDeleteTokens(ids []int, userId int) (int, error) {
+func BatchDeleteTokens(ids []int, userId int, allowedWorkspaceIds []int) (int, error) {
 	if len(ids) == 0 {
 		return 0, errors.New("ids 不能为空！")
 	}
@@ -550,12 +575,21 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 	tx := DB.Begin()
 
 	var tokens []Token
-	if err := tx.Where("user_id = ? AND id IN (?)", userId, ids).Find(&tokens).Error; err != nil {
+	query := tx.Where("user_id = ? AND id IN (?)", userId, ids)
+	query = applyTokenWorkspaceScope(query, allowedWorkspaceIds)
+	if err := query.Find(&tokens).Error; err != nil {
 		tx.Rollback()
 		return 0, err
 	}
+	// Restricted callers get all-or-nothing: a batch touching an out-of-scope token fails.
+	if allowedWorkspaceIds != nil && len(tokens) != len(ids) {
+		tx.Rollback()
+		return 0, errors.New("one or more tokens are unavailable")
+	}
 
-	if err := tx.Where("user_id = ? AND id IN (?)", userId, ids).Delete(&Token{}).Error; err != nil {
+	deleteQuery := tx.Where("user_id = ? AND id IN (?)", userId, ids)
+	deleteQuery = applyTokenWorkspaceScope(deleteQuery, allowedWorkspaceIds)
+	if err := deleteQuery.Delete(&Token{}).Error; err != nil {
 		tx.Rollback()
 		return 0, err
 	}
@@ -575,11 +609,14 @@ func BatchDeleteTokens(ids []int, userId int) (int, error) {
 	return len(tokens), nil
 }
 
-func GetTokenKeysByIds(ids []int, userId int) ([]Token, error) {
+func GetTokenKeysByIds(ids []int, userId int, allowedWorkspaceIds []int) ([]Token, error) {
 	var tokens []Token
-	err := DB.Select("id", commonKeyCol).
-		Where("user_id = ? AND id IN (?)", userId, ids).
-		Find(&tokens).Error
+	query := DB.Select("id", commonKeyCol, "workspace_id").Where("user_id = ? AND id IN (?)", userId, ids)
+	query = applyTokenWorkspaceScope(query, allowedWorkspaceIds)
+	err := query.Find(&tokens).Error
+	if err == nil && allowedWorkspaceIds != nil && len(tokens) != len(ids) {
+		return nil, errors.New("one or more tokens are unavailable")
+	}
 	return tokens, err
 }
 

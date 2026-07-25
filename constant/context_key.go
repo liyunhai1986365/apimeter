@@ -51,14 +51,18 @@ const (
 	ContextKeyAgentSelectedGroup  ContextKey = "agent_selected_group"
 
 	/* user related keys */
-	ContextKeyUserId      ContextKey = "id"
-	ContextKeyUserSetting ContextKey = "user_setting"
-	ContextKeyUserQuota   ContextKey = "user_quota"
-	ContextKeyUserStatus  ContextKey = "user_status"
-	ContextKeyUserEmail   ContextKey = "user_email"
-	ContextKeyUserGroup   ContextKey = "user_group"
-	ContextKeyUsingGroup  ContextKey = "group"
-	ContextKeyUserName    ContextKey = "username"
+	ContextKeyUserId               ContextKey = "id"
+	ContextKeyUserSetting          ContextKey = "user_setting"
+	ContextKeyUserQuota            ContextKey = "user_quota"
+	ContextKeyUserStatus           ContextKey = "user_status"
+	ContextKeyUserEmail            ContextKey = "user_email"
+	ContextKeyUserGroup            ContextKey = "user_group"
+	ContextKeyUsingGroup           ContextKey = "group"
+	ContextKeyUserName             ContextKey = "username"
+	ContextKeyWorkspaceActorUserId ContextKey = "workspace_actor_user_id"
+	ContextKeyWorkspaceOwnerUserId ContextKey = "workspace_owner_user_id"
+	ContextKeyWorkspaceSubaccount  ContextKey = "workspace_subaccount"
+	ContextKeyWorkspaceIds         ContextKey = "workspace_ids"
 
 	ContextKeyLocalCountTokens ContextKey = "local_count_tokens"
 

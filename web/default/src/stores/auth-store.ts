@@ -50,6 +50,10 @@ export interface AuthUser {
   has_agent?: boolean
   sidebar_modules?: string
   permissions?: UserPermissions
+  workspace_subaccount?: boolean
+  parent_user_id?: number
+  must_change_password?: boolean
+  allowed_modules?: string[]
 }
 
 interface AuthState {

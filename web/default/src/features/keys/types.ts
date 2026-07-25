@@ -66,9 +66,18 @@ export const apiKeySchema = z.object({
 
 export type ApiKey = z.infer<typeof apiKeySchema>
 
+export const workspaceAccessUserSchema = z.object({
+  id: z.number(),
+  username: z.string(),
+  display_name: z.string().nullish().default(''),
+})
+
+export type WorkspaceAccessUser = z.infer<typeof workspaceAccessUserSchema>
+
 export const workspaceSchema = z.object({
   id: z.number(),
   user_id: z.number().optional().default(0),
+  access_users: z.array(workspaceAccessUserSchema).optional().default([]),
   name: z.string(),
   description: z.string().nullish().default(''),
   is_default: z.boolean(),

@@ -18,14 +18,24 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { BriefcaseBusiness, Check, Plus } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/stores/auth-store'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useApiKeys } from './api-keys-provider'
 
-export function ApiKeyWorkspacePanel() {
+type ApiKeyWorkspacePanelProps = {
+  showTokenCount?: boolean
+}
+
+export function ApiKeyWorkspacePanel({
+  showTokenCount = true,
+}: ApiKeyWorkspacePanelProps) {
   const { t } = useTranslation()
+  const isWorkspaceSubaccount = useAuthStore(
+    (state) => state.auth.user?.workspace_subaccount === true
+  )
   const {
     workspaces,
     selectedWorkspaceId,
@@ -35,7 +45,7 @@ export function ApiKeyWorkspacePanel() {
   } = useApiKeys()
 
   return (
-    <section className='rounded-lg border bg-muted/20 p-2'>
+    <section className='bg-muted/20 rounded-lg border p-2'>
       <div className='flex gap-2 overflow-x-auto pb-1'>
         {isLoadingWorkspaces && workspaces.length === 0
           ? Array.from({ length: 4 }).map((_, index) => (
@@ -50,8 +60,8 @@ export function ApiKeyWorkspacePanel() {
                   type='button'
                   onClick={() => setSelectedWorkspaceId(workspace.id)}
                   className={cn(
-                    'min-w-48 rounded-md border bg-background px-3 py-2 text-left transition-colors',
-                    'hover:border-primary/40 hover:bg-accent/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                    'bg-background min-w-48 rounded-md border px-3 py-2 text-left transition-colors',
+                    'hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none',
                     selected && 'border-primary bg-primary/5'
                   )}
                 >
@@ -59,7 +69,7 @@ export function ApiKeyWorkspacePanel() {
                     <div className='flex min-w-0 items-center gap-2'>
                       <span
                         className={cn(
-                          'flex size-6 shrink-0 items-center justify-center rounded-md border text-muted-foreground',
+                          'text-muted-foreground flex size-6 shrink-0 items-center justify-center rounded-md border',
                           selected && 'border-primary/30 text-primary'
                         )}
                       >
@@ -80,23 +90,39 @@ export function ApiKeyWorkspacePanel() {
                     )}
                   </div>
                   <div className='text-muted-foreground mt-1 text-xs tabular-nums'>
-                    {t('{{count}} keys', {
-                      count: workspace.token_count || 0,
-                    })}
+                    {showTokenCount
+                      ? t('{{count}} keys', {
+                          count: workspace.token_count || 0,
+                        })
+                      : workspace.description ||
+                        (workspace.access_users.length > 0
+                          ? t('Accessible by {{count}} subaccounts', {
+                              count: workspace.access_users.length,
+                            })
+                          : t('Main account only'))}
+                    {showTokenCount &&
+                    !isWorkspaceSubaccount &&
+                    workspace.access_users.length > 0
+                      ? ` · ${t('{{count}} subaccounts', {
+                          count: workspace.access_users.length,
+                        })}`
+                      : ''}
                   </div>
                 </button>
               )
             })}
 
-        <Button
-          type='button'
-          variant='outline'
-          className='h-auto min-h-14 min-w-44 shrink-0 flex-col gap-1 border-dashed bg-background px-3 py-2'
-          onClick={() => setOpen('workspace-create')}
-        >
-          <Plus className='size-4' />
-          <span className='text-sm'>{t('New Workspace')}</span>
-        </Button>
+        {!isWorkspaceSubaccount && (
+          <Button
+            type='button'
+            variant='outline'
+            className='bg-background h-auto min-h-14 min-w-44 shrink-0 flex-col gap-1 border-dashed px-3 py-2'
+            onClick={() => setOpen('workspace-create')}
+          >
+            <Plus className='size-4' />
+            <span className='text-sm'>{t('New Workspace')}</span>
+          </Button>
+        )}
       </div>
     </section>
   )

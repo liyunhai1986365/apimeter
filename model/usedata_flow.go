@@ -22,14 +22,14 @@ type FlowQuotaData struct {
 	Quota       int    `json:"quota" gorm:"column:quota"`
 }
 
-func GetFlowQuotaData(startTime int64, endTime int64, username string, userID int, role int) ([]*FlowQuotaData, error) {
+func GetFlowQuotaData(startTime int64, endTime int64, username string, userID int, role int, allowedWorkspaceIds []int) ([]*FlowQuotaData, error) {
 	switch {
 	case role >= common.RoleRootUser:
 		return getRootFlowQuotaData(startTime, endTime, username)
 	case role >= common.RoleAdminUser:
 		return getAdminFlowQuotaData(startTime, endTime, username)
 	default:
-		return getSelfFlowQuotaData(startTime, endTime, userID)
+		return getSelfFlowQuotaData(startTime, endTime, userID, allowedWorkspaceIds)
 	}
 }
 
@@ -40,11 +40,13 @@ func flowQuotaBaseQuery(startTime int64, endTime int64) *gorm.DB {
 	return query
 }
 
-func getSelfFlowQuotaData(startTime int64, endTime int64, userID int) ([]*FlowQuotaData, error) {
+func getSelfFlowQuotaData(startTime int64, endTime int64, userID int, allowedWorkspaceIds []int) ([]*FlowQuotaData, error) {
 	rows := make([]*FlowQuotaData, 0)
-	err := flowQuotaBaseQuery(startTime, endTime).
+	query := flowQuotaBaseQuery(startTime, endTime).
 		Select("token_id, use_group, model_name, sum(count) as count, sum(quota) as quota, sum(token_used) as token_used").
-		Where("user_id = ?", userID).
+		Where("user_id = ?", userID)
+	query = applyQuotaDataWorkspaceScope(query, allowedWorkspaceIds)
+	err := query.
 		Group("token_id, use_group, model_name").
 		Order("quota DESC").
 		Find(&rows).Error

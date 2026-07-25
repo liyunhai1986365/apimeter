@@ -812,12 +812,12 @@ func AgentListUserTokens(c *gin.Context) {
 		return
 	}
 	pageInfo := common.GetPageQuery(c)
-	tokens, err := model.GetAllUserTokens(userID, pageInfo.GetStartIdx(), pageInfo.GetPageSize())
+	tokens, err := model.GetAllUserTokens(userID, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), 0, nil)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	total, _ := model.CountUserTokens(userID)
+	total, _ := model.CountUserTokens(userID, 0, nil)
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(buildMaskedTokenResponses(tokens))
 	common.ApiSuccess(c, pageInfo)

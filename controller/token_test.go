@@ -51,11 +51,12 @@ type tokenResponseItem struct {
 }
 
 type workspaceResponseItem struct {
-	ID          int    `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	IsDefault   bool   `json:"is_default"`
-	TokenCount  int64  `json:"token_count"`
+	ID          int                         `json:"id"`
+	Name        string                      `json:"name"`
+	Description string                      `json:"description"`
+	IsDefault   bool                        `json:"is_default"`
+	TokenCount  int64                       `json:"token_count"`
+	AccessUsers []model.WorkspaceAccessUser `json:"access_users"`
 }
 
 type tokenKeyResponse struct {
@@ -135,7 +136,7 @@ func openTokenControllerTestDB(t *testing.T) *gorm.DB {
 func migrateTokenControllerTestDB(t *testing.T, db *gorm.DB) {
 	t.Helper()
 
-	if err := db.AutoMigrate(&model.Workspace{}, &model.Token{}, &model.Log{}); err != nil {
+	if err := db.AutoMigrate(&model.User{}, &model.Workspace{}, &model.WorkspaceMember{}, &model.Token{}, &model.Log{}); err != nil {
 		t.Fatalf("failed to migrate token table: %v", err)
 	}
 }
@@ -288,6 +289,9 @@ func newAuthenticatedContext(t *testing.T, method string, target string, body an
 		ctx.Request.Header.Set("Content-Type", "application/json")
 	}
 	ctx.Set("id", userID)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{
+		ActorUserId: userID, OwnerUserId: userID,
+	})
 	return ctx, recorder
 }
 
@@ -642,6 +646,9 @@ func TestListWorkspacesIncludesDefaultAndTokenCounts(t *testing.T) {
 	_ = defaultToken
 
 	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/workspaces", nil, 1)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{
+		ActorUserId: 1, OwnerUserId: 1,
+	})
 	ListWorkspaces(ctx)
 
 	response := decodeAPIResponse(t, recorder)
@@ -664,6 +671,44 @@ func TestListWorkspacesIncludesDefaultAndTokenCounts(t *testing.T) {
 	}
 	if counts[projectWorkspace.Id] != 1 {
 		t.Fatalf("expected project workspace token count 1, got %d", counts[projectWorkspace.Id])
+	}
+}
+
+func TestListWorkspacesHidesSiblingMembersFromSubaccount(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	if err := db.Create(&[]model.User{
+		{Id: 20, Username: "child-20", DisplayName: "Child 20", ParentUserId: 10, AffCode: "c020"},
+		{Id: 21, Username: "child-21", DisplayName: "Child 21", ParentUserId: 10, AffCode: "c021"},
+	}).Error; err != nil {
+		t.Fatalf("failed to seed workspace accounts: %v", err)
+	}
+	workspace := seedWorkspace(t, 10, "Shared Project")
+	if err := db.Create(&[]model.WorkspaceMember{
+		{WorkspaceId: workspace.Id, UserId: 20},
+		{WorkspaceId: workspace.Id, UserId: 21},
+	}).Error; err != nil {
+		t.Fatalf("failed to seed workspace members: %v", err)
+	}
+
+	ctx, recorder := newAuthenticatedContext(t, http.MethodGet, "/api/workspaces", nil, 20)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{
+		ActorUserId: 20, OwnerUserId: 10, IsSubaccount: true, WorkspaceIds: []int{workspace.Id},
+	})
+	ListWorkspaces(ctx)
+
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected success response, got message: %s", response.Message)
+	}
+	var workspaces []workspaceResponseItem
+	if err := common.Unmarshal(response.Data, &workspaces); err != nil {
+		t.Fatalf("failed to decode workspace response: %v", err)
+	}
+	if len(workspaces) != 1 {
+		t.Fatalf("expected one workspace, got %d", len(workspaces))
+	}
+	if len(workspaces[0].AccessUsers) != 0 {
+		t.Fatalf("expected member list to be hidden, got %+v", workspaces[0].AccessUsers)
 	}
 }
 
@@ -846,6 +891,72 @@ func TestAddTokenReturnsCreatedTokenWithFullKey(t *testing.T) {
 	}
 	if detail.Key != token.GetFullKey() {
 		t.Fatalf("expected returned key %q to match stored key %q", detail.Key, token.GetFullKey())
+	}
+}
+
+func TestWorkspaceSubaccountCreatesTokenOwnedByMainAccount(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	workspace := model.Workspace{UserId: 10, Name: "Accessible", Status: model.WorkspaceStatusEnabled}
+	if err := db.Create(&workspace).Error; err != nil {
+		t.Fatalf("failed to create managed workspace: %v", err)
+	}
+	body := map[string]any{
+		"name":            "workspace-token",
+		"workspace_id":    workspace.Id,
+		"expired_time":    -1,
+		"unlimited_quota": true,
+		"group":           "auto",
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 20)
+	ctx.Set("group", "default")
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{
+		ActorUserId: 20, OwnerUserId: 10, IsSubaccount: true, WorkspaceIds: []int{workspace.Id},
+	})
+
+	AddToken(ctx)
+	response := decodeAPIResponse(t, recorder)
+	if !response.Success {
+		t.Fatalf("expected create response to succeed, got message: %s", response.Message)
+	}
+	var detail tokenResponseItem
+	if err := common.Unmarshal(response.Data, &detail); err != nil {
+		t.Fatalf("failed to decode create response: %v", err)
+	}
+	var token model.Token
+	if err := db.First(&token, detail.ID).Error; err != nil {
+		t.Fatalf("failed to load created token: %v", err)
+	}
+	if token.UserId != 10 {
+		t.Fatalf("expected token owner 10, got %d", token.UserId)
+	}
+	if token.WorkspaceId != workspace.Id {
+		t.Fatalf("expected workspace %d, got %d", workspace.Id, token.WorkspaceId)
+	}
+}
+
+func TestWorkspaceSubaccountCannotUpdateWorkspaceProfile(t *testing.T) {
+	db := setupTokenControllerTestDB(t)
+	workspace := model.Workspace{UserId: 10, Name: "Owner Workspace", Description: "owner description", Status: model.WorkspaceStatusEnabled}
+	if err := db.Create(&workspace).Error; err != nil {
+		t.Fatalf("failed to create workspace: %v", err)
+	}
+	ctx, recorder := newAuthenticatedContext(t, http.MethodPut, "/api/workspaces/1", map[string]any{
+		"name": "Child Update", "description": "child description",
+	}, 20)
+	ctx.Set("workspace_access_scope", &service.WorkspaceAccessScope{
+		ActorUserId: 20, OwnerUserId: 10, IsSubaccount: true, WorkspaceIds: []int{workspace.Id},
+	})
+
+	UpdateWorkspace(ctx)
+	response := decodeAPIResponse(t, recorder)
+	if response.Success {
+		t.Fatal("expected workspace account update to be rejected")
+	}
+	if err := db.First(&workspace, workspace.Id).Error; err != nil {
+		t.Fatalf("failed to reload workspace: %v", err)
+	}
+	if workspace.Name != "Owner Workspace" || workspace.Description != "owner description" {
+		t.Fatalf("workspace account changed owner-managed profile: %+v", workspace)
 	}
 }
 

@@ -145,6 +145,31 @@ func authHelper(c *gin.Context, minRole int) {
 		c.Abort()
 		return
 	}
+	userCache, err := model.GetUserCache(id.(int))
+	if err != nil || userCache.Status != common.UserStatusEnabled {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"success": false,
+			"message": common.TranslateMessage(c, i18n.MsgAuthUserBanned),
+		})
+		c.Abort()
+		return
+	}
+	if userCache.MustChangePassword {
+		// Only the two endpoints needed to read the profile and set a new password.
+		switch c.FullPath() {
+		case "/api/user/self", "/api/user/logout":
+		default:
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"message": "password change required",
+			})
+			c.Abort()
+			return
+		}
+	}
+	if !enforceWorkspaceAccountPolicy(c, userCache.ParentUserId) {
+		return
+	}
 	// 防止不同newapi版本冲突，导致数据不通用
 	c.Header("Auth-Version", "864b7076dbcd0a3c01b5520316720ebf")
 	c.Set("username", username)
@@ -153,6 +178,7 @@ func authHelper(c *gin.Context, minRole int) {
 	c.Set("group", session.Get("group"))
 	c.Set("user_group", session.Get("group"))
 	c.Set("use_access_token", useAccessToken)
+	userCache.WriteContext(c)
 
 	c.Next()
 }
@@ -205,6 +231,19 @@ func BrowserSessionAuth() func(c *gin.Context) {
 		c.Set("username", username)
 		c.Set("role", role)
 		c.Set("status", status)
+		// This path bypasses authHelper, so the workspace-account allowlist is applied here too.
+		userCache, err := model.GetUserCache(id)
+		if err != nil || userCache.Status != common.UserStatusEnabled {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"message": common.TranslateMessage(c, i18n.MsgAuthUserBanned),
+			})
+			c.Abort()
+			return
+		}
+		if !enforceWorkspaceAccountPolicy(c, userCache.ParentUserId) {
+			return
+		}
 		c.Next()
 	}
 }

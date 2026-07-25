@@ -32,12 +32,16 @@ import { ProfileSecurityCard } from './components/profile-security-card'
 import { ProfileSettingsCard } from './components/profile-settings-card'
 import { SidebarModulesCard } from './components/sidebar-modules-card'
 import { TwoFACard } from './components/two-fa-card'
+import { WorkspaceAccountProfile } from './components/workspace-account-profile'
 import { useProfile } from './hooks'
 
 export function Profile() {
   const { profile, loading, refreshProfile } = useProfile()
   const { status } = useStatus()
   const permissions = useAuthStore((s) => s.auth.user?.permissions)
+  const isWorkspaceSubaccount = useAuthStore(
+    (s) => s.auth.user?.workspace_subaccount === true
+  )
 
   const checkinEnabled = status?.checkin_enabled === true
   const turnstileEnabled = !!(
@@ -45,6 +49,27 @@ export function Profile() {
   )
   const turnstileSiteKey = status?.turnstile_site_key || ''
   const canConfigureSidebar = permissions?.sidebar_settings !== false
+
+  if (isWorkspaceSubaccount) {
+    return (
+      <Main>
+        <div className='min-h-0 flex-1 overflow-auto px-3 py-3 sm:px-4 sm:py-6'>
+          <div className='mx-auto flex w-full max-w-4xl flex-col gap-4 sm:gap-6'>
+            <WorkspaceAccountProfile profile={profile} loading={loading} />
+            <LanguagePreferencesCard
+              profile={profile}
+              onProfileUpdate={refreshProfile}
+            />
+            <ProfileSecurityCard
+              profile={profile}
+              loading={loading}
+              workspaceAccount
+            />
+          </div>
+        </div>
+      </Main>
+    )
+  }
 
   return (
     <Main>
