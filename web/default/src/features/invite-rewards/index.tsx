@@ -12,6 +12,9 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
+import { useStatus } from '@/hooks/use-status'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -47,6 +50,12 @@ import {
 } from '@/components/ui/table'
 import { CopyButton } from '@/components/copy-button'
 import { SectionPageLayout } from '@/components/layout'
+import {
+  formatInviteRegisterReward,
+  formatInviteRewardRatio,
+  getInviteRewardConfig,
+  type InviteRewardConfig,
+} from '@/features/invite/lib/reward-config'
 import { useAffiliate } from '@/features/wallet/hooks/use-affiliate'
 import { getAffiliateInvites } from './api'
 import type { AffiliateInviteRecord, AffiliateInviteStats } from './types'
@@ -57,6 +66,8 @@ export function InviteRewards() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { affiliateLink, loading: linkLoading } = useAffiliate()
+  const { status, loading: statusLoading } = useStatus()
+  const rewardConfig = getInviteRewardConfig(status)
   const inviteQuery = useQuery({
     queryKey: ['affiliate', 'invites', page, PAGE_SIZE],
     queryFn: () => getAffiliateInvites(page, PAGE_SIZE),
@@ -69,50 +80,16 @@ export function InviteRewards() {
     <SectionPageLayout>
       <SectionPageLayout.Title>{t('Invite Rewards')}</SectionPageLayout.Title>
       <SectionPageLayout.Content>
-        <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-6'>
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('Share your invite link')}</CardTitle>
-              <CardDescription>
-                {t(
-                  'Friends who register through this link will appear in your invite records.'
-                )}
-              </CardDescription>
-              <CardAction>
-                <div className='bg-muted flex size-9 items-center justify-center rounded-lg'>
-                  <HugeiconsIcon icon={Link01Icon} className='size-5' />
-                </div>
-              </CardAction>
-            </CardHeader>
-            <CardContent>
-              {linkLoading ? (
-                <Skeleton className='h-8 w-full' />
-              ) : (
-                <InputGroup className='h-9'>
-                  <InputGroupInput
-                    value={affiliateLink}
-                    readOnly
-                    aria-label={t('Invite link')}
-                    className='font-mono text-xs'
-                  />
-                  <InputGroupAddon align='inline-end'>
-                    <CopyButton
-                      value={affiliateLink}
-                      size='icon'
-                      tooltip={t('Copy referral link')}
-                      aria-label={t('Copy referral link')}
-                    />
-                  </InputGroupAddon>
-                </InputGroup>
-              )}
-            </CardContent>
-          </Card>
-
-          {inviteQuery.isPending ? (
-            <StatsSkeleton />
-          ) : (
-            <StatsGrid stats={data?.stats} />
-          )}
+        <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
+          <div className='grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]'>
+            <InviteOverviewCard
+              affiliateLink={affiliateLink}
+              linkLoading={linkLoading}
+              stats={data?.stats}
+              statsLoading={inviteQuery.isPending}
+            />
+            <RewardPolicyCard config={rewardConfig} loading={statusLoading} />
+          </div>
 
           <Card>
             <CardHeader>
@@ -221,13 +198,69 @@ export function InviteRewards() {
   )
 }
 
-function StatsGrid({ stats }: { stats?: AffiliateInviteStats }) {
+function InviteOverviewCard({
+  affiliateLink,
+  linkLoading,
+  stats,
+  statsLoading,
+}: {
+  affiliateLink: string
+  linkLoading: boolean
+  stats?: AffiliateInviteStats
+  statsLoading: boolean
+}) {
+  const { t } = useTranslation()
+  return (
+    <Card className='h-full'>
+      <CardHeader className='border-b'>
+        <CardTitle className='flex items-center gap-2'>
+          <span className='bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg'>
+            <HugeiconsIcon icon={Link01Icon} className='size-4' />
+          </span>
+          {t('Share your invite link')}
+        </CardTitle>
+        <CardDescription className='max-w-2xl'>
+          {t(
+            'Friends who register through this link will appear in your invite records.'
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className='flex flex-1 flex-col gap-5'>
+        {linkLoading ? (
+          <Skeleton className='h-10 w-full' />
+        ) : (
+          <InputGroup className='h-10'>
+            <InputGroupInput
+              value={affiliateLink}
+              readOnly
+              aria-label={t('Invite link')}
+              className='font-mono text-xs sm:text-sm'
+            />
+            <InputGroupAddon align='inline-end'>
+              <CopyButton
+                value={affiliateLink}
+                size='icon'
+                tooltip={t('Copy referral link')}
+                aria-label={t('Copy referral link')}
+              />
+            </InputGroupAddon>
+          </InputGroup>
+        )}
+
+        {statsLoading ? <StatsSkeleton /> : <StatsBand stats={stats} />}
+      </CardContent>
+    </Card>
+  )
+}
+
+function StatsBand({ stats }: { stats?: AffiliateInviteStats }) {
   const { t } = useTranslation()
   const items = [
     {
-      label: t('Total rewards earned'),
-      value: formatQuota(stats?.total_reward_quota ?? 0),
-      icon: MoneyReceiveCircleIcon,
+      label: t('Available rewards'),
+      value: formatQuota(stats?.available_reward_quota ?? 0),
+      icon: GiftIcon,
+      emphasized: true,
     },
     {
       label: t('Invited friends'),
@@ -240,32 +273,110 @@ function StatsGrid({ stats }: { stats?: AffiliateInviteStats }) {
       icon: Clock01Icon,
     },
     {
-      label: t('Available rewards'),
-      value: formatQuota(stats?.available_reward_quota ?? 0),
-      icon: GiftIcon,
+      label: t('Total rewards earned'),
+      value: formatQuota(stats?.total_reward_quota ?? 0),
+      icon: MoneyReceiveCircleIcon,
     },
   ]
 
   return (
-    <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+    <div className='bg-border grid gap-px overflow-hidden rounded-lg border sm:grid-cols-2 xl:grid-cols-4'>
       {items.map((item) => (
-        <Card key={item.label} size='sm'>
-          <CardHeader>
-            <CardTitle>{item.label}</CardTitle>
-            <CardAction>
-              <div className='bg-muted flex size-8 items-center justify-center rounded-lg'>
-                <HugeiconsIcon icon={item.icon} className='size-4' />
-              </div>
-            </CardAction>
-          </CardHeader>
-          <CardContent>
-            <div className='text-2xl font-semibold tabular-nums'>
-              {item.value}
-            </div>
-          </CardContent>
-        </Card>
+        <div key={item.label} className='bg-muted/50 min-w-0 p-3'>
+          <div className='text-muted-foreground flex items-center gap-1.5 text-xs'>
+            <HugeiconsIcon icon={item.icon} className='size-3.5 shrink-0' />
+            <span className='truncate'>{item.label}</span>
+          </div>
+          <div
+            className={`mt-2 truncate font-semibold tabular-nums ${item.emphasized ? 'text-primary text-xl' : 'text-lg'}`}
+          >
+            {item.value}
+          </div>
+        </div>
       ))}
     </div>
+  )
+}
+
+function RewardPolicyCard({
+  config,
+  loading,
+}: {
+  config: InviteRewardConfig
+  loading: boolean
+}) {
+  const { t } = useTranslation()
+  const topupLimit =
+    config.topupRewardLimit > 0
+      ? t('First {{count}} top-ups', { count: config.topupRewardLimit })
+      : t('Unlimited top-up rewards')
+  const policies = [
+    {
+      label: t('Registration reward'),
+      value: formatInviteRegisterReward(config.inviterRegisterQuota),
+      icon: GiftIcon,
+    },
+    {
+      label: t('Top-up reward'),
+      value: formatInviteRewardRatio(config.topupRewardRatio),
+      icon: MoneyReceiveCircleIcon,
+    },
+    {
+      label: t('Rewarded top-ups'),
+      value: topupLimit,
+      icon: UserMultiple02Icon,
+    },
+    {
+      label: t('Pending settlement'),
+      value: t('24 hours'),
+      icon: Clock01Icon,
+    },
+  ]
+
+  return (
+    <Card className='h-full'>
+      <CardHeader className='border-b'>
+        <CardTitle>{t('Reward Rules')}</CardTitle>
+        <CardDescription>
+          {t('Rewards are calculated automatically under the current policy.')}
+        </CardDescription>
+        <CardAction>
+          <Badge variant='secondary'>{t('Current policy')}</Badge>
+        </CardAction>
+      </CardHeader>
+      <CardContent className='flex flex-1 flex-col gap-4'>
+        {loading ? (
+          <PolicySkeleton />
+        ) : (
+          <div className='divide-y'>
+            {policies.map((policy) => (
+              <div
+                key={policy.label}
+                className='flex min-h-14 items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0'
+              >
+                <div className='text-muted-foreground flex min-w-0 items-center gap-2 text-sm'>
+                  <HugeiconsIcon
+                    icon={policy.icon}
+                    className='size-4 shrink-0'
+                  />
+                  <span>{policy.label}</span>
+                </div>
+                <span className='max-w-[58%] text-right text-sm font-semibold tabular-nums'>
+                  {policy.value}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+        <Alert className='bg-muted/40 mt-auto border-0'>
+          <AlertDescription className='text-xs leading-5'>
+            {t(
+              'Do not invite yourself with alternate accounts. Violations will result in reward recovery and serious cases may be banned.'
+            )}
+          </AlertDescription>
+        </Alert>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -371,16 +482,28 @@ function RecordMetric({ label, value }: { label: string; value: string }) {
 
 function StatsSkeleton() {
   return (
-    <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
+    <div className='bg-border grid gap-px overflow-hidden rounded-lg border sm:grid-cols-2 xl:grid-cols-4'>
       {Array.from({ length: 4 }).map((_, index) => (
-        <Card key={index} size='sm'>
-          <CardHeader>
-            <Skeleton className='h-4 w-28' />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className='h-8 w-24' />
-          </CardContent>
-        </Card>
+        <div key={index} className='bg-muted/50 space-y-2 p-3'>
+          <Skeleton className='h-3 w-24' />
+          <Skeleton className='h-6 w-20' />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PolicySkeleton() {
+  return (
+    <div className='divide-y'>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <div
+          key={index}
+          className='flex min-h-14 items-center justify-between gap-4 py-2.5 first:pt-0 last:pb-0'
+        >
+          <Skeleton className='h-4 w-28' />
+          <Skeleton className='h-5 w-20' />
+        </div>
       ))}
     </div>
   )

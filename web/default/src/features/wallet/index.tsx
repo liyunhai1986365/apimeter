@@ -255,7 +255,7 @@ export function Wallet(props: WalletProps) {
   return (
     <>
       <SectionPageLayout>
-        <SectionPageLayout.Title>{t('Wallet')}</SectionPageLayout.Title>
+        <SectionPageLayout.Title>{t('Balance Top-up')}</SectionPageLayout.Title>
         <SectionPageLayout.Description>
           {t('Manage your balance and payment methods')}
         </SectionPageLayout.Description>

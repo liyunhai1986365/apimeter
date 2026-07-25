@@ -130,7 +130,7 @@ function MobileUserProfile({ user, onNavigate }: MobileUserProfileProps) {
           className='text-primary/60 hover:text-primary/80 border-border flex items-center gap-2.5 border-b p-2.5 transition-colors'
         >
           <Wallet className='size-4' />
-          {t('Wallet')}
+          {t('Balance Top-up')}
         </Link>
 
         {showTeamSettings && (

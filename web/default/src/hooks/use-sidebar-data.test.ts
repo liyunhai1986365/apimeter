@@ -15,6 +15,22 @@ function flattenUrls(data: ReturnType<typeof buildSidebarData>): string[] {
 }
 
 describe('buildSidebarData', () => {
+  test('labels personal navigation as account for all user types', () => {
+    const regularData = buildSidebarData((key) => key, null)
+    const workspaceData = buildSidebarData((key) => key, {
+      workspace_subaccount: true,
+    })
+
+    assert.equal(
+      regularData.navGroups.find((group) => group.id === 'personal')?.title,
+      'Account'
+    )
+    assert.equal(
+      workspaceData.navGroups.find((group) => group.id === 'personal')?.title,
+      'Account'
+    )
+  })
+
   test('adds billing as an independent personal menu item', () => {
     const data = buildSidebarData((key) => key, null)
     const urls = flattenUrls(data)

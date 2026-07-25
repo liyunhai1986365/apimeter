@@ -102,7 +102,7 @@ export function buildSidebarData(
         },
         {
           id: 'personal',
-          title: t('Personal'),
+          title: t('Account'),
           items: [
             {
               title: t('Profile'),
@@ -176,10 +176,10 @@ export function buildSidebarData(
       },
       {
         id: 'personal',
-        title: t('Personal'),
+        title: t('Account'),
         items: [
           {
-            title: t('Wallet'),
+            title: t('Balance Top-up'),
             url: '/wallet',
             icon: Wallet,
           },

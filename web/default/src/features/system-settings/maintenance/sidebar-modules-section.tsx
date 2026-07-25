@@ -98,7 +98,9 @@ export function SidebarModulesSection({
       },
       supplier_directory: {
         title: t('Suppliers'),
-        description: t('Browse supplier groups, vendors, models, and discounts.'),
+        description: t(
+          'Browse supplier groups, vendors, models, and discounts.'
+        ),
       },
       log: {
         title: t('Usage logs'),
@@ -115,7 +117,7 @@ export function SidebarModulesSection({
     },
     personal: {
       topup: {
-        title: t('Wallet'),
+        title: t('Balance Top-up'),
         description: t('Top up balance and view billing history.'),
       },
       personal: {
