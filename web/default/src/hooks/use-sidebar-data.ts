@@ -32,6 +32,7 @@ import {
   MessageSquare,
   CreditCard,
   BadgeDollarSign,
+  Gift,
   ReceiptText,
   ListTodo,
   Settings2,
@@ -181,6 +182,11 @@ export function buildSidebarData(
             title: t('Wallet'),
             url: '/wallet',
             icon: Wallet,
+          },
+          {
+            title: t('Invite Rewards'),
+            url: '/invite-rewards',
+            icon: Gift,
           },
           {
             title: t('Billing'),

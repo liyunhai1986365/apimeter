@@ -23,6 +23,21 @@ describe('buildSidebarData', () => {
     assert.ok(!urls.includes('/dashboard/billing'))
   })
 
+  test('adds invite rewards as an independent personal menu item', () => {
+    const data = buildSidebarData((key) => key, null)
+    const personal = data.navGroups.find((group) => group.id === 'personal')
+    const personalUrls =
+      personal?.items
+        .filter((item) => 'url' in item && item.url)
+        .map((item) => item.url as string) ?? []
+
+    assert.ok(personalUrls.includes('/invite-rewards'))
+    assert.equal(
+      personalUrls.indexOf('/invite-rewards'),
+      personalUrls.indexOf('/wallet') + 1
+    )
+  })
+
   test('adds model profit as an independent admin menu item', () => {
     const data = buildSidebarData((key) => key, null)
     const urls = flattenUrls(data)

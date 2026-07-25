@@ -359,6 +359,22 @@ func TestServeFrontendPageReturnsNotFoundHTMLForUnknownPath(t *testing.T) {
 	require.Contains(t, recorder.Body.String(), `<div id="root"></div>`)
 }
 
+func TestServeFrontendPageReturnsOKForInviteRewards(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	assets := ThemeAssets{
+		DefaultIndexPage: []byte(`<head><!--seo-meta-start--><title>New API</title><!--seo-meta-end--></head><body><div id="root"></div></body>`),
+		ClassicIndexPage: []byte(`<head><!--seo-meta-start--><title>New API</title><!--seo-meta-end--></head><body><div id="root"></div></body>`),
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/invite-rewards", nil)
+	serveFrontendPage(c, assets)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "noindex, nofollow", recorder.Header().Get("X-Robots-Tag"))
+	require.Contains(t, recorder.Body.String(), `<div id="root"></div>`)
+}
+
 func TestResolveSEOPageRemovesCanonicalFromPrivatePath(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "https://example.com/sign-in", nil)
@@ -434,6 +450,7 @@ func TestKnownFrontendPathsMatchPublicAndPrivateRoutes(t *testing.T) {
 		"/pricing",
 		"/privacy-policy",
 		"/sign-in",
+		"/invite-rewards",
 		"/dashboard/overview",
 		"/console/chat/example",
 		"/oauth/github",

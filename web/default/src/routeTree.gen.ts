@@ -58,6 +58,7 @@ import { Route as AuthenticatedModelProfitIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedModelMonitorIndexRouteImport } from './routes/_authenticated/model-monitor/index'
 import { Route as AuthenticatedModelBillingIndexRouteImport } from './routes/_authenticated/model-billing/index'
 import { Route as AuthenticatedKeysIndexRouteImport } from './routes/_authenticated/keys/index'
+import { Route as AuthenticatedInviteRewardsIndexRouteImport } from './routes/_authenticated/invite-rewards/index'
 import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authenticated/dashboard/index'
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
 import { Route as AuthenticatedChangePasswordIndexRouteImport } from './routes/_authenticated/change-password/index'
@@ -348,6 +349,12 @@ const AuthenticatedKeysIndexRoute = AuthenticatedKeysIndexRouteImport.update({
   path: '/keys/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedInviteRewardsIndexRoute =
+  AuthenticatedInviteRewardsIndexRouteImport.update({
+    id: '/invite-rewards/',
+    path: '/invite-rewards/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardIndexRoute =
   AuthenticatedDashboardIndexRouteImport.update({
     id: '/dashboard/',
@@ -550,6 +557,7 @@ export interface FileRoutesByFullPath {
   '/change-password/': typeof AuthenticatedChangePasswordIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
   '/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/invite-rewards/': typeof AuthenticatedInviteRewardsIndexRoute
   '/keys/': typeof AuthenticatedKeysIndexRoute
   '/model-billing/': typeof AuthenticatedModelBillingIndexRoute
   '/model-monitor/': typeof AuthenticatedModelMonitorIndexRoute
@@ -624,6 +632,7 @@ export interface FileRoutesByTo {
   '/change-password': typeof AuthenticatedChangePasswordIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
   '/dashboard': typeof AuthenticatedDashboardIndexRoute
+  '/invite-rewards': typeof AuthenticatedInviteRewardsIndexRoute
   '/keys': typeof AuthenticatedKeysIndexRoute
   '/model-billing': typeof AuthenticatedModelBillingIndexRoute
   '/model-monitor': typeof AuthenticatedModelMonitorIndexRoute
@@ -703,6 +712,7 @@ export interface FileRoutesById {
   '/_authenticated/change-password/': typeof AuthenticatedChangePasswordIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
   '/_authenticated/dashboard/': typeof AuthenticatedDashboardIndexRoute
+  '/_authenticated/invite-rewards/': typeof AuthenticatedInviteRewardsIndexRoute
   '/_authenticated/keys/': typeof AuthenticatedKeysIndexRoute
   '/_authenticated/model-billing/': typeof AuthenticatedModelBillingIndexRoute
   '/_authenticated/model-monitor/': typeof AuthenticatedModelMonitorIndexRoute
@@ -781,6 +791,7 @@ export interface FileRouteTypes {
     | '/change-password/'
     | '/channels/'
     | '/dashboard/'
+    | '/invite-rewards/'
     | '/keys/'
     | '/model-billing/'
     | '/model-monitor/'
@@ -855,6 +866,7 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/channels'
     | '/dashboard'
+    | '/invite-rewards'
     | '/keys'
     | '/model-billing'
     | '/model-monitor'
@@ -933,6 +945,7 @@ export interface FileRouteTypes {
     | '/_authenticated/change-password/'
     | '/_authenticated/channels/'
     | '/_authenticated/dashboard/'
+    | '/_authenticated/invite-rewards/'
     | '/_authenticated/keys/'
     | '/_authenticated/model-billing/'
     | '/_authenticated/model-monitor/'
@@ -1337,6 +1350,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedKeysIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/invite-rewards/': {
+      id: '/_authenticated/invite-rewards/'
+      path: '/invite-rewards'
+      fullPath: '/invite-rewards/'
+      preLoaderRoute: typeof AuthenticatedInviteRewardsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard/': {
       id: '/_authenticated/dashboard/'
       path: '/dashboard'
@@ -1641,6 +1661,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedChangePasswordIndexRoute: typeof AuthenticatedChangePasswordIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
   AuthenticatedDashboardIndexRoute: typeof AuthenticatedDashboardIndexRoute
+  AuthenticatedInviteRewardsIndexRoute: typeof AuthenticatedInviteRewardsIndexRoute
   AuthenticatedKeysIndexRoute: typeof AuthenticatedKeysIndexRoute
   AuthenticatedModelBillingIndexRoute: typeof AuthenticatedModelBillingIndexRoute
   AuthenticatedModelMonitorIndexRoute: typeof AuthenticatedModelMonitorIndexRoute
@@ -1680,6 +1701,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedChangePasswordIndexRoute: AuthenticatedChangePasswordIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,
   AuthenticatedDashboardIndexRoute: AuthenticatedDashboardIndexRoute,
+  AuthenticatedInviteRewardsIndexRoute: AuthenticatedInviteRewardsIndexRoute,
   AuthenticatedKeysIndexRoute: AuthenticatedKeysIndexRoute,
   AuthenticatedModelBillingIndexRoute: AuthenticatedModelBillingIndexRoute,
   AuthenticatedModelMonitorIndexRoute: AuthenticatedModelMonitorIndexRoute,

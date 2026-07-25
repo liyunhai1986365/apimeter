@@ -45,7 +45,7 @@ export function Invite() {
   const { auth } = useAuthStore()
   const config = getInviteRewardConfig(status)
   const isAuthenticated = !!auth.user
-  const ctaHref = isAuthenticated ? '/wallet' : '/sign-up'
+  const ctaHref = isAuthenticated ? '/invite-rewards' : '/sign-up'
   const topupRatioText =
     config.topupRewardRatio > 0
       ? formatInviteRewardRatio(config.topupRewardRatio)

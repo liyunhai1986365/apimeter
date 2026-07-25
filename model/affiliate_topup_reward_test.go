@@ -214,3 +214,69 @@ func TestRechargeWaffoCreatesDelayedAffiliateTopUpReward(t *testing.T) {
 	assert.Equal(t, AffiliateTopUpRewardStatusPending, reward.Status)
 	assert.Equal(t, 0, getAffiliateRewardUserQuota(t, 8131))
 }
+
+func TestListAffiliateInvitesAggregatesCurrentInviterRewards(t *testing.T) {
+	truncateTables(t)
+	now := time.Now().Unix()
+	require.NoError(t, DB.Create(&User{
+		Id:              8201,
+		Username:        "invite-list-owner",
+		Status:          common.UserStatusEnabled,
+		AffCode:         "invite-list-owner-aff",
+		AffQuota:        5000,
+		AffHistoryQuota: 15000,
+	}).Error)
+	for _, user := range []User{
+		{Id: 8202, Username: "invite-list-newer", DisplayName: "Newer", Status: common.UserStatusEnabled, AffCode: "invite-list-newer-aff", InviterId: 8201, CreatedAt: now},
+		{Id: 8203, Username: "invite-list-older", Status: common.UserStatusEnabled, AffCode: "invite-list-older-aff", InviterId: 8201, CreatedAt: now - 60},
+		{Id: 8204, Username: "other-inviter", Status: common.UserStatusEnabled, AffCode: "other-inviter-aff"},
+		{Id: 8205, Username: "other-invitee", Status: common.UserStatusEnabled, AffCode: "other-invitee-aff", InviterId: 8204},
+	} {
+		require.NoError(t, DB.Create(&user).Error)
+	}
+	for _, reward := range []AffiliateTopUpReward{
+		{TradeNo: "invite-list-completed", InviterId: 8201, InviteeId: 8202, RewardQuota: 3000, Status: AffiliateTopUpRewardStatusCompleted},
+		{TradeNo: "invite-list-pending", InviterId: 8201, InviteeId: 8202, RewardQuota: 2000, Status: AffiliateTopUpRewardStatusPending},
+		{TradeNo: "invite-list-older-completed", InviterId: 8201, InviteeId: 8203, RewardQuota: 7000, Status: AffiliateTopUpRewardStatusCompleted},
+		{TradeNo: "other-inviter-completed", InviterId: 8204, InviteeId: 8205, RewardQuota: 9000, Status: AffiliateTopUpRewardStatusCompleted},
+	} {
+		require.NoError(t, DB.Create(&reward).Error)
+	}
+
+	records, total, stats, err := ListAffiliateInvites(8201, 0, 1)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, int64(2), total)
+	assert.Equal(t, 8202, records[0].InviteeId)
+	assert.Equal(t, int64(3000), records[0].CompletedRewardQuota)
+	assert.Equal(t, int64(2000), records[0].PendingRewardQuota)
+	assert.Equal(t, int64(2), records[0].RewardCount)
+	assert.Equal(t, AffiliateInviteStats{
+		InviteCount:               2,
+		AvailableRewardQuota:      5000,
+		RegistrationRewardQuota:   15000,
+		CompletedTopUpRewardQuota: 10000,
+		PendingTopUpRewardQuota:   2000,
+		TotalRewardQuota:          25000,
+	}, stats)
+
+	records, _, _, err = ListAffiliateInvites(8201, 1, 1)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	assert.Equal(t, 8203, records[0].InviteeId)
+	assert.Equal(t, int64(7000), records[0].CompletedRewardQuota)
+	assert.Zero(t, records[0].PendingRewardQuota)
+	assert.Equal(t, int64(1), records[0].RewardCount)
+}
+
+func TestListAffiliateInvitesReturnsEmptyArrayForNoInvites(t *testing.T) {
+	truncateTables(t)
+	seedAffiliateRewardUser(t, 8211, "invite-list-empty", 0, 0)
+
+	records, total, stats, err := ListAffiliateInvites(8211, 0, 10)
+	require.NoError(t, err)
+	assert.NotNil(t, records)
+	assert.Empty(t, records)
+	assert.Zero(t, total)
+	assert.Zero(t, stats.InviteCount)
+}

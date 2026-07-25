@@ -6194,6 +6194,24 @@
     "No workspace is available.": "利用可能なワークスペースがありません。",
     "Save members": "メンバーを保存",
     "Workspace members": "ワークスペースメンバー",
-    "You can change workspace access later in workspace settings.": "アクセス権は後からワークスペース設定で変更できます。"
+    "You can change workspace access later in workspace settings.": "アクセス権は後からワークスペース設定で変更できます。",
+    "Available rewards": "利用可能な報酬",
+    "Friends who register through this link will appear in your invite records.": "このリンクから登録した友達は招待履歴に表示されます。",
+    "Invite Rewards": "招待報酬",
+    "Invite link": "招待リンク",
+    "Invite records": "招待履歴",
+    "Invited friends": "招待した友達",
+    "Invited user": "招待ユーザー",
+    "Joined": "登録日時",
+    "No invited users yet": "招待ユーザーはまだいません",
+    "Pending settlement": "精算待ち",
+    "Please try again in a moment.": "しばらくしてからもう一度お試しください。",
+    "Rewards are grouped by each invited user.": "報酬は招待ユーザーごとに集計されます。",
+    "Rewards received": "受取済み報酬",
+    "Share your invite link": "招待リンクを共有",
+    "Share your invite link to see registrations and rewards here.": "招待リンクを共有すると、登録と報酬がここに表示されます。",
+    "Total rewards earned": "獲得報酬合計",
+    "Unable to load invite records": "招待履歴を読み込めません",
+    "{{count}} invited": "{{count}} 人を招待"
   }
 }

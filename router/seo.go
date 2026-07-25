@@ -680,7 +680,7 @@ func isKnownFrontendPath(path string) bool {
 		"/console/redemption": {}, "/console/setting": {}, "/console/subscription": {},
 		"/console/task": {}, "/console/token": {}, "/console/topup": {}, "/console/user": {},
 		"/dashboard": {}, "/forbidden": {}, "/forgot-password": {}, "/invite": {},
-		"/keys": {}, "/login": {}, "/model-billing": {}, "/model-monitor": {},
+		"/invite-rewards": {}, "/keys": {}, "/login": {}, "/model-billing": {}, "/model-monitor": {},
 		"/model-profit": {}, "/models": {}, "/oauth": {}, "/otp": {},
 		"/playground": {}, "/pricing": {}, "/privacy-policy": {}, "/profile": {},
 		"/provider": {}, "/rankings": {}, "/redemption-codes": {}, "/register": {},

@@ -37,6 +37,7 @@ const PRIVATE_PREFIXES = [
   '/chat',
   '/console',
   '/dashboard',
+  '/invite-rewards',
   '/keys',
   '/model-billing',
   '/model-monitor',

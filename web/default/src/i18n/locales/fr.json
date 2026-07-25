@@ -6194,6 +6194,24 @@
     "No workspace is available.": "Aucun espace de travail disponible.",
     "Save members": "Enregistrer les membres",
     "Workspace members": "Membres de l’espace de travail",
-    "You can change workspace access later in workspace settings.": "Vous pourrez modifier l’accès plus tard dans les paramètres de l’espace."
+    "You can change workspace access later in workspace settings.": "Vous pourrez modifier l’accès plus tard dans les paramètres de l’espace.",
+    "Available rewards": "Récompenses disponibles",
+    "Friends who register through this link will appear in your invite records.": "Les amis qui s'inscrivent via ce lien apparaîtront dans votre historique d'invitations.",
+    "Invite Rewards": "Récompenses d'invitation",
+    "Invite link": "Lien d'invitation",
+    "Invite records": "Historique des invitations",
+    "Invited friends": "Amis invités",
+    "Invited user": "Utilisateur invité",
+    "Joined": "Date d'inscription",
+    "No invited users yet": "Aucun utilisateur invité pour le moment",
+    "Pending settlement": "En attente de règlement",
+    "Please try again in a moment.": "Veuillez réessayer dans un instant.",
+    "Rewards are grouped by each invited user.": "Les récompenses sont regroupées par utilisateur invité.",
+    "Rewards received": "Récompenses reçues",
+    "Share your invite link": "Partagez votre lien d'invitation",
+    "Share your invite link to see registrations and rewards here.": "Partagez votre lien d'invitation pour afficher ici les inscriptions et les récompenses.",
+    "Total rewards earned": "Total des récompenses obtenues",
+    "Unable to load invite records": "Impossible de charger l'historique des invitations",
+    "{{count}} invited": "{{count}} personnes invitées"
   }
 }

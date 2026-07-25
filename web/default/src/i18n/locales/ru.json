@@ -6194,6 +6194,24 @@
     "No workspace is available.": "Нет доступных рабочих пространств.",
     "Save members": "Сохранить участников",
     "Workspace members": "Участники рабочего пространства",
-    "You can change workspace access later in workspace settings.": "Доступ можно изменить позже в настройках рабочего пространства."
+    "You can change workspace access later in workspace settings.": "Доступ можно изменить позже в настройках рабочего пространства.",
+    "Available rewards": "Доступные награды",
+    "Friends who register through this link will appear in your invite records.": "Друзья, зарегистрировавшиеся по этой ссылке, появятся в истории приглашений.",
+    "Invite Rewards": "Награды за приглашения",
+    "Invite link": "Ссылка-приглашение",
+    "Invite records": "История приглашений",
+    "Invited friends": "Приглашенные друзья",
+    "Invited user": "Приглашенный пользователь",
+    "Joined": "Дата регистрации",
+    "No invited users yet": "Приглашенных пользователей пока нет",
+    "Pending settlement": "Ожидает начисления",
+    "Please try again in a moment.": "Повторите попытку чуть позже.",
+    "Rewards are grouped by each invited user.": "Награды сгруппированы по каждому приглашенному пользователю.",
+    "Rewards received": "Полученные награды",
+    "Share your invite link": "Поделитесь ссылкой-приглашением",
+    "Share your invite link to see registrations and rewards here.": "Поделитесь ссылкой-приглашением, чтобы здесь появились регистрации и награды.",
+    "Total rewards earned": "Всего получено наград",
+    "Unable to load invite records": "Не удалось загрузить историю приглашений",
+    "{{count}} invited": "Приглашено: {{count}}"
   }
 }

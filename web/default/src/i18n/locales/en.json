@@ -6194,6 +6194,24 @@
     "No workspace is available.": "No workspace is available.",
     "Save members": "Save members",
     "Workspace members": "Workspace members",
-    "You can change workspace access later in workspace settings.": "You can change workspace access later in workspace settings."
+    "You can change workspace access later in workspace settings.": "You can change workspace access later in workspace settings.",
+    "Available rewards": "Available rewards",
+    "Friends who register through this link will appear in your invite records.": "Friends who register through this link will appear in your invite records.",
+    "Invite Rewards": "Invite Rewards",
+    "Invite link": "Invite link",
+    "Invite records": "Invite records",
+    "Invited friends": "Invited friends",
+    "Invited user": "Invited user",
+    "Joined": "Joined",
+    "No invited users yet": "No invited users yet",
+    "Pending settlement": "Pending settlement",
+    "Please try again in a moment.": "Please try again in a moment.",
+    "Rewards are grouped by each invited user.": "Rewards are grouped by each invited user.",
+    "Rewards received": "Rewards received",
+    "Share your invite link": "Share your invite link",
+    "Share your invite link to see registrations and rewards here.": "Share your invite link to see registrations and rewards here.",
+    "Total rewards earned": "Total rewards earned",
+    "Unable to load invite records": "Unable to load invite records",
+    "{{count}} invited": "{{count}} invited"
   }
 }

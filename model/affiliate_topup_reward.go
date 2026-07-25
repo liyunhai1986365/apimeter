@@ -35,6 +35,108 @@ type AffiliateTopUpReward struct {
 	UpdatedAt       int64   `json:"updated_at" gorm:"bigint"`
 }
 
+type AffiliateInviteRecord struct {
+	InviteeId            int    `json:"invitee_id"`
+	Username             string `json:"username"`
+	DisplayName          string `json:"display_name"`
+	CreatedAt            int64  `json:"created_at"`
+	CompletedRewardQuota int64  `json:"completed_reward_quota"`
+	PendingRewardQuota   int64  `json:"pending_reward_quota"`
+	RewardCount          int64  `json:"reward_count"`
+}
+
+type AffiliateInviteStats struct {
+	InviteCount               int64 `json:"invite_count"`
+	AvailableRewardQuota      int   `json:"available_reward_quota"`
+	RegistrationRewardQuota   int   `json:"registration_reward_quota"`
+	CompletedTopUpRewardQuota int64 `json:"completed_topup_reward_quota"`
+	PendingTopUpRewardQuota   int64 `json:"pending_topup_reward_quota"`
+	TotalRewardQuota          int64 `json:"total_reward_quota"`
+}
+
+type affiliateInviteRewardAggregate struct {
+	InviteeId   int    `gorm:"column:invitee_id"`
+	Status      string `gorm:"column:status"`
+	RewardQuota int64  `gorm:"column:reward_quota"`
+	RewardCount int64  `gorm:"column:reward_count"`
+}
+
+func ListAffiliateInvites(inviterId int, startIdx int, pageSize int) ([]AffiliateInviteRecord, int64, AffiliateInviteStats, error) {
+	var stats AffiliateInviteStats
+	var inviter User
+	if err := DB.Select("aff_quota", "aff_history").Where("id = ?", inviterId).First(&inviter).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	stats.AvailableRewardQuota = inviter.AffQuota
+	stats.RegistrationRewardQuota = inviter.AffHistoryQuota
+
+	inviteQuery := DB.Model(&User{}).Where("inviter_id = ?", inviterId)
+	if err := inviteQuery.Count(&stats.InviteCount).Error; err != nil {
+		return nil, 0, stats, err
+	}
+
+	if err := DB.Model(&AffiliateTopUpReward{}).
+		Where("inviter_id = ? AND status = ?", inviterId, AffiliateTopUpRewardStatusCompleted).
+		Select("COALESCE(SUM(reward_quota), 0)").
+		Scan(&stats.CompletedTopUpRewardQuota).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	if err := DB.Model(&AffiliateTopUpReward{}).
+		Where("inviter_id = ? AND status = ?", inviterId, AffiliateTopUpRewardStatusPending).
+		Select("COALESCE(SUM(reward_quota), 0)").
+		Scan(&stats.PendingTopUpRewardQuota).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	stats.TotalRewardQuota = int64(stats.RegistrationRewardQuota) + stats.CompletedTopUpRewardQuota
+
+	records := make([]AffiliateInviteRecord, 0)
+	if err := inviteQuery.
+		Select("id AS invitee_id", "username", "display_name", "created_at").
+		Order("created_at DESC").
+		Order("id DESC").
+		Limit(pageSize).
+		Offset(startIdx).
+		Scan(&records).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	if len(records) == 0 {
+		return records, stats.InviteCount, stats, nil
+	}
+
+	inviteeIds := make([]int, 0, len(records))
+	for _, record := range records {
+		inviteeIds = append(inviteeIds, record.InviteeId)
+	}
+	var aggregates []affiliateInviteRewardAggregate
+	if err := DB.Model(&AffiliateTopUpReward{}).
+		Select("invitee_id", "status", "SUM(reward_quota) AS reward_quota", "COUNT(*) AS reward_count").
+		Where("inviter_id = ? AND invitee_id IN ?", inviterId, inviteeIds).
+		Group("invitee_id, status").
+		Scan(&aggregates).Error; err != nil {
+		return nil, 0, stats, err
+	}
+
+	recordByInviteeId := make(map[int]*AffiliateInviteRecord, len(records))
+	for i := range records {
+		recordByInviteeId[records[i].InviteeId] = &records[i]
+	}
+	for _, aggregate := range aggregates {
+		record := recordByInviteeId[aggregate.InviteeId]
+		if record == nil {
+			continue
+		}
+		record.RewardCount += aggregate.RewardCount
+		switch aggregate.Status {
+		case AffiliateTopUpRewardStatusCompleted:
+			record.CompletedRewardQuota = aggregate.RewardQuota
+		case AffiliateTopUpRewardStatusPending:
+			record.PendingRewardQuota = aggregate.RewardQuota
+		}
+	}
+
+	return records, stats.InviteCount, stats, nil
+}
+
 func CalculateAffiliateTopUpRewardQuota(topUpQuota int, ratio float64) int {
 	if topUpQuota <= 0 || ratio <= 0 {
 		return 0

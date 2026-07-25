@@ -428,6 +428,26 @@ func GetAffCode(c *gin.Context) {
 	return
 }
 
+func GetAffiliateInvites(c *gin.Context) {
+	pageInfo := common.GetPageQuery(c)
+	records, total, stats, err := model.ListAffiliateInvites(
+		c.GetInt("id"),
+		pageInfo.GetStartIdx(),
+		pageInfo.GetPageSize(),
+	)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, gin.H{
+		"items":     records,
+		"total":     total,
+		"page":      pageInfo.GetPage(),
+		"page_size": pageInfo.GetPageSize(),
+		"stats":     stats,
+	})
+}
+
 func GetSelf(c *gin.Context) {
 	id := c.GetInt("id")
 	userRole := c.GetInt("role")

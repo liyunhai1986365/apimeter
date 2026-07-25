@@ -72,6 +72,13 @@ describe('SEO helpers', () => {
       resolveSEODescriptor('/dashboard/overview', 'ModelSell', t).robots,
       'noindex, nofollow'
     )
+    const inviteRewards = resolveSEODescriptor(
+      '/invite-rewards',
+      'ModelSell',
+      t
+    )
+    assert.equal(inviteRewards.title, 'ModelSell')
+    assert.equal(inviteRewards.robots, 'noindex, nofollow')
   })
 
   test('uses the AI creation tools title for the private creation page', () => {

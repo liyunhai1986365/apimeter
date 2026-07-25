@@ -6194,6 +6194,24 @@
     "No workspace is available.": "暂无可用工作区。",
     "Save members": "保存成员",
     "Workspace members": "工作区成员",
-    "You can change workspace access later in workspace settings.": "之后可以在工作区设置中更改访问权限。"
+    "You can change workspace access later in workspace settings.": "之后可以在工作区设置中更改访问权限。",
+    "Available rewards": "可划转奖励",
+    "Friends who register through this link will appear in your invite records.": "通过此链接注册的好友会显示在你的邀请记录中。",
+    "Invite Rewards": "邀请奖励",
+    "Invite link": "邀请链接",
+    "Invite records": "邀请记录",
+    "Invited friends": "已邀请好友",
+    "Invited user": "受邀用户",
+    "Joined": "注册时间",
+    "No invited users yet": "暂无受邀用户",
+    "Pending settlement": "待结算",
+    "Please try again in a moment.": "请稍后重试。",
+    "Rewards are grouped by each invited user.": "奖励按每位受邀用户汇总。",
+    "Rewards received": "已到账奖励",
+    "Share your invite link": "分享你的邀请链接",
+    "Share your invite link to see registrations and rewards here.": "分享邀请链接后，注册用户和奖励记录会显示在这里。",
+    "Total rewards earned": "累计获得奖励",
+    "Unable to load invite records": "无法加载邀请记录",
+    "{{count}} invited": "已邀请 {{count}} 人"
   }
 }

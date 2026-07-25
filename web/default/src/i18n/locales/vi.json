@@ -6194,6 +6194,24 @@
     "No workspace is available.": "Không có không gian làm việc nào.",
     "Save members": "Lưu thành viên",
     "Workspace members": "Thành viên không gian làm việc",
-    "You can change workspace access later in workspace settings.": "Bạn có thể thay đổi quyền truy cập sau trong phần cài đặt không gian làm việc."
+    "You can change workspace access later in workspace settings.": "Bạn có thể thay đổi quyền truy cập sau trong phần cài đặt không gian làm việc.",
+    "Available rewards": "Phần thưởng khả dụng",
+    "Friends who register through this link will appear in your invite records.": "Bạn bè đăng ký qua liên kết này sẽ xuất hiện trong lịch sử mời của bạn.",
+    "Invite Rewards": "Phần thưởng giới thiệu",
+    "Invite link": "Liên kết mời",
+    "Invite records": "Lịch sử mời",
+    "Invited friends": "Bạn bè đã mời",
+    "Invited user": "Người dùng được mời",
+    "Joined": "Ngày tham gia",
+    "No invited users yet": "Chưa có người dùng được mời",
+    "Pending settlement": "Đang chờ quyết toán",
+    "Please try again in a moment.": "Vui lòng thử lại sau giây lát.",
+    "Rewards are grouped by each invited user.": "Phần thưởng được nhóm theo từng người dùng được mời.",
+    "Rewards received": "Phần thưởng đã nhận",
+    "Share your invite link": "Chia sẻ liên kết mời",
+    "Share your invite link to see registrations and rewards here.": "Chia sẻ liên kết mời để xem lượt đăng ký và phần thưởng tại đây.",
+    "Total rewards earned": "Tổng phần thưởng đã nhận",
+    "Unable to load invite records": "Không thể tải lịch sử mời",
+    "{{count}} invited": "Đã mời {{count}} người"
   }
 }
