@@ -3825,6 +3825,12 @@
     "并确认自行承担部署": "confirm that I bear legal responsibility arising from deployment",
     "运营和收费行为产生的法律责任": "operation and charging behavior",
     "，": ", ",
-    "、": ", "
+    "、": ", ",
+    "Google Analytics 衡量 ID": "Google Analytics Measurement ID",
+    "请输入有效的 Google Analytics 衡量 ID，例如 G-6B94BX72EW": "Enter a valid Google Analytics Measurement ID, such as G-6B94BX72EW",
+    "Google Analytics 配置已更新": "Google Analytics configuration updated",
+    "Google Analytics 配置更新失败": "Failed to update Google Analytics configuration",
+    "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "Enter a GA4 Measurement ID to load Google Analytics on every page. Leave empty to disable it.",
+    "设置 Google Analytics": "Configure Google Analytics"
   }
 }

@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,8 @@ var completionRatioMetaOptionKeys = []string{
 	"AudioRatio",
 	"AudioCompletionRatio",
 }
+
+var googleAnalyticsMeasurementIDPattern = regexp.MustCompile(`^G-[A-Z0-9]{4,32}$`)
 
 func isPaymentComplianceOptionKey(key string) bool {
 	return strings.HasPrefix(key, "payment_setting.compliance_")
@@ -366,6 +369,16 @@ func UpdateOption(c *gin.Context) {
 			})
 			return
 		}
+	case "GoogleAnalyticsId":
+		value := strings.TrimSpace(option.Value.(string))
+		if value != "" && !googleAnalyticsMeasurementIDPattern.MatchString(value) {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "Google Analytics Measurement ID 格式无效，应类似 G-6B94BX72EW",
+			})
+			return
+		}
+		option.Value = value
 	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {

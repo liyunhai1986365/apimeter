@@ -50,6 +50,33 @@ func TestGetStatusUsesAgentDomainForDisplayedServerAddress(t *testing.T) {
 	require.Equal(t, "https://agent.example.com/v1/chat/completions", firstApiInfo["url"])
 }
 
+func TestGetStatusIncludesGoogleAnalyticsMeasurementID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldMeasurementID := common.OptionMap["GoogleAnalyticsId"]
+	common.OptionMap["GoogleAnalyticsId"] = "G-6B94BX72EW"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap["GoogleAnalyticsId"] = oldMeasurementID
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.GET("/api/status", GetStatus)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	require.Equal(t, "G-6B94BX72EW", data["google_analytics_id"])
+}
+
 func TestGetHomePageContentUsesAgentBrandingContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.OptionMapRWMutex.Lock()

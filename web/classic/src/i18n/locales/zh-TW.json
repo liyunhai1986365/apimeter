@@ -3672,6 +3672,12 @@
     "并确认自行承担部署": "並確認自行承擔部署",
     "运营和收费行为产生的法律责任": "營運和收費行為產生的法律責任",
     "，": "，",
-    "、": "、"
+    "、": "、",
+    "Google Analytics 衡量 ID": "Google Analytics 評估 ID",
+    "请输入有效的 Google Analytics 衡量 ID，例如 G-6B94BX72EW": "請輸入有效的 Google Analytics 評估 ID，例如 G-6B94BX72EW",
+    "Google Analytics 配置已更新": "Google Analytics 設定已更新",
+    "Google Analytics 配置更新失败": "Google Analytics 設定更新失敗",
+    "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "填寫 GA4 評估 ID 後，將在所有頁面載入 Google Analytics；留空則停用",
+    "设置 Google Analytics": "設定 Google Analytics"
   }
 }

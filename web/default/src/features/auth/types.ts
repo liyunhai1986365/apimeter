@@ -93,6 +93,7 @@ export interface SystemStatus {
     system_name?: string
     logo?: string
     customer_service_script?: string
+    google_analytics_id?: string
     github_oauth?: boolean
     github_client_id?: string
     discord_oauth?: boolean
@@ -136,6 +137,7 @@ export interface SystemStatus {
   system_name?: string
   logo?: string
   customer_service_script?: string
+  google_analytics_id?: string
   github_oauth?: boolean
   github_client_id?: string
   discord_oauth?: boolean

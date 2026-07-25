@@ -72,6 +72,7 @@ func InitOptionMap() {
 	common.OptionMap["About"] = ""
 	common.OptionMap["HomePageContent"] = ""
 	common.OptionMap["CustomerServiceScript"] = ""
+	common.OptionMap["GoogleAnalyticsId"] = ""
 	common.OptionMap["Footer"] = common.Footer
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo

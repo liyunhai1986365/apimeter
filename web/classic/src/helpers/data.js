@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import { applyCustomerServiceScript } from './customerServiceScript';
+import { applyGoogleAnalytics } from './googleAnalytics';
 
 export function setStatusData(data) {
   localStorage.setItem('status', JSON.stringify(data));
@@ -29,6 +30,8 @@ export function setStatusData(data) {
     data.customer_service_script || '',
   );
   applyCustomerServiceScript(data.customer_service_script);
+  localStorage.setItem('google_analytics_id', data.google_analytics_id || '');
+  applyGoogleAnalytics(data.google_analytics_id);
   localStorage.setItem('quota_per_unit', data.quota_per_unit);
   // 兼容：保留旧字段，同时写入新的额度展示类型
   localStorage.setItem('display_in_currency', data.display_in_currency);

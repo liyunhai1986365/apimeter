@@ -44,6 +44,7 @@ export interface SystemConfig {
   serverAddress?: string
   footerHtml?: string
   customerServiceScript?: string
+  googleAnalyticsId?: string
   demoSiteEnabled?: boolean
   displayTokenStatEnabled?: boolean
   currency: CurrencyConfig

@@ -3699,6 +3699,12 @@
     "并确认自行承担部署": "confirm that I bear legal responsibility arising from deployment",
     "运营和收费行为产生的法律责任": "operation and charging behavior",
     "，": ", ",
-    "、": ", "
+    "、": ", ",
+    "Google Analytics 衡量 ID": "Идентификатор ресурса Google Analytics",
+    "请输入有效的 Google Analytics 衡量 ID，例如 G-6B94BX72EW": "Введите корректный идентификатор ресурса Google Analytics, например G-6B94BX72EW",
+    "Google Analytics 配置已更新": "Конфигурация Google Analytics обновлена",
+    "Google Analytics 配置更新失败": "Не удалось обновить конфигурацию Google Analytics",
+    "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "Введите идентификатор ресурса GA4, чтобы загружать Google Analytics на каждой странице. Оставьте поле пустым, чтобы отключить аналитику.",
+    "设置 Google Analytics": "Настроить Google Analytics"
   }
 }

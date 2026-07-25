@@ -21,6 +21,7 @@ import type { Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { RotateCcw } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { normalizeGoogleAnalyticsId } from '@/lib/google-analytics'
 import { Button } from '@/components/ui/button'
 import {
   Form,
@@ -58,6 +59,7 @@ const _systemInfoSchema = z.object({
   About: z.string().optional(),
   HomePageContent: z.string().optional(),
   CustomerServiceScript: z.string().optional(),
+  GoogleAnalyticsId: z.string().optional(),
   legal: z.object({
     user_agreement: z.string().optional(),
     privacy_policy: z.string().optional(),
@@ -91,6 +93,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     About: normalizeValue(defaultValues.About),
     HomePageContent: normalizeValue(defaultValues.HomePageContent),
     CustomerServiceScript: normalizeValue(defaultValues.CustomerServiceScript),
+    GoogleAnalyticsId: normalizeValue(defaultValues.GoogleAnalyticsId),
     legal: {
       user_agreement: normalizeValue(defaultValues.legal?.user_agreement),
       privacy_policy: normalizeValue(defaultValues.legal?.privacy_policy),
@@ -110,6 +113,17 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     About: z.string().optional(),
     HomePageContent: z.string().optional(),
     CustomerServiceScript: z.string().optional(),
+    GoogleAnalyticsId: z
+      .string()
+      .refine(
+        (value) => !value.trim() || Boolean(normalizeGoogleAnalyticsId(value)),
+        {
+          error: () =>
+            t(
+              'Enter a valid Google Analytics Measurement ID, such as G-6B94BX72EW'
+            ),
+        }
+      ),
     legal: z.object({
       user_agreement: z.string().optional(),
       privacy_policy: z.string().optional(),
@@ -129,6 +143,9 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
           let v = normalizeValue(value)
           if (key === 'ServerAddress') {
             v = v.replace(/\/+$/, '')
+          }
+          if (key === 'GoogleAnalyticsId') {
+            v = normalizeGoogleAnalyticsId(v)
           }
           await updateOption.mutateAsync({
             key,
@@ -334,6 +351,25 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormDescription>
                     {t(
                       'Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='GoogleAnalyticsId'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Google Analytics Measurement ID')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder='G-6B94BX72EW' {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Enter a GA4 Measurement ID to load Google Analytics on every page. Leave empty to disable it.'
                     )}
                   </FormDescription>
                   <FormMessage />

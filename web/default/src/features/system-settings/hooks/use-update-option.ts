@@ -21,6 +21,7 @@ import i18next from 'i18next'
 import { toast } from 'sonner'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 import { applyCustomerServiceScript } from '@/lib/customer-service-script'
+import { applyGoogleAnalytics } from '@/lib/google-analytics'
 import { updateSystemOption } from '../api'
 import type { UpdateOptionRequest } from '../types'
 
@@ -30,6 +31,7 @@ const STATUS_RELATED_KEYS = [
   'HeaderNavModules',
   'SidebarModulesAdmin',
   'CustomerServiceScript',
+  'GoogleAnalyticsId',
   'Notice',
   'console_setting.announcements',
   'console_setting.announcements_enabled',
@@ -64,6 +66,14 @@ export function useUpdateOption() {
             customerServiceScript: value,
           })
           applyCustomerServiceScript(value)
+        }
+
+        if (variables.key === 'GoogleAnalyticsId') {
+          const value = String(variables.value ?? '')
+          useSystemConfigStore.getState().setConfig({
+            googleAnalyticsId: value,
+          })
+          applyGoogleAnalytics(value)
         }
 
         toast.success(i18next.t('Setting updated successfully'))

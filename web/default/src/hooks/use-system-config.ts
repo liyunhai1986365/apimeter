@@ -27,6 +27,7 @@ import {
 import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
 import { applyCustomerServiceScript } from '@/lib/customer-service-script'
 import { applyFaviconToDom } from '@/lib/dom-utils'
+import { applyGoogleAnalytics } from '@/lib/google-analytics'
 import { getPublicServerAddress } from '@/lib/server-address'
 
 interface UseSystemConfigOptions {
@@ -42,6 +43,7 @@ interface StatusApiResponse {
     server_address?: string
     footer_html?: string
     customer_service_script?: string
+    google_analytics_id?: string
     demo_site_enabled?: boolean
     display_token_stat_enabled?: boolean
     display_in_currency?: boolean
@@ -113,6 +115,7 @@ export function mapStatusDataToConfig(
     serverAddress: getPublicServerAddress(data as Record<string, unknown>),
     footerHtml: statusData.footer_html,
     customerServiceScript: statusData.customer_service_script,
+    googleAnalyticsId: statusData.google_analytics_id,
     demoSiteEnabled: statusData.demo_site_enabled,
     displayTokenStatEnabled: statusData.display_token_stat_enabled,
     currency,
@@ -190,6 +193,10 @@ export function useSystemConfig(options: UseSystemConfigOptions = {}) {
   useEffect(() => {
     applyCustomerServiceScript(config.customerServiceScript)
   }, [config.customerServiceScript])
+
+  useEffect(() => {
+    applyGoogleAnalytics(config.googleAnalyticsId)
+  }, [config.googleAnalyticsId])
 
   // Preload logo image when URL changes
   useEffect(() => {

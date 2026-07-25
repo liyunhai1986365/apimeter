@@ -32,6 +32,7 @@ import { getStatus } from '@/lib/api'
 import { applyCustomerServiceScript } from '@/lib/customer-service-script'
 import '@/lib/dayjs'
 import { applyFaviconToDom } from '@/lib/dom-utils'
+import { applyGoogleAnalytics } from '@/lib/google-analytics'
 import { handleServerError } from '@/lib/handle-server-error'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
@@ -128,6 +129,9 @@ const rootElement = document.getElementById('root')!
         if (s?.customer_service_script) {
           applyCustomerServiceScript(s.customer_service_script as string)
         }
+        if (s?.google_analytics_id) {
+          applyGoogleAnalytics(s.google_analytics_id as string)
+        }
       }
     } catch {
       /* empty */
@@ -145,6 +149,7 @@ const rootElement = document.getElementById('root')!
         }
         if (s?.logo) applyFaviconToDom(s.logo as string)
         applyCustomerServiceScript(s?.customer_service_script as string)
+        applyGoogleAnalytics(s?.google_analytics_id as string)
       })
       .catch(() => {
         /* empty */

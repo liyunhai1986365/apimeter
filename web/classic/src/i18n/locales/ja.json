@@ -3648,6 +3648,12 @@
     "并确认自行承担部署": "confirm that I bear legal responsibility arising from deployment",
     "运营和收费行为产生的法律责任": "operation and charging behavior",
     "，": ", ",
-    "、": ", "
+    "、": ", ",
+    "Google Analytics 衡量 ID": "Google Analytics 測定 ID",
+    "请输入有效的 Google Analytics 衡量 ID，例如 G-6B94BX72EW": "G-6B94BX72EW のような有効な Google Analytics 測定 ID を入力してください",
+    "Google Analytics 配置已更新": "Google Analytics の設定を更新しました",
+    "Google Analytics 配置更新失败": "Google Analytics の設定を更新できませんでした",
+    "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "GA4 測定 ID を入力すると、すべてのページで Google Analytics が読み込まれます。無効にする場合は空欄にしてください。",
+    "设置 Google Analytics": "Google Analytics を設定"
   }
 }

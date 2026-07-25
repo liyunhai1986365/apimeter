@@ -33,6 +33,10 @@ import { marked } from 'marked';
 import { useTranslation } from 'react-i18next';
 import { StatusContext } from '../../context/Status';
 import Text from '@douyinfe/semi-ui/lib/es/typography/text';
+import {
+  applyGoogleAnalytics,
+  normalizeGoogleAnalyticsId,
+} from '../../helpers/googleAnalytics';
 
 const LEGAL_USER_AGREEMENT_KEY = 'legal.user_agreement';
 const LEGAL_PRIVACY_POLICY_KEY = 'legal.privacy_policy';
@@ -48,6 +52,7 @@ const OtherSetting = () => {
     Footer: '',
     About: '',
     HomePageContent: '',
+    GoogleAnalyticsId: '',
   });
   let [loading, setLoading] = useState(false);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -70,6 +75,7 @@ const OtherSetting = () => {
       showError(message);
     }
     setLoading(false);
+    return success;
   };
 
   const [loadingInput, setLoadingInput] = useState({
@@ -81,6 +87,7 @@ const OtherSetting = () => {
     HomePageContent: false,
     About: false,
     Footer: false,
+    GoogleAnalyticsId: false,
     CheckUpdate: false,
     FrontendTheme: false,
   });
@@ -226,6 +233,33 @@ const OtherSetting = () => {
       showError('页脚内容更新失败');
     } finally {
       setLoadingInput((loadingInput) => ({ ...loadingInput, Footer: false }));
+    }
+  };
+
+  const submitGoogleAnalyticsId = async () => {
+    const measurementId = normalizeGoogleAnalyticsId(inputs.GoogleAnalyticsId);
+    if (inputs.GoogleAnalyticsId?.trim() && !measurementId) {
+      showError(t('请输入有效的 Google Analytics 衡量 ID，例如 G-6B94BX72EW'));
+      return;
+    }
+
+    try {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        GoogleAnalyticsId: true,
+      }));
+      const success = await updateOption('GoogleAnalyticsId', measurementId);
+      if (!success) return;
+      applyGoogleAnalytics(measurementId);
+      showSuccess(t('Google Analytics 配置已更新'));
+    } catch (error) {
+      console.error('Google Analytics update failed', error);
+      showError(t('Google Analytics 配置更新失败'));
+    } finally {
+      setLoadingInput((loadingInput) => ({
+        ...loadingInput,
+        GoogleAnalyticsId: false,
+      }));
     }
   };
 
@@ -539,6 +573,21 @@ const OtherSetting = () => {
               />
               <Button onClick={submitFooter} loading={loadingInput['Footer']}>
                 {t('设置页脚')}
+              </Button>
+              <Form.Input
+                label={t('Google Analytics 衡量 ID')}
+                placeholder='G-6B94BX72EW'
+                field={'GoogleAnalyticsId'}
+                onChange={handleInputChange}
+                helpText={t(
+                  '填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用',
+                )}
+              />
+              <Button
+                onClick={submitGoogleAnalyticsId}
+                loading={loadingInput['GoogleAnalyticsId']}
+              >
+                {t('设置 Google Analytics')}
               </Button>
             </Form.Section>
           </Card>

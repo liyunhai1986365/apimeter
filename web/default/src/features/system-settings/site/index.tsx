@@ -32,6 +32,7 @@ const defaultSiteSettings: SiteSettings = {
   About: '',
   HomePageContent: '',
   CustomerServiceScript: '',
+  GoogleAnalyticsId: '',
   ServerAddress: '',
   'legal.user_agreement': '',
   'legal.privacy_policy': '',

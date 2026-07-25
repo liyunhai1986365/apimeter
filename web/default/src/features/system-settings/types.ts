@@ -112,6 +112,7 @@ export type SiteSettings = {
   About: string
   HomePageContent: string
   CustomerServiceScript: string
+  GoogleAnalyticsId: string
   ServerAddress: string
   'legal.user_agreement': string
   'legal.privacy_policy': string

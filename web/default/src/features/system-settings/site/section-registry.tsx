@@ -50,6 +50,7 @@ const SITE_SECTIONS = [
           About: settings.About,
           HomePageContent: settings.HomePageContent,
           CustomerServiceScript: settings.CustomerServiceScript,
+          GoogleAnalyticsId: settings.GoogleAnalyticsId,
           ServerAddress: settings.ServerAddress,
           legal: {
             user_agreement: settings['legal.user_agreement'],
