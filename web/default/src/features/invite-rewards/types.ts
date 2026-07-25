@@ -1,3 +1,5 @@
+import type { AffiliateRewardPolicy } from '@/features/invite/types'
+
 export interface AffiliateInviteRecord {
   invitee_id: number
   username: string
@@ -23,6 +25,7 @@ export interface AffiliateInvitePage {
   page: number
   page_size: number
   stats: AffiliateInviteStats
+  affiliate_policy: AffiliateRewardPolicy
 }
 
 export interface ApiResponse<T> {

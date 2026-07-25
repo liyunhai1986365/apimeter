@@ -6215,6 +6215,20 @@
     "Share your invite link to see registrations and rewards here.": "Partagez votre lien d'invitation pour afficher ici les inscriptions et les récompenses.",
     "Total rewards earned": "Total des récompenses obtenues",
     "Unable to load invite records": "Impossible de charger l'historique des invitations",
-    "{{count}} invited": "{{count}} personnes invitées"
+    "{{count}} invited": "{{count}} personnes invitées",
+    "Distributor Roles": "Rôles de distribution",
+    "Configure role-specific referral policies. Empty fields inherit the system defaults above.": "Configurez les règles de parrainage par rôle. Les champs vides héritent des valeurs système ci-dessus.",
+    "Add distributor role": "Ajouter un rôle de distribution",
+    "No distributor roles configured. All users use system defaults.": "Aucun rôle de distribution configuré. Tous les utilisateurs appliquent les valeurs système.",
+    "Role name": "Nom du rôle",
+    "e.g. Partner": "ex. Partenaire",
+    "Delete distributor role": "Supprimer le rôle de distribution",
+    "Top-up reward rate (%)": "Taux de récompense des recharges (%)",
+    "Rewarded top-up count": "Nombre de recharges récompensées",
+    "Inviter registration reward": "Récompense d'inscription du parrain",
+    "Invitee registration reward": "Récompense d'inscription du filleul",
+    "Distributor role": "Rôle de distribution",
+    "Select a distributor role": "Sélectionner un rôle de distribution",
+    "Users without a distributor role follow the system referral policy.": "Les utilisateurs sans rôle de distribution appliquent la règle de parrainage système."
   }
 }

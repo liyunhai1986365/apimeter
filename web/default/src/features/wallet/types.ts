@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { AffiliateRewardPolicy } from '@/features/invite/types'
+
 // ============================================================================
 // Wallet Type Definitions
 // ============================================================================
@@ -162,6 +164,10 @@ export interface TopupInfo {
   affiliate_topup_reward_limit?: number
   /** Registration reward quota for inviters */
   quota_for_inviter?: number
+  /** Registration reward quota for invited users */
+  quota_for_invitee?: number
+  /** Effective referral policy for the current user */
+  affiliate_policy?: AffiliateRewardPolicy
 }
 
 /**
@@ -248,6 +254,8 @@ export interface UserWalletData {
   aff_count: number
   /** User group */
   group: string
+  affiliate_role?: string
+  affiliate_policy?: AffiliateRewardPolicy
 }
 
 /**

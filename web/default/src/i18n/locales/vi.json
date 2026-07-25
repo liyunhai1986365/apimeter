@@ -6215,6 +6215,20 @@
     "Share your invite link to see registrations and rewards here.": "Chia sẻ liên kết mời để xem lượt đăng ký và phần thưởng tại đây.",
     "Total rewards earned": "Tổng phần thưởng đã nhận",
     "Unable to load invite records": "Không thể tải lịch sử mời",
-    "{{count}} invited": "Đã mời {{count}} người"
+    "{{count}} invited": "Đã mời {{count}} người",
+    "Distributor Roles": "Vai trò phân phối",
+    "Configure role-specific referral policies. Empty fields inherit the system defaults above.": "Cấu hình chính sách giới thiệu theo vai trò. Trường để trống sẽ kế thừa giá trị mặc định ở trên.",
+    "Add distributor role": "Thêm vai trò phân phối",
+    "No distributor roles configured. All users use system defaults.": "Chưa cấu hình vai trò phân phối. Tất cả người dùng áp dụng giá trị mặc định hệ thống.",
+    "Role name": "Tên vai trò",
+    "e.g. Partner": "ví dụ: Đối tác",
+    "Delete distributor role": "Xóa vai trò phân phối",
+    "Top-up reward rate (%)": "Tỷ lệ thưởng nạp tiền (%)",
+    "Rewarded top-up count": "Số lần nạp được thưởng",
+    "Inviter registration reward": "Thưởng đăng ký cho người mời",
+    "Invitee registration reward": "Thưởng đăng ký cho người được mời",
+    "Distributor role": "Vai trò phân phối",
+    "Select a distributor role": "Chọn vai trò phân phối",
+    "Users without a distributor role follow the system referral policy.": "Người dùng không có vai trò phân phối sẽ áp dụng chính sách giới thiệu của hệ thống."
   }
 }

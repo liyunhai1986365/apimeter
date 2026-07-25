@@ -20,6 +20,7 @@ import { useMemo } from 'react'
 import { ShieldCheck } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatNumber, formatQuota } from '@/lib/format'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { TopupInfo } from '../types'
@@ -100,7 +101,14 @@ export function AffiliateRulesCard({
           <div className='bg-background flex size-8 shrink-0 items-center justify-center rounded-lg border'>
             <ShieldCheck className='text-muted-foreground size-4' />
           </div>
-          <h3 className='text-sm font-semibold'>{t('Reward Rules')}</h3>
+          <div className='flex min-w-0 flex-1 flex-wrap items-center gap-2'>
+            <h3 className='text-sm font-semibold'>{t('Reward Rules')}</h3>
+            <Badge variant='secondary'>
+              {topupInfo?.affiliate_policy?.uses_default_role
+                ? t('System default')
+                : topupInfo?.affiliate_policy?.role_name || t('System default')}
+            </Badge>
+          </div>
         </div>
 
         <ol className='space-y-2'>

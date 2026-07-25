@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { api } from '@/lib/api'
+import type { AffiliateRoleConfig } from '@/features/invite/types'
 import type {
   User,
   GetUsersParams,
@@ -146,6 +147,13 @@ export async function sendUserEmail(
  */
 export async function getGroups(): Promise<ApiResponse<string[]>> {
   const res = await api.get('/api/group/')
+  return res.data
+}
+
+export async function getAffiliateRoles(): Promise<
+  ApiResponse<AffiliateRoleConfig[]>
+> {
+  const res = await api.get('/api/user/affiliate_roles')
   return res.data
 }
 

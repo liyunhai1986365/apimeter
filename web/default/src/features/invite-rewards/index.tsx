@@ -12,7 +12,6 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
-import { useStatus } from '@/hooks/use-status'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -53,9 +52,8 @@ import { SectionPageLayout } from '@/components/layout'
 import {
   formatInviteRegisterReward,
   formatInviteRewardRatio,
-  getInviteRewardConfig,
-  type InviteRewardConfig,
 } from '@/features/invite/lib/reward-config'
+import type { AffiliateRewardPolicy } from '@/features/invite/types'
 import { useAffiliate } from '@/features/wallet/hooks/use-affiliate'
 import { getAffiliateInvites } from './api'
 import type { AffiliateInviteRecord, AffiliateInviteStats } from './types'
@@ -66,8 +64,6 @@ export function InviteRewards() {
   const { t } = useTranslation()
   const [page, setPage] = useState(1)
   const { affiliateLink, loading: linkLoading } = useAffiliate()
-  const { status, loading: statusLoading } = useStatus()
-  const rewardConfig = getInviteRewardConfig(status)
   const inviteQuery = useQuery({
     queryKey: ['affiliate', 'invites', page, PAGE_SIZE],
     queryFn: () => getAffiliateInvites(page, PAGE_SIZE),
@@ -88,7 +84,10 @@ export function InviteRewards() {
               stats={data?.stats}
               statsLoading={inviteQuery.isPending}
             />
-            <RewardPolicyCard config={rewardConfig} loading={statusLoading} />
+            <RewardPolicyCard
+              policy={data?.affiliate_policy}
+              loading={inviteQuery.isPending}
+            />
           </div>
 
           <Card>
@@ -299,26 +298,33 @@ function StatsBand({ stats }: { stats?: AffiliateInviteStats }) {
 }
 
 function RewardPolicyCard({
-  config,
+  policy,
   loading,
 }: {
-  config: InviteRewardConfig
+  policy?: AffiliateRewardPolicy
   loading: boolean
 }) {
   const { t } = useTranslation()
+  const rewardRatio = policy?.topup_reward_ratio ?? 0
+  const rewardLimit = policy?.topup_reward_limit ?? 0
   const topupLimit =
-    config.topupRewardLimit > 0
-      ? t('First {{count}} top-ups', { count: config.topupRewardLimit })
+    rewardLimit > 0
+      ? t('First {{count}} top-ups', { count: rewardLimit })
       : t('Unlimited top-up rewards')
   const policies = [
     {
       label: t('Registration reward'),
-      value: formatInviteRegisterReward(config.inviterRegisterQuota),
+      value: formatInviteRegisterReward(policy?.inviter_reward_quota ?? 0),
       icon: GiftIcon,
     },
     {
+      label: t('Invitee registration reward'),
+      value: formatInviteRegisterReward(policy?.invitee_reward_quota ?? 0),
+      icon: UserMultiple02Icon,
+    },
+    {
       label: t('Top-up reward'),
-      value: formatInviteRewardRatio(config.topupRewardRatio),
+      value: formatInviteRewardRatio(rewardRatio),
       icon: MoneyReceiveCircleIcon,
     },
     {
@@ -341,7 +347,11 @@ function RewardPolicyCard({
           {t('Rewards are calculated automatically under the current policy.')}
         </CardDescription>
         <CardAction>
-          <Badge variant='secondary'>{t('Current policy')}</Badge>
+          <Badge variant='secondary'>
+            {policy?.uses_default_role
+              ? t('System default')
+              : policy?.role_name || t('System default')}
+          </Badge>
         </CardAction>
       </CardHeader>
       <CardContent className='flex flex-1 flex-col gap-4'>

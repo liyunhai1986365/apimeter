@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { create } from 'zustand'
+import type { AffiliateRewardPolicy } from '@/features/invite/types'
 
 export type UserPermissions = {
   sidebar_settings?: boolean
@@ -40,6 +41,8 @@ export interface AuthUser {
   aff_quota?: number
   aff_history_quota?: number
   inviter_id?: number
+  affiliate_role?: string
+  affiliate_policy?: AffiliateRewardPolicy
   github_id?: string
   oidc_id?: string
   wechat_id?: string

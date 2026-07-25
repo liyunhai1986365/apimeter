@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
+import type { AffiliateRewardPolicy } from '@/features/invite/types'
 
 // ============================================================================
 // User Schema & Types
@@ -49,6 +50,8 @@ export const userSchema = z.object({
   aff_quota: z.number().optional(),
   aff_history_quota: z.number().optional(),
   inviter_id: z.number().optional(),
+  affiliate_role: z.string().optional(),
+  affiliate_role_name: z.string().optional(),
   linux_do_id: z.string().optional(),
   status: userStatusSchema,
   role: userRoleSchema,
@@ -57,6 +60,7 @@ export const userSchema = z.object({
   last_login_at: z.number().optional(),
   DeletedAt: z.any().nullable().optional(),
   remark: z.string().optional(),
+  affiliate_policy: z.custom<AffiliateRewardPolicy>().optional(),
 })
 export type User = z.infer<typeof userSchema>
 
@@ -104,6 +108,7 @@ export interface UserFormData {
   quota?: number // Only used when updating user
   group?: string // Only used when updating user
   remark?: string // Only used when updating user
+  affiliate_role?: string
 }
 
 export type ManageUserAction =

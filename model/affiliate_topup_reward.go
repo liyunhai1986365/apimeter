@@ -6,6 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
+	"github.com/QuantumNous/new-api/setting"
 
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
@@ -19,20 +20,22 @@ const (
 const affiliateTopUpRewardDelaySeconds int64 = 24 * 60 * 60
 
 type AffiliateTopUpReward struct {
-	Id              int     `json:"id"`
-	TradeNo         string  `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
-	TopUpId         int     `json:"topup_id" gorm:"index"`
-	InviterId       int     `json:"inviter_id" gorm:"index"`
-	InviteeId       int     `json:"invitee_id" gorm:"index"`
-	TopUpQuota      int     `json:"topup_quota"`
-	RewardQuota     int     `json:"reward_quota"`
-	RewardRatio     float64 `json:"reward_ratio"`
-	PaymentProvider string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
-	Status          string  `json:"status" gorm:"type:varchar(32);index"`
-	AvailableAt     int64   `json:"available_at" gorm:"bigint;index"`
-	RewardedAt      int64   `json:"rewarded_at" gorm:"bigint;default:0"`
-	CreatedAt       int64   `json:"created_at" gorm:"bigint"`
-	UpdatedAt       int64   `json:"updated_at" gorm:"bigint"`
+	Id                int     `json:"id"`
+	TradeNo           string  `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
+	TopUpId           int     `json:"topup_id" gorm:"index"`
+	InviterId         int     `json:"inviter_id" gorm:"index"`
+	InviteeId         int     `json:"invitee_id" gorm:"index"`
+	TopUpQuota        int     `json:"topup_quota"`
+	RewardQuota       int     `json:"reward_quota"`
+	RewardRatio       float64 `json:"reward_ratio"`
+	AffiliateRole     string  `json:"affiliate_role" gorm:"type:varchar(64);default:''"`
+	AffiliateRoleName string  `json:"affiliate_role_name" gorm:"type:varchar(128);default:''"`
+	PaymentProvider   string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
+	Status            string  `json:"status" gorm:"type:varchar(32);index"`
+	AvailableAt       int64   `json:"available_at" gorm:"bigint;index"`
+	RewardedAt        int64   `json:"rewarded_at" gorm:"bigint;default:0"`
+	CreatedAt         int64   `json:"created_at" gorm:"bigint"`
+	UpdatedAt         int64   `json:"updated_at" gorm:"bigint"`
 }
 
 type AffiliateInviteRecord struct {
@@ -144,16 +147,22 @@ func CalculateAffiliateTopUpRewardQuota(topUpQuota int, ratio float64) int {
 	return int(decimal.NewFromInt(int64(topUpQuota)).Mul(decimal.NewFromFloat(ratio)).IntPart())
 }
 
+func GetAffiliateRewardPolicyForUser(userId int) setting.AffiliateRewardPolicy {
+	if userId <= 0 {
+		return setting.ResolveAffiliateRewardPolicy("")
+	}
+	var user User
+	if err := DB.Select("affiliate_role").Where("id = ?", userId).First(&user).Error; err != nil {
+		return setting.ResolveAffiliateRewardPolicy("")
+	}
+	return setting.ResolveAffiliateRewardPolicy(user.AffiliateRole)
+}
+
 func CreateAffiliateTopUpReward(topUp *TopUp, topUpQuota int) (bool, error) {
 	if topUp == nil || topUp.Id == 0 || topUp.TradeNo == "" {
 		return false, nil
 	}
-	ratio := common.AffiliateTopUpRewardRatio
-	if ratio <= 0 || topUpQuota <= 0 {
-		return false, nil
-	}
-	rewardQuota := CalculateAffiliateTopUpRewardQuota(topUpQuota, ratio)
-	if rewardQuota <= 0 {
+	if topUpQuota <= 0 {
 		return false, nil
 	}
 
@@ -172,30 +181,44 @@ func CreateAffiliateTopUpReward(topUp *TopUp, topUpQuota int) (bool, error) {
 		if invitee.InviterId == 0 || invitee.InviterId == invitee.Id {
 			return nil
 		}
-		if common.AffiliateTopUpRewardLimit > 0 {
+		var inviter User
+		if err := tx.Select("id", "affiliate_role").Where("id = ?", invitee.InviterId).First(&inviter).Error; err != nil {
+			return err
+		}
+		policy := setting.ResolveAffiliateRewardPolicy(inviter.AffiliateRole)
+		if policy.TopUpRewardRatio <= 0 {
+			return nil
+		}
+		rewardQuota := CalculateAffiliateTopUpRewardQuota(topUpQuota, policy.TopUpRewardRatio)
+		if rewardQuota <= 0 {
+			return nil
+		}
+		if policy.TopUpRewardLimit > 0 {
 			var rewardedCount int64
 			if err := tx.Model(&AffiliateTopUpReward{}).
 				Where("inviter_id = ? AND invitee_id = ?", invitee.InviterId, topUp.UserId).
 				Count(&rewardedCount).Error; err != nil {
 				return err
 			}
-			if rewardedCount >= int64(common.AffiliateTopUpRewardLimit) {
+			if rewardedCount >= int64(policy.TopUpRewardLimit) {
 				return nil
 			}
 		}
 		reward := &AffiliateTopUpReward{
-			TradeNo:         topUp.TradeNo,
-			TopUpId:         topUp.Id,
-			InviterId:       invitee.InviterId,
-			InviteeId:       topUp.UserId,
-			TopUpQuota:      topUpQuota,
-			RewardQuota:     rewardQuota,
-			RewardRatio:     ratio,
-			PaymentProvider: topUp.PaymentProvider,
-			Status:          AffiliateTopUpRewardStatusPending,
-			AvailableAt:     completeTime + affiliateTopUpRewardDelaySeconds,
-			CreatedAt:       now,
-			UpdatedAt:       now,
+			TradeNo:           topUp.TradeNo,
+			TopUpId:           topUp.Id,
+			InviterId:         invitee.InviterId,
+			InviteeId:         topUp.UserId,
+			TopUpQuota:        topUpQuota,
+			RewardQuota:       rewardQuota,
+			RewardRatio:       policy.TopUpRewardRatio,
+			AffiliateRole:     policy.RoleId,
+			AffiliateRoleName: policy.RoleName,
+			PaymentProvider:   topUp.PaymentProvider,
+			Status:            AffiliateTopUpRewardStatusPending,
+			AvailableAt:       completeTime + affiliateTopUpRewardDelaySeconds,
+			CreatedAt:         now,
+			UpdatedAt:         now,
 		}
 		if err := tx.Create(reward).Error; err != nil {
 			return err

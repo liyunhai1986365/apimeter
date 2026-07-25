@@ -5200,6 +5200,20 @@
     "Settlement Balance Adjustment": "結算餘額調整",
     "User Balance Top-up": "用戶餘額充值",
     "User balance added": "用戶餘額已增加",
-    "Withdrawal Deduction": "提現扣減"
+    "Withdrawal Deduction": "提現扣減",
+    "Distributor Roles": "分銷角色",
+    "Configure role-specific referral policies. Empty fields inherit the system defaults above.": "設定依角色生效的邀請獎勵政策。留空欄位會沿用上方的系統預設值。",
+    "Add distributor role": "新增分銷角色",
+    "No distributor roles configured. All users use system defaults.": "尚未設定分銷角色。所有使用者均使用系統預設值。",
+    "Role name": "角色名稱",
+    "e.g. Partner": "例如：合夥人",
+    "Delete distributor role": "刪除分銷角色",
+    "Top-up reward rate (%)": "儲值獎勵比例（%）",
+    "Rewarded top-up count": "獎勵儲值次數",
+    "Inviter registration reward": "邀請人註冊獎勵",
+    "Invitee registration reward": "受邀人註冊獎勵",
+    "Distributor role": "分銷角色",
+    "Select a distributor role": "選擇分銷角色",
+    "Users without a distributor role follow the system referral policy.": "未設定分銷角色的使用者將套用系統邀請獎勵政策。"
   }
 }

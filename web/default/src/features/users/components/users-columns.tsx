@@ -20,6 +20,7 @@ import { type ColumnDef } from '@tanstack/react-table'
 import { useTranslation } from 'react-i18next'
 import { formatQuota, formatTimestamp } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 import {
@@ -263,6 +264,22 @@ export function useUsersColumns(): ColumnDef<User>[] {
       },
       enableSorting: false,
       meta: { label: t('Role') },
+    },
+    {
+      accessorKey: 'affiliate_role_name',
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title={t('Distributor role')} />
+      ),
+      cell: ({ row }) => {
+        const roleName = row.original.affiliate_role_name
+        return (
+          <Badge variant={roleName ? 'secondary' : 'outline'}>
+            {roleName || t('System default')}
+          </Badge>
+        )
+      },
+      enableSorting: false,
+      meta: { label: t('Distributor role') },
     },
     {
       id: 'invite_info',

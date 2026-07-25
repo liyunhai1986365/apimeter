@@ -55,7 +55,13 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet'
 import { Textarea } from '@/components/ui/textarea'
-import { createUser, updateUser, getUser, getGroups } from '../api'
+import {
+  createUser,
+  updateUser,
+  getUser,
+  getGroups,
+  getAffiliateRoles,
+} from '../api'
 import { BINDING_FIELDS, ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import {
   userFormSchema,
@@ -93,6 +99,14 @@ export function UsersMutateDrawer({
   })
 
   const groups = groupsData?.data || []
+
+  const { data: affiliateRolesData } = useQuery({
+    queryKey: ['affiliate-roles'],
+    queryFn: getAffiliateRoles,
+    staleTime: 5 * 60 * 1000,
+    enabled: open,
+  })
+  const affiliateRoles = affiliateRolesData?.data || []
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userFormSchema),
@@ -262,6 +276,62 @@ export function UsersMutateDrawer({
                     )}
                   />
                 )}
+
+                <FormField
+                  control={form.control}
+                  name='affiliate_role'
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>{t('Distributor role')}</FormLabel>
+                      <Select
+                        items={[
+                          {
+                            value: '__system_default__',
+                            label: t('System default'),
+                          },
+                          ...affiliateRoles.map((role) => ({
+                            value: role.id,
+                            label: role.name,
+                          })),
+                        ]}
+                        onValueChange={(value) =>
+                          field.onChange(
+                            value === '__system_default__' || value === null
+                              ? ''
+                              : value
+                          )
+                        }
+                        value={field.value || '__system_default__'}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={t('Select a distributor role')}
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent alignItemWithTrigger={false}>
+                          <SelectGroup>
+                            <SelectItem value='__system_default__'>
+                              {t('System default')}
+                            </SelectItem>
+                            {affiliateRoles.map((role) => (
+                              <SelectItem key={role.id} value={role.id}>
+                                {role.name}
+                              </SelectItem>
+                            ))}
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                      <FormDescription>
+                        {t(
+                          'Users without a distributor role follow the system referral policy.'
+                        )}
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
                 <FormField
                   control={form.control}

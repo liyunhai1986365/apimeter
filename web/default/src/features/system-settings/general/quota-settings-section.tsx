@@ -18,8 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { ChangeEvent } from 'react'
 import * as z from 'zod'
-import type { Resolver } from 'react-hook-form'
+import { useFieldArray, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { Add01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
@@ -47,6 +49,16 @@ const quotaSchema = z.object({
   QuotaForInvitee: z.coerce.number().min(0),
   AffiliateTopUpRewardRatio: z.coerce.number().min(0).max(100),
   AffiliateTopUpRewardLimit: z.coerce.number().int().min(0),
+  AffiliateRoleConfigs: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().trim().min(1).max(128),
+      topup_reward_ratio: z.coerce.number().min(0).max(100).nullish(),
+      topup_reward_limit: z.coerce.number().int().min(0).nullish(),
+      inviter_reward_quota: z.coerce.number().int().min(0).nullish(),
+      invitee_reward_quota: z.coerce.number().int().min(0).nullish(),
+    })
+  ),
   TopUpLink: z.string(),
   general_setting: z.object({
     docs_link: z.string(),
@@ -89,11 +101,30 @@ export function QuotaSettingsSection({
         for (const [key, value] of Object.entries(changedFields)) {
           await updateOption.mutateAsync({
             key,
-            value: value as string | number | boolean,
+            value:
+              key === 'AffiliateRoleConfigs'
+                ? JSON.stringify(value)
+                : (value as string | number | boolean),
           })
         }
       },
     })
+
+  const affiliateRoles = useFieldArray({
+    control: form.control,
+    name: 'AffiliateRoleConfigs',
+    keyName: 'fieldId',
+  })
+
+  const handleOptionalNumberChange =
+    (onChange: (value: number | undefined) => void) =>
+    (event: ChangeEvent<HTMLInputElement>) => {
+      onChange(
+        event.target.value === ''
+          ? undefined
+          : event.currentTarget.valueAsNumber
+      )
+    }
 
   return (
     <SettingsSection
@@ -267,6 +298,185 @@ export function QuotaSettingsSection({
               </FormItem>
             )}
           />
+
+          <div className='flex flex-col gap-4 border-t pt-6'>
+            <div className='flex flex-wrap items-start justify-between gap-3'>
+              <div className='flex flex-col gap-1'>
+                <h3 className='text-sm font-semibold'>
+                  {t('Distributor Roles')}
+                </h3>
+                <p className='text-muted-foreground text-sm'>
+                  {t(
+                    'Configure role-specific referral policies. Empty fields inherit the system defaults above.'
+                  )}
+                </p>
+              </div>
+              <Button
+                type='button'
+                variant='outline'
+                size='sm'
+                onClick={() =>
+                  affiliateRoles.append({
+                    id: `affiliate-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+                    name: '',
+                  })
+                }
+              >
+                <HugeiconsIcon icon={Add01Icon} data-icon='inline-start' />
+                {t('Add distributor role')}
+              </Button>
+            </div>
+
+            {affiliateRoles.fields.length === 0 ? (
+              <div className='text-muted-foreground rounded-lg border border-dashed px-4 py-6 text-center text-sm'>
+                {t(
+                  'No distributor roles configured. All users use system defaults.'
+                )}
+              </div>
+            ) : (
+              <div className='flex flex-col gap-3'>
+                {affiliateRoles.fields.map((role, index) => (
+                  <div
+                    key={role.fieldId}
+                    className='flex flex-col gap-4 rounded-lg border p-4'
+                  >
+                    <div className='flex items-start gap-3'>
+                      <FormField
+                        control={form.control}
+                        name={`AffiliateRoleConfigs.${index}.name`}
+                        render={({ field }) => (
+                          <FormItem className='min-w-0 flex-1'>
+                            <FormLabel>{t('Role name')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                {...field}
+                                placeholder={t('e.g. Partner')}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <Button
+                        type='button'
+                        variant='ghost'
+                        size='icon-sm'
+                        className='mt-6 shrink-0'
+                        aria-label={t('Delete distributor role')}
+                        onClick={() => affiliateRoles.remove(index)}
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} />
+                      </Button>
+                    </div>
+
+                    <div className='grid gap-4 sm:grid-cols-2'>
+                      <FormField
+                        control={form.control}
+                        name={`AffiliateRoleConfigs.${index}.topup_reward_ratio`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Top-up reward rate (%)')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                max={100}
+                                step='0.01'
+                                value={field.value ?? ''}
+                                onChange={handleOptionalNumberChange(
+                                  field.onChange
+                                )}
+                                placeholder={String(
+                                  form.getValues('AffiliateTopUpRewardRatio')
+                                )}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`AffiliateRoleConfigs.${index}.topup_reward_limit`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Rewarded top-up count')}</FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                step='1'
+                                value={field.value ?? ''}
+                                onChange={handleOptionalNumberChange(
+                                  field.onChange
+                                )}
+                                placeholder={String(
+                                  form.getValues('AffiliateTopUpRewardLimit')
+                                )}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`AffiliateRoleConfigs.${index}.inviter_reward_quota`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t('Inviter registration reward')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                step='1'
+                                value={field.value ?? ''}
+                                onChange={handleOptionalNumberChange(
+                                  field.onChange
+                                )}
+                                placeholder={String(
+                                  form.getValues('QuotaForInviter')
+                                )}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`AffiliateRoleConfigs.${index}.invitee_reward_quota`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t('Invitee registration reward')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                step='1'
+                                value={field.value ?? ''}
+                                onChange={handleOptionalNumberChange(
+                                  field.onChange
+                                )}
+                                placeholder={String(
+                                  form.getValues('QuotaForInvitee')
+                                )}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           <FormField
             control={form.control}

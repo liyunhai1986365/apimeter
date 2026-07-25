@@ -142,6 +142,7 @@ func InitOptionMap() {
 	common.OptionMap["QuotaForInvitee"] = strconv.Itoa(common.QuotaForInvitee)
 	common.OptionMap["AffiliateTopUpRewardRatio"] = strconv.FormatFloat(common.AffiliateTopUpRewardRatio*100, 'f', -1, 64)
 	common.OptionMap["AffiliateTopUpRewardLimit"] = strconv.Itoa(common.AffiliateTopUpRewardLimit)
+	common.OptionMap["AffiliateRoleConfigs"] = setting.AffiliateRoleConfigs2JsonString()
 	common.OptionMap["QuotaRemindThreshold"] = strconv.Itoa(common.QuotaRemindThreshold)
 	common.OptionMap["PreConsumedQuota"] = strconv.Itoa(common.PreConsumedQuota)
 	common.OptionMap["ModelRequestRateLimitCount"] = strconv.Itoa(setting.ModelRequestRateLimitCount)
@@ -538,6 +539,8 @@ func updateOptionMap(key string, value string) (err error) {
 		common.AffiliateTopUpRewardRatio = ratioPercent / 100
 	case "AffiliateTopUpRewardLimit":
 		common.AffiliateTopUpRewardLimit, _ = strconv.Atoi(value)
+	case "AffiliateRoleConfigs":
+		err = setting.UpdateAffiliateRoleConfigsByJSONString(value)
 	case "QuotaRemindThreshold":
 		common.QuotaRemindThreshold, _ = strconv.Atoi(value)
 	case "PreConsumedQuota":

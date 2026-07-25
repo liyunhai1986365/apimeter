@@ -288,6 +288,7 @@ func GetAllUsers(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	decorateAffiliateRoleNames(users)
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(users)
@@ -305,6 +306,7 @@ func SearchUsers(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	decorateAffiliateRoleNames(users)
 
 	pageInfo.SetTotal(int(total))
 	pageInfo.SetItems(users)
@@ -314,6 +316,27 @@ func SearchUsers(c *gin.Context) {
 
 func canManageTargetRole(myRole int, targetRole int) bool {
 	return myRole == common.RoleRootUser || myRole > targetRole
+}
+
+func decorateAffiliateRoleNames(users []*model.User) {
+	for _, user := range users {
+		if user == nil {
+			continue
+		}
+		user.AffiliateRoleName = setting.ResolveAffiliateRewardPolicy(user.AffiliateRole).RoleName
+	}
+}
+
+func affiliateRewardPolicyResponse(policy setting.AffiliateRewardPolicy) gin.H {
+	return gin.H{
+		"role_id":              policy.RoleId,
+		"role_name":            policy.RoleName,
+		"uses_default_role":    policy.UsesDefaultRole,
+		"topup_reward_ratio":   policy.TopUpRewardRatio * 100,
+		"topup_reward_limit":   policy.TopUpRewardLimit,
+		"inviter_reward_quota": policy.InviterRewardQuota,
+		"invitee_reward_quota": policy.InviteeRewardQuota,
+	}
 }
 
 func GetUser(c *gin.Context) {
@@ -332,12 +355,17 @@ func GetUser(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgUserNoPermissionSameLevel)
 		return
 	}
+	user.AffiliateRoleName = setting.ResolveAffiliateRewardPolicy(user.AffiliateRole).RoleName
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
 		"data":    user,
 	})
 	return
+}
+
+func GetAffiliateRoles(c *gin.Context) {
+	common.ApiSuccess(c, setting.GetAffiliateRoleConfigs())
 }
 
 func GenerateAccessToken(c *gin.Context) {
@@ -430,6 +458,7 @@ func GetAffCode(c *gin.Context) {
 
 func GetAffiliateInvites(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
+	affiliatePolicy := model.GetAffiliateRewardPolicyForUser(c.GetInt("id"))
 	records, total, stats, err := model.ListAffiliateInvites(
 		c.GetInt("id"),
 		pageInfo.GetStartIdx(),
@@ -440,11 +469,12 @@ func GetAffiliateInvites(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, gin.H{
-		"items":     records,
-		"total":     total,
-		"page":      pageInfo.GetPage(),
-		"page_size": pageInfo.GetPageSize(),
-		"stats":     stats,
+		"items":            records,
+		"total":            total,
+		"page":             pageInfo.GetPage(),
+		"page_size":        pageInfo.GetPageSize(),
+		"stats":            stats,
+		"affiliate_policy": affiliateRewardPolicyResponse(affiliatePolicy),
 	})
 }
 
@@ -501,6 +531,8 @@ func GetSelf(c *gin.Context) {
 		"aff_quota":            user.AffQuota,
 		"aff_history_quota":    user.AffHistoryQuota,
 		"inviter_id":           user.InviterId,
+		"affiliate_role":       user.AffiliateRole,
+		"affiliate_policy":     affiliateRewardPolicyResponse(setting.ResolveAffiliateRewardPolicy(user.AffiliateRole)),
 		"linux_do_id":          user.LinuxDOId,
 		"setting":              userSettingResponseJSON(user.Setting),
 		"stripe_customer":      user.StripeCustomer,
@@ -513,7 +545,7 @@ func GetSelf(c *gin.Context) {
 		"allowed_modules":      workspaceAccountAllowedModules(user.ParentUserId > 0),
 	}
 	if user.ParentUserId > 0 {
-		for _, key := range []string{"quota", "used_quota", "request_count", "aff_code", "aff_count", "aff_quota", "aff_history_quota", "inviter_id", "stripe_customer"} {
+		for _, key := range []string{"quota", "used_quota", "request_count", "aff_code", "aff_count", "aff_quota", "aff_history_quota", "inviter_id", "affiliate_role", "affiliate_policy", "stripe_customer"} {
 			delete(responseData, key)
 		}
 	}
@@ -670,8 +702,13 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 	updatedUser.Username = strings.TrimSpace(updatedUser.Username)
+	updatedUser.AffiliateRole = strings.TrimSpace(updatedUser.AffiliateRole)
 	if updatedUser.Username == "" {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+		return
+	}
+	if !setting.AffiliateRoleExists(updatedUser.AffiliateRole) {
+		common.ApiErrorMsg(c, "分销角色不存在或已被删除")
 		return
 	}
 	if updatedUser.Password == "" {
@@ -969,6 +1006,11 @@ func CreateUser(c *gin.Context) {
 	if user.DisplayName == "" {
 		user.DisplayName = user.Username
 	}
+	user.AffiliateRole = strings.TrimSpace(user.AffiliateRole)
+	if !setting.AffiliateRoleExists(user.AffiliateRole) {
+		common.ApiErrorMsg(c, "分销角色不存在或已被删除")
+		return
+	}
 	myRole := c.GetInt("role")
 	if user.Role >= myRole {
 		common.ApiErrorI18n(c, i18n.MsgUserCannotCreateHigherLevel)
@@ -976,10 +1018,11 @@ func CreateUser(c *gin.Context) {
 	}
 	// Even for admin users, we cannot fully trust them!
 	cleanUser := model.User{
-		Username:    user.Username,
-		Password:    user.Password,
-		DisplayName: user.DisplayName,
-		Role:        user.Role, // 保持管理员设置的角色
+		Username:      user.Username,
+		Password:      user.Password,
+		DisplayName:   user.DisplayName,
+		Role:          user.Role, // 保持管理员设置的角色
+		AffiliateRole: user.AffiliateRole,
 	}
 	if err := cleanUser.Insert(0); err != nil {
 		common.ApiError(c, err)

@@ -154,6 +154,16 @@ func UpdateOption(c *gin.Context) {
 			common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
 			return
 		}
+	case "AffiliateRoleConfigs":
+		hasRewards, validateErr := setting.AffiliateRoleConfigsHaveRewards(option.Value.(string))
+		if validateErr != nil {
+			common.ApiError(c, validateErr)
+			return
+		}
+		if hasRewards && !operation_setting.IsPaymentComplianceConfirmed() {
+			common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
+			return
+		}
 	default:
 		if isPaymentComplianceOptionKey(option.Key) {
 			common.ApiErrorMsg(c, "合规确认字段不允许通过通用设置接口修改")
@@ -161,6 +171,12 @@ func UpdateOption(c *gin.Context) {
 		}
 	}
 	switch option.Key {
+	case "AffiliateRoleConfigs":
+		err = setting.ValidateAffiliateRoleConfigsJSON(option.Value.(string))
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
 	case "GitHubOAuthEnabled":
 		if option.Value == "true" && common.GitHubClientId == "" {
 			c.JSON(http.StatusOK, gin.H{

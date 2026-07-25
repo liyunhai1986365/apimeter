@@ -6215,6 +6215,20 @@
     "Share your invite link to see registrations and rewards here.": "Share your invite link to see registrations and rewards here.",
     "Total rewards earned": "Total rewards earned",
     "Unable to load invite records": "Unable to load invite records",
-    "{{count}} invited": "{{count}} invited"
+    "{{count}} invited": "{{count}} invited",
+    "Distributor Roles": "Distributor Roles",
+    "Configure role-specific referral policies. Empty fields inherit the system defaults above.": "Configure role-specific referral policies. Empty fields inherit the system defaults above.",
+    "Add distributor role": "Add distributor role",
+    "No distributor roles configured. All users use system defaults.": "No distributor roles configured. All users use system defaults.",
+    "Role name": "Role name",
+    "e.g. Partner": "e.g. Partner",
+    "Delete distributor role": "Delete distributor role",
+    "Top-up reward rate (%)": "Top-up reward rate (%)",
+    "Rewarded top-up count": "Rewarded top-up count",
+    "Inviter registration reward": "Inviter registration reward",
+    "Invitee registration reward": "Invitee registration reward",
+    "Distributor role": "Distributor role",
+    "Select a distributor role": "Select a distributor role",
+    "Users without a distributor role follow the system referral policy.": "Users without a distributor role follow the system referral policy."
   }
 }

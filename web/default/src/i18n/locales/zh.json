@@ -6215,6 +6215,20 @@
     "Share your invite link to see registrations and rewards here.": "分享邀请链接后，注册用户和奖励记录会显示在这里。",
     "Total rewards earned": "累计获得奖励",
     "Unable to load invite records": "无法加载邀请记录",
-    "{{count}} invited": "已邀请 {{count}} 人"
+    "{{count}} invited": "已邀请 {{count}} 人",
+    "Distributor Roles": "分销角色",
+    "Configure role-specific referral policies. Empty fields inherit the system defaults above.": "配置按角色生效的邀请奖励政策。留空字段继承上方系统默认值。",
+    "Add distributor role": "添加分销角色",
+    "No distributor roles configured. All users use system defaults.": "尚未配置分销角色。所有用户均使用系统默认值。",
+    "Role name": "角色名称",
+    "e.g. Partner": "例如：合伙人",
+    "Delete distributor role": "删除分销角色",
+    "Top-up reward rate (%)": "充值奖励比例（%）",
+    "Rewarded top-up count": "奖励充值次数",
+    "Inviter registration reward": "邀请人注册奖励",
+    "Invitee registration reward": "受邀人注册奖励",
+    "Distributor role": "分销角色",
+    "Select a distributor role": "选择分销角色",
+    "Users without a distributor role follow the system referral policy.": "未设置分销角色的用户将使用系统邀请奖励政策。"
   }
 }

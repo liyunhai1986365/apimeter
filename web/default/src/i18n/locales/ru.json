@@ -6215,6 +6215,20 @@
     "Share your invite link to see registrations and rewards here.": "Поделитесь ссылкой-приглашением, чтобы здесь появились регистрации и награды.",
     "Total rewards earned": "Всего получено наград",
     "Unable to load invite records": "Не удалось загрузить историю приглашений",
-    "{{count}} invited": "Приглашено: {{count}}"
+    "{{count}} invited": "Приглашено: {{count}}",
+    "Distributor Roles": "Роли дистрибьюторов",
+    "Configure role-specific referral policies. Empty fields inherit the system defaults above.": "Настройте реферальные правила для каждой роли. Пустые поля наследуют системные значения выше.",
+    "Add distributor role": "Добавить роль дистрибьютора",
+    "No distributor roles configured. All users use system defaults.": "Роли дистрибьюторов не настроены. Для всех пользователей применяются системные значения.",
+    "Role name": "Название роли",
+    "e.g. Partner": "например, Партнёр",
+    "Delete distributor role": "Удалить роль дистрибьютора",
+    "Top-up reward rate (%)": "Ставка вознаграждения за пополнение (%)",
+    "Rewarded top-up count": "Количество вознаграждаемых пополнений",
+    "Inviter registration reward": "Награда пригласившему за регистрацию",
+    "Invitee registration reward": "Награда приглашённому за регистрацию",
+    "Distributor role": "Роль дистрибьютора",
+    "Select a distributor role": "Выберите роль дистрибьютора",
+    "Users without a distributor role follow the system referral policy.": "Для пользователей без роли дистрибьютора применяется системная реферальная политика."
   }
 }

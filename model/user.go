@@ -46,6 +46,8 @@ type User struct {
 	AffQuota           int            `json:"aff_quota" gorm:"type:int;default:0;column:aff_quota"`           // 邀请剩余额度
 	AffHistoryQuota    int            `json:"aff_history_quota" gorm:"type:int;default:0;column:aff_history"` // 邀请历史额度
 	InviterId          int            `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
+	AffiliateRole      string         `json:"affiliate_role" gorm:"type:varchar(64);column:affiliate_role;index"`
+	AffiliateRoleName  string         `json:"affiliate_role_name" gorm:"-:all"`
 	DeletedAt          gorm.DeletedAt `gorm:"index"`
 	LinuxDOId          string         `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting            string         `json:"setting" gorm:"type:text;column:setting"`
@@ -417,14 +419,14 @@ func HardDeleteUserById(id int) error {
 	return user.HardDelete()
 }
 
-func inviteUser(inviterId int) (err error) {
+func inviteUser(inviterId int, rewardQuota int) (err error) {
 	user, err := GetUserById(inviterId, true)
 	if err != nil {
 		return err
 	}
 	user.AffCount++
-	user.AffQuota += common.QuotaForInviter
-	user.AffHistoryQuota += common.QuotaForInviter
+	user.AffQuota += rewardQuota
+	user.AffHistoryQuota += rewardQuota
 	return DB.Save(user).Error
 }
 
@@ -522,6 +524,7 @@ func (user *User) Insert(inviterId int) error {
 			if err := user.prepareForInsert(tx); err != nil {
 				return err
 			}
+			user.InviterId = inviterId
 			user.Quota = common.QuotaForNewUser
 			user.AffCode = common.GetRandomString(4)
 
@@ -557,15 +560,15 @@ func (user *User) Insert(inviterId int) error {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
-		if common.QuotaForInvitee > 0 {
-			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
-			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
+		policy := GetAffiliateRewardPolicyForUser(inviterId)
+		if policy.InviteeRewardQuota > 0 {
+			_ = IncreaseUserQuota(user.Id, policy.InviteeRewardQuota, true)
+			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(policy.InviteeRewardQuota)))
 		}
-		if common.QuotaForInviter > 0 {
-			//_ = IncreaseUserQuota(inviterId, common.QuotaForInviter)
-			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
+		if policy.InviterRewardQuota > 0 {
+			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(policy.InviterRewardQuota)))
 		}
+		_ = inviteUser(inviterId, policy.InviterRewardQuota)
 	}
 	return nil
 }
@@ -578,6 +581,7 @@ func (user *User) InsertWithTx(tx *gorm.DB, inviterId int) error {
 		if err := user.prepareForInsert(tx); err != nil {
 			return err
 		}
+		user.InviterId = inviterId
 		user.Quota = common.QuotaForNewUser
 		user.AffCode = common.GetRandomString(4)
 
@@ -611,14 +615,15 @@ func (user *User) FinalizeOAuthUserCreation(inviterId int) {
 		RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("新用户注册赠送 %s", logger.LogQuota(common.QuotaForNewUser)))
 	}
 	if inviterId != 0 && operation_setting.IsPaymentComplianceConfirmed() {
-		if common.QuotaForInvitee > 0 {
-			_ = IncreaseUserQuota(user.Id, common.QuotaForInvitee, true)
-			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(common.QuotaForInvitee)))
+		policy := GetAffiliateRewardPolicyForUser(inviterId)
+		if policy.InviteeRewardQuota > 0 {
+			_ = IncreaseUserQuota(user.Id, policy.InviteeRewardQuota, true)
+			RecordLog(user.Id, LogTypeSystem, fmt.Sprintf("使用邀请码赠送 %s", logger.LogQuota(policy.InviteeRewardQuota)))
 		}
-		if common.QuotaForInviter > 0 {
-			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(common.QuotaForInviter)))
-			_ = inviteUser(inviterId)
+		if policy.InviterRewardQuota > 0 {
+			RecordLog(inviterId, LogTypeSystem, fmt.Sprintf("邀请用户赠送 %s", logger.LogQuota(policy.InviterRewardQuota)))
 		}
+		_ = inviteUser(inviterId, policy.InviterRewardQuota)
 	}
 }
 
@@ -669,10 +674,11 @@ func (user *User) Edit(updatePassword bool) error {
 
 	newUser := *user
 	updates := map[string]interface{}{
-		"username":     newUser.Username,
-		"display_name": newUser.DisplayName,
-		"group":        newUser.Group,
-		"remark":       newUser.Remark,
+		"username":       newUser.Username,
+		"display_name":   newUser.DisplayName,
+		"group":          newUser.Group,
+		"remark":         newUser.Remark,
+		"affiliate_role": newUser.AffiliateRole,
 	}
 	if updatePassword {
 		updates["password"] = newUser.Password

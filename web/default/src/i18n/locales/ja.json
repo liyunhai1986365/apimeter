@@ -6215,6 +6215,20 @@
     "Share your invite link to see registrations and rewards here.": "招待リンクを共有すると、登録と報酬がここに表示されます。",
     "Total rewards earned": "獲得報酬合計",
     "Unable to load invite records": "招待履歴を読み込めません",
-    "{{count}} invited": "{{count}} 人を招待"
+    "{{count}} invited": "{{count}} 人を招待",
+    "Distributor Roles": "販売パートナー役割",
+    "Configure role-specific referral policies. Empty fields inherit the system defaults above.": "役割別の紹介報酬ポリシーを設定します。空欄は上記のシステム既定値を継承します。",
+    "Add distributor role": "販売パートナー役割を追加",
+    "No distributor roles configured. All users use system defaults.": "販売パートナー役割は未設定です。すべてのユーザーにシステム既定値が適用されます。",
+    "Role name": "役割名",
+    "e.g. Partner": "例：パートナー",
+    "Delete distributor role": "販売パートナー役割を削除",
+    "Top-up reward rate (%)": "チャージ報酬率（%）",
+    "Rewarded top-up count": "報酬対象チャージ回数",
+    "Inviter registration reward": "紹介者の登録報酬",
+    "Invitee registration reward": "被紹介者の登録報酬",
+    "Distributor role": "販売パートナー役割",
+    "Select a distributor role": "販売パートナー役割を選択",
+    "Users without a distributor role follow the system referral policy.": "販売パートナー役割がないユーザーにはシステムの紹介ポリシーが適用されます。"
   }
 }

@@ -72,6 +72,11 @@ function collectDirtyValues<TFieldValues extends FieldValues>(
   parentKey?: string,
   result: Record<string, unknown> = {}
 ) {
+  if (Array.isArray(values) && typeof parentKey === 'string') {
+    result[parentKey] = values
+    return result
+  }
+
   if (dirtyFields === true) {
     if (typeof parentKey === 'string') {
       result[parentKey] = values

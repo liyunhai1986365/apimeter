@@ -6,6 +6,8 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -34,6 +36,46 @@ func countAffiliateRewardRecords(t *testing.T, tradeNo string) int64 {
 	var count int64
 	require.NoError(t, DB.Model(&AffiliateTopUpReward{}).Where("trade_no = ?", tradeNo).Count(&count).Error)
 	return count
+}
+
+func TestUserInsertUsesInviterRoleRegistrationRewards(t *testing.T) {
+	truncateTables(t)
+	originalNewUserQuota := common.QuotaForNewUser
+	originalPaymentSetting := *operation_setting.GetPaymentSetting()
+	t.Cleanup(func() {
+		common.QuotaForNewUser = originalNewUserQuota
+		*operation_setting.GetPaymentSetting() = originalPaymentSetting
+		require.NoError(t, setting.UpdateAffiliateRoleConfigsByJSONString(setting.DefaultAffiliateRoleConfigsJSON))
+	})
+
+	common.QuotaForNewUser = 0
+	paymentSetting := operation_setting.GetPaymentSetting()
+	paymentSetting.ComplianceConfirmed = true
+	paymentSetting.ComplianceTermsVersion = operation_setting.CurrentComplianceTermsVersion
+	require.NoError(t, setting.UpdateAffiliateRoleConfigsByJSONString(`[
+		{"id":"partner","name":"Partner","inviter_reward_quota":500,"invitee_reward_quota":700}
+	]`))
+
+	seedAffiliateRewardUser(t, 8091, "registration-inviter", 0, 0)
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", 8091).Update("affiliate_role", "partner").Error)
+	invitee := &User{
+		Username: "registration-invitee",
+		Password: "test-password",
+		Status:   common.UserStatusEnabled,
+		Role:     common.RoleCommonUser,
+	}
+	require.NoError(t, invitee.Insert(8091))
+
+	var persistedInvitee User
+	require.NoError(t, DB.Select("quota", "inviter_id").First(&persistedInvitee, invitee.Id).Error)
+	assert.Equal(t, 700, persistedInvitee.Quota)
+	assert.Equal(t, 8091, persistedInvitee.InviterId)
+
+	var inviter User
+	require.NoError(t, DB.Select("aff_count", "aff_quota", "aff_history").First(&inviter, 8091).Error)
+	assert.Equal(t, 1, inviter.AffCount)
+	assert.Equal(t, 500, inviter.AffQuota)
+	assert.Equal(t, 500, inviter.AffHistoryQuota)
 }
 
 func TestCreateAffiliateTopUpRewardSchedulesRewardForInvitedUserPayment(t *testing.T) {
@@ -144,6 +186,46 @@ func TestCreateAffiliateTopUpRewardRespectsPerInviteeRewardLimit(t *testing.T) {
 		Count(&count).Error)
 	assert.Equal(t, int64(2), count)
 	assert.Equal(t, int64(0), countAffiliateRewardRecords(t, "affiliate-reward-limit-3"))
+}
+
+func TestCreateAffiliateTopUpRewardUsesInviterRolePolicy(t *testing.T) {
+	truncateTables(t)
+	originalRatio := common.AffiliateTopUpRewardRatio
+	originalLimit := common.AffiliateTopUpRewardLimit
+	t.Cleanup(func() {
+		common.AffiliateTopUpRewardRatio = originalRatio
+		common.AffiliateTopUpRewardLimit = originalLimit
+		require.NoError(t, setting.UpdateAffiliateRoleConfigsByJSONString(setting.DefaultAffiliateRoleConfigsJSON))
+	})
+	common.AffiliateTopUpRewardRatio = 0.05
+	common.AffiliateTopUpRewardLimit = 5
+	require.NoError(t, setting.UpdateAffiliateRoleConfigsByJSONString(`[
+		{"id":"senior-partner","name":"Senior Partner","topup_reward_ratio":25,"topup_reward_limit":1}
+	]`))
+
+	seedAffiliateRewardUser(t, 8151, "role-inviter", 0, 0)
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", 8151).Update("affiliate_role", "senior-partner").Error)
+	seedAffiliateRewardUser(t, 8152, "role-invitee", 0, 8151)
+
+	for i := 1; i <= 2; i++ {
+		topUp := &TopUp{
+			UserId:       8152,
+			TradeNo:      fmt.Sprintf("affiliate-role-reward-%d", i),
+			Status:       common.TopUpStatusSuccess,
+			CompleteTime: time.Now().Unix(),
+		}
+		require.NoError(t, topUp.Insert())
+		created, err := CreateAffiliateTopUpReward(topUp, 100000)
+		require.NoError(t, err)
+		assert.Equal(t, i == 1, created)
+	}
+
+	var reward AffiliateTopUpReward
+	require.NoError(t, DB.Where("trade_no = ?", "affiliate-role-reward-1").First(&reward).Error)
+	assert.Equal(t, 25000, reward.RewardQuota)
+	assert.Equal(t, 0.25, reward.RewardRatio)
+	assert.Equal(t, "senior-partner", reward.AffiliateRole)
+	assert.Equal(t, "Senior Partner", reward.AffiliateRoleName)
 }
 
 func TestProcessDueAffiliateTopUpRewardsCreditsInviterAfterDelay(t *testing.T) {
