@@ -76,6 +76,8 @@ export function applyGoogleAnalytics(measurementId?: string | null): void {
   analyticsWindow.gtag =
     analyticsWindow.gtag ||
     function () {
+      // Google gtag.js expects an Arguments object, not a rest-parameter array.
+      // eslint-disable-next-line prefer-rest-params
       analyticsWindow.dataLayer?.push(arguments)
     }
   analyticsWindow.gtag('js', new Date())
