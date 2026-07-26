@@ -20,22 +20,23 @@ const (
 const affiliateTopUpRewardDelaySeconds int64 = 24 * 60 * 60
 
 type AffiliateTopUpReward struct {
-	Id                int     `json:"id"`
-	TradeNo           string  `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
-	TopUpId           int     `json:"topup_id" gorm:"index"`
-	InviterId         int     `json:"inviter_id" gorm:"index"`
-	InviteeId         int     `json:"invitee_id" gorm:"index"`
-	TopUpQuota        int     `json:"topup_quota"`
-	RewardQuota       int     `json:"reward_quota"`
-	RewardRatio       float64 `json:"reward_ratio"`
-	AffiliateRole     string  `json:"affiliate_role" gorm:"type:varchar(64);default:''"`
-	AffiliateRoleName string  `json:"affiliate_role_name" gorm:"type:varchar(128);default:''"`
-	PaymentProvider   string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
-	Status            string  `json:"status" gorm:"type:varchar(32);index"`
-	AvailableAt       int64   `json:"available_at" gorm:"bigint;index"`
-	RewardedAt        int64   `json:"rewarded_at" gorm:"bigint;default:0"`
-	CreatedAt         int64   `json:"created_at" gorm:"bigint"`
-	UpdatedAt         int64   `json:"updated_at" gorm:"bigint"`
+	Id                 int     `json:"id"`
+	TradeNo            string  `json:"trade_no" gorm:"type:varchar(255);uniqueIndex"`
+	TopUpId            int     `json:"topup_id" gorm:"index"`
+	InviterId          int     `json:"inviter_id" gorm:"index"`
+	InviteeId          int     `json:"invitee_id" gorm:"index"`
+	TopUpQuota         int     `json:"topup_quota"`
+	RewardQuota        int     `json:"reward_quota"`
+	RewardRatio        float64 `json:"reward_ratio"`
+	AffiliateRole      string  `json:"affiliate_role" gorm:"type:varchar(64);default:''"`
+	AffiliateRoleName  string  `json:"affiliate_role_name" gorm:"type:varchar(128);default:''"`
+	PaymentProvider    string  `json:"payment_provider" gorm:"type:varchar(50);default:''"`
+	Status             string  `json:"status" gorm:"type:varchar(32);index"`
+	AffHistoryCredited bool    `json:"aff_history_credited" gorm:"default:false;index"`
+	AvailableAt        int64   `json:"available_at" gorm:"bigint;index"`
+	RewardedAt         int64   `json:"rewarded_at" gorm:"bigint;default:0"`
+	CreatedAt          int64   `json:"created_at" gorm:"bigint"`
+	UpdatedAt          int64   `json:"updated_at" gorm:"bigint"`
 }
 
 type AffiliateInviteRecord struct {
@@ -97,7 +98,28 @@ func ListAffiliateInvites(inviterId int, startIdx int, pageSize int) ([]Affiliat
 		Scan(&stats.CompletedConsumeRewardQuota).Error; err != nil {
 		return nil, 0, stats, err
 	}
-	stats.TotalRewardQuota = int64(stats.RegistrationRewardQuota) + stats.CompletedTopUpRewardQuota + stats.CompletedConsumeRewardQuota
+	var affHistoryTopUpRewardQuota int64
+	if err := DB.Model(&AffiliateTopUpReward{}).
+		Where("inviter_id = ? AND status = ? AND aff_history_credited = ?", inviterId, AffiliateTopUpRewardStatusCompleted, true).
+		Select("COALESCE(SUM(reward_quota), 0)").
+		Scan(&affHistoryTopUpRewardQuota).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	var affHistoryConsumeRewardQuota int64
+	if err := DB.Model(&AffiliateConsumeReward{}).
+		Where("inviter_id = ? AND aff_history_credited = ?", inviterId, true).
+		Select("COALESCE(SUM(reward_quota), 0)").
+		Scan(&affHistoryConsumeRewardQuota).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	creditedPolicyRewardQuota := affHistoryTopUpRewardQuota + affHistoryConsumeRewardQuota
+	if int64(inviter.AffHistoryQuota) > creditedPolicyRewardQuota {
+		stats.RegistrationRewardQuota = int(int64(inviter.AffHistoryQuota) - creditedPolicyRewardQuota)
+	} else {
+		stats.RegistrationRewardQuota = 0
+	}
+	historicalPolicyRewardQuota := stats.CompletedTopUpRewardQuota + stats.CompletedConsumeRewardQuota - creditedPolicyRewardQuota
+	stats.TotalRewardQuota = int64(inviter.AffHistoryQuota) + historicalPolicyRewardQuota
 
 	records := make([]AffiliateInviteRecord, 0)
 	if err := inviteQuery.
@@ -305,9 +327,10 @@ func completeAffiliateTopUpReward(rewardId int) (bool, error) {
 		}
 		result := tx.Model(&AffiliateTopUpReward{}).Where("id = ? AND status = ?", reward.Id, AffiliateTopUpRewardStatusPending).
 			Updates(map[string]interface{}{
-				"status":      AffiliateTopUpRewardStatusCompleted,
-				"rewarded_at": now,
-				"updated_at":  now,
+				"status":               AffiliateTopUpRewardStatusCompleted,
+				"aff_history_credited": true,
+				"rewarded_at":          now,
+				"updated_at":           now,
 			})
 		if result.Error != nil {
 			return result.Error
@@ -315,7 +338,7 @@ func completeAffiliateTopUpReward(rewardId int) (bool, error) {
 		if result.RowsAffected == 0 {
 			return nil
 		}
-		if err := tx.Model(&User{}).Where("id = ?", reward.InviterId).Update("quota", gorm.Expr("quota + ?", reward.RewardQuota)).Error; err != nil {
+		if err := creditAffiliateRewardAccount(tx, reward.InviterId, int64(reward.RewardQuota)); err != nil {
 			return err
 		}
 		logInviterId = reward.InviterId
@@ -336,10 +359,10 @@ func completeAffiliateTopUpReward(rewardId int) (bool, error) {
 		logger.LogQuota(logTopUpQuota),
 		logger.LogQuota(logRewardQuota),
 	))
-	go func(userId int, rewardQuota int) {
-		if err := cacheIncrUserQuota(userId, int64(rewardQuota)); err != nil {
-			common.SysLog("failed to increase affiliate top-up reward quota cache: " + err.Error())
+	go func(userId int) {
+		if err := InvalidateUserCache(userId); err != nil {
+			common.SysLog("failed to invalidate affiliate top-up reward user cache: " + err.Error())
 		}
-	}(logInviterId, logRewardQuota)
+	}(logInviterId)
 	return true, nil
 }

@@ -14,19 +14,20 @@ import (
 )
 
 type AffiliateConsumeReward struct {
-	Id                int     `json:"id"`
-	PeriodStart       int64   `json:"period_start" gorm:"bigint;uniqueIndex:idx_affiliate_consume_reward_period,priority:1;index"`
-	PeriodEnd         int64   `json:"period_end" gorm:"bigint"`
-	InviterId         int     `json:"inviter_id" gorm:"index"`
-	InviteeId         int     `json:"invitee_id" gorm:"uniqueIndex:idx_affiliate_consume_reward_period,priority:2;index"`
-	ConsumeQuota      int64   `json:"consume_quota"`
-	RewardQuota       int64   `json:"reward_quota"`
-	RewardRatio       float64 `json:"reward_ratio"`
-	AffiliateRole     string  `json:"affiliate_role" gorm:"type:varchar(64);default:''"`
-	AffiliateRoleName string  `json:"affiliate_role_name" gorm:"type:varchar(128);default:''"`
-	RewardedAt        int64   `json:"rewarded_at" gorm:"bigint;index"`
-	CreatedAt         int64   `json:"created_at" gorm:"bigint"`
-	UpdatedAt         int64   `json:"updated_at" gorm:"bigint"`
+	Id                 int     `json:"id"`
+	PeriodStart        int64   `json:"period_start" gorm:"bigint;uniqueIndex:idx_affiliate_consume_reward_period,priority:1;index"`
+	PeriodEnd          int64   `json:"period_end" gorm:"bigint"`
+	InviterId          int     `json:"inviter_id" gorm:"index"`
+	InviteeId          int     `json:"invitee_id" gorm:"uniqueIndex:idx_affiliate_consume_reward_period,priority:2;index"`
+	ConsumeQuota       int64   `json:"consume_quota"`
+	RewardQuota        int64   `json:"reward_quota"`
+	RewardRatio        float64 `json:"reward_ratio"`
+	AffiliateRole      string  `json:"affiliate_role" gorm:"type:varchar(64);default:''"`
+	AffiliateRoleName  string  `json:"affiliate_role_name" gorm:"type:varchar(128);default:''"`
+	AffHistoryCredited bool    `json:"aff_history_credited" gorm:"default:false;index"`
+	RewardedAt         int64   `json:"rewarded_at" gorm:"bigint;index"`
+	CreatedAt          int64   `json:"created_at" gorm:"bigint"`
+	UpdatedAt          int64   `json:"updated_at" gorm:"bigint"`
 }
 
 type affiliateInviteeLink struct {
@@ -150,24 +151,24 @@ func createAffiliateConsumeReward(inviteeId int, consumeQuota int64, periodStart
 		}
 
 		reward := &AffiliateConsumeReward{
-			PeriodStart:       periodStart,
-			PeriodEnd:         periodEnd,
-			InviterId:         inviter.Id,
-			InviteeId:         invitee.Id,
-			ConsumeQuota:      consumeQuota,
-			RewardQuota:       rewardQuota,
-			RewardRatio:       policy.ConsumeRewardRatio,
-			AffiliateRole:     policy.RoleId,
-			AffiliateRoleName: policy.RoleName,
-			RewardedAt:        now,
-			CreatedAt:         now,
-			UpdatedAt:         now,
+			PeriodStart:        periodStart,
+			PeriodEnd:          periodEnd,
+			InviterId:          inviter.Id,
+			InviteeId:          invitee.Id,
+			ConsumeQuota:       consumeQuota,
+			RewardQuota:        rewardQuota,
+			RewardRatio:        policy.ConsumeRewardRatio,
+			AffiliateRole:      policy.RoleId,
+			AffiliateRoleName:  policy.RoleName,
+			AffHistoryCredited: true,
+			RewardedAt:         now,
+			CreatedAt:          now,
+			UpdatedAt:          now,
 		}
 		if err := tx.Create(reward).Error; err != nil {
 			return err
 		}
-		if err := tx.Model(&User{}).Where("id = ?", inviter.Id).
-			Update("quota", gorm.Expr("quota + ?", rewardQuota)).Error; err != nil {
+		if err := creditAffiliateRewardAccount(tx, inviter.Id, rewardQuota); err != nil {
 			return err
 		}
 		completed = reward
@@ -194,10 +195,10 @@ func createAffiliateConsumeReward(inviteeId int, consumeQuota int64, periodStart
 		logger.LogQuota(int(completed.ConsumeQuota)),
 		logger.LogQuota(int(completed.RewardQuota)),
 	))
-	go func(userId int, rewardQuota int64) {
-		if err := cacheIncrUserQuota(userId, rewardQuota); err != nil {
-			common.SysLog("failed to increase affiliate consume reward quota cache: " + err.Error())
+	go func(userId int) {
+		if err := InvalidateUserCache(userId); err != nil {
+			common.SysLog("failed to invalidate affiliate consume reward user cache: " + err.Error())
 		}
-	}(completed.InviterId, completed.RewardQuota)
+	}(completed.InviterId)
 	return true, nil
 }

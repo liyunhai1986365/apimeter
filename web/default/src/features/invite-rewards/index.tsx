@@ -1,17 +1,29 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  BankIcon,
   Clock01Icon,
   GiftIcon,
   Link01Icon,
   MoneyReceiveCircleIcon,
+  MoneySend02Icon,
   UserMultiple02Icon,
+  Wallet01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
-import { formatQuota, formatTimestampToDate } from '@/lib/format'
+import { toast } from 'sonner'
+import { useAuthStore } from '@/stores/auth-store'
+import { useSystemConfig } from '@/hooks/use-system-config'
+import { getSelf } from '@/lib/api'
+import {
+  formatQuota,
+  formatTimestampToDate,
+  parseQuotaFromDollars,
+  quotaUnitsToDollars,
+} from '@/lib/format'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -25,6 +37,14 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Empty,
   EmptyContent,
   EmptyDescription,
@@ -33,12 +53,22 @@ import {
   EmptyTitle,
 } from '@/components/ui/empty'
 import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from '@/components/ui/field'
+import { Input } from '@/components/ui/input'
+import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
+  InputGroupTextarea,
 } from '@/components/ui/input-group'
 import { Separator } from '@/components/ui/separator'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Table,
   TableBody,
@@ -47,6 +77,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Textarea } from '@/components/ui/textarea'
 import { CopyButton } from '@/components/copy-button'
 import { SectionPageLayout } from '@/components/layout'
 import {
@@ -55,22 +87,117 @@ import {
 } from '@/features/invite/lib/reward-config'
 import type { AffiliateRewardPolicy } from '@/features/invite/types'
 import { useAffiliate } from '@/features/wallet/hooks/use-affiliate'
-import { getAffiliateInvites } from './api'
-import type { AffiliateInviteRecord, AffiliateInviteStats } from './types'
+import {
+  cancelAffiliateWithdrawal,
+  getAffiliateInvites,
+  getAffiliateWithdrawals,
+  submitAffiliateWithdrawal,
+  transferAffiliateRewards,
+} from './api'
+import type {
+  AffiliateInvitePage,
+  AffiliateInviteRecord,
+  AffiliateInviteStats,
+  AffiliateWithdrawal,
+  AffiliateWithdrawalPage,
+  AffiliateWithdrawalStatus,
+} from './types'
 
 const PAGE_SIZE = 10
+const WITHDRAWAL_PAGE_SIZE = 10
 
 export function InviteRewards() {
   const { t } = useTranslation()
+  const { systemName } = useSystemConfig()
+  const queryClient = useQueryClient()
+  const setUser = useAuthStore((state) => state.auth.setUser)
   const [page, setPage] = useState(1)
+  const [withdrawalPage, setWithdrawalPage] = useState(1)
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [withdrawalOpen, setWithdrawalOpen] = useState(false)
+  const [recordsTab, setRecordsTab] = useState('invites')
   const { affiliateLink, loading: linkLoading } = useAffiliate()
   const inviteQuery = useQuery({
     queryKey: ['affiliate', 'invites', page, PAGE_SIZE],
     queryFn: () => getAffiliateInvites(page, PAGE_SIZE),
     placeholderData: (previousData) => previousData,
   })
+  const withdrawalsQuery = useQuery({
+    queryKey: [
+      'affiliate',
+      'withdrawals',
+      withdrawalPage,
+      WITHDRAWAL_PAGE_SIZE,
+    ],
+    queryFn: () =>
+      getAffiliateWithdrawals(withdrawalPage, WITHDRAWAL_PAGE_SIZE),
+    placeholderData: (previousData) => previousData,
+  })
+
+  const refreshRewardAccount = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['affiliate', 'invites'] }),
+      queryClient.invalidateQueries({
+        queryKey: ['affiliate', 'withdrawals'],
+      }),
+    ])
+    const self = await getSelf()
+    if (self?.success && self.data) {
+      setUser(self.data)
+    }
+  }
+
+  const transferMutation = useMutation({
+    mutationFn: transferAffiliateRewards,
+    onSuccess: async () => {
+      setTransferOpen(false)
+      toast.success(t('Rewards transferred to balance'))
+      await refreshRewardAccount()
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : t('Transfer failed'))
+    },
+  })
+  const withdrawalMutation = useMutation({
+    mutationFn: submitAffiliateWithdrawal,
+    onSuccess: async () => {
+      setWithdrawalOpen(false)
+      setWithdrawalPage(1)
+      setRecordsTab('withdrawals')
+      toast.success(t('Withdrawal submitted'))
+      await refreshRewardAccount()
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('Failed to submit withdrawal')
+      )
+    },
+  })
+  const cancelWithdrawalMutation = useMutation({
+    mutationFn: cancelAffiliateWithdrawal,
+    onSuccess: async () => {
+      toast.success(t('Withdrawal cancelled'))
+      await refreshRewardAccount()
+    },
+    onError: (error) => {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t('Failed to cancel withdrawal')
+      )
+    },
+  })
   const data = inviteQuery.data
   const pageCount = Math.max(1, Math.ceil((data?.total ?? 0) / PAGE_SIZE))
+  const withdrawals = withdrawalsQuery.data
+  const withdrawalPageCount = Math.max(
+    1,
+    Math.ceil((withdrawals?.total ?? 0) / WITHDRAWAL_PAGE_SIZE)
+  )
+  const availableRewardQuota = data?.stats.available_reward_quota ?? 0
+  const minimumRewardActionQuota = data?.minimum_reward_action_quota ?? 0
 
   return (
     <SectionPageLayout>
@@ -79,10 +206,16 @@ export function InviteRewards() {
         <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
           <div className='grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]'>
             <InviteOverviewCard
+              siteName={systemName}
               affiliateLink={affiliateLink}
               linkLoading={linkLoading}
               stats={data?.stats}
               statsLoading={inviteQuery.isPending}
+              availableQuota={availableRewardQuota}
+              accountLoading={!data}
+              minimumQuota={minimumRewardActionQuota}
+              onTransfer={() => setTransferOpen(true)}
+              onWithdraw={() => setWithdrawalOpen(true)}
             />
             <RewardPolicyCard
               policy={data?.affiliate_policy}
@@ -90,176 +223,732 @@ export function InviteRewards() {
             />
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>{t('Invite records')}</CardTitle>
-              <CardDescription>
-                {t('Rewards are grouped by each invited user.')}
-              </CardDescription>
-              {data ? (
-                <CardAction className='text-muted-foreground text-sm tabular-nums'>
-                  {t('{{count}} invited', { count: data.total })}
-                </CardAction>
-              ) : null}
-            </CardHeader>
-            <CardContent className='px-0'>
-              {inviteQuery.isPending ? (
-                <RecordsSkeleton />
-              ) : inviteQuery.isError ? (
-                <Empty className='border-0 py-12'>
-                  <EmptyHeader>
-                    <EmptyMedia variant='icon'>
-                      <HugeiconsIcon icon={GiftIcon} />
-                    </EmptyMedia>
-                    <EmptyTitle>
-                      {t('Unable to load invite records')}
-                    </EmptyTitle>
-                    <EmptyDescription>
-                      {t('Please try again in a moment.')}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                  <EmptyContent>
-                    <Button
-                      variant='outline'
-                      onClick={() => inviteQuery.refetch()}
-                    >
-                      {t('Retry')}
-                    </Button>
-                  </EmptyContent>
-                </Empty>
-              ) : data?.items.length ? (
-                <>
-                  <div className='hidden sm:block'>
-                    <InviteRecordsTable records={data.items} />
-                  </div>
-                  <div className='sm:hidden'>
-                    <InviteRecordsList records={data.items} />
-                  </div>
-                </>
-              ) : (
-                <Empty className='border-0 py-12'>
-                  <EmptyHeader>
-                    <EmptyMedia variant='icon'>
-                      <HugeiconsIcon icon={UserMultiple02Icon} />
-                    </EmptyMedia>
-                    <EmptyTitle>{t('No invited users yet')}</EmptyTitle>
-                    <EmptyDescription>
-                      {t(
-                        'Share your invite link to see registrations and rewards here.'
-                      )}
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
-              )}
-            </CardContent>
-            {data && data.total > PAGE_SIZE ? (
-              <CardFooter className='justify-between gap-3'>
-                <span className='text-muted-foreground text-xs tabular-nums'>
-                  {t('Page {{page}} of {{total}}', {
-                    page,
-                    total: pageCount,
-                  })}
-                </span>
-                <div className='flex gap-2'>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    disabled={page <= 1 || inviteQuery.isFetching}
-                    onClick={() => setPage((current) => current - 1)}
-                    aria-label={t('Previous')}
-                  >
-                    <HugeiconsIcon
-                      icon={ArrowLeft01Icon}
-                      data-icon='inline-start'
-                    />
-                    <span className='hidden sm:inline'>{t('Previous')}</span>
-                  </Button>
-                  <Button
-                    variant='outline'
-                    size='sm'
-                    disabled={page >= pageCount || inviteQuery.isFetching}
-                    onClick={() => setPage((current) => current + 1)}
-                    aria-label={t('Next')}
-                  >
-                    <span className='hidden sm:inline'>{t('Next')}</span>
-                    <HugeiconsIcon
-                      icon={ArrowRight01Icon}
-                      data-icon='inline-end'
-                    />
-                  </Button>
-                </div>
-              </CardFooter>
-            ) : null}
-          </Card>
+          <RewardRecordsCard
+            activeTab={recordsTab}
+            onTabChange={setRecordsTab}
+            inviteData={data}
+            inviteLoading={inviteQuery.isPending}
+            inviteError={inviteQuery.isError}
+            inviteFetching={inviteQuery.isFetching}
+            invitePage={page}
+            invitePageCount={pageCount}
+            onInviteRetry={() => inviteQuery.refetch()}
+            onInvitePageChange={setPage}
+            withdrawalData={withdrawals}
+            withdrawalLoading={withdrawalsQuery.isPending}
+            withdrawalError={withdrawalsQuery.isError}
+            withdrawalFetching={withdrawalsQuery.isFetching}
+            withdrawalPage={withdrawalPage}
+            withdrawalPageCount={withdrawalPageCount}
+            cancellingId={
+              cancelWithdrawalMutation.isPending
+                ? cancelWithdrawalMutation.variables
+                : undefined
+            }
+            onWithdrawalRetry={() => withdrawalsQuery.refetch()}
+            onWithdrawalPageChange={setWithdrawalPage}
+            onCancelWithdrawal={(id) => cancelWithdrawalMutation.mutate(id)}
+          />
         </div>
       </SectionPageLayout.Content>
+
+      <RewardAmountDialog
+        key={transferOpen ? 'transfer-open' : 'transfer-closed'}
+        mode='transfer'
+        open={transferOpen}
+        onOpenChange={setTransferOpen}
+        availableQuota={availableRewardQuota}
+        minimumQuota={minimumRewardActionQuota}
+        pending={transferMutation.isPending}
+        onSubmit={(quota) => transferMutation.mutate(quota)}
+      />
+      <RewardAmountDialog
+        key={withdrawalOpen ? 'withdraw-open' : 'withdraw-closed'}
+        mode='withdraw'
+        open={withdrawalOpen}
+        onOpenChange={setWithdrawalOpen}
+        availableQuota={availableRewardQuota}
+        minimumQuota={minimumRewardActionQuota}
+        pending={withdrawalMutation.isPending}
+        onSubmit={(amountQuota, accountInfo) =>
+          withdrawalMutation.mutate({
+            amount_quota: amountQuota,
+            account_info: accountInfo,
+          })
+        }
+      />
     </SectionPageLayout>
   )
 }
 
+function RewardAmountDialog({
+  mode,
+  open,
+  onOpenChange,
+  availableQuota,
+  minimumQuota,
+  pending,
+  onSubmit,
+}: {
+  mode: 'transfer' | 'withdraw'
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  availableQuota: number
+  minimumQuota: number
+  pending: boolean
+  onSubmit: (amountQuota: number, accountInfo: string) => void
+}) {
+  const { t } = useTranslation()
+  const [amount, setAmount] = useState(() =>
+    String(quotaUnitsToDollars(minimumQuota))
+  )
+  const [accountInfo, setAccountInfo] = useState('')
+
+  const amountQuota = parseQuotaFromDollars(Number(amount))
+  const amountInvalid =
+    amount.trim() === '' ||
+    !Number.isFinite(Number(amount)) ||
+    amountQuota < minimumQuota ||
+    amountQuota > availableQuota
+  const accountInvalid = mode === 'withdraw' && accountInfo.trim() === ''
+  const title =
+    mode === 'transfer' ? t('Transfer to balance') : t('Request withdrawal')
+  const description =
+    mode === 'transfer'
+      ? t('Move rewards from the reward account to your main balance.')
+      : t('Submit your payout account for administrator review.')
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className='sm:max-w-md'>
+        <DialogHeader>
+          <DialogTitle className='flex items-center gap-2'>
+            <HugeiconsIcon
+              icon={mode === 'transfer' ? Wallet01Icon : BankIcon}
+              className='size-5'
+            />
+            {title}
+          </DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+
+        <FieldGroup className='py-2'>
+          <Field data-invalid={amountInvalid || undefined}>
+            <FieldLabel htmlFor={`${mode}-reward-amount`}>
+              {t('Amount')}
+            </FieldLabel>
+            <Input
+              id={`${mode}-reward-amount`}
+              type='number'
+              min={quotaUnitsToDollars(minimumQuota)}
+              max={quotaUnitsToDollars(availableQuota)}
+              step='any'
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              aria-invalid={amountInvalid || undefined}
+              disabled={pending}
+            />
+            <FieldDescription>
+              {t('Available: {{amount}} · Minimum: {{minimum}}', {
+                amount: formatQuota(availableQuota),
+                minimum: formatQuota(minimumQuota),
+              })}
+            </FieldDescription>
+            {amount.trim() !== '' && amountQuota > availableQuota ? (
+              <FieldError>{t('Amount exceeds available rewards')}</FieldError>
+            ) : null}
+          </Field>
+
+          {mode === 'withdraw' ? (
+            <Field data-invalid={accountInvalid || undefined}>
+              <FieldLabel htmlFor='affiliate-withdrawal-account'>
+                {t('Withdrawal Account')}
+              </FieldLabel>
+              <Textarea
+                id='affiliate-withdrawal-account'
+                value={accountInfo}
+                onChange={(event) => setAccountInfo(event.target.value)}
+                placeholder={t(
+                  'Enter the payout method and complete account details'
+                )}
+                maxLength={2000}
+                className='min-h-24'
+                aria-invalid={accountInvalid || undefined}
+                disabled={pending}
+              />
+              <FieldDescription>
+                {t('The administrator will use these details to send payment.')}
+              </FieldDescription>
+            </Field>
+          ) : null}
+        </FieldGroup>
+
+        <DialogFooter>
+          <Button
+            variant='outline'
+            onClick={() => onOpenChange(false)}
+            disabled={pending}
+          >
+            {t('Cancel')}
+          </Button>
+          <Button
+            onClick={() => onSubmit(amountQuota, accountInfo.trim())}
+            disabled={amountInvalid || accountInvalid || pending}
+          >
+            {pending ? <Spinner data-icon='inline-start' /> : null}
+            {mode === 'transfer'
+              ? t('Confirm transfer')
+              : t('Submit Withdrawal')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function RewardRecordsCard({
+  activeTab,
+  onTabChange,
+  inviteData,
+  inviteLoading,
+  inviteError,
+  inviteFetching,
+  invitePage,
+  invitePageCount,
+  onInviteRetry,
+  onInvitePageChange,
+  withdrawalData,
+  withdrawalLoading,
+  withdrawalError,
+  withdrawalFetching,
+  withdrawalPage,
+  withdrawalPageCount,
+  cancellingId,
+  onWithdrawalRetry,
+  onWithdrawalPageChange,
+  onCancelWithdrawal,
+}: {
+  activeTab: string
+  onTabChange: (tab: string) => void
+  inviteData?: AffiliateInvitePage
+  inviteLoading: boolean
+  inviteError: boolean
+  inviteFetching: boolean
+  invitePage: number
+  invitePageCount: number
+  onInviteRetry: () => void
+  onInvitePageChange: (page: number) => void
+  withdrawalData?: AffiliateWithdrawalPage
+  withdrawalLoading: boolean
+  withdrawalError: boolean
+  withdrawalFetching: boolean
+  withdrawalPage: number
+  withdrawalPageCount: number
+  cancellingId?: number
+  onWithdrawalRetry: () => void
+  onWithdrawalPageChange: (page: number) => void
+  onCancelWithdrawal: (id: number) => void
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <Card>
+      <Tabs value={activeTab} onValueChange={onTabChange} className='gap-0'>
+        <CardHeader className='border-b'>
+          <CardTitle>{t('Reward records')}</CardTitle>
+          <CardAction className='col-span-2 col-start-1 row-span-1 row-start-2 mt-2 justify-self-stretch sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:mt-0 sm:justify-self-end'>
+            <TabsList className='grid w-full grid-cols-2 sm:w-auto'>
+              <TabsTrigger value='invites'>
+                {t('Invites')}
+                {inviteData ? (
+                  <Badge variant='secondary' className='hidden sm:inline-flex'>
+                    {inviteData.total}
+                  </Badge>
+                ) : null}
+              </TabsTrigger>
+              <TabsTrigger value='withdrawals'>
+                {t('Withdrawals')}
+                {withdrawalData ? (
+                  <Badge variant='secondary' className='hidden sm:inline-flex'>
+                    {withdrawalData.total}
+                  </Badge>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+          </CardAction>
+        </CardHeader>
+
+        <TabsContent value='invites'>
+          <CardContent className='px-0'>
+            {inviteLoading ? (
+              <RecordsSkeleton />
+            ) : inviteError ? (
+              <Empty className='border-0 py-12'>
+                <EmptyHeader>
+                  <EmptyMedia variant='icon'>
+                    <HugeiconsIcon icon={GiftIcon} />
+                  </EmptyMedia>
+                  <EmptyTitle>{t('Unable to load invite records')}</EmptyTitle>
+                  <EmptyDescription>
+                    {t('Please try again in a moment.')}
+                  </EmptyDescription>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button variant='outline' onClick={onInviteRetry}>
+                    {t('Retry')}
+                  </Button>
+                </EmptyContent>
+              </Empty>
+            ) : inviteData?.items.length ? (
+              <>
+                <div className='hidden sm:block'>
+                  <InviteRecordsTable records={inviteData.items} />
+                </div>
+                <div className='sm:hidden'>
+                  <InviteRecordsList records={inviteData.items} />
+                </div>
+              </>
+            ) : (
+              <Empty className='border-0 py-12'>
+                <EmptyHeader>
+                  <EmptyMedia variant='icon'>
+                    <HugeiconsIcon icon={UserMultiple02Icon} />
+                  </EmptyMedia>
+                  <EmptyTitle>{t('No invited users yet')}</EmptyTitle>
+                  <EmptyDescription>
+                    {t(
+                      'Share your invite link to see registrations and rewards here.'
+                    )}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </CardContent>
+          {inviteData && inviteData.total > PAGE_SIZE ? (
+            <RecordsPagination
+              page={invitePage}
+              pageCount={invitePageCount}
+              fetching={inviteFetching}
+              onPageChange={onInvitePageChange}
+            />
+          ) : null}
+        </TabsContent>
+
+        <TabsContent value='withdrawals'>
+          <CardContent className='px-0'>
+            {withdrawalLoading ? (
+              <RecordsSkeleton />
+            ) : withdrawalError ? (
+              <Empty className='border-0 py-10'>
+                <EmptyHeader>
+                  <EmptyMedia variant='icon'>
+                    <HugeiconsIcon icon={MoneySend02Icon} />
+                  </EmptyMedia>
+                  <EmptyTitle>
+                    {t('Unable to load withdrawal records')}
+                  </EmptyTitle>
+                </EmptyHeader>
+                <EmptyContent>
+                  <Button variant='outline' onClick={onWithdrawalRetry}>
+                    {t('Retry')}
+                  </Button>
+                </EmptyContent>
+              </Empty>
+            ) : withdrawalData?.items.length ? (
+              <>
+                <div className='hidden sm:block'>
+                  <WithdrawalTable
+                    records={withdrawalData.items}
+                    cancellingId={cancellingId}
+                    onCancel={onCancelWithdrawal}
+                  />
+                </div>
+                <div className='sm:hidden'>
+                  <WithdrawalList
+                    records={withdrawalData.items}
+                    cancellingId={cancellingId}
+                    onCancel={onCancelWithdrawal}
+                  />
+                </div>
+              </>
+            ) : (
+              <Empty className='border-0 py-10'>
+                <EmptyHeader>
+                  <EmptyMedia variant='icon'>
+                    <HugeiconsIcon icon={MoneySend02Icon} />
+                  </EmptyMedia>
+                  <EmptyTitle>{t('No Withdrawals')}</EmptyTitle>
+                  <EmptyDescription>
+                    {t('Submitted withdrawals will appear here.')}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
+            )}
+          </CardContent>
+          {withdrawalData && withdrawalData.total > WITHDRAWAL_PAGE_SIZE ? (
+            <RecordsPagination
+              page={withdrawalPage}
+              pageCount={withdrawalPageCount}
+              fetching={withdrawalFetching}
+              onPageChange={onWithdrawalPageChange}
+            />
+          ) : null}
+        </TabsContent>
+      </Tabs>
+    </Card>
+  )
+}
+
+function RecordsPagination({
+  page,
+  pageCount,
+  fetching,
+  onPageChange,
+}: {
+  page: number
+  pageCount: number
+  fetching: boolean
+  onPageChange: (page: number) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <CardFooter className='justify-between gap-3'>
+      <span className='text-muted-foreground text-xs tabular-nums'>
+        {t('Page {{page}} of {{total}}', { page, total: pageCount })}
+      </span>
+      <div className='flex gap-2'>
+        <Button
+          variant='outline'
+          size='icon-sm'
+          disabled={page <= 1 || fetching}
+          onClick={() => onPageChange(page - 1)}
+          aria-label={t('Previous')}
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} />
+        </Button>
+        <Button
+          variant='outline'
+          size='icon-sm'
+          disabled={page >= pageCount || fetching}
+          onClick={() => onPageChange(page + 1)}
+          aria-label={t('Next')}
+        >
+          <HugeiconsIcon icon={ArrowRight01Icon} />
+        </Button>
+      </div>
+    </CardFooter>
+  )
+}
+
+function WithdrawalTable({
+  records,
+  cancellingId,
+  onCancel,
+}: {
+  records: AffiliateWithdrawal[]
+  cancellingId?: number
+  onCancel: (id: number) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead className='pl-4'>{t('Amount')}</TableHead>
+          <TableHead>{t('Status')}</TableHead>
+          <TableHead>{t('Withdrawal Account')}</TableHead>
+          <TableHead>{t('Created At')}</TableHead>
+          <TableHead className='pr-4 text-right'>{t('Actions')}</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {records.map((record) => (
+          <TableRow key={record.id}>
+            <TableCell className='pl-4 font-medium tabular-nums'>
+              {formatQuota(record.amount_quota)}
+            </TableCell>
+            <TableCell>
+              <div className='flex flex-col items-start gap-1'>
+                <WithdrawalStatusBadge status={record.status} />
+                {record.admin_remark ? (
+                  <span className='text-muted-foreground max-w-56 text-xs break-words'>
+                    {record.admin_remark}
+                  </span>
+                ) : null}
+              </div>
+            </TableCell>
+            <TableCell className='text-muted-foreground max-w-72 truncate'>
+              {record.account_info}
+            </TableCell>
+            <TableCell className='text-muted-foreground whitespace-nowrap'>
+              {formatTimestampToDate(record.created_at)}
+            </TableCell>
+            <TableCell className='pr-4 text-right'>
+              {record.status === 'pending' ? (
+                <Button
+                  variant='ghost'
+                  size='sm'
+                  disabled={cancellingId !== undefined}
+                  onClick={() => onCancel(record.id)}
+                >
+                  {cancellingId === record.id ? <Spinner /> : null}
+                  {t('Cancel')}
+                </Button>
+              ) : (
+                <span className='text-muted-foreground'>-</span>
+              )}
+            </TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
+  )
+}
+
+function WithdrawalList({
+  records,
+  cancellingId,
+  onCancel,
+}: {
+  records: AffiliateWithdrawal[]
+  cancellingId?: number
+  onCancel: (id: number) => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className='divide-y'>
+      {records.map((record) => (
+        <div className='space-y-3 px-4 py-4' key={record.id}>
+          <div className='flex items-center justify-between gap-3'>
+            <span className='font-semibold tabular-nums'>
+              {formatQuota(record.amount_quota)}
+            </span>
+            <WithdrawalStatusBadge status={record.status} />
+          </div>
+          <div className='text-muted-foreground text-xs break-words'>
+            {record.account_info}
+          </div>
+          {record.admin_remark ? (
+            <div className='text-muted-foreground text-xs break-words'>
+              {t('Admin Remark')}: {record.admin_remark}
+            </div>
+          ) : null}
+          <div className='flex items-center justify-between gap-3'>
+            <span className='text-muted-foreground text-xs'>
+              {formatTimestampToDate(record.created_at)}
+            </span>
+            {record.status === 'pending' ? (
+              <Button
+                variant='ghost'
+                size='sm'
+                disabled={cancellingId !== undefined}
+                onClick={() => onCancel(record.id)}
+              >
+                {cancellingId === record.id ? <Spinner /> : null}
+                {t('Cancel')}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function WithdrawalStatusBadge({
+  status,
+}: {
+  status: AffiliateWithdrawalStatus
+}) {
+  const { t } = useTranslation()
+  const labels: Record<AffiliateWithdrawalStatus, string> = {
+    pending: t('Pending review'),
+    approved: t('Approved'),
+    paid: t('Paid'),
+    rejected: t('Rejected'),
+    cancelled: t('Cancelled'),
+  }
+  const variant =
+    status === 'paid'
+      ? 'default'
+      : status === 'approved'
+        ? 'secondary'
+        : status === 'rejected'
+          ? 'destructive'
+          : 'outline'
+  return <Badge variant={variant}>{labels[status]}</Badge>
+}
+
 function InviteOverviewCard({
+  siteName,
   affiliateLink,
   linkLoading,
   stats,
   statsLoading,
+  availableQuota,
+  accountLoading,
+  minimumQuota,
+  onTransfer,
+  onWithdraw,
 }: {
+  siteName: string
   affiliateLink: string
   linkLoading: boolean
   stats?: AffiliateInviteStats
   statsLoading: boolean
+  availableQuota: number
+  accountLoading: boolean
+  minimumQuota: number
+  onTransfer: () => void
+  onWithdraw: () => void
 }) {
   const { t } = useTranslation()
+  const actionsDisabled =
+    accountLoading || minimumQuota <= 0 || availableQuota < minimumQuota
+  const inviteCode = getAffiliateCode(affiliateLink)
+  const referralSiteName = getReferralSiteName(siteName)
+  const referralMessage = t(
+    `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off
+
+Use my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.
+
+The platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.
+
+Register now 👉 {{affiliateLink}}`,
+    { siteName: referralSiteName, inviteCode, affiliateLink }
+  )
   return (
     <Card className='h-full'>
       <CardHeader className='border-b'>
         <CardTitle className='flex items-center gap-2'>
           <span className='bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg'>
-            <HugeiconsIcon icon={Link01Icon} className='size-4' />
+            <HugeiconsIcon icon={Wallet01Icon} className='size-4' />
           </span>
-          {t('Share your invite link')}
+          {t('Reward account')}
         </CardTitle>
-        <CardDescription className='max-w-2xl'>
-          {t(
-            'Friends who register through this link will appear in your invite records.'
-          )}
-        </CardDescription>
+        {minimumQuota > 0 ? (
+          <CardDescription>
+            {t('Minimum action amount: {{amount}}', {
+              amount: formatQuota(minimumQuota),
+            })}
+          </CardDescription>
+        ) : null}
+        <CardAction className='col-span-2 col-start-1 row-span-1 row-start-3 mt-3 justify-self-stretch sm:col-span-1 sm:col-start-2 sm:row-span-2 sm:row-start-1 sm:mt-0 sm:justify-self-end'>
+          <div className='flex flex-wrap gap-2'>
+            <Button
+              variant='outline'
+              size='sm'
+              disabled={actionsDisabled}
+              onClick={onTransfer}
+            >
+              <HugeiconsIcon icon={Wallet01Icon} data-icon='inline-start' />
+              {t('Transfer to balance')}
+            </Button>
+            <Button size='sm' disabled={actionsDisabled} onClick={onWithdraw}>
+              <HugeiconsIcon icon={MoneySend02Icon} data-icon='inline-start' />
+              {t('Request withdrawal')}
+            </Button>
+          </div>
+        </CardAction>
       </CardHeader>
       <CardContent className='flex flex-1 flex-col gap-5'>
-        {linkLoading ? (
-          <Skeleton className='h-10 w-full' />
+        {statsLoading || accountLoading ? (
+          <StatsSkeleton />
         ) : (
-          <InputGroup className='h-10'>
-            <InputGroupInput
-              value={affiliateLink}
-              readOnly
-              aria-label={t('Invite link')}
-              className='font-mono text-xs sm:text-sm'
-            />
-            <InputGroupAddon align='inline-end'>
-              <CopyButton
-                value={affiliateLink}
-                size='icon'
-                tooltip={t('Copy referral link')}
-                aria-label={t('Copy referral link')}
-              />
-            </InputGroupAddon>
-          </InputGroup>
+          <StatsBand stats={stats} availableQuota={availableQuota} />
         )}
 
-        {statsLoading ? <StatsSkeleton /> : <StatsBand stats={stats} />}
+        <Separator />
+
+        <div className='mt-auto flex flex-col gap-3'>
+          <div className='flex items-center gap-2'>
+            <span className='bg-primary/10 text-primary flex size-8 items-center justify-center rounded-lg'>
+              <HugeiconsIcon icon={Link01Icon} className='size-4' />
+            </span>
+            <span className='font-medium'>{t('Share your invite link')}</span>
+          </div>
+          {linkLoading ? (
+            <>
+              <Skeleton className='h-48 w-full' />
+              <Skeleton className='h-10 w-full' />
+            </>
+          ) : (
+            <>
+              <InputGroup className='h-auto items-stretch'>
+                <InputGroupTextarea
+                  value={referralMessage}
+                  readOnly
+                  aria-label={t('Referral message')}
+                  className='min-h-44 max-h-none overflow-y-auto text-sm leading-6 sm:max-h-56'
+                />
+                <InputGroupAddon align='block-end' className='justify-end border-t'>
+                  <CopyButton
+                    value={referralMessage}
+                    size='sm'
+                    tooltip={t('Copy to clipboard')}
+                    aria-label={t('Copy to clipboard')}
+                  >
+                    {t('Copy')}
+                  </CopyButton>
+                </InputGroupAddon>
+              </InputGroup>
+              <div className='flex flex-col gap-2'>
+                <span className='text-muted-foreground text-xs'>
+                  {t('Invite link')}
+                </span>
+                <InputGroup className='h-10'>
+                  <InputGroupInput
+                    value={affiliateLink}
+                    readOnly
+                    aria-label={t('Invite link')}
+                    className='font-mono text-xs sm:text-sm'
+                  />
+                  <InputGroupAddon align='inline-end'>
+                    <CopyButton
+                      value={affiliateLink}
+                      size='icon'
+                      tooltip={t('Copy referral link')}
+                      aria-label={t('Copy referral link')}
+                    />
+                  </InputGroupAddon>
+                </InputGroup>
+              </div>
+            </>
+          )}
+        </div>
       </CardContent>
     </Card>
   )
 }
 
-function StatsBand({ stats }: { stats?: AffiliateInviteStats }) {
+function getAffiliateCode(affiliateLink: string) {
+  if (!affiliateLink) return ''
+  try {
+    return new URL(affiliateLink).searchParams.get('aff') ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function getReferralSiteName(siteName: string) {
+  const normalizedName = siteName.trim()
+  if (!normalizedName || /api$/i.test(normalizedName)) return normalizedName
+  return `${normalizedName} API`
+}
+
+function StatsBand({
+  stats,
+  availableQuota,
+}: {
+  stats?: AffiliateInviteStats
+  availableQuota: number
+}) {
   const { t } = useTranslation()
   const items = [
     {
       label: t('Available rewards'),
-      value: formatQuota(stats?.available_reward_quota ?? 0),
-      icon: GiftIcon,
-      emphasized: true,
+      value: formatQuota(availableQuota),
+      icon: Wallet01Icon,
     },
     {
       label: t('Invited friends'),
@@ -279,16 +968,14 @@ function StatsBand({ stats }: { stats?: AffiliateInviteStats }) {
   ]
 
   return (
-    <div className='bg-border grid gap-px overflow-hidden rounded-lg border sm:grid-cols-2 xl:grid-cols-4'>
+    <div className='bg-border grid grid-cols-2 gap-px overflow-hidden rounded-lg border sm:grid-cols-4'>
       {items.map((item) => (
         <div key={item.label} className='bg-muted/50 min-w-0 p-3'>
           <div className='text-muted-foreground flex items-center gap-1.5 text-xs'>
             <HugeiconsIcon icon={item.icon} className='size-3.5 shrink-0' />
             <span className='truncate'>{item.label}</span>
           </div>
-          <div
-            className={`mt-2 truncate font-semibold tabular-nums ${item.emphasized ? 'text-primary text-xl' : 'text-lg'}`}
-          >
+          <div className='mt-2 truncate text-lg font-semibold tabular-nums'>
             {item.value}
           </div>
         </div>
@@ -343,7 +1030,7 @@ function RewardPolicyCard({
       icon: MoneyReceiveCircleIcon,
     })
   }
-  if (rewardRatio > 0) {
+  if (rewardRatio > 0 || consumeRewardRatio > 0) {
     policies.push({
       label: t('Reward settlement'),
       value: t('24 hours'),
@@ -504,9 +1191,9 @@ function RecordMetric({ label, value }: { label: string; value: string }) {
 
 function StatsSkeleton() {
   return (
-    <div className='bg-border grid gap-px overflow-hidden rounded-lg border sm:grid-cols-2 xl:grid-cols-4'>
+    <div className='bg-border grid grid-cols-2 gap-px overflow-hidden rounded-lg border sm:grid-cols-4'>
       {Array.from({ length: 4 }).map((_, index) => (
-        <div key={index} className='bg-muted/50 space-y-2 p-3'>
+        <div key={index} className='bg-muted/50 flex flex-col gap-2 p-3'>
           <Skeleton className='h-3 w-24' />
           <Skeleton className='h-6 w-20' />
         </div>

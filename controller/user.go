@@ -470,12 +470,13 @@ func GetAffiliateInvites(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, gin.H{
-		"items":            records,
-		"total":            total,
-		"page":             pageInfo.GetPage(),
-		"page_size":        pageInfo.GetPageSize(),
-		"stats":            stats,
-		"affiliate_policy": affiliateRewardPolicyResponse(affiliatePolicy),
+		"items":                       records,
+		"total":                       total,
+		"page":                        pageInfo.GetPage(),
+		"page_size":                   pageInfo.GetPageSize(),
+		"stats":                       stats,
+		"affiliate_policy":            affiliateRewardPolicyResponse(affiliatePolicy),
+		"minimum_reward_action_quota": int(common.QuotaPerUnit),
 	})
 }
 

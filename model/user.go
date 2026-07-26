@@ -427,7 +427,13 @@ func inviteUser(inviterId int, rewardQuota int) (err error) {
 	user.AffCount++
 	user.AffQuota += rewardQuota
 	user.AffHistoryQuota += rewardQuota
-	return DB.Save(user).Error
+	if err := DB.Save(user).Error; err != nil {
+		return err
+	}
+	if err := InvalidateUserCache(inviterId); err != nil {
+		common.SysLog("failed to invalidate registration reward user cache: " + err.Error())
+	}
+	return nil
 }
 
 func (user *User) TransferAffQuotaToQuota(quota int) error {
@@ -464,7 +470,13 @@ func (user *User) TransferAffQuotaToQuota(quota int) error {
 	}
 
 	// 提交事务
-	return tx.Commit().Error
+	if err := tx.Commit().Error; err != nil {
+		return err
+	}
+	if err := InvalidateUserCache(user.Id); err != nil {
+		common.SysLog("failed to invalidate affiliate transfer user cache: " + err.Error())
+	}
+	return nil
 }
 
 func (user *User) prepareForInsert(tx *gorm.DB) error {

@@ -37,7 +37,10 @@ func TestProcessAffiliateConsumeRewardsCreditsNetDailyUsageOnce(t *testing.T) {
 	processed, err := ProcessAffiliateConsumeRewards(periodStart, periodEnd, 100)
 	require.NoError(t, err)
 	assert.Equal(t, 1, processed)
-	assert.Equal(t, 1800, getAffiliateRewardUserQuota(t, 8301))
+	quota, affQuota, affHistory := getAffiliateRewardUserBalances(t, 8301)
+	assert.Equal(t, 1000, quota)
+	assert.Equal(t, 800, affQuota)
+	assert.Equal(t, 800, affHistory)
 
 	var reward AffiliateConsumeReward
 	require.NoError(t, DB.Where("period_start = ? AND invitee_id = ?", periodStart, 8302).First(&reward).Error)
@@ -47,7 +50,10 @@ func TestProcessAffiliateConsumeRewardsCreditsNetDailyUsageOnce(t *testing.T) {
 	processed, err = ProcessAffiliateConsumeRewards(periodStart, periodEnd, 100)
 	require.NoError(t, err)
 	assert.Zero(t, processed)
-	assert.Equal(t, 1800, getAffiliateRewardUserQuota(t, 8301))
+	quota, affQuota, affHistory = getAffiliateRewardUserBalances(t, 8301)
+	assert.Equal(t, 1000, quota)
+	assert.Equal(t, 800, affQuota)
+	assert.Equal(t, 800, affHistory)
 
 	var count int64
 	require.NoError(t, DB.Model(&AffiliateConsumeReward{}).
@@ -81,7 +87,10 @@ func TestProcessAffiliateConsumeRewardsUsesInviterRolePolicy(t *testing.T) {
 	processed, err := ProcessAffiliateConsumeRewards(periodStart, periodEnd, 100)
 	require.NoError(t, err)
 	assert.Equal(t, 1, processed)
-	assert.Equal(t, 2000, getAffiliateRewardUserQuota(t, 8311))
+	quota, affQuota, affHistory := getAffiliateRewardUserBalances(t, 8311)
+	assert.Zero(t, quota)
+	assert.Equal(t, 2000, affQuota)
+	assert.Equal(t, 2000, affHistory)
 
 	var reward AffiliateConsumeReward
 	require.NoError(t, DB.Where("period_start = ? AND invitee_id = ?", periodStart, 8312).First(&reward).Error)

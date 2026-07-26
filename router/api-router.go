@@ -103,6 +103,9 @@ func SetApiRouter(router *gin.Engine) {
 				selfRoute.DELETE("/passkey", controller.PasskeyDelete)
 				selfRoute.GET("/aff", controller.GetAffCode)
 				selfRoute.GET("/aff/invites", controller.GetAffiliateInvites)
+				selfRoute.GET("/aff/withdrawals", controller.ListAffiliateWithdrawals)
+				selfRoute.POST("/aff/withdrawals", middleware.CriticalRateLimit(), controller.SubmitAffiliateWithdrawal)
+				selfRoute.DELETE("/aff/withdrawals/:id", controller.CancelAffiliateWithdrawal)
 				selfRoute.GET("/topup/info", controller.GetTopUpInfo)
 				selfRoute.GET("/topup/self", controller.GetUserTopUps)
 				selfRoute.POST("/topup", middleware.CriticalRateLimit(), controller.TopUp)
@@ -308,6 +311,12 @@ func SetApiRouter(router *gin.Engine) {
 			agentAdminRoute.POST("/:id/balance", controller.AdminAddAgentBalance)
 			agentAdminRoute.GET("/withdrawals", controller.AdminListAgentWithdrawals)
 			agentAdminRoute.PUT("/withdrawals/:id/status", controller.AdminCompleteAgentWithdrawal)
+		}
+		affiliateAdminRoute := apiRouter.Group("/affiliate")
+		affiliateAdminRoute.Use(middleware.AdminAuth())
+		{
+			affiliateAdminRoute.GET("/withdrawals", controller.AdminListAffiliateWithdrawals)
+			affiliateAdminRoute.PUT("/withdrawals/:id/status", controller.AdminCompleteAffiliateWithdrawal)
 		}
 		channelRoute := apiRouter.Group("/channel")
 		channelRoute.Use(middleware.AdminAuth())

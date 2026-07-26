@@ -27,6 +27,32 @@ export interface AffiliateInvitePage {
   page_size: number
   stats: AffiliateInviteStats
   affiliate_policy: AffiliateRewardPolicy
+  minimum_reward_action_quota: number
+}
+
+export type AffiliateWithdrawalStatus =
+  | 'pending'
+  | 'approved'
+  | 'paid'
+  | 'rejected'
+  | 'cancelled'
+
+export interface AffiliateWithdrawal {
+  id: number
+  user_id: number
+  amount_quota: number
+  status: AffiliateWithdrawalStatus
+  account_info: string
+  admin_remark: string
+  created_at: number
+  processed_at: number
+}
+
+export interface AffiliateWithdrawalPage {
+  items: AffiliateWithdrawal[]
+  total: number
+  page: number
+  page_size: number
 }
 
 export interface ApiResponse<T> {
