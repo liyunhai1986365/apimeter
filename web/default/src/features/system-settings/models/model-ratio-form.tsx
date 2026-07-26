@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { memo, useCallback, useState } from 'react'
 import { type UseFormReturn } from 'react-hook-form'
+import { useQuery } from '@tanstack/react-query'
 import { Code2, Eye } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ import {
 } from '@/components/ui/form'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { getEnabledModels } from '@/features/channels/api'
 import { ModelRatioVisualEditor } from './model-ratio-visual-editor'
 
 type ModelFormValues = {
@@ -54,6 +56,7 @@ type ModelRatioFormProps = {
   onReset: () => void
   isSaving: boolean
   isResetting: boolean
+  variant?: 'default' | 'unset'
 }
 
 export const ModelRatioForm = memo(function ModelRatioForm({
@@ -62,9 +65,22 @@ export const ModelRatioForm = memo(function ModelRatioForm({
   onReset,
   isSaving,
   isResetting,
+  variant = 'default',
 }: ModelRatioFormProps) {
   const { t } = useTranslation()
+  const isUnsetVariant = variant === 'unset'
   const [editMode, setEditMode] = useState<'visual' | 'json'>('visual')
+  const enabledModelsQuery = useQuery({
+    queryKey: ['enabled-models'],
+    queryFn: getEnabledModels,
+    enabled: isUnsetVariant,
+  })
+
+  const enabledModelsError =
+    isUnsetVariant &&
+    (enabledModelsQuery.isError ||
+      (enabledModelsQuery.data !== undefined &&
+        !enabledModelsQuery.data.success))
 
   const handleFieldChange = useCallback(
     (field: keyof ModelFormValues, value: string) => {
@@ -82,21 +98,30 @@ export const ModelRatioForm = memo(function ModelRatioForm({
 
   return (
     <div className='space-y-6'>
-      <div className='flex justify-end'>
-        <Button variant='outline' size='sm' onClick={toggleEditMode}>
-          {editMode === 'visual' ? (
-            <>
-              <Code2 className='mr-2 h-4 w-4' />
-              {t('Switch to JSON')}
-            </>
-          ) : (
-            <>
-              <Eye className='mr-2 h-4 w-4' />
-              {t('Switch to Visual')}
-            </>
-          )}
-        </Button>
-      </div>
+      {!isUnsetVariant && (
+        <div className='flex justify-end'>
+          <Button variant='outline' size='sm' onClick={toggleEditMode}>
+            {editMode === 'visual' ? (
+              <>
+                <Code2 className='mr-2 h-4 w-4' />
+                {t('Switch to JSON')}
+              </>
+            ) : (
+              <>
+                <Eye className='mr-2 h-4 w-4' />
+                {t('Switch to Visual')}
+              </>
+            )}
+          </Button>
+        </div>
+      )}
+
+      {enabledModelsError && (
+        <div className='text-destructive rounded-md border border-current px-3 py-2 text-sm'>
+          {enabledModelsQuery.data?.message ||
+            t('Failed to load enabled models')}
+        </div>
+      )}
 
       <Form {...form}>
         {editMode === 'visual' ? (
@@ -112,6 +137,15 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               audioCompletionRatio={form.watch('AudioCompletionRatio')}
               billingMode={form.watch('BillingMode')}
               billingExpr={form.watch('BillingExpr')}
+              candidateModelNames={
+                isUnsetVariant
+                  ? (enabledModelsQuery.data?.data ?? [])
+                  : undefined
+              }
+              candidateModelsLoading={
+                isUnsetVariant && enabledModelsQuery.isLoading
+              }
+              filterMode={isUnsetVariant ? 'unset' : 'all'}
               onChange={(field, value) => {
                 const fieldMap: Record<string, keyof ModelFormValues> = {
                   'billing_setting.billing_mode': 'BillingMode',
@@ -123,43 +157,47 @@ export const ModelRatioForm = memo(function ModelRatioForm({
               }}
             />
 
-            <FormField
-              control={form.control}
-              name='ExposeRatioEnabled'
-              render={({ field }) => (
-                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                  <div className='space-y-0.5'>
-                    <FormLabel className='text-base'>
-                      {t('Expose ratio API')}
-                    </FormLabel>
-                    <FormDescription>
-                      {t(
-                        'Allow clients to query configured ratios via `/api/ratio`.'
-                      )}
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+            {!isUnsetVariant && (
+              <FormField
+                control={form.control}
+                name='ExposeRatioEnabled'
+                render={({ field }) => (
+                  <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                    <div className='space-y-0.5'>
+                      <FormLabel className='text-base'>
+                        {t('Expose ratio API')}
+                      </FormLabel>
+                      <FormDescription>
+                        {t(
+                          'Allow clients to query configured ratios via `/api/ratio`.'
+                        )}
+                      </FormDescription>
+                    </div>
+                    <FormControl>
+                      <Switch
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                      />
+                    </FormControl>
+                  </FormItem>
+                )}
+              />
+            )}
 
             <div className='flex flex-wrap gap-4'>
               <Button onClick={form.handleSubmit(onSave)} disabled={isSaving}>
                 {isSaving ? t('Saving...') : t('Save model prices')}
               </Button>
-              <Button
-                type='button'
-                variant='destructive'
-                onClick={onReset}
-                disabled={isResetting}
-              >
-                {t('Reset prices')}
-              </Button>
+              {!isUnsetVariant && (
+                <Button
+                  type='button'
+                  variant='destructive'
+                  onClick={onReset}
+                  disabled={isResetting}
+                >
+                  {t('Reset prices')}
+                </Button>
+              )}
             </div>
           </div>
         ) : (

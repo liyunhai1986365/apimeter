@@ -57,6 +57,7 @@ export function Home() {
               src={content}
               className='h-screen w-full border-none'
               title={t('Custom Home Page')}
+              sandbox='allow-forms allow-popups allow-popups-to-escape-sandbox allow-scripts allow-top-navigation-by-user-activation'
             />
           ) : (
             <div className='container mx-auto py-8'>

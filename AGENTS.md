@@ -75,6 +75,7 @@ All database code MUST be fully compatible with all three databases simultaneous
 **Use GORM abstractions:**
 - Prefer GORM methods (`Create`, `Find`, `Where`, `Updates`, etc.) over raw SQL.
 - Let GORM handle primary key generation — do not use `AUTO_INCREMENT` or `SERIAL` directly.
+- Use `lockForUpdate(tx)` for standard `SELECT ... FOR UPDATE` row locks in `model/`. The shared helper emits the lock for MySQL/PostgreSQL and skips it for SQLite; the legacy GORM v1 pattern `tx.Set("gorm:query_option", "FOR UPDATE")` is silently ignored by GORM v2.
 
 **When raw SQL is unavoidable:**
 - Column quoting differs: PostgreSQL uses `"column"`, MySQL/SQLite uses `` `column` ``.

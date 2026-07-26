@@ -25,6 +25,7 @@ import {
   getExpandedRowModel,
   type OnChangeFn,
   type SortingState,
+  type ColumnSizingState,
   type VisibilityState,
   type ExpandedState,
   type Row,
@@ -112,6 +113,23 @@ export function ChannelsTable() {
   })
   const [rowSelection, setRowSelection] = useState({})
   const [expanded, setExpanded] = useState<ExpandedState>({})
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>(() => {
+    if (typeof window === 'undefined') return {}
+    try {
+      return JSON.parse(
+        window.localStorage.getItem('channels-table-column-sizing') || '{}'
+      ) as ColumnSizingState
+    } catch {
+      return {}
+    }
+  })
+
+  useEffect(() => {
+    window.localStorage.setItem(
+      'channels-table-column-sizing',
+      JSON.stringify(columnSizing)
+    )
+  }, [columnSizing])
 
   // URL state management
   const {
@@ -157,6 +175,7 @@ export function ChannelsTable() {
       ?.value as ChannelRatioFilterOp) || 'lt'
   const ratioValueFromUrl =
     (columnFilters.find((f) => f.id === 'ratioValue')?.value as string) || ''
+  const selectedTypeFilter = typeFilter.find((value) => value !== 'all')
 
   // Local state for immediate input feedback
   const [modelFilterInput, setModelFilterInput] = useState(modelFilterFromUrl)
@@ -367,6 +386,7 @@ export function ChannelsTable() {
       sorting,
       columnFilters,
       columnVisibility,
+      columnSizing,
       rowSelection,
       pagination,
       expanded,
@@ -377,6 +397,7 @@ export function ChannelsTable() {
     onSortingChange: handleSortingChange,
     onColumnFiltersChange,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnSizingChange: setColumnSizing,
     onPaginationChange,
     onExpandedChange: setExpanded,
     onGlobalFilterChange,
@@ -386,6 +407,8 @@ export function ChannelsTable() {
     manualPagination: true,
     manualSorting: true,
     manualFiltering: true,
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
   })
 
   // Ensure page is in range when total count changes
@@ -409,16 +432,15 @@ export function ChannelsTable() {
         return labelA.localeCompare(labelB)
       })
 
-    const selectedType = typeFilter.find((value) => value !== 'all')
-    if (selectedType) {
-      const selectedTypeId = Number(selectedType)
+    if (selectedTypeFilter) {
+      const selectedTypeId = Number(selectedTypeFilter)
       const alreadyIncluded = typeIds.some(
         (item) => item.type === selectedTypeId
       )
       if (selectedTypeId > 0 && !alreadyIncluded) {
         typeIds.push({
           type: selectedTypeId,
-          count: Number(counts[selectedType]) || 0,
+          count: Number(counts[selectedTypeFilter]) || 0,
         })
       }
     }
@@ -444,7 +466,7 @@ export function ChannelsTable() {
         }
       }),
     ]
-  }, [t, typeCounts, typeFilter])
+  }, [t, typeCounts, selectedTypeFilter])
 
   const groupFilterOptions = [
     { label: t('All Groups'), value: 'all' },

@@ -20,10 +20,12 @@ import * as React from 'react'
 import {
   flexRender,
   type ColumnDef,
+  type Header,
   type Row,
   type Table as TanstackTable,
 } from '@tanstack/react-table'
 import { useMediaQuery } from '@/hooks'
+import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import {
   Table,
@@ -217,12 +219,13 @@ export type DataTablePageProps<TData> = {
  * `toolbar` / `mobile` / `renderRow` slots instead of the `*Props` variants.
  */
 export function DataTablePage<TData>(props: DataTablePageProps<TData>) {
+  const { t } = useTranslation()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const showMobile = isMobile && !props.hideMobile
 
   const toolbarNode = renderToolbar(props)
   const mobileNode = renderMobile(props, showMobile)
-  const desktopNode = renderDesktop(props, showMobile)
+  const desktopNode = renderDesktop(props, showMobile, t('Resize column'))
 
   return (
     <>
@@ -294,7 +297,8 @@ function renderMobile<TData>(
 
 function renderDesktop<TData>(
   props: DataTablePageProps<TData>,
-  showMobile: boolean
+  showMobile: boolean,
+  resizeColumnLabel: string
 ): React.ReactNode {
   if (showMobile) return null
 
@@ -304,12 +308,19 @@ function renderDesktop<TData>(
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-lg border transition-opacity duration-150',
+        'rounded-lg border transition-opacity duration-150',
+        props.applyHeaderSize ? 'overflow-x-auto' : 'overflow-hidden',
         isFetchingOnly && 'pointer-events-none opacity-60',
         props.tableClassName
       )}
     >
-      <Table>
+      <Table
+        style={
+          props.applyHeaderSize
+            ? { width: `max(100%, ${props.table.getTotalSize()}px)` }
+            : undefined
+        }
+      >
         <TableHeader className={props.tableHeaderClassName}>
           {props.table.getHeaderGroups().map((headerGroup) => (
             <TableRow key={headerGroup.id}>
@@ -317,7 +328,11 @@ function renderDesktop<TData>(
                 <TableHead
                   key={header.id}
                   colSpan={header.colSpan}
-                  className={getDataTableCellClassName(header.column.id)}
+                  data-column-id={header.column.id}
+                  className={cn(
+                    'relative',
+                    getDataTableCellClassName(header.column.id)
+                  )}
                   style={
                     props.applyHeaderSize
                       ? { width: header.getSize() }
@@ -330,6 +345,20 @@ function renderDesktop<TData>(
                         header.column.columnDef.header,
                         header.getContext()
                       )}
+                  {shouldRenderColumnResizer(props.table, header) && (
+                    <div
+                      aria-label={resizeColumnLabel}
+                      aria-orientation='vertical'
+                      className='after:bg-border hover:after:bg-primary absolute top-0 right-0 h-full w-2 cursor-col-resize touch-none select-none after:absolute after:top-2 after:right-0 after:h-[calc(100%-1rem)] after:w-px after:transition-colors'
+                      onKeyDown={(event) =>
+                        handleColumnResizeKeyDown(event, props.table, header)
+                      }
+                      onMouseDown={header.getResizeHandler()}
+                      onTouchStart={header.getResizeHandler()}
+                      role='separator'
+                      tabIndex={0}
+                    />
+                  )}
                 </TableHead>
               ))}
             </TableRow>
@@ -360,6 +389,7 @@ function renderDesktop<TData>(
                   key={row.id}
                   row={row}
                   className={props.getRowClassName?.(row, { isMobile: false })}
+                  applyCellSize={props.applyHeaderSize}
                 />
               )
             })
@@ -373,9 +403,11 @@ function renderDesktop<TData>(
 function DefaultRow<TData>({
   row,
   className,
+  applyCellSize,
 }: {
   row: Row<TData>
   className?: string
+  applyCellSize?: boolean
 }) {
   return (
     <TableRow
@@ -385,11 +417,44 @@ function DefaultRow<TData>({
       {row.getVisibleCells().map((cell) => (
         <TableCell
           key={cell.id}
+          data-column-id={cell.column.id}
           className={getDataTableCellClassName(cell.column.id)}
+          style={applyCellSize ? { width: cell.column.getSize() } : undefined}
         >
           {flexRender(cell.column.columnDef.cell, cell.getContext())}
         </TableCell>
       ))}
     </TableRow>
   )
+}
+
+function shouldRenderColumnResizer<TData>(
+  table: TanstackTable<TData>,
+  header: Header<TData, unknown>
+) {
+  return (
+    table.options.enableColumnResizing === true &&
+    !header.isPlaceholder &&
+    header.column.getCanResize()
+  )
+}
+
+function handleColumnResizeKeyDown<TData>(
+  event: React.KeyboardEvent<HTMLDivElement>,
+  table: TanstackTable<TData>,
+  header: Header<TData, unknown>
+) {
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+
+  event.preventDefault()
+  const direction = event.key === 'ArrowLeft' ? -1 : 1
+  const step = event.shiftKey ? 50 : 10
+  const nextSize = header.column.getSize() + direction * step
+  const minSize = header.column.columnDef.minSize ?? 20
+  const maxSize = header.column.columnDef.maxSize ?? Number.MAX_SAFE_INTEGER
+
+  table.setColumnSizing((previous) => ({
+    ...previous,
+    [header.column.id]: Math.min(maxSize, Math.max(minSize, nextSize)),
+  }))
 }
