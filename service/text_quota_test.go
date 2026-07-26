@@ -229,23 +229,45 @@ func TestOpenAICacheWriteTokensUseCacheCreationPrice(t *testing.T) {
 		OriginModelName: "gpt-5.6-sol",
 		PriceData: types.PriceData{
 			ModelRatio:         1,
-			CompletionRatio:    1,
+			CompletionRatio:    2,
 			CacheRatio:         0.1,
 			CacheCreationRatio: 1.25,
 			GroupRatioInfo:     types.GroupRatioInfo{GroupRatio: 1},
 		},
 	}
-	usage := &dto.Usage{
-		PromptTokens: 100,
-		PromptTokensDetails: dto.InputTokenDetails{
-			CacheWriteTokens: 40,
-		},
-	}
 
-	summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+	t.Run("uncached remainder stays positive", func(t *testing.T) {
+		usage := &dto.Usage{
+			PromptTokens:     1473,
+			CompletionTokens: 19,
+			PromptTokensDetails: dto.InputTokenDetails{
+				CacheWriteTokens: 1470,
+			},
+		}
 
-	require.Equal(t, 40, summary.CacheCreationTokens)
-	require.Greater(t, summary.Quota, 0)
+		summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+
+		require.Equal(t, 1470, summary.CacheCreationTokens)
+		// (1473-1470) + 1470*1.25 + 19*2 = 1878.5 => 1879
+		require.Equal(t, 1879, summary.Quota)
+	})
+
+	t.Run("uncached remainder clamps to zero", func(t *testing.T) {
+		usage := &dto.Usage{
+			PromptTokens:     3619,
+			CompletionTokens: 36,
+			PromptTokensDetails: dto.InputTokenDetails{
+				CachedTokens:     2921,
+				CacheWriteTokens: 3616,
+			},
+		}
+
+		summary := calculateTextQuotaSummary(ctx, relayInfo, usage)
+
+		require.Equal(t, 3616, summary.CacheCreationTokens)
+		// max(3619-2921-3616, 0) + 2921*0.1 + 3616*1.25 + 36*2 = 4884.1 => 4884
+		require.Equal(t, 4884, summary.Quota)
+	})
 }
 
 func TestCalculateTextQuotaSummaryHandlesLegacyClaudeDerivedOpenAIUsage(t *testing.T) {

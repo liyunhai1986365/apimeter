@@ -490,6 +490,25 @@ func TestBuildTieredTokenParams_GPT_WithCache(t *testing.T) {
 	}
 }
 
+func TestBuildTieredTokenParams_GPT_WithNativeCacheWrite(t *testing.T) {
+	usage := &dto.Usage{
+		PromptTokens: 100,
+		PromptTokensDetails: dto.InputTokenDetails{
+			CacheWriteTokens: 120,
+		},
+	}
+	usedVars := billingexpr.UsedVars(`tier("base", p + cc)`)
+
+	params := BuildTieredTokenParams(usage, false, usedVars)
+
+	if params.CC != 120 {
+		t.Fatalf("CC = %f, want 120", params.CC)
+	}
+	if params.P != 0 {
+		t.Fatalf("P = %f, want 0 after cache-write overlap clamp", params.P)
+	}
+}
+
 func TestBuildTieredTokenParams_GPT_NoCacheVar(t *testing.T) {
 	usage := &dto.Usage{
 		PromptTokens:     1000,
