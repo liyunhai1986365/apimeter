@@ -127,6 +127,8 @@ export type AgentAnalyticsLogItem = {
   is_stream: boolean
   group: string
   request_id?: string
+  status_code?: number
+  error_message?: string
 }
 
 export type AgentAnalytics = {

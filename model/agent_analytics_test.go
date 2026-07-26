@@ -47,7 +47,7 @@ func TestGetAgentAnalyticsScopesAndAggregatesLogs(t *testing.T) {
 	}).Error)
 	require.NoError(t, LOG_DB.Create(&[]Log{
 		{UserId: 101, Username: "alice", CreatedAt: 1200, Type: LogTypeConsume, ModelName: "gpt-5", PromptTokens: 10, CompletionTokens: 5, Quota: 100},
-		{UserId: 101, Username: "alice", CreatedAt: 1800, Type: LogTypeError, ModelName: "gpt-5"},
+		{UserId: 101, Username: "alice", CreatedAt: 1800, Type: LogTypeError, ModelName: "gpt-5", Content: "status_code=429, upstream rate limited", Other: `{"status_code":429,"channel_id":7}`},
 		{UserId: 102, Username: "bob", CreatedAt: 2400, Type: LogTypeConsume, ModelName: "claude", PromptTokens: 20, CompletionTokens: 7, Quota: 300},
 		{UserId: 201, Username: "other-agent", CreatedAt: 2400, Type: LogTypeConsume, ModelName: "gpt-5", PromptTokens: 999, Quota: 9999},
 	}).Error)
@@ -73,6 +73,11 @@ func TestGetAgentAnalyticsScopesAndAggregatesLogs(t *testing.T) {
 	require.Len(t, analytics.RecentLogs, 3)
 	for _, item := range analytics.RecentLogs {
 		require.NotEqual(t, 201, item.UserId)
+		if item.Type == LogTypeError {
+			require.Equal(t, 429, item.StatusCode)
+			require.Equal(t, "upstream rate limited", item.ErrorMessage)
+			require.Empty(t, item.Other)
+		}
 	}
 }
 
@@ -84,7 +89,7 @@ func TestGetAgentAnalyticsLogsScopesFiltersAndPaginates(t *testing.T) {
 	}).Error)
 	require.NoError(t, LOG_DB.Create(&[]Log{
 		{UserId: 101, Username: "alice", CreatedAt: 1000, Type: LogTypeConsume, ModelName: "gpt-5", RequestId: "req-1"},
-		{UserId: 101, Username: "alice", CreatedAt: 1100, Type: LogTypeError, ModelName: "gpt-5", RequestId: "req-2"},
+		{UserId: 101, Username: "alice", CreatedAt: 1100, Type: LogTypeError, ModelName: "gpt-5", RequestId: "req-2", Content: "status_code=503, provider unavailable"},
 		{UserId: 101, Username: "alice", CreatedAt: 1200, Type: LogTypeConsume, ModelName: "claude", RequestId: "req-3"},
 		{UserId: 201, Username: "other-agent", CreatedAt: 1300, Type: LogTypeConsume, ModelName: "gpt-5", RequestId: "req-4"},
 	}).Error)
@@ -108,4 +113,6 @@ func TestGetAgentAnalyticsLogsScopesFiltersAndPaginates(t *testing.T) {
 	require.Equal(t, int64(3), total)
 	require.Len(t, logs, 1)
 	require.Equal(t, "req-2", logs[0].RequestId)
+	require.Equal(t, 503, logs[0].StatusCode)
+	require.Equal(t, "provider unavailable", logs[0].ErrorMessage)
 }

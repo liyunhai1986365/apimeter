@@ -61,6 +61,7 @@ import {
 } from '@/components/ui/table'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { TableEmpty } from '@/components/data-table'
+import { TruncatedText } from '@/components/truncated-text'
 import { getAgentAnalytics } from '../api'
 import type { AgentAnalyticsLogItem, AgentAnalyticsSummary } from '../types'
 
@@ -424,6 +425,7 @@ export function AgentAnalyticsLogTable(props: {
           <TableHead>{t('User')}</TableHead>
           <TableHead>{t('Model')}</TableHead>
           {!props.compact ? <TableHead>{t('Tokens')}</TableHead> : null}
+          {!props.compact ? <TableHead>{t('Fail Reason')}</TableHead> : null}
           <TableHead className='pr-4 text-right'>{t('Consumption')}</TableHead>
         </TableRow>
       </TableHeader>
@@ -456,6 +458,25 @@ export function AgentAnalyticsLogTable(props: {
                 {!props.compact ? (
                   <TableCell>{formatTokens(tokens)}</TableCell>
                 ) : null}
+                {!props.compact ? (
+                  <TableCell>
+                    {log.type === 5 ? (
+                      <div className='flex max-w-[360px] items-center gap-2'>
+                        {log.status_code ? (
+                          <Badge variant='outline'>
+                            HTTP {log.status_code}
+                          </Badge>
+                        ) : null}
+                        <TruncatedText
+                          text={log.error_message || '-'}
+                          maxWidth='max-w-[260px]'
+                        />
+                      </div>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                ) : null}
                 <TableCell className='pr-4 text-right'>
                   {formatQuota(log.quota)}
                 </TableCell>
@@ -464,7 +485,7 @@ export function AgentAnalyticsLogTable(props: {
           })
         ) : (
           <TableEmpty
-            colSpan={props.compact ? 5 : 6}
+            colSpan={props.compact ? 5 : 7}
             title={t('No usage logs')}
             description={t('No matching requests were found in this period.')}
             icon={<Bot />}

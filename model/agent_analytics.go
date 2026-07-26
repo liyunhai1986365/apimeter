@@ -2,7 +2,10 @@ package model
 
 import (
 	"sort"
+	"strconv"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
 
 	"gorm.io/gorm"
 )
@@ -64,6 +67,53 @@ type AgentAnalyticsLogItem struct {
 	IsStream         bool   `json:"is_stream"`
 	Group            string `json:"group"`
 	RequestId        string `json:"request_id,omitempty"`
+	StatusCode       int    `json:"status_code,omitempty"`
+	ErrorMessage     string `json:"error_message,omitempty"`
+	Other            string `json:"-"`
+}
+
+type agentAnalyticsLogOther struct {
+	StatusCode int `json:"status_code"`
+}
+
+func hydrateAgentAnalyticsLogFailures(logs []AgentAnalyticsLogItem) {
+	for i := range logs {
+		log := &logs[i]
+		if log.Type != LogTypeError {
+			log.ErrorMessage = ""
+			log.Other = ""
+			continue
+		}
+
+		if log.Other != "" {
+			var other agentAnalyticsLogOther
+			if err := common.UnmarshalJsonStr(log.Other, &other); err == nil {
+				log.StatusCode = other.StatusCode
+			}
+		}
+		log.Other = ""
+
+		message := strings.TrimSpace(log.ErrorMessage)
+		if !strings.HasPrefix(message, "status_code=") {
+			log.ErrorMessage = message
+			continue
+		}
+
+		statusText, remainder, hasMessage := strings.Cut(message, ",")
+		status, err := strconv.Atoi(strings.TrimPrefix(statusText, "status_code="))
+		if err != nil {
+			log.ErrorMessage = message
+			continue
+		}
+		if log.StatusCode == 0 {
+			log.StatusCode = status
+		}
+		if hasMessage {
+			log.ErrorMessage = strings.TrimSpace(remainder)
+		} else {
+			log.ErrorMessage = ""
+		}
+	}
 }
 
 type AgentAnalytics struct {
@@ -270,10 +320,11 @@ func GetAgentAnalytics(agentID int, startTimestamp, endTimestamp, bucketSeconds 
 
 		var logs []AgentAnalyticsLogItem
 		if err := agentAnalyticsLogQuery(chunk, startTimestamp, endTimestamp).
-			Select("id, user_id, username, created_at, type, token_name, model_name, quota, prompt_tokens, completion_tokens, use_time, is_stream, " + CommonLogGroupCol() + ", request_id").
+			Select("id, user_id, username, created_at, type, token_name, model_name, quota, prompt_tokens, completion_tokens, use_time, is_stream, " + CommonLogGroupCol() + ", request_id, content AS error_message, other").
 			Order("id DESC").Limit(10).Scan(&logs).Error; err != nil {
 			return err
 		}
+		hydrateAgentAnalyticsLogFailures(logs)
 		recentLogs = append(recentLogs, logs...)
 		return nil
 	})
@@ -365,7 +416,7 @@ func GetAgentAnalyticsLogs(agentID int, filters AgentAnalyticsLogFilters, startI
 		}
 		total += chunkTotal
 		var logs []AgentAnalyticsLogItem
-		if err := base.Select("id, user_id, username, created_at, type, token_name, model_name, quota, prompt_tokens, completion_tokens, use_time, is_stream, " + CommonLogGroupCol() + ", request_id").
+		if err := base.Select("id, user_id, username, created_at, type, token_name, model_name, quota, prompt_tokens, completion_tokens, use_time, is_stream, " + CommonLogGroupCol() + ", request_id, content AS error_message, other").
 			Order("id DESC").Limit(limit).Scan(&logs).Error; err != nil {
 			return err
 		}
@@ -383,5 +434,7 @@ func GetAgentAnalyticsLogs(agentID int, filters AgentAnalyticsLogFilters, startI
 	if end > len(allLogs) {
 		end = len(allLogs)
 	}
-	return allLogs[startIdx:end], total, nil
+	pageLogs := allLogs[startIdx:end]
+	hydrateAgentAnalyticsLogFailures(pageLogs)
+	return pageLogs, total, nil
 }
