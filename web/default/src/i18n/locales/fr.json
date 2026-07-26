@@ -6229,6 +6229,12 @@
     "Invitee registration reward": "Récompense d'inscription du filleul",
     "Distributor role": "Rôle de distribution",
     "Select a distributor role": "Sélectionner un rôle de distribution",
-    "Users without a distributor role follow the system referral policy.": "Les utilisateurs sans rôle de distribution appliquent la règle de parrainage système."
+    "Users without a distributor role follow the system referral policy.": "Les utilisateurs sans rôle de distribution appliquent la règle de parrainage système.",
+    "Consumption reward": "Récompense sur la consommation",
+    "Consumption reward rate (%)": "Taux de récompense sur la consommation (%)",
+    "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.": "Gagnez {{ratio}} de la consommation nette des utilisateurs invités. Les récompenses sont calculées chaque jour.",
+    "Invited Consumption Reward Rate": "Taux de récompense sur la consommation des invités",
+    "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable.": "Pourcentage de la consommation nette de chaque utilisateur invité attribué au parrain après le calcul quotidien. Définissez 0 pour désactiver.",
+    "Reward settlement": "Règlement des récompenses"
   }
 }

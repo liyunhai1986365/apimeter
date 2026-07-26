@@ -6229,6 +6229,12 @@
     "Invitee registration reward": "Invitee registration reward",
     "Distributor role": "Distributor role",
     "Select a distributor role": "Select a distributor role",
-    "Users without a distributor role follow the system referral policy.": "Users without a distributor role follow the system referral policy."
+    "Users without a distributor role follow the system referral policy.": "Users without a distributor role follow the system referral policy.",
+    "Consumption reward": "Consumption reward",
+    "Consumption reward rate (%)": "Consumption reward rate (%)",
+    "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.": "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.",
+    "Invited Consumption Reward Rate": "Invited Consumption Reward Rate",
+    "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable.": "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable.",
+    "Reward settlement": "Reward settlement"
   }
 }

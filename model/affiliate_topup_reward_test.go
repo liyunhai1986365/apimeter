@@ -324,31 +324,39 @@ func TestListAffiliateInvitesAggregatesCurrentInviterRewards(t *testing.T) {
 	} {
 		require.NoError(t, DB.Create(&reward).Error)
 	}
+	for _, reward := range []AffiliateConsumeReward{
+		{PeriodStart: now - 86400, PeriodEnd: now, InviterId: 8201, InviteeId: 8202, ConsumeQuota: 4000, RewardQuota: 400},
+		{PeriodStart: now - 86400, PeriodEnd: now, InviterId: 8201, InviteeId: 8203, ConsumeQuota: 6000, RewardQuota: 600},
+		{PeriodStart: now - 86400, PeriodEnd: now, InviterId: 8204, InviteeId: 8205, ConsumeQuota: 8000, RewardQuota: 800},
+	} {
+		require.NoError(t, DB.Create(&reward).Error)
+	}
 
 	records, total, stats, err := ListAffiliateInvites(8201, 0, 1)
 	require.NoError(t, err)
 	require.Len(t, records, 1)
 	assert.Equal(t, int64(2), total)
 	assert.Equal(t, 8202, records[0].InviteeId)
-	assert.Equal(t, int64(3000), records[0].CompletedRewardQuota)
+	assert.Equal(t, int64(3400), records[0].CompletedRewardQuota)
 	assert.Equal(t, int64(2000), records[0].PendingRewardQuota)
-	assert.Equal(t, int64(2), records[0].RewardCount)
+	assert.Equal(t, int64(3), records[0].RewardCount)
 	assert.Equal(t, AffiliateInviteStats{
-		InviteCount:               2,
-		AvailableRewardQuota:      5000,
-		RegistrationRewardQuota:   15000,
-		CompletedTopUpRewardQuota: 10000,
-		PendingTopUpRewardQuota:   2000,
-		TotalRewardQuota:          25000,
+		InviteCount:                 2,
+		AvailableRewardQuota:        5000,
+		RegistrationRewardQuota:     15000,
+		CompletedTopUpRewardQuota:   10000,
+		CompletedConsumeRewardQuota: 1000,
+		PendingTopUpRewardQuota:     2000,
+		TotalRewardQuota:            26000,
 	}, stats)
 
 	records, _, _, err = ListAffiliateInvites(8201, 1, 1)
 	require.NoError(t, err)
 	require.Len(t, records, 1)
 	assert.Equal(t, 8203, records[0].InviteeId)
-	assert.Equal(t, int64(7000), records[0].CompletedRewardQuota)
+	assert.Equal(t, int64(7600), records[0].CompletedRewardQuota)
 	assert.Zero(t, records[0].PendingRewardQuota)
-	assert.Equal(t, int64(1), records[0].RewardCount)
+	assert.Equal(t, int64(2), records[0].RewardCount)
 }
 
 func TestListAffiliateInvitesReturnsEmptyArrayForNoInvites(t *testing.T) {

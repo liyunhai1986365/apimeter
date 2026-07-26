@@ -160,6 +160,7 @@ var QuotaForInviter = 0
 var QuotaForInvitee = 0
 var AffiliateTopUpRewardRatio = 0.0
 var AffiliateTopUpRewardLimit = 0
+var AffiliateConsumeRewardRatio = 0.0
 var ChannelDisableThreshold = 5.0
 var AutomaticDisableChannelEnabled = false
 var AutomaticEnableChannelEnabled = false

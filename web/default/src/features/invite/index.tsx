@@ -50,6 +50,10 @@ export function Invite() {
     config.topupRewardRatio > 0
       ? formatInviteRewardRatio(config.topupRewardRatio)
       : t('Configured by admin')
+  const consumeRatioText =
+    config.consumeRewardRatio > 0
+      ? formatInviteRewardRatio(config.consumeRewardRatio)
+      : t('Configured by admin')
   const limitText =
     config.topupRewardLimit > 0
       ? t('First {{count}} top-ups', { count: config.topupRewardLimit })
@@ -120,11 +124,16 @@ export function Invite() {
                     )}
                   </p>
                 </div>
-                <div className='mt-4 grid gap-3 sm:grid-cols-2'>
+                <div className='mt-4 grid gap-3 sm:grid-cols-3'>
                   <MetricCard
                     icon={<TrendingUp className='size-4' />}
                     label={t('Rewarded top-ups')}
                     value={limitText}
+                  />
+                  <MetricCard
+                    icon={<BadgeDollarSign className='size-4' />}
+                    label={t('Consumption reward')}
+                    value={consumeRatioText}
                   />
                   <MetricCard
                     icon={<Gift className='size-4' />}
@@ -194,14 +203,22 @@ export function Invite() {
                       { ratio: topupRatioText }
                     )
                   : null,
-                config.topupRewardLimit > 0
+                config.topupRewardRatio > 0
+                  ? config.topupRewardLimit > 0
+                    ? t(
+                        'Each invited user brings you rewards for their first {{count}} top-ups.',
+                        { count: config.topupRewardLimit }
+                      )
+                    : t(
+                        'Each invited user can bring you top-up rewards without a count limit.'
+                      )
+                  : null,
+                config.consumeRewardRatio > 0
                   ? t(
-                      'Each invited user brings you rewards for their first {{count}} top-ups.',
-                      { count: config.topupRewardLimit }
+                      "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.",
+                      { ratio: consumeRatioText }
                     )
-                  : t(
-                      'Each invited user can bring you top-up rewards without a count limit.'
-                    ),
+                  : null,
                 config.inviterRegisterQuota > 0
                   ? t(
                       'Invite a friend to register and instantly receive {{amount}}.',

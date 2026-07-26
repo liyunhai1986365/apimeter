@@ -61,10 +61,19 @@ describe('applyGoogleAnalytics', () => {
       'https://www.googletagmanager.com/gtag/js?id=G-6B94BX72EW'
     )
     assert.equal(script?.async, true)
-    assert.equal(
-      (window as unknown as Window & { dataLayer: unknown[] }).dataLayer.length,
-      2
-    )
+    const dataLayer = (
+      window as unknown as Window & { dataLayer: unknown[] }
+    ).dataLayer
+    assert.equal(dataLayer.length, 2)
+    assert.equal(Object.prototype.toString.call(dataLayer[0]), '[object Arguments]')
+    assert.equal(Object.prototype.toString.call(dataLayer[1]), '[object Arguments]')
+    assert.equal(Array.isArray(dataLayer[0]), false)
+    assert.equal(Array.isArray(dataLayer[1]), false)
+    assert.equal(Array.from(dataLayer[0] as IArguments)[0], 'js')
+    assert.deepEqual(Array.from(dataLayer[1] as IArguments), [
+      'config',
+      'G-6B94BX72EW',
+    ])
   })
 
   test('removes the loader when analytics is disabled', () => {

@@ -19,6 +19,7 @@ type AffiliateRoleConfig struct {
 	Name               string   `json:"name"`
 	TopUpRewardRatio   *float64 `json:"topup_reward_ratio,omitempty"`
 	TopUpRewardLimit   *int     `json:"topup_reward_limit,omitempty"`
+	ConsumeRewardRatio *float64 `json:"consume_reward_ratio,omitempty"`
 	InviterRewardQuota *int     `json:"inviter_reward_quota,omitempty"`
 	InviteeRewardQuota *int     `json:"invitee_reward_quota,omitempty"`
 }
@@ -29,6 +30,7 @@ type AffiliateRewardPolicy struct {
 	UsesDefaultRole    bool    `json:"uses_default_role"`
 	TopUpRewardRatio   float64 `json:"topup_reward_ratio"`
 	TopUpRewardLimit   int     `json:"topup_reward_limit"`
+	ConsumeRewardRatio float64 `json:"consume_reward_ratio"`
 	InviterRewardQuota int     `json:"inviter_reward_quota"`
 	InviteeRewardQuota int     `json:"invitee_reward_quota"`
 }
@@ -73,6 +75,9 @@ func ParseAffiliateRoleConfigs(jsonStr string) ([]AffiliateRoleConfig, error) {
 		}
 		if roles[i].TopUpRewardLimit != nil && *roles[i].TopUpRewardLimit < 0 {
 			return nil, fmt.Errorf("affiliate role %q top-up reward limit cannot be negative", roles[i].Id)
+		}
+		if roles[i].ConsumeRewardRatio != nil && (*roles[i].ConsumeRewardRatio < 0 || *roles[i].ConsumeRewardRatio > 100) {
+			return nil, fmt.Errorf("affiliate role %q consume reward ratio must be between 0 and 100", roles[i].Id)
 		}
 		if roles[i].InviterRewardQuota != nil && *roles[i].InviterRewardQuota < 0 {
 			return nil, fmt.Errorf("affiliate role %q inviter reward cannot be negative", roles[i].Id)
@@ -132,6 +137,7 @@ func ResolveAffiliateRewardPolicy(roleId string) AffiliateRewardPolicy {
 		UsesDefaultRole:    true,
 		TopUpRewardRatio:   common.AffiliateTopUpRewardRatio,
 		TopUpRewardLimit:   common.AffiliateTopUpRewardLimit,
+		ConsumeRewardRatio: common.AffiliateConsumeRewardRatio,
 		InviterRewardQuota: common.QuotaForInviter,
 		InviteeRewardQuota: common.QuotaForInvitee,
 	}
@@ -148,6 +154,9 @@ func ResolveAffiliateRewardPolicy(roleId string) AffiliateRewardPolicy {
 	}
 	if role.TopUpRewardLimit != nil {
 		policy.TopUpRewardLimit = *role.TopUpRewardLimit
+	}
+	if role.ConsumeRewardRatio != nil {
+		policy.ConsumeRewardRatio = *role.ConsumeRewardRatio / 100
 	}
 	if role.InviterRewardQuota != nil {
 		policy.InviterRewardQuota = *role.InviterRewardQuota
@@ -167,6 +176,9 @@ func AffiliateRoleConfigsHaveRewards(jsonStr string) (bool, error) {
 		if role.TopUpRewardRatio != nil && *role.TopUpRewardRatio > 0 {
 			return true, nil
 		}
+		if role.ConsumeRewardRatio != nil && *role.ConsumeRewardRatio > 0 {
+			return true, nil
+		}
 		if role.InviterRewardQuota != nil && *role.InviterRewardQuota > 0 {
 			return true, nil
 		}
@@ -175,6 +187,20 @@ func AffiliateRoleConfigsHaveRewards(jsonStr string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func AffiliateConsumeRewardsEnabled() bool {
+	if common.AffiliateConsumeRewardRatio > 0 {
+		return true
+	}
+	affiliateRoleState.RLock()
+	defer affiliateRoleState.RUnlock()
+	for _, role := range affiliateRoleState.roles {
+		if role.ConsumeRewardRatio != nil && *role.ConsumeRewardRatio > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func findAffiliateRole(roleId string) (AffiliateRoleConfig, bool) {

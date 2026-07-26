@@ -307,6 +307,7 @@ function RewardPolicyCard({
   const { t } = useTranslation()
   const rewardRatio = policy?.topup_reward_ratio ?? 0
   const rewardLimit = policy?.topup_reward_limit ?? 0
+  const consumeRewardRatio = policy?.consume_reward_ratio ?? 0
   const topupLimit =
     rewardLimit > 0
       ? t('First {{count}} top-ups', { count: rewardLimit })
@@ -322,22 +323,33 @@ function RewardPolicyCard({
       value: formatInviteRegisterReward(policy?.invitee_reward_quota ?? 0),
       icon: UserMultiple02Icon,
     },
-    {
+  ]
+  if (rewardRatio > 0) {
+    policies.push({
       label: t('Top-up reward'),
       value: formatInviteRewardRatio(rewardRatio),
       icon: MoneyReceiveCircleIcon,
-    },
-    {
+    })
+    policies.push({
       label: t('Rewarded top-ups'),
       value: topupLimit,
       icon: UserMultiple02Icon,
-    },
-    {
-      label: t('Pending settlement'),
+    })
+  }
+  if (consumeRewardRatio > 0) {
+    policies.push({
+      label: t('Consumption reward'),
+      value: formatInviteRewardRatio(consumeRewardRatio),
+      icon: MoneyReceiveCircleIcon,
+    })
+  }
+  if (rewardRatio > 0) {
+    policies.push({
+      label: t('Reward settlement'),
       value: t('24 hours'),
       icon: Clock01Icon,
-    },
-  ]
+    })
+  }
 
   return (
     <Card className='h-full'>

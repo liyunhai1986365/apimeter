@@ -30,6 +30,7 @@ const defaultBillingSettings: BillingSettings = {
   QuotaForInvitee: 0,
   AffiliateTopUpRewardRatio: 0,
   AffiliateTopUpRewardLimit: 0,
+  AffiliateConsumeRewardRatio: 0,
   AffiliateRoleConfigs: [],
   TopUpLink: '',
   'general_setting.docs_link': '',

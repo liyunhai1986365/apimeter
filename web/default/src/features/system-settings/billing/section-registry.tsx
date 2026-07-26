@@ -66,6 +66,7 @@ const BILLING_SECTIONS = [
           QuotaForInvitee: settings.QuotaForInvitee,
           AffiliateTopUpRewardRatio: settings.AffiliateTopUpRewardRatio,
           AffiliateTopUpRewardLimit: settings.AffiliateTopUpRewardLimit,
+          AffiliateConsumeRewardRatio: settings.AffiliateConsumeRewardRatio,
           AffiliateRoleConfigs: settings.AffiliateRoleConfigs,
           TopUpLink: settings.TopUpLink,
           general_setting: {

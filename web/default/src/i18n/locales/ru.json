@@ -6229,6 +6229,12 @@
     "Invitee registration reward": "Награда приглашённому за регистрацию",
     "Distributor role": "Роль дистрибьютора",
     "Select a distributor role": "Выберите роль дистрибьютора",
-    "Users without a distributor role follow the system referral policy.": "Для пользователей без роли дистрибьютора применяется системная реферальная политика."
+    "Users without a distributor role follow the system referral policy.": "Для пользователей без роли дистрибьютора применяется системная реферальная политика.",
+    "Consumption reward": "Вознаграждение за потребление",
+    "Consumption reward rate (%)": "Ставка вознаграждения за потребление (%)",
+    "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.": "Получайте {{ratio}} от чистого потребления приглашенных пользователей. Вознаграждения начисляются ежедневно.",
+    "Invited Consumption Reward Rate": "Ставка вознаграждения за потребление приглашенных пользователей",
+    "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable.": "Процент от чистого потребления каждого приглашенного пользователя, начисляемый пригласившему после ежедневного расчета. Укажите 0, чтобы отключить.",
+    "Reward settlement": "Расчет вознаграждений"
   }
 }

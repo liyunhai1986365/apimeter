@@ -334,6 +334,7 @@ func affiliateRewardPolicyResponse(policy setting.AffiliateRewardPolicy) gin.H {
 		"uses_default_role":    policy.UsesDefaultRole,
 		"topup_reward_ratio":   policy.TopUpRewardRatio * 100,
 		"topup_reward_limit":   policy.TopUpRewardLimit,
+		"consume_reward_ratio": policy.ConsumeRewardRatio * 100,
 		"inviter_reward_quota": policy.InviterRewardQuota,
 		"invitee_reward_quota": policy.InviteeRewardQuota,
 	}

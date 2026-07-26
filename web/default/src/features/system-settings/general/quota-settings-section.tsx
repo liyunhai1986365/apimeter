@@ -49,12 +49,14 @@ const quotaSchema = z.object({
   QuotaForInvitee: z.coerce.number().min(0),
   AffiliateTopUpRewardRatio: z.coerce.number().min(0).max(100),
   AffiliateTopUpRewardLimit: z.coerce.number().int().min(0),
+  AffiliateConsumeRewardRatio: z.coerce.number().min(0).max(100),
   AffiliateRoleConfigs: z.array(
     z.object({
       id: z.string().min(1),
       name: z.string().trim().min(1).max(128),
       topup_reward_ratio: z.coerce.number().min(0).max(100).nullish(),
       topup_reward_limit: z.coerce.number().int().min(0).nullish(),
+      consume_reward_ratio: z.coerce.number().min(0).max(100).nullish(),
       inviter_reward_quota: z.coerce.number().int().min(0).nullish(),
       invitee_reward_quota: z.coerce.number().int().min(0).nullish(),
     })
@@ -299,6 +301,35 @@ export function QuotaSettingsSection({
             )}
           />
 
+          <FormField
+            control={form.control}
+            name='AffiliateConsumeRewardRatio'
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{t('Invited Consumption Reward Rate')}</FormLabel>
+                <FormControl>
+                  <Input
+                    type='number'
+                    min={0}
+                    max={100}
+                    step='0.01'
+                    value={field.value ?? ''}
+                    onChange={handleNumberChange(field.onChange)}
+                    name={field.name}
+                    onBlur={field.onBlur}
+                    ref={field.ref}
+                  />
+                </FormControl>
+                <FormDescription>
+                  {t(
+                    "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable."
+                  )}
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
           <div className='flex flex-col gap-4 border-t pt-6'>
             <div className='flex flex-wrap items-start justify-between gap-3'>
               <div className='flex flex-col gap-1'>
@@ -412,6 +443,33 @@ export function QuotaSettingsSection({
                                 )}
                                 placeholder={String(
                                   form.getValues('AffiliateTopUpRewardLimit')
+                                )}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name={`AffiliateRoleConfigs.${index}.consume_reward_ratio`}
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>
+                              {t('Consumption reward rate (%)')}
+                            </FormLabel>
+                            <FormControl>
+                              <Input
+                                type='number'
+                                min={0}
+                                max={100}
+                                step='0.01'
+                                value={field.value ?? ''}
+                                onChange={handleOptionalNumberChange(
+                                  field.onChange
+                                )}
+                                placeholder={String(
+                                  form.getValues('AffiliateConsumeRewardRatio')
                                 )}
                               />
                             </FormControl>

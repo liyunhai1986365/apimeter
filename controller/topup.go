@@ -108,6 +108,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"payment_compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,
 		"affiliate_topup_reward_ratio":     affiliatePolicy.TopUpRewardRatio * 100,
 		"affiliate_topup_reward_limit":     affiliatePolicy.TopUpRewardLimit,
+		"affiliate_consume_reward_ratio":   affiliatePolicy.ConsumeRewardRatio * 100,
 		"quota_for_inviter":                affiliatePolicy.InviterRewardQuota,
 		"quota_for_invitee":                affiliatePolicy.InviteeRewardQuota,
 		"affiliate_policy":                 affiliateRewardPolicyResponse(affiliatePolicy),

@@ -6229,6 +6229,12 @@
     "Invitee registration reward": "受邀人注册奖励",
     "Distributor role": "分销角色",
     "Select a distributor role": "选择分销角色",
-    "Users without a distributor role follow the system referral policy.": "未设置分销角色的用户将使用系统邀请奖励政策。"
+    "Users without a distributor role follow the system referral policy.": "未设置分销角色的用户将使用系统邀请奖励政策。",
+    "Consumption reward": "消费奖励",
+    "Consumption reward rate (%)": "消费奖励比例（%）",
+    "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.": "按受邀用户实际净消耗的 {{ratio}} 获得奖励，每日结算。",
+    "Invited Consumption Reward Rate": "受邀用户消费奖励比例",
+    "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable.": "受邀用户每日净消耗结算后，按该比例奖励邀请人。设为 0 表示关闭。",
+    "Reward settlement": "奖励结算"
   }
 }

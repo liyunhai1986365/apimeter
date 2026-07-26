@@ -75,8 +75,8 @@ export function applyGoogleAnalytics(measurementId?: string | null): void {
   analyticsWindow.dataLayer = analyticsWindow.dataLayer || []
   analyticsWindow.gtag =
     analyticsWindow.gtag ||
-    function (...args: unknown[]) {
-      analyticsWindow.dataLayer?.push(args)
+    function () {
+      analyticsWindow.dataLayer?.push(arguments)
     }
   analyticsWindow.gtag('js', new Date())
   analyticsWindow.gtag('config', normalized)

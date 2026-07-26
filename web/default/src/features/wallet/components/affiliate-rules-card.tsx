@@ -40,6 +40,7 @@ export function AffiliateRulesCard({
     const items: string[] = []
     const rewardRatio = topupInfo?.affiliate_topup_reward_ratio ?? 0
     const rewardLimit = topupInfo?.affiliate_topup_reward_limit ?? 0
+    const consumeRewardRatio = topupInfo?.affiliate_consume_reward_ratio ?? 0
     const inviterQuota = topupInfo?.quota_for_inviter ?? 0
 
     if (rewardRatio > 0) {
@@ -59,6 +60,15 @@ export function AffiliateRulesCard({
           : t(
               'Each invited user can bring you top-up rewards without a count limit.'
             )
+      )
+    }
+
+    if (consumeRewardRatio > 0) {
+      items.push(
+        t(
+          "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.",
+          { ratio: formatPercentText(consumeRewardRatio) }
+        )
       )
     }
 

@@ -162,6 +162,8 @@ export interface TopupInfo {
   affiliate_topup_reward_ratio?: number
   /** Maximum rewarded top-ups per invited user, 0 means unlimited */
   affiliate_topup_reward_limit?: number
+  /** Daily reward percentage for invited users' net consumption */
+  affiliate_consume_reward_ratio?: number
   /** Registration reward quota for inviters */
   quota_for_inviter?: number
   /** Registration reward quota for invited users */

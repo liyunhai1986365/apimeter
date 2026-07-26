@@ -66,8 +66,8 @@ export function applyGoogleAnalytics(measurementId) {
   window[`ga-disable-${normalized}`] = false;
   window.gtag =
     window.gtag ||
-    function (...args) {
-      window.dataLayer.push(args);
+    function () {
+      window.dataLayer.push(arguments);
     };
   window.gtag('js', new Date());
   window.gtag('config', normalized);

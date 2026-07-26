@@ -255,6 +255,7 @@ export type BillingSettings = {
   QuotaForInvitee: number
   AffiliateTopUpRewardRatio: number
   AffiliateTopUpRewardLimit: number
+  AffiliateConsumeRewardRatio: number
   AffiliateRoleConfigs: import('@/features/invite/types').AffiliateRoleConfig[]
   TopUpLink: string
   'general_setting.docs_link': string

@@ -132,6 +132,9 @@ func main() {
 	// Affiliate top-up reward task (delayed reward after invitee payment)
 	service.StartAffiliateTopUpRewardTask()
 
+	// Affiliate consume reward task (daily reward based on invitee net usage)
+	service.StartAffiliateConsumeRewardTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)

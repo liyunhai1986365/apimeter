@@ -15,6 +15,7 @@ export interface AffiliateInviteStats {
   available_reward_quota: number
   registration_reward_quota: number
   completed_topup_reward_quota: number
+  completed_consume_reward_quota: number
   pending_topup_reward_quota: number
   total_reward_quota: number
 }

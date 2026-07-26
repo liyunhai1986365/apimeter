@@ -21,6 +21,7 @@ export type AffiliateRoleConfig = {
   name: string
   topup_reward_ratio?: number | null
   topup_reward_limit?: number | null
+  consume_reward_ratio?: number | null
   inviter_reward_quota?: number | null
   invitee_reward_quota?: number | null
 }
@@ -31,6 +32,7 @@ export type AffiliateRewardPolicy = {
   uses_default_role: boolean
   topup_reward_ratio: number
   topup_reward_limit: number
+  consume_reward_ratio: number
   inviter_reward_quota: number
   invitee_reward_quota: number
 }

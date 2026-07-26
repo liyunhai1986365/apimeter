@@ -22,6 +22,7 @@ import type { SystemStatus } from '@/features/auth/types'
 export type InviteRewardConfig = {
   topupRewardRatio: number
   topupRewardLimit: number
+  consumeRewardRatio: number
   inviterRegisterQuota: number
 }
 
@@ -31,12 +32,17 @@ export function getInviteRewardConfig(
   return {
     topupRewardRatio: toNumber(status?.affiliate_topup_reward_ratio),
     topupRewardLimit: toNumber(status?.affiliate_topup_reward_limit),
+    consumeRewardRatio: toNumber(status?.affiliate_consume_reward_ratio),
     inviterRegisterQuota: toNumber(status?.quota_for_inviter),
   }
 }
 
 export function hasInviteRewards(config: InviteRewardConfig): boolean {
-  return config.topupRewardRatio > 0 || config.inviterRegisterQuota > 0
+  return (
+    config.topupRewardRatio > 0 ||
+    config.consumeRewardRatio > 0 ||
+    config.inviterRegisterQuota > 0
+  )
 }
 
 export function formatInviteRewardRatio(value: number): string {

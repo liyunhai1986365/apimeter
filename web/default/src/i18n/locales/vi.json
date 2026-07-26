@@ -6229,6 +6229,12 @@
     "Invitee registration reward": "Thưởng đăng ký cho người được mời",
     "Distributor role": "Vai trò phân phối",
     "Select a distributor role": "Chọn vai trò phân phối",
-    "Users without a distributor role follow the system referral policy.": "Người dùng không có vai trò phân phối sẽ áp dụng chính sách giới thiệu của hệ thống."
+    "Users without a distributor role follow the system referral policy.": "Người dùng không có vai trò phân phối sẽ áp dụng chính sách giới thiệu của hệ thống.",
+    "Consumption reward": "Phần thưởng theo mức sử dụng",
+    "Consumption reward rate (%)": "Tỷ lệ thưởng theo mức sử dụng (%)",
+    "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.": "Nhận {{ratio}} trên mức sử dụng ròng của người dùng được mời. Phần thưởng được quyết toán hằng ngày.",
+    "Invited Consumption Reward Rate": "Tỷ lệ thưởng theo mức sử dụng của người được mời",
+    "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable.": "Tỷ lệ phần trăm mức sử dụng ròng của mỗi người dùng được mời được thưởng cho người mời sau khi quyết toán hằng ngày. Đặt 0 để tắt.",
+    "Reward settlement": "Quyết toán phần thưởng"
   }
 }

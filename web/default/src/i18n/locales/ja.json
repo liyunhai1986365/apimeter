@@ -6229,6 +6229,12 @@
     "Invitee registration reward": "被紹介者の登録報酬",
     "Distributor role": "販売パートナー役割",
     "Select a distributor role": "販売パートナー役割を選択",
-    "Users without a distributor role follow the system referral policy.": "販売パートナー役割がないユーザーにはシステムの紹介ポリシーが適用されます。"
+    "Users without a distributor role follow the system referral policy.": "販売パートナー役割がないユーザーにはシステムの紹介ポリシーが適用されます。",
+    "Consumption reward": "利用報酬",
+    "Consumption reward rate (%)": "利用報酬率（%）",
+    "Earn {{ratio}} of invited users' net consumption. Rewards are settled daily.": "招待ユーザーの純利用額の {{ratio}} を獲得できます。報酬は毎日精算されます。",
+    "Invited Consumption Reward Rate": "招待ユーザー利用報酬率",
+    "Percentage of each invited user's net consumption awarded to the inviter after daily settlement. Set 0 to disable.": "招待ユーザーごとの純利用額に対して、日次精算後に招待者へ付与する割合です。0 で無効になります。",
+    "Reward settlement": "報酬精算"
   }
 }

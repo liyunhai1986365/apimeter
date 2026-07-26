@@ -49,12 +49,13 @@ type AffiliateInviteRecord struct {
 }
 
 type AffiliateInviteStats struct {
-	InviteCount               int64 `json:"invite_count"`
-	AvailableRewardQuota      int   `json:"available_reward_quota"`
-	RegistrationRewardQuota   int   `json:"registration_reward_quota"`
-	CompletedTopUpRewardQuota int64 `json:"completed_topup_reward_quota"`
-	PendingTopUpRewardQuota   int64 `json:"pending_topup_reward_quota"`
-	TotalRewardQuota          int64 `json:"total_reward_quota"`
+	InviteCount                 int64 `json:"invite_count"`
+	AvailableRewardQuota        int   `json:"available_reward_quota"`
+	RegistrationRewardQuota     int   `json:"registration_reward_quota"`
+	CompletedTopUpRewardQuota   int64 `json:"completed_topup_reward_quota"`
+	CompletedConsumeRewardQuota int64 `json:"completed_consume_reward_quota"`
+	PendingTopUpRewardQuota     int64 `json:"pending_topup_reward_quota"`
+	TotalRewardQuota            int64 `json:"total_reward_quota"`
 }
 
 type affiliateInviteRewardAggregate struct {
@@ -90,7 +91,13 @@ func ListAffiliateInvites(inviterId int, startIdx int, pageSize int) ([]Affiliat
 		Scan(&stats.PendingTopUpRewardQuota).Error; err != nil {
 		return nil, 0, stats, err
 	}
-	stats.TotalRewardQuota = int64(stats.RegistrationRewardQuota) + stats.CompletedTopUpRewardQuota
+	if err := DB.Model(&AffiliateConsumeReward{}).
+		Where("inviter_id = ?", inviterId).
+		Select("COALESCE(SUM(reward_quota), 0)").
+		Scan(&stats.CompletedConsumeRewardQuota).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	stats.TotalRewardQuota = int64(stats.RegistrationRewardQuota) + stats.CompletedTopUpRewardQuota + stats.CompletedConsumeRewardQuota
 
 	records := make([]AffiliateInviteRecord, 0)
 	if err := inviteQuery.
@@ -135,6 +142,23 @@ func ListAffiliateInvites(inviterId int, startIdx int, pageSize int) ([]Affiliat
 		case AffiliateTopUpRewardStatusPending:
 			record.PendingRewardQuota = aggregate.RewardQuota
 		}
+	}
+
+	var consumeAggregates []affiliateInviteRewardAggregate
+	if err := DB.Model(&AffiliateConsumeReward{}).
+		Select("invitee_id", "SUM(reward_quota) AS reward_quota", "COUNT(*) AS reward_count").
+		Where("inviter_id = ? AND invitee_id IN ?", inviterId, inviteeIds).
+		Group("invitee_id").
+		Scan(&consumeAggregates).Error; err != nil {
+		return nil, 0, stats, err
+	}
+	for _, aggregate := range consumeAggregates {
+		record := recordByInviteeId[aggregate.InviteeId]
+		if record == nil {
+			continue
+		}
+		record.CompletedRewardQuota += aggregate.RewardQuota
+		record.RewardCount += aggregate.RewardCount
 	}
 
 	return records, stats.InviteCount, stats, nil
