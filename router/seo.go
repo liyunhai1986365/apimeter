@@ -31,7 +31,7 @@ const (
 )
 
 var seoBlockPattern = regexp.MustCompile(`(?s)<!--seo-meta-start-->.*?<!--seo-meta-end-->`)
-var seoRootPattern = regexp.MustCompile(`<div\s+id=["']root["']\s*></div>`)
+var seoRootPattern = regexp.MustCompile(`<div\b[^>]*[[:space:]]id=["']root["'][^>]*>\s*</div>`)
 
 type seoPage struct {
 	Status      int
@@ -125,8 +125,12 @@ func renderSEOShell(c *gin.Context, page string, metadata seoPage) string {
 		return page
 	}
 	shell := buildSEOShell(c, metadata)
-	return seoRootPattern.ReplaceAllStringFunc(page, func(string) string {
-		return `<div id="root">` + shell + `</div>`
+	return seoRootPattern.ReplaceAllStringFunc(page, func(root string) string {
+		closingTag := strings.LastIndex(root, `</div>`)
+		if closingTag == -1 {
+			return root
+		}
+		return root[:closingTag] + shell + root[closingTag:]
 	})
 }
 

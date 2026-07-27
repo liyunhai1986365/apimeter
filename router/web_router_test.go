@@ -341,6 +341,20 @@ func TestBuildSEOShellAddsPublicPageContentAndNavigation(t *testing.T) {
 	require.Contains(t, about, `href="/pricing"`)
 }
 
+func TestRenderSEOShellPreservesRootAttributes(t *testing.T) {
+	page := `<html><body><div id="root" translate="no" class="notranslate"></div></body></html>`
+	metadata := seoPage{
+		Path:        "/about",
+		Description: "About.",
+		Robots:      "index, follow",
+	}
+
+	rendered := renderSEOShell(nil, page, metadata)
+
+	require.Contains(t, rendered, `<div id="root" translate="no" class="notranslate"><div data-seo-shell="true"`)
+	require.Contains(t, rendered, `A unified gateway for AI applications`)
+}
+
 func TestServeFrontendPageReturnsNotFoundHTMLForUnknownPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	assets := ThemeAssets{
