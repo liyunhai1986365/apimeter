@@ -28,6 +28,7 @@ import type {
   AmountResponse,
   PaymentResponse,
   StripePaymentResponse,
+  StripePurchaseConversionResponse,
   AffiliateCodeResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
@@ -117,6 +118,16 @@ export async function requestStripePayment(
   request: PaymentRequest
 ): Promise<StripePaymentResponse> {
   const res = await api.post('/api/user/stripe/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function getStripePurchaseConversion(
+  sessionId: string
+): Promise<StripePurchaseConversionResponse> {
+  const res = await api.get('/api/user/stripe/purchase-conversion', {
+    params: { session_id: sessionId },
     skipBusinessError: true,
   } as Record<string, unknown>)
   return res.data

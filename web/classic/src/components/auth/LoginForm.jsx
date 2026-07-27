@@ -66,6 +66,7 @@ import LinuxDoIcon from '../common/logo/LinuxDoIcon';
 import TwoFAVerification from './TwoFAVerification';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
+import { trackSignUp } from '../../helpers/googleAnalytics';
 
 const LoginForm = () => {
   let navigate = useNavigate();
@@ -194,6 +195,9 @@ const LoginForm = () => {
       );
       const { success, message, data } = res.data;
       if (success) {
+        if (data?.is_new_user) {
+          trackSignUp(data.auth_method || 'wechat');
+        }
         userDispatch({ type: 'login', payload: data });
         localStorage.setItem('user', JSON.stringify(data));
         setUserData(data);
@@ -958,8 +962,7 @@ const LoginForm = () => {
         style={{ top: '50%', left: '-120px' }}
       />
       <div className='w-full max-w-sm mt-[60px]'>
-        {showEmailLogin ||
-        !hasOAuthLoginOptions
+        {showEmailLogin || !hasOAuthLoginOptions
           ? renderEmailLoginForm()
           : renderOAuthOptions()}
         {renderWeChatLoginModal()}

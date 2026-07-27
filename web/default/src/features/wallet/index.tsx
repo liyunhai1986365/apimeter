@@ -20,8 +20,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { getSelf, getSelfUsageStat } from '@/lib/api'
+import { trackPurchase } from '@/lib/google-analytics'
 import { useStatus } from '@/hooks/use-status'
 import { SectionPageLayout } from '@/components/layout'
+import { getStripePurchaseConversion } from './api'
 import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { AffiliateRulesCard } from './components/affiliate-rules-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
@@ -55,6 +57,7 @@ import type {
 
 interface WalletProps {
   initialShowHistory?: boolean
+  stripeSessionId?: string
 }
 
 export function Wallet(props: WalletProps) {
@@ -123,9 +126,46 @@ export function Wallet(props: WalletProps) {
   useEffect(() => {
     if (props.initialShowHistory) {
       setBillingDialogOpen(true)
-      window.history.replaceState({}, '', window.location.pathname)
+      const returnURL = new URL(window.location.href)
+      returnURL.searchParams.delete('show_history')
+      window.history.replaceState({}, '', returnURL)
     }
   }, [props.initialShowHistory])
+
+  useEffect(() => {
+    if (!props.stripeSessionId) return
+
+    let cancelled = false
+    getStripePurchaseConversion(props.stripeSessionId)
+      .then((response) => {
+        const conversion = response.data
+        if (
+          cancelled ||
+          !response.success ||
+          conversion?.status !== 'paid' ||
+          !conversion.transaction_id ||
+          conversion.value == null ||
+          !conversion.currency
+        ) {
+          return
+        }
+        trackPurchase({
+          transactionId: conversion.transaction_id,
+          value: conversion.value,
+          currency: conversion.currency,
+        })
+        const returnURL = new URL(window.location.href)
+        returnURL.searchParams.delete('stripe_session_id')
+        window.history.replaceState({}, '', returnURL)
+      })
+      .catch(() => {
+        // The payment history remains available if confirmation is delayed.
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [props.stripeSessionId])
 
   // Initialize topup amount when topup info is loaded
   useEffect(() => {

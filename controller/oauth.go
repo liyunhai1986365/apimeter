@@ -131,6 +131,13 @@ func HandleOAuth(c *gin.Context) {
 	}
 
 	// 9. Setup login
+	if c.GetBool("oauth_user_created") {
+		setupLogin(user, c, gin.H{
+			"is_new_user": true,
+			"auth_method": provider.GetName(),
+		})
+		return
+	}
 	setupLogin(user, c)
 }
 
@@ -340,6 +347,7 @@ func findOrCreateOAuthUser(c *gin.Context, provider oauth.Provider, oauthUser *o
 		user.FinalizeOAuthUserCreation(inviterId)
 	}
 
+	c.Set("oauth_user_created", true)
 	return user, nil
 }
 

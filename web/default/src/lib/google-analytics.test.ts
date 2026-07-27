@@ -3,6 +3,8 @@ import { beforeEach, describe, test } from 'node:test'
 import {
   applyGoogleAnalytics,
   normalizeGoogleAnalyticsId,
+  trackPurchase,
+  trackSignUp,
 } from './google-analytics'
 
 class FakeScriptElement {
@@ -90,5 +92,59 @@ describe('applyGoogleAnalytics', () => {
       (window as unknown as Record<string, unknown>)['ga-disable-G-6B94BX72EW'],
       true
     )
+  })
+
+  test('queues conversion events until analytics is configured', () => {
+    trackSignUp('password')
+    trackPurchase({
+      transactionId: 'ref_123',
+      value: 19.99,
+      currency: 'usd',
+    })
+
+    applyGoogleAnalytics('G-6B94BX72EW')
+
+    const dataLayer = (window as unknown as Window & { dataLayer: unknown[] })
+      .dataLayer
+    assert.deepEqual(Array.from(dataLayer[2] as IArguments), [
+      'event',
+      'sign_up',
+      { method: 'password' },
+    ])
+    assert.deepEqual(Array.from(dataLayer[3] as IArguments), [
+      'event',
+      'purchase',
+      {
+        transaction_id: 'ref_123',
+        value: 19.99,
+        currency: 'USD',
+        payment_type: 'stripe',
+        items: [
+          {
+            item_id: 'stripe_payment',
+            item_name: 'Stripe payment',
+            price: 19.99,
+            quantity: 1,
+          },
+        ],
+      },
+    ])
+  })
+
+  test('deduplicates purchase events in the current page session', () => {
+    applyGoogleAnalytics('G-6B94BX72EW')
+    const purchase = {
+      transactionId: 'ref_deduplicated',
+      value: 9.5,
+      currency: 'USD',
+    }
+
+    trackPurchase(purchase)
+    trackPurchase(purchase)
+
+    const events = (
+      window as unknown as Window & { dataLayer: IArguments[] }
+    ).dataLayer.filter((entry) => Array.from(entry)[1] === 'purchase')
+    assert.equal(events.length, 1)
   })
 })

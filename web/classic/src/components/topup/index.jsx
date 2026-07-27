@@ -39,6 +39,7 @@ import InvitationCard from './InvitationCard';
 import TransferModal from './modals/TransferModal';
 import PaymentConfirmModal from './modals/PaymentConfirmModal';
 import TopupHistoryModal from './modals/TopupHistoryModal';
+import { trackPurchase } from '../../helpers/googleAnalytics';
 
 // Reject non-navigable schemes (e.g. javascript:, data:) and relative URLs.
 // Only http / https are allowed for backend-provided redirect targets.
@@ -763,8 +764,39 @@ const TopUp = () => {
 
   // URL 参数自动打开账单弹窗（支付回跳时触发）
   useEffect(() => {
-    if (searchParams.get('show_history') === 'true') {
+    const showHistory = searchParams.get('show_history') === 'true';
+    if (showHistory) {
       setOpenHistory(true);
+    }
+
+    const stripeSessionId = searchParams.get('stripe_session_id');
+    if (stripeSessionId) {
+      API.get('/api/user/stripe/purchase-conversion', {
+        params: { session_id: stripeSessionId },
+      })
+        .then(({ data: response }) => {
+          const conversion = response?.data;
+          if (
+            response?.success &&
+            conversion?.status === 'paid' &&
+            conversion.transaction_id &&
+            conversion.value != null &&
+            conversion.currency
+          ) {
+            trackPurchase({
+              transactionId: conversion.transaction_id,
+              value: conversion.value,
+              currency: conversion.currency,
+            });
+            const returnParams = new URLSearchParams(window.location.search);
+            returnParams.delete('stripe_session_id');
+            setSearchParams(returnParams, { replace: true });
+          }
+        })
+        .catch(() => {});
+    }
+
+    if (showHistory) {
       searchParams.delete('show_history');
       setSearchParams(searchParams, { replace: true });
     }

@@ -24,6 +24,7 @@ import { Link } from '@tanstack/react-router'
 import { Loader2, LogIn, KeyRound } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { trackSignUp } from '@/lib/google-analytics'
 import { getAICreationSSOUrlFromStatus } from '@/lib/nav-modules'
 import {
   buildAssertionResult,
@@ -218,7 +219,15 @@ export function UserAuthForm({
     try {
       const res = await wechatLoginByCode(wechatCode)
       if (res?.success) {
-        await handleLoginSuccess(res.data as { id?: number } | null, redirectTo)
+        const userData = res.data as {
+          id?: number
+          is_new_user?: boolean
+          auth_method?: string
+        } | null
+        if (userData?.is_new_user) {
+          trackSignUp(userData.auth_method || 'wechat')
+        }
+        await handleLoginSuccess(userData, redirectTo)
         toast.success(t('Signed in via WeChat'))
         handleWeChatDialogChange(false)
       } else {

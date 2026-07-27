@@ -28,6 +28,7 @@ import i18next from 'i18next'
 import { toast } from 'sonner'
 import { useAuthStore, type AuthUser } from '@/stores/auth-store'
 import { api, getSelf } from '@/lib/api'
+import { trackSignUp } from '@/lib/google-analytics'
 import { getAICreationSSOUrlFromStatus } from '@/lib/nav-modules'
 import { OAuthCallbackScreen } from '@/features/auth/components/oauth-callback-screen'
 import { OAUTH_BIND_STORAGE_KEY } from '@/features/auth/constants'
@@ -191,7 +192,12 @@ function OAuthCallback() {
         const res = await api.get(`/api/oauth/${provider}`, config)
         if (res?.data?.success) {
           const { message } = res.data
-          const loginUser = (res.data?.data ?? null) as AuthUser | null
+          const loginUser = (res.data?.data ?? null) as
+            | (AuthUser & {
+                is_new_user?: boolean
+                auth_method?: string
+              })
+            | null
           // Check if this is a bind operation
           if (message === 'bind') {
             toast.success(i18next.t('Binding successful!'))
@@ -203,6 +209,9 @@ function OAuthCallback() {
               safeNavigate('/_authenticated/profile/')
             }
             return
+          }
+          if (loginUser?.is_new_user) {
+            trackSignUp(loginUser.auth_method || provider)
           }
           // Otherwise it's a login, use payload user if available
           if (loginUser) {

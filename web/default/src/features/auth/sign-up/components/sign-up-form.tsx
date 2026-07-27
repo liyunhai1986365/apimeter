@@ -23,6 +23,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { trackSignUp } from '@/lib/google-analytics'
 import { cn } from '@/lib/utils'
 import { useStatus } from '@/hooks/use-status'
 import { Button } from '@/components/ui/button'
@@ -181,6 +182,7 @@ export function SignUpForm({
       })
 
       if (res?.success) {
+        trackSignUp('password')
         toast.success(t('Account created! Please sign in'))
         redirectToLogin()
       }
@@ -222,7 +224,15 @@ export function SignUpForm({
     try {
       const res = await wechatLoginByCode(wechatCode)
       if (res?.success) {
-        await handleLoginSuccess(res.data as { id?: number } | null)
+        const userData = res.data as {
+          id?: number
+          is_new_user?: boolean
+          auth_method?: string
+        } | null
+        if (userData?.is_new_user) {
+          trackSignUp(userData.auth_method || 'wechat')
+        }
+        await handleLoginSuccess(userData)
         toast.success(t('Signed in via WeChat'))
         handleWeChatDialogChange(false)
       } else {

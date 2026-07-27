@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 
 const GOOGLE_ANALYTICS_SCRIPT_ID = 'google-analytics-script';
 const GOOGLE_ANALYTICS_ID_PATTERN = /^G-[A-Z0-9]{4,32}$/;
+const pendingEvents = [];
+const trackedPurchaseIds = new Set();
 
 export function normalizeGoogleAnalyticsId(measurementId) {
   const normalized = String(measurementId || '')
@@ -43,6 +45,7 @@ export function applyGoogleAnalytics(measurementId) {
 
   if (!normalized) {
     existing?.remove();
+    pendingEvents.length = 0;
     return;
   }
 
@@ -71,4 +74,49 @@ export function applyGoogleAnalytics(measurementId) {
     };
   window.gtag('js', new Date());
   window.gtag('config', normalized);
+
+  while (pendingEvents.length > 0) {
+    const [eventName, params] = pendingEvents.shift();
+    window.gtag('event', eventName, params);
+  }
+}
+
+export function trackGoogleAnalyticsEvent(eventName, params = {}) {
+  if (typeof window === 'undefined') return;
+  if (window.gtag) {
+    window.gtag('event', eventName, params);
+    return;
+  }
+  pendingEvents.push([eventName, params]);
+}
+
+export function trackSignUp(method) {
+  trackGoogleAnalyticsEvent('sign_up', { method });
+}
+
+export function trackPurchase({ transactionId, value, currency }) {
+  if (
+    !transactionId ||
+    trackedPurchaseIds.has(transactionId) ||
+    !Number.isFinite(value) ||
+    value < 0 ||
+    !currency
+  ) {
+    return;
+  }
+  trackedPurchaseIds.add(transactionId);
+  trackGoogleAnalyticsEvent('purchase', {
+    transaction_id: transactionId,
+    value,
+    currency: currency.toUpperCase(),
+    payment_type: 'stripe',
+    items: [
+      {
+        item_id: 'stripe_payment',
+        item_name: 'Stripe payment',
+        price: value,
+        quantity: 1,
+      },
+    ],
+  });
 }

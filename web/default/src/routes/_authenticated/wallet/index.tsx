@@ -22,6 +22,7 @@ import { Wallet } from '@/features/wallet'
 
 const walletSearchSchema = z.object({
   show_history: z.boolean().optional(),
+  stripe_session_id: z.string().optional(),
 })
 
 export const Route = createFileRoute('/_authenticated/wallet/')({
@@ -30,6 +31,11 @@ export const Route = createFileRoute('/_authenticated/wallet/')({
 })
 
 function RouteComponent() {
-  const { show_history } = Route.useSearch()
-  return <Wallet initialShowHistory={show_history} />
+  const { show_history, stripe_session_id } = Route.useSearch()
+  return (
+    <Wallet
+      initialShowHistory={show_history}
+      stripeSessionId={stripe_session_id}
+    />
+  )
 }

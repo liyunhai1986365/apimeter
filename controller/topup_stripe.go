@@ -42,6 +42,31 @@ type StripePayRequest struct {
 type StripeAdaptor struct {
 }
 
+const stripeCheckoutSessionPlaceholder = "{CHECKOUT_SESSION_ID}"
+
+var retrieveStripeCheckoutSession = session.Get
+
+type stripePurchaseConversion struct {
+	Status        string  `json:"status"`
+	TransactionID string  `json:"transaction_id,omitempty"`
+	Value         float64 `json:"value,omitempty"`
+	Currency      string  `json:"currency,omitempty"`
+}
+
+func stripeCheckoutSuccessURL(c *gin.Context) string {
+	return appendStripeCheckoutSession(
+		paymentReturnPathForRequest(c, "/console/topup?show_history=true"),
+	)
+}
+
+func appendStripeCheckoutSession(returnURL string) string {
+	separator := "?"
+	if strings.Contains(returnURL, "?") {
+		separator = "&"
+	}
+	return returnURL + separator + "stripe_session_id=" + stripeCheckoutSessionPlaceholder
+}
+
 func (*StripeAdaptor) RequestAmount(c *gin.Context, req *StripePayRequest) {
 	if req.Amount < getStripeMinTopup() {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", getStripeMinTopup())})
@@ -92,7 +117,7 @@ func (*StripeAdaptor) RequestPay(c *gin.Context, req *StripePayRequest) {
 	reference := fmt.Sprintf("new-api-ref-%d-%d-%s", user.Id, time.Now().UnixMilli(), randstr.String(4))
 	referenceId := "ref_" + common.Sha1([]byte(reference))
 
-	defaultSuccessURL := paymentReturnPathForRequest(c, "/console/log")
+	defaultSuccessURL := stripeCheckoutSuccessURL(c)
 	defaultCancelURL := paymentReturnPathForRequest(c, "/console/topup")
 	payLink, err := genStripeLink(referenceId, user.StripeCustomer, user.Email, req.Amount, req.SuccessURL, req.CancelURL, defaultSuccessURL, defaultCancelURL)
 	if err != nil {
@@ -144,6 +169,58 @@ func RequestStripePay(c *gin.Context) {
 		return
 	}
 	stripeAdaptor.RequestPay(c, &req)
+}
+
+func GetStripePurchaseConversion(c *gin.Context) {
+	sessionId := strings.TrimSpace(c.Query("session_id"))
+	if !strings.HasPrefix(sessionId, "cs_") || len(sessionId) > 255 {
+		common.ApiErrorMsg(c, "无效的 Stripe Checkout Session")
+		return
+	}
+	if !strings.HasPrefix(setting.StripeApiSecret, "sk_") && !strings.HasPrefix(setting.StripeApiSecret, "rk_") {
+		common.ApiErrorMsg(c, "Stripe 未配置或密钥无效")
+		return
+	}
+
+	stripe.Key = setting.StripeApiSecret
+	checkoutSession, err := retrieveStripeCheckoutSession(sessionId, nil)
+	if err != nil {
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("Stripe Checkout Session 查询失败 session_id=%s user_id=%d error=%q", sessionId, c.GetInt("id"), err.Error()))
+		common.ApiErrorMsg(c, "无法确认 Stripe 支付状态")
+		return
+	}
+
+	referenceId := checkoutSession.ClientReferenceID
+	if !stripeOrderBelongsToUser(referenceId, c.GetInt("id")) {
+		common.ApiErrorMsg(c, "Stripe 支付订单不存在")
+		return
+	}
+
+	conversion := stripePurchaseConversion{Status: "pending"}
+	if checkoutSession.PaymentStatus != stripe.CheckoutSessionPaymentStatusPaid {
+		common.ApiSuccess(c, conversion)
+		return
+	}
+
+	conversion.Status = "paid"
+	conversion.TransactionID = referenceId
+	conversion.Value = float64(checkoutSession.AmountTotal) / 100
+	conversion.Currency = strings.ToUpper(string(checkoutSession.Currency))
+	common.ApiSuccess(c, conversion)
+}
+
+func stripeOrderBelongsToUser(referenceId string, userId int) bool {
+	if referenceId == "" || userId <= 0 {
+		return false
+	}
+	if strings.HasPrefix(referenceId, "sub_ref_") {
+		order := model.GetSubscriptionOrderByTradeNo(referenceId)
+		return order != nil && order.UserId == userId && order.PaymentProvider == model.PaymentProviderStripe
+	}
+	if topUp := model.GetTopUpByTradeNo(referenceId); topUp != nil {
+		return topUp.UserId == userId && topUp.PaymentProvider == model.PaymentProviderStripe
+	}
+	return false
 }
 
 func StripeWebhook(c *gin.Context) {

@@ -109,7 +109,7 @@ func Login(c *gin.Context) {
 }
 
 // setup session & cookies and then return user info
-func setupLogin(user *model.User, c *gin.Context) {
+func setupLogin(user *model.User, c *gin.Context, responseMetadata ...gin.H) {
 	model.UpdateUserLastLoginAt(user.Id)
 	group := user.Group
 	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
@@ -134,23 +134,29 @@ func setupLogin(user *model.User, c *gin.Context) {
 	}
 	permissions := calculateUserPermissions(user.Role)
 	permissions["agent_console"] = hasAgentConsole
+	data := gin.H{
+		"id":                   user.Id,
+		"username":             user.Username,
+		"display_name":         user.DisplayName,
+		"role":                 user.Role,
+		"status":               user.Status,
+		"group":                group,
+		"has_agent":            hasAgentConsole,
+		"permissions":          permissions,
+		"workspace_subaccount": user.ParentUserId > 0,
+		"parent_user_id":       user.ParentUserId,
+		"must_change_password": user.MustChangePassword,
+		"allowed_modules":      workspaceAccountAllowedModules(user.ParentUserId > 0),
+	}
+	if len(responseMetadata) > 0 {
+		for key, value := range responseMetadata[0] {
+			data[key] = value
+		}
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"message": "",
 		"success": true,
-		"data": map[string]interface{}{
-			"id":                   user.Id,
-			"username":             user.Username,
-			"display_name":         user.DisplayName,
-			"role":                 user.Role,
-			"status":               user.Status,
-			"group":                group,
-			"has_agent":            hasAgentConsole,
-			"permissions":          permissions,
-			"workspace_subaccount": user.ParentUserId > 0,
-			"parent_user_id":       user.ParentUserId,
-			"must_change_password": user.MustChangePassword,
-			"allowed_modules":      workspaceAccountAllowedModules(user.ParentUserId > 0),
-		},
+		"data":    data,
 	})
 }
 

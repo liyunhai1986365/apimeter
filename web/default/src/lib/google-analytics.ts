@@ -25,6 +25,15 @@ type GoogleAnalyticsWindow = Window & {
   gtag?: (...args: unknown[]) => void
 }
 
+export type GoogleAnalyticsPurchase = {
+  transactionId: string
+  value: number
+  currency: string
+}
+
+const pendingEvents: Array<[string, Record<string, unknown>]> = []
+const trackedPurchaseIds = new Set<string>()
+
 export function normalizeGoogleAnalyticsId(
   measurementId?: string | null
 ): string {
@@ -50,6 +59,7 @@ export function applyGoogleAnalytics(measurementId?: string | null): void {
 
   if (!normalized) {
     existing?.remove()
+    pendingEvents.length = 0
     return
   }
 
@@ -82,4 +92,60 @@ export function applyGoogleAnalytics(measurementId?: string | null): void {
     }
   analyticsWindow.gtag('js', new Date())
   analyticsWindow.gtag('config', normalized)
+
+  while (pendingEvents.length > 0) {
+    const [eventName, params] = pendingEvents.shift()!
+    analyticsWindow.gtag('event', eventName, params)
+  }
+}
+
+export function trackGoogleAnalyticsEvent(
+  eventName: string,
+  params: Record<string, unknown> = {}
+): void {
+  if (typeof window === 'undefined') return
+
+  const analyticsWindow = window as GoogleAnalyticsWindow
+  if (analyticsWindow.gtag) {
+    analyticsWindow.gtag('event', eventName, params)
+    return
+  }
+  pendingEvents.push([eventName, params])
+}
+
+export function trackSignUp(method: string): void {
+  trackGoogleAnalyticsEvent('sign_up', { method })
+}
+
+export function trackPurchase({
+  transactionId,
+  value,
+  currency,
+}: GoogleAnalyticsPurchase): void {
+  if (
+    !transactionId ||
+    trackedPurchaseIds.has(transactionId) ||
+    !Number.isFinite(value) ||
+    value < 0 ||
+    !currency
+  ) {
+    return
+  }
+
+  trackedPurchaseIds.add(transactionId)
+
+  trackGoogleAnalyticsEvent('purchase', {
+    transaction_id: transactionId,
+    value,
+    currency: currency.toUpperCase(),
+    payment_type: 'stripe',
+    items: [
+      {
+        item_id: 'stripe_payment',
+        item_name: 'Stripe payment',
+        price: value,
+        quantity: 1,
+      },
+    ],
+  })
 }
