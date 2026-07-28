@@ -5481,7 +5481,6 @@
     "Token Statistics": "Статистика токенов",
     "Token unit": "Единица токенов",
     "Token usage by model since launch": "Использование токенов по моделям с момента запуска",
-    "Token Usage Trend": "Тренд расходов по токенам",
     "Token-based": "На основе токенов",
     "Tokenizer": "Токенизатор",
     "tokens": "токены",
@@ -6078,7 +6077,6 @@
     "Workspace totals are calculated from linked API keys.": "Итоги рабочего пространства рассчитываются по связанным API-ключам.",
     "Workspace updated successfully": "Рабочая область обновлена",
     "Workspace usage stats": "Статистика использования рабочего пространства",
-    "Workspace Usage Trend": "Тренд расходов по рабочим пространствам",
     "Workspaces": "Рабочие пространства",
     "Would Create": "Будет создано",
     "Would Update": "Будет обновлено",
@@ -6287,6 +6285,10 @@
     "Rejected": "Отклонено",
     "Reward records": "История вознаграждений",
     "Referral message": "Реферальное сообщение",
-    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 Пригласите друзей зарегистрироваться в {{siteName}} и получите бесплатные AI-кредиты сразу после регистрации! Скидки до 90 %\n\nИспользуйте мой персональный код приглашения [{{inviteCode}}] или перейдите по ссылке для прямой регистрации. Мы оба получим бонусные кредиты.\n\nПлатформа поддерживает ведущие AI-модели, включая GPT-5, Claude, Gemini и DeepSeek. Один API-ключ открывает доступ ко всем моделям по выгодным ценам.\n\nЗарегистрироваться сейчас 👉 {{affiliateLink}}"
+    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 Пригласите друзей зарегистрироваться в {{siteName}} и получите бесплатные AI-кредиты сразу после регистрации! Скидки до 90 %\n\nИспользуйте мой персональный код приглашения [{{inviteCode}}] или перейдите по ссылке для прямой регистрации. Мы оба получим бонусные кредиты.\n\nПлатформа поддерживает ведущие AI-модели, включая GPT-5, Claude, Gemini и DeepSeek. Один API-ключ открывает доступ ко всем моделям по выгодным ценам.\n\nЗарегистрироваться сейчас 👉 {{affiliateLink}}",
+    "Model Usage Ranking": "Рейтинг использования моделей",
+    "Supplier Group Statistics": "Статистика групп поставщиков",
+    "Unknown model": "Неизвестная модель",
+    "Unknown supplier group": "Неизвестная группа поставщиков"
   }
 }

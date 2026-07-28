@@ -27,6 +27,7 @@ export interface QuotaDataItem {
   user_id?: number
   username?: string
   model_name?: string
+  use_group?: string
   created_at: number
   token_used?: number
   cache_read_tokens?: number
@@ -136,8 +137,9 @@ export interface ProcessedTokenChartData {
   spec_token_trend: VChartSpec
 }
 
-export interface ProcessedDimensionTrendChartData {
-  spec_trend: VChartSpec
+export interface ProcessedUsageBreakdownChartData {
+  spec_model_rank: VChartSpec
+  spec_group_share: VChartSpec
   totalQuotaDisplay: string
 }
 

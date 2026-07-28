@@ -974,14 +974,15 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 		return nil, err
 	}
 	bucketExpr := logTimeBucketExpr(3600)
+	groupCol := CommonLogGroupCol()
 	tx := LOG_DB.Table("logs").
 		Select(
-			fmt.Sprintf("model_name, sum(CASE WHEN type = ? OR (type = ? AND other LIKE ? AND content <> ?) THEN 0 ELSE 1 END) as count, "+
+			fmt.Sprintf("model_name, %s as use_group, sum(CASE WHEN type = ? OR (type = ? AND other LIKE ? AND content <> ?) THEN 0 ELSE 1 END) as count, "+
 				"sum(CASE WHEN type = ? THEN -quota ELSE quota END) as quota, "+
 				"sum(CASE WHEN input_tokens > 0 THEN input_tokens ELSE prompt_tokens END) + sum(completion_tokens) as token_used, "+
 				"sum(cache_read_tokens) as cache_read_tokens, "+
 				"sum(cache_write_tokens) as cache_write_tokens, "+
-				"sum(cache_read_tokens) + sum(cache_write_tokens) as cache_token_used, %s as created_at", bucketExpr),
+				"sum(cache_read_tokens) + sum(cache_write_tokens) as cache_token_used, %s as created_at", groupCol, bucketExpr),
 			LogTypeRefund,
 			LogTypeConsume,
 			`%"pre_consumed_quota"%`,
@@ -1005,7 +1006,10 @@ func GetQuotaDatesFromLogs(startTime int64, endTime int64, username string, toke
 	if endTime != 0 {
 		tx = tx.Where("created_at <= ?", endTime)
 	}
-	err = tx.Group(fmt.Sprintf("model_name, %s", bucketExpr)).Order("created_at ASC, model_name ASC").Find(&quotaData).Error
+	err = tx.
+		Group(fmt.Sprintf("model_name, %s, %s", groupCol, bucketExpr)).
+		Order("created_at ASC, model_name ASC, use_group ASC").
+		Find(&quotaData).Error
 	return quotaData, err
 }
 

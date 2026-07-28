@@ -5481,7 +5481,6 @@
     "Token Statistics": "トークン統計",
     "Token unit": "トークン単位",
     "Token usage by model since launch": "リリース以降のモデル別トークン使用量",
-    "Token Usage Trend": "トークン使用金額の推移",
     "Token-based": "トークンベース",
     "Tokenizer": "トークナイザー",
     "tokens": "トークン",
@@ -6078,7 +6077,6 @@
     "Workspace totals are calculated from linked API keys.": "ワークスペースの集計は、関連付けられた API キーから計算されます。",
     "Workspace updated successfully": "ワークスペースを更新しました",
     "Workspace usage stats": "ワークスペース使用量統計",
-    "Workspace Usage Trend": "ワークスペース使用金額の推移",
     "Workspaces": "ワークスペース",
     "Would Create": "作成予定",
     "Would Update": "更新予定",
@@ -6287,6 +6285,10 @@
     "Rejected": "却下",
     "Reward records": "報酬履歴",
     "Referral message": "紹介メッセージ",
-    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 友だちに {{siteName}} を紹介すると、登録時に無料の AI クレジットを獲得できます！ 最大 90% オフ\n\n私の専用招待コード【{{inviteCode}}】を使用するか、リンクをクリックして直接登録してください。双方にクレジット報酬が付与されます。\n\nこのプラットフォームは GPT-5、Claude、Gemini、DeepSeek などの主要な AI モデルに対応しています。1 つの API キーですべてのモデルをお得に利用できます。\n\n今すぐ登録 👉 {{affiliateLink}}"
+    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 友だちに {{siteName}} を紹介すると、登録時に無料の AI クレジットを獲得できます！ 最大 90% オフ\n\n私の専用招待コード【{{inviteCode}}】を使用するか、リンクをクリックして直接登録してください。双方にクレジット報酬が付与されます。\n\nこのプラットフォームは GPT-5、Claude、Gemini、DeepSeek などの主要な AI モデルに対応しています。1 つの API キーですべてのモデルをお得に利用できます。\n\n今すぐ登録 👉 {{affiliateLink}}",
+    "Model Usage Ranking": "モデル使用ランキング",
+    "Supplier Group Statistics": "サプライヤーグループ統計",
+    "Unknown model": "不明なモデル",
+    "Unknown supplier group": "不明なサプライヤーグループ"
   }
 }

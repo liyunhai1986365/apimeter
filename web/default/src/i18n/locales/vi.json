@@ -5481,7 +5481,6 @@
     "Token Statistics": "Thong ke token",
     "Token unit": "Đơn vị token",
     "Token usage by model since launch": "Sử dụng token của từng mô hình kể từ khi ra mắt",
-    "Token Usage Trend": "Xu hướng chi phí theo token",
     "Token-based": "Dựa trên token",
     "Tokenizer": "Bộ token",
     "tokens": "mã thông báo",
@@ -6078,7 +6077,6 @@
     "Workspace totals are calculated from linked API keys.": "So lieu workspace duoc tinh tu cac khoa API da lien ket.",
     "Workspace updated successfully": "Da cap nhat khong gian lam viec",
     "Workspace usage stats": "Thống kê sử dụng workspace",
-    "Workspace Usage Trend": "Xu hướng chi phí theo không gian làm việc",
     "Workspaces": "Không gian làm việc",
     "Would Create": "Sẽ tạo",
     "Would Update": "Sẽ cập nhật",
@@ -6287,6 +6285,10 @@
     "Rejected": "Đã từ chối",
     "Reward records": "Lịch sử phần thưởng",
     "Referral message": "Nội dung giới thiệu",
-    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 Giới thiệu bạn bè đăng ký {{siteName}} và nhận tín dụng AI miễn phí ngay khi đăng ký! Giảm giá đến 90%\n\nSử dụng mã mời riêng của tôi [{{inviteCode}}] hoặc nhấp vào liên kết để đăng ký trực tiếp. Cả hai chúng ta đều sẽ nhận được tín dụng thưởng.\n\nNền tảng hỗ trợ các mô hình AI hàng đầu như GPT-5, Claude, Gemini và DeepSeek. Chỉ cần một khóa API để sử dụng tất cả mô hình với mức giá rất ưu đãi.\n\nĐăng ký ngay 👉 {{affiliateLink}}"
+    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 Giới thiệu bạn bè đăng ký {{siteName}} và nhận tín dụng AI miễn phí ngay khi đăng ký! Giảm giá đến 90%\n\nSử dụng mã mời riêng của tôi [{{inviteCode}}] hoặc nhấp vào liên kết để đăng ký trực tiếp. Cả hai chúng ta đều sẽ nhận được tín dụng thưởng.\n\nNền tảng hỗ trợ các mô hình AI hàng đầu như GPT-5, Claude, Gemini và DeepSeek. Chỉ cần một khóa API để sử dụng tất cả mô hình với mức giá rất ưu đãi.\n\nĐăng ký ngay 👉 {{affiliateLink}}",
+    "Model Usage Ranking": "Xếp hạng mức sử dụng mô hình",
+    "Supplier Group Statistics": "Thống kê nhóm nhà cung cấp",
+    "Unknown model": "Mô hình không xác định",
+    "Unknown supplier group": "Nhóm nhà cung cấp không xác định"
   }
 }

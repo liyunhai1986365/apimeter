@@ -34,8 +34,8 @@ export {
 } from './api-info'
 export {
   processChartData,
-  processDimensionTrendChartData,
   processTokenChartData,
+  processUsageRankingChartData,
   processUserChartData,
 } from './charts'
 export {

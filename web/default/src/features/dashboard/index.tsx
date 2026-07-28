@@ -65,9 +65,9 @@ const LazyConsumptionDistributionChart = lazy(() =>
   }))
 )
 
-const LazyDimensionTrendCharts = lazy(() =>
-  import('./components/models/dimension-trend-charts').then((m) => ({
-    default: m.DimensionTrendCharts,
+const LazyUsageRankingCharts = lazy(() =>
+  import('./components/models/usage-ranking-charts').then((m) => ({
+    default: m.UsageRankingCharts,
   }))
 )
 
@@ -326,12 +326,9 @@ export function Dashboard() {
               </FadeIn>
               <FadeIn delay={0.2}>
                 <Suspense fallback={<ModelChartsFallback />}>
-                  <LazyDimensionTrendCharts
-                    filters={modelFilters}
-                    timeReferenceData={modelData}
-                    timeGranularity={
-                      modelFilters.time_granularity || DEFAULT_TIME_GRANULARITY
-                    }
+                  <LazyUsageRankingCharts
+                    data={modelData}
+                    loading={dataLoading}
                   />
                 </Suspense>
               </FadeIn>

@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
-import { processTokenChartData } from './charts'
+import { processTokenChartData, processUsageRankingChartData } from './charts'
 import { calculateDashboardStats } from './stats'
 
 describe('calculateDashboardStats', () => {
@@ -130,5 +130,39 @@ describe('processTokenChartData', () => {
           item.Usage === 0
       )
     )
+  })
+})
+
+describe('processUsageRankingChartData', () => {
+  test('builds model ranking and supplier group statistics from net quota', () => {
+    const charts = processUsageRankingChartData([
+      {
+        created_at: 1_700_000_000,
+        model_name: 'gpt-test',
+        use_group: 'default',
+        quota: 300,
+      },
+      {
+        created_at: 1_700_003_600,
+        model_name: 'gpt-test',
+        use_group: 'vip',
+        quota: 200,
+      },
+      {
+        created_at: 1_700_003_600,
+        model_name: 'claude-test',
+        use_group: 'vip',
+        quota: 400,
+      },
+    ])
+
+    assert.deepEqual(charts.spec_model_rank.data[0].values, [
+      { Name: 'claude-test', Amount: 400 },
+      { Name: 'gpt-test', Amount: 500 },
+    ])
+    assert.deepEqual(charts.spec_group_share.data[0].values, [
+      { Name: 'vip', Amount: 600 },
+      { Name: 'default', Amount: 300 },
+    ])
   })
 })

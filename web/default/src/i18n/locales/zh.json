@@ -5481,7 +5481,6 @@
     "Token Statistics": "令牌统计",
     "Token unit": "Token 单位",
     "Token usage by model since launch": "自上线以来各模型的 Token 用量",
-    "Token Usage Trend": "令牌使用金额趋势",
     "Token-based": "按量计费",
     "Tokenizer": "分词器",
     "tokens": "令牌",
@@ -6078,7 +6077,6 @@
     "Workspace totals are calculated from linked API keys.": "工作区统计由关联的 API 密钥计算得出。",
     "Workspace updated successfully": "工作区已更新",
     "Workspace usage stats": "工作区使用统计",
-    "Workspace Usage Trend": "工作区使用金额趋势",
     "Workspaces": "工作区",
     "Would Create": "将创建",
     "Would Update": "将更新",
@@ -6287,6 +6285,10 @@
     "Rejected": "已拒绝",
     "Reward records": "奖励记录",
     "Referral message": "推荐文案",
-    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 推荐好友注册 {{siteName}}，注册即享免费 AI 额度！ 折扣 1 折起\n\n使用我的专属邀请码【{{inviteCode}}】，或点击链接直接注册，双方均可获得额度奖励。\n\n平台支持 GPT-5、Claude、Gemini、DeepSeek 等主流 AI 大模型，一个 API 密钥即可调用所有模型，价格超实惠。\n\n立即注册 👉 {{affiliateLink}}"
+    "🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off\n\nUse my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.\n\nThe platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.\n\nRegister now 👉 {{affiliateLink}}": "🎁 推荐好友注册 {{siteName}}，注册即享免费 AI 额度！ 折扣 1 折起\n\n使用我的专属邀请码【{{inviteCode}}】，或点击链接直接注册，双方均可获得额度奖励。\n\n平台支持 GPT-5、Claude、Gemini、DeepSeek 等主流 AI 大模型，一个 API 密钥即可调用所有模型，价格超实惠。\n\n立即注册 👉 {{affiliateLink}}",
+    "Model Usage Ranking": "模型使用排名情况",
+    "Supplier Group Statistics": "供应商分组统计情况",
+    "Unknown model": "未知模型",
+    "Unknown supplier group": "未知供应商分组"
   }
 }

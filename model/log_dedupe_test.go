@@ -384,6 +384,28 @@ func TestGetQuotaDatesFromLogsFiltersByWorkspaceAndToken(t *testing.T) {
 	require.Equal(t, 30, data[0].TokenUsed)
 }
 
+func TestGetQuotaDatesFromLogsKeepsSupplierGroupsSeparate(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 91, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3610, ModelName: "gpt-test", Group: "default", Quota: 300},
+		{Id: 92, UserId: 1001, Username: "alice", Type: LogTypeConsume, CreatedAt: 3620, ModelName: "gpt-test", Group: "vip", Quota: 500},
+		{Id: 93, UserId: 1001, Username: "alice", Type: LogTypeRefund, CreatedAt: 3630, ModelName: "gpt-test", Group: "vip", Quota: 200},
+	}).Error)
+
+	data, err := GetQuotaDatesFromLogs(0, 10000, "alice", "", "", 0, nil)
+
+	require.NoError(t, err)
+	require.Len(t, data, 2)
+	byGroup := make(map[string]*QuotaData, len(data))
+	for _, item := range data {
+		byGroup[item.UseGroup] = item
+	}
+	require.Equal(t, 300, byGroup["default"].Quota)
+	require.Equal(t, 300, byGroup["vip"].Quota)
+	require.Equal(t, 1, byGroup["vip"].Count)
+}
+
 func TestGetQuotaDatesFromLogsIncludesAndSeparatesCacheTokens(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, DB.Create(&[]Channel{
