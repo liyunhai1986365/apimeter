@@ -20,7 +20,15 @@ import { useEffect, useMemo, useState } from 'react'
 import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Plus, Edit, Trash2, Save } from 'lucide-react'
+import {
+  Add01Icon,
+  Delete02Icon,
+  Edit02Icon,
+  FloppyDiskIcon,
+  Mail01Icon,
+  ViewIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import dayjs from '@/lib/dayjs'
@@ -77,52 +85,50 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { StatusBadge } from '@/components/status-badge'
-import {
-  ANNOUNCEMENT_TYPE_OPTIONS,
-  type AnnouncementType,
-} from '@/features/dashboard/lib/announcement-categories'
+import { ANNOUNCEMENT_TYPE_OPTIONS } from '@/features/dashboard/lib/announcement-categories'
 import { sendAnnouncementEmail } from '../api'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
-
-type Announcement = {
-  id: number
-  title: string
-  content: string
-  publishDate: string
-  type: AnnouncementType
-  extra?: string
-}
+import {
+  planAnnouncementPublication,
+  type Announcement,
+} from './announcement-publication'
 
 type AnnouncementsSectionProps = {
   enabled: boolean
   data: string
 }
 
-const announcementSchema = z.object({
-  title: z
-    .string()
-    .min(1, 'Title is required')
-    .max(120, 'Title must be less than 120 characters'),
-  content: z
-    .string()
-    .min(1, 'Content is required')
-    .max(10000, 'Content must be less than 10000 characters'),
-  publishDate: z.string().min(1, 'Publish date is required'),
-  type: z.enum([
-    'product_update',
-    'system_maintenance',
-    'model_release',
-    'pricing_update',
-    'incident',
-    'general',
-  ]),
-  extra: z
-    .string()
-    .max(100, 'Extra must be less than 100 characters')
-    .optional(),
-  sendEmail: z.boolean().optional(),
-})
+const announcementSchema = z
+  .object({
+    title: z
+      .string()
+      .min(1, 'Title is required')
+      .max(120, 'Title must be less than 120 characters'),
+    content: z
+      .string()
+      .min(1, 'Content is required')
+      .max(10000, 'Content must be less than 10000 characters'),
+    publishDate: z.string().min(1, 'Publish date is required'),
+    type: z.enum([
+      'product_update',
+      'system_maintenance',
+      'model_release',
+      'pricing_update',
+      'incident',
+      'general',
+    ]),
+    extra: z
+      .string()
+      .max(100, 'Extra must be less than 100 characters')
+      .optional(),
+    displayOnFrontend: z.boolean(),
+    sendEmail: z.boolean(),
+  })
+  .refine((values) => values.displayOnFrontend || values.sendEmail, {
+    message: 'Select at least one delivery channel',
+    path: ['displayOnFrontend'],
+  })
 
 type AnnouncementFormValues = z.infer<typeof announcementSchema>
 
@@ -140,6 +146,7 @@ export function AnnouncementsSection({
   const [selectedIds, setSelectedIds] = useState<number[]>([])
   const [showDialog, setShowDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const [editingAnnouncement, setEditingAnnouncement] =
     useState<Announcement | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<'single' | 'batch'>('single')
@@ -152,12 +159,14 @@ export function AnnouncementsSection({
       publishDate: new Date().toISOString(),
       type: 'general',
       extra: '',
+      displayOnFrontend: true,
       sendEmail: false,
     },
   })
 
   const previewTitle = form.watch('title')
   const previewContent = form.watch('content')
+  const displayOnFrontend = form.watch('displayOnFrontend')
 
   useEffect(() => {
     try {
@@ -201,6 +210,7 @@ export function AnnouncementsSection({
       publishDate: new Date().toISOString(),
       type: 'general',
       extra: '',
+      displayOnFrontend: true,
       sendEmail: false,
     })
     setShowDialog(true)
@@ -214,6 +224,7 @@ export function AnnouncementsSection({
       publishDate: announcement.publishDate,
       type: announcement.type,
       extra: announcement.extra || '',
+      displayOnFrontend: true,
       sendEmail: false,
     })
     setShowDialog(true)
@@ -267,26 +278,23 @@ export function AnnouncementsSection({
   }
 
   const handleSubmitForm = async (values: AnnouncementFormValues) => {
-    const { sendEmail, ...announcementValues } = values
-    let nextAnnouncements: Announcement[]
-    if (editingAnnouncement) {
-      nextAnnouncements = announcements.map((item) =>
-        item.id === editingAnnouncement.id
-          ? { ...item, ...announcementValues }
-          : item
-      )
-    } else {
-      const newId = Math.max(...announcements.map((item) => item.id), 0) + 1
-      nextAnnouncements = [
-        ...announcements,
-        { id: newId, ...announcementValues },
-      ]
-    }
+    const { displayOnFrontend, sendEmail, ...announcementValues } = values
+    const publication = planAnnouncementPublication({
+      announcements,
+      draft: announcementValues,
+      editingId: editingAnnouncement?.id,
+      displayOnFrontend,
+    })
+    let phase: 'save' | 'email' = 'save'
 
+    setIsSubmitting(true)
     try {
-      await saveAnnouncementList(nextAnnouncements)
+      if (publication.shouldSave) {
+        await saveAnnouncementList(publication.announcements)
+      }
 
       if (sendEmail) {
+        phase = 'email'
         const result = await sendAnnouncementEmail({
           title: announcementValues.title,
           content: announcementValues.content,
@@ -295,6 +303,7 @@ export function AnnouncementsSection({
 
         if (!result.success) {
           toast.error(result.message || t('Failed to send announcement email'))
+          return
         } else {
           toast.success(
             t('Announcement email sent to {{sent}} of {{total}} users', {
@@ -313,7 +322,13 @@ export function AnnouncementsSection({
 
       setShowDialog(false)
     } catch {
-      toast.error(t('Failed to save announcements'))
+      toast.error(
+        phase === 'email'
+          ? t('Failed to send announcement email')
+          : t('Failed to save announcements')
+      )
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -366,7 +381,7 @@ export function AnnouncementsSection({
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
             <Button onClick={handleAdd} size='sm'>
-              <Plus data-icon='inline-start' />
+              <HugeiconsIcon icon={Add01Icon} data-icon='inline-start' />
               {t('Add Announcement')}
             </Button>
             <Button
@@ -375,7 +390,7 @@ export function AnnouncementsSection({
               variant='destructive'
               disabled={selectedIds.length === 0}
             >
-              <Trash2 data-icon='inline-start' />
+              <HugeiconsIcon icon={Delete02Icon} data-icon='inline-start' />
               {t('Delete (')}
               {selectedIds.length})
             </Button>
@@ -385,7 +400,7 @@ export function AnnouncementsSection({
               variant='secondary'
               disabled={!hasChanges || updateOption.isPending}
             >
-              <Save data-icon='inline-start' />
+              <HugeiconsIcon icon={FloppyDiskIcon} data-icon='inline-start' />
               {updateOption.isPending ? t('Saving...') : t('Save Settings')}
             </Button>
           </div>
@@ -494,14 +509,20 @@ export function AnnouncementsSection({
                           size='sm'
                           variant='ghost'
                         >
-                          <Edit data-icon='inline-start' />
+                          <HugeiconsIcon
+                            icon={Edit02Icon}
+                            data-icon='inline-start'
+                          />
                         </Button>
                         <Button
                           onClick={() => handleDelete(announcement)}
                           size='sm'
                           variant='ghost'
                         >
-                          <Trash2 data-icon='inline-start' />
+                          <HugeiconsIcon
+                            icon={Delete02Icon}
+                            data-icon='inline-start'
+                          />
                         </Button>
                       </div>
                     </TableCell>
@@ -514,15 +535,17 @@ export function AnnouncementsSection({
       </div>
 
       <Dialog open={showDialog} onOpenChange={setShowDialog}>
-        <DialogContent className='flex max-h-[calc(100dvh-2rem)] flex-col overflow-hidden max-sm:w-screen max-sm:max-w-none max-sm:rounded-none sm:max-w-[min(92vw,1200px)]'>
-          <DialogHeader>
+        <DialogContent className='flex h-dvh max-h-dvh w-screen max-w-none flex-col overflow-hidden rounded-none sm:h-auto sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(92vw,1200px)] sm:rounded-xl'>
+          <DialogHeader className='shrink-0 pr-8'>
             <DialogTitle>
               {editingAnnouncement
                 ? t('Edit Announcement')
                 : t('Add Announcement')}
             </DialogTitle>
             <DialogDescription>
-              {t('Create or update system announcements for the dashboard')}
+              {t(
+                'Create a frontend announcement, send an email broadcast, or both.'
+              )}
             </DialogDescription>
           </DialogHeader>
           <Form {...form}>
@@ -553,192 +576,260 @@ export function AnnouncementsSection({
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name='content'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('Content')}</FormLabel>
-                        <Tabs defaultValue='write' className='gap-3'>
-                          <TabsList>
-                            <TabsTrigger value='write'>
-                              {t('Write')}
-                            </TabsTrigger>
-                            <TabsTrigger value='preview'>
-                              {t('Preview')}
-                            </TabsTrigger>
-                          </TabsList>
-                          <div className='min-w-0'>
-                            <TabsContent value='write'>
-                              <FormControl>
-                                <Textarea
-                                  placeholder={t(
-                                    'Enter announcement content (supports Markdown/HTML)'
-                                  )}
-                                  rows={18}
-                                  className='min-h-[420px] w-full resize-y font-mono text-sm leading-relaxed'
-                                  {...field}
-                                />
-                              </FormControl>
-                            </TabsContent>
-                            <TabsContent value='preview'>
-                              <ScrollArea className='bg-muted/20 h-[420px] rounded-md border p-4'>
-                                {previewContent ? (
-                                  <div className='flex flex-col gap-3'>
-                                    {previewTitle && (
-                                      <h3 className='text-base font-semibold'>
-                                        {previewTitle}
-                                      </h3>
-                                    )}
-                                    <Markdown>{previewContent}</Markdown>
-                                  </div>
-                                ) : (
-                                  <div className='text-muted-foreground flex h-[388px] items-center justify-center text-sm'>
-                                    {t('Markdown preview')}
-                                  </div>
-                                )}
-                              </ScrollArea>
-                            </TabsContent>
-                          </div>
-                        </Tabs>
-                        <FormDescription>
-                          {t(
-                            'Maximum 10000 characters. Supports Markdown and HTML.'
-                          )}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className='grid gap-4 lg:grid-cols-2'>
+                  <div className='grid min-w-0 gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)] lg:items-start'>
                     <FormField
                       control={form.control}
-                      name='publishDate'
+                      name='content'
                       render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('Publish Date')}</FormLabel>
-                          <FormControl>
-                            <DateTimePicker
-                              value={
-                                field.value ? new Date(field.value) : undefined
-                              }
-                              onChange={(date) =>
-                                field.onChange(date ? date.toISOString() : '')
-                              }
-                              placeholder={t('Select publish date')}
-                            />
-                          </FormControl>
+                        <FormItem className='min-w-0'>
+                          <FormLabel>{t('Content')}</FormLabel>
+                          <Tabs defaultValue='write' className='gap-3'>
+                            <TabsList>
+                              <TabsTrigger value='write'>
+                                {t('Write')}
+                              </TabsTrigger>
+                              <TabsTrigger value='preview'>
+                                {t('Preview')}
+                              </TabsTrigger>
+                            </TabsList>
+                            <div className='min-w-0'>
+                              <TabsContent value='write'>
+                                <FormControl>
+                                  <Textarea
+                                    placeholder={t(
+                                      'Enter announcement content (supports Markdown/HTML)'
+                                    )}
+                                    rows={18}
+                                    className='min-h-64 w-full resize-y font-mono text-sm leading-relaxed sm:min-h-96 lg:h-[420px] lg:resize-none'
+                                    {...field}
+                                  />
+                                </FormControl>
+                              </TabsContent>
+                              <TabsContent value='preview'>
+                                <ScrollArea className='bg-muted/20 h-64 rounded-md border p-4 sm:h-96 lg:h-[420px]'>
+                                  {previewContent ? (
+                                    <div className='flex flex-col gap-3'>
+                                      {previewTitle && (
+                                        <h3 className='text-base font-semibold'>
+                                          {previewTitle}
+                                        </h3>
+                                      )}
+                                      <Markdown>{previewContent}</Markdown>
+                                    </div>
+                                  ) : (
+                                    <div className='text-muted-foreground flex h-56 items-center justify-center text-sm sm:h-[352px] lg:h-[388px]'>
+                                      {t('Markdown preview')}
+                                    </div>
+                                  )}
+                                </ScrollArea>
+                              </TabsContent>
+                            </div>
+                          </Tabs>
                           <FormDescription>
                             {t(
-                              'Date and time when this announcement should be displayed'
+                              'Maximum 10000 characters. Supports Markdown and HTML.'
                             )}
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name='type'
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>{t('Type')}</FormLabel>
-                          <Select
-                            items={[
-                              ...typeOptions.map((option) => ({
-                                value: option.value,
-                                label: (
-                                  <div className='flex items-center gap-2'>
-                                    <div
-                                      className={`size-3 rounded-full ${option.color}`}
-                                    />
-                                    {t(option.label)}
+                    <div className='flex min-w-0 flex-col gap-4'>
+                      <div className='flex flex-col gap-2'>
+                        <div>
+                          <p className='font-medium'>
+                            {t('Delivery channels')}
+                          </p>
+                          <p className='text-muted-foreground text-sm'>
+                            {t(
+                              'Choose where this announcement will be delivered.'
+                            )}
+                          </p>
+                        </div>
+                        <div className='grid gap-3'>
+                          <FormField
+                            control={form.control}
+                            name='displayOnFrontend'
+                            render={({ field }) => (
+                              <FormItem className='flex flex-row items-start gap-3 rounded-md border p-3'>
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={(checked) =>
+                                      field.onChange(checked === true)
+                                    }
+                                  />
+                                </FormControl>
+                                <div className='flex min-w-0 flex-1 gap-3'>
+                                  <HugeiconsIcon
+                                    icon={ViewIcon}
+                                    strokeWidth={2}
+                                    className='mt-0.5 size-5 shrink-0'
+                                  />
+                                  <div className='flex min-w-0 flex-col gap-1'>
+                                    <FormLabel>
+                                      {t('Show on frontend')}
+                                    </FormLabel>
+                                    <FormDescription>
+                                      {t(
+                                        'Save this announcement and display it to frontend users.'
+                                      )}
+                                    </FormDescription>
+                                    <FormMessage />
                                   </div>
-                                ),
-                              })),
-                            ]}
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue
-                                  placeholder={t('Select announcement type')}
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                          <FormField
+                            control={form.control}
+                            name='sendEmail'
+                            render={({ field }) => (
+                              <FormItem className='flex flex-row items-start gap-3 rounded-md border p-3'>
+                                <FormControl>
+                                  <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={(checked) =>
+                                      field.onChange(checked === true)
+                                    }
+                                  />
+                                </FormControl>
+                                <div className='flex min-w-0 flex-1 gap-3'>
+                                  <HugeiconsIcon
+                                    icon={Mail01Icon}
+                                    strokeWidth={2}
+                                    className='mt-0.5 size-5 shrink-0'
+                                  />
+                                  <div className='flex min-w-0 flex-col gap-1'>
+                                    <FormLabel>
+                                      {t('Send announcement email')}
+                                    </FormLabel>
+                                    <FormDescription>
+                                      {t(
+                                        'Send to all enabled users with an email address.'
+                                      )}
+                                    </FormDescription>
+                                  </div>
+                                </div>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                      </div>
+                      {displayOnFrontend && (
+                        <FormField
+                          control={form.control}
+                          name='publishDate'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>{t('Publish Date')}</FormLabel>
+                              <FormControl>
+                                <DateTimePicker
+                                  value={
+                                    field.value
+                                      ? new Date(field.value)
+                                      : undefined
+                                  }
+                                  onChange={(date) =>
+                                    field.onChange(
+                                      date ? date.toISOString() : ''
+                                    )
+                                  }
+                                  placeholder={t('Select publish date')}
                                 />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent alignItemWithTrigger={false}>
-                              <SelectGroup>
-                                {typeOptions.map((option) => (
-                                  <SelectItem
-                                    key={option.value}
-                                    value={option.value}
-                                  >
+                              </FormControl>
+                              <FormDescription>
+                                {t(
+                                  'Date and time when this announcement should be displayed'
+                                )}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                      <FormField
+                        control={form.control}
+                        name='type'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Type')}</FormLabel>
+                            <Select
+                              items={[
+                                ...typeOptions.map((option) => ({
+                                  value: option.value,
+                                  label: (
                                     <div className='flex items-center gap-2'>
                                       <div
                                         className={`size-3 rounded-full ${option.color}`}
                                       />
                                       {t(option.label)}
                                     </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectGroup>
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name='extra'
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('Extra Notes (Optional)')}</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder={t('Additional information')}
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          {t(
-                            'Optional supplementary information (max 100 characters)'
+                                  ),
+                                })),
+                              ]}
+                              onValueChange={field.onChange}
+                              value={field.value}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue
+                                    placeholder={t('Select announcement type')}
+                                  />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent alignItemWithTrigger={false}>
+                                <SelectGroup>
+                                  {typeOptions.map((option) => (
+                                    <SelectItem
+                                      key={option.value}
+                                      value={option.value}
+                                    >
+                                      <div className='flex items-center gap-2'>
+                                        <div
+                                          className={`size-3 rounded-full ${option.color}`}
+                                        />
+                                        {t(option.label)}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {displayOnFrontend && (
+                        <FormField
+                          control={form.control}
+                          name='extra'
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>
+                                {t('Extra Notes (Optional)')}
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  placeholder={t('Additional information')}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                {t(
+                                  'Optional supplementary information (max 100 characters)'
+                                )}
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
                           )}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name='sendEmail'
-                    render={({ field }) => (
-                      <FormItem className='border-border flex flex-row items-start gap-3 rounded-md border p-3'>
-                        <FormControl>
-                          <Checkbox
-                            checked={field.value}
-                            onCheckedChange={(checked) =>
-                              field.onChange(checked === true)
-                            }
-                          />
-                        </FormControl>
-                        <div className='flex flex-col gap-1'>
-                          <FormLabel>{t('Send announcement email')}</FormLabel>
-                          <FormDescription>
-                            {t(
-                              'After saving, send this announcement to all enabled users with an email address.'
-                            )}
-                          </FormDescription>
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                        />
+                      )}
+                    </div>
+                  </div>
                 </div>
               </ScrollArea>
-              <DialogFooter className='border-border border-t pt-4'>
+              <DialogFooter className='shrink-0'>
                 <Button
                   type='button'
                   variant='outline'
@@ -746,12 +837,14 @@ export function AnnouncementsSection({
                 >
                   {t('Cancel')}
                 </Button>
-                <Button type='submit' disabled={updateOption.isPending}>
-                  {updateOption.isPending
-                    ? t('Saving...')
-                    : editingAnnouncement
-                      ? t('Update')
-                      : t('Add')}
+                <Button type='submit' disabled={isSubmitting}>
+                  {isSubmitting
+                    ? t('Processing...')
+                    : !displayOnFrontend
+                      ? t('Send Email')
+                      : editingAnnouncement
+                        ? t('Update')
+                        : t('Add')}
                 </Button>
               </DialogFooter>
             </form>
