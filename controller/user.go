@@ -532,6 +532,7 @@ func GetSelf(c *gin.Context) {
 		"telegram_id":          user.TelegramId,
 		"group":                group,
 		"quota":                user.Quota,
+		"credit_quota":         user.CreditQuota,
 		"used_quota":           user.UsedQuota,
 		"request_count":        user.RequestCount,
 		"aff_code":             user.AffCode,
@@ -553,7 +554,7 @@ func GetSelf(c *gin.Context) {
 		"allowed_modules":      workspaceAccountAllowedModules(user.ParentUserId > 0),
 	}
 	if user.ParentUserId > 0 {
-		for _, key := range []string{"quota", "used_quota", "request_count", "aff_code", "aff_count", "aff_quota", "aff_history_quota", "inviter_id", "affiliate_role", "affiliate_policy", "stripe_customer"} {
+		for _, key := range []string{"quota", "credit_quota", "used_quota", "request_count", "aff_code", "aff_count", "aff_quota", "aff_history_quota", "inviter_id", "affiliate_role", "affiliate_policy", "stripe_customer"} {
 			delete(responseData, key)
 		}
 	}
@@ -1049,6 +1050,7 @@ type ManageRequest struct {
 	Action string `json:"action"`
 	Value  int    `json:"value"`
 	Mode   string `json:"mode"`
+	Remark string `json:"remark"`
 }
 
 type adminUserEmailRequest struct {
@@ -1227,6 +1229,63 @@ func ManageUser(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"success": true,
 			"message": "",
+		})
+		return
+	case "manage_credit_quota":
+		if req.Value <= 0 {
+			common.ApiError(c, model.ErrCreditQuotaInvalidAmount)
+			return
+		}
+		adminName := c.GetString("username")
+		adminId := c.GetInt("id")
+		updatedUser, record, err := model.ManageUserCreditQuota(
+			user.Id,
+			adminId,
+			adminName,
+			req.Mode,
+			req.Value,
+			req.Remark,
+		)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		adminInfo := map[string]interface{}{
+			"admin_id":              adminId,
+			"admin_username":        adminName,
+			"credit_record_id":      record.Id,
+			"credit_operation":      record.Operation,
+			"credit_quota_before":   record.CreditBefore,
+			"credit_quota_after":    record.CreditAfter,
+			"wallet_balance_before": record.BalanceBefore,
+			"wallet_balance_after":  record.BalanceAfter,
+		}
+		logQuota := 0
+		content := fmt.Sprintf(
+			"管理员登记用户还款 %s，待还信控额度从 %s 减少至 %s",
+			logger.LogQuota(req.Value),
+			logger.LogQuota(record.CreditBefore),
+			logger.LogQuota(record.CreditAfter),
+		)
+		if req.Mode == model.CreditQuotaOperationGrant {
+			logQuota = req.Value
+			content = fmt.Sprintf(
+				"管理员发放信控额度 %s，用户余额从 %s 增加至 %s，待还信控额度为 %s",
+				logger.LogQuota(req.Value),
+				logger.LogQuota(record.BalanceBefore),
+				logger.LogQuota(record.BalanceAfter),
+				logger.LogQuota(record.CreditAfter),
+			)
+		}
+		model.RecordQuotaLogWithAdminInfo(user.Id, model.LogTypeManage, logQuota, content, adminInfo)
+		c.JSON(http.StatusOK, gin.H{
+			"success": true,
+			"message": "",
+			"data": gin.H{
+				"quota":        updatedUser.Quota,
+				"credit_quota": updatedUser.CreditQuota,
+				"record_id":    record.Id,
+			},
 		})
 		return
 	}

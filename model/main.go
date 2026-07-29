@@ -278,6 +278,9 @@ func InitLogDB() (err error) {
 }
 
 func migrateDB() error {
+	if err := migrateCreditQuotaStorageToBigint(); err != nil {
+		return err
+	}
 	// Migrate price_amount column from float/double to decimal for existing tables
 	migrateSubscriptionPlanPriceAmount()
 	// Migrate model_limits column from varchar to text for existing tables
@@ -299,6 +302,7 @@ func migrateDB() error {
 		&WorkspaceMember{},
 		&Token{},
 		&User{},
+		&CreditQuotaRecord{},
 		&PasskeyCredential{},
 		&Option{},
 		&Redemption{},
@@ -374,6 +378,9 @@ func migrateDB() error {
 }
 
 func migrateDBFast() error {
+	if err := migrateCreditQuotaStorageToBigint(); err != nil {
+		return err
+	}
 	var wg sync.WaitGroup
 
 	migrations := []struct {
@@ -385,6 +392,7 @@ func migrateDBFast() error {
 		{&WorkspaceMember{}, "WorkspaceMember"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
+		{&CreditQuotaRecord{}, "CreditQuotaRecord"},
 		{&PasskeyCredential{}, "PasskeyCredential"},
 		{&Option{}, "Option"},
 		{&Redemption{}, "Redemption"},
@@ -813,6 +821,92 @@ func migrateTokenModelLimitsToText() error {
 			return fmt.Errorf("failed to migrate %s.%s to text: %w", tableName, columnName, err)
 		}
 		common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to text", tableName, columnName))
+	}
+	return nil
+}
+
+// migrateCreditQuotaStorageToBigint widens only the persisted values that can
+// receive a credit grant. SQLite INTEGER already stores signed 64-bit values,
+// while MySQL/PostgreSQL need an explicit, idempotent type migration.
+func migrateCreditQuotaStorageToBigint() error {
+	if DB == nil || common.UsingSQLite {
+		return nil
+	}
+
+	tables := []struct {
+		name    string
+		model   interface{}
+		columns []string
+	}{
+		{
+			name:    "users",
+			model:   &User{},
+			columns: []string{"quota", "credit_quota"},
+		},
+		{
+			name:  "credit_quota_records",
+			model: &CreditQuotaRecord{},
+			columns: []string{
+				"amount",
+				"credit_before",
+				"credit_after",
+				"balance_before",
+				"balance_after",
+			},
+		},
+	}
+
+	for _, table := range tables {
+		if !DB.Migrator().HasTable(table.model) {
+			continue
+		}
+		for _, columnName := range table.columns {
+			if !DB.Migrator().HasColumn(table.model, columnName) {
+				continue
+			}
+
+			var alterSQL string
+			switch {
+			case common.UsingPostgreSQL:
+				var dataType string
+				if err := DB.Raw(`SELECT data_type FROM information_schema.columns
+					WHERE table_schema = current_schema() AND table_name = ? AND column_name = ?`,
+					table.name, columnName).Scan(&dataType).Error; err != nil {
+					return fmt.Errorf("failed to inspect %s.%s type: %w", table.name, columnName, err)
+				}
+				if strings.EqualFold(dataType, "bigint") {
+					continue
+				}
+				alterSQL = fmt.Sprintf(
+					`ALTER TABLE %s ALTER COLUMN %s TYPE bigint USING %s::bigint`,
+					table.name,
+					columnName,
+					columnName,
+				)
+			case common.UsingMySQL:
+				var columnType string
+				if err := DB.Raw(`SELECT COLUMN_TYPE FROM information_schema.columns
+					WHERE table_schema = DATABASE() AND table_name = ? AND column_name = ?`,
+					table.name, columnName).Scan(&columnType).Error; err != nil {
+					return fmt.Errorf("failed to inspect %s.%s type: %w", table.name, columnName, err)
+				}
+				if strings.HasPrefix(strings.ToLower(columnType), "bigint") {
+					continue
+				}
+				alterSQL = fmt.Sprintf(
+					"ALTER TABLE %s MODIFY COLUMN %s BIGINT DEFAULT 0",
+					table.name,
+					columnName,
+				)
+			default:
+				continue
+			}
+
+			if err := DB.Exec(alterSQL).Error; err != nil {
+				return fmt.Errorf("failed to migrate %s.%s to bigint: %w", table.name, columnName, err)
+			}
+			common.SysLog(fmt.Sprintf("Successfully migrated %s.%s to bigint", table.name, columnName))
+		}
 	}
 	return nil
 }

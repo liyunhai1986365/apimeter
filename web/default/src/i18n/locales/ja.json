@@ -6289,6 +6289,27 @@
     "Model Usage Ranking": "モデル使用ランキング",
     "Supplier Group Statistics": "サプライヤーグループ統計",
     "Unknown model": "不明なモデル",
-    "Unknown supplier group": "不明なサプライヤーグループ"
+    "Unknown supplier group": "不明なサプライヤーグループ",
+    "Balance after operation": "操作後の残高",
+    "Credit amount awaiting repayment": "返済待ちの与信額",
+    "Credit Control Management": "与信管理",
+    "Credit grants are added to the user balance; repayments only reduce this outstanding amount.": "付与した与信はユーザー残高に加算され、返済は未返済額のみを減額します。",
+    "Credit granted successfully": "与信を付与しました",
+    "Credit Quota": "与信額",
+    "Credit Quota:": "与信額：",
+    "Credit quota updated successfully": "与信額を更新しました",
+    "Failed to update credit quota": "与信額の更新に失敗しました",
+    "Grant credit": "与信を付与",
+    "Grant spendable credit or record a credit repayment.": "利用可能な与信を付与するか、返済を記録します。",
+    "Granting credit increases both the user's balance and outstanding credit.": "与信を付与すると、ユーザー残高と未返済与信額の両方が増加します。",
+    "Manage Credit": "与信を管理",
+    "Optional credit operation note": "与信操作の備考（任意）",
+    "Outstanding Credit": "未返済与信額",
+    "Outstanding Credit:": "未返済与信額：",
+    "Outstanding credit after operation": "操作後の未返済与信額",
+    "Record repayment": "返済を記録",
+    "Repayment cannot exceed outstanding credit.": "返済額は未返済与信額を超えることはできません。",
+    "Repayment only reduces outstanding credit and does not change the current balance.": "返済は未返済与信額のみを減らし、現在の利用可能残高は変更しません。",
+    "Repayment recorded successfully": "返済を記録しました"
   }
 }

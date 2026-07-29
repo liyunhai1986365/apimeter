@@ -6289,6 +6289,27 @@
     "Model Usage Ranking": "Model Usage Ranking",
     "Supplier Group Statistics": "Supplier Group Statistics",
     "Unknown model": "Unknown model",
-    "Unknown supplier group": "Unknown supplier group"
+    "Unknown supplier group": "Unknown supplier group",
+    "Balance after operation": "Balance after operation",
+    "Credit amount awaiting repayment": "Credit amount awaiting repayment",
+    "Credit Control Management": "Credit Control Management",
+    "Credit grants are added to the user balance; repayments only reduce this outstanding amount.": "Credit grants are added to the user balance; repayments only reduce this outstanding amount.",
+    "Credit granted successfully": "Credit granted successfully",
+    "Credit Quota": "Credit Quota",
+    "Credit Quota:": "Credit Quota:",
+    "Credit quota updated successfully": "Credit quota updated successfully",
+    "Failed to update credit quota": "Failed to update credit quota",
+    "Grant credit": "Grant credit",
+    "Grant spendable credit or record a credit repayment.": "Grant spendable credit or record a credit repayment.",
+    "Granting credit increases both the user's balance and outstanding credit.": "Granting credit increases both the user's balance and outstanding credit.",
+    "Manage Credit": "Manage Credit",
+    "Optional credit operation note": "Optional credit operation note",
+    "Outstanding Credit": "Outstanding Credit",
+    "Outstanding Credit:": "Outstanding Credit:",
+    "Outstanding credit after operation": "Outstanding credit after operation",
+    "Record repayment": "Record repayment",
+    "Repayment cannot exceed outstanding credit.": "Repayment cannot exceed outstanding credit.",
+    "Repayment only reduces outstanding credit and does not change the current balance.": "Repayment only reduces outstanding credit and does not change the current balance.",
+    "Repayment recorded successfully": "Repayment recorded successfully"
   }
 }

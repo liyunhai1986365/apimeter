@@ -6289,6 +6289,27 @@
     "Model Usage Ranking": "模型使用排名情况",
     "Supplier Group Statistics": "供应商分组统计情况",
     "Unknown model": "未知模型",
-    "Unknown supplier group": "未知供应商分组"
+    "Unknown supplier group": "未知供应商分组",
+    "Balance after operation": "操作后余额",
+    "Credit amount awaiting repayment": "待归还的信控金额",
+    "Credit Control Management": "信控管理",
+    "Credit grants are added to the user balance; repayments only reduce this outstanding amount.": "发放的信控额度会加入用户余额；还款只减少待还信控金额。",
+    "Credit granted successfully": "信控额度发放成功",
+    "Credit Quota": "信控额度",
+    "Credit Quota:": "信控额度：",
+    "Credit quota updated successfully": "信控额度更新成功",
+    "Failed to update credit quota": "更新信控额度失败",
+    "Grant credit": "发放信控",
+    "Grant spendable credit or record a credit repayment.": "发放可消费的信控额度，或登记一笔信控还款。",
+    "Granting credit increases both the user's balance and outstanding credit.": "发放信控会同时增加用户余额和待还信控额度。",
+    "Manage Credit": "管理信控",
+    "Optional credit operation note": "选填信控操作备注",
+    "Outstanding Credit": "待还信控额度",
+    "Outstanding Credit:": "待还信控额度：",
+    "Outstanding credit after operation": "操作后待还信控",
+    "Record repayment": "登记还款",
+    "Repayment cannot exceed outstanding credit.": "还款金额不能超过待还信控额度。",
+    "Repayment only reduces outstanding credit and does not change the current balance.": "还款只减少待还信控额度，不改变当前可消费余额。",
+    "Repayment recorded successfully": "还款登记成功"
   }
 }

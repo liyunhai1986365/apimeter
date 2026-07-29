@@ -47,6 +47,8 @@ export interface UserProfile {
   group: string
   /** Current quota balance */
   quota: number
+  /** Outstanding credit control quota awaiting repayment */
+  credit_quota?: number
   /** Total used quota */
   used_quota: number
   /** Total request count */

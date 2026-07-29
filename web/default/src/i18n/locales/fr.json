@@ -6289,6 +6289,27 @@
     "Model Usage Ranking": "Classement de l'utilisation des modèles",
     "Supplier Group Statistics": "Statistiques des groupes de fournisseurs",
     "Unknown model": "Modèle inconnu",
-    "Unknown supplier group": "Groupe de fournisseurs inconnu"
+    "Unknown supplier group": "Groupe de fournisseurs inconnu",
+    "Balance after operation": "Solde après l'opération",
+    "Credit amount awaiting repayment": "Montant du crédit à rembourser",
+    "Credit Control Management": "Gestion du crédit",
+    "Credit grants are added to the user balance; repayments only reduce this outstanding amount.": "Le crédit accordé est ajouté au solde de l'utilisateur ; les remboursements réduisent uniquement le montant restant dû.",
+    "Credit granted successfully": "Crédit accordé avec succès",
+    "Credit Quota": "Crédit",
+    "Credit Quota:": "Crédit :",
+    "Credit quota updated successfully": "Crédit mis à jour avec succès",
+    "Failed to update credit quota": "Échec de la mise à jour du crédit",
+    "Grant credit": "Accorder un crédit",
+    "Grant spendable credit or record a credit repayment.": "Accorder un crédit utilisable ou enregistrer un remboursement.",
+    "Granting credit increases both the user's balance and outstanding credit.": "L'octroi d'un crédit augmente à la fois le solde de l'utilisateur et le crédit restant dû.",
+    "Manage Credit": "Gérer le crédit",
+    "Optional credit operation note": "Note facultative sur l'opération de crédit",
+    "Outstanding Credit": "Crédit restant dû",
+    "Outstanding Credit:": "Crédit restant dû :",
+    "Outstanding credit after operation": "Crédit restant dû après l'opération",
+    "Record repayment": "Enregistrer un remboursement",
+    "Repayment cannot exceed outstanding credit.": "Le remboursement ne peut pas dépasser le crédit restant dû.",
+    "Repayment only reduces outstanding credit and does not change the current balance.": "Le remboursement réduit uniquement le crédit restant dû et ne modifie pas le solde actuel.",
+    "Repayment recorded successfully": "Remboursement enregistré avec succès"
   }
 }

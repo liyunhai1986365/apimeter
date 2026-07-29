@@ -26,6 +26,7 @@ import { toast } from 'sonner'
 import { getCurrencyDisplay, getCurrencyLabel } from '@/lib/currency'
 import { formatQuota, parseQuotaFromDollars } from '@/lib/format'
 import { Button } from '@/components/ui/button'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import {
   Form,
   FormControl,
@@ -71,6 +72,7 @@ import {
   transformUserToFormDefaults,
 } from '../lib'
 import { type User } from '../types'
+import { UserCreditQuotaDialog } from './user-credit-quota-dialog'
 import { UserQuotaDialog } from './user-quota-dialog'
 import { useUsers } from './users-provider'
 
@@ -90,6 +92,8 @@ export function UsersMutateDrawer({
   const { triggerRefresh } = useUsers()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [quotaDialogOpen, setQuotaDialogOpen] = useState(false)
+  const [creditQuotaDialogOpen, setCreditQuotaDialogOpen] = useState(false)
+  const [creditQuota, setCreditQuota] = useState(0)
 
   // Fetch groups
   const { data: groupsData } = useQuery({
@@ -120,11 +124,13 @@ export function UsersMutateDrawer({
       getUser(currentRow.id).then((result) => {
         if (result.success && result.data) {
           form.reset(transformUserToFormDefaults(result.data))
+          setCreditQuota(result.data.credit_quota || 0)
         }
       })
     } else if (open && !isUpdate) {
       // For create, reset to defaults
       form.reset(USER_FORM_DEFAULT_VALUES)
+      setCreditQuota(0)
     }
   }, [open, isUpdate, currentRow, form])
 
@@ -181,6 +187,7 @@ export function UsersMutateDrawer({
     const result = await getUser(currentRow.id)
     if (result.success && result.data) {
       form.reset(transformUserToFormDefaults(result.data))
+      setCreditQuota(result.data.credit_quota || 0)
     }
     triggerRefresh()
   }
@@ -417,6 +424,29 @@ export function UsersMutateDrawer({
                     )}
                   />
 
+                  <Field>
+                    <FieldLabel>{t('Credit Quota')}</FieldLabel>
+                    <div className='flex gap-2'>
+                      <Input
+                        value={formatQuota(creditQuota)}
+                        readOnly
+                        className='flex-1'
+                      />
+                      <Button
+                        type='button'
+                        variant='outline'
+                        onClick={() => setCreditQuotaDialogOpen(true)}
+                      >
+                        {t('Manage Credit')}
+                      </Button>
+                    </div>
+                    <FieldDescription>
+                      {t(
+                        'Credit grants are added to the user balance; repayments only reduce this outstanding amount.'
+                      )}
+                    </FieldDescription>
+                  </Field>
+
                   <FormField
                     control={form.control}
                     name='quota_dollars'
@@ -528,6 +558,16 @@ export function UsersMutateDrawer({
           onOpenChange={setQuotaDialogOpen}
           userId={currentRow.id}
           currentQuota={parseQuotaFromDollars(currentQuotaRaw || 0)}
+          onSuccess={refreshUserData}
+        />
+      )}
+      {currentRow && (
+        <UserCreditQuotaDialog
+          open={creditQuotaDialogOpen}
+          onOpenChange={setCreditQuotaDialogOpen}
+          userId={currentRow.id}
+          currentBalance={parseQuotaFromDollars(currentQuotaRaw || 0)}
+          currentCreditQuota={creditQuota}
           onSuccess={refreshUserData}
         />
       )}

@@ -6289,6 +6289,27 @@
     "Model Usage Ranking": "Xếp hạng mức sử dụng mô hình",
     "Supplier Group Statistics": "Thống kê nhóm nhà cung cấp",
     "Unknown model": "Mô hình không xác định",
-    "Unknown supplier group": "Nhóm nhà cung cấp không xác định"
+    "Unknown supplier group": "Nhóm nhà cung cấp không xác định",
+    "Balance after operation": "Số dư sau thao tác",
+    "Credit amount awaiting repayment": "Khoản tín dụng chờ hoàn trả",
+    "Credit Control Management": "Quản lý tín dụng",
+    "Credit grants are added to the user balance; repayments only reduce this outstanding amount.": "Tín dụng được cấp sẽ cộng vào số dư người dùng; hoàn trả chỉ làm giảm khoản tín dụng còn nợ.",
+    "Credit granted successfully": "Cấp tín dụng thành công",
+    "Credit Quota": "Hạn mức tín dụng",
+    "Credit Quota:": "Hạn mức tín dụng:",
+    "Credit quota updated successfully": "Cập nhật tín dụng thành công",
+    "Failed to update credit quota": "Không thể cập nhật tín dụng",
+    "Grant credit": "Cấp tín dụng",
+    "Grant spendable credit or record a credit repayment.": "Cấp tín dụng có thể sử dụng hoặc ghi nhận một khoản hoàn trả.",
+    "Granting credit increases both the user's balance and outstanding credit.": "Cấp tín dụng sẽ tăng cả số dư người dùng và khoản tín dụng còn nợ.",
+    "Manage Credit": "Quản lý tín dụng",
+    "Optional credit operation note": "Ghi chú thao tác tín dụng (không bắt buộc)",
+    "Outstanding Credit": "Tín dụng còn nợ",
+    "Outstanding Credit:": "Tín dụng còn nợ:",
+    "Outstanding credit after operation": "Tín dụng còn nợ sau thao tác",
+    "Record repayment": "Ghi nhận hoàn trả",
+    "Repayment cannot exceed outstanding credit.": "Khoản hoàn trả không thể vượt quá tín dụng còn nợ.",
+    "Repayment only reduces outstanding credit and does not change the current balance.": "Hoàn trả chỉ làm giảm tín dụng còn nợ và không thay đổi số dư hiện tại.",
+    "Repayment recorded successfully": "Ghi nhận hoàn trả thành công"
   }
 }

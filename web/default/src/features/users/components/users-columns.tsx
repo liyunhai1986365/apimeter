@@ -209,6 +209,9 @@ export function useUsersColumns(): ColumnDef<User>[] {
                   {t('Remaining:')} {formatQuota(remaining)}
                 </div>
                 <div>
+                  {t('Credit Quota:')} {formatQuota(user.credit_quota || 0)}
+                </div>
+                <div>
                   {t('Total:')} {formatQuota(total)}
                 </div>
                 <div>

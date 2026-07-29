@@ -16,9 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Activity, BarChart3, WalletCards } from 'lucide-react'
+import {
+  ApiIcon,
+  BarChartIcon,
+  MoneyReceiveCircleIcon,
+  Wallet01Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { formatQuota } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { UserWalletData } from '../types'
 
@@ -33,7 +40,7 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
   if (props.loading) {
     return (
       <div className='overflow-hidden rounded-lg border'>
-        <div className='divide-border/60 grid grid-cols-3 divide-x'>
+        <div className='divide-border/60 grid grid-cols-2 divide-x md:grid-cols-3'>
           {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className='px-3 py-3 sm:px-5 sm:py-4'>
               <Skeleton className='h-3.5 w-20' />
@@ -46,34 +53,53 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
     )
   }
 
+  const hasCreditQuota = (props.user?.credit_quota ?? 0) > 0
   const stats = [
     {
       label: t('Current Balance'),
       value: formatQuota(props.user?.quota ?? 0),
       description: t('Remaining quota'),
-      icon: WalletCards,
+      icon: Wallet01Icon,
     },
+    ...(hasCreditQuota
+      ? [
+          {
+            label: t('Credit Quota'),
+            value: formatQuota(props.user?.credit_quota ?? 0),
+            description: t('Credit amount awaiting repayment'),
+            icon: MoneyReceiveCircleIcon,
+          },
+        ]
+      : []),
     {
       label: t('Total Usage'),
       value: formatQuota(props.totalUsedQuota ?? props.user?.used_quota ?? 0),
       description: t('Total consumed quota'),
-      icon: BarChart3,
+      icon: BarChartIcon,
     },
     {
       label: t('API Requests'),
       value: (props.user?.request_count ?? 0).toLocaleString(),
       description: t('Total requests made'),
-      icon: Activity,
+      icon: ApiIcon,
     },
   ]
 
   return (
     <div className='overflow-hidden rounded-lg border'>
-      <div className='divide-border/60 grid grid-cols-3 divide-x'>
+      <div
+        className={cn(
+          'divide-border/60 grid grid-cols-2 divide-x',
+          hasCreditQuota ? 'md:grid-cols-4' : 'md:grid-cols-3'
+        )}
+      >
         {stats.map((item) => (
           <div key={item.label} className='px-3 py-3 sm:px-5 sm:py-4'>
             <div className='flex items-center gap-2'>
-              <item.icon className='text-muted-foreground/60 size-3.5 shrink-0' />
+              <HugeiconsIcon
+                icon={item.icon}
+                className='text-muted-foreground/60 size-3.5 shrink-0'
+              />
               <div className='text-muted-foreground truncate text-xs font-medium tracking-wider uppercase'>
                 {item.label}
               </div>

@@ -25,6 +25,7 @@ import type {
   SearchUsersParams,
   UserFormData,
   ManageUserAction,
+  ManageUserCreditQuotaPayload,
   ManageUserQuotaPayload,
   SendUserEmailPayload,
   ApiResponse,
@@ -111,6 +112,18 @@ export async function manageUser(
 export async function adjustUserQuota(
   payload: ManageUserQuotaPayload
 ): Promise<ApiResponse<Partial<User>>> {
+  const res = await api.post('/api/user/manage', payload)
+  return res.data
+}
+
+/**
+ * Grant spendable credit or record repayment of outstanding credit.
+ */
+export async function manageUserCreditQuota(
+  payload: ManageUserCreditQuotaPayload
+): Promise<
+  ApiResponse<{ quota: number; credit_quota: number; record_id: number }>
+> {
   const res = await api.post('/api/user/manage', payload)
   return res.data
 }

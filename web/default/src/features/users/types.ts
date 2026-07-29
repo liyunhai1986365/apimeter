@@ -42,6 +42,7 @@ export const userSchema = z.object({
   telegram_id: z.string().optional(),
   email: z.string().optional(),
   quota: z.number(),
+  credit_quota: z.number().default(0),
   used_quota: z.number(),
   request_count: z.number(),
   group: z.string(),
@@ -118,6 +119,7 @@ export type ManageUserAction =
   | 'disable'
   | 'delete'
   | 'add_quota'
+  | 'manage_credit_quota'
 
 export type QuotaAdjustMode = 'add' | 'subtract' | 'override'
 
@@ -126,6 +128,16 @@ export interface ManageUserQuotaPayload {
   action: 'add_quota'
   mode: QuotaAdjustMode
   value: number
+}
+
+export type CreditQuotaOperation = 'grant' | 'repay'
+
+export interface ManageUserCreditQuotaPayload {
+  id: number
+  action: 'manage_credit_quota'
+  mode: CreditQuotaOperation
+  value: number
+  remark?: string
 }
 
 export interface SendUserEmailPayload {

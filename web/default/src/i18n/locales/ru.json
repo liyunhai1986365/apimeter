@@ -6289,6 +6289,27 @@
     "Model Usage Ranking": "Рейтинг использования моделей",
     "Supplier Group Statistics": "Статистика групп поставщиков",
     "Unknown model": "Неизвестная модель",
-    "Unknown supplier group": "Неизвестная группа поставщиков"
+    "Unknown supplier group": "Неизвестная группа поставщиков",
+    "Balance after operation": "Баланс после операции",
+    "Credit amount awaiting repayment": "Сумма кредита к погашению",
+    "Credit Control Management": "Управление кредитом",
+    "Credit grants are added to the user balance; repayments only reduce this outstanding amount.": "Выданный кредит добавляется к балансу пользователя; погашение уменьшает только непогашенную сумму.",
+    "Credit granted successfully": "Кредит успешно выдан",
+    "Credit Quota": "Кредитный лимит",
+    "Credit Quota:": "Кредитный лимит:",
+    "Credit quota updated successfully": "Кредитный лимит успешно обновлён",
+    "Failed to update credit quota": "Не удалось обновить кредит",
+    "Grant credit": "Выдать кредит",
+    "Grant spendable credit or record a credit repayment.": "Выдать доступный для расходования кредит или зарегистрировать погашение.",
+    "Granting credit increases both the user's balance and outstanding credit.": "Выдача кредита увеличивает баланс пользователя и непогашенную сумму кредита.",
+    "Manage Credit": "Управление кредитом",
+    "Optional credit operation note": "Необязательное примечание к операции",
+    "Outstanding Credit": "Непогашенный кредит",
+    "Outstanding Credit:": "Непогашенный кредит:",
+    "Outstanding credit after operation": "Непогашенный кредит после операции",
+    "Record repayment": "Зарегистрировать погашение",
+    "Repayment cannot exceed outstanding credit.": "Сумма погашения не может превышать непогашенный кредит.",
+    "Repayment only reduces outstanding credit and does not change the current balance.": "Погашение уменьшает только непогашенный кредит и не изменяет текущий баланс.",
+    "Repayment recorded successfully": "Погашение успешно зарегистрировано"
   }
 }
