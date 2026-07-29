@@ -38,7 +38,7 @@ import {
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useLocation } from 'react-router-dom';
-import { normalizeLanguage } from '../../i18n/language';
+import { getLanguageFromSearch, normalizeLanguage } from '../../i18n/language';
 const { Sider, Content, Header } = Layout;
 
 const PageLayout = () => {
@@ -121,9 +121,9 @@ const PageLayout = () => {
   }, []);
 
   useEffect(() => {
-    let preferredLang;
+    let preferredLang = getLanguageFromSearch(window.location.search);
 
-    if (userState?.user?.setting) {
+    if (!preferredLang && userState?.user?.setting) {
       try {
         const settings = JSON.parse(userState.user.setting);
         preferredLang = normalizeLanguage(settings.language);

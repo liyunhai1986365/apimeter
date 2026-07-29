@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   INTERFACE_LANGUAGE_OPTIONS,
   normalizeInterfaceLanguage,
+  replaceCurrentUrlLanguage,
 } from '@/i18n/languages'
 import { Languages, Loader2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -68,6 +69,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
     setCurrentLanguage(nextLanguage)
     setSaving(true)
     await i18n.changeLanguage(nextLanguage)
+    replaceCurrentUrlLanguage(nextLanguage)
 
     try {
       const response = await updateUserLanguage(nextLanguage)
@@ -94,6 +96,7 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
     } catch (_error) {
       setCurrentLanguage(previousLanguage)
       await i18n.changeLanguage(previousLanguage)
+      replaceCurrentUrlLanguage(previousLanguage)
       toast.error(t('Failed to update settings'))
     } finally {
       setSaving(false)

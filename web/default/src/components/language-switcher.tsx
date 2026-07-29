@@ -20,6 +20,7 @@ import { useCallback } from 'react'
 import {
   INTERFACE_LANGUAGE_OPTIONS,
   normalizeInterfaceLanguage,
+  replaceCurrentUrlLanguage,
 } from '@/i18n/languages'
 import { Languages, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -42,6 +43,7 @@ export function LanguageSwitcher() {
   const handleChangeLanguage = useCallback(
     async (code: string) => {
       await i18n.changeLanguage(code)
+      replaceCurrentUrlLanguage(code)
       if (user) {
         try {
           await api.put('/api/user/self', { language: code })

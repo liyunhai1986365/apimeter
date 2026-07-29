@@ -28,10 +28,26 @@ import zhTWTranslation from './locales/zh-TW.json';
 import ruTranslation from './locales/ru.json';
 import jaTranslation from './locales/ja.json';
 import viTranslation from './locales/vi.json';
-import { supportedLanguages } from './language';
+import {
+  getLanguageFromSearch,
+  normalizeLanguage,
+  supportedLanguages,
+} from './language';
+
+const languageDetector = new LanguageDetector();
+
+languageDetector.addDetector({
+  name: 'urlLanguage',
+  lookup: () => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+    return getLanguageFromSearch(window.location.search);
+  },
+});
 
 i18n
-  .use(LanguageDetector)
+  .use(languageDetector)
   .use(initReactI18next)
   .init({
     load: 'currentOnly',
@@ -47,10 +63,19 @@ i18n
     },
     fallbackLng: 'zh-CN',
     nsSeparator: false,
+    detection: {
+      order: ['urlLanguage', 'localStorage', 'navigator'],
+      caches: ['localStorage'],
+      convertDetectedLanguage: normalizeLanguage,
+    },
     interpolation: {
       escapeValue: false,
     },
   });
+
+i18n.on('languageChanged', (language) => {
+  document.documentElement.lang = normalizeLanguage(language) || 'zh-CN';
+});
 
 window.__i18n = i18n;
 

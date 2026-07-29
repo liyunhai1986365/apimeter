@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-
 export const INTERFACE_LANGUAGE_OPTIONS = [
   { code: 'zhCN', label: '简体中文' },
   { code: 'en', label: 'English' },
@@ -24,26 +23,92 @@ export const INTERFACE_LANGUAGE_OPTIONS = [
   { code: 'ru', label: 'Русский' },
   { code: 'ja', label: '日本語' },
   { code: 'vi', label: 'Tiếng Việt' },
-  { code: 'zhTW', label: '繁體中文' }
+  { code: 'zhTW', label: '繁體中文' },
 ] as const
 
 export type InterfaceLanguageCode =
   (typeof INTERFACE_LANGUAGE_OPTIONS)[number]['code']
 
-export function normalizeInterfaceLanguage(value?: string | null): string {
-  if (!value) return 'en'
+export function matchInterfaceLanguage(
+  value?: string | null
+): InterfaceLanguageCode | undefined {
+  if (!value) return undefined
 
-  let normalized = value.trim().replaceAll('_', '-').toLowerCase()
-  if (value === 'zh-TW' || value === 'zh-HK' || value === 'zh-MO' || value === 'zhTW') {
-    normalized = 'zhTW'
-  }
-  if (value === 'zh-CN' || value === 'zh-Hans' || value === "zhCN") {
-    normalized = 'zhCN'
+  const normalized = value.trim().replaceAll('_', '-').toLowerCase()
+  if (!normalized) return undefined
+
+  if (
+    normalized === 'zhtw' ||
+    normalized === 'zh-tw' ||
+    normalized === 'zh-hk' ||
+    normalized === 'zh-mo' ||
+    normalized.startsWith('zh-hant')
+  ) {
+    return 'zhTW'
   }
 
-  return INTERFACE_LANGUAGE_OPTIONS.some((lang) => lang.code === normalized)
-    ? normalized
-    : 'en'
+  if (
+    normalized === 'zh' ||
+    normalized === 'zhcn' ||
+    normalized === 'zh-cn' ||
+    normalized === 'zh-sg' ||
+    normalized.startsWith('zh-hans')
+  ) {
+    return 'zhCN'
+  }
+
+  const baseLanguage = normalized.split('-')[0]
+  return INTERFACE_LANGUAGE_OPTIONS.find(
+    (language) => language.code.toLowerCase() === baseLanguage
+  )?.code
+}
+
+export function normalizeInterfaceLanguage(
+  value?: string | null
+): InterfaceLanguageCode {
+  return matchInterfaceLanguage(value) ?? 'en'
+}
+
+/**
+ * Resolve an explicit interface language from a shared URL.
+ *
+ * `lang` is the canonical parameter. `language` remains supported as a
+ * readable alias for integrations that already use that name.
+ */
+export function getInterfaceLanguageFromSearch(
+  search: string
+): InterfaceLanguageCode | undefined {
+  const params = new URLSearchParams(search)
+  for (const parameter of ['lang', 'language']) {
+    const language = matchInterfaceLanguage(params.get(parameter))
+    if (language) return language
+  }
+  return undefined
+}
+
+export function buildInterfaceLanguageUrl(
+  href: string,
+  language: string
+): string {
+  const url = new URL(href)
+  const normalizedLanguage = normalizeInterfaceLanguage(language)
+  url.searchParams.set(
+    'lang',
+    toIntlLocale(normalizedLanguage) ?? normalizedLanguage
+  )
+  url.searchParams.delete('language')
+  return url.toString()
+}
+
+export function replaceCurrentUrlLanguage(language: string): void {
+  if (typeof window === 'undefined') return
+
+  const url = new URL(buildInterfaceLanguageUrl(window.location.href, language))
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${url.pathname}${url.search}${url.hash}`
+  )
 }
 
 /**
@@ -57,17 +122,7 @@ export function normalizeInterfaceLanguage(value?: string | null): string {
  * matching still applies (e.g. `fr-FR` -> `fr`, `ja` -> `ja`).
  */
 export function convertDetectedLanguage(value: string): string {
-  const lower = value.trim().replaceAll('_', '-').toLowerCase()
-  if (!lower.startsWith('zh')) return value
-  if (
-    lower === 'zh-tw' ||
-    lower === 'zh-hk' ||
-    lower === 'zh-mo' ||
-    lower.startsWith('zh-hant')
-  ) {
-    return 'zhTW'
-  }
-  return 'zhCN'
+  return matchInterfaceLanguage(value) ?? value
 }
 
 /**

@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate } from '@tanstack/react-router'
+import { getInterfaceLanguageFromSearch } from '@/i18n/languages'
 import i18n from 'i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { getSelf } from '@/lib/api'
@@ -77,7 +78,11 @@ export function useAuthRedirect(allowedExternalRedirect?: string) {
 
         // Restore saved language preference
         const savedLang = getSavedLanguage(user)
-        if (savedLang && savedLang !== i18n.language) {
+        const urlLanguage =
+          typeof window === 'undefined'
+            ? undefined
+            : getInterfaceLanguageFromSearch(window.location.search)
+        if (!urlLanguage && savedLang && savedLang !== i18n.language) {
           i18n.changeLanguage(savedLang)
         }
       }

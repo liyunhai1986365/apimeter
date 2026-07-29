@@ -23,7 +23,10 @@ import { Languages } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { API, showSuccess, showError } from "../../../../helpers";
 import { UserContext } from "../../../../context/User";
-import { normalizeLanguage } from "../../../../i18n/language";
+import {
+	normalizeLanguage,
+	replaceCurrentUrlLanguage,
+} from "../../../../i18n/language";
 
 // Language options with native names
 const languageOptions = [
@@ -74,6 +77,7 @@ const PreferencesSettings = ({ t }) => {
 			setCurrentLanguage(lang);
 			i18n.changeLanguage(lang);
 			localStorage.setItem('i18nextLng', lang);
+			replaceCurrentUrlLanguage(lang);
 
 			// Save to backend
 			const res = await API.put("/api/user/self", {
@@ -107,6 +111,7 @@ const PreferencesSettings = ({ t }) => {
 				setCurrentLanguage(previousLang);
 				i18n.changeLanguage(previousLang);
 				localStorage.setItem("i18nextLng", previousLang);
+				replaceCurrentUrlLanguage(previousLang);
 			}
 		} catch (error) {
 			showError(t("保存失败，请重试"));
@@ -114,6 +119,7 @@ const PreferencesSettings = ({ t }) => {
 			setCurrentLanguage(previousLang);
 			i18n.changeLanguage(previousLang);
 			localStorage.setItem("i18nextLng", previousLang);
+			replaceCurrentUrlLanguage(previousLang);
 		} finally {
 			setLoading(false);
 		}

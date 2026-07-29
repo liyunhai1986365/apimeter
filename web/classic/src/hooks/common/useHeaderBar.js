@@ -24,7 +24,10 @@ import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useSetTheme, useTheme, useActualTheme } from '../../context/Theme';
 import { getLogo, getSystemName, API, showSuccess } from '../../helpers';
-import { normalizeLanguage } from '../../i18n/language';
+import {
+  normalizeLanguage,
+  replaceCurrentUrlLanguage,
+} from '../../i18n/language';
 import { useIsMobile } from './useIsMobile';
 import { useSidebarCollapsed } from './useSidebarCollapsed';
 import { useMinimumLoadingTime } from './useMinimumLoadingTime';
@@ -37,7 +40,9 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
   const [collapsed, toggleCollapsed] = useSidebarCollapsed();
   const [logoLoaded, setLogoLoaded] = useState(false);
   const navigate = useNavigate();
-  const [currentLang, setCurrentLang] = useState(normalizeLanguage(i18n.language));
+  const [currentLang, setCurrentLang] = useState(
+    normalizeLanguage(i18n.language),
+  );
   const location = useLocation();
 
   const loading = statusState?.status === undefined;
@@ -153,6 +158,7 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
       const previousLang = normalizeLanguage(i18n.language);
       i18n.changeLanguage(lang);
       localStorage.setItem('i18nextLng', lang);
+      replaceCurrentUrlLanguage(lang);
 
       // If user is logged in, save preference to backend
       if (userState?.user?.id) {
@@ -188,6 +194,7 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
           if (previousLang) {
             i18n.changeLanguage(previousLang);
             localStorage.setItem('i18nextLng', previousLang);
+            replaceCurrentUrlLanguage(previousLang);
           }
           console.error('Failed to save language preference:', error);
         }

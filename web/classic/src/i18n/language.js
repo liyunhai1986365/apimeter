@@ -37,6 +37,7 @@ export const normalizeLanguage = (language) => {
 
   if (
     lower === 'zh' ||
+    lower === 'zhcn' ||
     lower === 'zh-cn' ||
     lower === 'zh-sg' ||
     lower.startsWith('zh-hans')
@@ -45,6 +46,7 @@ export const normalizeLanguage = (language) => {
   }
 
   if (
+    lower === 'zhtw' ||
     lower === 'zh-tw' ||
     lower === 'zh-hk' ||
     lower === 'zh-mo' ||
@@ -53,9 +55,48 @@ export const normalizeLanguage = (language) => {
     return 'zh-TW';
   }
 
+  const baseLanguage = lower.split('-')[0];
   const matchedLanguage = supportedLanguages.find(
-    (supportedLanguage) => supportedLanguage.toLowerCase() === lower,
+    (supportedLanguage) =>
+      !supportedLanguage.startsWith('zh-') &&
+      supportedLanguage.toLowerCase() === baseLanguage,
   );
 
   return matchedLanguage || normalized;
+};
+
+export const getLanguageFromSearch = (search) => {
+  const params = new URLSearchParams(search);
+  for (const parameter of ['lang', 'language']) {
+    const language = normalizeLanguage(params.get(parameter));
+    if (supportedLanguages.includes(language)) {
+      return language;
+    }
+  }
+  return undefined;
+};
+
+export const buildLanguageUrl = (href, language) => {
+  const normalizedLanguage = normalizeLanguage(language);
+  if (!supportedLanguages.includes(normalizedLanguage)) {
+    return href;
+  }
+
+  const url = new URL(href);
+  url.searchParams.set('lang', normalizedLanguage);
+  url.searchParams.delete('language');
+  return url.toString();
+};
+
+export const replaceCurrentUrlLanguage = (language) => {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  const url = new URL(buildLanguageUrl(window.location.href, language));
+  window.history.replaceState(
+    window.history.state,
+    '',
+    `${url.pathname}${url.search}${url.hash}`,
+  );
 };

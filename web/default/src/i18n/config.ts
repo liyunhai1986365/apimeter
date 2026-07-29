@@ -19,15 +19,17 @@ For commercial licensing, please contact support@quantumnous.com
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
-
-import { convertDetectedLanguage } from './languages'
+import {
+  convertDetectedLanguage,
+  getInterfaceLanguageFromSearch,
+} from './languages'
 import en from './locales/en.json'
 import fr from './locales/fr.json'
 import ja from './locales/ja.json'
 import ru from './locales/ru.json'
 import vi from './locales/vi.json'
-import zhCN from './locales/zh.json'
 import zhTW from './locales/zh-TW.json'
+import zhCN from './locales/zh.json'
 
 export const resources = {
   en,
@@ -36,11 +38,21 @@ export const resources = {
   ru,
   ja,
   vi,
-  zhTW
+  zhTW,
 } as const
 
+const languageDetector = new LanguageDetector()
+
+languageDetector.addDetector({
+  name: 'urlLanguage',
+  lookup: () => {
+    if (typeof window === 'undefined') return undefined
+    return getInterfaceLanguageFromSearch(window.location.search)
+  },
+})
+
 i18n
-  .use(LanguageDetector)
+  .use(languageDetector)
   .use(initReactI18next)
   .init({
     resources,
@@ -53,10 +65,11 @@ i18n
       escapeValue: false, // not needed for react as it escapes by default
     },
     detection: {
-      order: ['localStorage', 'navigator'],
+      // A shared URL is authoritative, then an explicit remembered choice,
+      // then the browser/system language on a visitor's first load.
+      order: ['urlLanguage', 'localStorage', 'navigator'],
       caches: ['localStorage'],
-      // Browsers report `zh-CN`/`zh-TW`/`zh`; map them onto our `zhCN`/`zhTW`
-      // codes (non-Chinese codes pass through for normal supportedLngs matching).
+      // Map BCP-47 browser and URL values onto the interface resource codes.
       convertDetectedLanguage,
     },
   })
