@@ -208,7 +208,7 @@ export function Footer(props: FooterProps) {
         {/* Bottom section */}
         <div className='border-border/30 mt-12 flex flex-col items-center justify-between gap-3 border-t pt-6 sm:flex-row'>
           <p className='text-muted-foreground/40 text-xs'>
-            &copy; {currentYear}.{' '}
+            &copy; {currentYear} Axiom Mesh Inc.{' '}
             {props.copyright ?? t('footer.defaultCopyright')}
           </p>
           <div className='flex items-center gap-4 text-xs'>
