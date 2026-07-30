@@ -583,6 +583,21 @@ resources:
 
 `platform` 默认使用渠道类型，`action` 会随任务保存并用于选择轮询路径。未配置 `async_task.enabled` 的资源继续保持同步透传行为，不会写入 `tasks`。
 
+Resource 的 `query.fields` 使用与 `request.fields` 相同的字段映射格式，但始终写入上游 URL 查询参数，适用于 POST 也要求 query 参数的协议。GET/HEAD 为兼容现有 profile，仍会把 `request.fields` 写入 query；当两者同时存在时，以 `query.fields` 的同名字段为准。
+
+```yaml
+resources:
+  - id: assets_upload
+    upstream:
+      method: POST
+      path: /api/assets/upload
+    query:
+      fields:
+        - to: model
+          from: query.model
+          omit_empty: true
+```
+
 同一 Profile 的不同轮询路径如果返回结构不同，可以在 `fetch.path_variants[].response` 中覆盖默认的 `fetch.response`。
 
 ## 新增模型接入步骤
@@ -706,6 +721,7 @@ fetch:
 | `doubao-seedance-2-api-assets` | Doubao Seedance 2.0 API Assets | Seedance 2.0 API Assets 形态 | `/v1/video/generations`、`/v1/videos` |
 | `seedance2-service-inference` | Seedance2 Service Inference | `dreamina-seedance-2-0-*` 等 | `/v1/video/generations`、`/v1/videos` |
 | `seedance2-ark-task-assets` | Seedance2 Ark Task Assets | `doubao-seedance-2-0-*` | `/v1/video/generations`、`/v1/videos` |
+| `seedance2-modelsell` | Seedance 2.0 Modelsell | Modelsell Seedance 2.0 国内/海外模型 | `/v1/video/generations`、`/v1/videos`、`/api/assets/upload`、`/api/assets/{id}` |
 | `kling-video` | Kling Video | `kling-v*`、`kling-o*`、`kling-3.0-turbo`、Kling 扩展能力 | `/v1/video/generations`、`/v1/videos` |
 
 7. 运行测试：

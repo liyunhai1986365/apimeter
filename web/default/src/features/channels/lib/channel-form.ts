@@ -119,6 +119,10 @@ export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
     value: 'seedance2-ark-task-assets',
   },
   {
+    label: 'Seedance 2.0 Modelsell',
+    value: 'seedance2-modelsell',
+  },
+  {
     label: 'Apixo GPT Image 2',
     value: 'apixo-gpt-image-2',
   },

@@ -92,6 +92,7 @@ type ResourceConfig struct {
 	Upstream    EndpointConfig        `yaml:"upstream"`
 	PreRequests []PreRequestConfig    `yaml:"pre_requests"`
 	PathParams  map[string]string     `yaml:"path_params"`
+	Query       BodyConfig            `yaml:"query"`
 	Request     BodyConfig            `yaml:"request"`
 	Response    ResponseConfig        `yaml:"response"`
 }

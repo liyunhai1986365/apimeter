@@ -25,4 +25,6 @@ func TestGetConfigurableProtocolProfilesIncludesEmbeddedProfiles(t *testing.T) {
 	require.Equal(t, "Seedance2 Service Inference", gjson.GetBytes(body, `data.#(id=="seedance2-service-inference").name`).String(), string(body))
 	require.Equal(t, "video", gjson.GetBytes(body, `data.#(id=="seedance2-service-inference").media_type`).String(), string(body))
 	require.Equal(t, "openai.video.generations", gjson.GetBytes(body, `data.#(id=="seedance2-service-inference").accepted_modes.0`).String(), string(body))
+	require.Equal(t, "seedance2-modelsell", gjson.GetBytes(body, `data.#(id=="seedance2-modelsell").id`).String(), string(body))
+	require.Equal(t, "Seedance 2.0 Modelsell", gjson.GetBytes(body, `data.#(id=="seedance2-modelsell").name`).String(), string(body))
 }

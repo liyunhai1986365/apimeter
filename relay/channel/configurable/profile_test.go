@@ -134,6 +134,37 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 		t.Fatalf("unexpected api assets delete path params: %#v", deleteAPIAsset.PathParams)
 	}
 
+	modelsell, ok := GetProfile("seedance2-modelsell")
+	if !ok {
+		t.Fatal("expected seedance2-modelsell profile")
+	}
+	if modelsell.Name != "Seedance 2.0 Modelsell" {
+		t.Fatalf("unexpected Modelsell profile name: %s", modelsell.Name)
+	}
+	if modelsell.Video == nil || modelsell.Video.Submit.Path != "/api/v3/contents/generations/tasks" {
+		t.Fatalf("unexpected Modelsell Seedance video protocol: %#v", modelsell.Video)
+	}
+	modelsellUpload, ok := modelsell.ResourceByID("assets_upload")
+	if !ok {
+		t.Fatal("expected Modelsell assets_upload resource")
+	}
+	if modelsellUpload.Public.Path != "/api/assets/upload" || modelsellUpload.Upstream.Path != "/api/assets/upload" {
+		t.Fatalf("unexpected Modelsell assets upload paths: public=%s upstream=%s", modelsellUpload.Public.Path, modelsellUpload.Upstream.Path)
+	}
+	if len(modelsellUpload.Query.Fields) != 1 || modelsellUpload.Query.Fields[0].From != "query.model" {
+		t.Fatalf("expected Modelsell upload model query mapping: %#v", modelsellUpload.Query.Fields)
+	}
+	modelsellDetail, ok := modelsell.ResourceByID("asset_detail")
+	if !ok {
+		t.Fatal("expected Modelsell asset_detail resource")
+	}
+	if modelsellDetail.Public.Path != "/api/assets/{id}" || modelsellDetail.Upstream.Path != "/api/assets/{id}" {
+		t.Fatalf("unexpected Modelsell asset detail paths: public=%s upstream=%s", modelsellDetail.Public.Path, modelsellDetail.Upstream.Path)
+	}
+	if len(modelsellDetail.Query.Fields) != 1 || modelsellDetail.Query.Fields[0].From != "query.model" {
+		t.Fatalf("expected Modelsell detail model query mapping: %#v", modelsellDetail.Query.Fields)
+	}
+
 	serviceInference, ok := GetProfile("seedance2-service-inference")
 	if !ok {
 		t.Fatal("expected seedance2-service-inference profile")

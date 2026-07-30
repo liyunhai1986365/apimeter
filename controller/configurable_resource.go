@@ -535,7 +535,8 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 			return nil, err
 		}
 		bodyReader = bytes.NewReader(bodyBytes)
-	} else if len(resource.Request.Fields) > 0 {
+	}
+	if len(resource.Query.Fields) > 0 || ((method == http.MethodGet || method == http.MethodHead) && len(resource.Request.Fields) > 0) {
 		query, err := buildConfigurableResourceQueryWithPreResults(c, resource, preResults)
 		if err != nil {
 			return nil, err
@@ -601,7 +602,12 @@ func buildConfigurableResourceQueryWithPreResults(c *gin.Context, resource *conf
 	if len(preResults) > 0 {
 		source["pre"] = preResults
 	}
-	mapped, err := configurable.BuildMappedMap(resource.Request.Fields, source, nil)
+	fields := make([]configurable.FieldMapping, 0, len(resource.Request.Fields)+len(resource.Query.Fields))
+	if c != nil && c.Request != nil && (c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead) {
+		fields = append(fields, resource.Request.Fields...)
+	}
+	fields = append(fields, resource.Query.Fields...)
+	mapped, err := configurable.BuildMappedMap(fields, source, nil)
 	if err != nil {
 		return nil, err
 	}
