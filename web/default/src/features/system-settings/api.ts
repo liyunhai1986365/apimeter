@@ -26,7 +26,6 @@ import type {
   UpdateOptionRequest,
   UpdateOptionResponse,
   GlobalWebhookTestResponse,
-  HistoricalBillingGenerationResponse,
   RoutingStrategyRefreshResponse,
   RoutingStrategySnapshotResponse,
   UpstreamChannelsResponse,
@@ -74,13 +73,6 @@ export async function deleteLogsBefore(targetTimestamp: number) {
   const res = await api.delete<DeleteLogsResponse>('/api/log/', {
     params: { target_timestamp: targetTimestamp },
   })
-  return res.data
-}
-
-export async function generateRecentMonthlyBillingStatements() {
-  const res = await api.post<HistoricalBillingGenerationResponse>(
-    '/api/billing/admin/generate-recent-month'
-  )
   return res.data
 }
 

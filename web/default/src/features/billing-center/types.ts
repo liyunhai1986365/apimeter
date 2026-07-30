@@ -45,9 +45,7 @@ export type BillingStatementSummary = {
   user_id: number
   period: string
   period_value: string
-  dimension:
-    | 'month_model_group'
-    | string
+  dimension: 'month_model_group' | string
   dimension_value: string
   model_name: string
   group: string
@@ -80,15 +78,6 @@ export type BillingBreakdownRow = {
   settlement_amount: number
 }
 
-export type DailyBillingReconciliation = {
-  date: string
-  usage_settlement_amount: number
-  account_consume_amount: number
-  difference_amount: number
-  request_count: number
-  status: BillingStatementStatus
-}
-
 export type BillingStatementParams = {
   start_month?: string
   end_month?: string
@@ -108,12 +97,4 @@ export type BillingBreakdownParams = {
   billing_mode?: string
   limit?: number
   offset?: number
-}
-
-export type BillingBackfillResult = {
-  scanned: number
-  usage_created: number
-  ledger_created: number
-  skipped: number
-  failed: number
 }

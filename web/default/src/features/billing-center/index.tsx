@@ -9,16 +9,11 @@ import {
   ReceiptText,
   RefreshCw,
   Scale,
-  WalletCards,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import dayjs from '@/lib/dayjs'
-import {
-  formatNumber,
-  formatQuota,
-  formatTokens,
-} from '@/lib/format'
+import { formatNumber, formatQuota, formatTokens } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -43,20 +38,16 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { SectionPageLayout } from '@/components/layout'
 import {
-  exportBillingBreakdowns,
   exportBillingMonthlyStatement,
   generateBillingMonthlyStatement,
-  getBillingBreakdowns,
   getBillingMonthlyStatementSummaries,
   getBillingMonthlyStatements,
-  getDailyBillingReconciliations,
 } from './api'
 import type {
   BillingBreakdownRow,
   BillingCenterSectionId,
   BillingStatement,
   BillingStatementSummary,
-  DailyBillingReconciliation,
 } from './types'
 
 const route = getRouteApi('/_authenticated/billing/$section')
@@ -143,7 +134,7 @@ function MetricCard({
 
 function FilterShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className='flex flex-col gap-3 rounded-lg border bg-muted/20 p-3 md:flex-row md:flex-wrap md:items-end'>
+    <div className='bg-muted/20 flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:flex-wrap md:items-end'>
       {children}
     </div>
   )
@@ -401,7 +392,9 @@ function MonthlyStatementsTab() {
                 title={t('Difference')}
                 value={formatQuota(selected.difference_amount)}
                 icon={AlertTriangle}
-                tone={selected.difference_amount === 0 ? 'positive' : 'negative'}
+                tone={
+                  selected.difference_amount === 0 ? 'positive' : 'negative'
+                }
               />
             </div>
           )}
@@ -446,8 +439,12 @@ function BillingBreakdownTable({
               <TableHead className='text-right'>{t('Output tokens')}</TableHead>
               <TableHead className='text-right'>{t('Cache read')}</TableHead>
               <TableHead className='text-right'>{t('Cache write')}</TableHead>
-              <TableHead className='text-right'>{t('Original amount')}</TableHead>
-              <TableHead className='text-right'>{t('Group discount')}</TableHead>
+              <TableHead className='text-right'>
+                {t('Original amount')}
+              </TableHead>
+              <TableHead className='text-right'>
+                {t('Group discount')}
+              </TableHead>
               <TableHead className='text-right'>
                 {t('Settlement amount')}
               </TableHead>
@@ -501,214 +498,6 @@ function BillingBreakdownTable({
   )
 }
 
-function DailyReconciliationTab() {
-  const { t } = useTranslation()
-  const [startMonth, setStartMonth] = useState(() =>
-    dayjs().subtract(1, 'month').format('YYYY-MM')
-  )
-  const [endMonth, setEndMonth] = useState(() => dayjs().format('YYYY-MM'))
-  const [rows, setRows] = useState<DailyBillingReconciliation[]>([])
-  const [breakdowns, setBreakdowns] = useState<BillingBreakdownRow[]>([])
-  const [loading, setLoading] = useState(false)
-  const [exporting, setExporting] = useState(false)
-
-  const fetchRows = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = await getDailyBillingReconciliations({
-        start_month: startMonth,
-        end_month: endMonth,
-        limit: 90,
-      })
-      if (response.success) setRows(response.data ?? [])
-      const breakdownResponse = await getBillingBreakdowns({
-        period: 'day',
-        start_date: `${startMonth}-01`,
-        end_date: dayjs(`${endMonth}-01`).endOf('month').format('YYYY-MM-DD'),
-        limit: 500,
-      })
-      if (breakdownResponse.success) {
-        setBreakdowns(breakdownResponse.data ?? [])
-      }
-    } finally {
-      setLoading(false)
-    }
-  }, [endMonth, startMonth])
-
-  useEffect(() => {
-    void fetchRows()
-  }, [fetchRows])
-
-  const dailyExportEndDate = useMemo(
-    () => dayjs(`${endMonth}-01`).endOf('month').format('YYYY-MM-DD'),
-    [endMonth]
-  )
-
-  const handleExport = useCallback(async () => {
-    const startDate = `${startMonth}-01`
-    setExporting(true)
-    try {
-      const blob = await exportBillingBreakdowns({
-        period: 'day',
-        start_date: startDate,
-        end_date: dailyExportEndDate,
-      })
-      downloadBlob(blob, `daily-billing-${startDate}-${dailyExportEndDate}.csv`)
-      toast.success(t('Billing exported'))
-    } finally {
-      setExporting(false)
-    }
-  }, [dailyExportEndDate, startMonth, t])
-
-  const totals = useMemo(
-    () =>
-      rows.reduce(
-        (acc, row) => {
-          acc.usage += row.usage_settlement_amount
-          acc.ledger += row.account_consume_amount
-          acc.diff += Math.abs(row.difference_amount)
-          acc.exceptions += row.status === 'exception' ? 1 : 0
-          return acc
-        },
-        { usage: 0, ledger: 0, diff: 0, exceptions: 0 }
-      ),
-    [rows]
-  )
-
-  return (
-    <div className='space-y-4'>
-      <FilterShell>
-        <label className='min-w-44 space-y-1'>
-          <span className='text-muted-foreground text-xs'>
-            {t('Start month')}
-          </span>
-          <Input
-            type='month'
-            value={startMonth}
-            onChange={(event) => setStartMonth(event.target.value)}
-          />
-        </label>
-        <label className='min-w-44 space-y-1'>
-          <span className='text-muted-foreground text-xs'>{t('End month')}</span>
-          <Input
-            type='month'
-            value={endMonth}
-            onChange={(event) => setEndMonth(event.target.value)}
-          />
-        </label>
-        <Button
-          type='button'
-          variant='outline'
-          onClick={() => void fetchRows()}
-          disabled={loading}
-          className='md:ml-auto'
-        >
-          <RefreshCw
-            className={cn('size-4', loading && 'animate-spin')}
-            aria-hidden='true'
-          />
-          {t('Refresh')}
-        </Button>
-        <Button
-          type='button'
-          variant='outline'
-          onClick={() => void handleExport()}
-          disabled={exporting}
-        >
-          <Download
-            className={cn('size-4', exporting && 'animate-pulse')}
-            aria-hidden='true'
-          />
-          {t('Export daily bill')}
-        </Button>
-      </FilterShell>
-
-      <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-4'>
-        <MetricCard
-          title={t('Usage facts total')}
-          value={formatQuota(totals.usage)}
-          icon={ReceiptText}
-        />
-        <MetricCard
-          title={t('Ledger consume total')}
-          value={formatQuota(totals.ledger)}
-          icon={WalletCards}
-        />
-        <MetricCard
-          title={t('Differences')}
-          value={formatQuota(totals.diff)}
-          icon={AlertTriangle}
-          tone={totals.diff === 0 ? 'positive' : 'negative'}
-        />
-        <MetricCard
-          title={t('Exception days')}
-          value={formatNumber(totals.exceptions)}
-          icon={Gauge}
-          tone={totals.exceptions === 0 ? 'positive' : 'negative'}
-        />
-      </div>
-
-      <div className='overflow-hidden rounded-lg border'>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{t('Date')}</TableHead>
-              <TableHead className='text-right'>
-                {t('Usage facts total')}
-              </TableHead>
-              <TableHead className='text-right'>
-                {t('Ledger consume total')}
-              </TableHead>
-              <TableHead className='text-right'>{t('Difference')}</TableHead>
-              <TableHead className='text-right'>{t('Requests')}</TableHead>
-              <TableHead>{t('Status')}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((row) => (
-              <TableRow key={row.date}>
-                <TableCell className='font-medium'>{row.date}</TableCell>
-                <TableCell className='text-right tabular-nums'>
-                  {formatQuota(row.usage_settlement_amount)}
-                </TableCell>
-                <TableCell className='text-right tabular-nums'>
-                  {formatQuota(row.account_consume_amount)}
-                </TableCell>
-                <TableCell
-                  className={cn(
-                    'text-right tabular-nums',
-                    signedQuotaClass(row.difference_amount)
-                  )}
-                >
-                  {formatQuota(row.difference_amount)}
-                </TableCell>
-                <TableCell className='text-right tabular-nums'>
-                  {formatNumber(row.request_count)}
-                </TableCell>
-                <TableCell>
-                  <StatementBadge status={row.status} />
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-        {!loading && rows.length === 0 && (
-          <EmptyBillingState
-            title={t('No reconciliation data found')}
-            description={t('Try changing the date range or filters')}
-          />
-        )}
-      </div>
-
-      <BillingBreakdownTable
-        rows={breakdowns}
-        title={t('Daily model group bill')}
-        loading={loading}
-      />
-    </div>
-  )
-}
-
 const BILLING_SECTION_META: Record<
   BillingCenterSectionId,
   {
@@ -722,12 +511,6 @@ const BILLING_SECTION_META: Record<
     descriptionKey:
       'Generate and review frozen monthly statements by model, group, key, and source',
     icon: ReceiptText,
-  },
-  reconciliation: {
-    titleKey: 'Daily reconciliation',
-    descriptionKey:
-      'Match usage facts with account ledger consumption and inspect differences',
-    icon: Scale,
   },
 }
 
@@ -771,7 +554,6 @@ export function BillingCenter() {
           </Tabs>
           <Separator />
           {activeSection === 'monthly' && <MonthlyStatementsTab />}
-          {activeSection === 'reconciliation' && <DailyReconciliationTab />}
         </div>
       </SectionPageLayout.Content>
     </SectionPageLayout>

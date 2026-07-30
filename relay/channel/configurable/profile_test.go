@@ -144,6 +144,13 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if modelsell.Video == nil || modelsell.Video.Submit.Path != "/api/v3/contents/generations/tasks" {
 		t.Fatalf("unexpected Modelsell Seedance video protocol: %#v", modelsell.Video)
 	}
+	modelsellFetch := modelsell.Video.Fetch.Response
+	if modelsellFetch.StatusPath != "data.status" ||
+		modelsellFetch.ResultURLPath != "data.result_url" ||
+		modelsellFetch.TotalTokensPath != "data.data.task.usage.total_tokens" ||
+		modelsellFetch.CompletionTokensPath != "data.data.task.usage.completion_tokens" {
+		t.Fatalf("unexpected Modelsell Seedance fetch response paths: %#v", modelsellFetch)
+	}
 	modelsellUpload, ok := modelsell.ResourceByID("assets_upload")
 	if !ok {
 		t.Fatal("expected Modelsell assets_upload resource")

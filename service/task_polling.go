@@ -32,6 +32,88 @@ type TaskPollingAdaptor interface {
 	AdjustBillingOnComplete(task *model.Task, taskResult *relaycommon.TaskInfo) int
 }
 
+type taskUsageEnvelope struct {
+	Usage *dto.Usage         `json:"usage"`
+	Task  *taskUsageEnvelope `json:"task"`
+	Data  *taskUsageEnvelope `json:"data"`
+}
+
+func taskInfoFromNewAPIResponse(task *model.Task) *relaycommon.TaskInfo {
+	if task == nil {
+		return &relaycommon.TaskInfo{}
+	}
+
+	info := &relaycommon.TaskInfo{
+		TaskID:   task.TaskID,
+		Status:   string(task.Status),
+		Url:      task.GetResultURL(),
+		Progress: task.Progress,
+		Reason:   task.FailReason,
+	}
+	populateTaskInfoUsage(info, task.Data)
+	return info
+}
+
+func populateTaskInfoUsage(info *relaycommon.TaskInfo, data []byte) {
+	if info == nil || len(data) == 0 {
+		return
+	}
+
+	var envelope taskUsageEnvelope
+	if err := common.Unmarshal(data, &envelope); err != nil {
+		return
+	}
+	usage := firstTaskUsage(&envelope)
+	if usage == nil {
+		return
+	}
+
+	completionTokens := usage.CompletionTokens
+	if completionTokens <= 0 {
+		completionTokens = usage.OutputTokens
+	}
+	totalTokens := usage.TotalTokens
+	if totalTokens <= 0 {
+		totalTokens = usage.PromptTokens + completionTokens
+	}
+	if totalTokens <= 0 {
+		totalTokens = usage.InputTokens + usage.OutputTokens
+	}
+	if totalTokens <= 0 {
+		totalTokens = completionTokens
+	}
+	if completionTokens <= 0 && totalTokens > 0 &&
+		usage.PromptTokens <= 0 && usage.InputTokens <= 0 {
+		// Video providers commonly expose only total_tokens. For task billing,
+		// those tokens represent generated output and are evaluated as c.
+		completionTokens = totalTokens
+	}
+
+	info.TotalTokens = totalTokens
+	info.CompletionTokens = completionTokens
+}
+
+func firstTaskUsage(envelope *taskUsageEnvelope) *dto.Usage {
+	if envelope == nil {
+		return nil
+	}
+	if taskUsageHasTokens(envelope.Usage) {
+		return envelope.Usage
+	}
+	if usage := firstTaskUsage(envelope.Task); usage != nil {
+		return usage
+	}
+	return firstTaskUsage(envelope.Data)
+}
+
+func taskUsageHasTokens(usage *dto.Usage) bool {
+	return usage != nil && (usage.TotalTokens > 0 ||
+		usage.CompletionTokens > 0 ||
+		usage.OutputTokens > 0 ||
+		usage.PromptTokens > 0 ||
+		usage.InputTokens > 0)
+}
+
 // GetTaskAdaptorFunc 由 main 包注入，用于获取指定平台的任务适配器。
 // 打破 service -> relay -> relay/channel -> service 的循环依赖。
 var GetTaskAdaptorFunc func(platform constant.TaskPlatform) TaskPollingAdaptor
@@ -784,11 +866,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	if err = common.Unmarshal(responseBody, &responseItems); err == nil && responseItems.IsSuccess() {
 		logger.LogDebug(ctx, "updateVideoSingleTask parsed as new api response format: %+v", responseItems)
 		t := responseItems.Data
-		taskResult.TaskID = t.TaskID
-		taskResult.Status = string(t.Status)
-		taskResult.Url = t.GetResultURL()
-		taskResult.Progress = t.Progress
-		taskResult.Reason = t.FailReason
+		taskResult = taskInfoFromNewAPIResponse(&t)
 		task.Data = t.Data
 	} else if taskResult, err = adaptor.ParseTaskResult(responseBody); err != nil {
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)

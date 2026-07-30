@@ -499,7 +499,12 @@ func backfillBillingV2Log(log *Log, balances map[string]int64, result *BillingV2
 	return true, nil
 }
 
-func RecordBillingV2ConsumeLog(logId int) (bool, error) {
+// RecordBillingUsageConsumeLog records the usage fact used by billing
+// breakdowns without extending the derived account ledger. User and
+// subscription balances are updated by the funding flow before the consume log
+// is written; the account ledger is reporting data and must not be on the live
+// request path.
+func RecordBillingUsageConsumeLog(logId int) (bool, error) {
 	if logId <= 0 {
 		return false, nil
 	}
@@ -514,11 +519,7 @@ func RecordBillingV2ConsumeLog(logId int) (bool, error) {
 	if err := LOG_DB.Model(&BillingUsageItem{}).Where("log_id = ?", log.Id).Count(&usageCount).Error; err != nil {
 		return false, err
 	}
-	var ledgerCount int64
-	if err := LOG_DB.Model(&AccountLedgerEntry{}).Where("log_id = ?", log.Id).Count(&ledgerCount).Error; err != nil {
-		return false, err
-	}
-	if usageCount > 0 && ledgerCount > 0 {
+	if usageCount > 0 {
 		return false, nil
 	}
 	other, _ := common.StrToMap(log.Other)
@@ -526,70 +527,13 @@ func RecordBillingV2ConsumeLog(logId int) (bool, error) {
 		return false, nil
 	}
 	usage := billingUsageItemFromLog(&log, other)
-	accountType := usage.BillingSource
-	if strings.TrimSpace(accountType) == "" {
-		accountType = BillingSourceWallet
+	if err := RecordBillingUsageItem(&usage); err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unique") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+			return false, nil
+		}
+		return false, err
 	}
-	created := false
-	err := LOG_DB.Transaction(func(tx *gorm.DB) error {
-		if usageCount == 0 {
-			fillBillingUsagePeriod(&usage)
-			if err := tx.Create(&usage).Error; err != nil {
-				if strings.Contains(strings.ToLower(err.Error()), "unique") || strings.Contains(strings.ToLower(err.Error()), "duplicate") {
-					return nil
-				}
-				return err
-			}
-			created = true
-		}
-		if ledgerCount > 0 {
-			return nil
-		}
-		before, err := latestAccountLedgerBalanceTx(tx, log.UserId, accountType)
-		if err != nil {
-			return err
-		}
-		amount := -int64(log.Quota)
-		ledger := &AccountLedgerEntry{
-			UserId:        log.UserId,
-			AccountType:   accountType,
-			EntryType:     AccountLedgerEntryTypeConsume,
-			Amount:        amount,
-			BalanceBefore: before,
-			BalanceAfter:  before + amount,
-			SourceType:    AccountLedgerSourceUsage,
-			SourceId:      strconv.Itoa(log.Id),
-			LogId:         log.Id,
-			RequestId:     log.RequestId,
-			ModelName:     log.ModelName,
-			TokenId:       log.TokenId,
-			TokenName:     log.TokenName,
-			OccurredAt:    log.CreatedAt,
-			Content:       log.Content,
-		}
-		fillAccountLedgerPeriod(ledger)
-		if err := tx.Create(ledger).Error; err != nil {
-			return err
-		}
-		created = true
-		return nil
-	})
-	return created, err
-}
-
-func latestAccountLedgerBalanceTx(tx *gorm.DB, userId int, accountType string) (int64, error) {
-	var latest AccountLedgerEntry
-	err := tx.Model(&AccountLedgerEntry{}).
-		Where("user_id = ? AND account_type = ?", userId, accountType).
-		Order("occurred_at desc, id desc").
-		First(&latest).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, nil
-	}
-	if err != nil {
-		return 0, err
-	}
-	return latest.BalanceAfter, nil
+	return true, nil
 }
 
 func billingDisplayValue(value string) string {

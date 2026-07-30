@@ -1,7 +1,4 @@
-export const BILLING_CENTER_SECTIONS = [
-  'monthly',
-  'reconciliation',
-] as const
+export const BILLING_CENTER_SECTIONS = ['monthly'] as const
 
 export type BillingCenterSectionId = (typeof BILLING_CENTER_SECTIONS)[number]
 

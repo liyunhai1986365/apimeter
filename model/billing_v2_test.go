@@ -17,7 +17,6 @@ func TestBillingV2BackfillCreatesUsageAndAccountLedger(t *testing.T) {
 		&BillingStatement{},
 		&BillingStatementSummary{},
 	))
-
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, LOG_DB.Create(&[]Log{
 		{
@@ -134,7 +133,7 @@ func TestBillingV2SkipsUserOwnedProviderConsumeLogs(t *testing.T) {
 	}
 	require.NoError(t, LOG_DB.Create(log).Error)
 
-	created, err := RecordBillingV2ConsumeLog(log.Id)
+	created, err := RecordBillingUsageConsumeLog(log.Id)
 	require.NoError(t, err)
 	assert.False(t, created)
 
@@ -567,7 +566,7 @@ func TestGenerateRecentMonthlyBillingStatementsBackfillsPreviousFullMonth(t *tes
 	assert.Empty(t, juneRows)
 }
 
-func TestRecordBillingV2ConsumeLogExtendsLedgerBalance(t *testing.T) {
+func TestRecordBillingUsageConsumeLogDoesNotExtendLedger(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, LOG_DB.AutoMigrate(
 		&BillingUsageItem{},
@@ -575,6 +574,11 @@ func TestRecordBillingV2ConsumeLogExtendsLedgerBalance(t *testing.T) {
 		&BillingStatement{},
 		&BillingStatementSummary{},
 	))
+	require.NoError(t, DB.Create(&User{
+		Id:       1001,
+		Username: "billing-usage-only",
+		Quota:    50000,
+	}).Error)
 
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, RecordAccountLedgerEntry(&AccountLedgerEntry{
@@ -606,11 +610,11 @@ func TestRecordBillingV2ConsumeLogExtendsLedgerBalance(t *testing.T) {
 		}),
 	}).Error)
 
-	created, err := RecordBillingV2ConsumeLog(7201)
+	created, err := RecordBillingUsageConsumeLog(7201)
 	require.NoError(t, err)
 	assert.True(t, created)
 
-	created, err = RecordBillingV2ConsumeLog(7201)
+	created, err = RecordBillingUsageConsumeLog(7201)
 	require.NoError(t, err)
 	assert.False(t, created)
 
@@ -622,9 +626,11 @@ func TestRecordBillingV2ConsumeLogExtendsLedgerBalance(t *testing.T) {
 
 	ledger, err := GetAccountLedgerEntries(AccountLedgerQuery{UserId: 1001, Limit: 10})
 	require.NoError(t, err)
-	require.Len(t, ledger, 2)
-	assert.Equal(t, AccountLedgerEntryTypeConsume, ledger[1].EntryType)
-	assert.Equal(t, int64(-6000), ledger[1].Amount)
-	assert.Equal(t, int64(20000), ledger[1].BalanceBefore)
-	assert.Equal(t, int64(14000), ledger[1].BalanceAfter)
+	require.Len(t, ledger, 1)
+	assert.Equal(t, AccountLedgerEntryTypeTopup, ledger[0].EntryType)
+	assert.Equal(t, int64(20000), ledger[0].BalanceAfter)
+
+	var userQuota int
+	require.NoError(t, DB.Model(&User{}).Where("id = ?", 1001).Pluck("quota", &userQuota).Error)
+	assert.Equal(t, 50000, userQuota)
 }

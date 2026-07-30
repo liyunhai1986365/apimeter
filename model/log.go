@@ -405,8 +405,8 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 		})
 	}
 	gopool.Go(func() {
-		if _, err := RecordBillingV2ConsumeLog(log.Id); err != nil {
-			common.SysLog("failed to record billing v2 consume log: " + err.Error())
+		if _, err := RecordBillingUsageConsumeLog(log.Id); err != nil {
+			common.SysLog("failed to record billing usage consume log: " + err.Error())
 		}
 	})
 	return log.Id

@@ -982,6 +982,45 @@ func TestTaskAdaptorParsesSeedanceResponses(t *testing.T) {
 	}
 }
 
+func TestTaskAdaptorParsesModelsellWrappedSeedanceUsage(t *testing.T) {
+	profile, ok := GetProfile("seedance2-modelsell")
+	require.True(t, ok)
+
+	wrapped := []byte(`{
+		"code":"success",
+		"data":{
+			"data":{
+				"task":{
+					"id":"mvt-modelsell",
+					"status":"completed",
+					"usage":{"total_tokens":50638,"completion_tokens":50638}
+				}
+			},
+			"status":"SUCCESS",
+			"task_id":"task_modelsell",
+			"result_url":"https://cdn.example/result.mp4"
+		},
+		"message":""
+	}`)
+	result := ParseConfiguredTaskInfo(profile.Video.Fetch.Response, wrapped)
+
+	require.Equal(t, "task_modelsell", result.TaskID)
+	require.Equal(t, string(model.TaskStatusSuccess), result.Status)
+	require.Equal(t, "https://cdn.example/result.mp4", result.Url)
+	require.Equal(t, 50638, result.TotalTokens)
+	require.Equal(t, 50638, result.CompletionTokens)
+
+	openAIResponse, err := applyOpenAIVideoResponseFields(
+		profile.Video.Fetch.OpenAIResponse,
+		[]byte(`{"id":"task_public","metadata":{}}`),
+		wrapped,
+		&relaycommon.RelayInfo{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.total_tokens").Int())
+	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.completion_tokens").Int())
+}
+
 func TestTaskAdaptorParsesSeedanceArkTaskAssetsOfficialResponses(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	info := seedanceArkTaskAssetsRelayInfo("doubao-seedance-2-0-mini-260615")

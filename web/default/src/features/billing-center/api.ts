@@ -1,13 +1,11 @@
 import { api } from '@/lib/api'
 import type {
   BillingApiResponse,
-  BillingBackfillResult,
   BillingBreakdownParams,
   BillingBreakdownRow,
   BillingStatement,
   BillingStatementParams,
   BillingStatementSummary,
-  DailyBillingReconciliation,
 } from './types'
 
 export async function getBillingMonthlyStatements(
@@ -56,9 +54,7 @@ export async function exportBillingMonthlyStatement(
   return res.data
 }
 
-export async function generateBillingMonthlyStatement(
-  month: string
-): Promise<
+export async function generateBillingMonthlyStatement(month: string): Promise<
   BillingApiResponse<{
     statement: BillingStatement
     summaries: BillingStatementSummary[]
@@ -78,31 +74,6 @@ export async function getBillingMonthlyStatementSummaries(
 ): Promise<BillingApiResponse<BillingStatementSummary[]>> {
   const res = await api.get<BillingApiResponse<BillingStatementSummary[]>>(
     `/api/billing/monthly-statements/${encodeURIComponent(statementNo)}/summaries`
-  )
-  return res.data
-}
-
-export async function getDailyBillingReconciliations(
-  params: BillingStatementParams = {}
-): Promise<BillingApiResponse<DailyBillingReconciliation[]>> {
-  const res = await api.get<BillingApiResponse<DailyBillingReconciliation[]>>(
-    '/api/billing/daily-reconciliations',
-    { params }
-  )
-  return res.data
-}
-
-export async function backfillBillingV2(
-  params: {
-    start_time?: number
-    end_time?: number
-    batch_size?: number
-  } = {}
-): Promise<BillingApiResponse<BillingBackfillResult>> {
-  const res = await api.post<BillingApiResponse<BillingBackfillResult>>(
-    '/api/billing/admin/backfill-v2',
-    null,
-    { params }
   )
   return res.data
 }

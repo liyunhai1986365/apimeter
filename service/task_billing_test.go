@@ -983,3 +983,77 @@ func TestSettle_TieredExprTaskUsesFrozenRequestInputAndCompletionTokens(t *testi
 	assert.Equal(t, float64(1000), other["actual_total_tokens"])
 	assert.Equal(t, float64(1000), other["actual_completion_tokens"])
 }
+
+func TestSettle_ModelsellWrappedSeedanceUsageRefundsPreConsumeDelta(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID = 34, 34, 34
+	const userQuotaAfterPreConsume = 10_000_000
+	const tokenRemainAfterPreConsume = 8_000_000
+	const preConsumedQuota = 1_250_000
+	const totalTokens = 50_638
+	const actualQuota = 194_956
+	const expectedRefund = preConsumedQuota - actualQuota
+
+	seedUser(t, userID, userQuotaAfterPreConsume)
+	seedToken(t, tokenID, userID, "sk-modelsell-seedance", tokenRemainAfterPreConsume)
+	seedChannel(t, channelID)
+
+	expr := `tier("480_720p_no_video_input", c * 7.7)`
+	task := makeTask(userID, channelID, preConsumedQuota, tokenID, BillingSourceWallet, 0)
+	task.TaskID = "task_modelsell_seedance"
+	task.Properties.OriginModelName = "doubao-seedance-2-0-260128"
+	task.PrivateData.BillingContext.OriginModelName = task.Properties.OriginModelName
+	task.PrivateData.BillingContext.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
+		BillingMode:               "tiered_expr",
+		ModelName:                 task.Properties.OriginModelName,
+		ExprString:                expr,
+		ExprHash:                  billingexpr.ExprHashString(expr),
+		GroupRatio:                1,
+		EstimatedCompletionTokens: 250_000,
+		EstimatedQuotaAfterGroup:  preConsumedQuota,
+		EstimatedTier:             "480_720p_no_video_input",
+		QuotaPerUnit:              common.QuotaPerUnit,
+		ExprVersion:               billingexpr.ExprVersion(expr),
+	}
+	require.NoError(t, model.DB.Create(task).Error)
+
+	upstreamTask := &model.Task{
+		TaskID:   task.TaskID,
+		Status:   model.TaskStatusSuccess,
+		Progress: "100%",
+		Data: json.RawMessage(`{
+			"task":{
+				"id":"mvt-modelsell",
+				"status":"completed",
+				"usage":{"total_tokens":50638,"completion_tokens":50638}
+			}
+		}`),
+	}
+	taskResult := taskInfoFromNewAPIResponse(upstreamTask)
+	require.Equal(t, totalTokens, taskResult.TotalTokens)
+	require.Equal(t, totalTokens, taskResult.CompletionTokens)
+
+	settleTaskBillingOnComplete(ctx, &mockAdaptor{}, task, taskResult)
+
+	assert.Equal(t, actualQuota, task.Quota)
+	assert.Equal(t, userQuotaAfterPreConsume+expectedRefund, getUserQuota(t, userID))
+	assert.Equal(t, tokenRemainAfterPreConsume+expectedRefund, getTokenRemainQuota(t, tokenID))
+
+	var reloaded model.Task
+	require.NoError(t, model.DB.First(&reloaded, task.ID).Error)
+	assert.Equal(t, actualQuota, reloaded.Quota)
+
+	log := getLastLog(t)
+	require.NotNil(t, log)
+	assert.Equal(t, model.LogTypeRefund, log.Type)
+	assert.Equal(t, expectedRefund, log.Quota)
+	assert.Equal(t, totalTokens, log.CompletionTokens)
+
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	assert.Equal(t, float64(preConsumedQuota), other["pre_consumed_quota"])
+	assert.Equal(t, float64(actualQuota), other["actual_quota"])
+	assert.Equal(t, float64(totalTokens), other["actual_total_tokens"])
+}

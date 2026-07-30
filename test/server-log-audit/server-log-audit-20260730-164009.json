@@ -1,0 +1,1612 @@
+{
+  "generated_at": "2026-07-30 16:39:11 +0800",
+  "host": "v2202605324136459382",
+  "since_hours": 1,
+  "services": {
+    "modelsell": {
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Thu 2026-07-30 01:51:09 CST",
+      "MemoryCurrent": "1683689472",
+      "ActiveState": "active",
+      "SubState": "running"
+    },
+    "caddy": {
+      "NRestarts": "0",
+      "ExecMainStartTimestamp": "Mon 2026-05-18 16:36:51 CST",
+      "MemoryCurrent": "415227904",
+      "ActiveState": "active",
+      "SubState": "running"
+    }
+  },
+  "storage": {
+    "df": "Filesystem      Size  Used Avail Use% Mounted on\n/dev/vda3       2.0T  280G  1.7T  15% /\n/dev/vda3       2.0T  280G  1.7T  15% /\n/dev/vda3       2.0T  280G  1.7T  15% /",
+    "app_log_size": "9.3G",
+    "caddy_log_size": "186M"
+  },
+  "access": {
+    "total": 25461,
+    "bad_lines": 0,
+    "status_counts": {
+      "200": 20442,
+      "0": 2235,
+      "403": 1366,
+      "400": 587,
+      "404": 353,
+      "429": 213,
+      "401": 120,
+      "301": 108,
+      "308": 14,
+      "502": 8,
+      "307": 6,
+      "500": 5,
+      "304": 2,
+      "302": 1,
+      "503": 1
+    },
+    "top_hosts": [
+      {
+        "host": "modelsell.com",
+        "count": 22817
+      },
+      {
+        "host": "api.modelsell.com",
+        "count": 1034
+      },
+      {
+        "host": "goldflow.cc",
+        "count": 626
+      },
+      {
+        "host": "token.xhh.com",
+        "count": 280
+      },
+      {
+        "host": "aiiqq.com",
+        "count": 203
+      },
+      {
+        "host": "www.anyumodel.com",
+        "count": 175
+      },
+      {
+        "host": "qczhuque.com",
+        "count": 56
+      },
+      {
+        "host": "docs.modelsell.com",
+        "count": 55
+      },
+      {
+        "host": "www.suplooper.com",
+        "count": 47
+      },
+      {
+        "host": "hfhdcjfoddoatdra06pib7tg9po2f2eg.agent-cname.modelsell.com",
+        "count": 38
+      },
+      {
+        "host": "aigoodkey.com",
+        "count": 29
+      },
+      {
+        "host": "www.anyutoken.com",
+        "count": 29
+      },
+      {
+        "host": "www.aimofa.store",
+        "count": 25
+      },
+      {
+        "host": "anyumodel.com",
+        "count": 11
+      },
+      {
+        "host": "anyutoken.com",
+        "count": 8
+      },
+      {
+        "host": "claydiy.com",
+        "count": 7
+      },
+      {
+        "host": "www.claydiy.com",
+        "count": 4
+      },
+      {
+        "host": "v2202605324136459382.quicksrv.de",
+        "count": 4
+      },
+      {
+        "host": "152.53.165.115",
+        "count": 3
+      },
+      {
+        "host": "www.apimeter.ai",
+        "count": 3
+      }
+    ],
+    "top_paths": [
+      {
+        "path": "/v1/messages",
+        "count": 18287
+      },
+      {
+        "path": "/v1/chat/completions",
+        "count": 1667
+      },
+      {
+        "path": "/v1/responses",
+        "count": 1075
+      },
+      {
+        "path": "/api/status",
+        "count": 462
+      },
+      {
+        "path": "/api/user/self",
+        "count": 306
+      },
+      {
+        "path": "/v1/models",
+        "count": 251
+      },
+      {
+        "path": "/",
+        "count": 184
+      },
+      {
+        "path": "/api/data/self",
+        "count": 173
+      },
+      {
+        "path": "/api/token/",
+        "count": 145
+      },
+      {
+        "path": "/api/notice",
+        "count": 99
+      },
+      {
+        "path": "/api/token/:id/key",
+        "count": 97
+      },
+      {
+        "path": "/api/uptime/status",
+        "count": 75
+      },
+      {
+        "path": "/api/user/login",
+        "count": 71
+      },
+      {
+        "path": "/api/pricing",
+        "count": 69
+      },
+      {
+        "path": "/api/user/models",
+        "count": 67
+      },
+      {
+        "path": "/api/log/self/stat",
+        "count": 65
+      },
+      {
+        "path": "/api/perf-metrics",
+        "count": 60
+      },
+      {
+        "path": "/api/home_page_content",
+        "count": 54
+      },
+      {
+        "path": "/api/v3/contents/generations/tasks/:token",
+        "count": 54
+      },
+      {
+        "path": "/api/workspaces/",
+        "count": 52
+      },
+      {
+        "path": "/api/agent/group_ratios",
+        "count": 46
+      },
+      {
+        "path": "/api/perf-metrics/summary",
+        "count": 43
+      },
+      {
+        "path": "/v1/tasks/:token",
+        "count": 43
+      },
+      {
+        "path": "/pricing",
+        "count": 40
+      },
+      {
+        "path": "/api/user/self/groups",
+        "count": 39
+      },
+      {
+        "path": "/api/agent/domains",
+        "count": 29
+      },
+      {
+        "path": "/api/agent/self",
+        "count": 29
+      },
+      {
+        "path": "/api/agent/users",
+        "count": 29
+      },
+      {
+        "path": "/api/agent/user_groups",
+        "count": 29
+      },
+      {
+        "path": "/api/agent/withdrawals",
+        "count": 29
+      }
+    ],
+    "top_bad_paths": [
+      {
+        "count": 2195,
+        "status": 0,
+        "host": "modelsell.com",
+        "path": "/v1/messages"
+      },
+      {
+        "count": 1325,
+        "status": 403,
+        "host": "modelsell.com",
+        "path": "/v1/chat/completions"
+      },
+      {
+        "count": 581,
+        "status": 400,
+        "host": "modelsell.com",
+        "path": "/v1/messages"
+      },
+      {
+        "count": 96,
+        "status": 401,
+        "host": "modelsell.com",
+        "path": "/api/user/self"
+      },
+      {
+        "count": 26,
+        "status": 404,
+        "host": "modelsell.com",
+        "path": "/api/show"
+      },
+      {
+        "count": 23,
+        "status": 0,
+        "host": "modelsell.com",
+        "path": "/v1/responses"
+      },
+      {
+        "count": 12,
+        "status": 401,
+        "host": "modelsell.com",
+        "path": "/v1/models"
+      },
+      {
+        "count": 7,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/wordpress"
+      },
+      {
+        "count": 7,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/wp-admin/setup-config.php"
+      },
+      {
+        "count": 7,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/wp-admin/install.php"
+      },
+      {
+        "count": 7,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/wp"
+      },
+      {
+        "count": 7,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/blog"
+      },
+      {
+        "count": 7,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/new"
+      },
+      {
+        "count": 7,
+        "status": 429,
+        "host": "token.xhh.com",
+        "path": "/"
+      },
+      {
+        "count": 6,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/old"
+      },
+      {
+        "count": 6,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/newsite"
+      },
+      {
+        "count": 6,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/test"
+      },
+      {
+        "count": 6,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/main"
+      },
+      {
+        "count": 6,
+        "status": 401,
+        "host": "modelsell.com",
+        "path": "/api/user/models"
+      },
+      {
+        "count": 6,
+        "status": 401,
+        "host": "modelsell.com",
+        "path": "/v1/responses"
+      },
+      {
+        "count": 5,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/testing"
+      },
+      {
+        "count": 5,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/site"
+      },
+      {
+        "count": 5,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/backup"
+      },
+      {
+        "count": 5,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/demo"
+      },
+      {
+        "count": 5,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/home"
+      },
+      {
+        "count": 5,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/tmp"
+      },
+      {
+        "count": 5,
+        "status": 404,
+        "host": "token.xhh.com",
+        "path": "/dev"
+      },
+      {
+        "count": 4,
+        "status": 502,
+        "host": "modelsell.com",
+        "path": "/v1/responses"
+      },
+      {
+        "count": 4,
+        "status": 403,
+        "host": "www.anyumodel.com",
+        "path": "/api/agent/domains"
+      },
+      {
+        "count": 4,
+        "status": 403,
+        "host": "www.anyumodel.com",
+        "path": "/api/agent/group_ratios"
+      }
+    ],
+    "bad_user_agents": [
+      {
+        "count": 2187,
+        "status": 0,
+        "user_agent": ""
+      },
+      {
+        "count": 1325,
+        "status": 403,
+        "user_agent": "AsyncOpenAI/Python 2.33.0"
+      },
+      {
+        "count": 581,
+        "status": 400,
+        "user_agent": "Anthropic/Go 1.46.0"
+      },
+      {
+        "count": 174,
+        "status": 429,
+        "user_agent": "Mozilla/5.0 (compatible; Amazonbot/0.1; +https://developer.amazon.com/support/amazonbot)"
+      },
+      {
+        "count": 113,
+        "status": 404,
+        "user_agent": ""
+      },
+      {
+        "count": 111,
+        "status": 401,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
+      },
+      {
+        "count": 48,
+        "status": 404,
+        "user_agent": "python-httpx/0.28.1"
+      },
+      {
+        "count": 34,
+        "status": 429,
+        "user_agent": ""
+      },
+      {
+        "count": 33,
+        "status": 403,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36 Edg/150.0.0.0"
+      },
+      {
+        "count": 31,
+        "status": 404,
+        "user_agent": "Go-http-client/1.1"
+      },
+      {
+        "count": 31,
+        "status": 404,
+        "user_agent": "Mozilla/5.0 (compatible; Amazonbot/0.1; +https://developer.amazon.com/support/amazonbot)"
+      },
+      {
+        "count": 23,
+        "status": 404,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36 Edg/149.0.0.0"
+      },
+      {
+        "count": 18,
+        "status": 404,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/78.0.3904.108 Safari/537.36"
+      },
+      {
+        "count": 18,
+        "status": 404,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0"
+      },
+      {
+        "count": 16,
+        "status": 0,
+        "user_agent": "Codex Desktop/0.146.0-alpha.3.1 (Mac OS 14.4.0; arm64) unknown (Codex Desktop; 26.721.81911)"
+      },
+      {
+        "count": 10,
+        "status": 404,
+        "user_agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+      },
+      {
+        "count": 8,
+        "status": 0,
+        "user_agent": "Anthropic/Go 1.46.0"
+      },
+      {
+        "count": 8,
+        "status": 404,
+        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/88.0.4240.193 Safari/537.36"
+      },
+      {
+        "count": 8,
+        "status": 404,
+        "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+      },
+      {
+        "count": 6,
+        "status": 401,
+        "user_agent": "codex-tui/0.144.6 (Windows 10.0.22631; x86_64) WindowsTerminal (codex-tui; 0.144.6)"
+      }
+    ],
+    "bad_ips": [
+      {
+        "count": 590,
+        "status": 403,
+        "client_ip": "172.70.46.x"
+      },
+      {
+        "count": 568,
+        "status": 400,
+        "client_ip": "104.23.175.x"
+      },
+      {
+        "count": 553,
+        "status": 403,
+        "client_ip": "104.23.166.x"
+      },
+      {
+        "count": 311,
+        "status": 0,
+        "client_ip": "162.159.98.x"
+      },
+      {
+        "count": 310,
+        "status": 0,
+        "client_ip": "172.68.225.x"
+      },
+      {
+        "count": 249,
+        "status": 0,
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "count": 221,
+        "status": 0,
+        "client_ip": "162.158.193.x"
+      },
+      {
+        "count": 211,
+        "status": 0,
+        "client_ip": "172.68.211.x"
+      },
+      {
+        "count": 209,
+        "status": 0,
+        "client_ip": "172.71.214.x"
+      },
+      {
+        "count": 175,
+        "status": 429,
+        "client_ip": "34.171.75.x"
+      },
+      {
+        "count": 137,
+        "status": 0,
+        "client_ip": "162.158.114.x"
+      },
+      {
+        "count": 115,
+        "status": 0,
+        "client_ip": "172.71.247.x"
+      },
+      {
+        "count": 113,
+        "status": 404,
+        "client_ip": "46.151.182.x"
+      },
+      {
+        "count": 112,
+        "status": 0,
+        "client_ip": "172.68.15.x"
+      },
+      {
+        "count": 95,
+        "status": 403,
+        "client_ip": "104.23.168.x"
+      },
+      {
+        "count": 83,
+        "status": 403,
+        "client_ip": "104.23.172.x"
+      },
+      {
+        "count": 78,
+        "status": 0,
+        "client_ip": "162.158.79.x"
+      },
+      {
+        "count": 73,
+        "status": 0,
+        "client_ip": "104.22.104.x"
+      },
+      {
+        "count": 72,
+        "status": 401,
+        "client_ip": "162.159.98.x"
+      },
+      {
+        "count": 36,
+        "status": 401,
+        "client_ip": "172.68.225.x"
+      }
+    ],
+    "sensitive_header_counts": {},
+    "cloudflare_real_ip_mismatch_count": 23148,
+    "status_zero_count": 2235,
+    "duration": {
+      "p50": 0.011,
+      "p95": 125.01,
+      "p99": 142.792,
+      "max": 974.019
+    },
+    "slow_or_error": [
+      {
+        "duration": 974.019,
+        "status": 200,
+        "method": "POST",
+        "host": "api.modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "codex-tui/0.145.0 (Ubuntu 24.4.0; x86_64) xterm.js_6.1.0-beta.256_ (codex-tui; 0",
+        "client_ip": "118.89.54.x"
+      },
+      {
+        "duration": 601.955,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "162.159.113.x"
+      },
+      {
+        "duration": 601.361,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.71.98.x"
+      },
+      {
+        "duration": 600.836,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.71.98.x"
+      },
+      {
+        "duration": 600.781,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.71.182.x"
+      },
+      {
+        "duration": 600.616,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "104.23.168.x"
+      },
+      {
+        "duration": 600.578,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.71.182.x"
+      },
+      {
+        "duration": 559.427,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.71.182.x"
+      },
+      {
+        "duration": 468.631,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.71.95.x"
+      },
+      {
+        "duration": 385.921,
+        "status": 200,
+        "method": "POST",
+        "host": "api.modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "codex_vscode/0.146.0-alpha.3 (Ubuntu 24.4.0; x86_64) unknown (Cursor; 26.721.308",
+        "client_ip": "118.89.54.x"
+      },
+      {
+        "duration": 378.708,
+        "status": 200,
+        "method": "POST",
+        "host": "api.modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "codex_vscode/0.146.0-alpha.3 (Ubuntu 24.4.0; x86_64) unknown (Cursor; 26.721.308",
+        "client_ip": "118.89.54.x"
+      },
+      {
+        "duration": 360.143,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.70.46.x"
+      },
+      {
+        "duration": 357.227,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 347.752,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 346.308,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 332.862,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 322.326,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "104.23.166.x"
+      },
+      {
+        "duration": 320.84,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 319.364,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "172.68.211.x"
+      },
+      {
+        "duration": 313.676,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/responses",
+        "user_agent": "OpenAI/JS 6.48.0",
+        "client_ip": "172.70.46.x"
+      },
+      {
+        "duration": 311.978,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "172.68.211.x"
+      },
+      {
+        "duration": 311.799,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 310.177,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 309.417,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "Anthropic/Go 1.46.0",
+        "client_ip": "104.23.175.x"
+      },
+      {
+        "duration": 306.504,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "162.158.178.x"
+      },
+      {
+        "duration": 305.524,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "172.68.211.x"
+      },
+      {
+        "duration": 301.72,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "172.68.211.x"
+      },
+      {
+        "duration": 295.057,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "172.68.225.x"
+      },
+      {
+        "duration": 292.715,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "172.68.225.x"
+      },
+      {
+        "duration": 288.977,
+        "status": 200,
+        "method": "POST",
+        "host": "modelsell.com",
+        "path": "/v1/messages",
+        "user_agent": "",
+        "client_ip": "172.68.211.x"
+      }
+    ],
+    "files": [
+      "/var/log/caddy/modelsell_access.log",
+      "/var/log/caddy/modelsell_access-2026-07-30T04-49-35.377-size.log.gz",
+      "/var/log/caddy/modelsell_access-2026-07-30T00-14-19.225-size.log.gz",
+      "/var/log/caddy/modelsell_access-2026-07-29T20-24-38.595-size.log.gz",
+      "/var/log/caddy/modelsell_access-2026-07-29T08-37-36.869-size.log.gz",
+      "/var/log/caddy/modelsell_access-2026-07-29T00-37-21.815-size.log.gz"
+    ]
+  },
+  "app_logs": {
+    "total_lines": 4135934,
+    "category_counts": {
+      "app_error": 181984,
+      "channel_error": 154041,
+      "relay_error": 28191,
+      "notification_error": 13
+    },
+    "top_patterns": [
+      {
+        "count": 67,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:21:54 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 65,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:02:35 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 51,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:02:20 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 50,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:12:39 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 48,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 14:51:56 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 47,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:28 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 47,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:27:38 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 45,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:09:47 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 44,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:38:06 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 44,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 14:50:52 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 42,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:06:54 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 42,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:42:36 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 41,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:58 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 41,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:06:55 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 41,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:19:17 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 40,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:38 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 40,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 11:24:44 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 39,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 15:51:12 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 39,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:51 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 38,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:36 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 38,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:55:38 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 38,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:09:48 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 37,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:25:12 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 36,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:40:36 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 36,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 14:50:50 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 35,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 15:56:07 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 35,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:27 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 35,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:34 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 35,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:55:47 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 34,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:50:57 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 34,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:02:36 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 34,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:09:18 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 34,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:23:21 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 33,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:35:43 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 33,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:37:03 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 33,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 09:40:33 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 33,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:03:44 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 33,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:05:05 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 33,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:23:37 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      },
+      {
+        "count": 33,
+        "category": "app_error",
+        "message": "[SYS] 2026/07/30 - 10:46:07 | failed to record error request log: Error 1406 (22001): Data too long for column 'request_body' at row 1"
+      }
+    ],
+    "files": [
+      "/www/wwwroot/modelsell/logs/oneapi-20260730153901.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260730015109.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260729011253.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260727104310.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260727102828.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260727102827.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260726142803.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260726103313.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260725220759.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260725201513.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260725193316.log",
+      "/www/wwwroot/modelsell/logs/oneapi-20260725193245.log"
+    ]
+  },
+  "db_logs": {
+    "by_type": {
+      "rows": [
+        [
+          "2",
+          "20608"
+        ],
+        [
+          "5",
+          "960"
+        ],
+        [
+          "6",
+          "4"
+        ],
+        [
+          "3",
+          "2"
+        ]
+      ]
+    },
+    "errors_recovery": {
+      "rows": [
+        [
+          "342",
+          "618",
+          "960"
+        ]
+      ]
+    },
+    "top_error_models": {
+      "rows": [
+        [
+          "claude-opus-5",
+          "319"
+        ],
+        [
+          "claude-opus-4-8",
+          "241"
+        ],
+        [
+          "claude-sonnet-4-6",
+          "184"
+        ],
+        [
+          "gpt-image-2",
+          "45"
+        ],
+        [
+          "gpt-image-2-count",
+          "33"
+        ],
+        [
+          "gpt-5.6-terra",
+          "29"
+        ],
+        [
+          "gpt-5.6-sol",
+          "22"
+        ],
+        [
+          "claude-fable-5",
+          "22"
+        ],
+        [
+          "gpt-5.4-mini",
+          "21"
+        ],
+        [
+          "gemini-2.5-flash",
+          "18"
+        ],
+        [
+          "gpt-5.6-luna",
+          "8"
+        ],
+        [
+          "dreamina-seedance-2-0-260128",
+          "8"
+        ],
+        [
+          "kimi-k3",
+          "6"
+        ],
+        [
+          "claude-sonnet-5",
+          "1"
+        ],
+        [
+          "gpt-5.2",
+          "1"
+        ],
+        [
+          "gpt-5.4",
+          "1"
+        ],
+        [
+          "gemini-3.1-flash-image-preview",
+          "1"
+        ]
+      ]
+    },
+    "top_error_patterns": {
+      "rows": [
+        [
+          "status_code=400, ValidationException: ***.***.content.0: Invalid `signature` in `thinking` block",
+          "235"
+        ],
+        [
+          "status_code=500, upstream error: do request failed",
+          "164"
+        ],
+        [
+          "status_code=502, `***.mode` is not supported with this model.",
+          "58"
+        ],
+        [
+          "status_code=502, Upstream service temporarily unavailable",
+          "22"
+        ],
+        [
+          "status_code=502, bad response status code 502",
+          "21"
+        ],
+        [
+          "status_code=429, Rate limit exceeded",
+          "15"
+        ],
+        [
+          "status_code=429, Your requests to gpt-image-2 for gpt-image-2 in East US 2 have exceeded the call rate limit for your current OpenAI S0 pricing tier. This request was for ImageGenerations_Create under Azure OpenAI API ve",
+          "12"
+        ],
+        [
+          "status_code=529, No permitted upstream pool can serve this model / 该用户渠道白名单内无可用渠道",
+          "11"
+        ],
+        [
+          "status_code=400, 生成失败, 可能内容不符合规范或参考图问题, 请调整提示词/参考图后重试",
+          "8"
+        ],
+        [
+          "status_code=502, {\"error\":{\"message\":\"Failed to submit video generation job: Upstream submit failed (401): {\\\"error\\\":{\\\"code\\\":\\\"\\\",\\\"message\\\":\\\"Invalid token, database query error, please contact administrator (\",\"typ",
+          "8"
+        ],
+        [
+          "status_code=429, REQUEST_LIMIT_EXCEEDED: Exceeded workspace input tokens per minute rate limit for databricks-claude-opus-5. Work with your Databricks account team to request a higher FMAPI rate limit tier. (request id: ",
+          "5"
+        ],
+        [
+          "status_code=400, Your input exceeds the context window of this model. Please adjust your input and try again.",
+          "4"
+        ],
+        [
+          "status_code=429, {\"error\":\"usage limit reached\"}",
+          "3"
+        ],
+        [
+          "status_code=429, Your requests to gpt-image-2 for gpt-image-2 in East US 2 have exceeded the call rate limit for your current OpenAI S0 pricing tier. This request was for ImageGenerations_Edit under Azure OpenAI API vers",
+          "2"
+        ],
+        [
+          "status_code=429, all attempts failed",
+          "2"
+        ],
+        [
+          "status_code=500, Concurrency limit exceeded for user, please retry later",
+          "2"
+        ],
+        [
+          "status_code=400, tools.0: Input tag 'function' found using 'type' does not match any of the expected tags: 'bash_20250124', 'code_execution_20250522', 'code_execution_20250825', 'code_execution_20260120', 'code_execution",
+          "2"
+        ],
+        [
+          "status_code=429, Too many pending requests, please retry later",
+          "2"
+        ],
+        [
+          "status_code=403, 无权访问 Azure image-2跑图专属 分组 (request id: 202607300800173649043768268d9d6mqN52TIa)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300819114096844128268d9d6uXRtEyg6) (request id: 202607300819110677846338268d9d6AUwTX2jq)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300834322289350818268d9d61eaYf6ST) (request id: 202607300834318855561068268d9d6oTudLeYK)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300739457954695608268d9d6xmgxtUCB) (request id: 202607300739455067475788268d9d6Q599OzaJ)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300755468936178108268d9d6Mq5ENyx7) (request id: 202607300755466019931118268d9d6oLao8b8q)",
+          "1"
+        ],
+        [
+          "status_code=503, The model claude-fable-5 is temporarily unavailable. Please try again later or contact support (request id: 202607300814054055901238268d9d6uHJC8sMD)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300830285070849088268d9d6e1ZWG64t) (request id: 202607300830281779793748268d9d6lhw5MLDM)",
+          "1"
+        ],
+        [
+          "status_code=503, 分组 gemini 官转 下模型 gemini-2.5-flash 无可用渠道（distributor） (request id: 20260730075112997994977oGav6Rnu)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300807388027906048268d9d6qAS2Ardp) (request id: 202607300807384093902168268d9d6q7tKOavd)",
+          "1"
+        ],
+        [
+          "status_code=403, resolve groups failed: model unsupported by selected groups: gemini-2.5-flash (request id: 20260730082521618110553SB2TYUrJ)",
+          "1"
+        ],
+        [
+          "status_code=403, 无权访问 Azure image-2跑图专属 分组 (request id: 202607300745208636023098268d9d6qRgxFymn)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300801373192294258268d9d6gMrYGuVq) (request id: 202607300801370066416058268d9d6wq6UpR3Z)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300821406052804748268d9d6yATRG818) (request id: 202607300821400931848068268d9d6aCxdFIIQ)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300837125712612318268d9d68RVOkuwG) (request id: 202607300837122188461908268d9d6lkyHXCNx)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300740303890751378268d9d6KCX9moZp) (request id: 202607300740301082442358268d9d65Zrs0LLZ)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300758242887187868268d9d6W2NinQI1) (request id: 202607300758240110313248268d9d6LZp9nBXX)",
+          "1"
+        ],
+        [
+          "status_code=400, {\"message\":\"invalid beta flag\"} (request id: 202607300817269820116078268d9d60KrySXe7) (request id: 202607300817265350375378268d9d60L2n3BgV)",
+          "1"
+        ]
+      ]
+    },
+    "by_channel_model_recovery": {
+      "rows": [
+        [
+          "69",
+          "claude-opus-5",
+          "4",
+          "313",
+          "317"
+        ],
+        [
+          "46",
+          "claude-opus-4-8",
+          "3",
+          "235",
+          "238"
+        ],
+        [
+          "104",
+          "claude-sonnet-4-6",
+          "184",
+          "0",
+          "184"
+        ],
+        [
+          "141",
+          "gpt-image-2-count",
+          "17",
+          "14",
+          "31"
+        ],
+        [
+          "143",
+          "gpt-5.6-terra",
+          "22",
+          "7",
+          "29"
+        ],
+        [
+          "77",
+          "gpt-image-2",
+          "18",
+          "4",
+          "22"
+        ],
+        [
+          "100",
+          "gpt-image-2",
+          "18",
+          "4",
+          "22"
+        ],
+        [
+          "143",
+          "gpt-5.4-mini",
+          "20",
+          "1",
+          "21"
+        ],
+        [
+          "143",
+          "gpt-5.6-sol",
+          "18",
+          "3",
+          "21"
+        ],
+        [
+          "46",
+          "claude-fable-5",
+          "11",
+          "0",
+          "11"
+        ],
+        [
+          "69",
+          "claude-fable-5",
+          "11",
+          "0",
+          "11"
+        ],
+        [
+          "26",
+          "gemini-2.5-flash",
+          "0",
+          "10",
+          "10"
+        ],
+        [
+          "107",
+          "dreamina-seedance-2-0-260128",
+          "0",
+          "8",
+          "8"
+        ],
+        [
+          "143",
+          "gpt-5.6-luna",
+          "6",
+          "2",
+          "8"
+        ],
+        [
+          "28",
+          "gemini-2.5-flash",
+          "0",
+          "7",
+          "7"
+        ],
+        [
+          "147",
+          "kimi-k3",
+          "2",
+          "1",
+          "3"
+        ],
+        [
+          "142",
+          "kimi-k3",
+          "1",
+          "2",
+          "3"
+        ],
+        [
+          "154",
+          "claude-opus-4-8",
+          "3",
+          "0",
+          "3"
+        ],
+        [
+          "101",
+          "gpt-image-2-count",
+          "1",
+          "1",
+          "2"
+        ],
+        [
+          "103",
+          "claude-opus-5",
+          "0",
+          "2",
+          "2"
+        ],
+        [
+          "23",
+          "gpt-5.2",
+          "0",
+          "1",
+          "1"
+        ],
+        [
+          "113",
+          "gemini-2.5-flash",
+          "0",
+          "1",
+          "1"
+        ],
+        [
+          "104",
+          "claude-sonnet-5",
+          "1",
+          "0",
+          "1"
+        ],
+        [
+          "143",
+          "gpt-5.4",
+          "1",
+          "0",
+          "1"
+        ],
+        [
+          "120",
+          "gpt-5.6-sol",
+          "0",
+          "1",
+          "1"
+        ],
+        [
+          "139",
+          "gemini-3.1-flash-image-preview",
+          "1",
+          "0",
+          "1"
+        ],
+        [
+          "65",
+          "gpt-image-2",
+          "0",
+          "1",
+          "1"
+        ]
+      ]
+    },
+    "consume_summary": {
+      "rows": [
+        [
+          "20620",
+          "10383",
+          "602",
+          "65.81",
+          "364423620",
+          "59720467",
+          "274908347"
+        ]
+      ]
+    }
+  },
+  "journal": {
+    "modelsell_warning_count": 1,
+    "caddy_warning_count": 1,
+    "last_heartbeat_count": 0,
+    "agent_record_not_found_count": 0,
+    "quota_notify_limit_count": 0,
+    "caddy_incomplete_response_count": 8956
+  }
+}
