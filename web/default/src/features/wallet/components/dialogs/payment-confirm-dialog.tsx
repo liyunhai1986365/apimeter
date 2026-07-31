@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DEFAULT_DISCOUNT_RATE } from '../../constants'
-import { formatCurrency, getPaymentIcon } from '../../lib'
+import { formatCurrency, getPaymentIcon, isCryptoPayment } from '../../lib'
 import type { PaymentMethod } from '../../types'
 
 interface PaymentConfirmDialogProps {
@@ -58,7 +58,9 @@ export function PaymentConfirmDialog({
   discountRate = DEFAULT_DISCOUNT_RATE,
 }: PaymentConfirmDialogProps) {
   const { t } = useTranslation()
-  const hasDiscount = discountRate > 0 && discountRate < 1 && paymentAmount > 0
+  const cryptoPayment = isCryptoPayment(paymentMethod?.type ?? '')
+  const hasDiscount =
+    !cryptoPayment && discountRate > 0 && discountRate < 1 && paymentAmount > 0
   const originalAmount = hasDiscount ? paymentAmount / discountRate : 0
   const discountAmount = hasDiscount ? originalAmount - paymentAmount : 0
 
@@ -97,7 +99,9 @@ export function PaymentConfirmDialog({
             ) : (
               <div className='flex items-baseline gap-2'>
                 <span className='text-2xl font-semibold'>
-                  {formatCurrency(paymentAmount)}
+                  {cryptoPayment
+                    ? `${paymentAmount} ${paymentMethod?.token_symbol ?? ''}`
+                    : formatCurrency(paymentAmount)}
                 </span>
                 {hasDiscount && (
                   <span className='text-muted-foreground text-sm line-through'>

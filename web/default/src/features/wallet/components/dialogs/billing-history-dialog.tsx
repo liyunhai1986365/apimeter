@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useMemo, useState } from 'react'
+import { Loading03Icon, Refresh01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { Search, Copy, Check, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrencyFromUSD } from '@/lib/currency'
@@ -54,6 +56,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/components/status-badge'
 import { useBillingHistory } from '../../hooks/use-billing-history'
+import { isCryptoPayment } from '../../lib'
 import {
   getStatusConfig,
   getPaymentMethodName,
@@ -90,9 +93,13 @@ export function BillingHistoryDialog({
     handleStatusFilterChange,
     handleDateRangeChange,
     handleCompleteOrder,
-  } = useBillingHistory()
+    refresh,
+  } = useBillingHistory({ enabled: open })
 
   const [confirmTradeNo, setConfirmTradeNo] = useState<string | null>(null)
+  const [refreshingTradeNo, setRefreshingTradeNo] = useState<string | null>(
+    null
+  )
   const { copyToClipboard, copiedText } = useCopyToClipboard({ notify: false })
 
   const totalPages = Math.ceil(total / pageSize)
@@ -111,6 +118,15 @@ export function BillingHistoryDialog({
       if (success) {
         setConfirmTradeNo(null)
       }
+    }
+  }
+
+  const handleRefreshCryptoOrder = async (tradeNo: string) => {
+    setRefreshingTradeNo(tradeNo)
+    try {
+      await refresh()
+    } finally {
+      setRefreshingTradeNo(null)
     }
   }
 
@@ -265,6 +281,9 @@ export function BillingHistoryDialog({
                 <div className='space-y-3'>
                   {records.map((record) => {
                     const statusConfig = getStatusConfig(record.status)
+                    const pendingCryptoOrder =
+                      record.status === 'pending' &&
+                      isCryptoPayment(record.payment_method)
                     return (
                       <div
                         key={record.id}
@@ -291,12 +310,41 @@ export function BillingHistoryDialog({
                               </Button>
                             </div>
                           </div>
-                          <StatusBadge
-                            label={statusConfig.label}
-                            variant={statusConfig.variant}
-                            showDot
-                            copyable={false}
-                          />
+                          <div className='flex shrink-0 items-center gap-2'>
+                            {pendingCryptoOrder && (
+                              <Button
+                                type='button'
+                                variant='outline'
+                                size='sm'
+                                onClick={() =>
+                                  void handleRefreshCryptoOrder(record.trade_no)
+                                }
+                                disabled={refreshingTradeNo !== null}
+                              >
+                                {refreshingTradeNo === record.trade_no ? (
+                                  <HugeiconsIcon
+                                    icon={Loading03Icon}
+                                    data-icon='inline-start'
+                                    className='animate-spin'
+                                  />
+                                ) : (
+                                  <HugeiconsIcon
+                                    icon={Refresh01Icon}
+                                    data-icon='inline-start'
+                                  />
+                                )}
+                                {refreshingTradeNo === record.trade_no
+                                  ? t('Refreshing...')
+                                  : t('Refresh')}
+                              </Button>
+                            )}
+                            <StatusBadge
+                              label={statusConfig.label}
+                              variant={statusConfig.variant}
+                              showDot
+                              copyable={false}
+                            />
+                          </div>
                         </div>
 
                         {/* Details Grid */}

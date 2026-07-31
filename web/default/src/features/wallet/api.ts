@@ -41,6 +41,8 @@ import type {
   WaffoPancakePaymentResponse,
   TopupStatusFilter,
   TopupDateRangeFilter,
+  CryptoPaymentRequest,
+  CryptoPaymentResponse,
 } from './types'
 
 // ============================================================================
@@ -93,6 +95,34 @@ export async function calculateStripeAmount(
   const res = await api.post('/api/user/stripe/amount', request, {
     skipBusinessError: true,
   } as Record<string, unknown>)
+  return res.data
+}
+
+export async function calculateCryptoAmount(
+  request: CryptoPaymentRequest
+): Promise<AmountResponse> {
+  const res = await api.post('/api/user/crypto/amount', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function requestCryptoPayment(
+  request: CryptoPaymentRequest
+): Promise<CryptoPaymentResponse> {
+  const res = await api.post('/api/user/crypto/pay', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function getCryptoPaymentOrder(
+  tradeNo: string
+): Promise<CryptoPaymentResponse> {
+  const res = await api.get(
+    `/api/user/crypto/order/${encodeURIComponent(tradeNo)}`,
+    { skipBusinessError: true } as Record<string, unknown>
+  )
   return res.data
 }
 

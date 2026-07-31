@@ -23,15 +23,24 @@ import {
   calculateAmount,
   calculateStripeAmount,
   calculateWaffoPancakeAmount,
+  calculateCryptoAmount,
   requestPayment,
   requestStripePayment,
   isApiSuccess,
+  requestCryptoPayment,
 } from '../api'
 import {
+  getCryptoNetwork,
   isStripePayment,
   isWaffoPancakePayment,
   submitPaymentForm,
 } from '../lib'
+import type { CryptoPaymentOrder } from '../types'
+
+export type ProcessPaymentResult = {
+  success: boolean
+  cryptoOrder?: CryptoPaymentOrder
+}
 
 // ============================================================================
 // Payment Hook
@@ -50,11 +59,17 @@ export function usePayment() {
 
         const isStripe = isStripePayment(paymentType)
         const isPancake = isWaffoPancakePayment(paymentType)
+        const cryptoNetwork = getCryptoNetwork(paymentType)
         const response = isStripe
           ? await calculateStripeAmount({ amount: topupAmount })
-          : isPancake
-            ? await calculateWaffoPancakeAmount({ amount: topupAmount })
-            : await calculateAmount({ amount: topupAmount })
+          : cryptoNetwork
+            ? await calculateCryptoAmount({
+                amount: topupAmount,
+                network: cryptoNetwork,
+              })
+            : isPancake
+              ? await calculateWaffoPancakeAmount({ amount: topupAmount })
+              : await calculateAmount({ amount: topupAmount })
 
         if (isApiSuccess(response) && response.data) {
           const calculatedAmount = parseFloat(response.data)
@@ -77,49 +92,66 @@ export function usePayment() {
 
   // Process payment
   const processPayment = useCallback(
-    async (topupAmount: number, paymentType: string) => {
+    async (
+      topupAmount: number,
+      paymentType: string
+    ): Promise<ProcessPaymentResult> => {
       try {
         setProcessing(true)
 
         const isStripe = isStripePayment(paymentType)
+        const cryptoNetwork = getCryptoNetwork(paymentType)
         const amount = Math.floor(topupAmount)
 
-        const response = isStripe
-          ? await requestStripePayment({
-              amount,
-              payment_method: 'stripe',
-            })
-          : await requestPayment({
-              amount,
-              payment_method: paymentType,
-            })
+        if (cryptoNetwork) {
+          const response = await requestCryptoPayment({
+            amount,
+            network: cryptoNetwork,
+          })
+          if (!isApiSuccess(response) || !response.data) {
+            toast.error(response.message || i18next.t('Payment request failed'))
+            return { success: false }
+          }
+          return { success: true, cryptoOrder: response.data }
+        }
+
+        if (isStripe) {
+          const response = await requestStripePayment({
+            amount,
+            payment_method: 'stripe',
+          })
+          if (!isApiSuccess(response) || !response.data?.pay_link) {
+            toast.error(response.message || i18next.t('Payment request failed'))
+            return { success: false }
+          }
+          window.open(response.data.pay_link, '_blank')
+          toast.success(i18next.t('Redirecting to payment page...'))
+          return { success: true }
+        }
+
+        const response = await requestPayment({
+          amount,
+          payment_method: paymentType,
+        })
 
         if (!isApiSuccess(response)) {
           toast.error(response.message || i18next.t('Payment request failed'))
-          return false
+          return { success: false } satisfies ProcessPaymentResult
         }
 
-        // Handle Stripe payment
-        if (isStripe && response.data?.pay_link) {
-          window.open(response.data.pay_link as string, '_blank')
-          toast.success(i18next.t('Redirecting to payment page...'))
-          return true
-        }
-
-        // Handle non-Stripe payment
-        if (!isStripe && response.data) {
+        if (response.data) {
           const url = (response as unknown as { url?: string }).url
           if (url) {
             submitPaymentForm(url, response.data)
             toast.success(i18next.t('Redirecting to payment page...'))
-            return true
+            return { success: true } satisfies ProcessPaymentResult
           }
         }
 
-        return false
+        return { success: false } satisfies ProcessPaymentResult
       } catch (_error) {
         toast.error(i18next.t('Payment request failed'))
-        return false
+        return { success: false } satisfies ProcessPaymentResult
       } finally {
         setProcessing(false)
       }

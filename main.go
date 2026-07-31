@@ -135,6 +135,9 @@ func main() {
 	// Affiliate consume reward task (daily reward based on invitee net usage)
 	service.StartAffiliateConsumeRewardTask()
 
+	// Direct EVM/TRON stablecoin payment confirmation task.
+	service.StartCryptoPaymentTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)

@@ -76,6 +76,41 @@ export type ConfirmPaymentComplianceResponse = {
   }
 }
 
+export type CryptoPaymentConfig = {
+  enabled: boolean
+  order_expire_minutes: number
+  unique_amount_digits: number
+  evm_enabled: boolean
+  evm_network_name: string
+  evm_rpc_url: string
+  evm_rpc_configured: boolean
+  evm_chain_id: number
+  evm_wallet_address: string
+  evm_token_contract: string
+  evm_token_symbol: string
+  evm_token_decimals: number
+  evm_token_per_usd: string
+  evm_confirmations: number
+  tron_enabled: boolean
+  tron_network_name: string
+  tron_api_url: string
+  tron_api_key: string
+  tron_api_key_configured: boolean
+  tron_wallet_address: string
+  tron_token_contract: string
+  tron_token_symbol: string
+  tron_token_decimals: number
+  tron_token_per_usd: string
+  tron_confirmation_seconds: number
+}
+
+export type CryptoPaymentConfigResponse = {
+  success: boolean
+  message: string
+  data?: Omit<CryptoPaymentConfig, 'evm_rpc_url' | 'tron_api_key'> &
+    Partial<Pick<CryptoPaymentConfig, 'evm_rpc_url' | 'tron_api_key'>>
+}
+
 export type DeleteLogsResponse = {
   success: boolean
   message: string

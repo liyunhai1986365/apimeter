@@ -49,6 +49,7 @@ import {
   getPaymentIcon,
   getMinTopupAmount,
   calculatePresetPricing,
+  isCryptoPayment,
 } from '../lib'
 import type {
   PaymentMethod,
@@ -67,8 +68,10 @@ interface RechargeFormCardProps {
   topupAmount: number
   onTopupAmountChange: (amount: number) => void
   paymentAmount: number
+  paymentMethod?: PaymentMethod
   calculating: boolean
   onPaymentMethodSelect: (method: PaymentMethod) => void
+  onCryptoPaymentOpen: () => void
   paymentLoading: string | null
   redemptionCode: string
   onRedemptionCodeChange: (code: string) => void
@@ -96,8 +99,10 @@ export function RechargeFormCard({
   topupAmount,
   onTopupAmountChange,
   paymentAmount,
+  paymentMethod,
   calculating,
   onPaymentMethodSelect,
+  onCryptoPaymentOpen,
   paymentLoading,
   redemptionCode,
   onRedemptionCodeChange,
@@ -134,15 +139,30 @@ export function RechargeFormCard({
   const hasConfigurableTopup =
     topupInfo?.enable_online_topup ||
     topupInfo?.enable_stripe_topup ||
+    topupInfo?.enable_crypto_topup ||
     enableWaffoTopup ||
     enableWaffoPancakeTopup
   const hasAnyTopup = hasConfigurableTopup || enableCreemTopup
-  const hasStandardPaymentMethods =
-    Array.isArray(topupInfo?.pay_methods) && topupInfo.pay_methods.length > 0
+  const paymentMethods = topupInfo?.pay_methods ?? []
+  const standardPaymentMethods = paymentMethods.filter(
+    (method) => !isCryptoPayment(method.type)
+  )
+  const cryptoPaymentMethods = paymentMethods.filter((method) =>
+    isCryptoPayment(method.type)
+  )
+  const hasStandardPaymentMethods = standardPaymentMethods.length > 0
+  const hasCryptoPaymentMethods = cryptoPaymentMethods.length > 0
+  const hasStripePayment = standardPaymentMethods.some(
+    (method) => method.type === PAYMENT_TYPES.STRIPE
+  )
+  const cryptoPaymentAvailable = cryptoPaymentMethods.some(
+    (method) => (method.min_topup || 0) <= topupAmount
+  )
   const hasWaffoPaymentMethods =
     Array.isArray(waffoPayMethods) && waffoPayMethods.length > 0
   const minTopup = getMinTopupAmount(topupInfo)
   const redemptionEnabled = topupInfo?.enable_redemption !== false
+  const cryptoPayment = isCryptoPayment(paymentMethod?.type ?? '')
   const stripeSupportItems = [
     {
       label: t('Bank card'),
@@ -316,7 +336,9 @@ export function RechargeFormCard({
                       <Skeleton className='h-5 w-16' />
                     ) : (
                       <span className='text-sm font-semibold'>
-                        {formatCurrency(paymentAmount)}
+                        {cryptoPayment
+                          ? `${paymentAmount} ${paymentMethod?.token_symbol ?? ''}`
+                          : formatCurrency(paymentAmount)}
                       </span>
                     )}
                   </div>
@@ -327,9 +349,9 @@ export function RechargeFormCard({
                 <Label className='text-muted-foreground text-xs font-medium tracking-wider uppercase'>
                   {t('Payment Method')}
                 </Label>
-                {hasStandardPaymentMethods ? (
+                {hasStandardPaymentMethods || hasCryptoPaymentMethods ? (
                   <div className='grid grid-cols-2 gap-1.5 sm:gap-3 lg:grid-cols-3'>
-                    {topupInfo?.pay_methods?.map((method) => {
+                    {standardPaymentMethods.map((method) => {
                       const minTopup = method.min_topup || 0
                       const disabled = minTopup > topupAmount
                       const isStripe = method.type === PAYMENT_TYPES.STRIPE
@@ -368,25 +390,49 @@ export function RechargeFormCard({
                           key={method.type}
                           className={cn(
                             'min-w-0',
-                            isStripe && 'col-span-2 space-y-2 lg:col-span-3'
+                            isStripe &&
+                              'col-span-2 flex flex-col gap-2 lg:col-span-3'
                           )}
                         >
-                          {disabled ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger
-                                  render={button}
-                                ></TooltipTrigger>
-                                <TooltipContent>
-                                  {t('Minimum topup amount: {{amount}}', {
-                                    amount: minTopup,
-                                  })}
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            button
-                          )}
+                          <div
+                            className={cn(
+                              isStripe && hasCryptoPaymentMethods
+                                ? 'grid grid-cols-[minmax(0,1fr)_minmax(104px,0.28fr)] gap-2'
+                                : 'contents'
+                            )}
+                          >
+                            {disabled ? (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger
+                                    render={button}
+                                  ></TooltipTrigger>
+                                  <TooltipContent>
+                                    {t('Minimum topup amount: {{amount}}', {
+                                      amount: minTopup,
+                                    })}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            ) : (
+                              button
+                            )}
+                            {isStripe && hasCryptoPaymentMethods && (
+                              <Button
+                                variant='outline'
+                                onClick={onCryptoPaymentOpen}
+                                disabled={
+                                  !cryptoPaymentAvailable || !!paymentLoading
+                                }
+                                className='h-12 min-w-0 gap-1.5 rounded-lg px-2 text-sm font-semibold'
+                              >
+                                <WalletCards data-icon='inline-start' />
+                                <span className='truncate'>
+                                  {t('USDT Transfer')}
+                                </span>
+                              </Button>
+                            )}
+                          </div>
                           {isStripe && (
                             <div className='text-muted-foreground flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs'>
                               <span>{t('Supports')}</span>
@@ -404,6 +450,17 @@ export function RechargeFormCard({
                         </div>
                       )
                     })}
+                    {!hasStripePayment && hasCryptoPaymentMethods && (
+                      <Button
+                        variant='outline'
+                        onClick={onCryptoPaymentOpen}
+                        disabled={!cryptoPaymentAvailable || !!paymentLoading}
+                        className='col-span-2 h-12 gap-2 rounded-lg text-sm font-semibold lg:col-span-3'
+                      >
+                        <WalletCards data-icon='inline-start' />
+                        {t('USDT Transfer')}
+                      </Button>
+                    )}
                   </div>
                 ) : hasWaffoPaymentMethods ? null : (
                   <Alert>

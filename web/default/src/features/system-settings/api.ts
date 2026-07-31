@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { api } from '@/lib/api'
 import type {
   ConfirmPaymentComplianceResponse,
+  CryptoPaymentConfig,
+  CryptoPaymentConfigResponse,
   AnnouncementEmailResponse,
   DeleteLogsResponse,
   FetchUpstreamRatiosRequest,
@@ -65,6 +67,21 @@ export async function confirmPaymentCompliance() {
   const res = await api.post<ConfirmPaymentComplianceResponse>(
     '/api/option/payment_compliance',
     { confirmed: true }
+  )
+  return res.data
+}
+
+export async function getCryptoPaymentConfig() {
+  const res = await api.get<CryptoPaymentConfigResponse>(
+    '/api/option/crypto-payment'
+  )
+  return res.data
+}
+
+export async function saveCryptoPaymentConfig(request: CryptoPaymentConfig) {
+  const res = await api.post<CryptoPaymentConfigResponse>(
+    '/api/option/crypto-payment',
+    request
   )
   return res.data
 }

@@ -37,6 +37,7 @@ export interface ApiResponse<T = unknown> {
 export type TopupInfoResponse = ApiResponse<TopupInfo>
 export type RedemptionResponse = ApiResponse<number>
 export type AmountResponse = ApiResponse<string>
+export type CryptoPaymentResponse = ApiResponse<CryptoPaymentOrder>
 export type PaymentResponse = ApiResponse<Record<string, unknown>> & {
   url?: string
 }
@@ -108,6 +109,10 @@ export interface PaymentMethod {
   min_topup?: number
   /** Optional icon URL provided by backend (preferred over built-in icons) */
   icon?: string
+  /** Token symbol for direct crypto payments */
+  token_symbol?: string
+  /** Display network name for direct crypto payments */
+  network_name?: string
 }
 
 /**
@@ -132,6 +137,8 @@ export interface TopupInfo {
   enable_online_topup: boolean
   /** Whether Stripe topup is enabled */
   enable_stripe_topup: boolean
+  /** Whether direct EVM/TRON payments are enabled */
+  enable_crypto_topup?: boolean
   /** Available payment methods */
   pay_methods: PaymentMethod[]
   /** Minimum topup amount for online topup */
@@ -230,6 +237,35 @@ export interface WaffoPancakePaymentRequest {
 export interface AmountRequest {
   /** Topup amount to calculate */
   amount: number
+}
+
+export type CryptoNetwork = 'evm' | 'tron'
+
+export interface CryptoPaymentRequest {
+  amount: number
+  network: CryptoNetwork
+}
+
+export interface CryptoPaymentOrder {
+  id: number
+  trade_no: string
+  network_type: CryptoNetwork
+  network_name: string
+  chain_id: string
+  wallet_address: string
+  token_contract: string
+  token_symbol: string
+  token_decimals: number
+  requested_amount: string
+  display_amount: string
+  payment_uri: string
+  qr_content: string
+  status: 'pending' | 'success' | 'expired'
+  create_time: number
+  expires_at: number
+  complete_time: number
+  transaction_hash?: string
+  block_number?: number
 }
 
 /**

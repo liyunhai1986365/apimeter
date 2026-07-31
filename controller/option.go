@@ -90,7 +90,8 @@ func GetOptions(c *gin.Context) {
 			strings.HasSuffix(k, "Secret") ||
 			strings.HasSuffix(k, "Key") ||
 			strings.HasSuffix(k, "secret") ||
-			strings.HasSuffix(k, "api_key")
+			strings.HasSuffix(k, "api_key") ||
+			k == "payment_setting.crypto_evm_rpc_url"
 		if isSensitiveKey {
 			continue
 		}

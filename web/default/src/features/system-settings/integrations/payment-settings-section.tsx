@@ -52,6 +52,7 @@ import { useUpdateOption } from '../hooks/use-update-option'
 import { AmountDiscountVisualEditor } from './amount-discount-visual-editor'
 import { AmountOptionsVisualEditor } from './amount-options-visual-editor'
 import { CreemProductsVisualEditor } from './creem-products-visual-editor'
+import { CryptoPaymentSettingsSection } from './crypto-payment-settings-section'
 import { PaymentMethodsVisualEditor } from './payment-methods-visual-editor'
 import {
   formatJsonForEditor,
@@ -1469,6 +1470,10 @@ export function PaymentSettingsSection({
           </Button>
         </form>
       </Form>
+
+      <Separator />
+
+      <CryptoPaymentSettingsSection disabled={!complianceConfirmed} />
 
       <Separator />
 

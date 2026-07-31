@@ -41,10 +41,12 @@ interface UseBillingHistoryOptions {
   initialPage?: number
   /** Initial page size */
   initialPageSize?: number
+  /** Whether billing history should be fetched */
+  enabled?: boolean
 }
 
 export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
-  const { initialPage = 1, initialPageSize = 10 } = options
+  const { initialPage = 1, initialPageSize = 10, enabled = true } = options
   const isAdmin = useIsAdmin()
 
   const [records, setRecords] = useState<TopupRecord[]>([])
@@ -63,45 +65,60 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
   /**
    * Fetch billing history
    */
-  const fetchBillingHistory = useCallback(async () => {
-    setLoading(true)
-    try {
-      const response = isAdmin
-        ? await getAllBillingHistory(
-            page,
-            pageSize,
-            keyword,
-            statusFilter,
-            dateRange
-          )
-        : await getUserBillingHistory(
-            page,
-            pageSize,
-            keyword,
-            statusFilter,
-            dateRange
-          )
-
-      if (isApiSuccess(response) && response.data) {
-        setRecords(response.data.items || [])
-        setTotal(response.data.total || 0)
-      } else {
-        toast.error(
-          response.message || i18next.t('Failed to load billing history')
-        )
-        setRecords([])
-        setTotal(0)
+  const fetchBillingHistory = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) {
+        setLoading(true)
       }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to fetch billing history:', error)
-      toast.error(i18next.t('Failed to load billing history'))
-      setRecords([])
-      setTotal(0)
-    } finally {
-      setLoading(false)
-    }
-  }, [isAdmin, page, pageSize, keyword, statusFilter, dateRange])
+      try {
+        const response = isAdmin
+          ? await getAllBillingHistory(
+              page,
+              pageSize,
+              keyword,
+              statusFilter,
+              dateRange
+            )
+          : await getUserBillingHistory(
+              page,
+              pageSize,
+              keyword,
+              statusFilter,
+              dateRange
+            )
+
+        if (isApiSuccess(response) && response.data) {
+          setRecords(response.data.items || [])
+          setTotal(response.data.total || 0)
+        } else {
+          toast.error(
+            response.message || i18next.t('Failed to load billing history')
+          )
+          if (showLoading) {
+            setRecords([])
+            setTotal(0)
+          }
+        }
+      } catch (error) {
+        // eslint-disable-next-line no-console
+        console.error('Failed to fetch billing history:', error)
+        toast.error(i18next.t('Failed to load billing history'))
+        if (showLoading) {
+          setRecords([])
+          setTotal(0)
+        }
+      } finally {
+        if (showLoading) {
+          setLoading(false)
+        }
+      }
+    },
+    [isAdmin, page, pageSize, keyword, statusFilter, dateRange]
+  )
+
+  const refresh = useCallback(async () => {
+    await fetchBillingHistory(false)
+  }, [fetchBillingHistory])
 
   /**
    * Complete a pending order (admin only)
@@ -119,7 +136,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
         if (isApiSuccess(response)) {
           toast.success(i18next.t('Order completed successfully'))
           // Refresh the list
-          await fetchBillingHistory()
+          await refresh()
           return true
         } else {
           toast.error(response.message || i18next.t('Failed to complete order'))
@@ -134,7 +151,7 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
         setCompleting(false)
       }
     },
-    [isAdmin, fetchBillingHistory]
+    [isAdmin, refresh]
   )
 
   /**
@@ -187,8 +204,10 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
 
   // Fetch data when dependencies change
   useEffect(() => {
-    fetchBillingHistory()
-  }, [fetchBillingHistory])
+    if (enabled) {
+      void fetchBillingHistory()
+    }
+  }, [enabled, fetchBillingHistory])
 
   return {
     records,
@@ -207,6 +226,6 @@ export function useBillingHistory(options: UseBillingHistoryOptions = {}) {
     handleStatusFilterChange,
     handleDateRangeChange,
     handleCompleteOrder,
-    refresh: fetchBillingHistory,
+    refresh,
   }
 }

@@ -27,7 +27,7 @@ func GetTopUpInfo(c *gin.Context) {
 	affiliatePolicy := model.GetAffiliateRewardPolicyForUser(c.GetInt("id"))
 
 	// 获取支付方式
-	payMethods := operation_setting.PayMethods
+	payMethods := append([]map[string]string(nil), operation_setting.PayMethods...)
 	if !complianceConfirmed {
 		payMethods = []map[string]string{}
 	}
@@ -97,12 +97,36 @@ func GetTopUpInfo(c *gin.Context) {
 		}
 	}
 
+	enableCryptoEVM := service.IsCryptoPaymentAvailable(model.CryptoNetworkEVM)
+	if enableCryptoEVM {
+		config, _ := service.GetCryptoNetworkConfig(model.CryptoNetworkEVM)
+		payMethods = append(payMethods, map[string]string{
+			"name":         config.TokenSymbol + " (" + config.NetworkName + ")",
+			"type":         model.PaymentMethodCryptoEVM,
+			"min_topup":    strconv.Itoa(operation_setting.MinTopUp),
+			"token_symbol": config.TokenSymbol,
+			"network_name": config.NetworkName,
+		})
+	}
+	enableCryptoTron := service.IsCryptoPaymentAvailable(model.CryptoNetworkTron)
+	if enableCryptoTron {
+		config, _ := service.GetCryptoNetworkConfig(model.CryptoNetworkTron)
+		payMethods = append(payMethods, map[string]string{
+			"name":         config.TokenSymbol + " (" + config.NetworkName + ")",
+			"type":         model.PaymentMethodCryptoTron,
+			"min_topup":    strconv.Itoa(operation_setting.MinTopUp),
+			"token_symbol": config.TokenSymbol,
+			"network_name": config.NetworkName,
+		})
+	}
+
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
 		"enable_stripe_topup":              isStripeTopUpEnabled(),
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_waffo_topup":               enableWaffo,
 		"enable_waffo_pancake_topup":       enableWaffoPancake,
+		"enable_crypto_topup":              enableCryptoEVM || enableCryptoTron,
 		"enable_redemption":                complianceConfirmed,
 		"payment_compliance_confirmed":     complianceConfirmed,
 		"payment_compliance_terms_version": operation_setting.CurrentComplianceTermsVersion,

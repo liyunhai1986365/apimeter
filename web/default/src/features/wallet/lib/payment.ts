@@ -86,6 +86,16 @@ export function isWaffoPancakePayment(paymentType: string): boolean {
   return paymentType === PAYMENT_TYPES.WAFFO_PANCAKE
 }
 
+export function getCryptoNetwork(paymentType: string): 'evm' | 'tron' | null {
+  if (paymentType === PAYMENT_TYPES.CRYPTO_EVM) return 'evm'
+  if (paymentType === PAYMENT_TYPES.CRYPTO_TRON) return 'tron'
+  return null
+}
+
+export function isCryptoPayment(paymentType: string): boolean {
+  return getCryptoNetwork(paymentType) !== null
+}
+
 /**
  * Get default payment type from topup info
  */

@@ -28,6 +28,8 @@ import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
 import { AffiliateRulesCard } from './components/affiliate-rules-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
+import { CryptoNetworkDialog } from './components/dialogs/crypto-network-dialog'
+import { CryptoPaymentDialog } from './components/dialogs/crypto-payment-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
@@ -45,6 +47,7 @@ import {
 import {
   getDefaultPaymentType,
   getMinTopupAmount,
+  isCryptoPayment,
   isStripePayment,
   isWaffoPancakePayment,
 } from './lib'
@@ -53,6 +56,7 @@ import type {
   PaymentMethod,
   PresetAmount,
   CreemProduct,
+  CryptoPaymentOrder,
 } from './types'
 
 interface WalletProps {
@@ -74,6 +78,11 @@ export function Wallet(props: WalletProps) {
   const [billingDialogOpen, setBillingDialogOpen] = useState(false)
   const [redemptionCode, setRedemptionCode] = useState('')
   const [creemDialogOpen, setCreemDialogOpen] = useState(false)
+  const [cryptoNetworkDialogOpen, setCryptoNetworkDialogOpen] = useState(false)
+  const [cryptoDialogOpen, setCryptoDialogOpen] = useState(false)
+  const [cryptoOrder, setCryptoOrder] = useState<CryptoPaymentOrder | null>(
+    null
+  )
   const [selectedCreemProduct, setSelectedCreemProduct] =
     useState<CreemProduct | null>(null)
 
@@ -223,20 +232,73 @@ export function Wallet(props: WalletProps) {
     }
   }
 
+  const cryptoPaymentMethods =
+    topupInfo?.pay_methods?.filter((method) => isCryptoPayment(method.type)) ??
+    []
+
+  const handleCryptoPaymentOpen = async () => {
+    const availableMethods = cryptoPaymentMethods.filter(
+      (method) => (method.min_topup || 0) <= topupAmount
+    )
+    const method =
+      availableMethods.find(
+        (item) => item.type === selectedPaymentMethod?.type
+      ) ?? availableMethods[0]
+
+    if (!method) return
+
+    setSelectedPaymentMethod(method)
+    setCryptoNetworkDialogOpen(true)
+    await calculatePaymentAmount(topupAmount, method.type)
+  }
+
+  const handleCryptoNetworkChange = (method: PaymentMethod) => {
+    setSelectedPaymentMethod(method)
+    void calculatePaymentAmount(topupAmount, method.type)
+  }
+
+  const handleCryptoNetworkConfirm = async () => {
+    if (
+      !selectedPaymentMethod ||
+      !isCryptoPayment(selectedPaymentMethod.type)
+    ) {
+      return
+    }
+
+    const result = await processPayment(topupAmount, selectedPaymentMethod.type)
+    if (result.success && result.cryptoOrder) {
+      setCryptoNetworkDialogOpen(false)
+      setCryptoOrder(result.cryptoOrder)
+      setCryptoDialogOpen(true)
+    }
+  }
+
   // Handle payment confirmation
   const handlePaymentConfirm = async () => {
     if (!selectedPaymentMethod) return
 
     const isPancake = isWaffoPancakePayment(selectedPaymentMethod.type)
-    const success = isPancake
-      ? await processWaffoPancakePayment(topupAmount)
+    const result = isPancake
+      ? {
+          success: await processWaffoPancakePayment(topupAmount),
+          cryptoOrder: undefined,
+        }
       : await processPayment(topupAmount, selectedPaymentMethod.type)
 
-    if (success) {
+    if (result.success) {
       setConfirmDialogOpen(false)
-      await fetchUser()
+      if (result.cryptoOrder) {
+        setCryptoOrder(result.cryptoOrder)
+        setCryptoDialogOpen(true)
+      } else {
+        await fetchUser()
+      }
     }
   }
+
+  const handleCryptoPaid = useCallback(async () => {
+    await fetchUser()
+  }, [fetchUser])
 
   // Handle redemption
   const handleRedeem = async () => {
@@ -292,6 +354,12 @@ export function Wallet(props: WalletProps) {
     return topupInfo?.discount?.[topupAmount] || DEFAULT_DISCOUNT_RATE
   }, [topupInfo, topupAmount])
 
+  const activePaymentMethod =
+    selectedPaymentMethod ??
+    topupInfo?.pay_methods?.find(
+      (method) => method.type === getDefaultPaymentType(topupInfo)
+    )
+
   return (
     <>
       <SectionPageLayout>
@@ -317,8 +385,10 @@ export function Wallet(props: WalletProps) {
                   topupAmount={topupAmount}
                   onTopupAmountChange={handleTopupAmountChange}
                   paymentAmount={paymentAmount}
+                  paymentMethod={activePaymentMethod}
                   calculating={calculating}
                   onPaymentMethodSelect={handlePaymentMethodSelect}
+                  onCryptoPaymentOpen={handleCryptoPaymentOpen}
                   paymentLoading={paymentLoading}
                   redemptionCode={redemptionCode}
                   onRedemptionCodeChange={setRedemptionCode}
@@ -371,6 +441,31 @@ export function Wallet(props: WalletProps) {
         calculating={calculating}
         processing={processing || pancakeProcessing}
         discountRate={getDiscountRate()}
+      />
+
+      <CryptoNetworkDialog
+        open={cryptoNetworkDialogOpen}
+        onOpenChange={setCryptoNetworkDialogOpen}
+        methods={cryptoPaymentMethods}
+        selectedMethod={
+          selectedPaymentMethod && isCryptoPayment(selectedPaymentMethod.type)
+            ? selectedPaymentMethod
+            : undefined
+        }
+        onNetworkChange={handleCryptoNetworkChange}
+        onConfirm={handleCryptoNetworkConfirm}
+        topupAmount={topupAmount}
+        paymentAmount={paymentAmount}
+        calculating={calculating}
+        processing={processing}
+      />
+
+      <CryptoPaymentDialog
+        key={cryptoOrder?.trade_no ?? 'no-crypto-order'}
+        open={cryptoDialogOpen}
+        onOpenChange={setCryptoDialogOpen}
+        order={cryptoOrder}
+        onPaid={handleCryptoPaid}
       />
 
       <TransferDialog
