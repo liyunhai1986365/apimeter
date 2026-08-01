@@ -1,9 +1,8 @@
-import { useState } from 'react'
+import { type FormEvent, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
-  BankIcon,
   Clock01Icon,
   GiftIcon,
   Link01Icon,
@@ -16,7 +15,6 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
-import { useSystemConfig } from '@/hooks/use-system-config'
 import { getSelf } from '@/lib/api'
 import {
   formatQuota,
@@ -24,6 +22,7 @@ import {
   parseQuotaFromDollars,
   quotaUnitsToDollars,
 } from '@/lib/format'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -78,7 +77,6 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { CopyButton } from '@/components/copy-button'
 import { SectionPageLayout } from '@/components/layout'
 import {
@@ -87,8 +85,10 @@ import {
 } from '@/features/invite/lib/reward-config'
 import type { AffiliateRewardPolicy } from '@/features/invite/types'
 import { useAffiliate } from '@/features/wallet/hooks/use-affiliate'
+import { WithdrawalDialog } from '@/features/withdrawals/components/withdrawal-dialog'
 import {
   cancelAffiliateWithdrawal,
+  getInviteRewardsApiError,
   getAffiliateInvites,
   getAffiliateWithdrawals,
   submitAffiliateWithdrawal,
@@ -108,7 +108,7 @@ const WITHDRAWAL_PAGE_SIZE = 10
 
 export function InviteRewards() {
   const { t } = useTranslation()
-  const { systemName } = useSystemConfig()
+  const { systemName, currency } = useSystemConfig()
   const queryClient = useQueryClient()
   const setUser = useAuthStore((state) => state.auth.setUser)
   const [page, setPage] = useState(1)
@@ -155,7 +155,7 @@ export function InviteRewards() {
       await refreshRewardAccount()
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : t('Transfer failed'))
+      toast.error(getInviteRewardsApiError(error, t('Transfer failed')))
     },
   })
   const withdrawalMutation = useMutation({
@@ -169,9 +169,7 @@ export function InviteRewards() {
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t('Failed to submit withdrawal')
+        getInviteRewardsApiError(error, t('Failed to submit withdrawal'))
       )
     },
   })
@@ -183,9 +181,7 @@ export function InviteRewards() {
     },
     onError: (error) => {
       toast.error(
-        error instanceof Error
-          ? error.message
-          : t('Failed to cancel withdrawal')
+        getInviteRewardsApiError(error, t('Failed to cancel withdrawal'))
       )
     },
   })
@@ -197,64 +193,66 @@ export function InviteRewards() {
     Math.ceil((withdrawals?.total ?? 0) / WITHDRAWAL_PAGE_SIZE)
   )
   const availableRewardQuota = data?.stats.available_reward_quota ?? 0
-  const minimumRewardActionQuota = data?.minimum_reward_action_quota ?? 0
+  const minimumRewardActionQuota =
+    data?.minimum_reward_action_quota ?? currency.quotaPerUnit
 
   return (
-    <SectionPageLayout>
-      <SectionPageLayout.Title>{t('Invite Rewards')}</SectionPageLayout.Title>
-      <SectionPageLayout.Content>
-        <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
-          <div className='grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]'>
-            <InviteOverviewCard
-              siteName={systemName}
-              affiliateLink={affiliateLink}
-              linkLoading={linkLoading}
-              stats={data?.stats}
-              statsLoading={inviteQuery.isPending}
-              availableQuota={availableRewardQuota}
-              accountLoading={!data}
-              minimumQuota={minimumRewardActionQuota}
-              onTransfer={() => setTransferOpen(true)}
-              onWithdraw={() => setWithdrawalOpen(true)}
-            />
-            <RewardPolicyCard
-              policy={data?.affiliate_policy}
-              loading={inviteQuery.isPending}
+    <>
+      <SectionPageLayout>
+        <SectionPageLayout.Title>{t('Invite Rewards')}</SectionPageLayout.Title>
+        <SectionPageLayout.Content>
+          <div className='mx-auto flex w-full max-w-7xl flex-col gap-4 sm:gap-5'>
+            <div className='grid items-stretch gap-4 lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]'>
+              <InviteOverviewCard
+                siteName={systemName}
+                affiliateLink={affiliateLink}
+                linkLoading={linkLoading}
+                stats={data?.stats}
+                statsLoading={inviteQuery.isPending}
+                availableQuota={availableRewardQuota}
+                accountLoading={!data}
+                minimumQuota={minimumRewardActionQuota}
+                onTransfer={() => setTransferOpen(true)}
+                onWithdraw={() => setWithdrawalOpen(true)}
+              />
+              <RewardPolicyCard
+                policy={data?.affiliate_policy}
+                loading={inviteQuery.isPending}
+              />
+            </div>
+
+            <RewardRecordsCard
+              activeTab={recordsTab}
+              onTabChange={setRecordsTab}
+              inviteData={data}
+              inviteLoading={inviteQuery.isPending}
+              inviteError={inviteQuery.isError}
+              inviteFetching={inviteQuery.isFetching}
+              invitePage={page}
+              invitePageCount={pageCount}
+              onInviteRetry={() => inviteQuery.refetch()}
+              onInvitePageChange={setPage}
+              withdrawalData={withdrawals}
+              withdrawalLoading={withdrawalsQuery.isPending}
+              withdrawalError={withdrawalsQuery.isError}
+              withdrawalFetching={withdrawalsQuery.isFetching}
+              withdrawalPage={withdrawalPage}
+              withdrawalPageCount={withdrawalPageCount}
+              cancellingId={
+                cancelWithdrawalMutation.isPending
+                  ? cancelWithdrawalMutation.variables
+                  : undefined
+              }
+              onWithdrawalRetry={() => withdrawalsQuery.refetch()}
+              onWithdrawalPageChange={setWithdrawalPage}
+              onCancelWithdrawal={(id) => cancelWithdrawalMutation.mutate(id)}
             />
           </div>
+        </SectionPageLayout.Content>
+      </SectionPageLayout>
 
-          <RewardRecordsCard
-            activeTab={recordsTab}
-            onTabChange={setRecordsTab}
-            inviteData={data}
-            inviteLoading={inviteQuery.isPending}
-            inviteError={inviteQuery.isError}
-            inviteFetching={inviteQuery.isFetching}
-            invitePage={page}
-            invitePageCount={pageCount}
-            onInviteRetry={() => inviteQuery.refetch()}
-            onInvitePageChange={setPage}
-            withdrawalData={withdrawals}
-            withdrawalLoading={withdrawalsQuery.isPending}
-            withdrawalError={withdrawalsQuery.isError}
-            withdrawalFetching={withdrawalsQuery.isFetching}
-            withdrawalPage={withdrawalPage}
-            withdrawalPageCount={withdrawalPageCount}
-            cancellingId={
-              cancelWithdrawalMutation.isPending
-                ? cancelWithdrawalMutation.variables
-                : undefined
-            }
-            onWithdrawalRetry={() => withdrawalsQuery.refetch()}
-            onWithdrawalPageChange={setWithdrawalPage}
-            onCancelWithdrawal={(id) => cancelWithdrawalMutation.mutate(id)}
-          />
-        </div>
-      </SectionPageLayout.Content>
-
-      <RewardAmountDialog
+      <RewardTransferDialog
         key={transferOpen ? 'transfer-open' : 'transfer-closed'}
-        mode='transfer'
         open={transferOpen}
         onOpenChange={setTransferOpen}
         availableQuota={availableRewardQuota}
@@ -262,27 +260,26 @@ export function InviteRewards() {
         pending={transferMutation.isPending}
         onSubmit={(quota) => transferMutation.mutate(quota)}
       />
-      <RewardAmountDialog
+      <WithdrawalDialog
         key={withdrawalOpen ? 'withdraw-open' : 'withdraw-closed'}
-        mode='withdraw'
         open={withdrawalOpen}
         onOpenChange={setWithdrawalOpen}
-        availableQuota={availableRewardQuota}
-        minimumQuota={minimumRewardActionQuota}
+        availableAmount={quotaUnitsToDollars(availableRewardQuota)}
+        minimumAmount={quotaUnitsToDollars(minimumRewardActionQuota)}
+        formatAmount={(amount) => formatQuota(parseQuotaFromDollars(amount))}
         pending={withdrawalMutation.isPending}
-        onSubmit={(amountQuota, accountInfo) =>
+        onSubmit={(amount, accountInfo) =>
           withdrawalMutation.mutate({
-            amount_quota: amountQuota,
+            amount_quota: parseQuotaFromDollars(amount),
             account_info: accountInfo,
           })
         }
       />
-    </SectionPageLayout>
+    </>
   )
 }
 
-function RewardAmountDialog({
-  mode,
+function RewardTransferDialog({
   open,
   onOpenChange,
   availableQuota,
@@ -290,117 +287,99 @@ function RewardAmountDialog({
   pending,
   onSubmit,
 }: {
-  mode: 'transfer' | 'withdraw'
   open: boolean
   onOpenChange: (open: boolean) => void
   availableQuota: number
   minimumQuota: number
   pending: boolean
-  onSubmit: (amountQuota: number, accountInfo: string) => void
+  onSubmit: (amountQuota: number) => void
 }) {
   const { t } = useTranslation()
   const [amount, setAmount] = useState(() =>
     String(quotaUnitsToDollars(minimumQuota))
   )
-  const [accountInfo, setAccountInfo] = useState('')
-
-  const amountQuota = parseQuotaFromDollars(Number(amount))
-  const amountInvalid =
-    amount.trim() === '' ||
-    !Number.isFinite(Number(amount)) ||
-    amountQuota < minimumQuota ||
-    amountQuota > availableQuota
-  const accountInvalid = mode === 'withdraw' && accountInfo.trim() === ''
-  const title =
-    mode === 'transfer' ? t('Transfer to balance') : t('Request withdrawal')
-  const description =
-    mode === 'transfer'
-      ? t('Move rewards from the reward account to your main balance.')
-      : t('Submit your payout account for administrator review.')
+  const numericAmount = Number(amount)
+  const amountQuota = parseQuotaFromDollars(numericAmount)
+  const amountError =
+    amount.trim() === '' || !Number.isFinite(numericAmount) || amountQuota <= 0
+      ? t('Amount must be greater than 0')
+      : amountQuota < minimumQuota
+        ? t('Minimum action amount: {{amount}}', {
+            amount: formatQuota(minimumQuota),
+          })
+        : amountQuota > availableQuota
+          ? t('Amount exceeds available rewards')
+          : null
+  const amountInvalid = amountError !== null
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (amountInvalid || pending) return
+    onSubmit(amountQuota)
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className='sm:max-w-md'>
-        <DialogHeader>
-          <DialogTitle className='flex items-center gap-2'>
-            <HugeiconsIcon
-              icon={mode === 'transfer' ? Wallet01Icon : BankIcon}
-              className='size-5'
-            />
-            {title}
-          </DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+        <form
+          className='flex flex-col gap-4'
+          onSubmit={handleSubmit}
+          noValidate
+        >
+          <DialogHeader>
+            <DialogTitle className='flex items-center gap-2'>
+              <HugeiconsIcon icon={Wallet01Icon} className='size-5' />
+              {t('Transfer to balance')}
+            </DialogTitle>
+            <DialogDescription>
+              {t('Move rewards from the reward account to your main balance.')}
+            </DialogDescription>
+          </DialogHeader>
 
-        <FieldGroup className='py-2'>
-          <Field data-invalid={amountInvalid || undefined}>
-            <FieldLabel htmlFor={`${mode}-reward-amount`}>
-              {t('Amount')}
-            </FieldLabel>
-            <Input
-              id={`${mode}-reward-amount`}
-              type='number'
-              min={quotaUnitsToDollars(minimumQuota)}
-              max={quotaUnitsToDollars(availableQuota)}
-              step='any'
-              value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              aria-invalid={amountInvalid || undefined}
-              disabled={pending}
-            />
-            <FieldDescription>
-              {t('Available: {{amount}} · Minimum: {{minimum}}', {
-                amount: formatQuota(availableQuota),
-                minimum: formatQuota(minimumQuota),
-              })}
-            </FieldDescription>
-            {amount.trim() !== '' && amountQuota > availableQuota ? (
-              <FieldError>{t('Amount exceeds available rewards')}</FieldError>
-            ) : null}
-          </Field>
-
-          {mode === 'withdraw' ? (
-            <Field data-invalid={accountInvalid || undefined}>
-              <FieldLabel htmlFor='affiliate-withdrawal-account'>
-                {t('Withdrawal Account')}
+          <FieldGroup className='py-2'>
+            <Field
+              data-invalid={amountInvalid || undefined}
+              data-disabled={pending || undefined}
+            >
+              <FieldLabel htmlFor='transfer-reward-amount'>
+                {t('Amount')}
               </FieldLabel>
-              <Textarea
-                id='affiliate-withdrawal-account'
-                value={accountInfo}
-                onChange={(event) => setAccountInfo(event.target.value)}
-                placeholder={t(
-                  'Enter the payout method and complete account details'
-                )}
-                maxLength={2000}
-                className='min-h-24'
-                aria-invalid={accountInvalid || undefined}
+              <Input
+                id='transfer-reward-amount'
+                type='number'
+                min={quotaUnitsToDollars(minimumQuota)}
+                max={quotaUnitsToDollars(availableQuota)}
+                step='any'
+                value={amount}
+                onChange={(event) => setAmount(event.target.value)}
+                aria-invalid={amountInvalid || undefined}
                 disabled={pending}
+                autoFocus
               />
               <FieldDescription>
-                {t('The administrator will use these details to send payment.')}
+                {t('Available: {{amount}} · Minimum: {{minimum}}', {
+                  amount: formatQuota(availableQuota),
+                  minimum: formatQuota(minimumQuota),
+                })}
               </FieldDescription>
+              {amountError ? <FieldError>{amountError}</FieldError> : null}
             </Field>
-          ) : null}
-        </FieldGroup>
+          </FieldGroup>
 
-        <DialogFooter>
-          <Button
-            variant='outline'
-            onClick={() => onOpenChange(false)}
-            disabled={pending}
-          >
-            {t('Cancel')}
-          </Button>
-          <Button
-            onClick={() => onSubmit(amountQuota, accountInfo.trim())}
-            disabled={amountInvalid || accountInvalid || pending}
-          >
-            {pending ? <Spinner data-icon='inline-start' /> : null}
-            {mode === 'transfer'
-              ? t('Confirm transfer')
-              : t('Submit Withdrawal')}
-          </Button>
-        </DialogFooter>
+          <DialogFooter>
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => onOpenChange(false)}
+              disabled={pending}
+            >
+              {t('Cancel')}
+            </Button>
+            <Button type='submit' disabled={amountInvalid || pending}>
+              {pending ? <Spinner data-icon='inline-start' /> : null}
+              {t('Confirm transfer')}
+            </Button>
+          </DialogFooter>
+        </form>
       </DialogContent>
     </Dialog>
   )
@@ -803,8 +782,6 @@ function InviteOverviewCard({
   onWithdraw: () => void
 }) {
   const { t } = useTranslation()
-  const actionsDisabled =
-    accountLoading || minimumQuota <= 0 || availableQuota < minimumQuota
   const inviteCode = getAffiliateCode(affiliateLink)
   const referralSiteName = getReferralSiteName(siteName)
   const referralMessage = t(
@@ -838,13 +815,13 @@ Register now 👉 {{affiliateLink}}`,
             <Button
               variant='outline'
               size='sm'
-              disabled={actionsDisabled}
+              disabled={accountLoading}
               onClick={onTransfer}
             >
               <HugeiconsIcon icon={Wallet01Icon} data-icon='inline-start' />
               {t('Transfer to balance')}
             </Button>
-            <Button size='sm' disabled={actionsDisabled} onClick={onWithdraw}>
+            <Button size='sm' disabled={accountLoading} onClick={onWithdraw}>
               <HugeiconsIcon icon={MoneySend02Icon} data-icon='inline-start' />
               {t('Request withdrawal')}
             </Button>
@@ -879,9 +856,12 @@ Register now 👉 {{affiliateLink}}`,
                   value={referralMessage}
                   readOnly
                   aria-label={t('Referral message')}
-                  className='min-h-44 max-h-none overflow-y-auto text-sm leading-6 sm:max-h-56'
+                  className='max-h-none min-h-44 overflow-y-auto text-sm leading-6 sm:max-h-56'
                 />
-                <InputGroupAddon align='block-end' className='justify-end border-t'>
+                <InputGroupAddon
+                  align='block-end'
+                  className='justify-end border-t'
+                >
                   <CopyButton
                     value={referralMessage}
                     size='sm'
@@ -995,22 +975,27 @@ function RewardPolicyCard({
   const rewardRatio = policy?.topup_reward_ratio ?? 0
   const rewardLimit = policy?.topup_reward_limit ?? 0
   const consumeRewardRatio = policy?.consume_reward_ratio ?? 0
+  const inviterRewardQuota = policy?.inviter_reward_quota ?? 0
+  const inviteeRewardQuota = policy?.invitee_reward_quota ?? 0
   const topupLimit =
     rewardLimit > 0
       ? t('First {{count}} top-ups', { count: rewardLimit })
       : t('Unlimited top-up rewards')
-  const policies = [
-    {
+  const policies = []
+  if (inviterRewardQuota > 0) {
+    policies.push({
       label: t('Registration reward'),
-      value: formatInviteRegisterReward(policy?.inviter_reward_quota ?? 0),
+      value: formatInviteRegisterReward(inviterRewardQuota),
       icon: GiftIcon,
-    },
-    {
+    })
+  }
+  if (inviteeRewardQuota > 0) {
+    policies.push({
       label: t('Invitee registration reward'),
-      value: formatInviteRegisterReward(policy?.invitee_reward_quota ?? 0),
+      value: formatInviteRegisterReward(inviteeRewardQuota),
       icon: UserMultiple02Icon,
-    },
-  ]
+    })
+  }
   if (rewardRatio > 0) {
     policies.push({
       label: t('Top-up reward'),

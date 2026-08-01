@@ -465,6 +465,7 @@ func TestKnownFrontendPathsMatchPublicAndPrivateRoutes(t *testing.T) {
 		"/privacy-policy",
 		"/sign-in",
 		"/invite-rewards",
+		"/withdrawal-management",
 		"/dashboard/overview",
 		"/console/chat/example",
 		"/oauth/github",

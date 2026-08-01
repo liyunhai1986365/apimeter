@@ -154,6 +154,10 @@ export function SidebarModulesSection({
         title: t('Users'),
         description: t('Administer user accounts and roles.'),
       },
+      withdrawal_management: {
+        title: t('Withdrawal Management'),
+        description: t('Review withdrawal requests from users and agents.'),
+      },
       setting: {
         title: t('System settings'),
         description: t('Advanced platform configuration.'),

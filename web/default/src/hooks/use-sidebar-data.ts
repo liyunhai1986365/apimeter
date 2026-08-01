@@ -42,6 +42,7 @@ import {
   Handshake,
   Monitor,
   ChartNoAxesCombined,
+  HandCoins,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
@@ -263,6 +264,11 @@ export function buildSidebarData(
             title: t('Agent Management'),
             url: '/agent-management',
             icon: Settings2,
+          },
+          {
+            title: t('Withdrawal Management'),
+            url: '/withdrawal-management',
+            icon: HandCoins,
           },
           {
             title: t('Redemption Codes'),

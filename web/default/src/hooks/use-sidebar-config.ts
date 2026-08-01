@@ -68,6 +68,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
     redemption: true,
     user: true,
     agent_management: true,
+    withdrawal_management: true,
     setting: true,
     subscription: true,
   },
@@ -132,6 +133,10 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/model-profit': { section: 'admin', module: 'model_profit' },
   '/users': { section: 'admin', module: 'user' },
   '/agent-management': { section: 'admin', module: 'agent_management' },
+  '/withdrawal-management': {
+    section: 'admin',
+    module: 'withdrawal_management',
+  },
   '/redemption-codes': { section: 'admin', module: 'redemption' },
   '/subscriptions': { section: 'admin', module: 'subscription' },
   '/system-settings': { section: 'admin', module: 'setting' },

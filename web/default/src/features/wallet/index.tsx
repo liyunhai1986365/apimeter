@@ -24,22 +24,19 @@ import { trackPurchase } from '@/lib/google-analytics'
 import { useStatus } from '@/hooks/use-status'
 import { SectionPageLayout } from '@/components/layout'
 import { getStripePurchaseConversion } from './api'
-import { AffiliateRewardsCard } from './components/affiliate-rewards-card'
-import { AffiliateRulesCard } from './components/affiliate-rules-card'
 import { BillingHistoryDialog } from './components/dialogs/billing-history-dialog'
 import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { CryptoNetworkDialog } from './components/dialogs/crypto-network-dialog'
 import { CryptoPaymentDialog } from './components/dialogs/crypto-payment-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
-import { TransferDialog } from './components/dialogs/transfer-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
+import { RedemptionCard } from './components/redemption-card'
 import { StripeAutoRechargeCard } from './components/stripe-auto-recharge-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
 import { DEFAULT_DISCOUNT_RATE } from './constants'
 import {
   useTopupInfo,
   usePayment,
-  useAffiliate,
   useRedemption,
   useCreemPayment,
   useWaffoPayment,
@@ -76,7 +73,6 @@ export function Wallet(props: WalletProps) {
     useState<PaymentMethod>()
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
   const [billingDialogOpen, setBillingDialogOpen] = useState(false)
   const [redemptionCode, setRedemptionCode] = useState('')
   const [creemDialogOpen, setCreemDialogOpen] = useState(false)
@@ -102,12 +98,6 @@ export function Wallet(props: WalletProps) {
     calculatePaymentAmount,
     processPayment,
   } = usePayment()
-  const {
-    affiliateLink,
-    loading: affiliateLoading,
-    transferQuota,
-    transferring,
-  } = useAffiliate()
   const { redeeming, redeemCode } = useRedemption()
   const { processing: creemProcessing, processCreemPayment } = useCreemPayment()
   const { processWaffoPayment } = useWaffoPayment()
@@ -313,15 +303,6 @@ export function Wallet(props: WalletProps) {
     }
   }
 
-  // Handle transfer
-  const handleTransfer = async (amount: number) => {
-    const success = await transferQuota(amount)
-    if (success) {
-      await fetchUser()
-    }
-    return success
-  }
-
   // Handle Creem product selection
   const handleCreemProductSelect = (product: CreemProduct) => {
     setSelectedCreemProduct(product)
@@ -392,11 +373,6 @@ export function Wallet(props: WalletProps) {
                   onPaymentMethodSelect={handlePaymentMethodSelect}
                   onCryptoPaymentOpen={handleCryptoPaymentOpen}
                   paymentLoading={paymentLoading}
-                  redemptionCode={redemptionCode}
-                  onRedemptionCodeChange={setRedemptionCode}
-                  onRedeem={handleRedeem}
-                  redeeming={redeeming}
-                  topupLink={topupInfo?.topup_link}
                   loading={topupLoading}
                   priceRatio={(status?.price as number) || 1}
                   onOpenBilling={() => setBillingDialogOpen(true)}
@@ -413,23 +389,19 @@ export function Wallet(props: WalletProps) {
                 />
               </div>
 
-              <div className='space-y-4 sm:space-y-5'>
+              <div className='flex flex-col gap-4 sm:gap-5'>
                 {topupInfo?.enable_stripe_topup && (
                   <StripeAutoRechargeCard
                     setupSessionId={props.stripeSetupSessionId}
                   />
                 )}
-                <AffiliateRewardsCard
-                  user={user}
-                  affiliateLink={affiliateLink}
-                  onTransfer={() => setTransferDialogOpen(true)}
-                  complianceConfirmed={
-                    topupInfo?.payment_compliance_confirmed !== false
-                  }
-                  loading={affiliateLoading}
-                />
-                <AffiliateRulesCard
-                  topupInfo={topupInfo}
+                <RedemptionCard
+                  code={redemptionCode}
+                  onCodeChange={setRedemptionCode}
+                  onRedeem={handleRedeem}
+                  redeeming={redeeming}
+                  enabled={topupInfo?.enable_redemption !== false}
+                  topupLink={topupInfo?.topup_link}
                   loading={topupLoading}
                 />
               </div>
@@ -473,14 +445,6 @@ export function Wallet(props: WalletProps) {
         onOpenChange={setCryptoDialogOpen}
         order={cryptoOrder}
         onPaid={handleCryptoPaid}
-      />
-
-      <TransferDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        onConfirm={handleTransfer}
-        availableQuota={user?.aff_quota ?? 0}
-        transferring={transferring}
       />
 
       <BillingHistoryDialog

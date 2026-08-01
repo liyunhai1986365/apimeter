@@ -6,6 +6,24 @@ import type {
   ApiResponse,
 } from './types'
 
+const mutationRequestConfig = {
+  skipBusinessError: true,
+  skipErrorHandler: true,
+} as Record<string, unknown>
+
+export function getInviteRewardsApiError(
+  error: unknown,
+  fallback: string
+): string {
+  const responseMessage = (
+    error as { response?: { data?: { message?: unknown } } }
+  )?.response?.data?.message
+  if (typeof responseMessage === 'string' && responseMessage.trim()) {
+    return responseMessage
+  }
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
 function requireApiData<T>(response: ApiResponse<T>, fallback: string): T {
   if (!response.success || response.data === undefined) {
     throw new Error(response.message || fallback)
@@ -32,7 +50,7 @@ export async function transferAffiliateRewards(quota: number): Promise<void> {
   const response = await api.post<ApiResponse<unknown>>(
     '/api/user/aff_transfer',
     { quota },
-    { skipBusinessError: true } as Record<string, unknown>
+    mutationRequestConfig
   )
   requireApiData(response.data, 'Transfer failed')
 }
@@ -62,7 +80,7 @@ export async function submitAffiliateWithdrawal(input: {
   const response = await api.post<ApiResponse<AffiliateWithdrawal>>(
     '/api/user/aff/withdrawals',
     input,
-    { skipBusinessError: true } as Record<string, unknown>
+    mutationRequestConfig
   )
   return requireApiData(response.data, 'Failed to submit withdrawal')
 }
@@ -70,7 +88,7 @@ export async function submitAffiliateWithdrawal(input: {
 export async function cancelAffiliateWithdrawal(id: number): Promise<void> {
   const response = await api.delete<ApiResponse<unknown>>(
     `/api/user/aff/withdrawals/${id}`,
-    { skipBusinessError: true } as Record<string, unknown>
+    mutationRequestConfig
   )
   requireApiData(response.data, 'Failed to cancel withdrawal')
 }

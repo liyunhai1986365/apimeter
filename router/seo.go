@@ -692,7 +692,7 @@ func isKnownFrontendPath(path string) bool {
 		"/subscription": {}, "/subscriptions": {}, "/suppliers": {},
 		"/system-settings": {}, "/system-tasks": {}, "/usage-logs": {},
 		"/user-agreement": {}, "/user-subscription": {}, "/user/reset": {},
-		"/users": {}, "/wallet": {},
+		"/users": {}, "/wallet": {}, "/withdrawal-management": {},
 	}
 	if _, ok := known[path]; ok {
 		return true

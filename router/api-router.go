@@ -329,6 +329,12 @@ func SetApiRouter(router *gin.Engine) {
 			affiliateAdminRoute.GET("/withdrawals", controller.AdminListAffiliateWithdrawals)
 			affiliateAdminRoute.PUT("/withdrawals/:id/status", controller.AdminCompleteAffiliateWithdrawal)
 		}
+		withdrawalAdminRoute := apiRouter.Group("/withdrawals")
+		withdrawalAdminRoute.Use(middleware.AdminAuth())
+		{
+			withdrawalAdminRoute.GET("", controller.AdminListWithdrawals)
+			withdrawalAdminRoute.PUT("/:source/:id/status", controller.AdminCompleteWithdrawal)
+		}
 		channelRoute := apiRouter.Group("/channel")
 		channelRoute.Use(middleware.AdminAuth())
 		{

@@ -1106,38 +1106,52 @@ export function PaymentSettingsSection({
               </p>
             </div>
 
-            <div className='rounded-md bg-blue-50 p-4 text-sm text-blue-900 dark:bg-blue-950 dark:text-blue-100'>
-              <p className='mb-2 font-medium'>{t('Webhook Configuration:')}</p>
-              <ul className='list-inside list-disc space-y-1'>
-                <li>
+            <Alert>
+              <AlertTitle>{t('Webhook Configuration:')}</AlertTitle>
+              <AlertDescription className='flex flex-col gap-2'>
+                <div>
                   {t('Webhook URL:')}{' '}
-                  <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
+                  <code className='bg-muted rounded px-1 py-0.5 font-mono text-xs'>
                     {'<ServerAddress>/api/stripe/webhook'}
                   </code>
-                </li>
-                <li>
-                  {t('Required events:')}{' '}
-                  <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
-                    {t('checkout.session.completed')}
-                  </code>{' '}
-                  {t('and')}{' '}
-                  <code className='rounded bg-blue-100 px-1 py-0.5 text-xs dark:bg-blue-900'>
-                    {t('checkout.session.expired')}
-                  </code>
-                </li>
-                <li>
+                </div>
+                <div className='flex flex-col gap-1'>
+                  <span className='font-medium'>{t('Required events:')}</span>
+                  <ul className='flex list-inside list-disc flex-col gap-1'>
+                    <li>
+                      {t('Balance Top-up')}:{' '}
+                      <code className='bg-muted rounded px-1 py-0.5 font-mono text-xs'>
+                        checkout.session.completed
+                      </code>{' '}
+                      {t('and')}{' '}
+                      <code className='bg-muted rounded px-1 py-0.5 font-mono text-xs'>
+                        checkout.session.expired
+                      </code>
+                    </li>
+                    <li>
+                      {t('Automatic recharge')}:{' '}
+                      <code className='bg-muted rounded px-1 py-0.5 font-mono text-xs'>
+                        payment_intent.succeeded
+                      </code>{' '}
+                      {t('and')}{' '}
+                      <code className='bg-muted rounded px-1 py-0.5 font-mono text-xs'>
+                        payment_intent.payment_failed
+                      </code>
+                    </li>
+                  </ul>
+                </div>
+                <div>
                   {t('Configure at:')}{' '}
                   <a
                     href='https://dashboard.stripe.com/developers'
                     target='_blank'
                     rel='noreferrer'
-                    className='underline hover:no-underline'
                   >
                     {t('Stripe Dashboard')}
                   </a>
-                </li>
-              </ul>
-            </div>
+                </div>
+              </AlertDescription>
+            </Alert>
 
             <div className='grid gap-6 md:grid-cols-3'>
               <FormField

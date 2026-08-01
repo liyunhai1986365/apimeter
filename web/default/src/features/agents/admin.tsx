@@ -20,7 +20,6 @@ import { type ReactNode, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
 import {
-  BadgeDollarSign,
   Check,
   CircleDollarSign,
   Globe2,
@@ -32,7 +31,6 @@ import {
   Store,
   UserPlus,
   Users,
-  WalletCards,
   X,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -80,7 +78,6 @@ import { HeaderNavigationSection } from '@/features/system-settings/maintenance/
 import {
   addAdminAgentBalance,
   bindAdminAgentUser,
-  completeAdminAgentWithdrawal,
   createAdminAgent,
   createAdminAgentDomain,
   getAgentGroupRatioFormDraft,
@@ -93,7 +90,6 @@ import {
   listAdminAgentUserGroups,
   listAdminAgents,
   listAdminAgentUsers,
-  listAdminAgentWithdrawals,
   parseAgentBranding,
   stringifyAgentBranding,
   switchAgentViewContext,
@@ -116,7 +112,6 @@ import type {
   AgentGroupRatio,
   AgentUser,
   AgentUserGroupConfig,
-  AgentWithdrawal,
 } from './types'
 
 const AGENT_DOMAIN_STATUS_ACTIVE = 1
@@ -159,15 +154,6 @@ function domainStatusVariant(
   return 'outline'
 }
 
-function withdrawalVariant(
-  status: string
-): 'default' | 'outline' | 'secondary' | 'destructive' {
-  if (status === 'paid') return 'default'
-  if (status === 'approved') return 'secondary'
-  if (status === 'rejected') return 'destructive'
-  return 'outline'
-}
-
 export function AgentManagement() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -200,7 +186,6 @@ export function AgentManagement() {
   const [userGroupRatios, setUserGroupRatios] = useState<
     Record<string, number>
   >({})
-  const [withdrawalRemark, setWithdrawalRemark] = useState('')
   const [balanceAgent, setBalanceAgent] = useState<Agent | null>(null)
   const [balanceAmount, setBalanceAmount] = useState('')
   const [balanceRemark, setBalanceRemark] = useState('')
@@ -252,11 +237,6 @@ export function AgentManagement() {
     enabled: selectedAgentId != null,
   })
 
-  const withdrawalsQuery = useQuery({
-    queryKey: ['admin', 'agents', 'withdrawals'],
-    queryFn: () => listAdminAgentWithdrawals(undefined, 1, 50),
-  })
-
   const balanceQuery = useQuery({
     queryKey: ['admin', 'agents', balanceAgent?.id, 'balance'],
     queryFn: () => getAdminAgentBalance(balanceAgent?.id ?? 0),
@@ -275,10 +255,6 @@ export function AgentManagement() {
     () => normalizePagedData(selectedDomainsQuery.data),
     [selectedDomainsQuery.data]
   )
-  const withdrawalsPage = useMemo(
-    () => normalizePagedData(withdrawalsQuery.data),
-    [withdrawalsQuery.data]
-  )
   const agents = agentsPage.items
   const selectedAgent = useMemo(
     () => agents.find((agent) => agent.id === selectedAgentId),
@@ -292,10 +268,6 @@ export function AgentManagement() {
   const selectedDomains = selectedDomainsPage.items
   const selectedGroupRatios = selectedGroupRatiosQuery.data?.data ?? []
   const selectedUserGroups = selectedUserGroupsQuery.data?.data ?? []
-  const withdrawals = withdrawalsPage.items
-  const pendingWithdrawalCount = withdrawals.filter(
-    (withdrawal) => withdrawal.status === 'pending'
-  ).length
   const totalAgentUsers = selectedUsersPage.total
   const selectAgent = (agentId: number) => {
     if (selectedAgentId !== agentId) {
@@ -455,20 +427,6 @@ export function AgentManagement() {
     },
   })
 
-  const completeWithdrawalMutation = useMutation({
-    mutationFn: completeAdminAgentWithdrawal,
-    onSuccess: () => {
-      toast.success(t('Updated successfully'))
-      setWithdrawalRemark('')
-      refresh()
-    },
-    onError: (error) => {
-      toast.error(
-        error instanceof Error ? error.message : t('Operation failed')
-      )
-    },
-  })
-
   const addBalanceMutation = useMutation({
     mutationFn: addAdminAgentBalance,
     onSuccess: () => {
@@ -538,7 +496,7 @@ export function AgentManagement() {
         </SectionPageLayout.Actions>
         <SectionPageLayout.Content>
           <div className='space-y-4'>
-            <div className='grid gap-3 md:grid-cols-4'>
+            <div className='grid gap-3 md:grid-cols-3'>
               <MetricCard
                 label={t('Total Agents')}
                 value={formatQuota(agentsPage.total)}
@@ -556,11 +514,6 @@ export function AgentManagement() {
                 }
                 icon={<Users className='size-4' />}
               />
-              <MetricCard
-                label={t('Pending Withdrawal')}
-                value={formatQuota(pendingWithdrawalCount)}
-                icon={<WalletCards className='size-4' />}
-              />
             </div>
 
             <Tabs defaultValue='agents'>
@@ -572,10 +525,6 @@ export function AgentManagement() {
                 <TabsTrigger value='users'>
                   <Users className='size-4' />
                   {t('Agent Users')}
-                </TabsTrigger>
-                <TabsTrigger value='withdrawals'>
-                  <BadgeDollarSign className='size-4' />
-                  {t('Withdrawal Processing')}
                 </TabsTrigger>
               </TabsList>
 
@@ -836,94 +785,6 @@ export function AgentManagement() {
                       />
                     </>
                   )}
-                </section>
-              </TabsContent>
-
-              <TabsContent value='withdrawals'>
-                <section className='rounded-lg border p-3'>
-                  <div className='mb-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_360px]'>
-                    <div>
-                      <h3 className='text-sm font-semibold'>
-                        {t('Withdrawal Processing')}
-                      </h3>
-                      <p className='text-muted-foreground mt-1 text-xs'>
-                        {t(
-                          'Approve, reject, or mark agent withdrawals as paid.'
-                        )}
-                      </p>
-                    </div>
-                    <Textarea
-                      value={withdrawalRemark}
-                      onChange={(event) =>
-                        setWithdrawalRemark(event.target.value)
-                      }
-                      placeholder={t('Admin Remark')}
-                      className='min-h-20'
-                    />
-                  </div>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>{t('Agent ID')}</TableHead>
-                        <TableHead>{t('Money Amount')}</TableHead>
-                        <TableHead>{t('Status')}</TableHead>
-                        <TableHead>{t('Created At')}</TableHead>
-                        <TableHead className='text-right'>
-                          {t('Actions')}
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {withdrawalsQuery.isLoading ? (
-                        <LoadingRow colSpan={5} />
-                      ) : withdrawals.length === 0 ? (
-                        <TableEmpty
-                          colSpan={5}
-                          title={t('No Withdrawals')}
-                          description={t(
-                            'Agent withdrawal requests will appear here.'
-                          )}
-                          icon={<CircleDollarSign className='size-6' />}
-                        />
-                      ) : (
-                        withdrawals.map((withdrawal) => (
-                          <TableRow key={withdrawal.id}>
-                            <TableCell>{withdrawal.agent_id}</TableCell>
-                            <TableCell>
-                              {formatSettlementAmount(
-                                withdrawal.settlement_amount ??
-                                  withdrawal.amount_money,
-                                withdrawal.currency
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              <Badge
-                                variant={withdrawalVariant(withdrawal.status)}
-                              >
-                                {t(withdrawal.status)}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>
-                              {formatTimestampToDate(withdrawal.created_at)}
-                            </TableCell>
-                            <TableCell className='text-right'>
-                              <WithdrawalActions
-                                withdrawal={withdrawal}
-                                disabled={completeWithdrawalMutation.isPending}
-                                onUpdate={(status) =>
-                                  completeWithdrawalMutation.mutate({
-                                    withdrawalId: withdrawal.id,
-                                    status,
-                                    admin_remark: withdrawalRemark,
-                                  })
-                                }
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
                 </section>
               </TabsContent>
             </Tabs>
@@ -1828,46 +1689,6 @@ function DomainActions(props: {
       >
         <X />
         {!props.compact && t('Disable')}
-      </Button>
-    </div>
-  )
-}
-
-function WithdrawalActions(props: {
-  withdrawal: AgentWithdrawal
-  disabled?: boolean
-  onUpdate: (status: string) => void
-}) {
-  const { t } = useTranslation()
-  const isPending = props.withdrawal.status === 'pending'
-  const isApproved = props.withdrawal.status === 'approved'
-
-  return (
-    <div className='inline-flex justify-end gap-2'>
-      <Button
-        size='sm'
-        variant='outline'
-        disabled={props.disabled || !isPending}
-        onClick={() => props.onUpdate('approved')}
-      >
-        <Check />
-        {t('Approve')}
-      </Button>
-      <Button
-        size='sm'
-        disabled={props.disabled || !isApproved}
-        onClick={() => props.onUpdate('paid')}
-      >
-        {t('Mark Paid')}
-      </Button>
-      <Button
-        size='sm'
-        variant='outline'
-        disabled={props.disabled || (!isPending && !isApproved)}
-        onClick={() => props.onUpdate('rejected')}
-      >
-        <X />
-        {t('Reject')}
       </Button>
     </div>
   )

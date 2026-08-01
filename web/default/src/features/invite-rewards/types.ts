@@ -27,7 +27,7 @@ export interface AffiliateInvitePage {
   page_size: number
   stats: AffiliateInviteStats
   affiliate_policy: AffiliateRewardPolicy
-  minimum_reward_action_quota: number
+  minimum_reward_action_quota?: number
 }
 
 export type AffiliateWithdrawalStatus =

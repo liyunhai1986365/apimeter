@@ -78,6 +78,7 @@ import { StatusBadge } from '@/components/status-badge'
 import { ThemeCustomizationEditor } from '@/components/theme-customization-editor'
 import { HeaderNavigationSection } from '@/features/system-settings/maintenance/header-navigation-section'
 import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
+import { WithdrawalDialog } from '@/features/withdrawals/components/withdrawal-dialog'
 import {
   createAgentDomain,
   clearAgentViewContext,
@@ -229,8 +230,7 @@ export function Agents() {
   const [siteStyle, setSiteStyle] = useState('')
   const [newDomain, setNewDomain] = useState('')
   const [groupRatio, setGroupRatio] = useState('1')
-  const [withdrawMoney, setWithdrawMoney] = useState('')
-  const [accountInfo, setAccountInfo] = useState('')
+  const [withdrawalOpen, setWithdrawalOpen] = useState(false)
   const [fundUser, setFundUser] = useState<AgentUser | null>(null)
   const [fundUserAmount, setFundUserAmount] = useState('')
   const [systemGroupName, setSystemGroupName] = useState('default')
@@ -339,8 +339,7 @@ export function Agents() {
     mutationFn: submitAgentWithdrawal,
     onSuccess: () => {
       toast.success(t('Withdrawal submitted'))
-      setWithdrawMoney('')
-      setAccountInfo('')
+      setWithdrawalOpen(false)
       refreshAgent()
     },
     onError: (error) => {
@@ -441,8 +440,6 @@ export function Agents() {
     systemGroupName.trim() !== '' &&
     Number(groupRatio) >= selectedGroupBaseRatio
   const canSaveUserGroup = userGroupName.trim() !== ''
-  const canSubmitWithdrawal =
-    Number(withdrawMoney) > 0 && accountInfo.trim() !== ''
   const editAgentGroup = (rule: AgentGroupRatio) => {
     const draft = getAgentGroupRatioFormDraft(rule)
     setSystemGroupName(draft.systemGroupName)
@@ -1097,36 +1094,34 @@ export function Agents() {
                     <Wallet className='size-4' />
                     {t('Withdraw')}
                   </h3>
-                  <div className='space-y-2'>
-                    <Input
-                      value={withdrawMoney}
-                      onChange={(event) => setWithdrawMoney(event.target.value)}
-                      type='number'
-                      min='0.01'
-                      step='0.01'
-                      placeholder={`${t('Money Amount')} (${normalizeSettlementCurrency(
-                        balance?.currency ?? self?.agent.settlement_currency
-                      )})`}
-                    />
-                    <Textarea
-                      value={accountInfo}
-                      onChange={(event) => setAccountInfo(event.target.value)}
-                      placeholder={t('Withdrawal Account')}
-                      className='min-h-20'
-                    />
+                  <div className='flex flex-col gap-3'>
+                    <p className='text-muted-foreground text-sm'>
+                      {t(
+                        'Provide an Alipay account or USDT transfer address for administrator review.'
+                      )}
+                    </p>
+                    <div className='text-sm'>
+                      <span className='text-muted-foreground'>
+                        {t('Available Balance')}:{' '}
+                      </span>
+                      <span className='font-semibold tabular-nums'>
+                        {formatSettlementAmount(
+                          balance?.available_amount,
+                          balance?.currency
+                        )}
+                      </span>
+                    </div>
                     <Button
                       className='w-full'
                       disabled={
-                        !canSubmitWithdrawal || withdrawMutation.isPending
+                        !balance ||
+                        balance.available_amount <= 0 ||
+                        withdrawMutation.isPending
                       }
-                      onClick={() =>
-                        withdrawMutation.mutate({
-                          amount_money: Number(withdrawMoney),
-                          account_info: accountInfo.trim(),
-                        })
-                      }
+                      onClick={() => setWithdrawalOpen(true)}
                     >
-                      {t('Submit Withdrawal')}
+                      <Wallet data-icon='inline-start' />
+                      {t('Request withdrawal')}
                     </Button>
                   </div>
                 </section>
@@ -1140,13 +1135,14 @@ export function Agents() {
                       <TableRow>
                         <TableHead>{t('Money Amount')}</TableHead>
                         <TableHead>{t('Status')}</TableHead>
+                        <TableHead>{t('Withdrawal Account')}</TableHead>
                         <TableHead>{t('Created At')}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {withdrawals.length === 0 ? (
                         <TableEmpty
-                          colSpan={3}
+                          colSpan={4}
                           title={t('No Withdrawals')}
                           description={t(
                             'Submitted withdrawals will appear here.'
@@ -1163,9 +1159,19 @@ export function Agents() {
                               )}
                             </TableCell>
                             <TableCell>
-                              <Badge variant={withdrawalVariant(item.status)}>
-                                {t(item.status)}
-                              </Badge>
+                              <div className='flex flex-col items-start gap-1'>
+                                <Badge variant={withdrawalVariant(item.status)}>
+                                  {t(item.status)}
+                                </Badge>
+                                {item.admin_remark ? (
+                                  <span className='text-muted-foreground max-w-56 text-xs break-words'>
+                                    {item.admin_remark}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell className='text-muted-foreground max-w-72 truncate'>
+                              {item.account_info}
                             </TableCell>
                             <TableCell>
                               {formatTimestampToDate(item.created_at)}
@@ -1230,6 +1236,31 @@ export function Agents() {
                   </TableBody>
                 </Table>
               </section>
+
+              <WithdrawalDialog
+                key={
+                  withdrawalOpen
+                    ? 'agent-withdraw-open'
+                    : 'agent-withdraw-closed'
+                }
+                open={withdrawalOpen}
+                onOpenChange={setWithdrawalOpen}
+                availableAmount={balance?.available_amount ?? 0}
+                minimumAmount={0.01}
+                formatAmount={(amount) =>
+                  formatSettlementAmount(
+                    amount,
+                    balance?.currency ?? self?.agent.settlement_currency
+                  )
+                }
+                pending={withdrawMutation.isPending}
+                onSubmit={(amount, accountInfo) =>
+                  withdrawMutation.mutate({
+                    amount_money: amount,
+                    account_info: accountInfo,
+                  })
+                }
+              />
             </TabsContent>
           </Tabs>
           <AgentBalanceDialog

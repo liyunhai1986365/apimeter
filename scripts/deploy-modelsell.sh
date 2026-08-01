@@ -47,6 +47,10 @@ Modes:
   10, --manual-logs  Follow the live systemd service log until interrupted.
   11, --manual-service-start  Start the systemd service and verify health.
   12, --manual-service-stop  Gracefully stop the systemd service.
+
+Target selection:
+  Set DEPLOY_TARGET=backup to use the DEPLOY_*_BACKUP connection variables
+  from the deploy env file. The default target uses the primary DEPLOY_* values.
 EOF
 }
 
@@ -66,6 +70,25 @@ require_cmd() {
 require_var() {
   local name="$1"
   [[ -n "${!name:-}" ]] || fail "Missing required env: $name"
+}
+
+select_deploy_target() {
+  case "${DEPLOY_TARGET:-primary}" in
+    primary|main|"")
+      DEPLOY_TARGET="primary"
+      ;;
+    backup)
+      require_var DEPLOY_HOST_BACKUP
+      DEPLOY_HOST="$DEPLOY_HOST_BACKUP"
+      DEPLOY_PORT="${DEPLOY_PORT_BACKUP:-22}"
+      DEPLOY_USER="${DEPLOY_USER_BACKUP:-root}"
+      DEPLOY_PASSWORD="${DEPLOY_PASSWORD_BACKUP:-}"
+      DEPLOY_SSH_KEY="${DEPLOY_SSH_KEY_BACKUP:-}"
+      ;;
+    *)
+      fail "Unsupported DEPLOY_TARGET: $DEPLOY_TARGET (expected primary or backup)"
+      ;;
+  esac
 }
 
 build_frontend() {
@@ -113,6 +136,8 @@ remote_scp() {
 init_context() {
   load_env_file "$DEPLOY_ENV_FILE"
 
+  select_deploy_target
+
   DEPLOY_PORT="${DEPLOY_PORT:-22}"
   DEPLOY_USER="${DEPLOY_USER:-root}"
   DEPLOY_REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/www/wwwroot/modelsell}"
@@ -158,6 +183,8 @@ init_context() {
   fi
   APP_VERSION_SAFE="$(printf '%s' "$APP_VERSION" | tr -c 'A-Za-z0-9._-' '_')"
   DEPLOY_RELEASE_ID="${DEPLOY_RELEASE_ID:-$(date -u +%Y%m%d%H%M%S)-$APP_VERSION_SAFE}"
+
+  log "Deployment target: $DEPLOY_TARGET ($DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PORT)"
 }
 
 require_local_build_tools() {

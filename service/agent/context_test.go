@@ -473,6 +473,13 @@ func TestSubmitWithdrawalRejectsOverAvailable(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestSubmitWithdrawalRequiresAccount(t *testing.T) {
+	setupAgentTestDB(t)
+
+	_, err := SubmitWithdrawal(1, 100, 1, "   ")
+	require.ErrorIs(t, err, ErrInvalidWithdrawalAccount)
+}
+
 func TestAddBalanceAmountCreatesAuditedAdjustment(t *testing.T) {
 	setupAgentTestDB(t)
 	require.NoError(t, model.DB.Create(&model.Agent{

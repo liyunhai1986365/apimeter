@@ -41,6 +41,7 @@ import { Route as AuthenticatedSystemSettingsRouteRouteImport } from './routes/_
 import { Route as PricingModelIdIndexRouteImport } from './routes/pricing/$modelId/index'
 import { Route as AuthenticatedWorkspacesIndexRouteImport } from './routes/_authenticated/workspaces/index'
 import { Route as AuthenticatedWorkspaceAccountsIndexRouteImport } from './routes/_authenticated/workspace-accounts/index'
+import { Route as AuthenticatedWithdrawalManagementIndexRouteImport } from './routes/_authenticated/withdrawal-management/index'
 import { Route as AuthenticatedWalletIndexRouteImport } from './routes/_authenticated/wallet/index'
 import { Route as AuthenticatedUsersIndexRouteImport } from './routes/_authenticated/users/index'
 import { Route as AuthenticatedUserSubscriptionIndexRouteImport } from './routes/_authenticated/user-subscription/index'
@@ -247,6 +248,12 @@ const AuthenticatedWorkspaceAccountsIndexRoute =
   AuthenticatedWorkspaceAccountsIndexRouteImport.update({
     id: '/workspace-accounts/',
     path: '/workspace-accounts/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedWithdrawalManagementIndexRoute =
+  AuthenticatedWithdrawalManagementIndexRouteImport.update({
+    id: '/withdrawal-management/',
+    path: '/withdrawal-management/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedWalletIndexRoute =
@@ -575,6 +582,7 @@ export interface FileRoutesByFullPath {
   '/user-subscription/': typeof AuthenticatedUserSubscriptionIndexRoute
   '/users/': typeof AuthenticatedUsersIndexRoute
   '/wallet/': typeof AuthenticatedWalletIndexRoute
+  '/withdrawal-management/': typeof AuthenticatedWithdrawalManagementIndexRoute
   '/workspace-accounts/': typeof AuthenticatedWorkspaceAccountsIndexRoute
   '/workspaces/': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
@@ -650,6 +658,7 @@ export interface FileRoutesByTo {
   '/user-subscription': typeof AuthenticatedUserSubscriptionIndexRoute
   '/users': typeof AuthenticatedUsersIndexRoute
   '/wallet': typeof AuthenticatedWalletIndexRoute
+  '/withdrawal-management': typeof AuthenticatedWithdrawalManagementIndexRoute
   '/workspace-accounts': typeof AuthenticatedWorkspaceAccountsIndexRoute
   '/workspaces': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId': typeof PricingModelIdIndexRoute
@@ -730,6 +739,7 @@ export interface FileRoutesById {
   '/_authenticated/user-subscription/': typeof AuthenticatedUserSubscriptionIndexRoute
   '/_authenticated/users/': typeof AuthenticatedUsersIndexRoute
   '/_authenticated/wallet/': typeof AuthenticatedWalletIndexRoute
+  '/_authenticated/withdrawal-management/': typeof AuthenticatedWithdrawalManagementIndexRoute
   '/_authenticated/workspace-accounts/': typeof AuthenticatedWorkspaceAccountsIndexRoute
   '/_authenticated/workspaces/': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
@@ -809,6 +819,7 @@ export interface FileRouteTypes {
     | '/user-subscription/'
     | '/users/'
     | '/wallet/'
+    | '/withdrawal-management/'
     | '/workspace-accounts/'
     | '/workspaces/'
     | '/pricing/$modelId/'
@@ -884,6 +895,7 @@ export interface FileRouteTypes {
     | '/user-subscription'
     | '/users'
     | '/wallet'
+    | '/withdrawal-management'
     | '/workspace-accounts'
     | '/workspaces'
     | '/pricing/$modelId'
@@ -963,6 +975,7 @@ export interface FileRouteTypes {
     | '/_authenticated/user-subscription/'
     | '/_authenticated/users/'
     | '/_authenticated/wallet/'
+    | '/_authenticated/withdrawal-management/'
     | '/_authenticated/workspace-accounts/'
     | '/_authenticated/workspaces/'
     | '/pricing/$modelId/'
@@ -1229,6 +1242,13 @@ declare module '@tanstack/react-router' {
       path: '/workspace-accounts'
       fullPath: '/workspace-accounts/'
       preLoaderRoute: typeof AuthenticatedWorkspaceAccountsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/withdrawal-management/': {
+      id: '/_authenticated/withdrawal-management/'
+      path: '/withdrawal-management'
+      fullPath: '/withdrawal-management/'
+      preLoaderRoute: typeof AuthenticatedWithdrawalManagementIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/wallet/': {
@@ -1677,6 +1697,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUserSubscriptionIndexRoute: typeof AuthenticatedUserSubscriptionIndexRoute
   AuthenticatedUsersIndexRoute: typeof AuthenticatedUsersIndexRoute
   AuthenticatedWalletIndexRoute: typeof AuthenticatedWalletIndexRoute
+  AuthenticatedWithdrawalManagementIndexRoute: typeof AuthenticatedWithdrawalManagementIndexRoute
   AuthenticatedWorkspaceAccountsIndexRoute: typeof AuthenticatedWorkspaceAccountsIndexRoute
   AuthenticatedWorkspacesIndexRoute: typeof AuthenticatedWorkspacesIndexRoute
 }
@@ -1719,6 +1740,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
     AuthenticatedUserSubscriptionIndexRoute,
   AuthenticatedUsersIndexRoute: AuthenticatedUsersIndexRoute,
   AuthenticatedWalletIndexRoute: AuthenticatedWalletIndexRoute,
+  AuthenticatedWithdrawalManagementIndexRoute:
+    AuthenticatedWithdrawalManagementIndexRoute,
   AuthenticatedWorkspaceAccountsIndexRoute:
     AuthenticatedWorkspaceAccountsIndexRoute,
   AuthenticatedWorkspacesIndexRoute: AuthenticatedWorkspacesIndexRoute,

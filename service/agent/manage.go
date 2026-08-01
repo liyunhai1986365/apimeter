@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
@@ -25,6 +26,7 @@ var (
 	ErrAgentSystemGroupNotFound   = errors.New("agent system group not found")
 	ErrInsufficientAgentBalance   = errors.New("insufficient agent balance")
 	ErrInvalidAgentBalanceAmount  = errors.New("agent balance amount must be greater than 0")
+	ErrInvalidWithdrawalAccount   = errors.New("withdrawal account is required")
 	ErrInvalidWithdrawalStatus    = errors.New("invalid withdrawal status")
 	ErrInvalidAgentUserStatus     = errors.New("invalid agent user status")
 	ErrAgentUserGroupNotAllowed   = errors.New("agent user group is not allowed")
@@ -841,8 +843,12 @@ func UpdateUserGroup(agentID int, userID int, groupName string) error {
 }
 
 func SubmitWithdrawal(agentID int, amountQuota int, amountMoney float64, accountInfo string) (*model.AgentWithdrawal, error) {
+	accountInfo = strings.TrimSpace(accountInfo)
 	if amountQuota <= 0 {
 		return nil, ErrInsufficientAgentBalance
+	}
+	if accountInfo == "" || utf8.RuneCountInString(accountInfo) > 2000 {
+		return nil, ErrInvalidWithdrawalAccount
 	}
 	var created *model.AgentWithdrawal
 	err := model.DB.Transaction(func(tx *gorm.DB) error {
@@ -861,7 +867,7 @@ func SubmitWithdrawal(agentID int, amountQuota int, amountMoney float64, account
 			AmountQuota: amountQuota,
 			AmountMoney: amountMoney,
 			Status:      model.AgentWithdrawalStatusPending,
-			AccountInfo: strings.TrimSpace(accountInfo),
+			AccountInfo: accountInfo,
 		}
 		if err := tx.Create(withdrawal).Error; err != nil {
 			return err
