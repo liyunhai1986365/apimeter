@@ -422,6 +422,12 @@ func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment
 			if err := model.CompleteCryptoPayment(payment.TradeNo, logEntry.TransactionHash, logEntry.LogIndex, blockNumber); err != nil {
 				retryPayment[payment.Id] = struct{}{}
 				common.SysError("failed to complete EVM crypto payment: " + err.Error())
+			} else {
+				NotifyTopUpSuccessAsync(TopUpSuccessEmailParams{
+					TradeNo:    payment.TradeNo,
+					PaidAmount: payment.DisplayAmount,
+					Currency:   payment.TokenSymbol,
+				})
 			}
 		}
 
@@ -535,6 +541,12 @@ func scanTronPaymentGroup(ctx context.Context, config CryptoNetworkConfig, activ
 			}
 			if err := model.CompleteCryptoPayment(payment.TradeNo, transfer.TransactionId, "", info.BlockNumber); err != nil {
 				common.SysError("failed to complete TRON crypto payment: " + err.Error())
+			} else {
+				NotifyTopUpSuccessAsync(TopUpSuccessEmailParams{
+					TradeNo:    payment.TradeNo,
+					PaidAmount: payment.DisplayAmount,
+					Currency:   payment.TokenSymbol,
+				})
 			}
 		}
 

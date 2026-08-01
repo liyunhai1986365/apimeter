@@ -472,6 +472,12 @@ func HandleStripeAutoRechargePaymentSucceeded(ctx context.Context, tradeNo strin
 		return model.ErrTopUpNotFound
 	}
 	if topUp.Status == common.TopUpStatusSuccess {
+		NotifyTopUpSuccessAsync(TopUpSuccessEmailParams{
+			TradeNo:    tradeNo,
+			PaidAmount: fmt.Sprintf("%.2f", float64(amountCents)/100),
+			Currency:   currency,
+			Automatic:  true,
+		})
 		return model.CompleteStripeAutoRecharge(tradeNo)
 	}
 	config, err := model.GetStripeAutoRechargeByTradeNo(tradeNo)
@@ -487,6 +493,12 @@ func HandleStripeAutoRechargePaymentSucceeded(ctx context.Context, tradeNo strin
 	if err := model.Recharge(tradeNo, customerId, callerIp); err != nil {
 		return err
 	}
+	NotifyTopUpSuccessAsync(TopUpSuccessEmailParams{
+		TradeNo:    tradeNo,
+		PaidAmount: fmt.Sprintf("%.2f", float64(amountCents)/100),
+		Currency:   currency,
+		Automatic:  true,
+	})
 	if err := model.CompleteStripeAutoRecharge(tradeNo); err != nil {
 		return err
 	}

@@ -23,6 +23,10 @@ type TopUp struct {
 	CreateTime      int64   `json:"create_time"`
 	CompleteTime    int64   `json:"complete_time"`
 	Status          string  `json:"status"`
+	// SuccessEmailSentAt is positive after the success email is sent and negative
+	// while one worker owns the send. Keeping the claim on the order makes
+	// repeated payment-provider callbacks idempotent across processes.
+	SuccessEmailSentAt int64 `json:"-" gorm:"default:0"`
 }
 
 type TopUpQuery struct {
@@ -82,6 +86,47 @@ func GetTopUpByTradeNo(tradeNo string) *TopUp {
 		return nil
 	}
 	return topUp
+}
+
+// ClaimTopUpSuccessEmail atomically claims a completed order for one email
+// sender. A negative value is a short-lived claim; stale claims can be taken
+// over so a process crash does not permanently suppress the notification.
+func ClaimTopUpSuccessEmail(tradeNo string) (*TopUp, int64, bool, error) {
+	if tradeNo == "" {
+		return nil, 0, false, errors.New("missing topup trade number")
+	}
+
+	now := common.GetTimestamp()
+	claimValue := -now
+	staleClaimBoundary := -(now - 10*60)
+	result := DB.Model(&TopUp{}).
+		Where("trade_no = ? AND status = ? AND (success_email_sent_at = 0 OR (success_email_sent_at < 0 AND success_email_sent_at > ?))", tradeNo, common.TopUpStatusSuccess, staleClaimBoundary).
+		Update("success_email_sent_at", claimValue)
+	if result.Error != nil {
+		return nil, 0, false, result.Error
+	}
+	if result.RowsAffected == 0 {
+		return nil, 0, false, nil
+	}
+
+	topUp := &TopUp{}
+	if err := DB.Where("trade_no = ? AND success_email_sent_at = ?", tradeNo, claimValue).First(topUp).Error; err != nil {
+		_ = DB.Model(&TopUp{}).Where("trade_no = ? AND success_email_sent_at = ?", tradeNo, claimValue).Update("success_email_sent_at", 0).Error
+		return nil, 0, false, err
+	}
+	return topUp, claimValue, true, nil
+}
+
+func CompleteTopUpSuccessEmailClaim(tradeNo string, claimValue int64) error {
+	return DB.Model(&TopUp{}).
+		Where("trade_no = ? AND success_email_sent_at = ?", tradeNo, claimValue).
+		Update("success_email_sent_at", common.GetTimestamp()).Error
+}
+
+func ReleaseTopUpSuccessEmailClaim(tradeNo string, claimValue int64) error {
+	return DB.Model(&TopUp{}).
+		Where("trade_no = ? AND success_email_sent_at = ?", tradeNo, claimValue).
+		Update("success_email_sent_at", 0).Error
 }
 
 func UpdatePendingTopUpStatus(tradeNo string, expectedPaymentProvider string, targetStatus string) error {

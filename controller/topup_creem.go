@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"io"
 	"net/http"
@@ -330,6 +331,13 @@ func handleCheckoutCompleted(c *gin.Context, event *CreemWebhookEvent) {
 	}
 
 	if topUp.Status != common.TopUpStatusPending {
+		if topUp.Status == common.TopUpStatusSuccess {
+			service.NotifyTopUpSuccessAsync(service.TopUpSuccessEmailParams{
+				TradeNo:    referenceId,
+				PaidAmount: fmt.Sprintf("%.2f", float64(event.Object.Order.AmountPaid)/100),
+				Currency:   event.Object.Order.Currency,
+			})
+		}
 		logger.LogInfo(c.Request.Context(), fmt.Sprintf("Creem 充值订单状态非 pending，忽略处理 trade_no=%s status=%s creem_order_id=%s", referenceId, topUp.Status, event.Object.Order.Id))
 		c.Status(http.StatusOK) // 已处理过的订单，返回成功避免重复处理
 		return
@@ -353,6 +361,11 @@ func handleCheckoutCompleted(c *gin.Context, event *CreemWebhookEvent) {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
+	service.NotifyTopUpSuccessAsync(service.TopUpSuccessEmailParams{
+		TradeNo:    referenceId,
+		PaidAmount: fmt.Sprintf("%.2f", float64(event.Object.Order.AmountPaid)/100),
+		Currency:   event.Object.Order.Currency,
+	})
 
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf("Creem 充值成功 trade_no=%s creem_order_id=%s quota=%d money=%.2f client_ip=%s", referenceId, event.Object.Order.Id, topUp.Amount, topUp.Money, c.ClientIP()))
 	c.Status(http.StatusOK)

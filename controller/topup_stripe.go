@@ -410,15 +410,27 @@ func fulfillOrder(ctx context.Context, event stripe.Event, referenceId string, c
 		return
 	}
 
+	totalCents, _ := strconv.ParseInt(event.GetObjectValue("amount_total"), 10, 64)
+	currency := strings.ToUpper(event.GetObjectValue("currency"))
+	emailParams := service.TopUpSuccessEmailParams{
+		TradeNo:    referenceId,
+		PaidAmount: fmt.Sprintf("%.2f", float64(totalCents)/100),
+		Currency:   currency,
+	}
+	if topUp := model.GetTopUpByTradeNo(referenceId); topUp != nil && topUp.PaymentProvider == model.PaymentProviderStripe && topUp.Status == common.TopUpStatusSuccess {
+		service.NotifyTopUpSuccessAsync(emailParams)
+		logger.LogInfo(ctx, fmt.Sprintf("Stripe 充值订单已完成，已检查邮件通知 trade_no=%s event_type=%s client_ip=%s", referenceId, string(event.Type), callerIp))
+		return
+	}
+
 	err := model.Recharge(referenceId, customerId, callerIp)
 	if err != nil {
 		logger.LogError(ctx, fmt.Sprintf("Stripe 充值处理失败 trade_no=%s event_type=%s client_ip=%s error=%q", referenceId, string(event.Type), callerIp, err.Error()))
 		return
 	}
 
-	total, _ := strconv.ParseFloat(event.GetObjectValue("amount_total"), 64)
-	currency := strings.ToUpper(event.GetObjectValue("currency"))
-	logger.LogInfo(ctx, fmt.Sprintf("Stripe 充值成功 trade_no=%s amount_total=%.2f currency=%s event_type=%s client_ip=%s", referenceId, total/100, currency, string(event.Type), callerIp))
+	service.NotifyTopUpSuccessAsync(emailParams)
+	logger.LogInfo(ctx, fmt.Sprintf("Stripe 充值成功 trade_no=%s amount_total=%.2f currency=%s event_type=%s client_ip=%s", referenceId, float64(totalCents)/100, currency, string(event.Type), callerIp))
 }
 
 func sessionExpired(ctx context.Context, event stripe.Event) {
