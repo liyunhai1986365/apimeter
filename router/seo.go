@@ -5,6 +5,7 @@ import (
 	"html"
 	"net/http"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -28,6 +29,7 @@ const (
 	seoShellBootStyle      = `<style data-seo-shell-boot="true">html[data-seo-client="pending"] [data-seo-shell="true"]{display:none!important}</style>`
 	seoShellBootScript     = `<script data-seo-shell-boot="true">document.documentElement.dataset.seoClient="pending";window.setTimeout(function(){delete document.documentElement.dataset.seoClient},8000)</script>`
 	seoModelDirectoryLimit = 500
+	seoCanonicalBaseURLEnv = "SEO_CANONICAL_BASE_URL"
 )
 
 var seoBlockPattern = regexp.MustCompile(`(?s)<!--seo-meta-start-->.*?<!--seo-meta-end-->`)
@@ -712,7 +714,7 @@ func requestOrigin(c *gin.Context) string {
 	if agentCtx := seoAgentContext(c); agentCtx != nil && agentCtx.Domain != "" {
 		return requestOriginForHost(c, agentCtx.Domain)
 	}
-	if configured := validSEOOrigin(system_setting.ServerAddress); configured != "" {
+	if configured := configuredSEOOrigin(); configured != "" {
 		parsed, _ := url.Parse(configured)
 		if !isLocalSEOHost(parsed.Hostname()) || c == nil || c.Request == nil || isLocalSEOHost(requestHostname(c.Request.Host)) {
 			return configured
@@ -740,7 +742,7 @@ func redirectCanonicalSEOURL() gin.HandlerFunc {
 		origin := requestOriginForHost(c, c.Request.Host)
 		canonicalOrigin := origin
 		if seoAgentContext(c) == nil {
-			if configured := validSEOOrigin(system_setting.ServerAddress); configured != "" && !isLocalSEOHost(requestHostname(c.Request.Host)) {
+			if configured := configuredSEOOrigin(); configured != "" && !isLocalSEOHost(requestHostname(c.Request.Host)) {
 				parsed, _ := url.Parse(configured)
 				if !isLocalSEOHost(parsed.Hostname()) {
 					canonicalOrigin = configured
@@ -759,6 +761,13 @@ func redirectCanonicalSEOURL() gin.HandlerFunc {
 		c.Redirect(http.StatusMovedPermanently, target)
 		c.Abort()
 	}
+}
+
+func configuredSEOOrigin() string {
+	if configured := validSEOOrigin(os.Getenv(seoCanonicalBaseURLEnv)); configured != "" {
+		return configured
+	}
+	return validSEOOrigin(system_setting.ServerAddress)
 }
 
 func isCanonicalSEORequest(path string) bool {

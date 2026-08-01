@@ -12,6 +12,10 @@ import (
 )
 
 func SetApiRouter(router *gin.Engine) {
+	// Readiness bypasses request rate limiting so infrastructure health probes
+	// cannot accidentally rate-limit a healthy node out of rotation.
+	router.GET("/api/ready", middleware.RouteTag("api"), controller.GetReadiness)
+
 	apiRouter := router.Group("/api")
 	apiRouter.Use(middleware.RouteTag("api"))
 	apiRouter.Use(gzip.Gzip(gzip.DefaultCompression))

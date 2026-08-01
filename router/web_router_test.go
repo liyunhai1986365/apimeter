@@ -95,6 +95,7 @@ func TestResolveSEOPageUsesCanonicalPathWithoutQuery(t *testing.T) {
 }
 
 func TestRequestOriginUsesConfiguredPrimarySiteForMainDomain(t *testing.T) {
+	t.Setenv(seoCanonicalBaseURLEnv, "")
 	oldServerAddress := system_setting.ServerAddress
 	system_setting.ServerAddress = "https://modelsell.com/base?ignored=true"
 	t.Cleanup(func() {
@@ -105,6 +106,20 @@ func TestRequestOriginUsesConfiguredPrimarySiteForMainDomain(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "https://www.modelsell.com/pricing", nil)
 
 	require.Equal(t, "https://modelsell.com", requestOrigin(c))
+}
+
+func TestRequestOriginUsesEnvironmentCanonicalOverride(t *testing.T) {
+	t.Setenv(seoCanonicalBaseURLEnv, "http://38.145.213.6:3000")
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() {
+		system_setting.ServerAddress = oldServerAddress
+	})
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodGet, "http://38.145.213.6:3000/pricing", nil)
+
+	require.Equal(t, "http://38.145.213.6:3000", requestOrigin(c))
 }
 
 func TestRequestOriginKeepsAgentCustomDomain(t *testing.T) {
@@ -400,6 +415,7 @@ func TestResolveSEOPageRemovesCanonicalFromPrivatePath(t *testing.T) {
 }
 
 func TestCanonicalSEOURLRedirectsDuplicatePublicURLs(t *testing.T) {
+	t.Setenv(seoCanonicalBaseURLEnv, "")
 	oldServerAddress := system_setting.ServerAddress
 	system_setting.ServerAddress = "https://modelsell.com"
 	t.Cleanup(func() { system_setting.ServerAddress = oldServerAddress })
@@ -426,6 +442,24 @@ func TestCanonicalSEOURLRedirectsDuplicatePublicURLs(t *testing.T) {
 			require.Equal(t, test.expected, recorder.Header().Get("Location"))
 		})
 	}
+}
+
+func TestCanonicalSEOURLUsesEnvironmentOverrideForBackupHost(t *testing.T) {
+	t.Setenv(seoCanonicalBaseURLEnv, "http://38.145.213.6:3000")
+	oldServerAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() { system_setting.ServerAddress = oldServerAddress })
+
+	engine := gin.New()
+	engine.Use(redirectCanonicalSEOURL())
+	engine.GET("/*path", func(c *gin.Context) { c.Status(http.StatusNoContent) })
+
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodGet, "http://38.145.213.6:3000/", nil)
+	engine.ServeHTTP(recorder, request)
+
+	require.Equal(t, http.StatusNoContent, recorder.Code)
+	require.Empty(t, recorder.Header().Get("Location"))
 }
 
 func TestCanonicalSEOURLDoesNotRedirectAPIRoutesOrAgentDomains(t *testing.T) {

@@ -1,12 +1,14 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -42,6 +44,61 @@ func TestStatus(c *gin.Context) {
 		"http_stats": httpStats,
 	})
 	return
+}
+
+func GetReadiness(c *gin.Context) {
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
+	defer cancel()
+
+	checks := gin.H{}
+	ready := true
+
+	if err := model.CheckDatabaseReadiness(ctx, model.DB); err != nil {
+		checks["database"] = "unavailable"
+		ready = false
+	} else {
+		checks["database"] = "ok"
+	}
+
+	if model.LOG_DB != model.DB {
+		if err := model.CheckDatabaseReadiness(ctx, model.LOG_DB); err != nil {
+			checks["log_database"] = "unavailable"
+			ready = false
+		} else {
+			checks["log_database"] = "ok"
+		}
+	} else {
+		checks["log_database"] = checks["database"]
+	}
+
+	if common.RedisEnabled {
+		if common.RDB == nil || common.RDB.Ping(ctx).Err() != nil {
+			checks["redis"] = "unavailable"
+			ready = false
+		} else {
+			checks["redis"] = "ok"
+		}
+	} else {
+		checks["redis"] = "disabled"
+	}
+
+	nodeType := "slave"
+	if common.IsMasterNode {
+		nodeType = "master"
+	}
+	status := http.StatusOK
+	if !ready {
+		status = http.StatusServiceUnavailable
+	}
+	c.JSON(status, gin.H{
+		"success": ready,
+		"data": gin.H{
+			"checks":    checks,
+			"node_name": common.NodeName,
+			"node_type": nodeType,
+			"version":   common.Version,
+		},
+	})
 }
 
 func GetStatus(c *gin.Context) {

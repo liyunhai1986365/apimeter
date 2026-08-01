@@ -84,6 +84,8 @@ select_deploy_target() {
       DEPLOY_USER="${DEPLOY_USER_BACKUP:-root}"
       DEPLOY_PASSWORD="${DEPLOY_PASSWORD_BACKUP:-}"
       DEPLOY_SSH_KEY="${DEPLOY_SSH_KEY_BACKUP:-}"
+      DEPLOY_APP_ENV_FILE="${DEPLOY_APP_ENV_FILE_BACKUP:-${DEPLOY_APP_ENV_FILE:-.env.production}}"
+      DEPLOY_SEO_CANONICAL_URL="${DEPLOY_SEO_CANONICAL_URL_BACKUP:-${DEPLOY_SEO_CANONICAL_URL:-https://modelsell.com}}"
       ;;
     *)
       fail "Unsupported DEPLOY_TARGET: $DEPLOY_TARGET (expected primary or backup)"
@@ -439,6 +441,11 @@ rollback_service() {
   if [[ -n "$previous_target" && -d "$previous_target" ]]; then
     ln -sfnT "$previous_target" "$CURRENT_LINK"
     warn "Restored previous release: $previous_target"
+  else
+    rm -f "$CURRENT_LINK"
+    stop_service || true
+    warn "No previous release is available; service left stopped"
+    return 0
   fi
 
   systemctl daemon-reload || true
@@ -498,7 +505,10 @@ if ! [[ "$HEALTH_TIMEOUT" =~ ^[0-9]+$ ]] || (( HEALTH_TIMEOUT < 1 )); then
   HEALTH_TIMEOUT=30
 fi
 
-PREVIOUS_TARGET="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+PREVIOUS_TARGET=""
+if [[ -L "$CURRENT_LINK" ]]; then
+  PREVIOUS_TARGET="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
+fi
 
 if [[ "$APPLY_RELEASE" == "1" ]]; then
   log "Extracting release: $RELEASE_ID"
