@@ -1013,6 +1013,24 @@ func GetUserEmail(id int) (email string, err error) {
 	return email, err
 }
 
+// SetUserStripeCustomerIfEmpty preserves an existing Stripe customer selected
+// by another concurrent request and returns the authoritative value.
+func SetUserStripeCustomerIfEmpty(id int, customerId string) (string, error) {
+	if id <= 0 || customerId == "" {
+		return "", errors.New("invalid Stripe customer")
+	}
+	if err := DB.Model(&User{}).
+		Where("id = ? AND (stripe_customer = '' OR stripe_customer IS NULL)", id).
+		Update("stripe_customer", customerId).Error; err != nil {
+		return "", err
+	}
+	var authoritative string
+	if err := DB.Model(&User{}).Where("id = ?", id).Select("stripe_customer").Scan(&authoritative).Error; err != nil {
+		return "", err
+	}
+	return authoritative, nil
+}
+
 // GetUserGroup gets group from Redis first, falls back to DB if needed
 func GetUserGroup(id int, fromDB bool) (group string, err error) {
 	defer func() {

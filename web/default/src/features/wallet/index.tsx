@@ -33,6 +33,7 @@ import { CryptoPaymentDialog } from './components/dialogs/crypto-payment-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
 import { TransferDialog } from './components/dialogs/transfer-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
+import { StripeAutoRechargeCard } from './components/stripe-auto-recharge-card'
 import { WalletStatsCard } from './components/wallet-stats-card'
 import { DEFAULT_DISCOUNT_RATE } from './constants'
 import {
@@ -62,6 +63,7 @@ import type {
 interface WalletProps {
   initialShowHistory?: boolean
   stripeSessionId?: string
+  stripeSetupSessionId?: string
 }
 
 export function Wallet(props: WalletProps) {
@@ -412,6 +414,11 @@ export function Wallet(props: WalletProps) {
               </div>
 
               <div className='space-y-4 sm:space-y-5'>
+                {topupInfo?.enable_stripe_topup && (
+                  <StripeAutoRechargeCard
+                    setupSessionId={props.stripeSetupSessionId}
+                  />
+                )}
                 <AffiliateRewardsCard
                   user={user}
                   affiliateLink={affiliateLink}

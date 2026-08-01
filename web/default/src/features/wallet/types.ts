@@ -48,6 +48,32 @@ export type StripePurchaseConversionResponse = ApiResponse<{
   value?: number
   currency?: string
 }>
+export interface StripeAutoRechargeStatus {
+  available: boolean
+  bound: boolean
+  enabled: boolean
+  threshold: number
+  topup_amount: number
+  min_topup_amount: number
+  card_brand?: string
+  card_last4?: string
+  card_exp_month?: number
+  card_exp_year?: number
+  state?: 'idle' | 'processing' | 'pending' | 'failed' | 'action_required'
+  last_error?: string
+  last_attempt_at?: number
+  last_success_at?: number
+}
+export type StripeAutoRechargeResponse = ApiResponse<StripeAutoRechargeStatus>
+export type StripeAutoRechargeSetupResponse = ApiResponse<{
+  setup_url: string
+}>
+export interface StripeAutoRechargeUpdateRequest {
+  enabled: boolean
+  threshold: number
+  topup_amount: number
+  consent: boolean
+}
 export type AffiliateCodeResponse = ApiResponse<string>
 export type AffiliateTransferResponse = ApiResponse
 export type CreemPaymentResponse = ApiResponse<{ checkout_url: string }>

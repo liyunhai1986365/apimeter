@@ -138,6 +138,9 @@ func main() {
 	// Direct EVM/TRON stablecoin payment confirmation task.
 	service.StartCryptoPaymentTask()
 
+	// Stripe saved-card wallet auto recharge task.
+	service.StartStripeAutoRechargeTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)

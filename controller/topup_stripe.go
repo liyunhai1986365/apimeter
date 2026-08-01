@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 
@@ -239,7 +240,7 @@ func StripeWebhook(c *gin.Context) {
 	}
 
 	signature := c.GetHeader("Stripe-Signature")
-	logger.LogInfo(ctx, fmt.Sprintf("Stripe webhook 收到请求 path=%q client_ip=%s signature=%q body=%q", c.Request.RequestURI, c.ClientIP(), signature, string(payload)))
+	logger.LogInfo(ctx, fmt.Sprintf("Stripe webhook 收到请求 path=%q client_ip=%s signature_present=%t body_bytes=%d", c.Request.RequestURI, c.ClientIP(), signature != "", len(payload)))
 	event, err := webhook.ConstructEventWithOptions(payload, signature, setting.StripeWebhookSecret, webhook.ConstructEventOptions{
 		IgnoreAPIVersionMismatch: true,
 	})
@@ -254,13 +255,33 @@ func StripeWebhook(c *gin.Context) {
 	logger.LogInfo(ctx, fmt.Sprintf("Stripe webhook 验签成功 event_type=%s client_ip=%s path=%q", string(event.Type), callerIp, c.Request.RequestURI))
 	switch event.Type {
 	case stripe.EventTypeCheckoutSessionCompleted:
-		sessionCompleted(ctx, event, callerIp)
+		if err := sessionCompleted(ctx, event, callerIp); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("Stripe checkout completed webhook handling failed event_id=%s error=%q", event.ID, err.Error()))
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 	case stripe.EventTypeCheckoutSessionExpired:
 		sessionExpired(ctx, event)
 	case stripe.EventTypeCheckoutSessionAsyncPaymentSucceeded:
 		sessionAsyncPaymentSucceeded(ctx, event, callerIp)
 	case stripe.EventTypeCheckoutSessionAsyncPaymentFailed:
 		sessionAsyncPaymentFailed(ctx, event, callerIp)
+	case stripe.EventTypePaymentIntentSucceeded:
+		if err := stripeAutoRechargePaymentSucceeded(ctx, event, callerIp); err != nil {
+			if errors.Is(err, service.ErrStripeAutoRechargeVerification) {
+				logger.LogError(ctx, fmt.Sprintf("Stripe auto recharge webhook verification rejected payment_intent=%s error=%q", event.GetObjectValue("id"), err.Error()))
+				break
+			}
+			logger.LogError(ctx, fmt.Sprintf("Stripe auto recharge webhook fulfillment failed payment_intent=%s error=%q", event.GetObjectValue("id"), err.Error()))
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+	case stripe.EventTypePaymentIntentPaymentFailed:
+		if err := stripeAutoRechargePaymentFailed(event); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("Stripe auto recharge failure webhook handling failed payment_intent=%s error=%q", event.GetObjectValue("id"), err.Error()))
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
 	default:
 		logger.LogInfo(ctx, fmt.Sprintf("Stripe webhook 忽略事件 event_type=%s client_ip=%s", string(event.Type), callerIp))
 	}
@@ -268,22 +289,54 @@ func StripeWebhook(c *gin.Context) {
 	c.Status(http.StatusOK)
 }
 
-func sessionCompleted(ctx context.Context, event stripe.Event, callerIp string) {
+func sessionCompleted(ctx context.Context, event stripe.Event, callerIp string) error {
+	if event.GetObjectValue("mode") == string(stripe.CheckoutSessionModeSetup) && event.GetObjectValue("metadata", "purpose") == "wallet_auto_recharge" {
+		return service.CompleteStripeAutoRechargeSetupSession(ctx, event.GetObjectValue("id"), 0)
+	}
 	customerId := event.GetObjectValue("customer")
 	referenceId := event.GetObjectValue("client_reference_id")
 	status := event.GetObjectValue("status")
 	if "complete" != status {
 		logger.LogWarn(ctx, fmt.Sprintf("Stripe checkout.completed 状态异常，忽略处理 trade_no=%s status=%s client_ip=%s", referenceId, status, callerIp))
-		return
+		return nil
 	}
 
 	paymentStatus := event.GetObjectValue("payment_status")
 	if paymentStatus != "paid" {
 		logger.LogInfo(ctx, fmt.Sprintf("Stripe Checkout 支付未完成，等待异步结果 trade_no=%s payment_status=%s client_ip=%s", referenceId, paymentStatus, callerIp))
-		return
+		return nil
 	}
 
 	fulfillOrder(ctx, event, referenceId, customerId, callerIp)
+	return nil
+}
+
+func stripeAutoRechargePaymentSucceeded(ctx context.Context, event stripe.Event, callerIp string) error {
+	if event.GetObjectValue("metadata", "purpose") != "wallet_auto_recharge" {
+		return nil
+	}
+	tradeNo := event.GetObjectValue("metadata", "trade_no")
+	amountCents, err := strconv.ParseInt(event.GetObjectValue("amount"), 10, 64)
+	if err != nil {
+		return fmt.Errorf("%w: invalid amount", service.ErrStripeAutoRechargeVerification)
+	}
+	return service.HandleStripeAutoRechargePaymentSucceeded(
+		ctx,
+		tradeNo,
+		event.GetObjectValue("id"),
+		event.GetObjectValue("customer"),
+		amountCents,
+		event.GetObjectValue("currency"),
+		callerIp,
+	)
+}
+
+func stripeAutoRechargePaymentFailed(event stripe.Event) error {
+	if event.GetObjectValue("metadata", "purpose") != "wallet_auto_recharge" {
+		return nil
+	}
+	tradeNo := event.GetObjectValue("metadata", "trade_no")
+	return service.HandleStripeAutoRechargePaymentFailed(tradeNo, "银行卡自动扣款失败，请检查卡片后重新开启")
 }
 
 // sessionAsyncPaymentSucceeded handles delayed payment methods (bank transfer, SEPA, etc.)
@@ -467,33 +520,11 @@ func genStripeLink(referenceId string, customerId string, email string, amount i
 }
 
 func GetChargedAmount(count float64, user model.User) float64 {
-	topUpGroupRatio := common.GetTopupGroupRatio(user.Group)
-	if topUpGroupRatio == 0 {
-		topUpGroupRatio = 1
-	}
-
-	return count * topUpGroupRatio
+	return service.StripeTopUpCredit(count, user.Group)
 }
 
 func getStripePayMoney(amount float64, group string) float64 {
-	originalAmount := amount
-	if operation_setting.GetQuotaDisplayType() == operation_setting.QuotaDisplayTypeTokens {
-		amount = amount / common.QuotaPerUnit
-	}
-	// Using float64 for monetary calculations is acceptable here due to the small amounts involved
-	topupGroupRatio := common.GetTopupGroupRatio(group)
-	if topupGroupRatio == 0 {
-		topupGroupRatio = 1
-	}
-	// apply optional preset discount by the original request amount (if configured), default 1.0
-	discount := 1.0
-	if ds, ok := operation_setting.GetPaymentSetting().AmountDiscount[int(originalAmount)]; ok {
-		if ds > 0 {
-			discount = ds
-		}
-	}
-	payMoney := amount * setting.StripeUnitPrice * topupGroupRatio * discount
-	return payMoney
+	return service.StripeTopUpPayMoney(amount, group)
 }
 
 func getStripeMinTopup() int64 {

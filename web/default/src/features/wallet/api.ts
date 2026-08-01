@@ -29,6 +29,9 @@ import type {
   PaymentResponse,
   StripePaymentResponse,
   StripePurchaseConversionResponse,
+  StripeAutoRechargeResponse,
+  StripeAutoRechargeSetupResponse,
+  StripeAutoRechargeUpdateRequest,
   AffiliateCodeResponse,
   AffiliateTransferResponse,
   BillingHistoryResponse,
@@ -158,6 +161,46 @@ export async function getStripePurchaseConversion(
 ): Promise<StripePurchaseConversionResponse> {
   const res = await api.get('/api/user/stripe/purchase-conversion', {
     params: { session_id: sessionId },
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function getStripeAutoRecharge(): Promise<StripeAutoRechargeResponse> {
+  const res = await api.get('/api/user/stripe/auto-recharge', {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function createStripeAutoRechargeSetup(): Promise<StripeAutoRechargeSetupResponse> {
+  const res = await api.post('/api/user/stripe/auto-recharge/setup', {}, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function confirmStripeAutoRechargeSetup(
+  sessionId: string
+): Promise<StripeAutoRechargeResponse> {
+  const res = await api.get('/api/user/stripe/auto-recharge/setup', {
+    params: { session_id: sessionId },
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function updateStripeAutoRecharge(
+  request: StripeAutoRechargeUpdateRequest
+): Promise<StripeAutoRechargeResponse> {
+  const res = await api.put('/api/user/stripe/auto-recharge', request, {
+    skipBusinessError: true,
+  } as Record<string, unknown>)
+  return res.data
+}
+
+export async function deleteStripeAutoRecharge(): Promise<ApiResponse> {
+  const res = await api.delete('/api/user/stripe/auto-recharge', {
     skipBusinessError: true,
   } as Record<string, unknown>)
   return res.data
