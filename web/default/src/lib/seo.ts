@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { toIntlLocale } from '@/i18n/languages'
 import type { TFunction } from 'i18next'
 import { getSiteName } from '@/lib/site-branding'
+import { getSEOCategory } from '@/features/pricing/seo-categories'
 
 export type SEODescriptor = {
   title: string
@@ -136,13 +137,23 @@ export function resolveSEODescriptor(
         { site: siteName }
       )
     }
+    if (path === '/providers') {
+      descriptor.title = `${t('AI Model Providers')} | ${siteName}`
+      descriptor.description = t(
+        'Compare AI providers, available models, supported API types and pricing on {{site}}.',
+        { site: siteName }
+      )
+    }
     descriptor.structuredData =
-      path === '/pricing'
+      path === '/pricing' || path === '/providers'
         ? {
             '@context': 'https://schema.org',
             '@type': 'CollectionPage',
-            '@id': '/pricing#webpage',
-            name: t('AI Model API Pricing & Comparison'),
+            '@id': `${path}#webpage`,
+            name:
+              path === '/pricing'
+                ? t('AI Model API Pricing & Comparison')
+                : t('AI Model Providers'),
             url: path,
             isPartOf: { '@id': '/#website' },
           }
@@ -158,6 +169,52 @@ export function resolveSEODescriptor(
   }
 
   if (path.startsWith('/pricing/')) {
+    const categoryPrefix = '/pricing/categories/'
+    if (path.startsWith(categoryPrefix)) {
+      const category = getSEOCategory(path.slice(categoryPrefix.length))
+      if (category) {
+        const canonicalPath = `${categoryPrefix}${category.slug}`
+        return {
+          title: `${t(category.titleKey)} | ${siteName}`,
+          description: `${t(category.descriptionKey)} ${t(
+            'Compare current pricing, supported endpoints and API access on {{site}}.',
+            { site: siteName }
+          )}`,
+          robots: 'index, follow',
+          canonicalPath,
+          structuredData: {
+            '@context': 'https://schema.org',
+            '@graph': [
+              {
+                '@type': 'CollectionPage',
+                '@id': `${canonicalPath}#webpage`,
+                name: t(category.titleKey),
+                url: canonicalPath,
+                isPartOf: { '@id': '/#website' },
+              },
+              {
+                '@type': 'BreadcrumbList',
+                '@id': `${canonicalPath}#breadcrumb`,
+                itemListElement: [
+                  {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: t('AI Model API Pricing & Comparison'),
+                    item: '/pricing',
+                  },
+                  {
+                    '@type': 'ListItem',
+                    position: 2,
+                    name: t(category.titleKey),
+                    item: canonicalPath,
+                  },
+                ],
+              },
+            ],
+          },
+        }
+      }
+    }
     const modelName = decodePathSegment(path.slice('/pricing/'.length))
     if (modelName) {
       return {
@@ -211,6 +268,55 @@ export function resolveSEODescriptor(
     }
   }
 
+  if (path.startsWith('/providers/')) {
+    const providerSlug = decodePathSegment(path.slice('/providers/'.length))
+    if (providerSlug) {
+      const providerName = providerNameFromSlug(providerSlug)
+      const canonicalPath = `/providers/${encodeURIComponent(providerSlug)}`
+      return {
+        title: `${t('{{provider}} AI Models & APIs', { provider: providerName })} | ${siteName}`,
+        description: t(
+          'Compare {{provider}} models, supported API types and current pricing on {{site}}.',
+          { provider: providerName, site: siteName }
+        ),
+        robots: 'index, follow',
+        canonicalPath,
+        structuredData: {
+          '@context': 'https://schema.org',
+          '@graph': [
+            {
+              '@type': 'CollectionPage',
+              '@id': `${canonicalPath}#webpage`,
+              name: t('{{provider}} AI Models & APIs', {
+                provider: providerName,
+              }),
+              url: canonicalPath,
+              isPartOf: { '@id': '/#website' },
+            },
+            {
+              '@type': 'BreadcrumbList',
+              '@id': `${canonicalPath}#breadcrumb`,
+              itemListElement: [
+                {
+                  '@type': 'ListItem',
+                  position: 1,
+                  name: t('AI Model Providers'),
+                  item: '/providers',
+                },
+                {
+                  '@type': 'ListItem',
+                  position: 2,
+                  name: providerName,
+                  item: canonicalPath,
+                },
+              ],
+            },
+          ],
+        },
+      }
+    }
+  }
+
   if (isPrivatePath(path)) {
     return {
       title:
@@ -233,12 +339,30 @@ function getPublicPageTitle(path: string, t: TFunction): string | undefined {
   const titles: Record<string, string> = {
     '/about': t('About'),
     '/pricing': t('Model Price'),
+    '/providers': t('AI Model Providers'),
     '/privacy-policy': t('Privacy Policy'),
     '/rankings': t('Rankings'),
     '/subscription': t('Subscriptions'),
     '/user-agreement': t('User Agreement'),
   }
   return titles[path]
+}
+
+function providerNameFromSlug(slug: string): string {
+  const acronyms: Record<string, string> = {
+    ai: 'AI',
+    api: 'API',
+    aws: 'AWS',
+    google: 'Google',
+    openai: 'OpenAI',
+  }
+  return slug
+    .split('-')
+    .filter(Boolean)
+    .map(
+      (part) => acronyms[part] || part.charAt(0).toUpperCase() + part.slice(1)
+    )
+    .join(' ')
 }
 
 function decodePathSegment(value: string): string | undefined {

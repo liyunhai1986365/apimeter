@@ -27,6 +27,7 @@ import {
   Features,
   Hero,
   HowItWorks,
+  ModelDirectory,
   ProductConsole,
   Stats,
 } from './components'
@@ -73,6 +74,7 @@ export function Home() {
     <PublicLayout showMainContainer={false}>
       <Hero isAuthenticated={isAuthenticated} />
       <Stats />
+      <ModelDirectory />
       <AgentAccess />
       <ProductConsole />
       <Features />

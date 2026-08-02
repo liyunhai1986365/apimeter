@@ -18,6 +18,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as SubscriptionIndexRouteImport } from './routes/subscription/index'
 import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
+import { Route as ProvidersIndexRouteImport } from './routes/providers/index'
 import { Route as PricingIndexRouteImport } from './routes/pricing/index'
 import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
@@ -38,6 +39,7 @@ import { Route as authOauthRouteImport } from './routes/(auth)/oauth'
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
 import { Route as AuthenticatedSystemTasksRouteRouteImport } from './routes/_authenticated/system-tasks/route'
 import { Route as AuthenticatedSystemSettingsRouteRouteImport } from './routes/_authenticated/system-settings/route'
+import { Route as ProvidersProviderSlugIndexRouteImport } from './routes/providers/$providerSlug/index'
 import { Route as PricingModelIdIndexRouteImport } from './routes/pricing/$modelId/index'
 import { Route as AuthenticatedWorkspacesIndexRouteImport } from './routes/_authenticated/workspaces/index'
 import { Route as AuthenticatedWorkspaceAccountsIndexRouteImport } from './routes/_authenticated/workspace-accounts/index'
@@ -73,6 +75,7 @@ import { Route as AuthenticatedDashboardSectionRouteImport } from './routes/_aut
 import { Route as AuthenticatedChatChatIdRouteImport } from './routes/_authenticated/chat/$chatId'
 import { Route as AuthenticatedBillingSectionRouteImport } from './routes/_authenticated/billing/$section'
 import { Route as authUserResetRouteImport } from './routes/(auth)/user/reset'
+import { Route as PricingCategoriesCategoryIndexRouteImport } from './routes/pricing/categories/$category/index'
 import { Route as AuthenticatedSystemSettingsSiteIndexRouteImport } from './routes/_authenticated/system-settings/site/index'
 import { Route as AuthenticatedSystemSettingsSecurityIndexRouteImport } from './routes/_authenticated/system-settings/security/index'
 import { Route as AuthenticatedSystemSettingsOperationsIndexRouteImport } from './routes/_authenticated/system-settings/operations/index'
@@ -129,6 +132,11 @@ const SetupIndexRoute = SetupIndexRouteImport.update({
 const RankingsIndexRoute = RankingsIndexRouteImport.update({
   id: '/rankings/',
   path: '/rankings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProvidersIndexRoute = ProvidersIndexRouteImport.update({
+  id: '/providers/',
+  path: '/providers/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PricingIndexRoute = PricingIndexRouteImport.update({
@@ -232,6 +240,12 @@ const AuthenticatedSystemSettingsRouteRoute =
     id: '/system-settings',
     path: '/system-settings',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ProvidersProviderSlugIndexRoute =
+  ProvidersProviderSlugIndexRouteImport.update({
+    id: '/providers/$providerSlug/',
+    path: '/providers/$providerSlug/',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const PricingModelIdIndexRoute = PricingModelIdIndexRouteImport.update({
   id: '/pricing/$modelId/',
@@ -438,6 +452,12 @@ const authUserResetRoute = authUserResetRouteImport.update({
   path: '/user/reset',
   getParentRoute: () => authRouteRoute,
 } as any)
+const PricingCategoriesCategoryIndexRoute =
+  PricingCategoriesCategoryIndexRouteImport.update({
+    id: '/pricing/categories/$category/',
+    path: '/pricing/categories/$category/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedSystemSettingsSiteIndexRoute =
   AuthenticatedSystemSettingsSiteIndexRouteImport.update({
     id: '/site/',
@@ -548,6 +568,7 @@ export interface FileRoutesByFullPath {
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/pricing/': typeof PricingIndexRoute
+  '/providers/': typeof ProvidersIndexRoute
   '/rankings/': typeof RankingsIndexRoute
   '/setup/': typeof SetupIndexRoute
   '/subscription/': typeof SubscriptionIndexRoute
@@ -586,6 +607,7 @@ export interface FileRoutesByFullPath {
   '/workspace-accounts/': typeof AuthenticatedWorkspaceAccountsIndexRoute
   '/workspaces/': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
+  '/providers/$providerSlug/': typeof ProvidersProviderSlugIndexRoute
   '/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
   '/system-settings/content/$section': typeof AuthenticatedSystemSettingsContentSectionRoute
@@ -600,6 +622,7 @@ export interface FileRoutesByFullPath {
   '/system-settings/operations/': typeof AuthenticatedSystemSettingsOperationsIndexRoute
   '/system-settings/security/': typeof AuthenticatedSystemSettingsSecurityIndexRoute
   '/system-settings/site/': typeof AuthenticatedSystemSettingsSiteIndexRoute
+  '/pricing/categories/$category/': typeof PricingCategoriesCategoryIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -624,6 +647,7 @@ export interface FileRoutesByTo {
   '/oauth/$provider': typeof OauthProviderRoute
   '/about': typeof AboutIndexRoute
   '/pricing': typeof PricingIndexRoute
+  '/providers': typeof ProvidersIndexRoute
   '/rankings': typeof RankingsIndexRoute
   '/setup': typeof SetupIndexRoute
   '/subscription': typeof SubscriptionIndexRoute
@@ -662,6 +686,7 @@ export interface FileRoutesByTo {
   '/workspace-accounts': typeof AuthenticatedWorkspaceAccountsIndexRoute
   '/workspaces': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId': typeof PricingModelIdIndexRoute
+  '/providers/$providerSlug': typeof ProvidersProviderSlugIndexRoute
   '/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
   '/system-settings/content/$section': typeof AuthenticatedSystemSettingsContentSectionRoute
@@ -676,6 +701,7 @@ export interface FileRoutesByTo {
   '/system-settings/operations': typeof AuthenticatedSystemSettingsOperationsIndexRoute
   '/system-settings/security': typeof AuthenticatedSystemSettingsSecurityIndexRoute
   '/system-settings/site': typeof AuthenticatedSystemSettingsSiteIndexRoute
+  '/pricing/categories/$category': typeof PricingCategoriesCategoryIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -705,6 +731,7 @@ export interface FileRoutesById {
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
   '/pricing/': typeof PricingIndexRoute
+  '/providers/': typeof ProvidersIndexRoute
   '/rankings/': typeof RankingsIndexRoute
   '/setup/': typeof SetupIndexRoute
   '/subscription/': typeof SubscriptionIndexRoute
@@ -743,6 +770,7 @@ export interface FileRoutesById {
   '/_authenticated/workspace-accounts/': typeof AuthenticatedWorkspaceAccountsIndexRoute
   '/_authenticated/workspaces/': typeof AuthenticatedWorkspacesIndexRoute
   '/pricing/$modelId/': typeof PricingModelIdIndexRoute
+  '/providers/$providerSlug/': typeof ProvidersProviderSlugIndexRoute
   '/_authenticated/system-settings/auth/$section': typeof AuthenticatedSystemSettingsAuthSectionRoute
   '/_authenticated/system-settings/billing/$section': typeof AuthenticatedSystemSettingsBillingSectionRoute
   '/_authenticated/system-settings/content/$section': typeof AuthenticatedSystemSettingsContentSectionRoute
@@ -757,6 +785,7 @@ export interface FileRoutesById {
   '/_authenticated/system-settings/operations/': typeof AuthenticatedSystemSettingsOperationsIndexRoute
   '/_authenticated/system-settings/security/': typeof AuthenticatedSystemSettingsSecurityIndexRoute
   '/_authenticated/system-settings/site/': typeof AuthenticatedSystemSettingsSiteIndexRoute
+  '/pricing/categories/$category/': typeof PricingCategoriesCategoryIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -785,6 +814,7 @@ export interface FileRouteTypes {
     | '/oauth/$provider'
     | '/about/'
     | '/pricing/'
+    | '/providers/'
     | '/rankings/'
     | '/setup/'
     | '/subscription/'
@@ -823,6 +853,7 @@ export interface FileRouteTypes {
     | '/workspace-accounts/'
     | '/workspaces/'
     | '/pricing/$modelId/'
+    | '/providers/$providerSlug/'
     | '/system-settings/auth/$section'
     | '/system-settings/billing/$section'
     | '/system-settings/content/$section'
@@ -837,6 +868,7 @@ export interface FileRouteTypes {
     | '/system-settings/operations/'
     | '/system-settings/security/'
     | '/system-settings/site/'
+    | '/pricing/categories/$category/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -861,6 +893,7 @@ export interface FileRouteTypes {
     | '/oauth/$provider'
     | '/about'
     | '/pricing'
+    | '/providers'
     | '/rankings'
     | '/setup'
     | '/subscription'
@@ -899,6 +932,7 @@ export interface FileRouteTypes {
     | '/workspace-accounts'
     | '/workspaces'
     | '/pricing/$modelId'
+    | '/providers/$providerSlug'
     | '/system-settings/auth/$section'
     | '/system-settings/billing/$section'
     | '/system-settings/content/$section'
@@ -913,6 +947,7 @@ export interface FileRouteTypes {
     | '/system-settings/operations'
     | '/system-settings/security'
     | '/system-settings/site'
+    | '/pricing/categories/$category'
   id:
     | '__root__'
     | '/'
@@ -941,6 +976,7 @@ export interface FileRouteTypes {
     | '/oauth/$provider'
     | '/about/'
     | '/pricing/'
+    | '/providers/'
     | '/rankings/'
     | '/setup/'
     | '/subscription/'
@@ -979,6 +1015,7 @@ export interface FileRouteTypes {
     | '/_authenticated/workspace-accounts/'
     | '/_authenticated/workspaces/'
     | '/pricing/$modelId/'
+    | '/providers/$providerSlug/'
     | '/_authenticated/system-settings/auth/$section'
     | '/_authenticated/system-settings/billing/$section'
     | '/_authenticated/system-settings/content/$section'
@@ -993,6 +1030,7 @@ export interface FileRouteTypes {
     | '/_authenticated/system-settings/operations/'
     | '/_authenticated/system-settings/security/'
     | '/_authenticated/system-settings/site/'
+    | '/pricing/categories/$category/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -1012,10 +1050,13 @@ export interface RootRouteChildren {
   OauthProviderRoute: typeof OauthProviderRoute
   AboutIndexRoute: typeof AboutIndexRoute
   PricingIndexRoute: typeof PricingIndexRoute
+  ProvidersIndexRoute: typeof ProvidersIndexRoute
   RankingsIndexRoute: typeof RankingsIndexRoute
   SetupIndexRoute: typeof SetupIndexRoute
   SubscriptionIndexRoute: typeof SubscriptionIndexRoute
   PricingModelIdIndexRoute: typeof PricingModelIdIndexRoute
+  ProvidersProviderSlugIndexRoute: typeof ProvidersProviderSlugIndexRoute
+  PricingCategoriesCategoryIndexRoute: typeof PricingCategoriesCategoryIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1081,6 +1122,13 @@ declare module '@tanstack/react-router' {
       path: '/rankings'
       fullPath: '/rankings/'
       preLoaderRoute: typeof RankingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/providers/': {
+      id: '/providers/'
+      path: '/providers'
+      fullPath: '/providers/'
+      preLoaderRoute: typeof ProvidersIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pricing/': {
@@ -1222,6 +1270,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/system-settings'
       preLoaderRoute: typeof AuthenticatedSystemSettingsRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/providers/$providerSlug/': {
+      id: '/providers/$providerSlug/'
+      path: '/providers/$providerSlug'
+      fullPath: '/providers/$providerSlug/'
+      preLoaderRoute: typeof ProvidersProviderSlugIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/pricing/$modelId/': {
       id: '/pricing/$modelId/'
@@ -1467,6 +1522,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/user/reset'
       preLoaderRoute: typeof authUserResetRouteImport
       parentRoute: typeof authRouteRoute
+    }
+    '/pricing/categories/$category/': {
+      id: '/pricing/categories/$category/'
+      path: '/pricing/categories/$category'
+      fullPath: '/pricing/categories/$category/'
+      preLoaderRoute: typeof PricingCategoriesCategoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/system-settings/site/': {
       id: '/_authenticated/system-settings/site/'
@@ -1767,10 +1829,13 @@ const rootRouteChildren: RootRouteChildren = {
   OauthProviderRoute: OauthProviderRoute,
   AboutIndexRoute: AboutIndexRoute,
   PricingIndexRoute: PricingIndexRoute,
+  ProvidersIndexRoute: ProvidersIndexRoute,
   RankingsIndexRoute: RankingsIndexRoute,
   SetupIndexRoute: SetupIndexRoute,
   SubscriptionIndexRoute: SubscriptionIndexRoute,
   PricingModelIdIndexRoute: PricingModelIdIndexRoute,
+  ProvidersProviderSlugIndexRoute: ProvidersProviderSlugIndexRoute,
+  PricingCategoriesCategoryIndexRoute: PricingCategoriesCategoryIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

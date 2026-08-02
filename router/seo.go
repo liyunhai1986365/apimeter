@@ -44,6 +44,34 @@ type seoPage struct {
 	Type        string
 	JSONLD      string
 	Model       *model.Pricing
+	Category    *seoCategoryPage
+	Vendor      *seoVendorPage
+}
+
+type seoCategoryDefinition struct {
+	Slug        string
+	Name        string
+	Description string
+}
+
+type seoCategoryPage struct {
+	seoCategoryDefinition
+	Models []model.Pricing
+}
+
+type seoVendorPage struct {
+	Slug   string
+	Vendor model.PricingVendor
+	Models []model.Pricing
+}
+
+var seoCategoryDefinitions = []seoCategoryDefinition{
+	{Slug: "text", Name: "Text & Language", Description: "Chat, reasoning, coding and multimodal language models for assistants, agents and production applications."},
+	{Slug: "vector", Name: "Embedding & Rerank", Description: "Embedding and reranking models for semantic search, retrieval, recommendations and RAG pipelines."},
+	{Slug: "image", Name: "Image Generation", Description: "Image generation and editing models for creative workflows, product experiences and automated content production."},
+	{Slug: "audio", Name: "Audio & Speech", Description: "Speech recognition, text-to-speech and audio models for transcription, voice and real-time experiences."},
+	{Slug: "video", Name: "Video Generation", Description: "Video generation and editing models for text-to-video, image-to-video and automated media workflows."},
+	{Slug: "other", Name: "Specialized AI", Description: "Specialized AI model APIs and utilities that extend beyond the main text, vector, image, audio and video categories."},
 }
 
 func renderSEOMetadata(c *gin.Context, page string) string {
@@ -168,6 +196,9 @@ func seoShellLinks(c *gin.Context) []seoShellLink {
 	links := []seoShellLink{{Path: "/", Label: "Home"}}
 	if seoModuleIsPublic(c, "pricing") {
 		links = append(links, seoShellLink{Path: "/pricing", Label: "Model Pricing"})
+		if common.GetTheme() == "default" {
+			links = append(links, seoShellLink{Path: "/providers", Label: "AI Providers"})
+		}
 	}
 	if common.GetTheme() == "default" && seoModuleIsPublic(c, "subscription") {
 		links = append(links, seoShellLink{Path: "/subscription", Label: "Subscriptions"})
@@ -180,14 +211,22 @@ func seoShellLinks(c *gin.Context) []seoShellLink {
 }
 
 func seoShellHeading(metadata seoPage) string {
+	if metadata.Vendor != nil {
+		return metadata.Vendor.Vendor.Name + " AI models & APIs"
+	}
 	if metadata.Model != nil {
 		return metadata.Model.ModelName + " API pricing & access"
+	}
+	if metadata.Category != nil {
+		return metadata.Category.Name + " model API pricing"
 	}
 	switch metadata.Path {
 	case "/":
 		return "AI model APIs, pricing and access"
 	case "/pricing":
 		return "AI model API pricing and comparison"
+	case "/providers":
+		return "AI model providers and APIs"
 	case "/subscription":
 		return "Subscriptions"
 	case "/rankings":
@@ -206,7 +245,9 @@ func seoShellHeading(metadata seoPage) string {
 func seoShellPageContent(c *gin.Context, metadata seoPage) string {
 	if metadata.Path == "/" {
 		return `<div style="margin-top:32px;display:flex;flex-wrap:wrap;gap:12px"><a href="/pricing" style="padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-weight:600">Explore AI model API pricing</a><a href="/sign-up" style="padding:12px 18px;border:1px solid #d1d5db;border-radius:10px;color:#111827;text-decoration:none;font-weight:600">Get started</a></div>` +
-			`<section aria-labelledby="one-api" style="margin-top:56px;max-width:820px"><h2 id="one-api" style="font-size:28px">One API for leading AI model providers</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Use one gateway for OpenAI, Anthropic Claude, Google Gemini, DeepSeek and other model providers. Compare model capabilities and pricing before choosing the API that fits your application.</p><p><a href="/pricing" style="color:#4f46e5">Compare all available model APIs and prices</a></p></section>`
+			`<section aria-labelledby="one-api" style="margin-top:56px;max-width:820px"><h2 id="one-api" style="font-size:28px">One API for leading AI model providers</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Use one gateway for OpenAI, Anthropic Claude, Google Gemini, DeepSeek and other model providers. Compare model capabilities and pricing before choosing the API that fits your application.</p><p><a href="/pricing" style="color:#4f46e5">Compare all available model APIs and prices</a></p></section>` +
+			seoProviderDirectory(c, "Browse AI model providers", 12) +
+			seoCategoryDirectory(c, "AI model API categories", 6)
 	}
 	if metadata.Path == "/pricing" {
 		pricing := seoPublicPricing(c)
@@ -214,6 +255,8 @@ func seoShellPageContent(c *gin.Context, metadata seoPage) string {
 			return ""
 		}
 		var builder strings.Builder
+		builder.WriteString(seoCategoryDirectory(c, "Browse model APIs by category", 6))
+		builder.WriteString(seoProviderDirectory(c, "Browse models by provider", 12))
 		builder.WriteString(`<section aria-labelledby="available-models" style="margin-top:48px"><h2 id="available-models" style="font-size:24px">Available models</h2><ul style="padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;list-style:none">`)
 		for index, item := range pricing {
 			if index >= seoModelDirectoryLimit {
@@ -226,6 +269,50 @@ func seoShellPageContent(c *gin.Context, metadata seoPage) string {
 			builder.WriteString(`</a></li>`)
 		}
 		builder.WriteString(`</ul></section>`)
+		return builder.String()
+	}
+	if metadata.Path == "/providers" {
+		return seoProviderDirectory(c, "Available AI model providers", seoModelDirectoryLimit) +
+			`<p style="margin-top:36px"><a href="/pricing" style="color:#4f46e5">Compare all AI model API pricing</a></p>`
+	}
+	if metadata.Vendor != nil {
+		var builder strings.Builder
+		builder.WriteString(`<section aria-labelledby="provider-models" style="margin-top:40px"><h2 id="provider-models" style="font-size:24px">Available ` + html.EscapeString(metadata.Vendor.Vendor.Name) + ` model APIs</h2>`)
+		if description := strings.TrimSpace(metadata.Vendor.Vendor.Description); description != "" {
+			builder.WriteString(`<p style="max-width:820px;color:#4b5563;line-height:1.7">` + html.EscapeString(description) + `</p>`)
+		}
+		builder.WriteString(`<ul style="padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;list-style:none">`)
+		for index, item := range metadata.Vendor.Models {
+			if index >= seoModelDirectoryLimit {
+				break
+			}
+			builder.WriteString(`<li><a href="/pricing/` + html.EscapeString(url.PathEscape(item.ModelName)) + `" style="display:block;padding:14px;border:1px solid #e5e7eb;border-radius:10px;color:#111827;text-decoration:none"><span style="display:block;font-family:ui-monospace,monospace;font-weight:600">` + html.EscapeString(item.ModelName) + ` API pricing</span>`)
+			if item.Category != "" {
+				builder.WriteString(`<span style="display:block;margin-top:6px;color:#6b7280;font-size:13px">` + html.EscapeString(item.Category) + ` model API</span>`)
+			}
+			builder.WriteString(`</a></li>`)
+		}
+		builder.WriteString(`</ul></section>`)
+		builder.WriteString(seoProviderDirectory(c, "Explore other AI model providers", 12))
+		builder.WriteString(`<p style="margin-top:36px"><a href="/providers" style="color:#4f46e5">Back to all AI model providers</a></p>`)
+		return builder.String()
+	}
+	if metadata.Category != nil {
+		var builder strings.Builder
+		builder.WriteString(`<section aria-labelledby="category-models" style="margin-top:40px"><h2 id="category-models" style="font-size:24px">Available ` + html.EscapeString(metadata.Category.Name) + ` model APIs</h2><p style="max-width:800px;color:#4b5563;line-height:1.7">` + html.EscapeString(metadata.Category.Description) + ` Compare current API prices, supported endpoints and capabilities before choosing a model.</p><ul style="padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;list-style:none">`)
+		for index, item := range metadata.Category.Models {
+			if index >= seoModelDirectoryLimit {
+				break
+			}
+			builder.WriteString(`<li><a href="/pricing/` + html.EscapeString(url.PathEscape(item.ModelName)) + `" style="display:block;padding:14px;border:1px solid #e5e7eb;border-radius:10px;color:#111827;text-decoration:none"><span style="display:block;font-family:ui-monospace,monospace;font-weight:600">` + html.EscapeString(item.ModelName) + ` API pricing</span>`)
+			if price := seoPrimaryPrice(item); price != "" {
+				builder.WriteString(`<span style="display:block;margin-top:6px;color:#6b7280;font-size:13px">` + html.EscapeString(price) + `</span>`)
+			}
+			builder.WriteString(`</a></li>`)
+		}
+		builder.WriteString(`</ul></section>`)
+		builder.WriteString(seoCategoryDirectory(c, "Explore other model API categories", 6))
+		builder.WriteString(`<p style="margin-top:36px"><a href="/pricing" style="color:#4f46e5">Compare all AI model API pricing</a></p>`)
 		return builder.String()
 	}
 	if metadata.Model != nil {
@@ -301,6 +388,46 @@ func seoShellPageContent(c *gin.Context, metadata seoPage) string {
 	return ""
 }
 
+func seoCategoryDirectory(c *gin.Context, heading string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	categories := seoAvailableCategories(c)
+	if len(categories) == 0 {
+		return ""
+	}
+	var builder strings.Builder
+	builder.WriteString(`<nav aria-label="AI model API categories" style="margin-top:48px"><h2 style="font-size:24px">` + html.EscapeString(heading) + `</h2><ul style="padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;list-style:none">`)
+	for index, category := range categories {
+		if index >= limit {
+			break
+		}
+		builder.WriteString(`<li><a href="/pricing/categories/` + category.Slug + `" style="display:block;padding:14px;border:1px solid #e5e7eb;border-radius:10px;color:#111827;text-decoration:none"><strong>` + html.EscapeString(category.Name) + ` APIs</strong><span style="display:block;margin-top:6px;color:#6b7280;font-size:13px">` + fmt.Sprintf("%d available models", len(category.Models)) + `</span></a></li>`)
+	}
+	builder.WriteString(`</ul></nav>`)
+	return builder.String()
+}
+
+func seoProviderDirectory(c *gin.Context, heading string, limit int) string {
+	if limit <= 0 {
+		return ""
+	}
+	providers := seoAvailableVendors(c)
+	if len(providers) == 0 {
+		return ""
+	}
+	var builder strings.Builder
+	builder.WriteString(`<nav aria-label="AI model providers" style="margin-top:48px"><h2 style="font-size:24px">` + html.EscapeString(heading) + `</h2><ul style="padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;list-style:none">`)
+	for index, provider := range providers {
+		if index >= limit {
+			break
+		}
+		builder.WriteString(`<li><a href="/providers/` + html.EscapeString(provider.Slug) + `" style="display:block;padding:14px;border:1px solid #e5e7eb;border-radius:10px;color:#111827;text-decoration:none"><strong>` + html.EscapeString(provider.Vendor.Name) + `</strong><span style="display:block;margin-top:6px;color:#6b7280;font-size:13px">` + fmt.Sprintf("%d available models", len(provider.Models)) + `</span></a></li>`)
+	}
+	builder.WriteString(`</ul></nav>`)
+	return builder.String()
+}
+
 func resolveSEOPage(c *gin.Context) seoPage {
 	siteName := indexPageTitle(c)
 	origin := requestOrigin(c)
@@ -333,6 +460,14 @@ func resolveSEOPage(c *gin.Context) seoPage {
 			page.Robots = "index, follow"
 			page.JSONLD = pricingCollectionJSONLD(origin, seoPublicPricing(c))
 		}
+	case "/providers":
+		if common.GetTheme() == "default" && seoModuleIsPublic(c, "pricing") {
+			vendors := seoAvailableVendors(c)
+			page.Title = "AI Model Providers & APIs | " + siteName
+			page.Description = "Compare AI providers, available models, supported API types and pricing on " + siteName + "."
+			page.Robots = "index, follow"
+			page.JSONLD = providerCollectionJSONLD(origin, vendors, page.Description)
+		}
 	case "/subscription":
 		if seoModuleIsPublic(c, "subscription") {
 			page.Title = "Subscriptions | " + siteName
@@ -363,7 +498,20 @@ func resolveSEOPage(c *gin.Context) seoPage {
 		page.Robots = "index, follow"
 		page.JSONLD = publicPageJSONLD(origin, page.Title, page.Description, path)
 	default:
-		if pricing, ok := seoPricingModel(c, path); ok {
+		if vendor, ok := seoPricingVendor(c, path); ok {
+			page.Vendor = &vendor
+			page.Title = vendor.Vendor.Name + " AI Models & APIs | " + siteName
+			page.Description = seoVendorDescription(vendor, siteName)
+			page.Canonical = absoluteSiteURL(origin, "/providers/"+vendor.Slug)
+			page.Robots = "index, follow"
+			page.JSONLD = providerPageJSONLD(origin, vendor, page.Description)
+		} else if category, ok := seoPricingCategory(c, path); ok {
+			page.Category = &category
+			page.Title = category.Name + " model APIs | " + siteName
+			page.Description = category.Description + " Compare pricing and API access on " + siteName + "."
+			page.Robots = "index, follow"
+			page.JSONLD = categoryPageJSONLD(origin, category, page.Description)
+		} else if pricing, ok := seoPricingModel(c, path); ok {
 			page.Model = &pricing
 			page.Title = pricing.ModelName + " API Pricing & Access | " + siteName
 			page.Description = seoModelDescription(pricing, siteName)
@@ -381,6 +529,127 @@ func resolveSEOPage(c *gin.Context) seoPage {
 	}
 
 	return page
+}
+
+func seoPricingCategory(c *gin.Context, path string) (seoCategoryPage, bool) {
+	if common.GetTheme() != "default" || !seoModuleIsPublic(c, "pricing") || !strings.HasPrefix(path, "/pricing/categories/") {
+		return seoCategoryPage{}, false
+	}
+	slug := strings.TrimPrefix(path, "/pricing/categories/")
+	if slug == "" || strings.Contains(slug, "/") {
+		return seoCategoryPage{}, false
+	}
+	for _, category := range seoAvailableCategories(c) {
+		if category.Slug == slug {
+			return category, true
+		}
+	}
+	return seoCategoryPage{}, false
+}
+
+func seoAvailableCategories(c *gin.Context) []seoCategoryPage {
+	return seoCategoriesFromPricing(seoPublicPricing(c))
+}
+
+func seoCategoriesFromPricing(pricing []model.Pricing) []seoCategoryPage {
+	categories := make([]seoCategoryPage, 0, len(seoCategoryDefinitions))
+	for _, definition := range seoCategoryDefinitions {
+		items := make([]model.Pricing, 0)
+		for _, item := range pricing {
+			category := strings.ToLower(strings.TrimSpace(item.Category))
+			if category == "" {
+				category = "text"
+			}
+			if category == definition.Slug {
+				items = append(items, item)
+			}
+		}
+		if len(items) > 0 {
+			categories = append(categories, seoCategoryPage{seoCategoryDefinition: definition, Models: items})
+		}
+	}
+	return categories
+}
+
+func seoPricingVendor(c *gin.Context, path string) (seoVendorPage, bool) {
+	if common.GetTheme() != "default" || !seoModuleIsPublic(c, "pricing") || !strings.HasPrefix(path, "/providers/") {
+		return seoVendorPage{}, false
+	}
+	slug := strings.TrimPrefix(path, "/providers/")
+	if slug == "" || strings.Contains(slug, "/") {
+		return seoVendorPage{}, false
+	}
+	for _, vendor := range seoAvailableVendors(c) {
+		if vendor.Slug == slug {
+			return vendor, true
+		}
+	}
+	return seoVendorPage{}, false
+}
+
+func seoAvailableVendors(c *gin.Context) []seoVendorPage {
+	if model.DB == nil {
+		return []seoVendorPage{}
+	}
+	return seoVendorsFromPricing(seoPublicPricing(c), model.GetVendors())
+}
+
+func seoVendorsFromPricing(pricing []model.Pricing, vendors []model.PricingVendor) []seoVendorPage {
+	modelsByVendor := make(map[int][]model.Pricing)
+	for _, item := range pricing {
+		if item.VendorID <= 0 {
+			continue
+		}
+		modelsByVendor[item.VendorID] = append(modelsByVendor[item.VendorID], item)
+	}
+
+	pages := make([]seoVendorPage, 0, len(vendors))
+	usedSlugs := make(map[string]struct{}, len(vendors))
+	for _, vendor := range vendors {
+		models := modelsByVendor[vendor.ID]
+		if len(models) == 0 {
+			continue
+		}
+		slug := seoVendorSlugBase(vendor.Name, vendor.ID)
+		if _, exists := usedSlugs[slug]; exists {
+			slug = fmt.Sprintf("%s-%d", slug, vendor.ID)
+		}
+		baseSlug := slug
+		for suffix := 2; ; suffix++ {
+			if _, exists := usedSlugs[slug]; !exists {
+				break
+			}
+			slug = fmt.Sprintf("%s-%d", baseSlug, suffix)
+		}
+		usedSlugs[slug] = struct{}{}
+		pages = append(pages, seoVendorPage{Slug: slug, Vendor: vendor, Models: models})
+	}
+	return pages
+}
+
+func seoVendorSlugBase(name string, id int) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	var builder strings.Builder
+	separatorPending := false
+	for _, r := range name {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+			if separatorPending && builder.Len() > 0 {
+				builder.WriteByte('-')
+			}
+			builder.WriteRune(r)
+			separatorPending = false
+		} else if builder.Len() > 0 {
+			separatorPending = true
+		}
+	}
+	if builder.Len() == 0 {
+		return fmt.Sprintf("provider-%d", id)
+	}
+	return builder.String()
+}
+
+func seoVendorDescription(vendor seoVendorPage, siteName string) string {
+	return fmt.Sprintf("Compare %s AI models, supported API types and current pricing on %s. Browse %d available model APIs through one unified gateway.", vendor.Vendor.Name, siteName, len(vendor.Models))
 }
 
 func indexPageTitle(c *gin.Context) string {
@@ -686,7 +955,7 @@ func isKnownFrontendPath(path string) bool {
 		"/dashboard": {}, "/forbidden": {}, "/forgot-password": {}, "/invite": {},
 		"/invite-rewards": {}, "/keys": {}, "/login": {}, "/model-billing": {}, "/model-monitor": {},
 		"/model-profit": {}, "/models": {}, "/oauth": {}, "/otp": {},
-		"/playground": {}, "/pricing": {}, "/privacy-policy": {}, "/profile": {},
+		"/playground": {}, "/pricing": {}, "/privacy-policy": {}, "/profile": {}, "/providers": {},
 		"/provider": {}, "/rankings": {}, "/redemption-codes": {}, "/register": {},
 		"/reset": {}, "/setup": {}, "/sign-in": {}, "/sign-up": {},
 		"/subscription": {}, "/subscriptions": {}, "/suppliers": {},
@@ -901,6 +1170,132 @@ func pricingCollectionJSONLD(origin string, pricing []model.Pricing) string {
 	return string(data)
 }
 
+func categoryPageJSONLD(origin string, category seoCategoryPage, description string) string {
+	canonical := absoluteSiteURL(origin, "/pricing/categories/"+category.Slug)
+	items := make([]map[string]any, 0, min(len(category.Models), seoModelDirectoryLimit))
+	for index, item := range category.Models {
+		if index >= seoModelDirectoryLimit {
+			break
+		}
+		items = append(items, map[string]any{
+			"@type":    "ListItem",
+			"position": index + 1,
+			"name":     item.ModelName + " API pricing",
+			"url":      absoluteSiteURL(origin, "/pricing/"+url.PathEscape(item.ModelName)),
+		})
+	}
+	payload := map[string]any{
+		"@context": "https://schema.org",
+		"@graph": []map[string]any{
+			{
+				"@type":       "CollectionPage",
+				"@id":         canonical + "#webpage",
+				"name":        category.Name + " model APIs",
+				"description": description,
+				"url":         canonical,
+				"isPartOf":    map[string]any{"@id": absoluteSiteURL(origin, "/#website")},
+				"mainEntity":  map[string]any{"@type": "ItemList", "itemListElement": items},
+			},
+			{
+				"@type": "BreadcrumbList",
+				"@id":   canonical + "#breadcrumb",
+				"itemListElement": []map[string]any{
+					{"@type": "ListItem", "position": 1, "name": "AI Model API Pricing", "item": absoluteSiteURL(origin, "/pricing")},
+					{"@type": "ListItem", "position": 2, "name": category.Name, "item": canonical},
+				},
+			},
+		},
+	}
+	data, err := common.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func providerCollectionJSONLD(origin string, providers []seoVendorPage, description string) string {
+	items := make([]map[string]any, 0, min(len(providers), seoModelDirectoryLimit))
+	for index, provider := range providers {
+		if index >= seoModelDirectoryLimit {
+			break
+		}
+		items = append(items, map[string]any{
+			"@type":    "ListItem",
+			"position": index + 1,
+			"name":     provider.Vendor.Name + " AI models and APIs",
+			"url":      absoluteSiteURL(origin, "/providers/"+provider.Slug),
+		})
+	}
+	payload := map[string]any{
+		"@context":    "https://schema.org",
+		"@type":       "CollectionPage",
+		"@id":         absoluteSiteURL(origin, "/providers#webpage"),
+		"name":        "AI Model Providers & APIs",
+		"description": description,
+		"url":         absoluteSiteURL(origin, "/providers"),
+		"isPartOf":    map[string]any{"@id": absoluteSiteURL(origin, "/#website")},
+		"mainEntity":  map[string]any{"@type": "ItemList", "itemListElement": items},
+	}
+	data, err := common.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+func providerPageJSONLD(origin string, provider seoVendorPage, description string) string {
+	canonical := absoluteSiteURL(origin, "/providers/"+provider.Slug)
+	items := make([]map[string]any, 0, min(len(provider.Models), seoModelDirectoryLimit))
+	for index, item := range provider.Models {
+		if index >= seoModelDirectoryLimit {
+			break
+		}
+		items = append(items, map[string]any{
+			"@type":    "ListItem",
+			"position": index + 1,
+			"name":     item.ModelName + " API pricing",
+			"url":      absoluteSiteURL(origin, "/pricing/"+url.PathEscape(item.ModelName)),
+		})
+	}
+	vendorEntity := map[string]any{
+		"@type": "Organization",
+		"@id":   canonical + "#provider",
+		"name":  provider.Vendor.Name,
+	}
+	if provider.Vendor.Description != "" {
+		vendorEntity["description"] = provider.Vendor.Description
+	}
+	payload := map[string]any{
+		"@context": "https://schema.org",
+		"@graph": []map[string]any{
+			{
+				"@type":       "CollectionPage",
+				"@id":         canonical + "#webpage",
+				"name":        provider.Vendor.Name + " AI Models & APIs",
+				"description": description,
+				"url":         canonical,
+				"isPartOf":    map[string]any{"@id": absoluteSiteURL(origin, "/#website")},
+				"about":       map[string]any{"@id": canonical + "#provider"},
+				"mainEntity":  map[string]any{"@type": "ItemList", "itemListElement": items},
+			},
+			vendorEntity,
+			{
+				"@type": "BreadcrumbList",
+				"@id":   canonical + "#breadcrumb",
+				"itemListElement": []map[string]any{
+					{"@type": "ListItem", "position": 1, "name": "AI Model Providers", "item": absoluteSiteURL(origin, "/providers")},
+					{"@type": "ListItem", "position": 2, "name": provider.Vendor.Name, "item": canonical},
+				},
+			},
+		},
+	}
+	data, err := common.Marshal(payload)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 type sitemapEntry struct {
 	Location string
 	LastMod  int64
@@ -960,6 +1355,31 @@ func serveSitemapXML(c *gin.Context) {
 	if seoModuleIsPublic(c, "pricing") {
 		entries = append(entries, sitemapEntry{Location: "/pricing"})
 		if common.GetTheme() == "default" {
+			entries = append(entries, sitemapEntry{Location: "/providers"})
+			for _, provider := range seoAvailableVendors(c) {
+				lastMod := int64(0)
+				for _, item := range provider.Models {
+					if item.UpdatedTime > lastMod {
+						lastMod = item.UpdatedTime
+					}
+				}
+				entries = append(entries, sitemapEntry{
+					Location: "/providers/" + provider.Slug,
+					LastMod:  lastMod,
+				})
+			}
+			for _, category := range seoAvailableCategories(c) {
+				lastMod := int64(0)
+				for _, item := range category.Models {
+					if item.UpdatedTime > lastMod {
+						lastMod = item.UpdatedTime
+					}
+				}
+				entries = append(entries, sitemapEntry{
+					Location: "/pricing/categories/" + category.Slug,
+					LastMod:  lastMod,
+				})
+			}
 			pricing := seoPublicPricing(c)
 			for index, item := range pricing {
 				if index >= 49000 {

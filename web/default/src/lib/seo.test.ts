@@ -63,6 +63,41 @@ describe('SEO helpers', () => {
     assert.deepEqual(graph[1]?.provider, { '@id': '/#organization' })
   })
 
+  test('builds canonical collection metadata for model categories', () => {
+    const descriptor = resolveSEODescriptor(
+      '/pricing/categories/image/',
+      'ModelSell',
+      t
+    )
+
+    assert.equal(descriptor.title, 'Image Generation model APIs | ModelSell')
+    assert.equal(descriptor.canonicalPath, '/pricing/categories/image')
+    assert.equal(descriptor.robots, 'index, follow')
+    const graph = descriptor.structuredData?.['@graph'] as Array<
+      Record<string, unknown>
+    >
+    assert.equal(graph[0]?.['@type'], 'CollectionPage')
+    assert.equal(graph[0]?.['@id'], '/pricing/categories/image#webpage')
+    assert.equal(graph[1]?.['@type'], 'BreadcrumbList')
+  })
+
+  test('indexes provider directory and provider detail pages', () => {
+    const directory = resolveSEODescriptor('/providers/', 'ModelSell', t)
+    assert.equal(directory.title, 'AI Model Providers | ModelSell')
+    assert.equal(directory.canonicalPath, '/providers')
+    assert.equal(directory.robots, 'index, follow')
+
+    const provider = resolveSEODescriptor('/providers/openai/', 'ModelSell', t)
+    assert.equal(provider.title, 'OpenAI AI Models & APIs | ModelSell')
+    assert.equal(provider.canonicalPath, '/providers/openai')
+    assert.equal(provider.robots, 'index, follow')
+    const graph = provider.structuredData?.['@graph'] as Array<
+      Record<string, unknown>
+    >
+    assert.equal(graph[0]?.['@type'], 'CollectionPage')
+    assert.equal(graph[1]?.['@type'], 'BreadcrumbList')
+  })
+
   test('keeps authentication and dashboard pages out of search results', () => {
     assert.equal(
       resolveSEODescriptor('/sign-in', 'ModelSell', t).robots,

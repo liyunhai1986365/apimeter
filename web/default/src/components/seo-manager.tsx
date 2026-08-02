@@ -142,11 +142,12 @@ export function SEOManager() {
     let canonical = descriptor.canonicalPath
       ? new URL(descriptor.canonicalPath, canonicalOrigin.current).toString()
       : undefined
-    const preserveServerModelMetadata =
+    const preserveServerCatalogMetadata =
       pathname === initialPathname.current &&
-      pathname.startsWith('/pricing/') &&
+      (pathname.startsWith('/pricing/') ||
+        pathname.startsWith('/providers/')) &&
       Boolean(initialCanonical.current)
-    if (preserveServerModelMetadata) {
+    if (preserveServerCatalogMetadata) {
       canonical = initialCanonical.current
       descriptor.title = initialTitle.current
       descriptor.description =

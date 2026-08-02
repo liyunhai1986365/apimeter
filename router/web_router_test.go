@@ -279,6 +279,127 @@ func TestModelPageJSONLDIncludesCanonicalModelAliases(t *testing.T) {
 	require.Contains(t, jsonLD, `"category":"function calling, vision"`)
 }
 
+func TestCategoryPageJSONLDListsModelsAndBreadcrumbs(t *testing.T) {
+	jsonLD := categoryPageJSONLD("https://example.com", seoCategoryPage{
+		seoCategoryDefinition: seoCategoryDefinition{
+			Slug: "image",
+			Name: "Image Generation",
+		},
+		Models: []model.Pricing{
+			{ModelName: "gpt-image-1"},
+			{ModelName: "provider/image-edit"},
+		},
+	}, "Compare image model APIs.")
+
+	require.Contains(t, jsonLD, `"@type":"CollectionPage"`)
+	require.Contains(t, jsonLD, `"@id":"https://example.com/pricing/categories/image#webpage"`)
+	require.Contains(t, jsonLD, `"name":"gpt-image-1 API pricing"`)
+	require.Contains(t, jsonLD, `"url":"https://example.com/pricing/provider%2Fimage-edit"`)
+	require.Contains(t, jsonLD, `"@type":"BreadcrumbList"`)
+}
+
+func TestBuildSEOShellRendersCategoryDirectoryAndModelLinks(t *testing.T) {
+	page := seoPage{
+		Path:        "/pricing/categories/video",
+		Description: "Compare video model APIs.",
+		Category: &seoCategoryPage{
+			seoCategoryDefinition: seoCategoryDefinition{
+				Slug:        "video",
+				Name:        "Video Generation",
+				Description: "Video generation models.",
+			},
+			Models: []model.Pricing{{ModelName: "seedance-2.0", QuotaType: 1, ModelPrice: 0.2}},
+		},
+	}
+
+	shell := buildSEOShell(nil, page)
+	require.Contains(t, shell, `Video Generation model API pricing`)
+	require.Contains(t, shell, `seedance-2.0 API pricing`)
+	require.Contains(t, shell, `$0.2 per request`)
+	require.Contains(t, shell, `href="/pricing/seedance-2.0"`)
+}
+
+func TestSEOCategoriesFromPricingMatchesFrontendCategorySemantics(t *testing.T) {
+	categories := seoCategoriesFromPricing([]model.Pricing{
+		{ModelName: "default-text"},
+		{ModelName: "explicit-text", Category: "text"},
+		{ModelName: "image-model", Category: "IMAGE"},
+		{ModelName: "custom-model", Category: "custom"},
+	})
+
+	require.Len(t, categories, 2)
+	require.Equal(t, "text", categories[0].Slug)
+	require.Equal(t, []string{"default-text", "explicit-text"}, []string{
+		categories[0].Models[0].ModelName,
+		categories[0].Models[1].ModelName,
+	})
+	require.Equal(t, "image", categories[1].Slug)
+	require.Equal(t, "image-model", categories[1].Models[0].ModelName)
+}
+
+func TestSEOVendorsFromPricingBuildsStablePublicDirectories(t *testing.T) {
+	providers := seoVendorsFromPricing(
+		[]model.Pricing{
+			{ModelName: "gpt-5", VendorID: 1},
+			{ModelName: "claude-sonnet", VendorID: 2},
+			{ModelName: "unassigned"},
+		},
+		[]model.PricingVendor{
+			{ID: 3, Name: "Unused"},
+			{ID: 1, Name: "Vendor AI"},
+			{ID: 2, Name: "Vendor.AI"},
+		},
+	)
+
+	require.Len(t, providers, 2)
+	require.Equal(t, "vendor-ai", providers[0].Slug)
+	require.Equal(t, "vendor-ai-2", providers[1].Slug)
+	require.Equal(t, "gpt-5", providers[0].Models[0].ModelName)
+	require.Equal(t, "provider-8", seoVendorSlugBase("通义千问", 8))
+}
+
+func TestProviderPageJSONLDListsModelsAndBreadcrumbs(t *testing.T) {
+	jsonLD := providerPageJSONLD("https://example.com", seoVendorPage{
+		Slug: "openai",
+		Vendor: model.PricingVendor{
+			ID:          5,
+			Name:        "OpenAI",
+			Description: "AI model provider.",
+		},
+		Models: []model.Pricing{
+			{ModelName: "gpt-5"},
+			{ModelName: "openai/image-1"},
+		},
+	}, "Compare OpenAI model APIs.")
+
+	require.Contains(t, jsonLD, `"@id":"https://example.com/providers/openai#webpage"`)
+	require.Contains(t, jsonLD, `"@id":"https://example.com/providers/openai#provider"`)
+	require.Contains(t, jsonLD, `"name":"gpt-5 API pricing"`)
+	require.Contains(t, jsonLD, `"url":"https://example.com/pricing/openai%2Fimage-1"`)
+	require.Contains(t, jsonLD, `"@type":"BreadcrumbList"`)
+}
+
+func TestBuildSEOShellRendersProviderModels(t *testing.T) {
+	page := seoPage{
+		Path:        "/providers/openai",
+		Description: "Compare OpenAI model APIs.",
+		Vendor: &seoVendorPage{
+			Slug: "openai",
+			Vendor: model.PricingVendor{
+				Name:        "OpenAI",
+				Description: "AI model provider.",
+			},
+			Models: []model.Pricing{{ModelName: "gpt-5", Category: "text"}},
+		},
+	}
+
+	shell := buildSEOShell(nil, page)
+	require.Contains(t, shell, `OpenAI AI models &amp; APIs`)
+	require.Contains(t, shell, `Available OpenAI model APIs`)
+	require.Contains(t, shell, `href="/pricing/gpt-5"`)
+	require.Contains(t, shell, `href="/providers"`)
+}
+
 func TestBuildSEOShellRendersModelPriceAndSearchableDetails(t *testing.T) {
 	page := seoPage{
 		Path:        "/pricing/gpt-4.1-mini",
@@ -406,6 +527,7 @@ func TestServeFrontendPageKeepsEachRequestOrigin(t *testing.T) {
 func TestKnownFrontendPathsMatchPublicAndPrivateRoutes(t *testing.T) {
 	for _, path := range []string{
 		"/pricing",
+		"/providers",
 		"/privacy-policy",
 		"/sign-in",
 		"/invite-rewards",
