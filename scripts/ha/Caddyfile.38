@@ -1,0 +1,105 @@
+{
+	admin 127.0.0.1:2019
+}
+
+(modelsell_access_log) {
+	log {
+		output file /var/log/caddy/modelsell_access.log {
+			roll_size 100mb
+			roll_keep 10
+			roll_keep_for 720h
+		}
+		format filter {
+			wrap json
+			fields {
+				request>headers>Authorization delete
+				request>headers>Cookie delete
+				request>headers>New-Api-User delete
+				request>headers>X-Codex-Turn-Metadata delete
+				request>headers>Session-Id delete
+				request>headers>Thread-Id delete
+				request>headers>X-Client-Request-Id delete
+			}
+		}
+	}
+}
+
+(primary_proxy) {
+	reverse_proxy 127.0.0.1:3000 10.38.145.2:3000 {
+		lb_policy first
+		lb_try_duration 5s
+		lb_try_interval 250ms
+		health_uri /api/ready
+		health_interval 5s
+		health_timeout 2s
+		fail_duration 30s
+		max_fails 2
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+(distributed_proxy) {
+	reverse_proxy 127.0.0.1:3000 10.38.145.2:3000 {
+		lb_policy first
+		lb_try_duration 5s
+		lb_try_interval 250ms
+		health_uri /api/ready
+		health_interval 5s
+		health_timeout 2s
+		fail_duration 30s
+		max_fails 2
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+(docs_proxy) {
+	reverse_proxy 10.38.145.2:3030 {
+		health_uri /
+		health_interval 15s
+		health_timeout 3s
+		fail_duration 30s
+		max_fails 2
+		header_up Host {host}
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+(modelsell_routes) {
+	@docs_paths {
+		path /docs* /zh/docs* /_next/static* /_next/image* /api/search
+	}
+	handle @docs_paths {
+		import docs_proxy
+	}
+
+	@distributed_paths {
+		path /api* /v1* /v1beta* /mj* /suno* /kling* /jimeng*
+	}
+	handle @distributed_paths {
+		import distributed_proxy
+	}
+
+	handle {
+		import primary_proxy
+	}
+}
+
+modelsell.com {
+	tls /etc/caddy/tls/modelsell.com.crt /etc/caddy/tls/modelsell.com.key
+	import modelsell_access_log
+	import modelsell_routes
+}
+
+www.modelsell.com {
+	tls /etc/caddy/tls/www.modelsell.com.crt /etc/caddy/tls/www.modelsell.com.key
+	import modelsell_access_log
+	import modelsell_routes
+}
+
+api.modelsell.com {
+	tls /etc/caddy/tls/api.modelsell.com.crt /etc/caddy/tls/api.modelsell.com.key
+	import modelsell_access_log
+	import distributed_proxy
+}
