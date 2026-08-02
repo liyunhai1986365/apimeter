@@ -1,5 +1,6 @@
 {
 	admin 127.0.0.1:2019
+	email admin@modelsell.com
 }
 
 (modelsell_access_log) {
@@ -87,19 +88,16 @@
 }
 
 modelsell.com {
-	tls /etc/caddy/tls/modelsell.com.crt /etc/caddy/tls/modelsell.com.key
 	import modelsell_access_log
 	import modelsell_routes
 }
 
 www.modelsell.com {
-	tls /etc/caddy/tls/www.modelsell.com.crt /etc/caddy/tls/www.modelsell.com.key
 	import modelsell_access_log
 	import modelsell_routes
 }
 
 api.modelsell.com {
-	tls /etc/caddy/tls/api.modelsell.com.crt /etc/caddy/tls/api.modelsell.com.key
 	import modelsell_access_log
 	import distributed_proxy
 }
