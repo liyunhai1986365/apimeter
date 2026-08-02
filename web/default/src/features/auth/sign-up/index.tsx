@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useSearch } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 import { useStatus } from '@/hooks/use-status'
 import { AuthLayout } from '../auth-layout'
@@ -25,12 +26,13 @@ import { SignUpForm } from './components/sign-up-form'
 
 export function SignUp() {
   const { t } = useTranslation()
+  const { redirect } = useSearch({ from: '/(auth)/sign-up' })
   const { status } = useStatus()
 
   return (
     <AuthLayout>
       <div className='flex w-full flex-col gap-8'>
-        <AuthModeSwitch activeMode='sign-up' />
+        <AuthModeSwitch activeMode='sign-up' redirectTo={redirect} />
 
         <div className='flex flex-col gap-2'>
           <p className='text-primary text-sm font-medium'>
@@ -48,7 +50,7 @@ export function SignUp() {
 
         <LegalRegisterNotice status={status} />
 
-        <SignUpForm />
+        <SignUpForm redirectTo={redirect} />
       </div>
     </AuthLayout>
   )

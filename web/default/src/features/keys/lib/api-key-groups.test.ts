@@ -59,6 +59,7 @@ describe('api key group options', () => {
       name: 'ordered-key',
       routing_mode: 'manual',
       group_chain: ['vip', 'backup'],
+      cross_group_retry: false,
     })
 
     assert.equal(payload.group, 'vip')

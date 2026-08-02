@@ -80,6 +80,22 @@ func TestShouldRetryRespectsSelectedChannelRetrySwitch(t *testing.T) {
 	require.False(t, shouldRetry(c, err, 1))
 }
 
+func TestShouldRetryAllowsPendingUserTokenGroupWhenChannelRetryDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyChannelRetryEnabled, false)
+	common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+
+	err := types.NewOpenAIError(
+		errors.New("upstream overloaded"),
+		types.ErrorCodeBadResponseStatusCode,
+		http.StatusInternalServerError,
+	)
+
+	require.True(t, shouldRetryWithTokenGroupPlan(c, err, 1, true))
+	require.False(t, shouldRetryWithTokenGroupPlan(c, err, 1, false))
+}
+
 func TestShouldRetryChannelPolicyOverridesGlobalPolicy(t *testing.T) {
 	origRules := operation_setting.AutomaticRetryPolicyRules
 	t.Cleanup(func() { operation_setting.AutomaticRetryPolicyRules = origRules })

@@ -18,7 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useParams, useSearch } from '@tanstack/react-router'
+import {
+  Link,
+  useNavigate,
+  useParams,
+  useSearch,
+} from '@tanstack/react-router'
 import {
   CircleDollarSign,
   ArrowLeft,
@@ -26,18 +31,34 @@ import {
   Code2,
   Info,
 } from 'lucide-react'
+import {
+  ArrowRight02Icon,
+  CheckmarkCircle02Icon,
+  SparklesIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { trackGoogleAnalyticsEvent } from '@/lib/google-analytics'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
-import { Button } from '@/components/ui/button'
+import { useAuthStore } from '@/stores/auth-store'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import { Badge } from '@/components/ui/badge'
+import { Button, buttonVariants } from '@/components/ui/button'
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
@@ -1178,8 +1199,293 @@ export interface ModelDetailsContentProps {
   usdExchangeRate: number
   tokenUnit: TokenUnit
   showRechargePrice?: boolean
+  semLanding?: boolean
+  semAttribution?: SemAttribution
   variant?: ModelDetailsVariant
   onBack?: () => void
+}
+
+type SemAttribution = {
+  source?: string
+  medium?: string
+  campaign?: string
+  content?: string
+  term?: string
+  campaignId?: string
+  adGroupId?: string
+  creativeId?: string
+  matchType?: string
+  network?: string
+  device?: string
+}
+
+function getSemEventParams(
+  model: PricingModel,
+  attribution?: SemAttribution
+): Record<string, unknown> {
+  return {
+    model: model.model_name,
+    vendor: model.vendor_name || 'unknown',
+    model_category: model.category || 'unknown',
+    sem_source: attribution?.source || 'unknown',
+    sem_medium: attribution?.medium || 'unknown',
+    sem_campaign: attribution?.campaign || 'unknown',
+    sem_content: attribution?.content || 'unknown',
+    sem_term: attribution?.term || 'unknown',
+    campaign_id: attribution?.campaignId || 'unknown',
+    ad_group_id: attribution?.adGroupId || 'unknown',
+    creative_id: attribution?.creativeId || 'unknown',
+    match_type: attribution?.matchType || 'unknown',
+    network: attribution?.network || 'unknown',
+    device: attribution?.device || 'unknown',
+  }
+}
+
+function ModelDetailsSemPrimaryAction(props: {
+  isAuthenticated: boolean
+  className?: string
+  onClick: () => void
+}) {
+  const { t } = useTranslation()
+
+  if (props.isAuthenticated) {
+    return (
+      <Link
+        to='/keys'
+        className={cn(buttonVariants({ size: 'lg' }), props.className)}
+        onClick={props.onClick}
+      >
+        {t('Create API Key')}
+      </Link>
+    )
+  }
+
+  return (
+    <Link
+      to='/sign-up'
+      search={{ redirect: '/keys' }}
+      className={cn(
+        buttonVariants({ size: 'lg' }),
+        'h-11 text-base shadow-lg shadow-primary/20',
+        props.className
+      )}
+      onClick={props.onClick}
+    >
+      {t('Free trial')}
+      <HugeiconsIcon icon={ArrowRight02Icon} data-icon='inline-end' />
+    </Link>
+  )
+}
+
+function ModelDetailsSemCta(props: {
+  model: PricingModel
+  attribution?: SemAttribution
+  onViewApi: () => void
+}) {
+  const { t } = useTranslation()
+  const isAuthenticated = useAuthStore((state) => Boolean(state.auth.user))
+  const trackedViewRef = useRef(false)
+
+  useEffect(() => {
+    if (trackedViewRef.current) return
+    trackedViewRef.current = true
+    trackGoogleAnalyticsEvent(
+      'sem_landing_view',
+      getSemEventParams(props.model, props.attribution)
+    )
+  }, [props.attribution, props.model])
+
+  const trackCta = (
+    action: 'sign_up' | 'create_key' | 'view_api',
+    placement: 'hero' | 'mobile_sticky' = 'hero'
+  ) => {
+    trackGoogleAnalyticsEvent('sem_cta_click', {
+      action,
+      placement,
+      ...getSemEventParams(props.model, props.attribution),
+    })
+  }
+
+  return (
+    <Card className='relative overflow-hidden ring-primary/25 shadow-lg shadow-primary/5'>
+      <div
+        aria-hidden='true'
+        className='bg-primary absolute inset-x-0 top-0 h-1'
+      />
+      <div
+        aria-hidden='true'
+        className='bg-primary/10 pointer-events-none absolute -top-24 -right-24 size-72 rounded-full blur-3xl'
+      />
+      <CardHeader className='relative gap-4 pt-5 md:px-6'>
+        <div className='flex flex-wrap gap-2'>
+          <Badge>
+            <HugeiconsIcon icon={SparklesIcon} data-icon='inline-start' />
+            {t('Free trial')}
+          </Badge>
+          <Badge variant='secondary'>{t('One API key')}</Badge>
+          <Badge variant='secondary'>{t('Pay-as-you-go')}</Badge>
+          <Badge variant='secondary'>{t('Live pricing and uptime')}</Badge>
+        </div>
+        <CardTitle className='text-2xl leading-tight md:text-3xl'>
+          {t('Start using {{model}} API', {
+            model: props.model.model_name,
+          })}
+        </CardTitle>
+        <CardDescription className='max-w-3xl text-sm leading-6 md:text-base'>
+          {t(
+            'Use one account to access this model, compare provider prices and reliability, and copy a ready-to-run API example.'
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className='relative grid gap-6 md:grid-cols-[minmax(0,1fr)_minmax(17rem,0.72fr)] md:px-6'>
+        <div className='flex flex-col gap-4'>
+          <p className='text-base font-semibold'>
+            {t('From search to first API call')}
+          </p>
+          <ol className='grid gap-3 sm:grid-cols-3'>
+            {[
+              t('Create your Modelsell account'),
+              t('Create one API key'),
+              t('Copy the endpoint and run the example'),
+            ].map((step, index) => (
+              <li
+                key={step}
+                className='bg-background/80 flex items-start gap-2 rounded-xl p-3 text-sm ring-1 ring-foreground/10'
+              >
+                <Badge variant='outline'>{index + 1}</Badge>
+                <span className='pt-0.5 leading-5'>{step}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+        <div className='bg-primary/5 flex flex-col gap-3 rounded-2xl p-5 ring-1 ring-primary/20'>
+          <div className='flex items-center gap-3'>
+            <span className='bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm'>
+              <HugeiconsIcon icon={SparklesIcon} className='size-5' />
+            </span>
+            <div className='min-w-0'>
+              <p className='font-semibold'>
+                {t('Ready to call {{model}}?', {
+                  model: props.model.model_name,
+                })}
+              </p>
+              <p className='text-muted-foreground mt-1 text-xs leading-5'>
+                {t(
+                  'No subscription required. Add credit when you are ready to run requests.'
+                )}
+              </p>
+            </div>
+          </div>
+          <ModelDetailsSemPrimaryAction
+            isAuthenticated={isAuthenticated}
+            className='w-full'
+            onClick={() =>
+              trackCta(isAuthenticated ? 'create_key' : 'sign_up')
+            }
+          />
+          <Button
+            type='button'
+            size='lg'
+            variant='outline'
+            className='w-full'
+            onClick={() => {
+              trackCta('view_api')
+              props.onViewApi()
+            }}
+          >
+            {t('View API example')}
+          </Button>
+        </div>
+      </CardContent>
+      <CardFooter className='relative text-muted-foreground flex flex-wrap gap-x-5 gap-y-2 text-xs md:px-6'>
+        <span className='flex items-center gap-1.5'>
+          <HugeiconsIcon
+            icon={CheckmarkCircle02Icon}
+            className='text-primary size-4'
+          />
+          {t('Exact model ID shown before you create a key')}
+        </span>
+        <span className='flex items-center gap-1.5'>
+          <HugeiconsIcon
+            icon={CheckmarkCircle02Icon}
+            className='text-primary size-4'
+          />
+          {t('Provider prices and uptime are visible before sign-up')}
+        </span>
+      </CardFooter>
+    </Card>
+  )
+}
+
+function ModelDetailsSemFaq() {
+  const { t } = useTranslation()
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{t('API access questions')}</CardTitle>
+        <CardDescription>
+          {t('Everything you need to decide before creating an account.')}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Accordion>
+          <AccordionItem value='call-model'>
+            <AccordionTrigger>{t('How do I call this model?')}</AccordionTrigger>
+            <AccordionContent className='text-muted-foreground leading-6'>
+              {t(
+                'Create an account and API key, open the API tab above, then copy the endpoint and example request for this exact model ID.'
+              )}
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value='pricing'>
+            <AccordionTrigger>{t('How is usage priced?')}</AccordionTrigger>
+            <AccordionContent className='text-muted-foreground leading-6'>
+              {t(
+                'Pricing depends on the selected provider group and the model billing unit. The current input, output, request, or media prices are shown on this page before sign-up.'
+              )}
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value='switch-models'>
+            <AccordionTrigger>
+              {t('Can I use the same key for other models?')}
+            </AccordionTrigger>
+            <AccordionContent className='text-muted-foreground leading-6'>
+              {t(
+                'Yes. One Modelsell account and API key can access supported models. Use the model ID and endpoint shown on each model page.'
+              )}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ModelDetailsSemMobileCta(props: {
+  model: PricingModel
+  attribution?: SemAttribution
+}) {
+  const isAuthenticated = useAuthStore((state) => Boolean(state.auth.user))
+
+  if (typeof document === 'undefined') return null
+
+  return createPortal(
+    <div className='bg-background/95 fixed inset-x-0 bottom-0 z-50 border-t p-3 backdrop-blur md:hidden'>
+      <ModelDetailsSemPrimaryAction
+        isAuthenticated={isAuthenticated}
+        className='w-full'
+        onClick={() =>
+          trackGoogleAnalyticsEvent('sem_cta_click', {
+            action: isAuthenticated ? 'create_key' : 'sign_up',
+            placement: 'mobile_sticky',
+            ...getSemEventParams(props.model, props.attribution),
+          })
+        }
+      />
+    </div>,
+    document.body
+  )
 }
 
 export function ModelDetailsContent(props: ModelDetailsContentProps) {
@@ -1240,10 +1546,33 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
         />
       )}
 
+      {isPage && props.semLanding && showStickyNav && (
+        <ModelDetailsSemMobileCta
+          model={props.model}
+          attribution={props.semAttribution}
+        />
+      )}
+
       <div
         className={cn('@container/details space-y-4', isPage && 'space-y-8')}
       >
         <ModelHeader model={props.model} variant={variant} />
+
+        {isPage && props.semLanding && (
+          <ModelDetailsSemCta
+            model={props.model}
+            attribution={props.semAttribution}
+            onViewApi={() => {
+              setActiveTab('api')
+              requestAnimationFrame(() => {
+                tabsListRef.current?.scrollIntoView({
+                  behavior: 'smooth',
+                  block: 'start',
+                })
+              })
+            }}
+          />
+        )}
 
         <Tabs
           value={activeTab}
@@ -1302,6 +1631,8 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             />
           </TabsContent>
         </Tabs>
+
+        {isPage && props.semLanding && <ModelDetailsSemFaq />}
       </div>
     </>
   )
@@ -1474,6 +1805,11 @@ export function ModelDetails() {
     navigate({ to: '/pricing', search })
   }
 
+  const toOptionalSearchString = (
+    value: string | number | boolean | undefined
+  ): string | undefined =>
+    value === undefined ? undefined : String(value)
+
   if (isLoading) {
     return (
       <PublicLayout showMainContainer={false}>
@@ -1553,6 +1889,25 @@ export function ModelDetails() {
             usdExchangeRate={usdExchangeRate ?? 1}
             tokenUnit={tokenUnit}
             showRechargePrice={search.rechargePrice ?? false}
+            semLanding={
+              String(search.sem ?? '') === '1' ||
+              ['cpc', 'ppc', 'paidsearch'].includes(
+                toOptionalSearchString(search.utm_medium)?.toLowerCase() ?? ''
+              )
+            }
+            semAttribution={{
+              source: toOptionalSearchString(search.utm_source),
+              medium: toOptionalSearchString(search.utm_medium),
+              campaign: toOptionalSearchString(search.utm_campaign),
+              content: toOptionalSearchString(search.utm_content),
+              term: toOptionalSearchString(search.utm_term),
+              campaignId: toOptionalSearchString(search.campaign_id),
+              adGroupId: toOptionalSearchString(search.adgroup_id),
+              creativeId: toOptionalSearchString(search.creative_id),
+              matchType: toOptionalSearchString(search.match_type),
+              network: toOptionalSearchString(search.network),
+              device: toOptionalSearchString(search.device),
+            }}
             variant='page'
             onBack={handleBack}
             endpointMap={

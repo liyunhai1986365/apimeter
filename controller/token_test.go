@@ -973,7 +973,7 @@ func TestAddTokenPersistsOrderedGroupPolicy(t *testing.T) {
 		"model_limits":         "",
 		"group":                "vip",
 		"group_policy":         `{"type":"ordered","groups":["vip","backup"]}`,
-		"cross_group_retry":    true,
+		"cross_group_retry":    false,
 	}
 
 	ctx, recorder := newAuthenticatedContext(t, http.MethodPost, "/api/token/", body, 1)
@@ -1008,6 +1008,9 @@ func TestAddTokenPersistsOrderedGroupPolicy(t *testing.T) {
 	}
 	if token.GroupPolicy != `{"type":"ordered","groups":["vip","backup"]}` {
 		t.Fatalf("expected stored ordered group policy, got %q", token.GroupPolicy)
+	}
+	if !token.CrossGroupRetry {
+		t.Fatal("expected stored ordered multi-group policy to enable cross-group retry")
 	}
 }
 

@@ -18,11 +18,17 @@ import (
 const contextKeyConfigurableNativeProfileIDs = "configurable_native_profile_ids"
 
 type RetryParam struct {
-	Ctx          *gin.Context
-	TokenGroup   string
-	ModelName    string
-	Retry        *int
-	resetNextTry bool
+	Ctx                     *gin.Context
+	TokenGroup              string
+	ModelName               string
+	Retry                   *int
+	resetNextTry            bool
+	attempt                 int
+	attemptInitialized      bool
+	nextTokenGroupAvailable bool
+	currentTokenGroupIndex  int
+	tokenGroupCount         int
+	tokenGroupFailover      bool
 }
 
 func (p *RetryParam) GetRetry() int {
@@ -37,6 +43,8 @@ func (p *RetryParam) SetRetry(retry int) {
 }
 
 func (p *RetryParam) IncreaseRetry() {
+	p.ensureAttemptInitialized()
+	p.attempt++
 	if p.resetNextTry {
 		p.resetNextTry = false
 		return
@@ -51,6 +59,59 @@ func (p *RetryParam) ResetRetryNextTry() {
 	p.resetNextTry = true
 }
 
+// GetAttempt returns the request-wide attempt index. Unlike Retry, it never
+// resets when an ordered/auto token policy advances to the next group.
+func (p *RetryParam) GetAttempt() int {
+	if p == nil {
+		return 0
+	}
+	if !p.attemptInitialized {
+		return p.GetRetry()
+	}
+	return p.attempt
+}
+
+func (p *RetryParam) ensureAttemptInitialized() {
+	if p == nil || p.attemptInitialized {
+		return
+	}
+	p.attempt = p.GetRetry()
+	p.attemptInitialized = true
+}
+
+// RemainingSystemRetries keeps the legacy per-group retry budget, while
+// reserving one continuation when the token's own multi-group plan still has
+// a group to try. This prevents the system retry budget for one group from
+// terminating the whole token group chain.
+func (p *RetryParam) RemainingSystemRetries() int {
+	if p == nil {
+		return 0
+	}
+	remaining := common.RetryTimes - p.GetRetry()
+	if remaining <= 0 && p.nextTokenGroupAvailable {
+		return 1
+	}
+	return remaining
+}
+
+func (p *RetryParam) HasNextTokenGroup() bool {
+	return p != nil && p.nextTokenGroupAvailable
+}
+
+// AdvanceToNextTokenGroup skips the remaining retries in the current group.
+// It is used when the selected channel disables its own retry mechanism: the
+// channel setting must not make the user's explicit fallback groups unreachable.
+func (p *RetryParam) AdvanceToNextTokenGroup() bool {
+	if p == nil || p.nextTokenGroupAvailable || !p.tokenGroupFailover || p.currentTokenGroupIndex < 0 || p.currentTokenGroupIndex+1 >= p.tokenGroupCount {
+		return p != nil && p.nextTokenGroupAvailable
+	}
+	common.SetContextKey(p.Ctx, constant.ContextKeyAutoGroupIndex, p.currentTokenGroupIndex+1)
+	p.SetRetry(0)
+	p.ResetRetryNextTry()
+	p.nextTokenGroupAvailable = true
+	return true
+}
+
 // CacheGetRandomSatisfiedChannel tries to get a random channel that satisfies the requirements.
 // 尝试获取一个满足要求的随机渠道。
 //
@@ -63,30 +124,35 @@ func (p *RetryParam) ResetRetryNextTry() {
 //   - Uses ContextKeyAutoGroupIndex to track current group index.
 //     使用 ContextKeyAutoGroupIndex 跟踪当前分组索引。
 //
-//   - Uses ContextKeyAutoGroupRetryIndex to track the global Retry count when current group started.
-//     使用 ContextKeyAutoGroupRetryIndex 跟踪当前分组开始时的全局重试次数。
+//   - Retry is the group-local priority cursor and resets when the group changes.
+//     Retry 是组内优先级游标，切换分组时会重置。
 //
-//   - priorityRetry = Retry - startRetryIndex, represents the priority level within current group.
-//     priorityRetry = Retry - startRetryIndex，表示当前分组内的优先级级别。
+//   - Attempt is request-wide and never resets, so policy limits and logs see the real attempt order.
+//     Attempt 是请求级总尝试序号，不随分组重置，策略上限和日志因此能看到真实顺序。
 //
 //   - When GetRandomSatisfiedChannel returns nil (priorities exhausted), moves to next group.
 //     当 GetRandomSatisfiedChannel 返回 nil（优先级用完）时，切换到下一个分组。
 //
-// Example flow (2 groups, each with 2 priorities, RetryTimes=3):
-// 示例流程（2个分组，每个有2个优先级，RetryTimes=3）：
+// Example flow (2 groups, RetryTimes=1):
+// 示例流程（2个分组，RetryTimes=1）：
 //
-//	Retry=0: GroupA, priority0 (startRetryIndex=0, priorityRetry=0)
-//	         分组A, 优先级0
+//	Attempt=0, Retry=0: GroupA, priority0
+//	                    分组A, 优先级0
 //
-//	Retry=1: GroupA, priority1 (startRetryIndex=0, priorityRetry=1)
-//	         分组A, 优先级1
+//	Attempt=1, Retry=1: GroupA, priority1; prepare GroupB
+//	                    分组A, 优先级1；准备切换分组B
 //
-//	Retry=2: GroupA exhausted → GroupB, priority0 (startRetryIndex=2, priorityRetry=0)
-//	         分组A用完 → 分组B, 优先级0
+//	Attempt=2, Retry=0: GroupB, priority0
+//	                    分组B, 优先级0
 //
-//	Retry=3: GroupB, priority1 (startRetryIndex=2, priorityRetry=1)
-//	         分组B, 优先级1
+//	Attempt=3, Retry=1: GroupB, priority1
+//	                    分组B, 优先级1
 func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, error) {
+	param.ensureAttemptInitialized()
+	param.nextTokenGroupAvailable = false
+	param.currentTokenGroupIndex = -1
+	param.tokenGroupCount = 0
+	param.tokenGroupFailover = false
 	var channel *model.Channel
 	var err error
 	selectGroup := param.TokenGroup
@@ -100,7 +166,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	}
 	filter := combineChannelFilters(BuildProtocolChannelFilter(param), RetryPolicyRecoveryFilter(param.Ctx))
 
-	if recoveryGroups := RetryPolicyRecoveryGroupsForAttempt(param.Ctx, param.GetRetry(), param.ModelName); len(recoveryGroups) > 0 {
+	if recoveryGroups := RetryPolicyRecoveryGroupsForAttempt(param.Ctx, param.GetAttempt(), param.ModelName); len(recoveryGroups) > 0 {
 		for _, recoveryGroup := range recoveryGroups {
 			if err := validateRetryPolicyRecoveryGroup(param.Ctx, recoveryGroup); err != nil {
 				return nil, recoveryGroup, err
@@ -139,7 +205,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		if agentCtx != nil {
 			_, agentPolicyGroupNames = agentAutoGroups(agentCtx, userGroup)
 		}
-		crossGroupRetry := common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+		crossGroupRetry := tokenGroupFailoverEnabled(param.Ctx, policyGroups, hasRoutingStrategyPolicy)
 
 		if lastGroupIndex, exists := common.GetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex); exists {
 			if idx, ok := lastGroupIndex.(int); ok {
@@ -185,13 +251,14 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			setSelectedGroupContext(param.Ctx, policyGroup, agentPolicyGroupName(param.Ctx, policyGroup, agentPolicyGroupNames))
 			selectGroup = policyGroup
+			param.currentTokenGroupIndex = i
+			param.tokenGroupCount = len(policyGroups)
+			param.tokenGroupFailover = crossGroupRetry
 			logger.LogDebug(param.Ctx, "Policy selected group: %s", policyGroup)
 
 			if crossGroupRetry && priorityRetry >= common.RetryTimes && i+1 < len(policyGroups) {
 				logger.LogDebug(param.Ctx, "Current policy group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", policyGroup, priorityRetry, common.RetryTimes)
-				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
-				param.SetRetry(0)
-				param.ResetRetryNextTry()
+				param.AdvanceToNextTokenGroup()
 			} else {
 				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i)
 			}
@@ -251,6 +318,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			setSelectedGroupContext(param.Ctx, autoGroup, agentAutoGroupNames[autoGroup])
 			selectGroup = autoGroup
+			param.currentTokenGroupIndex = i
+			param.tokenGroupCount = len(autoGroups)
+			param.tokenGroupFailover = crossGroupRetry
 			logger.LogDebug(param.Ctx, "Auto selected group: %s", autoGroup)
 
 			// Prepare state for next retry
@@ -261,11 +331,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 				// 当前分组已用完所有重试次数，准备切换到下一个分组
 				// 本次请求仍使用当前分组，但下次重试将使用下一个分组
 				logger.LogDebug(param.Ctx, "Current group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", autoGroup, priorityRetry, common.RetryTimes)
-				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i+1)
-				// Reset retry counter so outer loop can continue for next group
-				// 重置重试计数器，以便外层循环可以为下一个分组继续
-				param.SetRetry(0)
-				param.ResetRetryNextTry()
+				param.AdvanceToNextTokenGroup()
 			} else {
 				// Stay in current group, save current state
 				// 保持在当前分组，保存当前状态
@@ -368,10 +434,21 @@ func shouldStopOnProtocolMismatch(param *RetryParam) bool {
 	if param == nil || param.Ctx == nil {
 		return true
 	}
-	if param.TokenGroup != "auto" && len(ResolveTokenGroupChain(param.Ctx, param.TokenGroup)) == 0 {
+	policyGroups := ResolveTokenGroupChain(param.Ctx, param.TokenGroup)
+	if param.TokenGroup != "auto" && len(policyGroups) == 0 {
 		return true
 	}
-	return !common.GetContextKeyBool(param.Ctx, constant.ContextKeyTokenCrossGroupRetry)
+	return !tokenGroupFailoverEnabled(param.Ctx, policyGroups, IsRoutingStrategyTokenPolicy(param.Ctx))
+}
+
+func tokenGroupFailoverEnabled(ctx *gin.Context, groups []string, routingStrategyPolicy bool) bool {
+	if !routingStrategyPolicy && len(groups) > 1 {
+		// An explicit ordered list is itself the user's failover intent. Do
+		// not let a legacy false toggle make every group after the first one
+		// unreachable.
+		return true
+	}
+	return common.GetContextKeyBool(ctx, constant.ContextKeyTokenCrossGroupRetry)
 }
 
 func unsupportedImageChatProtocolError(modelName string) error {

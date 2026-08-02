@@ -33,6 +33,7 @@ export function SignIn() {
       <div className='flex w-full flex-col gap-8'>
         <AuthModeSwitch
           activeMode='sign-in'
+          redirectTo={redirect}
           showSignUp={
             !status?.self_use_mode_enabled && status?.register_enabled !== false
           }

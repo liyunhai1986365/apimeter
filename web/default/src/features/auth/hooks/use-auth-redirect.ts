@@ -114,15 +114,23 @@ export function useAuthRedirect(allowedExternalRedirect?: string) {
   /**
    * Redirect to login page
    */
-  const redirectToLogin = () => {
-    navigate({ to: '/sign-in', replace: true })
+  const redirectToLogin = (redirectTo?: string) => {
+    navigate({
+      to: '/sign-in',
+      search: redirectTo ? { redirect: redirectTo } : undefined,
+      replace: true,
+    })
   }
 
   /**
    * Redirect to register page
    */
-  const redirectToRegister = () => {
-    navigate({ to: '/sign-up', replace: true })
+  const redirectToRegister = (redirectTo?: string) => {
+    navigate({
+      to: '/sign-up',
+      search: redirectTo ? { redirect: redirectTo } : undefined,
+      replace: true,
+    })
   }
 
   return {

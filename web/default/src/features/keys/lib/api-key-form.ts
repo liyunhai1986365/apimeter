@@ -177,7 +177,10 @@ export function transformFormDataToPayload(
         ? AUTO_GROUP_VALUE
         : groupChain[0] || AUTO_GROUP_VALUE,
     group_policy: groupPolicy,
-    cross_group_retry: !!data.cross_group_retry,
+    cross_group_retry:
+      routingMode === 'manual' && groupChain.length > 1
+        ? true
+        : !!data.cross_group_retry,
     image_settings: {
       format: data.image_response_format || 'follow_request',
       store:

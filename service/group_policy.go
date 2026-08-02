@@ -187,6 +187,11 @@ func IsRoutingStrategyTokenPolicy(ctx *gin.Context) bool {
 	return err == nil && ok && policy.Type == TokenGroupPolicyTypeRoutingStrategy
 }
 
+func HasMultipleOrderedTokenGroups(raw string) bool {
+	policy, ok, err := parseTokenGroupPolicy(raw)
+	return err == nil && ok && policy.Type == TokenGroupPolicyTypeOrdered && len(policy.Groups) > 1
+}
+
 func parseTokenGroupPolicy(raw string) (TokenGroupPolicy, bool, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {

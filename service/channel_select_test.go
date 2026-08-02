@@ -384,6 +384,117 @@ func TestCacheGetRandomSatisfiedChannelUsesOrderedTokenGroupPolicy(t *testing.T)
 	require.Equal(t, "backup", selectedGroup)
 }
 
+func TestOrderedTokenGroupsKeepIndependentSystemRetryBudgets(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	originalRetryTimes := common.RetryTimes
+	common.RetryTimes = 1
+	t.Cleanup(func() {
+		common.RetryTimes = originalRetryTimes
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	createChannelSelectFixture(t, db, 1121, "vip", 10)
+	createChannelSelectFixture(t, db, 1122, "backup", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, false)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["vip","backup"]}`)
+
+	retry := 0
+	retryParam := &RetryParam{
+		Ctx:        c,
+		TokenGroup: "vip",
+		ModelName:  "gpt-test",
+		Retry:      &retry,
+	}
+
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.Equal(t, 1121, channel.Id)
+	require.Equal(t, "vip", selectedGroup)
+	require.Equal(t, 0, retryParam.GetAttempt())
+	require.Equal(t, 1, retryParam.RemainingSystemRetries())
+
+	retryParam.IncreaseRetry()
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.Equal(t, 1121, channel.Id)
+	require.Equal(t, "vip", selectedGroup)
+	require.Equal(t, 1, retryParam.GetAttempt())
+	require.Equal(t, 0, retryParam.GetRetry(), "next group must receive a fresh system retry budget")
+	require.Equal(t, 1, retryParam.RemainingSystemRetries(), "exhausting one group must not terminate the token group chain")
+
+	retryParam.IncreaseRetry()
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.Equal(t, 1122, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+	require.Equal(t, 2, retryParam.GetAttempt(), "request-wide attempts must remain monotonic across groups")
+	require.Equal(t, 0, retryParam.GetRetry())
+	require.Equal(t, 1, retryParam.RemainingSystemRetries())
+
+	retryParam.IncreaseRetry()
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.Equal(t, 1122, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+	require.Equal(t, 3, retryParam.GetAttempt())
+	require.Equal(t, 1, retryParam.GetRetry())
+	require.Equal(t, 0, retryParam.RemainingSystemRetries(), "the final group still obeys the system retry cap")
+}
+
+func TestOrderedTokenGroupsAdvanceWhenCurrentChannelDisablesRetry(t *testing.T) {
+	db := openChannelSelectTestDB(t)
+	t.Cleanup(func() {
+		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
+		_ = setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`)
+		common.MemoryCacheEnabled = false
+	})
+
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组","backup":"备用分组"}`))
+	createChannelSelectFixture(t, db, 1131, "vip", 10)
+	createChannelSelectFixture(t, db, 1132, "backup", 10)
+	model.InitChannelCache()
+
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, false)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["vip","backup"]}`)
+
+	retry := 0
+	retryParam := &RetryParam{Ctx: c, TokenGroup: "vip", ModelName: "gpt-test", Retry: &retry}
+	channel, selectedGroup, err := CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.Equal(t, 1131, channel.Id)
+	require.Equal(t, "vip", selectedGroup)
+	require.True(t, retryParam.AdvanceToNextTokenGroup())
+	require.Equal(t, 1, retryParam.RemainingSystemRetries())
+
+	retryParam.IncreaseRetry()
+	channel, selectedGroup, err = CacheGetRandomSatisfiedChannel(retryParam)
+	require.NoError(t, err)
+	require.Equal(t, 1132, channel.Id)
+	require.Equal(t, "backup", selectedGroup)
+	require.Equal(t, 1, retryParam.GetAttempt())
+}
+
+func TestOrderedTokenGroupsContinueOnProtocolMismatchWithoutLegacyToggle(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	common.SetContextKey(c, constant.ContextKeyTokenCrossGroupRetry, false)
+	common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"ordered","groups":["vip","backup"]}`)
+
+	require.False(t, shouldStopOnProtocolMismatch(&RetryParam{
+		Ctx:        c,
+		TokenGroup: "vip",
+		ModelName:  "gpt-test",
+	}))
+}
+
 func TestCacheGetRandomSatisfiedChannelUsesAgentSystemGroupPolicy(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {
@@ -744,6 +855,35 @@ func TestCacheGetRandomSatisfiedChannelUsesRetryPolicyRecoveryGroups(t *testing.
 	require.NotNil(t, channel)
 	require.Equal(t, 1402, channel.Id)
 	require.Equal(t, "codex-backup", selectedGroup)
+}
+
+func TestRetryPolicyRecoveryAttemptsStartWhenRuleMatches(t *testing.T) {
+	c, _ := gin.CreateTestContext(nil)
+	c.Set("relay_retry_index", 2)
+	decision := operation_setting.RetryPolicyDecision{
+		Matched:     true,
+		ShouldRetry: true,
+		Source:      operation_setting.RetryPolicySourceGlobal,
+		RuleName:    "late failover",
+		RetryGroups: []string{"primary-recovery", "backup-recovery"},
+		MaxRetries:  2,
+	}
+	SetRetryPolicyRecovery(c, decision)
+
+	recovery, ok := GetRetryPolicyRecovery(c)
+	require.True(t, ok)
+	require.Equal(t, 2, recovery.StartAttempt)
+	require.False(t, RetryPolicyRecoveryExceeded(c, 2))
+	require.Equal(t, []string{"primary-recovery"}, RetryPolicyRecoveryGroupsForAttempt(c, 3, "gpt-test"))
+
+	c.Set("relay_retry_index", 3)
+	SetRetryPolicyRecovery(c, decision)
+	recovery, ok = GetRetryPolicyRecovery(c)
+	require.True(t, ok)
+	require.Equal(t, 2, recovery.StartAttempt, "re-matching the same rule must preserve its original retry budget")
+	require.False(t, RetryPolicyRecoveryExceeded(c, 3))
+	require.Equal(t, []string{"backup-recovery"}, RetryPolicyRecoveryGroupsForAttempt(c, 4, "gpt-test"))
+	require.True(t, RetryPolicyRecoveryExceeded(c, 4))
 }
 
 func TestCacheGetRandomSatisfiedChannelUsesRetryPolicyFailoverTargets(t *testing.T) {

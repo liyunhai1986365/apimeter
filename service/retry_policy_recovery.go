@@ -17,6 +17,7 @@ type RetryPolicyRecoveryContext struct {
 	Source           string
 	RuleName         string
 	Action           string
+	StartAttempt     int
 	RetryGroups      []string
 	MaxRetries       int
 	TargetChannelIDs []int
@@ -35,10 +36,23 @@ func SetRetryPolicyRecovery(c *gin.Context, decision operation_setting.RetryPoli
 	if len(groups) == 0 && len(targetChannelIDs) == 0 && len(targetTags) == 0 && decision.MaxRetries <= 0 && strings.TrimSpace(decision.TargetModel) == "" {
 		return
 	}
+	startAttempt := 0
+	if rawAttempt, exists := c.Get("relay_retry_index"); exists {
+		if attempt, valid := rawAttempt.(int); valid && attempt > 0 {
+			startAttempt = attempt
+		}
+	}
+	if existing, ok := GetRetryPolicyRecovery(c); ok &&
+		existing.Source == strings.TrimSpace(decision.Source) &&
+		existing.RuleName == strings.TrimSpace(decision.RuleName) &&
+		existing.Action == strings.TrimSpace(decision.Action) {
+		startAttempt = existing.StartAttempt
+	}
 	c.Set(ginKeyRetryPolicyRecovery, RetryPolicyRecoveryContext{
 		Source:           strings.TrimSpace(decision.Source),
 		RuleName:         strings.TrimSpace(decision.RuleName),
 		Action:           strings.TrimSpace(decision.Action),
+		StartAttempt:     startAttempt,
 		RetryGroups:      groups,
 		MaxRetries:       decision.MaxRetries,
 		TargetChannelIDs: targetChannelIDs,
@@ -82,6 +96,7 @@ func AppendRetryPolicyRecoveryAdminInfo(c *gin.Context, adminInfo map[string]int
 		"source":             recovery.Source,
 		"rule_name":          recovery.RuleName,
 		"action":             recovery.Action,
+		"start_attempt":      recovery.StartAttempt,
 		"retry_groups":       recovery.RetryGroups,
 		"max_retries":        recovery.MaxRetries,
 		"target_channel_ids": recovery.TargetChannelIDs,
@@ -101,15 +116,16 @@ func RetryPolicyRecoveryExceeded(c *gin.Context, retryIndex int) bool {
 	if !ok || recovery.MaxRetries <= 0 {
 		return false
 	}
-	return retryIndex >= recovery.MaxRetries
+	return retryIndex-recovery.StartAttempt >= recovery.MaxRetries
 }
 
 func RetryPolicyRecoveryGroupForAttempt(c *gin.Context, retryIndex int) (string, bool) {
 	recovery, ok := GetRetryPolicyRecovery(c)
-	if !ok || len(recovery.RetryGroups) == 0 || retryIndex <= 0 {
+	recoveryAttempt := retryIndex - recovery.StartAttempt
+	if !ok || len(recovery.RetryGroups) == 0 || recoveryAttempt <= 0 {
 		return "", false
 	}
-	index := retryIndex - 1
+	index := recoveryAttempt - 1
 	if index >= len(recovery.RetryGroups) {
 		index = len(recovery.RetryGroups) - 1
 	}
@@ -122,7 +138,7 @@ func RetryPolicyRecoveryGroupForAttempt(c *gin.Context, retryIndex int) (string,
 
 func RetryPolicyRecoveryGroupsForAttempt(c *gin.Context, retryIndex int, modelName string) []string {
 	recovery, ok := GetRetryPolicyRecovery(c)
-	if !ok || retryIndex <= 0 {
+	if !ok || retryIndex-recovery.StartAttempt <= 0 {
 		return nil
 	}
 	if len(recovery.RetryGroups) > 0 {

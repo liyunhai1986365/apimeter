@@ -26,11 +26,13 @@ type AuthMode = 'sign-in' | 'sign-up'
 type AuthModeSwitchProps = {
   activeMode: AuthMode
   showSignUp?: boolean
+  redirectTo?: string
 }
 
 export function AuthModeSwitch({
   activeMode,
   showSignUp = true,
+  redirectTo,
 }: AuthModeSwitchProps) {
   const { t } = useTranslation()
 
@@ -44,7 +46,12 @@ export function AuthModeSwitch({
           size='lg'
           className='h-10 flex-1'
           aria-current={activeMode === 'sign-in' ? 'page' : undefined}
-          render={<Link to='/sign-in' />}
+          render={
+            <Link
+              to='/sign-in'
+              search={redirectTo ? { redirect: redirectTo } : undefined}
+            />
+          }
         >
           {t('Sign in')}
         </Button>
@@ -53,7 +60,12 @@ export function AuthModeSwitch({
           size='lg'
           className='h-10 flex-1'
           aria-current={activeMode === 'sign-up' ? 'page' : undefined}
-          render={<Link to='/sign-up' />}
+          render={
+            <Link
+              to='/sign-up'
+              search={redirectTo ? { redirect: redirectTo } : undefined}
+            />
+          }
         >
           {t('Sign up')}
         </Button>

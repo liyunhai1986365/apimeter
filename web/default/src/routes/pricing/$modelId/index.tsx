@@ -22,6 +22,10 @@ import { useAuthStore } from '@/stores/auth-store'
 import { getFreshModuleAccess } from '@/lib/nav-modules'
 import { ModelDetails } from '@/features/pricing/components/model-details'
 
+const semSearchValueSchema = z
+  .union([z.string(), z.number(), z.boolean()])
+  .optional()
+
 const modelDetailsSearchSchema = z.object({
   search: z.string().optional(),
   sort: z.string().optional(),
@@ -34,6 +38,23 @@ const modelDetailsSearchSchema = z.object({
   tokenUnit: z.enum(['M', 'K']).optional(),
   view: z.enum(['card', 'table']).optional().catch(undefined),
   rechargePrice: z.boolean().optional(),
+  sem: z
+    .union([z.literal('1'), z.literal(1)])
+    .optional(),
+  utm_source: semSearchValueSchema,
+  utm_medium: semSearchValueSchema,
+  utm_campaign: semSearchValueSchema,
+  utm_content: semSearchValueSchema,
+  utm_term: semSearchValueSchema,
+  campaign_id: semSearchValueSchema,
+  adgroup_id: semSearchValueSchema,
+  creative_id: semSearchValueSchema,
+  match_type: semSearchValueSchema,
+  network: semSearchValueSchema,
+  device: semSearchValueSchema,
+  gclid: semSearchValueSchema,
+  gbraid: semSearchValueSchema,
+  wbraid: semSearchValueSchema,
 })
 
 export const Route = createFileRoute('/pricing/$modelId/')({

@@ -45,7 +45,7 @@ type Token struct {
 	TodayUsedQuota     int                `json:"today_used_quota" gorm:"-"`
 	Group              string             `json:"group" gorm:"default:''"`
 	GroupPolicy        string             `json:"group_policy" gorm:"type:text"`
-	CrossGroupRetry    bool               `json:"cross_group_retry"`                                 // 跨分组重试，仅auto分组有效
+	CrossGroupRetry    bool               `json:"cross_group_retry"`                                 // 自动/策略分组的跨分组重试；手动多分组天然启用
 	ImageSettings      TokenImageSettings `json:"image_settings" gorm:"type:text"`                   // 图片返回格式与转存策略
 	BillingSource      string             `json:"billing_source" gorm:"type:varchar(32);default:''"` // subscription 表示订阅专属Key
 	SubscriptionPlanId int                `json:"subscription_plan_id" gorm:"index;default:0"`

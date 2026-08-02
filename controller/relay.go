@@ -230,8 +230,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		shouldTryNextModel := false
 		for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
-			relayInfo.RetryIndex = retryParam.GetRetry()
-			c.Set("relay_retry_index", retryParam.GetRetry())
+			relayInfo.RetryIndex = retryParam.GetAttempt()
+			c.Set("relay_retry_index", retryParam.GetAttempt())
 			channel, channelErr := getChannel(c, relayInfo, retryParam)
 			if channelErr != nil {
 				logger.LogError(c, channelErr.Error())
@@ -273,8 +273,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 			processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, common.GetContextKeyString(c, constant.ContextKeyChannelKey), channel.GetAutoBan()), newAPIError)
 
-			remainingRetries := common.RetryTimes - retryParam.GetRetry()
-			if !shouldRetry(c, newAPIError, remainingRetries) {
+			if !selectedChannelAllowsRetry(c) {
+				retryParam.AdvanceToNextTokenGroup()
+			}
+			remainingRetries := retryParam.RemainingSystemRetries()
+			if !shouldRetryWithTokenGroupPlan(c, newAPIError, remainingRetries, retryParam.HasNextTokenGroup()) {
 				if attemptIndex == 0 && len(modelAttempts) > 1 && canTryFallbackModel(c, newAPIError) {
 					shouldTryNextModel = true
 				}
@@ -479,10 +482,14 @@ func getChannel(c *gin.Context, info *relaycommon.RelayInfo, retryParam *service
 }
 
 func shouldRetry(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int) bool {
+	return shouldRetryWithTokenGroupPlan(c, openaiErr, retryTimes, false)
+}
+
+func shouldRetryWithTokenGroupPlan(c *gin.Context, openaiErr *types.NewAPIError, retryTimes int, hasNextTokenGroup bool) bool {
 	if openaiErr == nil {
 		return false
 	}
-	if !selectedChannelAllowsRetry(c) {
+	if !selectedChannelAllowsRetry(c) && !hasNextTokenGroup {
 		return false
 	}
 	retryIndex, _ := c.Get("relay_retry_index")
@@ -526,11 +533,10 @@ func shouldRetryByPolicyDecision(c *gin.Context, decision operation_setting.Retr
 		service.ClearRetryPolicyRecovery(c)
 		return false
 	}
-	if currentRetry, ok := retryIndex.(int); ok && decision.MaxRetries > 0 && currentRetry >= decision.MaxRetries {
-		service.SetRetryPolicyRecovery(c, decision)
+	service.SetRetryPolicyRecovery(c, decision)
+	if currentRetry, ok := retryIndex.(int); ok && service.RetryPolicyRecoveryExceeded(c, currentRetry) {
 		return false
 	}
-	service.SetRetryPolicyRecovery(c, decision)
 	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) && !service.RetryPolicyRecoveryAllowsAffinityRetry(c) {
 		return false
 	}
@@ -991,6 +997,7 @@ func RelayTask(c *gin.Context) {
 	}
 
 	for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+		c.Set("relay_retry_index", retryParam.GetAttempt())
 		var channel *model.Channel
 
 		if lockedCh, ok := relayInfo.LockedChannel.(*model.Channel); ok && lockedCh != nil {
@@ -1035,7 +1042,10 @@ func RelayTask(c *gin.Context) {
 				types.NewOpenAIError(taskErr.Error, types.ErrorCodeBadResponseStatusCode, taskErr.StatusCode))
 		}
 
-		if !shouldRetryTaskRelay(c, channel.Id, taskErr, common.RetryTimes-retryParam.GetRetry()) {
+		if !selectedChannelAllowsRetry(c) {
+			retryParam.AdvanceToNextTokenGroup()
+		}
+		if !shouldRetryTaskRelay(c, channel.Id, taskErr, retryParam.RemainingSystemRetries(), retryParam.HasNextTokenGroup()) {
 			break
 		}
 	}
@@ -1100,11 +1110,11 @@ func respondTaskError(c *gin.Context, taskErr *dto.TaskError) {
 	c.JSON(taskErr.StatusCode, taskErr)
 }
 
-func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError, retryTimes int) bool {
+func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *dto.TaskError, retryTimes int, hasNextTokenGroup bool) bool {
 	if taskErr == nil {
 		return false
 	}
-	if !selectedChannelAllowsRetry(c) {
+	if !selectedChannelAllowsRetry(c) && !hasNextTokenGroup {
 		return false
 	}
 	if service.ShouldSkipRetryAfterChannelAffinityFailure(c) {

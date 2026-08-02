@@ -110,6 +110,9 @@ func normalizeTokenGroupForRequest(c *gin.Context, token *model.Token) error {
 		token.Group = group
 		token.GroupPolicy = policy
 	}
+	if service.HasMultipleOrderedTokenGroups(token.GroupPolicy) {
+		token.CrossGroupRetry = true
+	}
 	if strings.TrimSpace(token.Group) == "" && strings.TrimSpace(token.GroupPolicy) == "" {
 		token.Group = service.AutoGroupName
 	}

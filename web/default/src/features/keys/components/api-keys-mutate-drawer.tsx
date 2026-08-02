@@ -453,8 +453,6 @@ export function ApiKeysMutateDrawer({
   const quotaPlaceholder = tokensOnly
     ? t('Enter quota in tokens')
     : t('Enter quota in {{currency}}', { currency: currencyLabel })
-  const routingMode = form.watch('routing_mode') || 'smart'
-  const selectedGroupChain = form.watch('group_chain')
   const unlimitedQuota = form.watch('unlimited_quota')
   const imageResponseFormat = form.watch('image_response_format')
 
@@ -740,32 +738,6 @@ export function ApiKeysMutateDrawer({
                   </FormItem>
                 )}
               />
-
-              {routingMode === 'manual' &&
-                (selectedGroupChain || []).length > 1 && (
-                  <FormField
-                    control={form.control}
-                    name='cross_group_retry'
-                    render={({ field }) => (
-                      <FormItem className='flex min-h-16 flex-row items-center justify-between gap-3 rounded-lg border px-3 py-2.5 sm:min-h-20 sm:gap-4 sm:px-4 sm:py-3'>
-                        <div className='space-y-0.5'>
-                          <FormLabel className='text-sm'>
-                            {t(groupTerms.crossRetry)}
-                          </FormLabel>
-                          <FormDescription className='line-clamp-2 text-xs sm:line-clamp-none'>
-                            {t(groupTerms.crossRetryDescription)}
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <Switch
-                            checked={!!field.value}
-                            onCheckedChange={field.onChange}
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                )}
 
               <FormField
                 control={form.control}

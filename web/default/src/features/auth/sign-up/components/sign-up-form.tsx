@@ -62,9 +62,10 @@ import {
 import { getAffiliateCode } from '@/features/auth/lib/storage'
 
 export function SignUpForm({
+  redirectTo,
   className,
   ...props
-}: React.HTMLAttributes<HTMLFormElement>) {
+}: React.HTMLAttributes<HTMLFormElement> & { redirectTo?: string }) {
   const { t } = useTranslation()
   const [isLoading, setIsLoading] = useState(false)
   const [verificationCode, setVerificationCode] = useState('')
@@ -184,7 +185,7 @@ export function SignUpForm({
       if (res?.success) {
         trackSignUp('password')
         toast.success(t('Account created! Please sign in'))
-        redirectToLogin()
+        redirectToLogin(redirectTo)
       }
     } catch (_error) {
       // Errors are handled by global interceptor
@@ -232,7 +233,7 @@ export function SignUpForm({
         if (userData?.is_new_user) {
           trackSignUp(userData.auth_method || 'wechat')
         }
-        await handleLoginSuccess(userData)
+        await handleLoginSuccess(userData, redirectTo)
         toast.success(t('Signed in via WeChat'))
         handleWeChatDialogChange(false)
       } else {
@@ -399,6 +400,7 @@ export function SignUpForm({
         {oauthRegisterEnabled && (
           <OAuthProviders
             status={status}
+            redirectTo={redirectTo}
             disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
             onWeChatLogin={hasWeChatLogin ? handleOpenWeChatDialog : undefined}
             isWeChatLoading={isWeChatSubmitting}
