@@ -3,6 +3,8 @@ package agent
 import (
 	"net"
 	"strings"
+	"sync/atomic"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -10,11 +12,54 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/samber/hot"
+	"golang.org/x/sync/singleflight"
 	"gorm.io/gorm"
 )
 
 type Context = types.AgentContext
 type BillingSnapshot = types.AgentBillingSnapshot
+
+const (
+	agentDomainMissCacheCapacity = 4096
+	agentDomainMissCacheTTL      = 30 * time.Second
+)
+
+var (
+	agentDomainMissCache = newAgentDomainMissCache()
+	agentDomainLookup    singleflight.Group
+	agentDomainCacheGen  atomic.Uint64
+)
+
+func newAgentDomainMissCache() *hot.HotCache[string, bool] {
+	return hot.NewHotCache[string, bool](hot.LRU, agentDomainMissCacheCapacity).
+		WithTTL(agentDomainMissCacheTTL).
+		WithJanitor().
+		Build()
+}
+
+// InvalidateDomainResolution removes a locally cached domain miss. The short
+// TTL bounds staleness on peer nodes that do not execute the configuration
+// update themselves.
+func InvalidateDomainResolution(domain string) {
+	agentDomainCacheGen.Add(1)
+	domain = NormalizeHost(domain)
+	if domain != "" {
+		agentDomainMissCache.Delete(domain)
+	}
+	agentDomainLookup.Forget(domain)
+}
+
+// InvalidateAllDomainResolutions clears cached misses after an agent or domain
+// status change whose affected domain is not available to the caller.
+func InvalidateAllDomainResolutions() {
+	agentDomainCacheGen.Add(1)
+	agentDomainMissCache.Purge()
+}
+
+func resetAgentDomainMissCache() {
+	InvalidateAllDomainResolutions()
+}
 
 type GroupRatioResult struct {
 	GroupRatio        float64
@@ -58,9 +103,30 @@ func ResolveByHost(host string) (*Context, error) {
 	if domain == "" {
 		return nil, nil
 	}
-	agentWithDomain, err := model.GetActiveAgentByDomain(domain)
-	if err != nil || agentWithDomain == nil {
+	if _, found, _ := agentDomainMissCache.Get(domain); found {
+		return nil, nil
+	}
+
+	value, err, _ := agentDomainLookup.Do(domain, func() (interface{}, error) {
+		if _, found, _ := agentDomainMissCache.Get(domain); found {
+			return (*model.AgentWithDomain)(nil), nil
+		}
+		generation := agentDomainCacheGen.Load()
+		agentWithDomain, lookupErr := model.GetActiveAgentByDomain(domain)
+		if lookupErr != nil {
+			return nil, lookupErr
+		}
+		if agentWithDomain == nil && generation == agentDomainCacheGen.Load() {
+			agentDomainMissCache.SetWithTTL(domain, true, agentDomainMissCacheTTL)
+		}
+		return agentWithDomain, nil
+	})
+	if err != nil {
 		return nil, err
+	}
+	agentWithDomain, _ := value.(*model.AgentWithDomain)
+	if agentWithDomain == nil {
+		return nil, nil
 	}
 	groupRatios, err := EffectiveGroupRatioMap(agentWithDomain.Id)
 	if err != nil {

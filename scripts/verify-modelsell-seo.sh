@@ -3,8 +3,6 @@ set -Eeuo pipefail
 
 BASE_URL="${1:-${SEO_BASE_URL:-https://modelsell.com}}"
 BASE_URL="${BASE_URL%/}"
-CANONICAL_BASE_URL="${2:-${SEO_CANONICAL_BASE_URL:-$BASE_URL}}"
-CANONICAL_BASE_URL="${CANONICAL_BASE_URL%/}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -41,12 +39,12 @@ assert_content_type() {
 
 fetch "/" "home"
 assert_body_contains "home" "AI Model APIs, Pricing &amp; Access"
-assert_body_contains "home" "rel=\"canonical\" href=\"$CANONICAL_BASE_URL/\""
+assert_body_contains "home" "rel=\"canonical\" href=\"$BASE_URL/\""
 pass "homepage metadata and canonical"
 
 fetch "/robots.txt" "robots"
 assert_content_type "robots" "text/plain"
-assert_body_contains "robots" "Sitemap: $CANONICAL_BASE_URL/sitemap.xml"
+assert_body_contains "robots" "Sitemap: $BASE_URL/sitemap.xml"
 pass "robots.txt"
 
 fetch "/sitemap.xml" "sitemap"
@@ -59,8 +57,8 @@ model_url="$(awk '
   }
 ' "$TMP_DIR/sitemap.body")"
 [[ -n "$model_url" ]] || fail "sitemap contains no model detail URL"
-model_path="${model_url#"$CANONICAL_BASE_URL"}"
-[[ "$model_path" == /pricing/* ]] || fail "sitemap model URL does not use canonical origin: $model_url"
+model_path="${model_url#"$BASE_URL"}"
+[[ "$model_path" == /pricing/* ]] || fail "sitemap model URL does not use request origin: $model_url"
 pass "sitemap.xml with model URLs"
 
 curl --fail --silent --show-error --location --max-time 20 "$BASE_URL$model_path" -o "$TMP_DIR/model.body"

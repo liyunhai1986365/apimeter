@@ -305,6 +305,7 @@ func AdminUpdateAgent(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	agentservice.InvalidateAllDomainResolutions()
 	agent, err := model.GetAgentById(id)
 	if err != nil {
 		common.ApiError(c, err)
@@ -328,6 +329,7 @@ func AdminUpdateAgentStatus(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	agentservice.InvalidateAllDomainResolutions()
 	common.ApiSuccess(c, gin.H{"id": id, "status": req.Status})
 }
 

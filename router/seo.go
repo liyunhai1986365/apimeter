@@ -5,7 +5,6 @@ import (
 	"html"
 	"net/http"
 	"net/url"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -29,7 +28,6 @@ const (
 	seoShellBootStyle      = `<style data-seo-shell-boot="true">html[data-seo-client="pending"] [data-seo-shell="true"]{display:none!important}</style>`
 	seoShellBootScript     = `<script data-seo-shell-boot="true">document.documentElement.dataset.seoClient="pending";window.setTimeout(function(){delete document.documentElement.dataset.seoClient},8000)</script>`
 	seoModelDirectoryLimit = 500
-	seoCanonicalBaseURLEnv = "SEO_CANONICAL_BASE_URL"
 )
 
 var seoBlockPattern = regexp.MustCompile(`(?s)<!--seo-meta-start-->.*?<!--seo-meta-end-->`)
@@ -714,86 +712,10 @@ func requestOrigin(c *gin.Context) string {
 	if agentCtx := seoAgentContext(c); agentCtx != nil && agentCtx.Domain != "" {
 		return requestOriginForHost(c, agentCtx.Domain)
 	}
-	if configured := configuredSEOOrigin(); configured != "" {
-		parsed, _ := url.Parse(configured)
-		if !isLocalSEOHost(parsed.Hostname()) || c == nil || c.Request == nil || isLocalSEOHost(requestHostname(c.Request.Host)) {
-			return configured
-		}
-	}
 	if c == nil || c.Request == nil {
 		return ""
 	}
 	return requestOriginForHost(c, c.Request.Host)
-}
-
-func redirectCanonicalSEOURL() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if c.Request == nil || (c.Request.Method != http.MethodGet && c.Request.Method != http.MethodHead) || !isCanonicalSEORequest(c.Request.URL.Path) {
-			c.Next()
-			return
-		}
-
-		path := c.Request.URL.EscapedPath()
-		if path == "" || path == "/index.html" {
-			path = "/"
-		} else if path != "/" {
-			path = strings.TrimRight(path, "/")
-		}
-		origin := requestOriginForHost(c, c.Request.Host)
-		canonicalOrigin := origin
-		if seoAgentContext(c) == nil {
-			if configured := configuredSEOOrigin(); configured != "" && !isLocalSEOHost(requestHostname(c.Request.Host)) {
-				parsed, _ := url.Parse(configured)
-				if !isLocalSEOHost(parsed.Hostname()) {
-					canonicalOrigin = configured
-				}
-			}
-		}
-		if path == c.Request.URL.EscapedPath() && canonicalOrigin == origin {
-			c.Next()
-			return
-		}
-
-		target := absoluteSiteURL(canonicalOrigin, path)
-		if c.Request.URL.RawQuery != "" {
-			target += "?" + c.Request.URL.RawQuery
-		}
-		c.Redirect(http.StatusMovedPermanently, target)
-		c.Abort()
-	}
-}
-
-func configuredSEOOrigin() string {
-	if configured := validSEOOrigin(os.Getenv(seoCanonicalBaseURLEnv)); configured != "" {
-		return configured
-	}
-	return validSEOOrigin(system_setting.ServerAddress)
-}
-
-func isCanonicalSEORequest(path string) bool {
-	for _, prefix := range []string{"/api", "/v1", "/assets", "/static"} {
-		if path == prefix || strings.HasPrefix(path, prefix+"/") {
-			return false
-		}
-	}
-	return true
-}
-
-func requestHostname(host string) string {
-	parsed, err := url.Parse("//" + strings.TrimSpace(host))
-	if err != nil {
-		return ""
-	}
-	return parsed.Hostname()
-}
-
-func isLocalSEOHost(host string) bool {
-	switch strings.ToLower(strings.TrimSpace(host)) {
-	case "", "localhost", "127.0.0.1", "::1":
-		return true
-	default:
-		return false
-	}
 }
 
 func requestOriginForHost(c *gin.Context, host string) string {
@@ -812,18 +734,6 @@ func requestOriginForHost(c *gin.Context, host string) string {
 		scheme = "https"
 	}
 	return (&url.URL{Scheme: scheme, Host: host}).String()
-}
-
-func validSEOOrigin(value string) string {
-	parsed, err := url.Parse(strings.TrimSpace(value))
-	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") {
-		return ""
-	}
-	parsed.Path = ""
-	parsed.RawPath = ""
-	parsed.RawQuery = ""
-	parsed.Fragment = ""
-	return strings.TrimRight(parsed.String(), "/")
 }
 
 func absoluteSiteURL(origin string, path string) string {

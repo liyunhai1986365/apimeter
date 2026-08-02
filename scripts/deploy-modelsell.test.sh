@@ -65,6 +65,7 @@ assert_remote_rollout_helpers() {
     export DIRECT_IPV6_DRAIN=true
     export APPLY_RELEASE=1
     export INSTALL_ENV=1
+    export ALLOW_BACKEND_CONFIG_CHANGE=false
     # shellcheck disable=SC1090
     source "$functions"
 
@@ -87,6 +88,11 @@ assert_remote_rollout_helpers() {
     ENV_BACKUP="$REMOTE_DIR/.env.rollback.test-release"
     printf '%s\n' 'old-env' >"$ENV_BACKUP"
     printf '%s\n' \
+      '{' \
+      '  on_demand_tls {' \
+      '    ask http://127.0.0.1:3000/api/agents/verify' \
+      '  }' \
+      '}' \
       '(common_proxy) {' \
       '  reverse_proxy 127.0.0.1:3000 10.0.0.2:3000 {' \
       '    lb_policy first' \
@@ -95,6 +101,7 @@ assert_remote_rollout_helpers() {
 
     render_caddy_upstreams peer "$CADDY_CONFIG" "$sandbox/rendered"
     grep -Fq 'reverse_proxy 10.0.0.2:3000 {' "$sandbox/rendered"
+    grep -Fq 'ask http://10.0.0.2:3000/api/agents/verify' "$sandbox/rendered"
     IPV6_DRAIN_REQUIRED=true
     render_caddy_upstreams peer "$CADDY_CONFIG" "$sandbox/rendered-ipv6"
     grep -Fq 'http://:39002 {' "$sandbox/rendered-ipv6"
@@ -104,9 +111,26 @@ assert_remote_rollout_helpers() {
 
     printf '%s\n' '{"success":true,"data":{"node_type":"master","checks":{"database":"ok","log_database":"ok","redis":"ok"}}}' >"$sandbox/ready.json"
     verify_ready_payload "$sandbox/ready.json" master
+    [[ "$(readiness_summary "$sandbox/ready.json")" == *'database=ok log_database=ok redis=ok'* ]]
     if verify_ready_payload "$sandbox/ready.json" slave >/dev/null 2>&1; then
       fail 'readiness role verification accepted the wrong node'
     fi
+
+    printf '%s\n' \
+      'NODE_TYPE=master' \
+      'SQL_DSN=app:secret@tcp(127.0.0.1:3306)/app' \
+      'LOG_SQL_DSN=logs:secret@tcp(127.0.0.1:3306)/logs' \
+      'REDIS_CONN_STRING=redis://:secret@127.0.0.1:6379/0' >"$REMOTE_DIR/.env"
+    cp "$REMOTE_DIR/.env" "$sandbox/candidate.env"
+    ENV_PATH="$sandbox/candidate.env"
+    verify_backend_config_change
+    sed 's/redis:\/\/:secret/redis:\/\/:changed/' "$REMOTE_DIR/.env" >"$sandbox/candidate.env"
+    if verify_backend_config_change >/dev/null 2>&1; then
+      fail 'protected backend config change must be rejected before rollout'
+    fi
+    ALLOW_BACKEND_CONFIG_CHANGE=true
+    verify_backend_config_change
+    ALLOW_BACKEND_CONFIG_CHANGE=false
 
     prepare_drain_state
     grep -Fq 'phase=prepared' "$DRAIN_STATE_FILE"
@@ -130,23 +154,37 @@ assert_remote_rollout_helpers() {
 }
 
 assert_deploy_topologies() {
-  local sandbox config single_config primary_output standby_output single_output override_output
+  local sandbox config single_config primary_env standby_env single_env bad_standby_env primary_output standby_output single_output override_output
   sandbox="$(mktemp -d)"
   config="$sandbox/deploy.env"
+  primary_env="$sandbox/primary.env"
+  standby_env="$sandbox/standby.env"
+  single_env="$sandbox/single-runtime.env"
+  printf '%s\n' \
+    'NODE_TYPE=master' \
+    'SQL_DSN=app:secret@tcp(127.0.0.1:3306)/app?charset=utf8mb4' \
+    'LOG_SQL_DSN=logs:secret@tcp(127.0.0.1:3306)/logs?charset=utf8mb4' \
+    'REDIS_CONN_STRING=redis://:secret@127.0.0.1:6379/0' >"$primary_env"
+  printf '%s\n' \
+    'NODE_TYPE=slave' \
+    'SQL_DSN=app:secret@tcp(10.0.0.1:3306)/app?charset=utf8mb4' \
+    'LOG_SQL_DSN=logs:secret@tcp(10.0.0.1:3306)/logs?charset=utf8mb4' \
+    'REDIS_CONN_STRING=redis://:secret@10.0.0.1:6379/0' >"$standby_env"
+  printf '%s\n' 'NODE_TYPE=master' >"$single_env"
   printf '%s\n' \
     'DEPLOY_TOPOLOGY=multi' \
     'DEPLOY_TARGET=primary' \
     'DEPLOY_PRIMARY_HOST=primary.example' \
     'DEPLOY_PRIMARY_PORT=2201' \
     'DEPLOY_PRIMARY_USER=primary-user' \
-    'DEPLOY_PRIMARY_APP_ENV_FILE=.env.production-primary' \
+    "DEPLOY_PRIMARY_APP_ENV_FILE=$primary_env" \
     'DEPLOY_PRIMARY_NODE_TYPE=master' \
     'DEPLOY_PRIMARY_WIREGUARD_UPSTREAM=10.0.0.1:3000' \
     'DEPLOY_PRIMARY_CADDY_PROXY_SNIPPETS=primary_proxy' \
     'DEPLOY_STANDBY_HOST=standby.example' \
     'DEPLOY_STANDBY_PORT=2202' \
     'DEPLOY_STANDBY_USER=standby-user' \
-    'DEPLOY_STANDBY_APP_ENV_FILE=.env.production-standby' \
+    "DEPLOY_STANDBY_APP_ENV_FILE=$standby_env" \
     'DEPLOY_STANDBY_NODE_TYPE=slave' \
     'DEPLOY_STANDBY_WIREGUARD_UPSTREAM=10.0.0.2:3000' \
     'DEPLOY_STANDBY_CADDY_PROXY_SNIPPETS=standby_proxy' >"$config"
@@ -168,6 +206,18 @@ assert_deploy_topologies() {
   grep -Fq 'SELECTED_PEER_UPSTREAM=10.0.0.1:3000' <<<"$standby_output"
   grep -Fq 'ZERO_DOWNTIME_ACTIVE=true' <<<"$standby_output"
 
+  bad_standby_env="$sandbox/bad-standby.env"
+  sed 's/app:secret/app:wrong/' "$standby_env" >"$bad_standby_env"
+  sed "s#DEPLOY_STANDBY_APP_ENV_FILE=$standby_env#DEPLOY_STANDBY_APP_ENV_FILE=$bad_standby_env#" "$config" >"$sandbox/invalid.env"
+  if DEPLOY_ENV_FILE="$sandbox/invalid.env" DEPLOY_TARGET=standby "$SCRIPT" --config-check >/dev/null 2>&1; then
+    fail 'multi config must reject different shared database credentials'
+  fi
+
+  sed 's/10.0.0.1/127.0.0.1/g' "$standby_env" >"$bad_standby_env"
+  if DEPLOY_ENV_FILE="$sandbox/invalid.env" DEPLOY_TARGET=standby "$SCRIPT" --config-check >/dev/null 2>&1; then
+    fail 'multi config must reject loopback-only backends on both nodes'
+  fi
+
   override_output="$(DEPLOY_ENV_FILE="$config" DEPLOY_TARGET=standby DEPLOY_ZERO_DOWNTIME=true "$SCRIPT" --config-check)"
   grep -Fq 'SELECTED_TARGET=standby' <<<"$override_output" || \
     fail 'invocation target override must win over the env file'
@@ -188,7 +238,7 @@ assert_deploy_topologies() {
     fail 'swapped or duplicate node roles must not be accepted'
   fi
 
-  sed 's#DEPLOY_STANDBY_APP_ENV_FILE=.env.production-standby#DEPLOY_STANDBY_APP_ENV_FILE=.env.production-primary#' "$config" >"$sandbox/invalid.env"
+  sed "s#DEPLOY_STANDBY_APP_ENV_FILE=$standby_env#DEPLOY_STANDBY_APP_ENV_FILE=$primary_env#" "$config" >"$sandbox/invalid.env"
   if DEPLOY_ENV_FILE="$sandbox/invalid.env" "$SCRIPT" --config-check >/dev/null 2>&1; then
     fail 'primary and standby must not share one runtime env file'
   fi
@@ -204,7 +254,7 @@ assert_deploy_topologies() {
     'DEPLOY_PRIMARY_HOST=single.example' \
     'DEPLOY_PRIMARY_PORT=2203' \
     'DEPLOY_PRIMARY_USER=single-user' \
-    'DEPLOY_PRIMARY_APP_ENV_FILE=.env.production-single' >"$single_config"
+    "DEPLOY_PRIMARY_APP_ENV_FILE=$single_env" >"$single_config"
 
   single_output="$(DEPLOY_ENV_FILE="$single_config" "$SCRIPT" --config-check)"
   grep -Fq 'CONFIG_CHECK=ok' <<<"$single_output"
@@ -212,7 +262,7 @@ assert_deploy_topologies() {
   grep -Fq 'SELECTED_TARGET=primary' <<<"$single_output"
   grep -Fq 'SELECTED_HOST=single.example' <<<"$single_output"
   grep -Fq 'SELECTED_NODE_TYPE=master' <<<"$single_output"
-  grep -Fq 'SELECTED_APP_ENV_FILE=.env.production-single' <<<"$single_output"
+  grep -Fq "SELECTED_APP_ENV_FILE=$single_env" <<<"$single_output"
   grep -Fq 'ZERO_DOWNTIME_ACTIVE=false' <<<"$single_output"
   if grep -Fq 'SELECTED_PEER_UPSTREAM=' <<<"$single_output"; then
     fail 'single topology must not expose or require a peer upstream'
@@ -233,6 +283,9 @@ assert_deploy_topologies() {
   fi
   if DEPLOY_ENV_FILE="$single_config" "$SCRIPT" --rolling-full >/dev/null 2>&1; then
     fail 'single topology must reject rolling-full before any remote action'
+  fi
+  if DEPLOY_ENV_FILE="$single_config" "$SCRIPT" --rolling-code >/dev/null 2>&1; then
+    fail 'single topology must reject rolling-code before any remote action'
   fi
   if DEPLOY_ENV_FILE="$single_config" "$SCRIPT" --zero-downtime-test >/dev/null 2>&1; then
     fail 'single topology must reject zero-downtime-test before any remote action'
@@ -267,7 +320,7 @@ EOF
 1
 EOF
 )"
-  [[ "$output" == 'target:primary:rolling-full' ]] || \
+  [[ "$output" == 'target:primary:rolling-code' ]] || \
     fail "multi release menu returned an unexpected action: $output"
 
   output="$(bash -c 'source "$1"; DEPLOY_TOPOLOGY=multi; DEPLOY_TARGET=primary; choose_mode' _ "$SCRIPT" \
@@ -307,7 +360,6 @@ assert_contains 'DEPLOY_HEALTH_PATH="${DEPLOY_HEALTH_PATH:-/api/ready}"'
 assert_contains 'DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-180}"'
 assert_contains 'DEPLOY_KEEP_RELEASES="${DEPLOY_KEEP_RELEASES:-5}"'
 assert_contains 'DEPLOY_SEO_VERIFY="${DEPLOY_SEO_VERIFY:-true}"'
-assert_contains 'DEPLOY_SEO_CANONICAL_URL="${DEPLOY_SEO_CANONICAL_URL:-https://modelsell.com}"'
 assert_contains 'DEPLOY_ZERO_DOWNTIME="${DEPLOY_ZERO_DOWNTIME:-auto}"'
 assert_contains 'validate_two_server_config'
 assert_contains 'validate_single_server_config'
@@ -328,6 +380,10 @@ assert_contains 'DEPLOY_POST_START_SOAK_SECONDS="${DEPLOY_POST_START_SOAK_SECOND
 assert_contains 'DEPLOY_SHUTDOWN_TIMEOUT="${DEPLOY_SHUTDOWN_TIMEOUT:-900}"'
 assert_contains 'DEPLOY_STOP_TIMEOUT="${DEPLOY_STOP_TIMEOUT:-930}"'
 assert_contains 'DEPLOY_SMOKE_TESTS="${DEPLOY_SMOKE_TESTS:-true}"'
+assert_contains 'DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE="${DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE:-false}"'
+assert_contains 'validate_shared_backend_config'
+assert_contains 'verify_backend_config_change'
+assert_contains 'Protected backend settings match the active runtime env'
 assert_contains 'select_deploy_target'
 assert_contains 'DEPLOY_PASSWORD="${DEPLOY_PRIMARY_PASSWORD:-}"'
 assert_contains 'DEPLOY_PASSWORD="${DEPLOY_STANDBY_PASSWORD:-}"'
@@ -355,6 +411,8 @@ assert_contains 'systemctl reset-failed "$SERVICE_NAME"'
 assert_contains 'ensure_app_port_available || return 1'
 assert_contains 'journalctl -u "$SERVICE_NAME" --since now --follow'
 assert_contains 'Health check: elapsed='
+assert_contains 'Readiness detail:'
+assert_contains 'readiness_summary'
 assert_contains 'install -m 0755 "$RELEASE_DIR/start-modelsell.sh" "$REMOTE_DIR/bin/start-modelsell.sh"'
 assert_contains 'ExecStart=${REMOTE_DIR}/current/${BINARY_NAME} --port ${APP_PORT} --log-dir ${REMOTE_DIR}/logs'
 assert_contains 'install -m 0755 "$ROOT_DIR/scripts/start-modelsell.sh" "$BUILD_DIR/start-modelsell.sh"'
@@ -399,6 +457,7 @@ assert_contains 'Post-start soak passed:'
 assert_contains 'Smoke tests passed: ready/status=2xx, root=2xx/3xx, unauthenticated models=401'
 assert_contains '--zero-downtime-test'
 assert_contains '--rolling-full'
+assert_contains '--rolling-code'
 assert_contains '--config-check'
 assert_contains '--preflight'
 assert_contains '--rolling-preflight'
@@ -421,6 +480,7 @@ assert_contains 'Rolling deployment requires backward-compatible database migrat
 assert_contains 'ROLLING_PREFLIGHT_VERSION='
 assert_contains 'DEPLOY_TARGET=standby DEPLOY_RELEASE_ID="$rolling_release_id" DEPLOY_ZERO_DOWNTIME=true'
 assert_contains 'DEPLOY_TARGET=primary DEPLOY_RELEASE_ID="$rolling_release_id" DEPLOY_ZERO_DOWNTIME=true'
+assert_contains 'child_mode="--upload-only"'
 assert_contains 'verify_node_role'
 assert_contains 'Validating and staging release:'
 assert_contains 'Identical release is already active; reusing it without deleting live files'

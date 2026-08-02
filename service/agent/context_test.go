@@ -1,8 +1,11 @@
 package agent
 
 import (
+	"errors"
 	"math"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -18,6 +21,7 @@ import (
 
 func setupAgentTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
+	resetAgentDomainMissCache()
 
 	gin.SetMode(gin.TestMode)
 	common.UsingSQLite = true
@@ -51,6 +55,93 @@ func setupAgentTestDB(t *testing.T) *gorm.DB {
 		}
 	})
 	return db
+}
+
+func TestResolveByHostCachesDomainMisses(t *testing.T) {
+	db := setupAgentTestDB(t)
+	var lookupCount atomic.Int32
+	const callbackName = "test:count_agent_domain_miss_lookups"
+	require.NoError(t, db.Callback().Query().After("gorm:query").Register(callbackName, func(tx *gorm.DB) {
+		if strings.Contains(tx.Statement.SQL.String(), "JOIN agent_domains") {
+			lookupCount.Add(1)
+		}
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, db.Callback().Query().Remove(callbackName))
+	})
+
+	for range 10 {
+		ctx, err := ResolveByHost("modelsell.com")
+		require.NoError(t, err)
+		require.Nil(t, ctx)
+	}
+
+	require.Equal(t, int32(1), lookupCount.Load())
+}
+
+func TestResolveByHostCollapsesConcurrentDomainMisses(t *testing.T) {
+	db := setupAgentTestDB(t)
+	var lookupCount atomic.Int32
+	const callbackName = "test:count_concurrent_agent_domain_miss_lookups"
+	require.NoError(t, db.Callback().Query().After("gorm:query").Register(callbackName, func(tx *gorm.DB) {
+		if strings.Contains(tx.Statement.SQL.String(), "JOIN agent_domains") {
+			lookupCount.Add(1)
+		}
+	}))
+	t.Cleanup(func() {
+		require.NoError(t, db.Callback().Query().Remove(callbackName))
+	})
+
+	const callers = 32
+	start := make(chan struct{})
+	errs := make(chan error, callers)
+	var wait sync.WaitGroup
+	wait.Add(callers)
+	for range callers {
+		go func() {
+			defer wait.Done()
+			<-start
+			ctx, err := ResolveByHost("concurrent-miss.example.com")
+			if err == nil && ctx != nil {
+				errs <- errors.New("expected an empty agent context")
+				return
+			}
+			errs <- err
+		}()
+	}
+	close(start)
+	wait.Wait()
+	close(errs)
+	for err := range errs {
+		require.NoError(t, err)
+	}
+
+	require.Equal(t, int32(1), lookupCount.Load())
+}
+
+func TestCreateDomainInvalidatesCachedMiss(t *testing.T) {
+	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{
+		Id:            1,
+		OwnerUserId:   10,
+		Name:          "Agent One",
+		Slug:          "agent-one",
+		Status:        model.AgentStatusEnabled,
+		PriceMode:     model.AgentPriceModeMultiplier,
+		DefaultMarkup: 1,
+	}).Error)
+
+	ctx, err := ResolveByHost("new-agent.example.com")
+	require.NoError(t, err)
+	require.Nil(t, ctx)
+
+	_, err = CreateDomain(1, "new-agent.example.com")
+	require.NoError(t, err)
+
+	ctx, err = ResolveByHost("new-agent.example.com")
+	require.NoError(t, err)
+	require.NotNil(t, ctx)
+	require.Equal(t, 1, ctx.AgentID)
 }
 
 func TestNormalizeHost(t *testing.T) {

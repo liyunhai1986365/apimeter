@@ -248,6 +248,7 @@ func CreateDomain(agentID int, rawDomain string) (*model.AgentDomain, error) {
 		}
 		return nil, err
 	}
+	InvalidateDomainResolution(domain)
 	FillDomainCNAMETarget(agentDomain)
 	return agentDomain, nil
 }
@@ -264,15 +265,23 @@ func isAgentDomainDuplicateError(err error) bool {
 }
 
 func ActivateDomain(agentID int, domainID int) error {
-	return model.DB.Model(&model.AgentDomain{}).
+	err := model.DB.Model(&model.AgentDomain{}).
 		Where("id = ? AND agent_id = ?", domainID, agentID).
 		Update("status", model.AgentDomainStatusActive).Error
+	if err == nil {
+		InvalidateAllDomainResolutions()
+	}
+	return err
 }
 
 func UpdateDomainStatus(agentID int, domainID int, status int) error {
-	return model.DB.Model(&model.AgentDomain{}).
+	err := model.DB.Model(&model.AgentDomain{}).
 		Where("id = ? AND agent_id = ?", domainID, agentID).
 		Update("status", status).Error
+	if err == nil {
+		InvalidateAllDomainResolutions()
+	}
+	return err
 }
 
 func UpdateBranding(agentID int, branding string) (*model.Agent, error) {

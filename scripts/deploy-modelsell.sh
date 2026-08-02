@@ -25,6 +25,7 @@ Usage:
   ./scripts/deploy-modelsell.sh --build-only
   ./scripts/deploy-modelsell.sh --upload-only
   ./scripts/deploy-modelsell.sh --config-only
+  ./scripts/deploy-modelsell.sh --rolling-code
   ./scripts/deploy-modelsell.sh --rolling-full
   ./scripts/deploy-modelsell.sh --config-check
   ./scripts/deploy-modelsell.sh --preflight
@@ -44,7 +45,8 @@ Modes:
   2, --build-only   Build frontend and Linux x86_64 package locally only.
   3, --upload-only  Upload existing package, install release, restart service. Does not update .env.
   4, --config-only  Upload runtime .env, refresh systemd, restart service. Does not upload binary.
-  14, --rolling-full Multi-machine only: build once, then deploy standby followed by primary.
+  14, --rolling-full Multi-machine only: build once, then deploy code and config to standby followed by primary.
+  15, --rolling-code Multi-machine only: build once, then deploy code without changing runtime config (recommended).
   --config-check Validate the selected topology locally without connecting to any server.
   --preflight Read-only service, dependency, and role check; multi mode also checks WireGuard.
   --rolling-preflight Backward-compatible alias for --preflight.
@@ -81,6 +83,124 @@ require_cmd() {
 require_var() {
   local name="$1"
   [[ -n "${!name:-}" ]] || fail "Missing required env: $name"
+}
+
+resolve_app_env_path() {
+  local configured_path="$1"
+  if [[ "$configured_path" == /* ]]; then
+    printf '%s' "$configured_path"
+  else
+    printf '%s/%s' "$ROOT_DIR" "$configured_path"
+  fi
+}
+
+read_app_env_value() {
+  local env_file="$1"
+  local key="$2"
+  sed -n "s/^[[:space:]]*${key}[[:space:]]*=[[:space:]]*//p" "$env_file" 2>/dev/null \
+    | tail -1 | tr -d '\"'\''[:space:]'
+}
+
+validate_app_env_role() {
+  local env_file="$1"
+  local expected_role="$2"
+  local actual_role
+  [[ -f "$env_file" ]] || fail "Missing app env file: $env_file"
+  actual_role="$(read_app_env_value "$env_file" NODE_TYPE)"
+  [[ "$actual_role" == "$expected_role" ]] || \
+    fail "Runtime env role mismatch: file=$env_file expected=$expected_role actual=${actual_role:-missing}"
+}
+
+validate_shared_backend_config() {
+  [[ "$DEPLOY_TOPOLOGY" == "multi" ]] || return 0
+  local primary_env standby_env
+  primary_env="$(resolve_app_env_path "$DEPLOY_PRIMARY_APP_ENV_FILE")"
+  standby_env="$(resolve_app_env_path "$DEPLOY_STANDBY_APP_ENV_FILE")"
+  validate_app_env_role "$primary_env" master
+  validate_app_env_role "$standby_env" slave
+  require_cmd python3
+
+  python3 - "$primary_env" "$standby_env" <<'PY'
+import re
+import sys
+from pathlib import Path
+from urllib.parse import urlsplit
+
+primary_path, standby_path = sys.argv[1:]
+
+
+def load_env(path):
+    values = {}
+    for raw in Path(path).read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
+
+
+def mysql_identity(value, key, path):
+    match = re.fullmatch(
+        r"([^:]+):(.*?)@tcp\(([^):]+)(?::(\d+))?\)/([^?]+)(?:\?(.*))?",
+        value,
+    )
+    if not match:
+        raise SystemExit(f"unsupported {key} format in {path}")
+    user, password, host, port, database, options = match.groups()
+    return (user, password, port or "3306", database, options or ""), host
+
+
+def redis_identity(value, path):
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"redis", "rediss"} or not parsed.hostname:
+        raise SystemExit(f"unsupported REDIS_CONN_STRING format in {path}")
+    identity = (
+        parsed.scheme,
+        parsed.username or "",
+        parsed.password or "",
+        parsed.port or 6379,
+        parsed.path or "/0",
+        parsed.query,
+    )
+    return identity, parsed.hostname
+
+
+primary = load_env(primary_path)
+standby = load_env(standby_path)
+hosts = {}
+for key in ("SQL_DSN", "LOG_SQL_DSN"):
+    if not primary.get(key) or not standby.get(key):
+        raise SystemExit(f"{key} must be configured in both runtime env files")
+    primary_identity, primary_host = mysql_identity(primary[key], key, primary_path)
+    standby_identity, standby_host = mysql_identity(standby[key], key, standby_path)
+    if primary_identity != standby_identity:
+        raise SystemExit(
+            f"{key} credentials, port, database, or options differ between primary and standby"
+        )
+    hosts[key] = (primary_host, standby_host)
+
+if not primary.get("REDIS_CONN_STRING") or not standby.get("REDIS_CONN_STRING"):
+    raise SystemExit("REDIS_CONN_STRING must be configured in both runtime env files")
+primary_identity, primary_host = redis_identity(primary["REDIS_CONN_STRING"], primary_path)
+standby_identity, standby_host = redis_identity(standby["REDIS_CONN_STRING"], standby_path)
+if primary_identity != standby_identity:
+    raise SystemExit(
+        "REDIS_CONN_STRING credentials, port, database, or options differ between primary and standby"
+    )
+hosts["REDIS_CONN_STRING"] = (primary_host, standby_host)
+
+loopback = {"127.0.0.1", "localhost", "::1"}
+for key, (primary_host, standby_host) in hosts.items():
+    if primary_host in loopback and standby_host in loopback:
+        raise SystemExit(
+            f"{key} points both nodes at loopback; standby must use the shared backend's private endpoint"
+        )
+PY
+  log "Shared backend config verified: primary and standby use matching credentials and logical databases"
 }
 
 validate_two_server_config() {
@@ -243,6 +363,7 @@ init_context() {
   local requested_target="${DEPLOY_TARGET:-}"
   local requested_release_id="${DEPLOY_RELEASE_ID:-}"
   local requested_zero_downtime="${DEPLOY_ZERO_DOWNTIME:-}"
+  local requested_allow_backend_config_change="${DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE:-}"
 
   load_env_file "$DEPLOY_ENV_FILE"
 
@@ -255,6 +376,8 @@ init_context() {
   [[ -z "$requested_target" ]] || DEPLOY_TARGET="$requested_target"
   [[ -z "$requested_release_id" ]] || DEPLOY_RELEASE_ID="$requested_release_id"
   [[ -z "$requested_zero_downtime" ]] || DEPLOY_ZERO_DOWNTIME="$requested_zero_downtime"
+  [[ -z "$requested_allow_backend_config_change" ]] || \
+    DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE="$requested_allow_backend_config_change"
 
   select_deploy_target
 
@@ -273,7 +396,6 @@ init_context() {
   DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-180}"
   DEPLOY_KEEP_RELEASES="${DEPLOY_KEEP_RELEASES:-5}"
   DEPLOY_SEO_VERIFY="${DEPLOY_SEO_VERIFY:-true}"
-  DEPLOY_SEO_CANONICAL_URL="${DEPLOY_SEO_CANONICAL_URL:-https://modelsell.com}"
   DEPLOY_ZERO_DOWNTIME="${DEPLOY_ZERO_DOWNTIME:-auto}"
   DEPLOY_CADDY_CONFIG="${DEPLOY_CADDY_CONFIG:-/etc/caddy/Caddyfile}"
   DEPLOY_PEER_UPSTREAM="${DEPLOY_PEER_UPSTREAM:-}"
@@ -295,6 +417,7 @@ init_context() {
   DEPLOY_STOP_TIMEOUT="${DEPLOY_STOP_TIMEOUT:-930}"
   DEPLOY_SMOKE_TESTS="${DEPLOY_SMOKE_TESTS:-true}"
   DEPLOY_STREAM_LOGS="${DEPLOY_STREAM_LOGS:-false}"
+  DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE="${DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE:-false}"
 
   case "$DEPLOY_ZERO_DOWNTIME" in
     auto)
@@ -316,6 +439,10 @@ init_context() {
       fail "Unsupported DEPLOY_ZERO_DOWNTIME: $DEPLOY_ZERO_DOWNTIME (expected auto, true, or false)"
       ;;
   esac
+  case "$DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE" in
+    true|false) ;;
+    *) fail "DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE must be true or false" ;;
+  esac
 
   require_var DEPLOY_HOST
   require_var DEPLOY_REMOTE_DIR
@@ -326,7 +453,7 @@ init_context() {
   require_var DEPLOY_GOARCH
   require_var DEPLOY_ARCH_LABEL
 
-  APP_ENV_PATH="$ROOT_DIR/$DEPLOY_APP_ENV_FILE"
+  APP_ENV_PATH="$(resolve_app_env_path "$DEPLOY_APP_ENV_FILE")"
   BUILD_DIR="$ROOT_DIR/build/modelsell"
   ARCHIVE_NAME="${DEPLOY_BINARY_NAME}-${DEPLOY_GOOS}-${DEPLOY_ARCH_LABEL}.tar.gz"
   ARCHIVE_PATH="$BUILD_DIR/$ARCHIVE_NAME"
@@ -367,6 +494,8 @@ require_remote_tools() {
 
 require_app_env() {
   [[ -f "$APP_ENV_PATH" ]] || fail "Missing app env file: $APP_ENV_PATH. Copy .env.production.example to $DEPLOY_APP_ENV_FILE first."
+  validate_app_env_role "$APP_ENV_PATH" "$DEPLOY_EXPECT_NODE_TYPE"
+  validate_shared_backend_config
 }
 
 require_artifact() {
@@ -443,7 +572,7 @@ run_remote_deploy() {
   local apply_release="$1"
   local install_env="$2"
 
-  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' SEO_VERIFY='$DEPLOY_SEO_VERIFY' SEO_CANONICAL_URL='$DEPLOY_SEO_CANONICAL_URL' ZERO_DOWNTIME='$DEPLOY_ZERO_DOWNTIME_ACTIVE' CADDY_CONFIG='$DEPLOY_CADDY_CONFIG' CADDY_PROXY_SNIPPETS='$DEPLOY_CADDY_PROXY_SNIPPETS' PEER_UPSTREAM='$DEPLOY_PEER_UPSTREAM' CADDY_HEALTH_HOST='$DEPLOY_CADDY_HEALTH_HOST' DRAIN_HEALTH_PATH='$DEPLOY_DRAIN_HEALTH_PATH' DIRECT_PORT_DRAIN='$DEPLOY_DIRECT_PORT_DRAIN' DIRECT_IPV6_DRAIN='$DEPLOY_DIRECT_IPV6_DRAIN' IPV6_DRAIN_PROXY_PORT='$DEPLOY_IPV6_DRAIN_PROXY_PORT' PUBLIC_INTERFACE='$DEPLOY_PUBLIC_INTERFACE' WIREGUARD_INTERFACE='$DEPLOY_WIREGUARD_INTERFACE' TRAFFIC_SETTLE_SECONDS='$DEPLOY_TRAFFIC_SETTLE_SECONDS' PEER_STABLE_CHECKS='$DEPLOY_PEER_STABLE_CHECKS' POST_START_STABLE_CHECKS='$DEPLOY_POST_START_STABLE_CHECKS' POST_START_SOAK_SECONDS='$DEPLOY_POST_START_SOAK_SECONDS' SHUTDOWN_TIMEOUT='$DEPLOY_SHUTDOWN_TIMEOUT' STOP_TIMEOUT='$DEPLOY_STOP_TIMEOUT' EXPECT_NODE_TYPE='$DEPLOY_EXPECT_NODE_TYPE' EXPECT_PEER_NODE_TYPE='$DEPLOY_EXPECT_PEER_NODE_TYPE' SMOKE_TESTS='$DEPLOY_SMOKE_TESTS' STREAM_LOGS='$DEPLOY_STREAM_LOGS' flock -n '/run/lock/${DEPLOY_SERVICE_NAME}-deploy.lock' bash -s" <<'REMOTE_SCRIPT'
+  remote_ssh "REMOTE_DIR='$DEPLOY_REMOTE_DIR' SERVICE_NAME='$DEPLOY_SERVICE_NAME' BINARY_NAME='$DEPLOY_BINARY_NAME' APP_PORT='$DEPLOY_APP_PORT' ARCHIVE_PATH='$REMOTE_ARCHIVE' ENV_PATH='$REMOTE_ENV' RELEASE_ID='$DEPLOY_RELEASE_ID' APPLY_RELEASE='$apply_release' INSTALL_ENV='$install_env' HEALTH_PATH='$DEPLOY_HEALTH_PATH' HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' KEEP_RELEASES='$DEPLOY_KEEP_RELEASES' SEO_VERIFY='$DEPLOY_SEO_VERIFY' ZERO_DOWNTIME='$DEPLOY_ZERO_DOWNTIME_ACTIVE' CADDY_CONFIG='$DEPLOY_CADDY_CONFIG' CADDY_PROXY_SNIPPETS='$DEPLOY_CADDY_PROXY_SNIPPETS' PEER_UPSTREAM='$DEPLOY_PEER_UPSTREAM' CADDY_HEALTH_HOST='$DEPLOY_CADDY_HEALTH_HOST' DRAIN_HEALTH_PATH='$DEPLOY_DRAIN_HEALTH_PATH' DIRECT_PORT_DRAIN='$DEPLOY_DIRECT_PORT_DRAIN' DIRECT_IPV6_DRAIN='$DEPLOY_DIRECT_IPV6_DRAIN' IPV6_DRAIN_PROXY_PORT='$DEPLOY_IPV6_DRAIN_PROXY_PORT' PUBLIC_INTERFACE='$DEPLOY_PUBLIC_INTERFACE' WIREGUARD_INTERFACE='$DEPLOY_WIREGUARD_INTERFACE' TRAFFIC_SETTLE_SECONDS='$DEPLOY_TRAFFIC_SETTLE_SECONDS' PEER_STABLE_CHECKS='$DEPLOY_PEER_STABLE_CHECKS' POST_START_STABLE_CHECKS='$DEPLOY_POST_START_STABLE_CHECKS' POST_START_SOAK_SECONDS='$DEPLOY_POST_START_SOAK_SECONDS' SHUTDOWN_TIMEOUT='$DEPLOY_SHUTDOWN_TIMEOUT' STOP_TIMEOUT='$DEPLOY_STOP_TIMEOUT' EXPECT_NODE_TYPE='$DEPLOY_EXPECT_NODE_TYPE' EXPECT_PEER_NODE_TYPE='$DEPLOY_EXPECT_PEER_NODE_TYPE' SMOKE_TESTS='$DEPLOY_SMOKE_TESTS' STREAM_LOGS='$DEPLOY_STREAM_LOGS' ALLOW_BACKEND_CONFIG_CHANGE='$DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE' flock -n '/run/lock/${DEPLOY_SERVICE_NAME}-deploy.lock' bash -s" <<'REMOTE_SCRIPT'
 set -Eeuo pipefail
 
 RELEASES_DIR="$REMOTE_DIR/releases"
@@ -582,6 +711,13 @@ validate_rollout_settings() {
       return 1
       ;;
   esac
+  case "$ALLOW_BACKEND_CONFIG_CHANGE" in
+    true|false) ;;
+    *)
+      warn "Invalid backend config change setting: $ALLOW_BACKEND_CONFIG_CHANGE"
+      return 1
+      ;;
+  esac
   if (( IPV6_DRAIN_PROXY_PORT < 1024 || IPV6_DRAIN_PROXY_PORT > 65535 || IPV6_DRAIN_PROXY_PORT == APP_PORT )); then
     warn "Invalid IPv6 drain proxy port: $IPV6_DRAIN_PROXY_PORT"
     return 1
@@ -614,10 +750,76 @@ verify_node_role() {
   log "Node role verified: $EXPECT_NODE_TYPE"
 }
 
+verify_backend_config_change() {
+  [[ "$INSTALL_ENV" == "1" ]] || return 0
+  [[ -f "$REMOTE_DIR/.env" ]] || return 0
+  local changed_keys
+  changed_keys="$(python3 - "$REMOTE_DIR/.env" "$ENV_PATH" <<'PY'
+import sys
+from pathlib import Path
+
+
+def load_env(path):
+    values = {}
+    for raw in Path(path).read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        values[key.strip()] = value
+    return values
+
+
+active = load_env(sys.argv[1])
+candidate = load_env(sys.argv[2])
+keys = ("SQL_DSN", "LOG_SQL_DSN", "REDIS_CONN_STRING")
+print(",".join(key for key in keys if active.get(key) != candidate.get(key)))
+PY
+)"
+  if [[ -n "$changed_keys" && "$ALLOW_BACKEND_CONFIG_CHANGE" != "true" ]]; then
+    warn "Candidate changes protected backend settings: $changed_keys"
+    warn "Refusing to stop the service. Verify the new backends separately, then set DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE=true for an intentional config rollout"
+    return 1
+  fi
+  if [[ -n "$changed_keys" ]]; then
+    warn "Intentional protected backend config change allowed: $changed_keys"
+  else
+    log "Protected backend settings match the active runtime env"
+  fi
+}
+
 normalize_health_path() {
   if [[ "$HEALTH_PATH" != /* ]]; then
     HEALTH_PATH="/$HEALTH_PATH"
   fi
+}
+
+readiness_summary() {
+  local body_file="$1"
+  python3 - "$body_file" <<'PY'
+import json
+import sys
+
+try:
+    with open(sys.argv[1], "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+except (OSError, ValueError):
+    print("payload=invalid")
+    raise SystemExit(0)
+
+data = payload.get("data") or {}
+checks = data.get("checks") or {}
+parts = [
+    f"success={str(payload.get('success')).lower()}",
+    f"role={data.get('node_type') or 'unknown'}",
+    f"version={data.get('version') or 'unknown'}",
+]
+parts.extend(f"{name}={checks.get(name) or 'missing'}" for name in ("database", "log_database", "redis"))
+print(" ".join(parts))
+PY
 }
 
 wait_service_healthy() {
@@ -626,17 +828,29 @@ wait_service_healthy() {
   local deadline=$((SECONDS + HEALTH_TIMEOUT))
   local started_at=$SECONDS
   local stable=0
+  local body_file last_summary=""
+  body_file="$(mktemp /tmp/modelsell-local-ready.XXXXXX)"
 
   while (( SECONDS < deadline )); do
-    local state pid http_code
+    local state pid http_code summary payload_ok=false
     state="$(systemctl is-active "$SERVICE_NAME" 2>/dev/null || true)"
     pid="$(systemctl show "$SERVICE_NAME" -p MainPID --value 2>/dev/null || true)"
-    http_code="$(curl -sS --max-time 3 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+    : >"$body_file"
+    http_code="$(curl -sS --max-time 3 -o "$body_file" -w '%{http_code}' "$url" 2>/dev/null || true)"
+    summary="$(readiness_summary "$body_file")"
+    if [[ "$summary" != "$last_summary" ]]; then
+      log "Readiness detail: $summary"
+      last_summary="$summary"
+    fi
+    if [[ "$http_code" =~ ^2[0-9][0-9]$ ]] && verify_ready_payload "$body_file" "$EXPECT_NODE_TYPE" >/dev/null 2>&1; then
+      payload_ok=true
+    fi
     log "Health check: elapsed=$((SECONDS - started_at))s state=${state:-unknown} pid=${pid:-0} http=${http_code:-000} stable=$stable/$POST_START_STABLE_CHECKS"
-    if [[ "$state" == "active" && "$pid" =~ ^[1-9][0-9]*$ && "$http_code" =~ ^2[0-9][0-9]$ ]]; then
+    if [[ "$state" == "active" && "$pid" =~ ^[1-9][0-9]*$ && "$payload_ok" == "true" ]]; then
       stable=$((stable + 1))
       if (( stable >= POST_START_STABLE_CHECKS )); then
         log "Health check passed: $url"
+        rm -f "$body_file"
         return 0
       fi
     else
@@ -646,6 +860,8 @@ wait_service_healthy() {
   done
 
   warn "Health check failed: $url"
+  warn "Last readiness detail: ${last_summary:-unavailable}"
+  rm -f "$body_file"
   return 1
 }
 
@@ -684,8 +900,8 @@ verify_seo() {
     warn "SEO verifier is missing: $verifier"
     return 1
   }
-  log "SEO verification: origin=http://127.0.0.1:${APP_PORT} canonical=${SEO_CANONICAL_URL}"
-  "$verifier" "http://127.0.0.1:${APP_PORT}" "$SEO_CANONICAL_URL"
+  log "SEO verification: origin=http://127.0.0.1:${APP_PORT}"
+  "$verifier" "http://127.0.0.1:${APP_PORT}"
 }
 
 verify_smoke_tests() {
@@ -784,6 +1000,15 @@ for snippet in snippets:
         raise SystemExit(f"unexpected reverse_proxy shape in: {snippet}")
     lines[start:end] = [updated]
 
+rendered = "".join(lines)
+local_ask = rf"(?m)^(\s*ask\s+)http://(?:127\.0\.0\.1|localhost):{re.escape(app_port)}([^\s]*)[ \t]*$"
+peer_ask = rf"(?m)^(\s*ask\s+)http://{re.escape(peer)}([^\s]*)[ \t]*$"
+if mode == "peer":
+    rendered = re.sub(local_ask, rf"\1http://{peer}\2", rendered)
+else:
+    rendered = re.sub(peer_ask, rf"\1http://127.0.0.1:{app_port}\2", rendered)
+lines = rendered.splitlines(keepends=True)
+
 if mode == "peer" and ipv6_drain == "true":
     if lines and not lines[-1].endswith("\n"):
         lines[-1] += "\n"
@@ -818,8 +1043,6 @@ except (OSError, ValueError) as exc:
 
 data = payload.get("data") or {}
 checks = data.get("checks") or {}
-if payload.get("success") is not True:
-    raise SystemExit("readiness success is not true")
 if data.get("node_type") != expected_role:
     raise SystemExit(
         f"unexpected node_type: expected={expected_role} actual={data.get('node_type')}"
@@ -827,6 +1050,8 @@ if data.get("node_type") != expected_role:
 for name in ("database", "log_database", "redis"):
     if checks.get(name) != "ok":
         raise SystemExit(f"readiness dependency is not ok: {name}={checks.get(name)}")
+if payload.get("success") is not True:
+    raise SystemExit("readiness success is not true")
 PY
 }
 
@@ -1397,6 +1622,7 @@ mkdir -p "$REMOTE_DIR" "$REMOTE_DIR/logs" "$RELEASES_DIR"
 ensure_legacy_release
 validate_rollout_settings
 verify_node_role
+verify_backend_config_change
 
 if ! [[ "$HEALTH_TIMEOUT" =~ ^[0-9]+$ ]] || (( HEALTH_TIMEOUT < 1 )); then
   HEALTH_TIMEOUT=180
@@ -1519,13 +1745,23 @@ install_artifact_with_config() {
   run_remote_deploy 1 1
 }
 
-rolling_full_deploy() {
+rolling_deploy() {
+  local include_config="$1"
   local rolling_release_id="$DEPLOY_RELEASE_ID"
   local deploy_script="$ROOT_DIR/scripts/deploy-modelsell.sh"
-  local primary_version standby_version
+  local primary_version standby_version child_mode description
 
   [[ "$DEPLOY_TOPOLOGY" == "multi" ]] || \
-    fail "--rolling-full requires DEPLOY_TOPOLOGY=multi"
+    fail "Rolling deployment requires DEPLOY_TOPOLOGY=multi"
+
+  if [[ "$include_config" == "true" ]]; then
+    child_mode="--install-artifact-with-config"
+    description="code and runtime config"
+    validate_shared_backend_config
+  else
+    child_mode="--upload-only"
+    description="code only; active runtime config is preserved"
+  fi
 
   standby_version="$(collect_rollout_preflight standby "$deploy_script")"
   primary_version="$(collect_rollout_preflight primary "$deploy_script")"
@@ -1538,18 +1774,28 @@ rolling_full_deploy() {
   warn "Rolling deployment requires backward-compatible database migrations; automatic schema compatibility cannot be proven by this script"
 
   build_package
-  log "Rolling release $rolling_release_id: standby first, primary second"
+  log "Rolling release $rolling_release_id ($description): standby first, primary second"
 
-  DEPLOY_TARGET=standby DEPLOY_RELEASE_ID="$rolling_release_id" DEPLOY_ZERO_DOWNTIME=true \
-    "$deploy_script" --install-artifact-with-config
+  DEPLOY_TARGET=standby DEPLOY_RELEASE_ID="$rolling_release_id" DEPLOY_ZERO_DOWNTIME=true DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE="$DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE" \
+    "$deploy_script" "$child_mode"
   log "Standby release verified; proceeding to primary"
 
-  DEPLOY_TARGET=primary DEPLOY_RELEASE_ID="$rolling_release_id" DEPLOY_ZERO_DOWNTIME=true \
-    "$deploy_script" --install-artifact-with-config
+  DEPLOY_TARGET=primary DEPLOY_RELEASE_ID="$rolling_release_id" DEPLOY_ZERO_DOWNTIME=true DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE="$DEPLOY_ALLOW_BACKEND_CONFIG_CHANGE" \
+    "$deploy_script" "$child_mode"
   log "Rolling release completed on both nodes: $rolling_release_id"
 }
 
+rolling_code_deploy() {
+  rolling_deploy false
+}
+
+rolling_full_deploy() {
+  rolling_deploy true
+}
+
 config_check() {
+  validate_app_env_role "$APP_ENV_PATH" "$DEPLOY_EXPECT_NODE_TYPE"
+  validate_shared_backend_config
   printf 'CONFIG_CHECK=ok\n'
   printf 'DEPLOY_TOPOLOGY=%s\n' "$DEPLOY_TOPOLOGY"
   printf 'SELECTED_TARGET=%s\n' "$DEPLOY_TARGET"
@@ -1769,11 +2015,12 @@ EOF
             cat >&2 <<EOF
 
 发布与更新（多机）
-  1) 双机滚动发布（推荐：standby 成功后再发布 primary）
-  2) 仅完整发布当前目标 ${menu_target}（不会更新另一台）
-  3) 仅上传已有构建并发布到 ${menu_target}（不更新运行配置）
-  4) 仅更新 ${menu_target} 的运行配置并重启
-  5) 在 ${menu_target} 测试对端切流、重启和自动切回
+  1) 双机滚动发布代码（推荐：保留线上配置，standby -> primary）
+  2) 双机滚动发布代码和配置（会校验共享数据库配置）
+  3) 仅完整发布当前目标 ${menu_target}（代码和配置，不更新另一台）
+  4) 仅上传已有构建并发布到 ${menu_target}（不更新运行配置）
+  5) 仅更新 ${menu_target} 的运行配置并重启
+  6) 在 ${menu_target} 测试对端切流、重启和自动切回
   0) 返回主菜单
 EOF
           else
@@ -1790,11 +2037,12 @@ EOF
           read -r choice || choice="0"
           if [[ "$DEPLOY_TOPOLOGY" == "multi" ]]; then
             case "$choice" in
-              1) printf 'target:%s:rolling-full\n' "$menu_target"; return 0 ;;
-              2) printf 'target:%s:full\n' "$menu_target"; return 0 ;;
-              3) printf 'target:%s:upload-only\n' "$menu_target"; return 0 ;;
-              4) printf 'target:%s:config-only\n' "$menu_target"; return 0 ;;
-              5) printf 'target:%s:zero-downtime-test\n' "$menu_target"; return 0 ;;
+              1) printf 'target:%s:rolling-code\n' "$menu_target"; return 0 ;;
+              2) printf 'target:%s:rolling-full\n' "$menu_target"; return 0 ;;
+              3) printf 'target:%s:full\n' "$menu_target"; return 0 ;;
+              4) printf 'target:%s:upload-only\n' "$menu_target"; return 0 ;;
+              5) printf 'target:%s:config-only\n' "$menu_target"; return 0 ;;
+              6) printf 'target:%s:zero-downtime-test\n' "$menu_target"; return 0 ;;
               0) break ;;
               *) printf '无效选项，请重新选择。\n' >&2 ;;
             esac
@@ -1984,6 +2232,10 @@ run_mode() {
     14|rolling-full|--rolling-full)
       rolling_full_deploy
       log "Done. Rolling artifact: $ARCHIVE_PATH"
+      ;;
+    15|rolling-code|--rolling-code)
+      rolling_code_deploy
+      log "Done. Rolling code artifact: $ARCHIVE_PATH"
       ;;
     config-check|--config-check)
       config_check

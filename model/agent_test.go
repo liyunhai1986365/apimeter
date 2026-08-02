@@ -1,10 +1,15 @@
 package model
 
 import (
+	"bytes"
+	"log"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 func insertAgentForOwnershipTest(t *testing.T, ownerUserId int, status int) {
@@ -50,6 +55,25 @@ func TestUserOwnsAgent(t *testing.T) {
 		require.NoError(t, err)
 		assert.False(t, ownsAgent)
 	})
+}
+
+func TestGetActiveAgentByDomainDoesNotLogExpectedMiss(t *testing.T) {
+	truncateTables(t)
+	var output bytes.Buffer
+	originalDB := DB
+	DB = DB.Session(&gorm.Session{Logger: logger.New(
+		log.New(&output, "", 0),
+		logger.Config{LogLevel: logger.Info},
+	)})
+	t.Cleanup(func() {
+		DB = originalDB
+	})
+
+	agent, err := GetActiveAgentByDomain("missing.example.com")
+
+	require.NoError(t, err)
+	require.Nil(t, agent)
+	require.NotContains(t, strings.ToLower(output.String()), "record not found")
 }
 
 func TestListAgentDomainsByStatus(t *testing.T) {

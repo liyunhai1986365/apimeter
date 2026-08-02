@@ -10,7 +10,6 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -76,11 +75,6 @@ func TestRenderIndexPageReplacesLoadingPlaceholderTitle(t *testing.T) {
 
 func TestResolveSEOPageUsesCanonicalPathWithoutQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = ""
-	t.Cleanup(func() {
-		system_setting.ServerAddress = oldServerAddress
-	})
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest("GET", "https://example.com/pricing?search=gpt&group=vip", nil)
@@ -94,28 +88,14 @@ func TestResolveSEOPageUsesCanonicalPathWithoutQuery(t *testing.T) {
 	require.Equal(t, "index, follow", page.Robots)
 }
 
-func TestRequestOriginUsesConfiguredPrimarySiteForMainDomain(t *testing.T) {
-	t.Setenv(seoCanonicalBaseURLEnv, "")
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com/base?ignored=true"
-	t.Cleanup(func() {
-		system_setting.ServerAddress = oldServerAddress
-	})
-
+func TestRequestOriginUsesCurrentWWWHost(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "https://www.modelsell.com/pricing", nil)
 
-	require.Equal(t, "https://modelsell.com", requestOrigin(c))
+	require.Equal(t, "https://www.modelsell.com", requestOrigin(c))
 }
 
-func TestRequestOriginUsesEnvironmentCanonicalOverride(t *testing.T) {
-	t.Setenv(seoCanonicalBaseURLEnv, "http://38.145.213.6:3000")
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com"
-	t.Cleanup(func() {
-		system_setting.ServerAddress = oldServerAddress
-	})
-
+func TestRequestOriginUsesCurrentIPHost(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "http://38.145.213.6:3000/pricing", nil)
 
@@ -123,12 +103,6 @@ func TestRequestOriginUsesEnvironmentCanonicalOverride(t *testing.T) {
 }
 
 func TestRequestOriginKeepsAgentCustomDomain(t *testing.T) {
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com"
-	t.Cleanup(func() {
-		system_setting.ServerAddress = oldServerAddress
-	})
-
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "https://modelsell.com/pricing", nil)
 	c.Request.Header.Set("X-Forwarded-Proto", "https")
@@ -139,13 +113,7 @@ func TestRequestOriginKeepsAgentCustomDomain(t *testing.T) {
 	require.Equal(t, "https://agent.example.com", requestOrigin(c))
 }
 
-func TestRequestOriginIgnoresDefaultLocalhostOnPublicRequest(t *testing.T) {
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "http://localhost:3000"
-	t.Cleanup(func() {
-		system_setting.ServerAddress = oldServerAddress
-	})
-
+func TestRequestOriginUsesCurrentPublicHost(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "https://gateway.example.com/pricing", nil)
 	c.Request.Header.Set("X-Forwarded-Proto", "https")
@@ -167,11 +135,6 @@ func TestResolveSEOPageMarksUnknownPathAsRealNotFound(t *testing.T) {
 
 func TestServeRobotsTXTIncludesRequestScopedSitemap(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = ""
-	t.Cleanup(func() {
-		system_setting.ServerAddress = oldServerAddress
-	})
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest("GET", "https://agent.example.com/robots.txt", nil)
@@ -414,82 +377,29 @@ func TestResolveSEOPageRemovesCanonicalFromPrivatePath(t *testing.T) {
 	require.Empty(t, page.Canonical)
 }
 
-func TestCanonicalSEOURLRedirectsDuplicatePublicURLs(t *testing.T) {
-	t.Setenv(seoCanonicalBaseURLEnv, "")
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com"
-	t.Cleanup(func() { system_setting.ServerAddress = oldServerAddress })
-
-	engine := gin.New()
-	engine.Use(redirectCanonicalSEOURL())
-	engine.GET("/*path", func(c *gin.Context) { c.Status(http.StatusNoContent) })
-
-	tests := []struct {
-		name     string
-		url      string
-		expected string
-	}{
-		{name: "www host", url: "https://www.modelsell.com/pricing?search=gpt", expected: "https://modelsell.com/pricing?search=gpt"},
-		{name: "index document", url: "https://modelsell.com/index.html", expected: "https://modelsell.com/"},
-		{name: "trailing slash", url: "https://modelsell.com/about/", expected: "https://modelsell.com/about"},
+func TestServeFrontendPageKeepsEachRequestOrigin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	assets := ThemeAssets{
+		DefaultIndexPage: []byte(`<head><!--seo-meta-start--><title>New API</title><!--seo-meta-end--></head><body><div id="root"></div></body>`),
+		ClassicIndexPage: []byte(`<head><!--seo-meta-start--><title>New API</title><!--seo-meta-end--></head><body><div id="root"></div></body>`),
 	}
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			recorder := httptest.NewRecorder()
-			request := httptest.NewRequest(http.MethodGet, test.url, nil)
-			engine.ServeHTTP(recorder, request)
-			require.Equal(t, http.StatusMovedPermanently, recorder.Code)
-			require.Equal(t, test.expected, recorder.Header().Get("Location"))
-		})
-	}
-}
 
-func TestCanonicalSEOURLUsesEnvironmentOverrideForBackupHost(t *testing.T) {
-	t.Setenv(seoCanonicalBaseURLEnv, "http://38.145.213.6:3000")
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com"
-	t.Cleanup(func() { system_setting.ServerAddress = oldServerAddress })
-
-	engine := gin.New()
-	engine.Use(redirectCanonicalSEOURL())
-	engine.GET("/*path", func(c *gin.Context) { c.Status(http.StatusNoContent) })
-
-	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodGet, "http://38.145.213.6:3000/", nil)
-	engine.ServeHTTP(recorder, request)
-
-	require.Equal(t, http.StatusNoContent, recorder.Code)
-	require.Empty(t, recorder.Header().Get("Location"))
-}
-
-func TestCanonicalSEOURLDoesNotRedirectAPIRoutesOrAgentDomains(t *testing.T) {
-	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com"
-	t.Cleanup(func() { system_setting.ServerAddress = oldServerAddress })
-
-	for _, test := range []struct {
-		path       string
-		withAgent  bool
-		statusCode int
-	}{
-		{path: "/api/status", statusCode: http.StatusNoContent},
-		{path: "/pricing", withAgent: true, statusCode: http.StatusNoContent},
+	for _, origin := range []string{
+		"https://modelsell.com",
+		"https://www.modelsell.com",
+		"http://38.145.213.6:3000",
 	} {
-		engine := gin.New()
-		if test.withAgent {
-			engine.Use(func(c *gin.Context) {
-				common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{Domain: "agent.example.com"})
-			})
-		}
-		engine.Use(redirectCanonicalSEOURL())
-		engine.GET(test.path, func(c *gin.Context) { c.Status(http.StatusNoContent) })
+		t.Run(origin, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodGet, origin+"/pricing", nil)
 
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest(http.MethodGet, "https://agent.example.com"+test.path, nil)
-		engine.ServeHTTP(recorder, request)
+			serveFrontendPage(c, assets)
 
-		require.Equal(t, test.statusCode, recorder.Code, test.path)
-		require.Empty(t, recorder.Header().Get("Location"), test.path)
+			require.Equal(t, http.StatusOK, recorder.Code)
+			require.Empty(t, recorder.Header().Get("Location"))
+			require.Contains(t, recorder.Body.String(), `rel="canonical" href="`+origin+`/pricing"`)
+		})
 	}
 }
 

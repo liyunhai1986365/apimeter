@@ -29,7 +29,6 @@ func SetWebRouter(router *gin.Engine, assets ThemeAssets) {
 	router.Use(gzip.Gzip(gzip.DefaultCompression))
 	router.Use(middleware.GlobalWebRateLimit())
 	router.Use(middleware.Cache())
-	router.Use(redirectCanonicalSEOURL())
 	router.Use(static.Serve("/", themeFS))
 	router.GET("/robots.txt", serveRobotsTXT)
 	router.HEAD("/robots.txt", serveRobotsTXT)

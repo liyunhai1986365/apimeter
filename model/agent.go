@@ -183,16 +183,17 @@ type AgentDomainWithAgent struct {
 
 func GetActiveAgentByDomain(domain string) (*AgentWithDomain, error) {
 	var result AgentWithDomain
-	err := DB.Table("agents").
+	query := DB.Table("agents").
 		Select("agents.*, agent_domains.domain").
 		Joins("JOIN agent_domains ON agent_domains.agent_id = agents.id").
 		Where("agent_domains.domain = ? AND agent_domains.status = ? AND agents.status = ?", domain, AgentDomainStatusActive, AgentStatusEnabled).
-		First(&result).Error
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, nil
-		}
-		return nil, err
+		Limit(1).
+		Find(&result)
+	if query.Error != nil {
+		return nil, query.Error
+	}
+	if query.RowsAffected == 0 {
+		return nil, nil
 	}
 	return &result, nil
 }
