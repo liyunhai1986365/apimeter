@@ -91,7 +91,11 @@ export function useFilters(models: PricingModel[]) {
 
   const updateFilters = useCallback(
     (updates: Record<string, unknown>) => {
-      const next: Record<string, unknown> = { ...filterState, ...updates }
+      const next: Record<string, unknown> = {
+        ...search,
+        ...filterState,
+        ...updates,
+      }
       for (const key of Object.keys(next)) {
         if (next[key] === undefined || next[key] === null) {
           delete next[key]
@@ -104,7 +108,7 @@ export function useFilters(models: PricingModel[]) {
         replace: true,
       })
     },
-    [filterState, navigate]
+    [filterState, navigate, search]
   )
 
   const setSearchInput = useCallback(
