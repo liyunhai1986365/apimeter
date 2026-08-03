@@ -41,6 +41,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		}
 	}
 	other := make(map[string]interface{})
+	agentservice.UpdateBillingSnapshotQuota(info.AgentBillingSnapshot, info.PriceData.Quota)
 	other["is_task"] = true
 	other["request_path"] = c.Request.URL.Path
 	other["model_price"] = info.PriceData.ModelPrice
@@ -58,6 +59,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 	}
 	appendChannelCostInfo(other, info, info.PriceData.Quota)
 	logID := model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
+		Force:     info.AgentBillingSnapshot != nil,
 		ChannelId: info.ChannelId,
 		ModelName: info.OriginModelName,
 		TokenName: tokenName,
@@ -68,7 +70,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		Other:     other,
 	})
 	if info.AgentBillingSnapshot != nil {
-		if err := agentservice.SettleConsume(info.AgentBillingSnapshot, info.UserId, logID, info.AgentBillingSnapshot.BaseEstimatedQuota, info.PriceData.Quota); err != nil {
+		if err := agentservice.SettleConsume(info.AgentBillingSnapshot, info.UserId, logID, info.PriceData.Quota); err != nil {
 			logger.LogError(c, "error settling agent ledger: "+err.Error())
 		}
 	}
@@ -192,7 +194,10 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 	other["actual_quota"] = 0
 	other["actual_total_tokens"] = 0
 	other["actual_completion_tokens"] = 0
-	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+	bc := task.PrivateData.BillingContext
+	settlesAgentRefund := !task.PrivateData.AsyncImage && bc != nil && bc.AgentBillingSnapshot != nil
+	logID := model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+		Force:     settlesAgentRefund,
 		UserId:    task.UserId,
 		LogType:   model.LogTypeRefund,
 		Content:   "",
@@ -203,6 +208,14 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) {
 		Group:     task.Group,
 		Other:     other,
 	})
+	// Native async image submissions only reserve user quota at submit time; their
+	// agent profit is settled once actual usage arrives, so a failed submission
+	// has no earlier agent ledger entry to reverse.
+	if settlesAgentRefund {
+		if err := agentservice.SettleConsumeAdjustment(bc.AgentBillingSnapshot, task.UserId, logID, quota, 0); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("任务失败代理收益退款失败 task %s: %s", task.TaskID, err.Error()))
+		}
+	}
 }
 
 func taskTieredActualQuota(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) (int, *billingexpr.TieredResult, bool) {
@@ -423,16 +436,17 @@ func settleImageTaskActualQuota(ctx context.Context, task *model.Task, actualQuo
 	}
 	relayInfo := imageTaskSettlementRelayInfo(task, nil)
 	appendChannelCostInfo(other, relayInfo, actualQuota)
+	snapshot := task.PrivateData.BillingContext.AgentBillingSnapshot
 	logID := model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+		Force:  snapshot != nil,
 		UserId: task.UserId, LogType: model.LogTypeConsume, Content: "image usage",
 		ChannelId: task.ChannelId, ModelName: taskModelName(task), Quota: actualQuota,
 		PromptTokens:     intFromMap(other, "actual_prompt_tokens"),
 		CompletionTokens: intFromMap(other, "actual_completion_tokens"),
 		TokenId:          task.PrivateData.TokenId, Group: task.Group, Other: other,
 	})
-	if snapshot := task.PrivateData.BillingContext.AgentBillingSnapshot; snapshot != nil {
-		baseQuota := agentservice.BaseQuotaFromCharged(snapshot, actualQuota)
-		if err := agentservice.SettleConsume(snapshot, task.UserId, logID, baseQuota, actualQuota); err != nil {
+	if snapshot != nil {
+		if err := agentservice.SettleConsume(snapshot, task.UserId, logID, actualQuota); err != nil {
 			logger.LogError(ctx, fmt.Sprintf("图片任务代理计费结算失败 task %s: %s", task.TaskID, err.Error()))
 		}
 	}
@@ -491,7 +505,10 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	for key, value := range extraOther {
 		other[key] = value
 	}
-	model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+	bc := task.PrivateData.BillingContext
+	settlesAgentAdjustment := bc != nil && bc.AgentBillingSnapshot != nil
+	logID := model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+		Force:            settlesAgentAdjustment,
 		UserId:           task.UserId,
 		LogType:          logType,
 		Content:          reason,
@@ -504,6 +521,11 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		Group:            task.Group,
 		Other:            other,
 	})
+	if settlesAgentAdjustment {
+		if err := agentservice.SettleConsumeAdjustment(bc.AgentBillingSnapshot, task.UserId, logID, preConsumedQuota, actualQuota); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("任务差额代理收益结算失败 task %s: %s", task.TaskID, err.Error()))
+		}
+	}
 }
 
 func intFromMap(values map[string]interface{}, key string) int {

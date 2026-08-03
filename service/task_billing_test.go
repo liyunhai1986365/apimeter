@@ -13,7 +13,9 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/types"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -51,6 +53,7 @@ func TestMain(m *testing.M) {
 		&model.SubscriptionPlan{},
 		&model.UserSubscription{},
 		&model.SubscriptionPreConsumeRecord{},
+		&model.Agent{},
 		&model.AgentLedger{},
 		&model.SystemTask{},
 		&model.SystemTaskLock{},
@@ -79,6 +82,8 @@ func truncate(t *testing.T) {
 		model.DB.Exec("DELETE FROM subscription_plans")
 		model.DB.Exec("DELETE FROM user_subscriptions")
 		model.DB.Exec("DELETE FROM subscription_pre_consume_records")
+		model.DB.Exec("DELETE FROM agent_ledgers")
+		model.DB.Exec("DELETE FROM agents")
 		model.DB.Exec("DELETE FROM system_tasks")
 		model.DB.Exec("DELETE FROM system_task_locks")
 		model.DB.Exec("DELETE FROM system_instances")
@@ -123,6 +128,11 @@ func seedChannel(t *testing.T, id int) {
 	t.Helper()
 	ch := &model.Channel{Id: id, Name: "test_channel", Key: "sk-test", Status: common.ChannelStatusEnabled}
 	require.NoError(t, model.DB.Create(ch).Error)
+}
+
+func seedAgent(t *testing.T, id int) {
+	t.Helper()
+	require.NoError(t, model.DB.Create(&model.Agent{Id: id, Name: "test-agent", Slug: "test-agent", Status: model.AgentStatusEnabled}).Error)
 }
 
 func makeTask(userId, channelId, quota, tokenId int, billingSource string, subscriptionId int) *model.Task {
@@ -234,6 +244,61 @@ func TestRefundTaskQuota_Wallet(t *testing.T) {
 	assert.Equal(t, model.LogTypeRefund, log.Type)
 	assert.Equal(t, preConsumed, log.Quota)
 	assert.Equal(t, "test-model", log.ModelName)
+}
+
+func TestRefundTaskQuotaReversesAgentProfit(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID, agentID = 41, 41, 41, 41
+	const preConsumed = 1_250
+	seedUser(t, userID, 10_000)
+	seedToken(t, tokenID, userID, "sk-agent-refund", 5_000)
+	seedChannel(t, channelID)
+	seedAgent(t, agentID)
+
+	snapshot := &types.AgentBillingSnapshot{
+		AgentID:           agentID,
+		BaseGroupRatio:    1,
+		ChargedGroupRatio: 1.25,
+	}
+	require.NoError(t, agentservice.SettleConsume(snapshot, userID, 9_001, preConsumed))
+	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.AgentBillingSnapshot = snapshot
+
+	RefundTaskQuota(ctx, task, "agent task failed")
+
+	var ledgers []model.AgentLedger
+	require.NoError(t, model.DB.Where("agent_id = ?", agentID).Order("id asc").Find(&ledgers).Error)
+	require.Len(t, ledgers, 2)
+	assert.Equal(t, 250, ledgers[0].ProfitQuota)
+	assert.Equal(t, -250, ledgers[1].ProfitQuota)
+	assert.Equal(t, 0, ledgers[1].BalanceAfter)
+}
+
+func TestRefundAsyncImageTaskDoesNotCreateAgentDebitBeforeUsageSettlement(t *testing.T) {
+	truncate(t)
+	ctx := context.Background()
+
+	const userID, tokenID, channelID, agentID = 42, 42, 42, 42
+	seedUser(t, userID, 10_000)
+	seedToken(t, tokenID, userID, "sk-async-image-refund", 5_000)
+	seedChannel(t, channelID)
+	seedAgent(t, agentID)
+
+	task := makeTask(userID, channelID, 1_250, tokenID, BillingSourceWallet, 0)
+	task.PrivateData.AsyncImage = true
+	task.PrivateData.BillingContext.AgentBillingSnapshot = &types.AgentBillingSnapshot{
+		AgentID:           agentID,
+		BaseGroupRatio:    1,
+		ChargedGroupRatio: 1.25,
+	}
+
+	RefundTaskQuota(ctx, task, "async image failed before usage")
+
+	var count int64
+	require.NoError(t, model.DB.Model(&model.AgentLedger{}).Where("agent_id = ?", agentID).Count(&count).Error)
+	assert.Zero(t, count)
 }
 
 func TestRefundTaskQuota_Subscription(t *testing.T) {

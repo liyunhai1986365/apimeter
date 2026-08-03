@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"errors"
 	"net"
 	"strings"
 	"sync/atomic"
@@ -369,18 +370,65 @@ func BaseQuotaFromCharged(snapshot *BillingSnapshot, chargedQuota int) int {
 	return common.QuotaRound(float64(chargedQuota) * snapshot.BaseGroupRatio / snapshot.ChargedGroupRatio)
 }
 
-func SettleConsume(snapshot *BillingSnapshot, userID int, logID int, baseQuota int, chargedQuota int) error {
+func UpdateBillingSnapshotQuota(snapshot *BillingSnapshot, chargedQuota int) {
+	if snapshot == nil {
+		return
+	}
+	snapshot.ChargedEstimatedQuota = chargedQuota
+	snapshot.BaseEstimatedQuota = BaseQuotaFromCharged(snapshot, chargedQuota)
+}
+
+func consumeSettlement(snapshot *BillingSnapshot, chargedQuota int) (baseQuota int, profitQuota int) {
+	if chargedQuota <= 0 {
+		return 0, 0
+	}
+	baseQuota = BaseQuotaFromCharged(snapshot, chargedQuota)
+	profitQuota = chargedQuota - baseQuota
+	if profitQuota <= 0 {
+		return chargedQuota, 0
+	}
+	return baseQuota, profitQuota
+}
+
+func SettleConsume(snapshot *BillingSnapshot, userID int, logID int, chargedQuota int) error {
+	return SettleConsumeAdjustment(snapshot, userID, logID, 0, chargedQuota)
+}
+
+// SettleConsumeAdjustment moves an agent's consume profit from the settlement
+// implied by previousChargedQuota to the one implied by chargedQuota. Computing
+// both totals before taking the delta avoids stale pre-consume snapshots and
+// rounding drift across task refunds or additional charges.
+func SettleConsumeAdjustment(snapshot *BillingSnapshot, userID int, logID int, previousChargedQuota int, chargedQuota int) error {
 	if snapshot == nil || snapshot.AgentID == 0 {
 		return nil
 	}
-	if baseQuota <= 0 && chargedQuota > 0 {
-		baseQuota = BaseQuotaFromCharged(snapshot, chargedQuota)
-	}
-	profitQuota := chargedQuota - baseQuota
-	if profitQuota <= 0 {
+	if previousChargedQuota < 0 || chargedQuota < 0 {
 		return nil
 	}
+	previousBaseQuota, previousProfitQuota := consumeSettlement(snapshot, previousChargedQuota)
+	baseQuota, profitQuota := consumeSettlement(snapshot, chargedQuota)
+	baseQuotaDelta := baseQuota - previousBaseQuota
+	chargedQuotaDelta := chargedQuota - previousChargedQuota
+	profitQuotaDelta := profitQuota - previousProfitQuota
+	if profitQuotaDelta == 0 {
+		return nil
+	}
+	if logID <= 0 {
+		return errors.New("agent settlement requires a source log")
+	}
 	return model.DB.Transaction(func(tx *gorm.DB) error {
+		if err := lockAgentBalance(tx, snapshot.AgentID); err != nil {
+			return err
+		}
+		var count int64
+		if err := tx.Model(&model.AgentLedger{}).
+			Where("agent_id = ? AND log_id = ? AND type = ?", snapshot.AgentID, logID, model.AgentLedgerTypeConsumeProfit).
+			Count(&count).Error; err != nil {
+			return err
+		}
+		if count > 0 {
+			return nil
+		}
 		var totalProfit int
 		if err := tx.Model(&model.AgentLedger{}).
 			Select("COALESCE(SUM(profit_quota), 0)").
@@ -393,10 +441,10 @@ func SettleConsume(snapshot *BillingSnapshot, userID int, logID int, baseQuota i
 			UserId:       userID,
 			LogId:        logID,
 			Type:         model.AgentLedgerTypeConsumeProfit,
-			BaseQuota:    baseQuota,
-			ChargedQuota: chargedQuota,
-			ProfitQuota:  profitQuota,
-			BalanceAfter: totalProfit + profitQuota,
+			BaseQuota:    baseQuotaDelta,
+			ChargedQuota: chargedQuotaDelta,
+			ProfitQuota:  profitQuotaDelta,
+			BalanceAfter: totalProfit + profitQuotaDelta,
 		}
 		return tx.Create(ledger).Error
 	})

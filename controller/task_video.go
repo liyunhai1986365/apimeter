@@ -185,12 +185,9 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 	}
 
 	if shouldRefund {
-		// 任务失败且之前状态不是失败才退还额度，防止重复退还
-		if err := model.IncreaseUserQuota(task.UserId, quota, false); err != nil {
-			logger.LogWarn(ctx, "Failed to increase user quota: "+err.Error())
-		}
-		logContent := fmt.Sprintf("Video async task failed %s, refund %s", task.TaskID, logger.LogQuota(quota))
-		model.RecordLog(task.UserId, model.LogTypeSystem, logContent)
+		// 任务失败且之前状态不是失败才退还额度，防止重复退还。
+		// 统一退款入口同时处理钱包/订阅、令牌额度和代理收益冲减。
+		service.RefundTaskQuota(ctx, task, task.FailReason)
 	}
 
 	return nil

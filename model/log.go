@@ -302,6 +302,7 @@ func CreateErrorLog(c *gin.Context, userId int, channelId int, modelName string,
 }
 
 type RecordConsumeLogParams struct {
+	Force            bool                   `json:"-"`
 	ChannelId        int                    `json:"channel_id"`
 	PromptTokens     int                    `json:"prompt_tokens"`
 	InputTokens      int                    `json:"input_tokens"`
@@ -320,7 +321,7 @@ type RecordConsumeLogParams struct {
 }
 
 func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams) int {
-	if !common.LogConsumeEnabled {
+	if !common.LogConsumeEnabled && !params.Force {
 		return 0
 	}
 	logger.LogInfo(c, fmt.Sprintf("record consume log: userId=%d, params=%s", userId, common.GetJsonString(params)))
@@ -413,6 +414,7 @@ func RecordConsumeLog(c *gin.Context, userId int, params RecordConsumeLogParams)
 }
 
 type RecordTaskBillingLogParams struct {
+	Force            bool `json:"-"`
 	UserId           int
 	LogType          int
 	Content          string
@@ -427,7 +429,7 @@ type RecordTaskBillingLogParams struct {
 }
 
 func RecordTaskBillingLog(params RecordTaskBillingLogParams) int {
-	if params.LogType == LogTypeConsume && !common.LogConsumeEnabled {
+	if params.LogType == LogTypeConsume && !common.LogConsumeEnabled && !params.Force {
 		return 0
 	}
 	username, _ := GetUsernameById(params.UserId, false)

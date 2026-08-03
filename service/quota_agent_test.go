@@ -26,12 +26,14 @@ func resetQuotaAgentTables(t *testing.T) {
 
 	t.Cleanup(func() {
 		model.DB.Exec("DELETE FROM agent_ledgers")
+		model.DB.Exec("DELETE FROM agents")
 		model.LOG_DB.Exec("DELETE FROM logs")
 		model.DB.Exec("DELETE FROM channels")
 		model.DB.Exec("DELETE FROM tokens")
 		model.DB.Exec("DELETE FROM users")
 	})
 	model.DB.Exec("DELETE FROM agent_ledgers")
+	model.DB.Exec("DELETE FROM agents")
 	model.LOG_DB.Exec("DELETE FROM logs")
 	model.DB.Exec("DELETE FROM channels")
 	model.DB.Exec("DELETE FROM tokens")
@@ -107,6 +109,7 @@ func setupRealtimeBillingRatioSettings(t *testing.T) {
 func seedRealtimeBillingUserAndToken(t *testing.T, tokenKey string) {
 	t.Helper()
 
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 3, Name: "Agent Three", Slug: "agent-three", Status: model.AgentStatusEnabled}).Error)
 	require.NoError(t, model.DB.Create(&model.User{
 		Id:       100,
 		Username: "agent-user",
@@ -275,10 +278,8 @@ func TestAgentSettleConsumeWritesProfitFromAgentSnapshot(t *testing.T) {
 		BaseGroupRatio:    1.0,
 		ChargedGroupRatio: 1.1,
 	}
-	baseQuota := agentservice.BaseQuotaFromCharged(snapshot, 110)
-	require.Equal(t, 100, baseQuota)
-
-	require.NoError(t, agentservice.SettleConsume(snapshot, 100, 300, baseQuota, 110))
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 3, Name: "Agent Three", Slug: "agent-three", Status: model.AgentStatusEnabled}).Error)
+	require.NoError(t, agentservice.SettleConsume(snapshot, 100, 300, 110))
 
 	var ledger model.AgentLedger
 	require.NoError(t, model.DB.First(&ledger).Error)

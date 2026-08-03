@@ -73,6 +73,34 @@ func TestRecordConsumeLogOmitsIPWhenUserSettingDisablesIPLog(t *testing.T) {
 	require.Empty(t, log.Ip)
 }
 
+func TestRecordConsumeLogForcePersistsWhenConsumeLoggingDisabled(t *testing.T) {
+	setupLogIPRecordTest(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+	common.LogConsumeEnabled = false
+
+	require.Zero(t, RecordConsumeLog(newLogIPRecordContext(), 1, RecordConsumeLogParams{Content: "ordinary"}))
+	logID := RecordConsumeLog(newLogIPRecordContext(), 1, RecordConsumeLogParams{Force: true, Content: "agent settlement"})
+
+	require.NotZero(t, logID)
+	var count int64
+	require.NoError(t, LOG_DB.Model(&Log{}).Count(&count).Error)
+	require.EqualValues(t, 1, count)
+}
+
+func TestRecordTaskBillingLogForcePersistsWhenConsumeLoggingDisabled(t *testing.T) {
+	setupLogIPRecordTest(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+	common.LogConsumeEnabled = false
+
+	require.Zero(t, RecordTaskBillingLog(RecordTaskBillingLogParams{UserId: 1, LogType: LogTypeConsume, Content: "ordinary"}))
+	logID := RecordTaskBillingLog(RecordTaskBillingLogParams{Force: true, UserId: 1, LogType: LogTypeConsume, Content: "agent settlement"})
+
+	require.NotZero(t, logID)
+	var count int64
+	require.NoError(t, LOG_DB.Model(&Log{}).Count(&count).Error)
+	require.EqualValues(t, 1, count)
+}
+
 func TestRecordErrorLogRecordsIPByDefaultWhenUserSettingOmitsFlag(t *testing.T) {
 	setupLogIPRecordTest(t)
 	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)

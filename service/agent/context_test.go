@@ -367,8 +367,14 @@ func TestBaseQuotaFromChargedScalesByAgentGroupRatio(t *testing.T) {
 
 func TestSettleConsumeWritesProfitLedger(t *testing.T) {
 	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
 
-	err := SettleConsume(&BillingSnapshot{AgentID: 1, Domain: "agent.example.com"}, 100, 200, 1000, 1200)
+	err := SettleConsume(&BillingSnapshot{
+		AgentID:           1,
+		Domain:            "agent.example.com",
+		BaseGroupRatio:    1,
+		ChargedGroupRatio: 1.2,
+	}, 100, 200, 1200)
 	require.NoError(t, err)
 
 	var ledger model.AgentLedger
@@ -383,11 +389,82 @@ func TestSettleConsumeWritesProfitLedger(t *testing.T) {
 	require.Equal(t, 200, ledger.BalanceAfter)
 }
 
+func TestSettleConsumeUsesFinalChargedQuotaInsteadOfStaleEstimate(t *testing.T) {
+	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
+
+	snapshot := &BillingSnapshot{
+		AgentID:               1,
+		BaseGroupRatio:        1,
+		ChargedGroupRatio:     1,
+		BaseEstimatedQuota:    50_000,
+		ChargedEstimatedQuota: 50_000,
+	}
+	require.NoError(t, SettleConsume(snapshot, 100, 200, 200_000))
+
+	var count int64
+	require.NoError(t, model.DB.Model(&model.AgentLedger{}).Count(&count).Error)
+	require.Zero(t, count)
+}
+
+func TestSettleConsumeRejectsProfitWithoutSourceLog(t *testing.T) {
+	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "agent"}).Error)
+
+	err := SettleConsume(&BillingSnapshot{
+		AgentID:           1,
+		BaseGroupRatio:    1,
+		ChargedGroupRatio: 1.2,
+	}, 100, 0, 1_200)
+
+	require.EqualError(t, err, "agent settlement requires a source log")
+	var count int64
+	require.NoError(t, model.DB.Model(&model.AgentLedger{}).Count(&count).Error)
+	require.Zero(t, count)
+}
+
+func TestSettleConsumeAdjustmentRefundsProfitAndIsIdempotent(t *testing.T) {
+	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
+	snapshot := &BillingSnapshot{AgentID: 1, BaseGroupRatio: 1, ChargedGroupRatio: 1.25}
+
+	require.NoError(t, SettleConsume(snapshot, 100, 200, 1_250))
+	require.NoError(t, SettleConsumeAdjustment(snapshot, 100, 201, 1_250, 500))
+	require.NoError(t, SettleConsumeAdjustment(snapshot, 100, 201, 1_250, 500))
+
+	var ledgers []model.AgentLedger
+	require.NoError(t, model.DB.Order("id asc").Find(&ledgers).Error)
+	require.Len(t, ledgers, 2)
+	require.Equal(t, 250, ledgers[0].ProfitQuota)
+	require.Equal(t, -750, ledgers[1].ChargedQuota)
+	require.Equal(t, -600, ledgers[1].BaseQuota)
+	require.Equal(t, -150, ledgers[1].ProfitQuota)
+	require.Equal(t, 100, ledgers[1].BalanceAfter)
+}
+
+func TestSettleConsumeAdjustmentUsesTargetTotalsToAvoidRoundingDrift(t *testing.T) {
+	setupAgentTestDB(t)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
+	snapshot := &BillingSnapshot{AgentID: 1, BaseGroupRatio: 1, ChargedGroupRatio: 1.5}
+
+	require.NoError(t, SettleConsume(snapshot, 100, 200, 100))
+	require.NoError(t, SettleConsumeAdjustment(snapshot, 100, 201, 100, 50))
+
+	var totalProfit int
+	require.NoError(t, model.DB.Model(&model.AgentLedger{}).Select("COALESCE(SUM(profit_quota), 0)").Scan(&totalProfit).Error)
+	require.Equal(t, 17, totalProfit)
+}
+
 func TestWithdrawalLifecycle(t *testing.T) {
 	setupAgentTestDB(t)
 	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
 
-	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1, Domain: "agent.example.com"}, 100, 200, 1000, 1300))
+	require.NoError(t, SettleConsume(&BillingSnapshot{
+		AgentID:           1,
+		Domain:            "agent.example.com",
+		BaseGroupRatio:    1,
+		ChargedGroupRatio: 1.3,
+	}, 100, 200, 1300))
 
 	balance, err := GetBalance(1)
 	require.NoError(t, err)
@@ -558,7 +635,7 @@ func TestSubmitWithdrawalRejectsOverAvailable(t *testing.T) {
 	setupAgentTestDB(t)
 	require.NoError(t, model.DB.Create(&model.Agent{Id: 1, Name: "Agent One", Slug: "agent-one", Status: model.AgentStatusEnabled}).Error)
 
-	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1}, 100, 200, 1000, 1100))
+	require.NoError(t, SettleConsume(&BillingSnapshot{AgentID: 1, BaseGroupRatio: 1, ChargedGroupRatio: 1.1}, 100, 200, 1100))
 
 	_, err := SubmitWithdrawal(1, 101, 1.01, "bank account")
 	require.Error(t, err)

@@ -360,11 +360,7 @@ func isSeedance2TaskPreConsume(c *gin.Context, modelName string) bool {
 }
 
 func captureAgentQuotaSnapshot(snapshot *types.AgentBillingSnapshot, chargedQuota int) {
-	if snapshot == nil {
-		return
-	}
-	snapshot.ChargedEstimatedQuota = chargedQuota
-	snapshot.BaseEstimatedQuota = baseQuotaFromCharged(snapshot, chargedQuota)
+	agentservice.UpdateBillingSnapshotQuota(snapshot, chargedQuota)
 }
 
 func baseQuotaFromCharged(snapshot *types.AgentBillingSnapshot, chargedQuota int) int {

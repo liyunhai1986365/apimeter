@@ -454,13 +454,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		extraContent = append(extraContent, fmt.Sprintf("Image Generation Call 花费 %s", decimal.NewFromFloat(summary.ImageGenerationCallPrice).Mul(decimal.NewFromFloat(summary.GroupRatio)).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).String()))
 	}
 
-	baseQuota := summary.Quota
-	if relayInfo.AgentBillingSnapshot != nil {
-		chargedQuota := summary.Quota
-		baseQuota = agentservice.BaseQuotaFromCharged(relayInfo.AgentBillingSnapshot, chargedQuota)
-		relayInfo.AgentBillingSnapshot.BaseEstimatedQuota = baseQuota
-		relayInfo.AgentBillingSnapshot.ChargedEstimatedQuota = chargedQuota
-	}
+	agentservice.UpdateBillingSnapshotQuota(relayInfo.AgentBillingSnapshot, summary.Quota)
 
 	if summary.TotalTokens == 0 {
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
@@ -562,6 +556,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	appendChannelCostInfo(other, relayInfo, summary.Quota)
 
 	logID := model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
+		Force:            relayInfo.AgentBillingSnapshot != nil && summary.TotalTokens > 0,
 		ChannelId:        relayInfo.ChannelId,
 		PromptTokens:     summary.PromptTokens,
 		InputTokens:      normalizedLogInputTokens(relayInfo, originUsage, summary),
@@ -579,7 +574,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		Other:            other,
 	})
 	if relayInfo.AgentBillingSnapshot != nil && summary.TotalTokens > 0 {
-		if err := agentservice.SettleConsume(relayInfo.AgentBillingSnapshot, relayInfo.UserId, logID, baseQuota, summary.Quota); err != nil {
+		if err := agentservice.SettleConsume(relayInfo.AgentBillingSnapshot, relayInfo.UserId, logID, summary.Quota); err != nil {
 			logger.LogError(ctx, "error settling agent ledger: "+err.Error())
 		}
 	}

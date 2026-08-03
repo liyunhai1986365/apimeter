@@ -403,6 +403,7 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 	attachQuotaSaturation(ctx, relayInfo, other)
 	appendChannelCostInfo(other, relayInfo, quota)
 	logID := model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
+		Force:            relayInfo.AgentBillingSnapshot != nil && totalTokens > 0,
 		ChannelId:        relayInfo.ChannelId,
 		PromptTokens:     usage.InputTokens,
 		CompletionTokens: usage.OutputTokens,
@@ -417,7 +418,7 @@ func PostWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, mod
 		Other:            other,
 	})
 	if relayInfo.AgentBillingSnapshot != nil && totalTokens > 0 {
-		if err := agentservice.SettleConsume(relayInfo.AgentBillingSnapshot, relayInfo.UserId, logID, relayInfo.AgentBillingSnapshot.BaseEstimatedQuota, quota); err != nil {
+		if err := agentservice.SettleConsume(relayInfo.AgentBillingSnapshot, relayInfo.UserId, logID, quota); err != nil {
 			logger.LogError(ctx, "error settling agent ledger: "+err.Error())
 		}
 	}
@@ -540,6 +541,7 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 	attachQuotaSaturation(ctx, relayInfo, other)
 	appendChannelCostInfo(other, relayInfo, quota)
 	logID := model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
+		Force:            relayInfo.AgentBillingSnapshot != nil && totalTokens > 0,
 		ChannelId:        relayInfo.ChannelId,
 		PromptTokens:     usage.PromptTokens,
 		CompletionTokens: usage.CompletionTokens,
@@ -554,7 +556,7 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 		Other:            other,
 	})
 	if relayInfo.AgentBillingSnapshot != nil && totalTokens > 0 {
-		if err := agentservice.SettleConsume(relayInfo.AgentBillingSnapshot, relayInfo.UserId, logID, relayInfo.AgentBillingSnapshot.BaseEstimatedQuota, quota); err != nil {
+		if err := agentservice.SettleConsume(relayInfo.AgentBillingSnapshot, relayInfo.UserId, logID, quota); err != nil {
 			logger.LogError(ctx, "error settling agent ledger: "+err.Error())
 		}
 	}
