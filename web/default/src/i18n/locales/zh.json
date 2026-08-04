@@ -907,7 +907,7 @@
     "Category name is required": "分类名称不能为空",
     "Category name must be less than 50 characters": "分类名称不能超过 50 个字符",
     "Caution": "注意",
-    "CC Switch": "CC 切换",
+    "CC Switch": "CC Switch 导入",
     "Centered": "居中",
     "Centralize system retry, failover, and skip-retry rules for model routing.": "集中管理模型路由的系统重试、故障转移和跳过重试规则。",
     "Centralize upstream credentials, routing priorities, and availability rules.": "集中管理上游凭据、路由优先级和可用性规则。",
