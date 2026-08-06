@@ -134,8 +134,9 @@ func TestExpireCryptoPaymentReleasesReservation(t *testing.T) {
 	require.NoError(t, DB.Create(&User{Id: 1, Username: "crypto-user"}).Error)
 	payment := createCryptoPaymentTestOrder(t, 1, "crypto-order-expire")
 	require.NoError(t, DB.Model(&CryptoPayment{}).Where("id = ?", payment.Id).Update("expires_at", time.Now().Add(-time.Minute).Unix()).Error)
+	require.NoError(t, UpdateCryptoPaymentScanBlock(payment.Id, 200))
 
-	require.NoError(t, ExpireCryptoPayments(time.Now().Unix()))
+	require.NoError(t, ExpireCryptoPayments(time.Now().Unix(), 199, false))
 
 	require.NoError(t, DB.First(payment, payment.Id).Error)
 	require.Equal(t, CryptoPaymentStatusExpired, payment.Status)
@@ -143,4 +144,37 @@ func TestExpireCryptoPaymentReleasesReservation(t *testing.T) {
 	var topUp TopUp
 	require.NoError(t, DB.Where("trade_no = ?", payment.TradeNo).First(&topUp).Error)
 	require.Equal(t, common.TopUpStatusFailed, topUp.Status)
+}
+
+func TestExpireCryptoPaymentWaitsForEVMScannerToCatchUp(t *testing.T) {
+	setupCryptoPaymentTestDB(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "crypto-user"}).Error)
+	payment := createCryptoPaymentTestOrder(t, 1, "crypto-order-reconciling")
+	require.NoError(t, DB.Model(&CryptoPayment{}).Where("id = ?", payment.Id).Update("expires_at", time.Now().Add(-time.Minute).Unix()).Error)
+
+	require.NoError(t, ExpireCryptoPayments(time.Now().Unix(), payment.ScanFromBlock+100, false))
+
+	require.NoError(t, DB.First(payment, payment.Id).Error)
+	require.Equal(t, CryptoPaymentStatusPending, payment.Status)
+	require.NotNil(t, payment.ReservationKey)
+	var topUp TopUp
+	require.NoError(t, DB.Where("trade_no = ?", payment.TradeNo).First(&topUp).Error)
+	require.Equal(t, common.TopUpStatusPending, topUp.Status)
+}
+
+func TestManualCompleteTopUpKeepsCryptoPaymentStateConsistent(t *testing.T) {
+	setupCryptoPaymentTestDB(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "crypto-user"}).Error)
+	payment := createCryptoPaymentTestOrder(t, 1, "crypto-order-manual")
+
+	require.NoError(t, ManualCompleteTopUp(payment.TradeNo, "127.0.0.1"))
+
+	require.NoError(t, DB.First(payment, payment.Id).Error)
+	require.Equal(t, CryptoPaymentStatusManual, payment.Status)
+	require.NotZero(t, payment.CompleteTime)
+	require.Nil(t, payment.ReservationKey)
+	var topUp TopUp
+	require.NoError(t, DB.Where("trade_no = ?", payment.TradeNo).First(&topUp).Error)
+	require.Equal(t, common.TopUpStatusSuccess, topUp.Status)
+	require.Equal(t, payment.CompleteTime, topUp.CompleteTime)
 }

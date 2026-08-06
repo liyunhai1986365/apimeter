@@ -476,6 +476,11 @@ func ManualCompleteTopUp(tradeNo string, callerIp string) error {
 		if err := tx.Save(topUp).Error; err != nil {
 			return err
 		}
+		if topUp.PaymentProvider == PaymentProviderCrypto {
+			if err := MarkCryptoPaymentManuallyCompleted(tx, topUp.TradeNo, topUp.CompleteTime); err != nil {
+				return err
+			}
+		}
 
 		// 增加用户额度（立即写库，保持一致性）
 		if err := tx.Model(&User{}).Where("id = ?", topUp.UserId).Update("quota", gorm.Expr("quota + ?", quotaToAdd)).Error; err != nil {

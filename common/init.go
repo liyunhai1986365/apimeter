@@ -31,6 +31,8 @@ func printHelp() {
 func InitEnv() {
 	flag.Parse()
 
+	SystemName = GetEnvOrDefaultString("SYSTEM_NAME", SystemName)
+
 	envVersion := os.Getenv("VERSION")
 	if envVersion != "" {
 		Version = envVersion

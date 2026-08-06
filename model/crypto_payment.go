@@ -21,6 +21,7 @@ const (
 	CryptoPaymentStatusPending = "pending"
 	CryptoPaymentStatusSuccess = "success"
 	CryptoPaymentStatusExpired = "expired"
+	CryptoPaymentStatusManual  = "manual"
 
 	PaymentMethodCryptoEVM  = "crypto_evm"
 	PaymentMethodCryptoTron = "crypto_tron"
@@ -261,7 +262,11 @@ func UpdateCryptoPaymentScanBlock(paymentId int, nextBlock int64) error {
 		Update("scan_from_block", nextBlock).Error
 }
 
-func ExpireCryptoPayments(now int64) error {
+// ExpireCryptoPayments expires only orders whose network scanner has safely
+// covered the payment window. EVM orders remain pending while their cursor is
+// behind the last successfully confirmed head, so a temporary RPC outage does
+// not permanently discard a valid on-chain transfer.
+func ExpireCryptoPayments(now, evmScannedThrough int64, tronScanComplete bool) error {
 	var payments []*CryptoPayment
 	if err := DB.Where("status = ? AND expires_at <= ?", CryptoPaymentStatusPending, now).
 		Limit(500).
@@ -275,8 +280,21 @@ func ExpireCryptoPayments(now int64) error {
 	ids := make([]int, 0, len(payments))
 	tradeNos := make([]string, 0, len(payments))
 	for _, payment := range payments {
+		switch payment.NetworkType {
+		case CryptoNetworkEVM:
+			if evmScannedThrough <= 0 || payment.ScanFromBlock <= evmScannedThrough {
+				continue
+			}
+		case CryptoNetworkTron:
+			if !tronScanComplete {
+				continue
+			}
+		}
 		ids = append(ids, payment.Id)
 		tradeNos = append(tradeNos, payment.TradeNo)
+	}
+	if len(ids) == 0 {
+		return nil
 	}
 
 	return DB.Transaction(func(tx *gorm.DB) error {
@@ -292,6 +310,19 @@ func ExpireCryptoPayments(now int64) error {
 			Where("trade_no IN ? AND payment_provider = ? AND status = ?", tradeNos, PaymentProviderCrypto, common.TopUpStatusPending).
 			Update("status", common.TopUpStatusFailed).Error
 	})
+}
+
+func MarkCryptoPaymentManuallyCompleted(tx *gorm.DB, tradeNo string, completeTime int64) error {
+	if tx == nil || strings.TrimSpace(tradeNo) == "" {
+		return nil
+	}
+	return tx.Model(&CryptoPayment{}).
+		Where("trade_no = ? AND status IN ?", tradeNo, []string{CryptoPaymentStatusPending, CryptoPaymentStatusExpired}).
+		Updates(map[string]interface{}{
+			"status":          CryptoPaymentStatusManual,
+			"complete_time":   completeTime,
+			"reservation_key": nil,
+		}).Error
 }
 
 func CompleteCryptoPayment(tradeNo, transactionHash, eventIndex string, blockNumber int64) error {

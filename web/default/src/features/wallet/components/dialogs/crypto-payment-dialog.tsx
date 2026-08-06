@@ -91,18 +91,26 @@ export function CryptoPaymentDialog({
   }, [open, tradeNo, orderStatus])
 
   useEffect(() => {
-    if (currentOrder?.status !== 'success' || paidNotified.current) return
+    if (
+      (currentOrder?.status !== 'success' &&
+        currentOrder?.status !== 'manual') ||
+      paidNotified.current
+    )
+      return
     paidNotified.current = true
     void onPaid()
   }, [currentOrder?.status, onPaid])
 
   const remaining = Math.max(0, (currentOrder?.expires_at ?? 0) - now)
   const status = currentOrder?.status ?? 'pending'
+  const isPaid = status === 'success' || status === 'manual'
+  const isVerifying = status === 'pending' && remaining === 0
   const statusLabel = useMemo(() => {
-    if (status === 'success') return t('Payment received')
+    if (isPaid) return t('Payment received')
     if (status === 'expired') return t('Order expired')
+    if (isVerifying) return t('Payment verification in progress')
     return t('Waiting for payment')
-  }, [status, t])
+  }, [isPaid, isVerifying, status, t])
 
   if (!currentOrder) return null
 
@@ -120,7 +128,7 @@ export function CryptoPaymentDialog({
 
         <div className='space-y-4'>
           <div className='flex items-center justify-between gap-3'>
-            <Badge variant={status === 'success' ? 'default' : 'secondary'}>
+            <Badge variant={isPaid ? 'default' : 'secondary'}>
               {status === 'pending' && (
                 <HugeiconsIcon
                   icon={Loading03Icon}
@@ -128,7 +136,7 @@ export function CryptoPaymentDialog({
                   data-icon='inline-start'
                 />
               )}
-              {status === 'success' && (
+              {isPaid && (
                 <HugeiconsIcon
                   icon={CheckmarkCircle02Icon}
                   data-icon='inline-start'
@@ -137,13 +145,17 @@ export function CryptoPaymentDialog({
               {statusLabel}
             </Badge>
             <span className='text-muted-foreground text-sm tabular-nums'>
-              {status === 'pending'
-                ? t('Expires in {{time}}', { time: formatRemaining(remaining) })
-                : currentOrder.network_name}
+              {isVerifying
+                ? t('Payment window closed')
+                : status === 'pending'
+                  ? t('Expires in {{time}}', {
+                      time: formatRemaining(remaining),
+                    })
+                  : currentOrder.network_name}
             </span>
           </div>
 
-          {status === 'pending' && (
+          {status === 'pending' && !isVerifying && (
             <div className='flex justify-center rounded-xl border bg-white p-4'>
               <QRCodeSVG
                 value={currentOrder.qr_content}
@@ -203,7 +215,7 @@ export function CryptoPaymentDialog({
             </div>
           </div>
 
-          {status === 'pending' && (
+          {status === 'pending' && !isVerifying && (
             <Alert>
               <AlertTitle>
                 {t(
@@ -218,7 +230,19 @@ export function CryptoPaymentDialog({
             </Alert>
           )}
 
-          {status === 'success' && (
+          {isVerifying && (
+            <Alert>
+              <HugeiconsIcon icon={Loading03Icon} className='animate-spin' />
+              <AlertTitle>{t('Payment verification in progress')}</AlertTitle>
+              <AlertDescription>
+                {t(
+                  'Do not send a new transfer. The payment window is closed while the server finishes checking confirmed chain data.'
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {isPaid && (
             <Alert>
               <HugeiconsIcon icon={CheckmarkCircle02Icon} />
               <AlertTitle>{t('Payment received')}</AlertTitle>
@@ -246,7 +270,7 @@ export function CryptoPaymentDialog({
             variant='outline'
             onClick={() => onOpenChange(false)}
           >
-            {status === 'success' ? t('Done') : t('Close')}
+            {isPaid ? t('Done') : t('Close')}
           </Button>
         </DialogFooter>
       </DialogContent>

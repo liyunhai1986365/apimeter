@@ -110,6 +110,14 @@ func SaveCryptoPaymentConfig(c *gin.Context) {
 	if evmRPCURL == "" {
 		evmRPCURL = current.CryptoEVMRPCURL
 	}
+	if request.EVMEnabled {
+		var err error
+		evmRPCURL, err = service.NormalizeEVMRPCURLs(evmRPCURL)
+		if err != nil {
+			common.ApiErrorMsg(c, "EVM 配置错误："+err.Error())
+			return
+		}
+	}
 	tronAPIKey := strings.TrimSpace(request.TronAPIKey)
 	if tronAPIKey == "" {
 		tronAPIKey = current.CryptoTronAPIKey

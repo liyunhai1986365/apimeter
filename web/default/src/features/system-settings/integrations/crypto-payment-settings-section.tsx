@@ -50,6 +50,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { Textarea } from '@/components/ui/textarea'
 import { getCryptoPaymentConfig, saveCryptoPaymentConfig } from '../api'
 import type { CryptoPaymentConfig } from '../types'
 
@@ -249,7 +250,7 @@ export function CryptoPaymentSettingsSection({
               />
               <FieldDescription>
                 {t(
-                  'Three decimal places use the smallest available amount, from .001 to .999.',
+                  'Three decimal places use the smallest available amount, from .001 to .999.'
                 )}
               </FieldDescription>
             </Field>
@@ -297,11 +298,10 @@ export function CryptoPaymentSettingsSection({
                 </Field>
                 <Field>
                   <FieldLabel htmlFor='crypto-evm-rpc'>
-                    {t('Backend RPC URL')}
+                    {t('Backend RPC URLs')}
                   </FieldLabel>
-                  <Input
+                  <Textarea
                     id='crypto-evm-rpc'
-                    type='password'
                     value={config.evm_rpc_url}
                     onChange={(event) =>
                       setText('evm_rpc_url', event.target.value)
@@ -312,9 +312,12 @@ export function CryptoPaymentSettingsSection({
                         : 'https://...'
                     }
                     autoComplete='new-password'
+                    rows={3}
                   />
                   <FieldDescription>
-                    {t('Stored on the backend and never returned to users.')}
+                    {t(
+                      'Enter one RPC URL per line. The scanner automatically tries fallback endpoints in order. URLs are stored on the backend and never returned to users.'
+                    )}
                   </FieldDescription>
                 </Field>
                 <FieldGroup className='md:grid md:grid-cols-2'>

@@ -286,7 +286,7 @@ export interface CryptoPaymentOrder {
   display_amount: string
   payment_uri: string
   qr_content: string
-  status: 'pending' | 'success' | 'expired'
+  status: 'pending' | 'success' | 'expired' | 'manual'
   create_time: number
   expires_at: number
   complete_time: number

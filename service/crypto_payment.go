@@ -29,6 +29,8 @@ const (
 	cryptoPaymentRequestTimeout = 15 * time.Second
 	maxCryptoResponseBytes      = 8 << 20
 	maxEVMBlockRange            = int64(2000)
+	evmScanOverlapBlocks        = int64(32)
+	maxEVMRPCEndpoints          = 5
 	maxTronPagesPerScan         = 50
 	erc20TransferTopic          = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"
 )
@@ -99,9 +101,15 @@ func ValidateCryptoNetworkConfig(config CryptoNetworkConfig, uniqueDigits int) e
 	if strings.TrimSpace(config.NetworkName) == "" {
 		return errors.New("network name is required")
 	}
-	parsedURL, err := url.Parse(strings.TrimSpace(config.RPCURL))
-	if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
-		return errors.New("a valid HTTP or HTTPS RPC/API URL is required")
+	if config.NetworkType == model.CryptoNetworkEVM {
+		if _, err := NormalizeEVMRPCURLs(config.RPCURL); err != nil {
+			return err
+		}
+	} else {
+		parsedURL, err := url.Parse(strings.TrimSpace(config.RPCURL))
+		if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+			return errors.New("a valid HTTP or HTTPS RPC/API URL is required")
+		}
 	}
 	if config.TokenDecimals < 1 || config.TokenDecimals > 36 {
 		return errors.New("token decimals must be between 1 and 36")
@@ -144,6 +152,45 @@ func ValidateCryptoNetworkConfig(config CryptoNetworkConfig, uniqueDigits int) e
 		return errors.New("TRON confirmation delay must be between 0 and 3600 seconds")
 	}
 	return nil
+}
+
+// NormalizeEVMRPCURLs validates and normalizes a primary RPC plus optional
+// fallback RPCs. One endpoint per line is preferred; commas are accepted for
+// compatibility with environment-style configuration.
+func NormalizeEVMRPCURLs(raw string) (string, error) {
+	parts := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '\n' || r == '\r' || r == ','
+	})
+	if len(parts) == 0 {
+		return "", errors.New("at least one valid HTTP or HTTPS EVM RPC URL is required")
+	}
+	if len(parts) > maxEVMRPCEndpoints {
+		return "", fmt.Errorf("at most %d EVM RPC URLs are allowed", maxEVMRPCEndpoints)
+	}
+
+	seen := make(map[string]struct{}, len(parts))
+	endpoints := make([]string, 0, len(parts))
+	for _, part := range parts {
+		endpoint := strings.TrimRight(strings.TrimSpace(part), "/")
+		parsedURL, err := url.Parse(endpoint)
+		if err != nil || (parsedURL.Scheme != "http" && parsedURL.Scheme != "https") || parsedURL.Host == "" {
+			return "", errors.New("all EVM RPC URLs must be valid HTTP or HTTPS URLs")
+		}
+		if _, exists := seen[endpoint]; exists {
+			continue
+		}
+		seen[endpoint] = struct{}{}
+		endpoints = append(endpoints, endpoint)
+	}
+	return strings.Join(endpoints, "\n"), nil
+}
+
+func evmRPCEndpoints(config CryptoNetworkConfig) ([]string, error) {
+	normalized, err := NormalizeEVMRPCURLs(config.RPCURL)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(normalized, "\n"), nil
 }
 
 func IsCryptoPaymentAvailable(networkType string) bool {
@@ -269,12 +316,12 @@ func parseHexInt64(value string) (int64, error) {
 	return parsed.Int64(), nil
 }
 
-func GetEVMStartBlock(ctx context.Context, config CryptoNetworkConfig) (int64, error) {
+func getEVMStartBlockFromEndpoint(ctx context.Context, config CryptoNetworkConfig, rpcURL string) (int64, error) {
 	ctx, cancel := context.WithTimeout(ctx, cryptoPaymentRequestTimeout)
 	defer cancel()
 
 	var chainIdHex string
-	if err := callEVMRPC(ctx, config.RPCURL, "eth_chainId", []interface{}{}, &chainIdHex); err != nil {
+	if err := callEVMRPC(ctx, rpcURL, "eth_chainId", []interface{}{}, &chainIdHex); err != nil {
 		return 0, err
 	}
 	actualChainId, err := parseHexInt64(chainIdHex)
@@ -287,7 +334,7 @@ func GetEVMStartBlock(ctx context.Context, config CryptoNetworkConfig) (int64, e
 	}
 
 	var blockHex string
-	if err := callEVMRPC(ctx, config.RPCURL, "eth_blockNumber", []interface{}{}, &blockHex); err != nil {
+	if err := callEVMRPC(ctx, rpcURL, "eth_blockNumber", []interface{}{}, &blockHex); err != nil {
 		return 0, err
 	}
 	block, err := parseHexInt64(blockHex)
@@ -295,6 +342,22 @@ func GetEVMStartBlock(ctx context.Context, config CryptoNetworkConfig) (int64, e
 		return 0, err
 	}
 	return block + 1, nil
+}
+
+func GetEVMStartBlock(ctx context.Context, config CryptoNetworkConfig) (int64, error) {
+	endpoints, err := evmRPCEndpoints(config)
+	if err != nil {
+		return 0, err
+	}
+	errorsByEndpoint := make([]error, 0, len(endpoints))
+	for index, endpoint := range endpoints {
+		block, endpointErr := getEVMStartBlockFromEndpoint(ctx, config, endpoint)
+		if endpointErr == nil {
+			return block, nil
+		}
+		errorsByEndpoint = append(errorsByEndpoint, fmt.Errorf("RPC %d: %w", index+1, endpointErr))
+	}
+	return 0, fmt.Errorf("all EVM RPC endpoints failed: %w", errors.Join(errorsByEndpoint...))
 }
 
 type evmLog struct {
@@ -312,6 +375,10 @@ type evmReceipt struct {
 	BlockNumber string `json:"blockNumber"`
 }
 
+type evmBlock struct {
+	Timestamp string `json:"timestamp"`
+}
+
 func evmRecipientTopic(address string) string {
 	return "0x" + strings.Repeat("0", 24) + strings.ToLower(strings.TrimPrefix(address, "0x"))
 }
@@ -325,33 +392,33 @@ func normalizeEVMAtomicValue(data string) (string, error) {
 	return parsed.String(), nil
 }
 
-func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment) error {
+func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, payments []*model.CryptoPayment) (int64, error) {
 	if len(payments) == 0 || strings.TrimSpace(config.RPCURL) == "" {
-		return nil
+		return 0, nil
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), cryptoPaymentRequestTimeout)
 	defer cancel()
 
 	var chainIdHex string
-	if err := callEVMRPC(ctx, config.RPCURL, "eth_chainId", []interface{}{}, &chainIdHex); err != nil {
-		return err
+	if err := callEVMRPC(ctx, rpcURL, "eth_chainId", []interface{}{}, &chainIdHex); err != nil {
+		return 0, err
 	}
 	actualChainId, err := parseHexInt64(chainIdHex)
 	if err != nil || strconv.FormatInt(actualChainId, 10) != config.ChainId {
-		return errors.New("EVM scanner chain ID mismatch")
+		return 0, errors.New("EVM scanner chain ID mismatch")
 	}
 
 	var headHex string
-	if err := callEVMRPC(ctx, config.RPCURL, "eth_blockNumber", []interface{}{}, &headHex); err != nil {
-		return err
+	if err := callEVMRPC(ctx, rpcURL, "eth_blockNumber", []interface{}{}, &headHex); err != nil {
+		return 0, err
 	}
 	head, err := parseHexInt64(headHex)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	confirmedHead := head - config.Confirmations
 	if confirmedHead <= 0 {
-		return nil
+		return 0, nil
 	}
 
 	groups := make(map[string][]*model.CryptoPayment)
@@ -366,8 +433,12 @@ func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment
 	for _, group := range groups {
 		fromBlock := int64(0)
 		for _, payment := range group {
-			if fromBlock == 0 || payment.ScanFromBlock < fromBlock {
-				fromBlock = payment.ScanFromBlock
+			paymentFromBlock := payment.ScanFromBlock - evmScanOverlapBlocks
+			if paymentFromBlock < payment.StartBlock {
+				paymentFromBlock = payment.StartBlock
+			}
+			if fromBlock == 0 || paymentFromBlock < fromBlock {
+				fromBlock = paymentFromBlock
 			}
 		}
 		if fromBlock <= 0 || fromBlock > confirmedHead {
@@ -389,11 +460,12 @@ func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment
 			"topics":    []interface{}{erc20TransferTopic, nil, evmRecipientTopic(group[0].WalletAddress)},
 		}
 		var logs []evmLog
-		if err := callEVMRPC(ctx, config.RPCURL, "eth_getLogs", []interface{}{filter}, &logs); err != nil {
-			return err
+		if err := callEVMRPC(ctx, rpcURL, "eth_getLogs", []interface{}{filter}, &logs); err != nil {
+			return 0, err
 		}
 
 		retryPayment := make(map[int]struct{})
+		blockTimestamps := make(map[int64]int64)
 		for _, logEntry := range logs {
 			if logEntry.Removed || !strings.EqualFold(logEntry.Address, group[0].TokenContract) || len(logEntry.Topics) < 3 {
 				continue
@@ -410,9 +482,26 @@ func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment
 			if err != nil || blockNumber < payment.StartBlock {
 				continue
 			}
+			blockTimestamp, exists := blockTimestamps[blockNumber]
+			if !exists {
+				var block evmBlock
+				if err := callEVMRPC(ctx, rpcURL, "eth_getBlockByNumber", []interface{}{logEntry.BlockNumber, false}, &block); err != nil {
+					retryPayment[payment.Id] = struct{}{}
+					continue
+				}
+				blockTimestamp, err = parseHexInt64(block.Timestamp)
+				if err != nil {
+					retryPayment[payment.Id] = struct{}{}
+					continue
+				}
+				blockTimestamps[blockNumber] = blockTimestamp
+			}
+			if payment.ExpiresAt > 0 && blockTimestamp > payment.ExpiresAt {
+				continue
+			}
 
 			var receipt evmReceipt
-			if err := callEVMRPC(ctx, config.RPCURL, "eth_getTransactionReceipt", []interface{}{logEntry.TransactionHash}, &receipt); err != nil {
+			if err := callEVMRPC(ctx, rpcURL, "eth_getTransactionReceipt", []interface{}{logEntry.TransactionHash}, &receipt); err != nil {
 				retryPayment[payment.Id] = struct{}{}
 				continue
 			}
@@ -440,7 +529,23 @@ func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment
 			}
 		}
 	}
-	return nil
+	return confirmedHead, nil
+}
+
+func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment) (int64, error) {
+	endpoints, err := evmRPCEndpoints(config)
+	if err != nil {
+		return 0, err
+	}
+	errorsByEndpoint := make([]error, 0, len(endpoints))
+	for index, endpoint := range endpoints {
+		confirmedHead, endpointErr := scanEVMPaymentsWithEndpoint(config, endpoint, payments)
+		if endpointErr == nil {
+			return confirmedHead, nil
+		}
+		errorsByEndpoint = append(errorsByEndpoint, fmt.Errorf("RPC %d: %w", index+1, endpointErr))
+	}
+	return 0, fmt.Errorf("all EVM RPC endpoints failed: %w", errors.Join(errorsByEndpoint...))
 }
 
 type tronTokenInfo struct {
@@ -532,6 +637,9 @@ func scanTronPaymentGroup(ctx context.Context, config CryptoNetworkConfig, activ
 			if payment == nil || transfer.BlockTimestamp < payment.CreateTimeMillis {
 				continue
 			}
+			if payment.ExpiresAt > 0 && transfer.BlockTimestamp > payment.ExpiresAt*1000 {
+				continue
+			}
 			if time.Now().UnixMilli()-transfer.BlockTimestamp < config.ConfirmationSeconds*1000 {
 				continue
 			}
@@ -579,9 +687,6 @@ func scanTronPayments(config CryptoNetworkConfig, payments []*model.CryptoPaymen
 }
 
 func scanPendingCryptoPayments() {
-	if err := model.ExpireCryptoPayments(common.GetTimestamp()); err != nil {
-		common.SysError("failed to expire crypto payments: " + err.Error())
-	}
 	payments, err := model.ListPendingCryptoPayments(500)
 	if err != nil {
 		common.SysError("failed to list pending crypto payments: " + err.Error())
@@ -590,18 +695,54 @@ func scanPendingCryptoPayments() {
 	if len(payments) == 0 {
 		return
 	}
-
-	evmConfig, evmErr := GetCryptoNetworkConfig(model.CryptoNetworkEVM)
-	if evmErr == nil && ValidateCryptoNetworkConfig(evmConfig, operation_setting.GetCryptoAmountDecimals()) == nil {
-		if err := scanEVMPayments(evmConfig, payments); err != nil {
-			common.SysError("EVM crypto payment scan failed: " + err.Error())
+	hasEVMPayments := false
+	hasTronPayments := false
+	for _, payment := range payments {
+		switch payment.NetworkType {
+		case model.CryptoNetworkEVM:
+			hasEVMPayments = true
+		case model.CryptoNetworkTron:
+			hasTronPayments = true
 		}
 	}
-	tronConfig, tronErr := GetCryptoNetworkConfig(model.CryptoNetworkTron)
-	if tronErr == nil && ValidateCryptoNetworkConfig(tronConfig, operation_setting.GetCryptoAmountDecimals()) == nil {
-		if err := scanTronPayments(tronConfig, payments); err != nil {
-			common.SysError("TRON crypto payment scan failed: " + err.Error())
+
+	evmScannedThrough := int64(0)
+	if hasEVMPayments {
+		evmConfig, evmErr := GetCryptoNetworkConfig(model.CryptoNetworkEVM)
+		if evmErr == nil {
+			if validateErr := ValidateCryptoNetworkConfig(evmConfig, operation_setting.GetCryptoAmountDecimals()); validateErr == nil {
+				if evmScannedThrough, err = scanEVMPayments(evmConfig, payments); err != nil {
+					common.SysError("EVM crypto payment scan failed: " + err.Error())
+					evmScannedThrough = 0
+				}
+			} else {
+				common.SysError("EVM crypto payment scan skipped due to invalid configuration: " + validateErr.Error())
+			}
+		} else {
+			common.SysError("EVM crypto payment scan skipped: " + evmErr.Error())
 		}
+	}
+
+	tronScanComplete := false
+	if hasTronPayments {
+		tronConfig, tronErr := GetCryptoNetworkConfig(model.CryptoNetworkTron)
+		if tronErr == nil {
+			if validateErr := ValidateCryptoNetworkConfig(tronConfig, operation_setting.GetCryptoAmountDecimals()); validateErr == nil {
+				if err := scanTronPayments(tronConfig, payments); err != nil {
+					common.SysError("TRON crypto payment scan failed: " + err.Error())
+				} else {
+					tronScanComplete = true
+				}
+			} else {
+				common.SysError("TRON crypto payment scan skipped due to invalid configuration: " + validateErr.Error())
+			}
+		} else {
+			common.SysError("TRON crypto payment scan skipped: " + tronErr.Error())
+		}
+	}
+
+	if err := model.ExpireCryptoPayments(common.GetTimestamp(), evmScannedThrough, tronScanComplete); err != nil {
+		common.SysError("failed to expire crypto payments: " + err.Error())
 	}
 }
 
