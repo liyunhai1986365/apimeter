@@ -70,16 +70,6 @@ var DataExportInterval = 5         // unit: minute
 var DataExportDefaultTime = "hour" // unit: minute
 var DefaultCollapseSidebar = false // default value of collapse sidebar
 
-var RequestLogEnabled = false
-var RequestLogRedactEnabled = true
-var RequestLogCaptureResponseBodyEnabled = true
-var RequestLogMaxRequestBytes = 256 * 1024
-var RequestLogMaxResponseBytes = 512 * 1024
-var RequestLogQueueSize = 1000
-var RequestLogBatchSize = 100
-var RequestLogFlushIntervalSeconds = 1
-var RequestLogRetentionDays = 7
-
 // Any options with "Secret", "Token" in its key won't be return by GetOptions
 
 var SessionSecret = uuid.New().String()

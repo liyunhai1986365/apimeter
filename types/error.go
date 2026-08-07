@@ -88,14 +88,13 @@ const (
 )
 
 type NewAPIError struct {
-	Err            error
-	RelayError     any
-	skipRetry      bool
-	recordErrorLog *bool
-	errorType      ErrorType
-	errorCode      ErrorCode
-	StatusCode     int
-	Metadata       json.RawMessage
+	Err        error
+	RelayError any
+	skipRetry  bool
+	errorType  ErrorType
+	errorCode  ErrorCode
+	StatusCode int
+	Metadata   json.RawMessage
 }
 
 // Unwrap enables errors.Is / errors.As to work with NewAPIError by exposing the underlying error.
@@ -384,12 +383,6 @@ func ErrOptionWithSkipRetry() NewAPIErrorOptions {
 	}
 }
 
-func ErrOptionWithNoRecordErrorLog() NewAPIErrorOptions {
-	return func(e *NewAPIError) {
-		e.recordErrorLog = common.GetPointer(false)
-	}
-}
-
 func ErrOptionWithStatusCode(statusCode int) NewAPIErrorOptions {
 	return func(e *NewAPIError) {
 		e.StatusCode = statusCode
@@ -403,15 +396,4 @@ func ErrOptionWithHideErrMsg(replaceStr string) NewAPIErrorOptions {
 		}
 		e.Err = errors.New(replaceStr)
 	}
-}
-
-func IsRecordErrorLog(e *NewAPIError) bool {
-	if e == nil {
-		return false
-	}
-	if e.recordErrorLog == nil {
-		// default to true if not set
-		return true
-	}
-	return *e.recordErrorLog
 }

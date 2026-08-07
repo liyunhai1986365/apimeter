@@ -1,7 +1,6 @@
 package service
 
 import (
-	"io"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -97,44 +96,33 @@ func TestBuildRetryRouteEventFromDecision(t *testing.T) {
 	require.Equal(t, "Project Alpha", event.WorkspaceName)
 }
 
-func TestBuildRetryRouteEventStoresRequestLogStrategyInExtra(t *testing.T) {
+func TestBuildRetryRouteEventStoresSampleRateInExtra(t *testing.T) {
 	openRetryRouteEventRecorderTestDB(t)
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
 	c.Set(common.RequestIdKey, "req-observe")
-	recordRequestLog := true
-
 	event := BuildRetryRouteEvent(c, operation_setting.RetryPolicyDecision{
-		Matched:          true,
-		ShouldRetry:      true,
-		Action:           operation_setting.RetryPolicyActionFailover,
-		Source:           operation_setting.RetryPolicySourceGlobal,
-		RuleName:         "backup",
-		RecordRequestLog: &recordRequestLog,
-		SampleRate:       35,
+		Matched:     true,
+		ShouldRetry: true,
+		Action:      operation_setting.RetryPolicyActionFailover,
+		Source:      operation_setting.RetryPolicySourceGlobal,
+		RuleName:    "backup",
+		SampleRate:  35,
 	}, &types.NewAPIError{
 		StatusCode: 500,
 	})
 
 	var extra map[string]interface{}
 	require.NoError(t, common.UnmarshalJsonStr(event.Extra, &extra))
-	require.Equal(t, true, extra["record_request_log"])
 	require.Equal(t, float64(35), extra["sample_rate"])
 }
 
-func TestBuildRetryRouteEventStoresRequestHash(t *testing.T) {
+func TestBuildRetryRouteEventDoesNotStoreRequestHash(t *testing.T) {
 	openRetryRouteEventRecorderTestDB(t)
 
-	body := `{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}`
-	storage, err := common.CreateBodyStorage([]byte(body))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = storage.Close() })
-
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
-	c.Request.Body = io.NopCloser(storage)
-	c.Set(common.KeyBodyStorage, storage)
+	c.Request = httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(`{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}`))
 	c.Set(common.RequestIdKey, "req-hash")
 
 	event := BuildRetryRouteEvent(c, operation_setting.RetryPolicyDecision{
@@ -147,7 +135,7 @@ func TestBuildRetryRouteEventStoresRequestHash(t *testing.T) {
 		StatusCode: 500,
 	})
 
-	require.NotEmpty(t, event.RequestHash)
+	require.Empty(t, event.RequestHash)
 }
 
 func TestRetryRouteEventContextTracksCurrentEvent(t *testing.T) {

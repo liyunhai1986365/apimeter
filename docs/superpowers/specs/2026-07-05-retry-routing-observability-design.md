@@ -1,5 +1,7 @@
 # Retry Routing and Error Observability Design
 
+> Superseded on 2026-08-07 for request-data observability: application logs continue to be collected by the system log collector, but the application no longer captures or directly pushes full request/response records to OpenObserve and no longer stores separate error-request snapshots in SQL.
+
 ## Goal
 
 Move the current system retry mechanism into the System Settings models and routing area, unify all system retry rules, record separate retry-hit statistics, and preserve complete user error forensics including request data so future routing and failover strategies can be optimized from evidence.

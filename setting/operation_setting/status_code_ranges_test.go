@@ -229,11 +229,10 @@ func TestRetryPolicyDecisionCarriesFailoverTargets(t *testing.T) {
 	require.Equal(t, 12, decision.ExcludeChannelID)
 }
 
-func TestRetryPolicyDecisionCarriesRequestLogStrategy(t *testing.T) {
+func TestRetryPolicyDecisionCarriesSampleRateStrategy(t *testing.T) {
 	orig := AutomaticRetryPolicyRules
 	t.Cleanup(func() { AutomaticRetryPolicyRules = orig })
 
-	recordRequestLog := true
 	AutomaticRetryPolicyRules = []RetryPolicyRule{
 		{
 			Name:        "observe retry 500",
@@ -243,8 +242,7 @@ func TestRetryPolicyDecisionCarriesRequestLogStrategy(t *testing.T) {
 				Groups: []string{"backup"},
 			},
 			Strategy: RetryPolicyStrategy{
-				RecordRequestLog: &recordRequestLog,
-				SampleRate:       35,
+				SampleRate: 35,
 			},
 		},
 	}
@@ -255,8 +253,6 @@ func TestRetryPolicyDecisionCarriesRequestLogStrategy(t *testing.T) {
 	})
 
 	require.True(t, decision.Matched)
-	require.NotNil(t, decision.RecordRequestLog)
-	require.True(t, *decision.RecordRequestLog)
 	require.Equal(t, 35, decision.SampleRate)
 }
 

@@ -1,9 +1,6 @@
 package service
 
 import (
-	"bytes"
-	"errors"
-	"io"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -63,64 +60,13 @@ func BuildRetryRouteEvent(c *gin.Context, decision operation_setting.RetryPolicy
 	if start := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime); !start.IsZero() {
 		event.UseTimeMs = int(time.Since(start).Milliseconds())
 	}
-	event.RequestHash = retryRouteRequestHash(c)
 	event.Extra = retryRouteDecisionExtra(decision)
 	fillRetryRouteEventWorkspace(event, tokenID)
 	return event
 }
 
-func retryRouteRequestHash(c *gin.Context) string {
-	body := readRetryRouteRequestBody(c)
-	if body == "" {
-		return ""
-	}
-	_, requestHash, _, _ := model.PrepareRequestSnapshotForErrorLog(body, "")
-	return requestHash
-}
-
-func readRetryRouteRequestBody(c *gin.Context) string {
-	if c == nil {
-		return ""
-	}
-	cachedStorage, exists := c.Get(common.KeyBodyStorage)
-	if !exists || cachedStorage == nil {
-		return ""
-	}
-	storage, ok := cachedStorage.(common.BodyStorage)
-	if !ok {
-		return ""
-	}
-	if _, err := storage.Seek(0, io.SeekStart); err != nil {
-		return ""
-	}
-	limit := common.RequestLogMaxRequestBytes
-	if limit <= 0 {
-		limit = 256 * 1024
-	}
-	buf := bytes.NewBuffer(make([]byte, 0, min(limit, 32*1024)))
-	n, err := io.CopyN(buf, storage, int64(limit)+1)
-	truncated := n > int64(limit)
-	if err != nil && !errors.Is(err, io.EOF) {
-		return ""
-	}
-	data := buf.Bytes()
-	if truncated && len(data) > limit {
-		data = data[:limit]
-	}
-	if _, err = storage.Seek(0, io.SeekStart); err == nil && c.Request != nil {
-		c.Request.Body = io.NopCloser(storage)
-	}
-	if truncated {
-		return string(data) + "...[CAPTURED_TRUNCATED]"
-	}
-	return string(data)
-}
-
 func retryRouteDecisionExtra(decision operation_setting.RetryPolicyDecision) string {
 	extra := make(map[string]interface{})
-	if decision.RecordRequestLog != nil {
-		extra["record_request_log"] = *decision.RecordRequestLog
-	}
 	if decision.SampleRate > 0 {
 		extra["sample_rate"] = decision.SampleRate
 	}
@@ -169,19 +115,6 @@ func MarkRetryRouteFinal(c *gin.Context, success bool, status string) {
 	}
 	if err := model.MarkRetryRouteEventsFinal(requestID, success, status); err != nil {
 		common.SysLog("failed to mark retry route events final: " + err.Error())
-	}
-}
-
-func AttachRetryRouteLog(c *gin.Context, logID int) {
-	if c == nil || logID <= 0 {
-		return
-	}
-	requestID := c.GetString(common.RequestIdKey)
-	if requestID == "" {
-		return
-	}
-	if err := model.AttachRetryRouteEventLog(requestID, logID); err != nil {
-		common.SysLog("failed to attach retry route log: " + err.Error())
 	}
 }
 

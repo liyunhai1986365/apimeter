@@ -1,7 +1,6 @@
 package controller
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -80,20 +79,6 @@ func GetUserLogs(c *gin.Context) {
 	pageInfo.SetItems(logs)
 	common.ApiSuccess(c, pageInfo)
 	return
-}
-
-func GetErrorRequestLog(c *gin.Context) {
-	logID := parseLogQueryInt(c.Param("log_id"))
-	if logID <= 0 {
-		common.ApiError(c, errors.New("invalid log id"))
-		return
-	}
-	record, err := model.GetErrorRequestLogByLogID(logID)
-	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	common.ApiSuccess(c, record)
 }
 
 // Deprecated: SearchAllLogs 已废弃，前端未使用该接口。

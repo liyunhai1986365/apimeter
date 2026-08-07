@@ -357,13 +357,6 @@ func InitResources() error {
 	if err != nil {
 		return err
 	}
-	model.StartErrorRequestLogWorker()
-	err = model.InitRequestLogStore()
-	if err != nil {
-		return err
-	}
-	model.StartRequestLogWorker()
-
 	// Initialize Redis
 	err = common.InitRedisClient()
 	if err != nil {

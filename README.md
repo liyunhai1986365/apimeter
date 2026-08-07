@@ -320,13 +320,10 @@ docker run --name new-api -d --restart always \
 | `OPENMOSAIC_SSO_REDIRECT_URIS` | Comma-separated exact OpenMosaic SSO callback allowlist | - |
 | `OPENMOSAIC_SSO_TRUST_LEGACY_EMAILS` | Treat pre-migration non-empty emails as verified. Enable only after auditing historical registration rules | `false` |
 | `VITE_OPENMOSAIC_URL` | Legacy OpenMosaic origin for the profile shortcut. The AI Creation iframe uses `HeaderNavModules.aiCreation.baseUrl` | - |
-| `REQUEST_LOG_STORAGE` | Request/response investigation log backend. Only `openobserve` is supported. | `openobserve` |
-| `REQUEST_LOG_OPENOBSERVE_ENDPOINT` | OpenObserve endpoint. Required when request logging is enabled. | - |
 | `STREAMING_TIMEOUT` | Streaming timeout (seconds) | `300` |
 | `STREAM_SCANNER_MAX_BUFFER_MB` | Max per-line buffer (MB) for the stream scanner; increase when upstream sends huge image/base64 payloads | `64` |
 | `MAX_REQUEST_BODY_MB` | Max request body size (MB, counted **after decompression**; prevents huge requests/zip bombs from exhausting memory). Exceeding it returns `413` | `32` |
 | `AZURE_DEFAULT_API_VERSION` | Azure API version | `2025-04-01-preview` |
-| `ERROR_LOG_ENABLED` | Error log switch | `false` |
 | `PYROSCOPE_URL` | Pyroscope server address | - |
 | `PYROSCOPE_APP_NAME` | Pyroscope application name | `new-api` |
 | `PYROSCOPE_BASIC_AUTH_USER` | Pyroscope basic auth user | - |

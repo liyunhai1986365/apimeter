@@ -69,7 +69,6 @@ func TestMain(m *testing.M) {
 		&BillingStatement{},
 		&BillingStatementSummary{},
 		&RetryRouteEvent{},
-		&ErrorRequestLog{},
 		&Midjourney{},
 		&SystemTask{},
 		&SystemTaskLock{},
@@ -131,7 +130,6 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM passkey_credentials")
 		DB.Exec("DELETE FROM user_oauth_bindings")
 		DB.Exec("DELETE FROM retry_route_events")
-		DB.Exec("DELETE FROM error_request_logs")
 		DB.Exec("DELETE FROM options")
 	})
 }

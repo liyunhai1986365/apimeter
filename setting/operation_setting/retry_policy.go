@@ -67,12 +67,11 @@ type RetryPolicyTargets struct {
 }
 
 type RetryPolicyStrategy struct {
-	MaxRetries           int   `json:"max_retries,omitempty"`
-	ExcludeFailedChannel bool  `json:"exclude_failed_channel,omitempty"`
-	PreferHealthy        bool  `json:"prefer_healthy,omitempty"`
-	ProtectLast          bool  `json:"protect_last,omitempty"`
-	RecordRequestLog     *bool `json:"record_request_log,omitempty"`
-	SampleRate           int   `json:"sample_rate,omitempty"`
+	MaxRetries           int  `json:"max_retries,omitempty"`
+	ExcludeFailedChannel bool `json:"exclude_failed_channel,omitempty"`
+	PreferHealthy        bool `json:"prefer_healthy,omitempty"`
+	ProtectLast          bool `json:"protect_last,omitempty"`
+	SampleRate           int  `json:"sample_rate,omitempty"`
 }
 
 type RetryPolicyInput struct {
@@ -104,7 +103,6 @@ type RetryPolicyDecision struct {
 	TargetTags       []string
 	TargetModel      string
 	ExcludeChannelID int
-	RecordRequestLog *bool
 	SampleRate       int
 }
 
@@ -254,7 +252,6 @@ func buildRetryPolicyDecision(input RetryPolicyInput, rule RetryPolicyRule, sour
 		TargetTags:       targets.ChannelTags,
 		TargetModel:      strings.TrimSpace(targets.Model),
 		ExcludeChannelID: excludeChannelID,
-		RecordRequestLog: rule.Strategy.RecordRequestLog,
 		SampleRate:       rule.Strategy.SampleRate,
 	}
 }

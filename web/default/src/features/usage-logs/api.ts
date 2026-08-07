@@ -23,7 +23,6 @@ import type {
   GetLogsResponse,
   GetLogStatsParams,
   GetLogStatsResponse,
-  GetErrorRequestLogResponse,
   GetModelProfitStatsResponse,
   GetChannelOperationRecordsParams,
   GetMidjourneyLogsParams,
@@ -94,13 +93,6 @@ export async function getModelProfitStats(
 export const getUserLogStats = (
   params: Omit<GetLogStatsParams, 'username' | 'channel'> = {}
 ) => fetchLogStats('/api/log', params, false)
-
-export async function getErrorRequestLog(
-  logId: number
-): Promise<GetErrorRequestLogResponse> {
-  const res = await api.get(`/api/log/error-request/${logId}`)
-  return res.data
-}
 
 export const getChannelOperationRecords = (
   params: GetChannelOperationRecordsParams = {}
