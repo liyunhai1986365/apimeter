@@ -509,6 +509,38 @@ func TestTaskAdaptorParsesSeedanceServiceInferenceResponses(t *testing.T) {
 	require.Equal(t, 40594, result.TotalTokens)
 }
 
+func TestTaskAdaptorParsesSeedanceServiceInferenceFailureReasonVariants(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-ep"))
+
+	result, err := adaptor.ParseTaskResult([]byte(`{
+		"task":{
+			"id":"mvt-upstream",
+			"status":"failed",
+			"error":"The request failed because the output audio may be related to copyright restrictions",
+			"metadata":{
+				"error":{
+					"code":"OutputAudioSensitiveContentDetected.PolicyViolation",
+					"message":"The request failed because the output audio may be related to copyright restrictions. Request id: request-123"
+				}
+			}
+		}
+	}`))
+	require.NoError(t, err)
+	require.Equal(t, string(model.TaskStatusFailure), result.Status)
+	require.Equal(t, "The request failed because the output audio may be related to copyright restrictions. Request id: request-123", result.Reason)
+
+	result, err = adaptor.ParseTaskResult([]byte(`{
+		"task":{
+			"id":"mvt-upstream",
+			"status":"failed",
+			"error":"fallback string failure reason"
+		}
+	}`))
+	require.NoError(t, err)
+	require.Equal(t, "fallback string failure reason", result.Reason)
+}
+
 func TestTaskAdaptorReturnsSeedanceServiceInferenceOfficialFetchTaskResponseShape(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-260128")

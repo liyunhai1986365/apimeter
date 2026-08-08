@@ -140,7 +140,7 @@ video:
       task_id_path: task.id
       status_path: task.status
       result_url_path: task.outputs.0
-      reason_path: task.error.message
+      reason_path: task.metadata.error.message
       total_tokens_path: task.usage.total_tokens
       completion_tokens_path: task.usage.completion_tokens
       status_map:

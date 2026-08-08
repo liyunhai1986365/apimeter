@@ -308,7 +308,7 @@ func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.
 	info := &relaycommon.TaskInfo{
 		TaskID:   gjson.GetBytes(respBody, resp.TaskIDPath).String(),
 		Status:   status,
-		Reason:   gjson.GetBytes(respBody, resp.ReasonPath).String(),
+		Reason:   configuredTaskFailureReason(resp, respBody),
 		Url:      gjson.GetBytes(respBody, resp.ResultURLPath).String(),
 		Progress: progressString(gjson.GetBytes(respBody, resp.ProgressPath)),
 	}
@@ -340,6 +340,13 @@ func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.
 		}
 	}
 	return info
+}
+
+func configuredTaskFailureReason(resp ResponseConfig, respBody []byte) string {
+	if reason := firstJSONString(respBody, resp.ReasonPath); reason != "" {
+		return reason
+	}
+	return firstJSONString(respBody, commonVideoFailureReasonPaths...)
 }
 
 func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, error) {
@@ -415,7 +422,11 @@ var commonVideoResultURLPaths = []string{
 }
 
 var commonVideoFailureReasonPaths = []string{
+	"task.metadata.error.message",
+	"task.error.message",
+	"task.error",
 	"error.message",
+	"error",
 	"output.message",
 	"output.error.message",
 	"data.message",

@@ -257,6 +257,139 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 	require.Equal(t, float64(actualQuota), gjson.Get(log.Other, "actual_quota").Float())
 }
 
+func TestVideoGenerationsFetchRealtimeConfigurableFailurePersistsReasonAndRefundsOnce(t *testing.T) {
+	setupRelayTaskTestDB(t)
+
+	const userID = 8
+	const tokenID = 100
+	const channelID = 9103
+	const preConsumed = 1000000
+	const initialUserQuota = 2000000
+	const initialTokenQuota = 3000000
+	const failureReason = "The request failed because the output audio may be related to copyright restrictions. Request id: request-123"
+
+	require.NoError(t, model.DB.Create(&model.User{
+		Id:       userID,
+		Username: "seedance-failure-user",
+		Quota:    initialUserQuota,
+		Status:   common.UserStatusEnabled,
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.Token{
+		Id:          tokenID,
+		UserId:      userID,
+		Key:         "sk-user-token",
+		Name:        "seedance-failure-token",
+		Status:      common.TokenStatusEnabled,
+		RemainQuota: initialTokenQuota,
+	}).Error)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/video/tasks/upstream-seedance-task", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"task":{
+				"id":"upstream-seedance-task",
+				"status":"failed",
+				"error":"The request failed because the output audio may be related to copyright restrictions",
+				"metadata":{
+					"error":{
+						"code":"OutputAudioSensitiveContentDetected.PolicyViolation",
+						"message":"The request failed because the output audio may be related to copyright restrictions. Request id: request-123"
+					}
+				}
+			}
+		}`))
+	}))
+	defer upstream.Close()
+
+	channel := model.Channel{
+		Id:      channelID,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "sk-seedance",
+		BaseURL: common.GetPointer(upstream.URL),
+		Status:  common.ChannelStatusEnabled,
+		Name:    "seedance-service-inference",
+		Models:  "dreamina-seedance-2-0-ep",
+		Group:   "default",
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ProfileID: "seedance2-service-inference",
+		},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+	require.NoError(t, model.DB.Create(&model.Task{
+		TaskID:    "task_failure",
+		UserId:    userID,
+		ChannelId: channel.Id,
+		TokenId:   tokenID,
+		TokenName: "seedance-failure-token",
+		Platform:  constant.TaskPlatform(fmt.Sprintf("%d", constant.ChannelTypeConfigurable)),
+		Status:    model.TaskStatusInProgress,
+		Progress:  "30%",
+		Quota:     preConsumed,
+		Group:     "default",
+		Properties: model.Properties{
+			OriginModelName:   "dreamina-seedance-2-0-ep",
+			UpstreamModelName: "dreamina-seedance-2-0-ep",
+		},
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: "upstream-seedance-task",
+			BillingSource:  service.BillingSourceWallet,
+			TokenId:        tokenID,
+			BillingContext: &model.TaskBillingContext{
+				OriginModelName: "dreamina-seedance-2-0-ep",
+			},
+		},
+		Data: []byte(`{"task":{"status":"running"}}`),
+	}).Error)
+
+	fetch := func() []byte {
+		recorder := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(recorder)
+		c.Request = httptest.NewRequest(http.MethodGet, "/v1/video/generations/task_failure", nil)
+		c.Set("id", userID)
+		c.Set("task_id", "task_failure")
+		body, taskErr := videoFetchByIDRespBodyBuilder(c)
+		require.Nil(t, taskErr)
+		return body
+	}
+
+	body := fetch()
+	require.Equal(t, string(model.TaskStatusFailure), gjson.GetBytes(body, "data.status").String())
+	require.Equal(t, failureReason, gjson.GetBytes(body, "data.fail_reason").String())
+
+	reloaded, exists, err := model.GetByTaskId(userID, "task_failure")
+	require.NoError(t, err)
+	require.True(t, exists)
+	require.EqualValues(t, model.TaskStatusFailure, reloaded.Status)
+	require.Equal(t, failureReason, reloaded.FailReason)
+	require.NotZero(t, reloaded.FinishTime)
+
+	var user model.User
+	require.NoError(t, model.DB.First(&user, userID).Error)
+	require.Equal(t, initialUserQuota+preConsumed, user.Quota)
+
+	var token model.Token
+	require.NoError(t, model.DB.First(&token, tokenID).Error)
+	require.Equal(t, initialTokenQuota+preConsumed, token.RemainQuota)
+
+	var logs []model.Log
+	require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeRefund).Find(&logs).Error)
+	require.Len(t, logs, 1)
+	require.Equal(t, preConsumed, logs[0].Quota)
+	require.Equal(t, "task_failure", gjson.Get(logs[0].Other, "task_id").String())
+	require.Equal(t, failureReason, gjson.Get(logs[0].Other, "reason").String())
+
+	_ = fetch()
+	require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeRefund).Find(&logs).Error)
+	require.Len(t, logs, 1)
+	require.NoError(t, model.DB.First(&user, userID).Error)
+	require.Equal(t, initialUserQuota+preConsumed, user.Quota)
+	require.NoError(t, model.DB.First(&token, tokenID).Error)
+	require.Equal(t, initialTokenQuota+preConsumed, token.RemainQuota)
+}
+
 func setupRelayTaskTestDB(t *testing.T) {
 	t.Helper()
 
