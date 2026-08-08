@@ -192,6 +192,7 @@ func TestBuildSEOBlockHidesShellBeforeClientFirstPaint(t *testing.T) {
 
 	require.Contains(t, block, seoShellBootStyle)
 	require.Contains(t, block, seoShellBootScript)
+	require.NotContains(t, block, `setTimeout`)
 	require.Less(t, strings.Index(block, seoShellBootStyle), strings.Index(block, seoBlockEnd))
 	require.Less(t, strings.Index(block, seoShellBootScript), strings.Index(block, seoBlockEnd))
 }

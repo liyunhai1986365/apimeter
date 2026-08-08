@@ -26,7 +26,7 @@ const (
 	seoBlockStart          = "<!--seo-meta-start-->"
 	seoBlockEnd            = "<!--seo-meta-end-->"
 	seoShellBootStyle      = `<style data-seo-shell-boot="true">html[data-seo-client="pending"] [data-seo-shell="true"]{display:none!important}</style>`
-	seoShellBootScript     = `<script data-seo-shell-boot="true">document.documentElement.dataset.seoClient="pending";window.setTimeout(function(){delete document.documentElement.dataset.seoClient},8000)</script>`
+	seoShellBootScript     = `<script data-seo-shell-boot="true">document.documentElement.dataset.seoClient="pending"</script>`
 	seoModelDirectoryLimit = 500
 )
 
@@ -132,8 +132,10 @@ func buildSEOBlock(page seoPage) string {
 		builder.WriteString(`    <script type="application/ld+json" data-seo-jsonld="true">` + page.JSONLD + `</script>` + "\n")
 	}
 	if page.Robots == "index, follow" {
-		// JS-capable browsers hide the crawlable fallback before first paint. If
-		// the client bundle never starts, the inline timeout reveals it again.
+		// JS-capable browsers hide the crawlable fallback before first paint. The
+		// client entrypoint removes the shell and pending marker when it starts.
+		// Do not reveal the shell on a timer: a slow bundle would otherwise show
+		// this fallback briefly before React replaces it, causing a page flash.
 		builder.WriteString("    " + seoShellBootStyle + "\n")
 		builder.WriteString("    " + seoShellBootScript + "\n")
 	}
