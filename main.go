@@ -293,7 +293,9 @@ func InjectGoogleAnalytics() {
 	if os.Getenv("GOOGLE_ANALYTICS_ID") != "" {
 		gaID := os.Getenv("GOOGLE_ANALYTICS_ID")
 		// Google Analytics 4 (gtag.js)
-		analyticsInjectBuilder.WriteString("<script async src=\"https://www.googletagmanager.com/gtag/js?id=")
+		analyticsInjectBuilder.WriteString("<script id=\"google-analytics-script\" async data-measurement-id=\"")
+		analyticsInjectBuilder.WriteString(gaID)
+		analyticsInjectBuilder.WriteString("\" src=\"https://www.googletagmanager.com/gtag/js?id=")
 		analyticsInjectBuilder.WriteString(gaID)
 		analyticsInjectBuilder.WriteString("\"></script>")
 		analyticsInjectBuilder.WriteString("<script>")

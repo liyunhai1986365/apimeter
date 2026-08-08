@@ -19,6 +19,9 @@ For commercial licensing, please contact support@quantumnous.com
 
 const GOOGLE_ANALYTICS_SCRIPT_ID = 'google-analytics-script'
 const GOOGLE_ANALYTICS_ID_PATTERN = /^G-[A-Z0-9]{4,32}$/
+const MARKETING_ATTRIBUTION_STORAGE_KEY = 'marketing-attribution-v1'
+const MARKETING_ATTRIBUTION_TTL_MS = 30 * 24 * 60 * 60 * 1000
+const MARKETING_ATTRIBUTION_VALUE_MAX_LENGTH = 100
 
 type GoogleAnalyticsWindow = Window & {
   dataLayer?: unknown[]
@@ -31,8 +34,155 @@ export type GoogleAnalyticsPurchase = {
   currency: string
 }
 
+type MarketingAttribution = {
+  source?: string
+  medium?: string
+  campaign?: string
+  content?: string
+  term?: string
+  campaignId?: string
+  adGroupId?: string
+  creativeId?: string
+  matchType?: string
+  network?: string
+  device?: string
+  clickIdType?: 'gclid' | 'gbraid' | 'wbraid' | 'gad'
+  landingPath?: string
+  capturedAt: number
+}
+
 const pendingEvents: Array<[string, Record<string, unknown>]> = []
 const trackedPurchaseIds = new Set<string>()
+
+function getStoredAttribution(): MarketingAttribution | undefined {
+  if (typeof window === 'undefined') return undefined
+
+  try {
+    const stored = window.localStorage.getItem(
+      MARKETING_ATTRIBUTION_STORAGE_KEY
+    )
+    if (!stored) return undefined
+
+    const attribution = JSON.parse(stored) as MarketingAttribution
+    if (
+      !Number.isFinite(attribution.capturedAt) ||
+      Date.now() - attribution.capturedAt > MARKETING_ATTRIBUTION_TTL_MS
+    ) {
+      window.localStorage.removeItem(MARKETING_ATTRIBUTION_STORAGE_KEY)
+      return undefined
+    }
+    return attribution
+  } catch {
+    return undefined
+  }
+}
+
+function getSearchValue(
+  searchParams: URLSearchParams,
+  name: string
+): string | undefined {
+  const value = searchParams.get(name)?.trim()
+  if (!value) return undefined
+  return value.slice(0, MARKETING_ATTRIBUTION_VALUE_MAX_LENGTH)
+}
+
+function getClickIdType(
+  searchParams: URLSearchParams
+): MarketingAttribution['clickIdType'] | undefined {
+  if (getSearchValue(searchParams, 'gclid')) return 'gclid'
+  if (getSearchValue(searchParams, 'gbraid')) return 'gbraid'
+  if (getSearchValue(searchParams, 'wbraid')) return 'wbraid'
+  if (
+    getSearchValue(searchParams, 'gad_source') ||
+    getSearchValue(searchParams, 'gad_campaignid')
+  ) {
+    return 'gad'
+  }
+  return undefined
+}
+
+/**
+ * Persist only campaign metadata, never the raw Google click identifier.
+ * This keeps attribution available across auth and payment redirects without
+ * introducing a second high-cardinality identifier into Analytics events.
+ */
+function captureMarketingAttribution(): MarketingAttribution | undefined {
+  if (typeof window === 'undefined') return undefined
+
+  let searchParams: URLSearchParams
+  try {
+    searchParams = new URLSearchParams(window.location?.search ?? '')
+  } catch {
+    return getStoredAttribution()
+  }
+
+  const clickIdType = getClickIdType(searchParams)
+  const source = getSearchValue(searchParams, 'utm_source')
+  const medium = getSearchValue(searchParams, 'utm_medium')
+  const hasCampaignData = Boolean(
+    clickIdType ||
+    source ||
+    medium ||
+    getSearchValue(searchParams, 'utm_campaign') ||
+    getSearchValue(searchParams, 'campaign_id') ||
+    getSearchValue(searchParams, 'gad_campaignid')
+  )
+
+  if (!hasCampaignData) return getStoredAttribution()
+
+  const attribution: MarketingAttribution = {
+    source: source || (clickIdType ? 'google' : undefined),
+    medium: medium || (clickIdType ? 'cpc' : undefined),
+    campaign: getSearchValue(searchParams, 'utm_campaign'),
+    content: getSearchValue(searchParams, 'utm_content'),
+    term: getSearchValue(searchParams, 'utm_term'),
+    campaignId:
+      getSearchValue(searchParams, 'campaign_id') ||
+      getSearchValue(searchParams, 'gad_campaignid'),
+    adGroupId: getSearchValue(searchParams, 'adgroup_id'),
+    creativeId: getSearchValue(searchParams, 'creative_id'),
+    matchType: getSearchValue(searchParams, 'match_type'),
+    network: getSearchValue(searchParams, 'network'),
+    device: getSearchValue(searchParams, 'device'),
+    clickIdType,
+    landingPath: window.location?.pathname,
+    capturedAt: Date.now(),
+  }
+
+  try {
+    window.localStorage.setItem(
+      MARKETING_ATTRIBUTION_STORAGE_KEY,
+      JSON.stringify(attribution)
+    )
+  } catch {
+    // Analytics must remain best-effort when browser storage is unavailable.
+  }
+
+  return attribution
+}
+
+function getMarketingAttributionEventParams(): Record<string, unknown> {
+  const attribution = captureMarketingAttribution()
+  if (!attribution) return {}
+
+  return Object.fromEntries(
+    Object.entries({
+      sem_source: attribution.source,
+      sem_medium: attribution.medium,
+      sem_campaign: attribution.campaign,
+      sem_content: attribution.content,
+      sem_term: attribution.term,
+      campaign_id: attribution.campaignId,
+      ad_group_id: attribution.adGroupId,
+      creative_id: attribution.creativeId,
+      match_type: attribution.matchType,
+      network: attribution.network,
+      device: attribution.device,
+      click_id_type: attribution.clickIdType,
+      attribution_landing_path: attribution.landingPath,
+    }).filter(([, value]) => value !== undefined)
+  )
+}
 
 export function normalizeGoogleAnalyticsId(
   measurementId?: string | null
@@ -43,6 +193,8 @@ export function normalizeGoogleAnalyticsId(
 
 export function applyGoogleAnalytics(measurementId?: string | null): void {
   if (typeof window === 'undefined' || typeof document === 'undefined') return
+
+  captureMarketingAttribution()
 
   const normalized = normalizeGoogleAnalyticsId(measurementId)
   const existing = document.getElementById(GOOGLE_ANALYTICS_SCRIPT_ID)
@@ -105,6 +257,8 @@ export function trackGoogleAnalyticsEvent(
 ): void {
   if (typeof window === 'undefined') return
 
+  captureMarketingAttribution()
+
   const analyticsWindow = window as GoogleAnalyticsWindow
   if (analyticsWindow.gtag) {
     analyticsWindow.gtag('event', eventName, params)
@@ -114,7 +268,10 @@ export function trackGoogleAnalyticsEvent(
 }
 
 export function trackSignUp(method: string): void {
-  trackGoogleAnalyticsEvent('sign_up', { method })
+  trackGoogleAnalyticsEvent('sign_up', {
+    method,
+    ...getMarketingAttributionEventParams(),
+  })
 }
 
 export function trackPurchase({
@@ -139,6 +296,7 @@ export function trackPurchase({
     value,
     currency: currency.toUpperCase(),
     payment_type: 'stripe',
+    ...getMarketingAttributionEventParams(),
     items: [
       {
         item_id: 'stripe_payment',

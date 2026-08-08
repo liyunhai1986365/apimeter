@@ -20,6 +20,34 @@ class FakeScriptElement {
 
 const fakeElements = new Map<string, FakeScriptElement>()
 
+class FakeStorage implements Storage {
+  private readonly values = new Map<string, string>()
+
+  get length() {
+    return this.values.size
+  }
+
+  clear() {
+    this.values.clear()
+  }
+
+  getItem(key: string) {
+    return this.values.get(key) ?? null
+  }
+
+  key(index: number) {
+    return Array.from(this.values.keys())[index] ?? null
+  }
+
+  removeItem(key: string) {
+    this.values.delete(key)
+  }
+
+  setItem(key: string, value: string) {
+    this.values.set(key, value)
+  }
+}
+
 function installFakeDom() {
   fakeElements.clear()
   const head = {
@@ -29,7 +57,14 @@ function installFakeDom() {
     },
   }
 
-  globalThis.window = { dataLayer: [] } as unknown as Window & typeof globalThis
+  globalThis.window = {
+    dataLayer: [],
+    localStorage: new FakeStorage(),
+    location: {
+      pathname: '/',
+      search: '',
+    },
+  } as unknown as Window & typeof globalThis
   globalThis.document = {
     head,
     createElement: () => new FakeScriptElement(),
@@ -146,5 +181,76 @@ describe('applyGoogleAnalytics', () => {
       window as unknown as Window & { dataLayer: IArguments[] }
     ).dataLayer.filter((entry) => Array.from(entry)[1] === 'purchase')
     assert.equal(events.length, 1)
+  })
+
+  test('keeps SEM attribution across auth and payment redirects', () => {
+    Object.assign(window.location, {
+      pathname: '/pricing/gpt-5',
+      search:
+        '?gclid=raw-click-id&utm_campaign=hot-model-api&utm_term=gpt+api&campaign_id=24089073282&adgroup_id=123&device=m',
+    })
+    applyGoogleAnalytics('G-6B94BX72EW')
+
+    Object.assign(window.location, {
+      pathname: '/sign-up',
+      search: '',
+    })
+    trackSignUp('password')
+    trackPurchase({
+      transactionId: 'ref_attributed',
+      value: 29,
+      currency: 'cny',
+    })
+
+    const events = (
+      window as unknown as Window & { dataLayer: IArguments[] }
+    ).dataLayer.map((entry) => Array.from(entry))
+    assert.deepEqual(events[2], [
+      'event',
+      'sign_up',
+      {
+        method: 'password',
+        sem_source: 'google',
+        sem_medium: 'cpc',
+        sem_campaign: 'hot-model-api',
+        sem_term: 'gpt api',
+        campaign_id: '24089073282',
+        ad_group_id: '123',
+        device: 'm',
+        click_id_type: 'gclid',
+        attribution_landing_path: '/pricing/gpt-5',
+      },
+    ])
+    assert.deepEqual(events[3], [
+      'event',
+      'purchase',
+      {
+        transaction_id: 'ref_attributed',
+        value: 29,
+        currency: 'CNY',
+        payment_type: 'stripe',
+        sem_source: 'google',
+        sem_medium: 'cpc',
+        sem_campaign: 'hot-model-api',
+        sem_term: 'gpt api',
+        campaign_id: '24089073282',
+        ad_group_id: '123',
+        device: 'm',
+        click_id_type: 'gclid',
+        attribution_landing_path: '/pricing/gpt-5',
+        items: [
+          {
+            item_id: 'stripe_payment',
+            item_name: 'Stripe payment',
+            price: 29,
+            quantity: 1,
+          },
+        ],
+      },
+    ])
+
+    const stored = window.localStorage.getItem('marketing-attribution-v1')
+    assert.ok(stored)
+    assert.equal(stored.includes('raw-click-id'), false)
   })
 })
