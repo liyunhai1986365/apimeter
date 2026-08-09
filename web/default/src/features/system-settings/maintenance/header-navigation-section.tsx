@@ -58,6 +58,7 @@ type HeaderNavigationSectionProps = {
 
 const BUILT_IN_DESCRIPTIONS: Record<HeaderNavBuiltInModule, string> = {
   home: 'Landing page with system overview.',
+  partner: 'Public partner program and onboarding page.',
   agentAccess: 'Agent integration documentation and onboarding guide.',
   aiCreation:
     'Open the configured OpenMosaic site, sign in automatically, and enter image creation.',

@@ -4,6 +4,7 @@ import {
   applyCustomerServiceScript,
   dismissCustomerServiceScriptForCurrentPage,
   extractScriptSrc,
+  openCustomerServiceChat,
   resetCustomerServiceScriptDismissal,
 } from './customer-service-script'
 
@@ -43,9 +44,11 @@ class FakeElement {
 }
 
 const fakeElements = new Map<string, FakeElement>()
+let tidioReadyListener: EventListener | null = null
 
 function installFakeDom() {
   fakeElements.clear()
+  tidioReadyListener = null
   const head = new FakeElement('head')
   const createElement = (tagName: string) => new FakeElement(tagName)
 
@@ -56,9 +59,26 @@ function installFakeDom() {
       const existing = fakeElements.get(id)
       return existing && !existing.removed ? existing : null
     },
+    addEventListener: (
+      type: string,
+      listener: EventListenerOrEventListenerObject
+    ) => {
+      if (type === 'tidioChat-ready' && typeof listener === 'function') {
+        tidioReadyListener = listener
+      }
+    },
+    removeEventListener: (
+      type: string,
+      listener: EventListenerOrEventListenerObject
+    ) => {
+      if (type === 'tidioChat-ready' && tidioReadyListener === listener) {
+        tidioReadyListener = null
+      }
+    },
     querySelectorAll: () => [],
   } as unknown as Document
-  globalThis.HTMLScriptElement = FakeElement as unknown as typeof HTMLScriptElement
+  globalThis.HTMLScriptElement =
+    FakeElement as unknown as typeof HTMLScriptElement
 
   const originalAppendChild = head.appendChild.bind(head)
   head.appendChild = (child: FakeElement) => {
@@ -66,6 +86,17 @@ function installFakeDom() {
     if (child.id) fakeElements.set(child.id, child)
     return child
   }
+}
+
+function installFakeWindow(tidioChatApi?: {
+  show: () => void
+  open: () => void
+}) {
+  Object.defineProperty(globalThis, 'window', {
+    configurable: true,
+    writable: true,
+    value: tidioChatApi ? { tidioChatApi } : {},
+  })
 }
 
 function getFakeElement(id: string) {
@@ -99,7 +130,8 @@ describe('applyCustomerServiceScript', () => {
     installFakeDom()
     resetCustomerServiceScriptDismissal()
 
-    const scriptCode = '<script src="//code.tidio.co/example.js" async></script>'
+    const scriptCode =
+      '<script src="//code.tidio.co/example.js" async></script>'
 
     applyCustomerServiceScript(scriptCode)
     assert.ok(getFakeElement('customer-service-script'))
@@ -115,5 +147,57 @@ describe('applyCustomerServiceScript', () => {
     resetCustomerServiceScriptDismissal()
     applyCustomerServiceScript(scriptCode)
     assert.ok(getFakeElement('customer-service-script'))
+  })
+})
+
+describe('openCustomerServiceChat', () => {
+  test('shows and opens a ready Tidio widget', () => {
+    installFakeDom()
+    let shown = 0
+    let opened = 0
+    installFakeWindow({
+      show: () => shown++,
+      open: () => opened++,
+    })
+
+    assert.equal(
+      openCustomerServiceChat('https://code.tidio.co/example.js'),
+      true
+    )
+    assert.equal(shown, 1)
+    assert.equal(opened, 1)
+    assert.equal(tidioReadyListener, null)
+  })
+
+  test('waits for Tidio when the widget is still loading', () => {
+    installFakeDom()
+    installFakeWindow()
+
+    assert.equal(
+      openCustomerServiceChat('https://code.tidio.co/example.js'),
+      true
+    )
+    assert.ok(tidioReadyListener)
+
+    let shown = 0
+    let opened = 0
+    installFakeWindow({
+      show: () => shown++,
+      open: () => opened++,
+    })
+    tidioReadyListener?.(new Event('tidioChat-ready'))
+
+    assert.equal(shown, 1)
+    assert.equal(opened, 1)
+  })
+
+  test('rejects non-Tidio customer service scripts', () => {
+    installFakeDom()
+    installFakeWindow()
+
+    assert.equal(
+      openCustomerServiceChat('https://chat.example.com/widget.js'),
+      false
+    )
   })
 })

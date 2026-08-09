@@ -20,11 +20,16 @@ import { useEffect } from 'react'
 import { type QueryClient } from '@tanstack/react-query'
 import {
   createRootRouteWithContext,
+  notFound,
   Outlet,
   redirect,
 } from '@tanstack/react-router'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
+import {
+  isCurrentAgentSite,
+  isInviteFeaturePath,
+} from '@/lib/agent-site-access'
 import { parseThemeCustomizationFromStatus } from '@/lib/theme-customization'
 import {
   ThemeCustomizationProvider,
@@ -121,6 +126,11 @@ export const Route = createRootRouteWithContext<{
   // 应用初始化与路由解析前统一校验会话
   beforeLoad: async ({ location }) => {
     const pathname = location?.pathname || ''
+
+    if (isInviteFeaturePath(pathname) && (await isCurrentAgentSite())) {
+      throw notFound()
+    }
+
     const needsSetupCheck =
       !setupStatusChecked && !pathname.startsWith('/setup')
 

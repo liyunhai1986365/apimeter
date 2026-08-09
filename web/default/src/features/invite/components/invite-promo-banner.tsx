@@ -16,10 +16,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useState } from 'react'
 import { Link, useRouterState } from '@tanstack/react-router'
 import { Gift, X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { isAgentSiteStatus } from '@/lib/server-address'
 import { cn } from '@/lib/utils'
 import { useStatus } from '@/hooks/use-status'
 import {
@@ -33,40 +33,6 @@ type InvitePromoBannerProps = {
   className?: string
   onDismiss?: () => void
   visible?: boolean
-}
-
-const DISMISSED_STORAGE_KEY = 'invite_promo_banner_dismissed'
-
-function getStoredDismissedState(): boolean {
-  if (typeof window === 'undefined') {
-    return false
-  }
-
-  return window.localStorage.getItem(DISMISSED_STORAGE_KEY) === '1'
-}
-
-export function useInvitePromoBanner() {
-  const { status } = useStatus()
-  const pathname = useRouterState({
-    select: (state) => state.location.pathname,
-  })
-  const [dismissed, setDismissed] = useState(getStoredDismissedState)
-  const config = getInviteRewardConfig(status)
-  const dismiss = useCallback(() => {
-    setDismissed(true)
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(DISMISSED_STORAGE_KEY, '1')
-    }
-  }, [])
-
-  useEffect(() => {
-    setDismissed(getStoredDismissedState())
-  }, [pathname])
-
-  return {
-    dismiss,
-    visible: pathname === '/' && !dismissed && hasInviteRewards(config),
-  }
 }
 
 export function InvitePromoBanner({
@@ -83,6 +49,7 @@ export function InvitePromoBanner({
 
   if (
     visible === false ||
+    isAgentSiteStatus(status) ||
     pathname === '/invite' ||
     !hasInviteRewards(config)
   ) {

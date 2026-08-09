@@ -21,6 +21,12 @@ const CUSTOMER_SERVICE_DISMISS_ID = 'customer-service-script-dismiss'
 const CUSTOMER_SERVICE_STYLE_ID = 'customer-service-script-style'
 const TIDIO_SCRIPT_RE = /(^|\/\/|https?:\/\/)code\.tidio\.co\//i
 
+type TidioChatApi = {
+  on?: (event: 'ready', callback: () => void) => void
+  open: () => void
+  show: () => void
+}
+
 let dismissedForCurrentPage = false
 
 export function extractScriptSrc(scriptCode?: string | null): string {
@@ -39,6 +45,20 @@ export function extractScriptSrc(scriptCode?: string | null): string {
 
 function isTidioScript(src: string): boolean {
   return TIDIO_SCRIPT_RE.test(src)
+}
+
+function getTidioChatApi(): TidioChatApi | undefined {
+  if (typeof window === 'undefined') return undefined
+  return (window as Window & { tidioChatApi?: TidioChatApi }).tidioChatApi
+}
+
+function showAndOpenTidioChat(): boolean {
+  const api = getTidioChatApi()
+  if (!api) return false
+
+  api.show()
+  api.open()
+  return true
 }
 
 function removeTidioInjectedElements(): void {
@@ -105,6 +125,27 @@ export function dismissCustomerServiceScriptForCurrentPage(): void {
 
 export function resetCustomerServiceScriptDismissal(): void {
   dismissedForCurrentPage = false
+}
+
+export function openCustomerServiceChat(scriptCode?: string | null): boolean {
+  if (typeof document === 'undefined') return false
+
+  const src = extractScriptSrc(scriptCode)
+  if (!isTidioScript(src)) return false
+
+  const onReady = () => {
+    showAndOpenTidioChat()
+  }
+
+  document.addEventListener('tidioChat-ready', onReady, { once: true })
+  resetCustomerServiceScriptDismissal()
+  applyCustomerServiceScript(scriptCode)
+
+  if (showAndOpenTidioChat()) {
+    document.removeEventListener('tidioChat-ready', onReady)
+  }
+
+  return true
 }
 
 export function applyCustomerServiceScript(scriptCode?: string | null): void {

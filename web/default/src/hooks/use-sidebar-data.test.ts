@@ -54,6 +54,14 @@ describe('buildSidebarData', () => {
     )
   })
 
+  test('hides invite rewards on agent sites', () => {
+    const data = buildSidebarData((key) => key, null, {
+      showInviteRewards: false,
+    })
+
+    assert.ok(!flattenUrls(data).includes('/invite-rewards'))
+  })
+
   test('adds model profit as an independent admin menu item', () => {
     const data = buildSidebarData((key) => key, null)
     const urls = flattenUrls(data)

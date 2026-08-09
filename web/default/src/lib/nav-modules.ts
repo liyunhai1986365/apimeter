@@ -24,6 +24,7 @@ export type HeaderNavModule = 'rankings' | 'pricing' | 'subscription'
 
 export type HeaderNavBuiltInModule =
   | 'home'
+  | 'partner'
   | 'agentAccess'
   | 'aiCreation'
   | 'console'
@@ -60,6 +61,7 @@ export type HeaderNavNewWindow = Partial<
 
 export type HeaderNavModules = {
   home: boolean
+  partner: boolean
   agentAccess: boolean
   aiCreation: AICreationConfig
   console: boolean
@@ -82,6 +84,7 @@ export type HeaderNavModules = {
 
 const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   home: true,
+  partner: true,
   agentAccess: true,
   aiCreation: { enabled: false, baseUrl: '' },
   console: true,
@@ -96,6 +99,7 @@ const DEFAULT_HEADER_NAV_MODULES: HeaderNavModules = {
   },
   order: [
     'home',
+    'partner',
     'agentAccess',
     'aiCreation',
     'console',
@@ -122,6 +126,13 @@ const BUILT_IN_HEADER_NAV_ITEMS: Record<
     id: 'home',
     titleKey: 'Home',
     href: '/',
+    external: false,
+    newWindow: false,
+  },
+  partner: {
+    id: 'partner',
+    titleKey: 'Partner Program',
+    href: '/partner',
     external: false,
     newWindow: false,
   },

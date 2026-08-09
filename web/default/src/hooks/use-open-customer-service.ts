@@ -16,13 +16,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute, notFound } from '@tanstack/react-router'
-import { isCurrentAgentSite } from '@/lib/agent-site-access'
-import { PartnerProgram } from '@/features/partner'
+import { useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { openCustomerServiceChat } from '@/lib/customer-service-script'
+import { useSystemConfig } from '@/hooks/use-system-config'
 
-export const Route = createFileRoute('/invite')({
-  beforeLoad: async () => {
-    if (await isCurrentAgentSite()) throw notFound()
-  },
-  component: PartnerProgram,
-})
+export function useOpenCustomerService() {
+  const { t } = useTranslation()
+  const { customerServiceScript } = useSystemConfig()
+
+  return useCallback(() => {
+    if (!openCustomerServiceChat(customerServiceScript)) {
+      toast.error(t('Online support is unavailable right now'))
+    }
+  }, [customerServiceScript, t])
+}

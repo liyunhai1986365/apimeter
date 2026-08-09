@@ -70,6 +70,10 @@ export function getStatusAgentDomain(status: StatusRecord): string | undefined {
   )
 }
 
+export function isAgentSiteStatus(status: StatusRecord): boolean {
+  return Boolean(getStatusAgentDomain(status))
+}
+
 export function getStatusServerAddress(
   status: StatusRecord
 ): string | undefined {

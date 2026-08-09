@@ -16,13 +16,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute, notFound } from '@tanstack/react-router'
-import { isCurrentAgentSite } from '@/lib/agent-site-access'
-import { PartnerProgram } from '@/features/partner'
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
+import { isInviteFeaturePath } from './agent-site-access'
 
-export const Route = createFileRoute('/invite')({
-  beforeLoad: async () => {
-    if (await isCurrentAgentSite()) throw notFound()
-  },
-  component: PartnerProgram,
+describe('isInviteFeaturePath', () => {
+  test('matches every invitation page with optional URL suffixes', () => {
+    assert.equal(isInviteFeaturePath('/invite'), true)
+    assert.equal(isInviteFeaturePath('/partner/'), true)
+    assert.equal(isInviteFeaturePath('/invite-rewards?tab=records'), true)
+  })
+
+  test('does not match unrelated pages', () => {
+    assert.equal(isInviteFeaturePath('/'), false)
+    assert.equal(isInviteFeaturePath('/wallet'), false)
+    assert.equal(isInviteFeaturePath('/partner-guide'), false)
+  })
 })

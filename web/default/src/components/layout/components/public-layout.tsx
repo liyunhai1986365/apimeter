@@ -18,10 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useNotifications } from '@/hooks/use-notifications'
 import { SystemNoticeBanner } from '@/components/system-notice-banner'
-import {
-  InvitePromoBanner,
-  useInvitePromoBanner,
-} from '@/features/invite/components/invite-promo-banner'
+import { InvitePromoBanner } from '@/features/invite/components/invite-promo-banner'
+import { useInvitePromoBanner } from '@/features/invite/hooks/use-invite-promo-banner'
 import type { TopNavLink } from '../types'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
 

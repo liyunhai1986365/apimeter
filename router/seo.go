@@ -958,7 +958,7 @@ func isKnownFrontendPath(path string) bool {
 		"/invite-rewards": {}, "/keys": {}, "/login": {}, "/model-billing": {}, "/model-monitor": {},
 		"/model-profit": {}, "/models": {}, "/oauth": {}, "/otp": {},
 		"/playground": {}, "/pricing": {}, "/privacy-policy": {}, "/profile": {}, "/providers": {},
-		"/provider": {}, "/rankings": {}, "/redemption-codes": {}, "/register": {},
+		"/partner": {}, "/provider": {}, "/rankings": {}, "/redemption-codes": {}, "/register": {},
 		"/reset": {}, "/setup": {}, "/sign-in": {}, "/sign-up": {},
 		"/subscription": {}, "/subscriptions": {}, "/suppliers": {},
 		"/system-settings": {}, "/system-tasks": {}, "/usage-logs": {},

@@ -20,7 +20,7 @@ import { createFileRoute, notFound } from '@tanstack/react-router'
 import { isCurrentAgentSite } from '@/lib/agent-site-access'
 import { PartnerProgram } from '@/features/partner'
 
-export const Route = createFileRoute('/invite')({
+export const Route = createFileRoute('/partner/')({
   beforeLoad: async () => {
     if (await isCurrentAgentSite()) throw notFound()
   },

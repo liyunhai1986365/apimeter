@@ -19,11 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
+import { isInviteFeaturePath } from '@/lib/agent-site-access'
 import {
   getOrderedHeaderNavItems,
   parseHeaderNavModulesFromStatus,
 } from '@/lib/nav-modules'
-import { getPublicServerAddress } from '@/lib/server-address'
+import { getPublicServerAddress, isAgentSiteStatus } from '@/lib/server-address'
 import { getAgentToolsURL } from '@/lib/site-branding'
 import { useStatus } from '@/hooks/use-status'
 
@@ -50,7 +51,7 @@ export type TopNavLink = {
  */
 export function useTopNavLinks(): TopNavLink[] {
   const { t } = useTranslation()
-  const { status } = useStatus()
+  const { status, loading } = useStatus()
   const { auth } = useAuthStore()
 
   // Parse HeaderNavModules
@@ -68,13 +69,19 @@ export function useTopNavLinks(): TopNavLink[] {
 
   const isAuthed = !!auth?.user
 
-  return getOrderedHeaderNavItems(modules, docsLink, agentAccessLink).map(
-    (item) => ({
+  return getOrderedHeaderNavItems(modules, docsLink, agentAccessLink)
+    .filter(
+      (item) =>
+        !(
+          (loading || isAgentSiteStatus(status)) &&
+          (item.id === 'partner' || isInviteFeaturePath(item.href))
+        )
+    )
+    .map((item) => ({
       title: item.custom ? item.titleKey : t(item.titleKey),
       href: item.href,
       external: item.external,
       newWindow: item.newWindow,
       requiresAuth: item.requireAuth && !isAuthed,
-    })
-  )
+    }))
 }

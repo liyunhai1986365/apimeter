@@ -46,6 +46,8 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
+import { isAgentSiteStatus } from '@/lib/server-address'
+import { useStatus } from '@/hooks/use-status'
 import { WORKSPACE_IDS } from '@/components/layout/lib/workspace-registry'
 import { type SidebarData } from '@/components/layout/types'
 
@@ -62,7 +64,8 @@ type SidebarUser =
 
 export function buildSidebarData(
   t: (key: string) => string,
-  user: SidebarUser
+  user: SidebarUser,
+  options: { showInviteRewards?: boolean } = {}
 ): SidebarData {
   const canUseAgentConsole = Boolean(
     user &&
@@ -184,11 +187,15 @@ export function buildSidebarData(
             url: '/wallet',
             icon: Wallet,
           },
-          {
-            title: t('Invite Rewards'),
-            url: '/invite-rewards',
-            icon: Gift,
-          },
+          ...(options.showInviteRewards !== false
+            ? [
+                {
+                  title: t('Invite Rewards'),
+                  url: '/invite-rewards',
+                  icon: Gift,
+                },
+              ]
+            : []),
           {
             title: t('Billing'),
             url: '/billing/monthly',
@@ -300,6 +307,9 @@ export function buildSidebarData(
 export function useSidebarData(): SidebarData {
   const { t } = useTranslation()
   const user = useAuthStore((state) => state.auth.user)
+  const { status, loading } = useStatus()
 
-  return buildSidebarData(t, user)
+  return buildSidebarData(t, user, {
+    showInviteRewards: !loading && !isAgentSiteStatus(status),
+  })
 }

@@ -20,6 +20,7 @@ import { Route as SetupIndexRouteImport } from './routes/setup/index'
 import { Route as RankingsIndexRouteImport } from './routes/rankings/index'
 import { Route as ProvidersIndexRouteImport } from './routes/providers/index'
 import { Route as PricingIndexRouteImport } from './routes/pricing/index'
+import { Route as PartnerIndexRouteImport } from './routes/partner/index'
 import { Route as AboutIndexRouteImport } from './routes/about/index'
 import { Route as OauthProviderRouteImport } from './routes/oauth/$provider'
 import { Route as ConsoleTopupRouteImport } from './routes/console/topup'
@@ -142,6 +143,11 @@ const ProvidersIndexRoute = ProvidersIndexRouteImport.update({
 const PricingIndexRoute = PricingIndexRouteImport.update({
   id: '/pricing/',
   path: '/pricing/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PartnerIndexRoute = PartnerIndexRouteImport.update({
+  id: '/partner/',
+  path: '/partner/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AboutIndexRoute = AboutIndexRouteImport.update({
@@ -567,6 +573,7 @@ export interface FileRoutesByFullPath {
   '/console/topup': typeof ConsoleTopupRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
+  '/partner/': typeof PartnerIndexRoute
   '/pricing/': typeof PricingIndexRoute
   '/providers/': typeof ProvidersIndexRoute
   '/rankings/': typeof RankingsIndexRoute
@@ -646,6 +653,7 @@ export interface FileRoutesByTo {
   '/console/topup': typeof ConsoleTopupRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about': typeof AboutIndexRoute
+  '/partner': typeof PartnerIndexRoute
   '/pricing': typeof PricingIndexRoute
   '/providers': typeof ProvidersIndexRoute
   '/rankings': typeof RankingsIndexRoute
@@ -730,6 +738,7 @@ export interface FileRoutesById {
   '/console/topup': typeof ConsoleTopupRoute
   '/oauth/$provider': typeof OauthProviderRoute
   '/about/': typeof AboutIndexRoute
+  '/partner/': typeof PartnerIndexRoute
   '/pricing/': typeof PricingIndexRoute
   '/providers/': typeof ProvidersIndexRoute
   '/rankings/': typeof RankingsIndexRoute
@@ -813,6 +822,7 @@ export interface FileRouteTypes {
     | '/console/topup'
     | '/oauth/$provider'
     | '/about/'
+    | '/partner/'
     | '/pricing/'
     | '/providers/'
     | '/rankings/'
@@ -892,6 +902,7 @@ export interface FileRouteTypes {
     | '/console/topup'
     | '/oauth/$provider'
     | '/about'
+    | '/partner'
     | '/pricing'
     | '/providers'
     | '/rankings'
@@ -975,6 +986,7 @@ export interface FileRouteTypes {
     | '/console/topup'
     | '/oauth/$provider'
     | '/about/'
+    | '/partner/'
     | '/pricing/'
     | '/providers/'
     | '/rankings/'
@@ -1049,6 +1061,7 @@ export interface RootRouteChildren {
   ConsoleTopupRoute: typeof ConsoleTopupRoute
   OauthProviderRoute: typeof OauthProviderRoute
   AboutIndexRoute: typeof AboutIndexRoute
+  PartnerIndexRoute: typeof PartnerIndexRoute
   PricingIndexRoute: typeof PricingIndexRoute
   ProvidersIndexRoute: typeof ProvidersIndexRoute
   RankingsIndexRoute: typeof RankingsIndexRoute
@@ -1136,6 +1149,13 @@ declare module '@tanstack/react-router' {
       path: '/pricing'
       fullPath: '/pricing/'
       preLoaderRoute: typeof PricingIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/partner/': {
+      id: '/partner/'
+      path: '/partner'
+      fullPath: '/partner/'
+      preLoaderRoute: typeof PartnerIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/about/': {
@@ -1828,6 +1848,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConsoleTopupRoute: ConsoleTopupRoute,
   OauthProviderRoute: OauthProviderRoute,
   AboutIndexRoute: AboutIndexRoute,
+  PartnerIndexRoute: PartnerIndexRoute,
   PricingIndexRoute: PricingIndexRoute,
   ProvidersIndexRoute: ProvidersIndexRoute,
   RankingsIndexRoute: RankingsIndexRoute,

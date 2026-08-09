@@ -16,13 +16,24 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { createFileRoute, notFound } from '@tanstack/react-router'
-import { isCurrentAgentSite } from '@/lib/agent-site-access'
-import { PartnerProgram } from '@/features/partner'
+import assert from 'node:assert/strict'
+import { describe, test } from 'node:test'
+import { isAgentSiteStatus } from './server-address'
 
-export const Route = createFileRoute('/invite')({
-  beforeLoad: async () => {
-    if (await isCurrentAgentSite()) throw notFound()
-  },
-  component: PartnerProgram,
+describe('isAgentSiteStatus', () => {
+  test('recognizes direct and enveloped agent status', () => {
+    assert.equal(
+      isAgentSiteStatus({ agent: { domain: 'agent.example.com' } }),
+      true
+    )
+    assert.equal(
+      isAgentSiteStatus({ data: { agent: { domain: 'agent.example.com' } } }),
+      true
+    )
+  })
+
+  test('keeps main-site status enabled', () => {
+    assert.equal(isAgentSiteStatus({ agent: null }), false)
+    assert.equal(isAgentSiteStatus(null), false)
+  })
 })

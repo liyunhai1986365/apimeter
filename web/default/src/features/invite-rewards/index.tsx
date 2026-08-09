@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
+  CustomerSupportIcon,
   Clock01Icon,
   GiftIcon,
   Link01Icon,
@@ -22,6 +23,7 @@ import {
   parseQuotaFromDollars,
   quotaUnitsToDollars,
 } from '@/lib/format'
+import { useOpenCustomerService } from '@/hooks/use-open-customer-service'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
@@ -109,6 +111,7 @@ const WITHDRAWAL_PAGE_SIZE = 10
 export function InviteRewards() {
   const { t } = useTranslation()
   const { systemName, currency } = useSystemConfig()
+  const openCustomerService = useOpenCustomerService()
   const queryClient = useQueryClient()
   const setUser = useAuthStore((state) => state.auth.setUser)
   const [page, setPage] = useState(1)
@@ -218,6 +221,7 @@ export function InviteRewards() {
               <RewardPolicyCard
                 policy={data?.affiliate_policy}
                 loading={inviteQuery.isPending}
+                onApply={openCustomerService}
               />
             </div>
 
@@ -967,9 +971,11 @@ function StatsBand({
 function RewardPolicyCard({
   policy,
   loading,
+  onApply,
 }: {
   policy?: AffiliateRewardPolicy
   loading: boolean
+  onApply: () => void
 }) {
   const { t } = useTranslation()
   const rewardRatio = policy?.topup_reward_ratio ?? 0
@@ -1070,6 +1076,12 @@ function RewardPolicyCard({
           </AlertDescription>
         </Alert>
       </CardContent>
+      <CardFooter>
+        <Button className='w-full' variant='outline' onClick={onApply}>
+          <HugeiconsIcon icon={CustomerSupportIcon} data-icon='inline-start' />
+          {t('Apply to become a brand partner')}
+        </Button>
+      </CardFooter>
     </Card>
   )
 }
