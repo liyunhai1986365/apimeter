@@ -63,6 +63,7 @@ func InitEnv() {
 	} else {
 		CryptoSecret = SessionSecret
 	}
+	HvoyAuthSecret = os.Getenv("HVOY_AUTH_SECRET")
 	if err := InitSessionCookieSettings(); err != nil {
 		log.Fatal(err)
 	}
