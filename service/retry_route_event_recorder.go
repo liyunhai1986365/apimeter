@@ -118,6 +118,19 @@ func MarkRetryRouteFinal(c *gin.Context, success bool, status string) {
 	}
 }
 
+func AttachRetryRouteLog(c *gin.Context, logID int) {
+	if c == nil || logID <= 0 {
+		return
+	}
+	requestID := c.GetString(common.RequestIdKey)
+	if requestID == "" {
+		return
+	}
+	if err := model.AttachRetryRouteEventLog(requestID, logID); err != nil {
+		common.SysLog("failed to attach retry route log: " + err.Error())
+	}
+}
+
 func SetCurrentRetryRouteEventID(c *gin.Context, id int) {
 	if c == nil || id <= 0 {
 		return

@@ -73,6 +73,31 @@ func TestRecordConsumeLogOmitsIPWhenUserSettingDisablesIPLog(t *testing.T) {
 	require.Empty(t, log.Ip)
 }
 
+func TestCreateErrorLogRecordsIPByDefault(t *testing.T) {
+	setupLogIPRecordTest(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
+
+	id := CreateErrorLog(newLogIPRecordContext(), 1, 10, "gpt-4o", "prod-token", "upstream failed", 3, 2, false, "default", map[string]interface{}{"status_code": 502})
+
+	require.NotZero(t, id)
+	var log Log
+	require.NoError(t, LOG_DB.First(&log, id).Error)
+	require.Equal(t, LogTypeError, log.Type)
+	require.Equal(t, "203.0.113.10", log.Ip)
+}
+
+func TestCreateErrorLogOmitsIPWhenUserSettingDisablesIPLog(t *testing.T) {
+	setupLogIPRecordTest(t)
+	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: `{"record_ip_log":false}`}).Error)
+
+	id := CreateErrorLog(newLogIPRecordContext(), 1, 10, "gpt-4o", "prod-token", "upstream failed", 3, 2, false, "default", nil)
+
+	require.NotZero(t, id)
+	var log Log
+	require.NoError(t, LOG_DB.First(&log, id).Error)
+	require.Empty(t, log.Ip)
+}
+
 func TestRecordConsumeLogForcePersistsWhenConsumeLoggingDisabled(t *testing.T) {
 	setupLogIPRecordTest(t)
 	require.NoError(t, DB.Create(&User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)

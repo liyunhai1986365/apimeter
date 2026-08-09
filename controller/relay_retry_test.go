@@ -350,13 +350,31 @@ func TestShouldRetryRecordsRetryRouteEvent(t *testing.T) {
 	require.Equal(t, "gpt-4o", events[0].OriginalModel)
 }
 
-func TestProcessChannelErrorDoesNotPersistErrorLog(t *testing.T) {
+func TestProcessChannelErrorPersistsStructuredErrorWithoutRequestDetails(t *testing.T) {
 	openRelayRetryEventTestDB(t)
+	originalErrorLogEnabled := constant.ErrorLogEnabled
+	constant.ErrorLogEnabled = true
+	t.Cleanup(func() { constant.ErrorLogEnabled = originalErrorLogEnabled })
+	require.NoError(t, model.DB.Create(&model.User{Id: 1, Username: "alice", Password: "password", Setting: "{}"}).Error)
 
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
-	c.Set(common.RequestIdKey, "req-no-error-db-log")
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions?debug=1", strings.NewReader(`{"messages":[{"role":"user","content":"private prompt"}]}`))
+	c.Request.Header.Set("Authorization", "Bearer sk-private")
+	c.Request.RemoteAddr = "203.0.113.10:12345"
+	c.Set(common.RequestIdKey, "req-structured-error")
+	c.Set("id", 1)
+	c.Set("username", "alice")
+	c.Set("token_name", "prod-token")
+	c.Set("token_id", 3)
+	c.Set("original_model", "gpt-4o")
+	c.Set("group", "default")
+	c.Set("channel_id", 10)
+	c.Set("channel_name", "primary")
+	c.Set("channel_type", 1)
+	event := &model.RetryRouteEvent{RequestId: "req-structured-error", Matched: true, RuleName: "failover"}
+	require.NoError(t, model.RecordRetryRouteEvent(event))
+	service.SetCurrentRetryRouteEventID(c, event.Id)
 
 	err := types.NewOpenAIError(
 		errors.New("upstream exploded"),
@@ -364,6 +382,46 @@ func TestProcessChannelErrorDoesNotPersistErrorLog(t *testing.T) {
 		http.StatusInternalServerError,
 	)
 	processChannelError(c, types.ChannelError{ChannelId: 10}, err)
+
+	var log model.Log
+	require.NoError(t, model.LOG_DB.Where("type = ?", model.LogTypeError).First(&log).Error)
+	require.Equal(t, "req-structured-error", log.RequestId)
+	require.Equal(t, "gpt-4o", log.ModelName)
+	require.Equal(t, 10, log.ChannelId)
+	require.Equal(t, "203.0.113.10", log.Ip)
+	require.Contains(t, log.Content, "upstream exploded")
+
+	var other map[string]interface{}
+	require.NoError(t, common.UnmarshalJsonStr(log.Other, &other))
+	require.Equal(t, "/v1/chat/completions", other["request_path"])
+	require.Equal(t, "POST", other["request_method"])
+	require.Equal(t, "bad_response_status_code", other["error_code"])
+	require.Contains(t, other, "retry_route_event_ids")
+	require.NotContains(t, other, "request_hash")
+	require.NotContains(t, other, "request_log_lookup")
+	require.NotContains(t, other, "error_request_log_id")
+	require.NotContains(t, log.Other, "private prompt")
+	require.NotContains(t, log.Other, "sk-private")
+
+	var updatedEvent model.RetryRouteEvent
+	require.NoError(t, model.DB.First(&updatedEvent, event.Id).Error)
+	require.Equal(t, log.Id, updatedEvent.LogId)
+}
+
+func TestRecordRelayErrorLogHonorsDisabledConfigAndNoRecordOption(t *testing.T) {
+	openRelayRetryEventTestDB(t)
+	originalErrorLogEnabled := constant.ErrorLogEnabled
+	t.Cleanup(func() { constant.ErrorLogEnabled = originalErrorLogEnabled })
+
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+
+	constant.ErrorLogEnabled = false
+	require.Zero(t, recordRelayErrorLog(c, nil, types.NewError(errors.New("disabled"), types.ErrorCodeBadResponse)))
+
+	constant.ErrorLogEnabled = true
+	require.Zero(t, recordRelayErrorLog(c, nil, types.NewError(errors.New("expected quota rejection"), types.ErrorCodeInsufficientUserQuota, types.ErrOptionWithNoRecordErrorLog())))
 
 	var count int64
 	require.NoError(t, model.LOG_DB.Model(&model.Log{}).Where("type = ?", model.LogTypeError).Count(&count).Error)

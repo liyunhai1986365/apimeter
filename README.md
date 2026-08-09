@@ -153,6 +153,7 @@ SESSION_SECRET=替换为刚生成的随机值
 | `SYSTEM_NAME` | 控制台显示名称，默认 `Modelsell API` |
 | `SQLITE_PATH` | SQLite 数据库文件路径 |
 | `SQL_DSN` | MySQL 或 PostgreSQL 连接信息 |
+| `ERROR_LOG_ENABLED` | 将 relay 错误写入日志表；不保存请求体、请求头或响应正文，默认 `false` |
 | `REDIS_CONN_STRING` | Redis 连接信息，用于缓存和多节点同步 |
 | `SESSION_SECRET` | 会话签名密钥；生产环境必须使用独立强随机值 |
 | `CRYPTO_SECRET` | 敏感配置加密密钥；生产环境必须妥善备份 |

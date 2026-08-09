@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -97,6 +98,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	defer func() {
 		if newAPIError != nil {
 			service.MarkRetryRouteFinal(c, false, "failed")
+			recordRelayErrorLog(c, nil, newAPIError)
 			logger.LogError(c, fmt.Sprintf("relay error: %s", newAPIError.Error()))
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			switch relayFormat {
@@ -659,7 +661,112 @@ func processChannelError(c *gin.Context, channelError types.ChannelError, err *t
 			service.DisableChannel(channelError, err.ErrorWithStatusCode())
 		})
 	}
+	recordRelayErrorLog(c, &channelError, err)
+}
 
+const ginKeyRelayErrorLogID = "relay_error_log_id"
+
+func recordRelayErrorLog(c *gin.Context, channelError *types.ChannelError, err *types.NewAPIError) int {
+	if c == nil || err == nil {
+		return 0
+	}
+	if channelError == nil {
+		if existing, ok := c.Get(ginKeyRelayErrorLogID); ok {
+			if id, ok := existing.(int); ok && id > 0 {
+				return id
+			}
+		}
+	}
+	if existing, ok := c.Get(relayErrorLogDedupKey(c, channelError, err)); ok {
+		if id, ok := existing.(int); ok && id > 0 {
+			return id
+		}
+	}
+	if !constant.ErrorLogEnabled || !types.IsRecordErrorLog(err) {
+		return 0
+	}
+
+	userId := common.GetContextKeyInt(c, constant.ContextKeyUserId)
+	tokenName := c.GetString("token_name")
+	modelName := common.GetContextKeyString(c, constant.ContextKeyOriginalModel)
+	if modelName == "" {
+		modelName = c.GetString("original_model")
+	}
+	tokenId := common.GetContextKeyInt(c, constant.ContextKeyTokenId)
+	userGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	if userGroup == "" {
+		userGroup = c.GetString("group")
+	}
+	channelId := common.GetContextKeyInt(c, constant.ContextKeyChannelId)
+	channelName := common.GetContextKeyString(c, constant.ContextKeyChannelName)
+	channelType := common.GetContextKeyInt(c, constant.ContextKeyChannelType)
+	if channelError != nil && channelId == 0 {
+		channelId = channelError.ChannelId
+	}
+
+	other := buildRelayErrorLogOther(c, err, channelId, channelName, channelType)
+	startTime := common.GetContextKeyTime(c, constant.ContextKeyRequestStartTime)
+	if startTime.IsZero() {
+		startTime = time.Now()
+	}
+	useTimeSeconds := int(time.Since(startTime).Seconds())
+	logID := model.CreateErrorLog(c, userId, channelId, modelName, tokenName, err.MaskSensitiveErrorWithStatusCode(), tokenId, useTimeSeconds, common.GetContextKeyBool(c, constant.ContextKeyIsStream), userGroup, other)
+	if logID > 0 {
+		c.Set(ginKeyRelayErrorLogID, logID)
+		c.Set(relayErrorLogDedupKey(c, channelError, err), logID)
+		service.AttachRetryRouteLog(c, logID)
+	}
+	return logID
+}
+
+func relayErrorLogDedupKey(c *gin.Context, channelError *types.ChannelError, err *types.NewAPIError) string {
+	channelId := 0
+	if channelError != nil {
+		channelId = channelError.ChannelId
+	} else {
+		channelId = common.GetContextKeyInt(c, constant.ContextKeyChannelId)
+	}
+	return fmt.Sprintf("relay_error_log_id:%d:%d:%s:%s", channelId, err.StatusCode, err.GetErrorCode(), err.Error())
+}
+
+func buildRelayErrorLogOther(c *gin.Context, err *types.NewAPIError, channelId int, channelName string, channelType int) map[string]interface{} {
+	// Keep this metadata-only: request/response bodies, headers and hashes belong to
+	// the removed request-detail pipeline and must not be persisted here.
+	other := make(map[string]interface{})
+	if c.Request != nil && c.Request.URL != nil {
+		other["request_path"] = c.Request.URL.Path
+		other["request_method"] = c.Request.Method
+	}
+	other["error_type"] = err.GetErrorType()
+	other["error_code"] = err.GetErrorCode()
+	other["status_code"] = err.StatusCode
+	other["channel_id"] = channelId
+	other["channel_name"] = channelName
+	other["channel_type"] = channelType
+	if eventID, ok := service.GetCurrentRetryRouteEventID(c); ok {
+		other["retry_route_event_ids"] = []int{eventID}
+	}
+	other["admin_info"] = buildRelayErrorAdminInfo(c)
+	return other
+}
+
+func buildRelayErrorAdminInfo(c *gin.Context) map[string]interface{} {
+	adminInfo := make(map[string]interface{})
+	adminInfo["use_channel"] = c.GetStringSlice("use_channel")
+	if c.GetString("model_fallback_model") != "" {
+		adminInfo["model_fallback"] = map[string]interface{}{
+			"primary_model":  c.GetString("model_fallback_primary"),
+			"fallback_model": c.GetString("model_fallback_model"),
+			"mode":           c.GetString("model_fallback_mode"),
+		}
+	}
+	if common.GetContextKeyBool(c, constant.ContextKeyChannelIsMultiKey) {
+		adminInfo["is_multi_key"] = true
+		adminInfo["multi_key_index"] = common.GetContextKeyInt(c, constant.ContextKeyChannelMultiKeyIndex)
+	}
+	service.AppendChannelAffinityAdminInfo(c, adminInfo)
+	service.AppendRetryPolicyRecoveryAdminInfo(c, adminInfo)
+	return adminInfo
 }
 
 func RelayMidjourney(c *gin.Context) {
