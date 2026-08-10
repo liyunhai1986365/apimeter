@@ -16,17 +16,26 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { BILLING_CACHE_VAR_MAP } from './billing-expr'
+import {
+  BILLING_EXTRA_VARS,
+  buildRequestConditionExpr,
+  normalizeCondition,
+  tryParseRequestCondition,
+  type RequestCondition,
+} from './billing-expr'
 
 export const CACHE_MODE_TIMED = 'timed'
 export const CACHE_MODE_GENERIC = 'generic'
 export type CacheMode = typeof CACHE_MODE_TIMED | typeof CACHE_MODE_GENERIC
 
-export type TierConditionInput = {
+export type TokenTierCondition = {
+  source: 'token'
   var: 'p' | 'c' | 'len'
   op: '<' | '<=' | '>' | '>='
   value: number | string
 }
+
+export type TierConditionInput = TokenTierCondition | RequestCondition
 
 export type VisualTier = {
   label: string
@@ -41,6 +50,8 @@ export type VisualTier = {
   image_output_unit_cost?: number
   audio_input_unit_cost?: number
   audio_output_unit_cost?: number
+  per_second_unit_cost?: number
+  per_request_unit_cost?: number
   [field: string]: unknown
 }
 
@@ -62,12 +73,14 @@ export function normalizeVisualTier(
   tier: Partial<VisualTier> = {}
 ): VisualTier {
   return {
+    ...tier,
     label: tier.label ?? '',
     input_unit_cost: Number(tier.input_unit_cost) || 0,
     output_unit_cost: Number(tier.output_unit_cost) || 0,
     cache_mode: getTierCacheMode(tier),
-    conditions: Array.isArray(tier.conditions) ? tier.conditions : [],
-    ...tier,
+    conditions: Array.isArray(tier.conditions)
+      ? tier.conditions.map(normalizeTierCondition)
+      : [],
     cache_read_unit_cost: Number(tier.cache_read_unit_cost) || 0,
     cache_create_unit_cost: Number(tier.cache_create_unit_cost) || 0,
     cache_create_1h_unit_cost: Number(tier.cache_create_1h_unit_cost) || 0,
@@ -75,7 +88,38 @@ export function normalizeVisualTier(
     image_output_unit_cost: Number(tier.image_output_unit_cost) || 0,
     audio_input_unit_cost: Number(tier.audio_input_unit_cost) || 0,
     audio_output_unit_cost: Number(tier.audio_output_unit_cost) || 0,
+    per_second_unit_cost: Number(tier.per_second_unit_cost) || 0,
+    per_request_unit_cost: Number(tier.per_request_unit_cost) || 0,
   }
+}
+
+function normalizeTierCondition(
+  condition: Partial<TierConditionInput> & {
+    var?: TokenTierCondition['var']
+  }
+): TierConditionInput {
+  if (!condition.source || condition.source === 'token') {
+    const tokenCondition = condition as Partial<TokenTierCondition>
+    return {
+      source: 'token',
+      var:
+        tokenCondition.var === 'p' || tokenCondition.var === 'c'
+          ? tokenCondition.var
+          : 'len',
+      op:
+        tokenCondition.op === '<=' ||
+        tokenCondition.op === '>' ||
+        tokenCondition.op === '>='
+          ? tokenCondition.op
+          : '<',
+      value: tokenCondition.value == null ? '' : tokenCondition.value,
+    }
+  }
+  return normalizeCondition(condition as Partial<RequestCondition>)
+}
+
+export function createEmptyTokenCondition(): TokenTierCondition {
+  return { source: 'token', var: 'len', op: '<', value: 200000 }
 }
 
 export function createDefaultVisualConfig(): VisualConfig {
@@ -107,20 +151,52 @@ export function normalizeVisualConfig(
 function buildConditionStr(conditions: TierConditionInput[]): string {
   if (!conditions || conditions.length === 0) return ''
   return conditions
-    .filter((c) => c.var && c.op && c.value != null && c.value !== '')
-    .map((c) => `${c.var} ${c.op} ${c.value}`)
+    .map((condition) => {
+      if (condition.source === 'token') {
+        if (
+          !condition.var ||
+          !condition.op ||
+          condition.value == null ||
+          condition.value === ''
+        ) {
+          return ''
+        }
+        return `${condition.var} ${condition.op} ${condition.value}`
+      }
+      return buildRequestConditionExpr(condition)
+    })
+    .filter(Boolean)
+    .map((condition) =>
+      condition.includes(' || ') ? `(${condition})` : condition
+    )
     .join(' && ')
 }
 
 function buildTierBodyExpr(tier: VisualTier): string {
   const parts: string[] = []
+  const perRequestPrice = Number(tier.per_request_unit_cost) || 0
+  const perSecondPrice = Number(tier.per_second_unit_cost) || 0
   const ic = Number(tier.input_unit_cost) || 0
   const oc = Number(tier.output_unit_cost) || 0
+  if (perRequestPrice !== 0) {
+    parts.push(String(perRequestPrice * 1000000))
+  }
   parts.push(`p * ${ic}`)
   parts.push(`c * ${oc}`)
-  for (const cv of BILLING_CACHE_VAR_MAP) {
-    const v = Number((tier as Record<string, unknown>)[cv.field]) || 0
-    if (v !== 0) parts.push(`${cv.exprVar} * ${v}`)
+  if (perSecondPrice !== 0) {
+    parts.push(`param("parameters.duration") * ${perSecondPrice} * 1000000`)
+  }
+  for (const variable of BILLING_EXTRA_VARS) {
+    if (
+      variable.key === 'duration' ||
+      variable.key === 'request' ||
+      !variable.tierField
+    ) {
+      continue
+    }
+    const value =
+      Number((tier as Record<string, unknown>)[variable.tierField]) || 0
+    if (value !== 0) parts.push(`${variable.key} * ${value}`)
   }
   return parts.join(' + ')
 }
@@ -136,7 +212,7 @@ export function generateExprFromVisualConfig(
   if (tiers.length === 1) {
     const tier = tiers[0]
     const label = tier.label || 'default'
-    const body = `tier("${label}", ${buildTierBodyExpr(tier)})`
+    const body = `tier(${JSON.stringify(label)}, ${buildTierBodyExpr(tier)})`
     const cond = buildConditionStr(tier.conditions)
     if (cond) {
       return `${cond} ? ${body} : p * 0 + c * 0`
@@ -148,7 +224,7 @@ export function generateExprFromVisualConfig(
   for (let i = 0; i < tiers.length; i++) {
     const tier = tiers[i]
     const label = tier.label || `tier_${i + 1}`
-    const body = `tier("${label}", ${buildTierBodyExpr(tier)})`
+    const body = `tier(${JSON.stringify(label)}, ${buildTierBodyExpr(tier)})`
     const cond = buildConditionStr(tier.conditions)
 
     if (i < tiers.length - 1 && cond) {
@@ -160,6 +236,260 @@ export function generateExprFromVisualConfig(
   return parts.join(' : ')
 }
 
+function hasFullOuterParens(value: string): boolean {
+  const text = value.trim()
+  if (!text.startsWith('(') || !text.endsWith(')')) return false
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (char === '(') depth += 1
+    if (char === ')') depth -= 1
+    if (depth === 0 && index < text.length - 1) return false
+  }
+  return depth === 0
+}
+
+function unwrapOuterParens(value: string): string {
+  let text = value.trim()
+  while (hasFullOuterParens(text)) text = text.slice(1, -1).trim()
+  return text
+}
+
+function splitTopLevel(value: string, operator: string): string[] {
+  const parts: string[] = []
+  let start = 0
+  let depth = 0
+  let inString = false
+  let escaped = false
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (char === '(') depth += 1
+    if (char === ')') depth -= 1
+    const isExponentSign =
+      operator === '+' && (value[index - 1] === 'e' || value[index - 1] === 'E')
+    if (
+      depth === 0 &&
+      !isExponentSign &&
+      value.slice(index, index + operator.length) === operator
+    ) {
+      parts.push(value.slice(start, index).trim())
+      start = index + operator.length
+      index += operator.length - 1
+    }
+  }
+  parts.push(value.slice(start).trim())
+  return parts.filter(Boolean)
+}
+
+function splitTopLevelTernary(
+  value: string
+): { condition: string; whenTrue: string; whenFalse: string } | null {
+  const text = unwrapOuterParens(value)
+  let depth = 0
+  let inString = false
+  let escaped = false
+  let questionIndex = -1
+  let nestedQuestions = 0
+
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index]
+    if (escaped) {
+      escaped = false
+      continue
+    }
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+    if (inString) continue
+    if (char === '(') depth += 1
+    if (char === ')') depth -= 1
+    if (depth !== 0) continue
+    if (char === '?') {
+      if (questionIndex === -1) questionIndex = index
+      else nestedQuestions += 1
+      continue
+    }
+    if (char === ':' && questionIndex !== -1) {
+      if (nestedQuestions > 0) {
+        nestedQuestions -= 1
+        continue
+      }
+      return {
+        condition: text.slice(0, questionIndex).trim(),
+        whenTrue: text.slice(questionIndex + 1, index).trim(),
+        whenFalse: text.slice(index + 1).trim(),
+      }
+    }
+  }
+  return null
+}
+
+const TOKEN_FIELD_BY_VAR: Record<string, keyof VisualTier> = {
+  p: 'input_unit_cost',
+  c: 'output_unit_cost',
+  cr: 'cache_read_unit_cost',
+  cc: 'cache_create_unit_cost',
+  cc1h: 'cache_create_1h_unit_cost',
+  img: 'image_unit_cost',
+  img_o: 'image_output_unit_cost',
+  ai: 'audio_input_unit_cost',
+  ao: 'audio_output_unit_cost',
+}
+
+const NUMBER_PATTERN = '-?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?'
+
+function parseTierBody(body: string): Partial<VisualTier> | null {
+  const tier = normalizeVisualTier()
+  for (const part of splitTopLevel(unwrapOuterParens(body), '+')) {
+    let match = part.match(
+      new RegExp(
+        `^(p|c|cr|cc|cc1h|img|img_o|ai|ao)\\s*\\*\\s*(${NUMBER_PATTERN})$`
+      )
+    )
+    if (match) {
+      tier[TOKEN_FIELD_BY_VAR[match[1]]] = Number(match[2])
+      continue
+    }
+
+    match = part.match(
+      new RegExp(
+        `^param\\("parameters\\.duration"\\)\\s*\\*\\s*(${NUMBER_PATTERN})\\s*\\*\\s*1000000$`
+      )
+    )
+    if (match) {
+      tier.per_second_unit_cost = Number(match[1])
+      continue
+    }
+
+    match = part.match(new RegExp(`^(${NUMBER_PATTERN})\\s*\\*\\s*1000000$`))
+    if (match) {
+      tier.per_request_unit_cost = Number(match[1])
+      continue
+    }
+
+    match = part.match(new RegExp(`^(${NUMBER_PATTERN})$`))
+    if (match) {
+      tier.per_request_unit_cost = Number(match[1]) / 1000000
+      continue
+    }
+    return null
+  }
+  return tier
+}
+
+function parseTierCall(value: string): Partial<VisualTier> | null {
+  const text = unwrapOuterParens(value)
+  const match = text.match(/^tier\(\s*("(?:[^"\\]|\\.)*")\s*,\s*([\s\S]+)\)$/)
+  if (!match) return null
+  const parsedBody = parseTierBody(match[2])
+  if (!parsedBody) return null
+  return {
+    ...parsedBody,
+    label: JSON.parse(match[1]) as string,
+  }
+}
+
+function parseTierConditions(value: string): TierConditionInput[] | null {
+  const parts = splitTopLevel(unwrapOuterParens(value), '&&')
+  const conditions: TierConditionInput[] = []
+  for (let index = 0; index < parts.length; index += 1) {
+    const tokenMatch = unwrapOuterParens(parts[index]).match(
+      new RegExp(`^(p|c|len)\\s*(<=|>=|<|>)\\s*(${NUMBER_PATTERN})$`)
+    )
+    if (tokenMatch) {
+      conditions.push({
+        source: 'token',
+        var: tokenMatch[1] as TokenTierCondition['var'],
+        op: tokenMatch[2] as TokenTierCondition['op'],
+        value: Number(tokenMatch[3]),
+      })
+      continue
+    }
+
+    const combined =
+      index + 1 < parts.length
+        ? `${unwrapOuterParens(parts[index])} && ${unwrapOuterParens(parts[index + 1])}`
+        : ''
+    const requestCondition =
+      (combined && tryParseRequestCondition(combined)) ||
+      tryParseRequestCondition(unwrapOuterParens(parts[index]))
+    if (!requestCondition) return null
+    if (combined && tryParseRequestCondition(combined)) index += 1
+    conditions.push(requestCondition)
+  }
+  return conditions
+}
+
+function isZeroCostExpr(value: string): boolean {
+  const parsed = parseTierBody(value)
+  if (!parsed) return false
+  return Object.entries(parsed).every(([key, fieldValue]) => {
+    if (key === 'label' || key === 'conditions' || key === 'cache_mode') {
+      return true
+    }
+    return Number(fieldValue) === 0
+  })
+}
+
+function collectVisualTiers(
+  value: string,
+  inheritedConditions: TierConditionInput[],
+  tiers: VisualTier[]
+): boolean {
+  const tier = parseTierCall(value)
+  if (tier) {
+    tiers.push(
+      normalizeVisualTier({ ...tier, conditions: inheritedConditions })
+    )
+    return true
+  }
+
+  const conditional = splitTopLevelTernary(value)
+  if (!conditional) return isZeroCostExpr(unwrapOuterParens(value))
+  const conditions = parseTierConditions(conditional.condition)
+  if (!conditions || conditions.length === 0) return false
+  return (
+    collectVisualTiers(
+      conditional.whenTrue,
+      [...inheritedConditions, ...conditions],
+      tiers
+    ) && collectVisualTiers(conditional.whenFalse, inheritedConditions, tiers)
+  )
+}
+
 export function tryParseVisualConfig(
   exprStr: string | null | undefined
 ): VisualConfig | null {
@@ -168,76 +498,10 @@ export function tryParseVisualConfig(
     let body = exprStr
     const versionMatch = body.match(/^v\d+:([\s\S]*)$/)
     if (versionMatch) body = versionMatch[1]
-    const cacheVarNames = BILLING_CACHE_VAR_MAP.map((cv) => cv.exprVar)
-    const optCacheStr = cacheVarNames
-      .map((v) => `(?:\\s*\\+\\s*${v}\\s*\\*\\s*([\\d.eE+-]+))?`)
-      .join('')
-
-    const bodyPat = `p\\s*\\*\\s*([\\d.eE+-]+)\\s*\\+\\s*c\\s*\\*\\s*([\\d.eE+-]+)${optCacheStr}`
-
-    const singleRe = new RegExp(`^tier\\("([^"]*)",\\s*${bodyPat}\\)$`)
-    const simple = body.match(singleRe)
-    if (simple) {
-      const tier: Record<string, unknown> = {
-        conditions: [],
-        input_unit_cost: Number(simple[2]),
-        output_unit_cost: Number(simple[3]),
-        label: simple[1],
-      }
-      BILLING_CACHE_VAR_MAP.forEach((cv, i) => {
-        const val = simple[4 + i]
-        if (val != null) tier[cv.field] = Number(val)
-      })
-      return normalizeVisualConfig({
-        tiers: [normalizeVisualTier(tier as Partial<VisualTier>)],
-      })
-    }
-
-    const condGroup =
-      `((?:(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)` +
-      `(?:\\s*&&\\s*(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)*)`
-    const tierRe = new RegExp(
-      `(?:${condGroup}\\s*\\?\\s*)?tier\\("([^"]*)",\\s*${bodyPat}\\)`,
-      'g'
-    )
     const tiers: VisualTier[] = []
-    let match: RegExpExecArray | null
-    while ((match = tierRe.exec(body)) !== null) {
-      const condStr = match[1] || ''
-      const conditions: TierConditionInput[] = []
-      if (condStr) {
-        for (const cp of condStr.split(/\s*&&\s*/)) {
-          const cm = cp.trim().match(/^(p|c|len)\s*(<|<=|>|>=)\s*([\d.eE+]+)$/)
-          if (cm) {
-            conditions.push({
-              var: cm[1] as TierConditionInput['var'],
-              op: cm[2] as TierConditionInput['op'],
-              value: Number(cm[3]),
-            })
-          }
-        }
-      }
-      const tier: Record<string, unknown> = {
-        conditions,
-        input_unit_cost: Number(match[3]),
-        output_unit_cost: Number(match[4]),
-        label: match[2],
-      }
-      const m = match
-      BILLING_CACHE_VAR_MAP.forEach((cv, i) => {
-        const val = m[5 + i]
-        if (val != null) tier[cv.field] = Number(val)
-      })
-      tiers.push(normalizeVisualTier(tier as Partial<VisualTier>))
-    }
+    if (!collectVisualTiers(body, [], tiers)) return null
     if (tiers.length === 0) return null
-
-    const cfg = normalizeVisualConfig({ tiers })
-    const regenerated = generateExprFromVisualConfig(cfg)
-    if (regenerated.replace(/\s+/g, '') !== body.replace(/\s+/g, '')) {
-      return null
-    }
-    return cfg
+    return normalizeVisualConfig({ tiers })
   } catch {
     return null
   }

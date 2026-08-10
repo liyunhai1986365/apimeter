@@ -194,8 +194,7 @@ const PARAM_DURATION_PRICE_REGEX =
 const CONSTANT_REQUEST_PRICE_REGEX =
   /^(?:\(?\s*)?([\d.eE+-]+)\s*\*\s*1000000(?:\s*\)?)?$/
 
-const QUOTA_SCALED_REQUEST_PRICE_REGEX =
-  /^\s*([\d.eE+-]+)(?:\s*(?:\+|$))/
+const QUOTA_SCALED_REQUEST_PRICE_REGEX = /^\s*([\d.eE+-]+)(?:\s*(?:\+|$))/
 
 // ---------------------------------------------------------------------------
 // Request rule constants
@@ -563,38 +562,54 @@ function tryParseTimeCondition(expr: string): RequestCondition | null {
   return null
 }
 
-function tryParseRequestCondition(expr: string): RequestCondition | null {
+export function tryParseRequestCondition(
+  expr: string
+): RequestCondition | null {
   const tc = tryParseTimeCondition(expr)
   if (tc) return tc
 
-  let m = expr.match(/^header\("([^"]+)"\) != ""$/)
-  if (m) return { source: 'header', path: m[1], mode: MATCH_EXISTS, value: '' }
-
-  m = expr.match(/^param\("([^"]+)"\) != nil$/)
-  if (m) return { source: 'param', path: m[1], mode: MATCH_EXISTS, value: '' }
-
-  m = expr.match(/^has\(header\("([^"]+)"\), ((?:"(?:[^"\\]|\\.)*"))\)$/)
+  let m = expr.match(/^header\(("(?:[^"\\]|\\.)*")\) != ""$/)
   if (m)
     return {
       source: 'header',
-      path: m[1],
+      path: JSON.parse(m[1]) as string,
+      mode: MATCH_EXISTS,
+      value: '',
+    }
+
+  m = expr.match(/^param\(("(?:[^"\\]|\\.)*")\) != nil$/)
+  if (m)
+    return {
+      source: 'param',
+      path: JSON.parse(m[1]) as string,
+      mode: MATCH_EXISTS,
+      value: '',
+    }
+
+  m = expr.match(
+    /^has\(header\(("(?:[^"\\]|\\.)*")\), ((?:"(?:[^"\\]|\\.)*"))\)$/
+  )
+  if (m)
+    return {
+      source: 'header',
+      path: JSON.parse(m[1]) as string,
       mode: MATCH_CONTAINS,
       value: JSON.parse(m[2]) as string,
     }
 
   m = expr.match(
-    /^param\("([^"]+)"\) != nil && has\(param\("([^"]+)"\), ((?:"(?:[^"\\]|\\.)*"))\)$/
+    /^param\(("(?:[^"\\]|\\.)*")\) != nil && has\(param\(("(?:[^"\\]|\\.)*")\), ((?:"(?:[^"\\]|\\.)*"))\)$/
   )
   if (m && m[1] === m[2])
     return {
       source: 'param',
-      path: m[1],
+      path: JSON.parse(m[1]) as string,
       mode: MATCH_CONTAINS,
       value: JSON.parse(m[3]) as string,
     }
 
   m = expr.match(
-    /^param\("([^"]+)"\) != nil && param\("([^"]+)"\) (>|>=|<|<=) ([\d.eE+-]+)$/
+    /^param\(("(?:[^"\\]|\\.)*")\) != nil && param\(("(?:[^"\\]|\\.)*")\) (>|>=|<|<=) ([\d.eE+-]+)$/
   )
   if (m && m[1] === m[2]) {
     const opMap: Record<string, string> = {
@@ -603,16 +618,21 @@ function tryParseRequestCondition(expr: string): RequestCondition | null {
       '<': MATCH_LT,
       '<=': MATCH_LTE,
     }
-    return { source: 'param', path: m[1], mode: opMap[m[3]], value: m[4] }
+    return {
+      source: 'param',
+      path: JSON.parse(m[1]) as string,
+      mode: opMap[m[3]],
+      value: m[4],
+    }
   }
 
-  m = expr.match(/^(param|header)\("([^"]+)"\) == (.+)$/)
+  m = expr.match(/^(param|header)\(("(?:[^"\\]|\\.)*")\) == (.+)$/)
   if (m) {
     const parsedValue = parseExprLiteral(m[3])
     if (parsedValue === null) return null
     return {
       source: m[1] as 'param' | 'header',
-      path: m[2],
+      path: JSON.parse(m[2]) as string,
       mode: MATCH_EQ,
       value: String(parsedValue),
     }
@@ -867,7 +887,7 @@ function buildTimeConditionExpr(cond: TimeCondition): string {
   return `${fn} ${opMap[mode] || '=='} ${v}`
 }
 
-function buildRequestConditionExpr(cond: RequestCondition): string {
+export function buildRequestConditionExpr(cond: RequestCondition): string {
   if (cond.source === 'time') return buildTimeConditionExpr(cond)
   const normalized = normalizeCondition(cond) as ParamHeaderCondition
   const path = normalized.path.trim()

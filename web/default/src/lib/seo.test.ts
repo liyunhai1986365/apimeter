@@ -38,6 +38,14 @@ describe('SEO helpers', () => {
     })
   })
 
+  test('uses partner program metadata for the partner page', () => {
+    const descriptor = resolveSEODescriptor('/partner/', 'ModelSell', t)
+
+    assert.equal(descriptor.title, 'Partner Program | ModelSell')
+    assert.equal(descriptor.canonicalPath, '/partner')
+    assert.equal(descriptor.robots, 'index, follow')
+  })
+
   test('uses model names for pricing detail metadata', () => {
     const descriptor = resolveSEODescriptor(
       '/pricing/gpt-4.1%20mini/',

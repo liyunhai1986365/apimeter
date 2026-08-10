@@ -86,10 +86,12 @@ import {
   CACHE_MODE_TIMED,
   type CacheMode,
   type ExtraTokenValues,
+  type TokenTierCondition,
   type TierConditionInput,
   type VisualConfig,
   type VisualTier,
   createDefaultVisualConfig,
+  createEmptyTokenCondition,
   evalExprLocally,
   exprUsesExtraVars,
   generateExprFromVisualConfig,
@@ -106,16 +108,22 @@ const CACHE_PRICE_VARS = BILLING_EXTRA_VARS.filter(
 const MEDIA_PRICE_VARS = BILLING_EXTRA_VARS.filter(
   (variable) => variable.group === 'media'
 )
+const TASK_PRICE_VARS = BILLING_EXTRA_VARS.filter(
+  (variable) => variable.group === 'time' || variable.group === 'request'
+)
+const ESTIMATOR_TOKEN_PRICE_VARS = BILLING_EXTRA_VARS.filter(
+  (variable) => !variable.unit || variable.unit === 'tokens'
+)
 
 const CONDITION_INPUT_OPTIONS: {
-  value: TierConditionInput['var']
+  value: TokenTierCondition['var']
   labelKey: string
 }[] = [
   { value: 'len', labelKey: 'Full input length' },
   { value: 'p', labelKey: 'Billable input tokens' },
   { value: 'c', labelKey: 'Billable output tokens' },
 ]
-const OPS: TierConditionInput['op'][] = ['<', '<=', '>', '>=']
+const OPS: TokenTierCondition['op'][] = ['<', '<=', '>', '>=']
 
 type Preset = {
   key: string
@@ -421,96 +429,6 @@ function DraftNumberInput({
 }
 
 // ---------------------------------------------------------------------------
-// Tier condition row
-// ---------------------------------------------------------------------------
-
-type ConditionRowProps = {
-  condition: TierConditionInput
-  onChange: (next: TierConditionInput) => void
-  onRemove: () => void
-}
-
-function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
-  const { t } = useTranslation()
-  const currentInputOption = CONDITION_INPUT_OPTIONS.find(
-    (option) => option.value === condition.var
-  )
-
-  return (
-    <div className='flex items-center gap-2'>
-      <Select
-        items={[
-          ...CONDITION_INPUT_OPTIONS.map((option) => ({
-            value: option.value,
-            label: t(option.labelKey),
-          })),
-        ]}
-        value={condition.var}
-        onValueChange={(value) =>
-          onChange({ ...condition, var: value as TierConditionInput['var'] })
-        }
-      >
-        <SelectTrigger className='w-32' size='sm'>
-          <SelectValue>
-            {currentInputOption
-              ? t(currentInputOption.labelKey)
-              : condition.var}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
-          <SelectGroup>
-            {CONDITION_INPUT_OPTIONS.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
-                {t(option.labelKey)}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <Select
-        items={[...OPS.map((op) => ({ value: op, label: op }))]}
-        value={condition.op}
-        onValueChange={(value) =>
-          onChange({ ...condition, op: value as TierConditionInput['op'] })
-        }
-      >
-        <SelectTrigger className='w-20' size='sm'>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent alignItemWithTrigger={false}>
-          <SelectGroup>
-            {OPS.map((op) => (
-              <SelectItem key={op} value={op}>
-                {op}
-              </SelectItem>
-            ))}
-          </SelectGroup>
-        </SelectContent>
-      </Select>
-      <DraftNumberInput
-        min={0}
-        value={condition.value}
-        onValueChange={(value) => onChange({ ...condition, value })}
-        placeholder='tokens'
-        className='w-32'
-      />
-      <span className='text-muted-foreground text-xs'>
-        {formatTokenHint(condition.value)}
-      </span>
-      <Button
-        variant='ghost'
-        size='icon'
-        onClick={onRemove}
-        aria-label='remove'
-        className='ml-auto'
-      >
-        <Trash2 className='text-destructive h-4 w-4' />
-      </Button>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
 // Price input field
 // ---------------------------------------------------------------------------
 
@@ -597,6 +515,11 @@ function VisualTierCard({
     return unitCostToPrice((tier[fieldKey] as number | undefined) ?? 0) > 0
   })
   const [mediaOpen, setMediaOpen] = useState(hasMediaPricing)
+  const hasTaskPricing = TASK_PRICE_VARS.some((variable) => {
+    const fieldKey = variable.tierField as keyof VisualTier
+    return unitCostToPrice((tier[fieldKey] as number | undefined) ?? 0) > 0
+  })
+  const [taskOpen, setTaskOpen] = useState(hasTaskPricing)
 
   useEffect(() => {
     if (hasMediaPricing) setMediaOpen(true)
@@ -656,7 +579,7 @@ function VisualTierCard({
             variant='ghost'
             size='sm'
             onClick={onAddCondition}
-            disabled={tier.conditions.length >= 2}
+            disabled={tier.conditions.length >= 4}
             className='h-7 px-2 text-xs'
           >
             <Plus className='mr-1 h-3 w-3' />
@@ -669,9 +592,10 @@ function VisualTierCard({
           </p>
         ) : (
           tier.conditions.map((condition, conditionIndex) => (
-            <ConditionRow
+            <RuleConditionRow
               key={conditionIndex}
               condition={condition}
+              allowToken
               onChange={(next) => handleConditionChange(conditionIndex, next)}
               onRemove={() => handleConditionRemove(conditionIndex)}
             />
@@ -764,6 +688,27 @@ function VisualTierCard({
           </div>
         )}
       </div>
+
+      <div className='space-y-1.5'>
+        <Button
+          type='button'
+          variant='ghost'
+          size='sm'
+          className='h-7 px-2 text-xs'
+          onClick={() => setTaskOpen((prev) => !prev)}
+        >
+          <ChevronDown
+            className={cn('transition-transform', taskOpen && 'rotate-180')}
+            data-icon='inline-start'
+          />
+          {t('Task pricing')}
+        </Button>
+        {taskOpen && (
+          <div className='flex flex-wrap gap-x-4 gap-y-2'>
+            {TASK_PRICE_VARS.map(renderPriceVariable)}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -799,7 +744,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
     if (lastIndex >= 0 && tiers[lastIndex].conditions.length === 0) {
       tiers[lastIndex] = normalizeVisualTier({
         ...tiers[lastIndex],
-        conditions: [{ var: 'len', op: '<', value: 200000 }],
+        conditions: [createEmptyTokenCondition()],
       })
     }
     tiers.push(
@@ -820,23 +765,28 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
 
   const handleAddCondition = (index: number) => {
     const tier = config.tiers[index]
-    if (tier.conditions.length >= 2) return
+    if (tier.conditions.length >= 4) return
     // Prefer `len` (input length) over `p`/`c` for tier conditions because
     // `p` is subject to auto-exclusion when sub-categories like `cr` are
     // priced separately, which can misroute long-input requests into shorter
     // tiers when cache-hits reduce the effective `p`.
-    const usedVars = new Set(tier.conditions.map((c) => c.var))
-    const nextVar: TierConditionInput['var'] = usedVars.has('len') ? 'c' : 'len'
+    const usedVars = new Set(
+      tier.conditions
+        .filter(
+          (condition): condition is TokenTierCondition =>
+            condition.source === 'token'
+        )
+        .map((condition) => condition.var)
+    )
+    const nextCondition = createEmptyTokenCondition()
+    if (usedVars.has('len')) nextCondition.var = 'c'
     onChange({
       ...config,
       tiers: config.tiers.map((current, i) =>
         i === index
           ? {
               ...current,
-              conditions: [
-                ...tier.conditions,
-                { var: nextVar, op: '<', value: 200000 },
-              ],
+              conditions: [...tier.conditions, nextCondition],
             }
           : current
       ),
@@ -847,7 +797,7 @@ function VisualEditor({ visualConfig, onChange }: VisualEditorProps) {
     <div className='space-y-2'>
       <p className='text-muted-foreground text-xs'>
         {t(
-          'Each tier supports up to 2 conditions. The last tier without conditions is the fallback.'
+          'Each tier supports up to 4 conditions from tokens, body params, headers, or time. The last tier without conditions is the fallback.'
         )}
       </p>
       {config.tiers.map((tier, index) => (
@@ -899,7 +849,11 @@ function RawExprEditor({ exprString, onChange }: RawExprEditorProps) {
             {t('Functions')}: <code>tier(name, value)</code>, <code>max</code>,{' '}
             <code>min</code>, <code>ceil</code>, <code>floor</code>,{' '}
             <code>abs</code>, <code>header(name)</code>,{' '}
-            <code>param(path)</code>, <code>has(source, text)</code>
+            <code>param(path)</code>, <code>response(path)</code>,{' '}
+            <code>has(source, text)</code>, <code>pixels(value)</code>,{' '}
+            <code>hour(tz)</code>, <code>minute(tz)</code>,{' '}
+            <code>weekday(tz)</code>, <code>month(tz)</code>,{' '}
+            <code>day(tz)</code>
           </div>
         </AlertDescription>
       </Alert>
@@ -920,18 +874,23 @@ function RawExprEditor({ exprString, onChange }: RawExprEditorProps) {
 // ---------------------------------------------------------------------------
 
 type RuleConditionRowProps = {
-  condition: RequestCondition
-  onChange: (next: RequestCondition) => void
+  condition: TierConditionInput
+  onChange: (next: TierConditionInput) => void
   onRemove: () => void
+  allowToken?: boolean
 }
 
 function RuleConditionRow({
   condition,
   onChange,
   onRemove,
+  allowToken = false,
 }: RuleConditionRowProps) {
   const { t } = useTranslation()
-  const matchOptions = getRequestRuleMatchOptions(condition.source)
+  const matchOptions =
+    condition.source === 'token'
+      ? []
+      : getRequestRuleMatchOptions(condition.source)
   const getMatchLabel = (mode: string) => {
     switch (mode) {
       case MATCH_EQ:
@@ -971,14 +930,18 @@ function RuleConditionRow({
     }
   }
   const sourceLabel =
-    condition.source === SOURCE_PARAM
-      ? t('Body param')
-      : condition.source === SOURCE_HEADER
-        ? t('Header')
-        : t('Time')
+    condition.source === 'token'
+      ? t('Token count')
+      : condition.source === SOURCE_PARAM
+        ? t('Body param')
+        : condition.source === SOURCE_HEADER
+          ? t('Header')
+          : t('Time')
 
   const handleSourceChange = (source: string) => {
-    if (source === SOURCE_TIME) {
+    if (source === 'token') {
+      onChange(createEmptyTokenCondition())
+    } else if (source === SOURCE_TIME) {
       onChange(createEmptyTimeCondition())
     } else if (source === SOURCE_HEADER || source === SOURCE_PARAM) {
       onChange({
@@ -989,7 +952,82 @@ function RuleConditionRow({
   }
 
   const handleModeChange = (mode: string) => {
-    onChange({ ...condition, mode } as RequestCondition)
+    if (condition.source !== 'token') {
+      onChange({ ...condition, mode } as RequestCondition)
+    }
+  }
+
+  const renderTokenCondition = (tokenCondition: TokenTierCondition) => {
+    const currentInputOption = CONDITION_INPUT_OPTIONS.find(
+      (option) => option.value === tokenCondition.var
+    )
+    return (
+      <>
+        <Select
+          items={CONDITION_INPUT_OPTIONS.map((option) => ({
+            value: option.value,
+            label: t(option.labelKey),
+          }))}
+          value={tokenCondition.var}
+          onValueChange={(value) =>
+            onChange({
+              ...tokenCondition,
+              var: value as TokenTierCondition['var'],
+            })
+          }
+        >
+          <SelectTrigger className='w-40' size='sm'>
+            <SelectValue>
+              {currentInputOption
+                ? t(currentInputOption.labelKey)
+                : tokenCondition.var}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent alignItemWithTrigger={false}>
+            <SelectGroup>
+              {CONDITION_INPUT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {t(option.labelKey)}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Select
+          items={OPS.map((op) => ({ value: op, label: op }))}
+          value={tokenCondition.op}
+          onValueChange={(value) =>
+            onChange({
+              ...tokenCondition,
+              op: value as TokenTierCondition['op'],
+            })
+          }
+        >
+          <SelectTrigger className='w-20' size='sm'>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent alignItemWithTrigger={false}>
+            <SelectGroup>
+              {OPS.map((op) => (
+                <SelectItem key={op} value={op}>
+                  {op}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <DraftNumberInput
+          min={0}
+          value={tokenCondition.value}
+          onValueChange={(value) => onChange({ ...tokenCondition, value })}
+          placeholder='tokens'
+          className='w-32'
+        />
+        <span className='text-muted-foreground text-xs'>
+          {formatTokenHint(tokenCondition.value)}
+        </span>
+      </>
+    )
   }
 
   const renderTimeCondition = (timeCond: TimeCondition) => (
@@ -1153,6 +1191,7 @@ function RuleConditionRow({
     <div className='flex flex-wrap items-center gap-2'>
       <Select
         items={[
+          ...(allowToken ? [{ value: 'token', label: t('Token count') }] : []),
           { value: SOURCE_PARAM, label: t('Body param') },
           { value: SOURCE_HEADER, label: t('Header') },
           { value: SOURCE_TIME, label: t('Time') },
@@ -1165,15 +1204,20 @@ function RuleConditionRow({
         </SelectTrigger>
         <SelectContent alignItemWithTrigger={false}>
           <SelectGroup>
+            {allowToken && (
+              <SelectItem value='token'>{t('Token count')}</SelectItem>
+            )}
             <SelectItem value={SOURCE_PARAM}>{t('Body param')}</SelectItem>
             <SelectItem value={SOURCE_HEADER}>{t('Header')}</SelectItem>
             <SelectItem value={SOURCE_TIME}>{t('Time')}</SelectItem>
           </SelectGroup>
         </SelectContent>
       </Select>
-      {condition.source === SOURCE_TIME
-        ? renderTimeCondition(condition as TimeCondition)
-        : renderParamHeaderCondition(condition as ParamHeaderCondition)}
+      {condition.source === 'token'
+        ? renderTokenCondition(condition)
+        : condition.source === SOURCE_TIME
+          ? renderTimeCondition(condition as TimeCondition)
+          : renderParamHeaderCondition(condition as ParamHeaderCondition)}
       <Button
         variant='ghost'
         size='icon'
@@ -1246,7 +1290,11 @@ function RuleGroupCard({
           <RuleConditionRow
             key={conditionIndex}
             condition={condition}
-            onChange={(next) => handleConditionChange(conditionIndex, next)}
+            onChange={(next) => {
+              if (next.source !== 'token') {
+                handleConditionChange(conditionIndex, next)
+              }
+            }}
             onRemove={() =>
               onChange({
                 ...group,
@@ -1418,7 +1466,7 @@ function CostEstimator({ effectiveExpr }: EstimatorProps) {
       </div>
       {usesExtras && (
         <div className='grid grid-cols-2 gap-3'>
-          {BILLING_EXTRA_VARS.map((variable) => {
+          {ESTIMATOR_TOKEN_PRICE_VARS.map((variable) => {
             // BILLING_EXTRA_VARS only contains pricing variables; they are
             // guaranteed to have a non-null `field` (the `len` condition-only
             // variable is filtered out). Narrow the type here for safety.

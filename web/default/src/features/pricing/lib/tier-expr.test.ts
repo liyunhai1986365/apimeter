@@ -10,7 +10,11 @@ import {
   getDynamicPriceUnitLabelKey,
   splitDynamicPriceEntriesForDisplay,
 } from './dynamic-price'
-import { evalExprLocally } from './tier-expr'
+import {
+  evalExprLocally,
+  generateExprFromVisualConfig,
+  tryParseVisualConfig,
+} from './tier-expr'
 
 const emptyExtras = {
   cacheReadTokens: 0,
@@ -83,6 +87,127 @@ describe('evalExprLocally', () => {
     assert.equal(result.error, null)
     assert.equal(result.cost, 600000)
     assert.equal(result.matchedTier, 'gt_236mp')
+  })
+})
+
+describe('visual billing expression config', () => {
+  const seedanceExpr =
+    'param("resolution") == "1080p" ? (param("content.#(type==\\"video_url\\").video_url.url") != nil ? tier("1080p_video_input", c * 4.3055555556) : tier("1080p_no_video_input", c * 7.0833333333)) : (param("content.#(type==\\"video_url\\").video_url.url") != nil ? tier("480_720p_video_input", c * 3.8888888889) : tier("480_720p_no_video_input", c * 6.3888888889))'
+
+  test('parses nested request-param tiers into an editable prioritized list', () => {
+    const config = tryParseVisualConfig(seedanceExpr)
+
+    assert.ok(config)
+    assert.equal(config.tiers.length, 4)
+    assert.deepEqual(
+      config.tiers.map((tier) => ({
+        label: tier.label,
+        output: tier.output_unit_cost,
+        conditions: tier.conditions,
+      })),
+      [
+        {
+          label: '1080p_video_input',
+          output: 4.3055555556,
+          conditions: [
+            {
+              source: 'param',
+              path: 'resolution',
+              mode: 'eq',
+              value: '1080p',
+            },
+            {
+              source: 'param',
+              path: 'content.#(type=="video_url").video_url.url',
+              mode: 'exists',
+              value: '',
+            },
+          ],
+        },
+        {
+          label: '1080p_no_video_input',
+          output: 7.0833333333,
+          conditions: [
+            {
+              source: 'param',
+              path: 'resolution',
+              mode: 'eq',
+              value: '1080p',
+            },
+          ],
+        },
+        {
+          label: '480_720p_video_input',
+          output: 3.8888888889,
+          conditions: [
+            {
+              source: 'param',
+              path: 'content.#(type=="video_url").video_url.url',
+              mode: 'exists',
+              value: '',
+            },
+          ],
+        },
+        {
+          label: '480_720p_no_video_input',
+          output: 6.3888888889,
+          conditions: [],
+        },
+      ]
+    )
+
+    const generated = generateExprFromVisualConfig(config)
+    const reparsed = tryParseVisualConfig(generated)
+    assert.ok(reparsed)
+    assert.deepEqual(reparsed, config)
+  })
+
+  test('keeps existing token, cache, and media tiers visual-editable', () => {
+    const expression =
+      'len <= 200000 ? tier("standard", p * 3 + c * 15 + cr * 0.3 + cc * 3.75 + cc1h * 6 + img * 2 + img_o * 20 + ai * 4 + ao * 40) : tier("long", p * 6 + c * 22.5 + cr * 0.6)'
+
+    const config = tryParseVisualConfig(expression)
+    assert.ok(config)
+    assert.equal(config.tiers.length, 2)
+    assert.deepEqual(config.tiers[0].conditions, [
+      { source: 'token', var: 'len', op: '<=', value: 200000 },
+    ])
+    assert.equal(config.tiers[0].cache_create_1h_unit_cost, 6)
+    assert.equal(config.tiers[0].image_output_unit_cost, 20)
+    assert.equal(config.tiers[0].audio_output_unit_cost, 40)
+    assert.deepEqual(
+      tryParseVisualConfig(generateExprFromVisualConfig(config)),
+      config
+    )
+  })
+
+  test('round-trips mixed token, header, and time tier conditions', () => {
+    const expression =
+      'len >= 1000 && header("X-Priority") == "high" && hour("UTC") >= 8 ? tier("priority", p * 2 + c * 8) : tier("base", p * 1 + c * 4)'
+
+    const config = tryParseVisualConfig(expression)
+    assert.ok(config)
+    assert.equal(config.tiers[0].conditions.length, 3)
+    assert.deepEqual(
+      tryParseVisualConfig(generateExprFromVisualConfig(config)),
+      config
+    )
+  })
+
+  test('round-trips token, request, per-second, and per-request visual prices', () => {
+    const expression =
+      'param("parameters.resolution") == "1080P" ? tier("1080p", 0.1 * 1000000 + p * 2 + c * 4 + param("parameters.duration") * 0.5 * 1000000 + cr * 0.2 + img * 3) : tier("base", p * 1 + c * 2)'
+
+    const config = tryParseVisualConfig(expression)
+    assert.ok(config)
+    assert.equal(config.tiers[0].per_request_unit_cost, 0.1)
+    assert.equal(config.tiers[0].per_second_unit_cost, 0.5)
+    assert.equal(config.tiers[0].cache_read_unit_cost, 0.2)
+    assert.equal(config.tiers[0].image_unit_cost, 3)
+
+    const generated = generateExprFromVisualConfig(config)
+    assert.ok(tryParseVisualConfig(generated))
+    assert.equal(parseTiersFromExpr(generated)[0].perRequestPrice, 0.1)
   })
 })
 

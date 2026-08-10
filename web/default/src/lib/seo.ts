@@ -338,6 +338,7 @@ export function resolveSEODescriptor(
 function getPublicPageTitle(path: string, t: TFunction): string | undefined {
   const titles: Record<string, string> = {
     '/about': t('About'),
+    '/partner': t('Partner Program'),
     '/pricing': t('Model Price'),
     '/providers': t('AI Model Providers'),
     '/privacy-policy': t('Privacy Policy'),
