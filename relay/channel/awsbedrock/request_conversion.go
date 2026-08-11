@@ -23,7 +23,11 @@ type systemTextBlock struct {
 type URLLoader func(c *gin.Context, sourceURL string) (base64Data string, mimeType string, err error)
 
 type RequestConversionOptions struct {
-	PreserveModel bool
+	PreserveModel            bool
+	PreserveStream           bool
+	PreserveAnthropicVersion bool
+	SkipBetaConversion       bool
+	BetaModelNames           []string
 }
 
 // ConvertRequestBody applies only the compatibility fixes required by Bedrock
@@ -47,31 +51,42 @@ func convertRequestBody(c *gin.Context, body []byte, header http.Header, urlLoad
 	}
 
 	changed := false
+	betaModelNames := append([]string(nil), options.BetaModelNames...)
+	if modelRaw, exists := payload["model"]; exists {
+		var bodyModel string
+		if common.Unmarshal(modelRaw, &bodyModel) == nil && bodyModel != "" {
+			betaModelNames = append(betaModelNames, bodyModel)
+		}
+	}
 	if _, exists := payload["model"]; exists && !options.PreserveModel {
 		delete(payload, "model")
 		changed = true
 	}
-	if _, exists := payload["stream"]; exists {
+	if _, exists := payload["stream"]; exists && !options.PreserveStream {
 		delete(payload, "stream")
 		changed = true
 	}
 
-	var anthropicVersion string
-	versionRaw, versionExists := payload["anthropic_version"]
-	if !versionExists || common.Unmarshal(versionRaw, &anthropicVersion) != nil || anthropicVersion != AnthropicVersion {
-		encodedVersion, err := common.Marshal(AnthropicVersion)
-		if err != nil {
-			return nil, false, fmt.Errorf("encode AWS Bedrock anthropic_version: %w", err)
+	if !options.PreserveAnthropicVersion {
+		var anthropicVersion string
+		versionRaw, versionExists := payload["anthropic_version"]
+		if !versionExists || common.Unmarshal(versionRaw, &anthropicVersion) != nil || anthropicVersion != AnthropicVersion {
+			encodedVersion, err := common.Marshal(AnthropicVersion)
+			if err != nil {
+				return nil, false, fmt.Errorf("encode AWS Bedrock anthropic_version: %w", err)
+			}
+			payload["anthropic_version"] = encodedVersion
+			changed = true
 		}
-		payload["anthropic_version"] = encodedVersion
-		changed = true
 	}
 
-	betaChanged, err := normalizeBeta(payload, header)
-	if err != nil {
-		return nil, false, err
+	if !options.SkipBetaConversion {
+		betaChanged, err := normalizeBeta(payload, header, betaModelNames...)
+		if err != nil {
+			return nil, false, err
+		}
+		changed = changed || betaChanged
 	}
-	changed = changed || betaChanged
 
 	messagesRaw, hasMessages := payload["messages"]
 	if hasMessages {
@@ -108,20 +123,37 @@ func convertRequestBody(c *gin.Context, body []byte, header http.Header, urlLoad
 	return converted, true, nil
 }
 
-func normalizeBeta(payload map[string]json.RawMessage, header http.Header) (bool, error) {
+func normalizeBeta(payload map[string]json.RawMessage, header http.Header, modelNames ...string) (bool, error) {
 	changed := false
 	if betaRaw, exists := payload["anthropic_beta"]; exists {
 		if !bytes.Equal(bytes.TrimSpace(betaRaw), []byte("null")) {
 			var betaValues []string
 			if err := common.Unmarshal(betaRaw, &betaValues); err == nil {
-				return false, nil
+				filtered := filterBetaValues(betaValues, modelNames...)
+				if len(filtered) == 0 {
+					delete(payload, "anthropic_beta")
+					return true, nil
+				}
+				if equalStringSlices(betaValues, filtered) {
+					return false, nil
+				}
+				encodedBeta, err := common.Marshal(filtered)
+				if err != nil {
+					return false, fmt.Errorf("encode AWS Bedrock anthropic_beta: %w", err)
+				}
+				payload["anthropic_beta"] = encodedBeta
+				return true, nil
 			}
 
 			var betaValue string
 			if err := common.Unmarshal(betaRaw, &betaValue); err != nil {
 				return false, fmt.Errorf("anthropic_beta must be an array of strings")
 			}
-			betaValues = splitBetaValues(betaValue)
+			betaValues = filterBetaValues([]string{betaValue}, modelNames...)
+			if len(betaValues) == 0 {
+				delete(payload, "anthropic_beta")
+				return true, nil
+			}
 			encodedBeta, err := common.Marshal(betaValues)
 			if err != nil {
 				return false, fmt.Errorf("encode AWS Bedrock anthropic_beta: %w", err)
@@ -133,7 +165,7 @@ func normalizeBeta(payload map[string]json.RawMessage, header http.Header) (bool
 		changed = true
 	}
 
-	betaValues := splitBetaValues(strings.Join(header.Values("anthropic-beta"), ","))
+	betaValues := filterBetaValues(header.Values("anthropic-beta"), modelNames...)
 	if len(betaValues) == 0 {
 		return changed, nil
 	}
@@ -145,15 +177,16 @@ func normalizeBeta(payload map[string]json.RawMessage, header http.Header) (bool
 	return true, nil
 }
 
-func splitBetaValues(value string) []string {
-	parts := strings.Split(value, ",")
-	values := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			values = append(values, trimmed)
+func equalStringSlices(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for i := range left {
+		if left[i] != right[i] {
+			return false
 		}
 	}
-	return values
+	return true
 }
 
 func promoteLeadingSystemMessage(payload map[string]json.RawMessage, messages *[]map[string]json.RawMessage) (bool, error) {

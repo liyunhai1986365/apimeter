@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/awsbedrock"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -114,6 +115,9 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 	for key, value := range headerOverride {
 		requestHeader.Set(key, value)
 	}
+	if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+		awsbedrock.FilterAnthropicBetaHeader(&requestHeader, info.UpstreamModelName, info.OriginModelName)
+	}
 
 	if isNovaModel(awsModelId) {
 		var novaReq *NovaRequest
@@ -143,7 +147,7 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 			if err != nil {
 				return nil, types.NewError(errors.Wrap(err, "read aws request body fail"), types.ErrorCodeBadRequestBody)
 			}
-			awsRequestBody, _, err = convertAwsBedrockRequestBody(c, originalBody, requestHeader)
+			awsRequestBody, _, err = convertAwsBedrockRequestBody(c, originalBody, requestHeader, info.UpstreamModelName, info.OriginModelName)
 			if err != nil {
 				return nil, types.NewError(errors.Wrap(err, "convert aws bedrock request fail"), types.ErrorCodeBadRequestBody)
 			}

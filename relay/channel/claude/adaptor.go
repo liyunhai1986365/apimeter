@@ -90,7 +90,21 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	}
 	req.Set("anthropic-version", anthropicVersion)
 	CommonClaudeHeadersOperation(c, req, info)
+	if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+		filterAwsBedrockAnthropicBetaHeader(req, info.UpstreamModelName, info.OriginModelName)
+	}
 	return nil
+}
+
+func (a *Adaptor) FinalizeRequestHeader(_ *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
+	if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+		filterAwsBedrockAnthropicBetaHeader(req, info.UpstreamModelName, info.OriginModelName)
+	}
+	return nil
+}
+
+func filterAwsBedrockAnthropicBetaHeader(req *http.Header, modelNames ...string) {
+	awsbedrock.FilterAnthropicBetaHeader(req, modelNames...)
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
@@ -133,7 +147,10 @@ func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, request
 			return nil, fmt.Errorf("read Anthropic request body for AWS Bedrock conversion: %w", err)
 		}
 		convertedBody, _, err := awsbedrock.ConvertRequestBodyWithOptions(c, originalBody, requestHeader, awsbedrock.RequestConversionOptions{
-			PreserveModel: true,
+			PreserveModel:            true,
+			PreserveStream:           true,
+			PreserveAnthropicVersion: true,
+			SkipBetaConversion:       true,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("convert Anthropic request for AWS Bedrock: %w", err)

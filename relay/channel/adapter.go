@@ -31,6 +31,13 @@ type Adaptor interface {
 	ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error)
 }
 
+// RequestHeaderFinalizer allows provider adaptors to enforce protocol-specific
+// header constraints after generic channel overrides and passthrough rules have
+// been applied.
+type RequestHeaderFinalizer interface {
+	FinalizeRequestHeader(c *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error
+}
+
 type TaskAdaptor interface {
 	Init(info *relaycommon.RelayInfo)
 

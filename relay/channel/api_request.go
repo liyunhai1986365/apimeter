@@ -327,6 +327,11 @@ func DoApiRequest(a Adaptor, c *gin.Context, info *common.RelayInfo, requestBody
 		return nil, err
 	}
 	applyHeaderOverrideToRequest(req, headerOverride)
+	if finalizer, ok := a.(RequestHeaderFinalizer); ok {
+		if err := finalizer.FinalizeRequestHeader(c, &req.Header, info); err != nil {
+			return nil, fmt.Errorf("finalize request header failed: %w", err)
+		}
+	}
 	resp, err := doRequest(c, req, info)
 	if err != nil {
 		return nil, fmt.Errorf("do request failed: %w", err)

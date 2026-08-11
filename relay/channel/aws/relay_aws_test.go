@@ -17,7 +17,7 @@ import (
 func TestConvertAwsBedrockRequestBody_LeavesCompliantBodyUnchanged(t *testing.T) {
 	t.Parallel()
 
-	body := []byte(`{"anthropic_version":"bedrock-2023-05-31","anthropic_beta":["test-beta"],"max_tokens":24,"system":"be helpful","messages":[{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"aW1hZ2U="}}]}],"custom_field":{"keep":true}}`)
+	body := []byte(`{"anthropic_version":"bedrock-2023-05-31","anthropic_beta":["fine-grained-tool-streaming-2025-05-14"],"max_tokens":24,"system":"be helpful","messages":[{"role":"user","content":[{"type":"image","source":{"type":"base64","media_type":"image/png","data":"aW1hZ2U="}}]}],"custom_field":{"keep":true}}`)
 
 	converted, changed, err := convertAwsBedrockRequestBody(nil, body, http.Header{})
 	require.NoError(t, err)
@@ -36,11 +36,26 @@ func TestConvertAwsBedrockRequestBody_LeavesAbsentOptionalBetaUnchanged(t *testi
 	require.Equal(t, body, converted)
 }
 
+func TestConvertAwsBedrockRequestBody_FiltersExistingBetaArrayByModel(t *testing.T) {
+	t.Parallel()
+
+	body := []byte(`{"model":"claude-opus-4-8","anthropic_version":"bedrock-2023-05-31","anthropic_beta":["context-1m-2025-08-07","computer-use-2025-11-24","advisor-tool-2026-03-01"],"max_tokens":24,"messages":[{"role":"user","content":"hello"}]}`)
+
+	converted, changed, err := convertAwsBedrockRequestBody(nil, body, http.Header{})
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	var payload map[string]any
+	require.NoError(t, common.Unmarshal(converted, &payload))
+	require.Equal(t, []any{"computer-use-2025-11-24"}, payload["anthropic_beta"])
+	require.NotContains(t, payload, "model")
+}
+
 func TestConvertAwsBedrockRequestBody_AppliesOnlyRequiredCompatibilityFixes(t *testing.T) {
 	t.Parallel()
 
 	header := http.Header{}
-	header.Set("anthropic-beta", "beta-one, beta-two")
+	header.Set("anthropic-beta", "beta-one, computer-use-2025-11-24, beta-two")
 	body := []byte(`{"model":"claude-opus-4-8","stream":true,"max_tokens":24,"messages":[{"role":"system","content":"be exact"},{"role":"user","content":"hello"}],"custom_field":{"keep":true}}`)
 
 	converted, changed, err := convertAwsBedrockRequestBody(nil, body, header)
@@ -51,7 +66,7 @@ func TestConvertAwsBedrockRequestBody_AppliesOnlyRequiredCompatibilityFixes(t *t
 	require.NoError(t, common.Unmarshal(converted, &payload))
 	require.Equal(t, awsBedrockAnthropicVersion, payload["anthropic_version"])
 	require.Equal(t, "be exact", payload["system"])
-	require.Equal(t, []any{"beta-one", "beta-two"}, payload["anthropic_beta"])
+	require.Equal(t, []any{"computer-use-2025-11-24"}, payload["anthropic_beta"])
 	require.NotContains(t, payload, "model")
 	require.NotContains(t, payload, "stream")
 	require.Equal(t, map[string]any{"keep": true}, payload["custom_field"])
@@ -185,7 +200,7 @@ func TestDoAwsClientRequest_UsesConditionalBedrockConversionWhenEnabled(t *testi
 	require.NoError(t, common.Unmarshal(awsReq.Body, &payload))
 	require.Equal(t, awsBedrockAnthropicVersion, payload["anthropic_version"])
 	require.Equal(t, "system prompt", payload["system"])
-	require.Equal(t, []any{"test-beta"}, payload["anthropic_beta"])
+	require.NotContains(t, payload, "anthropic_beta")
 	require.Equal(t, "preserved", payload["custom_field"])
 	require.NotContains(t, payload, "model")
 	require.NotContains(t, payload, "stream")
