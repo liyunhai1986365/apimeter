@@ -181,6 +181,7 @@ export const channelFormSchema = z.object({
   thinking_to_content: z.boolean().optional(),
   proxy: z.string().optional(),
   pass_through_body_enabled: z.boolean().optional(),
+  aws_bedrock_request_conversion_enabled: z.boolean().optional(),
   image_auto_convert_generation_with_image_to_edit: z.boolean().optional(),
   image_auto_convert_json_edit_to_multipart: z.boolean().optional(),
   openai_image_response_format: z.enum(['', 'url', 'b64_json']).optional(),
@@ -249,6 +250,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   thinking_to_content: false,
   proxy: '',
   pass_through_body_enabled: false,
+  aws_bedrock_request_conversion_enabled: false,
   image_auto_convert_generation_with_image_to_edit: true,
   image_auto_convert_json_edit_to_multipart: true,
   openai_image_response_format: '',
@@ -298,6 +300,7 @@ export function transformChannelToFormDefaults(
     thinking_to_content: false,
     proxy: '',
     pass_through_body_enabled: false,
+    aws_bedrock_request_conversion_enabled: false,
     image_auto_convert_generation_with_image_to_edit: true,
     image_auto_convert_json_edit_to_multipart: true,
     openai_image_response_format: '' as '' | 'url' | 'b64_json',
@@ -318,6 +321,8 @@ export function transformChannelToFormDefaults(
         thinking_to_content: parsed.thinking_to_content || false,
         proxy: parsed.proxy || '',
         pass_through_body_enabled: parsed.pass_through_body_enabled || false,
+        aws_bedrock_request_conversion_enabled:
+          parsed.aws_bedrock_request_conversion_enabled === true,
         image_auto_convert_generation_with_image_to_edit:
           typeof parsed.image_auto_convert_generation_with_image_to_edit ===
           'boolean'
@@ -479,6 +484,9 @@ function buildSettingJSON(formData: ChannelFormValues): string {
     thinking_to_content: formData.thinking_to_content || false,
     proxy: formData.proxy || '',
     pass_through_body_enabled: formData.pass_through_body_enabled || false,
+    aws_bedrock_request_conversion_enabled:
+      (formData.type === 14 || formData.type === 33) &&
+      formData.aws_bedrock_request_conversion_enabled === true,
     image_auto_convert_generation_with_image_to_edit:
       formData.image_auto_convert_generation_with_image_to_edit !== false,
     image_auto_convert_json_edit_to_multipart:

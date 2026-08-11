@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import type { Channel } from '../types'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
   CONVERSION_OPTIONS,
@@ -10,7 +11,6 @@ import {
   transformFormDataToCreatePayload,
   transformFormDataToUpdatePayload,
 } from './channel-form'
-import type { Channel } from '../types'
 
 describe('channel form payload transforms', () => {
   test('preserves channel cost ratio when creating and updating channels', () => {
@@ -56,6 +56,52 @@ describe('channel form payload transforms', () => {
       JSON.parse(updatePayload.setting || '{}').openai_image_response_format,
       'b64_json'
     )
+  })
+
+  test('stores and reloads AWS Bedrock request conversion setting for AWS and Anthropic channels', () => {
+    for (const type of [14, 33]) {
+      const formData = {
+        ...CHANNEL_FORM_DEFAULT_VALUES,
+        name: 'aws-bedrock-channel',
+        type,
+        key: 'test-key',
+        models: 'claude-opus-4-8',
+        aws_bedrock_request_conversion_enabled: true,
+      }
+
+      const createPayload = transformFormDataToCreatePayload(formData)
+      const setting = JSON.parse(createPayload.channel.setting || '{}')
+      assert.equal(setting.aws_bedrock_request_conversion_enabled, true)
+
+      const channel = {
+        ...createPayload.channel,
+        id: 42,
+        type,
+        status: 1,
+        name: 'aws-bedrock-channel',
+        channel_ratio: 1,
+        created_time: 0,
+        test_time: 0,
+        response_time: 0,
+        other: '',
+        balance: 0,
+        balance_updated_time: 0,
+        used_quota: 0,
+        other_info: '',
+        remark: '',
+        max_input_tokens: 0,
+        channel_info: {
+          is_multi_key: false,
+          multi_key_size: 0,
+          multi_key_polling_index: 0,
+          multi_key_mode: 'random',
+        },
+        settings: '{}',
+      } as Channel
+
+      const defaults = transformChannelToFormDefaults(channel)
+      assert.equal(defaults.aws_bedrock_request_conversion_enabled, true)
+    }
   })
 
   test('exposes concrete image endpoints and both Gemini image conversions', () => {

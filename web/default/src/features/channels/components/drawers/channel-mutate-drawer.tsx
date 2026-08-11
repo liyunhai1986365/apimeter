@@ -249,6 +249,7 @@ function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
     values.force_format ||
     values.thinking_to_content ||
     values.pass_through_body_enabled ||
+    values.aws_bedrock_request_conversion_enabled ||
     values.image_auto_convert_generation_with_image_to_edit === false ||
     values.image_auto_convert_json_edit_to_multipart === false ||
     Boolean(values.openai_image_response_format) ||
@@ -3344,6 +3345,35 @@ export function ChannelMutateDrawer({
                           </FormItem>
                         )}
                       />
+
+                      {(currentType === 14 || currentType === 33) && (
+                        <FormField
+                          control={form.control}
+                          name='aws_bedrock_request_conversion_enabled'
+                          render={({ field }) => (
+                            <FormItem className='flex items-center justify-between gap-3 px-4 py-3'>
+                              <div className='flex flex-col gap-0.5'>
+                                <FormLabel>
+                                  {t(
+                                    'Convert Anthropic requests for AWS Bedrock'
+                                  )}
+                                </FormLabel>
+                                <FormDescription>
+                                  {t(
+                                    'Only fixes non-compliant system, model, stream, version, beta, and URL media fields; compliant fields are left unchanged'
+                                  )}
+                                </FormDescription>
+                              </div>
+                              <FormControl>
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      )}
 
                       <FormField
                         control={form.control}

@@ -11,6 +11,7 @@ type ChannelSettings struct {
 	ThinkingToContent                         bool                     `json:"thinking_to_content,omitempty"`
 	Proxy                                     string                   `json:"proxy"`
 	PassThroughBodyEnabled                    bool                     `json:"pass_through_body_enabled,omitempty"`
+	AwsBedrockRequestConversionEnabled        bool                     `json:"aws_bedrock_request_conversion_enabled,omitempty"`
 	ImageAutoConvertGenerationWithImageToEdit *bool                    `json:"image_auto_convert_generation_with_image_to_edit,omitempty"`
 	ImageAutoConvertJSONEditToMultipart       *bool                    `json:"image_auto_convert_json_edit_to_multipart,omitempty"`
 	OpenAIImageResponseFormat                 string                   `json:"openai_image_response_format,omitempty"`
