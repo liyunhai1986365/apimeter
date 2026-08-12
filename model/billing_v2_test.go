@@ -16,6 +16,8 @@ func TestBillingV2BackfillCreatesUsageAndAccountLedger(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, LOG_DB.Create(&[]Log{
@@ -110,6 +112,8 @@ func TestBillingV2SkipsUserOwnedProviderConsumeLogs(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
@@ -179,6 +183,8 @@ func TestBillingV2BuildsMonthlyStatementAndDailyReconciliation(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
@@ -297,7 +303,8 @@ func TestBillingV2BuildsMonthlyStatementAndDailyReconciliation(t *testing.T) {
 	assert.Equal(t, int64(15000), statement.OriginalAmount)
 	assert.Equal(t, int64(2000), statement.DiscountAmount)
 	assert.Equal(t, int64(13000), statement.SettlementAmount)
-	assert.Equal(t, BillingStatementStatusConfirmed, statement.Status)
+	assert.Equal(t, BillingStatementStatusOpen, statement.Status)
+	assert.Equal(t, BillingStatementConfirmationPending, statement.ConfirmationStatus)
 	require.Len(t, summaries, 2)
 	var gptVipSummary BillingStatementSummary
 	for _, summary := range summaries {
@@ -318,6 +325,8 @@ func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T)
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	june := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
@@ -359,7 +368,8 @@ func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T)
 	assert.Equal(t, int64(200), statement.RefundAmount)
 	assert.Equal(t, int64(800), statement.SettlementAmount)
 	assert.Equal(t, int64(0), statement.DifferenceAmount)
-	assert.Equal(t, BillingStatementStatusConfirmed, statement.Status)
+	assert.Equal(t, BillingStatementStatusOpen, statement.Status)
+	assert.Equal(t, BillingStatementConfirmationPending, statement.ConfirmationStatus)
 	require.Len(t, summaries, 1)
 	assert.Equal(t, "gpt-raw", summaries[0].ModelName)
 	assert.Equal(t, int64(1), summaries[0].RequestCount)
@@ -378,6 +388,8 @@ func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
@@ -539,6 +551,8 @@ func TestGenerateRecentMonthlyBillingStatementsBackfillsPreviousFullMonth(t *tes
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	now := time.Date(2026, 6, 13, 10, 0, 0, 0, time.UTC)
@@ -633,6 +647,8 @@ func TestRecordBillingUsageConsumeLogDoesNotExtendLedger(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 	require.NoError(t, DB.Create(&User{
 		Id:       1001,

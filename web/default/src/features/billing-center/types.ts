@@ -8,7 +8,13 @@ export type BillingApiResponse<T> = {
   data: T
 }
 
-export type BillingStatementStatus = 'open' | 'confirmed' | 'exception' | string
+export type BillingStatementStatus =
+  | 'open'
+  | 'pending'
+  | 'confirmed'
+  | 'disputed'
+  | 'exception'
+  | string
 
 export type BillingStatement = {
   id: number
@@ -32,11 +38,90 @@ export type BillingStatement = {
   original_amount: number
   discount_amount: number
   settlement_amount: number
+  base_settlement_amount: number
   difference_amount: number
   status: BillingStatementStatus
+  reconciliation_status: 'matched' | 'exception' | string
+  confirmation_status: 'pending' | 'confirmed' | 'disputed' | string
+  revision: number
+  confirmed_revision: number
+  confirmed_at: number
   generated_at: number
   finalized_at: number
   exception_count: number
+}
+
+export type BillingStatementDispute = {
+  id: number
+  dispute_no: string
+  statement_no: string
+  user_id: number
+  statement_revision: number
+  reason_type: string
+  description: string
+  expected_amount: number
+  has_expected_amount: boolean
+  status: 'pending' | 'accepted' | 'rejected' | 'withdrawn' | string
+  resolution: string
+  operator_user_id: number
+  operator_username: string
+  created_at: number
+  updated_at: number
+  resolved_at: number
+}
+
+export type BillingStatementAdjustment = {
+  id: number
+  adjustment_no: string
+  idempotency_key: string
+  statement_no: string
+  user_id: number
+  statement_revision: number
+  amount: number
+  amount_before: number
+  amount_after: number
+  reason: string
+  dispute_id: number
+  operator_user_id: number
+  operator_username: string
+  balance_sync_status: 'pending' | 'synced' | 'failed' | string
+  balance_sync_error: string
+  created_at: number
+  synced_at: number
+}
+
+export type BillingStatementEvent = {
+  id: number
+  statement_no: string
+  user_id: number
+  revision: number
+  event_type: string
+  actor_type: string
+  actor_user_id: number
+  actor_username: string
+  detail: string
+  created_at: number
+}
+
+export type BillingStatementWorkflowDetail = {
+  statement: BillingStatement
+  summaries: BillingStatementSummary[]
+  disputes: BillingStatementDispute[]
+  adjustments: BillingStatementAdjustment[]
+  events: BillingStatementEvent[]
+}
+
+export type BillingAdminStatementItem = BillingStatement & {
+  username: string
+  display_name: string
+  email: string
+}
+
+export type BillingAdminStatementPage = {
+  items: BillingAdminStatementItem[]
+  total: number
+  limit: number
+  offset: number
 }
 
 export type BillingStatementSummary = {

@@ -34,6 +34,13 @@ const (
 	BillingStatementStatusConfirmed = "confirmed"
 	BillingStatementStatusException = "exception"
 
+	BillingStatementReconciliationMatched   = "matched"
+	BillingStatementReconciliationException = "exception"
+
+	BillingStatementConfirmationPending   = "pending"
+	BillingStatementConfirmationConfirmed = "confirmed"
+	BillingStatementConfirmationDisputed  = "disputed"
+
 	BillingStatementSummaryDimensionMonthModelGroup = "month_model_group"
 )
 
@@ -88,32 +95,39 @@ type AccountLedgerEntry struct {
 }
 
 type BillingStatement struct {
-	Id               int    `json:"id"`
-	StatementNo      string `json:"statement_no" gorm:"type:varchar(64);uniqueIndex"`
-	UserId           int    `json:"user_id" gorm:"index:idx_billing_statement_user_period,priority:1;index"`
-	Period           string `json:"period" gorm:"type:varchar(16);index"`
-	PeriodValue      string `json:"period_value" gorm:"type:varchar(16);index:idx_billing_statement_user_period,priority:2"`
-	PeriodStart      int64  `json:"period_start" gorm:"bigint;index"`
-	PeriodEnd        int64  `json:"period_end" gorm:"bigint;index"`
-	OpeningBalance   int64  `json:"opening_balance" gorm:"type:bigint;default:0"`
-	ClosingBalance   int64  `json:"closing_balance" gorm:"type:bigint;default:0"`
-	TopupAmount      int64  `json:"topup_amount" gorm:"type:bigint;default:0"`
-	ConsumeAmount    int64  `json:"consume_amount" gorm:"type:bigint;default:0"`
-	RefundAmount     int64  `json:"refund_amount" gorm:"type:bigint;default:0"`
-	AdjustmentAmount int64  `json:"adjustment_amount" gorm:"type:bigint;default:0"`
-	RequestCount     int64  `json:"request_count" gorm:"type:bigint;default:0"`
-	InputTokens      int64  `json:"input_tokens" gorm:"type:bigint;default:0"`
-	OutputTokens     int64  `json:"output_tokens" gorm:"type:bigint;default:0"`
-	CacheReadTokens  int64  `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
-	CacheWriteTokens int64  `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
-	OriginalAmount   int64  `json:"original_amount" gorm:"type:bigint;default:0"`
-	DiscountAmount   int64  `json:"discount_amount" gorm:"type:bigint;default:0"`
-	SettlementAmount int64  `json:"settlement_amount" gorm:"type:bigint;default:0"`
-	DifferenceAmount int64  `json:"difference_amount" gorm:"type:bigint;default:0"`
-	Status           string `json:"status" gorm:"type:varchar(32);index;default:'open'"`
-	GeneratedAt      int64  `json:"generated_at" gorm:"bigint;index"`
-	FinalizedAt      int64  `json:"finalized_at" gorm:"bigint;default:0"`
-	ExceptionCount   int    `json:"exception_count" gorm:"default:0"`
+	Id                   int    `json:"id"`
+	StatementNo          string `json:"statement_no" gorm:"type:varchar(64);uniqueIndex"`
+	UserId               int    `json:"user_id" gorm:"index:idx_billing_statement_user_period,priority:1;index"`
+	Period               string `json:"period" gorm:"type:varchar(16);index"`
+	PeriodValue          string `json:"period_value" gorm:"type:varchar(16);index:idx_billing_statement_user_period,priority:2"`
+	PeriodStart          int64  `json:"period_start" gorm:"bigint;index"`
+	PeriodEnd            int64  `json:"period_end" gorm:"bigint;index"`
+	OpeningBalance       int64  `json:"opening_balance" gorm:"type:bigint;default:0"`
+	ClosingBalance       int64  `json:"closing_balance" gorm:"type:bigint;default:0"`
+	TopupAmount          int64  `json:"topup_amount" gorm:"type:bigint;default:0"`
+	ConsumeAmount        int64  `json:"consume_amount" gorm:"type:bigint;default:0"`
+	RefundAmount         int64  `json:"refund_amount" gorm:"type:bigint;default:0"`
+	AdjustmentAmount     int64  `json:"adjustment_amount" gorm:"type:bigint;default:0"`
+	RequestCount         int64  `json:"request_count" gorm:"type:bigint;default:0"`
+	InputTokens          int64  `json:"input_tokens" gorm:"type:bigint;default:0"`
+	OutputTokens         int64  `json:"output_tokens" gorm:"type:bigint;default:0"`
+	CacheReadTokens      int64  `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
+	CacheWriteTokens     int64  `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
+	OriginalAmount       int64  `json:"original_amount" gorm:"type:bigint;default:0"`
+	DiscountAmount       int64  `json:"discount_amount" gorm:"type:bigint;default:0"`
+	SettlementAmount     int64  `json:"settlement_amount" gorm:"type:bigint;default:0"`
+	BaseSettlementAmount int64  `json:"base_settlement_amount" gorm:"type:bigint;default:0"`
+	DifferenceAmount     int64  `json:"difference_amount" gorm:"type:bigint;default:0"`
+	Status               string `json:"status" gorm:"type:varchar(32);index;default:'open'"`
+	ReconciliationStatus string `json:"reconciliation_status" gorm:"type:varchar(32);index;default:'matched'"`
+	ConfirmationStatus   string `json:"confirmation_status" gorm:"type:varchar(32);index;default:'confirmed'"`
+	Revision             int    `json:"revision" gorm:"default:1"`
+	ConfirmedRevision    int    `json:"confirmed_revision" gorm:"default:0"`
+	ConfirmedAt          int64  `json:"confirmed_at" gorm:"bigint;default:0;index"`
+	WorkflowVersion      int    `json:"-" gorm:"default:0"`
+	GeneratedAt          int64  `json:"generated_at" gorm:"bigint;index"`
+	FinalizedAt          int64  `json:"finalized_at" gorm:"bigint;default:0"`
+	ExceptionCount       int    `json:"exception_count" gorm:"default:0"`
 }
 
 type BillingStatementSummary struct {
@@ -979,12 +993,19 @@ func generateMonthlyBillingStatementFromProjections(userId int, month string, st
 	}
 	statement.DifferenceAmount = statement.ConsumeAmount - statement.RefundAmount - statement.SettlementAmount
 	if statement.DifferenceAmount == 0 {
-		statement.Status = BillingStatementStatusConfirmed
+		statement.Status = BillingStatementStatusOpen
+		statement.ReconciliationStatus = BillingStatementReconciliationMatched
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.FinalizedAt = statement.GeneratedAt
 	} else {
 		statement.Status = BillingStatementStatusException
+		statement.ReconciliationStatus = BillingStatementReconciliationException
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.ExceptionCount = 1
 	}
+	statement.BaseSettlementAmount = statement.SettlementAmount
+	statement.Revision = 1
+	statement.WorkflowVersion = BillingStatementWorkflowVersion
 	summaries, err := buildBillingStatementSummaries(statement)
 	if err != nil {
 		return BillingStatement{}, nil, err
@@ -1006,8 +1027,48 @@ func saveMonthlyBillingStatement(statement *BillingStatement, summaries []Billin
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
+		calculatedBase := statement.BaseSettlementAmount
+		if calculatedBase == 0 && statement.SettlementAmount != 0 {
+			calculatedBase = statement.SettlementAmount
+		}
+		var adjustmentTotal int64
+		if err := tx.Model(&BillingStatementAdjustment{}).
+			Where("statement_no = ?", statement.StatementNo).
+			Select("COALESCE(SUM(amount), 0)").
+			Scan(&adjustmentTotal).Error; err != nil {
+			return err
+		}
+		statement.BaseSettlementAmount = calculatedBase
+		statement.AdjustmentAmount = adjustmentTotal
+		statement.SettlementAmount = calculatedBase + adjustmentTotal
+		changed := existing.Id == 0 ||
+			existing.BaseSettlementAmount != calculatedBase ||
+			existing.ConsumeAmount != statement.ConsumeAmount ||
+			existing.RefundAmount != statement.RefundAmount ||
+			existing.RequestCount != statement.RequestCount ||
+			existing.DifferenceAmount != statement.DifferenceAmount
 		if existing.Id > 0 {
 			statement.Id = existing.Id
+			if changed {
+				statement.Revision = existing.Revision + 1
+				if statement.Revision <= 1 {
+					statement.Revision = 2
+				}
+				statement.ConfirmedRevision = existing.ConfirmedRevision
+				statement.ConfirmedAt = existing.ConfirmedAt
+				if statement.ReconciliationStatus == BillingStatementReconciliationMatched {
+					statement.Status = BillingStatementStatusOpen
+					statement.ConfirmationStatus = BillingStatementConfirmationPending
+				}
+			} else {
+				statement.Status = existing.Status
+				statement.ReconciliationStatus = existing.ReconciliationStatus
+				statement.ConfirmationStatus = existing.ConfirmationStatus
+				statement.Revision = existing.Revision
+				statement.ConfirmedRevision = existing.ConfirmedRevision
+				statement.ConfirmedAt = existing.ConfirmedAt
+			}
+			statement.WorkflowVersion = BillingStatementWorkflowVersion
 			if err := tx.Save(statement).Error; err != nil {
 				return err
 			}
@@ -1016,6 +1077,11 @@ func saveMonthlyBillingStatement(statement *BillingStatement, summaries []Billin
 		}
 		if len(summaries) > 0 {
 			if err := tx.Create(&summaries).Error; err != nil {
+				return err
+			}
+		}
+		if changed {
+			if err := recordBillingStatementEventTx(tx, *statement, BillingStatementEventGenerated, BillingActorSystem, 0, "", ""); err != nil {
 				return err
 			}
 		}
@@ -1072,12 +1138,19 @@ func generateMonthlyBillingStatementFromLogs(userId int, month string, start int
 	}
 	statement.DifferenceAmount = statement.ConsumeAmount - statement.RefundAmount - statement.SettlementAmount
 	if statement.DifferenceAmount == 0 {
-		statement.Status = BillingStatementStatusConfirmed
+		statement.Status = BillingStatementStatusOpen
+		statement.ReconciliationStatus = BillingStatementReconciliationMatched
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.FinalizedAt = statement.GeneratedAt
 	} else {
 		statement.Status = BillingStatementStatusException
+		statement.ReconciliationStatus = BillingStatementReconciliationException
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.ExceptionCount = 1
 	}
+	statement.BaseSettlementAmount = statement.SettlementAmount
+	statement.Revision = 1
+	statement.WorkflowVersion = BillingStatementWorkflowVersion
 	summaries := buildBillingStatementSummariesFromItems(statement, billingItems)
 	err := saveMonthlyBillingStatement(&statement, summaries)
 	return statement, summaries, err

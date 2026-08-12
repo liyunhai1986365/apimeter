@@ -481,9 +481,22 @@ func SetApiRouter(router *gin.Engine) {
 		billingRoute.GET("/breakdowns", middleware.UserAuth(), controller.ListBillingBreakdowns)
 		billingRoute.GET("/breakdowns/export", middleware.UserAuth(), controller.ExportBillingBreakdowns)
 		billingRoute.GET("/monthly-statements", middleware.UserAuth(), controller.ListBillingMonthlyStatements)
-		billingRoute.POST("/monthly-statements/generate", middleware.UserAuth(), controller.GenerateBillingMonthlyStatement)
 		billingRoute.GET("/monthly-statements/:statement_no/export", middleware.UserAuth(), controller.ExportBillingMonthlyStatement)
 		billingRoute.GET("/monthly-statements/:statement_no/summaries", middleware.UserAuth(), controller.GetBillingMonthlyStatementSummaries)
+		billingRoute.GET("/monthly-statements/:statement_no/workflow", middleware.UserAuth(), controller.GetBillingStatementWorkflow)
+		billingRoute.POST("/monthly-statements/:statement_no/confirm", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.ConfirmBillingStatement)
+		billingRoute.POST("/monthly-statements/:statement_no/disputes", middleware.UserAuth(), middleware.CriticalRateLimit(), controller.CreateBillingStatementDispute)
+
+		billingAdminRoute := billingRoute.Group("/admin")
+		billingAdminRoute.Use(middleware.AdminAuth())
+		{
+			billingAdminRoute.GET("/monthly-statements", controller.ListAdminBillingStatements)
+			billingAdminRoute.GET("/monthly-statements/:statement_no", controller.GetAdminBillingStatement)
+			billingAdminRoute.POST("/monthly-statements/generate", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.GenerateAdminBillingMonthlyStatement)
+			billingAdminRoute.POST("/monthly-statements/:statement_no/adjustments", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.AdjustAdminBillingStatement)
+			billingAdminRoute.POST("/adjustments/:adjustment_no/retry", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.RetryAdminBillingAdjustment)
+			billingAdminRoute.POST("/disputes/:dispute_id/resolve", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.ResolveAdminBillingDispute)
+		}
 
 		dataRoute := apiRouter.Group("/data")
 		dataRoute.GET("/", middleware.AdminAuth(), controller.GetAllQuotaDates)

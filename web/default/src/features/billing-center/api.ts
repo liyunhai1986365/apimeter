@@ -4,8 +4,10 @@ import type {
   BillingBreakdownParams,
   BillingBreakdownRow,
   BillingStatement,
+  BillingStatementDispute,
   BillingStatementParams,
   BillingStatementSummary,
+  BillingStatementWorkflowDetail,
 } from './types'
 
 export async function getBillingMonthlyStatements(
@@ -54,26 +56,48 @@ export async function exportBillingMonthlyStatement(
   return res.data
 }
 
-export async function generateBillingMonthlyStatement(month: string): Promise<
-  BillingApiResponse<{
-    statement: BillingStatement
-    summaries: BillingStatementSummary[]
-  }>
-> {
-  const res = await api.post<
-    BillingApiResponse<{
-      statement: BillingStatement
-      summaries: BillingStatementSummary[]
-    }>
-  >('/api/billing/monthly-statements/generate', null, { params: { month } })
-  return res.data
-}
-
 export async function getBillingMonthlyStatementSummaries(
   statementNo: string
 ): Promise<BillingApiResponse<BillingStatementSummary[]>> {
   const res = await api.get<BillingApiResponse<BillingStatementSummary[]>>(
     `/api/billing/monthly-statements/${encodeURIComponent(statementNo)}/summaries`
+  )
+  return res.data
+}
+
+export async function getBillingStatementWorkflow(
+  statementNo: string
+): Promise<BillingApiResponse<BillingStatementWorkflowDetail>> {
+  const res = await api.get<BillingApiResponse<BillingStatementWorkflowDetail>>(
+    `/api/billing/monthly-statements/${encodeURIComponent(statementNo)}/workflow`
+  )
+  return res.data
+}
+
+export async function confirmBillingStatement(
+  statementNo: string,
+  revision: number
+): Promise<BillingApiResponse<BillingStatement>> {
+  const res = await api.post<BillingApiResponse<BillingStatement>>(
+    `/api/billing/monthly-statements/${encodeURIComponent(statementNo)}/confirm`,
+    { revision }
+  )
+  return res.data
+}
+
+export async function createBillingStatementDispute(
+  statementNo: string,
+  payload: {
+    revision: number
+    reason_type: string
+    description: string
+    expected_amount: number
+    has_expected_amount: boolean
+  }
+): Promise<BillingApiResponse<BillingStatementDispute>> {
+  const res = await api.post<BillingApiResponse<BillingStatementDispute>>(
+    `/api/billing/monthly-statements/${encodeURIComponent(statementNo)}/disputes`,
+    payload
   )
   return res.data
 }

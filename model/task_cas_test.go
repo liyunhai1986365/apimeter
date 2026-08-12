@@ -68,6 +68,10 @@ func TestMain(m *testing.M) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementDispute{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
+		&BillingBalanceAdjustmentOperation{},
 		&RetryRouteEvent{},
 		&Midjourney{},
 		&SystemTask{},
@@ -121,6 +125,10 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM account_ledger_entries")
 		DB.Exec("DELETE FROM billing_statements")
 		DB.Exec("DELETE FROM billing_statement_summaries")
+		DB.Exec("DELETE FROM billing_statement_disputes")
+		DB.Exec("DELETE FROM billing_statement_adjustments")
+		DB.Exec("DELETE FROM billing_statement_events")
+		DB.Exec("DELETE FROM billing_balance_adjustment_operations")
 		DB.Exec("DELETE FROM midjourneys")
 		DB.Exec("DELETE FROM system_tasks")
 		DB.Exec("DELETE FROM system_task_locks")

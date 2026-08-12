@@ -243,6 +243,9 @@ func InitLogDB() (err error) {
 		if !common.IsMasterNode {
 			return nil
 		}
+		if err := migrateBillingStatementWorkflow(); err != nil {
+			return err
+		}
 		return migrateLogTokenMetrics()
 	}
 	db, err := chooseDB("LOG_SQL_DSN", true)
@@ -349,6 +352,7 @@ func migrateDB() error {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingBalanceAdjustmentOperation{},
 		&ConfigurableResourceState{},
 		&SystemTask{},
 		&SystemTaskLock{},
@@ -441,6 +445,7 @@ func migrateDBFast() error {
 		{&AccountLedgerEntry{}, "AccountLedgerEntry"},
 		{&BillingStatement{}, "BillingStatement"},
 		{&BillingStatementSummary{}, "BillingStatementSummary"},
+		{&BillingBalanceAdjustmentOperation{}, "BillingBalanceAdjustmentOperation"},
 		{&ConfigurableResourceState{}, "ConfigurableResourceState"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
@@ -555,6 +560,9 @@ func migrateLOGDB() error {
 		return err
 	}
 	if err = LOG_DB.AutoMigrate(&BillingUsageItem{}, &AccountLedgerEntry{}, &BillingStatement{}, &BillingStatementSummary{}); err != nil {
+		return err
+	}
+	if err = migrateBillingStatementWorkflow(); err != nil {
 		return err
 	}
 	return migrateLogTokenMetrics()

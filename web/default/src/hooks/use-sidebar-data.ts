@@ -268,6 +268,11 @@ export function buildSidebarData(
             icon: Users,
           },
           {
+            title: t('Billing management'),
+            url: '/billing-management',
+            icon: ReceiptText,
+          },
+          {
             title: t('Agent Management'),
             url: '/agent-management',
             icon: Settings2,
