@@ -1,7 +1,7 @@
 [Unit]
-Description=ModelSell OpenObserve private WireGuard proxy
-Requires=modelsell-openobserve-wg.socket
-After=docker.service modelsell-openobserve-wg.socket
+Description=APIMeter OpenObserve private WireGuard proxy
+Requires=apimeter-openobserve-wg.socket
+After=docker.service apimeter-openobserve-wg.socket
 
 [Service]
 ExecStart=/lib/systemd/systemd-socket-proxyd 127.0.0.1:5080

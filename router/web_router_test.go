@@ -18,7 +18,7 @@ import (
 func TestRenderIndexPageUsesSystemNameForInitialTitle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	oldSystemName := common.SystemName
-	common.SystemName = "ModelSell"
+	common.SystemName = "APIMeter"
 	t.Cleanup(func() {
 		common.SystemName = oldSystemName
 	})
@@ -28,16 +28,16 @@ func TestRenderIndexPageUsesSystemNameForInitialTitle(t *testing.T) {
 
 	rendered := renderIndexPage(c, html)
 
-	require.Contains(t, string(rendered), `<title>AI Model APIs, Pricing &amp; Access | ModelSell</title>`)
+	require.Contains(t, string(rendered), `<title>AI Model APIs, Pricing &amp; Access | APIMeter</title>`)
 	require.Contains(t, string(rendered), `<meta name="robots" content="index, follow" />`)
-	require.Contains(t, string(rendered), `property="og:title" content="AI Model APIs, Pricing &amp; Access | ModelSell"`)
+	require.Contains(t, string(rendered), `property="og:title" content="AI Model APIs, Pricing &amp; Access | APIMeter"`)
 	require.NotContains(t, string(rendered), `<title>New API</title>`)
 }
 
 func TestRenderIndexPageUsesAgentSiteNameForInitialTitle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	oldSystemName := common.SystemName
-	common.SystemName = "ModelSell"
+	common.SystemName = "APIMeter"
 	t.Cleanup(func() {
 		common.SystemName = oldSystemName
 	})
@@ -58,7 +58,7 @@ func TestRenderIndexPageUsesAgentSiteNameForInitialTitle(t *testing.T) {
 func TestRenderIndexPageReplacesLoadingPlaceholderTitle(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	oldSystemName := common.SystemName
-	common.SystemName = "ModelSell"
+	common.SystemName = "APIMeter"
 	t.Cleanup(func() {
 		common.SystemName = oldSystemName
 	})
@@ -68,8 +68,8 @@ func TestRenderIndexPageReplacesLoadingPlaceholderTitle(t *testing.T) {
 
 	rendered := renderIndexPage(c, html)
 
-	require.Contains(t, string(rendered), `<title>AI Model APIs, Pricing &amp; Access | ModelSell</title>`)
-	require.Contains(t, string(rendered), `<meta name="title" content="AI Model APIs, Pricing &amp; Access | ModelSell" />`)
+	require.Contains(t, string(rendered), `<title>AI Model APIs, Pricing &amp; Access | APIMeter</title>`)
+	require.Contains(t, string(rendered), `<meta name="title" content="AI Model APIs, Pricing &amp; Access | APIMeter" />`)
 	require.NotContains(t, string(rendered), `<title>loading</title>`)
 }
 
@@ -90,9 +90,9 @@ func TestResolveSEOPageUsesCanonicalPathWithoutQuery(t *testing.T) {
 
 func TestRequestOriginUsesCurrentWWWHost(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodGet, "https://www.modelsell.com/pricing", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "https://www.apimeter.ai/pricing", nil)
 
-	require.Equal(t, "https://www.modelsell.com", requestOrigin(c))
+	require.Equal(t, "https://www.apimeter.ai", requestOrigin(c))
 }
 
 func TestRequestOriginUsesCurrentIPHost(t *testing.T) {
@@ -104,7 +104,7 @@ func TestRequestOriginUsesCurrentIPHost(t *testing.T) {
 
 func TestRequestOriginKeepsAgentCustomDomain(t *testing.T) {
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodGet, "https://modelsell.com/pricing", nil)
+	c.Request = httptest.NewRequest(http.MethodGet, "https://apimeter.ai/pricing", nil)
 	c.Request.Header.Set("X-Forwarded-Proto", "https")
 	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
 		Domain: "agent.example.com",
@@ -185,7 +185,7 @@ func TestBuildSEOBlockEscapesValues(t *testing.T) {
 
 func TestBuildSEOBlockHidesShellBeforeClientFirstPaint(t *testing.T) {
 	block := buildSEOBlock(seoPage{
-		Title:  "ModelSell",
+		Title:  "APIMeter",
 		Robots: "index, follow",
 		Type:   "website",
 	})
@@ -507,8 +507,8 @@ func TestServeFrontendPageKeepsEachRequestOrigin(t *testing.T) {
 	}
 
 	for _, origin := range []string{
-		"https://modelsell.com",
-		"https://www.modelsell.com",
+		"https://apimeter.ai",
+		"https://www.apimeter.ai",
 		"http://38.145.213.6:3000",
 	} {
 		t.Run(origin, func(t *testing.T) {

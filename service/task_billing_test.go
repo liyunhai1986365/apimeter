@@ -1051,7 +1051,7 @@ func TestSettle_TieredExprTaskUsesFrozenRequestInputAndCompletionTokens(t *testi
 	assert.Equal(t, float64(1000), other["actual_completion_tokens"])
 }
 
-func TestSettle_ModelsellWrappedSeedanceUsageRefundsPreConsumeDelta(t *testing.T) {
+func TestSettle_APIMeterWrappedSeedanceUsageRefundsPreConsumeDelta(t *testing.T) {
 	truncate(t)
 	ctx := context.Background()
 
@@ -1064,12 +1064,12 @@ func TestSettle_ModelsellWrappedSeedanceUsageRefundsPreConsumeDelta(t *testing.T
 	const expectedRefund = preConsumedQuota - actualQuota
 
 	seedUser(t, userID, userQuotaAfterPreConsume)
-	seedToken(t, tokenID, userID, "sk-modelsell-seedance", tokenRemainAfterPreConsume)
+	seedToken(t, tokenID, userID, "sk-apimeter-seedance", tokenRemainAfterPreConsume)
 	seedChannel(t, channelID)
 
 	expr := `tier("480_720p_no_video_input", c * 7.7)`
 	task := makeTask(userID, channelID, preConsumedQuota, tokenID, BillingSourceWallet, 0)
-	task.TaskID = "task_modelsell_seedance"
+	task.TaskID = "task_apimeter_seedance"
 	task.Properties.OriginModelName = "doubao-seedance-2-0-260128"
 	task.PrivateData.BillingContext.OriginModelName = task.Properties.OriginModelName
 	task.PrivateData.BillingContext.TieredBillingSnapshot = &billingexpr.BillingSnapshot{
@@ -1092,7 +1092,7 @@ func TestSettle_ModelsellWrappedSeedanceUsageRefundsPreConsumeDelta(t *testing.T
 		Progress: "100%",
 		Data: json.RawMessage(`{
 			"task":{
-				"id":"mvt-modelsell",
+				"id":"mvt-apimeter",
 				"status":"completed",
 				"usage":{"total_tokens":50638,"completion_tokens":50638}
 			}

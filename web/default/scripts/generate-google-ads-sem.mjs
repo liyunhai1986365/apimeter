@@ -2,11 +2,11 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 
 const DEFAULTS = {
-  api: 'https://modelsell.com/api/pricing',
+  api: 'https://apimeter.ai/api/pricing',
   campaignId: '24089073282',
   campaign: '搜索｜热门模型 API｜中国',
   adGroup: '广告组 1',
-  output: 'modelsell-google-ads-keywords.csv',
+  output: 'apimeter-google-ads-keywords.csv',
 }
 
 const vendorAliases = {
@@ -119,7 +119,7 @@ for (const model of payload.data) {
   if (vendorName) usedVendors.add(vendorName)
   addKeyword({
     keyword: `${model.model_name} api`,
-    url: `https://modelsell.com/pricing/${encodeURIComponent(model.model_name)}`,
+    url: `https://apimeter.ai/pricing/${encodeURIComponent(model.model_name)}`,
     content: 'model',
   })
 }
@@ -129,7 +129,7 @@ for (const vendor of [...usedVendors].sort((a, b) => a.localeCompare(b))) {
   for (const name of names) {
     addKeyword({
       keyword: `${name} api`,
-      url: `https://modelsell.com/pricing?vendor=${encodeURIComponent(vendor)}`,
+      url: `https://apimeter.ai/pricing?vendor=${encodeURIComponent(vendor)}`,
       content: 'vendor',
     })
   }

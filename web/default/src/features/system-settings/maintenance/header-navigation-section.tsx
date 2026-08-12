@@ -302,7 +302,7 @@ export function HeaderNavigationSection({
                           className='text-muted-foreground text-xs'
                         >
                           {t(
-                            'Enter the site origin only. The menu starts Modelsell SSO and lands on /image.'
+                            'Enter the site origin only. The menu starts APIMeter SSO and lands on /image.'
                           )}
                         </p>
                       </div>

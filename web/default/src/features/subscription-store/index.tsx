@@ -482,7 +482,7 @@ function AgentAccessSection() {
           <p className='text-muted-foreground text-sm leading-relaxed max-w-xl'>
             {formatSystemTemplate(
               t(
-                'ModelSell CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.'
+                'APIMeter CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.'
               ),
               systemName
             )}
@@ -707,7 +707,7 @@ function ComparisonTableSection() {
     <section className='py-16 border-t border-black/5 dark:border-zinc-800 space-y-12'>
       <div className='text-center'>
         <h2 className='text-3xl font-extrabold tracking-tight text-foreground'>
-          {formatSystemTemplate(t('Why Choose Modelsell Tokens Plan?'), systemName)}
+          {formatSystemTemplate(t('Why Choose APIMeter Tokens Plan?'), systemName)}
         </h2>
       </div>
 
@@ -781,7 +781,7 @@ function ComparisonTableSection() {
           <h3 className='text-xl font-extrabold text-foreground'>{t('Summary')}</h3>
           <p className='text-zinc-600 dark:text-zinc-400 text-sm font-semibold'>
             {formatSystemTemplate(
-              t('For the same $20/month, with Modelsell you can:'),
+              t('For the same $20/month, with APIMeter you can:'),
               systemName
             )}
           </p>

@@ -1344,7 +1344,7 @@ function ModelDetailsSemCta(props: {
           </p>
           <ol className='grid gap-3 sm:grid-cols-3'>
             {[
-              t('Create your Modelsell account'),
+              t('Create your APIMeter account'),
               t('Create one API key'),
               t('Copy the endpoint and run the example'),
             ].map((step, index) => (
@@ -1452,7 +1452,7 @@ function ModelDetailsSemFaq() {
             </AccordionTrigger>
             <AccordionContent className='text-muted-foreground leading-6'>
               {t(
-                'Yes. One Modelsell account and API key can access supported models. Use the model ID and endpoint shown on each model page.'
+                'Yes. One APIMeter account and API key can access supported models. Use the model ID and endpoint shown on each model page.'
               )}
             </AccordionContent>
           </AccordionItem>

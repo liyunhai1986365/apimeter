@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-BASE_URL="${1:-${SEO_BASE_URL:-https://modelsell.com}}"
+BASE_URL="${1:-${SEO_BASE_URL:-https://apimeter.ai}}"
 BASE_URL="${BASE_URL%/}"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT

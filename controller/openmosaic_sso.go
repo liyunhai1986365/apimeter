@@ -73,7 +73,7 @@ func AuthorizeOpenMosaicSSO(c *gin.Context) {
 	userID := c.GetInt("id")
 	user, err := model.GetUserById(userID, true)
 	if err != nil || user.Status != common.UserStatusEnabled {
-		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "Modelsell account is unavailable"})
+		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "APIMeter account is unavailable"})
 		return
 	}
 	if _, err := model.EnsureOpenMosaicSSOToken(model.DB, userID); err != nil {

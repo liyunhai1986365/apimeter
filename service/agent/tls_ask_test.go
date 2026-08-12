@@ -39,7 +39,7 @@ func TestCanIssueTLSCertificateForDomainAllowsActiveCNAMETarget(t *testing.T) {
 		common.OptionMap = make(map[string]string)
 	}
 	oldBaseDomain := common.OptionMap[CNAMEBaseDomainOptionKey]
-	common.OptionMap[CNAMEBaseDomainOptionKey] = "agent-cname.modelsell.com"
+	common.OptionMap[CNAMEBaseDomainOptionKey] = "agent-cname.apimeter.ai"
 	common.OptionMapRWMutex.Unlock()
 	t.Cleanup(func() {
 		common.OptionMapRWMutex.Lock()
@@ -63,7 +63,7 @@ func TestCanIssueTLSCertificateForDomainAllowsActiveCNAMETarget(t *testing.T) {
 		VerifyToken: "verify-token",
 	}).Error)
 
-	allowed, err := CanIssueTLSCertificateForDomain("verify-token.agent-cname.modelsell.com")
+	allowed, err := CanIssueTLSCertificateForDomain("verify-token.agent-cname.apimeter.ai")
 
 	require.NoError(t, err)
 	require.True(t, allowed)

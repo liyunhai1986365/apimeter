@@ -1,10 +1,10 @@
-id: seedance2-modelsell
-name: Seedance 2.0 Modelsell
+id: seedance2-apimeter
+name: Seedance 2.0 APIMeter
 media_type: video
 accepted_modes:
   - openai.video.generations
 upstream_modes:
-  - modelsell.seedance.video
+  - apimeter.seedance.video
 video:
   native:
     submit:
@@ -164,7 +164,7 @@ video:
           omit_empty: true
 resources:
   - id: assets_upload
-    name: Modelsell Assets Upload
+    name: APIMeter Assets Upload
     public:
       method: POST
       path: /api/assets/upload
@@ -188,7 +188,7 @@ resources:
     response:
       passthrough: true
   - id: asset_detail
-    name: Modelsell Asset Detail
+    name: APIMeter Asset Detail
     public:
       method: GET
       path: /api/assets/{id}

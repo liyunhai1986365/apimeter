@@ -16,7 +16,10 @@ import {
   normalizeOpenMosaicBaseUrl,
   parseHeaderNavModulesFromStatus,
 } from '@/lib/nav-modules'
-import { buildOpenMosaicEmbedUrl } from '@/lib/openmosaic-language'
+import {
+  buildOpenMosaicCallbackUrl,
+  buildOpenMosaicEmbedUrl,
+} from '@/lib/openmosaic-language'
 
 type EmbeddedAuthorization = {
   code: string
@@ -75,7 +78,7 @@ function AICreationPage() {
               .post(
                 '/api/integrations/openmosaic/embedded-authorize',
                 {
-                  redirect_uri: `${openMosaicOrigin}/auth/modelsell/callback`,
+                  redirect_uri: buildOpenMosaicCallbackUrl(openMosaicOrigin),
                   site_origin: window.location.origin,
                 },
                 { headers: { 'Cache-Control': 'no-store' } }

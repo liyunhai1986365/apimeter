@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-[[ "${CONFIRM_MODELSSELL_152_ROUTE:-}" == "primary-fallback" ]] || {
-  echo "set CONFIRM_MODELSSELL_152_ROUTE=primary-fallback" >&2
+[[ "${CONFIRM_APIMETER_152_ROUTE:-}" == "primary-fallback" ]] || {
+  echo "set CONFIRM_APIMETER_152_ROUTE=primary-fallback" >&2
   exit 2
 }
 
 active_config="${CADDY_CONFIG:-/etc/caddy/Caddyfile}"
 backup_config="${active_config}.before-primary-fallback"
-candidate="$(mktemp /tmp/modelsell-caddy-152.XXXXXX)"
+candidate="$(mktemp /tmp/apimeter-caddy-152.XXXXXX)"
 cleanup() {
   shred -u "$candidate" 2>/dev/null || true
 }
@@ -84,7 +84,7 @@ if ! caddy reload --config "$active_config" --force; then
   exit 1
 fi
 
-curl --resolve modelsell.com:443:127.0.0.1 \
-  -fsS --max-time 8 https://modelsell.com/api/ready >/dev/null
+curl --resolve apimeter.ai:443:127.0.0.1 \
+  -fsS --max-time 8 https://apimeter.ai/api/ready >/dev/null
 
 echo "caddy_152_route=38-first,152-fallback"

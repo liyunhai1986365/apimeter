@@ -30,7 +30,7 @@ func setupOpenMosaicSSOControllerTest(t *testing.T) string {
 	model.LOG_DB = db
 	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.OpenMosaicSSOTokenBinding{}, &model.OpenMosaicSSOAuthorizationCode{}))
 
-	redirectURI := "https://openmosaic.example/auth/modelsell/callback"
+	redirectURI := "https://openmosaic.example/auth/apimeter/callback"
 	t.Setenv("OPENMOSAIC_SSO_CLIENT_SECRET", "controller-shared-secret")
 	t.Setenv("OPENMOSAIC_SSO_REDIRECT_URIS", redirectURI)
 	t.Cleanup(func() {
@@ -85,10 +85,10 @@ func TestOpenMosaicSSOExchangeRequiresBearerSecretAndConsumesCode(t *testing.T) 
 }
 
 func TestOpenMosaicSSORedirectAllowlistUsesExactMatch(t *testing.T) {
-	t.Setenv("OPENMOSAIC_SSO_REDIRECT_URIS", "https://openmosaic.example/auth/modelsell/callback")
-	require.True(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example/auth/modelsell/callback"))
-	require.False(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example/auth/modelsell/callback/extra"))
-	require.False(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example.evil.test/auth/modelsell/callback"))
+	t.Setenv("OPENMOSAIC_SSO_REDIRECT_URIS", "https://openmosaic.example/auth/apimeter/callback")
+	require.True(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example/auth/apimeter/callback"))
+	require.False(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example/auth/apimeter/callback/extra"))
+	require.False(t, isAllowedOpenMosaicRedirectURI("https://openmosaic.example.evil.test/auth/apimeter/callback"))
 }
 
 func TestEmbeddedOpenMosaicSSOAuthorizesSameOriginSession(t *testing.T) {

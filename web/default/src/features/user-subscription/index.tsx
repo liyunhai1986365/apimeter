@@ -333,7 +333,7 @@ function SubscriptionUsagePanel({
   )
 }
 
-function ModelSellCliCard() {
+function APIMeterCliCard() {
   const { t } = useTranslation()
   const { systemName, serverAddress } = useSystemConfig()
   const [target, setTarget] = useState<InstallTarget>('unix')
@@ -553,7 +553,7 @@ function ActiveSubscriptionCard({
                 ) : null}
               </div>
             </div>
-            <ModelSellCliCard />
+            <APIMeterCliCard />
           </CardContent>
         </Card>
       </div>

@@ -1,6 +1,10 @@
 package configurable
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	profiles := ListProfiles()
@@ -134,42 +138,42 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 		t.Fatalf("unexpected api assets delete path params: %#v", deleteAPIAsset.PathParams)
 	}
 
-	modelsell, ok := GetProfile("seedance2-modelsell")
+	apimeter, ok := GetProfile("seedance2-apimeter")
 	if !ok {
-		t.Fatal("expected seedance2-modelsell profile")
+		t.Fatal("expected seedance2-apimeter profile")
 	}
-	if modelsell.Name != "Seedance 2.0 Modelsell" {
-		t.Fatalf("unexpected Modelsell profile name: %s", modelsell.Name)
+	if apimeter.Name != "Seedance 2.0 APIMeter" {
+		t.Fatalf("unexpected APIMeter profile name: %s", apimeter.Name)
 	}
-	if modelsell.Video == nil || modelsell.Video.Submit.Path != "/api/v3/contents/generations/tasks" {
-		t.Fatalf("unexpected Modelsell Seedance video protocol: %#v", modelsell.Video)
+	if apimeter.Video == nil || apimeter.Video.Submit.Path != "/api/v3/contents/generations/tasks" {
+		t.Fatalf("unexpected APIMeter Seedance video protocol: %#v", apimeter.Video)
 	}
-	modelsellFetch := modelsell.Video.Fetch.Response
-	if modelsellFetch.StatusPath != "data.status" ||
-		modelsellFetch.ResultURLPath != "data.result_url" ||
-		modelsellFetch.TotalTokensPath != "data.data.task.usage.total_tokens" ||
-		modelsellFetch.CompletionTokensPath != "data.data.task.usage.completion_tokens" {
-		t.Fatalf("unexpected Modelsell Seedance fetch response paths: %#v", modelsellFetch)
+	apimeterFetch := apimeter.Video.Fetch.Response
+	if apimeterFetch.StatusPath != "data.status" ||
+		apimeterFetch.ResultURLPath != "data.result_url" ||
+		apimeterFetch.TotalTokensPath != "data.data.task.usage.total_tokens" ||
+		apimeterFetch.CompletionTokensPath != "data.data.task.usage.completion_tokens" {
+		t.Fatalf("unexpected APIMeter Seedance fetch response paths: %#v", apimeterFetch)
 	}
-	modelsellUpload, ok := modelsell.ResourceByID("assets_upload")
+	apimeterUpload, ok := apimeter.ResourceByID("assets_upload")
 	if !ok {
-		t.Fatal("expected Modelsell assets_upload resource")
+		t.Fatal("expected APIMeter assets_upload resource")
 	}
-	if modelsellUpload.Public.Path != "/api/assets/upload" || modelsellUpload.Upstream.Path != "/api/assets/upload" {
-		t.Fatalf("unexpected Modelsell assets upload paths: public=%s upstream=%s", modelsellUpload.Public.Path, modelsellUpload.Upstream.Path)
+	if apimeterUpload.Public.Path != "/api/assets/upload" || apimeterUpload.Upstream.Path != "/api/assets/upload" {
+		t.Fatalf("unexpected APIMeter assets upload paths: public=%s upstream=%s", apimeterUpload.Public.Path, apimeterUpload.Upstream.Path)
 	}
-	if len(modelsellUpload.Query.Fields) != 1 || modelsellUpload.Query.Fields[0].From != "query.model" {
-		t.Fatalf("expected Modelsell upload model query mapping: %#v", modelsellUpload.Query.Fields)
+	if len(apimeterUpload.Query.Fields) != 1 || apimeterUpload.Query.Fields[0].From != "query.model" {
+		t.Fatalf("expected APIMeter upload model query mapping: %#v", apimeterUpload.Query.Fields)
 	}
-	modelsellDetail, ok := modelsell.ResourceByID("asset_detail")
+	apimeterDetail, ok := apimeter.ResourceByID("asset_detail")
 	if !ok {
-		t.Fatal("expected Modelsell asset_detail resource")
+		t.Fatal("expected APIMeter asset_detail resource")
 	}
-	if modelsellDetail.Public.Path != "/api/assets/{id}" || modelsellDetail.Upstream.Path != "/api/assets/{id}" {
-		t.Fatalf("unexpected Modelsell asset detail paths: public=%s upstream=%s", modelsellDetail.Public.Path, modelsellDetail.Upstream.Path)
+	if apimeterDetail.Public.Path != "/api/assets/{id}" || apimeterDetail.Upstream.Path != "/api/assets/{id}" {
+		t.Fatalf("unexpected APIMeter asset detail paths: public=%s upstream=%s", apimeterDetail.Public.Path, apimeterDetail.Upstream.Path)
 	}
-	if len(modelsellDetail.Query.Fields) != 1 || modelsellDetail.Query.Fields[0].From != "query.model" {
-		t.Fatalf("expected Modelsell detail model query mapping: %#v", modelsellDetail.Query.Fields)
+	if len(apimeterDetail.Query.Fields) != 1 || apimeterDetail.Query.Fields[0].From != "query.model" {
+		t.Fatalf("expected APIMeter detail model query mapping: %#v", apimeterDetail.Query.Fields)
 	}
 
 	serviceInference, ok := GetProfile("seedance2-service-inference")
@@ -477,6 +481,20 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if statusField == nil || statusField.ValueMap["completed"] != "Active" {
 		t.Fatalf("unexpected service inference assets get status map: %#v", assetGet.Response.Fields)
 	}
+}
+
+func TestGetProfileKeepsPersistedModelsellAliasWorking(t *testing.T) {
+	legacy, ok := GetProfile("seedance2-modelsell")
+	require.True(t, ok)
+	require.Equal(t, "seedance2-modelsell", legacy.ID)
+	require.Equal(t, "Seedance 2.0 APIMeter", legacy.Name)
+	require.NotNil(t, legacy.Video)
+	require.Equal(t, "/api/v3/contents/generations/tasks", legacy.Video.Submit.Path)
+
+	canonical, ok := GetProfile("seedance2-apimeter")
+	require.True(t, ok)
+	require.Equal(t, canonical.Video, legacy.Video)
+	require.Equal(t, canonical.Resources, legacy.Resources)
 }
 
 func assertPathVariants(t *testing.T, endpoint EndpointConfig, expected []string) {

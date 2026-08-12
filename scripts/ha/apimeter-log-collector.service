@@ -1,0 +1,17 @@
+[Unit]
+Description=APIMeter logs to standby OpenObserve
+After=network-online.target wg-quick@wg0.service apimeter.service caddy.service
+Wants=network-online.target wg-quick@wg0.service
+ConditionPathIsFile=/opt/apimeter-log-collector/collector.py
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /opt/apimeter-log-collector/collector.py
+Restart=always
+RestartSec=5
+User=root
+WorkingDirectory=/opt/apimeter-log-collector
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

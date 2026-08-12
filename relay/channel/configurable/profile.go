@@ -185,6 +185,13 @@ var (
 	profilesErr  error
 )
 
+// profileAliases keeps persisted channel settings working when a profile is
+// renamed. Return a copy with the requested ID so resource state and channel
+// matching continue to use the identifier already stored in the database.
+var profileAliases = map[string]string{
+	"seedance2-modelsell": "seedance2-apimeter",
+}
+
 func ListProfiles() []*Profile {
 	profiles, err := loadProfiles()
 	if err != nil {
@@ -206,11 +213,19 @@ func GetProfile(id string) (*Profile, bool) {
 	if err != nil {
 		return nil, false
 	}
-	profile, ok := profiles[strings.TrimSpace(id)]
+	requestedID := strings.TrimSpace(id)
+	lookupID := requestedID
+	if canonicalID, ok := profileAliases[requestedID]; ok {
+		lookupID = canonicalID
+	}
+	profile, ok := profiles[lookupID]
 	if !ok {
 		return nil, false
 	}
 	cp := *profile
+	if lookupID != requestedID {
+		cp.ID = requestedID
+	}
 	return &cp, true
 }
 

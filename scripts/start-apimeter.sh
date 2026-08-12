@@ -4,28 +4,28 @@ set -Eeuo pipefail
 # Start the packaged binary directly when the systemd unit cannot be started.
 # The binary loads .env itself, so this script must preserve the release cwd.
 
-REMOTE_DIR="${MODELSELL_REMOTE_DIR:-/www/wwwroot/modelsell}"
-BINARY_NAME="${MODELSELL_BINARY_NAME:-new-api}"
-APP_PORT="${MODELSELL_APP_PORT:-3000}"
-HEALTH_PATH="${MODELSELL_HEALTH_PATH:-/api/status}"
-HEALTH_TIMEOUT="${MODELSELL_HEALTH_TIMEOUT:-30}"
-LOG_DIR="${MODELSELL_LOG_DIR:-$REMOTE_DIR/logs}"
-LOG_FILE="${MODELSELL_LOG_FILE:-$LOG_DIR/new-api-manual.log}"
-PID_FILE="${MODELSELL_PID_FILE:-$LOG_DIR/new-api-manual.pid}"
-SERVICE_NAME="${MODELSELL_SERVICE_NAME:-modelsell}"
+REMOTE_DIR="${APIMETER_REMOTE_DIR:-/www/wwwroot/apimeter}"
+BINARY_NAME="${APIMETER_BINARY_NAME:-new-api}"
+APP_PORT="${APIMETER_APP_PORT:-3000}"
+HEALTH_PATH="${APIMETER_HEALTH_PATH:-/api/status}"
+HEALTH_TIMEOUT="${APIMETER_HEALTH_TIMEOUT:-30}"
+LOG_DIR="${APIMETER_LOG_DIR:-$REMOTE_DIR/logs}"
+LOG_FILE="${APIMETER_LOG_FILE:-$LOG_DIR/new-api-manual.log}"
+PID_FILE="${APIMETER_PID_FILE:-$LOG_DIR/new-api-manual.pid}"
+SERVICE_NAME="${APIMETER_SERVICE_NAME:-apimeter}"
 FOREGROUND=0
 FORCE=0
 
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/start-modelsell.sh [--foreground] [--force]
-  ./scripts/start-modelsell.sh --stop
+  ./scripts/start-apimeter.sh [--foreground] [--force]
+  ./scripts/start-apimeter.sh --stop
 
 Environment overrides:
-  MODELSELL_REMOTE_DIR, MODELSELL_BINARY_NAME, MODELSELL_APP_PORT
-  MODELSELL_HEALTH_PATH, MODELSELL_HEALTH_TIMEOUT, MODELSELL_LOG_DIR
-  MODELSELL_LOG_FILE, MODELSELL_PID_FILE, MODELSELL_SERVICE_NAME
+  APIMETER_REMOTE_DIR, APIMETER_BINARY_NAME, APIMETER_APP_PORT
+  APIMETER_HEALTH_PATH, APIMETER_HEALTH_TIMEOUT, APIMETER_LOG_DIR
+  APIMETER_LOG_FILE, APIMETER_PID_FILE, APIMETER_SERVICE_NAME
 EOF
 }
 
@@ -97,8 +97,8 @@ while (($# > 0)); do
   shift
 done
 
-is_number "$APP_PORT" || fail "MODELSELL_APP_PORT must be numeric: $APP_PORT"
-is_number "$HEALTH_TIMEOUT" || fail "MODELSELL_HEALTH_TIMEOUT must be numeric: $HEALTH_TIMEOUT"
+is_number "$APP_PORT" || fail "APIMETER_APP_PORT must be numeric: $APP_PORT"
+is_number "$HEALTH_TIMEOUT" || fail "APIMETER_HEALTH_TIMEOUT must be numeric: $HEALTH_TIMEOUT"
 [[ "$HEALTH_PATH" == /* ]] || HEALTH_PATH="/$HEALTH_PATH"
 
 cd "$REMOTE_DIR" 2>/dev/null || fail "Working directory does not exist: $REMOTE_DIR"

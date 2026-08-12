@@ -158,7 +158,7 @@ function SemCatalogLanding(props: {
         <CardDescription className='max-w-3xl text-sm leading-6 md:text-base'>
           {t(
             'Compare and access AI model providers, API pricing, supported endpoints and capabilities on {{site}}.',
-            { site: 'Modelsell' }
+            { site: 'APIMeter' }
           )}
         </CardDescription>
       </CardHeader>
@@ -169,7 +169,7 @@ function SemCatalogLanding(props: {
           </p>
           <ol className='grid gap-3 sm:grid-cols-3'>
             {[
-              t('Create your Modelsell account'),
+              t('Create your APIMeter account'),
               t('Create one API key'),
               t('Copy the endpoint and run the example'),
             ].map((step, index) => (

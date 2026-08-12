@@ -17,7 +17,7 @@ func TestPaymentReturnPathForRequestUsesAgentDomain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.SetTheme("default")
 	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com"
+	system_setting.ServerAddress = "https://apimeter.ai"
 	t.Cleanup(func() {
 		common.SetTheme("classic")
 		system_setting.ServerAddress = oldServerAddress
@@ -48,7 +48,7 @@ func TestPaymentReturnPathForRequestFallsBackToServerAddress(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.SetTheme("default")
 	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://modelsell.com"
+	system_setting.ServerAddress = "https://apimeter.ai"
 	t.Cleanup(func() {
 		common.SetTheme("classic")
 		system_setting.ServerAddress = oldServerAddress
@@ -65,5 +65,5 @@ func TestPaymentReturnPathForRequestFallsBackToServerAddress(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, "https://modelsell.com/wallet?pay=success", w.Body.String())
+	require.Equal(t, "https://apimeter.ai/wallet?pay=success", w.Body.String())
 }

@@ -4,16 +4,16 @@ set -Eeuo pipefail
 # Switch the current release transactionally and verify it independently of
 # the deploy script's automatic rollback path.
 
-REMOTE_DIR="${MODELSELL_REMOTE_DIR:-/www/wwwroot/modelsell}"
-BINARY_NAME="${MODELSELL_BINARY_NAME:-new-api}"
-SERVICE_NAME="${MODELSELL_SERVICE_NAME:-modelsell}"
-APP_PORT="${MODELSELL_APP_PORT:-3000}"
-HEALTH_PATH="${MODELSELL_HEALTH_PATH:-/api/status}"
-HEALTH_TIMEOUT="${MODELSELL_HEALTH_TIMEOUT:-30}"
-LOG_DIR="${MODELSELL_LOG_DIR:-$REMOTE_DIR/logs}"
-PID_FILE="${MODELSELL_PID_FILE:-$LOG_DIR/new-api-manual.pid}"
-START_SCRIPT="${MODELSELL_START_SCRIPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/start-modelsell.sh}"
-STOP_TIMEOUT="${MODELSELL_STOP_TIMEOUT:-135}"
+REMOTE_DIR="${APIMETER_REMOTE_DIR:-/www/wwwroot/apimeter}"
+BINARY_NAME="${APIMETER_BINARY_NAME:-new-api}"
+SERVICE_NAME="${APIMETER_SERVICE_NAME:-apimeter}"
+APP_PORT="${APIMETER_APP_PORT:-3000}"
+HEALTH_PATH="${APIMETER_HEALTH_PATH:-/api/status}"
+HEALTH_TIMEOUT="${APIMETER_HEALTH_TIMEOUT:-30}"
+LOG_DIR="${APIMETER_LOG_DIR:-$REMOTE_DIR/logs}"
+PID_FILE="${APIMETER_PID_FILE:-$LOG_DIR/new-api-manual.pid}"
+START_SCRIPT="${APIMETER_START_SCRIPT:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/start-apimeter.sh}"
+STOP_TIMEOUT="${APIMETER_STOP_TIMEOUT:-135}"
 RELEASE_ID=""
 ASSUME_YES=0
 LIST_ONLY=0
@@ -21,8 +21,8 @@ LIST_ONLY=0
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/rollback-modelsell.sh --list
-  ./scripts/rollback-modelsell.sh --release <release-id> [--yes]
+  ./scripts/rollback-apimeter.sh --list
+  ./scripts/rollback-apimeter.sh --release <release-id> [--yes]
 
 The release id is a directory name under <remote-dir>/releases. The script
 stops the current runtime, switches current atomically, starts and health-checks
@@ -153,9 +153,9 @@ while (($# > 0)); do
   shift
 done
 
-is_number "$APP_PORT" || fail "MODELSELL_APP_PORT must be numeric: $APP_PORT"
-is_number "$HEALTH_TIMEOUT" || fail "MODELSELL_HEALTH_TIMEOUT must be numeric: $HEALTH_TIMEOUT"
-is_number "$STOP_TIMEOUT" || fail "MODELSELL_STOP_TIMEOUT must be numeric: $STOP_TIMEOUT"
+is_number "$APP_PORT" || fail "APIMETER_APP_PORT must be numeric: $APP_PORT"
+is_number "$HEALTH_TIMEOUT" || fail "APIMETER_HEALTH_TIMEOUT must be numeric: $HEALTH_TIMEOUT"
+is_number "$STOP_TIMEOUT" || fail "APIMETER_STOP_TIMEOUT must be numeric: $STOP_TIMEOUT"
 [[ "$HEALTH_PATH" == /* ]] || HEALTH_PATH="/$HEALTH_PATH"
 
 [[ -d "$REMOTE_DIR" ]] || fail "Working directory does not exist: $REMOTE_DIR"

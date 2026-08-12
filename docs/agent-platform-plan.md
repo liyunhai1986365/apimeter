@@ -1,4 +1,4 @@
-# ModelSell Agent 平台整体方案（Roadmap & Spec）
+# APIMeter Agent 平台整体方案（Roadmap & Spec）
 
 > 文档目的：把待办清单收敛为可执行的分阶段方案。
 > 范围：前端产品/介绍页、Agent CLI + Skill 体系、以及 Agent 底层运行底座的架构方案。
@@ -14,7 +14,7 @@
 
 | 能力 | 现状 | 证据 |
 | --- | --- | --- |
-| ModelSell CLI 一键配置 | 已实现"一条命令"写入 API Key/URL/默认模型到 Claude Code、Codex CLI、Gemini CLI、OpenClaw | `web/default/src/features/home/components/sections/agent-access.tsx` |
+| APIMeter CLI 一键配置 | 已实现"一条命令"写入 API Key/URL/默认模型到 Claude Code、Codex CLI、Gemini CLI、OpenClaw | `web/default/src/features/home/components/sections/agent-access.tsx` |
 | Codex 通道 | 后端适配器已存在 | `relay/channel/codex/` |
 | 多模态生成 | 已接 sora / suno / hailuo / vidu / gemini / doubao / vertex / ali / jimeng | `relay/channel/task/` |
 | Agent 平台（后台） | 已支持 branding、域名、定价分组、用户绑定、提现 | `features/agents/` + `agent-management/index.tsx` |
@@ -30,7 +30,7 @@
 - **分层清晰**：对外营销页（SEO、品牌、转化）与应用内功能/文档页（登录后）分离；复用现有 section 模式（`hero.tsx`、`agent-access.tsx`、`home/constants.ts`）做内容驱动区块。
 - **i18n 强制**：所有文案走 `useTranslation()`，源串为英文 key，翻译文件在 `web/default/src/i18n/locales/{en,zh,fr,ru,ja,vi}.json`；禁止硬编码英文，新串用 `static-keys.ts` 同步。遵循 `AGENTS.md` 的 JSON 包与 DB 兼容规则。
 - **模型分类按能力维度**：coding / image / video / audio / voice，而非按供应商。用户心智更清晰，筛选器直接对应使用场景。
-- **"一句话给 agent" 是护城河**：统一 CLI 入口 + 每 agent 一份 skill/MCP，优先对齐 **MCP（Model Context Protocol）**，让 skill 可被发现、可发布到 Modelsell 平台。
+- **"一句话给 agent" 是护城河**：统一 CLI 入口 + 每 agent 一份 skill/MCP，优先对齐 **MCP（Model Context Protocol）**，让 skill 可被发现、可发布到 APIMeter 平台。
 - **底层先做方案**：容器隔离、状态持久化、产物分发必须先出架构方案，明确边界与成本，再落地原型。
 
 ---
@@ -47,13 +47,13 @@
 - **交付物**：能力标签字段 + 用户侧分类展示页/筛选器 + 首页对照区块。
 - **阶段**：阶段 2。
 
-### 3.2 agent 原生工具 CLI + Skill / Modelsell 平台 CLI 与 Skill 发布（item 2）
-- **目标**：agent 能用原生方式接入 ModelSell；平台提供可发布的 CLI 与 skill 市场。
+### 3.2 agent 原生工具 CLI + Skill / APIMeter 平台 CLI 与 Skill 发布（item 2）
+- **目标**：agent 能用原生方式接入 APIMeter；平台提供可发布的 CLI 与 skill 市场。
 - **现状**：`agent-access.tsx` 已落地 CLI 一键配置 4 个 agent。
 - **方案**：
-  - 把每个 agent 的接入能力抽成**独立 skill 包**（Claude Code skill、Codex/Codex CLI 配置、Gemini CLI、OpenClaw），以 **MCP server** 形式暴露工具（如"用 ModelSell 余额调用某模型"）。
-  - 在 `docs.modelsell.com` 建立 skill 发布/发现目录（已有 docs 站点结构可复用）。
-  - CLI 增加 `modelsell skill install <agent>` 子命令，与现有安装脚本衔接。
+  - 把每个 agent 的接入能力抽成**独立 skill 包**（Claude Code skill、Codex/Codex CLI 配置、Gemini CLI、OpenClaw），以 **MCP server** 形式暴露工具（如"用 APIMeter 余额调用某模型"）。
+  - 在 `docs.apimeter.ai` 建立 skill 发布/发现目录（已有 docs 站点结构可复用）。
+  - CLI 增加 `apimeter skill install <agent>` 子命令，与现有安装脚本衔接。
 - **交付物**：N 份 agent skill 包 + skill 发布页 + CLI skill 子命令。
 - **阶段**：阶段 1（与 item 6 合并）。
 
@@ -75,7 +75,7 @@
 - **阶段**：阶段 2（页面）+ 阶段 3 后段（新功能）。
 
 ### 3.5 多模态产品介绍页（item 5）
-- **目标**：面向用户说明 ModelSell 的多模态能力（文生图/视频/音乐/语音等）。
+- **目标**：面向用户说明 APIMeter 的多模态能力（文生图/视频/音乐/语音等）。
 - **现状**：后端 `relay/channel/task/` 已接多家多模态供应商。
 - **方案**：
   - 新增"多模态"产品页（公开 + 应用内），按能力分类展示：图片、视频、音频/音乐、语音；每个能力配示例 + 支持的供应商 + 价格入口。
@@ -87,8 +87,8 @@
 - **目标**：用户只对 agent 说一句话，即可完成鉴权 + 工具挂载 + 默认模型配置。
 - **现状**：CLI 一键写配置已有一半基础。
 - **方案**：
-  - 统一入口：`modelsell agent <name>` 一步完成该 agent 的环境初始化（写 key/url/model + 安装对应 skill）。
-  - 让 agent 侧的"一句话"成立：在 skill/MCP 内提供自然语言触发的引导（如 "用 ModelSell 配置我的 Codex"）。
+  - 统一入口：`apimeter agent <name>` 一步完成该 agent 的环境初始化（写 key/url/model + 安装对应 skill）。
+  - 让 agent 侧的"一句话"成立：在 skill/MCP 内提供自然语言触发的引导（如 "用 APIMeter 配置我的 Codex"）。
   - 与 item 2 合并推进，作为战略入口优先于纯展示页。
 - **交付物**：统一 CLI agent 子命令 + 每 agent skill + 一句话引导文案。
 - **阶段**：阶段 1（最高优先）。
@@ -112,7 +112,7 @@
 ### 4.1 组件
 ```
                   ┌─────────────────────────────┐
-   用户/agent ───►│  ModelSell Agent 网关        │
+   用户/agent ───►│  APIMeter Agent 网关        │
                   │  (现有 agent-management 身份/│
                   │   域名/定价/用户)            │
                   └──────────────┬──────────────┘
@@ -136,7 +136,7 @@
 | 阶段 | 内容 | 主要交付物 | 依赖 |
 | --- | --- | --- | --- |
 | **阶段 0** | 方案固化 | 本文定稿 + item 7 架构方案 + item 2/6 skill 规范 | — |
-| **阶段 1（快速赢）** | 战略入口 | `modelsell agent <name>` CLI + 各 agent skill/MCP | 阶段 0 规范 |
+| **阶段 1（快速赢）** | 战略入口 | `apimeter agent <name>` CLI + 各 agent skill/MCP | 阶段 0 规范 |
 | **阶段 2（页面）** | 展示与介绍 | Agent 中心页、多模态介绍页、团队介绍页、模型能力分类 | 阶段 0 |
 | **阶段 3（底层）** | 运行底座 | 容器/DB/发布空间原型（按阶段 0 方案） | 阶段 0 方案 |
 

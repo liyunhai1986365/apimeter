@@ -71,7 +71,7 @@ func TestResolveByHostCachesDomainMisses(t *testing.T) {
 	})
 
 	for range 10 {
-		ctx, err := ResolveByHost("modelsell.com")
+		ctx, err := ResolveByHost("apimeter.ai")
 		require.NoError(t, err)
 		require.Nil(t, ctx)
 	}

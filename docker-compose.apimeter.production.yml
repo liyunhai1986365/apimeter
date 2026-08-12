@@ -1,18 +1,19 @@
-name: modelsell-api
+name: apimeter-api
 
 services:
-  modelsell-api:
-    image: ${MODELSELL_API_IMAGE:-wagjie/modelsell-api:modelsell-2026.08.05}
-    container_name: modelsell-api
+  apimeter-api:
+    image: ${APIMETER_API_IMAGE:-wagjie/apimeter-api:apimeter-2026.08.05}
+    container_name: apimeter-api
     restart: unless-stopped
     command: --log-dir /data/logs
     ports:
-      - "${MODELSELL_BIND_IP:-0.0.0.0}:${MODELSELL_API_PORT:-3000}:3000"
+      - "${APIMETER_BIND_IP:-127.0.0.1}:${APIMETER_API_PORT:-3000}:3000"
     volumes:
-      - modelsell_app_data:/data
+      - apimeter_app_data:/data
     environment:
-      SYSTEM_NAME: Modelsell API
-      SQL_DSN: "modelsell:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}@tcp(mysql:3306)/modelsell?charset=utf8mb4&parseTime=true&loc=Local"
+      SYSTEM_NAME: APIMeter API
+      SQL_DSN: ${SQL_DSN:?Set SQL_DSN to the existing MySQL database in .env}
+      LOG_SQL_DSN: ${LOG_SQL_DSN:-}
       REDIS_CONN_STRING: "redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379/0"
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
       CRYPTO_SECRET: ${CRYPTO_SECRET:?Set CRYPTO_SECRET in .env}
@@ -22,7 +23,7 @@ services:
       TZ: ${TZ:-Asia/Shanghai}
       GIN_MODE: release
       NODE_TYPE: master
-      NODE_NAME: ${NODE_NAME:-modelsell-docker-1}
+      NODE_NAME: ${NODE_NAME:-apimeter-docker-1}
       SQL_MAX_OPEN_CONNS: ${SQL_MAX_OPEN_CONNS:-100}
       SQL_MAX_IDLE_CONNS: ${SQL_MAX_IDLE_CONNS:-25}
       SQL_MAX_LIFETIME: ${SQL_MAX_LIFETIME:-60}
@@ -33,9 +34,9 @@ services:
       BATCH_UPDATE_ENABLED: ${BATCH_UPDATE_ENABLED:-true}
       BATCH_UPDATE_INTERVAL: ${BATCH_UPDATE_INTERVAL:-5}
       STREAMING_TIMEOUT: ${STREAMING_TIMEOUT:-300}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
-      mysql:
-        condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -45,35 +46,11 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - modelsell
-
-  mysql:
-    image: mysql:8.4
-    container_name: modelsell-mysql
-    restart: unless-stopped
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
-      MYSQL_DATABASE: modelsell
-      MYSQL_USER: modelsell
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
-      TZ: ${TZ:-Asia/Shanghai}
-    volumes:
-      - modelsell_mysql_data:/var/lib/mysql
-    healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
-      interval: 10s
-      timeout: 5s
-      retries: 20
-      start_period: 30s
-    networks:
-      - modelsell
+      - apimeter
 
   redis:
     image: redis:7.4-alpine
-    container_name: modelsell-redis
+    container_name: apimeter-redis
     restart: unless-stopped
     environment:
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
@@ -83,24 +60,22 @@ services:
       - -c
       - exec redis-server --appendonly yes --appendfsync everysec --requirepass "$$REDIS_PASSWORD"
     volumes:
-      - modelsell_redis_data:/data
+      - apimeter_redis_data:/data
     healthcheck:
       test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping | grep -q PONG"]
       interval: 10s
       timeout: 5s
       retries: 10
     networks:
-      - modelsell
+      - apimeter
 
 volumes:
-  modelsell_app_data:
-    name: modelsell-api-app-data
-  modelsell_mysql_data:
-    name: modelsell-api-mysql-data
-  modelsell_redis_data:
-    name: modelsell-api-redis-data
+  apimeter_app_data:
+    name: apimeter-api-app-data
+  apimeter_redis_data:
+    name: apimeter-api-redis-data
 
 networks:
-  modelsell:
-    name: modelsell-api-network
+  apimeter:
+    name: apimeter-api-network
     driver: bridge

@@ -20,25 +20,25 @@ fail() {
 usage() {
   cat <<'EOF'
 Usage:
-  ./scripts/deploy-modelsell.sh
-  ./scripts/deploy-modelsell.sh --full
-  ./scripts/deploy-modelsell.sh --build-only
-  ./scripts/deploy-modelsell.sh --upload-only
-  ./scripts/deploy-modelsell.sh --config-only
-  ./scripts/deploy-modelsell.sh --rolling-code
-  ./scripts/deploy-modelsell.sh --rolling-full
-  ./scripts/deploy-modelsell.sh --config-check
-  ./scripts/deploy-modelsell.sh --preflight
-  ./scripts/deploy-modelsell.sh --rolling-preflight
-  ./scripts/deploy-modelsell.sh --manual-start
-  ./scripts/deploy-modelsell.sh --manual-stop
-  ./scripts/deploy-modelsell.sh --manual-rollback-list
-  ./scripts/deploy-modelsell.sh --manual-rollback <release-id>
-  ./scripts/deploy-modelsell.sh --manual-status
-  ./scripts/deploy-modelsell.sh --manual-logs
-  ./scripts/deploy-modelsell.sh --manual-service-start
-  ./scripts/deploy-modelsell.sh --manual-service-stop
-  ./scripts/deploy-modelsell.sh --zero-downtime-test
+  ./scripts/deploy-apimeter.sh
+  ./scripts/deploy-apimeter.sh --full
+  ./scripts/deploy-apimeter.sh --build-only
+  ./scripts/deploy-apimeter.sh --upload-only
+  ./scripts/deploy-apimeter.sh --config-only
+  ./scripts/deploy-apimeter.sh --rolling-code
+  ./scripts/deploy-apimeter.sh --rolling-full
+  ./scripts/deploy-apimeter.sh --config-check
+  ./scripts/deploy-apimeter.sh --preflight
+  ./scripts/deploy-apimeter.sh --rolling-preflight
+  ./scripts/deploy-apimeter.sh --manual-start
+  ./scripts/deploy-apimeter.sh --manual-stop
+  ./scripts/deploy-apimeter.sh --manual-rollback-list
+  ./scripts/deploy-apimeter.sh --manual-rollback <release-id>
+  ./scripts/deploy-apimeter.sh --manual-status
+  ./scripts/deploy-apimeter.sh --manual-logs
+  ./scripts/deploy-apimeter.sh --manual-service-start
+  ./scripts/deploy-apimeter.sh --manual-service-stop
+  ./scripts/deploy-apimeter.sh --zero-downtime-test
 
 Modes:
   1, --full         Build, upload, update config, install systemd, restart service.
@@ -172,11 +172,18 @@ def redis_identity(value, path):
 primary = load_env(primary_path)
 standby = load_env(standby_path)
 hosts = {}
-for key in ("SQL_DSN", "LOG_SQL_DSN"):
-    if not primary.get(key) or not standby.get(key):
-        raise SystemExit(f"{key} must be configured in both runtime env files")
-    primary_identity, primary_host = mysql_identity(primary[key], key, primary_path)
-    standby_identity, standby_host = mysql_identity(standby[key], key, standby_path)
+if not primary.get("SQL_DSN") or not standby.get("SQL_DSN"):
+    raise SystemExit("SQL_DSN must be configured in both runtime env files")
+database_values = {
+    "SQL_DSN": (primary["SQL_DSN"], standby["SQL_DSN"]),
+    "LOG_SQL_DSN": (
+        primary.get("LOG_SQL_DSN") or primary["SQL_DSN"],
+        standby.get("LOG_SQL_DSN") or standby["SQL_DSN"],
+    ),
+}
+for key, (primary_value, standby_value) in database_values.items():
+    primary_identity, primary_host = mysql_identity(primary_value, key, primary_path)
+    standby_identity, standby_host = mysql_identity(standby_value, key, standby_path)
     if primary_identity != standby_identity:
         raise SystemExit(
             f"{key} credentials, port, database, or options differ between primary and standby"
@@ -192,6 +199,12 @@ if primary_identity != standby_identity:
         "REDIS_CONN_STRING credentials, port, database, or options differ between primary and standby"
     )
 hosts["REDIS_CONN_STRING"] = (primary_host, standby_host)
+
+for key in ("SESSION_SECRET", "CRYPTO_SECRET"):
+    if not primary.get(key) or not standby.get(key):
+        raise SystemExit(f"{key} must be configured in both runtime env files")
+    if primary[key] != standby[key]:
+        raise SystemExit(f"{key} differs between primary and standby")
 
 loopback = {"127.0.0.1", "localhost", "::1"}
 for key, (primary_host, standby_host) in hosts.items():
@@ -319,10 +332,10 @@ build_frontend() {
   local extra_env="$2"
 
   log "Install frontend dependencies: $dir"
-  (cd "$dir" && npx --yes bun install)
+  (cd "$dir" && bun install)
 
   log "Build frontend: $dir"
-  (cd "$dir" && env $extra_env VITE_REACT_APP_VERSION="$APP_VERSION" npx --yes bun run build)
+  (cd "$dir" && env $extra_env VITE_REACT_APP_VERSION="$APP_VERSION" bun run build)
 }
 
 ssh_base_args=()
@@ -383,8 +396,8 @@ init_context() {
 
   DEPLOY_PORT="${DEPLOY_PORT:-22}"
   DEPLOY_USER="${DEPLOY_USER:-root}"
-  DEPLOY_REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/www/wwwroot/modelsell}"
-  DEPLOY_SERVICE_NAME="${DEPLOY_SERVICE_NAME:-modelsell}"
+  DEPLOY_REMOTE_DIR="${DEPLOY_REMOTE_DIR:-/www/wwwroot/apimeter}"
+  DEPLOY_SERVICE_NAME="${DEPLOY_SERVICE_NAME:-apimeter}"
   DEPLOY_BINARY_NAME="${DEPLOY_BINARY_NAME:-new-api}"
   DEPLOY_APP_PORT="${DEPLOY_APP_PORT:-3000}"
   DEPLOY_APP_ENV_FILE="${DEPLOY_APP_ENV_FILE:-.env.production}"
@@ -402,7 +415,7 @@ init_context() {
   DEPLOY_CADDY_PROXY_SNIPPETS="${DEPLOY_CADDY_PROXY_SNIPPETS:-}"
   DEPLOY_EXPECT_NODE_TYPE="${DEPLOY_EXPECT_NODE_TYPE:?missing expected node type}"
   DEPLOY_EXPECT_PEER_NODE_TYPE="${DEPLOY_EXPECT_PEER_NODE_TYPE:-}"
-  DEPLOY_CADDY_HEALTH_HOST="${DEPLOY_CADDY_HEALTH_HOST:-modelsell.com}"
+  DEPLOY_CADDY_HEALTH_HOST="${DEPLOY_CADDY_HEALTH_HOST:-apimeter.ai}"
   DEPLOY_DRAIN_HEALTH_PATH="${DEPLOY_DRAIN_HEALTH_PATH:-/api/ready}"
   DEPLOY_DIRECT_PORT_DRAIN="${DEPLOY_DIRECT_PORT_DRAIN:-true}"
   DEPLOY_DIRECT_IPV6_DRAIN="${DEPLOY_DIRECT_IPV6_DRAIN:-true}"
@@ -454,7 +467,7 @@ init_context() {
   require_var DEPLOY_ARCH_LABEL
 
   APP_ENV_PATH="$(resolve_app_env_path "$DEPLOY_APP_ENV_FILE")"
-  BUILD_DIR="$ROOT_DIR/build/modelsell"
+  BUILD_DIR="$ROOT_DIR/build/apimeter"
   ARCHIVE_NAME="${DEPLOY_BINARY_NAME}-${DEPLOY_GOOS}-${DEPLOY_ARCH_LABEL}.tar.gz"
   ARCHIVE_PATH="$BUILD_DIR/$ARCHIVE_NAME"
   BINARY_PATH="$BUILD_DIR/$DEPLOY_BINARY_NAME"
@@ -478,7 +491,7 @@ init_context() {
 }
 
 require_local_build_tools() {
-  require_cmd npx
+  require_cmd bun
   require_cmd go
   require_cmd tar
 }
@@ -495,6 +508,10 @@ require_remote_tools() {
 require_app_env() {
   [[ -f "$APP_ENV_PATH" ]] || fail "Missing app env file: $APP_ENV_PATH. Copy .env.production.example to $DEPLOY_APP_ENV_FILE first."
   validate_app_env_role "$APP_ENV_PATH" "$DEPLOY_EXPECT_NODE_TYPE"
+  [[ -n "$(read_app_env_value "$APP_ENV_PATH" SESSION_SECRET)" ]] || \
+    fail "SESSION_SECRET must be configured in runtime env: $APP_ENV_PATH"
+  [[ -n "$(read_app_env_value "$APP_ENV_PATH" CRYPTO_SECRET)" ]] || \
+    fail "CRYPTO_SECRET must be configured in runtime env: $APP_ENV_PATH"
   validate_shared_backend_config
 }
 
@@ -524,18 +541,18 @@ build_package() {
   )
   file "$BINARY_PATH"
 
-  install -m 0755 "$ROOT_DIR/scripts/start-modelsell.sh" "$BUILD_DIR/start-modelsell.sh"
-  install -m 0755 "$ROOT_DIR/scripts/rollback-modelsell.sh" "$BUILD_DIR/rollback-modelsell.sh"
-  install -m 0755 "$ROOT_DIR/scripts/verify-modelsell-seo.sh" "$BUILD_DIR/verify-modelsell-seo.sh"
+  install -m 0755 "$ROOT_DIR/scripts/start-apimeter.sh" "$BUILD_DIR/start-apimeter.sh"
+  install -m 0755 "$ROOT_DIR/scripts/rollback-apimeter.sh" "$BUILD_DIR/rollback-apimeter.sh"
+  install -m 0755 "$ROOT_DIR/scripts/verify-apimeter-seo.sh" "$BUILD_DIR/verify-apimeter-seo.sh"
 
   log "Package artifact: $ARCHIVE_PATH"
   (
     cd "$BUILD_DIR"
     COPYFILE_DISABLE=1 tar --no-xattrs -czf "$ARCHIVE_NAME" \
       "$DEPLOY_BINARY_NAME" \
-      start-modelsell.sh \
-      rollback-modelsell.sh \
-      verify-modelsell-seo.sh
+      start-apimeter.sh \
+      rollback-apimeter.sh \
+      verify-apimeter-seo.sh
   )
 }
 
@@ -630,7 +647,7 @@ trap 'cleanup_remote_processes; exit 130' HUP INT TERM
 install_service_config() {
   cat >"/etc/systemd/system/${SERVICE_NAME}.service" <<EOF
 [Unit]
-Description=ModelSell API Service
+Description=APIMeter API Service
 After=network-online.target mysql.service mysqld.service redis.service redis-server.service
 Wants=network-online.target
 
@@ -829,7 +846,7 @@ wait_service_healthy() {
   local started_at=$SECONDS
   local stable=0
   local body_file last_summary=""
-  body_file="$(mktemp /tmp/modelsell-local-ready.XXXXXX)"
+  body_file="$(mktemp /tmp/apimeter-local-ready.XXXXXX)"
 
   while (( SECONDS < deadline )); do
     local state pid http_code summary payload_ok=false
@@ -895,7 +912,7 @@ verify_service_soak() {
 
 verify_seo() {
   [[ "$SEO_VERIFY" == "true" ]] || return 0
-  local verifier="$CURRENT_LINK/verify-modelsell-seo.sh"
+  local verifier="$CURRENT_LINK/verify-apimeter-seo.sh"
   [[ -x "$verifier" ]] || {
     warn "SEO verifier is missing: $verifier"
     return 1
@@ -1059,7 +1076,7 @@ verify_caddy_health() {
   local expected_role="${1:-}"
   local body_file code
   [[ "$DRAIN_HEALTH_PATH" == /* ]] || DRAIN_HEALTH_PATH="/$DRAIN_HEALTH_PATH"
-  body_file="$(mktemp /tmp/modelsell-caddy-ready.XXXXXX)"
+  body_file="$(mktemp /tmp/apimeter-caddy-ready.XXXXXX)"
   code="$(curl -ksS --max-time 8 --resolve "${CADDY_HEALTH_HOST}:443:127.0.0.1" -o "$body_file" -w '%{http_code}' "https://${CADDY_HEALTH_HOST}${DRAIN_HEALTH_PATH}" 2>/dev/null || true)"
   if ! [[ "$code" =~ ^2[0-9][0-9]$ ]]; then
     rm -f "$body_file"
@@ -1077,7 +1094,7 @@ verify_caddy_health() {
 verify_peer_once() {
   local body_file code
   [[ "$DRAIN_HEALTH_PATH" == /* ]] || DRAIN_HEALTH_PATH="/$DRAIN_HEALTH_PATH"
-  body_file="$(mktemp /tmp/modelsell-peer-ready.XXXXXX)"
+  body_file="$(mktemp /tmp/apimeter-peer-ready.XXXXXX)"
   code="$(curl -sS --max-time 5 -o "$body_file" -w '%{http_code}' "http://${PEER_UPSTREAM}${DRAIN_HEALTH_PATH}" 2>/dev/null || true)"
   if ! [[ "$code" =~ ^2[0-9][0-9]$ ]] || ! verify_ready_payload "$body_file" "$EXPECT_PEER_NODE_TYPE"; then
     rm -f "$body_file"
@@ -1253,13 +1270,13 @@ resolve_direct_drain_network() {
     }
     IPV6_DRAIN_REQUIRED=true
   fi
-  DIRECT_DRAIN_COMMENT="modelsell-deploy-${APP_PORT}"
+  DIRECT_DRAIN_COMMENT="apimeter-deploy-${APP_PORT}"
 }
 
 verify_ipv6_drain_proxy() {
   [[ "$IPV6_DRAIN_REQUIRED" == "true" ]] || return 0
   local body_file code
-  body_file="$(mktemp /tmp/modelsell-ipv6-ready.XXXXXX)"
+  body_file="$(mktemp /tmp/apimeter-ipv6-ready.XXXXXX)"
   code="$(curl -g -6 -sS --max-time 5 -o "$body_file" -w '%{http_code}' "http://[::1]:${IPV6_DRAIN_PROXY_PORT}${DRAIN_HEALTH_PATH}" 2>/dev/null || true)"
   if ! [[ "$code" =~ ^2[0-9][0-9]$ ]] || ! verify_ready_payload "$body_file" "$EXPECT_PEER_NODE_TYPE"; then
     rm -f "$body_file"
@@ -1636,7 +1653,7 @@ fi
 if [[ "$APPLY_RELEASE" == "1" ]]; then
   log "Validating and staging release: $RELEASE_ID"
   archive_entries="$(tar -tzf "$ARCHIVE_PATH" | sed 's#^\./##' | LC_ALL=C sort)"
-  expected_entries="$(printf '%s\n' "$BINARY_NAME" rollback-modelsell.sh start-modelsell.sh verify-modelsell-seo.sh | LC_ALL=C sort)"
+  expected_entries="$(printf '%s\n' "$BINARY_NAME" rollback-apimeter.sh start-apimeter.sh verify-apimeter-seo.sh | LC_ALL=C sort)"
   [[ "$archive_entries" == "$expected_entries" ]] || {
     warn "Release archive contains unexpected or missing files"
     exit 1
@@ -1646,9 +1663,9 @@ if [[ "$APPLY_RELEASE" == "1" ]]; then
   mkdir -p "$STAGING_RELEASE_DIR"
   tar --no-same-owner --no-same-permissions -xzf "$ARCHIVE_PATH" -C "$STAGING_RELEASE_DIR"
   chmod +x "$STAGING_RELEASE_DIR/$BINARY_NAME"
-  [[ -e "$STAGING_RELEASE_DIR/start-modelsell.sh" ]] && chmod +x "$STAGING_RELEASE_DIR/start-modelsell.sh"
-  [[ -e "$STAGING_RELEASE_DIR/rollback-modelsell.sh" ]] && chmod +x "$STAGING_RELEASE_DIR/rollback-modelsell.sh"
-  [[ -e "$STAGING_RELEASE_DIR/verify-modelsell-seo.sh" ]] && chmod +x "$STAGING_RELEASE_DIR/verify-modelsell-seo.sh"
+  [[ -e "$STAGING_RELEASE_DIR/start-apimeter.sh" ]] && chmod +x "$STAGING_RELEASE_DIR/start-apimeter.sh"
+  [[ -e "$STAGING_RELEASE_DIR/rollback-apimeter.sh" ]] && chmod +x "$STAGING_RELEASE_DIR/rollback-apimeter.sh"
+  [[ -e "$STAGING_RELEASE_DIR/verify-apimeter-seo.sh" ]] && chmod +x "$STAGING_RELEASE_DIR/verify-apimeter-seo.sh"
 
   if [[ -e "$RELEASE_DIR" ]]; then
     existing_target="$(readlink -f "$CURRENT_LINK" 2>/dev/null || true)"
@@ -1668,9 +1685,9 @@ if [[ "$APPLY_RELEASE" == "1" ]]; then
   fi
 
   mkdir -p "$REMOTE_DIR/bin"
-  [[ -e "$RELEASE_DIR/start-modelsell.sh" ]] && install -m 0755 "$RELEASE_DIR/start-modelsell.sh" "$REMOTE_DIR/bin/start-modelsell.sh"
-  [[ -e "$RELEASE_DIR/rollback-modelsell.sh" ]] && install -m 0755 "$RELEASE_DIR/rollback-modelsell.sh" "$REMOTE_DIR/bin/rollback-modelsell.sh"
-  [[ -e "$RELEASE_DIR/verify-modelsell-seo.sh" ]] && install -m 0755 "$RELEASE_DIR/verify-modelsell-seo.sh" "$REMOTE_DIR/bin/verify-modelsell-seo.sh"
+  [[ -e "$RELEASE_DIR/start-apimeter.sh" ]] && install -m 0755 "$RELEASE_DIR/start-apimeter.sh" "$REMOTE_DIR/bin/start-apimeter.sh"
+  [[ -e "$RELEASE_DIR/rollback-apimeter.sh" ]] && install -m 0755 "$RELEASE_DIR/rollback-apimeter.sh" "$REMOTE_DIR/bin/rollback-apimeter.sh"
+  [[ -e "$RELEASE_DIR/verify-apimeter-seo.sh" ]] && install -m 0755 "$RELEASE_DIR/verify-apimeter-seo.sh" "$REMOTE_DIR/bin/verify-apimeter-seo.sh"
 fi
 
 backup_runtime_env
@@ -1748,7 +1765,7 @@ install_artifact_with_config() {
 rolling_deploy() {
   local include_config="$1"
   local rolling_release_id="$DEPLOY_RELEASE_ID"
-  local deploy_script="$ROOT_DIR/scripts/deploy-modelsell.sh"
+  local deploy_script="$ROOT_DIR/scripts/deploy-apimeter.sh"
   local primary_version standby_version child_mode description
 
   [[ "$DEPLOY_TOPOLOGY" == "multi" ]] || \
@@ -1836,7 +1853,7 @@ if [[ "$CHECK_MULTI_DEPENDENCIES" == "true" ]]; then
     exit 1
   }
 fi
-body="$(mktemp /tmp/modelsell-preflight-ready.XXXXXX)"
+body="$(mktemp /tmp/apimeter-preflight-ready.XXXXXX)"
 trap 'rm -f "$body"' EXIT
 code="$(curl -sS --max-time 5 -o "$body" -w '%{http_code}' "http://127.0.0.1:${APP_PORT}${HEALTH_PATH}" 2>/dev/null || true)"
 [[ "$code" =~ ^2[0-9][0-9]$ ]] || {
@@ -1890,19 +1907,19 @@ manual_start() {
   require_remote_tools
   prepare_remote
   log "Start current release directly: $DEPLOY_SERVICE_NAME"
-  remote_ssh "cd '$DEPLOY_REMOTE_DIR' && if [[ -x '$DEPLOY_REMOTE_DIR/bin/start-modelsell.sh' ]]; then '$DEPLOY_REMOTE_DIR/bin/start-modelsell.sh' --force; else '$DEPLOY_REMOTE_DIR/current/start-modelsell.sh' --force; fi"
+  remote_ssh "APIMETER_REMOTE_DIR='$DEPLOY_REMOTE_DIR' APIMETER_BINARY_NAME='$DEPLOY_BINARY_NAME' APIMETER_APP_PORT='$DEPLOY_APP_PORT' APIMETER_HEALTH_PATH='$DEPLOY_HEALTH_PATH' APIMETER_HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' APIMETER_SERVICE_NAME='$DEPLOY_SERVICE_NAME' '$DEPLOY_REMOTE_DIR/bin/start-apimeter.sh' --force"
 }
 
 manual_stop() {
   require_remote_tools
   log "Stop manually started process: $DEPLOY_SERVICE_NAME"
-  remote_ssh "if [[ -x '$DEPLOY_REMOTE_DIR/bin/start-modelsell.sh' ]]; then '$DEPLOY_REMOTE_DIR/bin/start-modelsell.sh' --stop; else '$DEPLOY_REMOTE_DIR/current/start-modelsell.sh' --stop; fi"
+  remote_ssh "APIMETER_REMOTE_DIR='$DEPLOY_REMOTE_DIR' APIMETER_BINARY_NAME='$DEPLOY_BINARY_NAME' APIMETER_APP_PORT='$DEPLOY_APP_PORT' APIMETER_HEALTH_PATH='$DEPLOY_HEALTH_PATH' APIMETER_HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' APIMETER_SERVICE_NAME='$DEPLOY_SERVICE_NAME' '$DEPLOY_REMOTE_DIR/bin/start-apimeter.sh' --stop"
 }
 
 manual_rollback_list() {
   require_remote_tools
   log "List historical releases: $DEPLOY_SERVICE_NAME"
-  remote_ssh "if [[ -x '$DEPLOY_REMOTE_DIR/bin/rollback-modelsell.sh' ]]; then '$DEPLOY_REMOTE_DIR/bin/rollback-modelsell.sh' --list; else '$DEPLOY_REMOTE_DIR/current/rollback-modelsell.sh' --list; fi"
+  remote_ssh "APIMETER_REMOTE_DIR='$DEPLOY_REMOTE_DIR' APIMETER_BINARY_NAME='$DEPLOY_BINARY_NAME' APIMETER_APP_PORT='$DEPLOY_APP_PORT' APIMETER_HEALTH_PATH='$DEPLOY_HEALTH_PATH' APIMETER_HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' APIMETER_STOP_TIMEOUT='$DEPLOY_STOP_TIMEOUT' APIMETER_SERVICE_NAME='$DEPLOY_SERVICE_NAME' '$DEPLOY_REMOTE_DIR/bin/rollback-apimeter.sh' --list"
 }
 
 manual_rollback() {
@@ -1910,7 +1927,7 @@ manual_rollback() {
   [[ "$release_id" =~ ^[A-Za-z0-9._-]+$ ]] || fail "Invalid release id: $release_id"
   require_remote_tools
   log "Manually rollback to release: $release_id"
-  remote_ssh "if [[ -x '$DEPLOY_REMOTE_DIR/bin/rollback-modelsell.sh' ]]; then '$DEPLOY_REMOTE_DIR/bin/rollback-modelsell.sh' --release '$release_id' --yes; else '$DEPLOY_REMOTE_DIR/current/rollback-modelsell.sh' --release '$release_id' --yes; fi"
+  remote_ssh "APIMETER_REMOTE_DIR='$DEPLOY_REMOTE_DIR' APIMETER_BINARY_NAME='$DEPLOY_BINARY_NAME' APIMETER_APP_PORT='$DEPLOY_APP_PORT' APIMETER_HEALTH_PATH='$DEPLOY_HEALTH_PATH' APIMETER_HEALTH_TIMEOUT='$DEPLOY_HEALTH_TIMEOUT' APIMETER_STOP_TIMEOUT='$DEPLOY_STOP_TIMEOUT' APIMETER_SERVICE_NAME='$DEPLOY_SERVICE_NAME' '$DEPLOY_REMOTE_DIR/bin/rollback-apimeter.sh' --release '$release_id' --yes"
 }
 
 manual_status() {
@@ -1991,7 +2008,7 @@ choose_mode() {
   while true; do
     cat >&2 <<EOF
 
-ModelSell 部署管理
+APIMeter 部署管理
   拓扑：$DEPLOY_TOPOLOGY
   当前单节点操作目标：${menu_target}
   完整发布策略：$([[ "$DEPLOY_TOPOLOGY" == "multi" ]] && printf 'standby -> primary 滚动发布' || printf '单机优雅重启')

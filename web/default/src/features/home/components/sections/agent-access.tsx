@@ -27,15 +27,16 @@ import {
   SquareTerminal,
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { shouldShowModelSellCliSection } from '@/lib/site-branding'
+import {
+  getAgentToolsURL,
+  getCliDocsURL,
+  getCliInstallCommands,
+  getCliScreenshotURL,
+  shouldShowAPIMeterCliSection,
+} from '@/lib/site-branding'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { AnimateInView } from '@/components/animate-in-view'
-
-const MACOS_INSTALL_COMMAND =
-  'curl -fsSL https://static.modelsell.com/modelsell-cli/install.sh | sh'
-const WINDOWS_INSTALL_COMMAND =
-  'irm https://static.modelsell.com/modelsell-cli/install.ps1 | iex'
 
 const SUPPORTED_AGENT_TOOLS = [
   'Claude Code',
@@ -48,9 +49,8 @@ export function AgentAccess() {
   const { t } = useTranslation()
   const [installTarget, setInstallTarget] = useState<'unix' | 'windows'>('unix')
   const [copied, setCopied] = useState(false)
-  const showModelSellCliSection = shouldShowModelSellCliSection()
-  const installCommand =
-    installTarget === 'unix' ? MACOS_INSTALL_COMMAND : WINDOWS_INSTALL_COMMAND
+  const showAPIMeterCliSection = shouldShowAPIMeterCliSection()
+  const installCommand = getCliInstallCommands()[installTarget]
 
   const copyCommand = async () => {
     await navigator.clipboard?.writeText(installCommand)
@@ -58,7 +58,7 @@ export function AgentAccess() {
     window.setTimeout(() => setCopied(false), 1600)
   }
 
-  if (!showModelSellCliSection) return null
+  if (!showAPIMeterCliSection) return null
 
   return (
     <section className='relative z-10 px-6 py-16 md:py-24'>
@@ -66,7 +66,7 @@ export function AgentAccess() {
         <AnimateInView className='max-w-3xl'>
           <div className='border-border/70 bg-background/80 text-muted-foreground inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium shadow-sm'>
             <SquareTerminal className='text-primary size-4' />
-            ModelSell CLI
+            APIMeter CLI
           </div>
 
           <h2 className='mt-6 text-3xl leading-tight font-bold tracking-tight md:text-5xl'>
@@ -74,7 +74,7 @@ export function AgentAccess() {
           </h2>
           <p className='text-muted-foreground mt-5 max-w-2xl text-sm leading-relaxed md:text-base'>
             {t(
-              'ModelSell CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.'
+              'APIMeter CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.'
             )}
           </p>
 
@@ -143,7 +143,7 @@ export function AgentAccess() {
               type='button'
               className='group'
               render={
-                <a href='https://docs.modelsell.com/zh/docs/apps/modelsell-cli' />
+                <a href={getCliDocsURL()} />
               }
             >
               {t('View CLI docs')}
@@ -152,7 +152,7 @@ export function AgentAccess() {
             <Button
               type='button'
               variant='outline'
-              render={<a href='https://docs.modelsell.com/zh/docs/apps' />}
+              render={<a href={getAgentToolsURL()} />}
             >
               <Sparkles className='size-4' />
               {t('Browse Agent tools')}
@@ -178,8 +178,8 @@ export function AgentAccess() {
             className='bg-primary/5 border-border/70 absolute -inset-4 rounded-3xl border'
           />
           <img
-            src='https://docs.modelsell.com/_next/image?url=%2Fassets%2Fdocs%2Fapps%2Fmodelsell%2Fmodelsell-cli.png&w=1920&q=75'
-            alt={t('ModelSell CLI interactive configuration screen')}
+            src={getCliScreenshotURL()}
+            alt={t('APIMeter CLI interactive configuration screen')}
             className='border-border/70 bg-background relative w-full rounded-2xl border shadow-2xl'
             loading='lazy'
           />

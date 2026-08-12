@@ -1,5 +1,10 @@
 FROM oven/bun:1@sha256:0733e50325078969732ebe3b15ce4c4be5082f18c4ac1a0f0ca4839c2e4e42a7 AS builder
 
+ARG VITE_APIMETER_STATIC_URL=https://static.apimeter.ai
+ARG VITE_APIMETER_DOCS_URL=https://docs.apimeter.ai
+ENV VITE_APIMETER_STATIC_URL=${VITE_APIMETER_STATIC_URL}
+ENV VITE_APIMETER_DOCS_URL=${VITE_APIMETER_DOCS_URL}
+
 WORKDIR /build
 COPY web/default/package.json .
 COPY web/default/bun.lock .
@@ -36,7 +41,7 @@ RUN go mod download
 COPY . .
 COPY --from=builder /build/dist ./web/default/dist
 COPY --from=builder-classic /build/dist ./web/classic/dist
-RUN go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o modelsell-api
+RUN go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o apimeter-api
 
 FROM debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0f2837acbf89ab020a
 
@@ -45,12 +50,12 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/* \
     && update-ca-certificates
 
-LABEL org.opencontainers.image.title="Modelsell API" \
-      org.opencontainers.image.description="Modelsell API gateway" \
-      org.opencontainers.image.vendor="Modelsell"
+LABEL org.opencontainers.image.title="APIMeter API" \
+      org.opencontainers.image.description="APIMeter API gateway" \
+      org.opencontainers.image.vendor="APIMeter"
 
-COPY --from=builder2 /build/modelsell-api /
+COPY --from=builder2 /build/apimeter-api /
 COPY LICENSE NOTICE THIRD-PARTY-LICENSES.md /licenses/
 EXPOSE 3000
 WORKDIR /data
-ENTRYPOINT ["/modelsell-api"]
+ENTRYPOINT ["/apimeter-api"]

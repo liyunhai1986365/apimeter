@@ -287,7 +287,7 @@ GET /v1/videos/{task_id}/content
 | `doubao-seedance-2-api-assets` | Doubao Seedance 2.0 API Assets | Seedance 2.0 API Assets 形态 | `/v1/video/generations`、`/v1/videos` | 使用 API assets 路径的 Seedance 2.0 profile。 |
 | `seedance2-service-inference` | Seedance2 Service Inference | `dreamina-seedance-2-0-*` 等 | `/v1/video/generations`、`/v1/videos` | Service Inference 形态，支持原生任务响应转换。 |
 | `seedance2-ark-task-assets` | Seedance2 Ark Task Assets | `doubao-seedance-2-0-*` | `/v1/video/generations`、`/v1/videos` | Ark task assets 形态，支持资源上传/查询相关路由。 |
-| `seedance2-modelsell` | Seedance 2.0 Modelsell | Modelsell Seedance 2.0 国内/海外模型 | `/v1/video/generations`、`/v1/videos` | 直连 Modelsell Seedance 2.0，并转发 `/api/assets/upload`、`/api/assets/{id}` 及可选 `model` 查询参数。 |
+| `seedance2-apimeter` | Seedance 2.0 APIMeter | APIMeter Seedance 2.0 国内/海外模型 | `/v1/video/generations`、`/v1/videos` | 直连 APIMeter Seedance 2.0，并转发 `/api/assets/upload`、`/api/assets/{id}` 及可选 `model` 查询参数。 |
 | `kling-video` | Kling Video | `kling-v*`、`kling-o*`、`kling-3.0-turbo`、Kling 扩展能力 | `/v1/video/generations`、`/v1/videos` | Kling 文生视频、图生视频、Omni、运动控制、多图、对口型、音频等能力。 |
 
 ## 渠道配置要点

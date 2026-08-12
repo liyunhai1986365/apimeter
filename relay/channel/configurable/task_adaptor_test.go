@@ -1014,8 +1014,8 @@ func TestTaskAdaptorParsesSeedanceResponses(t *testing.T) {
 	}
 }
 
-func TestTaskAdaptorParsesModelsellWrappedSeedanceUsage(t *testing.T) {
-	profile, ok := GetProfile("seedance2-modelsell")
+func TestTaskAdaptorParsesAPIMeterWrappedSeedanceUsage(t *testing.T) {
+	profile, ok := GetProfile("seedance2-apimeter")
 	require.True(t, ok)
 
 	wrapped := []byte(`{
@@ -1023,20 +1023,20 @@ func TestTaskAdaptorParsesModelsellWrappedSeedanceUsage(t *testing.T) {
 		"data":{
 			"data":{
 				"task":{
-					"id":"mvt-modelsell",
+					"id":"mvt-apimeter",
 					"status":"completed",
 					"usage":{"total_tokens":50638,"completion_tokens":50638}
 				}
 			},
 			"status":"SUCCESS",
-			"task_id":"task_modelsell",
+			"task_id":"task_apimeter",
 			"result_url":"https://cdn.example/result.mp4"
 		},
 		"message":""
 	}`)
 	result := ParseConfiguredTaskInfo(profile.Video.Fetch.Response, wrapped)
 
-	require.Equal(t, "task_modelsell", result.TaskID)
+	require.Equal(t, "task_apimeter", result.TaskID)
 	require.Equal(t, string(model.TaskStatusSuccess), result.Status)
 	require.Equal(t, "https://cdn.example/result.mp4", result.Url)
 	require.Equal(t, 50638, result.TotalTokens)

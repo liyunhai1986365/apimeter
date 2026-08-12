@@ -1,11 +1,11 @@
 {
 	admin 127.0.0.1:2019
-	email admin@modelsell.com
+	email admin@apimeter.ai
 }
 
-(modelsell_access_log) {
+(apimeter_access_log) {
 	log {
-		output file /var/log/caddy/modelsell_access.log {
+		output file /var/log/caddy/apimeter_access.log {
 			roll_size 100mb
 			roll_keep 10
 			roll_keep_for 720h
@@ -67,7 +67,7 @@
 	}
 }
 
-(modelsell_routes) {
+(apimeter_routes) {
 	@docs_paths {
 		path /docs* /zh/docs* /_next/static* /_next/image* /api/search
 	}
@@ -87,17 +87,17 @@
 	}
 }
 
-modelsell.com {
-	import modelsell_access_log
-	import modelsell_routes
+apimeter.ai {
+	import apimeter_access_log
+	import apimeter_routes
 }
 
-www.modelsell.com {
-	import modelsell_access_log
-	import modelsell_routes
+www.apimeter.ai {
+	import apimeter_access_log
+	import apimeter_routes
 }
 
-api.modelsell.com {
-	import modelsell_access_log
+api.apimeter.ai {
+	import apimeter_access_log
 	import distributed_proxy
 }

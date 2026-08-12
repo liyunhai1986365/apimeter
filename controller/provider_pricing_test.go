@@ -32,7 +32,7 @@ func TestBuildHvoyProviderPricingResponseExpandsFinalGroupPrices(t *testing.T) {
 			ModelPrice:  0.2,
 			EnableGroup: []string{"all"},
 		},
-	}, map[string]float64{"default": 1, "vip": 0.5}, 2, "Modelsell API", "api.example.com", updatedAt)
+	}, map[string]float64{"default": 1, "vip": 0.5}, 2, "APIMeter API", "api.example.com", updatedAt)
 
 	require.True(t, response.Success)
 	require.Equal(t, hvoyProviderPricingSchemaVersion, response.SchemaVersion)

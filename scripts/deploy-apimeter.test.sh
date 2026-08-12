@@ -2,11 +2,11 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SCRIPT="$ROOT_DIR/scripts/deploy-modelsell.sh"
-SEO_VERIFY_SCRIPT="$ROOT_DIR/scripts/verify-modelsell-seo.sh"
+SCRIPT="$ROOT_DIR/scripts/deploy-apimeter.sh"
+SEO_VERIFY_SCRIPT="$ROOT_DIR/scripts/verify-apimeter-seo.sh"
 
 fail() {
-  printf 'deploy-modelsell test failed: %s\n' "$*" >&2
+  printf 'deploy-apimeter test failed: %s\n' "$*" >&2
   exit 1
 }
 
@@ -43,7 +43,7 @@ assert_remote_rollout_helpers() {
 
   (
     export REMOTE_DIR="$sandbox/remote"
-    export SERVICE_NAME=modelsell
+    export SERVICE_NAME=apimeter
     export BINARY_NAME=new-api
     export APP_PORT=3000
     export RELEASE_ID=test-release
@@ -163,14 +163,19 @@ assert_deploy_topologies() {
   printf '%s\n' \
     'NODE_TYPE=master' \
     'SQL_DSN=app:secret@tcp(127.0.0.1:3306)/app?charset=utf8mb4' \
-    'LOG_SQL_DSN=logs:secret@tcp(127.0.0.1:3306)/logs?charset=utf8mb4' \
-    'REDIS_CONN_STRING=redis://:secret@127.0.0.1:6379/0' >"$primary_env"
+    'REDIS_CONN_STRING=redis://:secret@127.0.0.1:6379/0' \
+    'SESSION_SECRET=shared-session-secret' \
+    'CRYPTO_SECRET=shared-crypto-secret' >"$primary_env"
   printf '%s\n' \
     'NODE_TYPE=slave' \
     'SQL_DSN=app:secret@tcp(10.0.0.1:3306)/app?charset=utf8mb4' \
-    'LOG_SQL_DSN=logs:secret@tcp(10.0.0.1:3306)/logs?charset=utf8mb4' \
-    'REDIS_CONN_STRING=redis://:secret@10.0.0.1:6379/0' >"$standby_env"
-  printf '%s\n' 'NODE_TYPE=master' >"$single_env"
+    'REDIS_CONN_STRING=redis://:secret@10.0.0.1:6379/0' \
+    'SESSION_SECRET=shared-session-secret' \
+    'CRYPTO_SECRET=shared-crypto-secret' >"$standby_env"
+  printf '%s\n' \
+    'NODE_TYPE=master' \
+    'SESSION_SECRET=single-session-secret' \
+    'CRYPTO_SECRET=single-crypto-secret' >"$single_env"
   printf '%s\n' \
     'DEPLOY_TOPOLOGY=multi' \
     'DEPLOY_TARGET=primary' \
@@ -211,6 +216,17 @@ assert_deploy_topologies() {
   sed "s#DEPLOY_STANDBY_APP_ENV_FILE=$standby_env#DEPLOY_STANDBY_APP_ENV_FILE=$bad_standby_env#" "$config" >"$sandbox/invalid.env"
   if DEPLOY_ENV_FILE="$sandbox/invalid.env" DEPLOY_TARGET=standby "$SCRIPT" --config-check >/dev/null 2>&1; then
     fail 'multi config must reject different shared database credentials'
+  fi
+
+  sed 's/shared-session-secret/different-session-secret/' "$standby_env" >"$bad_standby_env"
+  sed "s#DEPLOY_STANDBY_APP_ENV_FILE=$standby_env#DEPLOY_STANDBY_APP_ENV_FILE=$bad_standby_env#" "$config" >"$sandbox/invalid.env"
+  if DEPLOY_ENV_FILE="$sandbox/invalid.env" DEPLOY_TARGET=standby "$SCRIPT" --config-check >/dev/null 2>&1; then
+    fail 'multi config must reject mismatched session secrets'
+  fi
+
+  sed '/CRYPTO_SECRET=/d' "$standby_env" >"$bad_standby_env"
+  if DEPLOY_ENV_FILE="$sandbox/invalid.env" DEPLOY_TARGET=standby "$SCRIPT" --config-check >/dev/null 2>&1; then
+    fail 'multi config must require a crypto secret on both nodes'
   fi
 
   sed 's/10.0.0.1/127.0.0.1/g' "$standby_env" >"$bad_standby_env"
@@ -356,7 +372,50 @@ EOF
     fail "rollback menu returned an unexpected action: $output"
 }
 
+assert_manual_helpers_inherit_deploy_config() {
+  local output
+  output="$(bash -c '
+    source "$1"
+    require_remote_tools() { :; }
+    prepare_remote() { :; }
+    remote_ssh() { printf "%s\n" "$1"; }
+    DEPLOY_REMOTE_DIR=/srv/custom-apimeter
+    DEPLOY_BINARY_NAME=custom-apimeter-api
+    DEPLOY_APP_PORT=4310
+    DEPLOY_HEALTH_PATH=/custom-ready
+    DEPLOY_HEALTH_TIMEOUT=77
+    DEPLOY_STOP_TIMEOUT=88
+    DEPLOY_SERVICE_NAME=custom-apimeter
+    manual_start
+    manual_stop
+    manual_rollback_list
+    manual_rollback release-1
+  ' _ "$SCRIPT")"
+
+  grep -Fq "APIMETER_REMOTE_DIR='/srv/custom-apimeter'" <<<"$output" || \
+    fail 'manual helpers must inherit the configured remote directory'
+  grep -Fq "APIMETER_BINARY_NAME='custom-apimeter-api'" <<<"$output" || \
+    fail 'manual helpers must inherit the configured binary name'
+  grep -Fq "APIMETER_APP_PORT='4310'" <<<"$output" || \
+    fail 'manual helpers must inherit the configured application port'
+  grep -Fq "APIMETER_HEALTH_PATH='/custom-ready'" <<<"$output" || \
+    fail 'manual helpers must inherit the configured health path'
+  grep -Fq "APIMETER_HEALTH_TIMEOUT='77'" <<<"$output" || \
+    fail 'manual helpers must inherit the configured health timeout'
+  grep -Fq "APIMETER_STOP_TIMEOUT='88'" <<<"$output" || \
+    fail 'rollback helpers must inherit the configured stop timeout'
+  grep -Fq "APIMETER_SERVICE_NAME='custom-apimeter'" <<<"$output" || \
+    fail 'manual helpers must inherit the configured service name'
+  grep -Fq "'/srv/custom-apimeter/bin/start-apimeter.sh' --force" <<<"$output" || \
+    fail 'manual start must invoke the installed APIMeter helper'
+  grep -Fq "'/srv/custom-apimeter/bin/rollback-apimeter.sh' --release 'release-1' --yes" <<<"$output" || \
+    fail 'manual rollback must invoke the installed APIMeter helper'
+}
+
 assert_contains 'DEPLOY_HEALTH_PATH="${DEPLOY_HEALTH_PATH:-/api/ready}"'
+assert_contains 'require_cmd bun'
+assert_contains '(cd "$dir" && bun install)'
+assert_contains 'VITE_REACT_APP_VERSION="$APP_VERSION" bun run build'
 assert_contains 'DEPLOY_HEALTH_TIMEOUT="${DEPLOY_HEALTH_TIMEOUT:-180}"'
 assert_contains 'DEPLOY_KEEP_RELEASES="${DEPLOY_KEEP_RELEASES:-5}"'
 assert_contains 'DEPLOY_SEO_VERIFY="${DEPLOY_SEO_VERIFY:-true}"'
@@ -413,10 +472,10 @@ assert_contains 'journalctl -u "$SERVICE_NAME" --since now --follow'
 assert_contains 'Health check: elapsed='
 assert_contains 'Readiness detail:'
 assert_contains 'readiness_summary'
-assert_contains 'install -m 0755 "$RELEASE_DIR/start-modelsell.sh" "$REMOTE_DIR/bin/start-modelsell.sh"'
+assert_contains 'install -m 0755 "$RELEASE_DIR/start-apimeter.sh" "$REMOTE_DIR/bin/start-apimeter.sh"'
 assert_contains 'ExecStart=${REMOTE_DIR}/current/${BINARY_NAME} --port ${APP_PORT} --log-dir ${REMOTE_DIR}/logs'
-assert_contains 'install -m 0755 "$ROOT_DIR/scripts/start-modelsell.sh" "$BUILD_DIR/start-modelsell.sh"'
-assert_contains 'install -m 0755 "$ROOT_DIR/scripts/verify-modelsell-seo.sh" "$BUILD_DIR/verify-modelsell-seo.sh"'
+assert_contains 'install -m 0755 "$ROOT_DIR/scripts/start-apimeter.sh" "$BUILD_DIR/start-apimeter.sh"'
+assert_contains 'install -m 0755 "$ROOT_DIR/scripts/verify-apimeter-seo.sh" "$BUILD_DIR/verify-apimeter-seo.sh"'
 assert_contains 'if ! start_and_verify true; then'
 assert_contains 'if start_and_verify false; then'
 assert_contains 'if ! start_and_verify false; then'
@@ -434,7 +493,7 @@ assert_contains 'Public IPv6 is active on $PUBLIC_INTERFACE, but IPv6 direct-por
 assert_contains 'restore_direct_traffic'
 assert_contains 'Failed to install one or more direct-port drain rules'
 assert_contains 'iptables -w 5 -t nat -D PREROUTING "${prerouting[@]}" || return 1'
-assert_contains 'modelsell-deploy-${APP_PORT}'
+assert_contains 'apimeter-deploy-${APP_PORT}'
 assert_contains 'active-deploy-drain'
 assert_contains 'write_drain_state prepared'
 assert_contains 'write_drain_state caddy'
@@ -464,7 +523,7 @@ assert_contains '--rolling-preflight'
 assert_contains 'CHECK_MULTI_DEPENDENCIES='
 assert_contains 'if [[ "$CHECK_MULTI_DEPENDENCIES" == "true" ]]; then'
 assert_contains 'PREFLIGHT_VERSION=%s'
-assert_contains 'ModelSell 部署管理'
+assert_contains 'APIMeter 部署管理'
 assert_contains '发布与更新（多机）'
 assert_contains '发布与更新（单机）'
 assert_contains '检查与观察（目标：${menu_target}）'
@@ -487,7 +546,7 @@ assert_contains 'Identical release is already active; reusing it without deletin
 assert_contains 'Release id is already active with different content; use a new release id'
 assert_contains 'tar --no-same-owner --no-same-permissions -xzf'
 assert_contains 'COPYFILE_DISABLE=1 tar --no-xattrs -czf "$ARCHIVE_NAME"'
-assert_contains 'rollback-modelsell.sh'
+assert_contains 'rollback-apimeter.sh'
 assert_contains '--manual-start'
 assert_contains '--manual-stop'
 assert_contains '--manual-rollback-list'
@@ -497,6 +556,9 @@ assert_contains '--manual-logs'
 assert_contains '--manual-service-start'
 assert_contains '--manual-service-stop'
 assert_contains 'manual-rollback:*)'
+assert_contains "APIMETER_REMOTE_DIR='\$DEPLOY_REMOTE_DIR' APIMETER_BINARY_NAME='\$DEPLOY_BINARY_NAME' APIMETER_APP_PORT='\$DEPLOY_APP_PORT'"
+assert_contains "APIMETER_HEALTH_PATH='\$DEPLOY_HEALTH_PATH' APIMETER_HEALTH_TIMEOUT='\$DEPLOY_HEALTH_TIMEOUT'"
+assert_contains "APIMETER_STOP_TIMEOUT='\$DEPLOY_STOP_TIMEOUT' APIMETER_SERVICE_NAME='\$DEPLOY_SERVICE_NAME'"
 
 first_drain_line="$(grep -nF 'if ! switch_traffic_to_peer; then' "$SCRIPT" | head -1 | cut -d: -f1)"
 release_switch_line="$(grep -nF 'ln -sfnT "$RELEASE_DIR" "$CURRENT_LINK"' "$SCRIPT" | tail -1 | cut -d: -f1)"
@@ -529,6 +591,7 @@ assert_heredoc_syntax REMOTE_PREFLIGHT
 assert_remote_rollout_helpers
 assert_deploy_topologies
 assert_interactive_menu
+assert_manual_helpers_inherit_deploy_config
 
 [[ -x "$SEO_VERIFY_SCRIPT" ]] || fail 'SEO verification script must be executable'
 bash -n "$SEO_VERIFY_SCRIPT" || fail 'invalid SEO verification script syntax'
@@ -538,4 +601,4 @@ if grep -Eq 'grep .*\|[[:space:]]*head' "$SEO_VERIFY_SCRIPT"; then
   fail 'SEO verifier must not use grep | head under pipefail'
 fi
 
-printf 'deploy-modelsell script safety checks passed\n'
+printf 'deploy-apimeter script safety checks passed\n'
