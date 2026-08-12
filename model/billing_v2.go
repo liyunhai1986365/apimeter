@@ -900,6 +900,25 @@ func GenerateMonthlyBillingStatement(userId int, month string) (BillingStatement
 	end := monthTime.AddDate(0, 1, 0).Add(-time.Second).Unix()
 	statementNo := fmt.Sprintf("BILL-%s-%d", strings.ReplaceAll(month, "-", ""), userId)
 
+	var sourceLogs []Log
+	if err := LOG_DB.Model(&Log{}).
+		Where("user_id = ? AND created_at >= ? AND created_at <= ?", userId, start, end).
+		Where("type IN ?", []int{LogTypeTopup, LogTypeConsume, LogTypeRefund, LogTypeManage}).
+		Order("created_at asc, id asc").
+		Find(&sourceLogs).Error; err != nil {
+		return BillingStatement{}, nil, err
+	}
+	if len(sourceLogs) > 0 {
+		return generateMonthlyBillingStatementFromLogs(userId, month, start, end, statementNo, sourceLogs)
+	}
+
+	// Compatibility fallback for installations that retained billing projection
+	// tables but no longer retain the corresponding raw logs.
+	return generateMonthlyBillingStatementFromProjections(userId, month, start, end, statementNo)
+}
+
+func generateMonthlyBillingStatementFromProjections(userId int, month string, start int64, end int64, statementNo string) (BillingStatement, []BillingStatementSummary, error) {
+
 	var usageTotals struct {
 		RequestCount     int64
 		InputTokens      int64
@@ -958,7 +977,7 @@ func GenerateMonthlyBillingStatement(userId int, month string) (BillingStatement
 			statement.AdjustmentAmount = row.Amount
 		}
 	}
-	statement.DifferenceAmount = statement.ConsumeAmount - statement.SettlementAmount
+	statement.DifferenceAmount = statement.ConsumeAmount - statement.RefundAmount - statement.SettlementAmount
 	if statement.DifferenceAmount == 0 {
 		statement.Status = BillingStatementStatusConfirmed
 		statement.FinalizedAt = statement.GeneratedAt
@@ -970,21 +989,29 @@ func GenerateMonthlyBillingStatement(userId int, month string) (BillingStatement
 	if err != nil {
 		return BillingStatement{}, nil, err
 	}
-	err = LOG_DB.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Where("statement_no = ?", statementNo).Delete(&BillingStatementSummary{}).Error; err != nil {
+	err = saveMonthlyBillingStatement(&statement, summaries)
+	return statement, summaries, err
+}
+
+func saveMonthlyBillingStatement(statement *BillingStatement, summaries []BillingStatementSummary) error {
+	if statement == nil {
+		return errors.New("billing statement is nil")
+	}
+	return LOG_DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("statement_no = ?", statement.StatementNo).Delete(&BillingStatementSummary{}).Error; err != nil {
 			return err
 		}
 		var existing BillingStatement
-		err := tx.Where("statement_no = ?", statementNo).First(&existing).Error
+		err := tx.Where("statement_no = ?", statement.StatementNo).First(&existing).Error
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
 		if existing.Id > 0 {
 			statement.Id = existing.Id
-			if err := tx.Save(&statement).Error; err != nil {
+			if err := tx.Save(statement).Error; err != nil {
 				return err
 			}
-		} else if err := tx.Create(&statement).Error; err != nil {
+		} else if err := tx.Create(statement).Error; err != nil {
 			return err
 		}
 		if len(summaries) > 0 {
@@ -994,6 +1021,65 @@ func GenerateMonthlyBillingStatement(userId int, month string) (BillingStatement
 		}
 		return nil
 	})
+}
+
+func generateMonthlyBillingStatementFromLogs(userId int, month string, start int64, end int64, statementNo string, logs []Log) (BillingStatement, []BillingStatementSummary, error) {
+	statement := BillingStatement{
+		StatementNo: statementNo,
+		UserId:      userId,
+		Period:      BillingStatementPeriodMonth,
+		PeriodValue: month,
+		PeriodStart: start,
+		PeriodEnd:   end,
+		GeneratedAt: time.Now().Unix(),
+	}
+	billingItems := make([]BillingUsageItem, 0, len(logs))
+	for i := range logs {
+		log := &logs[i]
+		other, _ := common.StrToMap(log.Other)
+		switch log.Type {
+		case LogTypeTopup:
+			statement.TopupAmount += int64(log.Quota)
+		case LogTypeManage:
+			statement.AdjustmentAmount += int64(log.Quota)
+		case LogTypeConsume, LogTypeRefund:
+			if shouldSkipPlatformBillingSource(billingSourceFromLogOther(other)) {
+				continue
+			}
+			item := billingUsageItemFromLog(log, other)
+			if log.Type == LogTypeConsume {
+				statement.RequestCount++
+				statement.ConsumeAmount += int64(log.Quota)
+				statement.InputTokens += item.InputTokens
+				statement.OutputTokens += item.OutputTokens
+				statement.CacheReadTokens += item.CacheReadTokens
+				statement.CacheWriteTokens += item.CacheWriteTokens
+			} else {
+				statement.RefundAmount += int64(log.Quota)
+				item.OriginalAmount = -item.OriginalAmount
+				item.SettlementAmount = -item.SettlementAmount
+				item.DiscountAmount = item.OriginalAmount - item.SettlementAmount
+				item.InputTokens = 0
+				item.OutputTokens = 0
+				item.CacheReadTokens = 0
+				item.CacheWriteTokens = 0
+			}
+			statement.OriginalAmount += item.OriginalAmount
+			statement.DiscountAmount += item.DiscountAmount
+			statement.SettlementAmount += item.SettlementAmount
+			billingItems = append(billingItems, item)
+		}
+	}
+	statement.DifferenceAmount = statement.ConsumeAmount - statement.RefundAmount - statement.SettlementAmount
+	if statement.DifferenceAmount == 0 {
+		statement.Status = BillingStatementStatusConfirmed
+		statement.FinalizedAt = statement.GeneratedAt
+	} else {
+		statement.Status = BillingStatementStatusException
+		statement.ExceptionCount = 1
+	}
+	summaries := buildBillingStatementSummariesFromItems(statement, billingItems)
+	err := saveMonthlyBillingStatement(&statement, summaries)
 	return statement, summaries, err
 }
 
@@ -1005,6 +1091,10 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 		Find(&items).Error; err != nil {
 		return nil, err
 	}
+	return buildBillingStatementSummariesFromItems(statement, items), nil
+}
+
+func buildBillingStatementSummariesFromItems(statement BillingStatement, items []BillingUsageItem) []BillingStatementSummary {
 	summaries := make([]BillingStatementSummary, 0, len(items))
 	collectors := map[string]map[string]*BillingStatementSummary{
 		BillingStatementSummaryDimensionMonthModelGroup: {},
@@ -1041,7 +1131,9 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 				}
 				collectors[dimension][seed.DimensionValue] = row
 			}
-			row.RequestCount++
+			if item.SettlementAmount >= 0 {
+				row.RequestCount++
+			}
 			row.InputTokens += item.InputTokens
 			row.OutputTokens += item.OutputTokens
 			row.CacheReadTokens += item.CacheReadTokens
@@ -1059,7 +1151,7 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 			summaries = append(summaries, *row)
 		}
 	}
-	return summaries, nil
+	return summaries
 }
 
 func GetBillingStatements(query BillingStatementQuery) ([]BillingStatement, error) {
