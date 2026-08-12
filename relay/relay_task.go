@@ -284,6 +284,12 @@ func applyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) {
 }
 
 func shouldApplyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) bool {
+	// ModelPrice/UsePrice is the fixed per-request billing mode exposed by the
+	// pricing API. Task adaptors may still collect duration/resolution metadata,
+	// but those multipliers must not change a fixed request price.
+	if info == nil || info.PriceData.UsePrice {
+		return false
+	}
 	return !common.StringsContains(constant.TaskPricePatches, modelName)
 }
 

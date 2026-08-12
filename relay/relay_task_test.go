@@ -40,7 +40,24 @@ func TestApplyTaskOtherRatiosAppliesSeedanceTieredExprSecondsPreConsumeQuota(t *
 	require.Equal(t, 1250000, info.PriceData.Quota)
 }
 
-func TestApplyTaskOtherRatiosKeepsPerCallTaskMultiplier(t *testing.T) {
+func TestApplyTaskOtherRatiosSkipsFixedPerRequestPrice(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		PriceData: types.PriceData{
+			Quota:    1000,
+			UsePrice: true,
+			OtherRatios: map[string]float64{
+				"seconds": 5,
+				"size":    2,
+			},
+		},
+	}
+
+	applyTaskOtherRatios(info, "sora-2")
+
+	require.Equal(t, 1000, info.PriceData.Quota)
+}
+
+func TestApplyTaskOtherRatiosKeepsUsageBasedTaskMultiplier(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		PriceData: types.PriceData{
 			Quota: 1000,
@@ -54,6 +71,27 @@ func TestApplyTaskOtherRatiosKeepsPerCallTaskMultiplier(t *testing.T) {
 	applyTaskOtherRatios(info, "sora-2")
 
 	require.Equal(t, 10000, info.PriceData.Quota)
+}
+
+func TestApplyTaskOtherRatiosKeepsLegacyFixedPricePatch(t *testing.T) {
+	originalPatches := constant.TaskPricePatches
+	constant.TaskPricePatches = []string{"legacy-fixed-video"}
+	t.Cleanup(func() {
+		constant.TaskPricePatches = originalPatches
+	})
+
+	info := &relaycommon.RelayInfo{
+		PriceData: types.PriceData{
+			Quota: 1000,
+			OtherRatios: map[string]float64{
+				"seconds": 5,
+			},
+		},
+	}
+
+	applyTaskOtherRatios(info, "legacy-fixed-video")
+
+	require.Equal(t, 1000, info.PriceData.Quota)
 }
 
 func TestVideoGenerationsFetchRealtimeConfigurableChannelAndReturnsOpenAIShape(t *testing.T) {
