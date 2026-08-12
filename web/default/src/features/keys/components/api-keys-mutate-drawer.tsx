@@ -338,7 +338,8 @@ export function ApiKeysMutateDrawer({
     }
   }, [open, isUpdate, currentRow, form])
 
-  // Correct group after groups load: if the form value is not in available groups, fall back.
+  // Remove unavailable groups after the supplier list loads. Manual routing may
+  // intentionally stay empty until the user chooses a supplier.
   useEffect(() => {
     if ((form.getValues('routing_mode') || 'smart') === 'smart') return
     if (groups.length === 0) return
@@ -346,16 +347,8 @@ export function ApiKeysMutateDrawer({
     const cleanChain = currentChain.filter(
       (group) => !shouldFallbackApiKeyGroup(group, groups)
     )
-    if (cleanChain.length !== currentChain.length || cleanChain.length === 0) {
-      const fallback =
-        groups.find((g) => g.value === AUTO_GROUP_VALUE)?.value ??
-        groups.find((g) => g.value === 'default')?.value ??
-        groups[0]?.value ??
-        AUTO_GROUP_VALUE
-      form.setValue(
-        'group_chain',
-        cleanChain.length > 0 ? cleanChain : [fallback]
-      )
+    if (cleanChain.length !== currentChain.length) {
+      form.setValue('group_chain', cleanChain)
     }
   }, [groups, form])
 
@@ -534,15 +527,7 @@ export function ApiKeysMutateDrawer({
                               AUTO_GROUP_VALUE
                             )
                           ) {
-                            const fallback =
-                              groups.find((g) => g.value === 'default')
-                                ?.value ??
-                              groups[0]?.value ??
-                              ''
-                            form.setValue(
-                              'group_chain',
-                              fallback ? [fallback] : []
-                            )
+                            form.setValue('group_chain', [])
                           }
                         }}
                         className='gap-3'

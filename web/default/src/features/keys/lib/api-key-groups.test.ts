@@ -70,10 +70,10 @@ describe('api key group options', () => {
     assert.equal(payload.cross_group_retry, true)
   })
 
-  test('replaces auto when adding the first concrete group and restores auto when empty', () => {
+  test('replaces auto when adding the first concrete group and allows an empty manual selection', () => {
     assert.deepEqual(addGroupToChain([AUTO_GROUP_VALUE], 'vip'), ['vip'])
     assert.deepEqual(addGroupToChain(['vip'], 'backup'), ['vip', 'backup'])
-    assert.deepEqual(removeGroupFromChain(['vip'], 0), [AUTO_GROUP_VALUE])
+    assert.deepEqual(removeGroupFromChain(['vip'], 0), [])
   })
 
   test('selecting auto clears all concrete groups', () => {
