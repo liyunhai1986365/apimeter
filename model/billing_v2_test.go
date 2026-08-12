@@ -311,6 +311,66 @@ func TestBillingV2BuildsMonthlyStatementAndDailyReconciliation(t *testing.T) {
 	assert.Equal(t, int64(8000), gptVipSummary.SettlementAmount)
 }
 
+func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, LOG_DB.AutoMigrate(
+		&BillingUsageItem{},
+		&AccountLedgerEntry{},
+		&BillingStatement{},
+		&BillingStatementSummary{},
+	))
+
+	june := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
+	julyBoundary := time.Date(2026, 7, 1, 0, 30, 0, 0, time.UTC)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id: 7501, UserId: 1001, CreatedAt: june.Unix(), Type: LogTypeConsume,
+			ModelName: "gpt-raw", Group: "vip", Quota: 1000, PromptTokens: 100, CompletionTokens: 20,
+			Other: common.MapToJsonStr(map[string]interface{}{
+				"group_ratio": 0.5, "billing_source": BillingSourceWallet, "billing_mode": "ratio",
+			}),
+		},
+		{
+			Id: 7502, UserId: 1001, CreatedAt: june.Add(time.Minute).Unix(), Type: LogTypeRefund,
+			ModelName: "gpt-raw", Group: "vip", Quota: 200,
+			Other: common.MapToJsonStr(map[string]interface{}{
+				"group_ratio": 0.5, "billing_source": BillingSourceWallet, "billing_mode": "ratio",
+			}),
+		},
+		{
+			Id: 7503, UserId: 1001, CreatedAt: julyBoundary.Unix(), Type: LogTypeConsume,
+			ModelName: "gpt-boundary", Group: "vip", Quota: 300,
+			Other: common.MapToJsonStr(map[string]interface{}{
+				"group_ratio": 1, "billing_source": BillingSourceWallet, "billing_mode": "ratio",
+			}),
+		},
+	}).Error)
+
+	// A stale/incomplete projection must not override the retained raw log truth.
+	require.NoError(t, RecordBillingUsageItem(&BillingUsageItem{
+		UserId: 1001, LogId: 7599, ModelName: "stale", BillingMonth: "2026-06",
+		BilledAt: june.Unix(), SettlementAmount: 10,
+	}))
+
+	statement, summaries, err := GenerateMonthlyBillingStatement(1001, "2026-06")
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), statement.RequestCount)
+	assert.Equal(t, int64(1000), statement.ConsumeAmount)
+	assert.Equal(t, int64(200), statement.RefundAmount)
+	assert.Equal(t, int64(800), statement.SettlementAmount)
+	assert.Equal(t, int64(0), statement.DifferenceAmount)
+	assert.Equal(t, BillingStatementStatusConfirmed, statement.Status)
+	require.Len(t, summaries, 1)
+	assert.Equal(t, "gpt-raw", summaries[0].ModelName)
+	assert.Equal(t, int64(1), summaries[0].RequestCount)
+	assert.Equal(t, int64(800), summaries[0].SettlementAmount)
+
+	julyStatement, _, err := GenerateMonthlyBillingStatement(1001, "2026-07")
+	require.NoError(t, err)
+	assert.Equal(t, int64(300), julyStatement.SettlementAmount)
+	assert.Equal(t, int64(1), julyStatement.RequestCount)
+}
+
 func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, LOG_DB.AutoMigrate(

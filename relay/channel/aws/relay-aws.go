@@ -12,6 +12,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/awsbedrock"
 	"github.com/QuantumNous/new-api/relay/channel/claude"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -114,6 +115,9 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 	for key, value := range headerOverride {
 		requestHeader.Set(key, value)
 	}
+	if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+		awsbedrock.FilterAnthropicBetaHeader(&requestHeader, info.UpstreamModelName, info.OriginModelName)
+	}
 
 	if isNovaModel(awsModelId) {
 		var novaReq *NovaRequest
@@ -137,9 +141,25 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 		a.AwsReq = awsReq
 		return nil, nil
 	} else {
-		awsClaudeReq, err := formatRequest(requestBody, requestHeader)
-		if err != nil {
-			return nil, types.NewError(errors.Wrap(err, "format aws request fail"), types.ErrorCodeBadRequestBody)
+		var awsRequestBody []byte
+		if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+			originalBody, err := io.ReadAll(requestBody)
+			if err != nil {
+				return nil, types.NewError(errors.Wrap(err, "read aws request body fail"), types.ErrorCodeBadRequestBody)
+			}
+			awsRequestBody, _, err = convertAwsBedrockRequestBody(c, originalBody, requestHeader, info.UpstreamModelName, info.OriginModelName)
+			if err != nil {
+				return nil, types.NewError(errors.Wrap(err, "convert aws bedrock request fail"), types.ErrorCodeBadRequestBody)
+			}
+		} else {
+			awsClaudeReq, err := formatRequest(requestBody, requestHeader)
+			if err != nil {
+				return nil, types.NewError(errors.Wrap(err, "format aws request fail"), types.ErrorCodeBadRequestBody)
+			}
+			awsRequestBody, err = buildAwsRequestBody(c, info, awsClaudeReq)
+			if err != nil {
+				return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
+			}
 		}
 
 		if info.IsStream {
@@ -148,10 +168,7 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 				Accept:      aws.String("application/json"),
 				ContentType: aws.String("application/json"),
 			}
-			awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
-			if err != nil {
-				return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
-			}
+			awsReq.Body = awsRequestBody
 			a.AwsReq = awsReq
 			return nil, nil
 		} else {
@@ -160,10 +177,7 @@ func doAwsClientRequest(c *gin.Context, info *relaycommon.RelayInfo, a *Adaptor,
 				Accept:      aws.String("application/json"),
 				ContentType: aws.String("application/json"),
 			}
-			awsReq.Body, err = buildAwsRequestBody(c, info, awsClaudeReq)
-			if err != nil {
-				return nil, types.NewError(errors.Wrap(err, "marshal aws request fail"), types.ErrorCodeBadRequestBody)
-			}
+			awsReq.Body = awsRequestBody
 			a.AwsReq = awsReq
 			return nil, nil
 		}

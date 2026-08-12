@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,7 @@ import (
 
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/awsbedrock"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -88,7 +90,21 @@ func (a *Adaptor) SetupRequestHeader(c *gin.Context, req *http.Header, info *rel
 	}
 	req.Set("anthropic-version", anthropicVersion)
 	CommonClaudeHeadersOperation(c, req, info)
+	if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+		filterAwsBedrockAnthropicBetaHeader(req, info.UpstreamModelName, info.OriginModelName)
+	}
 	return nil
+}
+
+func (a *Adaptor) FinalizeRequestHeader(_ *gin.Context, req *http.Header, info *relaycommon.RelayInfo) error {
+	if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+		filterAwsBedrockAnthropicBetaHeader(req, info.UpstreamModelName, info.OriginModelName)
+	}
+	return nil
+}
+
+func filterAwsBedrockAnthropicBetaHeader(req *http.Header, modelNames ...string) {
+	awsbedrock.FilterAnthropicBetaHeader(req, modelNames...)
 }
 
 func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeneralOpenAIRequest) (any, error) {
@@ -113,6 +129,34 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 }
 
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
+	if info.ChannelSetting.AwsBedrockRequestConversionEnabled {
+		requestHeader := http.Header{}
+		if err := a.SetupRequestHeader(c, &requestHeader, info); err != nil {
+			return nil, fmt.Errorf("setup request header for AWS Bedrock conversion: %w", err)
+		}
+		headerOverride, err := channel.ResolveHeaderOverride(info, c)
+		if err != nil {
+			return nil, err
+		}
+		for key, value := range headerOverride {
+			requestHeader.Set(key, value)
+		}
+
+		originalBody, err := io.ReadAll(requestBody)
+		if err != nil {
+			return nil, fmt.Errorf("read Anthropic request body for AWS Bedrock conversion: %w", err)
+		}
+		convertedBody, _, err := awsbedrock.ConvertRequestBodyWithOptions(c, originalBody, requestHeader, awsbedrock.RequestConversionOptions{
+			PreserveModel:            true,
+			PreserveStream:           true,
+			PreserveAnthropicVersion: true,
+			SkipBetaConversion:       true,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("convert Anthropic request for AWS Bedrock: %w", err)
+		}
+		requestBody = bytes.NewReader(convertedBody)
+	}
 	return channel.DoApiRequest(a, c, info, requestBody)
 }
 

@@ -86,6 +86,7 @@ export interface ChannelSettings {
   thinking_to_content?: boolean
   proxy?: string
   pass_through_body_enabled?: boolean
+  aws_bedrock_request_conversion_enabled?: boolean
   image_auto_convert_generation_with_image_to_edit?: boolean
   image_auto_convert_json_edit_to_multipart?: boolean
   openai_image_response_format?: 'url' | 'b64_json' | ''

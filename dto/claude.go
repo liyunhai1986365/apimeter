@@ -204,11 +204,13 @@ type ClaudeToolChoice struct {
 }
 
 type ClaudeRequest struct {
-	Model        string          `json:"model"`
-	Prompt       string          `json:"prompt,omitempty"`
-	System       any             `json:"system,omitempty"`
-	Messages     []ClaudeMessage `json:"messages,omitempty"`
-	CacheControl json.RawMessage `json:"cache_control,omitempty"`
+	Model            string          `json:"model"`
+	AnthropicVersion string          `json:"anthropic_version,omitempty"`
+	AnthropicBeta    json.RawMessage `json:"anthropic_beta,omitempty"`
+	Prompt           string          `json:"prompt,omitempty"`
+	System           any             `json:"system,omitempty"`
+	Messages         []ClaudeMessage `json:"messages,omitempty"`
+	CacheControl     json.RawMessage `json:"cache_control,omitempty"`
 	// InferenceGeo controls Claude data residency region.
 	// This field is filtered by default and can be enabled via channel setting allow_inference_geo.
 	InferenceGeo      string          `json:"inference_geo,omitempty"`
