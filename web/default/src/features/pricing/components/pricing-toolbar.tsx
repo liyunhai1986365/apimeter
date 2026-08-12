@@ -17,13 +17,20 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback } from 'react'
-import { ArrowUpDown, Check, Grid2X2, Table2 } from 'lucide-react'
+import {
+  ArrowUpDownIcon,
+  GridViewIcon,
+  Table01Icon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -38,13 +45,18 @@ import {
   type SortOption,
   type ViewMode,
 } from '../constants'
-import type { TokenUnit } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  TokenUnit,
+} from '../types'
+import { DownloadQuotationButton } from './download-quotation-button'
 import { SearchBar } from './search-bar'
 
 type SegmentOption = {
   value: string
   label?: string
-  icon?: React.ComponentType<{ className?: string }>
+  icon?: IconSvgElement
   tooltip?: string
 }
 
@@ -61,6 +73,11 @@ export interface PricingToolbarProps {
   viewMode: ViewMode
   onViewModeChange: (value: ViewMode) => void
   hasActiveFilters: boolean
+  quotationModels: PricingModel[]
+  priceRate: number
+  usdExchangeRate: number
+  usableGroup: Record<string, string | { desc?: string; ratio?: number }>
+  groupDisplay?: PricingGroupDisplayConfig
 }
 
 function SegmentedControl(props: {
@@ -76,7 +93,6 @@ function SegmentedControl(props: {
       className='bg-muted/50 inline-flex h-7 items-center rounded-md border p-0.5'
     >
       {props.options.map((option) => {
-        const Icon = option.icon
         const isActive = option.value === props.value
         const button = (
           <button
@@ -86,13 +102,13 @@ function SegmentedControl(props: {
             aria-pressed={isActive}
             className={cn(
               'inline-flex h-full items-center justify-center rounded-sm text-xs font-medium transition-all',
-              Icon && !option.label ? 'w-6' : 'gap-1 px-2.5',
+              option.icon && !option.label ? 'w-6' : 'gap-1 px-2.5',
               isActive
                 ? 'bg-background text-foreground shadow-sm'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            {Icon && <Icon className='size-3.5' />}
+            {option.icon && <HugeiconsIcon icon={option.icon} />}
             {option.label}
           </button>
         )
@@ -154,6 +170,18 @@ export function PricingToolbar(props: PricingToolbarProps) {
         </div>
 
         <div className='flex flex-wrap items-center gap-1.5'>
+          <DownloadQuotationButton
+            models={props.quotationModels}
+            tokenUnit={props.tokenUnit}
+            priceRate={props.priceRate}
+            usdExchangeRate={props.usdExchangeRate}
+            usableGroup={props.usableGroup}
+            groupDisplay={props.groupDisplay}
+            hasActiveFilters={
+              props.hasActiveFilters || Boolean(props.searchValue.trim())
+            }
+          />
+
           <div className='hidden items-center sm:flex'>
             <SegmentedControl
               options={[
@@ -177,25 +205,28 @@ export function PricingToolbar(props: PricingToolbarProps) {
                 />
               }
             >
-              <ArrowUpDown className='size-3.5' />
+              <HugeiconsIcon icon={ArrowUpDownIcon} data-icon='inline-start' />
               <span>{sortLabels[props.sortBy as SortOption] || t('Sort')}</span>
             </DropdownMenuTrigger>
             <DropdownMenuContent align='end' className='w-44'>
-              {Object.entries(sortLabels).map(([value, label]) => (
-                <DropdownMenuItem
-                  key={value}
-                  onClick={() => props.onSortChange(value)}
-                  className='gap-2'
-                >
-                  <Check
-                    className={cn(
-                      'size-4 shrink-0',
-                      props.sortBy === value ? 'opacity-100' : 'opacity-0'
-                    )}
-                  />
-                  {label}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuGroup>
+                {Object.entries(sortLabels).map(([value, label]) => (
+                  <DropdownMenuItem
+                    key={value}
+                    onClick={() => props.onSortChange(value)}
+                    className='gap-2'
+                  >
+                    <HugeiconsIcon
+                      icon={Tick02Icon}
+                      className={cn(
+                        'shrink-0',
+                        props.sortBy === value ? 'opacity-100' : 'opacity-0'
+                      )}
+                    />
+                    {label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
 
@@ -203,12 +234,12 @@ export function PricingToolbar(props: PricingToolbarProps) {
             options={[
               {
                 value: VIEW_MODES.CARD,
-                icon: Grid2X2,
+                icon: GridViewIcon,
                 tooltip: t('Card view'),
               },
               {
                 value: VIEW_MODES.TABLE,
-                icon: Table2,
+                icon: Table01Icon,
                 tooltip: t('Table view'),
               },
             ]}

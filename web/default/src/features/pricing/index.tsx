@@ -261,6 +261,7 @@ export function Pricing() {
     vendors,
     groupRatio,
     usableGroup,
+    groupDisplay,
     isLoading,
     priceRate,
     usdExchangeRate,
@@ -464,6 +465,11 @@ export function Pricing() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 hasActiveFilters={hasActiveFilters}
+                quotationModels={filteredModels}
+                priceRate={priceRate}
+                usdExchangeRate={usdExchangeRate}
+                usableGroup={usableGroup}
+                groupDisplay={groupDisplay}
               />
             </div>
 
