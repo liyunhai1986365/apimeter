@@ -315,6 +315,8 @@ export interface TaskLogProperties {
 export interface GetLogsParams {
   p?: number
   page_size?: number
+  cursor_mode?: 1
+  cursor?: number
   type?: number
   username?: string
   token_name?: string
@@ -435,9 +437,11 @@ export interface GetLogsResponse {
       | RetryRouteEvent[]
       | MidjourneyLog[]
       | TaskLog[]
-    total: number
+    total?: number
     page: number
     page_size: number
+    has_more?: boolean
+    next_cursor?: number
   }
 }
 
@@ -507,6 +511,7 @@ export interface FetchLogsConfig {
   isAdmin: boolean
   page: number
   pageSize: number
+  cursor?: number
   searchParams: Record<string, unknown>
   columnFilters: Array<{ id: string; value: unknown }>
 }

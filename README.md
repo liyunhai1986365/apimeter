@@ -200,6 +200,35 @@ curl http://127.0.0.1:3000/v1/chat/completions \
 
 接口是否可用取决于目标渠道和模型是否支持对应能力。
 
+### OpenAI 兼容接口并发测试
+
+`bin/openai_concurrency_test.py` 会默认读取仓库根目录的 `.env`，按 token
+档位分别压测 Chat Completions 接口。在本地配置中加入：
+
+```dotenv
+OPENAI_BASE_URL=https://your-domain.com
+OPENAI_API_KEY=替换为控制台创建的令牌
+OPENAI_MODEL=your-model-id
+
+OPENAI_TEST_TOKEN_PROFILES=small:128,large:2048
+OPENAI_TEST_REQUESTS=100
+OPENAI_TEST_CONCURRENCY=100
+OPENAI_TEST_TIMEOUT=180
+```
+
+配置完成后直接运行：
+
+```bash
+./bin/openai_concurrency_test.py
+```
+
+也可以通过 `--config .env.production` 读取其他本地配置文件，或使用命令行
+参数临时覆盖配置。默认档位为 `small:128`、`large:2048`，每档发送 100
+个请求，并发度为 100。
+
+其中档位值是请求的 `max_tokens` 上限；脚本会同时报告接口返回的实际
+`completion_tokens` 均值，以及成功率、吞吐、P50/P95/P99 延迟和状态码分布。
+
 ## 项目结构
 
 ```text

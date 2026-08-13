@@ -3773,6 +3773,7 @@
     "Ownership": "渠道归属",
     "p95 latency": "p95 延迟",
     "Page": "页面",
+    "Page {{current}}": "第 {{current}} 页",
     "Page {{current}} of {{total}}": "第 {{current}} 页，共 {{total}} 页",
     "Paid Amount": "支付金额",
     "PaLM": "PaLM",

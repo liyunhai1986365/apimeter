@@ -3773,6 +3773,7 @@
     "Ownership": "Propriété",
     "p95 latency": "Latence p95",
     "Page": "Page",
+    "Page {{current}}": "Page {{current}}",
     "Page {{current}} of {{total}}": "Page {{current}} sur {{total}}",
     "Paid Amount": "Montant paye",
     "PaLM": "PaLM",

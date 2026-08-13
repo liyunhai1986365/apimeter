@@ -3773,6 +3773,7 @@
     "Ownership": "所有区分",
     "p95 latency": "p95 レイテンシ",
     "Page": "ページ",
+    "Page {{current}}": "{{current}}ページ",
     "Page {{current}} of {{total}}": "{{total}} ページ中 {{current}} ページ目",
     "Paid Amount": "支払金額",
     "PaLM": "PaLM",

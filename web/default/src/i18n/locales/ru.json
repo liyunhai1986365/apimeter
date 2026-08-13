@@ -3773,6 +3773,7 @@
     "Ownership": "Владелец",
     "p95 latency": "Задержка p95",
     "Page": "Страница",
+    "Page {{current}}": "Страница {{current}}",
     "Page {{current}} of {{total}}": "Страница {{current}} из {{total}}",
     "Paid Amount": "Сумма оплаты",
     "PaLM": "PaLM",

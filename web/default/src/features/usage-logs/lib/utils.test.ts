@@ -25,6 +25,30 @@ describe('usage log filter utils', () => {
     assert.equal(params.channel, 11)
   })
 
+  test('builds cursor params without sending an empty cursor', () => {
+    const firstPage = buildApiParams({
+      page: 1,
+      pageSize: 100,
+      cursor: 0,
+      cursorMode: true,
+      searchParams: {},
+      isAdmin: true,
+    })
+    assert.equal(firstPage.cursor_mode, 1)
+    assert.equal(firstPage.cursor, undefined)
+
+    const nextPage = buildApiParams({
+      page: 2,
+      pageSize: 100,
+      cursor: 1234,
+      cursorMode: true,
+      searchParams: {},
+      isAdmin: true,
+    })
+    assert.equal(nextPage.cursor_mode, 1)
+    assert.equal(nextPage.cursor, 1234)
+  })
+
   test('builds task channel params from quoted route values', () => {
     const params = buildBaseParams({
       page: 1,
