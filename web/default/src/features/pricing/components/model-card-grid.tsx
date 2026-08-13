@@ -19,11 +19,15 @@ For commercial licensing, please contact support@quantumnous.com
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 import { getLobeIcon } from '@/lib/lobe-icon'
+import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 import { DEFAULT_PRICING_PAGE_SIZE, DEFAULT_TOKEN_UNIT } from '../constants'
 import { buildModelCardGroups } from '../lib/model-card-groups'
-import type { PricingModel, TokenUnit } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  TokenUnit,
+} from '../types'
 import { ModelCard } from './model-card'
 import type { ModelPerfBadgeData } from './model-perf-badge'
 
@@ -34,6 +38,7 @@ export interface ModelCardGridProps {
   usdExchangeRate?: number
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
+  groupDisplay?: PricingGroupDisplayConfig
 }
 
 export function ModelCardGrid(props: ModelCardGridProps) {
@@ -71,8 +76,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
   }, [props.models, visibleCount])
 
   const visibleModelCount = useMemo(
-    () =>
-      vendorGroups.reduce((count, group) => count + group.models.length, 0),
+    () => vendorGroups.reduce((count, group) => count + group.models.length, 0),
     [vendorGroups]
   )
 
@@ -148,6 +152,7 @@ export function ModelCardGrid(props: ModelCardGridProps) {
                     priceRate={props.priceRate}
                     usdExchangeRate={props.usdExchangeRate}
                     showRechargePrice={props.showRechargePrice}
+                    groupDisplay={props.groupDisplay}
                     perf={perfMap.get(model.model_name || '')}
                     onClick={() => props.onModelClick(model.model_name || '')}
                   />

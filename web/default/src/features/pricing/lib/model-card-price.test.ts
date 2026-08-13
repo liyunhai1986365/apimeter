@@ -65,6 +65,21 @@ describe('buildModelCardPriceDisplay', () => {
     )
   })
 
+  test('suppresses hidden group discount details from advertised card prices', () => {
+    const display = buildModelCardPriceDisplay(tokenModel(), {
+      tokenUnit: 'M',
+      discountLabels: zhDiscountLabels,
+      hiddenDiscountGroups: new Set(['vip']),
+    })
+
+    assert.equal(display.discountLabel, undefined)
+    assert.equal(display.hasDiscount, false)
+    assert.deepEqual(
+      display.entries.map((entry) => entry.current),
+      ['$2', '$6']
+    )
+  })
+
   test('omits cache write prices from token-based model cards', () => {
     const display = buildModelCardPriceDisplay(
       tokenModel({

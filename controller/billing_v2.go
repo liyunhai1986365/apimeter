@@ -120,6 +120,7 @@ func ExportBillingMonthlyStatement(c *gin.Context) {
 			PeriodValue:      summary.PeriodValue,
 			ModelName:        summary.ModelName,
 			Group:            summary.Group,
+			GroupRatio:       summary.GroupRatio,
 			BillingSource:    summary.BillingSource,
 			BillingMode:      summary.BillingMode,
 			RequestCount:     summary.RequestCount,
@@ -142,14 +143,14 @@ func writeBillingBreakdownCSV(c *gin.Context, rows []model.BillingBreakdownRow, 
 	_ = writer.Write([]string{
 		"账期",
 		"模型",
-		"分组",
+		"供应商",
 		"请求数",
 		"输入 Tokens",
 		"输出 Tokens",
 		"缓存读取 Tokens",
 		"缓存写入 Tokens",
 		"原价(USD)",
-		"分组折扣(USD)",
+		"折扣",
 		"结算金额(USD)",
 	})
 	for _, row := range rows {
@@ -163,7 +164,7 @@ func writeBillingBreakdownCSV(c *gin.Context, rows []model.BillingBreakdownRow, 
 			strconv.FormatInt(row.CacheReadTokens, 10),
 			strconv.FormatInt(row.CacheWriteTokens, 10),
 			formatBillingCSVUSDAmount(row.OriginalAmount),
-			formatBillingCSVUSDAmount(row.DiscountAmount),
+			formatBillingCSVRatio(row.GroupRatio),
 			formatBillingCSVUSDAmount(row.SettlementAmount),
 		})
 	}
@@ -176,6 +177,13 @@ func writeBillingBreakdownCSV(c *gin.Context, rows []model.BillingBreakdownRow, 
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
 	c.Data(200, "text/csv; charset=utf-8", buf.Bytes())
+}
+
+func formatBillingCSVRatio(ratio float64) string {
+	if ratio <= 0 {
+		return ""
+	}
+	return strconv.FormatFloat(ratio, 'f', -1, 64)
 }
 
 func formatBillingCSVUSDAmount(quota int64) string {

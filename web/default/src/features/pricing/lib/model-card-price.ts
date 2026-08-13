@@ -66,6 +66,7 @@ export type ModelCardPriceDisplayOptions = {
   usdExchangeRate?: number
   discountLabels?: GroupDiscountLabels
   includeAllDynamicTiers?: boolean
+  hiddenDiscountGroups?: ReadonlySet<string>
 }
 
 const ORIGINAL_GROUP_KEY = '__original__'
@@ -80,6 +81,13 @@ function getEnabledGroups(model: PricingModel): string[] {
 
 function getGroupRatios(model: PricingModel): Record<string, number> {
   return model.group_ratio || {}
+}
+
+function getDiscountCandidateGroups(model: PricingModel): string[] {
+  const enabledGroups = getEnabledGroups(model)
+  return enabledGroups.includes('all')
+    ? Object.keys(getGroupRatios(model))
+    : enabledGroups
 }
 
 function getLowestEnabledGroupRatio(model: PricingModel): number {
@@ -98,14 +106,54 @@ function getLowestEnabledGroupRatio(model: PricingModel): number {
   return minRatio === Number.POSITIVE_INFINITY ? 1 : minRatio
 }
 
+function getLowestVisibleGroupRatio(
+  model: PricingModel,
+  hiddenGroups?: ReadonlySet<string>
+): number {
+  const visibleGroups = getDiscountCandidateGroups(model).filter(
+    (group) => !hiddenGroups?.has(group)
+  )
+  if (visibleGroups.length === 0) return 1
+
+  const ratios = getGroupRatios(model)
+  let minRatio = Number.POSITIVE_INFINITY
+  for (const group of visibleGroups) {
+    const ratio = ratios[group]
+    if (Number.isFinite(ratio) && ratio < minRatio) minRatio = ratio
+  }
+  return minRatio === Number.POSITIVE_INFINITY ? 1 : minRatio
+}
+
+function getDiscountVisibleModel(
+  model: PricingModel,
+  hiddenGroups?: ReadonlySet<string>
+): PricingModel {
+  if (!hiddenGroups || hiddenGroups.size === 0) return model
+
+  const visibleGroups = getDiscountCandidateGroups(model).filter(
+    (group) => !hiddenGroups.has(group)
+  )
+  const visibleRatios = Object.fromEntries(
+    visibleGroups.map((group) => [group, getGroupRatios(model)[group] ?? 1])
+  )
+  return {
+    ...model,
+    enable_groups: visibleGroups,
+    group_ratio: visibleRatios,
+  }
+}
+
 function getDiscountLabel(
   model: PricingModel,
-  labels: GroupDiscountLabels | undefined
+  labels: GroupDiscountLabels | undefined,
+  hiddenGroups?: ReadonlySet<string>
 ): string | undefined {
-  if (getLowestEnabledGroupRatio(model) >= 1) return undefined
+  if (getLowestVisibleGroupRatio(model, hiddenGroups) >= 1) return undefined
 
   return getLowestGroupDiscountSummary(
-    getEnabledGroups(model),
+    getDiscountCandidateGroups(model).filter(
+      (group) => !hiddenGroups?.has(group)
+    ),
     getGroupRatios(model),
     labels
   )
@@ -158,13 +206,17 @@ function buildDynamicDisplay(
   options: ModelCardPriceDisplayOptions
 ): ModelCardPriceDisplay {
   const shared = commonOptions(options)
+  const displayModel = getDiscountVisibleModel(
+    model,
+    options.hiddenDiscountGroups
+  )
   const unitLabel = tokenUnitLabel(shared.tokenUnit)
   const tiers = getDynamicPricingTiers(model)
   const tier = tiers[0] || null
   const displayTiers = options.includeAllDynamicTiers
     ? tiers
     : [tier].filter(Boolean)
-  const discountRatio = getLowestEnabledGroupRatio(model)
+  const discountRatio = getLowestEnabledGroupRatio(displayModel)
   const originalEntries = displayTiers.flatMap((item) =>
     getDynamicPriceEntries(item, {
       ...shared,
@@ -196,7 +248,8 @@ function buildDynamicDisplay(
     fallbackOriginalEntries.length === 0 &&
     (model.billing_expr || '').trim()
   ) {
-    const hasDiscount = discountRatio < 1
+    const hasDiscount =
+      getLowestVisibleGroupRatio(model, options.hiddenDiscountGroups) < 1
 
     return {
       kind: 'special',
@@ -205,21 +258,30 @@ function buildDynamicDisplay(
         : 'Special billing expression',
       unitLabel,
       isFree: false,
-      discountLabel: getDiscountLabel(model, options.discountLabels),
+      discountLabel: getDiscountLabel(
+        model,
+        options.discountLabels,
+        options.hiddenDiscountGroups
+      ),
       hasDiscount,
       rawExpression: model.billing_expr,
       entries: [],
     }
   }
 
-  const hasDiscount = discountRatio < 1
+  const hasDiscount =
+    getLowestVisibleGroupRatio(model, options.hiddenDiscountGroups) < 1
 
   return {
     kind: 'dynamic',
     billingLabelKey: 'Dynamic Pricing',
     unitLabel,
     isFree: false,
-    discountLabel: getDiscountLabel(model, options.discountLabels),
+    discountLabel: getDiscountLabel(
+      model,
+      options.discountLabels,
+      options.hiddenDiscountGroups
+    ),
     hasDiscount,
     entries: originalEntries.map((entry, index) => {
       const current = currentByKey.get(`${entry.key}:${entry.specLabel || ''}`)
@@ -241,13 +303,19 @@ function buildTokenDisplay(
   options: ModelCardPriceDisplayOptions
 ): ModelCardPriceDisplay {
   const shared = commonOptions(options)
+  const displayModel = getDiscountVisibleModel(
+    model,
+    options.hiddenDiscountGroups
+  )
   const unitLabel = tokenUnitLabel(shared.tokenUnit)
   const originalRatios = { [ORIGINAL_GROUP_KEY]: 1 }
   const isFree = isModelPriceFreeForRatio(
     model,
-    getLowestEnabledGroupRatio(model)
+    getLowestEnabledGroupRatio(displayModel)
   )
-  const hasDiscount = !isFree && getLowestEnabledGroupRatio(model) < 1
+  const hasDiscount =
+    !isFree &&
+    getLowestVisibleGroupRatio(model, options.hiddenDiscountGroups) < 1
   const args = [
     shared.tokenUnit,
     shared.showRechargePrice,
@@ -266,7 +334,7 @@ function buildTokenDisplay(
         ...args,
         originalRatios
       ),
-      current: formatPrice(model, 'input', ...args),
+      current: formatPrice(displayModel, 'input', ...args),
       unitLabel,
       featured: true,
     },
@@ -280,7 +348,7 @@ function buildTokenDisplay(
         ...args,
         originalRatios
       ),
-      current: formatPrice(model, 'output', ...args),
+      current: formatPrice(displayModel, 'output', ...args),
       unitLabel,
       featured: true,
     },
@@ -297,7 +365,7 @@ function buildTokenDisplay(
         ...args,
         originalRatios
       ),
-      current: formatPrice(model, 'cache', ...args),
+      current: formatPrice(displayModel, 'cache', ...args),
       unitLabel,
     })
   }
@@ -308,7 +376,11 @@ function buildTokenDisplay(
     isFree,
     discountLabel: isFree
       ? undefined
-      : getDiscountLabel(model, options.discountLabels),
+      : getDiscountLabel(
+          model,
+          options.discountLabels,
+          options.hiddenDiscountGroups
+        ),
     hasDiscount,
     entries,
   }
@@ -319,12 +391,18 @@ function buildRequestDisplay(
   options: ModelCardPriceDisplayOptions
 ): ModelCardPriceDisplay {
   const shared = commonOptions(options)
+  const displayModel = getDiscountVisibleModel(
+    model,
+    options.hiddenDiscountGroups
+  )
   const originalRatios = { [ORIGINAL_GROUP_KEY]: 1 }
   const isFree = isModelPriceFreeForRatio(
     model,
-    getLowestEnabledGroupRatio(model)
+    getLowestEnabledGroupRatio(displayModel)
   )
-  const hasDiscount = !isFree && getLowestEnabledGroupRatio(model) < 1
+  const hasDiscount =
+    !isFree &&
+    getLowestVisibleGroupRatio(model, options.hiddenDiscountGroups) < 1
   const args = [
     shared.showRechargePrice,
     shared.priceRate,
@@ -338,7 +416,11 @@ function buildRequestDisplay(
     isFree,
     discountLabel: isFree
       ? undefined
-      : getDiscountLabel(model, options.discountLabels),
+      : getDiscountLabel(
+          model,
+          options.discountLabels,
+          options.hiddenDiscountGroups
+        ),
     hasDiscount,
     entries: [
       {
@@ -350,7 +432,7 @@ function buildRequestDisplay(
           ...args,
           originalRatios
         ),
-        current: formatRequestPrice(model, ...args),
+        current: formatRequestPrice(displayModel, ...args),
         unitLabel: 'request',
         featured: true,
       },

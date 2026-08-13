@@ -40,9 +40,14 @@ import {
   getModalityTypeLabels,
   getQuotaTypeLabels,
 } from '../constants'
+import { isGroupDiscountHidden } from '../lib/group-display'
 import { inferModelMetadata } from '../lib/model-metadata'
 import { sortVendorsByConfiguredOrder } from '../lib/vendor-order'
-import type { PricingModel, PricingVendor } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  PricingVendor,
+} from '../types'
 import {
   PRICING_SUPPLIER_FILTER_DEFAULT_OPEN,
   PRICING_VENDOR_FILTER_DEFAULT_OPEN,
@@ -81,6 +86,7 @@ export interface PricingSidebarProps {
   vendors: PricingVendor[]
   groups: string[]
   groupRatios?: Record<string, number>
+  groupDisplay?: PricingGroupDisplayConfig
   models: PricingModel[]
   hasActiveFilters: boolean
   activeFilterCount: number
@@ -255,7 +261,9 @@ export function PricingSidebar(props: PricingSidebarProps) {
       count: countBy(props.models, (model) =>
         model.enable_groups?.includes(group)
       ),
-      suffix: formatGroupDiscount(props.groupRatios?.[group], discountLabels),
+      suffix: isGroupDiscountHidden(group, props.groupDisplay)
+        ? undefined
+        : formatGroupDiscount(props.groupRatios?.[group], discountLabels),
     })),
   ].filter((option) => option.value === FILTER_ALL || (option.count ?? 0) > 0)
 

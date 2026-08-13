@@ -118,6 +118,7 @@ function summaryRowsToBreakdownRows(
     period_value: row.period_value,
     model_name: row.model_name || '-',
     group: row.group || '-',
+    group_ratio: row.group_ratio,
     billing_source: row.billing_source || '-',
     billing_mode: row.billing_mode || '-',
     request_count: row.request_count,
@@ -129,6 +130,11 @@ function summaryRowsToBreakdownRows(
     discount_amount: row.discount_amount,
     settlement_amount: row.settlement_amount,
   }))
+}
+
+function formatSupplierDiscount(value: number) {
+  if (!Number.isFinite(value) || value <= 0) return ''
+  return value.toFixed(6).replace(/\.?0+$/, '')
 }
 
 function MetricCard({
@@ -537,7 +543,7 @@ function MonthlyStatementsTab() {
 
         <BillingBreakdownTable
           rows={selectedBreakdowns}
-          title={t('Monthly model group bill')}
+          title={t('Monthly model supplier bill')}
           loading={loading}
         />
         {workflow && workflow.adjustments.length > 0 && (
@@ -749,7 +755,7 @@ function BillingBreakdownTable({
     <div className='overflow-hidden rounded-lg border'>
       <div className='flex items-center justify-between gap-3 border-b px-3 py-2'>
         <h3 className='text-sm font-medium'>{title}</h3>
-        {rows[0] && <Badge variant='outline'>{t('Model group bill')}</Badge>}
+        {rows[0] && <Badge variant='outline'>{t('Model supplier bill')}</Badge>}
       </div>
       <div className='overflow-x-auto'>
         <Table>
@@ -757,7 +763,7 @@ function BillingBreakdownTable({
             <TableRow>
               <TableHead>{t('Period')}</TableHead>
               <TableHead>{t('Model')}</TableHead>
-              <TableHead>{t('Group')}</TableHead>
+              <TableHead>{t('Supplier')}</TableHead>
               <TableHead className='text-right'>{t('Requests')}</TableHead>
               <TableHead className='text-right'>{t('Input tokens')}</TableHead>
               <TableHead className='text-right'>{t('Output tokens')}</TableHead>
@@ -767,7 +773,7 @@ function BillingBreakdownTable({
                 {t('Original amount')}
               </TableHead>
               <TableHead className='text-right'>
-                {t('Group discount')}
+                {t('Billing discount')}
               </TableHead>
               <TableHead className='text-right'>
                 {t('Settlement amount')}
@@ -777,7 +783,7 @@ function BillingBreakdownTable({
           <TableBody>
             {rows.map((row) => (
               <TableRow
-                key={`${row.period}-${row.period_value}-${row.model_name}-${row.group}-${row.billing_source}-${row.billing_mode}`}
+                key={`${row.period}-${row.period_value}-${row.model_name}-${row.group}-${row.group_ratio}-${row.billing_source}-${row.billing_mode}`}
               >
                 <TableCell className='font-medium whitespace-nowrap'>
                   {row.period_value}
@@ -785,7 +791,9 @@ function BillingBreakdownTable({
                 <TableCell>
                   <Badge variant='outline'>{row.model_name || '-'}</Badge>
                 </TableCell>
-                <TableCell>{row.group || '-'}</TableCell>
+                <TableCell className='whitespace-nowrap'>
+                  {row.group || '-'}
+                </TableCell>
                 <TableCell className='text-right tabular-nums'>
                   {formatNumber(row.request_count)}
                 </TableCell>
@@ -805,7 +813,7 @@ function BillingBreakdownTable({
                   {formatQuota(row.original_amount)}
                 </TableCell>
                 <TableCell className='text-right tabular-nums'>
-                  {formatQuota(row.discount_amount)}
+                  {formatSupplierDiscount(row.group_ratio) || '-'}
                 </TableCell>
                 <TableCell className='text-right font-medium tabular-nums'>
                   {formatQuota(row.settlement_amount)}

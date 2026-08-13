@@ -131,25 +131,26 @@ type BillingStatement struct {
 }
 
 type BillingStatementSummary struct {
-	Id               int    `json:"id"`
-	StatementNo      string `json:"statement_no" gorm:"type:varchar(64);index"`
-	UserId           int    `json:"user_id" gorm:"index"`
-	Period           string `json:"period" gorm:"type:varchar(16);index"`
-	PeriodValue      string `json:"period_value" gorm:"type:varchar(16);index"`
-	Dimension        string `json:"dimension" gorm:"type:varchar(32);index"`
-	DimensionValue   string `json:"dimension_value" gorm:"type:varchar(191);index"`
-	ModelName        string `json:"model_name" gorm:"type:varchar(191);index;default:''"`
-	Group            string `json:"group" gorm:"type:varchar(64);index;default:''"`
-	BillingSource    string `json:"billing_source" gorm:"type:varchar(32);index;default:''"`
-	BillingMode      string `json:"billing_mode" gorm:"type:varchar(32);index;default:''"`
-	RequestCount     int64  `json:"request_count" gorm:"type:bigint;default:0"`
-	InputTokens      int64  `json:"input_tokens" gorm:"type:bigint;default:0"`
-	OutputTokens     int64  `json:"output_tokens" gorm:"type:bigint;default:0"`
-	CacheReadTokens  int64  `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
-	CacheWriteTokens int64  `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
-	OriginalAmount   int64  `json:"original_amount" gorm:"type:bigint;default:0"`
-	DiscountAmount   int64  `json:"discount_amount" gorm:"type:bigint;default:0"`
-	SettlementAmount int64  `json:"settlement_amount" gorm:"type:bigint;default:0"`
+	Id               int     `json:"id"`
+	StatementNo      string  `json:"statement_no" gorm:"type:varchar(64);index"`
+	UserId           int     `json:"user_id" gorm:"index"`
+	Period           string  `json:"period" gorm:"type:varchar(16);index"`
+	PeriodValue      string  `json:"period_value" gorm:"type:varchar(16);index"`
+	Dimension        string  `json:"dimension" gorm:"type:varchar(32);index"`
+	DimensionValue   string  `json:"dimension_value" gorm:"type:varchar(191);index"`
+	ModelName        string  `json:"model_name" gorm:"type:varchar(191);index;default:''"`
+	Group            string  `json:"group" gorm:"type:varchar(64);index;default:''"`
+	GroupRatio       float64 `json:"group_ratio" gorm:"default:0"`
+	BillingSource    string  `json:"billing_source" gorm:"type:varchar(32);index;default:''"`
+	BillingMode      string  `json:"billing_mode" gorm:"type:varchar(32);index;default:''"`
+	RequestCount     int64   `json:"request_count" gorm:"type:bigint;default:0"`
+	InputTokens      int64   `json:"input_tokens" gorm:"type:bigint;default:0"`
+	OutputTokens     int64   `json:"output_tokens" gorm:"type:bigint;default:0"`
+	CacheReadTokens  int64   `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
+	CacheWriteTokens int64   `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
+	OriginalAmount   int64   `json:"original_amount" gorm:"type:bigint;default:0"`
+	DiscountAmount   int64   `json:"discount_amount" gorm:"type:bigint;default:0"`
+	SettlementAmount int64   `json:"settlement_amount" gorm:"type:bigint;default:0"`
 }
 
 type BillingV2BackfillOptions struct {
@@ -223,12 +224,13 @@ type BillingBreakdownQuery struct {
 }
 
 type BillingBreakdownRow struct {
-	Period        string `json:"period"`
-	PeriodValue   string `json:"period_value"`
-	ModelName     string `json:"model_name"`
-	Group         string `json:"group"`
-	BillingSource string `json:"billing_source"`
-	BillingMode   string `json:"billing_mode"`
+	Period        string  `json:"period"`
+	PeriodValue   string  `json:"period_value"`
+	ModelName     string  `json:"model_name"`
+	Group         string  `json:"group"`
+	GroupRatio    float64 `json:"group_ratio"`
+	BillingSource string  `json:"billing_source"`
+	BillingMode   string  `json:"billing_mode"`
 
 	RequestCount     int64 `json:"request_count"`
 	InputTokens      int64 `json:"input_tokens"`
@@ -778,6 +780,7 @@ func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow
 		PeriodValue string
 		ModelName   string
 		Group       string
+		GroupRatio  string
 	}
 	collectors := map[collectorKey]*BillingBreakdownRow{}
 	order := make([]collectorKey, 0)
@@ -786,10 +789,15 @@ func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow
 		if period == BillingStatementPeriodDay {
 			periodValue = item.BillingDate
 		}
+		groupRatio := item.GroupRatio
+		if groupRatio == 0 {
+			groupRatio = 1
+		}
 		key := collectorKey{
 			PeriodValue: billingDisplayValue(periodValue),
 			ModelName:   billingDisplayValue(item.ModelName),
 			Group:       billingDisplayValue(item.Group),
+			GroupRatio:  strconv.FormatFloat(groupRatio, 'f', -1, 64),
 		}
 		row := collectors[key]
 		if row == nil {
@@ -798,6 +806,7 @@ func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow
 				PeriodValue:   key.PeriodValue,
 				ModelName:     key.ModelName,
 				Group:         key.Group,
+				GroupRatio:    groupRatio,
 				BillingSource: billingDisplayValue(item.BillingSource),
 				BillingMode:   billingDisplayValue(item.BillingMode),
 			}
@@ -1175,14 +1184,24 @@ func buildBillingStatementSummariesFromItems(statement BillingStatement, items [
 	for _, item := range items {
 		modelName := billingDisplayValue(item.ModelName)
 		groupName := billingDisplayValue(item.Group)
+		groupRatio := item.GroupRatio
+		if groupRatio == 0 {
+			groupRatio = 1
+		}
 		billingSource := billingDisplayValue(item.BillingSource)
 		billingMode := billingDisplayValue(item.BillingMode)
-		detailValue := strings.Join([]string{statement.PeriodValue, modelName, groupName}, " / ")
+		detailValue := strings.Join([]string{
+			statement.PeriodValue,
+			modelName,
+			groupName,
+			strconv.FormatFloat(groupRatio, 'f', -1, 64),
+		}, " / ")
 		values := map[string]BillingStatementSummary{
 			BillingStatementSummaryDimensionMonthModelGroup: {
 				DimensionValue: detailValue,
 				ModelName:      modelName,
 				Group:          groupName,
+				GroupRatio:     groupRatio,
 				BillingSource:  billingSource,
 				BillingMode:    billingMode,
 			},
@@ -1199,6 +1218,7 @@ func buildBillingStatementSummariesFromItems(statement BillingStatement, items [
 					DimensionValue: seed.DimensionValue,
 					ModelName:      seed.ModelName,
 					Group:          seed.Group,
+					GroupRatio:     seed.GroupRatio,
 					BillingSource:  seed.BillingSource,
 					BillingMode:    seed.BillingMode,
 				}
@@ -1224,6 +1244,15 @@ func buildBillingStatementSummariesFromItems(statement BillingStatement, items [
 			summaries = append(summaries, *row)
 		}
 	}
+	sort.SliceStable(summaries, func(i, j int) bool {
+		if summaries[i].ModelName != summaries[j].ModelName {
+			return summaries[i].ModelName < summaries[j].ModelName
+		}
+		if summaries[i].Group != summaries[j].Group {
+			return summaries[i].Group < summaries[j].Group
+		}
+		return summaries[i].GroupRatio < summaries[j].GroupRatio
+	})
 	return summaries
 }
 

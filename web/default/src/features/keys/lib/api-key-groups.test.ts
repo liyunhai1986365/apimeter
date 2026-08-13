@@ -176,6 +176,22 @@ describe('api key group options', () => {
     assert.equal(options[0]?.value, 'default')
   })
 
+  test('preserves hidden discount metadata in supplier options', () => {
+    const options = buildApiKeyGroupOptions(
+      {
+        vip: {
+          desc: 'VIP group',
+          ratio: 0.5,
+          hide_discount: true,
+        },
+      },
+      false
+    )
+
+    assert.equal(options[0]?.hideDiscount, true)
+    assert.equal(options[0]?.ratio, 0.5)
+  })
+
   test('filters backend auto group metadata from manual supplier options', () => {
     const options = buildApiKeyGroupOptions(
       {

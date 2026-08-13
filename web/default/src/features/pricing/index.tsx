@@ -372,6 +372,7 @@ export function Pricing() {
           usdExchangeRate={usdExchangeRate}
           tokenUnit={tokenUnit}
           showRechargePrice={false}
+          groupDisplay={groupDisplay}
         />
       )
     }
@@ -383,6 +384,7 @@ export function Pricing() {
         usdExchangeRate={usdExchangeRate}
         tokenUnit={tokenUnit}
         showRechargePrice={false}
+        groupDisplay={groupDisplay}
         onModelClick={handleModelClick}
       />
     )
@@ -422,6 +424,7 @@ export function Pricing() {
             vendors={vendors || []}
             groups={Object.keys(usableGroup || {})}
             groupRatios={groupRatio}
+            groupDisplay={groupDisplay}
             models={models || []}
             hasActiveFilters={hasActiveFilters}
             activeFilterCount={activeFilterCount}

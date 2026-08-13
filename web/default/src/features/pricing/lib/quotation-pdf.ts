@@ -28,6 +28,7 @@ import type {
   PricingModel,
   TokenUnit,
 } from '../types'
+import { getHiddenDiscountGroups, isGroupDiscountHidden } from './group-display'
 import {
   buildModelCardPriceDisplay,
   type ModelCardPriceDisplayOptions,
@@ -215,6 +216,7 @@ function getSupplierDiscounts(
   const configuredOrder = groupOrderMap(options.groupDisplay)
 
   return [...new Set(groups)]
+    .filter((group) => !isGroupDiscountHidden(group, options.groupDisplay))
     .filter(
       (group) =>
         usableGroups.length === 0 ||
@@ -326,6 +328,7 @@ export function buildQuotationRows(
     const display = buildModelCardPriceDisplay(model, {
       ...options,
       includeAllDynamicTiers: true,
+      hiddenDiscountGroups: getHiddenDiscountGroups(options.groupDisplay),
     })
     const scenarioEntries = getScenarioEntries(display.entries)
     const supplierDiscounts = getSupplierDiscounts(model, options)

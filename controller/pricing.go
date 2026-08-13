@@ -75,6 +75,11 @@ func GetPricing(c *gin.Context) {
 		agentGroupRatio := map[string]float64{}
 		agentSystemGroups := make(map[string]struct{})
 		visibleGroups := agentservice.VisibleGroupsForUser(agentCtx, group)
+		groupDisplay := setting.GetGroupDisplayConfig()
+		displayBySystemGroup := make(map[string]setting.GroupDisplayGroup, len(groupDisplay.Groups))
+		for _, displayGroup := range groupDisplay.Groups {
+			displayBySystemGroup[displayGroup.Group] = displayGroup
+		}
 		for _, agentGroup := range visibleGroups {
 			desc := strings.TrimSpace(agentGroup.Description)
 			if desc == "" {
@@ -83,6 +88,10 @@ func GetPricing(c *gin.Context) {
 			agentUsableGroup[agentGroup.GroupName] = desc
 			agentGroupRatio[agentGroup.GroupName] = agentGroup.EffectiveRatio
 			agentSystemGroups[agentGroup.SystemGroupName] = struct{}{}
+			if displayGroup, ok := displayBySystemGroup[agentGroup.SystemGroupName]; ok && agentGroup.GroupName != agentGroup.SystemGroupName {
+				displayGroup.Group = agentGroup.GroupName
+				groupDisplay.Groups = append(groupDisplay.Groups, displayGroup)
+			}
 		}
 		systemUsableGroup := make(map[string]string, len(agentSystemGroups))
 		for systemGroup := range agentSystemGroups {
@@ -118,7 +127,7 @@ func GetPricing(c *gin.Context) {
 			"group_ratio":        agentGroupRatio,
 			"group_perf":         getPricingGroupPerformance(agentUsableGroup),
 			"usable_group":       agentUsableGroup,
-			"group_display":      setting.GetGroupDisplayConfig(),
+			"group_display":      groupDisplay,
 			"supported_endpoint": model.GetSupportedEndpointMap(),
 			"auto_groups":        []string{},
 			"pricing_version":    "a42d372ccf0b5dd13ecf71203521f9d2",

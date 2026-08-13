@@ -23,6 +23,7 @@ export const AUTO_GROUP_VALUE = 'auto'
 type UserGroupInfo = {
   desc: string
   ratio: number | string
+  hide_discount?: boolean
 }
 
 export function buildApiKeyGroupOptions(
@@ -37,6 +38,7 @@ export function buildApiKeyGroupOptions(
       label: key,
       desc: info.desc || key,
       ratio: info.ratio,
+      hideDiscount: info.hide_discount === true,
     }))
 }
 

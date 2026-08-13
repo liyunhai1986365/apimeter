@@ -38,6 +38,7 @@ export type PricingGroupDisplayGroup = {
   group: string
   category_id: string
   order: number
+  hide_discount?: boolean
 }
 
 export type PricingGroupDisplayConfig = {

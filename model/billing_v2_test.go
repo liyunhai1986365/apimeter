@@ -372,6 +372,7 @@ func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T)
 	assert.Equal(t, BillingStatementConfirmationPending, statement.ConfirmationStatus)
 	require.Len(t, summaries, 1)
 	assert.Equal(t, "gpt-raw", summaries[0].ModelName)
+	assert.Equal(t, float64(0.5), summaries[0].GroupRatio)
 	assert.Equal(t, int64(1), summaries[0].RequestCount)
 	assert.Equal(t, int64(800), summaries[0].SettlementAmount)
 
@@ -381,7 +382,7 @@ func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T)
 	assert.Equal(t, int64(1), julyStatement.RequestCount)
 }
 
-func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
+func TestBillingV2BreakdownRowsSeparateSupplierDiscountChanges(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, LOG_DB.AutoMigrate(
 		&BillingUsageItem{},
@@ -490,23 +491,33 @@ func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 		Month:  "2026-06",
 	})
 	require.NoError(t, err)
-	require.Len(t, monthlyRows, 2)
-	var vipRow BillingBreakdownRow
+	require.Len(t, monthlyRows, 3)
+	var discountedVIPRow BillingBreakdownRow
+	var fullPriceVIPRow BillingBreakdownRow
 	for _, row := range monthlyRows {
-		if row.ModelName == "gpt-4.1" && row.Group == "vip" {
-			vipRow = row
+		if row.ModelName != "gpt-4.1" || row.Group != "vip" {
+			continue
+		}
+		if row.GroupRatio == 0.8 {
+			discountedVIPRow = row
+		}
+		if row.GroupRatio == 1 {
+			fullPriceVIPRow = row
 		}
 	}
-	assert.Equal(t, "2026-06", vipRow.PeriodValue)
-	assert.Equal(t, BillingSourceWallet, vipRow.BillingSource)
-	assert.Equal(t, int64(4), vipRow.RequestCount)
-	assert.Equal(t, int64(1800), vipRow.InputTokens)
-	assert.Equal(t, int64(360), vipRow.OutputTokens)
-	assert.Equal(t, int64(120), vipRow.CacheReadTokens)
-	assert.Equal(t, int64(60), vipRow.CacheWriteTokens)
-	assert.Equal(t, int64(18500), vipRow.OriginalAmount)
-	assert.Equal(t, int64(3600), vipRow.DiscountAmount)
-	assert.Equal(t, int64(14900), vipRow.SettlementAmount)
+	assert.Equal(t, "2026-06", discountedVIPRow.PeriodValue)
+	assert.Equal(t, BillingSourceWallet, discountedVIPRow.BillingSource)
+	assert.Equal(t, int64(3), discountedVIPRow.RequestCount)
+	assert.Equal(t, int64(1800), discountedVIPRow.InputTokens)
+	assert.Equal(t, int64(360), discountedVIPRow.OutputTokens)
+	assert.Equal(t, int64(120), discountedVIPRow.CacheReadTokens)
+	assert.Equal(t, int64(60), discountedVIPRow.CacheWriteTokens)
+	assert.Equal(t, int64(18000), discountedVIPRow.OriginalAmount)
+	assert.Equal(t, int64(3600), discountedVIPRow.DiscountAmount)
+	assert.Equal(t, int64(14400), discountedVIPRow.SettlementAmount)
+	assert.Equal(t, int64(1), fullPriceVIPRow.RequestCount)
+	assert.Equal(t, int64(500), fullPriceVIPRow.OriginalAmount)
+	assert.Equal(t, int64(500), fullPriceVIPRow.SettlementAmount)
 
 	exportRows, err := GetBillingBreakdownRows(BillingBreakdownQuery{
 		UserId:       1001,
@@ -516,7 +527,7 @@ func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 		NoPagination: true,
 	})
 	require.NoError(t, err)
-	require.Len(t, exportRows, 2)
+	require.Len(t, exportRows, 3)
 
 	dailyRows, err := GetBillingBreakdownRows(BillingBreakdownQuery{
 		UserId:    1001,
@@ -525,23 +536,33 @@ func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 		EndDate:   "2026-06-12",
 	})
 	require.NoError(t, err)
-	require.Len(t, dailyRows, 1)
+	require.Len(t, dailyRows, 2)
 	assert.Equal(t, "2026-06-12", dailyRows[0].PeriodValue)
 
 	statement, summaries, err := GenerateMonthlyBillingStatement(1001, "2026-06")
 	require.NoError(t, err)
 	assert.Equal(t, int64(15900), statement.SettlementAmount)
-	var detail BillingStatementSummary
+	require.Len(t, summaries, 3)
+	var discountedDetail BillingStatementSummary
+	var fullPriceDetail BillingStatementSummary
 	for _, summary := range summaries {
 		if summary.Dimension == BillingStatementSummaryDimensionMonthModelGroup &&
 			summary.ModelName == "gpt-4.1" &&
-			summary.Group == "vip" {
-			detail = summary
+			summary.Group == "vip" &&
+			summary.GroupRatio == 0.8 {
+			discountedDetail = summary
+		}
+		if summary.Dimension == BillingStatementSummaryDimensionMonthModelGroup &&
+			summary.ModelName == "gpt-4.1" &&
+			summary.Group == "vip" &&
+			summary.GroupRatio == 1 {
+			fullPriceDetail = summary
 		}
 	}
-	assert.Equal(t, "2026-06", detail.PeriodValue)
-	assert.Equal(t, int64(14900), detail.SettlementAmount)
-	assert.Equal(t, int64(3600), detail.DiscountAmount)
+	assert.Equal(t, "2026-06", discountedDetail.PeriodValue)
+	assert.Equal(t, int64(14400), discountedDetail.SettlementAmount)
+	assert.Equal(t, int64(3600), discountedDetail.DiscountAmount)
+	assert.Equal(t, int64(500), fullPriceDetail.SettlementAmount)
 }
 
 func TestGenerateRecentMonthlyBillingStatementsBackfillsPreviousFullMonth(t *testing.T) {

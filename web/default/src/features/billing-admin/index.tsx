@@ -678,12 +678,12 @@ function BillingAdminDetail({
           </div>
         </div>
 
-        <DetailSection title={t('Monthly model group bill')}>
+        <DetailSection title={t('Monthly model supplier bill')}>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{t('Model')}</TableHead>
-                <TableHead>{t('Group')}</TableHead>
+                <TableHead>{t('Supplier')}</TableHead>
                 <TableHead className='text-right'>{t('Requests')}</TableHead>
                 <TableHead className='text-right'>
                   {t('Input tokens')}
@@ -695,6 +695,9 @@ function BillingAdminDetail({
                   {t('Original amount')}
                 </TableHead>
                 <TableHead className='text-right'>
+                  {t('Billing discount')}
+                </TableHead>
+                <TableHead className='text-right'>
                   {t('Settlement amount')}
                 </TableHead>
               </TableRow>
@@ -703,7 +706,9 @@ function BillingAdminDetail({
               {detail.summaries.map((item) => (
                 <TableRow key={item.id || item.dimension_value}>
                   <TableCell>{item.model_name || '-'}</TableCell>
-                  <TableCell>{item.group || '-'}</TableCell>
+                  <TableCell className='whitespace-nowrap'>
+                    {item.group || '-'}
+                  </TableCell>
                   <TableCell className='text-right tabular-nums'>
                     {formatNumber(item.request_count)}
                   </TableCell>
@@ -715,6 +720,11 @@ function BillingAdminDetail({
                   </TableCell>
                   <TableCell className='text-right tabular-nums'>
                     {formatQuota(item.original_amount)}
+                  </TableCell>
+                  <TableCell className='text-right tabular-nums'>
+                    {item.group_ratio > 0
+                      ? item.group_ratio.toFixed(6).replace(/\.?0+$/, '')
+                      : '-'}
                   </TableCell>
                   <TableCell className='text-right font-medium tabular-nums'>
                     {formatQuota(item.settlement_amount)}

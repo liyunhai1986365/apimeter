@@ -134,6 +134,7 @@ export type BillingStatementSummary = {
   dimension_value: string
   model_name: string
   group: string
+  group_ratio: number
   billing_source: string
   billing_mode: string
   request_count: number
@@ -151,6 +152,7 @@ export type BillingBreakdownRow = {
   period_value: string
   model_name: string
   group: string
+  group_ratio: number
   billing_source: string
   billing_mode: string
   request_count: number

@@ -53,8 +53,9 @@ func GetUserGroups(c *gin.Context) {
 				desc = setting.GetUsableGroupDescription(group.SystemGroupName)
 			}
 			usableGroups[group.GroupName] = map[string]interface{}{
-				"ratio": applyAgentUserGroupRatio(agentCtx, userGroup, group),
-				"desc":  desc,
+				"ratio":         applyAgentUserGroupRatio(agentCtx, userGroup, group),
+				"desc":          desc,
+				"hide_discount": setting.IsGroupDiscountHidden(group.SystemGroupName),
 			}
 		}
 		if channels, err := model.ListUserOwnedProviderChannels(userId); err == nil {
@@ -79,8 +80,9 @@ func GetUserGroups(c *gin.Context) {
 		if desc, ok := userUsableGroups[groupName]; ok {
 			ratio := service.GetUserGroupRatio(userGroup, groupName)
 			usableGroups[groupName] = map[string]interface{}{
-				"ratio": applyAgentGroupRatio(c, groupName, ratio),
-				"desc":  desc,
+				"ratio":         applyAgentGroupRatio(c, groupName, ratio),
+				"desc":          desc,
+				"hide_discount": setting.IsGroupDiscountHidden(groupName),
 			}
 		}
 	}

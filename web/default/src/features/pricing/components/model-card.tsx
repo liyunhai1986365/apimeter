@@ -29,9 +29,14 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
+import { getHiddenDiscountGroups } from '../lib/group-display'
 import { buildModelCardPriceDisplay } from '../lib/model-card-price'
 import { inferModelMetadata } from '../lib/model-metadata'
-import type { PricingModel, TokenUnit } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  TokenUnit,
+} from '../types'
 import { ModalityIcons } from './model-details-modalities'
 import type { ModelPerfBadgeData } from './model-perf-badge'
 
@@ -43,6 +48,7 @@ export interface ModelCardProps {
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   perf?: ModelPerfBadgeData
+  groupDisplay?: PricingGroupDisplayConfig
 }
 
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
@@ -65,6 +71,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     priceRate,
     usdExchangeRate,
     discountLabels,
+    hiddenDiscountGroups: getHiddenDiscountGroups(props.groupDisplay),
   })
   const featuredEntries = priceDisplay.entries.filter((entry) => entry.featured)
   const secondaryEntries = priceDisplay.entries.filter(

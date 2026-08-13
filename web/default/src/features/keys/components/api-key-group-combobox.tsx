@@ -20,8 +20,8 @@ import { useMemo, useState } from 'react'
 import { Check, ChevronsUpDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
-import { cn } from '@/lib/utils'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
+import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -44,6 +44,7 @@ export type ApiKeyGroupOption = {
   label: string
   desc?: string
   ratio?: number | string
+  hideDiscount?: boolean
 }
 
 type ApiKeyGroupComboboxProps = {
@@ -73,15 +74,17 @@ function getRatioBadgeClassName(ratio: ApiKeyGroupOption['ratio']) {
 
 export function GroupRatioBadge({
   ratio,
+  hidden = false,
 }: {
   ratio: ApiKeyGroupOption['ratio']
+  hidden?: boolean
 }) {
   const { t } = useTranslation()
   const discountLabels = useGroupDiscountLabels()
   const discount = formatGroupDiscount(ratio, discountLabels)
   const label = discount ? t('Discount: {{value}}', { value: discount }) : null
 
-  if (!label) return null
+  if (hidden || !label) return null
 
   return (
     <Badge
@@ -176,7 +179,10 @@ export function ApiKeyGroupCombobox({
             )}
           </span>
           <span className='hidden sm:block'>
-            <GroupRatioBadge ratio={selectedOption?.ratio} />
+            <GroupRatioBadge
+              ratio={selectedOption?.ratio}
+              hidden={selectedOption?.hideDiscount}
+            />
           </span>
         </span>
         <ChevronsUpDown className='h-4 w-4 shrink-0 opacity-50' />
@@ -215,7 +221,10 @@ export function ApiKeyGroupCombobox({
                     </span>
                     <GroupDescription desc={option.desc} />
                   </span>
-                  <GroupRatioBadge ratio={option.ratio} />
+                  <GroupRatioBadge
+                    ratio={option.ratio}
+                    hidden={option.hideDiscount}
+                  />
                 </CommandItem>
               ))}
             </CommandGroup>

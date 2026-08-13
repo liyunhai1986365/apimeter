@@ -235,7 +235,10 @@ export function ApiKeyGroupOrderSelector({
                       {option.label}
                     </span>
                     <span className='hidden sm:block'>
-                      <GroupRatioBadge ratio={option.ratio} />
+                      <GroupRatioBadge
+                        ratio={option.ratio}
+                        hidden={option.hideDiscount}
+                      />
                     </span>
                   </div>
                   <GroupDescription desc={option.desc} />
@@ -568,7 +571,10 @@ export function ApiKeyGroupPickerPopover({
                               compact
                               className='hidden sm:flex'
                             />
-                            <GroupRatioBadge ratio={option.ratio} />
+                            <GroupRatioBadge
+                              ratio={option.ratio}
+                              hidden={option.hideDiscount}
+                            />
                           </span>
                           {canOpenSupportedModels && (
                             <a

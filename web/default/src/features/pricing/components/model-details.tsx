@@ -18,12 +18,13 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { Link, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import {
-  Link,
-  useNavigate,
-  useParams,
-  useSearch,
-} from '@tanstack/react-router'
+  ArrowRight02Icon,
+  CheckmarkCircle02Icon,
+  SparklesIcon,
+} from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
   CircleDollarSign,
   ArrowLeft,
@@ -31,21 +32,15 @@ import {
   Code2,
   Info,
 } from 'lucide-react'
-import {
-  ArrowRight02Icon,
-  CheckmarkCircle02Icon,
-  SparklesIcon,
-} from '@hugeicons/core-free-icons'
-import { HugeiconsIcon } from '@hugeicons/react'
 import { createPortal } from 'react-dom'
 import { useTranslation } from 'react-i18next'
+import { useAuthStore } from '@/stores/auth-store'
 import { trackGoogleAnalyticsEvent } from '@/lib/google-analytics'
 import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
-import { useAuthStore } from '@/stores/auth-store'
 import {
   Accordion,
   AccordionContent,
@@ -96,6 +91,7 @@ import {
   type DynamicTierPriceDisplayRow,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
+import { isGroupDiscountHidden } from '../lib/group-display'
 import { isModelPriceFreeForRatio } from '../lib/model-card-price'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
@@ -842,6 +838,7 @@ function ProviderPriceCard(props: {
   performance?: PerformanceGroup
   performanceLoading?: boolean
   isPage?: boolean
+  showDiscountInfo?: boolean
 }) {
   const { t } = useTranslation()
   const isTokenBased = isTokenBasedModel(props.model)
@@ -888,7 +885,8 @@ function ProviderPriceCard(props: {
       { ...props.groupRatio, [props.group]: 1 }
     )
   const isFree = isModelPriceFreeForRatio(props.model, props.ratio)
-  const hasDiscount = props.ratio > 0 && props.ratio < 1
+  const hasDiscount =
+    props.showDiscountInfo !== false && props.ratio > 0 && props.ratio < 1
 
   return (
     <Card
@@ -1098,7 +1096,13 @@ function GroupPricingSection(props: {
         <div className={cn('grid gap-3', isPage && 'gap-4')}>
           {availableGroups.map((group) => {
             const ratio = props.groupRatio[group] || 1
-            const discountLabel = getDiscountLabel(ratio, discountLabels)
+            const showDiscountInfo = !isGroupDiscountHidden(
+              group,
+              props.groupDisplay
+            )
+            const discountLabel = showDiscountInfo
+              ? getDiscountLabel(ratio, discountLabels)
+              : undefined
             const groupDesc = getUsableGroupDescription(
               props.usableGroup,
               group
@@ -1112,7 +1116,7 @@ function GroupPricingSection(props: {
                 usdExchangeRate: props.usdExchangeRate,
                 groupRatioMultiplier: ratio,
               },
-              ratio > 0 && ratio < 1
+              showDiscountInfo && ratio > 0 && ratio < 1
                 ? {
                     tokenUnit: props.tokenUnit,
                     showRechargePrice,
@@ -1149,6 +1153,10 @@ function GroupPricingSection(props: {
       <div className={cn('grid gap-3', isPage && 'gap-4')}>
         {availableGroups.map((group) => {
           const ratio = props.groupRatio[group] || 1
+          const showDiscountInfo = !isGroupDiscountHidden(
+            group,
+            props.groupDisplay
+          )
           const groupDesc = getUsableGroupDescription(props.usableGroup, group)
           return (
             <ProviderPriceCard
@@ -1156,7 +1164,11 @@ function GroupPricingSection(props: {
               model={props.model}
               group={group}
               groupDesc={groupDesc}
-              discountLabel={getDiscountLabel(ratio, discountLabels)}
+              discountLabel={
+                showDiscountInfo
+                  ? getDiscountLabel(ratio, discountLabels)
+                  : undefined
+              }
               ratio={ratio}
               groupRatio={props.groupRatio}
               tokenUnit={props.tokenUnit}
@@ -1169,6 +1181,7 @@ function GroupPricingSection(props: {
               performance={performanceByGroup[group]}
               performanceLoading={metricsQuery.isLoading}
               isPage={isPage}
+              showDiscountInfo={showDiscountInfo}
             />
           )
         })}
@@ -1266,7 +1279,7 @@ function ModelDetailsSemPrimaryAction(props: {
       search={{ redirect: '/keys' }}
       className={cn(
         buttonVariants({ size: 'lg' }),
-        'h-11 text-base shadow-lg shadow-primary/20',
+        'shadow-primary/20 h-11 text-base shadow-lg',
         props.className
       )}
       onClick={props.onClick}
@@ -1307,7 +1320,7 @@ function ModelDetailsSemCta(props: {
   }
 
   return (
-    <Card className='relative overflow-hidden ring-primary/25 shadow-lg shadow-primary/5'>
+    <Card className='ring-primary/25 shadow-primary/5 relative overflow-hidden shadow-lg'>
       <div
         aria-hidden='true'
         className='bg-primary absolute inset-x-0 top-0 h-1'
@@ -1350,7 +1363,7 @@ function ModelDetailsSemCta(props: {
             ].map((step, index) => (
               <li
                 key={step}
-                className='bg-background/80 flex items-start gap-2 rounded-xl p-3 text-sm ring-1 ring-foreground/10'
+                className='bg-background/80 ring-foreground/10 flex items-start gap-2 rounded-xl p-3 text-sm ring-1'
               >
                 <Badge variant='outline'>{index + 1}</Badge>
                 <span className='pt-0.5 leading-5'>{step}</span>
@@ -1358,7 +1371,7 @@ function ModelDetailsSemCta(props: {
             ))}
           </ol>
         </div>
-        <div className='bg-primary/5 flex flex-col gap-3 rounded-2xl p-5 ring-1 ring-primary/20'>
+        <div className='bg-primary/5 ring-primary/20 flex flex-col gap-3 rounded-2xl p-5 ring-1'>
           <div className='flex items-center gap-3'>
             <span className='bg-primary text-primary-foreground flex size-10 shrink-0 items-center justify-center rounded-xl shadow-sm'>
               <HugeiconsIcon icon={SparklesIcon} className='size-5' />
@@ -1379,9 +1392,7 @@ function ModelDetailsSemCta(props: {
           <ModelDetailsSemPrimaryAction
             isAuthenticated={isAuthenticated}
             className='w-full'
-            onClick={() =>
-              trackCta(isAuthenticated ? 'create_key' : 'sign_up')
-            }
+            onClick={() => trackCta(isAuthenticated ? 'create_key' : 'sign_up')}
           />
           <Button
             type='button'
@@ -1397,7 +1408,7 @@ function ModelDetailsSemCta(props: {
           </Button>
         </div>
       </CardContent>
-      <CardFooter className='relative text-muted-foreground flex flex-wrap gap-x-5 gap-y-2 text-xs md:px-6'>
+      <CardFooter className='text-muted-foreground relative flex flex-wrap gap-x-5 gap-y-2 text-xs md:px-6'>
         <span className='flex items-center gap-1.5'>
           <HugeiconsIcon
             icon={CheckmarkCircle02Icon}
@@ -1431,7 +1442,9 @@ function ModelDetailsSemFaq() {
       <CardContent>
         <Accordion>
           <AccordionItem value='call-model'>
-            <AccordionTrigger>{t('How do I call this model?')}</AccordionTrigger>
+            <AccordionTrigger>
+              {t('How do I call this model?')}
+            </AccordionTrigger>
             <AccordionContent className='text-muted-foreground leading-6'>
               {t(
                 'Create an account and API key, open the API tab above, then copy the endpoint and example request for this exact model ID.'
@@ -1807,8 +1820,7 @@ export function ModelDetails() {
 
   const toOptionalSearchString = (
     value: string | number | boolean | undefined
-  ): string | undefined =>
-    value === undefined ? undefined : String(value)
+  ): string | undefined => (value === undefined ? undefined : String(value))
 
   if (isLoading) {
     return (

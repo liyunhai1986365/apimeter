@@ -83,6 +83,7 @@ type GroupPricingRow = {
   ratio: number
   selectable: boolean
   userGroup: boolean
+  hideDiscount: boolean
   description: string
   categoryId: string
   order: number
@@ -99,6 +100,7 @@ type GroupDisplayGroup = {
   category_id: string
   order: number
   user_group?: boolean
+  hide_discount?: boolean
 }
 
 type GroupDisplayConfig = {
@@ -162,6 +164,7 @@ function buildGroupPricingRows(
         ratio: normalizeRatio(ratioMap[name]),
         selectable: Object.prototype.hasOwnProperty.call(usableMap, name),
         userGroup: display?.user_group === true,
+        hideDiscount: display?.hide_discount === true,
         description: String(usableMap[name] ?? ''),
         categoryId: display?.category_id ?? '',
         order: display?.order ?? (index + 1) * 10,
@@ -209,6 +212,7 @@ function normalizeGroupDisplayConfig(
       category_id: String(group.category_id ?? '').trim(),
       order: normalizeDisplayOrder(group.order),
       user_group: group.user_group === true,
+      hide_discount: group.hide_discount === true,
     }))
     .filter((group) => {
       if (!group.group || seenGroups.has(group.group)) return false
@@ -229,6 +233,7 @@ function normalizeGroupDisplayConfig(
         ratio: 1,
         selectable: true,
         userGroup: false,
+        hideDiscount: false,
         description: '',
         categoryId: a.category_id,
         order: a.order,
@@ -239,6 +244,7 @@ function normalizeGroupDisplayConfig(
         ratio: 1,
         selectable: true,
         userGroup: false,
+        hideDiscount: false,
         description: '',
         categoryId: b.category_id,
         order: b.order,
@@ -275,6 +281,7 @@ function serializeGroupPricingRows(
       category_id: categoryIds.has(row.categoryId) ? row.categoryId : '',
       order: normalizeDisplayOrder(row.order || (index + 1) * 10),
       user_group: row.userGroup,
+      hide_discount: row.hideDiscount,
     })
   }
 
@@ -1195,6 +1202,7 @@ function GroupPricingTable({
         ratio: 1,
         selectable: true,
         userGroup: false,
+        hideDiscount: false,
         description: '',
         categoryId: '',
         order: (rows.length + 1) * 10,
@@ -1408,6 +1416,9 @@ function GroupPricingTable({
                   <TableHead className='w-28 text-center'>
                     {t('User group')}
                   </TableHead>
+                  <TableHead className='w-28 text-center'>
+                    {t('Hide discount')}
+                  </TableHead>
                   <TableHead className='min-w-56'>{t('Description')}</TableHead>
                   <TableHead className='w-16 text-right'>
                     {t('Actions')}
@@ -1418,7 +1429,7 @@ function GroupPricingTable({
                 {rows.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={8}
+                      colSpan={9}
                       className='text-muted-foreground h-20 text-center text-sm'
                     >
                       {t('No groups yet. Add a group to get started.')}
@@ -1505,6 +1516,21 @@ function GroupPricingTable({
                               updateRow(row._id, 'selectable', checked === true)
                             }
                             aria-label={t('User selectable')}
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className='flex justify-center'>
+                          <Checkbox
+                            checked={row.hideDiscount}
+                            onCheckedChange={(checked) =>
+                              updateRow(
+                                row._id,
+                                'hideDiscount',
+                                checked === true
+                              )
+                            }
+                            aria-label={t('Hide discount')}
                           />
                         </div>
                       </TableCell>
