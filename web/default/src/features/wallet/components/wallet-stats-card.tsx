@@ -17,7 +17,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import {
-  ApiIcon,
   BarChartIcon,
   Clock01Icon,
   MoneyReceiveCircleIcon,
@@ -63,8 +62,8 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
   if (props.loading) {
     return (
       <div className='overflow-hidden rounded-lg border'>
-        <div className='divide-border/60 grid grid-cols-2 divide-x md:grid-cols-4'>
-          {Array.from({ length: 4 }).map((_, i) => (
+        <div className='divide-border/60 grid grid-cols-2 divide-x md:grid-cols-3'>
+          {Array.from({ length: 3 }).map((_, i) => (
             <div key={i} className='px-3 py-3 sm:px-5 sm:py-4'>
               <Skeleton className='h-3.5 w-20' />
               <Skeleton className='mt-2 h-7 w-28' />
@@ -86,6 +85,9 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
   } else if (forecast?.status === 'depleted') {
     forecastValue = t('Balance depleted')
   }
+  const dailyConsumption = forecast?.daily_consumption
+    ? formatQuota(forecast.daily_consumption)
+    : '-'
 
   let forecastDetails = (
     <div className='flex flex-col gap-1'>
@@ -150,16 +152,12 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
     {
       label: t('Estimated balance runway'),
       value: forecastValue,
-      description: null,
+      description: props.forecastLoading
+        ? null
+        : `${t('Average per day')}: ${dailyConsumption}`,
       icon: Clock01Icon,
       loading: props.forecastLoading,
       tooltip: props.forecastLoading ? null : forecastDetails,
-    },
-    {
-      label: t('API Requests'),
-      value: (props.user?.request_count ?? 0).toLocaleString(),
-      description: t('Total requests made'),
-      icon: ApiIcon,
     },
   ]
 
@@ -169,7 +167,7 @@ export function WalletStatsCard(props: WalletStatsCardProps) {
         <div
           className={cn(
             'divide-border/60 grid grid-cols-2 divide-x',
-            hasCreditQuota ? 'md:grid-cols-5' : 'md:grid-cols-4'
+            hasCreditQuota ? 'md:grid-cols-4' : 'md:grid-cols-3'
           )}
         >
           {stats.map((item) => {
