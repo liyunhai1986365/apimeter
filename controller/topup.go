@@ -24,7 +24,12 @@ import (
 
 func GetTopUpInfo(c *gin.Context) {
 	complianceConfirmed := operation_setting.IsPaymentComplianceConfirmed()
-	affiliatePolicy := model.GetAffiliateRewardPolicyForUser(c.GetInt("id"))
+	userId := c.GetInt("id")
+	affiliatePolicy := model.GetAffiliateRewardPolicyForUser(userId)
+	balanceForecast, forecastErr := service.GetOrCalculateBalanceForecast(userId)
+	if forecastErr != nil {
+		logger.LogWarn(c.Request.Context(), fmt.Sprintf("failed to calculate balance forecast for user %d: %v", userId, forecastErr))
+	}
 
 	// 获取支付方式
 	payMethods := append([]map[string]string(nil), operation_setting.PayMethods...)
@@ -136,6 +141,7 @@ func GetTopUpInfo(c *gin.Context) {
 		"quota_for_inviter":                affiliatePolicy.InviterRewardQuota,
 		"quota_for_invitee":                affiliatePolicy.InviteeRewardQuota,
 		"affiliate_policy":                 affiliateRewardPolicyResponse(affiliatePolicy),
+		"balance_forecast":                 balanceForecast,
 		"waffo_pay_methods": func() interface{} {
 			if enableWaffo {
 				return setting.GetWaffoPayMethods()

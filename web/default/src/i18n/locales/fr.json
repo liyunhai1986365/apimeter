@@ -6687,6 +6687,15 @@
     "Supplier information": "Informations fournisseur",
     "Standard-price supplier channel": "Canal fournisseur au tarif standard",
     "Discount supplier channel": "Canal fournisseur avec remise",
-    "Supplier prices": "Tarifs fournisseurs"
+    "Supplier prices": "Tarifs fournisseurs",
+    "{{days}} days": "{{days}} jours",
+    "{{hours}} hours": "{{hours}} heures",
+    "Average per day": "Moyenne par jour",
+    "Average per hour": "Moyenne par heure",
+    "Based on wallet usage over the last 24 hours and 7 days.": "Basé sur l’utilisation du portefeuille au cours des dernières 24 heures et des 7 derniers jours.",
+    "Estimated balance runway": "Autonomie estimée du solde",
+    "Estimated depletion": "Épuisement estimé",
+    "Keep using the wallet to see an estimate based on recent consumption.": "Continuez à utiliser le portefeuille pour obtenir une estimation basée sur la consommation récente.",
+    "Not enough wallet usage data yet": "Pas encore assez de données d’utilisation du portefeuille"
   }
 }

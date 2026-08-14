@@ -141,6 +141,9 @@ func main() {
 	// Stripe saved-card wallet auto recharge task.
 	service.StartStripeAutoRechargeTask()
 
+	// Periodically estimate each active user's wallet runway and send staged reminders.
+	service.StartBalanceForecastTask()
+
 	// Wire task polling adaptor factory (breaks service -> relay import cycle)
 	service.GetTaskAdaptorFunc = func(platform constant.TaskPlatform) service.TaskPollingAdaptor {
 		a := relay.GetTaskAdaptor(platform)

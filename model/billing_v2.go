@@ -46,7 +46,7 @@ const (
 
 type BillingUsageItem struct {
 	Id               int     `json:"id"`
-	UserId           int     `json:"user_id" gorm:"index:idx_billing_usage_user_time,priority:1;index"`
+	UserId           int     `json:"user_id" gorm:"index:idx_billing_usage_user_time,priority:1;index:idx_billing_usage_source_time_user,priority:3;index"`
 	TokenId          int     `json:"token_id" gorm:"index"`
 	TokenName        string  `json:"token_name" gorm:"type:varchar(191);index;default:''"`
 	WorkspaceId      int     `json:"workspace_id" gorm:"index;default:0"`
@@ -54,11 +54,11 @@ type BillingUsageItem struct {
 	RequestId        string  `json:"request_id" gorm:"type:varchar(64);index;default:''"`
 	ModelName        string  `json:"model_name" gorm:"type:varchar(191);index;default:''"`
 	Group            string  `json:"group" gorm:"type:varchar(64);index;default:''"`
-	BillingSource    string  `json:"billing_source" gorm:"type:varchar(32);index;default:'wallet'"`
+	BillingSource    string  `json:"billing_source" gorm:"type:varchar(32);index;index:idx_billing_usage_source_time_user,priority:1;default:'wallet'"`
 	BillingMode      string  `json:"billing_mode" gorm:"type:varchar(32);index;default:''"`
 	GroupRatio       float64 `json:"group_ratio" gorm:"default:1"`
 	PricingVersion   string  `json:"pricing_version" gorm:"type:varchar(64);default:''"`
-	BilledAt         int64   `json:"billed_at" gorm:"bigint;index:idx_billing_usage_user_time,priority:2"`
+	BilledAt         int64   `json:"billed_at" gorm:"bigint;index:idx_billing_usage_user_time,priority:2;index:idx_billing_usage_source_time_user,priority:2"`
 	BillingDate      string  `json:"billing_date" gorm:"type:varchar(10);index"`
 	BillingMonth     string  `json:"billing_month" gorm:"type:varchar(7);index"`
 	InputTokens      int64   `json:"input_tokens" gorm:"type:bigint;default:0"`

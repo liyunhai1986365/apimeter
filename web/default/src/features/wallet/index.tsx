@@ -355,6 +355,8 @@ export function Wallet(props: WalletProps) {
             <WalletStatsCard
               user={user}
               totalUsedQuota={totalUsageQuery.data?.data?.quota}
+              forecast={topupInfo?.balance_forecast ?? null}
+              forecastLoading={topupLoading}
               loading={userLoading}
             />
 

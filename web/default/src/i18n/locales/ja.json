@@ -6687,6 +6687,15 @@
     "Supplier information": "サプライヤー情報",
     "Standard-price supplier channel": "標準価格の供給チャネル",
     "Discount supplier channel": "割引供給チャネル",
-    "Supplier prices": "サプライヤー価格"
+    "Supplier prices": "サプライヤー価格",
+    "{{days}} days": "{{days}} 日",
+    "{{hours}} hours": "{{hours}} 時間",
+    "Average per day": "1 日あたりの平均",
+    "Average per hour": "1 時間あたりの平均",
+    "Based on wallet usage over the last 24 hours and 7 days.": "過去 24 時間と 7 日間のウォレット利用状況に基づきます。",
+    "Estimated balance runway": "残高の推定利用可能時間",
+    "Estimated depletion": "推定枯渇時刻",
+    "Keep using the wallet to see an estimate based on recent consumption.": "ウォレットを引き続き利用すると、最近の消費量に基づく予測が表示されます。",
+    "Not enough wallet usage data yet": "ウォレット利用データがまだ十分ではありません"
   }
 }

@@ -6687,6 +6687,15 @@
     "Supplier information": "供应商信息",
     "Standard-price supplier channel": "标准价格供应渠道",
     "Discount supplier channel": "优惠供应渠道",
-    "Supplier prices": "供应商价格"
+    "Supplier prices": "供应商价格",
+    "{{days}} days": "{{days}} 天",
+    "{{hours}} hours": "{{hours}} 小时",
+    "Average per day": "日均消耗",
+    "Average per hour": "小时均消耗",
+    "Based on wallet usage over the last 24 hours and 7 days.": "根据近 24 小时和近 7 天的钱包消耗统计。",
+    "Estimated balance runway": "预计余额可用时间",
+    "Estimated depletion": "预计耗尽时间",
+    "Keep using the wallet to see an estimate based on recent consumption.": "继续使用钱包后，将根据近期消耗生成预计可用时间。",
+    "Not enough wallet usage data yet": "暂无足够的钱包消耗数据"
   }
 }

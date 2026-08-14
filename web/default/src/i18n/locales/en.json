@@ -6687,6 +6687,15 @@
     "Supplier information": "Supplier information",
     "Standard-price supplier channel": "Standard-price supplier channel",
     "Discount supplier channel": "Discount supplier channel",
-    "Supplier prices": "Supplier prices"
+    "Supplier prices": "Supplier prices",
+    "{{days}} days": "{{days}} days",
+    "{{hours}} hours": "{{hours}} hours",
+    "Average per day": "Average per day",
+    "Average per hour": "Average per hour",
+    "Based on wallet usage over the last 24 hours and 7 days.": "Based on wallet usage over the last 24 hours and 7 days.",
+    "Estimated balance runway": "Estimated balance runway",
+    "Estimated depletion": "Estimated depletion",
+    "Keep using the wallet to see an estimate based on recent consumption.": "Keep using the wallet to see an estimate based on recent consumption.",
+    "Not enough wallet usage data yet": "Not enough wallet usage data yet"
   }
 }

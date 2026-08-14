@@ -6687,6 +6687,15 @@
     "Supplier information": "Thông tin nhà cung cấp",
     "Standard-price supplier channel": "Kênh nhà cung cấp theo giá tiêu chuẩn",
     "Discount supplier channel": "Kênh nhà cung cấp có chiết khấu",
-    "Supplier prices": "Giá nhà cung cấp"
+    "Supplier prices": "Giá nhà cung cấp",
+    "{{days}} days": "{{days}} ngày",
+    "{{hours}} hours": "{{hours}} giờ",
+    "Average per day": "Trung bình mỗi ngày",
+    "Average per hour": "Trung bình mỗi giờ",
+    "Based on wallet usage over the last 24 hours and 7 days.": "Dựa trên mức sử dụng ví trong 24 giờ và 7 ngày qua.",
+    "Estimated balance runway": "Thời gian sử dụng số dư ước tính",
+    "Estimated depletion": "Thời điểm dự kiến cạn số dư",
+    "Keep using the wallet to see an estimate based on recent consumption.": "Tiếp tục sử dụng ví để xem ước tính dựa trên mức tiêu thụ gần đây.",
+    "Not enough wallet usage data yet": "Chưa đủ dữ liệu sử dụng ví"
   }
 }

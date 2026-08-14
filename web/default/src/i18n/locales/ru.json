@@ -6687,6 +6687,15 @@
     "Supplier information": "Информация о поставщиках",
     "Standard-price supplier channel": "Канал поставщика по стандартной цене",
     "Discount supplier channel": "Канал поставщика со скидкой",
-    "Supplier prices": "Цены поставщиков"
+    "Supplier prices": "Цены поставщиков",
+    "{{days}} days": "{{days}} дн.",
+    "{{hours}} hours": "{{hours}} ч",
+    "Average per day": "Среднее за день",
+    "Average per hour": "Среднее за час",
+    "Based on wallet usage over the last 24 hours and 7 days.": "На основе использования кошелька за последние 24 часа и 7 дней.",
+    "Estimated balance runway": "Расчётный запас баланса",
+    "Estimated depletion": "Расчётное время исчерпания",
+    "Keep using the wallet to see an estimate based on recent consumption.": "Продолжайте использовать кошелёк, чтобы получить оценку на основе недавнего потребления.",
+    "Not enough wallet usage data yet": "Пока недостаточно данных об использовании кошелька"
   }
 }
