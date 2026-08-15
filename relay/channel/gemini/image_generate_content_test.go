@@ -11,16 +11,9 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-func TestConvertOpenAIImageRequiresPromptAsRequestError(t *testing.T) {
-	_, err := ConvertOpenAIImageToGenerateContent(nil, &relaycommon.RelayInfo{}, dto.ImageRequest{})
-	require.Error(t, err)
-	require.True(t, types.IsRequestError(err))
-}
 
 func TestConvertImageRequestToGeminiGenerateContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)

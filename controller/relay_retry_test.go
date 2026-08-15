@@ -11,8 +11,6 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
-	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
@@ -77,55 +75,6 @@ func TestShouldRetryRespectsSelectedChannelRetrySwitch(t *testing.T) {
 	)
 
 	require.False(t, shouldRetry(c, err, 1))
-}
-
-func TestRelayAttemptRequestStateRestoresOriginalRequest(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	c, _ := gin.CreateTestContext(nil)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", strings.NewReader(`{"model":"gpt-image-2"}`))
-	c.Request.Header.Set("Content-Type", "application/json")
-	c.Request.Header.Add("X-Client-Header", "one")
-	c.Request.Header.Add("X-Client-Header", "two")
-
-	info := &relaycommon.RelayInfo{
-		RelayMode:              relayconstant.RelayModeImagesGenerations,
-		RequestURLPath:         "/v1/images/generations",
-		RelayFormat:            types.RelayFormatOpenAIImage,
-		RequestConversionChain: []types.RelayFormat{types.RelayFormatOpenAIImage},
-		PriceData: types.PriceData{
-			OtherRatios: map[string]float64{"original": 1.5},
-		},
-	}
-	state := captureRelayAttemptRequestState(c, info)
-
-	info.RelayMode = relayconstant.RelayModeImagesEdits
-	info.RequestURLPath = "/v1/images/edits"
-	info.IsStream = true
-	info.RequestConversionChain = append(info.RequestConversionChain, types.RelayFormatGemini)
-	info.FinalRequestRelayFormat = types.RelayFormatGemini
-	info.RuntimeHeadersOverride = map[string]interface{}{"X-Upstream": "changed"}
-	info.UseRuntimeHeadersOverride = true
-	info.ParamOverrideAudit = []string{"changed"}
-	info.PriceData.OtherRatios["original"] = 9
-	info.PriceData.OtherRatios["failed_channel"] = 2
-	info.UpstreamRequestBodySize = 42
-	c.Request.Header.Set("Content-Type", "multipart/form-data; boundary=changed")
-	c.Request.Header.Set("X-Client-Header", "changed")
-
-	state.restore(c, info)
-
-	require.Equal(t, relayconstant.RelayModeImagesGenerations, info.RelayMode)
-	require.Equal(t, "/v1/images/generations", info.RequestURLPath)
-	require.False(t, info.IsStream)
-	require.Equal(t, []types.RelayFormat{types.RelayFormatOpenAIImage}, info.RequestConversionChain)
-	require.Empty(t, info.FinalRequestRelayFormat)
-	require.False(t, info.UseRuntimeHeadersOverride)
-	require.Nil(t, info.RuntimeHeadersOverride)
-	require.Nil(t, info.ParamOverrideAudit)
-	require.Equal(t, map[string]float64{"original": 1.5}, info.PriceData.OtherRatios)
-	require.Zero(t, info.UpstreamRequestBodySize)
-	require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
-	require.Equal(t, []string{"one", "two"}, c.Request.Header.Values("X-Client-Header"))
 }
 
 func TestShouldRetryAllowsPendingUserTokenGroupWhenChannelRetryDisabled(t *testing.T) {

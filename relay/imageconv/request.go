@@ -8,14 +8,11 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
-	"sort"
 	"strings"
-	"sync"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/service"
-	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -118,11 +115,7 @@ func ImageReferencesToURLs(c *gin.Context, refs []string) ([]string, error) {
 func MultipartImageURLs(c *gin.Context) ([]string, error) {
 	form, err := common.ParseMultipartFormReusable(c)
 	if err != nil {
-		parseErr := fmt.Errorf("parse image edit form failed: %w", err)
-		if common.IsMultipartRequestError(err) {
-			return nil, types.MarkRequestError(parseErr)
-		}
-		return nil, parseErr
+		return nil, fmt.Errorf("parse image edit form failed: %w", err)
 	}
 	if form == nil || form.File == nil {
 		return nil, fmt.Errorf("image is required")
@@ -166,12 +159,41 @@ func BuildOpenAIJSONEditMultipart(c *gin.Context, request dto.ImageRequest) (*by
 		return nil, err
 	}
 	if len(imageRefs) == 0 {
-		return nil, types.MarkRequestError(errors.New("image is required"))
+		return nil, errors.New("image is required")
 	}
 
 	var requestBody bytes.Buffer
 	writer := multipart.NewWriter(&requestBody)
-	if err := writeOpenAIImageFormFields(writer, request); err != nil {
+	writeField := func(key, value string) error {
+		if strings.TrimSpace(value) == "" {
+			return nil
+		}
+		return writer.WriteField(key, value)
+	}
+	if err := writeField("model", request.Model); err != nil {
+		return nil, err
+	}
+	if err := writeField("prompt", request.Prompt); err != nil {
+		return nil, err
+	}
+	if request.N != nil && *request.N > 0 {
+		if err := writer.WriteField("n", fmt.Sprint(*request.N)); err != nil {
+			return nil, err
+		}
+	}
+	if err := writeField("size", request.Size); err != nil {
+		return nil, err
+	}
+	if err := writeField("quality", request.Quality); err != nil {
+		return nil, err
+	}
+	if err := writeField("response_format", request.ResponseFormat); err != nil {
+		return nil, err
+	}
+	if err := writeRawFormField(writer, "mask", request.Mask); err != nil {
+		return nil, err
+	}
+	if err := writeRawFormField(writer, "input_fidelity", request.InputFidelity); err != nil {
 		return nil, err
 	}
 
@@ -180,7 +202,7 @@ func BuildOpenAIJSONEditMultipart(c *gin.Context, request dto.ImageRequest) (*by
 		fieldName = "image[]"
 	}
 	for i, ref := range imageRefs {
-		data, mimeType, filename, err := imageReferenceBytes(c, ref, i+1)
+		data, mimeType, filename, err := imageReferenceBytes(ref, i+1)
 		if err != nil {
 			return nil, err
 		}
@@ -203,42 +225,6 @@ func BuildOpenAIJSONEditMultipart(c *gin.Context, request dto.ImageRequest) (*by
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 	}
 	return &requestBody, nil
-}
-
-func writeOpenAIImageFormFields(writer *multipart.Writer, request dto.ImageRequest) error {
-	requestJSON, err := common.Marshal(request)
-	if err != nil {
-		return err
-	}
-	var fields map[string]json.RawMessage
-	if err := common.Unmarshal(requestJSON, &fields); err != nil {
-		return err
-	}
-	for _, key := range []string{"image", "images", "image_urls"} {
-		delete(fields, key)
-	}
-	if rawInput := fields["input"]; len(rawInput) > 0 {
-		var input map[string]json.RawMessage
-		if err := common.Unmarshal(rawInput, &input); err == nil {
-			delete(input, "image_urls")
-			if len(input) == 0 {
-				delete(fields, "input")
-			} else if fields["input"], err = common.Marshal(input); err != nil {
-				return err
-			}
-		}
-	}
-	keys := make([]string, 0, len(fields))
-	for key := range fields {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		if err := writeRawFormField(writer, key, fields[key]); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func EditsRequestPath(path string) string {
@@ -293,7 +279,7 @@ func rawImageReferences(raw json.RawMessage) ([]string, error) {
 	if err := common.Unmarshal(raw, &object); err == nil {
 		return compactStrings([]string{firstNonEmptyString(object.URL, object.B64Json, object.Base64)}), nil
 	}
-	return nil, types.MarkRequestError(errors.New("invalid image reference"))
+	return nil, nil
 }
 
 func rawHasImageValue(raw json.RawMessage) bool {
@@ -335,108 +321,31 @@ func writeRawFormField(writer *multipart.Writer, key string, raw json.RawMessage
 	return writer.WriteField(key, value)
 }
 
-const imageReferenceCacheKey = "imageconv_reference_cache"
-
-type cachedImageReference struct {
-	data     []byte
-	mimeType string
-	err      error
-}
-
-type imageReferenceCache struct {
-	mu      sync.Mutex
-	entries map[string]cachedImageReference
-}
-
-func EnsureImageReferenceCache(c *gin.Context) {
-	_ = imageReferenceCacheFromContext(c)
-}
-
-func ResetImageReferenceFailures(c *gin.Context) {
-	if c == nil {
-		return
-	}
-	value, ok := c.Get(imageReferenceCacheKey)
-	if !ok {
-		return
-	}
-	cache, ok := value.(*imageReferenceCache)
-	if !ok {
-		return
-	}
-	cache.mu.Lock()
-	defer cache.mu.Unlock()
-	for ref, entry := range cache.entries {
-		if entry.err != nil {
-			delete(cache.entries, ref)
-		}
-	}
-}
-
-func imageReferenceCacheFromContext(c *gin.Context) *imageReferenceCache {
-	if c == nil {
-		return nil
-	}
-	if value, ok := c.Get(imageReferenceCacheKey); ok {
-		if cache, ok := value.(*imageReferenceCache); ok {
-			return cache
-		}
-	}
-	cache := &imageReferenceCache{entries: make(map[string]cachedImageReference)}
-	c.Set(imageReferenceCacheKey, cache)
-	return cache
-}
-
-func imageReferenceBytes(c *gin.Context, ref string, index int) ([]byte, string, string, error) {
+func imageReferenceBytes(ref string, index int) ([]byte, string, string, error) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
-		return nil, "", "", types.MarkRequestError(errors.New("image is required"))
+		return nil, "", "", errors.New("image is required")
 	}
-	cache := imageReferenceCacheFromContext(c)
-	if cache != nil {
-		cache.mu.Lock()
-		defer cache.mu.Unlock()
-		if cached, ok := cache.entries[ref]; ok {
-			if cached.err != nil {
-				return nil, "", "", cached.err
-			}
-			return cached.data, cached.mimeType, fmt.Sprintf("image-%d%s", index, imageExtensionForMimeType(cached.mimeType)), nil
-		}
-	}
-	data, mimeType, err := loadImageReference(ref)
-	if err != nil {
-		if cache != nil {
-			cache.entries[ref] = cachedImageReference{err: err}
-		}
-		return nil, "", "", err
-	}
-	if cache != nil {
-		cache.entries[ref] = cachedImageReference{data: data, mimeType: mimeType}
-	}
-	return data, mimeType, fmt.Sprintf("image-%d%s", index, imageExtensionForMimeType(mimeType)), nil
-}
-
-func loadImageReference(ref string) ([]byte, string, error) {
 	if IsHTTPReference(ref) {
 		mimeType, base64Data, err := service.GetImageFromUrl(ref)
 		if err != nil {
-			return nil, "", err
+			return nil, "", "", err
 		}
 		data, err := base64.StdEncoding.DecodeString(base64Data)
 		if err != nil {
-			return nil, "", fmt.Errorf("decode image url data failed: %w", err)
+			return nil, "", "", fmt.Errorf("decode image url data failed: %w", err)
 		}
-		return data, normalizeMimeType(mimeType), nil
+		return data, normalizeMimeType(mimeType), fmt.Sprintf("image-%d%s", index, imageExtensionForMimeType(mimeType)), nil
 	}
 	mimeType, cleanBase64, err := service.DecodeBase64FileData(ref)
 	if err != nil {
-		return nil, "", types.MarkRequestError(err)
+		return nil, "", "", err
 	}
 	data, err := base64.StdEncoding.DecodeString(cleanBase64)
 	if err != nil {
-		return nil, "", types.MarkRequestError(fmt.Errorf("decode image base64 failed: %w", err))
+		return nil, "", "", fmt.Errorf("decode image base64 failed: %w", err)
 	}
-	return data, normalizeMimeType(mimeType), nil
+	return data, normalizeMimeType(mimeType), fmt.Sprintf("image-%d%s", index, imageExtensionForMimeType(mimeType)), nil
 }
 
 func normalizeMimeType(mimeType string) string {

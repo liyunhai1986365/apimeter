@@ -15,7 +15,6 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
-	"github.com/QuantumNous/new-api/relay/imageconv"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
 
@@ -80,7 +79,6 @@ func submitSplitImageRequests(
 	var lastError *types.NewAPIError
 
 	results := make([]splitImageAttemptResult, requestedCount)
-	imageconv.EnsureImageReferenceCache(c)
 	var waitGroup sync.WaitGroup
 	waitGroup.Add(requestedCount)
 	// Each attempt owns its context, relay state, adaptor, and capture; indexed results preserve request order.
@@ -310,7 +308,7 @@ func applySplitImageSuccessCount(c *gin.Context, info *relaycommon.RelayInfo, re
 func buildSplitImageRequestBody(c *gin.Context, info *relaycommon.RelayInfo, adaptor channel.Adaptor, request *dto.ImageRequest) (io.Reader, io.Closer, *types.NewAPIError) {
 	convertedRequest, err := adaptor.ConvertImageRequest(c, info, *request)
 	if err != nil {
-		return nil, nil, newImageConversionError(err)
+		return nil, nil, types.NewError(err, types.ErrorCodeConvertRequestFailed)
 	}
 	if buffer, ok := convertedRequest.(*bytes.Buffer); ok {
 		return buffer, nil, nil

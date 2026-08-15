@@ -104,22 +104,3 @@ func TestImageRequestGetTokenCountMetaGPTImage1KeepsLegacyEstimate(t *testing.T)
 	require.Equal(t, 1584, meta.MaxTokens)
 	require.Equal(t, 1.0, meta.ImagePriceRatio)
 }
-
-func TestImageRequestMarshalJSONPreservesUnknownFields(t *testing.T) {
-	request := ImageRequest{
-		Model:  "gpt-image-2",
-		Prompt: "draw a pond",
-		Extra: map[string]json.RawMessage{
-			"vendor_option": []byte(`{"mode":"fast"}`),
-			"prompt":        []byte(`"must not override"`),
-		},
-	}
-
-	body, err := common.Marshal(request)
-	require.NoError(t, err)
-
-	var payload map[string]json.RawMessage
-	require.NoError(t, common.Unmarshal(body, &payload))
-	require.JSONEq(t, `{"mode":"fast"}`, string(payload["vendor_option"]))
-	require.JSONEq(t, `"draw a pond"`, string(payload["prompt"]))
-}

@@ -229,7 +229,7 @@ func TestConvertImageAsyncResultReturnsBase64WhenRequested(t *testing.T) {
 	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
 }
 
-func TestNormalizeOpenAIImageResponsePreservesBase64ByDefault(t *testing.T) {
+func TestNormalizeOpenAIImageResponseReturnsBase64ByDefault(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	recorder := httptest.NewRecorder()
@@ -246,57 +246,6 @@ func TestNormalizeOpenAIImageResponsePreservesBase64ByDefault(t *testing.T) {
 	require.Equal(t, "ZmFrZS1pbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
 	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
 	require.Equal(t, int64(3), gjson.GetBytes(body, "usage.total_tokens").Int())
-}
-
-func TestNormalizeOpenAIImageResponsePreservesEndpointURLByDefault(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
-	upstreamBody := []byte(`{
-		"created": 1779125744,
-		"data": [{"url":"https://127.0.0.1/image.png"}],
-		"usage": {"total_tokens": 3}
-	}`)
-	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{}, upstreamBody)
-
-	require.NoError(t, err)
-	require.False(t, changed)
-	require.Equal(t, upstreamBody, body)
-	require.False(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
-}
-
-func TestNormalizeOpenAIImageResponseDownloadsEndpointURLWhenBase64Requested(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	disableSSRFProtectionForImageTaskTest(t)
-
-	downloads := 0
-	sourceImageServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		downloads++
-		require.Equal(t, http.MethodGet, r.Method)
-		w.Header().Set("Content-Type", "image/png")
-		_, _ = w.Write([]byte("fake-image"))
-	}))
-	defer sourceImageServer.Close()
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
-	upstreamBody := []byte(fmt.Sprintf(`{
-		"created": 1779125744,
-		"data": [{"url":%q}],
-		"usage": {"total_tokens": 3}
-	}`, sourceImageServer.URL+"/image.png"))
-	body, changed, err := normalizeOpenAIImageResponseByFormat(c, &relaycommon.RelayInfo{
-		Request: &dto.ImageRequest{ResponseFormat: "b64_json"},
-	}, upstreamBody)
-
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.Equal(t, 1, downloads)
-	require.Equal(t, "ZmFrZS1pbWFnZQ==", gjsonGetString(t, body, "data.0.b64_json"))
-	require.Empty(t, gjsonGetString(t, body, "data.0.url"))
 }
 
 func TestNormalizeOpenAIImageResponseStoresBase64AsURLWhenURLRequested(t *testing.T) {
@@ -492,7 +441,7 @@ func TestNormalizeOpenAIImageResponseTokenURLAfterEditConversionHandlesBase64Ali
 	require.NoError(t, err)
 	require.True(t, changed)
 	require.Contains(t, gjsonGetString(t, body, "data.0.url"), "https://cdn.example.com/api/relay-temp-images/")
-	require.False(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
+	require.True(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
 	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
 	require.Empty(t, gjsonGetString(t, body, "data.0.image_base64"))
 }
@@ -553,7 +502,7 @@ func TestNormalizeOpenAIImageResponseTokenURLConvertsBase64Alias(t *testing.T) {
 	require.True(t, changed)
 	require.Contains(t, gjsonGetString(t, body, "data.0.url"), "https://cdn.example.com/api/relay-temp-images/")
 	require.Empty(t, gjsonGetString(t, body, "data.0.base64"))
-	require.False(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
+	require.True(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
 	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
 }
 
@@ -622,9 +571,9 @@ func TestNormalizeOpenAIImageResponseUserURLKeepsEndpointURLByDefault(t *testing
 	}`, "https://upstream.example.com/image.png")))
 
 	require.NoError(t, err)
-	require.False(t, changed)
+	require.True(t, changed)
 	require.Equal(t, "https://upstream.example.com/image.png", gjsonGetString(t, body, "data.0.url"))
-	require.False(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
+	require.True(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
 	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
 }
 
@@ -653,9 +602,9 @@ func TestNormalizeOpenAIImageResponseChannelURLKeepsEndpointURLWhenUserStorageDi
 	}`, "https://upstream.example.com/image.png")))
 
 	require.NoError(t, err)
-	require.False(t, changed)
+	require.True(t, changed)
 	require.Equal(t, "https://upstream.example.com/image.png", gjsonGetString(t, body, "data.0.url"))
-	require.False(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
+	require.True(t, gjson.GetBytes(body, "data.0.b64_json").Exists())
 	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
 }
 

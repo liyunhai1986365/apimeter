@@ -441,13 +441,13 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		if settings.ImageGenerationWithImageToEditEnabled() && imageconv.RequestHasImageInput(&request) {
 			info.RelayMode = relayconstant.RelayModeImagesEdits
 			info.RequestURLPath = imageconv.EditsRequestPath(info.RequestURLPath)
-			if !isMultipartRequest(c) && settings.ImageJSONEditToMultipartEnabled() {
+			if isJSONRequest(c) {
 				return imageconv.BuildOpenAIJSONEditMultipart(c, request)
 			}
 		}
 		return request, nil
 	case relayconstant.RelayModeImagesEdits:
-		if !isMultipartRequest(c) {
+		if isJSONRequest(c) {
 			if settings.ImageJSONEditToMultipartEnabled() && imageconv.RequestHasImageInput(&request) {
 				return imageconv.BuildOpenAIJSONEditMultipart(c, request)
 			}
@@ -461,15 +461,10 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		// 使用已解析的 multipart 表单，避免重复解析
 		mf := c.Request.MultipartForm
 		if mf == nil {
-			var err error
-			mf, err = common.ParseMultipartFormReusable(c)
-			if err != nil {
-				parseErr := fmt.Errorf("failed to parse multipart form: %w", err)
-				if common.IsMultipartRequestError(err) {
-					return nil, types.MarkRequestError(parseErr)
-				}
-				return nil, parseErr
+			if _, err := c.MultipartForm(); err != nil {
+				return nil, errors.New("failed to parse multipart form")
 			}
+			mf = c.Request.MultipartForm
 		}
 
 		// 写入所有非文件字段
@@ -490,7 +485,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		if mf != nil && mf.File != nil {
 			imageFiles := imageconv.MultipartImageFiles(mf.File)
 			if len(imageFiles) == 0 {
-				return nil, types.MarkRequestError(errors.New("image is required"))
+				return nil, errors.New("image is required")
 			}
 
 			// Process all image files
@@ -554,7 +549,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 				_ = maskFile.Close()
 			}
 		} else {
-			return nil, types.MarkRequestError(errors.New("no multipart form data found"))
+			return nil, errors.New("no multipart form data found")
 		}
 
 		// 关闭 multipart 编写器以设置分界线
@@ -632,11 +627,11 @@ func paramOverrideOperationString(operation map[string]any, key string) string {
 	return value
 }
 
-func isMultipartRequest(c *gin.Context) bool {
+func isJSONRequest(c *gin.Context) bool {
 	if c == nil || c.Request == nil {
 		return false
 	}
-	return strings.Contains(strings.ToLower(c.Request.Header.Get("Content-Type")), "multipart/form-data")
+	return strings.HasPrefix(c.Request.Header.Get("Content-Type"), "application/json")
 }
 
 // detectImageMimeType determines the MIME type based on the file extension
@@ -681,7 +676,7 @@ func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommo
 func (a *Adaptor) DoRequest(c *gin.Context, info *relaycommon.RelayInfo, requestBody io.Reader) (any, error) {
 	if info.RelayMode == relayconstant.RelayModeAudioTranscription ||
 		info.RelayMode == relayconstant.RelayModeAudioTranslation ||
-		(info.RelayMode == relayconstant.RelayModeImagesEdits && isMultipartRequest(c)) {
+		(info.RelayMode == relayconstant.RelayModeImagesEdits && !isJSONRequest(c)) {
 		return channel.DoFormRequest(a, c, info, requestBody)
 	} else if info.RelayMode == relayconstant.RelayModeRealtime {
 		return channel.DoWssRequest(a, c, info, requestBody)

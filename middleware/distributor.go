@@ -522,7 +522,6 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
-	resetOptionalChannelContext(c)
 	common.SetContextKey(c, constant.ContextKeyChannelId, channel.Id)
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
 	common.SetContextKey(c, constant.ContextKeyChannelType, channel.Type)
@@ -586,13 +585,6 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		c.Set("bot_id", channel.Other)
 	}
 	return nil
-}
-
-func resetOptionalChannelContext(c *gin.Context) {
-	common.SetContextKey(c, constant.ContextKeyChannelOrganization, "")
-	for _, key := range []string{"api_version", "region", "plugin", "bot_id"} {
-		c.Set(key, "")
-	}
 }
 
 // extractModelNameFromGeminiPath 从 Gemini API URL 路径中提取模型名

@@ -1,10 +1,8 @@
 package zhipu_4v
 
 import (
-	"errors"
 	"io"
 	"net/http"
-	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/dto"
@@ -53,8 +51,7 @@ type openAIImagePayload struct {
 }
 
 type openAIImageData struct {
-	URL     string `json:"url,omitempty"`
-	B64Json string `json:"b64_json,omitempty"`
+	B64Json string `json:"b64_json"`
 }
 
 func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo) (*dto.Usage, *types.NewAPIError) {
@@ -88,44 +85,35 @@ func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 		if url == "" {
 			url = data.ImageUrl
 		}
-		var base64Data string
-		switch {
-		case data.B64Json != "":
-			base64Data = data.B64Json
-		case data.B64Image != "":
-			base64Data = data.B64Image
-		}
-
-		if zhipuWantsBase64(info, base64Data != "") {
-			if base64Data == "" && url != "" {
-				_, downloaded, err := service.GetImageFromUrl(url)
-				if err != nil {
-					logger.LogError(c, "zhipu_image_get_b64_failed: "+err.Error())
-					return nil, types.NewError(err, types.ErrorCodeBadResponse)
-				}
-				base64Data = downloaded
-			}
-			if base64Data == "" {
-				logger.LogWarn(c, "zhipu_image_empty_b64")
-				continue
-			}
-			payload.Data = append(payload.Data, openAIImageData{B64Json: base64Data})
-			continue
-		}
-
-		if url == "" && base64Data != "" {
-			payload.Data = append(payload.Data, openAIImageData{B64Json: base64Data})
-			continue
-		}
 		if url == "" {
 			logger.LogWarn(c, "zhipu_image_missing_url")
 			continue
 		}
-		payload.Data = append(payload.Data, openAIImageData{URL: url})
-	}
 
-	if len(payload.Data) == 0 {
-		return nil, types.NewError(errors.New("zhipu image response contains no usable images"), types.ErrorCodeBadResponseBody)
+		var b64 string
+		switch {
+		case data.B64Json != "":
+			b64 = data.B64Json
+		case data.B64Image != "":
+			b64 = data.B64Image
+		default:
+			_, downloaded, err := service.GetImageFromUrl(url)
+			if err != nil {
+				logger.LogError(c, "zhipu_image_get_b64_failed: "+err.Error())
+				continue
+			}
+			b64 = downloaded
+		}
+
+		if b64 == "" {
+			logger.LogWarn(c, "zhipu_image_empty_b64")
+			continue
+		}
+
+		imageData := openAIImageData{
+			B64Json: b64,
+		}
+		payload.Data = append(payload.Data, imageData)
 	}
 
 	jsonResp, err := common.Marshal(payload)
@@ -136,32 +124,4 @@ func zhipu4vImageHandler(c *gin.Context, resp *http.Response, info *relaycommon.
 	service.IOCopyBytesGracefully(c, resp, jsonResp)
 
 	return &dto.Usage{}, nil
-}
-
-func zhipuWantsBase64(info *relaycommon.RelayInfo, upstreamHasBase64 bool) bool {
-	if info != nil {
-		switch info.TokenImageSettings.Normalized().Format {
-		case dto.TokenImageFormatB64JSON:
-			return true
-		case dto.TokenImageFormatURL:
-			return false
-		}
-		if request, ok := info.Request.(*dto.ImageRequest); ok {
-			switch strings.ToLower(strings.TrimSpace(request.ResponseFormat)) {
-			case dto.TokenImageFormatB64JSON, "base64":
-				return true
-			case dto.TokenImageFormatURL:
-				return false
-			}
-		}
-		if info.ChannelMeta != nil {
-			switch info.ChannelSetting.OpenAIImageResponseFormatOverride() {
-			case dto.TokenImageFormatB64JSON:
-				return true
-			case dto.TokenImageFormatURL:
-				return false
-			}
-		}
-	}
-	return upstreamHasBase64
 }

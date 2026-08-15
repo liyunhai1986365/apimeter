@@ -26,7 +26,6 @@ import (
 
 func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *types.NewAPIError) {
 	info.InitChannelMeta(c)
-	imageconv.ResetImageReferenceFailures(c)
 
 	imageReq, ok := info.Request.(*dto.ImageRequest)
 	if !ok {
@@ -65,8 +64,6 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 	adaptor.Init(info)
 	originalRelayMode := info.RelayMode
-	originalRequestURLPath := info.RequestURLPath
-	originalContentType := c.Request.Header.Get("Content-Type")
 
 	var requestBody io.Reader
 
@@ -81,7 +78,7 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	} else {
 		convertedRequest, err := adaptor.ConvertImageRequest(c, info, *request)
 		if err != nil {
-			return newImageConversionError(err)
+			return types.NewError(err, types.ErrorCodeConvertRequestFailed)
 		}
 		relaycommon.AppendRequestConversionFromRequest(info, convertedRequest)
 
@@ -136,13 +133,6 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 				newAPIError = service.RelayErrorHandler(c.Request.Context(), httpResp, false)
 				if shouldSplitImageNAfterError(c, originalRelayMode, info, request, newAPIError) {
 					logger.LogInfo(c, fmt.Sprintf("image upstream rejected n=%d; retrying as concurrent single-image submissions", *request.N))
-					info.RelayMode = originalRelayMode
-					info.RequestURLPath = originalRequestURLPath
-					if originalContentType == "" {
-						c.Request.Header.Del("Content-Type")
-					} else {
-						c.Request.Header.Set("Content-Type", originalContentType)
-					}
 					responseCapture, usage, newAPIError = submitSplitImageRequests(c, info, request, c.Writer, statusCodeMappingStr)
 					if newAPIError == nil {
 						responseHandledBySplit = true
@@ -285,13 +275,6 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		logger.LogError(c, fmt.Sprintf("image response write failed: %s", err.Error()))
 	}
 	return nil
-}
-
-func newImageConversionError(err error) *types.NewAPIError {
-	if types.IsRequestError(err) {
-		return types.NewErrorWithStatusCode(err, types.ErrorCodeConvertRequestFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
-	}
-	return types.NewError(err, types.ErrorCodeConvertRequestFailed)
 }
 
 func finishStreamImageBilling(c *gin.Context, info *relaycommon.RelayInfo, request *dto.ImageRequest, usage any) *types.NewAPIError {

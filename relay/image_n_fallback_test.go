@@ -4,10 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -361,99 +359,4 @@ func TestImageHelperFallsBackFromRejectedBatchToSingleSubmissions(t *testing.T) 
 	require.Equal(t, int64(2), gjson.GetBytes(recorder.Body.Bytes(), "usage.input_tokens").Int())
 	require.Equal(t, int64(4), gjson.GetBytes(recorder.Body.Bytes(), "usage.output_tokens").Int())
 	require.Equal(t, int64(6), gjson.GetBytes(recorder.Body.Bytes(), "usage.total_tokens").Int())
-}
-
-func TestImageHelperURLInputDownloadsOnceAcrossSplitFallback(t *testing.T) {
-	setupImageTaskTestDB(t)
-	require.NoError(t, model.DB.AutoMigrate(&model.User{}))
-	require.NoError(t, model.DB.Create(&model.User{Id: 1, Username: "image-url-user", Quota: 10000, Status: common.UserStatusEnabled}).Error)
-	service.InitHttpClient()
-	disableSSRFProtectionForImageTaskTest(t)
-	gin.SetMode(gin.TestMode)
-
-	var downloads atomic.Int32
-	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		downloads.Add(1)
-		require.Equal(t, http.MethodGet, r.Method)
-		w.Header().Set("Content-Type", "image/png")
-		_, _ = w.Write([]byte("source-image"))
-	}))
-	defer source.Close()
-
-	var upstreamRequests atomic.Int32
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upstreamRequests.Add(1)
-		require.Equal(t, "/v1/images/edits", r.URL.Path)
-		require.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
-		require.NoError(t, r.ParseMultipartForm(1024*1024))
-		defer r.MultipartForm.RemoveAll()
-		require.Len(t, r.MultipartForm.File["image"], 1)
-		imageFile, err := r.MultipartForm.File["image"][0].Open()
-		require.NoError(t, err)
-		imageBytes, err := io.ReadAll(imageFile)
-		require.NoError(t, err)
-		require.NoError(t, imageFile.Close())
-		require.Equal(t, []byte("source-image"), imageBytes)
-
-		imageN, err := strconv.Atoi(r.FormValue("n"))
-		require.NoError(t, err)
-		w.Header().Set("Content-Type", "application/json")
-		if imageN > 1 {
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"error":{"message":"n must be 1","type":"invalid_value","param":"n"}}`))
-			return
-		}
-		_, _ = fmt.Fprintf(w, `{"created":123,"data":[{"b64_json":%q}],"usage":{"input_tokens":1,"output_tokens":2,"total_tokens":3}}`, imageTaskTestPNGBase64)
-	}))
-	defer upstream.Close()
-
-	n := uint(2)
-	imageReference, err := common.Marshal(source.URL + "/source.png")
-	require.NoError(t, err)
-	imageRequest := &dto.ImageRequest{
-		Model:          "gpt-image-2",
-		Prompt:         "edit this image",
-		N:              &n,
-		ResponseFormat: "b64_json",
-		Image:          imageReference,
-	}
-	info := &relaycommon.RelayInfo{
-		UserId:           1,
-		OriginModelName:  "gpt-image-2",
-		CurrentModelName: "gpt-image-2",
-		RelayMode:        relayconstant.RelayModeImagesGenerations,
-		RequestURLPath:   "/v1/images/generations",
-		Request:          imageRequest,
-		Billing:          &imageAsyncBillingStub{},
-		PriceData: types.PriceData{
-			ModelRatio:      1,
-			CompletionRatio: 1,
-			GroupRatioInfo:  types.GroupRatioInfo{GroupRatio: 1},
-			UsePrice:        true,
-			OtherRatios:     map[string]float64{"n": 2},
-		},
-		BillingRequestInput: &billingexpr.RequestInput{Body: []byte(`{"model":"gpt-image-2","n":2}`)},
-	}
-	body, err := common.Marshal(imageRequest)
-	require.NoError(t, err)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-	common.SetContextKey(c, constant.ContextKeyChannelType, constant.ChannelTypeOpenAI)
-	common.SetContextKey(c, constant.ContextKeyChannelId, 11)
-	common.SetContextKey(c, constant.ContextKeyChannelKey, "sk-upstream")
-	common.SetContextKey(c, constant.ContextKeyChannelBaseUrl, upstream.URL)
-	storage, err := common.CreateBodyStorage(body)
-	require.NoError(t, err)
-	defer storage.Close()
-	c.Set(common.KeyBodyStorage, storage)
-
-	require.Nil(t, ImageHelper(c, info))
-	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Equal(t, int32(3), upstreamRequests.Load())
-	require.Equal(t, int32(1), downloads.Load())
-	require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
-	require.Equal(t, relayconstant.RelayModeImagesGenerations, info.RelayMode)
-	require.Equal(t, "/v1/images/generations", info.RequestURLPath)
 }
