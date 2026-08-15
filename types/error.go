@@ -241,6 +241,36 @@ func (e *NewAPIError) ToClaudeError() ClaudeError {
 
 type NewAPIErrorOptions func(*NewAPIError)
 
+type RequestError struct {
+	err error
+}
+
+func (e *RequestError) Error() string {
+	if e == nil || e.err == nil {
+		return "invalid request"
+	}
+	return e.err.Error()
+}
+
+func (e *RequestError) Unwrap() error {
+	if e == nil {
+		return nil
+	}
+	return e.err
+}
+
+func MarkRequestError(err error) error {
+	if err == nil || IsRequestError(err) {
+		return err
+	}
+	return &RequestError{err: err}
+}
+
+func IsRequestError(err error) bool {
+	var requestErr *RequestError
+	return errors.As(err, &requestErr)
+}
+
 func NewError(err error, errorCode ErrorCode, ops ...NewAPIErrorOptions) *NewAPIError {
 	var newErr *NewAPIError
 	// 保留深层传递的 new err

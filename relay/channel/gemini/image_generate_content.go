@@ -20,7 +20,7 @@ import (
 func ConvertOpenAIImageToGenerateContent(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (*dto.GeminiChatRequest, error) {
 	prompt := strings.TrimSpace(request.Prompt)
 	if prompt == "" {
-		return nil, errors.New("prompt is required")
+		return nil, types.MarkRequestError(errors.New("prompt is required"))
 	}
 
 	content := make([]any, 0, 2)

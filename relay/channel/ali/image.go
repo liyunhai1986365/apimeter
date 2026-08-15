@@ -29,7 +29,7 @@ func oaiImage2AliImageRequest(info *relaycommon.RelayInfo, request dto.ImageRequ
 		if val, ok := request.Extra["parameters"]; ok {
 			err := common.Unmarshal(val, &imageRequest.Parameters)
 			if err != nil {
-				return nil, fmt.Errorf("invalid parameters field: %w", err)
+				return nil, types.MarkRequestError(fmt.Errorf("invalid parameters field: %w", err))
 			}
 		} else {
 			// 兼容没有parameters字段的情况，从openai标准字段中提取参数
@@ -42,7 +42,7 @@ func oaiImage2AliImageRequest(info *relaycommon.RelayInfo, request dto.ImageRequ
 		if val, ok := request.Extra["input"]; ok {
 			err := common.Unmarshal(val, &imageRequest.Input)
 			if err != nil {
-				return nil, fmt.Errorf("invalid input field: %w", err)
+				return nil, types.MarkRequestError(fmt.Errorf("invalid input field: %w", err))
 			}
 		}
 	}
@@ -88,7 +88,7 @@ func getImageBase64sFromForm(c *gin.Context, fieldName string) ([]string, error)
 	mf := c.Request.MultipartForm
 	if mf == nil {
 		if _, err := c.MultipartForm(); err != nil {
-			return nil, fmt.Errorf("failed to parse image edit form request: %w", err)
+			return nil, types.MarkRequestError(fmt.Errorf("failed to parse image edit form request: %w", err))
 		}
 		mf = c.Request.MultipartForm
 	}
@@ -111,13 +111,13 @@ func getImageBase64sFromForm(c *gin.Context, fieldName string) ([]string, error)
 
 			// If no image fields found at all
 			if !foundArrayImages && (len(imageFiles) == 0) {
-				return nil, errors.New("image is required")
+				return nil, types.MarkRequestError(errors.New("image is required"))
 			}
 		}
 	}
 
 	if len(imageFiles) == 0 {
-		return nil, errors.New("image is required")
+		return nil, types.MarkRequestError(errors.New("image is required"))
 	}
 
 	//if len(imageFiles) > 1 {

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -208,10 +210,10 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	relayInfo.RetryIndex = 0
 	relayInfo.LastError = nil
+	attemptRequestState := captureRelayAttemptRequestState(c, relayInfo)
 
 	modelAttempts := buildModelAttempts(relayInfo)
 	for attemptIndex, attemptModel := range modelAttempts {
-		relayInfo.CurrentModelName = attemptModel
 		if attemptIndex > 0 {
 			relayInfo.ModelFallbackAttempted = true
 			relayInfo.FallbackModelName = attemptModel
@@ -229,6 +231,8 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 		}
 		shouldTryNextModel := false
 		for ; retryParam.GetRetry() <= common.RetryTimes; retryParam.IncreaseRetry() {
+			attemptRequestState.restore(c, relayInfo)
+			relayInfo.CurrentModelName = attemptModel
 			relayInfo.RetryIndex = retryParam.GetAttempt()
 			c.Set("relay_retry_index", retryParam.GetAttempt())
 			channel, channelErr := getChannel(c, relayInfo, retryParam)
@@ -416,6 +420,104 @@ func resetModelAttemptContext(c *gin.Context) {
 	} {
 		delete(c.Keys, string(key))
 	}
+}
+
+type relayAttemptRequestState struct {
+	relayMode                int
+	requestURLPath           string
+	relayFormat              types.RelayFormat
+	isStream                 bool
+	requestHeader            http.Header
+	requestForm              url.Values
+	requestPostForm          url.Values
+	requestMultipartForm     *multipart.Form
+	requestConversionChain   []types.RelayFormat
+	finalRequestRelayFormat  types.RelayFormat
+	runtimeHeadersOverride   map[string]interface{}
+	useRuntimeHeaderOverride bool
+	paramOverrideAudit       []string
+	priceOtherRatios         map[string]float64
+}
+
+func captureRelayAttemptRequestState(c *gin.Context, info *relaycommon.RelayInfo) relayAttemptRequestState {
+	state := relayAttemptRequestState{}
+	if info != nil {
+		state.relayMode = info.RelayMode
+		state.requestURLPath = info.RequestURLPath
+		state.relayFormat = info.RelayFormat
+		state.isStream = info.IsStream
+		state.requestConversionChain = append([]types.RelayFormat(nil), info.RequestConversionChain...)
+		state.finalRequestRelayFormat = info.FinalRequestRelayFormat
+		state.runtimeHeadersOverride = cloneInterfaceMap(info.RuntimeHeadersOverride)
+		state.useRuntimeHeaderOverride = info.UseRuntimeHeadersOverride
+		state.paramOverrideAudit = append([]string(nil), info.ParamOverrideAudit...)
+		state.priceOtherRatios = cloneFloat64Map(info.PriceData.OtherRatios)
+	}
+	if c != nil && c.Request != nil {
+		state.requestHeader = c.Request.Header.Clone()
+		state.requestForm = cloneURLValues(c.Request.Form)
+		state.requestPostForm = cloneURLValues(c.Request.PostForm)
+		state.requestMultipartForm = c.Request.MultipartForm
+	}
+	return state
+}
+
+func (state relayAttemptRequestState) restore(c *gin.Context, info *relaycommon.RelayInfo) {
+	if info != nil {
+		info.RelayMode = state.relayMode
+		info.RequestURLPath = state.requestURLPath
+		info.RelayFormat = state.relayFormat
+		info.IsStream = state.isStream
+		info.RequestConversionChain = append([]types.RelayFormat(nil), state.requestConversionChain...)
+		info.FinalRequestRelayFormat = state.finalRequestRelayFormat
+		info.RuntimeHeadersOverride = cloneInterfaceMap(state.runtimeHeadersOverride)
+		info.UseRuntimeHeadersOverride = state.useRuntimeHeaderOverride
+		info.ParamOverrideAudit = append([]string(nil), state.paramOverrideAudit...)
+		info.PriceData.OtherRatios = cloneFloat64Map(state.priceOtherRatios)
+		info.UpstreamRequestBodySize = 0
+	}
+	if c != nil && c.Request != nil {
+		c.Request.Header = state.requestHeader.Clone()
+		c.Request.Form = cloneURLValues(state.requestForm)
+		c.Request.PostForm = cloneURLValues(state.requestPostForm)
+		if currentForm := c.Request.MultipartForm; currentForm != nil && currentForm != state.requestMultipartForm {
+			_ = currentForm.RemoveAll()
+		}
+		c.Request.MultipartForm = state.requestMultipartForm
+	}
+}
+
+func cloneURLValues(values url.Values) url.Values {
+	if values == nil {
+		return nil
+	}
+	cloned := make(url.Values, len(values))
+	for key, entries := range values {
+		cloned[key] = append([]string(nil), entries...)
+	}
+	return cloned
+}
+
+func cloneInterfaceMap(values map[string]interface{}) map[string]interface{} {
+	if values == nil {
+		return nil
+	}
+	cloned := make(map[string]interface{}, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
+}
+
+func cloneFloat64Map(values map[string]float64) map[string]float64 {
+	if values == nil {
+		return nil
+	}
+	cloned := make(map[string]float64, len(values))
+	for key, value := range values {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 func fastTokenCountMetaForPricing(request dto.Request) *types.TokenCountMeta {

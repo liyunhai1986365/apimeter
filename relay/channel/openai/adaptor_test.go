@@ -123,6 +123,73 @@ func TestOpenAIImageGenerationWithImageInputKeepsGenerationsWhenAutoConvertDisab
 	require.Equal(t, "https://duomiapi.com/v1/images/generations", gotURL)
 }
 
+func TestOpenAIImageGenerationWithImageInputKeepsJSONWhenMultipartConvertDisabled(t *testing.T) {
+	disabled := false
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:  "/v1/images/generations",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				ImageAutoConvertJSONEditToMultipart: &disabled,
+			},
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫的背景",
+		Image:  []byte(`["https://cdn.example.com/cat.png"]`),
+	})
+	require.NoError(t, err)
+	_, ok := converted.(dto.ImageRequest)
+	require.True(t, ok)
+	require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
+	require.Equal(t, "/v1/images/edits", info.RequestURLPath)
+	require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
+}
+
+func TestOpenAIImageGenerationWithImageInputKeepsJSONWithoutContentTypeWhenMultipartConvertDisabled(t *testing.T) {
+	disabled := false
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesGenerations,
+		RequestURLPath:  "/v1/images/generations",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				ImageAutoConvertJSONEditToMultipart: &disabled,
+			},
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫的背景",
+		Image:  []byte(`["https://cdn.example.com/cat.png"]`),
+	})
+	require.NoError(t, err)
+	_, ok := converted.(dto.ImageRequest)
+	require.True(t, ok)
+	require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
+	require.Equal(t, "/v1/images/edits", info.RequestURLPath)
+	require.Empty(t, c.Request.Header.Get("Content-Type"))
+}
+
 func TestOpenAIImageGenerationDoesNotDefaultResponseFormat(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		RelayMode:       relayconstant.RelayModeImagesGenerations,
@@ -520,6 +587,37 @@ func TestOpenAIImageEditsJSONInputKeepsJSONWhenAutoConvertDisabled(t *testing.T)
 	require.True(t, ok)
 	require.Equal(t, relayconstant.RelayModeImagesEdits, info.RelayMode)
 	require.Equal(t, "application/json", c.Request.Header.Get("Content-Type"))
+}
+
+func TestOpenAIImageEditsJSONInputWithoutContentTypeKeepsJSONWhenAutoConvertDisabled(t *testing.T) {
+	disabled := false
+	info := &relaycommon.RelayInfo{
+		RelayMode:       relayconstant.RelayModeImagesEdits,
+		RequestURLPath:  "/v1/images/edits",
+		OriginModelName: "gpt-image-2",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:    constant.ChannelTypeOpenAI,
+			ApiType:        constant.APITypeOpenAI,
+			ChannelBaseUrl: "https://duomiapi.com",
+			ApiKey:         "duomi-key",
+			ChannelSetting: dto.ChannelSettings{
+				ImageAutoConvertJSONEditToMultipart: &disabled,
+			},
+		},
+	}
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", nil)
+
+	adaptor := &Adaptor{}
+	converted, err := adaptor.ConvertImageRequest(c, info, dto.ImageRequest{
+		Model:  "gpt-image-2",
+		Prompt: "修改这只猫的背景",
+		Image:  []byte(`["https://cdn.example.com/cat.png"]`),
+	})
+	require.NoError(t, err)
+	_, ok := converted.(dto.ImageRequest)
+	require.True(t, ok)
+	require.Empty(t, c.Request.Header.Get("Content-Type"))
 }
 
 func multipartBoundary(t *testing.T, contentType string) string {

@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -258,6 +259,12 @@ func init() {
 }
 
 func ParseMultipartFormReusable(c *gin.Context) (*multipart.Form, error) {
+	if c == nil || c.Request == nil {
+		return nil, errors.New("request is nil")
+	}
+	if c.Request.MultipartForm != nil {
+		return c.Request.MultipartForm, nil
+	}
 	storage, err := GetBodyStorage(c)
 	if err != nil {
 		return nil, err
@@ -278,14 +285,19 @@ func ParseMultipartFormReusable(c *gin.Context) (*multipart.Form, error) {
 	}
 	boundary, err := parseBoundary(contentType)
 	if err != nil {
-		return nil, err
+		return nil, MarkMultipartRequestError(err)
 	}
 
 	reader := multipart.NewReader(bytes.NewReader(requestBody), boundary)
 	form, err := reader.ReadForm(multipartMemoryLimit())
 	if err != nil {
-		return nil, err
+		var pathErr *os.PathError
+		if errors.As(err, &pathErr) {
+			return nil, err
+		}
+		return nil, MarkMultipartRequestError(err)
 	}
+	c.Request.MultipartForm = form
 
 	// Reset request body
 	if _, seekErr := storage.Seek(0, io.SeekStart); seekErr != nil {
@@ -293,6 +305,30 @@ func ParseMultipartFormReusable(c *gin.Context) (*multipart.Form, error) {
 	}
 	c.Request.Body = io.NopCloser(storage)
 	return form, nil
+}
+
+type multipartRequestError struct {
+	err error
+}
+
+func (e *multipartRequestError) Error() string {
+	return e.err.Error()
+}
+
+func (e *multipartRequestError) Unwrap() error {
+	return e.err
+}
+
+func MarkMultipartRequestError(err error) error {
+	if err == nil || IsMultipartRequestError(err) {
+		return err
+	}
+	return &multipartRequestError{err: err}
+}
+
+func IsMultipartRequestError(err error) bool {
+	var requestErr *multipartRequestError
+	return errors.As(err, &requestErr)
 }
 
 func processFormMap(formMap map[string]any, v any) error {

@@ -2,7 +2,6 @@ package replicate
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -74,7 +73,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		}
 	}
 	if strings.TrimSpace(request.Prompt) == "" {
-		return nil, errors.New("replicate adaptor: prompt is required")
+		return nil, types.MarkRequestError(errors.New("replicate adaptor: prompt is required"))
 	}
 
 	modelName := strings.TrimSpace(info.UpstreamModelName)
@@ -111,7 +110,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 
 	if len(request.OutputFormat) > 0 {
 		var outputFormat string
-		if err := json.Unmarshal(request.OutputFormat, &outputFormat); err == nil && strings.TrimSpace(outputFormat) != "" {
+		if err := common.Unmarshal(request.OutputFormat, &outputFormat); err == nil && strings.TrimSpace(outputFormat) != "" {
 			inputPayload["output_format"] = outputFormat
 		}
 	}
@@ -124,21 +123,10 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		inputPayload["prompt_upsampling"] = true
 	}
 
-	if info.RelayMode == relayconstant.RelayModeImagesEdits {
-		imageURL, err := uploadFileFromForm(c, info, "image", "image[]", "image_prompt")
-		if err != nil {
-			return nil, err
-		}
-		if imageURL == "" {
-			return nil, errors.New("replicate adaptor: image file is required for edits")
-		}
-		inputPayload["image_prompt"] = imageURL
-	}
-
 	if len(request.ExtraFields) > 0 {
 		var extra map[string]any
 		if err := common.Unmarshal(request.ExtraFields, &extra); err != nil {
-			return nil, fmt.Errorf("replicate adaptor: failed to decode extra_fields: %w", err)
+			return nil, types.MarkRequestError(fmt.Errorf("replicate adaptor: failed to decode extra_fields: %w", err))
 		}
 		for key, val := range extra {
 			inputPayload[key] = val
@@ -149,7 +137,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		if strings.EqualFold(key, "input") {
 			var extraInput map[string]any
 			if err := common.Unmarshal(raw, &extraInput); err != nil {
-				return nil, fmt.Errorf("replicate adaptor: failed to decode extra input: %w", err)
+				return nil, types.MarkRequestError(fmt.Errorf("replicate adaptor: failed to decode extra input: %w", err))
 			}
 			for k, v := range extraInput {
 				inputPayload[k] = v
@@ -161,9 +149,20 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		}
 		var val any
 		if err := common.Unmarshal(raw, &val); err != nil {
-			return nil, fmt.Errorf("replicate adaptor: failed to decode extra field %s: %w", key, err)
+			return nil, types.MarkRequestError(fmt.Errorf("replicate adaptor: failed to decode extra field %s: %w", key, err))
 		}
 		inputPayload[key] = val
+	}
+
+	if info.RelayMode == relayconstant.RelayModeImagesEdits {
+		imageURL, err := uploadFileFromForm(c, info, "image", "image[]", "image_prompt")
+		if err != nil {
+			return nil, err
+		}
+		if imageURL == "" {
+			return nil, types.MarkRequestError(errors.New("replicate adaptor: image file is required for edits"))
+		}
+		inputPayload["image_prompt"] = imageURL
 	}
 
 	return map[string]any{
@@ -247,7 +246,7 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 		}
 	}
 
-	wantsBase64 := imageReq != nil && strings.EqualFold(imageReq.ResponseFormat, "b64_json")
+	wantsBase64 := replicateWantsBase64(info, imageReq)
 
 	imageResponse := dto.ImageResponse{
 		Created: common.GetTimestamp(),
@@ -289,6 +288,27 @@ func (a *Adaptor) DoResponse(c *gin.Context, resp *http.Response, info *relaycom
 
 	usage := &dto.Usage{}
 	return usage, nil
+}
+
+func replicateWantsBase64(info *relaycommon.RelayInfo, request *dto.ImageRequest) bool {
+	if info != nil {
+		switch info.TokenImageSettings.Normalized().Format {
+		case dto.TokenImageFormatB64JSON:
+			return true
+		case dto.TokenImageFormatURL:
+			return false
+		}
+	}
+	if request != nil {
+		switch strings.ToLower(strings.TrimSpace(request.ResponseFormat)) {
+		case dto.TokenImageFormatB64JSON, "base64":
+			return true
+		case dto.TokenImageFormatURL:
+			return false
+		}
+	}
+	return info != nil && info.ChannelMeta != nil &&
+		info.ChannelSetting.OpenAIImageResponseFormatOverride() == dto.TokenImageFormatB64JSON
 }
 
 func (a *Adaptor) GetModelList() []string {
@@ -405,7 +425,7 @@ func uploadFileFromForm(c *gin.Context, info *relaycommon.RelayInfo, fieldCandid
 	mf := c.Request.MultipartForm
 	if mf == nil {
 		if _, err := c.MultipartForm(); err != nil {
-			return "", fmt.Errorf("replicate adaptor: parse multipart form failed: %w", err)
+			return "", types.MarkRequestError(fmt.Errorf("replicate adaptor: parse multipart form failed: %w", err))
 		}
 		mf = c.Request.MultipartForm
 	}
