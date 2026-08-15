@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"net/http"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -41,6 +42,30 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 }
 
 func GetPricing(c *gin.Context) {
+	getPricingForUserGroup(c, "", false)
+}
+
+func GetPricingQuotation(c *gin.Context) {
+	userGroup := strings.TrimSpace(c.Query("user_group"))
+	if userGroup == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "user_group is required",
+		})
+		return
+	}
+	if !isConfiguredUserGroup(userGroup) {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"success": false,
+			"message": "invalid user_group",
+		})
+		return
+	}
+
+	getPricingForUserGroup(c, userGroup, true)
+}
+
+func getPricingForUserGroup(c *gin.Context, requestedUserGroup string, hasRequestedUserGroup bool) {
 	pricing := model.GetPricing()
 	userId, exists := c.Get("id")
 	usableGroup := map[string]string{}
@@ -49,24 +74,25 @@ func GetPricing(c *gin.Context) {
 		groupRatio[s] = f
 	}
 	var group string
-	if exists {
+	if hasRequestedUserGroup {
+		group = requestedUserGroup
+	} else if exists {
 		user, err := model.GetUserCache(userId.(int))
 		if err == nil {
 			group = user.Group
-			groupForSystemRatio := group
-			for g := range groupRatio {
-				ratio, ok := ratio_setting.GetGroupGroupRatio(groupForSystemRatio, g)
-				if ok {
-					groupRatio[g] = ratio
-				}
-			}
+		}
+	}
+	for g := range groupRatio {
+		ratio, ok := ratio_setting.GetGroupGroupRatio(group, g)
+		if ok {
+			groupRatio[g] = ratio
 		}
 	}
 	groupRatio = applyAgentGroupRatios(c, groupRatio)
 
 	usableGroup = service.GetUserUsableGroups(group)
 	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
-		if userID, hasUserID := c.Get("id"); hasUserID {
+		if userID, hasUserID := c.Get("id"); hasUserID && !hasRequestedUserGroup {
 			if agentUserGroup, err := agentservice.GetUserGroup(agentCtx, userID.(int), group); err == nil {
 				group = agentUserGroup
 			}
@@ -124,6 +150,7 @@ func GetPricing(c *gin.Context) {
 			"success":            true,
 			"data":               pricing,
 			"vendors":            model.GetVendors(),
+			"user_group":         group,
 			"group_ratio":        agentGroupRatio,
 			"group_perf":         getPricingGroupPerformance(agentUsableGroup),
 			"usable_group":       agentUsableGroup,
@@ -146,6 +173,7 @@ func GetPricing(c *gin.Context) {
 		"success":            true,
 		"data":               pricing,
 		"vendors":            model.GetVendors(),
+		"user_group":         group,
 		"group_ratio":        groupRatio,
 		"group_perf":         getPricingGroupPerformance(usableGroup),
 		"usable_group":       usableGroup,

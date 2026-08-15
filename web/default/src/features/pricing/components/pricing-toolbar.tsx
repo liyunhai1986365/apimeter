@@ -76,6 +76,7 @@ export interface PricingToolbarProps {
   quotationModels: PricingModel[]
   priceRate: number
   usdExchangeRate: number
+  userGroup?: string
   usableGroup: Record<string, string | { desc?: string; ratio?: number }>
   groupDisplay?: PricingGroupDisplayConfig
 }
@@ -175,6 +176,7 @@ export function PricingToolbar(props: PricingToolbarProps) {
             tokenUnit={props.tokenUnit}
             priceRate={props.priceRate}
             usdExchangeRate={props.usdExchangeRate}
+            userGroup={props.userGroup}
             usableGroup={props.usableGroup}
             groupDisplay={props.groupDisplay}
             hasActiveFilters={

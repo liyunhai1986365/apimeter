@@ -38,14 +38,14 @@ describe('quotation PDF data', () => {
     assert.equal(row.cacheUnitLabel, '1M')
     assert.deepEqual(row.inputModalities, ['text'])
     assert.deepEqual(row.outputModalities, ['text'])
-    assert.deepEqual(row.supplierDiscounts, [
-      {
-        group: 'default',
-        description: 'Default supplier',
-        ratio: 0.5,
-        label: '50% off',
-      },
-    ])
+    assert.equal(row.supplierDiscounts[0]?.group, 'default')
+    assert.equal(row.supplierDiscounts[0]?.description, 'Default supplier')
+    assert.equal(row.supplierDiscounts[0]?.ratio, 0.5)
+    assert.equal(row.supplierDiscounts[0]?.label, '50% off')
+    assert.deepEqual(
+      row.supplierDiscounts[0]?.quotedPrices.map((price) => price.labelKey),
+      ['Input', 'Output']
+    )
   })
 
   test('includes the current input-to-output modality flow', () => {
@@ -73,6 +73,10 @@ describe('quotation PDF data', () => {
     assert.equal(discounted.primaryPrice, standard.primaryPrice)
     assert.equal(discounted.outputPrice, standard.outputPrice)
     assert.equal(discounted.supplierDiscounts[0]?.ratio, 0.5)
+    assert.notEqual(
+      discounted.supplierDiscounts[0]?.quotedPrices[0]?.value,
+      standard.supplierDiscounts[0]?.quotedPrices[0]?.value
+    )
   })
 
   test('groups by category then sorts by manufacturer and model', () => {
@@ -193,6 +197,14 @@ describe('quotation PDF data', () => {
     assert.equal(
       buildQuotationFilename('Modelsell / Enterprise', new Date(2026, 7, 12)),
       'Modelsell-Enterprise-pricing-quotation-2026-08-12.pdf'
+    )
+    assert.equal(
+      buildQuotationFilename(
+        'Modelsell / Enterprise',
+        new Date(2026, 7, 12),
+        'VIP / Partner'
+      ),
+      'Modelsell-Enterprise-pricing-quotation-VIP-Partner-2026-08-12.pdf'
     )
   })
 

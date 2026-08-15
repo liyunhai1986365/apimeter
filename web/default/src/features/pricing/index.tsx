@@ -259,6 +259,7 @@ export function Pricing() {
   const {
     models,
     vendors,
+    userGroup,
     groupRatio,
     usableGroup,
     groupDisplay,
@@ -471,6 +472,7 @@ export function Pricing() {
                 quotationModels={filteredModels}
                 priceRate={priceRate}
                 usdExchangeRate={usdExchangeRate}
+                userGroup={userGroup}
                 usableGroup={usableGroup}
                 groupDisplay={groupDisplay}
               />

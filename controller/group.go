@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -16,18 +17,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetGroups(c *gin.Context) {
+func getConfiguredUserGroupNames() []string {
 	groupNames, configured := setting.GetUserGroupNamesFromDisplayConfig()
 	if !configured {
 		groupNames = make([]string, 0)
 		for groupName := range ratio_setting.GetGroupRatioCopy() {
 			groupNames = append(groupNames, groupName)
 		}
+		sort.Strings(groupNames)
 	}
+	return groupNames
+}
+
+func isConfiguredUserGroup(group string) bool {
+	for _, groupName := range getConfiguredUserGroupNames() {
+		if groupName == group {
+			return true
+		}
+	}
+	return false
+}
+
+func GetGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    groupNames,
+		"data":    getConfiguredUserGroupNames(),
 	})
 }
 
