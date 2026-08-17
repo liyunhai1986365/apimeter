@@ -44,7 +44,7 @@ const CONTINUATION_TABLE_START = 96
 const TABLE_HEADER_HEIGHT = 48
 const CONTENT_BOTTOM = 1072
 const BASE_ROW_HEIGHT = 82
-const SUPPLIER_LINE_HEIGHT = 76
+const SUPPLIER_LINE_HEIGHT = 60
 
 const COLORS = {
   ink: '#171717',
@@ -92,13 +92,6 @@ export type SupplierDiscount = {
   description: string
   ratio: number
   label: string
-  quotedPrices: SupplierQuotedPrice[]
-}
-
-export type SupplierQuotedPrice = {
-  labelKey: string
-  value: string
-  unit: string
 }
 
 type SupplierPricingMode = 'full' | 'same-model' | 'same-segment'
@@ -250,7 +243,6 @@ function getSupplierDiscounts(
         label:
           formatGroupDiscount(safeRatio, options.discountLabels) ||
           `${safeRatio * 100}%`,
-        quotedPrices: [],
       }
     })
     .sort((a, b) => {
@@ -289,9 +281,7 @@ function supplierPricingSignature(discounts: SupplierDiscount[]): string {
   return discounts
     .map(
       (discount) =>
-        `${discount.group}\u0000${discount.description}\u0000${discount.ratio}\u0000${discount.quotedPrices
-          .map((price) => `${price.labelKey}:${price.value}:${price.unit}`)
-          .join('\u0002')}`
+        `${discount.group}\u0000${discount.description}\u0000${discount.ratio}`
     )
     .join('\u0001')
 }
@@ -329,57 +319,6 @@ function mergeRepeatedSupplierPricing(rows: QuotationRow[]): QuotationRow[] {
   return rows
 }
 
-function getSupplierScenarioEntries(
-  model: PricingModel,
-  discounts: SupplierDiscount[],
-  options: QuotationBuildOptions
-): Map<string, Map<string, ModelCardPriceEntry[]>> {
-  return new Map(
-    discounts.map((discount) => {
-      const display = buildModelCardPriceDisplay(
-        {
-          ...model,
-          enable_groups: [discount.group],
-          group_ratio: { [discount.group]: discount.ratio },
-        },
-        {
-          ...options,
-          includeAllDynamicTiers: true,
-          hiddenDiscountGroups: undefined,
-        }
-      )
-      return [discount.group, getScenarioEntries(display.entries)]
-    })
-  )
-}
-
-function attachQuotedPrices(
-  discounts: SupplierDiscount[],
-  supplierEntries: Map<string, Map<string, ModelCardPriceEntry[]>>,
-  scenario: string,
-  entryKeys: string[]
-): SupplierDiscount[] {
-  return discounts.map((discount) => {
-    const entries = supplierEntries.get(discount.group)?.get(scenario) || []
-    const entryByKey = new Map(entries.map((entry) => [entry.key, entry]))
-    return {
-      ...discount,
-      quotedPrices: entryKeys.flatMap((key) => {
-        const entry = entryByKey.get(key)
-        return entry
-          ? [
-              {
-                labelKey: entry.labelKey,
-                value: entry.current,
-                unit: entry.unitLabel,
-              },
-            ]
-          : []
-      }),
-    }
-  })
-}
-
 export function buildQuotationRows(
   models: PricingModel[],
   options: QuotationBuildOptions = {}
@@ -393,11 +332,6 @@ export function buildQuotationRows(
     })
     const scenarioEntries = getScenarioEntries(display.entries)
     const supplierDiscounts = getSupplierDiscounts(model, options)
-    const supplierEntries = getSupplierScenarioEntries(
-      model,
-      supplierDiscounts,
-      options
-    )
     const shared = {
       category: resolveCategory(model),
       modelName: model.model_name,
@@ -405,12 +339,7 @@ export function buildQuotationRows(
       vendorSortOrder: model.vendor_sort_order ?? Number.MAX_SAFE_INTEGER,
       modelSortOrder: model.sort_order ?? 0,
       billingLabelKey: display.billingLabelKey,
-      supplierDiscounts: attachQuotedPrices(
-        supplierDiscounts,
-        supplierEntries,
-        '',
-        []
-      ),
+      supplierDiscounts,
       inputModalities: metadata.input_modalities,
       outputModalities: metadata.output_modalities,
     }
@@ -444,9 +373,6 @@ export function buildQuotationRows(
         const representedKeys = new Set(
           [primary?.key, output?.key, cache?.key].filter(Boolean)
         )
-        const quotedPriceKeys = [primary?.key, output?.key, cache?.key].filter(
-          (key): key is string => Boolean(key)
-        )
         const baseRow: QuotationRow = {
           ...shared,
           key: `${model.id}:${model.model_name}:${scenario || index}`,
@@ -458,12 +384,7 @@ export function buildQuotationRows(
           primaryUnitLabel: primary?.unitLabel || display.unitLabel,
           outputUnitLabel: output?.unitLabel || display.unitLabel,
           cacheUnitLabel: cache?.unitLabel || display.unitLabel,
-          supplierDiscounts: attachQuotedPrices(
-            supplierDiscounts,
-            supplierEntries,
-            scenario,
-            quotedPriceKeys
-          ),
+          supplierDiscounts,
           supplierPricingMode: 'same-model',
           isFirstModelRow: false,
           requiresOnlineDetails: false,
@@ -484,12 +405,7 @@ export function buildQuotationRows(
               primaryUnitLabel: entry.unitLabel,
               outputUnitLabel: display.unitLabel,
               cacheUnitLabel: display.unitLabel,
-              supplierDiscounts: attachQuotedPrices(
-                supplierDiscounts,
-                supplierEntries,
-                scenario,
-                [entry.key]
-              ),
+              supplierDiscounts,
               supplierPricingMode: 'same-model',
               isFirstModelRow: false,
               requiresOnlineDetails: false,
@@ -833,7 +749,7 @@ function drawSummaryCards(
   context.fillText(
     fitText(
       context,
-      `${t('Quote scope')}: ${scope}${userGroup}  |  ${t('Price basis')}: ${t('Official list price')} + ${t('Effective supplier prices')}`,
+      `${t('Quote scope')}: ${scope}${userGroup}  |  ${t('Price basis')}: ${t('Official list price')} + ${t('Supplier discount information')} (${t('Discounted prices are not shown')})`,
       PAGE_WIDTH - PAGE_MARGIN * 2
     ),
     PAGE_MARGIN,
@@ -855,7 +771,7 @@ function drawTableHeader(
     options.translate('Modality'),
     options.translate('Billing / Scenario'),
     options.translate('Official standard price'),
-    options.translate('Supplier prices'),
+    options.translate('Supplier information'),
   ]
   roundRect(
     context,
@@ -942,7 +858,7 @@ function drawOfficialPrices(
   })
 }
 
-function drawSupplierPrices(
+function drawSupplierInformation(
   context: CanvasRenderingContext2D,
   options: QuotationPdfOptions,
   row: QuotationRow,
@@ -986,7 +902,7 @@ function drawSupplierPrices(
   row.supplierDiscounts.forEach((discount, index) => {
     const lineTop = startY + index * SUPPLIER_LINE_HEIGHT
     const titleY = lineTop + 18
-    const detailY = lineTop + 36
+    const descriptionY = lineTop + 36
 
     if (index > 0) {
       context.strokeStyle = '#ebe8fb'
@@ -1017,26 +933,15 @@ function drawSupplierPrices(
     context.textAlign = 'left'
     context.fillStyle = COLORS.muted
     setFont(context, 11, 520)
-    if (discount.quotedPrices.length > 0) {
-      discount.quotedPrices.slice(0, 3).forEach((price, priceIndex) => {
-        const value = `${options.translate(price.labelKey)}: ${price.value}${price.unit ? ` /${price.unit}` : ''}`
-        context.fillText(
-          fitText(context, value, innerRight - nameX),
-          nameX,
-          detailY + priceIndex * 14
-        )
-      })
-    } else {
-      const descriptionLines = wrapText(
-        context,
-        discount.description ? options.translate(discount.description) : '-',
-        innerRight - nameX,
-        2
-      )
-      descriptionLines.forEach((line, lineIndex) => {
-        context.fillText(line, nameX, detailY + lineIndex * 14)
-      })
-    }
+    const descriptionLines = wrapText(
+      context,
+      discount.description ? options.translate(discount.description) : '-',
+      innerRight - nameX,
+      2
+    )
+    descriptionLines.forEach((line, lineIndex) => {
+      context.fillText(line, nameX, descriptionY + lineIndex * 14)
+    })
   })
 }
 
@@ -1316,7 +1221,7 @@ function drawQuotationRow(
   x += TABLE_COLUMNS[4]
   drawOfficialPrices(context, options, row, x, y, TABLE_COLUMNS[5])
   x += TABLE_COLUMNS[5]
-  drawSupplierPrices(context, options, row, x, y, TABLE_COLUMNS[6])
+  drawSupplierInformation(context, options, row, x, y, TABLE_COLUMNS[6])
 }
 
 function drawLayoutItems(
@@ -1353,7 +1258,7 @@ function drawFooter(
   const disclaimer = wrapText(
     context,
     t(
-      'Reference quotation only. Official prices, effective supplier prices, exchange rates, and billing rules may change; the online price at the time of use prevails.'
+      'Reference quotation only. Official prices and supplier discounts may change. Discounted prices are not shown; the online price at the time of use prevails.'
     ),
     1120,
     2
