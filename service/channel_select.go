@@ -21,6 +21,7 @@ type RetryParam struct {
 	Ctx                     *gin.Context
 	TokenGroup              string
 	ModelName               string
+	RequestPath             string
 	Retry                   *int
 	resetNextTry            bool
 	attempt                 int
@@ -265,7 +266,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else if param.TokenGroup == "auto" {
-		autoGroups := GetUserAutoGroup(userGroup)
+		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
 		agentAutoGroupNames := map[string]string{}
 		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](param.Ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
 			autoGroups, agentAutoGroupNames = agentAutoGroups(agentCtx, userGroup)

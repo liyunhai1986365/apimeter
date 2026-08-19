@@ -45,6 +45,7 @@ func setupAgentTestDB(t *testing.T) *gorm.DB {
 		&model.AgentLedger{},
 		&model.AgentWithdrawal{},
 		&model.User{},
+		&model.UserSession{},
 	))
 
 	t.Cleanup(func() {

@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	DB = db
 	LOG_DB = db
 
-	common.UsingSQLite = true
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
@@ -37,6 +37,9 @@ func TestMain(m *testing.M) {
 	if err := db.AutoMigrate(
 		&Task{},
 		&User{},
+		&UserSession{},
+		&AuthFlow{},
+		&ExternalIdentityClaim{},
 		&CreditQuotaRecord{},
 		&Token{},
 		&Workspace{},
@@ -83,6 +86,8 @@ func TestMain(m *testing.M) {
 		&PasskeyCredential{},
 		&UserOAuthBinding{},
 		&Option{},
+		&CasbinRule{},
+		&AuthzRole{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -94,6 +99,9 @@ func truncateTables(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
 		DB.Exec("DELETE FROM tasks")
+		DB.Exec("DELETE FROM auth_flows")
+		DB.Exec("DELETE FROM external_identity_claims")
+		DB.Exec("DELETE FROM user_sessions")
 		DB.Exec("DELETE FROM users")
 		DB.Exec("DELETE FROM credit_quota_records")
 		DB.Exec("DELETE FROM tokens")
@@ -141,6 +149,8 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM user_oauth_bindings")
 		DB.Exec("DELETE FROM retry_route_events")
 		DB.Exec("DELETE FROM options")
+		DB.Exec("DELETE FROM casbin_rule")
+		DB.Exec("DELETE FROM authz_roles")
 	})
 }
 

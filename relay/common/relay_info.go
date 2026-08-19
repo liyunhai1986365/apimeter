@@ -10,12 +10,15 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
-	"github.com/QuantumNous/new-api/dto"
+	hostdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/conversion"
+	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/model_setting"
-	"github.com/QuantumNous/new-api/types"
+	hosttypes "github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -29,22 +32,15 @@ type ThinkingContentInfo struct {
 }
 
 const (
-	LastMessageTypeNone     = "none"
-	LastMessageTypeText     = "text"
-	LastMessageTypeTools    = "tools"
-	LastMessageTypeThinking = "thinking"
+	LastMessageTypeNone     = convmeta.LastMessageTypeNone
+	LastMessageTypeText     = convmeta.LastMessageTypeText
+	LastMessageTypeTools    = convmeta.LastMessageTypeTools
+	LastMessageTypeThinking = convmeta.LastMessageTypeThinking
 )
 
-type ClaudeConvertInfo struct {
-	LastMessagesType string
-	Index            int
-	Usage            *dto.Usage
-	FinishReason     string
-	Done             bool
-
-	ToolCallBaseIndex      int
-	ToolCallMaxIndexOffset int
-}
+// ClaudeConvertInfo now lives with the converters (convmeta); the alias keeps
+// host code and adaptors compiling unchanged.
+type ClaudeConvertInfo = convmeta.ClaudeConvertInfo
 
 type RerankerInfo struct {
 	Documents       []any
@@ -135,14 +131,14 @@ type RelayInfo struct {
 	// 必须在提交前锁定全额。
 	ForcePreConsume bool
 	// Billing 是计费会话，封装了预扣费/结算/退款的统一生命周期。
-	// 免费模型时为 nil。
+	// 初始免费组可为 nil；若 auto 重试切换到付费组，会在发送前创建。
 	Billing BillingSettler
 	// BillingSource indicates whether this request is billed from wallet quota or subscription.
 	// "" or "wallet" => wallet; "subscription" => subscription
 	BillingSource           string
 	TokenSubscriptionPlanId int
 	TokenUserSubscriptionId int
-	TokenImageSettings      dto.TokenImageSettings
+	TokenImageSettings      hostdto.TokenImageSettings
 	// SubscriptionId is the user_subscriptions.id used when BillingSource == "subscription"
 	SubscriptionId int
 	// SubscriptionPreConsumed is the amount pre-consumed on subscription item (quota units or 1)
@@ -165,17 +161,15 @@ type RelayInfo struct {
 	UseRuntimeHeadersOverride             bool
 	ParamOverrideAudit                    []string
 
-	// UpstreamRequestBodySize is the byte size of the marshaled upstream request
-	// body. It is set when the body is wrapped in a BodyStorage (see
-	// relay/common/outbound_body.go), so that DoApiRequest can populate
-	// http.Request.ContentLength manually (net/http only auto-detects it for
-	// *bytes.Reader/Buffer/strings.Reader). 0 means "let net/http decide".
+	// UpstreamRequestBodySize is the byte size of the marshaled upstream
+	// request body. It lets DoApiRequest populate ContentLength for BodyStorage.
 	UpstreamRequestBodySize int64
 
-	PriceData types.PriceData
+	PriceData hosttypes.PriceData
 
-	// QuotaClamp is set when a quota conversion saturated at the int32 bound
-	// or fell back from NaN while computing this request's charge.
+	// QuotaClamp is set (non-nil) when a quota conversion saturated at the
+	// int32 bound (or NaN fallback) while computing this request's charge.
+	// It is surfaced onto the consume/task log's admin_info for auditing.
 	QuotaClamp *common.QuotaClamp
 
 	// TieredBillingSnapshot is a frozen snapshot of tiered billing rules
@@ -183,8 +177,8 @@ type RelayInfo struct {
 	TieredBillingSnapshot *billingexpr.BillingSnapshot
 	BillingRequestInput   *billingexpr.RequestInput
 
-	AgentContext         *types.AgentContext
-	AgentBillingSnapshot *types.AgentBillingSnapshot
+	AgentContext         *hosttypes.AgentContext
+	AgentBillingSnapshot *hosttypes.AgentBillingSnapshot
 
 	Request dto.Request
 
@@ -200,6 +194,9 @@ type RelayInfo struct {
 	PreserveResponseMode    bool
 
 	StreamStatus *StreamStatus
+
+	// convOptions caches the converter settings snapshot (see ConvOptions).
+	convOptions *convmeta.Options
 
 	ThinkingContentInfo
 	TokenCountMeta
@@ -262,6 +259,15 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 
 	info.ChannelMeta = channelMeta
 	c.Set("upstream_model_name", channelMeta.UpstreamModelName)
+
+	// Channel identity feeds the converter options snapshot (e.g.
+	// OpenRouterDialect); drop the cache so a cross-channel retry rebuilds it.
+	info.convOptions = nil
+	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled {
+		info.ReasoningEffort = ""
+	} else {
+		info.ReasoningEffort = reasoningEffortFromRequest(info.Request)
+	}
 
 	// reset some fields based on channel meta
 	// 重置某些字段，例如模型名称等
@@ -486,6 +492,36 @@ func GenRelayInfoOpenAI(c *gin.Context, request dto.Request) *RelayInfo {
 	return info
 }
 
+func reasoningEffortFromRequest(request dto.Request) string {
+	var effort string
+	switch req := request.(type) {
+	case *dto.GeneralOpenAIRequest:
+		if req == nil {
+			return ""
+		}
+		effort = req.ReasoningEffort
+		if strings.TrimSpace(effort) == "" && len(req.Reasoning) > 0 {
+			value := gjson.GetBytes(req.Reasoning, "effort")
+			if value.Type == gjson.String {
+				effort = value.String()
+			}
+		}
+	case *dto.OpenAIResponsesRequest:
+		if req != nil && req.Reasoning != nil {
+			effort = req.Reasoning.Effort
+		}
+	case *dto.ClaudeRequest:
+		if req != nil {
+			effort = req.GetEfforts()
+		}
+	case *dto.GeminiChatRequest:
+		if req != nil && req.GenerationConfig.ThinkingConfig != nil {
+			effort = req.GenerationConfig.ThinkingConfig.ThinkingLevel
+		}
+	}
+	return strings.TrimSpace(effort)
+}
+
 func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 
 	//channelType := common.GetContextKeyInt(c, constant.ContextKeyChannelType)
@@ -506,7 +542,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	isStream := false
 
 	if request != nil {
-		isStream = request.IsStream(c)
+		isStream = request.IsStream(c.Request)
 	}
 	c.Set(string(constant.ContextKeyIsStream), isStream)
 
@@ -516,8 +552,10 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	if reqId == "" {
 		reqId = common.NewRequestId()
 	}
+	reasoningEffort := reasoningEffortFromRequest(request)
 	info := &RelayInfo{
-		Request: request,
+		Request:         request,
+		ReasoningEffort: reasoningEffort,
 
 		RequestId:  reqId,
 		UserId:     common.GetContextKeyInt(c, constant.ContextKeyUserId),
@@ -557,7 +595,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		},
 	}
 
-	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok {
+	if agentCtx, ok := common.GetContextKeyType[*hosttypes.AgentContext](c, constant.ContextKeyAgentContext); ok {
 		info.AgentContext = agentCtx
 	}
 
@@ -578,10 +616,10 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	return info
 }
 
-func tokenImageSettingsFromContext(c *gin.Context) dto.TokenImageSettings {
-	settings, ok := common.GetContextKeyType[dto.TokenImageSettings](c, constant.ContextKeyTokenImageSettings)
+func tokenImageSettingsFromContext(c *gin.Context) hostdto.TokenImageSettings {
+	settings, ok := common.GetContextKeyType[hostdto.TokenImageSettings](c, constant.ContextKeyTokenImageSettings)
 	if !ok {
-		return dto.TokenImageSettings{}.Normalized()
+		return hostdto.TokenImageSettings{}.Normalized()
 	}
 	return settings.Normalized()
 }
@@ -642,6 +680,11 @@ func GenRelayInfo(c *gin.Context, relayFormat types.RelayFormat, request dto.Req
 			return GenRelayInfoResponsesCompaction(c, request), nil
 		}
 		return nil, errors.New("request is not a OpenAIResponsesCompactionRequest")
+	case types.RelayFormatOpenAIAlphaSearch:
+		if request, ok := request.(*dto.AlphaSearchRequest); ok {
+			return GenRelayInfoAlphaSearch(c, request), nil
+		}
+		return nil, errors.New("request is not a AlphaSearchRequest")
 	case types.RelayFormatTask:
 		info = genBaseRelayInfo(c, nil)
 		info.TaskRelayInfo = &TaskRelayInfo{}
@@ -738,16 +781,153 @@ func GenRelayInfoResponsesCompaction(c *gin.Context, request *dto.OpenAIResponse
 	return info
 }
 
+func GenRelayInfoAlphaSearch(c *gin.Context, request *dto.AlphaSearchRequest) *RelayInfo {
+	info := genBaseRelayInfo(c, request)
+	if info.RelayMode == relayconstant.RelayModeUnknown {
+		info.RelayMode = relayconstant.RelayModeAlphaSearch
+	}
+	info.RelayFormat = types.RelayFormatOpenAIAlphaSearch
+	info.ResponsesUsageInfo = &ResponsesUsageInfo{
+		BuiltInTools: map[string]*BuildInToolInfo{
+			dto.BuildInToolWebSearchPreview: {
+				ToolName:  dto.BuildInToolWebSearchPreview,
+				CallCount: 0,
+			},
+		},
+	}
+	return info
+}
+
 //func (info *RelayInfo) SetPromptTokens(promptTokens int) {
 //	info.promptTokens = promptTokens
 //}
 
 func (info *RelayInfo) SetEstimatePromptTokens(promptTokens int) {
+	if info == nil {
+		return
+	}
 	info.estimatePromptTokens = promptTokens
 }
 
 func (info *RelayInfo) GetEstimatePromptTokens() int {
+	if info == nil {
+		return 0
+	}
 	return info.estimatePromptTokens
+}
+
+// ---------------------------------------------------------------------------
+// convmeta.Meta implementation — the view format converters see. Keep these
+// thin: they only expose protocol state, never billing/user fields.
+// ---------------------------------------------------------------------------
+
+var _ convmeta.Meta = (*RelayInfo)(nil)
+
+func (info *RelayInfo) GetOriginModelName() string {
+	if info == nil {
+		return ""
+	}
+	return info.OriginModelName
+}
+
+func (info *RelayInfo) GetUpstreamModelName() string {
+	if info == nil || info.ChannelMeta == nil {
+		return ""
+	}
+	return info.UpstreamModelName
+}
+
+func (info *RelayInfo) HasChannelMeta() bool { return info != nil && info.ChannelMeta != nil }
+
+func (info *RelayInfo) GetChannelID() int {
+	if info == nil || info.ChannelMeta == nil {
+		return 0
+	}
+	return info.ChannelId
+}
+
+func (info *RelayInfo) GetChannelType() int {
+	if info == nil || info.ChannelMeta == nil {
+		return 0
+	}
+	return info.ChannelType
+}
+
+func (info *RelayInfo) GetIsStream() bool {
+	return info != nil && info.IsStream
+}
+
+func (info *RelayInfo) GetReasoningEffort() string {
+	if info == nil {
+		return ""
+	}
+	return info.ReasoningEffort
+}
+
+func (info *RelayInfo) SetReasoningEffort(effort string) {
+	if info == nil {
+		return
+	}
+	info.ReasoningEffort = strings.TrimSpace(effort)
+}
+
+func (info *RelayInfo) EnsureClaudeConvertInfo() *convmeta.ClaudeConvertInfo {
+	if info == nil {
+		return &convmeta.ClaudeConvertInfo{
+			LastMessagesType: convmeta.LastMessageTypeNone,
+		}
+	}
+	if info.ClaudeConvertInfo == nil {
+		info.ClaudeConvertInfo = &convmeta.ClaudeConvertInfo{
+			LastMessagesType: convmeta.LastMessageTypeNone,
+		}
+	}
+	return info.ClaudeConvertInfo
+}
+
+func (info *RelayInfo) GetSendResponseCount() int {
+	if info == nil {
+		return 0
+	}
+	return info.SendResponseCount
+}
+
+func (info *RelayInfo) IncrSendResponseCount() {
+	if info == nil {
+		return
+	}
+	info.SendResponseCount++
+}
+
+// ConvOptions snapshots host settings for the converters. Rebuilt on each
+// call site's first use; cached so one relay session sees one snapshot.
+func (info *RelayInfo) ConvOptions() *convmeta.Options {
+	if info != nil && info.convOptions != nil {
+		return info.convOptions
+	}
+
+	claudeSettings := model_setting.GetClaudeSettings()
+	geminiSettings := model_setting.GetGeminiSettings()
+	options := &convmeta.Options{
+		Claude: convmeta.ClaudeOptions{
+			ThinkingAdapterEnabled:                claudeSettings.ThinkingAdapterEnabled,
+			ThinkingAdapterBudgetTokensPercentage: claudeSettings.ThinkingAdapterBudgetTokensPercentage,
+			DefaultMaxTokens:                      claudeSettings.GetDefaultMaxTokens,
+		},
+		Gemini: convmeta.GeminiOptions{
+			ThinkingAdapterEnabled:                geminiSettings.ThinkingAdapterEnabled,
+			ThinkingAdapterBudgetTokensPercentage: geminiSettings.ThinkingAdapterBudgetTokensPercentage,
+			FunctionCallThoughtSignatureEnabled:   geminiSettings.FunctionCallThoughtSignatureEnabled,
+			SupportsImagine:                       model_setting.IsGeminiModelSupportImagine,
+			SafetySetting:                         model_setting.GetGeminiSafetySetting,
+		},
+		OpenRouterDialect:      info != nil && info.GetChannelType() == constant.ChannelTypeOpenRouter,
+		PreserveThinkingSuffix: model_setting.ShouldPreserveThinkingSuffix,
+	}
+	if info != nil {
+		info.convOptions = options
+	}
+	return options
 }
 
 func (info *RelayInfo) SetFirstResponseTime() {

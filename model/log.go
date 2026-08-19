@@ -14,10 +14,10 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/bytedance/gopkg/util/gopool"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
 
@@ -109,6 +109,7 @@ const (
 	LogTypeSystem  = 4
 	LogTypeError   = 5
 	LogTypeRefund  = 6
+	LogTypeLogin   = 7
 )
 
 func stripChannelCostFields(otherMap map[string]interface{}) {
@@ -138,6 +139,7 @@ func formatUserLogs(logs []*Log, startIdx int) {
 		if otherMap != nil {
 			// Remove admin-only debug fields.
 			delete(otherMap, "admin_info")
+			delete(otherMap, "audit_info")
 			// delete(otherMap, "reject_reason")
 			delete(otherMap, "stream_status")
 			stripChannelCostFields(otherMap)
@@ -219,6 +221,62 @@ func RecordQuotaLogWithAdminInfo(userId int, logType int, quota int, content str
 	}
 	if err := LOG_DB.Create(log).Error; err != nil {
 		common.SysLog("failed to record quota log: " + err.Error())
+	}
+}
+
+// RecordOperationAuditLog records an administrative operation while keeping
+// structured operator and route metadata separate from the public fallback
+// description.
+func RecordOperationAuditLog(logUserId int, content string, ip string, action string, params map[string]interface{}, adminInfo map[string]interface{}, auditInfo map[string]interface{}) {
+	username, _ := GetUsernameById(logUserId, false)
+	op := map[string]interface{}{"action": action}
+	if len(params) > 0 {
+		op["params"] = params
+	}
+	other := map[string]interface{}{"op": op}
+	if len(adminInfo) > 0 {
+		other["admin_info"] = adminInfo
+	}
+	if len(auditInfo) > 0 {
+		other["audit_info"] = auditInfo
+	}
+	log := &Log{
+		UserId:    logUserId,
+		Username:  username,
+		CreatedAt: common.GetTimestamp(),
+		Type:      LogTypeManage,
+		Content:   content,
+		Ip:        ip,
+		Other:     common.MapToJsonStr(other),
+	}
+	if err := LOG_DB.Create(log).Error; err != nil {
+		common.SysLog("failed to record operation audit log: " + err.Error())
+	}
+}
+
+// RecordLoginLog records a successful dashboard login without persisting
+// credentials or other sensitive request data.
+func RecordLoginLog(userId int, username string, content string, ip string, action string, params map[string]interface{}, extra map[string]interface{}) {
+	other := map[string]interface{}{}
+	for key, value := range extra {
+		other[key] = value
+	}
+	op := map[string]interface{}{"action": action}
+	if len(params) > 0 {
+		op["params"] = params
+	}
+	other["op"] = op
+	log := &Log{
+		UserId:    userId,
+		Username:  username,
+		CreatedAt: common.GetTimestamp(),
+		Type:      LogTypeLogin,
+		Content:   content,
+		Ip:        ip,
+		Other:     common.MapToJsonStr(other),
+	}
+	if err := LOG_DB.Create(log).Error; err != nil {
+		common.SysLog("failed to record login log: " + err.Error())
 	}
 }
 

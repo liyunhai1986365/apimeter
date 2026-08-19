@@ -8,8 +8,6 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
-	"github.com/gin-contrib/sessions"
-	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -40,12 +38,14 @@ func setupWorkspaceAccountAuthTest(t *testing.T, mustChangePassword bool) (*gin.
 	owner := &model.User{
 		Username: "workspace-owner", Password: "hashed", Role: common.RoleCommonUser,
 		Status: common.UserStatusEnabled, Group: "default", AffCode: "wown",
+		AccessToken: common.GetPointer("workspace-owner-pat"),
 	}
 	require.NoError(t, db.Create(owner).Error)
 	child := &model.User{
 		Username: "workspace-child", Password: "hashed", Role: common.RoleCommonUser,
 		Status: common.UserStatusEnabled, Group: "default", ParentUserId: owner.Id,
 		MustChangePassword: mustChangePassword, AffCode: "wact",
+		AccessToken: common.GetPointer("workspace-child-pat"),
 	}
 	require.NoError(t, db.Create(child).Error)
 	t.Cleanup(func() {
@@ -54,22 +54,6 @@ func setupWorkspaceAccountAuthTest(t *testing.T, mustChangePassword bool) (*gin.
 	})
 
 	router := gin.New()
-	router.Use(sessions.Sessions("session", cookie.NewStore([]byte("workspace-account-auth-test"))))
-	// login?id= lets a test choose which account the session belongs to.
-	router.GET("/login", func(c *gin.Context) {
-		user := child
-		if c.Query("id") == fmt.Sprintf("%d", owner.Id) {
-			user = owner
-		}
-		session := sessions.Default(c)
-		session.Set("username", user.Username)
-		session.Set("role", user.Role)
-		session.Set("id", user.Id)
-		session.Set("status", common.UserStatusEnabled)
-		session.Set("group", user.Group)
-		require.NoError(t, session.Save())
-		c.Status(http.StatusNoContent)
-	})
 	noContent := func(c *gin.Context) { c.Status(http.StatusNoContent) }
 	for _, path := range []string{
 		workspaceAccountTokenRoute, workspaceAccountSelfRoute, workspaceAccountLogoutRoute,
@@ -86,63 +70,47 @@ func setupWorkspaceAccountAuthTest(t *testing.T, mustChangePassword bool) (*gin.
 	return router, child, owner
 }
 
-func workspaceAccountSessionCookies(t *testing.T, router *gin.Engine, userID int) []*http.Cookie {
-	t.Helper()
-	recorder := httptest.NewRecorder()
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, fmt.Sprintf("/login?id=%d", userID), nil))
-	require.Equal(t, http.StatusNoContent, recorder.Code)
-	require.NotEmpty(t, recorder.Result().Cookies())
-	return recorder.Result().Cookies()
-}
-
-func performWorkspaceAccountAuthRequest(router *gin.Engine, userID int, cookies []*http.Cookie, method string, path string) *httptest.ResponseRecorder {
+func performWorkspaceAccountAuthRequest(router *gin.Engine, user *model.User, method string, path string) *httptest.ResponseRecorder {
 	recorder := httptest.NewRecorder()
 	request := httptest.NewRequest(method, path, nil)
-	request.Header.Set("New-Api-User", fmt.Sprintf("%d", userID))
-	for _, sessionCookie := range cookies {
-		request.AddCookie(sessionCookie)
-	}
+	request.Header.Set("Authorization", "Bearer "+*user.AccessToken)
 	router.ServeHTTP(recorder, request)
 	return recorder
 }
 
 func TestWorkspaceAccountMustChangePasswordGatesOtherEndpoints(t *testing.T) {
 	router, child, _ := setupWorkspaceAccountAuthTest(t, true)
-	cookies := workspaceAccountSessionCookies(t, router, child.Id)
 
-	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodGet, workspaceAccountTokenRoute).Code)
-	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodGet, workspaceAccountSelfRoute).Code)
-	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodPut, workspaceAccountSelfRoute).Code)
-	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodGet, workspaceAccountLogoutRoute).Code)
+	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child, http.MethodGet, workspaceAccountTokenRoute).Code)
+	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child, http.MethodGet, workspaceAccountSelfRoute).Code)
+	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child, http.MethodPut, workspaceAccountSelfRoute).Code)
+	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child, http.MethodGet, workspaceAccountLogoutRoute).Code)
 }
 
 // Default-deny: an authenticated workspace account is refused on any route that is not on
 // the allowlist, with no per-route rejection middleware involved.
 func TestWorkspaceAccountPolicyDeniesRoutesOutsideAllowlist(t *testing.T) {
 	router, child, _ := setupWorkspaceAccountAuthTest(t, false)
-	cookies := workspaceAccountSessionCookies(t, router, child.Id)
 
-	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodPost, workspaceAccountForbiddenRoute).Code)
-	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodGet, workspaceAccountUnlistedGetPath).Code)
+	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child, http.MethodPost, workspaceAccountForbiddenRoute).Code)
+	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child, http.MethodGet, workspaceAccountUnlistedGetPath).Code)
 	// The allowlist is keyed by method as well as pattern.
-	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodDelete, workspaceAccountSelfRoute).Code)
-	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodGet, workspaceAccountTokenRoute).Code)
+	require.Equal(t, http.StatusForbidden, performWorkspaceAccountAuthRequest(router, child, http.MethodDelete, workspaceAccountSelfRoute).Code)
+	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child, http.MethodGet, workspaceAccountTokenRoute).Code)
 }
 
 // The policy applies only to child accounts; a main account keeps full access.
 func TestWorkspaceAccountPolicyDoesNotRestrictMainAccount(t *testing.T) {
 	router, _, owner := setupWorkspaceAccountAuthTest(t, false)
-	cookies := workspaceAccountSessionCookies(t, router, owner.Id)
 
-	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, owner.Id, cookies, http.MethodPost, workspaceAccountForbiddenRoute).Code)
-	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, owner.Id, cookies, http.MethodDelete, workspaceAccountSelfRoute).Code)
+	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, owner, http.MethodPost, workspaceAccountForbiddenRoute).Code)
+	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, owner, http.MethodDelete, workspaceAccountSelfRoute).Code)
 }
 
 func TestDisabledWorkspaceAccountInvalidatesExistingSession(t *testing.T) {
 	router, child, _ := setupWorkspaceAccountAuthTest(t, false)
-	cookies := workspaceAccountSessionCookies(t, router, child.Id)
-	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodGet, workspaceAccountTokenRoute).Code)
+	require.Equal(t, http.StatusNoContent, performWorkspaceAccountAuthRequest(router, child, http.MethodGet, workspaceAccountTokenRoute).Code)
 
 	require.NoError(t, model.DB.Model(&model.User{}).Where("id = ?", child.Id).Update("status", common.UserStatusDisabled).Error)
-	require.Equal(t, http.StatusUnauthorized, performWorkspaceAccountAuthRequest(router, child.Id, cookies, http.MethodGet, workspaceAccountTokenRoute).Code)
+	require.Equal(t, http.StatusUnauthorized, performWorkspaceAccountAuthRequest(router, child, http.MethodGet, workspaceAccountTokenRoute).Code)
 }

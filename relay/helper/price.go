@@ -176,6 +176,17 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		CacheCreation1hRatio: cacheCreationRatio1h,
 		QuotaToPreConsume:    preConsumedQuota,
 	}
+	if usePrice {
+		for name, ratio := range meta.BillingRatios {
+			priceData.AddOtherRatio(name, ratio)
+		}
+		quotaToPreConsume := priceData.ApplyOtherRatiosToFloat(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		quota, err := common.QuotaFromFloatStrict(quotaToPreConsume)
+		if err != nil {
+			return types.PriceData{}, err
+		}
+		priceData.QuotaToPreConsume = quota
+	}
 
 	if common.DebugEnabled {
 		logger.LogDebug(c, "model_price_helper result: %s", priceData.ToSetting())

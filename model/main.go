@@ -305,6 +305,9 @@ func migrateDB() error {
 		&WorkspaceMember{},
 		&Token{},
 		&User{},
+		&UserSession{},
+		&AuthFlow{},
+		&ExternalIdentityClaim{},
 		&CreditQuotaRecord{},
 		&PasskeyCredential{},
 		&Option{},
@@ -359,8 +362,16 @@ func migrateDB() error {
 		&SystemTaskLock{},
 		&SystemInstance{},
 		&RoutingStrategySnapshot{},
+		&CasbinRule{},
+		&AuthzRole{},
 	)
 	if err != nil {
+		return err
+	}
+	if err := InitializeUserAuthVersions(); err != nil {
+		return err
+	}
+	if err := InitializeExternalIdentityClaims(); err != nil {
 		return err
 	}
 	if common.UsingSQLite {
@@ -399,6 +410,9 @@ func migrateDBFast() error {
 		{&WorkspaceMember{}, "WorkspaceMember"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
+		{&UserSession{}, "UserSession"},
+		{&AuthFlow{}, "AuthFlow"},
+		{&ExternalIdentityClaim{}, "ExternalIdentityClaim"},
 		{&CreditQuotaRecord{}, "CreditQuotaRecord"},
 		{&PasskeyCredential{}, "PasskeyCredential"},
 		{&Option{}, "Option"},
@@ -449,6 +463,8 @@ func migrateDBFast() error {
 		{&BillingStatementSummary{}, "BillingStatementSummary"},
 		{&BillingBalanceAdjustmentOperation{}, "BillingBalanceAdjustmentOperation"},
 		{&ConfigurableResourceState{}, "ConfigurableResourceState"},
+		{&CasbinRule{}, "CasbinRule"},
+		{&AuthzRole{}, "AuthzRole"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))
@@ -472,6 +488,12 @@ func migrateDBFast() error {
 		if err != nil {
 			return err
 		}
+	}
+	if err := InitializeUserAuthVersions(); err != nil {
+		return err
+	}
+	if err := InitializeExternalIdentityClaims(); err != nil {
+		return err
 	}
 	if common.UsingSQLite {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
