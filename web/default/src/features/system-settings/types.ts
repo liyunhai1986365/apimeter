@@ -123,6 +123,7 @@ export type SiteSettings = {
   SystemName: string
   Logo: string
   Footer: string
+  FooterCompanyName: string
   About: string
   HomePageContent: string
   CustomerServiceScript: string
@@ -133,6 +134,7 @@ export type SiteSettings = {
   HeaderNavModules: string
   SidebarModulesAdmin: string
   RankingsDataVisibility: string
+  MainlandChinaPresentationEnabled: boolean
 }
 
 export type AuthSettings = {

@@ -23,6 +23,7 @@ import (
 
 const (
 	defaultSEODescription  = "A unified AI API gateway for OpenAI, Claude, Gemini, DeepSeek and private model providers, with centralized keys, billing and routing."
+	mainlandSEODescription = "A unified AI API gateway for DeepSeek, Qwen, Doubao, Kimi, GLM, MiniMax and other domestic model providers, with centralized keys, billing and routing."
 	seoBlockStart          = "<!--seo-meta-start-->"
 	seoBlockEnd            = "<!--seo-meta-end-->"
 	seoShellBootStyle      = `<style data-seo-shell-boot="true">html[data-seo-client="pending"] [data-seo-shell="true"]{display:none!important}</style>`
@@ -246,8 +247,12 @@ func seoShellHeading(metadata seoPage) string {
 
 func seoShellPageContent(c *gin.Context, metadata seoPage) string {
 	if metadata.Path == "/" {
+		providerIntroduction := `<section aria-labelledby="one-api" style="margin-top:56px;max-width:820px"><h2 id="one-api" style="font-size:28px">One API for leading AI model providers</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Use one gateway for OpenAI, Anthropic Claude, Google Gemini, DeepSeek and other model providers. Compare model capabilities and pricing before choosing the API that fits your application.</p><p><a href="/pricing" style="color:#4f46e5">Compare all available model APIs and prices</a></p></section>`
+		if common.IsMainlandChinaPresentationEnabled() {
+			providerIntroduction = `<section aria-labelledby="one-api" style="margin-top:56px;max-width:820px"><h2 id="one-api" style="font-size:28px">One API for leading domestic AI models</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Use one gateway for DeepSeek, Qwen, Doubao, Kimi, GLM, MiniMax and other domestic models. Compare model capabilities and pricing before choosing the API that fits your application.</p><p><a href="/pricing" style="color:#4f46e5">Compare all available model APIs and prices</a></p></section>`
+		}
 		return `<div style="margin-top:32px;display:flex;flex-wrap:wrap;gap:12px"><a href="/pricing" style="padding:12px 18px;border-radius:10px;background:#111827;color:#fff;text-decoration:none;font-weight:600">Explore AI model API pricing</a><a href="/sign-up" style="padding:12px 18px;border:1px solid #d1d5db;border-radius:10px;color:#111827;text-decoration:none;font-weight:600">Get started</a></div>` +
-			`<section aria-labelledby="one-api" style="margin-top:56px;max-width:820px"><h2 id="one-api" style="font-size:28px">One API for leading AI model providers</h2><p style="color:#4b5563;font-size:16px;line-height:1.7">Use one gateway for OpenAI, Anthropic Claude, Google Gemini, DeepSeek and other model providers. Compare model capabilities and pricing before choosing the API that fits your application.</p><p><a href="/pricing" style="color:#4f46e5">Compare all available model APIs and prices</a></p></section>` +
+			providerIntroduction +
 			seoProviderDirectory(c, "Browse AI model providers", 12) +
 			seoCategoryDirectory(c, "AI model API categories", 6)
 	}
@@ -438,11 +443,15 @@ func resolveSEOPage(c *gin.Context) seoPage {
 		path = normalizeSEOPath(c.Request.URL.EscapedPath())
 	}
 
+	description := defaultSEODescription
+	if common.IsMainlandChinaPresentationEnabled() {
+		description = mainlandSEODescription
+	}
 	page := seoPage{
 		Status:      http.StatusOK,
 		Path:        path,
 		Title:       siteName,
-		Description: defaultSEODescription,
+		Description: description,
 		Canonical:   absoluteSiteURL(origin, path),
 		Robots:      "noindex, nofollow",
 		Image:       absoluteSiteURL(origin, indexPageLogo(c)),

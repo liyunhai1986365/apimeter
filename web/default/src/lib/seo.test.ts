@@ -11,6 +11,14 @@ const t = ((key: string, options?: Record<string, string>) =>
   )) as TFunction
 
 describe('SEO helpers', () => {
+  test('uses the domestic model description for mainland presentation', () => {
+    const descriptor = resolveSEODescriptor('/unknown', 'ModelSell', t, true)
+
+    assert.match(descriptor.description, /DeepSeek/)
+    assert.match(descriptor.description, /Qwen/)
+    assert.doesNotMatch(descriptor.description, /Claude|Gemini|OpenAI/)
+  })
+
   test('normalizes canonical paths without trailing slashes', () => {
     assert.equal(normalizeSEOPath('/pricing/'), '/pricing')
     assert.equal(

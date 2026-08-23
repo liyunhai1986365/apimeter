@@ -9,10 +9,23 @@ describe('mapStatusDataToConfig', () => {
       data: {
         system_name: 'Acme AI',
         server_address: 'https://api.example.com/',
+        footer_company_name: 'Example Technology Ltd.',
+        mainland_china_presentation_enabled: true,
       },
     } as never)
 
     assert.equal(config.systemName, 'Acme AI')
     assert.equal(config.serverAddress, 'https://api.example.com')
+    assert.equal(config.footerCompanyName, 'Example Technology Ltd.')
+    assert.equal(config.mainlandChinaPresentationEnabled, true)
+  })
+
+  test('preserves an empty footer company name', () => {
+    const config = mapStatusDataToConfig({
+      success: true,
+      data: { footer_company_name: '' },
+    } as never)
+
+    assert.equal(config.footerCompanyName, '')
   })
 })

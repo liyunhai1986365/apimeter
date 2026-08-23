@@ -29,6 +29,7 @@ const defaultSiteSettings: SiteSettings = {
   SystemName: 'New API',
   Logo: '',
   Footer: '',
+  FooterCompanyName: 'Axiom Mesh Inc.',
   About: '',
   HomePageContent: '',
   CustomerServiceScript: '',
@@ -39,6 +40,7 @@ const defaultSiteSettings: SiteSettings = {
   HeaderNavModules: '',
   SidebarModulesAdmin: '',
   RankingsDataVisibility: 'masked',
+  MainlandChinaPresentationEnabled: false,
 }
 
 export function SiteSettings() {

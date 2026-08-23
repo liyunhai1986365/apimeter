@@ -18,7 +18,11 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
+import {
+  DEFAULT_FOOTER_COMPANY_NAME,
+  DEFAULT_LOGO,
+  DEFAULT_SYSTEM_NAME,
+} from '@/lib/constants'
 
 export type CurrencyDisplayType = 'USD' | 'CNY' | 'TOKENS' | 'CUSTOM'
 export type UserCurrencyDisplayType = 'USD' | 'CNY'
@@ -43,10 +47,12 @@ export interface SystemConfig {
   logo: string
   serverAddress?: string
   footerHtml?: string
+  footerCompanyName?: string
   customerServiceScript?: string
   googleAnalyticsId?: string
   demoSiteEnabled?: boolean
   displayTokenStatEnabled?: boolean
+  mainlandChinaPresentationEnabled?: boolean
   currency: CurrencyConfig
 }
 
@@ -81,6 +87,8 @@ export const useSystemConfigStore = create<SystemConfigState>()(
         systemName: DEFAULT_SYSTEM_NAME,
         logo: DEFAULT_LOGO,
         serverAddress: '',
+        footerCompanyName: DEFAULT_FOOTER_COMPANY_NAME,
+        mainlandChinaPresentationEnabled: false,
         currency: { ...DEFAULT_CURRENCY_CONFIG },
       },
       displayCurrency: 'USD',

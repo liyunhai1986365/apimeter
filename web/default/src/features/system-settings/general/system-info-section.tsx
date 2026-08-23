@@ -55,6 +55,7 @@ const _systemInfoSchema = z.object({
   SystemName: z.string().min(1),
   ServerAddress: z.string().optional(),
   Logo: z.string().url().optional().or(z.literal('')),
+  FooterCompanyName: z.string().max(120).optional(),
   Footer: z.string().optional(),
   About: z.string().optional(),
   HomePageContent: z.string().optional(),
@@ -89,6 +90,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     SystemName: normalizeValue(defaultValues.SystemName),
     ServerAddress: normalizeValue(defaultValues.ServerAddress),
     Logo: normalizeValue(defaultValues.Logo),
+    FooterCompanyName: normalizeValue(defaultValues.FooterCompanyName),
     Footer: normalizeValue(defaultValues.Footer),
     About: normalizeValue(defaultValues.About),
     HomePageContent: normalizeValue(defaultValues.HomePageContent),
@@ -109,6 +111,9 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     }),
     ServerAddress: z.string().optional(),
     Logo: z.string().url().optional().or(z.literal('')),
+    FooterCompanyName: z.string().max(120, {
+      error: () => t('Footer company name must be 120 characters or fewer'),
+    }),
     Footer: z.string().optional(),
     About: z.string().optional(),
     HomePageContent: z.string().optional(),
@@ -146,6 +151,9 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
           }
           if (key === 'GoogleAnalyticsId') {
             v = normalizeGoogleAnalyticsId(v)
+          }
+          if (key === 'FooterCompanyName') {
+            v = v.trim()
           }
           await updateOption.mutateAsync({
             key,
@@ -259,6 +267,25 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   </FormControl>
                   <FormDescription>
                     {t('URL to your logo image (optional)')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name='FooterCompanyName'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Footer company name')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder='Axiom Mesh Inc.' {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Displayed after the year in the default footer. Leave empty to hide the company name; custom footer HTML replaces the default footer.'
+                    )}
                   </FormDescription>
                   <FormMessage />
                 </FormItem>

@@ -122,7 +122,7 @@ function getCadence(plan: SubscriptionPlan, t: TFunction) {
   return `/${formatDuration(plan, t)}`
 }
 
-function getAccessLabel(plan: SubscriptionPlan, t: TFunction) {
+function getAccessLabel(plan: SubscriptionPlan, t: TFunction, mainlandChinaPresentationEnabled: boolean) {
   if (plan.model_limits_enabled && plan.model_limits?.trim()) {
     const count = plan.model_limits
       .split(',')
@@ -135,11 +135,12 @@ function getAccessLabel(plan: SubscriptionPlan, t: TFunction) {
   if (plan.upgrade_group) {
     return t('{{group}} group access', { group: plan.upgrade_group })
   }
-  return t('All models')
+  return t(mainlandChinaPresentationEnabled ? 'Domestic models' : 'All models')
 }
 
 function useStorePlans() {
   const { t } = useTranslation()
+  const { mainlandChinaPresentationEnabled = false } = useSystemConfig()
   const plansQuery = useQuery({
     queryKey: ['public-subscription-plans'],
     queryFn: getPublicPlans,
@@ -162,7 +163,7 @@ function useStorePlans() {
           priceAmount: Number(plan.price_amount || 0),
           resetPeriodLabel: formatResetPeriod(plan, t),
           durationLabel: formatDuration(plan, t),
-          accessLabel: getAccessLabel(plan, t),
+          accessLabel: getAccessLabel(plan, t, mainlandChinaPresentationEnabled),
           includedLabel:
             totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited'),
           cadenceLabel: getCadence(plan, t),
@@ -175,7 +176,7 @@ function useStorePlans() {
         if (sortDelta !== 0) return sortDelta
         return a.priceAmount - b.priceAmount
       })
-  }, [plansQuery.data?.data, t])
+  }, [mainlandChinaPresentationEnabled, plansQuery.data?.data, t])
 
   return {
     plans,
@@ -455,7 +456,7 @@ function TokenPlanStrip() {
 
 function AgentAccessSection() {
   const { t } = useTranslation()
-  const { systemName, serverAddress } = useSystemConfig()
+  const { systemName, serverAddress, mainlandChinaPresentationEnabled } = useSystemConfig()
   const [installTarget, setInstallTarget] = useState<'unix' | 'windows'>('unix')
   const [copied, setCopied] = useState(false)
 
@@ -467,6 +468,8 @@ function AgentAccessSection() {
     setCopied(true)
     setTimeout(() => setCopied(false), 1600)
   }
+
+  if (mainlandChinaPresentationEnabled) return null
 
   return (
     <section className='py-16 border-t border-black/5 dark:border-zinc-800 space-y-10'>
@@ -651,8 +654,10 @@ function GuidelinesComparisonGrid() {
 
 function ComparisonTableSection() {
   const { t } = useTranslation()
-  const { systemName } = useSystemConfig()
+  const { systemName, mainlandChinaPresentationEnabled } = useSystemConfig()
   const planName = getSitePlanName(systemName)
+
+  if (mainlandChinaPresentationEnabled) return null
 
   const comparisonRows = [
     {
@@ -811,7 +816,7 @@ function ComparisonTableSection() {
 export function SubscriptionStore() {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const { systemName } = useSystemConfig()
+  const { systemName, mainlandChinaPresentationEnabled } = useSystemConfig()
   const user = useAuthStore((state) => state.auth.user)
   const { plans, isLoading } = useStorePlans()
   const [payingPlanId, setPayingPlanId] = useState<number | null>(null)
@@ -872,10 +877,10 @@ export function SubscriptionStore() {
                     <Sparkles className='h-5 w-5' />
                   </div>
                   <div className='space-y-1.5'>
-                    <h3 className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>{t('All-Star Model Matrix')}</h3>
-                    <p className='text-xs font-bold text-[#0071e3] uppercase tracking-wider'>{t('100+ Top Models')}</p>
+                    <h3 className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>{t(mainlandChinaPresentationEnabled ? 'Domestic Model Matrix' : 'All-Star Model Matrix')}</h3>
+                    <p className='text-xs font-bold text-[#0071e3] uppercase tracking-wider'>{t(mainlandChinaPresentationEnabled ? 'Leading domestic models' : '100+ Top Models')}</p>
                   </div>
-                  <p className='text-muted-foreground text-sm leading-relaxed'>{t('One Key, all models. GPT-5.2, Gemini 3 Pro, etc. — latest models available instantly.')}</p>
+                  <p className='text-muted-foreground text-sm leading-relaxed'>{t(mainlandChinaPresentationEnabled ? 'One key connects DeepSeek, Qwen, GLM, Kimi, MiniMax and other leading domestic models.' : 'One Key, all models. GPT-5.2, Gemini 3 Pro, etc. — latest models available instantly.')}</p>
                 </div>
               </div>
 
@@ -888,7 +893,7 @@ export function SubscriptionStore() {
                     <h3 className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>{t('Multi-scenario Support')}</h3>
                     <p className='text-xs font-bold text-[#0071e3] uppercase tracking-wider'>{t('Coding + Image + Video + Chat')}</p>
                   </div>
-                  <p className='text-muted-foreground text-sm leading-relaxed'>{t('One subscription for all needs. Claude Code coding, NanoBanana image generation, GPT-5.2 chat, etc.')}</p>
+                  <p className='text-muted-foreground text-sm leading-relaxed'>{t(mainlandChinaPresentationEnabled ? 'One subscription covers domestic coding, image, video, and chat models for multiple workloads.' : 'One subscription for all needs. Claude Code coding, NanoBanana image generation, GPT-5.2 chat, etc.')}</p>
                 </div>
               </div>
 
@@ -899,9 +904,9 @@ export function SubscriptionStore() {
                   </div>
                   <div className='space-y-1.5'>
                     <h3 className='text-lg font-bold text-zinc-900 dark:text-zinc-100'>{t('Agent Seamless Integration')}</h3>
-                    <p className='text-xs font-bold text-[#0071e3] uppercase tracking-wider'>{t('Native support for OpenAI, Anthropic, and Google protocols')}</p>
+                    <p className='text-xs font-bold text-[#0071e3] uppercase tracking-wider'>{t(mainlandChinaPresentationEnabled ? 'Compatible chat, response, image, and video APIs' : 'Native support for OpenAI, Anthropic, and Google protocols')}</p>
                   </div>
-                  <p className='text-muted-foreground text-sm leading-relaxed'>{t('Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.')}</p>
+                  <p className='text-muted-foreground text-sm leading-relaxed'>{t(mainlandChinaPresentationEnabled ? 'Connect supported applications to domestic models with one API key and a unified endpoint.' : 'Supports Claude Code, CodeX, Open Code, OpenClaw, Cline, VS Code Copilot, etc. — one key for all tools.')}</p>
                 </div>
               </div>
             </div>

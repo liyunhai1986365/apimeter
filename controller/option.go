@@ -426,6 +426,16 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 		option.Value = value
+	case common.FooterCompanyNameOptionKey:
+		value := strings.TrimSpace(option.Value.(string))
+		if len([]rune(value)) > 120 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "页脚公司名称不能超过 120 个字符",
+			})
+			return
+		}
+		option.Value = value
 	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {

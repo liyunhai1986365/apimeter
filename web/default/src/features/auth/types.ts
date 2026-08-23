@@ -92,6 +92,7 @@ export interface SystemStatus {
     version?: string
     system_name?: string
     logo?: string
+    footer_company_name?: string
     customer_service_script?: string
     google_analytics_id?: string
     github_oauth?: boolean
@@ -116,6 +117,7 @@ export interface SystemStatus {
     turnstile_site_key?: string
     email_verification?: boolean
     self_use_mode_enabled?: boolean
+    mainland_china_presentation_enabled?: boolean
     display_in_currency?: boolean
     display_token_stat_enabled?: boolean
     quota_per_unit?: number
@@ -136,6 +138,7 @@ export interface SystemStatus {
   version?: string
   system_name?: string
   logo?: string
+  footer_company_name?: string
   customer_service_script?: string
   google_analytics_id?: string
   github_oauth?: boolean
@@ -160,6 +163,7 @@ export interface SystemStatus {
   turnstile_site_key?: string
   email_verification?: boolean
   self_use_mode_enabled?: boolean
+  mainland_china_presentation_enabled?: boolean
   display_in_currency?: boolean
   display_token_stat_enabled?: boolean
   quota_per_unit?: number

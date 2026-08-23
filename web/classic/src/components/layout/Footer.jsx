@@ -30,6 +30,8 @@ const FooterBar = () => {
   const logo = getLogo();
   const [statusState] = useContext(StatusContext);
   const isDemoSiteMode = statusState?.status?.demo_site_enabled || false;
+  const footerCompanyName =
+    statusState?.status?.footer_company_name ?? 'Axiom Mesh Inc.';
 
   const loadFooter = () => {
     let footer_html = localStorage.getItem('footer_html');
@@ -191,13 +193,22 @@ const FooterBar = () => {
         <div className='flex flex-col md:flex-row items-center justify-between w-full max-w-[1110px] gap-6'>
           <div className='flex flex-wrap items-center gap-2'>
             <Typography.Text className='text-sm !text-semi-color-text-1'>
-              © {currentYear} Axiom Mesh Inc. {t('版权所有')}
+              © {currentYear}{' '}
+              {footerCompanyName ? `${footerCompanyName} ` : ''}
+              {t('版权所有')}
             </Typography.Text>
           </div>
         </div>
       </footer>
     ),
-    [logo, systemName, t, currentYear, isDemoSiteMode],
+    [
+      logo,
+      systemName,
+      t,
+      currentYear,
+      isDemoSiteMode,
+      footerCompanyName,
+    ],
   );
 
   useEffect(() => {

@@ -441,6 +441,27 @@ func TestBuildSEOShellAddsPublicPageContentAndNavigation(t *testing.T) {
 	require.Contains(t, about, `href="/pricing"`)
 }
 
+func TestBuildSEOShellUsesDomesticIntroductionInMainlandPresentation(t *testing.T) {
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldValue := common.OptionMap[common.MainlandChinaPresentationOptionKey]
+	common.OptionMap[common.MainlandChinaPresentationOptionKey] = "true"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap[common.MainlandChinaPresentationOptionKey] = oldValue
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	home := buildSEOShell(nil, seoPage{Path: "/", Description: "AI model APIs."})
+	require.Contains(t, home, `One API for leading domestic AI models`)
+	require.Contains(t, home, `DeepSeek, Qwen, Doubao, Kimi, GLM, MiniMax`)
+	require.NotContains(t, home, `Anthropic Claude`)
+	require.NotContains(t, home, `Google Gemini`)
+}
+
 func TestRenderSEOShellPreservesRootAttributes(t *testing.T) {
 	page := `<html><body><div id="root" translate="no" class="notranslate"></div></body></html>`
 	metadata := seoPage{

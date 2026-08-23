@@ -77,6 +77,60 @@ func TestGetStatusIncludesGoogleAnalyticsMeasurementID(t *testing.T) {
 	require.Equal(t, "G-6B94BX72EW", data["google_analytics_id"])
 }
 
+func TestGetStatusIncludesFooterCompanyName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldValue := common.OptionMap[common.FooterCompanyNameOptionKey]
+	common.OptionMap[common.FooterCompanyNameOptionKey] = "Example Technology Ltd."
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap[common.FooterCompanyNameOptionKey] = oldValue
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.GET("/api/status", GetStatus)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	require.Equal(t, "Example Technology Ltd.", data["footer_company_name"])
+}
+
+func TestGetStatusIncludesMainlandChinaPresentationFlag(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldValue := common.OptionMap[common.MainlandChinaPresentationOptionKey]
+	common.OptionMap[common.MainlandChinaPresentationOptionKey] = "true"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap[common.MainlandChinaPresentationOptionKey] = oldValue
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.GET("/api/status", GetStatus)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	require.Equal(t, true, data["mainland_china_presentation_enabled"])
+}
+
 func TestGetHomePageContentUsesAgentBrandingContent(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.OptionMapRWMutex.Lock()

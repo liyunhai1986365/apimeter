@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { DEFAULT_FOOTER_COMPANY_NAME } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useSystemConfig } from '@/hooks/use-system-config'
 
@@ -74,6 +75,7 @@ export function Footer(props: FooterProps) {
     systemName,
     logo: systemLogo,
     footerHtml,
+    footerCompanyName = DEFAULT_FOOTER_COMPANY_NAME,
     demoSiteEnabled,
   } = useSystemConfig()
 
@@ -208,7 +210,7 @@ export function Footer(props: FooterProps) {
         {/* Bottom section */}
         <div className='border-border/30 mt-12 flex flex-col items-center justify-between gap-3 border-t pt-6 sm:flex-row'>
           <p className='text-muted-foreground/40 text-xs'>
-            &copy; {currentYear} Axiom Mesh Inc.{' '}
+            &copy; {currentYear} {footerCompanyName && `${footerCompanyName} `}
             {props.copyright ?? t('footer.defaultCopyright')}
           </p>
           <div className='flex items-center gap-4 text-xs'>

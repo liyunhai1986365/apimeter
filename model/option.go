@@ -71,9 +71,11 @@ func InitOptionMap() {
 	common.OptionMap["Notice"] = ""
 	common.OptionMap["About"] = ""
 	common.OptionMap["HomePageContent"] = ""
+	common.OptionMap[common.MainlandChinaPresentationOptionKey] = "false"
 	common.OptionMap["CustomerServiceScript"] = ""
 	common.OptionMap["GoogleAnalyticsId"] = ""
 	common.OptionMap["Footer"] = common.Footer
+	common.OptionMap[common.FooterCompanyNameOptionKey] = common.DefaultFooterCompanyName
 	common.OptionMap["SystemName"] = common.SystemName
 	common.OptionMap["Logo"] = common.Logo
 	common.OptionMap["RankingsDataVisibility"] = "masked"

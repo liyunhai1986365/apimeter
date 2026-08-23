@@ -18,6 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { Markdown } from '@/components/ui/markdown'
 import { PublicLayout } from '@/components/layout'
 import { Footer } from '@/components/layout/components/footer'
@@ -37,6 +38,7 @@ export function Home() {
   const { t } = useTranslation()
   const { auth } = useAuthStore()
   const isAuthenticated = !!auth.user
+  const { mainlandChinaPresentationEnabled } = useSystemConfig()
   const { content, isLoaded, isUrl } = useHomePageContent()
 
   if (!isLoaded) {
@@ -75,7 +77,7 @@ export function Home() {
       <Hero isAuthenticated={isAuthenticated} />
       <Stats />
       <ModelDirectory />
-      <AgentAccess />
+      {!mainlandChinaPresentationEnabled && <AgentAccess />}
       <ProductConsole />
       <Features />
       <HowItWorks />
