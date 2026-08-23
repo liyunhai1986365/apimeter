@@ -22,6 +22,7 @@ import { useNavigate, getRouteApi } from '@tanstack/react-router'
 import { type Table } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { cn } from '@/lib/utils'
 import { useIsAdmin } from '@/hooks/use-admin'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,8 +46,8 @@ import {
   ALL_WORKSPACE_FILTER_VALUE,
   useWorkspaceTokenOptions,
 } from '@/features/keys/hooks/use-workspace-token-options'
-import { useLogFilterOptions } from '../hooks/use-log-filter-options'
 import { LOG_TYPES } from '../constants'
+import { useLogFilterOptions } from '../hooks/use-log-filter-options'
 import { buildSearchParams } from '../lib/filter'
 import { getDefaultTimeRange } from '../lib/utils'
 import type { CommonLogFilters } from '../types'
@@ -183,7 +184,9 @@ export function CommonLogsFilterBar<TData>(
     !!filters.model || !!filters.group || !!logType || hasExpandedFilters
 
   const inputClass = 'w-full sm:w-[140px] lg:w-[160px]'
-  const sensitiveType = sensitiveVisible ? 'text' : 'password'
+  const sensitiveInputClass = sensitiveVisible
+    ? undefined
+    : '[-webkit-text-security:disc]'
   const { workspaceOptions, tokenOptions } = useWorkspaceTokenOptions({
     workspaceName: filters.workspace,
     tokenName: filters.token,
@@ -237,6 +240,7 @@ export function CommonLogsFilterBar<TData>(
         <>
           <Input
             placeholder={t('Model Name')}
+            autoComplete='off'
             value={filters.model || ''}
             onChange={(e) => handleChange('model', e.target.value)}
             onKeyDown={handleKeyDown}
@@ -306,11 +310,11 @@ export function CommonLogsFilterBar<TData>(
           {isAdmin && (
             <Input
               placeholder={t('Username')}
-              type={sensitiveType}
+              autoComplete='off'
               value={filters.username || ''}
               onChange={(e) => handleChange('username', e.target.value)}
               onKeyDown={handleKeyDown}
-              className={inputClass}
+              className={cn(inputClass, sensitiveInputClass)}
             />
           )}
           {isAdmin && (
@@ -326,6 +330,7 @@ export function CommonLogsFilterBar<TData>(
           )}
           <Input
             placeholder={t('Request ID')}
+            autoComplete='off'
             value={filters.requestId || ''}
             onChange={(e) => handleChange('requestId', e.target.value)}
             onKeyDown={handleKeyDown}
@@ -333,10 +338,9 @@ export function CommonLogsFilterBar<TData>(
           />
           <Input
             placeholder={t('Upstream Request ID')}
+            autoComplete='off'
             value={filters.upstreamRequestId || ''}
-            onChange={(e) =>
-              handleChange('upstreamRequestId', e.target.value)
-            }
+            onChange={(e) => handleChange('upstreamRequestId', e.target.value)}
             onKeyDown={handleKeyDown}
             className={inputClass}
           />
