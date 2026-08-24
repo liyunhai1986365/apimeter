@@ -25,6 +25,7 @@ import type {
   BatchSetTagParams,
   Channel,
   ChannelBalanceResponse,
+  ChannelUpdatePayload,
   ChannelTestResponse,
   CopyChannelParams,
   CopyChannelResponse,
@@ -34,6 +35,7 @@ import type {
   GetChannelsResponse,
   MultiKeyManageParams,
   MultiKeyStatusResponse,
+  ManageableChannelStatus,
   SearchChannelsParams,
   SearchChannelsResponse,
   TagOperationParams,
@@ -43,8 +45,14 @@ import type {
 // Extended API config types
 interface ExtendedApiConfig extends AxiosRequestConfig {
   skipBusinessError?: boolean
+  skipErrorHandler?: boolean
   disableDuplicate?: boolean
 }
+
+const channelActionConfig = (): ExtendedApiConfig => ({
+  skipBusinessError: true,
+  skipErrorHandler: true,
+})
 
 export type CodexOAuthStartResponse = {
   success: boolean
@@ -161,9 +169,39 @@ export async function createChannel(
  */
 export async function updateChannel(
   id: number,
-  data: Partial<Channel>
+  data: ChannelUpdatePayload
 ): Promise<{ success: boolean; message?: string; data?: Channel }> {
   const res = await api.put('/api/channel/', { id, ...data })
+  return res.data
+}
+
+/**
+ * Update a channel's enabled/disabled status through the operational endpoint.
+ */
+export async function updateChannelStatus(
+  id: number,
+  status: ManageableChannelStatus
+): Promise<{ success: boolean; message?: string; data?: boolean }> {
+  const res = await api.post(
+    `/api/channel/${id}/status`,
+    { status },
+    channelActionConfig()
+  )
+  return res.data
+}
+
+/**
+ * Batch update channel enabled/disabled status through the operational endpoint.
+ */
+export async function batchUpdateChannelStatus(
+  ids: number[],
+  status: ManageableChannelStatus
+): Promise<{ success: boolean; message?: string; data?: number }> {
+  const res = await api.post(
+    '/api/channel/status/batch',
+    { ids, status },
+    channelActionConfig()
+  )
   return res.data
 }
 

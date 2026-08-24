@@ -41,6 +41,25 @@ interface FooterProps {
   className?: string
 }
 
+const SUPPORT_EMAIL = 'support@modelsell.com'
+
+function SupportEmailLink(props: { className?: string }) {
+  const { t } = useTranslation()
+
+  return (
+    <a
+      href={`mailto:${SUPPORT_EMAIL}`}
+      aria-label={`${t('footer.columns.about.links.contact')}: ${SUPPORT_EMAIL}`}
+      className={cn(
+        'text-muted-foreground/50 hover:text-foreground text-xs transition-colors duration-200',
+        props.className
+      )}
+    >
+      {SUPPORT_EMAIL}
+    </a>
+  )
+}
+
 function FooterLinkItem(props: { link: FooterLink }) {
   const { t } = useTranslation()
   const isExternal = props.link.href.startsWith('http')
@@ -157,6 +176,7 @@ export function Footer(props: FooterProps) {
               className='custom-footer text-muted-foreground min-w-0 text-center text-sm sm:text-left'
               dangerouslySetInnerHTML={{ __html: footerHtml }}
             />
+            <SupportEmailLink className='shrink-0' />
           </div>
         </div>
       </footer>
@@ -214,6 +234,7 @@ export function Footer(props: FooterProps) {
             {props.copyright ?? t('footer.defaultCopyright')}
           </p>
           <div className='flex items-center gap-4 text-xs'>
+            <SupportEmailLink />
             <Link
               to='/user-agreement'
               className='text-muted-foreground/50 hover:text-foreground transition-colors duration-200'

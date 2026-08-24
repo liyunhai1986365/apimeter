@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
 import { CHANNEL_STATUS, MODEL_FETCHABLE_TYPES } from '../constants'
-import type { Channel } from '../types'
+import type { Channel, ChannelUpdatePayload } from '../types'
 
 const jsonArrayString = z.string().refine((value) => {
   const trimmed = value.trim()
@@ -671,8 +671,8 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
 export function transformFormDataToUpdatePayload(
   formData: ChannelFormValues,
   channelId: number
-): Partial<Channel> {
-  const payload: Partial<Channel> = {
+): ChannelUpdatePayload {
+  const payload: ChannelUpdatePayload = {
     id: channelId,
     name: formData.name,
     type: formData.type,
@@ -687,7 +687,6 @@ export function transformFormDataToUpdatePayload(
     test_model: formData.test_model || null,
     auto_ban: formData.auto_ban ?? 1,
     retry_enabled: formData.retry_enabled !== false,
-    status: formData.status,
     status_code_mapping: formData.status_code_mapping || null,
     tag: formData.tag || null,
     remark: formData.remark || '',

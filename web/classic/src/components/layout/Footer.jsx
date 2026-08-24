@@ -23,6 +23,8 @@ import { Typography } from '@douyinfe/semi-ui';
 import { getFooterHTML, getLogo, getSystemName } from '../../helpers';
 import { StatusContext } from '../../context/Status';
 
+const SUPPORT_EMAIL = 'support@modelsell.com';
+
 const FooterBar = () => {
   const { t } = useTranslation();
   const [footer, setFooter] = useState(getFooterHTML());
@@ -198,17 +200,17 @@ const FooterBar = () => {
               {t('版权所有')}
             </Typography.Text>
           </div>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            aria-label={`${t('联系我们')}: ${SUPPORT_EMAIL}`}
+            className='text-sm !text-semi-color-text-1 hover:underline'
+          >
+            {SUPPORT_EMAIL}
+          </a>
         </div>
       </footer>
     ),
-    [
-      logo,
-      systemName,
-      t,
-      currentYear,
-      isDemoSiteMode,
-      footerCompanyName,
-    ],
+    [logo, systemName, t, currentYear, isDemoSiteMode, footerCompanyName],
   );
 
   useEffect(() => {
@@ -224,6 +226,13 @@ const FooterBar = () => {
               className='custom-footer na-cb6feafeb3990c78 text-sm !text-semi-color-text-1'
               dangerouslySetInnerHTML={{ __html: footer }}
             ></div>
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              aria-label={`${t('联系我们')}: ${SUPPORT_EMAIL}`}
+              className='text-sm !text-semi-color-text-1 hover:underline'
+            >
+              {SUPPORT_EMAIL}
+            </a>
           </div>
         </footer>
       ) : (

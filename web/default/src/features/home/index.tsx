@@ -21,7 +21,6 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfig } from '@/hooks/use-system-config'
 import { Markdown } from '@/components/ui/markdown'
 import { PublicLayout } from '@/components/layout'
-import { Footer } from '@/components/layout/components/footer'
 import {
   AgentAccess,
   CTA,
@@ -82,7 +81,6 @@ export function Home() {
       <Features />
       <HowItWorks />
       <CTA isAuthenticated={isAuthenticated} />
-      <Footer />
     </PublicLayout>
   )
 }
