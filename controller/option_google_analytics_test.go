@@ -38,3 +38,24 @@ func TestGoogleAnalyticsMeasurementIDPattern(t *testing.T) {
 	require.False(t, googleAnalyticsMeasurementIDPattern.MatchString("UA-12345-1"))
 	require.False(t, googleAnalyticsMeasurementIDPattern.MatchString("G-ABC 123"))
 }
+
+func TestUpdateOptionRejectsInvalidDefaultUserDisplayCurrency(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.PUT("/api/option/", UpdateOption)
+	req := httptest.NewRequest(
+		http.MethodPut,
+		"/api/option/",
+		strings.NewReader(`{"key":"general_setting.default_user_display_currency","value":"EUR"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	require.Equal(t, false, body["success"])
+	require.Contains(t, body["message"], "USD 或 CNY")
+}

@@ -181,6 +181,14 @@ func UpdateOption(c *gin.Context) {
 			common.ApiError(c, err)
 			return
 		}
+	case "general_setting.default_user_display_currency":
+		if option.Value != operation_setting.QuotaDisplayTypeUSD && option.Value != operation_setting.QuotaDisplayTypeCNY {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "默认价格币种仅支持 USD 或 CNY",
+			})
+			return
+		}
 	case "GitHubOAuthEnabled":
 		if option.Value == "true" && common.GitHubClientId == "" {
 			c.JSON(http.StatusOK, gin.H{

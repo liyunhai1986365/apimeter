@@ -11,6 +11,7 @@ describe('mapStatusDataToConfig', () => {
         server_address: 'https://api.example.com/',
         footer_company_name: 'Example Technology Ltd.',
         mainland_china_presentation_enabled: true,
+        default_user_display_currency: 'CNY',
       },
     } as never)
 
@@ -18,6 +19,7 @@ describe('mapStatusDataToConfig', () => {
     assert.equal(config.serverAddress, 'https://api.example.com')
     assert.equal(config.footerCompanyName, 'Example Technology Ltd.')
     assert.equal(config.mainlandChinaPresentationEnabled, true)
+    assert.equal(config.defaultUserDisplayCurrency, 'CNY')
   })
 
   test('preserves an empty footer company name', () => {
@@ -27,5 +29,14 @@ describe('mapStatusDataToConfig', () => {
     } as never)
 
     assert.equal(config.footerCompanyName, '')
+  })
+
+  test('falls back to USD for an invalid default user currency', () => {
+    const config = mapStatusDataToConfig({
+      success: true,
+      data: { default_user_display_currency: 'EUR' },
+    } as never)
+
+    assert.equal(config.defaultUserDisplayCurrency, 'USD')
   })
 })

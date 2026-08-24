@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -129,6 +130,27 @@ func TestGetStatusIncludesMainlandChinaPresentationFlag(t *testing.T) {
 	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
 	data := body["data"].(map[string]interface{})
 	require.Equal(t, true, data["mainland_china_presentation_enabled"])
+}
+
+func TestGetStatusIncludesDefaultUserDisplayCurrency(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	generalSetting := operation_setting.GetGeneralSetting()
+	oldValue := generalSetting.DefaultUserDisplayCurrency
+	generalSetting.DefaultUserDisplayCurrency = operation_setting.QuotaDisplayTypeCNY
+	t.Cleanup(func() {
+		generalSetting.DefaultUserDisplayCurrency = oldValue
+	})
+
+	router := gin.New()
+	router.GET("/api/status", GetStatus)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	require.Equal(t, operation_setting.QuotaDisplayTypeCNY, data["default_user_display_currency"])
 }
 
 func TestGetHomePageContentUsesAgentBrandingContent(t *testing.T) {

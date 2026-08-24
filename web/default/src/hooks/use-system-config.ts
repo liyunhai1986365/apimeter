@@ -22,6 +22,7 @@ import {
   type CurrencyConfig,
   type CurrencyDisplayType,
   type SystemConfig,
+  type UserCurrencyDisplayType,
   DEFAULT_CURRENCY_CONFIG,
 } from '@/stores/system-config-store'
 import {
@@ -52,6 +53,7 @@ interface StatusApiResponse {
     demo_site_enabled?: boolean
     display_token_stat_enabled?: boolean
     mainland_china_presentation_enabled?: boolean
+    default_user_display_currency?: UserCurrencyDisplayType
     display_in_currency?: boolean
     quota_display_type?: CurrencyDisplayType
     quota_per_unit?: number
@@ -68,6 +70,10 @@ function toNumber(value: unknown, fallback: number): number {
     if (!Number.isNaN(parsed)) return parsed
   }
   return fallback
+}
+
+function toUserCurrencyDisplayType(value: unknown): UserCurrencyDisplayType {
+  return value === 'CNY' ? 'CNY' : 'USD'
 }
 
 function getStatusData(
@@ -128,6 +134,9 @@ export function mapStatusDataToConfig(
     displayTokenStatEnabled: statusData.display_token_stat_enabled,
     mainlandChinaPresentationEnabled:
       statusData.mainland_china_presentation_enabled ?? false,
+    defaultUserDisplayCurrency: toUserCurrencyDisplayType(
+      statusData.default_user_display_currency
+    ),
     currency,
   }
 }

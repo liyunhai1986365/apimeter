@@ -40,6 +40,7 @@ const STATUS_RELATED_KEYS = [
   'USDExchangeRate',
   'DisplayInCurrencyEnabled',
   'DisplayTokenStatEnabled',
+  'general_setting.default_user_display_currency',
   'general_setting.quota_display_type',
   'general_setting.custom_currency_symbol',
   'general_setting.custom_currency_exchange_rate',
@@ -92,6 +93,13 @@ export function useUpdateOption() {
         if (variables.key === 'FooterCompanyName') {
           useSystemConfigStore.getState().setConfig({
             footerCompanyName: String(variables.value ?? ''),
+          })
+        }
+
+        if (variables.key === 'general_setting.default_user_display_currency') {
+          useSystemConfigStore.getState().setConfig({
+            defaultUserDisplayCurrency:
+              variables.value === 'CNY' ? 'CNY' : 'USD',
           })
         }
 

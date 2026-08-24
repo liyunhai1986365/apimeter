@@ -53,6 +53,7 @@ export interface SystemConfig {
   demoSiteEnabled?: boolean
   displayTokenStatEnabled?: boolean
   mainlandChinaPresentationEnabled?: boolean
+  defaultUserDisplayCurrency: UserCurrencyDisplayType
   currency: CurrencyConfig
 }
 
@@ -68,6 +69,7 @@ export const DEFAULT_CURRENCY_CONFIG: CurrencyConfig = {
 interface SystemConfigState {
   config: SystemConfig
   displayCurrency: UserCurrencyDisplayType
+  hasDisplayCurrencyPreference: boolean
   loading: boolean
   loadedLogoUrl: string
   setConfig: (config: Partial<SystemConfig>) => void
@@ -76,12 +78,37 @@ interface SystemConfigState {
   setLoading: (loading: boolean) => void
 }
 
+type PersistedSystemConfigState = Pick<
+  SystemConfigState,
+  | 'config'
+  | 'displayCurrency'
+  | 'hasDisplayCurrencyPreference'
+  | 'loadedLogoUrl'
+>
+
+export function migrateSystemConfigState(
+  persistedState: unknown,
+  version: number
+): PersistedSystemConfigState {
+  const state = persistedState as Partial<PersistedSystemConfigState>
+
+  return {
+    config: state.config as SystemConfig,
+    displayCurrency: state.displayCurrency ?? 'USD',
+    // Older versions persisted a currency without recording whether the user
+    // chose it. Treat it as a preference so upgrades never overwrite it.
+    hasDisplayCurrencyPreference:
+      version < 1 ? true : (state.hasDisplayCurrencyPreference ?? false),
+    loadedLogoUrl: state.loadedLogoUrl ?? DEFAULT_LOGO,
+  }
+}
+
 /**
  * System configuration store with automatic persistence
  * Manages system name, logo, footer HTML and loading states
  */
 export const useSystemConfigStore = create<SystemConfigState>()(
-  persist(
+  persist<SystemConfigState, [], [], PersistedSystemConfigState>(
     (set) => ({
       config: {
         systemName: DEFAULT_SYSTEM_NAME,
@@ -89,23 +116,33 @@ export const useSystemConfigStore = create<SystemConfigState>()(
         serverAddress: '',
         footerCompanyName: DEFAULT_FOOTER_COMPANY_NAME,
         mainlandChinaPresentationEnabled: false,
+        defaultUserDisplayCurrency: 'USD',
         currency: { ...DEFAULT_CURRENCY_CONFIG },
       },
       displayCurrency: 'USD',
+      hasDisplayCurrencyPreference: false,
       loading: true,
       loadedLogoUrl: DEFAULT_LOGO,
       setConfig: (newConfig) =>
-        set((state) => ({
-          config: {
-            ...state.config,
-            ...newConfig,
-            currency: {
-              ...state.config.currency,
-              ...(newConfig.currency ?? {}),
+        set((state) => {
+          const defaultCurrency = newConfig.defaultUserDisplayCurrency
+
+          return {
+            config: {
+              ...state.config,
+              ...newConfig,
+              currency: {
+                ...state.config.currency,
+                ...(newConfig.currency ?? {}),
+              },
             },
-          },
-        })),
-      setDisplayCurrency: (displayCurrency) => set({ displayCurrency }),
+            ...(defaultCurrency && !state.hasDisplayCurrencyPreference
+              ? { displayCurrency: defaultCurrency }
+              : {}),
+          }
+        }),
+      setDisplayCurrency: (displayCurrency) =>
+        set({ displayCurrency, hasDisplayCurrencyPreference: true }),
       setLoadedLogoUrl: (url) => set({ loadedLogoUrl: url }),
       setLoading: (loading) => set({ loading }),
     }),
@@ -114,8 +151,11 @@ export const useSystemConfigStore = create<SystemConfigState>()(
       partialize: (state) => ({
         config: state.config,
         displayCurrency: state.displayCurrency,
+        hasDisplayCurrencyPreference: state.hasDisplayCurrencyPreference,
         loadedLogoUrl: state.loadedLogoUrl,
       }),
+      version: 1,
+      migrate: migrateSystemConfigState,
     }
   )
 )

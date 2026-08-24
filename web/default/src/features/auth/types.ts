@@ -118,6 +118,7 @@ export interface SystemStatus {
     email_verification?: boolean
     self_use_mode_enabled?: boolean
     mainland_china_presentation_enabled?: boolean
+    default_user_display_currency?: string
     display_in_currency?: boolean
     display_token_stat_enabled?: boolean
     quota_per_unit?: number
@@ -164,6 +165,7 @@ export interface SystemStatus {
   email_verification?: boolean
   self_use_mode_enabled?: boolean
   mainland_china_presentation_enabled?: boolean
+  default_user_display_currency?: string
   display_in_currency?: boolean
   display_token_stat_enabled?: boolean
   quota_per_unit?: number

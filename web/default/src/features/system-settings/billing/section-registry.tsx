@@ -95,6 +95,11 @@ const BILLING_SECTIONS = [
           DisplayInCurrencyEnabled: settings.DisplayInCurrencyEnabled,
           DisplayTokenStatEnabled: settings.DisplayTokenStatEnabled,
           general_setting: {
+            default_user_display_currency:
+              settings['general_setting.default_user_display_currency'] ===
+              'CNY'
+                ? 'CNY'
+                : 'USD',
             quota_display_type: parseCurrencyDisplayType(
               settings['general_setting.quota_display_type']
             ),

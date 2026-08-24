@@ -140,6 +140,7 @@ func GetStatus(c *gin.Context) {
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
 		"display_in_currency":                 operation_setting.IsCurrencyDisplay(),
 		"quota_display_type":                  operation_setting.GetQuotaDisplayType(),
+		"default_user_display_currency":       operation_setting.GetDefaultUserDisplayCurrency(),
 		"custom_currency_symbol":              operation_setting.GetGeneralSetting().CustomCurrencySymbol,
 		"custom_currency_exchange_rate":       operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate,
 		"enable_batch_update":                 common.BatchUpdateEnabled,
