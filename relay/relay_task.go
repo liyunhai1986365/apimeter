@@ -580,12 +580,15 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		"action":  task.Action,
 	}, proxy)
 	if err != nil || resp == nil {
-		return nil
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	ti, err := adaptor.ParseTaskResult(body)
 	if err == nil && ti != nil {
@@ -642,6 +645,29 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		}
 	}
 	return body
+}
+
+func configurableStoredNativeFetchResponse(adaptor channel.TaskAdaptor, task *model.Task, returnNativeBody bool) []byte {
+	if !returnNativeBody || adaptor == nil || task == nil {
+		return nil
+	}
+	converter, ok := adaptor.(interface {
+		ConvertToNativeFetchResponse(*model.Task, []byte) ([]byte, error)
+	})
+	if !ok {
+		return nil
+	}
+	stored := task.Data
+	if task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+		// Submission data can contain a stale queued status. For a non-terminal
+		// task, prefer the latest status persisted on the task row.
+		stored = nil
+	}
+	response, err := converter.ConvertToNativeFetchResponse(task, stored)
+	if err != nil {
+		return nil
+	}
+	return response
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式

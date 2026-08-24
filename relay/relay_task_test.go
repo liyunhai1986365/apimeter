@@ -166,6 +166,189 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelAndReturnsOpenAIShape(t
 	require.Equal(t, "https://cdn.example/seedance.mp4", reloaded.GetResultURL())
 }
 
+func TestSeedanceNativeFetchReturnsVolcengineShapeWithoutInternalEnvelope(t *testing.T) {
+	setupRelayTaskTestDB(t)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		require.Equal(t, "/v1/video/tasks/mvt-upstream", r.URL.Path)
+		require.Equal(t, "Bearer sk-seedance", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"task":{
+				"id":"mvt-upstream",
+				"status":"completed",
+				"model":"dreamina-seedance-2-0-fast-hc",
+				"duration_seconds":4,
+				"outputs":["https://cdn.example/seedance.mp4"],
+				"error":null,
+				"created_at":"2026-08-24T09:47:19.113Z",
+				"completed_at":"2026-08-24T09:48:41.934Z",
+				"usage":{"completion_tokens":40594,"total_tokens":40594},
+				"metadata":{
+					"updated_at":1787564921,
+					"seed":78256,
+					"resolution":"480p",
+					"ratio":"16:9",
+					"duration":4,
+					"framespersecond":24,
+					"generate_audio":true,
+					"draft":false
+				}
+			}
+		}`))
+	}))
+	defer upstream.Close()
+
+	channel := model.Channel{
+		Id:      9104,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "sk-seedance",
+		BaseURL: common.GetPointer(upstream.URL),
+		Status:  common.ChannelStatusEnabled,
+		Name:    "seedance-service-inference",
+		Models:  "doubao-seedance-2-0-fast-260128",
+		Group:   "default",
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{
+			ProfileID: "seedance2-service-inference",
+		},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+	require.NoError(t, model.DB.Create(&model.Task{
+		CreatedAt:  1787564840,
+		UpdatedAt:  1787564856,
+		TaskID:     "task_public",
+		UserId:     7,
+		ChannelId:  channel.Id,
+		Platform:   constant.TaskPlatform(fmt.Sprintf("%d", constant.ChannelTypeConfigurable)),
+		Status:     model.TaskStatusInProgress,
+		Progress:   "30%",
+		SubmitTime: 1787564840,
+		Properties: model.Properties{
+			OriginModelName:   "doubao-seedance-2-0-fast-260128",
+			UpstreamModelName: "dreamina-seedance-2-0-fast-hc",
+		},
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: "mvt-upstream",
+		},
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v3/contents/generations/tasks/task_public", nil)
+	c.Set("id", 7)
+	c.Set("task_id", "task_public")
+	c.Set("configurable_native_profile_id", "seedance2-service-inference")
+
+	body, taskErr := videoFetchByIDRespBodyBuilder(c)
+	require.Nil(t, taskErr)
+	require.Equal(t, "task_public", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
+	require.Equal(t, "doubao-seedance-2-0-fast-260128", gjson.GetBytes(body, "model").String())
+	require.Equal(t, "https://cdn.example/seedance.mp4", gjson.GetBytes(body, "content.video_url").String())
+	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())
+	require.Equal(t, "480p", gjson.GetBytes(body, "resolution").String())
+	require.True(t, gjson.GetBytes(body, "generate_audio").Bool())
+	require.True(t, gjson.GetBytes(body, "draft").Exists())
+	require.False(t, gjson.GetBytes(body, "draft").Bool())
+	require.False(t, gjson.GetBytes(body, "code").Exists())
+	require.False(t, gjson.GetBytes(body, "data").Exists())
+	require.False(t, gjson.GetBytes(body, "user_id").Exists())
+	require.False(t, gjson.GetBytes(body, "channel_id").Exists())
+	require.False(t, gjson.GetBytes(body, "quota").Exists())
+}
+
+func TestSeedanceNativeFetchKeepsVolcengineShapeWhenUpstreamFetchFails(t *testing.T) {
+	setupRelayTaskTestDB(t)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/v1/video/tasks/mvt-upstream", r.URL.Path)
+		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+	}))
+	defer upstream.Close()
+
+	channel := model.Channel{
+		Id:      9105,
+		Type:    constant.ChannelTypeConfigurable,
+		Key:     "sk-seedance",
+		BaseURL: common.GetPointer(upstream.URL),
+		Status:  common.ChannelStatusEnabled,
+		Name:    "seedance-service-inference-fallback",
+		Models:  "doubao-seedance-2-0-fast-260128",
+		Group:   "default",
+	}
+	channel.SetSetting(dto.ChannelSettings{
+		Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-service-inference"},
+	})
+	require.NoError(t, model.DB.Create(&channel).Error)
+
+	storedResponse := []byte(`{
+		"code":"success",
+		"message":"",
+		"data":{
+			"task_id":"task_hFov9erMp4JxHoKFLHeeYIInprezMjZv",
+			"status":"SUCCESS",
+			"result_url":"https://cdn.example/stored-result.mp4",
+			"data":{"task":{
+				"status":"completed",
+				"usage":{"completion_tokens":40594,"total_tokens":40594},
+				"metadata":{
+					"seed":78256,
+					"resolution":"480p",
+					"ratio":"16:9",
+					"duration":4,
+					"framespersecond":24,
+					"generate_audio":true,
+					"draft":false,
+					"priority":0,
+					"output_format":"mp4"
+				}
+			}}
+		}
+	}`)
+	require.NoError(t, model.DB.Create(&model.Task{
+		CreatedAt:  1787564840,
+		UpdatedAt:  1787564976,
+		TaskID:     "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv",
+		UserId:     8,
+		ChannelId:  channel.Id,
+		Platform:   constant.TaskPlatform(fmt.Sprintf("%d", constant.ChannelTypeConfigurable)),
+		Status:     model.TaskStatusSuccess,
+		Progress:   "100%",
+		FinishTime: 1787564976,
+		Properties: model.Properties{
+			OriginModelName:   "doubao-seedance-2-0-fast-260128",
+			UpstreamModelName: "dreamina-seedance-2-0-fast-hc",
+		},
+		PrivateData: model.TaskPrivateData{
+			UpstreamTaskID: "mvt-upstream",
+			ResultURL:      "https://cdn.example/stored-result.mp4",
+		},
+		Data: storedResponse,
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v3/contents/generations/tasks/task_hFov9erMp4JxHoKFLHeeYIInprezMjZv", nil)
+	c.Set("id", 8)
+	c.Set("task_id", "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv")
+	c.Set("configurable_native_profile_id", "seedance2-service-inference")
+
+	body, taskErr := videoFetchByIDRespBodyBuilder(c)
+	require.Nil(t, taskErr)
+	require.Equal(t, "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
+	require.Equal(t, "https://cdn.example/stored-result.mp4", gjson.GetBytes(body, "content.video_url").String())
+	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())
+	require.Equal(t, int64(4), gjson.GetBytes(body, "duration").Int())
+	require.False(t, gjson.GetBytes(body, "code").Exists())
+	require.False(t, gjson.GetBytes(body, "data").Exists())
+	require.False(t, gjson.GetBytes(body, "priority").Exists())
+	require.False(t, gjson.GetBytes(body, "output_format").Exists())
+}
+
 func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *testing.T) {
 	setupRelayTaskTestDB(t)
 

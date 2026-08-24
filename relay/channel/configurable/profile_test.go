@@ -145,6 +145,9 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 		t.Fatalf("unexpected Modelsell Seedance video protocol: %#v", modelsell.Video)
 	}
 	modelsellFetch := modelsell.Video.Fetch.Response
+	if modelsell.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
+		t.Fatalf("unexpected Modelsell Seedance native fetch response format: %s", modelsell.Video.Native.Fetch.ResponseFormat)
+	}
 	if modelsellFetch.StatusPath != "data.status" ||
 		modelsellFetch.ResultURLPath != "data.result_url" ||
 		modelsellFetch.TotalTokensPath != "data.data.task.usage.total_tokens" ||
@@ -187,6 +190,9 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 	if serviceInference.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference native fetch path: %s", serviceInference.Video.Native.Fetch.Path)
+	}
+	if serviceInference.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
+		t.Fatalf("unexpected service inference native fetch response format: %s", serviceInference.Video.Native.Fetch.ResponseFormat)
 	}
 	if serviceInference.Video.Fetch.Path != "/v1/video/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference upstream fetch path: %s", serviceInference.Video.Fetch.Path)
@@ -266,6 +272,9 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 	if arkTaskAssets.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
 		t.Fatalf("unexpected ark task assets native fetch path: %s", arkTaskAssets.Video.Native.Fetch.Path)
+	}
+	if arkTaskAssets.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
+		t.Fatalf("unexpected ark task assets native fetch response format: %s", arkTaskAssets.Video.Native.Fetch.ResponseFormat)
 	}
 	arkUpload, ok := arkTaskAssets.ResourceByID("assets_upload")
 	if !ok {

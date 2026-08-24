@@ -54,6 +54,7 @@ video:
     fetch:
       method: GET
       path: /api/v3/contents/generations/tasks/{task_id}
+      response_format: volcengine_video_task
       response:
         passthrough: true
         fields:
@@ -157,10 +158,12 @@ video:
     openai_response:
       fields:
         - to: metadata.usage.completion_tokens
-          from: data.data.task.usage.completion_tokens
+          from: usage.completion_tokens
+          fallback_from: data.data.task.usage.completion_tokens
           omit_empty: true
         - to: metadata.usage.total_tokens
-          from: data.data.task.usage.total_tokens
+          from: usage.total_tokens
+          fallback_from: data.data.task.usage.total_tokens
           omit_empty: true
 resources:
   - id: assets_upload

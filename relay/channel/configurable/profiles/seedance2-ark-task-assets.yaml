@@ -55,7 +55,7 @@ video:
     fetch:
       method: GET
       path: /api/v3/contents/generations/tasks/{task_id}
-      response_format: task_response
+      response_format: volcengine_video_task
       response:
         passthrough: true
         fields:
