@@ -230,6 +230,8 @@
     "standard 已被移除，vip 用户看不到": "standard 已被移除，vip 用户看不到",
     "store 字段用于授权 OpenAI 存储请求数据以评估和优化产品。默认关闭，开启后可能导致 Codex 无法正常使用": "store 字段用于授权 OpenAI 存储请求数据以评估和优化产品。默认关闭，开启后可能导致 Codex 无法正常使用",
     "Stripe 设置": "Stripe 设置",
+    "关闭后用户不能发起新的 Stripe 支付或自动充值": "关闭后用户不能发起新的 Stripe 支付或自动充值",
+    "启用 Stripe 支付与自动充值": "启用 Stripe 支付与自动充值",
     "Stripe/Creem 商品ID（可选）": "Stripe/Creem 商品ID（可选）",
     "Stripe/Creem 需在第三方平台创建商品并填入 ID": "Stripe/Creem 需在第三方平台创建商品并填入 ID",
     "Telegram": "Telegram",

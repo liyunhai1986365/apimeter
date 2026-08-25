@@ -29,7 +29,6 @@ import { CreemConfirmDialog } from './components/dialogs/creem-confirm-dialog'
 import { CryptoNetworkDialog } from './components/dialogs/crypto-network-dialog'
 import { CryptoPaymentDialog } from './components/dialogs/crypto-payment-dialog'
 import { PaymentConfirmDialog } from './components/dialogs/payment-confirm-dialog'
-import { StripeUnavailableDialog } from './components/dialogs/stripe-unavailable-dialog'
 import { RechargeFormCard } from './components/recharge-form-card'
 import { RedemptionCard } from './components/redemption-card'
 import { StripeAutoRechargeCard } from './components/stripe-auto-recharge-card'
@@ -47,7 +46,6 @@ import {
   getDefaultPaymentType,
   getMinTopupAmount,
   isCryptoPayment,
-  isStripePayment,
   isWaffoPancakePayment,
 } from './lib'
 import type {
@@ -64,8 +62,6 @@ interface WalletProps {
   stripeSetupSessionId?: string
 }
 
-const STRIPE_REDEMPTION_PURCHASE_URL = 'https://pay.ldxp.cn/shop/ESXRZFTQ'
-
 export function Wallet(props: WalletProps) {
   const { t } = useTranslation()
   const [user, setUser] = useState<UserWalletData | null>(null)
@@ -76,7 +72,6 @@ export function Wallet(props: WalletProps) {
     useState<PaymentMethod>()
   const [paymentLoading, setPaymentLoading] = useState<string | null>(null)
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false)
-  const [stripeUnavailableOpen, setStripeUnavailableOpen] = useState(false)
   const [billingDialogOpen, setBillingDialogOpen] = useState(false)
   const [redemptionCode, setRedemptionCode] = useState('')
   const [creemDialogOpen, setCreemDialogOpen] = useState(false)
@@ -206,11 +201,6 @@ export function Wallet(props: WalletProps) {
   // Handle payment method selection
   const handlePaymentMethodSelect = async (method: PaymentMethod) => {
     setSelectedPaymentMethod(method)
-
-    if (isStripePayment(method.type)) {
-      setStripeUnavailableOpen(true)
-      return
-    }
 
     setPaymentLoading(method.type)
 
@@ -427,12 +417,6 @@ export function Wallet(props: WalletProps) {
         calculating={calculating}
         processing={processing || pancakeProcessing}
         discountRate={getDiscountRate()}
-      />
-
-      <StripeUnavailableDialog
-        open={stripeUnavailableOpen}
-        onOpenChange={setStripeUnavailableOpen}
-        purchaseUrl={STRIPE_REDEMPTION_PURCHASE_URL}
       />
 
       <CryptoNetworkDialog

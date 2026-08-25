@@ -38,11 +38,14 @@ import {
 import { PAYMENT_TYPES } from '../constants'
 import {
   formatCurrency,
+  formatPaymentAmountFromUSD,
   getDiscountLabel,
+  getDefaultPaymentType,
   getPaymentIcon,
   getMinTopupAmount,
   calculatePresetPricing,
   isCryptoPayment,
+  isWaffoPancakePayment,
 } from '../lib'
 import type {
   PaymentMethod,
@@ -135,8 +138,9 @@ export function RechargeFormCard({
   )
   const hasStandardPaymentMethods = standardPaymentMethods.length > 0
   const hasCryptoPaymentMethods = cryptoPaymentMethods.length > 0
-  const hasStripePayment = standardPaymentMethods.some(
-    (method) => method.type === PAYMENT_TYPES.STRIPE
+  const defaultPaymentType = getDefaultPaymentType(topupInfo)
+  const hasPrimaryPayment = standardPaymentMethods.some(
+    (method) => method.type === defaultPaymentType
   )
   const cryptoPaymentAvailable = cryptoPaymentMethods.some(
     (method) => (method.min_topup || 0) <= topupAmount
@@ -145,6 +149,7 @@ export function RechargeFormCard({
     Array.isArray(waffoPayMethods) && waffoPayMethods.length > 0
   const minTopup = getMinTopupAmount(topupInfo)
   const cryptoPayment = isCryptoPayment(paymentMethod?.type ?? '')
+  const waffoPancakePayment = isWaffoPancakePayment(paymentMethod?.type ?? '')
   const stripeSupportItems = [
     {
       label: t('Bank card'),
@@ -311,7 +316,13 @@ export function RechargeFormCard({
                       <span className='text-sm font-semibold'>
                         {cryptoPayment
                           ? `${paymentAmount} ${paymentMethod?.token_symbol ?? ''}`
-                          : formatCurrency(paymentAmount)}
+                          : waffoPancakePayment
+                            ? formatPaymentAmountFromUSD(paymentAmount, {
+                                digitsLarge: 2,
+                                digitsSmall: 2,
+                                abbreviate: false,
+                              })
+                            : formatCurrency(paymentAmount)}
                       </span>
                     )}
                   </div>
@@ -328,22 +339,28 @@ export function RechargeFormCard({
                       const minTopup = method.min_topup || 0
                       const disabled = minTopup > topupAmount
                       const isStripe = method.type === PAYMENT_TYPES.STRIPE
+                      const isPrimary = method.type === defaultPaymentType
 
                       const button = (
                         <Button
-                          variant={isStripe ? 'default' : 'outline'}
+                          variant={isPrimary ? 'default' : 'outline'}
                           onClick={() => onPaymentMethodSelect(method)}
                           disabled={disabled || !!paymentLoading}
                           className={cn(
                             'h-9 w-full min-w-0 justify-start gap-2 rounded-lg px-3',
-                            isStripe &&
+                            isPrimary &&
                               'h-12 justify-center text-base font-semibold shadow-lg disabled:opacity-70'
                           )}
                         >
                           {paymentLoading === method.type ? (
                             <Loader2 className='h-4 w-4 animate-spin' />
                           ) : isStripe ? (
-                            <SiStripe className='text-primary-foreground size-5' />
+                            <SiStripe
+                              className={cn(
+                                'size-5',
+                                isPrimary && 'text-primary-foreground'
+                              )}
+                            />
                           ) : (
                             getPaymentIcon(
                               method.type,
@@ -353,7 +370,7 @@ export function RechargeFormCard({
                             )
                           )}
                           <span className='truncate'>
-                            {isStripe ? t('Pay Now') : method.name}
+                            {isPrimary ? t('Pay Now') : method.name}
                           </span>
                         </Button>
                       )
@@ -363,13 +380,13 @@ export function RechargeFormCard({
                           key={method.type}
                           className={cn(
                             'min-w-0',
-                            isStripe &&
+                            isPrimary &&
                               'col-span-2 flex flex-col gap-2 lg:col-span-3'
                           )}
                         >
                           <div
                             className={cn(
-                              isStripe && hasCryptoPaymentMethods
+                              isPrimary && hasCryptoPaymentMethods
                                 ? 'grid grid-cols-[minmax(0,1fr)_minmax(104px,0.28fr)] gap-2'
                                 : 'contents'
                             )}
@@ -390,7 +407,7 @@ export function RechargeFormCard({
                             ) : (
                               button
                             )}
-                            {isStripe && hasCryptoPaymentMethods && (
+                            {isPrimary && hasCryptoPaymentMethods && (
                               <Button
                                 variant='outline'
                                 onClick={onCryptoPaymentOpen}
@@ -406,7 +423,7 @@ export function RechargeFormCard({
                               </Button>
                             )}
                           </div>
-                          {isStripe && (
+                          {isStripe && isPrimary && (
                             <div className='text-muted-foreground flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs'>
                               <span>{t('Supports')}</span>
                               {stripeSupportItems.map((item) => (
@@ -423,7 +440,7 @@ export function RechargeFormCard({
                         </div>
                       )
                     })}
-                    {!hasStripePayment && hasCryptoPaymentMethods && (
+                    {!hasPrimaryPayment && hasCryptoPaymentMethods && (
                       <Button
                         variant='outline'
                         onClick={onCryptoPaymentOpen}

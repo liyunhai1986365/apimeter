@@ -84,6 +84,23 @@ export function formatCurrency(
 }
 
 /**
+ * Format a payment amount whose provider currency is USD.
+ *
+ * Unlike formatCurrency(), this must not treat the amount as local CNY and
+ * divide it again when the user is viewing USD.
+ */
+export function formatPaymentAmountFromUSD(
+  amount: number | string,
+  options?: CurrencyFormatOptions
+): string {
+  const numeric =
+    typeof amount === 'number' ? amount : Number.parseFloat(String(amount))
+  if (!Number.isFinite(numeric)) return '-'
+
+  return formatCurrencyFromUSD(numeric, options)
+}
+
+/**
  * Get discount label for display (e.g., "20% OFF")
  */
 export function getDiscountLabel(discount: number): string {

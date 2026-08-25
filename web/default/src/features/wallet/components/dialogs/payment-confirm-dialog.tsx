@@ -31,7 +31,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Skeleton } from '@/components/ui/skeleton'
 import { DEFAULT_DISCOUNT_RATE } from '../../constants'
-import { formatCurrency, getPaymentIcon, isCryptoPayment } from '../../lib'
+import {
+  formatCurrency,
+  formatPaymentAmountFromUSD,
+  getPaymentIcon,
+  isCryptoPayment,
+  isWaffoPancakePayment,
+} from '../../lib'
 import type { PaymentMethod } from '../../types'
 
 interface PaymentConfirmDialogProps {
@@ -59,6 +65,15 @@ export function PaymentConfirmDialog({
 }: PaymentConfirmDialogProps) {
   const { t } = useTranslation()
   const cryptoPayment = isCryptoPayment(paymentMethod?.type ?? '')
+  const waffoPancakePayment = isWaffoPancakePayment(paymentMethod?.type ?? '')
+  const formatPaymentAmount = (amount: number) =>
+    waffoPancakePayment
+      ? formatPaymentAmountFromUSD(amount, {
+          digitsLarge: 2,
+          digitsSmall: 2,
+          abbreviate: false,
+        })
+      : formatCurrency(amount)
   const hasDiscount =
     !cryptoPayment && discountRate > 0 && discountRate < 1 && paymentAmount > 0
   const originalAmount = hasDiscount ? paymentAmount / discountRate : 0
@@ -101,11 +116,11 @@ export function PaymentConfirmDialog({
                 <span className='text-2xl font-semibold'>
                   {cryptoPayment
                     ? `${paymentAmount} ${paymentMethod?.token_symbol ?? ''}`
-                    : formatCurrency(paymentAmount)}
+                    : formatPaymentAmount(paymentAmount)}
                 </span>
                 {hasDiscount && (
                   <span className='text-muted-foreground text-sm line-through'>
-                    {formatCurrency(originalAmount)}
+                    {formatPaymentAmount(originalAmount)}
                   </span>
                 )}
               </div>
@@ -117,7 +132,7 @@ export function PaymentConfirmDialog({
               <div className='flex items-center justify-between text-sm'>
                 <span className='text-muted-foreground'>{t('You save')}</span>
                 <span className='font-semibold text-green-600'>
-                  {formatCurrency(discountAmount)}
+                  {formatPaymentAmount(discountAmount)}
                 </span>
               </div>
             </div>

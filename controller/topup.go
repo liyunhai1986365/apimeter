@@ -36,9 +36,19 @@ func GetTopUpInfo(c *gin.Context) {
 	if !complianceConfirmed {
 		payMethods = []map[string]string{}
 	}
+	stripeEnabled := isStripeTopUpEnabled()
+	if !stripeEnabled {
+		filteredMethods := payMethods[:0]
+		for _, method := range payMethods {
+			if method["type"] != model.PaymentMethodStripe {
+				filteredMethods = append(filteredMethods, method)
+			}
+		}
+		payMethods = filteredMethods
+	}
 
 	// 如果启用了 Stripe 支付，添加到支付方法列表
-	if isStripeTopUpEnabled() {
+	if stripeEnabled {
 		// 检查是否已经包含 Stripe
 		hasStripe := false
 		for _, method := range payMethods {
@@ -127,7 +137,7 @@ func GetTopUpInfo(c *gin.Context) {
 
 	data := gin.H{
 		"enable_online_topup":              isEpayTopUpEnabled(),
-		"enable_stripe_topup":              isStripeTopUpEnabled(),
+		"enable_stripe_topup":              stripeEnabled,
 		"enable_creem_topup":               isCreemTopUpEnabled(),
 		"enable_waffo_topup":               enableWaffo,
 		"enable_waffo_pancake_topup":       enableWaffoPancake,

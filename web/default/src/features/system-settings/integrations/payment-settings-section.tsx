@@ -118,6 +118,7 @@ const paymentSchema = z.object({
   StripeApiSecret: z.string(),
   StripeWebhookSecret: z.string(),
   StripePriceId: z.string(),
+  StripeEnabled: z.boolean(),
   StripeUnitPrice: z.coerce.number().min(0),
   StripeMinTopUp: z.coerce.number().min(0),
   StripePromotionCodesEnabled: z.boolean(),
@@ -397,6 +398,7 @@ export function PaymentSettingsSection({
       StripeApiSecret: values.StripeApiSecret.trim(),
       StripeWebhookSecret: values.StripeWebhookSecret.trim(),
       StripePriceId: values.StripePriceId.trim(),
+      StripeEnabled: values.StripeEnabled as boolean,
       StripeUnitPrice: values.StripeUnitPrice as number,
       StripeMinTopUp: values.StripeMinTopUp as number,
       StripePromotionCodesEnabled:
@@ -407,6 +409,7 @@ export function PaymentSettingsSection({
       StripeApiSecret: initialRef.current.StripeApiSecret.trim(),
       StripeWebhookSecret: initialRef.current.StripeWebhookSecret.trim(),
       StripePriceId: initialRef.current.StripePriceId.trim(),
+      StripeEnabled: initialRef.current.StripeEnabled,
       StripeUnitPrice: initialRef.current.StripeUnitPrice,
       StripeMinTopUp: initialRef.current.StripeMinTopUp,
       StripePromotionCodesEnabled:
@@ -434,6 +437,10 @@ export function PaymentSettingsSection({
 
     if (sanitized.StripePriceId !== initial.StripePriceId) {
       updates.push({ key: 'StripePriceId', value: sanitized.StripePriceId })
+    }
+
+    if (sanitized.StripeEnabled !== initial.StripeEnabled) {
+      updates.push({ key: 'StripeEnabled', value: sanitized.StripeEnabled })
     }
 
     if (sanitized.StripeUnitPrice !== initial.StripeUnitPrice) {
@@ -532,6 +539,7 @@ export function PaymentSettingsSection({
       StripeApiSecret: values.StripeApiSecret.trim(),
       StripeWebhookSecret: values.StripeWebhookSecret.trim(),
       StripePriceId: values.StripePriceId.trim(),
+      StripeEnabled: values.StripeEnabled,
       StripeUnitPrice: values.StripeUnitPrice,
       StripeMinTopUp: values.StripeMinTopUp,
       StripePromotionCodesEnabled: values.StripePromotionCodesEnabled,
@@ -552,6 +560,7 @@ export function PaymentSettingsSection({
       StripeApiSecret: initialRef.current.StripeApiSecret.trim(),
       StripeWebhookSecret: initialRef.current.StripeWebhookSecret.trim(),
       StripePriceId: initialRef.current.StripePriceId.trim(),
+      StripeEnabled: initialRef.current.StripeEnabled,
       StripeUnitPrice: initialRef.current.StripeUnitPrice,
       StripeMinTopUp: initialRef.current.StripeMinTopUp,
       StripePromotionCodesEnabled:
@@ -633,6 +642,10 @@ export function PaymentSettingsSection({
 
     if (sanitized.StripePriceId !== initial.StripePriceId) {
       updates.push({ key: 'StripePriceId', value: sanitized.StripePriceId })
+    }
+
+    if (sanitized.StripeEnabled !== initial.StripeEnabled) {
+      updates.push({ key: 'StripeEnabled', value: sanitized.StripeEnabled })
     }
 
     if (sanitized.StripeUnitPrice !== initial.StripeUnitPrice) {
@@ -1105,6 +1118,31 @@ export function PaymentSettingsSection({
                 {t('Configuration for Stripe payment integration')}
               </p>
             </div>
+
+            <FormField
+              control={form.control}
+              name='StripeEnabled'
+              render={({ field }) => (
+                <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
+                  <div className='space-y-0.5'>
+                    <FormLabel className='text-base'>
+                      {t('Enable Stripe')}
+                    </FormLabel>
+                    <FormDescription>
+                      {t(
+                        'Allow users to start Stripe checkout and automatic recharge'
+                      )}
+                    </FormDescription>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             <Alert>
               <AlertTitle>{t('Webhook Configuration:')}</AlertTitle>

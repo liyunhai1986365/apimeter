@@ -58,8 +58,6 @@ function isSafeHttpCheckoutUrl(value) {
   }
 }
 
-const STRIPE_REDEMPTION_PURCHASE_URL = 'https://pay.ldxp.cn/shop/ESXRZFTQ';
-
 const TopUp = () => {
   const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -98,7 +96,6 @@ const TopUp = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
-  const [stripeUnavailableOpen, setStripeUnavailableOpen] = useState(false);
   const [payWay, setPayWay] = useState('');
   const [amountLoading, setAmountLoading] = useState(false);
   const [paymentLoading, setPaymentLoading] = useState(false);
@@ -214,8 +211,10 @@ const TopUp = () => {
 
   const preTopUp = async (payment) => {
     if (payment === 'stripe') {
-      setStripeUnavailableOpen(true);
-      return;
+      if (!enableStripeTopUp) {
+        showError(t('管理员未开启 Stripe 充值！'));
+        return;
+      }
     } else if (payment === 'waffo_pancake') {
       if (!enableWaffoPancakeTopUp) {
         showError(t('管理员未开启 Waffo Pancake 充值！'));
@@ -966,27 +965,6 @@ const TopUp = () => {
         amountNumber={amount}
         discountRate={topupInfo?.discount?.[topUpCount] || 1.0}
       />
-
-      <Modal
-        title={t('支付通道已关闭')}
-        visible={stripeUnavailableOpen}
-        onOk={() => {
-          window.open(
-            STRIPE_REDEMPTION_PURCHASE_URL,
-            '_blank',
-            'noopener,noreferrer',
-          );
-          setStripeUnavailableOpen(false);
-        }}
-        onCancel={() => setStripeUnavailableOpen(false)}
-        okText={t('购买兑换码')}
-        cancelText={t('取消')}
-        maskClosable={false}
-        size='small'
-        centered
-      >
-        <p>{t('当前支付通道已关闭，请使用购买兑换码的方式充值。')}</p>
-      </Modal>
 
       {/* 充值账单模态框 */}
       <TopupHistoryModal

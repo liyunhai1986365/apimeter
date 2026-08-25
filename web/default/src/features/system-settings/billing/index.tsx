@@ -80,6 +80,7 @@ const defaultBillingSettings: BillingSettings = {
   StripeApiSecret: '',
   StripeWebhookSecret: '',
   StripePriceId: '',
+  StripeEnabled: true,
   StripeUnitPrice: 8.0,
   StripeMinTopUp: 1,
   StripePromotionCodesEnabled: false,

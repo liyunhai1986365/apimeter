@@ -132,19 +132,33 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
     return DEFAULT_MIN_TOPUP
   }
 
-  if (topupInfo.enable_online_topup) {
+  const defaultPaymentType = getDefaultPaymentType(topupInfo)
+  const defaultMethod = topupInfo.pay_methods?.find(
+    (method) => method.type === defaultPaymentType
+  )
+  const methodMinimum = Number(defaultMethod?.min_topup)
+  if (Number.isFinite(methodMinimum) && methodMinimum > 0) {
+    return methodMinimum
+  }
+
+  if (
+    topupInfo.enable_online_topup &&
+    defaultPaymentType !== PAYMENT_TYPES.STRIPE &&
+    defaultPaymentType !== PAYMENT_TYPES.WAFFO &&
+    defaultPaymentType !== PAYMENT_TYPES.WAFFO_PANCAKE
+  ) {
     return topupInfo.min_topup
   }
 
-  if (topupInfo.enable_stripe_topup) {
+  if (defaultPaymentType === PAYMENT_TYPES.STRIPE) {
     return topupInfo.stripe_min_topup
   }
 
-  if (topupInfo.enable_waffo_topup) {
+  if (defaultPaymentType === PAYMENT_TYPES.WAFFO) {
     return topupInfo.waffo_min_topup || DEFAULT_MIN_TOPUP
   }
 
-  if (topupInfo.enable_waffo_pancake_topup) {
+  if (defaultPaymentType === PAYMENT_TYPES.WAFFO_PANCAKE) {
     return topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
   }
 
