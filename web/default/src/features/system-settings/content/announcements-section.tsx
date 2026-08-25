@@ -122,6 +122,7 @@ const announcementSchema = z
       .string()
       .max(100, 'Extra must be less than 100 characters')
       .optional(),
+    audience: z.enum(['all', 'main_site']),
     displayOnFrontend: z.boolean(),
     sendEmail: z.boolean(),
   })
@@ -159,6 +160,7 @@ export function AnnouncementsSection({
       publishDate: new Date().toISOString(),
       type: 'general',
       extra: '',
+      audience: 'all',
       displayOnFrontend: true,
       sendEmail: false,
     },
@@ -177,6 +179,7 @@ export function AnnouncementsSection({
             ...item,
             id: item.id || idx + 1,
             title: item.title || '',
+            audience: item.audience === 'main_site' ? 'main_site' : 'all',
           }))
         )
       }
@@ -210,6 +213,7 @@ export function AnnouncementsSection({
       publishDate: new Date().toISOString(),
       type: 'general',
       extra: '',
+      audience: 'all',
       displayOnFrontend: true,
       sendEmail: false,
     })
@@ -224,6 +228,7 @@ export function AnnouncementsSection({
       publishDate: announcement.publishDate,
       type: announcement.type,
       extra: announcement.extra || '',
+      audience: announcement.audience || 'all',
       displayOnFrontend: true,
       sendEmail: false,
     })
@@ -299,6 +304,7 @@ export function AnnouncementsSection({
           title: announcementValues.title,
           content: announcementValues.content,
           type: announcementValues.type,
+          audience: announcementValues.audience,
         })
 
         if (!result.success) {
@@ -377,7 +383,7 @@ export function AnnouncementsSection({
       title={t('Announcements')}
       description={t('Broadcast short system notices on the dashboard')}
     >
-      <div className='space-y-4'>
+      <div className='flex flex-col gap-4'>
         <div className='flex flex-wrap items-center justify-between gap-2'>
           <div className='flex flex-wrap items-center gap-2'>
             <Button onClick={handleAdd} size='sm'>
@@ -429,6 +435,7 @@ export function AnnouncementsSection({
                 <TableHead>{t('Content')}</TableHead>
                 <TableHead>{t('Publish Date')}</TableHead>
                 <TableHead>{t('Type')}</TableHead>
+                <TableHead>{t('Audience')}</TableHead>
                 <TableHead>{t('Extra')}</TableHead>
                 <TableHead className='w-32'>{t('Actions')}</TableHead>
               </TableRow>
@@ -436,7 +443,7 @@ export function AnnouncementsSection({
             <TableBody>
               {sortedAnnouncements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={7} className='h-24 text-center'>
+                  <TableCell colSpan={8} className='h-24 text-center'>
                     {t(
                       'No announcements yet. Click "Add Announcement" to create one.'
                     )}
@@ -492,6 +499,21 @@ export function AnnouncementsSection({
                           typeOptions.find(
                             (opt) => opt.value === announcement.type
                           )?.badgeVariant ?? 'neutral'
+                        }
+                        copyable={false}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        label={t(
+                          announcement.audience === 'main_site'
+                            ? 'Main site users only'
+                            : 'All users'
+                        )}
+                        variant={
+                          announcement.audience === 'main_site'
+                            ? 'info'
+                            : 'neutral'
                         }
                         copyable={false}
                       />
@@ -706,7 +728,7 @@ export function AnnouncementsSection({
                                     </FormLabel>
                                     <FormDescription>
                                       {t(
-                                        'Send to all enabled users with an email address.'
+                                        'Send to enabled users with an email address in the selected audience.'
                                       )}
                                     </FormDescription>
                                   </div>
@@ -716,6 +738,33 @@ export function AnnouncementsSection({
                           />
                         </div>
                       </div>
+                      <FormField
+                        control={form.control}
+                        name='audience'
+                        render={({ field }) => (
+                          <FormItem className='flex flex-row items-center justify-between gap-4 rounded-md border p-3'>
+                            <div className='flex min-w-0 flex-col gap-1'>
+                              <FormLabel htmlFor='announcement-main-site-only'>
+                                {t('Main site users only')}
+                              </FormLabel>
+                              <FormDescription>
+                                {t(
+                                  'Agent-site users will not see this announcement or receive its email.'
+                                )}
+                              </FormDescription>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                id='announcement-main-site-only'
+                                checked={field.value === 'main_site'}
+                                onCheckedChange={(checked) =>
+                                  field.onChange(checked ? 'main_site' : 'all')
+                                }
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
                       {displayOnFrontend && (
                         <FormField
                           control={form.control}

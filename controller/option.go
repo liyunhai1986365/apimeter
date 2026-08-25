@@ -127,9 +127,10 @@ type OptionUpdateRequest struct {
 }
 
 type AnnouncementEmailRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
-	Type    string `json:"type"`
+	Title    string `json:"title"`
+	Content  string `json:"content"`
+	Type     string `json:"type"`
+	Audience string `json:"audience"`
 }
 
 func UpdateOption(c *gin.Context) {
@@ -466,15 +467,20 @@ func SendAnnouncementEmail(c *gin.Context) {
 	req.Title = strings.TrimSpace(req.Title)
 	req.Content = strings.TrimSpace(req.Content)
 	req.Type = strings.TrimSpace(req.Type)
+	req.Audience = strings.TrimSpace(req.Audience)
 	if req.Title == "" || req.Content == "" {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
+	if req.Audience == "" {
+		req.Audience = console_setting.AnnouncementAudienceAll
+	}
 
 	summary, err := service.BroadcastAnnouncementEmail(service.BroadcastAnnouncementEmailRequest{
-		Title:   req.Title,
-		Content: req.Content,
-		Type:    req.Type,
+		Title:    req.Title,
+		Content:  req.Content,
+		Type:     req.Type,
+		Audience: req.Audience,
 	})
 	if err != nil {
 		common.ApiError(c, err)
@@ -487,6 +493,7 @@ func SendAnnouncementEmail(c *gin.Context) {
 		"sent":           summary.Sent,
 		"failed":         summary.Failed,
 		"total":          summary.Total,
+		"audience":       req.Audience,
 	}
 	model.RecordLogWithAdminInfo(c.GetInt("id"), model.LogTypeManage, fmt.Sprintf("管理员群发公告邮件: %s", req.Title), adminInfo)
 

@@ -12,6 +12,11 @@ import (
 	"github.com/QuantumNous/new-api/common"
 )
 
+const (
+	AnnouncementAudienceAll      = "all"
+	AnnouncementAudienceMainSite = "main_site"
+)
+
 var (
 	urlRegex       = regexp.MustCompile(`^https?://(?:(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)*[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?|(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?))(?:\:[0-9]{1,5})?(?:/.*)?$`)
 	dangerousChars = []string{"<script", "<iframe", "javascript:", "onload=", "onerror=", "onclick="}
@@ -194,6 +199,12 @@ func validateAnnouncements(announcementsStr string) error {
 				return fmt.Errorf("第%d个公告的说明长度不能超过100字符", i+1)
 			}
 		}
+		if audience, exists := ann["audience"]; exists {
+			audienceStr, ok := audience.(string)
+			if !ok || (audienceStr != AnnouncementAudienceAll && audienceStr != AnnouncementAudienceMainSite) {
+				return fmt.Errorf("第%d个公告的接收对象值不合法", i+1)
+			}
+		}
 	}
 	return nil
 }
@@ -242,6 +253,17 @@ func GetAnnouncements() []map[string]interface{} {
 		return getPublishTime(list[i]).After(getPublishTime(list[j]))
 	})
 	return list
+}
+
+func FilterAnnouncementsForAgentSite(announcements []map[string]interface{}) []map[string]interface{} {
+	filtered := make([]map[string]interface{}, 0, len(announcements))
+	for _, announcement := range announcements {
+		if announcement["audience"] == AnnouncementAudienceMainSite {
+			continue
+		}
+		filtered = append(filtered, announcement)
+	}
+	return filtered
 }
 
 func GetFAQ() []map[string]interface{} {

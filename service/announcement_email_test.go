@@ -6,6 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/console_setting"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -21,7 +22,7 @@ func setupAnnouncementEmailTestDB(t *testing.T) {
 
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.AgentUser{}))
 
 	model.DB = db
 	common.UsingSQLite = true
@@ -48,6 +49,7 @@ func TestBroadcastAnnouncementEmailSendsToEnabledUsersWithEmail(t *testing.T) {
 		{Id: 4, Username: "disabled", Password: "password123", Email: "disabled@example.com", Status: common.UserStatusDisabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-4"},
 		{Id: 5, Username: "empty", Password: "password123", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-5"},
 	}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentUser{AgentId: 10, UserId: 3, Status: model.AgentUserStatusEnabled}).Error)
 
 	var receivers []string
 	summary, err := BroadcastAnnouncementEmail(BroadcastAnnouncementEmailRequest{
@@ -99,6 +101,36 @@ func TestBroadcastAnnouncementEmailCountsSendFailures(t *testing.T) {
 	require.Contains(t, summary.Errors[0], "second@example.com")
 }
 
+func TestBroadcastAnnouncementEmailMainSiteAudienceExcludesAgentUsers(t *testing.T) {
+	setupAnnouncementEmailTestDB(t)
+
+	require.NoError(t, model.DB.Create(&[]model.User{
+		{Id: 1, Username: "main", Password: "password123", Email: "main@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-main"},
+		{Id: 2, Username: "agent-enabled", Password: "password123", Email: "agent-enabled@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-agent-enabled"},
+		{Id: 3, Username: "agent-disabled", Password: "password123", Email: "agent-disabled@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-agent-disabled"},
+		{Id: 4, Username: "duplicate-agent-email", Password: "password123", Email: "agent-enabled@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-duplicate-agent-email"},
+	}).Error)
+	require.NoError(t, model.DB.Create(&[]model.AgentUser{
+		{AgentId: 10, UserId: 2, Status: model.AgentUserStatusEnabled},
+		{AgentId: 10, UserId: 3, Status: model.AgentUserStatusDisabled},
+	}).Error)
+
+	var receivers []string
+	summary, err := BroadcastAnnouncementEmail(BroadcastAnnouncementEmailRequest{
+		Title:    "主站公告",
+		Content:  "仅主站用户接收",
+		Audience: console_setting.AnnouncementAudienceMainSite,
+		Send: func(_ string, receiver string, _ string) error {
+			receivers = append(receivers, receiver)
+			return nil
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, summary.Total)
+	require.Equal(t, []string{"main@example.com"}, receivers)
+}
+
 func TestBroadcastAnnouncementEmailRejectsLegacyAnnouncementType(t *testing.T) {
 	setupAnnouncementEmailTestDB(t)
 
@@ -114,5 +146,23 @@ func TestBroadcastAnnouncementEmailRejectsLegacyAnnouncementType(t *testing.T) {
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid announcement type")
+	require.Equal(t, BroadcastAnnouncementEmailSummary{}, summary)
+}
+
+func TestBroadcastAnnouncementEmailRejectsInvalidAudience(t *testing.T) {
+	setupAnnouncementEmailTestDB(t)
+
+	summary, err := BroadcastAnnouncementEmail(BroadcastAnnouncementEmailRequest{
+		Title:    "范围错误",
+		Content:  "公告内容",
+		Audience: "agent_only",
+		Send: func(_ string, _ string, _ string) error {
+			t.Fatal("sender should not be called for invalid announcement audience")
+			return nil
+		},
+	})
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid announcement audience")
 	require.Equal(t, BroadcastAnnouncementEmailSummary{}, summary)
 }

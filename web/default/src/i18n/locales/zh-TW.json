@@ -1,5 +1,9 @@
 {
   "translation": {
+    "Agent-site users will not see this announcement or receive its email.": "代理站點用戶將不會看到此公告，也不會收到公告郵件。",
+    "Audience": "接收對象",
+    "Main site users only": "僅主站用戶",
+    "Send to enabled users with an email address in the selected audience.": "向所選接收範圍內已啟用且綁定電子郵件的用戶發送。",
     "360": "360",
     "1000": "1000",
     "10000": "10000",

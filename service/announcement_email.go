@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/console_setting"
 )
 
 type AnnouncementEmailSender func(subject string, receiver string, content string) error
@@ -16,10 +17,11 @@ type AnnouncementEmailSender func(subject string, receiver string, content strin
 var AnnouncementEmailSenderFunc AnnouncementEmailSender = common.SendEmail
 
 type BroadcastAnnouncementEmailRequest struct {
-	Title   string
-	Content string
-	Type    string
-	Send    AnnouncementEmailSender
+	Title    string
+	Content  string
+	Type     string
+	Audience string
+	Send     AnnouncementEmailSender
 }
 
 type BroadcastAnnouncementEmailSummary struct {
@@ -160,6 +162,13 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 	if req.Type != "" && !validAnnouncementEmailTypes[req.Type] {
 		return summary, fmt.Errorf("invalid announcement type")
 	}
+	req.Audience = strings.TrimSpace(req.Audience)
+	if req.Audience == "" {
+		req.Audience = console_setting.AnnouncementAudienceAll
+	}
+	if req.Audience != console_setting.AnnouncementAudienceAll && req.Audience != console_setting.AnnouncementAudienceMainSite {
+		return summary, fmt.Errorf("invalid announcement audience")
+	}
 
 	var users []model.User
 	if err := model.DB.
@@ -171,6 +180,27 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 		return summary, err
 	}
 
+	agentUserIDs := make(map[int]struct{})
+	blockedAgentEmails := make(map[string]struct{})
+	if req.Audience == console_setting.AnnouncementAudienceMainSite {
+		var userIDs []int
+		if err := model.DB.Model(&model.AgentUser{}).Pluck("user_id", &userIDs).Error; err != nil {
+			return summary, err
+		}
+		for _, userID := range userIDs {
+			agentUserIDs[userID] = struct{}{}
+		}
+		for _, user := range users {
+			if _, ok := agentUserIDs[user.Id]; !ok {
+				continue
+			}
+			email := strings.ToLower(strings.TrimSpace(user.Email))
+			if email != "" {
+				blockedAgentEmails[email] = struct{}{}
+			}
+		}
+	}
+
 	seen := make(map[string]struct{}, len(users))
 	receivers := make([]string, 0, len(users))
 	for _, user := range users {
@@ -179,6 +209,9 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 			continue
 		}
 		key := strings.ToLower(email)
+		if _, blocked := blockedAgentEmails[key]; blocked {
+			continue
+		}
 		if _, ok := seen[key]; ok {
 			continue
 		}

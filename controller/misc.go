@@ -203,7 +203,11 @@ func GetStatus(c *gin.Context) {
 		data["api_info"] = console_setting.GetApiInfo()
 	}
 	if cs.AnnouncementsEnabled {
-		data["announcements"] = console_setting.GetAnnouncements()
+		announcements := console_setting.GetAnnouncements()
+		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+			announcements = console_setting.FilterAnnouncementsForAgentSite(announcements)
+		}
+		data["announcements"] = announcements
 	}
 	if cs.FAQEnabled {
 		data["faq"] = console_setting.GetFAQ()

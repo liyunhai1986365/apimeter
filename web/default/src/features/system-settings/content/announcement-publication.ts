@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { AnnouncementType } from '@/features/dashboard/lib/announcement-categories'
+import type { AnnouncementAudience } from '../types'
 
 export type Announcement = {
   id: number
@@ -25,6 +26,7 @@ export type Announcement = {
   publishDate: string
   type: AnnouncementType
   extra?: string
+  audience: AnnouncementAudience
 }
 
 export type AnnouncementDraft = Omit<Announcement, 'id'>

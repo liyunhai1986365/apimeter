@@ -39,6 +39,8 @@ export type UpdateOptionResponse = {
   message: string
 }
 
+export type AnnouncementAudience = 'all' | 'main_site'
+
 export type AnnouncementEmailResponse = {
   success: boolean
   message: string

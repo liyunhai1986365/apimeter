@@ -22,6 +22,7 @@ import type {
   CryptoPaymentConfig,
   CryptoPaymentConfigResponse,
   AnnouncementEmailResponse,
+  AnnouncementAudience,
   DeleteLogsResponse,
   FetchUpstreamRatiosRequest,
   SystemOptionsResponse,
@@ -48,6 +49,7 @@ export async function sendAnnouncementEmail(request: {
   title: string
   content: string
   type: string
+  audience: AnnouncementAudience
 }) {
   const res = await api.post<AnnouncementEmailResponse>(
     '/api/option/announcements/email',

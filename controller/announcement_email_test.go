@@ -27,7 +27,7 @@ func setupAnnouncementEmailControllerTestDB(t *testing.T) {
 
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.AgentUser{}, &model.Log{}))
 
 	model.DB = db
 	model.LOG_DB = db
@@ -55,7 +55,9 @@ func TestSendAnnouncementEmailReturnsBroadcastSummary(t *testing.T) {
 	require.NoError(t, model.DB.Create(&[]model.User{
 		{Id: 1, Username: "first", Password: "password123", Email: "first@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-1"},
 		{Id: 2, Username: "empty", Password: "password123", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-2"},
+		{Id: 3, Username: "agent", Password: "password123", Email: "agent@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-3"},
 	}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentUser{AgentId: 10, UserId: 3, Status: model.AgentUserStatusEnabled}).Error)
 
 	originSender := service.AnnouncementEmailSenderFunc
 	var gotSubject, gotReceiver, gotContent string
@@ -73,7 +75,7 @@ func TestSendAnnouncementEmailReturnsBroadcastSummary(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Set("id", 9)
 	c.Set("username", "root")
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/option/announcements/email", strings.NewReader(`{"title":"模型发布","content":"## 新增模型\n\n新增模型已上线","type":"model_release"}`))
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/option/announcements/email", strings.NewReader(`{"title":"模型发布","content":"## 新增模型\n\n新增模型已上线","type":"model_release","audience":"main_site"}`))
 
 	SendAnnouncementEmail(c)
 

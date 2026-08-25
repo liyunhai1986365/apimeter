@@ -13,6 +13,7 @@ const existing: Announcement = {
   publishDate: '2026-07-28T00:00:00.000Z',
   type: 'general',
   extra: '',
+  audience: 'all',
 }
 
 const draft: AnnouncementDraft = {
@@ -21,6 +22,7 @@ const draft: AnnouncementDraft = {
   publishDate: '2026-07-28T01:00:00.000Z',
   type: 'product_update',
   extra: '',
+  audience: 'main_site',
 }
 
 describe('announcement publication plan', () => {

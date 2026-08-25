@@ -51,6 +51,50 @@ func TestGetStatusUsesAgentDomainForDisplayedServerAddress(t *testing.T) {
 	require.Equal(t, "https://agent.example.com/v1/chat/completions", firstApiInfo["url"])
 }
 
+func TestGetStatusHidesMainSiteAnnouncementsOnAgentDomain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	consoleSetting := console_setting.GetConsoleSetting()
+	oldAnnouncementsEnabled := consoleSetting.AnnouncementsEnabled
+	oldAnnouncements := consoleSetting.Announcements
+	consoleSetting.AnnouncementsEnabled = true
+	consoleSetting.Announcements = `[
+		{"id":1,"title":"All users","content":"Visible everywhere","publishDate":"2026-08-25T00:00:00Z","type":"general","audience":"all"},
+		{"id":2,"title":"Main site","content":"Hidden on agent sites","publishDate":"2026-08-25T01:00:00Z","type":"general","audience":"main_site"},
+		{"id":3,"title":"Legacy","content":"Visible everywhere","publishDate":"2026-08-25T02:00:00Z","type":"general"}
+	]`
+	t.Cleanup(func() {
+		consoleSetting.AnnouncementsEnabled = oldAnnouncementsEnabled
+		consoleSetting.Announcements = oldAnnouncements
+	})
+
+	requestStatus := func(agent bool) []interface{} {
+		router := gin.New()
+		router.GET("/api/status", func(c *gin.Context) {
+			if agent {
+				common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+					AgentID: 1,
+					Domain:  "agent.example.com",
+				})
+			}
+			GetStatus(c)
+		})
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+		require.Equal(t, http.StatusOK, w.Code)
+		var body map[string]interface{}
+		require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+		return body["data"].(map[string]interface{})["announcements"].([]interface{})
+	}
+
+	mainAnnouncements := requestStatus(false)
+	require.Len(t, mainAnnouncements, 3)
+
+	agentAnnouncements := requestStatus(true)
+	require.Len(t, agentAnnouncements, 2)
+	require.Equal(t, "Legacy", agentAnnouncements[0].(map[string]interface{})["title"])
+	require.Equal(t, "All users", agentAnnouncements[1].(map[string]interface{})["title"])
+}
+
 func TestGetStatusIncludesGoogleAnalyticsMeasurementID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.OptionMapRWMutex.Lock()
