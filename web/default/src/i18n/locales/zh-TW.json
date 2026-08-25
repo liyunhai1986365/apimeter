@@ -1,5 +1,7 @@
 {
   "translation": {
+    "Agent": "代理",
+    "Agent site name": "代理網站名稱",
     "Agent-site users will not see this announcement or receive its email.": "代理站點用戶將不會看到此公告，也不會收到公告郵件。",
     "Audience": "接收對象",
     "Main site users only": "僅主站用戶",

@@ -109,6 +109,12 @@ type AgentUserWithProfile struct {
 	LastLoginAt     int64  `json:"last_login_at" gorm:"column:last_login_at"`
 }
 
+type AgentUserMembership struct {
+	UserId        int    `json:"user_id" gorm:"column:user_id"`
+	AgentName     string `json:"agent_name" gorm:"column:agent_name"`
+	AgentBranding string `json:"-" gorm:"column:agent_branding"`
+}
+
 type AgentPricingRule struct {
 	Id           int     `json:"id"`
 	AgentId      int     `json:"agent_id" gorm:"index:idx_agent_pricing_agent_model,priority:1;column:agent_id"`
@@ -417,6 +423,19 @@ func ListAgentUsers(agentId int, keyword string, startIdx int, num int) ([]*Agen
 		return nil, 0, err
 	}
 	return users, total, nil
+}
+
+func ListAgentUserMemberships(userIds []int) ([]*AgentUserMembership, error) {
+	memberships := make([]*AgentUserMembership, 0)
+	if len(userIds) == 0 {
+		return memberships, nil
+	}
+	err := DB.Table("agent_users").
+		Select("agent_users.user_id, agents.name AS agent_name, agents.branding AS agent_branding").
+		Joins("JOIN agents ON agents.id = agent_users.agent_id").
+		Where("agent_users.user_id IN ? AND agent_users.status = ?", userIds, AgentUserStatusEnabled).
+		Find(&memberships).Error
+	return memberships, err
 }
 
 func ListAgentLedger(agentId int, startIdx int, num int) ([]*AgentLedger, int64, error) {

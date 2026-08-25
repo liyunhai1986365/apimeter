@@ -399,6 +399,10 @@ func GetAllUsers(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if err = decorateAgentUserInfo(users); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	decorateAffiliateRoleNames(users)
 
 	pageInfo.SetTotal(int(total))
@@ -430,6 +434,10 @@ func SearchUsers(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	if err = decorateAgentUserInfo(users); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	decorateAffiliateRoleNames(users)
 
 	pageInfo.SetTotal(int(total))
@@ -449,6 +457,38 @@ func decorateAffiliateRoleNames(users []*model.User) {
 		}
 		user.AffiliateRoleName = setting.ResolveAffiliateRewardPolicy(user.AffiliateRole).RoleName
 	}
+}
+
+func decorateAgentUserInfo(users []*model.User) error {
+	userIds := make([]int, 0, len(users))
+	for _, user := range users {
+		if user != nil {
+			userIds = append(userIds, user.Id)
+		}
+	}
+	memberships, err := model.ListAgentUserMemberships(userIds)
+	if err != nil {
+		return err
+	}
+	usersById := make(map[int]*model.User, len(users))
+	for _, user := range users {
+		if user != nil {
+			usersById[user.Id] = user
+		}
+	}
+	for _, membership := range memberships {
+		user := usersById[membership.UserId]
+		if user == nil {
+			continue
+		}
+		siteName := strings.TrimSpace(membership.AgentName)
+		if branding, ok := agentservice.ParseBranding(membership.AgentBranding); ok && branding.SiteName != "" {
+			siteName = branding.SiteName
+		}
+		user.IsAgentUser = true
+		user.AgentSiteName = siteName
+	}
+	return nil
 }
 
 func affiliateRewardPolicyResponse(policy setting.AffiliateRewardPolicy) gin.H {

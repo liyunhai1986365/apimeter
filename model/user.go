@@ -105,6 +105,8 @@ type User struct {
 	InviterId          int                        `json:"inviter_id" gorm:"type:int;column:inviter_id;index"`
 	AffiliateRole      string                     `json:"affiliate_role" gorm:"type:varchar(64);column:affiliate_role;index"`
 	AffiliateRoleName  string                     `json:"affiliate_role_name" gorm:"-:all"`
+	IsAgentUser        bool                       `json:"is_agent_user" gorm:"-:all"`
+	AgentSiteName      string                     `json:"agent_site_name,omitempty" gorm:"-:all"`
 	DeletedAt          gorm.DeletedAt             `gorm:"index"`
 	LinuxDOId          string                     `json:"linux_do_id" gorm:"column:linux_do_id;index"`
 	Setting            string                     `json:"setting" gorm:"type:text;column:setting"`
