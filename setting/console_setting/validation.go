@@ -26,7 +26,11 @@ var (
 		"light-green": true, "teal": true, "light-blue": true, "indigo": true,
 		"violet": true, "grey": true, "slate": true,
 	}
-	slugRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	slugRegex              = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	validAnnouncementTypes = map[string]bool{
+		"product_update": true, "system_maintenance": true, "model_release": true,
+		"pricing_update": true, "incident": true, "general": true,
+	}
 )
 
 func parseJSONArray(jsonStr string, typeName string) ([]map[string]interface{}, error) {
@@ -157,9 +161,6 @@ func validateAnnouncements(announcementsStr string) error {
 	if len(list) > 100 {
 		return fmt.Errorf("系统公告数量不能超过100个")
 	}
-	validTypes := map[string]bool{
-		"product_update": true, "system_maintenance": true, "model_release": true, "pricing_update": true, "incident": true, "general": true,
-	}
 	for i, ann := range list {
 		title, ok := ann["title"].(string)
 		if !ok || title == "" {
@@ -185,7 +186,7 @@ func validateAnnouncements(announcementsStr string) error {
 		if !exists || !ok || typeStr == "" {
 			return fmt.Errorf("第%d个公告缺少类型字段", i+1)
 		}
-		if !validTypes[typeStr] {
+		if !IsValidAnnouncementType(typeStr) {
 			return fmt.Errorf("第%d个公告的类型值不合法", i+1)
 		}
 		if len(content) > 10000 {
@@ -205,6 +206,32 @@ func validateAnnouncements(announcementsStr string) error {
 				return fmt.Errorf("第%d个公告的接收对象值不合法", i+1)
 			}
 		}
+	}
+	return nil
+}
+
+func IsValidAnnouncementType(announcementType string) bool {
+	return validAnnouncementTypes[announcementType]
+}
+
+func ValidateAnnouncementFields(title string, content string, announcementType string, extra string) error {
+	title = strings.TrimSpace(title)
+	content = strings.TrimSpace(content)
+	announcementType = strings.TrimSpace(announcementType)
+	if title == "" || content == "" {
+		return fmt.Errorf("公告标题和内容不能为空")
+	}
+	if exceedsMaxCharacters(title, 120) {
+		return fmt.Errorf("公告标题长度不能超过120字符")
+	}
+	if exceedsMaxCharacters(content, 10000) {
+		return fmt.Errorf("公告内容长度不能超过10000字符")
+	}
+	if !IsValidAnnouncementType(announcementType) {
+		return fmt.Errorf("公告类型值不合法")
+	}
+	if exceedsMaxCharacters(extra, 100) {
+		return fmt.Errorf("公告说明长度不能超过100字符")
 	}
 	return nil
 }
@@ -249,10 +276,14 @@ func getPublishTime(item map[string]interface{}) time.Time {
 
 func GetAnnouncements() []map[string]interface{} {
 	list := getJSONList(GetConsoleSetting().Announcements)
+	SortAnnouncements(list)
+	return list
+}
+
+func SortAnnouncements(list []map[string]interface{}) {
 	sort.SliceStable(list, func(i, j int) bool {
 		return getPublishTime(list[i]).After(getPublishTime(list[j]))
 	})
-	return list
 }
 
 func FilterAnnouncementsForAgentSite(announcements []map[string]interface{}) []map[string]interface{} {

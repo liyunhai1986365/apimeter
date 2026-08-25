@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -295,4 +296,24 @@ func TestListAgentUsersIncludesUserProfile(t *testing.T) {
 	assert.Equal(t, 1, users[0].Role)
 	assert.Equal(t, int64(1710000000), users[0].UserCreatedAt)
 	assert.Equal(t, int64(1710003600), users[0].LastLoginAt)
+}
+
+func TestAgentAnnouncementsAreIsolatedAndScheduled(t *testing.T) {
+	truncateTables(t)
+	now := time.Now().Unix()
+	require.NoError(t, DB.Create(&[]AgentAnnouncement{
+		{AgentId: 1, Title: "Published", Content: "Visible", Type: "general", PublishAt: now - 10, Enabled: true},
+		{AgentId: 1, Title: "Future", Content: "Scheduled", Type: "general", PublishAt: now + 10, Enabled: true},
+		{AgentId: 1, Title: "Hidden", Content: "Disabled", Type: "general", PublishAt: now - 10, Enabled: false},
+		{AgentId: 2, Title: "Other", Content: "Other agent", Type: "general", PublishAt: now - 10, Enabled: true},
+	}).Error)
+
+	announcements, err := ListPublishedAgentAnnouncements(1, 20, now)
+	require.NoError(t, err)
+	require.Len(t, announcements, 1)
+	require.Equal(t, "Published", announcements[0].Title)
+	require.Contains(t, announcements[0].PublicData()["id"], "agent:1:")
+
+	_, err = GetAgentAnnouncement(1, 4)
+	require.ErrorIs(t, err, ErrAgentAnnouncementNotFound)
 }

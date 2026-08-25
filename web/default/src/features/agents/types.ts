@@ -210,6 +210,43 @@ export type AgentUser = {
   last_login_at: number
 }
 
+export type AgentAnnouncement = {
+  id: number
+  agent_id: number
+  title: string
+  content: string
+  type:
+    | 'product_update'
+    | 'system_maintenance'
+    | 'model_release'
+    | 'pricing_update'
+    | 'incident'
+    | 'general'
+  extra: string
+  publish_at: number
+  enabled: boolean
+  created_by: number
+  updated_by: number
+  last_email_at: number
+  last_email_total: number
+  last_email_sent: number
+  last_email_failed: number
+  created_at: number
+  updated_at: number
+}
+
+export type AgentAnnouncementInput = Pick<
+  AgentAnnouncement,
+  'title' | 'content' | 'type' | 'extra' | 'publish_at' | 'enabled'
+>
+
+export type AgentAnnouncementEmailSummary = {
+  total: number
+  sent: number
+  failed: number
+  errors?: string[]
+}
+
 export type AgentLedger = {
   id: number
   agent_id: number

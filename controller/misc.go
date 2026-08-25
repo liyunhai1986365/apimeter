@@ -202,17 +202,35 @@ func GetStatus(c *gin.Context) {
 	if cs.ApiInfoEnabled {
 		data["api_info"] = console_setting.GetApiInfo()
 	}
+	agentCtx, isAgentSite := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
+	announcements := make([]map[string]interface{}, 0)
 	if cs.AnnouncementsEnabled {
-		announcements := console_setting.GetAnnouncements()
-		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+		announcements = console_setting.GetAnnouncements()
+		if isAgentSite && agentCtx != nil {
 			announcements = console_setting.FilterAnnouncementsForAgentSite(announcements)
 		}
+	}
+	if isAgentSite && agentCtx != nil {
+		agentAnnouncements, err := model.ListPublishedAgentAnnouncements(agentCtx.AgentID, 20, time.Now().Unix())
+		if err != nil {
+			common.SysLog(fmt.Sprintf("failed to load agent %d announcements: %s", agentCtx.AgentID, err.Error()))
+		} else {
+			for _, announcement := range agentAnnouncements {
+				announcements = append(announcements, announcement.PublicData())
+			}
+			if len(agentAnnouncements) > 0 {
+				data["announcements_enabled"] = true
+			}
+		}
+	}
+	if len(announcements) > 0 || cs.AnnouncementsEnabled {
+		console_setting.SortAnnouncements(announcements)
 		data["announcements"] = announcements
 	}
 	if cs.FAQEnabled {
 		data["faq"] = console_setting.GetFAQ()
 	}
-	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+	if isAgentSite && agentCtx != nil {
 		agentservice.ApplyBrandingToStatus(data, agentCtx.Branding)
 		agentServerAddress := buildAgentServerAddress(c, agentCtx.Domain)
 		data["server_address"] = agentServerAddress

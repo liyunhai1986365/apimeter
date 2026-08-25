@@ -24,20 +24,20 @@ type BroadcastAnnouncementEmailRequest struct {
 	Send     AnnouncementEmailSender
 }
 
+type BroadcastAgentAnnouncementEmailRequest struct {
+	AgentID   int
+	AgentName string
+	Title     string
+	Content   string
+	Type      string
+	Send      AnnouncementEmailSender
+}
+
 type BroadcastAnnouncementEmailSummary struct {
 	Total  int      `json:"total"`
 	Sent   int      `json:"sent"`
 	Failed int      `json:"failed"`
 	Errors []string `json:"errors,omitempty"`
-}
-
-var validAnnouncementEmailTypes = map[string]bool{
-	"product_update":     true,
-	"system_maintenance": true,
-	"model_release":      true,
-	"pricing_update":     true,
-	"incident":           true,
-	"general":            true,
 }
 
 func announcementEmailContent(content string, announcementType string) string {
@@ -46,6 +46,15 @@ func announcementEmailContent(content string, announcementType string) string {
 		announcementType = "general"
 	}
 	return fmt.Sprintf("<!-- announcement-type:%s -->\n%s", announcementType, renderAnnouncementMarkdown(content))
+}
+
+func agentAnnouncementEmailContent(content string, announcementType string, agentID int, agentName string) string {
+	return fmt.Sprintf(
+		"<!-- announcement-source:agent:%d -->\n<p><strong>%s</strong></p>\n%s",
+		agentID,
+		html.EscapeString(strings.TrimSpace(agentName)),
+		announcementEmailContent(content, announcementType),
+	)
 }
 
 var (
@@ -159,7 +168,7 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 		return summary, fmt.Errorf("announcement email title and content are required")
 	}
 	req.Type = strings.TrimSpace(req.Type)
-	if req.Type != "" && !validAnnouncementEmailTypes[req.Type] {
+	if req.Type != "" && !console_setting.IsValidAnnouncementType(req.Type) {
 		return summary, fmt.Errorf("invalid announcement type")
 	}
 	req.Audience = strings.TrimSpace(req.Audience)
@@ -227,6 +236,68 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 			summary.Failed++
 			summary.Errors = append(summary.Errors, fmt.Sprintf("%s: %s", receiver, err.Error()))
 			common.SysLog(fmt.Sprintf("failed to send announcement email to %s: %s", common.MaskEmail(receiver), err.Error()))
+			continue
+		}
+		summary.Sent++
+	}
+	return summary, nil
+}
+
+func BroadcastAgentAnnouncementEmail(req BroadcastAgentAnnouncementEmailRequest) (BroadcastAnnouncementEmailSummary, error) {
+	summary := BroadcastAnnouncementEmailSummary{}
+	if req.AgentID <= 0 {
+		return summary, fmt.Errorf("invalid agent id")
+	}
+	req.Title = strings.TrimSpace(req.Title)
+	req.Content = strings.TrimSpace(req.Content)
+	req.Type = strings.TrimSpace(req.Type)
+	req.AgentName = strings.TrimSpace(req.AgentName)
+	if err := console_setting.ValidateAnnouncementFields(req.Title, req.Content, req.Type, ""); err != nil {
+		return summary, err
+	}
+	if req.AgentName == "" {
+		return summary, fmt.Errorf("agent name is required")
+	}
+
+	var users []model.User
+	if err := model.DB.Model(&model.User{}).
+		Select("users.id", "users.email").
+		Joins("JOIN agent_users ON agent_users.user_id = users.id").
+		Where("agent_users.agent_id = ? AND agent_users.status = ?", req.AgentID, model.AgentUserStatusEnabled).
+		Where("users.status = ?", common.UserStatusEnabled).
+		Where("users.email <> ?", "").
+		Order("users.id asc").
+		Find(&users).Error; err != nil {
+		return summary, err
+	}
+
+	seen := make(map[string]struct{}, len(users))
+	receivers := make([]string, 0, len(users))
+	for _, user := range users {
+		receiver := strings.TrimSpace(user.Email)
+		if receiver == "" {
+			continue
+		}
+		key := strings.ToLower(receiver)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		receivers = append(receivers, receiver)
+	}
+	sort.Strings(receivers)
+
+	sender := req.Send
+	if sender == nil {
+		sender = AnnouncementEmailSenderFunc
+	}
+	summary.Total = len(receivers)
+	content := agentAnnouncementEmailContent(req.Content, req.Type, req.AgentID, req.AgentName)
+	for _, receiver := range receivers {
+		if err := sender(req.Title, receiver, content); err != nil {
+			summary.Failed++
+			summary.Errors = append(summary.Errors, fmt.Sprintf("%s: %s", receiver, err.Error()))
+			common.SysLog(fmt.Sprintf("failed to send agent %d announcement email to %s: %s", req.AgentID, common.MaskEmail(receiver), err.Error()))
 			continue
 		}
 		summary.Sent++

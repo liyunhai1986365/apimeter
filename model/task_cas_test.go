@@ -65,6 +65,7 @@ func TestMain(m *testing.M) {
 		&AgentUser{},
 		&AgentPricingRule{},
 		&AgentGroupRatio{},
+		&AgentAnnouncement{},
 		&AgentLedger{},
 		&AgentWithdrawal{},
 		&PerfMetric{},
@@ -128,6 +129,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM agent_users")
 		DB.Exec("DELETE FROM agent_pricing_rules")
 		DB.Exec("DELETE FROM agent_group_ratios")
+		DB.Exec("DELETE FROM agent_announcements")
 		DB.Exec("DELETE FROM agent_ledgers")
 		DB.Exec("DELETE FROM agent_withdrawals")
 		DB.Exec("DELETE FROM perf_metrics")

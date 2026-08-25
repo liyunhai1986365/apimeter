@@ -166,3 +166,46 @@ func TestBroadcastAnnouncementEmailRejectsInvalidAudience(t *testing.T) {
 	require.Contains(t, err.Error(), "invalid announcement audience")
 	require.Equal(t, BroadcastAnnouncementEmailSummary{}, summary)
 }
+
+func TestBroadcastAgentAnnouncementEmailOnlySendsToEnabledUsersInAgent(t *testing.T) {
+	setupAnnouncementEmailTestDB(t)
+
+	require.NoError(t, model.DB.Create(&[]model.User{
+		{Id: 1, Username: "first", Password: "password123", Email: "first@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "agent-first"},
+		{Id: 2, Username: "duplicate", Password: "password123", Email: " FIRST@example.com ", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "agent-duplicate"},
+		{Id: 3, Username: "second", Password: "password123", Email: "second@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "agent-second"},
+		{Id: 4, Username: "other-agent", Password: "password123", Email: "other@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "other-agent"},
+		{Id: 5, Username: "disabled-membership", Password: "password123", Email: "membership-disabled@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "membership-disabled"},
+		{Id: 6, Username: "disabled-user", Password: "password123", Email: "user-disabled@example.com", Status: common.UserStatusDisabled, Role: common.RoleCommonUser, Group: "default", AffCode: "user-disabled"},
+	}).Error)
+	require.NoError(t, model.DB.Create(&[]model.AgentUser{
+		{AgentId: 10, UserId: 1, Status: model.AgentUserStatusEnabled},
+		{AgentId: 10, UserId: 2, Status: model.AgentUserStatusEnabled},
+		{AgentId: 10, UserId: 3, Status: model.AgentUserStatusEnabled},
+		{AgentId: 11, UserId: 4, Status: model.AgentUserStatusEnabled},
+		{AgentId: 10, UserId: 5, Status: model.AgentUserStatusDisabled},
+		{AgentId: 10, UserId: 6, Status: model.AgentUserStatusEnabled},
+	}).Error)
+
+	var receivers []string
+	summary, err := BroadcastAgentAnnouncementEmail(BroadcastAgentAnnouncementEmailRequest{
+		AgentID:   10,
+		AgentName: "Agent <One>",
+		Title:     "代理公告",
+		Content:   "## 新内容",
+		Type:      "general",
+		Send: func(subject string, receiver string, content string) error {
+			receivers = append(receivers, receiver)
+			require.Equal(t, "代理公告", subject)
+			require.Contains(t, content, "announcement-source:agent:10")
+			require.Contains(t, content, "Agent &lt;One&gt;")
+			require.Contains(t, content, "<h2>新内容</h2>")
+			return nil
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 2, summary.Total)
+	require.Equal(t, 2, summary.Sent)
+	require.Equal(t, []string{"first@example.com", "second@example.com"}, receivers)
+}
