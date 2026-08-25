@@ -95,6 +95,9 @@ export function mapStatusDataToConfig(
   const statusData = getStatusData(data)
   if (!statusData) return {}
 
+  const mainlandChinaPresentationEnabled =
+    statusData.mainland_china_presentation_enabled ?? false
+
   const quotaDisplayType =
     (statusData.quota_display_type as CurrencyDisplayType | undefined) ??
     DEFAULT_CURRENCY_CONFIG.quotaDisplayType
@@ -132,11 +135,10 @@ export function mapStatusDataToConfig(
     googleAnalyticsId: statusData.google_analytics_id,
     demoSiteEnabled: statusData.demo_site_enabled,
     displayTokenStatEnabled: statusData.display_token_stat_enabled,
-    mainlandChinaPresentationEnabled:
-      statusData.mainland_china_presentation_enabled ?? false,
-    defaultUserDisplayCurrency: toUserCurrencyDisplayType(
-      statusData.default_user_display_currency
-    ),
+    mainlandChinaPresentationEnabled,
+    defaultUserDisplayCurrency: mainlandChinaPresentationEnabled
+      ? 'CNY'
+      : toUserCurrencyDisplayType(statusData.default_user_display_currency),
     currency,
   }
 }

@@ -6730,7 +6730,7 @@
     "One subscription covers domestic coding, image, video, and chat models for multiple workloads.": "1 つのサブスクリプションで、国内のコーディング、画像、動画、チャットモデルを幅広く利用できます。",
     "Point apps at compatible chat, response, and multimodal routes for domestic models.": "国内モデル向けの互換チャット、レスポンス、マルチモーダルルートにアプリを接続します。",
     "Show domestic model brands on public static introduction pages": "公開静的紹介ページに国内モデルブランドを表示します",
-    "This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.": "公開静的表示のみが変わります。チャネル、モデル、API ルート、サブスクリプション権限は無効になりません。",
+    "This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.": "USD/CNY 切り替えを非表示にし、価格を CNY で表示します。チャネル、モデル、API ルート、サブスクリプション権限は無効になりません。",
     "Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.": "ホーム、サブスクリプション、関連する静的紹介で、国内モデルブランドと中立的な互換性説明を使用します。",
     "Footer company name": "フッターの会社名",
     "Footer company name must be 120 characters or fewer": "フッターの会社名は120文字以内で入力してください",

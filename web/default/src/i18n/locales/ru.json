@@ -6730,7 +6730,7 @@
     "One subscription covers domestic coding, image, video, and chat models for multiple workloads.": "Одна подписка охватывает отечественные модели для программирования, изображений, видео и чата.",
     "Point apps at compatible chat, response, and multimodal routes for domestic models.": "Подключайте приложения к совместимым маршрутам чата, ответов и мультимодальных запросов для отечественных моделей.",
     "Show domestic model brands on public static introduction pages": "Показывать бренды отечественных моделей на публичных статических страницах",
-    "This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.": "Меняется только публичное статическое представление. Каналы, модели, маршруты API и права подписки не отключаются.",
+    "This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.": "Переключатель USD/CNY скрывается, а цены отображаются в CNY. Каналы, модели, маршруты API и права подписки не отключаются.",
     "Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.": "Используйте бренды отечественных моделей и нейтральные описания совместимости на главной странице, странице подписок и связанных статических материалах.",
     "Footer company name": "Название компании в нижнем колонтитуле",
     "Footer company name must be 120 characters or fewer": "Название компании в нижнем колонтитуле должно содержать не более 120 символов",

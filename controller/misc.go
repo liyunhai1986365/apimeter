@@ -109,6 +109,11 @@ func GetStatus(c *gin.Context) {
 
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
+	mainlandChinaPresentationEnabled := common.OptionMap[common.MainlandChinaPresentationOptionKey] == "true"
+	defaultUserDisplayCurrency := operation_setting.GetDefaultUserDisplayCurrency()
+	if mainlandChinaPresentationEnabled {
+		defaultUserDisplayCurrency = operation_setting.QuotaDisplayTypeCNY
+	}
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -140,7 +145,7 @@ func GetStatus(c *gin.Context) {
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
 		"display_in_currency":                 operation_setting.IsCurrencyDisplay(),
 		"quota_display_type":                  operation_setting.GetQuotaDisplayType(),
-		"default_user_display_currency":       operation_setting.GetDefaultUserDisplayCurrency(),
+		"default_user_display_currency":       defaultUserDisplayCurrency,
 		"custom_currency_symbol":              operation_setting.GetGeneralSetting().CustomCurrencySymbol,
 		"custom_currency_exchange_rate":       operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate,
 		"enable_batch_update":                 common.BatchUpdateEnabled,
@@ -156,7 +161,7 @@ func GetStatus(c *gin.Context) {
 		"register_enabled":                    common.RegisterEnabled,
 		"password_register_enabled":           common.PasswordRegisterEnabled,
 		"default_use_auto_group":              setting.DefaultUseAutoGroup,
-		"mainland_china_presentation_enabled": common.OptionMap[common.MainlandChinaPresentationOptionKey] == "true",
+		"mainland_china_presentation_enabled": mainlandChinaPresentationEnabled,
 
 		"usd_exchange_rate":              operation_setting.USDExchangeRate,
 		"price":                          operation_setting.Price,

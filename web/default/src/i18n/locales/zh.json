@@ -6730,7 +6730,7 @@
     "One subscription covers domestic coding, image, video, and chat models for multiple workloads.": "一份订阅覆盖国产编程、图像、视频与对话模型，满足多种使用场景。",
     "Point apps at compatible chat, response, and multimodal routes for domestic models.": "将应用接入兼容的对话、响应和多模态路由，统一使用国产模型。",
     "Show domestic model brands on public static introduction pages": "在公开静态介绍页面展示国产模型品牌",
-    "This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.": "仅调整公开静态页面的展示内容，不会停用渠道、模型、API 路由或订阅权益。",
+    "This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.": "开启后隐藏 USD/CNY 切换，并统一使用人民币展示价格；不会停用渠道、模型、API 路由或订阅权益。",
     "Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.": "在首页、模型订阅页及相关静态介绍中使用国产模型品牌和中性的兼容性说明。",
     "Footer company name": "页脚公司名称",
     "Footer company name must be 120 characters or fewer": "页脚公司名称不能超过 120 个字符",

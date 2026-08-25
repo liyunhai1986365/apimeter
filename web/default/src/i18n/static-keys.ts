@@ -408,7 +408,7 @@ export const STATIC_I18N_KEYS = [
   'Domestic model presentation',
   'Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.',
   'Enable mainland China presentation',
-  'This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.',
+  'This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.',
   'Domestic models',
   'Domestic Model Matrix',
   'Leading domestic models',

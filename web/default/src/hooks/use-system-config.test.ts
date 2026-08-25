@@ -11,7 +11,7 @@ describe('mapStatusDataToConfig', () => {
         server_address: 'https://api.example.com/',
         footer_company_name: 'Example Technology Ltd.',
         mainland_china_presentation_enabled: true,
-        default_user_display_currency: 'CNY',
+        default_user_display_currency: 'USD',
       },
     } as never)
 

@@ -107,6 +107,9 @@ func TestGetStatusIncludesFooterCompanyName(t *testing.T) {
 
 func TestGetStatusIncludesMainlandChinaPresentationFlag(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	generalSetting := operation_setting.GetGeneralSetting()
+	oldDefaultCurrency := generalSetting.DefaultUserDisplayCurrency
+	generalSetting.DefaultUserDisplayCurrency = operation_setting.QuotaDisplayTypeUSD
 	common.OptionMapRWMutex.Lock()
 	if common.OptionMap == nil {
 		common.OptionMap = map[string]string{}
@@ -115,6 +118,7 @@ func TestGetStatusIncludesMainlandChinaPresentationFlag(t *testing.T) {
 	common.OptionMap[common.MainlandChinaPresentationOptionKey] = "true"
 	common.OptionMapRWMutex.Unlock()
 	t.Cleanup(func() {
+		generalSetting.DefaultUserDisplayCurrency = oldDefaultCurrency
 		common.OptionMapRWMutex.Lock()
 		common.OptionMap[common.MainlandChinaPresentationOptionKey] = oldValue
 		common.OptionMapRWMutex.Unlock()
@@ -130,6 +134,7 @@ func TestGetStatusIncludesMainlandChinaPresentationFlag(t *testing.T) {
 	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
 	data := body["data"].(map[string]interface{})
 	require.Equal(t, true, data["mainland_china_presentation_enabled"])
+	require.Equal(t, operation_setting.QuotaDisplayTypeCNY, data["default_user_display_currency"])
 }
 
 func TestGetStatusIncludesDefaultUserDisplayCurrency(t *testing.T) {
@@ -137,8 +142,18 @@ func TestGetStatusIncludesDefaultUserDisplayCurrency(t *testing.T) {
 	generalSetting := operation_setting.GetGeneralSetting()
 	oldValue := generalSetting.DefaultUserDisplayCurrency
 	generalSetting.DefaultUserDisplayCurrency = operation_setting.QuotaDisplayTypeCNY
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldMainlandValue := common.OptionMap[common.MainlandChinaPresentationOptionKey]
+	common.OptionMap[common.MainlandChinaPresentationOptionKey] = "false"
+	common.OptionMapRWMutex.Unlock()
 	t.Cleanup(func() {
 		generalSetting.DefaultUserDisplayCurrency = oldValue
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap[common.MainlandChinaPresentationOptionKey] = oldMainlandValue
+		common.OptionMapRWMutex.Unlock()
 	})
 
 	router := gin.New()

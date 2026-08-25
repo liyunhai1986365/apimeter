@@ -6730,7 +6730,7 @@
     "One subscription covers domestic coding, image, video, and chat models for multiple workloads.": "Un abonnement couvre les modèles nationaux de code, d’image, de vidéo et de chat pour de multiples usages.",
     "Point apps at compatible chat, response, and multimodal routes for domestic models.": "Connectez les applications à des routes compatibles de chat, de réponse et multimodales pour les modèles nationaux.",
     "Show domestic model brands on public static introduction pages": "Afficher les marques de modèles nationaux sur les pages de présentation publiques statiques",
-    "This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.": "Cette option modifie uniquement la présentation statique publique. Elle ne désactive ni les canaux, ni les modèles, ni les routes API, ni les droits d’abonnement.",
+    "This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.": "Cette option masque le sélecteur USD/CNY et affiche les prix en CNY. Elle ne désactive ni les canaux, ni les modèles, ni les routes API, ni les droits d’abonnement.",
     "Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.": "Utilisez des marques de modèles nationaux et des descriptions de compatibilité neutres sur l’accueil, les abonnements et les présentations statiques associées.",
     "Footer company name": "Nom de l’entreprise dans le pied de page",
     "Footer company name must be 120 characters or fewer": "Le nom de l’entreprise dans le pied de page ne doit pas dépasser 120 caractères",

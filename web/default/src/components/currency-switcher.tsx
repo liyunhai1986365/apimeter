@@ -48,6 +48,11 @@ export function CurrencySwitcher({ className }: CurrencySwitcherProps) {
   const { t } = useTranslation()
   const displayCurrency = useSystemConfigStore((s) => s.displayCurrency)
   const setDisplayCurrency = useSystemConfigStore((s) => s.setDisplayCurrency)
+  const mainlandChinaPresentationEnabled = useSystemConfigStore(
+    (s) => s.config.mainlandChinaPresentationEnabled
+  )
+
+  if (mainlandChinaPresentationEnabled) return null
 
   const activeCurrency =
     CURRENCY_OPTIONS.find((option) => option.value === displayCurrency) ??

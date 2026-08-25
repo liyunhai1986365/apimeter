@@ -70,7 +70,7 @@ export function MainlandPresentationSection({
               </FieldLabel>
               <FieldDescription>
                 {t(
-                  'This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.'
+                  'This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.'
                 )}
               </FieldDescription>
             </FieldContent>

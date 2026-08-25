@@ -6730,7 +6730,7 @@
     "One subscription covers domestic coding, image, video, and chat models for multiple workloads.": "Một gói đăng ký bao phủ các mô hình nội địa cho lập trình, hình ảnh, video và trò chuyện.",
     "Point apps at compatible chat, response, and multimodal routes for domestic models.": "Kết nối ứng dụng với các tuyến trò chuyện, phản hồi và đa phương thức tương thích cho mô hình nội địa.",
     "Show domestic model brands on public static introduction pages": "Hiển thị thương hiệu mô hình nội địa trên các trang giới thiệu tĩnh công khai",
-    "This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.": "Tùy chọn này chỉ thay đổi nội dung tĩnh công khai. Nó không tắt kênh, mô hình, tuyến API hoặc quyền lợi đăng ký.",
+    "This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.": "Tùy chọn này ẩn nút chuyển USD/CNY và hiển thị giá bằng CNY. Nó không tắt kênh, mô hình, tuyến API hoặc quyền lợi đăng ký.",
     "Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.": "Sử dụng thương hiệu mô hình nội địa và mô tả tương thích trung lập trên trang chủ, trang đăng ký và các phần giới thiệu tĩnh liên quan.",
     "Footer company name": "Tên công ty ở chân trang",
     "Footer company name must be 120 characters or fewer": "Tên công ty ở chân trang không được vượt quá 120 ký tự",

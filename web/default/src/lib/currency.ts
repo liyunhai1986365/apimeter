@@ -144,8 +144,11 @@ export function parseCurrencyDisplayType(
 function getConfig(): CurrencyConfig {
   const { config, displayCurrency } = useSystemConfigStore.getState()
   const currency = config?.currency ?? DEFAULT_CURRENCY_CONFIG
+  const effectiveDisplayCurrency = config?.mainlandChinaPresentationEnabled
+    ? 'CNY'
+    : displayCurrency
   const quotaDisplayType = getEffectiveQuotaDisplayType(
-    displayCurrency,
+    effectiveDisplayCurrency,
     currency?.quotaDisplayType
   )
   return {

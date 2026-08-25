@@ -6730,7 +6730,7 @@
     "One subscription covers domestic coding, image, video, and chat models for multiple workloads.": "One subscription covers domestic coding, image, video, and chat models for multiple workloads.",
     "Point apps at compatible chat, response, and multimodal routes for domestic models.": "Point apps at compatible chat, response, and multimodal routes for domestic models.",
     "Show domestic model brands on public static introduction pages": "Show domestic model brands on public static introduction pages",
-    "This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.": "This changes public static presentation only. It does not disable channels, models, API routes, or subscription entitlements.",
+    "This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.": "This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.",
     "Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.": "Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.",
     "Footer company name": "Footer company name",
     "Footer company name must be 120 characters or fewer": "Footer company name must be 120 characters or fewer",
