@@ -43,8 +43,7 @@ import { trackPurchase } from '../../helpers/googleAnalytics';
 
 // Reject non-navigable schemes (e.g. javascript:, data:) and relative URLs.
 // Only http / https are allowed for backend-provided redirect targets.
-// Mirrors isSafeHttpCheckoutUrl in the default frontend's
-// features/wallet/hooks/use-waffo-pancake-payment.ts.
+// Mirrors isSafePaymentUrl in the default frontend's lib/payment-window.ts.
 function isSafeHttpCheckoutUrl(value) {
   const trimmed = (value || '').trim();
   if (!trimmed) {
@@ -55,6 +54,28 @@ function isSafeHttpCheckoutUrl(value) {
     return u.protocol === 'http:' || u.protocol === 'https:';
   } catch {
     return false;
+  }
+}
+
+function openPendingPaymentWindow() {
+  const paymentWindow = window.open('about:blank', '_blank');
+  if (paymentWindow) {
+    paymentWindow.opener = null;
+  }
+  return paymentWindow;
+}
+
+function navigatePendingPaymentWindow(paymentWindow, checkoutUrl) {
+  if (paymentWindow && !paymentWindow.closed) {
+    paymentWindow.location.replace(checkoutUrl);
+    return;
+  }
+  window.open(checkoutUrl, '_blank', 'noopener,noreferrer');
+}
+
+function closePendingPaymentWindow(paymentWindow) {
+  if (paymentWindow && !paymentWindow.closed) {
+    paymentWindow.close();
   }
 }
 
@@ -463,6 +484,8 @@ const TopUp = () => {
       return;
     }
 
+    const paymentWindow = openPendingPaymentWindow();
+    let paymentPageOpened = false;
     setPaymentLoading(true);
     try {
       const res = await API.post('/api/user/waffo-pancake/pay', {
@@ -473,9 +496,9 @@ const TopUp = () => {
         if (message === 'success') {
           const checkoutUrl = data?.checkout_url || '';
           if (checkoutUrl && isSafeHttpCheckoutUrl(checkoutUrl)) {
-            // In-tab redirect (not window.open) — popup blocker fires after
-            // the await loses user-gesture context.
-            window.location.href = checkoutUrl;
+            navigatePendingPaymentWindow(paymentWindow, checkoutUrl);
+            paymentPageOpened = true;
+            showSuccess(t('已打开支付页面'));
           } else if (checkoutUrl) {
             showError(t('支付跳转地址不安全'));
           } else {
@@ -492,6 +515,9 @@ const TopUp = () => {
     } catch (e) {
       showError(t('支付请求失败'));
     } finally {
+      if (!paymentPageOpened) {
+        closePendingPaymentWindow(paymentWindow);
+      }
       setPaymentLoading(false);
     }
   };
