@@ -87,9 +87,11 @@ const TopUp = () => {
 
   const [redemptionCode, setRedemptionCode] = useState('');
   const [amount, setAmount] = useState(0.0);
-  const [minTopUp, setMinTopUp] = useState(statusState?.status?.min_topup || 1);
+  const [minTopUp, setMinTopUp] = useState(
+    statusState?.status?.min_topup || 10,
+  );
   const [topUpCount, setTopUpCount] = useState(
-    statusState?.status?.min_topup || 1,
+    statusState?.status?.min_topup || 10,
   );
   const [topUpLink, setTopUpLink] = useState('');
   const [enableOnlineTopUp, setEnableOnlineTopUp] = useState(
@@ -113,7 +115,7 @@ const TopUp = () => {
   const [waffoPayMethods, setWaffoPayMethods] = useState([]);
   const [waffoMinTopUp, setWaffoMinTopUp] = useState(1);
   const [enableWaffoPancakeTopUp, setEnableWaffoPancakeTopUp] = useState(false);
-  const [waffoPancakeMinTopUp, setWaffoPancakeMinTopUp] = useState(1);
+  const [waffoPancakeMinTopUp, setWaffoPancakeMinTopUp] = useState(10);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [open, setOpen] = useState(false);
@@ -478,7 +480,7 @@ const TopUp = () => {
   };
 
   const waffoPancakeTopUp = async () => {
-    const minTopUpValue = Number(waffoPancakeMinTopUp || 1);
+    const minTopUpValue = Number(waffoPancakeMinTopUp || minTopUp || 10);
     if (topUpCount < minTopUpValue) {
       showError(t('充值数量不能小于') + minTopUpValue);
       return;
@@ -694,8 +696,8 @@ const TopUp = () => {
               : enableWaffoTopUp
                 ? data.waffo_min_topup
                 : enableWaffoPancakeTopUp
-                  ? data.waffo_pancake_min_topup
-                  : 1;
+                  ? data.min_topup || 10
+                  : 10;
           setEnableOnlineTopUp(enableOnlineTopUp);
           setEnableStripeTopUp(enableStripeTopUp);
           setEnableCreemTopUp(enableCreemTopUp);
@@ -703,7 +705,7 @@ const TopUp = () => {
           setWaffoPayMethods(data.waffo_pay_methods || []);
           setWaffoMinTopUp(data.waffo_min_topup || 1);
           setEnableWaffoPancakeTopUp(enableWaffoPancakeTopUp);
-          setWaffoPancakeMinTopUp(data.waffo_pancake_min_topup || 1);
+          setWaffoPancakeMinTopUp(data.min_topup || 10);
           setMinTopUp(minTopUpValue);
           setTopUpCount(minTopUpValue);
           setTopUpLink(data.topup_link || '');

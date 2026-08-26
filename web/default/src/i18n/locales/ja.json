@@ -5044,7 +5044,7 @@
     "Slug can only contain letters, numbers, hyphens, and underscores": "スラッグには英数字、ハイフン、アンダースコアのみ使用できます",
     "Slug is required": "スラッグは必須です",
     "Slug must be less than 100 characters": "スラッグは100文字以内にしてください",
-    "Smallest USD amount users can recharge (Epay)": "ユーザーがチャージできる最小USD金額 (Epay)",
+    "Smallest USD amount users can recharge with Epay or Waffo Pancake": "Epay または Waffo Pancake でユーザーがチャージできる最低USD金額",
     "Smart automatic": "スマート自動",
     "Smart price weight": "スマート価格重み",
     "Smart routing": "スマートルーティング",

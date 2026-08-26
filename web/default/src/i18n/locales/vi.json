@@ -5044,7 +5044,7 @@
     "Slug can only contain letters, numbers, hyphens, and underscores": "Slug chỉ có thể chứa chữ cái, số, dấu gạch ngang và dấu gạch dưới",
     "Slug is required": "Slug là bắt buộc",
     "Slug must be less than 100 characters": "Slug phải ít hơn 100 ký tự",
-    "Smallest USD amount users can recharge (Epay)": "Số tiền USD tối thiểu người dùng có thể nạp (Epay)",
+    "Smallest USD amount users can recharge with Epay or Waffo Pancake": "Số tiền USD tối thiểu người dùng có thể nạp qua Epay hoặc Waffo Pancake",
     "Smart automatic": "Tự động thông minh",
     "Smart price weight": "Trọng số giá thông minh",
     "Smart routing": "Định tuyến thông minh",

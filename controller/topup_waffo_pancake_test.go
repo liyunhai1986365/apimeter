@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/stretchr/testify/require"
@@ -25,6 +26,34 @@ func TestFormatWaffoPancakeAmount_UsesDisplayPriceString(t *testing.T) {
 			require.Equal(t, tc.expected, formatWaffoPancakeAmount(tc.amount))
 		})
 	}
+}
+
+func TestGetWaffoPancakeMinTopUp_UsesGeneralPaymentSetting(t *testing.T) {
+	originalMinTopUp := operation_setting.MinTopUp
+	originalQuotaDisplayType := operation_setting.GetGeneralSetting().QuotaDisplayType
+	t.Cleanup(func() {
+		operation_setting.MinTopUp = originalMinTopUp
+		operation_setting.GetGeneralSetting().QuotaDisplayType = originalQuotaDisplayType
+	})
+
+	operation_setting.MinTopUp = 10
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeUSD
+
+	require.EqualValues(t, 10, getWaffoPancakeMinTopUp())
+
+	operation_setting.GetGeneralSetting().QuotaDisplayType = operation_setting.QuotaDisplayTypeTokens
+	require.EqualValues(t, int64(10*common.QuotaPerUnit), getWaffoPancakeMinTopUp())
+}
+
+func TestGetWaffoPancakeBuyerEmail_UsesStoredAccountEmail(t *testing.T) {
+	user := &model.User{Id: 2, Email: " buyer@example.com "}
+
+	require.Equal(t, "buyer@example.com", getWaffoPancakeBuyerEmail(user))
+}
+
+func TestGetWaffoPancakeBuyerEmail_DoesNotInventPlaceholder(t *testing.T) {
+	require.Empty(t, getWaffoPancakeBuyerEmail(&model.User{Id: 2}))
+	require.Empty(t, getWaffoPancakeBuyerEmail(nil))
 }
 
 func TestGetWaffoPancakePayMoney(t *testing.T) {

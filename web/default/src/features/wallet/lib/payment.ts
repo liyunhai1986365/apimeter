@@ -133,6 +133,16 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
   }
 
   const defaultPaymentType = getDefaultPaymentType(topupInfo)
+
+  // Waffo Pancake shares the payment-wide minimum instead of maintaining a
+  // gateway-specific lower limit.
+  if (defaultPaymentType === PAYMENT_TYPES.WAFFO_PANCAKE) {
+    const sharedMinimum = Number(topupInfo.min_topup)
+    return Number.isFinite(sharedMinimum) && sharedMinimum > 0
+      ? sharedMinimum
+      : DEFAULT_MIN_TOPUP
+  }
+
   const defaultMethod = topupInfo.pay_methods?.find(
     (method) => method.type === defaultPaymentType
   )
@@ -156,10 +166,6 @@ export function getMinTopupAmount(topupInfo: TopupInfo | null): number {
 
   if (defaultPaymentType === PAYMENT_TYPES.WAFFO) {
     return topupInfo.waffo_min_topup || DEFAULT_MIN_TOPUP
-  }
-
-  if (defaultPaymentType === PAYMENT_TYPES.WAFFO_PANCAKE) {
-    return topupInfo.waffo_pancake_min_topup || DEFAULT_MIN_TOPUP
   }
 
   return DEFAULT_MIN_TOPUP

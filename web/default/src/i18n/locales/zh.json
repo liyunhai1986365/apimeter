@@ -5044,7 +5044,7 @@
     "Slug can only contain letters, numbers, hyphens, and underscores": "Slug 只能包含字母、数字、连字符和下划线",
     "Slug is required": "Slug 不能为空",
     "Slug must be less than 100 characters": "Slug 不能超过 100 个字符",
-    "Smallest USD amount users can recharge (Epay)": "用户可以充值的最小美元金额 (Epay)",
+    "Smallest USD amount users can recharge with Epay or Waffo Pancake": "用户可通过 Epay 或 Waffo Pancake 充值的最低美元金额",
     "Smart automatic": "智能自动",
     "Smart price weight": "智能价格权重",
     "Smart routing": "智能路由",

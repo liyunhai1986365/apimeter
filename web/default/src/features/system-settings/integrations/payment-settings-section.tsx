@@ -805,7 +805,9 @@ export function PaymentSettingsSection({
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('Smallest USD amount users can recharge (Epay)')}
+                      {t(
+                        'Smallest USD amount users can recharge with Epay or Waffo Pancake'
+                      )}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>

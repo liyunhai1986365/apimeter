@@ -5044,7 +5044,7 @@
     "Slug can only contain letters, numbers, hyphens, and underscores": "Le slug ne peut contenir que des lettres, des chiffres, des tirets et des underscores",
     "Slug is required": "Le slug est requis",
     "Slug must be less than 100 characters": "Le slug doit contenir moins de 100 caractères",
-    "Smallest USD amount users can recharge (Epay)": "Montant minimum en USD que les utilisateurs peuvent recharger (Epay)",
+    "Smallest USD amount users can recharge with Epay or Waffo Pancake": "Montant minimum en USD que les utilisateurs peuvent recharger avec Epay ou Waffo Pancake",
     "Smart automatic": "Automatique intelligent",
     "Smart price weight": "Poids du prix intelligent",
     "Smart routing": "Routage intelligent",

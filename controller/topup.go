@@ -37,6 +37,8 @@ func GetTopUpInfo(c *gin.Context) {
 		payMethods = []map[string]string{}
 	}
 	stripeEnabled := isStripeTopUpEnabled()
+	minTopUp := getMinTopup()
+	waffoPancakeMinTopUp := minTopUp
 	if !stripeEnabled {
 		filteredMethods := payMethods[:0]
 		for _, method := range payMethods {
@@ -85,7 +87,7 @@ func GetTopUpInfo(c *gin.Context) {
 				"name":      "Waffo Pancake",
 				"type":      model.PaymentMethodWaffoPancake,
 				"color":     "#F97316",
-				"min_topup": strconv.Itoa(setting.WaffoPancakeMinTopUp),
+				"min_topup": strconv.FormatInt(waffoPancakeMinTopUp, 10),
 			})
 		}
 	}
@@ -118,7 +120,7 @@ func GetTopUpInfo(c *gin.Context) {
 		payMethods = append(payMethods, map[string]string{
 			"name":         config.TokenSymbol + " (" + config.NetworkName + ")",
 			"type":         model.PaymentMethodCryptoEVM,
-			"min_topup":    strconv.Itoa(operation_setting.MinTopUp),
+			"min_topup":    strconv.FormatInt(minTopUp, 10),
 			"token_symbol": config.TokenSymbol,
 			"network_name": config.NetworkName,
 		})
@@ -129,7 +131,7 @@ func GetTopUpInfo(c *gin.Context) {
 		payMethods = append(payMethods, map[string]string{
 			"name":         config.TokenSymbol + " (" + config.NetworkName + ")",
 			"type":         model.PaymentMethodCryptoTron,
-			"min_topup":    strconv.Itoa(operation_setting.MinTopUp),
+			"min_topup":    strconv.FormatInt(minTopUp, 10),
 			"token_symbol": config.TokenSymbol,
 			"network_name": config.NetworkName,
 		})
@@ -160,10 +162,10 @@ func GetTopUpInfo(c *gin.Context) {
 		}(),
 		"creem_products":          setting.CreemProducts,
 		"pay_methods":             payMethods,
-		"min_topup":               operation_setting.MinTopUp,
+		"min_topup":               minTopUp,
 		"stripe_min_topup":        setting.StripeMinTopUp,
 		"waffo_min_topup":         setting.WaffoMinTopUp,
-		"waffo_pancake_min_topup": setting.WaffoPancakeMinTopUp,
+		"waffo_pancake_min_topup": waffoPancakeMinTopUp,
 		"amount_options":          operation_setting.GetPaymentSetting().AmountOptions,
 		"discount":                operation_setting.GetPaymentSetting().AmountDiscount,
 		"topup_link":              common.TopUpLink,

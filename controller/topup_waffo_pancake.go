@@ -29,8 +29,9 @@ func RequestWaffoPancakeAmount(c *gin.Context) {
 		return
 	}
 
-	if req.Amount < int64(setting.WaffoPancakeMinTopUp) {
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", setting.WaffoPancakeMinTopUp)})
+	minTopUp := getWaffoPancakeMinTopUp()
+	if req.Amount < minTopUp {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", minTopUp)})
 		return
 	}
 	id := c.GetInt("id")
@@ -95,14 +96,15 @@ func formatWaffoPancakeAmount(payMoney float64) string {
 	return decimal.NewFromFloat(payMoney).StringFixed(2)
 }
 
+func getWaffoPancakeMinTopUp() int64 {
+	return getMinTopup()
+}
+
 func getWaffoPancakeBuyerEmail(user *model.User) string {
-	if user != nil && strings.TrimSpace(user.Email) != "" {
-		return user.Email
+	if user == nil {
+		return ""
 	}
-	if user != nil {
-		return fmt.Sprintf("%d@new-api.local", user.Id)
-	}
-	return ""
+	return strings.TrimSpace(user.Email)
 }
 
 // The admin config endpoints below accept typed-but-not-yet-saved creds in
@@ -362,8 +364,9 @@ func RequestWaffoPancakePay(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"message": "error", "data": "参数错误"})
 		return
 	}
-	if req.Amount < int64(setting.WaffoPancakeMinTopUp) {
-		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", setting.WaffoPancakeMinTopUp)})
+	minTopUp := getWaffoPancakeMinTopUp()
+	if req.Amount < minTopUp {
+		c.JSON(http.StatusOK, gin.H{"message": "error", "data": fmt.Sprintf("充值数量不能小于 %d", minTopUp)})
 		return
 	}
 	id := c.GetInt("id")
