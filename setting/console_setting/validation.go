@@ -15,6 +15,8 @@ import (
 const (
 	AnnouncementAudienceAll      = "all"
 	AnnouncementAudienceMainSite = "main_site"
+	maxAnnouncementTargetGroups  = 50
+	maxAnnouncementGroupLength   = 64
 )
 
 var (
@@ -206,8 +208,49 @@ func validateAnnouncements(announcementsStr string) error {
 				return fmt.Errorf("第%d个公告的接收对象值不合法", i+1)
 			}
 		}
+		if targetGroups, exists := ann["target_groups"]; exists {
+			groupValues, ok := targetGroups.([]interface{})
+			if !ok {
+				return fmt.Errorf("第%d个公告的用户分组格式不正确", i+1)
+			}
+			groups := make([]string, 0, len(groupValues))
+			for _, value := range groupValues {
+				group, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("第%d个公告的用户分组格式不正确", i+1)
+				}
+				groups = append(groups, group)
+			}
+			if _, err := NormalizeAnnouncementTargetGroups(groups); err != nil {
+				return fmt.Errorf("第%d个公告的用户分组不合法：%s", i+1, err.Error())
+			}
+		}
 	}
 	return nil
+}
+
+func NormalizeAnnouncementTargetGroups(groups []string) ([]string, error) {
+	if len(groups) > maxAnnouncementTargetGroups {
+		return nil, fmt.Errorf("用户分组数量不能超过%d个", maxAnnouncementTargetGroups)
+	}
+
+	normalized := make([]string, 0, len(groups))
+	seen := make(map[string]struct{}, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" {
+			return nil, fmt.Errorf("用户分组不能为空")
+		}
+		if exceedsMaxCharacters(group, maxAnnouncementGroupLength) {
+			return nil, fmt.Errorf("用户分组名称长度不能超过%d字符", maxAnnouncementGroupLength)
+		}
+		if _, exists := seen[group]; exists {
+			continue
+		}
+		seen[group] = struct{}{}
+		normalized = append(normalized, group)
+	}
+	return normalized, nil
 }
 
 func IsValidAnnouncementType(announcementType string) bool {
@@ -293,6 +336,59 @@ func FilterAnnouncementsForAgentSite(announcements []map[string]interface{}) []m
 			continue
 		}
 		filtered = append(filtered, announcement)
+	}
+	return filtered
+}
+
+func announcementTargetGroups(announcement map[string]interface{}) ([]string, bool) {
+	raw, exists := announcement["target_groups"]
+	if !exists {
+		return nil, false
+	}
+	if raw == nil {
+		return nil, true
+	}
+
+	groups := make([]string, 0)
+	switch values := raw.(type) {
+	case []interface{}:
+		for _, value := range values {
+			group, ok := value.(string)
+			if !ok {
+				return nil, true
+			}
+			groups = append(groups, group)
+		}
+	case []string:
+		groups = append(groups, values...)
+	default:
+		return nil, true
+	}
+	normalized, err := NormalizeAnnouncementTargetGroups(groups)
+	if err != nil {
+		return nil, true
+	}
+	return normalized, len(normalized) > 0
+}
+
+func FilterAnnouncementsForUserGroup(announcements []map[string]interface{}, userGroup string, authenticated bool) []map[string]interface{} {
+	filtered := make([]map[string]interface{}, 0, len(announcements))
+	userGroup = strings.TrimSpace(userGroup)
+	for _, announcement := range announcements {
+		targetGroups, targeted := announcementTargetGroups(announcement)
+		if !targeted {
+			filtered = append(filtered, announcement)
+			continue
+		}
+		if !authenticated || userGroup == "" {
+			continue
+		}
+		for _, group := range targetGroups {
+			if group == userGroup {
+				filtered = append(filtered, announcement)
+				break
+			}
+		}
 	}
 	return filtered
 }

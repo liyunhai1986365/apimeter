@@ -127,10 +127,11 @@ type OptionUpdateRequest struct {
 }
 
 type AnnouncementEmailRequest struct {
-	Title    string `json:"title"`
-	Content  string `json:"content"`
-	Type     string `json:"type"`
-	Audience string `json:"audience"`
+	Title        string   `json:"title"`
+	Content      string   `json:"content"`
+	Type         string   `json:"type"`
+	Audience     string   `json:"audience"`
+	TargetGroups []string `json:"target_groups"`
 }
 
 func UpdateOption(c *gin.Context) {
@@ -477,10 +478,11 @@ func SendAnnouncementEmail(c *gin.Context) {
 	}
 
 	summary, err := service.BroadcastAnnouncementEmail(service.BroadcastAnnouncementEmailRequest{
-		Title:    req.Title,
-		Content:  req.Content,
-		Type:     req.Type,
-		Audience: req.Audience,
+		Title:        req.Title,
+		Content:      req.Content,
+		Type:         req.Type,
+		Audience:     req.Audience,
+		TargetGroups: req.TargetGroups,
 	})
 	if err != nil {
 		common.ApiError(c, err)
@@ -494,6 +496,7 @@ func SendAnnouncementEmail(c *gin.Context) {
 		"failed":         summary.Failed,
 		"total":          summary.Total,
 		"audience":       req.Audience,
+		"target_groups":  req.TargetGroups,
 	}
 	model.RecordLogWithAdminInfo(c.GetInt("id"), model.LogTypeManage, fmt.Sprintf("管理员群发公告邮件: %s", req.Title), adminInfo)
 

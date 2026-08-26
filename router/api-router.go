@@ -25,7 +25,7 @@ func SetApiRouter(router *gin.Engine) {
 	{
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", anonymousRequestBodyLimit, controller.PostSetup)
-		apiRouter.GET("/status", controller.GetStatus)
+		apiRouter.GET("/status", middleware.OptionalUserAuth(), controller.GetStatus)
 		registerCommonConfigurableAssetAPIRoutes(apiRouter)
 		apiRouter.GET("/relay-temp-images/:id", controller.ServeRelayTempImage)
 		apiRouter.HEAD("/relay-temp-images/:id", controller.ServeRelayTempImage)

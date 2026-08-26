@@ -104,6 +104,18 @@ func TryUserAuth() func(c *gin.Context) {
 	}
 }
 
+// OptionalUserAuth enriches public endpoints with a valid dashboard identity
+// while keeping them accessible when a stale or invalid credential is present.
+func OptionalUserAuth() func(c *gin.Context) {
+	return func(c *gin.Context) {
+		user, identity, credentialKind, err := classifyDashboardCredential(c)
+		if err == nil && credentialKind != dashboardCredentialUnmatched {
+			setDashboardAuthContext(c, user, identity, credentialKind == dashboardCredentialPAT)
+		}
+		c.Next()
+	}
+}
+
 func UserAuth() func(c *gin.Context) {
 	return func(c *gin.Context) {
 		authHelper(c, common.RoleCommonUser)

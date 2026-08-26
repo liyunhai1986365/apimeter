@@ -52,6 +52,12 @@ export type AnnouncementEmailResponse = {
   }
 }
 
+export type UserGroupsResponse = {
+  success: boolean
+  message: string
+  data?: string[]
+}
+
 export type GlobalWebhookTestResponse = {
   success: boolean
   message: string

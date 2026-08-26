@@ -14,6 +14,7 @@ const existing: Announcement = {
   type: 'general',
   extra: '',
   audience: 'all',
+  target_groups: [],
 }
 
 const draft: AnnouncementDraft = {
@@ -23,6 +24,7 @@ const draft: AnnouncementDraft = {
   type: 'product_update',
   extra: '',
   audience: 'main_site',
+  target_groups: ['vip'],
 }
 
 describe('announcement publication plan', () => {

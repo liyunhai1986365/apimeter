@@ -20,6 +20,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import {
   Add01Icon,
   Delete02Icon,
@@ -42,8 +43,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Combobox,
+  ComboboxChip,
+  ComboboxChips,
+  ComboboxChipsInput,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxValue,
+} from '@/components/ui/combobox'
 import {
   Dialog,
   DialogContent,
@@ -86,7 +99,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { StatusBadge } from '@/components/status-badge'
 import { ANNOUNCEMENT_TYPE_OPTIONS } from '@/features/dashboard/lib/announcement-categories'
-import { sendAnnouncementEmail } from '../api'
+import { getAnnouncementUserGroups, sendAnnouncementEmail } from '../api'
 import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 import {
@@ -123,6 +136,7 @@ const announcementSchema = z
       .max(100, 'Extra must be less than 100 characters')
       .optional(),
     audience: z.enum(['all', 'main_site']),
+    target_groups: z.array(z.string().trim().min(1).max(64)).max(50),
     displayOnFrontend: z.boolean(),
     sendEmail: z.boolean(),
   })
@@ -161,6 +175,7 @@ export function AnnouncementsSection({
       type: 'general',
       extra: '',
       audience: 'all',
+      target_groups: [],
       displayOnFrontend: true,
       sendEmail: false,
     },
@@ -169,6 +184,20 @@ export function AnnouncementsSection({
   const previewTitle = form.watch('title')
   const previewContent = form.watch('content')
   const displayOnFrontend = form.watch('displayOnFrontend')
+  const userGroupsQuery = useQuery({
+    queryKey: ['system-settings', 'announcement-user-groups'],
+    queryFn: getAnnouncementUserGroups,
+  })
+
+  const userGroupOptions = useMemo(() => {
+    const groups = new Set(userGroupsQuery.data?.data ?? [])
+    for (const announcement of announcements) {
+      for (const group of announcement.target_groups ?? []) {
+        groups.add(group)
+      }
+    }
+    return [...groups].sort((a, b) => a.localeCompare(b))
+  }, [announcements, userGroupsQuery.data?.data])
 
   useEffect(() => {
     try {
@@ -180,6 +209,16 @@ export function AnnouncementsSection({
             id: item.id || idx + 1,
             title: item.title || '',
             audience: item.audience === 'main_site' ? 'main_site' : 'all',
+            target_groups: Array.isArray(item.target_groups)
+              ? [
+                  ...new Set(
+                    item.target_groups
+                      .filter((group: unknown) => typeof group === 'string')
+                      .map((group: string) => group.trim())
+                      .filter(Boolean)
+                  ),
+                ]
+              : [],
           }))
         )
       }
@@ -214,6 +253,7 @@ export function AnnouncementsSection({
       type: 'general',
       extra: '',
       audience: 'all',
+      target_groups: [],
       displayOnFrontend: true,
       sendEmail: false,
     })
@@ -229,6 +269,7 @@ export function AnnouncementsSection({
       type: announcement.type,
       extra: announcement.extra || '',
       audience: announcement.audience || 'all',
+      target_groups: announcement.target_groups || [],
       displayOnFrontend: true,
       sendEmail: false,
     })
@@ -305,6 +346,7 @@ export function AnnouncementsSection({
           content: announcementValues.content,
           type: announcementValues.type,
           audience: announcementValues.audience,
+          target_groups: announcementValues.target_groups,
         })
 
         if (!result.success) {
@@ -436,6 +478,7 @@ export function AnnouncementsSection({
                 <TableHead>{t('Publish Date')}</TableHead>
                 <TableHead>{t('Type')}</TableHead>
                 <TableHead>{t('Audience')}</TableHead>
+                <TableHead>{t('User Groups')}</TableHead>
                 <TableHead>{t('Extra')}</TableHead>
                 <TableHead className='w-32'>{t('Actions')}</TableHead>
               </TableRow>
@@ -443,7 +486,7 @@ export function AnnouncementsSection({
             <TableBody>
               {sortedAnnouncements.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className='h-24 text-center'>
+                  <TableCell colSpan={9} className='h-24 text-center'>
                     {t(
                       'No announcements yet. Click "Add Announcement" to create one.'
                     )}
@@ -517,6 +560,32 @@ export function AnnouncementsSection({
                         }
                         copyable={false}
                       />
+                    </TableCell>
+                    <TableCell title={announcement.target_groups?.join(', ')}>
+                      <div className='flex max-w-64 flex-wrap gap-1'>
+                        {announcement.target_groups?.length ? (
+                          <>
+                            {announcement.target_groups
+                              .slice(0, 2)
+                              .map((group) => (
+                                <Badge key={group} variant='outline'>
+                                  {group}
+                                </Badge>
+                              ))}
+                            {announcement.target_groups.length > 2 && (
+                              <Badge variant='secondary'>
+                                {t('{{count}} more groups', {
+                                  count: announcement.target_groups.length - 2,
+                                })}
+                              </Badge>
+                            )}
+                          </>
+                        ) : (
+                          <Badge variant='secondary'>
+                            {t('All user groups')}
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell
                       className='text-muted-foreground max-w-xs truncate'
@@ -762,6 +831,54 @@ export function AnnouncementsSection({
                                 }
                               />
                             </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name='target_groups'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Recipient user groups')}</FormLabel>
+                            <Combobox
+                              items={userGroupOptions}
+                              multiple
+                              value={field.value}
+                              onValueChange={field.onChange}
+                            >
+                              <FormControl>
+                                <ComboboxChips>
+                                  <ComboboxValue>
+                                    {field.value.map((group) => (
+                                      <ComboboxChip key={group}>
+                                        {group}
+                                      </ComboboxChip>
+                                    ))}
+                                  </ComboboxValue>
+                                  <ComboboxChipsInput
+                                    placeholder={t('Select user groups')}
+                                  />
+                                </ComboboxChips>
+                              </FormControl>
+                              <ComboboxContent>
+                                <ComboboxEmpty>
+                                  {t('No user groups found')}
+                                </ComboboxEmpty>
+                                <ComboboxList>
+                                  {(group) => (
+                                    <ComboboxItem key={group} value={group}>
+                                      {group}
+                                    </ComboboxItem>
+                                  )}
+                                </ComboboxList>
+                              </ComboboxContent>
+                            </Combobox>
+                            <FormDescription>
+                              {t(
+                                'Leave empty to deliver to all user groups. Frontend and email delivery use the same selection.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
                           </FormItem>
                         )}
                       />

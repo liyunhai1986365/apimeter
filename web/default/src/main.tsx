@@ -34,6 +34,7 @@ import '@/lib/dayjs'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import { applyGoogleAnalytics } from '@/lib/google-analytics'
 import { handleServerError } from '@/lib/handle-server-error'
+import { readCachedStatus, writeCachedStatus } from '@/lib/status-cache'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
@@ -121,9 +122,8 @@ const rootElement = document.getElementById('root')!
     }
     // Cache-first
     try {
-      const saved = localStorage.getItem('status')
-      if (saved) {
-        const s = JSON.parse(saved)
+      const s = readCachedStatus()
+      if (s) {
         if (s?.system_name) apply(s.system_name)
         if (s?.logo) applyFaviconToDom(s.logo)
         if (s?.customer_service_script) {
@@ -141,11 +141,7 @@ const rootElement = document.getElementById('root')!
       .then((s) => {
         if (s?.system_name) {
           apply(s.system_name as string)
-          try {
-            localStorage.setItem('status', JSON.stringify(s))
-          } catch {
-            /* empty */
-          }
+          writeCachedStatus(s)
         }
         if (s?.logo) applyFaviconToDom(s.logo as string)
         applyCustomerServiceScript(s?.customer_service_script as string)

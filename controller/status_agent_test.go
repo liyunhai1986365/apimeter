@@ -3,6 +3,7 @@ package controller
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -93,6 +94,59 @@ func TestGetStatusHidesMainSiteAnnouncementsOnAgentDomain(t *testing.T) {
 	require.Len(t, agentAnnouncements, 2)
 	require.Equal(t, "Legacy", agentAnnouncements[0].(map[string]interface{})["title"])
 	require.Equal(t, "All users", agentAnnouncements[1].(map[string]interface{})["title"])
+}
+
+func TestGetStatusShowsTargetedAnnouncementsOnlyToMatchingAuthenticatedGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	consoleSetting := console_setting.GetConsoleSetting()
+	oldAnnouncementsEnabled := consoleSetting.AnnouncementsEnabled
+	oldAnnouncements := consoleSetting.Announcements
+	consoleSetting.AnnouncementsEnabled = true
+	consoleSetting.Announcements = `[
+		{"id":1,"title":"All groups","content":"Visible to everyone","publishDate":"2026-08-25T00:00:00Z","type":"general","target_groups":[]},
+		{"id":2,"title":"VIP only","content":"Visible to VIP","publishDate":"2026-08-25T01:00:00Z","type":"general","target_groups":["vip"]},
+		{"id":3,"title":"Default only","content":"Visible to default","publishDate":"2026-08-25T02:00:00Z","type":"general","target_groups":["default"]}
+	]`
+	t.Cleanup(func() {
+		consoleSetting.AnnouncementsEnabled = oldAnnouncementsEnabled
+		consoleSetting.Announcements = oldAnnouncements
+	})
+
+	requestStatus := func(userID int, group string) []interface{} {
+		router := gin.New()
+		router.GET("/api/status", func(c *gin.Context) {
+			if userID > 0 {
+				c.Set("id", userID)
+				c.Set("group", group)
+			}
+			GetStatus(c)
+		})
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
+		vary := strings.Join(w.Header().Values("Vary"), ",")
+		require.Contains(t, vary, "Cookie")
+		require.Contains(t, vary, "Authorization")
+		var body map[string]interface{}
+		require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+		return body["data"].(map[string]interface{})["announcements"].([]interface{})
+	}
+
+	anonymous := requestStatus(0, "")
+	require.Len(t, anonymous, 1)
+	require.Equal(t, "All groups", anonymous[0].(map[string]interface{})["title"])
+
+	vip := requestStatus(10, "vip")
+	require.Len(t, vip, 2)
+	require.Equal(t, "VIP only", vip[0].(map[string]interface{})["title"])
+	_, exposesTargetGroups := vip[0].(map[string]interface{})["target_groups"]
+	require.False(t, exposesTargetGroups)
+	require.Equal(t, "All groups", vip[1].(map[string]interface{})["title"])
+
+	defaultGroup := requestStatus(11, "default")
+	require.Len(t, defaultGroup, 2)
+	require.Equal(t, "Default only", defaultGroup[0].(map[string]interface{})["title"])
 }
 
 func TestGetStatusIncludesGoogleAnalyticsMeasurementID(t *testing.T) {

@@ -27,6 +27,7 @@ export type Announcement = {
   type: AnnouncementType
   extra?: string
   audience: AnnouncementAudience
+  target_groups: string[]
 }
 
 export type AnnouncementDraft = Omit<Announcement, 'id'>

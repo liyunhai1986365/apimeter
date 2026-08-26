@@ -17,11 +17,12 @@ type AnnouncementEmailSender func(subject string, receiver string, content strin
 var AnnouncementEmailSenderFunc AnnouncementEmailSender = common.SendEmail
 
 type BroadcastAnnouncementEmailRequest struct {
-	Title    string
-	Content  string
-	Type     string
-	Audience string
-	Send     AnnouncementEmailSender
+	Title        string
+	Content      string
+	Type         string
+	Audience     string
+	TargetGroups []string
+	Send         AnnouncementEmailSender
 }
 
 type BroadcastAgentAnnouncementEmailRequest struct {
@@ -178,31 +179,37 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 	if req.Audience != console_setting.AnnouncementAudienceAll && req.Audience != console_setting.AnnouncementAudienceMainSite {
 		return summary, fmt.Errorf("invalid announcement audience")
 	}
+	targetGroups, err := console_setting.NormalizeAnnouncementTargetGroups(req.TargetGroups)
+	if err != nil {
+		return summary, err
+	}
 
 	var users []model.User
-	if err := model.DB.
+	userQuery := model.DB.
 		Select("id", "email").
 		Where("status = ?", common.UserStatusEnabled).
-		Where("email <> ?", "").
+		Where("email <> ?", "")
+	if len(targetGroups) > 0 {
+		userQuery = userQuery.Where(map[string]interface{}{"group": targetGroups})
+	}
+	if err := userQuery.
 		Order("id asc").
 		Find(&users).Error; err != nil {
 		return summary, err
 	}
 
-	agentUserIDs := make(map[int]struct{})
 	blockedAgentEmails := make(map[string]struct{})
 	if req.Audience == console_setting.AnnouncementAudienceMainSite {
-		var userIDs []int
-		if err := model.DB.Model(&model.AgentUser{}).Pluck("user_id", &userIDs).Error; err != nil {
+		var agentUsers []model.User
+		if err := model.DB.Model(&model.User{}).
+			Select("users.id", "users.email").
+			Joins("JOIN agent_users ON agent_users.user_id = users.id").
+			Where("users.status = ?", common.UserStatusEnabled).
+			Where("users.email <> ?", "").
+			Find(&agentUsers).Error; err != nil {
 			return summary, err
 		}
-		for _, userID := range userIDs {
-			agentUserIDs[userID] = struct{}{}
-		}
-		for _, user := range users {
-			if _, ok := agentUserIDs[user.Id]; !ok {
-				continue
-			}
+		for _, user := range agentUsers {
 			email := strings.ToLower(strings.TrimSpace(user.Email))
 			if email != "" {
 				blockedAgentEmails[email] = struct{}{}

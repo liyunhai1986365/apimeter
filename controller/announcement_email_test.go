@@ -53,7 +53,7 @@ func TestSendAnnouncementEmailReturnsBroadcastSummary(t *testing.T) {
 	setupAnnouncementEmailControllerTestDB(t)
 
 	require.NoError(t, model.DB.Create(&[]model.User{
-		{Id: 1, Username: "first", Password: "password123", Email: "first@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-1"},
+		{Id: 1, Username: "first", Password: "password123", Email: "first@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "vip", AffCode: "aff-1"},
 		{Id: 2, Username: "empty", Password: "password123", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-2"},
 		{Id: 3, Username: "agent", Password: "password123", Email: "agent@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-3"},
 	}).Error)
@@ -75,7 +75,7 @@ func TestSendAnnouncementEmailReturnsBroadcastSummary(t *testing.T) {
 	c, _ := gin.CreateTestContext(recorder)
 	c.Set("id", 9)
 	c.Set("username", "root")
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/option/announcements/email", strings.NewReader(`{"title":"模型发布","content":"## 新增模型\n\n新增模型已上线","type":"model_release","audience":"main_site"}`))
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/option/announcements/email", strings.NewReader(`{"title":"模型发布","content":"## 新增模型\n\n新增模型已上线","type":"model_release","audience":"main_site","target_groups":["vip"]}`))
 
 	SendAnnouncementEmail(c)
 

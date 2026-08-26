@@ -102,6 +102,9 @@ func GetReadiness(c *gin.Context) {
 }
 
 func GetStatus(c *gin.Context) {
+	c.Header("Cache-Control", "private, no-store")
+	c.Writer.Header().Add("Vary", "Cookie")
+	c.Writer.Header().Add("Vary", "Authorization")
 
 	cs := console_setting.GetConsoleSetting()
 	common.OptionMapRWMutex.RLock()
@@ -208,6 +211,14 @@ func GetStatus(c *gin.Context) {
 		announcements = console_setting.GetAnnouncements()
 		if isAgentSite && agentCtx != nil {
 			announcements = console_setting.FilterAnnouncementsForAgentSite(announcements)
+		}
+		announcements = console_setting.FilterAnnouncementsForUserGroup(
+			announcements,
+			c.GetString("group"),
+			c.GetInt("id") > 0,
+		)
+		for _, announcement := range announcements {
+			delete(announcement, "target_groups")
 		}
 	}
 	if isAgentSite && agentCtx != nil {

@@ -101,6 +101,31 @@ func TestBroadcastAnnouncementEmailCountsSendFailures(t *testing.T) {
 	require.Contains(t, summary.Errors[0], "second@example.com")
 }
 
+func TestBroadcastAnnouncementEmailOnlySendsToSelectedUserGroups(t *testing.T) {
+	setupAnnouncementEmailTestDB(t)
+
+	require.NoError(t, model.DB.Create(&[]model.User{
+		{Id: 1, Username: "default", Password: "password123", Email: "default@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "aff-default"},
+		{Id: 2, Username: "vip", Password: "password123", Email: "vip@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "vip", AffCode: "aff-vip"},
+		{Id: 3, Username: "premium", Password: "password123", Email: "premium@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "premium", AffCode: "aff-premium"},
+	}).Error)
+
+	var receivers []string
+	summary, err := BroadcastAnnouncementEmail(BroadcastAnnouncementEmailRequest{
+		Title:        "分组公告",
+		Content:      "仅指定分组接收",
+		TargetGroups: []string{" vip ", "premium", "vip"},
+		Send: func(_ string, receiver string, _ string) error {
+			receivers = append(receivers, receiver)
+			return nil
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 2, summary.Total)
+	require.Equal(t, []string{"premium@example.com", "vip@example.com"}, receivers)
+}
+
 func TestBroadcastAnnouncementEmailMainSiteAudienceExcludesAgentUsers(t *testing.T) {
 	setupAnnouncementEmailTestDB(t)
 
