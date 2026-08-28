@@ -120,6 +120,20 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
+	if a.isNativeSubmitRequest(c) && profile.videoNative().Submit.Passthrough {
+		var body map[string]any
+		if err := common.UnmarshalBodyReusable(c, &body); err != nil {
+			return nil, err
+		}
+		if info != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
+			body["model"] = info.UpstreamModelName
+		}
+		data, err := common.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(data), nil
+	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil, err
@@ -163,7 +177,14 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		}
 		value := ratio.Value
 		if ratio.From != "" {
-			value = floatValue(valueFromSource(ratio.From, source, info))
+			rawValue := valueFromSource(ratio.From, source, info)
+			if strings.TrimSpace(ratio.Transform) != "" {
+				rawValue, err = applyFieldTransform(ratio.Transform, rawValue, FieldMapping{})
+				if err != nil {
+					continue
+				}
+			}
+			value = floatValue(rawValue)
 		}
 		if value == 0 && ratio.Default != 0 {
 			value = ratio.Default
@@ -189,7 +210,11 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 
 	taskID := strings.TrimSpace(gjson.GetBytes(responseBody, profile.videoSubmit().Response.TaskIDPath).String())
 	if taskID == "" {
-		return "", nil, service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
+		taskErr := service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
+		if a.isNativeSubmitRequest(c) && profile.videoNative().Submit.Response.Passthrough {
+			taskErr.RawBody = responseBody
+		}
+		return "", nil, taskErr
 	}
 
 	if a.isNativeSubmitRequest(c) {
@@ -999,8 +1024,8 @@ func (a *TaskAdaptor) parseNativeTaskRequest(c *gin.Context) (relaycommon.TaskSu
 	if err := common.Unmarshal(data, &req); err != nil {
 		return relaycommon.TaskSubmitReq{}, err
 	}
-	if strings.TrimSpace(req.Prompt) == "" {
-		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt is required")
+	if strings.TrimSpace(req.Prompt) == "" && !req.HasImage() && strings.TrimSpace(req.Image) == "" && strings.TrimSpace(req.InputReference) == "" {
+		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt or media is required")
 	}
 	if req.Metadata == nil {
 		req.Metadata = map[string]interface{}{}
@@ -1039,6 +1064,9 @@ func buildMappedMap(fields []FieldMapping, source map[string]any, info *relaycom
 			return nil, errors.Wrapf(err, "transform field %s", field.To)
 		}
 		value = applyFieldValueMap(value, field)
+		if field.OmitNull && value == nil {
+			continue
+		}
 		if field.OmitEmpty && isEmptyValue(value) {
 			continue
 		}
@@ -1156,6 +1184,27 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 		return value, nil
 	case "to_int":
 		return toIntValue(value)
+	case "wan3_billing_duration":
+		duration, err := toIntValue(value)
+		if err != nil || duration == nil {
+			return 5, nil
+		}
+		seconds := int(floatValue(duration))
+		if seconds == -1 {
+			return 30, nil
+		}
+		return seconds, nil
+	case "wan3_resolution_ratio":
+		switch strings.ToUpper(strings.TrimSpace(fmt.Sprint(value))) {
+		case "480P":
+			return 1, nil
+		case "720P":
+			return 2, nil
+		case "1080P", "", "<NIL>":
+			return 4, nil
+		default:
+			return nil, fmt.Errorf("invalid Wan3 resolution %q", value)
+		}
 	case "media_objects":
 		return mediaObjects(value, field), nil
 	case "seedance_text_content":
@@ -1373,6 +1422,9 @@ func buildConfiguredResponse(config ResponseConfig, upstream []byte, info *relay
 				return nil, err
 			}
 			value = applyFieldValueMap(value, field)
+			if field.OmitNull && value == nil {
+				continue
+			}
 			if field.OmitEmpty && isEmptyValue(value) {
 				continue
 			}

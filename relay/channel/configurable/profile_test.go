@@ -488,6 +488,26 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 }
 
+func TestWan3ProfileRegistersNativeDashScopeProtocol(t *testing.T) {
+	profile, ok := GetProfile("dashscope-wan3-video")
+	if !ok {
+		t.Fatal("expected dashscope-wan3-video profile")
+	}
+	if !profile.VideoNativeSubmit().Passthrough {
+		t.Fatal("expected Wan3 native submit request passthrough")
+	}
+	if profile.VideoNativeSubmit().Path != "/api/v1/services/aigc/video-generation/video-synthesis" {
+		t.Fatalf("unexpected native submit path: %s", profile.VideoNativeSubmit().Path)
+	}
+	if profile.VideoNativeFetch().Path != "/api/v1/tasks/{task_id}" {
+		t.Fatalf("unexpected native fetch path: %s", profile.VideoNativeFetch().Path)
+	}
+	matches := MatchNativeSubmitProfiles("POST", "/api/v1/services/aigc/video-generation/video-synthesis")
+	if len(matches) == 0 || matches[0].ID != "dashscope-wan3-video" {
+		t.Fatalf("expected Wan3 profile to own the shared native route, got %#v", matches)
+	}
+}
+
 func assertPathVariants(t *testing.T, endpoint EndpointConfig, expected []string) {
 	t.Helper()
 	seen := map[string]bool{}

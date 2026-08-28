@@ -490,6 +490,9 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 			if nativeSeedanceProfileSupportsChannel(profileIDs, param.ModelName, channel.Type) {
 				return true
 			}
+			if nativeWan3ProfileSupportsChannel(profileIDs, param.ModelName, channel.Type) {
+				return true
+			}
 			return false
 		}
 	}
@@ -565,6 +568,21 @@ func nativeSeedanceProfileSupportsChannel(profileIDs []string, modelName string,
 	}
 	for _, profileID := range profileIDs {
 		if profileID == "doubao-seedance-2" || profileID == "doubao-seedance-2-api-assets" {
+			return true
+		}
+	}
+	return false
+}
+
+func nativeWan3ProfileSupportsChannel(profileIDs []string, modelName string, channelType int) bool {
+	if channelType != constant.ChannelTypeAli {
+		return false
+	}
+	if modelName != "wan3.0-video" && modelName != "wan3.0-video-prime" {
+		return false
+	}
+	for _, profileID := range profileIDs {
+		if profileID == "dashscope-wan3-video" {
 			return true
 		}
 	}

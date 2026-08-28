@@ -95,6 +95,10 @@ export const CONVERSION_OPTIONS = [
 
 export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
   {
+    label: 'DashScope Wan3 Video',
+    value: 'dashscope-wan3-video',
+  },
+  {
     label: 'Generic JSON Video Task',
     value: 'generic-video-json',
   },

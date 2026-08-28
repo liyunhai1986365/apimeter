@@ -1543,3 +1543,11 @@ func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupportWithoutMem
 	require.Equal(t, 1001, channel.Id)
 	require.Equal(t, "default", selectedGroup)
 }
+
+func TestNativeWan3ProfileSupportsBuiltInAliChannel(t *testing.T) {
+	profiles := []string{"dashscope-wan3-video", "happyhorse-video"}
+	require.True(t, nativeWan3ProfileSupportsChannel(profiles, "wan3.0-video", constant.ChannelTypeAli))
+	require.True(t, nativeWan3ProfileSupportsChannel(profiles, "wan3.0-video-prime", constant.ChannelTypeAli))
+	require.False(t, nativeWan3ProfileSupportsChannel(profiles, "happyhorse-1.0-t2v", constant.ChannelTypeAli))
+	require.False(t, nativeWan3ProfileSupportsChannel(profiles, "wan3.0-video", constant.ChannelTypeConfigurable))
+}

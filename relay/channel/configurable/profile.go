@@ -128,11 +128,12 @@ type BillingConfig struct {
 }
 
 type BillingRatioConfig struct {
-	Key      string  `yaml:"key"`
-	From     string  `yaml:"from"`
-	Value    float64 `yaml:"value"`
-	Default  float64 `yaml:"default"`
-	OmitZero bool    `yaml:"omit_zero"`
+	Key       string  `yaml:"key"`
+	From      string  `yaml:"from"`
+	Transform string  `yaml:"transform"`
+	Value     float64 `yaml:"value"`
+	Default   float64 `yaml:"default"`
+	OmitZero  bool    `yaml:"omit_zero"`
 }
 
 type HeaderConfig struct {
@@ -159,6 +160,7 @@ type FieldMapping struct {
 	Value             any             `yaml:"value"`
 	ValueMap          map[string]any  `yaml:"value_map"`
 	OmitEmpty         bool            `yaml:"omit_empty"`
+	OmitNull          bool            `yaml:"omit_null"`
 }
 
 type ResponseConfig struct {

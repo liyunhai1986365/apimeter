@@ -234,7 +234,11 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		taskErr := service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		if c.GetString("configurable_native_profile_id") != "" {
+			taskErr.RawBody = responseBody
+		}
+		return nil, taskErr
 	}
 
 	// 10. 返回 OtherRatios 给下游（header 必须在 DoResponse 写 body 之前设置）
@@ -557,7 +561,13 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		return nil
 	}
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
-	if err != nil || channelModel.Type != constant.ChannelTypeConfigurable {
+	if err != nil {
+		return nil
+	}
+	isConfigurable := channelModel.Type == constant.ChannelTypeConfigurable
+	isAliWan3Native := returnNativeBody && channelModel.Type == constant.ChannelTypeAli &&
+		(task.Properties.OriginModelName == "wan3.0-video" || task.Properties.OriginModelName == "wan3.0-video-prime")
+	if !isConfigurable && !isAliWan3Native {
 		return nil
 	}
 	baseURL := channelModel.GetBaseURL()

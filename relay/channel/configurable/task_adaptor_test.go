@@ -128,6 +128,22 @@ func TestBuildConfiguredResponseMapsConfiguredFieldValues(t *testing.T) {
 	require.JSONEq(t, `{"data":{"Status":"Active"}}`, string(responseBody))
 }
 
+func TestBuildMappedMapOmitNullPreservesExplicitFalseAndZero(t *testing.T) {
+	body, err := BuildMappedMap([]FieldMapping{
+		{To: "parameters.audio", From: "body.audio", OmitNull: true},
+		{To: "parameters.seed", From: "body.seed", OmitNull: true},
+		{To: "parameters.missing", From: "body.missing", OmitNull: true},
+	}, map[string]any{"audio": false, "seed": 0}, nil)
+	require.NoError(t, err)
+	data, err := common.Marshal(body)
+	require.NoError(t, err)
+	require.True(t, gjson.GetBytes(data, "parameters.audio").Exists())
+	require.False(t, gjson.GetBytes(data, "parameters.audio").Bool())
+	require.True(t, gjson.GetBytes(data, "parameters.seed").Exists())
+	require.Equal(t, int64(0), gjson.GetBytes(data, "parameters.seed").Int())
+	require.False(t, gjson.GetBytes(data, "parameters.missing").Exists())
+}
+
 func TestTaskAdaptorBuildsHappyHorseTextToVideoRequest(t *testing.T) {
 	body := buildHappyHorseRequestBody(t, []byte(`{
 		"model":"happyhorse-1.0-t2v",
@@ -1442,6 +1458,50 @@ func TestTaskAdaptorBuildsHappyHorseNativeDashScopeRequest(t *testing.T) {
 	if got := gjson.GetBytes(mappedBody, "parameters.watermark").Bool(); got {
 		t.Fatalf("unexpected watermark: %v body=%s", got, mappedBody)
 	}
+}
+
+func TestTaskAdaptorPassesThroughWan3NativeRequestIncludingFalseAndZero(t *testing.T) {
+	body := []byte(`{
+		"model":"wan3.0-video",
+		"input":{"media":[{"type":"file","url":"https://example.com/source.zip"}]},
+		"parameters":{"resolution":"1080P","ratio":"adaptive","duration":-1,"audio":false,"seed":0,"prompt_extend":false,"watermark":false}
+	}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/services/aigc/video-generation/video-synthesis", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	_, err := common.GetBodyStorage(c)
+	require.NoError(t, err)
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "wan3.0-video",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			UpstreamModelName: "wan3.0-video-prime",
+			ChannelSetting: dto.ChannelSettings{Protocol: &dto.ChannelProtocolSettings{
+				ProfileID: "dashscope-wan3-video",
+			}},
+		},
+	}
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+	reader, err := adaptor.BuildRequestBody(c, info)
+	require.NoError(t, err)
+	upstream, err := io.ReadAll(reader)
+	require.NoError(t, err)
+
+	require.Equal(t, "wan3.0-video-prime", gjson.GetBytes(upstream, "model").String())
+	require.Equal(t, "file", gjson.GetBytes(upstream, "input.media.0.type").String())
+	require.True(t, gjson.GetBytes(upstream, "parameters.audio").Exists())
+	require.False(t, gjson.GetBytes(upstream, "parameters.audio").Bool())
+	require.True(t, gjson.GetBytes(upstream, "parameters.seed").Exists())
+	require.Equal(t, int64(0), gjson.GetBytes(upstream, "parameters.seed").Int())
+	require.Equal(t, int64(-1), gjson.GetBytes(upstream, "parameters.duration").Int())
+
+	ratios := adaptor.EstimateBilling(c, info)
+	require.Equal(t, 30.0, ratios["seconds"])
+	require.Equal(t, 4.0, ratios["resolution"])
 }
 
 func TestTaskAdaptorParsesSubmitAndFetchResponses(t *testing.T) {

@@ -260,6 +260,69 @@ func TestSeedanceNativeFetchReturnsVolcengineShapeWithoutInternalEnvelope(t *tes
 	require.False(t, gjson.GetBytes(body, "quota").Exists())
 }
 
+func TestWan3NativeFetchUsesBuiltInAliChannelAndPreservesDashScopeShape(t *testing.T) {
+	setupRelayTaskTestDB(t)
+
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, http.MethodGet, r.Method)
+		require.Equal(t, "/api/v1/tasks/upstream-wan3", r.URL.Path)
+		require.Equal(t, "Bearer sk-wan3", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{
+			"request_id":"req-wan3",
+			"output":{"task_id":"upstream-wan3","task_status":"SUCCEEDED","video_url":"https://cdn.example/wan3.mp4","orig_prompt":"cat"},
+			"usage":{"video_count":1,"input_video_duration":1.5,"output_video_duration":4.5,"fps":24,"SR":1080,"ratio":"16:9"},
+			"future_field":{"kept":true}
+		}`))
+	}))
+	defer upstream.Close()
+
+	channel := model.Channel{
+		Id:      9110,
+		Type:    constant.ChannelTypeAli,
+		Key:     "sk-wan3",
+		BaseURL: common.GetPointer(upstream.URL),
+		Status:  common.ChannelStatusEnabled,
+		Name:    "ali-wan3",
+		Models:  "wan3.0-video",
+		Group:   "default",
+	}
+	require.NoError(t, model.DB.Create(&channel).Error)
+	require.NoError(t, model.DB.Create(&model.Task{
+		TaskID:    "task_public_wan3",
+		UserId:    7,
+		ChannelId: channel.Id,
+		Platform:  constant.TaskPlatform(fmt.Sprintf("%d", constant.ChannelTypeAli)),
+		Status:    model.TaskStatusInProgress,
+		Progress:  "20%",
+		Properties: model.Properties{
+			OriginModelName:   "wan3.0-video",
+			UpstreamModelName: "wan3.0-video",
+		},
+		PrivateData: model.TaskPrivateData{UpstreamTaskID: "upstream-wan3"},
+	}).Error)
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/tasks/task_public_wan3", nil)
+	c.Set("id", 7)
+	c.Set("task_id", "task_public_wan3")
+	c.Set("configurable_native_profile_id", "dashscope-wan3-video")
+
+	body, taskErr := videoFetchByIDRespBodyBuilder(c)
+	require.Nil(t, taskErr)
+	require.Equal(t, "task_public_wan3", gjson.GetBytes(body, "output.task_id").String())
+	require.Equal(t, "SUCCEEDED", gjson.GetBytes(body, "output.task_status").String())
+	require.Equal(t, 1.5, gjson.GetBytes(body, "usage.input_video_duration").Float())
+	require.True(t, gjson.GetBytes(body, "future_field.kept").Bool())
+
+	reloaded, exists, err := model.GetByTaskId(7, "task_public_wan3")
+	require.NoError(t, err)
+	require.True(t, exists)
+	require.EqualValues(t, model.TaskStatusSuccess, reloaded.Status)
+	require.Equal(t, "https://cdn.example/wan3.mp4", reloaded.GetResultURL())
+}
+
 func TestSeedanceNativeFetchKeepsVolcengineShapeWhenUpstreamFetchFails(t *testing.T) {
 	setupRelayTaskTestDB(t)
 
