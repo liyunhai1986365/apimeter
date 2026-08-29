@@ -106,7 +106,8 @@ function buildDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
   t: (key: string, opts?: Record<string, unknown>) => string,
-  discountLabels: GroupDiscountLabels
+  discountLabels: GroupDiscountLabels,
+  showDiscount = true
 ): DetailSegment[] {
   if (log.type === 6) {
     return [{ text: t('Async task refund') }]
@@ -249,7 +250,11 @@ function buildDetailSegments(
         ? t('User Exclusive Discount')
         : t('Group Discount')
 
-      if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
+      if (
+        showDiscount &&
+        effectiveRatio != null &&
+        Number.isFinite(effectiveRatio)
+      ) {
         const discountLabel = formatGroupDiscount(
           effectiveRatio,
           discountLabels
@@ -318,6 +323,7 @@ export function useCommonLogsColumns(
     columns.push(
       {
         id: 'channel',
+        accessorFn: (log) => log.channel,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('Channel')} />
         ),
@@ -431,6 +437,7 @@ export function useCommonLogsColumns(
       },
       {
         id: 'user',
+        accessorFn: (log) => log.username,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('User')} />
         ),
@@ -494,7 +501,7 @@ export function useCommonLogsColumns(
       <DataTableColumnHeader column={column} title={t('Token')} />
     ),
     cell: function TokenNameCell({ row }) {
-      const { sensitiveVisible } = useUsageLogsContext()
+      const { sensitiveVisible, discountVisible } = useUsageLogsContext()
       const log = row.original
       if (!isDisplayableLogType(log.type)) return null
 
@@ -506,7 +513,10 @@ export function useCommonLogsColumns(
       let group = log.group
       if (!group) group = other?.group || ''
 
-      const groupRatioText = getGroupRatioText(other, discountLabels)
+      const groupRatioText =
+        !isAdmin || discountVisible
+          ? getGroupRatioText(other, discountLabels)
+          : null
       const groupLabel = group ? (sensitiveVisible ? group : '••••') : ''
 
       return (
@@ -853,10 +863,17 @@ export function useCommonLogsColumns(
       header: t('Details'),
       cell: function DetailsCell({ row }) {
         const [dialogOpen, setDialogOpen] = useState(false)
+        const { discountVisible } = useUsageLogsContext()
         const log = row.original
         const other = parseLogOther(log.other)
 
-        const segments = buildDetailSegments(log, other, t, discountLabels)
+        const segments = buildDetailSegments(
+          log,
+          other,
+          t,
+          discountLabels,
+          !isAdmin || discountVisible
+        )
         const primary = segments[0]
         const hasMore = segments.length > 1
 

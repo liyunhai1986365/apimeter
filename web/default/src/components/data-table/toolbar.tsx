@@ -25,7 +25,10 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { DataTableFacetedFilter } from './faceted-filter'
-import { DataTableViewOptions } from './view-options'
+import {
+  DataTableViewOptions,
+  type DataTableAdditionalViewOption,
+} from './view-options'
 
 type FilterDef = {
   columnId: string
@@ -105,6 +108,11 @@ export type DataTableToolbarProps<TData> = {
    * Hide the View Options (column visibility) dropdown.
    */
   hideViewOptions?: boolean
+  /**
+   * Display-only preferences that are not represented by standalone table
+   * columns, rendered alongside the standard column visibility options.
+   */
+  additionalViewOptions?: DataTableAdditionalViewOption[]
   /**
    * Content rendered on the LEFT side of the secondary action row. When
    * provided the toolbar splits into two visual rows:
@@ -217,7 +225,10 @@ export function DataTableToolbar<TData>(props: DataTableToolbarProps<TData>) {
   ) : null
 
   const viewOptionsNode = !props.hideViewOptions ? (
-    <DataTableViewOptions table={props.table} />
+    <DataTableViewOptions
+      table={props.table}
+      additionalOptions={props.additionalViewOptions}
+    />
   ) : null
 
   const expandToggle = hasExpandable ? (

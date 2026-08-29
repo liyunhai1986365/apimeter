@@ -78,7 +78,12 @@ export function CommonLogsFilterBar<TData>(
   const queryClient = useQueryClient()
   const searchParams = route.useSearch()
   const isAdmin = useIsAdmin()
-  const { sensitiveVisible, setSensitiveVisible } = useUsageLogsContext()
+  const {
+    sensitiveVisible,
+    setSensitiveVisible,
+    discountVisible,
+    setDiscountVisible,
+  } = useUsageLogsContext()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
 
   const [filters, setFilters] = useState<CommonLogFilters>(() => {
@@ -225,6 +230,18 @@ export function CommonLogsFilterBar<TData>(
     <DataTableToolbar
       table={props.table}
       leftActions={statsBar}
+      additionalViewOptions={
+        isAdmin
+          ? [
+              {
+                id: 'discount',
+                label: t('Billing discount'),
+                checked: discountVisible,
+                onCheckedChange: setDiscountVisible,
+              },
+            ]
+          : undefined
+      }
       customSearch={
         <CompactDateTimeRangePicker
           start={filters.startTime}
