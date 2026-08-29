@@ -24,9 +24,6 @@ export function useGroupDiscountLabels(): GroupDiscountLabels {
 
   return {
     originalPrice: t('Original price'),
-    fold: t('{{percent}} off'),
-    percentDiscount: t('{{value}} off'),
     percentPrice: t('{{value}} price'),
-    startingFrom: t('From {{value}}'),
   }
 }

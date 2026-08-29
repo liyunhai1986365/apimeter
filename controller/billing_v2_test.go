@@ -58,6 +58,6 @@ func TestWriteBillingBreakdownCSVExportsSupplierDiscountRatioAndAmountsAsUSD(t *
 		"结算金额(USD)",
 	}, records[0])
 	require.Equal(t, "1.000000", records[1][8])
-	require.Equal(t, "0.53", records[1][9])
+	require.Equal(t, "-47%", records[1][9])
 	require.Equal(t, "0.002000", records[1][10])
 }

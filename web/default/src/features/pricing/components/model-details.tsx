@@ -73,6 +73,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { CopyButton } from '@/components/copy-button'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { PublicLayout } from '@/components/layout'
 import { getPerfMetrics } from '@/features/performance-metrics/api'
 import {
@@ -784,14 +785,16 @@ function DynamicProviderPriceCard(props: {
             <ProviderGroupTitle group={props.group} desc={props.groupDesc} />
           </CardTitle>
           {props.discountLabel && (
-            <span
-              className={cn(
-                'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
-                getDiscountBadgeClass()
-              )}
-            >
-              {props.discountLabel}
-            </span>
+            <DiscountTooltip label={props.discountLabel}>
+              <span
+                className={cn(
+                  'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
+                  getDiscountBadgeClass()
+                )}
+              >
+                {props.discountLabel}
+              </span>
+            </DiscountTooltip>
           )}
           {props.groupDesc && (
             <CardDescription className='min-w-0 flex-1 truncate text-xs'>
@@ -902,14 +905,16 @@ function ProviderPriceCard(props: {
             <ProviderGroupTitle group={props.group} desc={props.groupDesc} />
           </CardTitle>
           {props.discountLabel && (
-            <span
-              className={cn(
-                'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
-                getDiscountBadgeClass()
-              )}
-            >
-              {props.discountLabel}
-            </span>
+            <DiscountTooltip label={props.discountLabel}>
+              <span
+                className={cn(
+                  'inline-flex shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold shadow-sm',
+                  getDiscountBadgeClass()
+                )}
+              >
+                {props.discountLabel}
+              </span>
+            </DiscountTooltip>
           )}
           {props.groupDesc && (
             <CardDescription className='min-w-0 flex-1 truncate text-xs'>

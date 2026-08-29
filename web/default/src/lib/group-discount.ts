@@ -28,26 +28,16 @@ function formatPercentNumber(value: number): string {
 
 export type GroupDiscountLabels = {
   originalPrice: string
-  fold: string
-  percentDiscount: string
   percentPrice: string
-  startingFrom: string
 }
 
 export const defaultGroupDiscountLabels: GroupDiscountLabels = {
   originalPrice: 'Original price',
-  fold: '{{percent}}% off',
-  percentDiscount: '{{value}}% off',
   percentPrice: '{{value}}% price',
-  startingFrom: 'From {{value}}',
 }
 
-function formatTemplate(
-  template: string,
-  value: string,
-  percent = value
-): string {
-  return template.replace('{{value}}', value).replace('{{percent}}', percent)
+function formatTemplate(template: string, value: string): string {
+  return template.replace('{{value}}', value)
 }
 
 export function formatGroupDiscount(
@@ -62,17 +52,57 @@ export function formatGroupDiscount(
   if (value === 1) return labels.originalPrice
 
   const percent = value * 100
-  if (value > 0 && value < 1) {
-    const shouldUseTenthFold = percent < 10 || Math.abs(percent % 10) < 1e-9
-    const fold = shouldUseTenthFold ? percent / 10 : percent
-    return formatTemplate(
-      labels.fold,
-      formatPercentNumber(fold),
-      formatPercentNumber(percent)
-    )
-  }
+  const discount = formatDiscountPercentage(value)
+  if (discount) return discount
 
   return formatTemplate(labels.percentPrice, formatPercentNumber(percent))
+}
+
+export function formatDiscountPercentage(
+  ratio: number | string | null | undefined
+): string | undefined {
+  const value = parseRatio(ratio)
+  if (value === undefined || value <= 0 || value >= 1) return undefined
+
+  return `-${formatPercentNumber((1 - value) * 100)}%`
+}
+
+export function normalizeDiscountLabel(
+  label: string | null | undefined
+): string | undefined {
+  const value = label?.trim()
+  if (!value) return undefined
+
+  const foldMatch = value.match(/(\d+(?:\.\d+)?)\s*折/)
+  if (foldMatch) {
+    const fold = Number(foldMatch[1])
+    if (Number.isFinite(fold) && fold > 0 && fold < 10) {
+      return formatDiscountPercentage(fold / 10)
+    }
+  }
+
+  const percentMatch = value.match(/-?\s*(\d+(?:\.\d+)?)\s*%/)
+  if (!percentMatch) return undefined
+
+  const percent = Number(percentMatch[1])
+  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+    return undefined
+  }
+  return `-${formatPercentNumber(percent)}%`
+}
+
+export function getDiscountSavingsLabel(
+  label: string | null | undefined
+): string | undefined {
+  const match = label?.trim().match(/^-(\d+(?:\.\d+)?)%$/)
+  if (!match) return undefined
+
+  const percent = Number(match[1])
+  if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
+    return undefined
+  }
+
+  return `${formatPercentNumber(percent)}%`
 }
 
 function parseRatio(
@@ -105,7 +135,5 @@ export function getLowestGroupDiscountSummary(
   const summary = formatGroupDiscount(lowestRatio, labels)
   if (!summary) return undefined
 
-  return candidates.length > 1
-    ? formatTemplate(labels.startingFrom, summary)
-    : summary
+  return summary
 }

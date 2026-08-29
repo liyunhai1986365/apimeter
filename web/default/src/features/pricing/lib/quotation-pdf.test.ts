@@ -42,7 +42,7 @@ describe('quotation PDF data', () => {
       group: 'default',
       description: 'Default supplier',
       ratio: 0.5,
-      label: '50% off',
+      label: '-50%',
     })
   })
 

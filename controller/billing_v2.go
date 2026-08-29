@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/csv"
 	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -180,10 +181,11 @@ func writeBillingBreakdownCSV(c *gin.Context, rows []model.BillingBreakdownRow, 
 }
 
 func formatBillingCSVRatio(ratio float64) string {
-	if ratio <= 0 {
+	if ratio <= 0 || ratio >= 1 {
 		return ""
 	}
-	return strconv.FormatFloat(ratio, 'f', -1, 64)
+	discount := math.Round((1-ratio)*100000) / 1000
+	return "-" + strconv.FormatFloat(discount, 'f', -1, 64) + "%"
 }
 
 func formatBillingCSVUSDAmount(quota int64) string {

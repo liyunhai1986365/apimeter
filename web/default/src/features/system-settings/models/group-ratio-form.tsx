@@ -422,7 +422,7 @@ function GroupPricingGuide({ open, onOpenChange }: GroupPricingGuideProps) {
                 <GuideCodeBlock>
                   {`${t('Group name')}   ${t('Ratio')}   ${t('User selectable')}   ${t('Description')}
 standard     1.0     ${t('Yes')}               ${t('Standard price')}
-premium      0.5     ${t('Yes')}               ${t('Premium plan, half price')}
+premium      0.5     ${t('Yes')}               ${t('Premium plan, -50%')}
 vip          0.5     ${t('No')}                ${t('Assigned by administrator only')}`}
                 </GuideCodeBlock>
                 <p className='text-muted-foreground text-sm leading-6'>
@@ -484,7 +484,7 @@ vip          0.5     ${t('No')}                ${t('Assigned by administrator on
                 </p>
                 <GuideCodeBlock>{`{
   "vip": {
-    "+:premium": "${t('Premium plan, half price')}",
+    "+:premium": "${t('Premium plan, -50%')}",
     "-:default": "remove",
     "special": "${t('Special group')}"
   }

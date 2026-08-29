@@ -21,6 +21,7 @@ import { Crown, RefreshCw, Sparkles, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { formatQuota } from '@/lib/format'
+import { normalizeDiscountLabel } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
@@ -41,6 +42,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import {
   StatusBadge,
   dotColorMap,
@@ -517,7 +519,9 @@ export function SubscriptionPlansCard({
               const limit = Number(plan.max_purchase_per_user || 0)
               const count = planPurchaseCountMap.get(plan.id) || 0
               const reached = limit > 0 && count >= limit
-              const discountDescription = plan.discount_description?.trim()
+              const discountLabel = normalizeDiscountLabel(
+                plan.discount_description
+              )
 
               const benefits = [
                 `${t('Validity Period')}: ${formatDuration(plan, t)}`,
@@ -527,9 +531,7 @@ export function SubscriptionPlansCard({
                 totalAmount > 0
                   ? `${t('Total Quota')}: ${formatQuota(totalAmount)}`
                   : `${t('Total Quota')}: ${t('Unlimited')}`,
-                discountDescription
-                  ? `${t('Official Discount:')} ${discountDescription}`
-                  : null,
+                discountLabel,
                 limit > 0 ? `${t('Purchase Limit')}: ${limit}` : null,
                 plan.upgrade_group
                   ? `${t('Upgrade Group')}: ${plan.upgrade_group}`
@@ -581,7 +583,13 @@ export function SubscriptionPlansCard({
                           className='text-muted-foreground flex items-center gap-2 text-xs'
                         >
                           <Check className='text-primary h-3 w-3 shrink-0' />
-                          <span>{label}</span>
+                          {label === discountLabel ? (
+                            <DiscountTooltip label={discountLabel}>
+                              <span>{label}</span>
+                            </DiscountTooltip>
+                          ) : (
+                            <span>{label}</span>
+                          )}
                         </div>
                       ))}
                     </div>

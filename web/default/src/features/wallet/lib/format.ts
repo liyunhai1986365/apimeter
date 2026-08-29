@@ -21,7 +21,7 @@ import {
   getCurrencyDisplay,
   type CurrencyFormatOptions,
 } from '@/lib/currency'
-import { DEFAULT_DISCOUNT_RATE } from '../constants'
+import { formatDiscountPercentage } from '@/lib/group-discount'
 
 // ============================================================================
 // Wallet-specific Formatting Functions
@@ -101,14 +101,10 @@ export function formatPaymentAmountFromUSD(
 }
 
 /**
- * Get discount label for display (e.g., "20% OFF")
+ * Get a universal discount label for display (e.g., "-20%")
  */
 export function getDiscountLabel(discount: number): string {
-  if (discount >= DEFAULT_DISCOUNT_RATE) {
-    return ''
-  }
-  const off = Math.round((1 - discount) * 100)
-  return `${off}% OFF`
+  return formatDiscountPercentage(discount) || ''
 }
 
 /**

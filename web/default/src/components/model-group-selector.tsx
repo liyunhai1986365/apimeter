@@ -45,6 +45,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 
 interface ModelOption {
   label: string
@@ -449,9 +450,9 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
                           {discount && (
                             <>
                               {' · '}
-                              {t('Discount: {{value}}', {
-                                value: discount,
-                              })}
+                              <DiscountTooltip label={discount}>
+                                <span>{discount}</span>
+                              </DiscountTooltip>
                             </>
                           )}
                         </div>
@@ -525,9 +526,9 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
                                 {discount && (
                                   <>
                                     {' · '}
-                                    {t('Discount: {{value}}', {
-                                      value: discount,
-                                    })}
+                                    <DiscountTooltip label={discount}>
+                                      <span>{discount}</span>
+                                    </DiscountTooltip>
                                   </>
                                 )}
                               </div>

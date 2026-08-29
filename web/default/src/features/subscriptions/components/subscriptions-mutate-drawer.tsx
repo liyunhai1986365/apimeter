@@ -309,7 +309,7 @@ export function SubscriptionsMutateDrawer({
                     <FormControl>
                       <Input
                         {...field}
-                        placeholder={t('e.g., 4折 / 40% OFF')}
+                        placeholder='-20%'
                       />
                     </FormControl>
                     <FormDescription>

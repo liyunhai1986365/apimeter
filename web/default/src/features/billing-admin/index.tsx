@@ -27,6 +27,7 @@ import {
   formatTokens,
   parseQuotaFromDollars,
 } from '@/lib/format'
+import { formatDiscountPercentage } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { SectionPageLayout } from '@/components/layout'
 import type {
   BillingAdminStatementItem,
@@ -722,9 +724,13 @@ function BillingAdminDetail({
                     {formatQuota(item.original_amount)}
                   </TableCell>
                   <TableCell className='text-right tabular-nums'>
-                    {item.group_ratio > 0
-                      ? item.group_ratio.toFixed(6).replace(/\.?0+$/, '')
-                      : '-'}
+                    <DiscountTooltip
+                      label={formatDiscountPercentage(item.group_ratio)}
+                    >
+                      <span>
+                        {formatDiscountPercentage(item.group_ratio) || '-'}
+                      </span>
+                    </DiscountTooltip>
                   </TableCell>
                   <TableCell className='text-right font-medium tabular-nums'>
                     {formatQuota(item.settlement_amount)}

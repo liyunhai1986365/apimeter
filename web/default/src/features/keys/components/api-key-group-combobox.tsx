@@ -38,6 +38,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 
 export type ApiKeyGroupOption = {
   value: string
@@ -79,23 +80,23 @@ export function GroupRatioBadge({
   ratio: ApiKeyGroupOption['ratio']
   hidden?: boolean
 }) {
-  const { t } = useTranslation()
   const discountLabels = useGroupDiscountLabels()
-  const discount = formatGroupDiscount(ratio, discountLabels)
-  const label = discount ? t('Discount: {{value}}', { value: discount }) : null
+  const label = formatGroupDiscount(ratio, discountLabels)
 
   if (hidden || !label) return null
 
   return (
-    <Badge
-      variant='outline'
-      className={cn(
-        'max-w-24 shrink-0 truncate text-[10px] sm:max-w-none sm:text-xs',
-        getRatioBadgeClassName(ratio)
-      )}
-    >
-      {label}
-    </Badge>
+    <DiscountTooltip label={label}>
+      <Badge
+        variant='outline'
+        className={cn(
+          'max-w-24 shrink-0 truncate text-[10px] sm:max-w-none sm:text-xs',
+          getRatioBadgeClassName(ratio)
+        )}
+      >
+        {label}
+      </Badge>
+    </DiscountTooltip>
   )
 }
 

@@ -35,7 +35,10 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
-import { formatGroupDiscount } from '@/lib/group-discount'
+import {
+  formatGroupDiscount,
+  getDiscountSavingsLabel,
+} from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
@@ -49,6 +52,7 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { appendChannelRetryPolicyRule } from '@/features/channels/api'
 import {
@@ -92,6 +96,10 @@ function DetailRow(props: {
   mono?: boolean
   muted?: boolean
 }) {
+  const isDiscountValue =
+    typeof props.value === 'string' &&
+    Boolean(getDiscountSavingsLabel(props.value))
+
   return (
     <div className='grid min-w-0 grid-cols-[5.25rem_minmax(0,1fr)] gap-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-3'>
       <span className='text-muted-foreground min-w-0 text-xs'>
@@ -104,7 +112,13 @@ function DetailRow(props: {
           props.muted && 'text-muted-foreground'
         )}
       >
-        {props.value}
+        {isDiscountValue ? (
+          <DiscountTooltip label={props.value as string}>
+            <span>{props.value}</span>
+          </DiscountTooltip>
+        ) : (
+          props.value
+        )}
       </span>
     </div>
   )

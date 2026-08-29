@@ -8,10 +8,7 @@ import {
 
 const zhDiscountLabels = {
   originalPrice: '原价',
-  fold: '{{value}}折',
-  percentDiscount: '{{value}}%折扣',
   percentPrice: '{{value}}%价格',
-  startingFrom: '{{value}}起',
 }
 
 function tokenModel(overrides: Partial<PricingModel> = {}): PricingModel {
@@ -40,7 +37,7 @@ describe('buildModelCardPriceDisplay', () => {
     assert.equal(display.kind, 'token')
     assert.equal(display.billingLabelKey, 'Token-based')
     assert.equal(display.unitLabel, '1M')
-    assert.equal(display.discountLabel, '5折起')
+    assert.equal(display.discountLabel, '-50%')
     assert.deepEqual(
       display.entries.map((entry) => ({
         label: entry.labelKey,
@@ -170,7 +167,7 @@ describe('buildModelCardPriceDisplay', () => {
 
     assert.equal(display.kind, 'request')
     assert.equal(display.billingLabelKey, 'Per Request')
-    assert.equal(display.discountLabel, '5折起')
+    assert.equal(display.discountLabel, '-50%')
     assert.deepEqual(display.entries, [
       {
         key: 'request',
@@ -224,7 +221,7 @@ describe('buildModelCardPriceDisplay', () => {
 
     assert.equal(display.kind, 'dynamic')
     assert.equal(display.billingLabelKey, 'Dynamic Pricing')
-    assert.equal(display.discountLabel, '5折起')
+    assert.equal(display.discountLabel, '-50%')
     assert.deepEqual(
       display.entries.map((entry) => ({
         label: entry.labelKey,

@@ -41,6 +41,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import type { UsageLog } from '../../data/schema'
 import {
@@ -68,6 +69,7 @@ import { useUsageLogsContext } from '../usage-logs-provider'
 
 interface DetailSegment {
   text: string
+  discountLabel?: string
   muted?: boolean
   danger?: boolean
 }
@@ -248,11 +250,15 @@ function buildDetailSegments(
         : t('Group Discount')
 
       if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
+        const discountLabel = formatGroupDiscount(
+          effectiveRatio,
+          discountLabels
+        )
         segments.push({
           text: `${ratioLabel} ${
-            formatGroupDiscount(effectiveRatio, discountLabels) ??
-            formatRatioCompact(effectiveRatio)
+            discountLabel ?? formatRatioCompact(effectiveRatio)
           }`,
+          discountLabel,
         })
       }
     }
@@ -500,12 +506,8 @@ export function useCommonLogsColumns(
       let group = log.group
       if (!group) group = other?.group || ''
 
-      const metaParts: string[] = []
       const groupRatioText = getGroupRatioText(other, discountLabels)
-      if (group) {
-        metaParts.push(sensitiveVisible ? group : '••••')
-      }
-      if (groupRatioText) metaParts.push(groupRatioText)
+      const groupLabel = group ? (sensitiveVisible ? group : '••••') : ''
 
       return (
         <div className='flex max-w-[200px] flex-col gap-0.5'>
@@ -528,9 +530,15 @@ export function useCommonLogsColumns(
               )}
             </Tooltip>
           </TooltipProvider>
-          {metaParts.length > 0 && (
+          {(groupLabel || groupRatioText) && (
             <span className='text-muted-foreground/60 truncate text-[11px]'>
-              {metaParts.join(' · ')}
+              {groupLabel}
+              {groupLabel && groupRatioText && ' · '}
+              {groupRatioText && (
+                <DiscountTooltip label={groupRatioText}>
+                  <span>{groupRatioText}</span>
+                </DiscountTooltip>
+              )}
             </span>
           )}
         </div>
@@ -862,23 +870,25 @@ export function useCommonLogsColumns(
                 title={t('Click to view full details')}
               >
                 {primary ? (
-                  <span
-                    className={cn(
-                      'truncate leading-snug group-hover:underline',
-                      primary.muted
-                        ? 'text-muted-foreground/60'
-                        : primary.danger
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-foreground'
-                    )}
-                  >
-                    {primary.text}
-                    {hasMore && (
-                      <span className='text-muted-foreground/40 ml-0.5'>
-                        +{segments.length - 1}
-                      </span>
-                    )}
-                  </span>
+                  <DiscountTooltip label={primary.discountLabel}>
+                    <span
+                      className={cn(
+                        'truncate leading-snug group-hover:underline',
+                        primary.muted
+                          ? 'text-muted-foreground/60'
+                          : primary.danger
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-foreground'
+                      )}
+                    >
+                      {primary.text}
+                      {hasMore && (
+                        <span className='text-muted-foreground/40 ml-0.5'>
+                          +{segments.length - 1}
+                        </span>
+                      )}
+                    </span>
+                  </DiscountTooltip>
                 ) : log.content ? (
                   <span className='text-muted-foreground truncate group-hover:underline'>
                     {log.content}

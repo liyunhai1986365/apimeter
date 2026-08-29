@@ -31,6 +31,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import {
   ENDPOINT_TYPES,
   FILTER_ALL,
@@ -141,9 +142,11 @@ function FilterChip(props: {
         </span>
       )}
       {props.option.count == null && props.option.suffix && (
-        <span className='bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]'>
-          {props.option.suffix}
-        </span>
+        <DiscountTooltip label={props.option.suffix}>
+          <span className='bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]'>
+            {props.option.suffix}
+          </span>
+        </DiscountTooltip>
       )}
     </button>
   )

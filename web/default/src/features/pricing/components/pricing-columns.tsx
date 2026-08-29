@@ -24,6 +24,7 @@ import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { CopyButton } from '@/components/copy-button'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import {
   formatLatency,
   formatThroughput,
@@ -331,9 +332,11 @@ export function usePricingColumns(
       cell: ({ row }) => {
         const display = buildModelCardPriceDisplay(row.original, priceOptions)
         return display.discountLabel ? (
-          <Badge variant='secondary' className='rounded-md px-2 text-[11px]'>
-            {display.discountLabel}
-          </Badge>
+          <DiscountTooltip label={display.discountLabel}>
+            <Badge variant='secondary' className='rounded-md px-2 text-[11px]'>
+              {display.discountLabel}
+            </Badge>
+          </DiscountTooltip>
         ) : (
           <span className='text-muted-foreground/45 text-xs'>-</span>
         )

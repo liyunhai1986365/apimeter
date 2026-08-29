@@ -18,6 +18,7 @@ import {
   formatTokens,
   parseQuotaFromDollars,
 } from '@/lib/format'
+import { formatDiscountPercentage } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import {
   AlertDialog,
@@ -61,6 +62,7 @@ import {
 } from '@/components/ui/table'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { SectionPageLayout } from '@/components/layout'
 import {
   exportBillingMonthlyStatement,
@@ -130,11 +132,6 @@ function summaryRowsToBreakdownRows(
     discount_amount: row.discount_amount,
     settlement_amount: row.settlement_amount,
   }))
-}
-
-function formatSupplierDiscount(value: number) {
-  if (!Number.isFinite(value) || value <= 0) return ''
-  return value.toFixed(6).replace(/\.?0+$/, '')
 }
 
 function MetricCard({
@@ -813,7 +810,13 @@ function BillingBreakdownTable({
                   {formatQuota(row.original_amount)}
                 </TableCell>
                 <TableCell className='text-right tabular-nums'>
-                  {formatSupplierDiscount(row.group_ratio) || '-'}
+                  <DiscountTooltip
+                    label={formatDiscountPercentage(row.group_ratio)}
+                  >
+                    <span>
+                      {formatDiscountPercentage(row.group_ratio) || '-'}
+                    </span>
+                  </DiscountTooltip>
                 </TableCell>
                 <TableCell className='text-right font-medium tabular-nums'>
                   {formatQuota(row.settlement_amount)}

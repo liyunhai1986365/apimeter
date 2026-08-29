@@ -791,7 +791,7 @@ function InviteOverviewCard({
   const referralSiteName = getReferralSiteName(siteName)
   const referralMessage = mainlandChinaPresentationEnabled
     ? t(
-        `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off
+        `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! -90%
 
 Use my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.
 
@@ -801,7 +801,7 @@ Register now 👉 {{affiliateLink}}`,
         { siteName: referralSiteName, inviteCode, affiliateLink }
       )
     : t(
-        `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off
+        `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! -90%
 
 Use my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.
 

@@ -416,7 +416,7 @@ export const STATIC_I18N_KEYS = [
   'One subscription covers domestic coding, image, video, and chat models for multiple workloads.',
   'Compatible chat, response, image, and video APIs',
   'Connect supported applications to domestic models with one API key and a unified endpoint.',
-  `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off
+  `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! -90%
 
 Use my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.
 

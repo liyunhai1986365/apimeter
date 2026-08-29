@@ -35,6 +35,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { PAYMENT_TYPES } from '../constants'
 import {
   formatCurrency,
@@ -268,9 +269,13 @@ export function RechargeFormCard({
                               })}
                             </div>
                             {hasDiscount && (
-                              <div className='text-xs font-medium text-green-600'>
-                                {getDiscountLabel(discount)}
-                              </div>
+                              <DiscountTooltip
+                                label={getDiscountLabel(discount)}
+                              >
+                                <div className='text-xs font-medium text-green-600'>
+                                  {getDiscountLabel(discount)}
+                                </div>
+                              </DiscountTooltip>
                             )}
                           </div>
                           <div className='text-muted-foreground mt-1.5 w-full text-xs sm:mt-2'>

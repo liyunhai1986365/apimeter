@@ -21,6 +21,8 @@ import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
+import { formatDiscountPercentage } from '@/lib/group-discount'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -40,6 +42,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 
 const createAmountDiscountDialogSchema = (t: (key: string) => string) =>
   z.object({
@@ -89,10 +92,10 @@ export function AmountDiscountDialog({
 
   const discountRate = form.watch('discountRate')
 
-  const discountPercentage = useMemo(() => {
-    if (!discountRate || discountRate >= 1) return 0
-    return Math.round((1 - discountRate) * 100)
-  }, [discountRate])
+  const discountLabel = useMemo(
+    () => formatDiscountPercentage(discountRate),
+    [discountRate]
+  )
 
   useEffect(() => {
     if (editData) {
@@ -182,14 +185,14 @@ export function AmountDiscountDialog({
                     />
                   </FormControl>
                   <FormDescription>
-                    {t('Final price multiplier (0.95 = 5% discount')}
-                    {discountPercentage > 0 && (
-                      <span className='ml-1 font-medium text-green-600 dark:text-green-400'>
-                        = {discountPercentage}
-                        {t('% off')}
-                      </span>
+                    {t('Final price multiplier (0.95 = -5%)')}
+                    {discountLabel && (
+                      <DiscountTooltip label={discountLabel}>
+                        <Badge variant='secondary' className='ml-1 font-mono'>
+                          {discountLabel}
+                        </Badge>
+                      </DiscountTooltip>
                     )}
-                    )
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
