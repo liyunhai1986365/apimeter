@@ -23,7 +23,7 @@ import { type Table } from '@tanstack/react-table'
 import { Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/lib/utils'
-import { useIsAdmin } from '@/hooks/use-admin'
+import { useIsAdmin, useIsRoot } from '@/hooks/use-admin'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -78,11 +78,12 @@ export function CommonLogsFilterBar<TData>(
   const queryClient = useQueryClient()
   const searchParams = route.useSearch()
   const isAdmin = useIsAdmin()
+  const isRoot = useIsRoot()
   const {
     sensitiveVisible,
     setSensitiveVisible,
-    discountVisible,
-    setDiscountVisible,
+    profitVisible,
+    setProfitVisible,
   } = useUsageLogsContext()
   const fetchingLogs = useIsFetching({ queryKey: ['logs'] })
 
@@ -231,13 +232,13 @@ export function CommonLogsFilterBar<TData>(
       table={props.table}
       leftActions={statsBar}
       additionalViewOptions={
-        isAdmin
+        isRoot
           ? [
               {
-                id: 'discount',
-                label: t('Billing discount'),
-                checked: discountVisible,
-                onCheckedChange: setDiscountVisible,
+                id: 'profit',
+                label: t('Profit'),
+                checked: profitVisible,
+                onCheckedChange: setProfitVisible,
               },
             ]
           : undefined

@@ -114,6 +114,20 @@ export interface BillingRequestRuleTrace {
 }
 
 export interface LogOtherData {
+  op?: {
+    action?: string
+    params?: Record<string, unknown>
+  }
+  audit_info?: {
+    method?: string
+    route?: string
+    path?: string
+    status?: number
+    success?: boolean
+    params?: Record<string, string>
+  }
+  login_method?: string
+  user_agent?: string
   admin_info?: {
     is_multi_key?: boolean
     multi_key_index?: number

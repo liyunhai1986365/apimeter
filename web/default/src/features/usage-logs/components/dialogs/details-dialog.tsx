@@ -77,6 +77,7 @@ import {
   getResponseTimeColor,
   isTaskPreConsumeLog,
 } from '../../lib/format'
+import { getLocalizedLogContent } from '../../lib/log-content'
 import { getLogTypeConfig, isTimingLogType } from '../../lib/utils'
 import type { LogOtherData } from '../../types'
 
@@ -414,7 +415,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
-  const details = props.log.content ?? ''
+  const details = getLocalizedLogContent(props.log, t)
   const other = parseLogOther(props.log.other)
   const typeConfig = getLogTypeConfig(props.log.type)
 

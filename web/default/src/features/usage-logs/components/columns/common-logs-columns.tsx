@@ -56,6 +56,7 @@ import {
   formatSignedLogQuota,
   formatSensitiveQuota,
 } from '../../lib/format'
+import { getLocalizedLogContent } from '../../lib/log-content'
 import {
   isDisplayableLogType,
   isTimingLogType,
@@ -106,8 +107,7 @@ function buildDetailSegments(
   log: UsageLog,
   other: LogOtherData | null,
   t: (key: string, opts?: Record<string, unknown>) => string,
-  discountLabels: GroupDiscountLabels,
-  showDiscount = true
+  discountLabels: GroupDiscountLabels
 ): DetailSegment[] {
   if (log.type === 6) {
     return [{ text: t('Async task refund') }]
@@ -250,11 +250,7 @@ function buildDetailSegments(
         ? t('User Exclusive Discount')
         : t('Group Discount')
 
-      if (
-        showDiscount &&
-        effectiveRatio != null &&
-        Number.isFinite(effectiveRatio)
-      ) {
+      if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
         const discountLabel = formatGroupDiscount(
           effectiveRatio,
           discountLabels
@@ -501,7 +497,7 @@ export function useCommonLogsColumns(
       <DataTableColumnHeader column={column} title={t('Token')} />
     ),
     cell: function TokenNameCell({ row }) {
-      const { sensitiveVisible, discountVisible } = useUsageLogsContext()
+      const { sensitiveVisible } = useUsageLogsContext()
       const log = row.original
       if (!isDisplayableLogType(log.type)) return null
 
@@ -513,10 +509,7 @@ export function useCommonLogsColumns(
       let group = log.group
       if (!group) group = other?.group || ''
 
-      const groupRatioText =
-        !isAdmin || discountVisible
-          ? getGroupRatioText(other, discountLabels)
-          : null
+      const groupRatioText = getGroupRatioText(other, discountLabels)
       const groupLabel = group ? (sensitiveVisible ? group : '••••') : ''
 
       return (
@@ -758,7 +751,7 @@ export function useCommonLogsColumns(
         <DataTableColumnHeader column={column} title={t('Cost')} />
       ),
       cell: function CostCell({ row }) {
-        const { sensitiveVisible } = useUsageLogsContext()
+        const { sensitiveVisible, profitVisible } = useUsageLogsContext()
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
 
@@ -799,7 +792,10 @@ export function useCommonLogsColumns(
         const quotaStr = formatSignedLogQuota(log)
         const profitQuota = other?.profit_quota
         const hasChannelProfit =
-          isRoot && profitQuota != null && Number.isFinite(profitQuota)
+          isRoot &&
+          profitVisible &&
+          profitQuota != null &&
+          Number.isFinite(profitQuota)
         const profitClassName =
           profitQuota == null || profitQuota === 0
             ? 'text-muted-foreground'
@@ -863,17 +859,11 @@ export function useCommonLogsColumns(
       header: t('Details'),
       cell: function DetailsCell({ row }) {
         const [dialogOpen, setDialogOpen] = useState(false)
-        const { discountVisible } = useUsageLogsContext()
         const log = row.original
         const other = parseLogOther(log.other)
+        const localizedContent = getLocalizedLogContent(log, t)
 
-        const segments = buildDetailSegments(
-          log,
-          other,
-          t,
-          discountLabels,
-          !isAdmin || discountVisible
-        )
+        const segments = buildDetailSegments(log, other, t, discountLabels)
         const primary = segments[0]
         const hasMore = segments.length > 1
 
@@ -906,9 +896,9 @@ export function useCommonLogsColumns(
                       )}
                     </span>
                   </DiscountTooltip>
-                ) : log.content ? (
+                ) : localizedContent ? (
                   <span className='text-muted-foreground truncate group-hover:underline'>
-                    {log.content}
+                    {localizedContent}
                   </span>
                 ) : (
                   <span className='text-muted-foreground/40'>—</span>
