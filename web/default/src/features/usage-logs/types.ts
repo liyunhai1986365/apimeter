@@ -100,6 +100,19 @@ export interface ChannelAffinityInfo {
   using_group?: string
 }
 
+export interface ToolSurchargeLogItem {
+  name: string
+  count: number
+  /** Price in USD per 1,000 calls. */
+  price: number
+}
+
+export interface BillingRequestRuleTrace {
+  cond: string
+  multiplier: number
+  matched: boolean
+}
+
 export interface LogOtherData {
   admin_info?: {
     is_multi_key?: boolean
@@ -135,6 +148,9 @@ export interface LogOtherData {
   cache_creation_tokens?: number
   cache_creation_tokens_5m?: number
   cache_creation_tokens_1h?: number
+  cache_write_tokens?: number
+  input_tokens_total?: number
+  usage_semantic?: string
   claude?: boolean
   model_ratio?: number
   completion_ratio?: number
@@ -165,6 +181,8 @@ export interface LogOtherData {
   image?: boolean
   image_ratio?: number
   image_output?: number
+  image_input_tokens?: number
+  image_output_tokens?: number
   web_search?: boolean
   web_search_call_count?: number
   web_search_price?: number
@@ -176,6 +194,8 @@ export interface LogOtherData {
   audio_input_price?: number
   image_generation_call?: boolean
   image_generation_call_price?: number
+  tool_surcharges?: ToolSurchargeLogItem[]
+  request_rules?: BillingRequestRuleTrace[]
   is_system_prompt_overwritten?: boolean
   po?: string[]
   billing_source?: string
