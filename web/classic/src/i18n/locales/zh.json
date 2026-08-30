@@ -2627,6 +2627,14 @@
     "并确认自行承担部署": "并确认自行承担部署",
     "运营和收费行为产生的法律责任": "运营和收费行为产生的法律责任",
     "，": "，",
-    "、": "、"
+    "、": "、",
+    "Please complete the behavior verification": "请完成行为验证",
+    "Failed to load behavior verification": "行为验证码加载失败",
+    "Behavior verification completed": "行为验证已完成",
+    "Verified": "已验证",
+    "Slide to verify": "滑动验证",
+    "Behavior verification": "行为验证",
+    "Drag the slider to fit the puzzle piece into the gap.": "拖动滑块，将拼图块对准缺口。",
+    "Enable behavior CAPTCHA": "启用行为验证码"
   }
 }

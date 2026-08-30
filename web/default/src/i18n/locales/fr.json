@@ -6879,6 +6879,16 @@
     "Updated workspace account {{username}} (ID: {{id}})": "Compte d’espace de travail {{username}} mis à jour (ID : {{id}})",
     "Updated {{count}} of {{total}} channels to {{status}}": "{{count}} canaux sur {{total}} mis à jour vers {{status}}",
     "Viewed channel key (channel ID: {{id}})": "Clé du canal consultée (ID du canal : {{id}})",
-    "Viewed channel key {{name}} (ID: {{id}})": "Clé du canal {{name}} consultée (ID : {{id}})"
+    "Viewed channel key {{name}} (ID: {{id}})": "Clé du canal {{name}} consultée (ID : {{id}})",
+    "Please complete the behavior verification": "Veuillez effectuer la vérification comportementale",
+    "Failed to load behavior verification": "Échec du chargement de la vérification comportementale",
+    "Behavior verification completed": "Vérification comportementale terminée",
+    "Verified": "Vérifié",
+    "Behavior verification": "Vérification comportementale",
+    "Protect login and registration with human verification": "Protéger la connexion et l’inscription par une vérification humaine",
+    "Enable behavior CAPTCHA": "Activer le CAPTCHA comportemental",
+    "Slide to verify": "Faire glisser pour vérifier",
+    "Drag the slider to fit the puzzle piece into the gap.": "Faites glisser le curseur pour placer la pièce du puzzle dans l’encoche.",
+    "Use self-hosted slider verification powered by go-captcha. No external keys are required.": "Utilisez la vérification par curseur auto-hébergée fournie par go-captcha. Aucune clé externe n’est requise."
   }
 }

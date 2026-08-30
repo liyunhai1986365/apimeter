@@ -6879,6 +6879,16 @@
     "Updated workspace account {{username}} (ID: {{id}})": "Đã cập nhật tài khoản không gian làm việc {{username}} (ID: {{id}})",
     "Updated {{count}} of {{total}} channels to {{status}}": "Đã cập nhật {{count}}/{{total}} kênh thành {{status}}",
     "Viewed channel key (channel ID: {{id}})": "Đã xem khóa kênh (ID kênh: {{id}})",
-    "Viewed channel key {{name}} (ID: {{id}})": "Đã xem khóa kênh {{name}} (ID: {{id}})"
+    "Viewed channel key {{name}} (ID: {{id}})": "Đã xem khóa kênh {{name}} (ID: {{id}})",
+    "Please complete the behavior verification": "Vui lòng hoàn tất xác minh hành vi",
+    "Failed to load behavior verification": "Không thể tải xác minh hành vi",
+    "Behavior verification completed": "Đã hoàn tất xác minh hành vi",
+    "Verified": "Đã xác minh",
+    "Behavior verification": "Xác minh hành vi",
+    "Protect login and registration with human verification": "Bảo vệ đăng nhập và đăng ký bằng xác minh người dùng",
+    "Enable behavior CAPTCHA": "Bật CAPTCHA hành vi",
+    "Slide to verify": "Trượt để xác minh",
+    "Drag the slider to fit the puzzle piece into the gap.": "Kéo thanh trượt để khớp mảnh ghép vào chỗ trống.",
+    "Use self-hosted slider verification powered by go-captcha. No external keys are required.": "Sử dụng xác minh bằng thanh trượt tự lưu trữ do go-captcha cung cấp. Không cần khóa bên ngoài."
   }
 }

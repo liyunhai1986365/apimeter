@@ -40,6 +40,15 @@ const (
 	MsgAuthInsufficientPrivilege = "auth.insufficient_privilege"
 )
 
+// CAPTCHA messages
+const (
+	MsgCaptchaDisabled           = "captcha.disabled"
+	MsgCaptchaInvalid            = "captcha.invalid"
+	MsgCaptchaRequired           = "captcha.required"
+	MsgCaptchaVerificationFailed = "captcha.verification_failed"
+	MsgCaptchaGenerateFailed     = "captcha.generate_failed"
+)
+
 // Token related messages
 const (
 	MsgTokenNameTooLong          = "token.name_too_long"

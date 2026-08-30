@@ -4221,6 +4221,14 @@
     "Google Analytics 配置已更新": "Đã cập nhật cấu hình Google Analytics",
     "Google Analytics 配置更新失败": "Không thể cập nhật cấu hình Google Analytics",
     "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "Nhập ID đo lường GA4 để tải Google Analytics trên mọi trang. Để trống để tắt.",
-    "设置 Google Analytics": "Cấu hình Google Analytics"
+    "设置 Google Analytics": "Cấu hình Google Analytics",
+    "Please complete the behavior verification": "Vui lòng hoàn tất xác minh hành vi",
+    "Failed to load behavior verification": "Không thể tải xác minh hành vi",
+    "Behavior verification completed": "Đã hoàn tất xác minh hành vi",
+    "Verified": "Đã xác minh",
+    "Slide to verify": "Trượt để xác minh",
+    "Behavior verification": "Xác minh hành vi",
+    "Drag the slider to fit the puzzle piece into the gap.": "Kéo thanh trượt để khớp mảnh ghép vào chỗ trống.",
+    "Enable behavior CAPTCHA": "Bật CAPTCHA hành vi"
   }
 }

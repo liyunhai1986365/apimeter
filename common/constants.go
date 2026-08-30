@@ -118,6 +118,7 @@ var LinuxDOOAuthEnabled = false
 var WeChatAuthEnabled = false
 var TelegramOAuthEnabled = false
 var TurnstileCheckEnabled = false
+var GoCaptchaCheckEnabled = false
 var RegisterEnabled = true
 
 var EmailDomainRestrictionEnabled = false // 是否启用邮箱域名限制
@@ -251,6 +252,10 @@ var (
 	CriticalRateLimitEnable   bool
 	CriticalRateLimitNum            = 20
 	CriticalRateLimitDuration int64 = 20 * 60
+
+	CaptchaRateLimitEnable         = true
+	CaptchaRateLimitNum            = 60
+	CaptchaRateLimitDuration int64 = 20 * 60
 
 	UploadRateLimitNum            = 10
 	UploadRateLimitDuration int64 = 60

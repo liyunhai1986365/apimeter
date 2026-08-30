@@ -46,6 +46,8 @@ const STATUS_RELATED_KEYS = [
   'general_setting.custom_currency_exchange_rate',
   'MainlandChinaPresentationEnabled',
   'FooterCompanyName',
+  'TurnstileCheckEnabled',
+  'GoCaptchaCheckEnabled',
 ]
 
 export function useUpdateOption() {

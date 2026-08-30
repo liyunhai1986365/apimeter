@@ -6879,6 +6879,16 @@
     "Updated workspace account {{username}} (ID: {{id}})": "已更新工作区账号 {{username}}（ID：{{id}}）",
     "Updated {{count}} of {{total}} channels to {{status}}": "已将 {{total}} 个渠道中的 {{count}} 个更新为{{status}}",
     "Viewed channel key (channel ID: {{id}})": "已查看渠道密钥（渠道 ID：{{id}}）",
-    "Viewed channel key {{name}} (ID: {{id}})": "已查看渠道 {{name}} 的密钥（ID：{{id}}）"
+    "Viewed channel key {{name}} (ID: {{id}})": "已查看渠道 {{name}} 的密钥（ID：{{id}}）",
+    "Please complete the behavior verification": "请完成行为验证",
+    "Failed to load behavior verification": "行为验证码加载失败",
+    "Behavior verification completed": "行为验证已完成",
+    "Verified": "已验证",
+    "Behavior verification": "行为验证",
+    "Protect login and registration with human verification": "使用人机验证保护登录和注册",
+    "Enable behavior CAPTCHA": "启用行为验证码",
+    "Slide to verify": "滑动验证",
+    "Drag the slider to fit the puzzle piece into the gap.": "拖动滑块，将拼图块对准缺口。",
+    "Use self-hosted slider verification powered by go-captcha. No external keys are required.": "使用 go-captcha 提供的自托管滑块验证，无需外部密钥。"
   }
 }

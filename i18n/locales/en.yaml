@@ -24,6 +24,12 @@ common.name_cannot_be_empty: "Name cannot be empty"
 common.batch_too_many: "Too many items in batch request, maximum is {{.Max}}"
 
 # Auth middleware messages
+captcha.disabled: "Behavior CAPTCHA is not enabled"
+captcha.invalid: "The behavior CAPTCHA is invalid or has expired. Please verify again"
+captcha.required: "Please complete the behavior CAPTCHA"
+captcha.verification_failed: "Verification failed. Please try a new CAPTCHA"
+captcha.generate_failed: "Failed to generate a CAPTCHA. Please try again later"
+
 auth.not_logged_in: "Unauthorized, not logged in and no access token provided"
 auth.access_token_invalid: "Unauthorized, invalid access token"
 auth.user_info_invalid: "Unauthorized, invalid user info"

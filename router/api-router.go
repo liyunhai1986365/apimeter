@@ -3,6 +3,7 @@ package router
 import (
 	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
+	captchasvc "github.com/QuantumNous/new-api/service/captcha"
 
 	// Import oauth package to register providers via init()
 	_ "github.com/QuantumNous/new-api/oauth"
@@ -26,6 +27,8 @@ func SetApiRouter(router *gin.Engine) {
 		apiRouter.GET("/setup", controller.GetSetup)
 		apiRouter.POST("/setup", anonymousRequestBodyLimit, controller.PostSetup)
 		apiRouter.GET("/status", middleware.OptionalUserAuth(), controller.GetStatus)
+		apiRouter.POST("/captcha", middleware.CaptchaRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.GenerateCaptcha)
+		apiRouter.POST("/captcha/verify", middleware.CaptchaRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.VerifyCaptcha)
 		registerCommonConfigurableAssetAPIRoutes(apiRouter)
 		apiRouter.GET("/relay-temp-images/:id", controller.ServeRelayTempImage)
 		apiRouter.HEAD("/relay-temp-images/:id", controller.ServeRelayTempImage)
@@ -80,8 +83,8 @@ func SetApiRouter(router *gin.Engine) {
 		{
 			userRoute.POST("/auth/refresh", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.RefreshAuth)
 			userRoute.POST("/auth/logout", middleware.SessionCookieOriginGuard(), middleware.CriticalRateLimit(), middleware.DisableCache(), controller.AuthLogout)
-			userRoute.POST("/register", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), controller.Register)
-			userRoute.POST("/login", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), controller.Login)
+			userRoute.POST("/register", middleware.CriticalRateLimit(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), middleware.GoCaptchaCheck(captchasvc.SceneRegister), controller.Register)
+			userRoute.POST("/login", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, middleware.TurnstileCheck(), middleware.GoCaptchaCheck(captchasvc.SceneLogin), controller.Login)
 			userRoute.POST("/login/2fa", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.Verify2FALogin)
 			userRoute.POST("/passkey/login/begin", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.PasskeyLoginBegin)
 			userRoute.POST("/passkey/login/finish", middleware.CriticalRateLimit(), middleware.DisableCache(), anonymousRequestBodyLimit, controller.PasskeyLoginFinish)

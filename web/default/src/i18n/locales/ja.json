@@ -6879,6 +6879,16 @@
     "Updated workspace account {{username}} (ID: {{id}})": "ワークスペースアカウント {{username}} を更新しました（ID: {{id}}）",
     "Updated {{count}} of {{total}} channels to {{status}}": "{{total}} 件中 {{count}} 件のチャネルを{{status}}に更新しました",
     "Viewed channel key (channel ID: {{id}})": "チャネルキーを表示しました（チャネルID: {{id}}）",
-    "Viewed channel key {{name}} (ID: {{id}})": "チャネル {{name}} のキーを表示しました（ID: {{id}}）"
+    "Viewed channel key {{name}} (ID: {{id}})": "チャネル {{name}} のキーを表示しました（ID: {{id}}）",
+    "Please complete the behavior verification": "行動認証を完了してください",
+    "Failed to load behavior verification": "行動認証の読み込みに失敗しました",
+    "Behavior verification completed": "行動認証が完了しました",
+    "Verified": "認証済み",
+    "Behavior verification": "行動認証",
+    "Protect login and registration with human verification": "人による認証でログインと新規登録を保護します",
+    "Enable behavior CAPTCHA": "行動 CAPTCHA を有効にする",
+    "Slide to verify": "スライドして認証",
+    "Drag the slider to fit the puzzle piece into the gap.": "スライダーを動かして、パズルピースを切り抜き部分に合わせてください。",
+    "Use self-hosted slider verification powered by go-captcha. No external keys are required.": "go-captcha によるセルフホスト型スライダー認証を使用します。外部キーは不要です。"
   }
 }

@@ -6879,6 +6879,16 @@
     "Updated workspace account {{username}} (ID: {{id}})": "Учётная запись рабочего пространства {{username}} обновлена (ID: {{id}})",
     "Updated {{count}} of {{total}} channels to {{status}}": "Каналов со статусом «{{status}}» обновлено: {{count}} из {{total}}",
     "Viewed channel key (channel ID: {{id}})": "Просмотрен ключ канала (ID канала: {{id}})",
-    "Viewed channel key {{name}} (ID: {{id}})": "Просмотрен ключ канала {{name}} (ID: {{id}})"
+    "Viewed channel key {{name}} (ID: {{id}})": "Просмотрен ключ канала {{name}} (ID: {{id}})",
+    "Please complete the behavior verification": "Пройдите поведенческую проверку",
+    "Failed to load behavior verification": "Не удалось загрузить поведенческую проверку",
+    "Behavior verification completed": "Поведенческая проверка пройдена",
+    "Verified": "Проверено",
+    "Behavior verification": "Поведенческая проверка",
+    "Protect login and registration with human verification": "Защитите вход и регистрацию с помощью проверки пользователя",
+    "Enable behavior CAPTCHA": "Включить поведенческую CAPTCHA",
+    "Slide to verify": "Провести проверку ползунком",
+    "Drag the slider to fit the puzzle piece into the gap.": "Перетащите ползунок, чтобы совместить фрагмент с вырезом.",
+    "Use self-hosted slider verification powered by go-captcha. No external keys are required.": "Используйте автономную проверку с ползунком на базе go-captcha. Внешние ключи не требуются."
   }
 }

@@ -22,6 +22,8 @@ const (
 	AuthFlowPurposePasskeyStepUp     = "passkey_step_up"
 	AuthFlowPurposeTelegramBind      = "telegram_bind"
 	AuthFlowPurposeTelegramAssertion = "telegram_assertion"
+	AuthFlowPurposeCaptchaChallenge  = "captcha_challenge"
+	AuthFlowPurposeCaptchaProof      = "captcha_proof"
 	AuthFlowIntentLogin              = "login"
 	AuthFlowIntentBind               = "bind"
 	AuthFlowTokenBytes               = 32
@@ -233,4 +235,21 @@ func DeleteExpiredAuthFlows(now time.Time) error {
 	cutoff := now.Add(-AuthFlowDefaultCleanupRetention)
 	return DB.Where("expires_at < ? OR (consumed_at IS NOT NULL AND consumed_at < ?)", cutoff, cutoff).
 		Delete(&AuthFlow{}).Error
+}
+
+// DeleteExpiredCaptchaAuthFlows removes short-lived anonymous CAPTCHA state
+// without the longer audit/debug retention used by other authentication flows.
+func DeleteExpiredCaptchaAuthFlows(now time.Time) error {
+	return DB.Where(
+		"purpose IN ? AND (expires_at < ? OR consumed_at IS NOT NULL)",
+		[]string{AuthFlowPurposeCaptchaChallenge, AuthFlowPurposeCaptchaProof},
+		now,
+	).Delete(&AuthFlow{}).Error
+}
+
+func DeleteAuthFlow(id int64) error {
+	if id <= 0 {
+		return ErrAuthFlowInvalid
+	}
+	return DB.Delete(&AuthFlow{}, id).Error
 }

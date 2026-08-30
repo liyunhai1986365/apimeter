@@ -25,6 +25,12 @@ common.name_cannot_be_empty: "名稱不能為空"
 common.batch_too_many: "批次請求數量過多，最多 {{.Max}} 條"
 
 # Auth middleware messages
+captcha.disabled: "行為驗證碼未啟用"
+captcha.invalid: "行為驗證碼無效或已過期，請重新驗證"
+captcha.required: "請完成人機驗證"
+captcha.verification_failed: "驗證失敗，請更換驗證碼後重試"
+captcha.generate_failed: "驗證碼生成失敗，請稍後重試"
+
 auth.not_logged_in: "無權進行此操作，未登入且未提供 access token"
 auth.access_token_invalid: "無權進行此操作，access token 無效"
 auth.user_info_invalid: "無權進行此操作，使用者資訊無效"

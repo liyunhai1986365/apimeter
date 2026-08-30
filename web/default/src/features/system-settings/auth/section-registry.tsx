@@ -111,10 +111,11 @@ const AUTH_SECTIONS = [
   {
     id: 'bot-protection',
     titleKey: 'Bot Protection',
-    descriptionKey: 'Protect login and registration with Cloudflare Turnstile',
+    descriptionKey: 'Protect login and registration with human verification',
     build: (settings: AuthSettings) => (
       <BotProtectionSection
         defaultValues={{
+          GoCaptchaCheckEnabled: settings.GoCaptchaCheckEnabled,
           TurnstileCheckEnabled: settings.TurnstileCheckEnabled,
           TurnstileSiteKey: settings.TurnstileSiteKey,
           TurnstileSecretKey: settings.TurnstileSecretKey,

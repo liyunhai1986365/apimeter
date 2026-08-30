@@ -3687,6 +3687,14 @@
     "Google Analytics 配置已更新": "Configuration Google Analytics mise à jour",
     "Google Analytics 配置更新失败": "Échec de la mise à jour de la configuration Google Analytics",
     "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "Saisissez un ID de mesure GA4 pour charger Google Analytics sur chaque page. Laissez ce champ vide pour le désactiver.",
-    "设置 Google Analytics": "Configurer Google Analytics"
+    "设置 Google Analytics": "Configurer Google Analytics",
+    "Please complete the behavior verification": "Veuillez effectuer la vérification comportementale",
+    "Failed to load behavior verification": "Échec du chargement de la vérification comportementale",
+    "Behavior verification completed": "Vérification comportementale terminée",
+    "Verified": "Vérifié",
+    "Slide to verify": "Faire glisser pour vérifier",
+    "Behavior verification": "Vérification comportementale",
+    "Drag the slider to fit the puzzle piece into the gap.": "Faites glisser le curseur pour placer la pièce du puzzle dans l’encoche.",
+    "Enable behavior CAPTCHA": "Activer le CAPTCHA comportemental"
   }
 }

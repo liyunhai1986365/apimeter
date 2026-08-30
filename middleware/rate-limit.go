@@ -183,6 +183,15 @@ func CriticalRateLimit() func(c *gin.Context) {
 	return defNext
 }
 
+// CaptchaRateLimit keeps CAPTCHA image generation and verification from
+// consuming the much smaller shared critical-action allowance.
+func CaptchaRateLimit() func(c *gin.Context) {
+	if common.CaptchaRateLimitEnable {
+		return rateLimitFactory(common.CaptchaRateLimitNum, common.CaptchaRateLimitDuration, "CP")
+	}
+	return defNext
+}
+
 func UserCriticalRateLimit(scope string) func(c *gin.Context) {
 	if !common.CriticalRateLimitEnable {
 		return defNext

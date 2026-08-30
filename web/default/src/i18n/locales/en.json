@@ -6879,6 +6879,16 @@
     "Updated workspace account {{username}} (ID: {{id}})": "Updated workspace account {{username}} (ID: {{id}})",
     "Updated {{count}} of {{total}} channels to {{status}}": "Updated {{count}} of {{total}} channels to {{status}}",
     "Viewed channel key (channel ID: {{id}})": "Viewed channel key (channel ID: {{id}})",
-    "Viewed channel key {{name}} (ID: {{id}})": "Viewed channel key {{name}} (ID: {{id}})"
+    "Viewed channel key {{name}} (ID: {{id}})": "Viewed channel key {{name}} (ID: {{id}})",
+    "Please complete the behavior verification": "Please complete the behavior verification",
+    "Failed to load behavior verification": "Failed to load behavior verification",
+    "Behavior verification completed": "Behavior verification completed",
+    "Verified": "Verified",
+    "Behavior verification": "Behavior verification",
+    "Protect login and registration with human verification": "Protect login and registration with human verification",
+    "Enable behavior CAPTCHA": "Enable behavior CAPTCHA",
+    "Slide to verify": "Slide to verify",
+    "Drag the slider to fit the puzzle piece into the gap.": "Drag the slider to fit the puzzle piece into the gap.",
+    "Use self-hosted slider verification powered by go-captcha. No external keys are required.": "Use self-hosted slider verification powered by go-captcha. No external keys are required."
   }
 }

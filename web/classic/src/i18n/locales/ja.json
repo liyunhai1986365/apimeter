@@ -3656,6 +3656,14 @@
     "Google Analytics 配置已更新": "Google Analytics の設定を更新しました",
     "Google Analytics 配置更新失败": "Google Analytics の設定を更新できませんでした",
     "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "GA4 測定 ID を入力すると、すべてのページで Google Analytics が読み込まれます。無効にする場合は空欄にしてください。",
-    "设置 Google Analytics": "Google Analytics を設定"
+    "设置 Google Analytics": "Google Analytics を設定",
+    "Please complete the behavior verification": "行動認証を完了してください",
+    "Failed to load behavior verification": "行動認証の読み込みに失敗しました",
+    "Behavior verification completed": "行動認証が完了しました",
+    "Verified": "認証済み",
+    "Slide to verify": "スライドして認証",
+    "Behavior verification": "行動認証",
+    "Drag the slider to fit the puzzle piece into the gap.": "スライダーを動かして、パズルピースを切り抜き部分に合わせてください。",
+    "Enable behavior CAPTCHA": "行動 CAPTCHA を有効にする"
   }
 }

@@ -3707,6 +3707,14 @@
     "Google Analytics 配置已更新": "Конфигурация Google Analytics обновлена",
     "Google Analytics 配置更新失败": "Не удалось обновить конфигурацию Google Analytics",
     "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "Введите идентификатор ресурса GA4, чтобы загружать Google Analytics на каждой странице. Оставьте поле пустым, чтобы отключить аналитику.",
-    "设置 Google Analytics": "Настроить Google Analytics"
+    "设置 Google Analytics": "Настроить Google Analytics",
+    "Please complete the behavior verification": "Пройдите поведенческую проверку",
+    "Failed to load behavior verification": "Не удалось загрузить поведенческую проверку",
+    "Behavior verification completed": "Поведенческая проверка пройдена",
+    "Verified": "Проверено",
+    "Slide to verify": "Провести проверку ползунком",
+    "Behavior verification": "Поведенческая проверка",
+    "Drag the slider to fit the puzzle piece into the gap.": "Перетащите ползунок, чтобы совместить фрагмент с вырезом.",
+    "Enable behavior CAPTCHA": "Включить поведенческую CAPTCHA"
   }
 }

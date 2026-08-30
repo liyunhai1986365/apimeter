@@ -67,6 +67,7 @@ import TwoFAVerification from './TwoFAVerification';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 import { trackSignUp } from '../../helpers/googleAnalytics';
+import GoCaptcha from './GoCaptcha';
 
 const LoginForm = () => {
   let navigate = useNavigate();
@@ -89,6 +90,7 @@ const LoginForm = () => {
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [goCaptchaToken, setGoCaptchaToken] = useState('');
   const [showWeChatLoginModal, setShowWeChatLoginModal] = useState(false);
   const [showEmailLogin, setShowEmailLogin] = useState(false);
   const [wechatLoading, setWechatLoading] = useState(false);
@@ -228,6 +230,10 @@ const LoginForm = () => {
       showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
       return;
     }
+    if (status?.go_captcha_check && goCaptchaToken === '') {
+      showInfo(t('Please complete the behavior verification'));
+      return;
+    }
     setSubmitted(true);
     setLoginLoading(true);
     try {
@@ -237,6 +243,11 @@ const LoginForm = () => {
           {
             username,
             password,
+          },
+          {
+            headers: goCaptchaToken
+              ? { 'X-Go-Captcha-Token': goCaptchaToken }
+              : undefined,
           },
         );
         const { success, message, data } = res.data;
@@ -269,6 +280,7 @@ const LoginForm = () => {
     } catch (error) {
       showError('登录失败，请重试');
     } finally {
+      setGoCaptchaToken('');
       setLoginLoading(false);
     }
   }
@@ -768,6 +780,14 @@ const LoginForm = () => {
                   prefix={<IconLock />}
                 />
 
+                {status?.go_captcha_check && (
+                  <GoCaptcha
+                    scene='login'
+                    token={goCaptchaToken}
+                    onVerify={setGoCaptchaToken}
+                  />
+                )}
+
                 {(hasUserAgreement || hasPrivacyPolicy) && (
                   <div className='pt-4'>
                     <Checkbox
@@ -815,7 +835,8 @@ const LoginForm = () => {
                     onClick={handleSubmit}
                     loading={loginLoading}
                     disabled={
-                      (hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms
+                      (status?.go_captcha_check && !goCaptchaToken) ||
+                      ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms)
                     }
                   >
                     {t('继续')}

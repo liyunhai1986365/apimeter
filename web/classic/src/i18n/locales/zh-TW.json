@@ -3680,6 +3680,14 @@
     "Google Analytics 配置已更新": "Google Analytics 設定已更新",
     "Google Analytics 配置更新失败": "Google Analytics 設定更新失敗",
     "填写 GA4 衡量 ID 后，将在所有页面加载 Google Analytics；留空则禁用": "填寫 GA4 評估 ID 後，將在所有頁面載入 Google Analytics；留空則停用",
-    "设置 Google Analytics": "設定 Google Analytics"
+    "设置 Google Analytics": "設定 Google Analytics",
+    "Please complete the behavior verification": "請完成行為驗證",
+    "Failed to load behavior verification": "行為驗證碼載入失敗",
+    "Behavior verification completed": "行為驗證已完成",
+    "Verified": "已驗證",
+    "Slide to verify": "滑動驗證",
+    "Behavior verification": "行為驗證",
+    "Drag the slider to fit the puzzle piece into the gap.": "拖動滑塊，將拼圖塊對準缺口。",
+    "Enable behavior CAPTCHA": "啟用行為驗證碼"
   }
 }
