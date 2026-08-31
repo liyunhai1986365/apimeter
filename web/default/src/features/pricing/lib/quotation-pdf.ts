@@ -16,10 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  formatGroupDiscount,
-  type GroupDiscountLabels,
-} from '@/lib/group-discount'
+import type { GroupDiscountLabels } from '@/lib/group-discount'
 import { MODEL_CATEGORIES } from '../constants'
 import type {
   Modality,
@@ -240,9 +237,7 @@ function getSupplierDiscounts(
             ? 'Standard-price supplier channel'
             : 'Discount supplier channel'),
         ratio: safeRatio,
-        label:
-          formatGroupDiscount(safeRatio, options.discountLabels) ||
-          `${safeRatio * 100}%`,
+        label: String(safeRatio),
       }
     })
     .sort((a, b) => {

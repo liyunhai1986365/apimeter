@@ -42,7 +42,7 @@ describe('quotation PDF data', () => {
       group: 'default',
       description: 'Default supplier',
       ratio: 0.5,
-      label: '-50%',
+      label: '0.5',
     })
   })
 
@@ -113,7 +113,7 @@ describe('quotation PDF data', () => {
       [
         model({
           enable_groups: ['all'],
-          group_ratio: { supplierA: 0.8, supplierB: 0.6 },
+          group_ratio: { supplierA: 0.5, supplierB: 0.25 },
         }),
       ],
       {
@@ -131,6 +131,10 @@ describe('quotation PDF data', () => {
     assert.deepEqual(
       row.supplierDiscounts.map((item) => item.group),
       ['supplierB', 'supplierA']
+    )
+    assert.deepEqual(
+      row.supplierDiscounts.map((item) => item.label),
+      ['0.25', '0.5']
     )
   })
 
