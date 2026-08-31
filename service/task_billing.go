@@ -49,6 +49,7 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["model_ratio"] = info.PriceData.ModelRatio
 	}
 	other["group_ratio"] = info.PriceData.GroupRatioInfo.GroupRatio
+	appendGroupRatioResolutionInfo(other, info)
 	InjectTieredBillingSnapshotInfo(other, info.TieredBillingSnapshot, nil)
 	if info.PriceData.GroupRatioInfo.HasSpecialRatio {
 		other["user_group_ratio"] = info.PriceData.GroupRatioInfo.GroupSpecialRatio
@@ -401,6 +402,7 @@ func imageTaskSettlementRelayInfo(task *model.Task, responseBody []byte) *relayc
 	requestInput.ResponseBody = append([]byte(nil), responseBody...)
 	return &relaycommon.RelayInfo{
 		UserId:                task.UserId,
+		UserGroup:             bc.UserGroup,
 		UsingGroup:            task.Group,
 		OriginModelName:       taskModelName(task),
 		StartTime:             time.Unix(task.SubmitTime, 0),
@@ -413,7 +415,7 @@ func imageTaskSettlementRelayInfo(task *model.Task, responseBody []byte) *relayc
 			CacheCreation1hRatio: bc.CacheCreation1hRatio, ImageRatio: bc.ImageRatio,
 			AudioRatio: bc.AudioRatio, AudioCompletionRatio: bc.AudioCompletionRatio,
 			OtherRatios: bc.OtherRatios, UsePrice: bc.PerCallBilling,
-			GroupRatioInfo: types.GroupRatioInfo{GroupRatio: bc.GroupRatio},
+			GroupRatioInfo: types.GroupRatioInfo{GroupRatio: bc.GroupRatio, Source: bc.GroupRatioSource},
 		},
 	}
 }
@@ -591,7 +593,7 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 		return
 	}
 
-	finalGroupRatio := taskBillingGroupRatio(task)
+	finalGroupRatio := taskBillingGroupRatio(task, modelName)
 	if finalGroupRatio < 0 {
 		return
 	}
@@ -613,28 +615,23 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 	recalculateTaskQuota(ctx, task, actualQuota, reason, extraOther)
 }
 
-func taskBillingGroupRatio(task *model.Task) float64 {
+func taskBillingGroupRatio(task *model.Task, modelName string) float64 {
 	if task == nil {
 		return -1
 	}
 	if bc := task.PrivateData.BillingContext; bc != nil && bc.GroupRatio >= 0 {
 		return bc.GroupRatio
 	}
-	group := task.Group
-	if group == "" {
-		user, err := model.GetUserById(task.UserId, false)
-		if err == nil {
-			group = user.Group
-		}
-	}
-	if group == "" {
+	usingGroup := task.Group
+	if usingGroup == "" {
 		return -1
 	}
-	groupRatio := ratio_setting.GetGroupRatio(group)
-	if userGroupRatio, hasUserGroupRatio := ratio_setting.GetGroupGroupRatio(group, group); hasUserGroupRatio {
-		return userGroupRatio
+	userGroup := ""
+	user, err := model.GetUserById(task.UserId, false)
+	if err == nil {
+		userGroup = user.Group
 	}
-	return groupRatio
+	return ratio_setting.ResolveEffectiveGroupRatio(userGroup, usingGroup, modelName).Ratio
 }
 
 func taskBillingModelRatio(task *model.Task, modelName string) (float64, bool) {

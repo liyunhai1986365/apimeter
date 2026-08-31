@@ -32,7 +32,12 @@ func TestBuildHvoyProviderPricingResponseExpandsFinalGroupPrices(t *testing.T) {
 			ModelPrice:  0.2,
 			EnableGroup: []string{"all"},
 		},
-	}, map[string]float64{"default": 1, "vip": 0.5}, 2, "Modelsell API", "api.example.com", updatedAt)
+	}, map[string]float64{"default": 1, "vip": 0.5}, func(group, modelName string) (float64, bool) {
+		if group == "vip" && modelName == "claude-sonnet-4-6" {
+			return 0.4, true
+		}
+		return 0, false
+	}, 2, "Modelsell API", "api.example.com", updatedAt)
 
 	require.True(t, response.Success)
 	require.Equal(t, hvoyProviderPricingSchemaVersion, response.SchemaVersion)
@@ -51,7 +56,7 @@ func TestBuildHvoyProviderPricingResponseExpandsFinalGroupPrices(t *testing.T) {
 
 	claudeVIP := response.Data.Models[1]
 	require.Equal(t, "vip", claudeVIP.GroupName)
-	require.Equal(t, 3.0, *claudeVIP.InputPrice)
+	require.Equal(t, 2.4, *claudeVIP.InputPrice)
 
 	imageDefault := response.Data.Models[2]
 	require.Equal(t, hvoyProviderPricingCallUnit, imageDefault.PriceUnit)
@@ -75,7 +80,7 @@ func TestBuildHvoyProviderPricingResponseSkipsUnrepresentablePrices(t *testing.T
 			ModelPrice:  0,
 			EnableGroup: []string{"default"},
 		},
-	}, map[string]float64{"default": 1}, 1, "", "", time.Unix(0, 0))
+	}, map[string]float64{"default": 1}, nil, 1, "", "", time.Unix(0, 0))
 
 	require.NotNil(t, response.Data)
 	require.Empty(t, response.Data.Models)

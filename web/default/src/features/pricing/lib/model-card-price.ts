@@ -201,6 +201,16 @@ export function isModelPriceFreeForRatio(
     : isRequestDisplayFree(model, ratio)
 }
 
+export function buildEffectiveModelGroupRatios(
+  model: Pick<PricingModel, 'group_ratio'>,
+  fallbackGroupRatios: Record<string, number>
+): Record<string, number> {
+  return {
+    ...fallbackGroupRatios,
+    ...(model.group_ratio ?? {}),
+  }
+}
+
 function buildDynamicDisplay(
   model: PricingModel,
   options: ModelCardPriceDisplayOptions

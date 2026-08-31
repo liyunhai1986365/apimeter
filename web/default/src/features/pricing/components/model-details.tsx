@@ -93,7 +93,10 @@ import {
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { isGroupDiscountHidden } from '../lib/group-display'
-import { isModelPriceFreeForRatio } from '../lib/model-card-price'
+import {
+  buildEffectiveModelGroupRatios,
+  isModelPriceFreeForRatio,
+} from '../lib/model-card-price'
 import { getAvailableGroups, isTokenBasedModel } from '../lib/model-helpers'
 import { inferModelMetadata } from '../lib/model-metadata'
 import { toGroupUptimeSeries } from '../lib/performance-series'
@@ -1016,6 +1019,10 @@ function GroupPricingSection(props: {
       ),
     [props.model, props.usableGroup, props.groupDisplay]
   )
+  const effectiveGroupRatios = useMemo(
+    () => buildEffectiveModelGroupRatios(props.model, props.groupRatio),
+    [props.groupRatio, props.model]
+  )
   const metricsQuery = useQuery({
     queryKey: ['perf-metrics', props.model.model_name],
     queryFn: () => getPerfMetrics(props.model.model_name, 24),
@@ -1100,7 +1107,7 @@ function GroupPricingSection(props: {
         </SectionTitle>
         <div className={cn('grid gap-3', isPage && 'gap-4')}>
           {availableGroups.map((group) => {
-            const ratio = props.groupRatio[group] || 1
+            const ratio = effectiveGroupRatios[group] ?? 1
             const showDiscountInfo = !isGroupDiscountHidden(
               group,
               props.groupDisplay
@@ -1157,7 +1164,7 @@ function GroupPricingSection(props: {
       </SectionTitle>
       <div className={cn('grid gap-3', isPage && 'gap-4')}>
         {availableGroups.map((group) => {
-          const ratio = props.groupRatio[group] || 1
+          const ratio = effectiveGroupRatios[group] ?? 1
           const showDiscountInfo = !isGroupDiscountHidden(
             group,
             props.groupDisplay
@@ -1175,7 +1182,7 @@ function GroupPricingSection(props: {
                   : undefined
               }
               ratio={ratio}
-              groupRatio={props.groupRatio}
+              groupRatio={effectiveGroupRatios}
               tokenUnit={props.tokenUnit}
               tokenUnitLabel={tokenUnitLabel}
               showRechargePrice={showRechargePrice}

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import type { PricingModel } from '@/features/pricing/types'
 import {
   getApiKeyFormDefaultValues,
   addGroupToChain,
@@ -13,10 +14,106 @@ import {
 import {
   AUTO_GROUP_VALUE,
   buildApiKeyGroupOptions,
+  getLowestApiKeyGroupRatio,
   shouldFallbackApiKeyGroup,
 } from './api-key-groups'
 
 describe('api key group options', () => {
+  test('uses the lowest current-user model ratio for an unrestricted key', () => {
+    const models = [
+      {
+        id: 1,
+        model_name: 'glm-5.2',
+        quota_type: 0,
+        model_ratio: 1,
+        completion_ratio: 1,
+        enable_groups: ['alibaba'],
+        group_ratio: { alibaba: 0.7 },
+      },
+      {
+        id: 2,
+        model_name: 'qwen3.7',
+        quota_type: 0,
+        model_ratio: 1,
+        completion_ratio: 1,
+        enable_groups: ['all'],
+        group_ratio: { alibaba: 0.5 },
+      },
+    ] satisfies PricingModel[]
+
+    assert.equal(getLowestApiKeyGroupRatio('alibaba', 1, { models }), 0.5)
+  })
+
+  test('uses only limited models and preserves an explicit zero ratio', () => {
+    const models = [
+      {
+        id: 1,
+        model_name: 'glm-5.2',
+        quota_type: 0,
+        model_ratio: 1,
+        completion_ratio: 1,
+        enable_groups: ['alibaba'],
+        group_ratio: { alibaba: 0.7 },
+      },
+      {
+        id: 2,
+        model_name: 'free-model',
+        quota_type: 0,
+        model_ratio: 1,
+        completion_ratio: 1,
+        enable_groups: ['alibaba'],
+        group_ratio: { alibaba: 0 },
+      },
+    ] satisfies PricingModel[]
+
+    assert.equal(
+      getLowestApiKeyGroupRatio('alibaba', 1, {
+        models,
+        modelLimits: ['glm-5.2'],
+      }),
+      0.7
+    )
+    assert.equal(
+      getLowestApiKeyGroupRatio('alibaba', 1, {
+        models,
+        modelLimits: ['free-model'],
+      }),
+      0
+    )
+  })
+
+  test('builds creation options with the lowest ratio in the selected model scope', () => {
+    const models = [
+      {
+        id: 1,
+        model_name: 'glm-5.2',
+        quota_type: 0,
+        model_ratio: 1,
+        completion_ratio: 1,
+        enable_groups: ['alibaba'],
+        group_ratio: { alibaba: 0.7 },
+      },
+      {
+        id: 2,
+        model_name: 'qwen3.7',
+        quota_type: 0,
+        model_ratio: 1,
+        completion_ratio: 1,
+        enable_groups: ['alibaba'],
+        group_ratio: { alibaba: 0.5 },
+      },
+    ] satisfies PricingModel[]
+
+    const options = buildApiKeyGroupOptions(
+      { alibaba: { desc: 'Alibaba', ratio: 1 } },
+      false,
+      undefined,
+      { models, modelLimits: ['glm-5.2'] }
+    )
+
+    assert.equal(options[0]?.ratio, 0.7)
+  })
+
   test('creates new API keys with smart routing by default', () => {
     const defaults = getApiKeyFormDefaultValues()
     const payload = transformFormDataToPayload({

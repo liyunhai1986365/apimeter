@@ -122,6 +122,8 @@ type TaskPrivateData struct {
 type TaskBillingContext struct {
 	ModelPrice            float64                      `json:"model_price,omitempty"`             // 模型单价
 	GroupRatio            float64                      `json:"group_ratio,omitempty"`             // 分组倍率
+	GroupRatioSource      types.GroupRatioSource       `json:"group_ratio_source,omitempty"`      // 分组倍率解析来源
+	UserGroup             string                       `json:"user_group,omitempty"`              // 提交任务时的用户分组
 	ModelRatio            float64                      `json:"model_ratio,omitempty"`             // 模型倍率
 	CompletionRatio       float64                      `json:"completion_ratio,omitempty"`        // 输出倍率
 	CacheRatio            float64                      `json:"cache_ratio,omitempty"`             // 缓存读取倍率

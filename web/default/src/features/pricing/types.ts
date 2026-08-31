@@ -149,6 +149,7 @@ export type PricingData = {
   vendors: PricingVendor[]
   user_group?: string
   group_ratio: Record<string, number>
+  group_model_ratio?: Record<string, Record<string, number>>
   group_perf?: Record<string, PricingGroupPerformance>
   usable_group: Record<string, string | { desc?: string; ratio?: number }>
   group_display?: PricingGroupDisplayConfig

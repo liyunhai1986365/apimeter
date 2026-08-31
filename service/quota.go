@@ -251,7 +251,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		relayInfo.UsingGroup = autoGroup.(string)
 	}
 
-	groupRatio := agentservice.ResolveGroupRatio(ctx, relayInfo.AgentContext, relayInfo.UserGroup, relayInfo.TokenGroup, relayInfo.UsingGroup)
+	groupRatio := agentservice.ResolveGroupRatio(ctx, relayInfo.AgentContext, relayInfo.UserGroup, relayInfo.TokenGroup, relayInfo.UsingGroup, relayInfo.OriginModelName)
 	if agentGroup, ok := agentservice.ResolveGroup(relayInfo.AgentContext, relayInfo.UsingGroup); ok {
 		relayInfo.UsingGroup = agentGroup.SystemGroupName
 	}
@@ -268,6 +268,7 @@ func PreWssConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usag
 		BaseGroupRatio:    groupRatio.BaseGroupRatio,
 		AgentGroupRatio:   groupRatio.AgentGroupRatio,
 		HasAgentRatio:     groupRatio.HasAgentRatio,
+		Source:            groupRatio.Source,
 	}
 	relayInfo.PriceData.ModelRatio = modelRatio
 	relayInfo.PriceData.UsePrice = relayInfo.UsePrice

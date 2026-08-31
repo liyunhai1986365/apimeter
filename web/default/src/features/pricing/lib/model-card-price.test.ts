@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { PricingModel } from '../types'
 import {
+  buildEffectiveModelGroupRatios,
   buildModelCardPriceDisplay,
   isModelPriceFreeForRatio,
 } from './model-card-price'
@@ -28,6 +29,28 @@ function tokenModel(overrides: Partial<PricingModel> = {}): PricingModel {
 }
 
 describe('buildModelCardPriceDisplay', () => {
+  test('prefers current-user model group ratios and preserves free pricing', () => {
+    const ratios = buildEffectiveModelGroupRatios(
+      tokenModel({
+        group_ratio: {
+          alibaba: 0.5,
+          free: 0,
+        },
+      }),
+      {
+        alibaba: 0.7,
+        backup: 0.8,
+        free: 1,
+      }
+    )
+
+    assert.deepEqual(ratios, {
+      alibaba: 0.5,
+      backup: 0.8,
+      free: 0,
+    })
+  })
+
   test('builds original and lowest prices for token-based model cards', () => {
     const display = buildModelCardPriceDisplay(tokenModel(), {
       tokenUnit: 'M',

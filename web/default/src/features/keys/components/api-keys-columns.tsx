@@ -33,11 +33,13 @@ import {
 import { DataTableColumnHeader } from '@/components/data-table'
 import { GroupBadge } from '@/components/group-badge'
 import { StatusBadge } from '@/components/status-badge'
+import { getPricing, hydratePricingModels } from '@/features/pricing/api'
 import { API_KEY_STATUSES } from '../constants'
 import {
   getApiKeyGroupDisplayItems,
   getApiKeyRoutingStrategyLabel,
 } from '../lib/api-key-form'
+import { getLowestApiKeyGroupRatio } from '../lib/api-key-groups'
 import { type ApiKey } from '../types'
 import {
   ApiKeyCell,
@@ -50,6 +52,7 @@ import { DataTableRowActions } from './data-table-row-actions'
 function useGroupDiscountMetadata(): {
   ratios: Record<string, number>
   hiddenDiscounts: Set<string>
+  models: ReturnType<typeof hydratePricingModels>
 } {
   const { data } = useQuery({
     queryKey: ['user-self-groups'],
@@ -71,14 +74,36 @@ function useGroupDiscountMetadata(): {
     },
   })
 
-  return data ?? { ratios: {}, hiddenDiscounts: new Set<string>() }
+  const { data: models = [] } = useQuery({
+    queryKey: ['pricing'],
+    queryFn: getPricing,
+    staleTime: 5 * 60 * 1000,
+    select: hydratePricingModels,
+  })
+
+  return {
+    ...(data ?? { ratios: {}, hiddenDiscounts: new Set<string>() }),
+    models,
+  }
 }
 
 export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
   const { t } = useTranslation()
-  const { ratios: groupRatios, hiddenDiscounts } = useGroupDiscountMetadata()
-  const visibleRatio = (group: string) =>
-    hiddenDiscounts.has(group) ? undefined : groupRatios[group]
+  const {
+    ratios: groupRatios,
+    hiddenDiscounts,
+    models,
+  } = useGroupDiscountMetadata()
+  const visibleRatio = (group: string, apiKey: ApiKey) => {
+    if (hiddenDiscounts.has(group)) return undefined
+    return getLowestApiKeyGroupRatio(group, groupRatios[group], {
+      models,
+      modelLimits:
+        apiKey.model_limits_enabled && apiKey.model_limits
+          ? apiKey.model_limits.split(',')
+          : [],
+    })
+  }
   return [
     {
       id: 'select',
@@ -213,7 +238,7 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
                           <GroupBadge
                             key={group}
                             group={group}
-                            ratio={visibleRatio(group)}
+                            ratio={visibleRatio(group, apiKey)}
                           />
                         ))}
                       </div>
@@ -260,7 +285,7 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
               <GroupBadge
                 key={group}
                 group={group}
-                ratio={visibleRatio(group)}
+                ratio={visibleRatio(group, apiKey)}
               />
             ))}
             {groupDisplay.hiddenCount > 0 && (
@@ -287,7 +312,10 @@ export function useApiKeysColumns(): ColumnDef<ApiKey>[] {
                     <span className='text-muted-foreground w-4 text-right font-mono tabular-nums'>
                       {index + 1}
                     </span>
-                    <GroupBadge group={group} ratio={visibleRatio(group)} />
+                    <GroupBadge
+                      group={group}
+                      ratio={visibleRatio(group, apiKey)}
+                    />
                   </div>
                 ))}
               </div>

@@ -14,7 +14,19 @@ type GroupRatioInfo struct {
 	BaseGroupRatio    float64
 	AgentGroupRatio   float64
 	HasAgentRatio     bool
+	Source            GroupRatioSource
 }
+
+type GroupRatioSource string
+
+const (
+	GroupRatioSourceDefault        GroupRatioSource = "default"
+	GroupRatioSourceGroup          GroupRatioSource = "group"
+	GroupRatioSourceUserGroup      GroupRatioSource = "user_group"
+	GroupRatioSourceGroupModel     GroupRatioSource = "group_model"
+	GroupRatioSourceUserGroupModel GroupRatioSource = "user_group_model"
+	GroupRatioSourceAgent          GroupRatioSource = "agent"
+)
 
 type PriceData struct {
 	FreeModel            bool

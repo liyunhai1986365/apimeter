@@ -41,6 +41,39 @@ func filterPricingByUsableGroups(pricing []model.Pricing, usableGroup map[string
 	return filtered
 }
 
+type pricingGroupRatioResolver func(modelName, group string) float64
+
+func buildPricingGroupModelRatios(pricing []model.Pricing, groupRatios map[string]float64, resolve pricingGroupRatioResolver) map[string]map[string]float64 {
+	overrides := make(map[string]map[string]float64)
+	if resolve == nil {
+		return overrides
+	}
+	for _, item := range pricing {
+		groups := item.EnableGroup
+		if common.StringsContains(groups, "all") {
+			groups = make([]string, 0, len(groupRatios))
+			for group := range groupRatios {
+				groups = append(groups, group)
+			}
+		}
+		for _, group := range groups {
+			fallback, ok := groupRatios[group]
+			if !ok {
+				continue
+			}
+			effective := resolve(item.ModelName, group)
+			if effective == fallback {
+				continue
+			}
+			if overrides[group] == nil {
+				overrides[group] = make(map[string]float64)
+			}
+			overrides[group][item.ModelName] = effective
+		}
+	}
+	return overrides
+}
+
 func GetPricing(c *gin.Context) {
 	getPricingForUserGroup(c, "", false)
 }
@@ -146,12 +179,24 @@ func getPricingForUserGroup(c *gin.Context, requestedUserGroup string, hasReques
 			}
 			pricing[i].EnableGroup = enableGroups
 		}
+		visibleGroupByName := make(map[string]types.AgentGroup, len(visibleGroups))
+		for _, visibleGroup := range visibleGroups {
+			visibleGroupByName[visibleGroup.GroupName] = visibleGroup
+		}
+		groupModelRatio := buildPricingGroupModelRatios(pricing, agentGroupRatio, func(modelName, displayGroup string) float64 {
+			visibleGroup, ok := visibleGroupByName[displayGroup]
+			if !ok {
+				return agentGroupRatio[displayGroup]
+			}
+			return agentservice.ResolveGroupRatio(c, agentCtx, group, displayGroup, visibleGroup.SystemGroupName, modelName).GroupRatio
+		})
 		c.JSON(200, gin.H{
 			"success":            true,
 			"data":               pricing,
 			"vendors":            model.GetVendors(),
 			"user_group":         group,
 			"group_ratio":        agentGroupRatio,
+			"group_model_ratio":  groupModelRatio,
 			"group_perf":         getPricingGroupPerformance(agentUsableGroup),
 			"usable_group":       agentUsableGroup,
 			"group_display":      groupDisplay,
@@ -168,6 +213,9 @@ func getPricingForUserGroup(c *gin.Context, requestedUserGroup string, hasReques
 			delete(groupRatio, group)
 		}
 	}
+	groupModelRatio := buildPricingGroupModelRatios(pricing, groupRatio, func(modelName, usingGroup string) float64 {
+		return service.GetUserGroupRatioForModel(group, usingGroup, modelName).Ratio
+	})
 
 	c.JSON(200, gin.H{
 		"success":            true,
@@ -175,6 +223,7 @@ func getPricingForUserGroup(c *gin.Context, requestedUserGroup string, hasReques
 		"vendors":            model.GetVendors(),
 		"user_group":         group,
 		"group_ratio":        groupRatio,
+		"group_model_ratio":  groupModelRatio,
 		"group_perf":         getPricingGroupPerformance(usableGroup),
 		"usable_group":       usableGroup,
 		"group_display":      setting.GetGroupDisplayConfig(),

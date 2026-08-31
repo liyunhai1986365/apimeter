@@ -249,6 +249,8 @@ func insertImageAsyncTask(info *relaycommon.RelayInfo, upstreamTaskID string, re
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
 		ModelPrice:            info.PriceData.ModelPrice,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,
+		UserGroup:             info.UserGroup,
 		ModelRatio:            info.PriceData.ModelRatio,
 		CompletionRatio:       info.PriceData.CompletionRatio,
 		CacheRatio:            info.PriceData.CacheRatio,
@@ -295,6 +297,8 @@ func insertLocalImageAsyncTask(info *relaycommon.RelayInfo, requestBody []byte) 
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
 		ModelPrice:            info.PriceData.ModelPrice,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,
+		UserGroup:             info.UserGroup,
 		ModelRatio:            info.PriceData.ModelRatio,
 		CompletionRatio:       info.PriceData.CompletionRatio,
 		CacheRatio:            info.PriceData.CacheRatio,

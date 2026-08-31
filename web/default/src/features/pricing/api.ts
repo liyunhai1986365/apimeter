@@ -47,9 +47,14 @@ export function hydratePricingModels(data: PricingData): PricingModel[] {
   const vendorMap = new Map(data.vendors.map((vendor) => [vendor.id, vendor]))
 
   return data.data.map((model) => {
-    const vendor = model.vendor_id
-      ? vendorMap.get(model.vendor_id)
-      : undefined
+    const vendor = model.vendor_id ? vendorMap.get(model.vendor_id) : undefined
+    const modelGroupRatio = { ...data.group_ratio }
+    for (const [group, modelRatios] of Object.entries(
+      data.group_model_ratio ?? {}
+    )) {
+      const ratio = modelRatios[model.model_name]
+      if (ratio !== undefined) modelGroupRatio[group] = ratio
+    }
     return {
       ...model,
       key: model.model_name,
@@ -58,7 +63,7 @@ export function hydratePricingModels(data: PricingData): PricingModel[] {
       vendor_description: vendor?.description,
       vendor_sort_order: vendor?.sort_order ?? Number.MAX_SAFE_INTEGER,
       sort_order: model.sort_order ?? 0,
-      group_ratio: data.group_ratio,
+      group_ratio: modelGroupRatio,
     }
   })
 }

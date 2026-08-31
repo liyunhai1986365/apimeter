@@ -80,7 +80,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { MultiSelect } from '@/components/multi-select'
 import { getPerfMetricsGroups } from '@/features/performance-metrics/api'
-import { getPricing } from '@/features/pricing/api'
+import { getPricing, hydratePricingModels } from '@/features/pricing/api'
 import { createApiKey, updateApiKey, getApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import {
@@ -305,6 +305,10 @@ export function ApiKeysMutateDrawer({
 
   const models = modelsData?.data || []
   const groupsRaw = groupsData?.data || {}
+  const pricingModels = useMemo(
+    () => (pricingData ? hydratePricingModels(pricingData) : []),
+    [pricingData]
+  )
   const groupPerformance = useMemo(
     () =>
       Object.fromEntries(
@@ -319,10 +323,15 @@ export function ApiKeysMutateDrawer({
     defaultValues: getApiKeyFormDefaultValues(),
   })
   const watchedGroupChain = form.watch('group_chain')
+  const watchedModelLimits = form.watch('model_limits')
   const groups: ApiKeyGroupOption[] = buildApiKeyGroupOptions(
     groupsRaw,
     true,
-    currentRow?.group || watchedGroupChain?.[0]
+    currentRow?.group || watchedGroupChain?.[0],
+    {
+      models: pricingModels,
+      modelLimits: watchedModelLimits,
+    }
   )
 
   // Load existing data when updating
@@ -667,7 +676,7 @@ export function ApiKeysMutateDrawer({
                                               pricingData?.group_display
                                             }
                                             vendors={pricingData?.vendors}
-                                            models={pricingData?.data}
+                                            models={pricingModels}
                                             groupPerformance={groupPerformance}
                                             triggerLabel={t(
                                               'Select suppliers to ignore'
@@ -705,7 +714,7 @@ export function ApiKeysMutateDrawer({
                                     onChange={groupField.onChange}
                                     groupDisplay={pricingData?.group_display}
                                     vendors={pricingData?.vendors}
-                                    models={pricingData?.data}
+                                    models={pricingModels}
                                     groupPerformance={groupPerformance}
                                   />
                                 </FormControl>

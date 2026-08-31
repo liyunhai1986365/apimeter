@@ -157,3 +157,9 @@ func GetUserGroupRatio(userGroup, group string) float64 {
 	}
 	return ratio_setting.GetGroupRatio(group)
 }
+
+// GetUserGroupRatioForModel resolves model-specific pricing while retaining
+// the existing group-only fallback behavior for unconfigured models.
+func GetUserGroupRatioForModel(userGroup, group, modelName string) ratio_setting.EffectiveGroupRatio {
+	return ratio_setting.ResolveEffectiveGroupRatio(userGroup, group, modelName)
+}
