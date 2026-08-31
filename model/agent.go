@@ -118,6 +118,11 @@ type AgentUserMembership struct {
 	AgentBranding string `json:"-" gorm:"column:agent_branding"`
 }
 
+type agentUserDomain struct {
+	UserId int    `json:"user_id" gorm:"column:user_id"`
+	Domain string `json:"domain" gorm:"column:domain"`
+}
+
 type AgentPricingRule struct {
 	Id           int     `json:"id"`
 	AgentId      int     `json:"agent_id" gorm:"index:idx_agent_pricing_agent_model,priority:1;column:agent_id"`
@@ -337,6 +342,52 @@ func ListAgentDomains(agentId int, startIdx int, num int) ([]*AgentDomain, int64
 		return nil, 0, err
 	}
 	return domains, total, nil
+}
+
+func GetPrimaryActiveAgentDomain(agentId int) (*AgentDomain, error) {
+	var domain AgentDomain
+	query := DB.Model(&AgentDomain{}).
+		Where("agent_id = ? AND status = ?", agentId, AgentDomainStatusActive).
+		Order("id asc").
+		Limit(1).
+		Find(&domain)
+	if query.Error != nil {
+		return nil, query.Error
+	}
+	if query.RowsAffected == 0 {
+		return nil, nil
+	}
+	return &domain, nil
+}
+
+func ListPrimaryActiveAgentDomainsForUsers(userIds []int) (map[int]string, error) {
+	result := make(map[int]string)
+	if len(userIds) == 0 {
+		return result, nil
+	}
+
+	const batchSize = 500
+	for start := 0; start < len(userIds); start += batchSize {
+		end := min(start+batchSize, len(userIds))
+		var rows []agentUserDomain
+		err := DB.Table("agent_users").
+			Select("agent_users.user_id, agent_domains.domain").
+			Joins("JOIN agents ON agents.id = agent_users.agent_id").
+			Joins("JOIN agent_domains ON agent_domains.agent_id = agents.id").
+			Where("agent_users.user_id IN ?", userIds[start:end]).
+			Where("agent_users.status = ? AND agents.status = ? AND agent_domains.status = ?", AgentUserStatusEnabled, AgentStatusEnabled, AgentDomainStatusActive).
+			Order("agent_users.user_id asc, agent_domains.id asc").
+			Find(&rows).Error
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			if _, exists := result[row.UserId]; !exists && strings.TrimSpace(row.Domain) != "" {
+				result[row.UserId] = row.Domain
+			}
+		}
+	}
+	return result, nil
 }
 
 func ListAgentDomainsByStatus(status int, startIdx int, num int) ([]*AgentDomainWithAgent, int64, error) {

@@ -182,12 +182,18 @@ func AgentSendAnnouncementEmail(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
+	siteURL, err := agentEmailSiteURLForRequest(c, agentID)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	summary, err := service.BroadcastAgentAnnouncementEmail(service.BroadcastAgentAnnouncementEmailRequest{
 		AgentID:   agentID,
 		AgentName: agent.Name,
 		Title:     announcement.Title,
 		Content:   announcement.Content,
 		Type:      announcement.Type,
+		SiteURL:   siteURL,
 	})
 	if err != nil {
 		common.ApiError(c, err)

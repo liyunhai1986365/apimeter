@@ -697,7 +697,7 @@ func checkAndSendQuotaNotify(relayInfo *relaycommon.RelayInfo, quota int, preCon
 				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota), topUpLink, topUpLink}
 			}
 
-			err = NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values))
+			err = NotifyUserForSite(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values), emailSiteURLForRelay(relayInfo))
 			if err != nil {
 				common.SysError(fmt.Sprintf("failed to send quota notify to user %d: %s", relayInfo.UserId, err.Error()))
 				continue
@@ -762,7 +762,7 @@ func checkAndSendSubscriptionQuotaNotify(relayInfo *relaycommon.RelayInfo) {
 				values = []interface{}{prompt, logger.FormatQuota(plan.remainingQuota), topUpLink, topUpLink}
 			}
 
-			if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values)); err != nil {
+			if err := NotifyUserForSite(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values), emailSiteURLForRelay(relayInfo)); err != nil {
 				common.SysError(fmt.Sprintf("failed to send subscription quota notify to user %d: %s", relayInfo.UserId, err.Error()))
 				continue
 			}
@@ -815,9 +815,16 @@ func checkAndSendInsufficientQuotaNotify(relayInfo *relaycommon.RelayInfo, remai
 			values = []interface{}{prompt, logger.FormatQuota(remainingQuota), topUpLink, topUpLink}
 		}
 
-		if err := NotifyUser(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values)); err != nil {
+		if err := NotifyUserForSite(relayInfo.UserId, relayInfo.UserEmail, relayInfo.UserSetting, dto.NewNotify(plan.notifyType, prompt, content, values), emailSiteURLForRelay(relayInfo)); err != nil {
 			common.SysError(fmt.Sprintf("failed to send insufficient quota notify to user %d: %s", relayInfo.UserId, err.Error()))
 			return
 		}
 	})
+}
+
+func emailSiteURLForRelay(relayInfo *relaycommon.RelayInfo) string {
+	if relayInfo == nil || relayInfo.AgentContext == nil {
+		return ""
+	}
+	return AgentEmailSiteURL(relayInfo.AgentContext.Domain)
 }

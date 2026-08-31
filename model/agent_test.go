@@ -123,6 +123,35 @@ func TestListAgentDomainsByStatus(t *testing.T) {
 	assert.Equal(t, 2001, domains[0].OwnerUserId)
 }
 
+func TestPrimaryActiveAgentDomainsUseEnabledMembershipAndFirstDomain(t *testing.T) {
+	truncateTables(t)
+
+	agent := &Agent{OwnerUserId: 2101, Name: "Active Agent", Slug: "active-agent-domain", Status: AgentStatusEnabled}
+	disabledAgent := &Agent{OwnerUserId: 2102, Name: "Disabled Agent", Slug: "disabled-agent-domain", Status: AgentStatusDisabled}
+	require.NoError(t, DB.Create(agent).Error)
+	require.NoError(t, DB.Create(disabledAgent).Error)
+	require.NoError(t, DB.Create(&[]AgentDomain{
+		{AgentId: agent.Id, Domain: "primary.example.com", Status: AgentDomainStatusActive},
+		{AgentId: agent.Id, Domain: "secondary.example.com", Status: AgentDomainStatusActive},
+		{AgentId: agent.Id, Domain: "inactive.example.com", Status: AgentDomainStatusDisabled},
+		{AgentId: disabledAgent.Id, Domain: "disabled-agent.example.com", Status: AgentDomainStatusActive},
+	}).Error)
+	require.NoError(t, DB.Create(&[]AgentUser{
+		{AgentId: agent.Id, UserId: 2201, Status: AgentUserStatusEnabled},
+		{AgentId: agent.Id, UserId: 2202, Status: AgentUserStatusDisabled},
+		{AgentId: disabledAgent.Id, UserId: 2203, Status: AgentUserStatusEnabled},
+	}).Error)
+
+	primary, err := GetPrimaryActiveAgentDomain(agent.Id)
+	require.NoError(t, err)
+	require.NotNil(t, primary)
+	require.Equal(t, "primary.example.com", primary.Domain)
+
+	domains, err := ListPrimaryActiveAgentDomainsForUsers([]int{2201, 2202, 2203, 9999})
+	require.NoError(t, err)
+	require.Equal(t, map[int]string{2201: "primary.example.com"}, domains)
+}
+
 func TestActivateLegacyPendingAgentDomains(t *testing.T) {
 	truncateTables(t)
 

@@ -31,6 +31,7 @@ type BroadcastAgentAnnouncementEmailRequest struct {
 	Title     string
 	Content   string
 	Type      string
+	SiteURL   string
 	Send      AnnouncementEmailSender
 }
 
@@ -39,6 +40,11 @@ type BroadcastAnnouncementEmailSummary struct {
 	Sent   int      `json:"sent"`
 	Failed int      `json:"failed"`
 	Errors []string `json:"errors,omitempty"`
+}
+
+type announcementEmailRecipient struct {
+	UserID int
+	Email  string
 }
 
 func announcementEmailContent(content string, announcementType string) string {
@@ -218,7 +224,7 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 	}
 
 	seen := make(map[string]struct{}, len(users))
-	receivers := make([]string, 0, len(users))
+	receivers := make([]announcementEmailRecipient, 0, len(users))
 	for _, user := range users {
 		email := strings.TrimSpace(user.Email)
 		if email == "" {
@@ -232,17 +238,27 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 			continue
 		}
 		seen[key] = struct{}{}
-		receivers = append(receivers, email)
+		receivers = append(receivers, announcementEmailRecipient{UserID: user.Id, Email: email})
 	}
-	sort.Strings(receivers)
+	sort.Slice(receivers, func(i, j int) bool { return receivers[i].Email < receivers[j].Email })
+
+	userIds := make([]int, 0, len(receivers))
+	for _, receiver := range receivers {
+		userIds = append(userIds, receiver.UserID)
+	}
+	siteURLs, err := EmailSiteURLsForUsers(userIds)
+	if err != nil {
+		return summary, err
+	}
 
 	summary.Total = len(receivers)
 	content := announcementEmailContent(req.Content, req.Type)
 	for _, receiver := range receivers {
-		if err := sender(req.Title, receiver, content); err != nil {
+		receiverContent := RewriteEmailContentForSite(content, siteURLs[receiver.UserID])
+		if err := sender(req.Title, receiver.Email, receiverContent); err != nil {
 			summary.Failed++
-			summary.Errors = append(summary.Errors, fmt.Sprintf("%s: %s", receiver, err.Error()))
-			common.SysLog(fmt.Sprintf("failed to send announcement email to %s: %s", common.MaskEmail(receiver), err.Error()))
+			summary.Errors = append(summary.Errors, fmt.Sprintf("%s: %s", receiver.Email, err.Error()))
+			common.SysLog(fmt.Sprintf("failed to send announcement email to %s: %s", common.MaskEmail(receiver.Email), err.Error()))
 			continue
 		}
 		summary.Sent++
@@ -299,7 +315,10 @@ func BroadcastAgentAnnouncementEmail(req BroadcastAgentAnnouncementEmailRequest)
 		sender = AnnouncementEmailSenderFunc
 	}
 	summary.Total = len(receivers)
-	content := agentAnnouncementEmailContent(req.Content, req.Type, req.AgentID, req.AgentName)
+	content := RewriteEmailContentForSite(
+		agentAnnouncementEmailContent(req.Content, req.Type, req.AgentID, req.AgentName),
+		req.SiteURL,
+	)
 	for _, receiver := range receivers {
 		if err := sender(req.Title, receiver, content); err != nil {
 			summary.Failed++

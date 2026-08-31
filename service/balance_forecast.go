@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/bytedance/gopkg/util/gopool"
 )
@@ -236,12 +237,18 @@ func handleBalanceForecastReminder(user *model.User, forecast *model.BalanceFore
 		return
 	}
 	userSetting.NotifyType = dto.NotifyTypeEmail
-	subject, content := balanceForecastEmail(level, forecast, userSetting.Language)
-	err := NotifyUser(
+	siteURL, err := EmailSiteURLForUser(user.Id)
+	if err != nil {
+		logger.LogWarn(context.Background(), fmt.Sprintf("balance forecast agent site lookup failed for user %d: %v", user.Id, err))
+		siteURL = ""
+	}
+	subject, content := balanceForecastEmail(level, forecast, userSetting.Language, siteURL)
+	err = NotifyUserForSite(
 		user.Id,
 		user.Email,
 		userSetting,
 		dto.NewNotify(dto.NotifyTypeBalanceForecast+"_"+level, subject, content, nil),
+		siteURL,
 	)
 	if err != nil {
 		logger.LogWarn(context.Background(), fmt.Sprintf("balance forecast reminder failed for user %d: %v", user.Id, err))
@@ -252,14 +259,18 @@ func handleBalanceForecastReminder(user *model.User, forecast *model.BalanceFore
 	}
 }
 
-func balanceForecastEmail(level string, forecast *model.BalanceForecast, language string) (string, string) {
+func balanceForecastEmail(level string, forecast *model.BalanceForecast, language string, siteURL string) (string, string) {
 	isChinese := strings.HasPrefix(strings.ToLower(strings.TrimSpace(language)), "zh")
 	duration := formatBalanceForecastDuration(forecast.EstimatedHours, isChinese)
 	exhaustedAt := "-"
 	if forecast.EstimatedExhaustedAt > 0 {
 		exhaustedAt = time.Unix(forecast.EstimatedExhaustedAt, 0).UTC().Format("2006-01-02 15:04 UTC")
 	}
-	topUpLink := html.EscapeString(PaymentReturnURL("/console/topup"))
+	baseURL := strings.TrimRight(system_setting.ServerAddress, "/")
+	if strings.TrimSpace(siteURL) != "" {
+		baseURL = strings.TrimRight(siteURL, "/")
+	}
+	topUpLink := html.EscapeString(baseURL + "/console/topup")
 	balance := html.EscapeString(logger.FormatQuota(int(forecast.Balance)))
 	hourly := html.EscapeString(logger.FormatQuota(int(forecast.HourlyConsumption)))
 	daily := html.EscapeString(logger.FormatQuota(int(forecast.DailyConsumption)))

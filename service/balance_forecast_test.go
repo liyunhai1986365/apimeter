@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/stretchr/testify/require"
 )
 
@@ -73,4 +74,20 @@ func TestBalanceForecastNotificationLevels(t *testing.T) {
 	require.Equal(t, balanceForecastLevelWarning, balanceForecastNotificationLevel(72))
 	require.Equal(t, balanceForecastLevelNotice, balanceForecastNotificationLevel(7*24))
 	require.Empty(t, balanceForecastNotificationLevel(7*24+0.01))
+}
+
+func TestBalanceForecastEmailUsesAgentSiteTopUpLink(t *testing.T) {
+	previousAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() { system_setting.ServerAddress = previousAddress })
+
+	_, content := balanceForecastEmail(balanceForecastLevelWarning, &model.BalanceForecast{
+		Balance:           300_000,
+		HourlyConsumption: 10_000,
+		DailyConsumption:  100_000,
+		EstimatedHours:    48,
+	}, "zh", "https://agent.example.com")
+
+	require.Contains(t, content, "href='https://agent.example.com/console/topup'")
+	require.NotContains(t, content, "https://modelsell.com/console/topup")
 }

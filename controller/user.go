@@ -1345,6 +1345,12 @@ func SendAdminUserEmail(c *gin.Context) {
 		common.ApiErrorMsg(c, "用户未绑定邮箱")
 		return
 	}
+	siteURL, err := emailSiteURLForUserAndRequest(c, user.Id)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	req.Content = service.RewriteEmailContentForSite(req.Content, siteURL)
 
 	if err := adminUserEmailSender(req.Subject, receiver, req.Content); err != nil {
 		common.ApiError(c, err)

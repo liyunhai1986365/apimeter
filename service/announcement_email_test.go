@@ -7,6 +7,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -22,7 +23,7 @@ func setupAnnouncementEmailTestDB(t *testing.T) {
 
 	db, err := gorm.Open(sqlite.Open("file:"+t.Name()+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.AgentUser{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Agent{}, &model.AgentUser{}, &model.AgentDomain{}))
 
 	model.DB = db
 	common.UsingSQLite = true
@@ -156,6 +157,37 @@ func TestBroadcastAnnouncementEmailMainSiteAudienceExcludesAgentUsers(t *testing
 	require.Equal(t, []string{"main@example.com"}, receivers)
 }
 
+func TestBroadcastAnnouncementEmailUsesEachAgentUsersSiteDomain(t *testing.T) {
+	setupAnnouncementEmailTestDB(t)
+	previousAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() { system_setting.ServerAddress = previousAddress })
+
+	require.NoError(t, model.DB.Create(&[]model.User{
+		{Id: 1, Username: "main", Password: "password123", Email: "main@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "agent-link-main"},
+		{Id: 2, Username: "agent", Password: "password123", Email: "agent@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "agent-link-user"},
+	}).Error)
+	require.NoError(t, model.DB.Create(&model.Agent{Id: 10, Name: "Agent", Slug: "announcement-link-agent", Status: model.AgentStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentUser{AgentId: 10, UserId: 2, Status: model.AgentUserStatusEnabled}).Error)
+	require.NoError(t, model.DB.Create(&model.AgentDomain{AgentId: 10, Domain: "agent.example.com", Status: model.AgentDomainStatusActive}).Error)
+
+	contents := make(map[string]string)
+	summary, err := BroadcastAnnouncementEmail(BroadcastAnnouncementEmailRequest{
+		Title:   "链接公告",
+		Content: "[查看详情](https://modelsell.com/pricing) [外部文档](https://docs.example.com/guide)",
+		Send: func(_ string, receiver string, content string) error {
+			contents[receiver] = content
+			return nil
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 2, summary.Sent)
+	require.Contains(t, contents["main@example.com"], `href="https://modelsell.com/pricing"`)
+	require.Contains(t, contents["agent@example.com"], `href="https://agent.example.com/pricing"`)
+	require.Contains(t, contents["agent@example.com"], `href="https://docs.example.com/guide"`)
+}
+
 func TestBroadcastAnnouncementEmailRejectsLegacyAnnouncementType(t *testing.T) {
 	setupAnnouncementEmailTestDB(t)
 
@@ -194,6 +226,9 @@ func TestBroadcastAnnouncementEmailRejectsInvalidAudience(t *testing.T) {
 
 func TestBroadcastAgentAnnouncementEmailOnlySendsToEnabledUsersInAgent(t *testing.T) {
 	setupAnnouncementEmailTestDB(t)
+	previousAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() { system_setting.ServerAddress = previousAddress })
 
 	require.NoError(t, model.DB.Create(&[]model.User{
 		{Id: 1, Username: "first", Password: "password123", Email: "first@example.com", Status: common.UserStatusEnabled, Role: common.RoleCommonUser, Group: "default", AffCode: "agent-first"},
@@ -217,14 +252,17 @@ func TestBroadcastAgentAnnouncementEmailOnlySendsToEnabledUsersInAgent(t *testin
 		AgentID:   10,
 		AgentName: "Agent <One>",
 		Title:     "代理公告",
-		Content:   "## 新内容",
+		Content:   "## 新内容\n\n[查看价格](https://modelsell.com/pricing) [外部链接](https://external.example/docs)",
 		Type:      "general",
+		SiteURL:   "https://agent.example.com",
 		Send: func(subject string, receiver string, content string) error {
 			receivers = append(receivers, receiver)
 			require.Equal(t, "代理公告", subject)
 			require.Contains(t, content, "announcement-source:agent:10")
 			require.Contains(t, content, "Agent &lt;One&gt;")
 			require.Contains(t, content, "<h2>新内容</h2>")
+			require.Contains(t, content, `href="https://agent.example.com/pricing"`)
+			require.Contains(t, content, `href="https://external.example/docs"`)
 			return nil
 		},
 	})

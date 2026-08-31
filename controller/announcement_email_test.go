@@ -27,7 +27,7 @@ func setupAnnouncementEmailControllerTestDB(t *testing.T) {
 
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.AgentUser{}, &model.Log{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Agent{}, &model.AgentUser{}, &model.AgentDomain{}, &model.Log{}))
 
 	model.DB = db
 	model.LOG_DB = db
