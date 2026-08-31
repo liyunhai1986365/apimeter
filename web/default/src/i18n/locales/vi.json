@@ -6705,16 +6705,12 @@
     "Loading user groups...": "Đang tải nhóm người dùng...",
     "Select a user group": "Chọn nhóm người dùng",
     "No user groups are configured.": "Chưa cấu hình nhóm người dùng.",
-    "Prices are recalculated from the server before the PDF is generated.": "Giá được máy chủ tính lại trước khi tạo PDF.",
     "Generate and download": "Tạo và tải xuống",
     "Unable to load user groups": "Không thể tải nhóm người dùng",
     "No models are available for the selected user group.": "Không có mô hình nào khả dụng cho nhóm người dùng đã chọn.",
     "Effective supplier prices": "Giá nhà cung cấp thực tế",
     "Reference quotation only. Official prices, effective supplier prices, exchange rates, and billing rules may change; the online price at the time of use prevails.": "Báo giá chỉ mang tính tham khảo. Giá chính thức, giá nhà cung cấp thực tế, tỷ giá và quy tắc tính phí có thể thay đổi; giá trực tuyến tại thời điểm sử dụng được ưu tiên.",
     "Download quotation": "Tải báo giá",
-    "Preparing quotation PDF...": "Đang tạo PDF báo giá...",
-    "Quotation PDF downloaded": "Đã tải PDF báo giá",
-    "Unable to generate quotation PDF": "Không thể tạo PDF báo giá",
     "Includes the models in the current filtered result.": "Bao gồm các mô hình trong kết quả đang được lọc.",
     "Price snapshot": "Ảnh chụp giá",
     "Model API Pricing Quotation": "Báo giá API mô hình",
@@ -6926,6 +6922,11 @@
     "Used as the user-group fallback for this billing group.": "Được dùng làm hệ số dự phòng theo nhóm người dùng cho nhóm tính phí này.",
     "User group is required": "Bắt buộc nhập nhóm người dùng",
     "User-group model overrides": "Ghi đè mô hình theo nhóm người dùng",
-    "User-group pricing overrides": "Ghi đè giá theo nhóm người dùng"
+    "User-group pricing overrides": "Ghi đè giá theo nhóm người dùng",
+    "Preparing quotation...": "Đang tạo báo giá...",
+    "Quotation": "Chi tiết báo giá",
+    "Quotation spreadsheet downloaded": "Đã tải bảng báo giá",
+    "Unable to generate quotation spreadsheet": "Không thể tạo bảng báo giá",
+    "Prices are recalculated from the server before the quotation is generated.": "Giá được tính lại từ máy chủ trước khi tạo báo giá."
   }
 }

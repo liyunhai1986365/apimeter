@@ -6705,16 +6705,12 @@
     "Loading user groups...": "Chargement des groupes d’utilisateurs...",
     "Select a user group": "Sélectionner un groupe d’utilisateurs",
     "No user groups are configured.": "Aucun groupe d’utilisateurs n’est configuré.",
-    "Prices are recalculated from the server before the PDF is generated.": "Les prix sont recalculés par le serveur avant la génération du PDF.",
     "Generate and download": "Générer et télécharger",
     "Unable to load user groups": "Impossible de charger les groupes d’utilisateurs",
     "No models are available for the selected user group.": "Aucun modèle n’est disponible pour le groupe d’utilisateurs sélectionné.",
     "Effective supplier prices": "Tarifs fournisseurs effectifs",
     "Reference quotation only. Official prices, effective supplier prices, exchange rates, and billing rules may change; the online price at the time of use prevails.": "Devis fourni à titre indicatif uniquement. Les prix officiels, les tarifs fournisseurs effectifs, les taux de change et les règles de facturation peuvent évoluer ; le prix en ligne au moment de l’utilisation prévaut.",
     "Download quotation": "Télécharger le devis",
-    "Preparing quotation PDF...": "Préparation du PDF du devis...",
-    "Quotation PDF downloaded": "PDF du devis téléchargé",
-    "Unable to generate quotation PDF": "Impossible de générer le PDF du devis",
     "Includes the models in the current filtered result.": "Inclut les modèles du résultat filtré actuel.",
     "Price snapshot": "Instantané des prix",
     "Model API Pricing Quotation": "Devis tarifaire des API de modèles",
@@ -6926,6 +6922,11 @@
     "Used as the user-group fallback for this billing group.": "Utilisé comme ratio de repli du groupe utilisateur pour ce groupe de facturation.",
     "User group is required": "Le groupe d’utilisateurs est obligatoire",
     "User-group model overrides": "Remplacements de modèle par groupe d’utilisateurs",
-    "User-group pricing overrides": "Remplacements tarifaires par groupe utilisateur"
+    "User-group pricing overrides": "Remplacements tarifaires par groupe utilisateur",
+    "Preparing quotation...": "Préparation du devis...",
+    "Quotation": "Devis",
+    "Quotation spreadsheet downloaded": "Tableur du devis téléchargé",
+    "Unable to generate quotation spreadsheet": "Impossible de générer le tableur du devis",
+    "Prices are recalculated from the server before the quotation is generated.": "Les prix sont recalculés depuis le serveur avant la génération du devis."
   }
 }

@@ -17,14 +17,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useCallback, useState } from 'react'
-import { Pdf02Icon } from '@hugeicons/core-free-icons'
+import { FileSpreadsheetIcon } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 import { trackGoogleAnalyticsEvent } from '@/lib/google-analytics'
-import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { useIsAdmin } from '@/hooks/use-admin'
+import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -54,7 +54,8 @@ import {
   getQuotationUserGroups,
   hydratePricingModels,
 } from '../api'
-import { downloadQuotationPdf } from '../lib/quotation-pdf'
+import type { QuotationOptions } from '../lib/quotation'
+import { downloadQuotationSpreadsheet } from '../lib/quotation-spreadsheet'
 import type {
   PricingGroupDisplayConfig,
   PricingModel,
@@ -84,7 +85,7 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
   const [selectedUserGroup, setSelectedUserGroup] = useState('')
 
   const generateQuotation = useCallback(
-    async (options?: { userGroup?: string; reloadPricing?: boolean }) => {
+    async (options: { userGroup?: string; reloadPricing?: boolean }) => {
       if (isDownloading || props.models.length === 0) return
       setIsDownloading(true)
 
@@ -116,7 +117,7 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
           return
         }
 
-        const result = await downloadQuotationPdf({
+        const quotationOptions: QuotationOptions = {
           models,
           siteName: systemName,
           tokenUnit: props.tokenUnit,
@@ -130,26 +131,31 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
           discountLabels,
           userGroup,
           translate: (key, values) => String(t(key, values)),
-        })
+        }
+        const result = await downloadQuotationSpreadsheet(quotationOptions)
 
         trackGoogleAnalyticsEvent('pricing_quotation_download', {
-          format: 'pdf',
+          format: 'xlsx',
           model_count: models.length,
           row_count: result.rowCount,
-          page_count: result.pageCount,
+          sheet_count: result.sheetCount,
           filtered: props.hasActiveFilters,
           user_group: userGroup || undefined,
         })
         setIsDialogOpen(false)
-        toast.success(t('Quotation PDF downloaded'))
+        toast.success(t('Quotation spreadsheet downloaded'))
       } catch (error) {
         // eslint-disable-next-line no-console
-        console.error('Failed to generate pricing quotation PDF:', error)
-        toast.error(t('Unable to generate quotation PDF'))
+        console.error(
+          'Failed to generate pricing quotation spreadsheet:',
+          error
+        )
+        toast.error(t('Unable to generate quotation spreadsheet'))
       } finally {
         setIsDownloading(false)
       }
-    }, [
+    },
+    [
       discountLabels,
       i18n.language,
       i18n.resolvedLanguage,
@@ -159,7 +165,6 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
       props.models,
       props.priceRate,
       props.tokenUnit,
-      props.userGroup,
       props.usableGroup,
       props.usdExchangeRate,
       systemName,
@@ -187,7 +192,7 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
     }
   }
 
-  const handleButtonClick = () => {
+  const handleDownload = () => {
     if (isAdmin) {
       void openAdminDialog()
       return
@@ -215,23 +220,19 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
       size='sm'
       className='h-7 rounded-md px-2.5 text-xs'
       disabled={isDownloading || props.models.length === 0}
-      onClick={handleButtonClick}
       title={t('Includes the models in the current filtered result.')}
       aria-label={
-        isDownloading
-          ? t('Preparing quotation PDF...')
-          : t('Download quotation')
+        isDownloading ? t('Preparing quotation...') : t('Download quotation')
       }
+      onClick={handleDownload}
     >
       {isDownloading ? (
         <Spinner data-icon='inline-start' />
       ) : (
-        <HugeiconsIcon icon={Pdf02Icon} data-icon='inline-start' />
+        <HugeiconsIcon icon={FileSpreadsheetIcon} data-icon='inline-start' />
       )}
       <span className='hidden md:inline'>
-        {isDownloading
-          ? t('Preparing quotation PDF...')
-          : t('Download quotation')}
+        {isDownloading ? t('Preparing quotation...') : t('Download quotation')}
       </span>
     </Button>
   )
@@ -245,11 +246,7 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
         <DialogContent className='sm:max-w-md'>
           <DialogHeader>
             <DialogTitle>{t('Generate quotation')}</DialogTitle>
-            <DialogDescription>
-              {t(
-                'Select a user group. The quotation will use that group’s available models and effective supplier prices.'
-              )}
-            </DialogDescription>
+            <DialogDescription>{t('Select a user group')}</DialogDescription>
           </DialogHeader>
 
           <FieldGroup>
@@ -283,7 +280,7 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
                 {userGroups?.length === 0
                   ? t('No user groups are configured.')
                   : t(
-                      'Prices are recalculated from the server before the PDF is generated.'
+                      'Prices are recalculated from the server before the quotation is generated.'
                     )}
               </FieldDescription>
             </Field>
@@ -305,7 +302,7 @@ export function DownloadQuotationButton(props: DownloadQuotationButtonProps) {
             >
               {isDownloading && <Spinner data-icon='inline-start' />}
               {isDownloading
-                ? t('Preparing quotation PDF...')
+                ? t('Preparing quotation...')
                 : t('Generate and download')}
             </Button>
           </DialogFooter>

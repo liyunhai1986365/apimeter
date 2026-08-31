@@ -66,6 +66,7 @@ export type ModelCardPriceDisplayOptions = {
   usdExchangeRate?: number
   discountLabels?: GroupDiscountLabels
   includeAllDynamicTiers?: boolean
+  includeCacheWritePrices?: boolean
   hiddenDiscountGroups?: ReadonlySet<string>
 }
 
@@ -227,12 +228,15 @@ function buildDynamicDisplay(
     ? tiers
     : [tier].filter(Boolean)
   const discountRatio = getLowestEnabledGroupRatio(displayModel)
+  const includeEntry = (entry: { field: string }) =>
+    options.includeCacheWritePrices ||
+    !MODEL_CARD_HIDDEN_DYNAMIC_FIELDS.has(entry.field)
   const originalEntries = displayTiers.flatMap((item) =>
     getDynamicPriceEntries(item, {
       ...shared,
       groupRatioMultiplier: 1,
     })
-      .filter((entry) => !MODEL_CARD_HIDDEN_DYNAMIC_FIELDS.has(entry.field))
+      .filter(includeEntry)
       .map((entry) => ({ ...entry, specLabel: item.label }))
   )
   const currentEntries = displayTiers.flatMap((item) =>
@@ -240,7 +244,7 @@ function buildDynamicDisplay(
       ...shared,
       groupRatioMultiplier: discountRatio,
     })
-      .filter((entry) => !MODEL_CARD_HIDDEN_DYNAMIC_FIELDS.has(entry.field))
+      .filter(includeEntry)
       .map((entry) => ({ ...entry, specLabel: item.label }))
   )
   const currentByKey = new Map(
@@ -378,6 +382,36 @@ function buildTokenDisplay(
       current: formatPrice(displayModel, 'cache', ...args),
       unitLabel,
     })
+  }
+  if (options.includeCacheWritePrices && model.create_cache_ratio != null) {
+    entries.push(
+      {
+        key: 'create_cache',
+        labelKey: 'Cache Write (5m)',
+        original: formatGroupPrice(
+          model,
+          ORIGINAL_GROUP_KEY,
+          'create_cache',
+          ...args,
+          originalRatios
+        ),
+        current: formatPrice(displayModel, 'create_cache', ...args),
+        unitLabel,
+      },
+      {
+        key: 'create_cache_1h',
+        labelKey: 'Cache Write (1h)',
+        original: formatGroupPrice(
+          model,
+          ORIGINAL_GROUP_KEY,
+          'create_cache_1h',
+          ...args,
+          originalRatios
+        ),
+        current: formatPrice(displayModel, 'create_cache_1h', ...args),
+        unitLabel,
+      }
+    )
   }
   return {
     kind: 'token',

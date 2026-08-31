@@ -6705,16 +6705,12 @@
     "Loading user groups...": "Загрузка групп пользователей...",
     "Select a user group": "Выберите группу пользователей",
     "No user groups are configured.": "Группы пользователей не настроены.",
-    "Prices are recalculated from the server before the PDF is generated.": "Перед созданием PDF цены повторно рассчитываются на сервере.",
     "Generate and download": "Сформировать и скачать",
     "Unable to load user groups": "Не удалось загрузить группы пользователей",
     "No models are available for the selected user group.": "Для выбранной группы пользователей нет доступных моделей.",
     "Effective supplier prices": "Фактические цены поставщиков",
     "Reference quotation only. Official prices, effective supplier prices, exchange rates, and billing rules may change; the online price at the time of use prevails.": "Предложение носит справочный характер. Официальные и фактические цены поставщиков, курсы валют и правила тарификации могут меняться; применяется онлайн-цена на момент использования.",
     "Download quotation": "Скачать предложение",
-    "Preparing quotation PDF...": "Подготовка PDF-предложения...",
-    "Quotation PDF downloaded": "PDF-предложение скачано",
-    "Unable to generate quotation PDF": "Не удалось сформировать PDF-предложение",
     "Includes the models in the current filtered result.": "Включает модели из текущих результатов фильтрации.",
     "Price snapshot": "Снимок цен",
     "Model API Pricing Quotation": "Ценовое предложение на API моделей",
@@ -6926,6 +6922,11 @@
     "Used as the user-group fallback for this billing group.": "Используется как резервный коэффициент группы пользователей для этой группы тарификации.",
     "User group is required": "Необходимо указать группу пользователей",
     "User-group model overrides": "Переопределения моделей для групп пользователей",
-    "User-group pricing overrides": "Переопределения цен для групп пользователей"
+    "User-group pricing overrides": "Переопределения цен для групп пользователей",
+    "Preparing quotation...": "Подготовка предложения...",
+    "Quotation": "Предложение",
+    "Quotation spreadsheet downloaded": "Таблица предложения загружена",
+    "Unable to generate quotation spreadsheet": "Не удалось создать таблицу предложения",
+    "Prices are recalculated from the server before the quotation is generated.": "Перед созданием предложения цены повторно рассчитываются на сервере."
   }
 }

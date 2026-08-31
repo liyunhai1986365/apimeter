@@ -6705,16 +6705,12 @@
     "Loading user groups...": "正在加载用户分组...",
     "Select a user group": "选择用户分组",
     "No user groups are configured.": "尚未配置用户分组。",
-    "Prices are recalculated from the server before the PDF is generated.": "生成 PDF 前会从服务端重新计算价格。",
     "Generate and download": "生成并下载",
     "Unable to load user groups": "无法加载用户分组",
     "No models are available for the selected user group.": "所选用户分组没有可用模型。",
     "Effective supplier prices": "实际供应商价格",
     "Reference quotation only. Official prices, effective supplier prices, exchange rates, and billing rules may change; the online price at the time of use prevails.": "本报价单仅供参考。官方价格、实际供应商价格、汇率和计费规则可能发生变化，实际使用时以在线价格为准。",
     "Download quotation": "下载报价单",
-    "Preparing quotation PDF...": "正在生成报价单 PDF...",
-    "Quotation PDF downloaded": "报价单 PDF 已下载",
-    "Unable to generate quotation PDF": "无法生成报价单 PDF",
     "Includes the models in the current filtered result.": "报价单将包含当前筛选结果中的模型。",
     "Price snapshot": "价格快照",
     "Model API Pricing Quotation": "模型 API 报价单",
@@ -6926,6 +6922,11 @@
     "Used as the user-group fallback for this billing group.": "作为该计费分组面向此用户分组的后备倍率。",
     "User group is required": "用户分组不能为空",
     "User-group model overrides": "用户分组模型覆盖",
-    "User-group pricing overrides": "用户分组价格覆盖"
+    "User-group pricing overrides": "用户分组价格覆盖",
+    "Preparing quotation...": "正在生成报价单...",
+    "Quotation": "报价明细",
+    "Quotation spreadsheet downloaded": "报价表格已下载",
+    "Unable to generate quotation spreadsheet": "无法生成报价表格",
+    "Prices are recalculated from the server before the quotation is generated.": "生成报价单前会从服务端重新计算价格。"
   }
 }

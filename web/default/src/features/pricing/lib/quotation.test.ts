@@ -1,11 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { PricingModel } from '../types'
-import {
-  buildQuotationFilename,
-  buildQuotationRows,
-  normalizeQuotationLocale,
-} from './quotation-pdf'
+import { buildQuotationFilename, buildQuotationRows } from './quotation'
 
 function model(overrides: Partial<PricingModel> = {}): PricingModel {
   return {
@@ -21,18 +17,24 @@ function model(overrides: Partial<PricingModel> = {}): PricingModel {
   }
 }
 
-describe('quotation PDF data', () => {
+describe('quotation spreadsheet data', () => {
   test('uses the shared pricing display for token-based quote rows', () => {
-    const [row] = buildQuotationRows([model()], {
-      tokenUnit: 'M',
-      usableGroup: { default: 'Default supplier' },
-    })
+    const [row] = buildQuotationRows(
+      [model({ cache_ratio: 0.5, create_cache_ratio: 1.25 })],
+      {
+        tokenUnit: 'M',
+        usableGroup: { default: 'Default supplier' },
+      }
+    )
 
     assert.equal(row.modelName, 'gpt-test')
     assert.equal(row.vendorName, 'OpenAI')
     assert.equal(row.billingLabelKey, 'Token-based')
     assert.notEqual(row.primaryPrice, '-')
     assert.notEqual(row.outputPrice, '-')
+    assert.equal(row.cacheWritePrice, '$2.5')
+    assert.equal(row.cacheWrite1hPrice, '$4')
+    assert.equal(row.cachePrice, '$1')
     assert.equal(row.primaryUnitLabel, '1M')
     assert.equal(row.outputUnitLabel, '1M')
     assert.equal(row.cacheUnitLabel, '1M')
@@ -40,9 +42,7 @@ describe('quotation PDF data', () => {
     assert.deepEqual(row.outputModalities, ['text'])
     assert.deepEqual(row.supplierDiscounts[0], {
       group: 'default',
-      description: 'Default supplier',
       ratio: 0.5,
-      label: '0.5',
     })
   })
 
@@ -132,42 +132,6 @@ describe('quotation PDF data', () => {
       row.supplierDiscounts.map((item) => item.group),
       ['supplierB', 'supplierA']
     )
-    assert.deepEqual(
-      row.supplierDiscounts.map((item) => item.label),
-      ['0.25', '0.5']
-    )
-  })
-
-  test('merges identical supplier information even when model prices differ', () => {
-    const rows = buildQuotationRows(
-      [
-        model({ id: 1, model_name: 'gpt-a' }),
-        model({ id: 2, model_name: 'gpt-b', model_ratio: 2 }),
-        model({
-          id: 3,
-          model_name: 'gpt-c',
-          group_ratio: { default: 0.6 },
-        }),
-        model({
-          id: 4,
-          model_name: 'gemini-a',
-          vendor_name: 'Google',
-        }),
-      ],
-      { usableGroup: { default: 'Default supplier' } }
-    )
-
-    assert.deepEqual(
-      Object.fromEntries(
-        rows.map((row) => [row.modelName, row.supplierPricingMode])
-      ),
-      {
-        'gemini-a': 'full',
-        'gpt-a': 'full',
-        'gpt-b': 'same-segment',
-        'gpt-c': 'full',
-      }
-    )
   })
 
   test('marks unsupported expressions for online detail lookup', () => {
@@ -192,10 +156,27 @@ describe('quotation PDF data', () => {
     assert.ok(rows.some((row) => row.primaryUnitLabel === 'second'))
   })
 
+  test('keeps cache write prices from dynamic pricing tiers', () => {
+    const [row] = buildQuotationRows(
+      [
+        model({
+          billing_mode: 'tiered_expr',
+          billing_expr:
+            'tier("base", p * 3 + c * 15 + cr * 0.3 + cc * 3.75 + cc1h * 6)',
+        }),
+      ],
+      { tokenUnit: 'M' }
+    )
+
+    assert.equal(row.cacheWritePrice, '$3.75')
+    assert.equal(row.cacheWrite1hPrice, '$6')
+    assert.equal(row.cachePrice, '$0.3')
+  })
+
   test('creates stable, filesystem-safe quotation filenames', () => {
     assert.equal(
       buildQuotationFilename('Modelsell / Enterprise', new Date(2026, 7, 12)),
-      'Modelsell-Enterprise-pricing-quotation-2026-08-12.pdf'
+      'Modelsell-Enterprise-pricing-quotation-2026-08-12.xlsx'
     )
     assert.equal(
       buildQuotationFilename(
@@ -203,13 +184,7 @@ describe('quotation PDF data', () => {
         new Date(2026, 7, 12),
         'VIP / Partner'
       ),
-      'Modelsell-Enterprise-pricing-quotation-VIP-Partner-2026-08-12.pdf'
+      'Modelsell-Enterprise-pricing-quotation-VIP-Partner-2026-08-12.xlsx'
     )
-  })
-
-  test('normalizes project locale aliases for Intl APIs', () => {
-    assert.equal(normalizeQuotationLocale('zhCN'), 'zh-CN')
-    assert.equal(normalizeQuotationLocale('pt_BR'), 'pt-BR')
-    assert.equal(normalizeQuotationLocale(''), 'en')
   })
 })

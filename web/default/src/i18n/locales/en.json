@@ -6705,16 +6705,12 @@
     "Loading user groups...": "Loading user groups...",
     "Select a user group": "Select a user group",
     "No user groups are configured.": "No user groups are configured.",
-    "Prices are recalculated from the server before the PDF is generated.": "Prices are recalculated from the server before the PDF is generated.",
     "Generate and download": "Generate and download",
     "Unable to load user groups": "Unable to load user groups",
     "No models are available for the selected user group.": "No models are available for the selected user group.",
     "Effective supplier prices": "Effective supplier prices",
     "Reference quotation only. Official prices, effective supplier prices, exchange rates, and billing rules may change; the online price at the time of use prevails.": "Reference quotation only. Official prices, effective supplier prices, exchange rates, and billing rules may change; the online price at the time of use prevails.",
     "Download quotation": "Download quotation",
-    "Preparing quotation PDF...": "Preparing quotation PDF...",
-    "Quotation PDF downloaded": "Quotation PDF downloaded",
-    "Unable to generate quotation PDF": "Unable to generate quotation PDF",
     "Includes the models in the current filtered result.": "Includes the models in the current filtered result.",
     "Price snapshot": "Price snapshot",
     "Model API Pricing Quotation": "Model API Pricing Quotation",
@@ -6926,6 +6922,11 @@
     "Used as the user-group fallback for this billing group.": "Used as the user-group fallback for this billing group.",
     "User group is required": "User group is required",
     "User-group model overrides": "User-group model overrides",
-    "User-group pricing overrides": "User-group pricing overrides"
+    "User-group pricing overrides": "User-group pricing overrides",
+    "Preparing quotation...": "Preparing quotation...",
+    "Quotation": "Quotation",
+    "Quotation spreadsheet downloaded": "Quotation spreadsheet downloaded",
+    "Unable to generate quotation spreadsheet": "Unable to generate quotation spreadsheet",
+    "Prices are recalculated from the server before the quotation is generated.": "Prices are recalculated from the server before the quotation is generated."
   }
 }
