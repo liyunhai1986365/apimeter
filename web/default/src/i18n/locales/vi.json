@@ -3902,7 +3902,7 @@
     "Password reset and copied to clipboard: {{password}}": "Mật khẩu đã đặt lại và sao chép vào clipboard: {{password}}",
     "Password reset: {{password}}": "Mật khẩu đã đặt lại: {{password}}",
     "Passwords do not match": "Mật khẩu không khớp",
-    "Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.": "Dán mã tập lệnh hỗ trợ khách hàng. Giao diện sẽ trích xuất và tải src của tập lệnh trên toàn hệ thống; để trống để tắt.",
+    "Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.": "Dán một tập lệnh SaleWisely hoặc Tidio. Giao diện sẽ trích xuất src và chỉ tải nhà cung cấp hỗ trợ khách hàng đã cấu hình trên toàn hệ thống; để trống để tắt.",
     "Paste the full callback URL (includes code & state)": "Dán toàn bộ URL callback (gồm code và state)",
     "Paste the upstream system access token": "Dán token truy cập hệ thống thượng nguồn",
     "Path": "Đường dẫn",

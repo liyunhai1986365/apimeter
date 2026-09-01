@@ -3902,7 +3902,7 @@
     "Password reset and copied to clipboard: {{password}}": "パスワードがリセットされ、クリップボードにコピーされました：{{password}}",
     "Password reset: {{password}}": "パスワードがリセットされました：{{password}}",
     "Passwords do not match": "パスワードが一致しません",
-    "Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.": "カスタマーサポートのスクリプトコードを貼り付けてください。フロントエンドは script の src を抽出して全体に読み込みます。空のままにすると無効になります。",
+    "Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.": "SaleWisely または Tidio のスクリプトを1つ貼り付けてください。フロントエンドは src を抽出し、設定されたカスタマーサポートプロバイダーのみをグローバルに読み込みます。空欄にすると無効になります。",
     "Paste the full callback URL (includes code & state)": "コールバックURL全体を貼り付け（code と state を含む）",
     "Paste the upstream system access token": "上流のシステムアクセストークンを貼り付けます",
     "Path": "パス",

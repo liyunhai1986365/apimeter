@@ -3902,7 +3902,7 @@
     "Password reset and copied to clipboard: {{password}}": "密码已重置并复制到剪贴板：{{password}}",
     "Password reset: {{password}}": "密码已重置：{{password}}",
     "Passwords do not match": "密码不匹配",
-    "Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.": "粘贴客服脚本代码。前端会提取并全局加载脚本 src；留空则禁用。",
+    "Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.": "粘贴一段 SaleWisely 或 Tidio 客服脚本。前端会提取其 src，并且全局只加载当前配置的客服服务商；留空则禁用。",
     "Paste the full callback URL (includes code & state)": "粘贴完整回调 URL（含 code 和 state）",
     "Paste the upstream system access token": "粘贴上游系统访问令牌",
     "Path": "路径",

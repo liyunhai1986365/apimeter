@@ -370,14 +370,14 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormLabel>{t('Customer Service Script')}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder='<script src="//code.tidio.co/your-id.js" async></script>'
+                      placeholder='<script async fetchpriority="low" src="https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=735d606344a8422b87002bd98cb5812d"></script>'
                       rows={4}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.'
+                      'Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.'
                     )}
                   </FormDescription>
                   <FormMessage />

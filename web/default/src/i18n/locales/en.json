@@ -3902,7 +3902,7 @@
     "Password reset and copied to clipboard: {{password}}": "Password reset and copied to clipboard: {{password}}",
     "Password reset: {{password}}": "Password reset: {{password}}",
     "Passwords do not match": "Passwords do not match",
-    "Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.": "Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.",
+    "Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.": "Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.",
     "Paste the full callback URL (includes code & state)": "Paste the full callback URL (includes code & state)",
     "Paste the upstream system access token": "Paste the upstream system access token",
     "Path": "Path",

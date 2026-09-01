@@ -3902,7 +3902,7 @@
     "Password reset and copied to clipboard: {{password}}": "Mot de passe réinitialisé et copié dans le presse-papiers : {{password}}",
     "Password reset: {{password}}": "Mot de passe réinitialisé : {{password}}",
     "Passwords do not match": "Les mots de passe ne correspondent pas",
-    "Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.": "Collez le code du script de service client. Le frontend extrait et charge globalement le src du script ; laissez vide pour le désactiver.",
+    "Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.": "Collez un seul script SaleWisely ou Tidio. Le frontend extrait son attribut src et ne charge globalement que le fournisseur de service client configuré ; laissez ce champ vide pour le désactiver.",
     "Paste the full callback URL (includes code & state)": "Coller l'URL de callback complète (inclut code et state)",
     "Paste the upstream system access token": "Collez le jeton d'accès système amont",
     "Path": "Chemin",
