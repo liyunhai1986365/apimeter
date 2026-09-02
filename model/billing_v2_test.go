@@ -661,6 +661,95 @@ func TestGenerateRecentMonthlyBillingStatementsBackfillsPreviousFullMonth(t *tes
 	assert.Empty(t, juneRows)
 }
 
+func TestGenerateMonthlyBillingStatementsForMonthUsesBoundedProjections(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, LOG_DB.AutoMigrate(
+		&BillingUsageItem{},
+		&AccountLedgerEntry{},
+		&BillingStatement{},
+		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
+	))
+
+	august := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id:        7501,
+			UserId:    1001,
+			CreatedAt: august.Add(time.Hour).Unix(),
+			Type:      LogTypeTopup,
+			Quota:     20000,
+		},
+		{
+			Id:        7502,
+			UserId:    1003,
+			CreatedAt: august.Add(2 * time.Hour).Unix(),
+			Type:      LogTypeTopup,
+			Quota:     3000,
+		},
+	}).Error)
+	require.NoError(t, RecordBillingUsageItem(&BillingUsageItem{
+		UserId:           1001,
+		LogId:            7511,
+		ModelName:        "gpt-4.1",
+		Group:            "vip",
+		GroupRatio:       0.8,
+		BillingSource:    BillingSourceWallet,
+		BillingMode:      "tiered_expr",
+		BilledAt:         august.Add(3 * time.Hour).Unix(),
+		InputTokens:      1200,
+		OutputTokens:     300,
+		OriginalAmount:   10000,
+		DiscountAmount:   2000,
+		SettlementAmount: 8000,
+	}))
+	require.NoError(t, RecordBillingUsageItem(&BillingUsageItem{
+		UserId:           1002,
+		LogId:            7512,
+		ModelName:        "claude-sonnet-4",
+		Group:            "default",
+		GroupRatio:       1,
+		BillingSource:    BillingSourceWallet,
+		BillingMode:      "tokens",
+		BilledAt:         august.Add(4 * time.Hour).Unix(),
+		InputTokens:      700,
+		OutputTokens:     200,
+		OriginalAmount:   5000,
+		SettlementAmount: 5000,
+	}))
+
+	result, err := GenerateMonthlyBillingStatementsForMonth("2026-08")
+	require.NoError(t, err)
+	assert.Equal(t, 3, result.EligibleUsers)
+	assert.Equal(t, 3, result.StatementCount)
+	assert.Empty(t, result.FailedUsers)
+	assert.Zero(t, result.Backfill.Scanned)
+
+	statement, err := GetBillingStatementByNo("BILL-202608-1001", 1001)
+	require.NoError(t, err)
+	assert.Equal(t, int64(20000), statement.TopupAmount)
+	assert.Equal(t, int64(8000), statement.ConsumeAmount)
+	assert.Equal(t, int64(8000), statement.SettlementAmount)
+	assert.Zero(t, statement.DifferenceAmount)
+	assert.Equal(t, BillingStatementReconciliationMatched, statement.ReconciliationStatus)
+
+	topupOnly, err := GetBillingStatementByNo("BILL-202608-1003", 1003)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3000), topupOnly.TopupAmount)
+	assert.Zero(t, topupOnly.RequestCount)
+
+	var ledgerCount int64
+	require.NoError(t, LOG_DB.Model(&AccountLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount)
+
+	var summaryCount int64
+	require.NoError(t, LOG_DB.Model(&BillingStatementSummary{}).
+		Where("statement_no = ?", statement.StatementNo).
+		Count(&summaryCount).Error)
+	assert.Equal(t, int64(1), summaryCount)
+}
+
 func TestRecordBillingUsageConsumeLogDoesNotExtendLedger(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, LOG_DB.AutoMigrate(
