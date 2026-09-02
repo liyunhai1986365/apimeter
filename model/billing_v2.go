@@ -1019,32 +1019,66 @@ func generateMonthlyBillingStatementFromProjections(userId int, month string, st
 	for _, row := range ledgerTotals {
 		ledgerAmounts[row.EntryType] = row.Amount
 	}
-	var balanceLogTotals []struct {
-		Type   int
-		Amount int64
-	}
+	// BillingUsageItem captures the initial consume log, while asynchronous task
+	// settlement writes only the later consume/refund delta to logs. Load just
+	// those bounded balance and settlement-delta rows so the projected monthly
+	// statement remains fast without treating the pre-consumed amount as final.
+	var balanceLogs []Log
 	if err := LOG_DB.Model(&Log{}).
 		Where("user_id = ? AND created_at >= ? AND created_at <= ?", userId, start, end).
-		Where("type IN ?", []int{LogTypeTopup, LogTypeRefund, LogTypeManage}).
-		Select("type, COALESCE(SUM(quota), 0) AS amount").
-		Group("type").
-		Scan(&balanceLogTotals).Error; err != nil {
+		Where("(type IN ? OR (type = ? AND other LIKE ? AND other LIKE ?))",
+			[]int{LogTypeTopup, LogTypeRefund, LogTypeManage},
+			LogTypeConsume,
+			`%"pre_consumed_quota"%`,
+			`%"actual_quota"%`,
+		).
+		Order("created_at asc, id asc").
+		Find(&balanceLogs).Error; err != nil {
 		return BillingStatement{}, nil, err
 	}
-	for _, row := range balanceLogTotals {
+	rawAmounts := map[string]int64{}
+	rawAmountPresent := map[string]bool{}
+	settlementDeltaLogs := make([]Log, 0)
+	for i := range balanceLogs {
+		log := balanceLogs[i]
 		entryType := ""
-		switch row.Type {
+		other, _ := common.StrToMap(log.Other)
+		switch log.Type {
 		case LogTypeTopup:
 			entryType = AccountLedgerEntryTypeTopup
 		case LogTypeRefund:
+			if shouldSkipPlatformBillingSource(billingSourceFromLogOther(other)) {
+				continue
+			}
 			entryType = AccountLedgerEntryTypeRefund
+			settlementDeltaLogs = append(settlementDeltaLogs, log)
 		case LogTypeManage:
 			entryType = AccountLedgerEntryTypeAdjustment
+		case LogTypeConsume:
+			if shouldSkipPlatformBillingSource(billingSourceFromLogOther(other)) {
+				continue
+			}
+			_, hasPreConsumed := other["pre_consumed_quota"]
+			_, hasActual := other["actual_quota"]
+			if !hasPreConsumed || !hasActual {
+				continue
+			}
+			entryType = AccountLedgerEntryTypeConsume
+			settlementDeltaLogs = append(settlementDeltaLogs, log)
 		}
 		if entryType != "" {
-			if _, exists := ledgerAmounts[entryType]; !exists {
-				ledgerAmounts[entryType] = row.Amount
-			}
+			rawAmounts[entryType] += int64(log.Quota)
+			rawAmountPresent[entryType] = true
+		}
+	}
+	for entryType, amount := range rawAmounts {
+		if _, exists := ledgerAmounts[entryType]; exists {
+			continue
+		}
+		if entryType == AccountLedgerEntryTypeConsume {
+			ledgerAmounts[entryType] = -(usageTotals.SettlementAmount + amount)
+		} else {
+			ledgerAmounts[entryType] = amount
 		}
 	}
 	if _, exists := ledgerAmounts[AccountLedgerEntryTypeConsume]; !exists {
@@ -1053,6 +1087,19 @@ func generateMonthlyBillingStatementFromProjections(userId int, month string, st
 		// therefore the authoritative consume total when no ledger backfill is
 		// present.
 		ledgerAmounts[AccountLedgerEntryTypeConsume] = -usageTotals.SettlementAmount
+	}
+	projectedRefundAmount := rawAmounts[AccountLedgerEntryTypeRefund]
+	if !rawAmountPresent[AccountLedgerEntryTypeRefund] {
+		projectedRefundAmount = ledgerAmounts[AccountLedgerEntryTypeRefund]
+	}
+	projectedConsumeAmount := usageTotals.SettlementAmount + rawAmounts[AccountLedgerEntryTypeConsume]
+	projectedSettlementAmount := projectedConsumeAmount - projectedRefundAmount
+	projectedOriginalAmount := usageTotals.OriginalAmount
+	projectedDiscountAmount := usageTotals.DiscountAmount
+	for i := range settlementDeltaLogs {
+		item := billingSettlementDeltaItem(&settlementDeltaLogs[i])
+		projectedOriginalAmount += item.OriginalAmount
+		projectedDiscountAmount += item.DiscountAmount
 	}
 	statement := BillingStatement{
 		StatementNo:      statementNo,
@@ -1066,9 +1113,9 @@ func generateMonthlyBillingStatementFromProjections(userId int, month string, st
 		OutputTokens:     usageTotals.OutputTokens,
 		CacheReadTokens:  usageTotals.CacheReadTokens,
 		CacheWriteTokens: usageTotals.CacheWriteTokens,
-		OriginalAmount:   usageTotals.OriginalAmount,
-		DiscountAmount:   usageTotals.DiscountAmount,
-		SettlementAmount: usageTotals.SettlementAmount,
+		OriginalAmount:   projectedOriginalAmount,
+		DiscountAmount:   projectedDiscountAmount,
+		SettlementAmount: projectedSettlementAmount,
 		GeneratedAt:      time.Now().Unix(),
 	}
 	for entryType, amount := range ledgerAmounts {
@@ -1098,7 +1145,7 @@ func generateMonthlyBillingStatementFromProjections(userId int, month string, st
 	statement.BaseSettlementAmount = statement.SettlementAmount
 	statement.Revision = 1
 	statement.WorkflowVersion = BillingStatementWorkflowVersion
-	summaries, err := buildBillingStatementSummaries(statement)
+	summaries, err := buildBillingStatementSummaries(statement, settlementDeltaLogs)
 	if err != nil {
 		return BillingStatement{}, nil, err
 	}
@@ -1248,7 +1295,25 @@ func generateMonthlyBillingStatementFromLogs(userId int, month string, start int
 	return statement, summaries, err
 }
 
-func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatementSummary, error) {
+func billingSettlementDeltaItem(log *Log) BillingUsageItem {
+	if log == nil {
+		return BillingUsageItem{}
+	}
+	other, _ := common.StrToMap(log.Other)
+	item := billingUsageItemFromLog(log, other)
+	item.InputTokens = 0
+	item.OutputTokens = 0
+	item.CacheReadTokens = 0
+	item.CacheWriteTokens = 0
+	if log.Type == LogTypeRefund {
+		item.OriginalAmount = -item.OriginalAmount
+		item.SettlementAmount = -item.SettlementAmount
+		item.DiscountAmount = item.OriginalAmount - item.SettlementAmount
+	}
+	return item
+}
+
+func buildBillingStatementSummaries(statement BillingStatement, settlementDeltaLogs []Log) ([]BillingStatementSummary, error) {
 	type summaryAggregate struct {
 		ModelName        string  `gorm:"column:model_name"`
 		GroupName        string  `gorm:"column:group_name"`
@@ -1322,6 +1387,46 @@ func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatem
 			DiscountAmount:   row.DiscountAmount,
 			SettlementAmount: row.SettlementAmount,
 		})
+	}
+	byDimensionValue := make(map[string]int, len(summaries))
+	for i := range summaries {
+		byDimensionValue[summaries[i].DimensionValue] = i
+	}
+	for i := range settlementDeltaLogs {
+		item := billingSettlementDeltaItem(&settlementDeltaLogs[i])
+		modelName := billingDisplayValue(item.ModelName)
+		groupName := billingDisplayValue(item.Group)
+		groupRatio := item.GroupRatio
+		if groupRatio == 0 {
+			groupRatio = 1
+		}
+		detailValue := strings.Join([]string{
+			statement.PeriodValue,
+			modelName,
+			groupName,
+			strconv.FormatFloat(groupRatio, 'f', -1, 64),
+		}, " / ")
+		summaryIndex, exists := byDimensionValue[detailValue]
+		if !exists {
+			summaries = append(summaries, BillingStatementSummary{
+				StatementNo:    statement.StatementNo,
+				UserId:         statement.UserId,
+				Period:         statement.Period,
+				PeriodValue:    statement.PeriodValue,
+				Dimension:      BillingStatementSummaryDimensionMonthModelGroup,
+				DimensionValue: detailValue,
+				ModelName:      modelName,
+				Group:          groupName,
+				GroupRatio:     groupRatio,
+				BillingSource:  billingDisplayValue(item.BillingSource),
+				BillingMode:    billingDisplayValue(item.BillingMode),
+			})
+			summaryIndex = len(summaries) - 1
+			byDimensionValue[detailValue] = summaryIndex
+		}
+		summaries[summaryIndex].OriginalAmount += item.OriginalAmount
+		summaries[summaryIndex].DiscountAmount += item.DiscountAmount
+		summaries[summaryIndex].SettlementAmount += item.SettlementAmount
 	}
 	sort.SliceStable(summaries, func(i, j int) bool {
 		if summaries[i].ModelName != summaries[j].ModelName {

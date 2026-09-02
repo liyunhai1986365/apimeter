@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback } from 'react'
+import { useCallback, useEffect } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowUpDownIcon,
   GridViewIcon,
@@ -25,7 +26,9 @@ import {
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon, type IconSvgElement } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -35,10 +38,19 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { getPricingUserGroups } from '../api'
 import {
   VIEW_MODES,
   getSortLabels,
@@ -77,6 +89,7 @@ export interface PricingToolbarProps {
   priceRate: number
   usdExchangeRate: number
   userGroup?: string
+  onUserGroupChange: (value: string) => void
   usableGroup: Record<string, string | { desc?: string; ratio?: number }>
   groupDisplay?: PricingGroupDisplayConfig
 }
@@ -133,7 +146,35 @@ function SegmentedControl(props: {
 
 export function PricingToolbar(props: PricingToolbarProps) {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
+  const { onUserGroupChange, userGroup } = props
   const sortLabels = getSortLabels(t)
+  const {
+    data: userGroups = [],
+    isLoading: isLoadingUserGroups,
+    isError: didUserGroupsFail,
+  } = useQuery({
+    queryKey: ['pricing', 'user-groups'],
+    queryFn: getPricingUserGroups,
+    enabled: isAdmin,
+    staleTime: 5 * 60 * 1000,
+  })
+
+  useEffect(() => {
+    if (didUserGroupsFail) toast.error(t('Unable to load user groups'))
+  }, [didUserGroupsFail, t])
+
+  useEffect(() => {
+    if (
+      !isAdmin ||
+      isLoadingUserGroups ||
+      userGroups.length === 0 ||
+      (userGroup && userGroups.includes(userGroup))
+    ) {
+      return
+    }
+    onUserGroupChange(userGroups[0])
+  }, [isAdmin, isLoadingUserGroups, onUserGroupChange, userGroup, userGroups])
 
   const handleTokenUnitChange = useCallback(
     (value: string) => props.onTokenUnitChange(value as TokenUnit),
@@ -171,6 +212,43 @@ export function PricingToolbar(props: PricingToolbarProps) {
         </div>
 
         <div className='flex flex-wrap items-center gap-1.5'>
+          {isAdmin && (
+            <Select
+              value={userGroup ?? ''}
+              onValueChange={(value) => {
+                if (value) onUserGroupChange(value)
+              }}
+              disabled={isLoadingUserGroups || userGroups.length === 0}
+            >
+              <SelectTrigger
+                size='sm'
+                className='h-7 w-[12rem] rounded-md text-xs'
+                aria-label={t('User group')}
+                title={t('User group')}
+              >
+                <span className='text-muted-foreground'>
+                  {t('User group')}:
+                </span>
+                <SelectValue
+                  placeholder={
+                    isLoadingUserGroups
+                      ? t('Loading user groups...')
+                      : t('Select a user group')
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent alignItemWithTrigger={false}>
+                <SelectGroup>
+                  {userGroups.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {group}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          )}
+
           <DownloadQuotationButton
             models={props.quotationModels}
             tokenUnit={props.tokenUnit}

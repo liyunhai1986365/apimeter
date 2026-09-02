@@ -29,12 +29,12 @@ export async function getPricing(): Promise<PricingData> {
   return res.data
 }
 
-export async function getQuotationUserGroups(): Promise<string[]> {
+export async function getPricingUserGroups(): Promise<string[]> {
   const res = await api.get('/api/group/')
   return res.data.data ?? []
 }
 
-export async function getPricingForQuotation(
+export async function getPricingForUserGroup(
   userGroup: string
 ): Promise<PricingData> {
   const res = await api.get('/api/pricing/quotation', {

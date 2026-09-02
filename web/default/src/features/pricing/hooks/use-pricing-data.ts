@@ -19,14 +19,24 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useStatus } from '@/hooks/use-status'
-import { getPricing, hydratePricingModels } from '../api'
+import {
+  getPricing,
+  getPricingForUserGroup,
+  hydratePricingModels,
+} from '../api'
 
-export function usePricingData() {
+export function usePricingData(userGroup?: string) {
   const { status } = useStatus()
+  const requestedUserGroup = userGroup?.trim() || undefined
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['pricing'],
-    queryFn: getPricing,
+    queryKey: requestedUserGroup
+      ? ['pricing', 'user-group', requestedUserGroup]
+      : ['pricing'],
+    queryFn: () =>
+      requestedUserGroup
+        ? getPricingForUserGroup(requestedUserGroup)
+        : getPricing(),
     staleTime: 5 * 60 * 1000,
   })
 

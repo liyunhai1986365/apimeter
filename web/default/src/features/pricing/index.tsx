@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
   ArrowRight02Icon,
@@ -28,6 +28,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { trackGoogleAnalyticsEvent } from '@/lib/google-analytics'
 import { cn } from '@/lib/utils'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -232,7 +233,9 @@ function SemCatalogLanding(props: {
 
 export function Pricing() {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
   const navigate = useNavigate()
+  const [selectedUserGroup, setSelectedUserGroup] = useState<string>()
   const search = useSearch({ from: '/pricing/' })
   const toOptionalSearchString = (
     value: string | number | boolean | undefined
@@ -266,7 +269,7 @@ export function Pricing() {
     isLoading,
     priceRate,
     usdExchangeRate,
-  } = usePricingData()
+  } = usePricingData(isAdmin ? selectedUserGroup : undefined)
 
   const {
     searchInput,
@@ -473,6 +476,7 @@ export function Pricing() {
                 priceRate={priceRate}
                 usdExchangeRate={usdExchangeRate}
                 userGroup={userGroup}
+                onUserGroupChange={setSelectedUserGroup}
                 usableGroup={usableGroup}
                 groupDisplay={groupDisplay}
               />

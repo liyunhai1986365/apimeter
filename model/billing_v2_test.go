@@ -688,6 +688,39 @@ func TestGenerateMonthlyBillingStatementsForMonthUsesBoundedProjections(t *testi
 			Type:      LogTypeTopup,
 			Quota:     3000,
 		},
+		{
+			Id:        7503,
+			UserId:    1001,
+			CreatedAt: august.Add(5 * time.Hour).Unix(),
+			Type:      LogTypeRefund,
+			ModelName: "gpt-4.1",
+			Group:     "vip",
+			Quota:     2000,
+			Other: common.MapToJsonStr(map[string]interface{}{
+				"group_ratio":        0.8,
+				"billing_source":     BillingSourceWallet,
+				"billing_mode":       "tiered_expr",
+				"pre_consumed_quota": 8000,
+				"actual_quota":       6000,
+			}),
+		},
+		{
+			Id:        7504,
+			UserId:    1002,
+			CreatedAt: august.Add(6 * time.Hour).Unix(),
+			Type:      LogTypeConsume,
+			ModelName: "claude-sonnet-4",
+			Group:     "default",
+			Quota:     1000,
+			Content:   "tiered_expr：tier=default",
+			Other: common.MapToJsonStr(map[string]interface{}{
+				"group_ratio":        1,
+				"billing_source":     BillingSourceWallet,
+				"billing_mode":       "tiered_expr",
+				"pre_consumed_quota": 5000,
+				"actual_quota":       6000,
+			}),
+		},
 	}).Error)
 	require.NoError(t, RecordBillingUsageItem(&BillingUsageItem{
 		UserId:           1001,
@@ -730,9 +763,18 @@ func TestGenerateMonthlyBillingStatementsForMonthUsesBoundedProjections(t *testi
 	require.NoError(t, err)
 	assert.Equal(t, int64(20000), statement.TopupAmount)
 	assert.Equal(t, int64(8000), statement.ConsumeAmount)
-	assert.Equal(t, int64(8000), statement.SettlementAmount)
+	assert.Equal(t, int64(2000), statement.RefundAmount)
+	assert.Equal(t, int64(6000), statement.SettlementAmount)
 	assert.Zero(t, statement.DifferenceAmount)
 	assert.Equal(t, BillingStatementReconciliationMatched, statement.ReconciliationStatus)
+
+	consumeAdjustment, err := GetBillingStatementByNo("BILL-202608-1002", 1002)
+	require.NoError(t, err)
+	assert.Equal(t, int64(6000), consumeAdjustment.ConsumeAmount)
+	assert.Zero(t, consumeAdjustment.RefundAmount)
+	assert.Equal(t, int64(6000), consumeAdjustment.SettlementAmount)
+	assert.Zero(t, consumeAdjustment.DifferenceAmount)
+	assert.Equal(t, BillingStatementReconciliationMatched, consumeAdjustment.ReconciliationStatus)
 
 	topupOnly, err := GetBillingStatementByNo("BILL-202608-1003", 1003)
 	require.NoError(t, err)
@@ -748,6 +790,16 @@ func TestGenerateMonthlyBillingStatementsForMonthUsesBoundedProjections(t *testi
 		Where("statement_no = ?", statement.StatementNo).
 		Count(&summaryCount).Error)
 	assert.Equal(t, int64(1), summaryCount)
+	var refundSummary BillingStatementSummary
+	require.NoError(t, LOG_DB.Where("statement_no = ?", statement.StatementNo).First(&refundSummary).Error)
+	assert.Equal(t, int64(1), refundSummary.RequestCount)
+	assert.Equal(t, int64(7500), refundSummary.OriginalAmount)
+	assert.Equal(t, int64(1500), refundSummary.DiscountAmount)
+	assert.Equal(t, int64(6000), refundSummary.SettlementAmount)
+	var consumeAdjustmentSummary BillingStatementSummary
+	require.NoError(t, LOG_DB.Where("statement_no = ?", consumeAdjustment.StatementNo).First(&consumeAdjustmentSummary).Error)
+	assert.Equal(t, int64(1), consumeAdjustmentSummary.RequestCount)
+	assert.Equal(t, int64(6000), consumeAdjustmentSummary.SettlementAmount)
 }
 
 func TestRecordBillingUsageConsumeLogDoesNotExtendLedger(t *testing.T) {
