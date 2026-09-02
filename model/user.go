@@ -433,7 +433,16 @@ func GetAllUsers(pageInfo *common.PageInfo, sortOptions ...UserSortOptions) (use
 	return users, total, nil
 }
 
-func SearchUsers(keyword string, group string, role *int, status *int, startIdx int, num int, sortOptions ...UserSortOptions) ([]*User, int64, error) {
+type UserSearchFilters struct {
+	Keyword   string
+	Group     string
+	Agent     string
+	Role      *int
+	Status    *int
+	InviterId *int
+}
+
+func SearchUsers(filters UserSearchFilters, startIdx int, num int, sortOptions ...UserSortOptions) ([]*User, int64, error) {
 	var users []*User
 	var total int64
 	var err error
@@ -453,28 +462,50 @@ func SearchUsers(keyword string, group string, role *int, status *int, startIdx 
 	query := tx.Unscoped().Model(&User{})
 
 	// 构建搜索条件
-	likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"
-	likeArgs := []interface{}{"%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%"}
+	keyword := strings.TrimSpace(filters.Keyword)
+	if keyword != "" {
+		likeCondition := "username LIKE ? OR email LIKE ? OR display_name LIKE ?"
+		likeArgs := []interface{}{"%" + keyword + "%", "%" + keyword + "%", "%" + keyword + "%"}
 
-	// 尝试将关键字转换为整数ID
-	keywordInt, err := strconv.Atoi(keyword)
-	if err == nil {
-		likeCondition = "id = ? OR " + likeCondition
-		likeArgs = append([]interface{}{keywordInt}, likeArgs...)
+		// 尝试将关键字转换为整数ID
+		keywordInt, parseErr := strconv.Atoi(keyword)
+		if parseErr == nil {
+			likeCondition = "id = ? OR " + likeCondition
+			likeArgs = append([]interface{}{keywordInt}, likeArgs...)
+		}
+		query = query.Where("("+likeCondition+")", likeArgs...)
 	}
-	query = query.Where("("+likeCondition+")", likeArgs...)
-	if group != "" {
+	if group := strings.TrimSpace(filters.Group); group != "" {
 		query = query.Where(commonGroupCol+" = ?", group)
 	}
-	if role != nil {
-		query = query.Where("role = ?", *role)
+	if filters.Role != nil {
+		query = query.Where("role = ?", *filters.Role)
 	}
-	if status != nil {
-		if *status == -1 {
+	if filters.Status != nil {
+		if *filters.Status == -1 {
 			query = query.Where("deleted_at IS NOT NULL")
 		} else {
-			query = query.Where("deleted_at IS NULL").Where("status = ?", *status)
+			query = query.Where("deleted_at IS NULL").Where("status = ?", *filters.Status)
 		}
+	}
+	if filters.InviterId != nil {
+		query = query.Where("inviter_id = ?", *filters.InviterId)
+	}
+	if agentKeyword := strings.TrimSpace(filters.Agent); agentKeyword != "" {
+		likeValue := "%" + agentKeyword + "%"
+		agentCondition := "agents.name LIKE ? OR agents.slug LIKE ? OR agents.branding LIKE ?"
+		agentArgs := []interface{}{likeValue, likeValue, likeValue}
+		if agentId, parseErr := strconv.Atoi(agentKeyword); parseErr == nil {
+			agentCondition = "agents.id = ? OR " + agentCondition
+			agentArgs = append([]interface{}{agentId}, agentArgs...)
+		}
+		membershipQuery := tx.Table("agent_users").
+			Select("1").
+			Joins("JOIN agents ON agents.id = agent_users.agent_id").
+			Where("agent_users.user_id = users.id").
+			Where("agent_users.status = ?", AgentUserStatusEnabled).
+			Where("("+agentCondition+")", agentArgs...)
+		query = query.Where("EXISTS (?)", membershipQuery)
 	}
 
 	// 获取总数

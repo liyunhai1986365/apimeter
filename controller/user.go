@@ -413,23 +413,36 @@ func GetAllUsers(c *gin.Context) {
 }
 
 func SearchUsers(c *gin.Context) {
-	keyword := c.Query("keyword")
-	group := c.Query("group")
+	filters := model.UserSearchFilters{
+		Keyword: c.Query("keyword"),
+		Group:   c.Query("group"),
+		Agent:   c.Query("agent"),
+	}
 	var role *int
 	if roleStr := c.Query("role"); roleStr != "" {
 		if parsed, err := strconv.Atoi(roleStr); err == nil {
 			role = &parsed
 		}
 	}
+	filters.Role = role
 	var status *int
 	if statusStr := c.Query("status"); statusStr != "" {
 		if parsed, err := strconv.Atoi(statusStr); err == nil {
 			status = &parsed
 		}
 	}
+	filters.Status = status
+	if inviterIdStr := strings.TrimSpace(c.Query("inviter_id")); inviterIdStr != "" {
+		inviterId, err := strconv.Atoi(inviterIdStr)
+		if err != nil {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
+		filters.InviterId = &inviterId
+	}
 	pageInfo := common.GetPageQuery(c)
 	sortOptions := model.NewUserSortOptions(c.Query("sort_by"), c.Query("sort_order"))
-	users, total, err := model.SearchUsers(keyword, group, role, status, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), sortOptions)
+	users, total, err := model.SearchUsers(filters, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), sortOptions)
 	if err != nil {
 		common.ApiError(c, err)
 		return

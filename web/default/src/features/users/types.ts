@@ -99,6 +99,10 @@ export interface GetUsersResponse {
 export interface SearchUsersParams {
   keyword?: string
   group?: string
+  agent?: string
+  inviter_id?: number
+  role?: number
+  status?: number
   p?: number
   page_size?: number
 }
