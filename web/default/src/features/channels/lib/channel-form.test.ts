@@ -29,6 +29,22 @@ describe('channel form payload transforms', () => {
     assert.equal(updatePayload.channel_ratio, 0.143)
   })
 
+  test('keeps status in create payloads but omits it from general updates', () => {
+    const formData = {
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      name: 'status-separated-channel',
+      key: 'sk-test',
+      models: 'gpt-4o',
+      status: 2,
+    }
+
+    const createPayload = transformFormDataToCreatePayload(formData)
+    const updatePayload = transformFormDataToUpdatePayload(formData, 42)
+
+    assert.equal(createPayload.channel.status, 2)
+    assert.equal('status' in updatePayload, false)
+  })
+
   test('divides channel cost ratio by supplier scale', () => {
     assert.equal(divideChannelRatioBySupplierScale(7), 1)
     assert.equal(divideChannelRatioBySupplierScale(1.25), 0.179)

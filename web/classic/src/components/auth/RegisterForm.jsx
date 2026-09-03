@@ -65,6 +65,7 @@ import { StatusContext } from '../../context/Status';
 import { useTranslation } from 'react-i18next';
 import { SiDiscord } from 'react-icons/si';
 import { trackSignUp } from '../../helpers/googleAnalytics';
+import GoCaptcha from './GoCaptcha';
 
 const RegisterForm = () => {
   let navigate = useNavigate();
@@ -88,6 +89,7 @@ const RegisterForm = () => {
   const [turnstileEnabled, setTurnstileEnabled] = useState(false);
   const [turnstileSiteKey, setTurnstileSiteKey] = useState('');
   const [turnstileToken, setTurnstileToken] = useState('');
+  const [goCaptchaToken, setGoCaptchaToken] = useState('');
   const [showWeChatLoginModal, setShowWeChatLoginModal] = useState(false);
   const [showEmailRegister, setShowEmailRegister] = useState(false);
   const [wechatLoading, setWechatLoading] = useState(false);
@@ -233,6 +235,10 @@ const RegisterForm = () => {
         showInfo('请稍后几秒重试，Turnstile 正在检查用户环境！');
         return;
       }
+      if (status?.go_captcha_check && goCaptchaToken === '') {
+        showInfo(t('Please complete the behavior verification'));
+        return;
+      }
       setRegisterLoading(true);
       try {
         if (!affCode) {
@@ -242,6 +248,11 @@ const RegisterForm = () => {
         const res = await API.post(
           `/api/user/register?turnstile=${turnstileToken}`,
           inputs,
+          {
+            headers: goCaptchaToken
+              ? { 'X-Go-Captcha-Token': goCaptchaToken }
+              : undefined,
+          },
         );
         const { success, message } = res.data;
         if (success) {
@@ -254,6 +265,7 @@ const RegisterForm = () => {
       } catch (error) {
         showError('注册失败，请重试');
       } finally {
+        setGoCaptchaToken('');
         setRegisterLoading(false);
       }
     }
@@ -680,6 +692,14 @@ const RegisterForm = () => {
                   </div>
                 )}
 
+                {status?.go_captcha_check && (
+                  <GoCaptcha
+                    scene='register'
+                    token={goCaptchaToken}
+                    onVerify={setGoCaptchaToken}
+                  />
+                )}
+
                 <div className='space-y-2 pt-2'>
                   <Button
                     theme='solid'
@@ -689,7 +709,8 @@ const RegisterForm = () => {
                     onClick={handleSubmit}
                     loading={registerLoading}
                     disabled={
-                      (hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms
+                      (status?.go_captcha_check && !goCaptchaToken) ||
+                      ((hasUserAgreement || hasPrivacyPolicy) && !agreedToTerms)
                     }
                   >
                     {t('注册')}

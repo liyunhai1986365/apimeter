@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
 import { CHANNEL_STATUS, MODEL_FETCHABLE_TYPES } from '../constants'
-import type { Channel } from '../types'
+import type { Channel, ChannelUpdatePayload } from '../types'
 
 const jsonArrayString = z.string().refine((value) => {
   const trimmed = value.trim()
@@ -95,6 +95,10 @@ export const CONVERSION_OPTIONS = [
 
 export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
   {
+    label: 'DashScope Wan3 Video',
+    value: 'dashscope-wan3-video',
+  },
+  {
     label: 'Generic JSON Video Task',
     value: 'generic-video-json',
   },
@@ -119,8 +123,8 @@ export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
     value: 'seedance2-ark-task-assets',
   },
   {
-    label: 'Seedance 2.0 APIMeter',
-    value: 'seedance2-apimeter',
+    label: 'Seedance 2.0 Modelsell',
+    value: 'seedance2-modelsell',
   },
   {
     label: 'Apixo GPT Image 2',
@@ -671,8 +675,8 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
 export function transformFormDataToUpdatePayload(
   formData: ChannelFormValues,
   channelId: number
-): Partial<Channel> {
-  const payload: Partial<Channel> = {
+): ChannelUpdatePayload {
+  const payload: ChannelUpdatePayload = {
     id: channelId,
     name: formData.name,
     type: formData.type,
@@ -687,7 +691,6 @@ export function transformFormDataToUpdatePayload(
     test_model: formData.test_model || null,
     auto_ban: formData.auto_ban ?? 1,
     retry_enabled: formData.retry_enabled !== false,
-    status: formData.status,
     status_code_mapping: formData.status_code_mapping || null,
     tag: formData.tag || null,
     remark: formData.remark || '',

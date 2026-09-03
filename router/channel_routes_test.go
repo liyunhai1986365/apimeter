@@ -9,6 +9,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service/authz"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -28,7 +29,7 @@ func openChannelRouteAuthTestDB(t *testing.T) *gorm.DB {
 	originRedisEnabled := common.RedisEnabled
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Ability{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Ability{}, &model.AuthzRole{}, &model.CasbinRule{}))
 	model.DB = db
 	model.LOG_DB = db
 	common.UsingSQLite = true
@@ -36,6 +37,7 @@ func openChannelRouteAuthTestDB(t *testing.T) *gorm.DB {
 	common.UsingPostgreSQL = false
 	common.RedisEnabled = false
 	model.InitColForTest()
+	require.NoError(t, authz.Init(db))
 	t.Cleanup(func() {
 		model.DB = originDB
 		model.LOG_DB = originLogDB
@@ -83,7 +85,6 @@ func TestChannelUpdateRequiresRootRole(t *testing.T) {
 		"id":20,
 		"type":1,
 		"key":"sk-real-upstream-key",
-		"status":1,
 		"name":"openai-main",
 		"base_url":"https://attacker.example.com",
 		"models":"gpt-test",
@@ -97,7 +98,7 @@ func TestChannelUpdateRequiresRootRole(t *testing.T) {
 
 	engine.ServeHTTP(recorder, request)
 
-	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.Equal(t, http.StatusForbidden, recorder.Code, recorder.Body.String())
 	var response struct {
 		Success bool   `json:"success"`
 		Message string `json:"message"`
@@ -148,7 +149,6 @@ func TestChannelUpdateAllowsRootRole(t *testing.T) {
 		"id":21,
 		"type":1,
 		"key":"sk-real-upstream-key",
-		"status":1,
 		"name":"openai-main",
 		"base_url":"https://new-safe-upstream.example.com",
 		"models":"gpt-test",

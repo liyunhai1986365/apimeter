@@ -111,15 +111,19 @@ func TestCompleteCryptoPaymentCreditsExactlyOnceAndRejectsReusedTransfer(t *test
 	first := createCryptoPaymentTestOrder(t, 1, "crypto-order-1")
 	second := createCryptoPaymentTestOrder(t, 1, "crypto-order-2")
 
-	require.NoError(t, CompleteCryptoPayment(first.TradeNo, "0xabc", "0x1", 123))
-	require.NoError(t, CompleteCryptoPayment(first.TradeNo, "0xabc", "0x1", 123))
+	completed, err := CompleteCryptoPaymentOnce(first.TradeNo, "0xabc", "0x1", 123)
+	require.NoError(t, err)
+	require.True(t, completed)
+	completed, err = CompleteCryptoPaymentOnce(first.TradeNo, "0xabc", "0x1", 123)
+	require.NoError(t, err)
+	require.False(t, completed)
 
 	var user User
 	require.NoError(t, DB.First(&user, 1).Error)
 	expectedQuota := int64(10 * common.QuotaPerUnit)
 	require.Equal(t, expectedQuota, int64(user.Quota))
 
-	err := CompleteCryptoPayment(second.TradeNo, "0xabc", "0x1", 123)
+	err = CompleteCryptoPayment(second.TradeNo, "0xabc", "0x1", 123)
 	require.Error(t, err)
 	require.NoError(t, DB.First(&user, 1).Error)
 	require.Equal(t, expectedQuota, int64(user.Quota))

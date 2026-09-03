@@ -17,14 +17,19 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { AnimateInView } from '@/components/animate-in-view'
-import { STEP_CARDS } from '../../landing-data'
+import { MAINLAND_STEP_CARDS, STEP_CARDS } from '../../landing-data'
 
 export function HowItWorks() {
   const { t } = useTranslation()
+  const { mainlandChinaPresentationEnabled } = useSystemConfig()
+  const steps = mainlandChinaPresentationEnabled
+    ? MAINLAND_STEP_CARDS
+    : STEP_CARDS
 
   return (
-    <section className='border-border/40 relative z-10 border-y bg-muted/20 px-6 py-20 md:py-28'>
+    <section className='border-border/40 bg-muted/20 relative z-10 border-y px-6 py-20 md:py-28'>
       <div className='mx-auto max-w-6xl'>
         <AnimateInView className='mb-10 text-center md:mb-14'>
           <p className='text-muted-foreground mb-3 text-xs font-medium tracking-widest uppercase'>
@@ -36,7 +41,7 @@ export function HowItWorks() {
         </AnimateInView>
 
         <div className='grid gap-4 md:grid-cols-3'>
-          {STEP_CARDS.map((step, index) => {
+          {steps.map((step, index) => {
             const Icon = step.icon
             return (
               <AnimateInView

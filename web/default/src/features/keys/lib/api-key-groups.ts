@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { PricingModel } from '@/features/pricing/types'
 import type { ApiKeyGroupOption } from '../components/api-key-group-combobox'
 
 export const AUTO_GROUP_VALUE = 'auto'
@@ -23,12 +24,63 @@ export const AUTO_GROUP_VALUE = 'auto'
 type UserGroupInfo = {
   desc: string
   ratio: number | string
+  hide_discount?: boolean
+}
+
+export type ApiKeyGroupPricingScope = {
+  models?: readonly PricingModel[]
+  modelLimits?: readonly string[]
+}
+
+function numericRatio(value: number | string | undefined): number | undefined {
+  const ratio = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(ratio) && ratio >= 0 ? ratio : undefined
+}
+
+function modelMatchesLimits(
+  model: PricingModel,
+  modelLimits: ReadonlySet<string>
+): boolean {
+  if (modelLimits.size === 0) return true
+  if (modelLimits.has(model.model_name)) return true
+  return (model.alias_models ?? []).some((alias) => modelLimits.has(alias))
+}
+
+export function getLowestApiKeyGroupRatio(
+  group: string,
+  fallbackRatio: number | string | undefined,
+  scope: ApiKeyGroupPricingScope = {}
+): number | undefined {
+  const fallback = numericRatio(fallbackRatio)
+  const models = scope.models ?? []
+  if (models.length === 0) return fallback
+
+  const modelLimits = new Set(
+    (scope.modelLimits ?? []).map((model) => model.trim()).filter(Boolean)
+  )
+  const ratios: number[] = []
+
+  for (const model of models) {
+    if (!modelMatchesLimits(model, modelLimits)) continue
+    const enabledGroups = Array.isArray(model.enable_groups)
+      ? model.enable_groups
+      : []
+    if (!enabledGroups.includes('all') && !enabledGroups.includes(group)) {
+      continue
+    }
+
+    const ratio = numericRatio(model.group_ratio?.[group]) ?? fallback
+    if (ratio !== undefined) ratios.push(ratio)
+  }
+
+  return ratios.length > 0 ? Math.min(...ratios) : fallback
 }
 
 export function buildApiKeyGroupOptions(
   groupsRaw: Record<string, UserGroupInfo>,
   _includeAutoGroup: boolean,
-  _selectedGroup?: string
+  _selectedGroup?: string,
+  pricingScope: ApiKeyGroupPricingScope = {}
 ): ApiKeyGroupOption[] {
   return Object.entries(groupsRaw)
     .filter(([key]) => key !== AUTO_GROUP_VALUE)
@@ -36,7 +88,9 @@ export function buildApiKeyGroupOptions(
       value: key,
       label: key,
       desc: info.desc || key,
-      ratio: info.ratio,
+      ratio:
+        getLowestApiKeyGroupRatio(key, info.ratio, pricingScope) ?? info.ratio,
+      hideDiscount: info.hide_discount === true,
     }))
 }
 

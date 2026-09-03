@@ -21,7 +21,7 @@ import {
   getCurrencyDisplay,
   type CurrencyFormatOptions,
 } from '@/lib/currency'
-import { DEFAULT_DISCOUNT_RATE } from '../constants'
+import { formatDiscountPercentage } from '@/lib/group-discount'
 
 // ============================================================================
 // Wallet-specific Formatting Functions
@@ -84,14 +84,27 @@ export function formatCurrency(
 }
 
 /**
- * Get discount label for display (e.g., "20% OFF")
+ * Format a payment amount whose provider currency is USD.
+ *
+ * Unlike formatCurrency(), this must not treat the amount as local CNY and
+ * divide it again when the user is viewing USD.
+ */
+export function formatPaymentAmountFromUSD(
+  amount: number | string,
+  options?: CurrencyFormatOptions
+): string {
+  const numeric =
+    typeof amount === 'number' ? amount : Number.parseFloat(String(amount))
+  if (!Number.isFinite(numeric)) return '-'
+
+  return formatCurrencyFromUSD(numeric, options)
+}
+
+/**
+ * Get a universal discount label for display (e.g., "-20%")
  */
 export function getDiscountLabel(discount: number): string {
-  if (discount >= DEFAULT_DISCOUNT_RATE) {
-    return ''
-  }
-  const off = Math.round((1 - discount) * 100)
-  return `${off}% OFF`
+  return formatDiscountPercentage(discount) || ''
 }
 
 /**

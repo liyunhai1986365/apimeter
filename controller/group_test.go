@@ -111,3 +111,28 @@ func TestGetGroupsReturnsEmptyWhenDisplayEntriesHaveNoUserGroups(t *testing.T) {
 		t.Fatalf("expected no user groups when none are flagged, got %+v", body.Data)
 	}
 }
+
+func TestConfiguredUserGroupValidationUsesDisplayUserGroups(t *testing.T) {
+	t.Cleanup(func() {
+		if err := setting.UpdateGroupDisplayConfigByJSONString(`{"categories":[],"groups":[]}`); err != nil {
+			t.Fatalf("failed to reset group display config: %v", err)
+		}
+	})
+
+	if err := setting.UpdateGroupDisplayConfigByJSONString(`{
+		"categories": [],
+		"groups": [
+			{"group": "supplier", "order": 10},
+			{"group": "member", "order": 20, "user_group": true}
+		]
+	}`); err != nil {
+		t.Fatalf("failed to update group display config: %v", err)
+	}
+
+	if !isConfiguredUserGroup("member") {
+		t.Fatal("expected configured user group to be accepted")
+	}
+	if isConfiguredUserGroup("supplier") {
+		t.Fatal("expected token-only group to be rejected as a user group")
+	}
+}

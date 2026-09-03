@@ -1685,7 +1685,7 @@ func TestBuildConfigurableResourceRequestMapsQueryFields(t *testing.T) {
 	require.Equal(t, "https://upstream.example.com/material/assets?asset_type=Image&name=avatar", req.URL.String())
 }
 
-func TestBuildAPIMeterAssetsUploadRequestForwardsModelQuery(t *testing.T) {
+func TestBuildModelsellAssetsUploadRequestForwardsModelQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(
@@ -1700,23 +1700,23 @@ func TestBuildAPIMeterAssetsUploadRequestForwardsModelQuery(t *testing.T) {
 	}())
 
 	channel := &model.Channel{
-		BaseURL: common.GetPointer("https://apimeter.example.com"),
+		BaseURL: common.GetPointer("https://modelsell.example.com"),
 	}
-	profile, ok := configurable.GetProfile("seedance2-apimeter")
+	profile, ok := configurable.GetProfile("seedance2-modelsell")
 	require.True(t, ok)
 	resource, ok := profile.ResourceByID("assets_upload")
 	require.True(t, ok)
 
 	req, err := buildConfigurableResourceRequest(c, channel, resource)
 	require.NoError(t, err)
-	require.Equal(t, "https://apimeter.example.com/api/assets/upload?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
+	require.Equal(t, "https://modelsell.example.com/api/assets/upload?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
 	require.Equal(t, http.MethodPost, req.Method)
 	body, err := io.ReadAll(req.Body)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"url":"https://cdn.example.com/image.png","asset_type":"Image","name":"reference"}`, string(body))
 }
 
-func TestBuildAPIMeterAssetDetailRequestForwardsModelQuery(t *testing.T) {
+func TestBuildModelsellAssetDetailRequestForwardsModelQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(
@@ -1725,20 +1725,20 @@ func TestBuildAPIMeterAssetDetailRequestForwardsModelQuery(t *testing.T) {
 		nil,
 	)
 	c.Params = gin.Params{{Key: "id", Value: "asset-123"}}
-	c.Set(middleware.ContextKeyConfigurableResourceProfileID, "seedance2-apimeter")
+	c.Set(middleware.ContextKeyConfigurableResourceProfileID, "seedance2-modelsell")
 	c.Set(middleware.ContextKeyConfigurableResourceID, "asset_detail")
 
 	channel := &model.Channel{
-		BaseURL: common.GetPointer("https://apimeter.example.com"),
+		BaseURL: common.GetPointer("https://modelsell.example.com"),
 	}
-	profile, ok := configurable.GetProfile("seedance2-apimeter")
+	profile, ok := configurable.GetProfile("seedance2-modelsell")
 	require.True(t, ok)
 	resource, ok := profile.ResourceByID("asset_detail")
 	require.True(t, ok)
 
 	req, err := buildConfigurableResourceRequest(c, channel, resource)
 	require.NoError(t, err)
-	require.Equal(t, "https://apimeter.example.com/api/assets/asset-123?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
+	require.Equal(t, "https://modelsell.example.com/api/assets/asset-123?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
 	require.Equal(t, http.MethodGet, req.Method)
 }
 

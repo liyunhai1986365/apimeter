@@ -11,6 +11,14 @@ const t = ((key: string, options?: Record<string, string>) =>
   )) as TFunction
 
 describe('SEO helpers', () => {
+  test('uses the domestic model description for mainland presentation', () => {
+    const descriptor = resolveSEODescriptor('/unknown', 'ModelSell', t, true)
+
+    assert.match(descriptor.description, /DeepSeek/)
+    assert.match(descriptor.description, /Qwen/)
+    assert.doesNotMatch(descriptor.description, /Claude|Gemini|OpenAI/)
+  })
+
   test('normalizes canonical paths without trailing slashes', () => {
     assert.equal(normalizeSEOPath('/pricing/'), '/pricing')
     assert.equal(
@@ -21,15 +29,15 @@ describe('SEO helpers', () => {
   })
 
   test('indexes public pages and strips filter state from canonical URLs', () => {
-    const descriptor = resolveSEODescriptor('/pricing/', 'APIMeter', t)
+    const descriptor = resolveSEODescriptor('/pricing/', 'ModelSell', t)
 
     assert.equal(
       descriptor.title,
-      'AI Model API Pricing & Comparison | APIMeter'
+      'AI Model API Pricing & Comparison | ModelSell'
     )
     assert.equal(
       descriptor.description,
-      'Compare AI model API pricing, supported endpoints, capabilities and access options on APIMeter.'
+      'Compare AI model API pricing, supported endpoints, capabilities and access options on ModelSell.'
     )
     assert.equal(descriptor.canonicalPath, '/pricing')
     assert.equal(descriptor.robots, 'index, follow')
@@ -39,9 +47,9 @@ describe('SEO helpers', () => {
   })
 
   test('uses partner program metadata for the partner page', () => {
-    const descriptor = resolveSEODescriptor('/partner/', 'APIMeter', t)
+    const descriptor = resolveSEODescriptor('/partner/', 'ModelSell', t)
 
-    assert.equal(descriptor.title, 'Partner Program | APIMeter')
+    assert.equal(descriptor.title, 'Partner Program | ModelSell')
     assert.equal(descriptor.canonicalPath, '/partner')
     assert.equal(descriptor.robots, 'index, follow')
   })
@@ -49,17 +57,17 @@ describe('SEO helpers', () => {
   test('uses model names for pricing detail metadata', () => {
     const descriptor = resolveSEODescriptor(
       '/pricing/gpt-4.1%20mini/',
-      'APIMeter',
+      'ModelSell',
       t
     )
 
     assert.equal(
       descriptor.title,
-      'gpt-4.1 mini API Pricing & Access | APIMeter'
+      'gpt-4.1 mini API Pricing & Access | ModelSell'
     )
     assert.equal(
       descriptor.description,
-      'Compare gpt-4.1 mini API pricing, supported endpoints, capabilities and access options on APIMeter.'
+      'Compare gpt-4.1 mini API pricing, supported endpoints, capabilities and access options on ModelSell.'
     )
     assert.equal(descriptor.canonicalPath, '/pricing/gpt-4.1%20mini')
     assert.equal(descriptor.robots, 'index, follow')
@@ -74,11 +82,11 @@ describe('SEO helpers', () => {
   test('builds canonical collection metadata for model categories', () => {
     const descriptor = resolveSEODescriptor(
       '/pricing/categories/image/',
-      'APIMeter',
+      'ModelSell',
       t
     )
 
-    assert.equal(descriptor.title, 'Image Generation model APIs | APIMeter')
+    assert.equal(descriptor.title, 'Image Generation model APIs | ModelSell')
     assert.equal(descriptor.canonicalPath, '/pricing/categories/image')
     assert.equal(descriptor.robots, 'index, follow')
     const graph = descriptor.structuredData?.['@graph'] as Array<
@@ -90,13 +98,13 @@ describe('SEO helpers', () => {
   })
 
   test('indexes provider directory and provider detail pages', () => {
-    const directory = resolveSEODescriptor('/providers/', 'APIMeter', t)
-    assert.equal(directory.title, 'AI Model Providers | APIMeter')
+    const directory = resolveSEODescriptor('/providers/', 'ModelSell', t)
+    assert.equal(directory.title, 'AI Model Providers | ModelSell')
     assert.equal(directory.canonicalPath, '/providers')
     assert.equal(directory.robots, 'index, follow')
 
-    const provider = resolveSEODescriptor('/providers/openai/', 'APIMeter', t)
-    assert.equal(provider.title, 'OpenAI AI Models & APIs | APIMeter')
+    const provider = resolveSEODescriptor('/providers/openai/', 'ModelSell', t)
+    assert.equal(provider.title, 'OpenAI AI Models & APIs | ModelSell')
     assert.equal(provider.canonicalPath, '/providers/openai')
     assert.equal(provider.robots, 'index, follow')
     const graph = provider.structuredData?.['@graph'] as Array<
@@ -108,32 +116,32 @@ describe('SEO helpers', () => {
 
   test('keeps authentication and dashboard pages out of search results', () => {
     assert.equal(
-      resolveSEODescriptor('/sign-in', 'APIMeter', t).robots,
+      resolveSEODescriptor('/sign-in', 'ModelSell', t).robots,
       'noindex, nofollow'
     )
     assert.equal(
-      resolveSEODescriptor('/dashboard/overview', 'APIMeter', t).robots,
+      resolveSEODescriptor('/dashboard/overview', 'ModelSell', t).robots,
       'noindex, nofollow'
     )
     const inviteRewards = resolveSEODescriptor(
       '/invite-rewards',
-      'APIMeter',
+      'ModelSell',
       t
     )
-    assert.equal(inviteRewards.title, 'APIMeter')
+    assert.equal(inviteRewards.title, 'ModelSell')
     assert.equal(inviteRewards.robots, 'noindex, nofollow')
   })
 
   test('uses the AI creation tools title for the private creation page', () => {
-    const descriptor = resolveSEODescriptor('/ai-creation', 'APIMeter', t)
+    const descriptor = resolveSEODescriptor('/ai-creation', 'ModelSell', t)
 
-    assert.equal(descriptor.title, 'AI Creation Tools | APIMeter')
+    assert.equal(descriptor.title, 'AI Creation Tools | ModelSell')
     assert.equal(descriptor.robots, 'noindex, nofollow')
   })
 
   test('marks unknown pages noindex and maps interface languages to HTML tags', () => {
     assert.equal(
-      resolveSEODescriptor('/unknown', 'APIMeter', t).canonicalPath,
+      resolveSEODescriptor('/unknown', 'ModelSell', t).canonicalPath,
       undefined
     )
     assert.equal(getHTMLLanguage('zhCN'), 'zh-CN')

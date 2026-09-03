@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { LucideIcon } from 'lucide-react'
 import {
   Activity,
   Braces,
@@ -32,6 +31,7 @@ import {
   ShieldCheck,
   SlidersHorizontal,
   WalletCards,
+  type LucideIcon,
 } from 'lucide-react'
 
 export interface LogoRailProvider {
@@ -83,6 +83,21 @@ export const LOGO_RAIL_PROVIDERS: LogoRailProvider[] = [
   { id: 'mistral', name: 'Mistral', iconName: 'Mistral.Color' },
   { id: 'azure', name: 'Azure', iconName: 'Azure.Color' },
   { id: 'bedrock', name: 'Bedrock', iconName: 'Bedrock.Color' },
+]
+
+export const MAINLAND_LOGO_RAIL_PROVIDERS: LogoRailProvider[] = [
+  { id: 'deepseek', name: 'DeepSeek', iconName: 'DeepSeek.Color' },
+  { id: 'qwen', name: 'Qwen', iconName: 'Qwen.Color' },
+  { id: 'doubao', name: 'Doubao', iconName: 'Doubao.Color' },
+  { id: 'moonshot', name: 'Kimi', iconName: 'Moonshot.Color' },
+  { id: 'minimax', name: 'MiniMax', iconName: 'Minimax.Color' },
+  { id: 'hunyuan', name: 'Hunyuan', iconName: 'Hunyuan.Color' },
+  { id: 'ernie', name: 'ERNIE', iconName: 'Wenxin.Color' },
+  { id: 'stepfun', name: 'StepFun', iconName: 'Stepfun.Color' },
+  { id: 'kling', name: 'Kling', iconName: 'Kling.Color' },
+  { id: 'jimeng', name: 'Jimeng', iconName: 'Jimeng.Color' },
+  { id: 'vidu', name: 'Vidu', iconName: 'Vidu' },
+  { id: 'zai', name: 'GLM', iconName: 'ZAI.Avatar' },
 ]
 
 export const METRICS: MetricItem[] = [
@@ -142,13 +157,65 @@ const response = await client.chat.completions.create({
   },
 ]
 
+export const MAINLAND_CODE_SNIPPETS: Snippet[] = [
+  {
+    id: 'curl',
+    label: 'curl',
+    code: `curl https://your-domain.com/v1/chat/completions \\
+  -H "Authorization: Bearer $API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "deepseek-chat",
+    "messages": [{"role": "user", "content": "你好"}]
+  }'`,
+  },
+  {
+    id: 'python',
+    label: 'Python',
+    code: `import os
+import requests
+
+response = requests.post(
+    "https://your-domain.com/v1/chat/completions",
+    headers={"Authorization": f"Bearer {os.environ['API_KEY']}"},
+    json={
+        "model": "qwen-plus",
+        "messages": [{"role": "user", "content": "你好"}],
+    },
+)
+
+print(response.json())`,
+  },
+  {
+    id: 'javascript',
+    label: 'JavaScript',
+    code: `const response = await fetch(
+  "https://your-domain.com/v1/chat/completions",
+  {
+    method: "POST",
+    headers: {
+      Authorization: \`Bearer \${process.env.API_KEY}\`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "glm-4.5",
+      messages: [{ role: "user", content: "你好" }],
+    }),
+  },
+);
+
+console.log(await response.json());`,
+  },
+]
+
 export const COPY_CARDS: CopyCard[] = [
   {
     titleKey: 'One key for every model',
     descriptionKey:
       'Issue a single API key, assign groups, and keep every client on the same contract.',
     icon: KeyRound,
-    accentClassName: 'text-blue-700 bg-blue-50 dark:bg-blue-950 dark:text-blue-300',
+    accentClassName:
+      'text-blue-700 bg-blue-50 dark:bg-blue-950 dark:text-blue-300',
   },
   {
     titleKey: 'Policy-driven routing',
@@ -171,8 +238,7 @@ export const COPY_CARDS: CopyCard[] = [
     descriptionKey:
       'Inspect request logs, latency, errors, and per-channel routing health live.',
     icon: Radar,
-    accentClassName:
-      'text-sky-700 bg-sky-50 dark:bg-sky-950 dark:text-sky-300',
+    accentClassName: 'text-sky-700 bg-sky-50 dark:bg-sky-950 dark:text-sky-300',
   },
 ]
 
@@ -196,6 +262,16 @@ export const STEP_CARDS: StepCard[] = [
     icon: LineChart,
   },
 ]
+
+export const MAINLAND_STEP_CARDS: StepCard[] = STEP_CARDS.map((step) =>
+  step.titleKey === 'Ship one API contract'
+    ? {
+        ...step,
+        descriptionKey:
+          'Point apps at compatible chat, response, and multimodal routes for domestic models.',
+      }
+    : step
+)
 
 export const TRUST_CARDS: CopyCard[] = [
   {

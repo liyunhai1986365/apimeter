@@ -55,6 +55,7 @@ const _systemInfoSchema = z.object({
   SystemName: z.string().min(1),
   ServerAddress: z.string().optional(),
   Logo: z.string().url().optional().or(z.literal('')),
+  FooterCompanyName: z.string().max(120).optional(),
   Footer: z.string().optional(),
   About: z.string().optional(),
   HomePageContent: z.string().optional(),
@@ -89,6 +90,7 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     SystemName: normalizeValue(defaultValues.SystemName),
     ServerAddress: normalizeValue(defaultValues.ServerAddress),
     Logo: normalizeValue(defaultValues.Logo),
+    FooterCompanyName: normalizeValue(defaultValues.FooterCompanyName),
     Footer: normalizeValue(defaultValues.Footer),
     About: normalizeValue(defaultValues.About),
     HomePageContent: normalizeValue(defaultValues.HomePageContent),
@@ -109,6 +111,9 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
     }),
     ServerAddress: z.string().optional(),
     Logo: z.string().url().optional().or(z.literal('')),
+    FooterCompanyName: z.string().max(120, {
+      error: () => t('Footer company name must be 120 characters or fewer'),
+    }),
     Footer: z.string().optional(),
     About: z.string().optional(),
     HomePageContent: z.string().optional(),
@@ -146,6 +151,9 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
           }
           if (key === 'GoogleAnalyticsId') {
             v = normalizeGoogleAnalyticsId(v)
+          }
+          if (key === 'FooterCompanyName') {
+            v = v.trim()
           }
           await updateOption.mutateAsync({
             key,
@@ -267,6 +275,25 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
 
             <FormField
               control={form.control}
+              name='FooterCompanyName'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Footer company name')}</FormLabel>
+                  <FormControl>
+                    <Input placeholder='Axiom Mesh Inc.' {...field} />
+                  </FormControl>
+                  <FormDescription>
+                    {t(
+                      'Displayed after the year in the default footer. Leave empty to hide the company name; custom footer HTML replaces the default footer.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
               name='Footer'
               render={({ field }) => (
                 <FormItem>
@@ -343,14 +370,14 @@ export function SystemInfoSection({ defaultValues }: SystemInfoSectionProps) {
                   <FormLabel>{t('Customer Service Script')}</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder='<script src="//code.tidio.co/your-id.js" async></script>'
+                      placeholder='<script async fetchpriority="low" src="https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=735d606344a8422b87002bd98cb5812d"></script>'
                       rows={4}
                       {...field}
                     />
                   </FormControl>
                   <FormDescription>
                     {t(
-                      'Paste the customer service script code. The frontend extracts and loads the script src globally; leave empty to disable it.'
+                      'Paste one SaleWisely or Tidio script. The frontend extracts its src and loads only the configured customer-service provider globally; leave empty to disable it.'
                     )}
                   </FormDescription>
                   <FormMessage />

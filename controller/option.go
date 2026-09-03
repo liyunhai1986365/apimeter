@@ -85,6 +85,9 @@ func GetOptions(c *gin.Context) {
 	optionValues := make(map[string]string)
 	common.OptionMapRWMutex.Lock()
 	for k, v := range common.OptionMap {
+		if k == "theme.frontend" {
+			continue
+		}
 		value := common.Interface2String(v)
 		isSensitiveKey := strings.HasSuffix(k, "Token") ||
 			strings.HasSuffix(k, "Secret") ||
@@ -124,9 +127,11 @@ type OptionUpdateRequest struct {
 }
 
 type AnnouncementEmailRequest struct {
-	Title   string `json:"title"`
-	Content string `json:"content"`
-	Type    string `json:"type"`
+	Title        string   `json:"title"`
+	Content      string   `json:"content"`
+	Type         string   `json:"type"`
+	Audience     string   `json:"audience"`
+	TargetGroups []string `json:"target_groups"`
 }
 
 func UpdateOption(c *gin.Context) {
@@ -176,6 +181,14 @@ func UpdateOption(c *gin.Context) {
 		err = setting.ValidateAffiliateRoleConfigsJSON(option.Value.(string))
 		if err != nil {
 			common.ApiError(c, err)
+			return
+		}
+	case "general_setting.default_user_display_currency":
+		if option.Value != operation_setting.QuotaDisplayTypeUSD && option.Value != operation_setting.QuotaDisplayTypeCNY {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "默认价格币种仅支持 USD 或 CNY",
+			})
 			return
 		}
 	case "GitHubOAuthEnabled":
@@ -244,15 +257,60 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 	case "theme.frontend":
-		if option.Value != "default" && option.Value != "classic" {
+		if option.Value != "default" {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
-				"message": "无效的主题值，可选值：default（新版前端）、classic（经典前端）",
+				"message": "Classic 前端已移除，主题只能设置为 default",
 			})
 			return
 		}
 	case "GroupRatio":
 		err = ratio_setting.CheckGroupRatio(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "GroupModelRatio":
+		err = ratio_setting.CheckGroupModelRatio(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "UserGroupModelRatio":
+		err = ratio_setting.CheckUserGroupModelRatio(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "gemini.safety_settings":
+		err = model_setting.ValidateGeminiSafetySettings(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case "claude.default_max_tokens":
+		err = model_setting.ValidateClaudeDefaultMaxTokens(option.Value.(string))
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": err.Error(),
+			})
+			return
+		}
+	case operation_setting.ToolPriceOptionKey:
+		err = operation_setting.ValidateToolPricesJSON(option.Value.(string))
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"success": false,
@@ -396,6 +454,16 @@ func UpdateOption(c *gin.Context) {
 			return
 		}
 		option.Value = value
+	case common.FooterCompanyNameOptionKey:
+		value := strings.TrimSpace(option.Value.(string))
+		if len([]rune(value)) > 120 {
+			c.JSON(http.StatusOK, gin.H{
+				"success": false,
+				"message": "页脚公司名称不能超过 120 个字符",
+			})
+			return
+		}
+		option.Value = value
 	}
 	err = model.UpdateOption(option.Key, option.Value.(string))
 	if err != nil {
@@ -418,15 +486,21 @@ func SendAnnouncementEmail(c *gin.Context) {
 	req.Title = strings.TrimSpace(req.Title)
 	req.Content = strings.TrimSpace(req.Content)
 	req.Type = strings.TrimSpace(req.Type)
+	req.Audience = strings.TrimSpace(req.Audience)
 	if req.Title == "" || req.Content == "" {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
 		return
 	}
+	if req.Audience == "" {
+		req.Audience = console_setting.AnnouncementAudienceAll
+	}
 
 	summary, err := service.BroadcastAnnouncementEmail(service.BroadcastAnnouncementEmailRequest{
-		Title:   req.Title,
-		Content: req.Content,
-		Type:    req.Type,
+		Title:        req.Title,
+		Content:      req.Content,
+		Type:         req.Type,
+		Audience:     req.Audience,
+		TargetGroups: req.TargetGroups,
 	})
 	if err != nil {
 		common.ApiError(c, err)
@@ -439,6 +513,8 @@ func SendAnnouncementEmail(c *gin.Context) {
 		"sent":           summary.Sent,
 		"failed":         summary.Failed,
 		"total":          summary.Total,
+		"audience":       req.Audience,
+		"target_groups":  req.TargetGroups,
 	}
 	model.RecordLogWithAdminInfo(c.GetInt("id"), model.LogTypeManage, fmt.Sprintf("管理员群发公告邮件: %s", req.Title), adminInfo)
 

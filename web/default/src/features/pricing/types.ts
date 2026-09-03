@@ -38,6 +38,7 @@ export type PricingGroupDisplayGroup = {
   group: string
   category_id: string
   order: number
+  hide_discount?: boolean
 }
 
 export type PricingGroupDisplayConfig = {
@@ -146,7 +147,9 @@ export type PricingData = {
   message?: string
   data: PricingModel[]
   vendors: PricingVendor[]
+  user_group?: string
   group_ratio: Record<string, number>
+  group_model_ratio?: Record<string, Record<string, number>>
   group_perf?: Record<string, PricingGroupPerformance>
   usable_group: Record<string, string | { desc?: string; ratio?: number }>
   group_display?: PricingGroupDisplayConfig

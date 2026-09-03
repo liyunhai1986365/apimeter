@@ -62,7 +62,6 @@ import {
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { PublicLayout } from '@/components/layout'
-import { Footer } from '@/components/layout/components/footer'
 import {
   formatInviteRewardRatio,
   getInviteRewardConfig,
@@ -468,7 +467,6 @@ export function PartnerProgram() {
           </div>
         </section>
       </main>
-      <Footer />
     </PublicLayout>
   )
 }

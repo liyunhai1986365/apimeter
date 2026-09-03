@@ -39,6 +39,8 @@ export type UpdateOptionResponse = {
   message: string
 }
 
+export type AnnouncementAudience = 'all' | 'main_site'
+
 export type AnnouncementEmailResponse = {
   success: boolean
   message: string
@@ -48,6 +50,12 @@ export type AnnouncementEmailResponse = {
     failed: number
     errors?: string[]
   }
+}
+
+export type UserGroupsResponse = {
+  success: boolean
+  message: string
+  data?: string[]
 }
 
 export type GlobalWebhookTestResponse = {
@@ -123,6 +131,7 @@ export type SiteSettings = {
   SystemName: string
   Logo: string
   Footer: string
+  FooterCompanyName: string
   About: string
   HomePageContent: string
   CustomerServiceScript: string
@@ -133,6 +142,7 @@ export type SiteSettings = {
   HeaderNavModules: string
   SidebarModulesAdmin: string
   RankingsDataVisibility: string
+  MainlandChinaPresentationEnabled: boolean
 }
 
 export type AuthSettings = {
@@ -167,6 +177,7 @@ export type AuthSettings = {
   WeChatServerAddress: string
   WeChatServerToken: string
   WeChatAccountQRCodeImageURL: string
+  GoCaptchaCheckEnabled: boolean
   TurnstileCheckEnabled: boolean
   TurnstileSiteKey: string
   TurnstileSecretKey: string
@@ -235,6 +246,8 @@ export type ModelSettings = {
   GroupRatio: string
   UserUsableGroups: string
   GroupGroupRatio: string
+  GroupModelRatio: string
+  UserGroupModelRatio: string
   AutoGroups: string
   GroupDisplayConfig: string
   DefaultUseAutoGroup: boolean
@@ -276,6 +289,7 @@ export type BillingSettings = {
   'quota_setting.enable_free_model_pre_consume': boolean
   QuotaPerUnit: number
   USDExchangeRate: number
+  'general_setting.default_user_display_currency': string
   'general_setting.quota_display_type': string
   'general_setting.custom_currency_symbol': string
   'general_setting.custom_currency_exchange_rate': number
@@ -297,6 +311,8 @@ export type BillingSettings = {
   GroupRatio: string
   UserUsableGroups: string
   GroupGroupRatio: string
+  GroupModelRatio: string
+  UserGroupModelRatio: string
   AutoGroups: string
   GroupDisplayConfig: string
   DefaultUseAutoGroup: boolean
@@ -318,6 +334,7 @@ export type BillingSettings = {
   StripeApiSecret: string
   StripeWebhookSecret: string
   StripePriceId: string
+  StripeEnabled: boolean
   StripeUnitPrice: number
   StripeMinTopUp: number
   StripePromotionCodesEnabled: boolean

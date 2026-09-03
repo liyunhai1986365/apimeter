@@ -2,16 +2,14 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { PricingModel } from '../types'
 import {
+  buildEffectiveModelGroupRatios,
   buildModelCardPriceDisplay,
   isModelPriceFreeForRatio,
 } from './model-card-price'
 
 const zhDiscountLabels = {
   originalPrice: '原价',
-  fold: '{{value}}折',
-  percentDiscount: '{{value}}%折扣',
   percentPrice: '{{value}}%价格',
-  startingFrom: '{{value}}起',
 }
 
 function tokenModel(overrides: Partial<PricingModel> = {}): PricingModel {
@@ -31,6 +29,28 @@ function tokenModel(overrides: Partial<PricingModel> = {}): PricingModel {
 }
 
 describe('buildModelCardPriceDisplay', () => {
+  test('prefers current-user model group ratios and preserves free pricing', () => {
+    const ratios = buildEffectiveModelGroupRatios(
+      tokenModel({
+        group_ratio: {
+          alibaba: 0.5,
+          free: 0,
+        },
+      }),
+      {
+        alibaba: 0.7,
+        backup: 0.8,
+        free: 1,
+      }
+    )
+
+    assert.deepEqual(ratios, {
+      alibaba: 0.5,
+      backup: 0.8,
+      free: 0,
+    })
+  })
+
   test('builds original and lowest prices for token-based model cards', () => {
     const display = buildModelCardPriceDisplay(tokenModel(), {
       tokenUnit: 'M',
@@ -40,7 +60,7 @@ describe('buildModelCardPriceDisplay', () => {
     assert.equal(display.kind, 'token')
     assert.equal(display.billingLabelKey, 'Token-based')
     assert.equal(display.unitLabel, '1M')
-    assert.equal(display.discountLabel, '5折起')
+    assert.equal(display.discountLabel, '-50%')
     assert.deepEqual(
       display.entries.map((entry) => ({
         label: entry.labelKey,
@@ -62,6 +82,21 @@ describe('buildModelCardPriceDisplay', () => {
           unit: '1M',
         },
       ]
+    )
+  })
+
+  test('suppresses hidden group discount details from advertised card prices', () => {
+    const display = buildModelCardPriceDisplay(tokenModel(), {
+      tokenUnit: 'M',
+      discountLabels: zhDiscountLabels,
+      hiddenDiscountGroups: new Set(['vip']),
+    })
+
+    assert.equal(display.discountLabel, undefined)
+    assert.equal(display.hasDiscount, false)
+    assert.deepEqual(
+      display.entries.map((entry) => entry.current),
+      ['$2', '$6']
     )
   })
 
@@ -155,7 +190,7 @@ describe('buildModelCardPriceDisplay', () => {
 
     assert.equal(display.kind, 'request')
     assert.equal(display.billingLabelKey, 'Per Request')
-    assert.equal(display.discountLabel, '5折起')
+    assert.equal(display.discountLabel, '-50%')
     assert.deepEqual(display.entries, [
       {
         key: 'request',
@@ -209,7 +244,7 @@ describe('buildModelCardPriceDisplay', () => {
 
     assert.equal(display.kind, 'dynamic')
     assert.equal(display.billingLabelKey, 'Dynamic Pricing')
-    assert.equal(display.discountLabel, '5折起')
+    assert.equal(display.discountLabel, '-50%')
     assert.deepEqual(
       display.entries.map((entry) => ({
         label: entry.labelKey,

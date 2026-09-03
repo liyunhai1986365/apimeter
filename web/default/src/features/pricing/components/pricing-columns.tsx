@@ -24,6 +24,7 @@ import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { Badge } from '@/components/ui/badge'
 import { CopyButton } from '@/components/copy-button'
 import { DataTableColumnHeader } from '@/components/data-table/column-header'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import {
   formatLatency,
   formatThroughput,
@@ -31,13 +32,18 @@ import {
 } from '@/features/performance-metrics/lib/format'
 import type { PerfModelSummary } from '@/features/performance-metrics/types'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
+import { getHiddenDiscountGroups } from '../lib/group-display'
 import {
   buildModelCardPriceDisplay,
   type ModelCardPriceDisplay,
   type ModelCardPriceEntry,
 } from '../lib/model-card-price'
 import { inferModelMetadata } from '../lib/model-metadata'
-import type { PricingModel, TokenUnit } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  TokenUnit,
+} from '../types'
 import { ModalityIcons } from './model-details-modalities'
 import { stopPricingTableRowClick } from './pricing-table-events'
 
@@ -51,6 +57,7 @@ export interface PricingColumnsOptions {
   usdExchangeRate?: number
   showRechargePrice?: boolean
   perfByModel?: Map<string, PerfModelSummary>
+  groupDisplay?: PricingGroupDisplayConfig
 }
 
 const EMPTY_CELL = <span className='text-muted-foreground/45 text-xs'>-</span>
@@ -201,6 +208,7 @@ export function usePricingColumns(
     usdExchangeRate,
     discountLabels,
     includeAllDynamicTiers: true,
+    hiddenDiscountGroups: getHiddenDiscountGroups(options.groupDisplay),
   }
 
   return [
@@ -324,9 +332,11 @@ export function usePricingColumns(
       cell: ({ row }) => {
         const display = buildModelCardPriceDisplay(row.original, priceOptions)
         return display.discountLabel ? (
-          <Badge variant='secondary' className='rounded-md px-2 text-[11px]'>
-            {display.discountLabel}
-          </Badge>
+          <DiscountTooltip label={display.discountLabel}>
+            <Badge variant='secondary' className='rounded-md px-2 text-[11px]'>
+              {display.discountLabel}
+            </Badge>
+          </DiscountTooltip>
         ) : (
           <span className='text-muted-foreground/45 text-xs'>-</span>
         )

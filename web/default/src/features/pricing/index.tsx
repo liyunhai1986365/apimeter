@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useSearch } from '@tanstack/react-router'
 import {
   ArrowRight02Icon,
@@ -28,6 +28,7 @@ import { useTranslation } from 'react-i18next'
 import { useAuthStore } from '@/stores/auth-store'
 import { trackGoogleAnalyticsEvent } from '@/lib/google-analytics'
 import { cn } from '@/lib/utils'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { Badge } from '@/components/ui/badge'
 import { Button, buttonVariants } from '@/components/ui/button'
 import {
@@ -158,7 +159,7 @@ function SemCatalogLanding(props: {
         <CardDescription className='max-w-3xl text-sm leading-6 md:text-base'>
           {t(
             'Compare and access AI model providers, API pricing, supported endpoints and capabilities on {{site}}.',
-            { site: 'APIMeter' }
+            { site: 'Modelsell' }
           )}
         </CardDescription>
       </CardHeader>
@@ -169,7 +170,7 @@ function SemCatalogLanding(props: {
           </p>
           <ol className='grid gap-3 sm:grid-cols-3'>
             {[
-              t('Create your APIMeter account'),
+              t('Create your Modelsell account'),
               t('Create one API key'),
               t('Copy the endpoint and run the example'),
             ].map((step, index) => (
@@ -232,7 +233,9 @@ function SemCatalogLanding(props: {
 
 export function Pricing() {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
   const navigate = useNavigate()
+  const [selectedUserGroup, setSelectedUserGroup] = useState<string>()
   const search = useSearch({ from: '/pricing/' })
   const toOptionalSearchString = (
     value: string | number | boolean | undefined
@@ -259,12 +262,14 @@ export function Pricing() {
   const {
     models,
     vendors,
+    userGroup,
     groupRatio,
     usableGroup,
+    groupDisplay,
     isLoading,
     priceRate,
     usdExchangeRate,
-  } = usePricingData()
+  } = usePricingData(isAdmin ? selectedUserGroup : undefined)
 
   const {
     searchInput,
@@ -371,6 +376,7 @@ export function Pricing() {
           usdExchangeRate={usdExchangeRate}
           tokenUnit={tokenUnit}
           showRechargePrice={false}
+          groupDisplay={groupDisplay}
         />
       )
     }
@@ -382,6 +388,7 @@ export function Pricing() {
         usdExchangeRate={usdExchangeRate}
         tokenUnit={tokenUnit}
         showRechargePrice={false}
+        groupDisplay={groupDisplay}
         onModelClick={handleModelClick}
       />
     )
@@ -421,6 +428,7 @@ export function Pricing() {
             vendors={vendors || []}
             groups={Object.keys(usableGroup || {})}
             groupRatios={groupRatio}
+            groupDisplay={groupDisplay}
             models={models || []}
             hasActiveFilters={hasActiveFilters}
             activeFilterCount={activeFilterCount}
@@ -464,6 +472,13 @@ export function Pricing() {
                 viewMode={viewMode}
                 onViewModeChange={setViewMode}
                 hasActiveFilters={hasActiveFilters}
+                quotationModels={filteredModels}
+                priceRate={priceRate}
+                usdExchangeRate={usdExchangeRate}
+                userGroup={userGroup}
+                onUserGroupChange={setSelectedUserGroup}
+                usableGroup={usableGroup}
+                groupDisplay={groupDisplay}
               />
             </div>
 

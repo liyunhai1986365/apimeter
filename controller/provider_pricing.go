@@ -92,6 +92,7 @@ func GetHvoyProviderPricing(c *gin.Context) {
 	response := buildHvoyProviderPricingResponse(
 		pricing,
 		groupRatios,
+		ratio_setting.GetGroupModelRatio,
 		cnyPerUSD,
 		common.SystemName,
 		hvoyProviderPricingSiteDomain(c.Request),
@@ -130,6 +131,7 @@ func verifyHvoyProviderPricingSignature(header http.Header, secret string, now t
 func buildHvoyProviderPricingResponse(
 	pricing []model.Pricing,
 	groupRatios map[string]float64,
+	resolveGroupModelRatio func(group, modelName string) (float64, bool),
 	cnyPerUSD float64,
 	siteName string,
 	siteDomain string,
@@ -154,6 +156,11 @@ func buildHvoyProviderPricingResponse(
 			groupRatio := 1.0
 			if configuredRatio, ok := groupRatios[group]; ok {
 				groupRatio = configuredRatio
+			}
+			if resolveGroupModelRatio != nil {
+				if configuredRatio, ok := resolveGroupModelRatio(group, item.ModelName); ok {
+					groupRatio = configuredRatio
+				}
 			}
 			if !isFiniteNonNegative(groupRatio) {
 				continue

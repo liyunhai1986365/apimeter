@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo, useState } from 'react'
 import { Edit3, Eye, EyeOff, RotateCcw, Save, Settings2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatDiscountPercentage } from '@/lib/group-discount'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -55,6 +56,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { buildAgentGroupRuleRows } from '../api'
 import type { AgentGroupRatio } from '../types'
 
@@ -203,8 +205,12 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
                               : t('System default')}
                           </Badge>
                         </TableCell>
-                        <TableCell>{row.agentDiscount}</TableCell>
-                        <TableCell>{row.effectiveDiscount}</TableCell>
+                        <TableCell>
+                          <AgentDiscountValue ratio={row.agentDiscount} />
+                        </TableCell>
+                        <TableCell>
+                          <AgentDiscountValue ratio={row.effectiveDiscount} />
+                        </TableCell>
                         <TableCell>
                           <Badge variant={row.visible ? 'default' : 'outline'}>
                             {row.visible ? <Eye /> : <EyeOff />}
@@ -351,6 +357,19 @@ export function AgentGroupManager(props: AgentGroupManagerProps) {
         </DialogContent>
       </Dialog>
     </>
+  )
+}
+
+function AgentDiscountValue({ ratio }: { ratio: string }) {
+  const label = formatDiscountPercentage(ratio)
+  if (!label) return ratio
+
+  return (
+    <DiscountTooltip label={label}>
+      <Badge variant='secondary' className='font-mono'>
+        {label}
+      </Badge>
+    </DiscountTooltip>
   )
 }
 

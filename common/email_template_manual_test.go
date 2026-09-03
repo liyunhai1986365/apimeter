@@ -72,15 +72,15 @@ func TestSendAllEmailTemplatesManual(t *testing.T) {
 		},
 		{
 			subject: fmt.Sprintf("[邮件模板测试] %s密码重置", SystemName),
-			content: fmt.Sprintf("<p>您好，你正在进行%s密码重置。</p><p>点击 <a href='https://apimeter.ai/user/reset?email=xsheji@qq.com&token=test-token'>此处</a> 进行密码重置。</p><p>如果链接无法点击，请复制链接到浏览器打开。</p>", SystemName),
+			content: fmt.Sprintf("<p>您好，你正在进行%s密码重置。</p><p>点击 <a href='https://modelsell.com/user/reset?email=xsheji@qq.com&token=test-token'>此处</a> 进行密码重置。</p><p>如果链接无法点击，请复制链接到浏览器打开。</p>", SystemName),
 		},
 		{
 			subject: "[邮件模板测试] 您的额度即将用尽",
-			content: "您的额度即将用尽，当前剩余额度为 $0.82，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='https://apimeter.ai/wallet'>https://apimeter.ai/wallet</a>",
+			content: "您的额度即将用尽，当前剩余额度为 $0.82，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='https://modelsell.com/wallet'>https://modelsell.com/wallet</a>",
 		},
 		{
 			subject: "[邮件模板测试] 您的订阅额度即将用尽",
-			content: "您的订阅额度即将用尽，当前剩余额度为 410,000 点额度，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='https://apimeter.ai/wallet'>https://apimeter.ai/wallet</a>",
+			content: "您的订阅额度即将用尽，当前剩余额度为 410,000 点额度，为了不影响您的使用，请及时充值。<br/>充值链接：<a href='https://modelsell.com/wallet'>https://modelsell.com/wallet</a>",
 		},
 		{
 			subject: "[邮件模板测试] 通道「示例通道」（#1001）已被禁用",

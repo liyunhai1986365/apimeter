@@ -1,11 +1,15 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/QuantumNous/new-api/common"
+	"github.com/google/uuid"
 )
 
 func FetchCodexWhamUsage(
@@ -35,12 +39,7 @@ func FetchCodexWhamUsage(
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+at)
-	req.Header.Set("chatgpt-account-id", aid)
-	req.Header.Set("Accept", "application/json")
-	if req.Header.Get("originator") == "" {
-		req.Header.Set("originator", "codex_cli_rs")
-	}
+	setCodexWhamRequestHeaders(req, at, aid)
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -53,4 +52,84 @@ func FetchCodexWhamUsage(
 		return resp.StatusCode, nil, err
 	}
 	return resp.StatusCode, body, nil
+}
+
+func FetchCodexWhamRateLimitResetCredits(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	accessToken string,
+	accountID string,
+) (statusCode int, body []byte, err error) {
+	if client == nil {
+		return 0, nil, fmt.Errorf("nil http client")
+	}
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	accessToken = strings.TrimSpace(accessToken)
+	accountID = strings.TrimSpace(accountID)
+	if baseURL == "" || accessToken == "" || accountID == "" {
+		return 0, nil, fmt.Errorf("codex usage request requires baseURL, accessToken, and accountID")
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/backend-api/wham/rate-limit-reset-credits", nil)
+	if err != nil {
+		return 0, nil, err
+	}
+	setCodexWhamRequestHeaders(req, accessToken, accountID)
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, err
+	}
+	return resp.StatusCode, body, nil
+}
+
+func ConsumeCodexWhamRateLimitResetCredit(
+	ctx context.Context,
+	client *http.Client,
+	baseURL string,
+	accessToken string,
+	accountID string,
+) (statusCode int, body []byte, err error) {
+	if client == nil {
+		return 0, nil, fmt.Errorf("nil http client")
+	}
+	baseURL = strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	accessToken = strings.TrimSpace(accessToken)
+	accountID = strings.TrimSpace(accountID)
+	if baseURL == "" || accessToken == "" || accountID == "" {
+		return 0, nil, fmt.Errorf("codex usage request requires baseURL, accessToken, and accountID")
+	}
+	requestBody, err := common.Marshal(map[string]string{"redeem_request_id": uuid.NewString()})
+	if err != nil {
+		return 0, nil, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/backend-api/wham/rate-limit-reset-credits/consume", bytes.NewReader(requestBody))
+	if err != nil {
+		return 0, nil, err
+	}
+	setCodexWhamRequestHeaders(req, accessToken, accountID)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return 0, nil, err
+	}
+	defer resp.Body.Close()
+	body, err = io.ReadAll(resp.Body)
+	if err != nil {
+		return resp.StatusCode, nil, err
+	}
+	return resp.StatusCode, body, nil
+}
+
+func setCodexWhamRequestHeaders(req *http.Request, accessToken string, accountID string) {
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("chatgpt-account-id", accountID)
+	req.Header.Set("Accept", "application/json")
+	if req.Header.Get("originator") == "" {
+		req.Header.Set("originator", "codex_cli_rs")
+	}
 }

@@ -7,8 +7,16 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf16"
 
 	"github.com/QuantumNous/new-api/common"
+)
+
+const (
+	AnnouncementAudienceAll      = "all"
+	AnnouncementAudienceMainSite = "main_site"
+	maxAnnouncementTargetGroups  = 50
+	maxAnnouncementGroupLength   = 64
 )
 
 var (
@@ -20,7 +28,11 @@ var (
 		"light-green": true, "teal": true, "light-blue": true, "indigo": true,
 		"violet": true, "grey": true, "slate": true,
 	}
-	slugRegex = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	slugRegex              = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+	validAnnouncementTypes = map[string]bool{
+		"product_update": true, "system_maintenance": true, "model_release": true,
+		"pricing_update": true, "incident": true, "general": true,
+	}
 )
 
 func parseJSONArray(jsonStr string, typeName string) ([]map[string]interface{}, error) {
@@ -29,6 +41,10 @@ func parseJSONArray(jsonStr string, typeName string) ([]map[string]interface{}, 
 		return nil, fmt.Errorf("%s格式错误：%s", typeName, err.Error())
 	}
 	return list, nil
+}
+
+func exceedsMaxCharacters(s string, max int) bool {
+	return len(utf16.Encode([]rune(s))) > max
 }
 
 func validateURL(urlStr string, index int, itemType string) error {
@@ -111,13 +127,13 @@ func validateApiInfo(apiInfoStr string) error {
 			return err
 		}
 
-		if len(urlStr) > 500 {
+		if exceedsMaxCharacters(urlStr, 500) {
 			return fmt.Errorf("第%d个API信息的URL长度不能超过500字符", i+1)
 		}
-		if len(route) > 100 {
+		if exceedsMaxCharacters(route, 100) {
 			return fmt.Errorf("第%d个API信息的线路描述长度不能超过100字符", i+1)
 		}
-		if len(description) > 200 {
+		if exceedsMaxCharacters(description, 200) {
 			return fmt.Errorf("第%d个API信息的说明长度不能超过200字符", i+1)
 		}
 
@@ -147,9 +163,6 @@ func validateAnnouncements(announcementsStr string) error {
 	if len(list) > 100 {
 		return fmt.Errorf("系统公告数量不能超过100个")
 	}
-	validTypes := map[string]bool{
-		"product_update": true, "system_maintenance": true, "model_release": true, "pricing_update": true, "incident": true, "general": true,
-	}
 	for i, ann := range list {
 		title, ok := ann["title"].(string)
 		if !ok || title == "" {
@@ -175,7 +188,7 @@ func validateAnnouncements(announcementsStr string) error {
 		if !exists || !ok || typeStr == "" {
 			return fmt.Errorf("第%d个公告缺少类型字段", i+1)
 		}
-		if !validTypes[typeStr] {
+		if !IsValidAnnouncementType(typeStr) {
 			return fmt.Errorf("第%d个公告的类型值不合法", i+1)
 		}
 		if len(content) > 10000 {
@@ -185,10 +198,83 @@ func validateAnnouncements(announcementsStr string) error {
 			return fmt.Errorf("第%d个公告的标题长度不能超过120字符", i+1)
 		}
 		if extra, exists := ann["extra"]; exists {
-			if extraStr, ok := extra.(string); ok && len(extraStr) > 200 {
-				return fmt.Errorf("第%d个公告的说明长度不能超过200字符", i+1)
+			if extraStr, ok := extra.(string); ok && exceedsMaxCharacters(extraStr, 100) {
+				return fmt.Errorf("第%d个公告的说明长度不能超过100字符", i+1)
 			}
 		}
+		if audience, exists := ann["audience"]; exists {
+			audienceStr, ok := audience.(string)
+			if !ok || (audienceStr != AnnouncementAudienceAll && audienceStr != AnnouncementAudienceMainSite) {
+				return fmt.Errorf("第%d个公告的接收对象值不合法", i+1)
+			}
+		}
+		if targetGroups, exists := ann["target_groups"]; exists {
+			groupValues, ok := targetGroups.([]interface{})
+			if !ok {
+				return fmt.Errorf("第%d个公告的用户分组格式不正确", i+1)
+			}
+			groups := make([]string, 0, len(groupValues))
+			for _, value := range groupValues {
+				group, ok := value.(string)
+				if !ok {
+					return fmt.Errorf("第%d个公告的用户分组格式不正确", i+1)
+				}
+				groups = append(groups, group)
+			}
+			if _, err := NormalizeAnnouncementTargetGroups(groups); err != nil {
+				return fmt.Errorf("第%d个公告的用户分组不合法：%s", i+1, err.Error())
+			}
+		}
+	}
+	return nil
+}
+
+func NormalizeAnnouncementTargetGroups(groups []string) ([]string, error) {
+	if len(groups) > maxAnnouncementTargetGroups {
+		return nil, fmt.Errorf("用户分组数量不能超过%d个", maxAnnouncementTargetGroups)
+	}
+
+	normalized := make([]string, 0, len(groups))
+	seen := make(map[string]struct{}, len(groups))
+	for _, group := range groups {
+		group = strings.TrimSpace(group)
+		if group == "" {
+			return nil, fmt.Errorf("用户分组不能为空")
+		}
+		if exceedsMaxCharacters(group, maxAnnouncementGroupLength) {
+			return nil, fmt.Errorf("用户分组名称长度不能超过%d字符", maxAnnouncementGroupLength)
+		}
+		if _, exists := seen[group]; exists {
+			continue
+		}
+		seen[group] = struct{}{}
+		normalized = append(normalized, group)
+	}
+	return normalized, nil
+}
+
+func IsValidAnnouncementType(announcementType string) bool {
+	return validAnnouncementTypes[announcementType]
+}
+
+func ValidateAnnouncementFields(title string, content string, announcementType string, extra string) error {
+	title = strings.TrimSpace(title)
+	content = strings.TrimSpace(content)
+	announcementType = strings.TrimSpace(announcementType)
+	if title == "" || content == "" {
+		return fmt.Errorf("公告标题和内容不能为空")
+	}
+	if exceedsMaxCharacters(title, 120) {
+		return fmt.Errorf("公告标题长度不能超过120字符")
+	}
+	if exceedsMaxCharacters(content, 10000) {
+		return fmt.Errorf("公告内容长度不能超过10000字符")
+	}
+	if !IsValidAnnouncementType(announcementType) {
+		return fmt.Errorf("公告类型值不合法")
+	}
+	if exceedsMaxCharacters(extra, 100) {
+		return fmt.Errorf("公告说明长度不能超过100字符")
 	}
 	return nil
 }
@@ -210,10 +296,10 @@ func validateFAQ(faqStr string) error {
 		if !ok || answer == "" {
 			return fmt.Errorf("第%d个FAQ缺少答案字段", i+1)
 		}
-		if len(question) > 200 {
+		if exceedsMaxCharacters(question, 200) {
 			return fmt.Errorf("第%d个FAQ的问题长度不能超过200字符", i+1)
 		}
-		if len(answer) > 1000 {
+		if exceedsMaxCharacters(answer, 1000) {
 			return fmt.Errorf("第%d个FAQ的答案长度不能超过1000字符", i+1)
 		}
 	}
@@ -233,10 +319,78 @@ func getPublishTime(item map[string]interface{}) time.Time {
 
 func GetAnnouncements() []map[string]interface{} {
 	list := getJSONList(GetConsoleSetting().Announcements)
+	SortAnnouncements(list)
+	return list
+}
+
+func SortAnnouncements(list []map[string]interface{}) {
 	sort.SliceStable(list, func(i, j int) bool {
 		return getPublishTime(list[i]).After(getPublishTime(list[j]))
 	})
-	return list
+}
+
+func FilterAnnouncementsForAgentSite(announcements []map[string]interface{}) []map[string]interface{} {
+	filtered := make([]map[string]interface{}, 0, len(announcements))
+	for _, announcement := range announcements {
+		if announcement["audience"] == AnnouncementAudienceMainSite {
+			continue
+		}
+		filtered = append(filtered, announcement)
+	}
+	return filtered
+}
+
+func announcementTargetGroups(announcement map[string]interface{}) ([]string, bool) {
+	raw, exists := announcement["target_groups"]
+	if !exists {
+		return nil, false
+	}
+	if raw == nil {
+		return nil, true
+	}
+
+	groups := make([]string, 0)
+	switch values := raw.(type) {
+	case []interface{}:
+		for _, value := range values {
+			group, ok := value.(string)
+			if !ok {
+				return nil, true
+			}
+			groups = append(groups, group)
+		}
+	case []string:
+		groups = append(groups, values...)
+	default:
+		return nil, true
+	}
+	normalized, err := NormalizeAnnouncementTargetGroups(groups)
+	if err != nil {
+		return nil, true
+	}
+	return normalized, len(normalized) > 0
+}
+
+func FilterAnnouncementsForUserGroup(announcements []map[string]interface{}, userGroup string, authenticated bool) []map[string]interface{} {
+	filtered := make([]map[string]interface{}, 0, len(announcements))
+	userGroup = strings.TrimSpace(userGroup)
+	for _, announcement := range announcements {
+		targetGroups, targeted := announcementTargetGroups(announcement)
+		if !targeted {
+			filtered = append(filtered, announcement)
+			continue
+		}
+		if !authenticated || userGroup == "" {
+			continue
+		}
+		for _, group := range targetGroups {
+			if group == userGroup {
+				filtered = append(filtered, announcement)
+				break
+			}
+		}
+	}
+	return filtered
 }
 
 func GetFAQ() []map[string]interface{} {
@@ -281,16 +435,16 @@ func validateUptimeKumaGroups(groupsStr string) error {
 			return err
 		}
 
-		if len(categoryName) > 50 {
+		if exceedsMaxCharacters(categoryName, 50) {
 			return fmt.Errorf("第%d个分组的分类名称长度不能超过50字符", i+1)
 		}
-		if len(urlStr) > 500 {
+		if exceedsMaxCharacters(urlStr, 500) {
 			return fmt.Errorf("第%d个分组的URL长度不能超过500字符", i+1)
 		}
-		if len(slug) > 100 {
+		if exceedsMaxCharacters(slug, 100) {
 			return fmt.Errorf("第%d个分组的Slug长度不能超过100字符", i+1)
 		}
-		if len(description) > 200 {
+		if exceedsMaxCharacters(description, 200) {
 			return fmt.Errorf("第%d个分组的描述长度不能超过200字符", i+1)
 		}
 

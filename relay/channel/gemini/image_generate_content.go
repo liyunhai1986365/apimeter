@@ -62,9 +62,13 @@ func ConvertOpenAIImageToGenerateContent(c *gin.Context, info *relaycommon.Relay
 		openAIRequest.ExtraBody = extraBody
 	}
 
-	geminiRequest, err := CovertOpenAI2Gemini(c, openAIRequest, info)
+	convertResult, err := service.ConvertRequest(c, info, types.RelayFormatGemini, &openAIRequest)
 	if err != nil {
 		return nil, err
+	}
+	geminiRequest, ok := convertResult.Value.(*dto.GeminiChatRequest)
+	if !ok {
+		return nil, fmt.Errorf("expected Gemini request, got %T", convertResult.Value)
 	}
 	geminiRequest.GenerationConfig.ResponseModalities = []string{"TEXT", "IMAGE"}
 	if request.N != nil && *request.N > 0 {
@@ -206,6 +210,6 @@ func GeminiGenerateContentImageHandler(c *gin.Context, info *relaycommon.RelayIn
 	}
 	service.IOCopyBytesGracefully(c, resp, jsonResponse)
 
-	usage := buildUsageFromGeminiMetadata(geminiResponse.UsageMetadata, info.GetEstimatePromptTokens())
+	usage := buildUsageFromGeminiResponse(c, info, &geminiResponse)
 	return &usage, nil
 }

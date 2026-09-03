@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { readCachedStatus, writeCachedStatus } from './status-cache'
+
 export type ModuleAccess = { enabled: boolean; requireAuth: boolean }
 
 export type AICreationConfig = { enabled: boolean; baseUrl: string }
@@ -677,22 +679,12 @@ export function getAICreationSSOUrlFromStatus(
 }
 
 function getCachedStatus(): Record<string, unknown> | null {
-  try {
-    if (typeof window === 'undefined') return null
-    const raw = window.localStorage.getItem('status')
-    return raw ? (JSON.parse(raw) as Record<string, unknown>) : null
-  } catch {
-    return null
-  }
+  return readCachedStatus()
 }
 
 function cacheStatus(status: Record<string, unknown> | null): void {
-  try {
-    if (typeof window !== 'undefined' && status) {
-      window.localStorage.setItem('status', JSON.stringify(status))
-    }
-  } catch {
-    /* empty */
+  if (status) {
+    writeCachedStatus(status)
   }
 }
 

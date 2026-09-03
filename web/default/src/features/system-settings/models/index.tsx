@@ -58,6 +58,8 @@ const defaultModelSettings: ModelSettings = {
   GroupRatio: '',
   UserUsableGroups: '',
   GroupGroupRatio: '',
+  GroupModelRatio: '{}',
+  UserGroupModelRatio: '{}',
   AutoGroups: '',
   GroupDisplayConfig: '{"categories":[],"groups":[]}',
   DefaultUseAutoGroup: false,

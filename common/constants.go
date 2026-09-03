@@ -14,7 +14,7 @@ import (
 
 var StartTime = time.Now().Unix() // unit: second
 var Version = "v0.0.0"            // this hard coding will be replaced automatically when building, no need to manually change
-var SystemName = "APIMeter API"
+var SystemName = "Modelsell API"
 var Footer = ""
 var Logo = ""
 var TopUpLink = ""
@@ -88,6 +88,22 @@ var HvoyAuthSecret = ""
 var SessionCookieSecure = false
 var SessionCookieTrustedURLs []string
 
+const (
+	DefaultUserSessionActiveLimit           = 50
+	DefaultUserSessionIssuanceLimit         = 100
+	DefaultUserSessionIssuanceWindowSeconds = 24 * 60 * 60
+	DefaultUserSessionRevokedRetentionDays  = 7
+	DefaultUserSessionHourlyAlertThreshold  = 5000
+)
+
+var (
+	UserSessionActiveLimit           = DefaultUserSessionActiveLimit
+	UserSessionIssuanceLimit         = DefaultUserSessionIssuanceLimit
+	UserSessionIssuanceWindowSeconds = int64(DefaultUserSessionIssuanceWindowSeconds)
+	UserSessionRevokedRetentionDays  = DefaultUserSessionRevokedRetentionDays
+	UserSessionHourlyAlertThreshold  = DefaultUserSessionHourlyAlertThreshold
+)
+
 var OptionMap map[string]string
 var OptionMapRWMutex sync.RWMutex
 
@@ -102,6 +118,7 @@ var LinuxDOOAuthEnabled = false
 var WeChatAuthEnabled = false
 var TelegramOAuthEnabled = false
 var TurnstileCheckEnabled = false
+var GoCaptchaCheckEnabled = false
 var RegisterEnabled = true
 
 var EmailDomainRestrictionEnabled = false // 是否启用邮箱域名限制
@@ -235,6 +252,10 @@ var (
 	CriticalRateLimitEnable   bool
 	CriticalRateLimitNum            = 20
 	CriticalRateLimitDuration int64 = 20 * 60
+
+	CaptchaRateLimitEnable         = true
+	CaptchaRateLimitNum            = 60
+	CaptchaRateLimitDuration int64 = 20 * 60
 
 	UploadRateLimitNum            = 10
 	UploadRateLimitDuration int64 = 60

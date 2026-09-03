@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import {
+  buildConfiguredBillingGroupNameOptions,
   buildConfiguredGroupNameOptions,
   buildConfiguredUserGroupNameOptions,
 } from './group-ratio-visual-editor'
@@ -53,7 +54,32 @@ describe('group ratio visual editor group options', () => {
     assert.deepEqual(groups, ['default', 'hidden', 'vip'])
   })
 
-  test('uses only configured user groups for add user group dropdowns', () => {
+  test('includes every non-user billing group in model ratio dropdowns', () => {
+    const groups = buildConfiguredBillingGroupNameOptions(
+      JSON.stringify({
+        default: 1,
+        hidden: 1,
+        vip: 1,
+      }),
+      JSON.stringify({
+        default: '默认分组',
+        vip: '用户分组',
+      }),
+      JSON.stringify({
+        categories: [],
+        groups: [
+          { group: 'display-only', order: 10 },
+          { group: 'default', order: 20 },
+          { group: 'vip', order: 30, user_group: true },
+          { group: 'auto', order: 40 },
+        ],
+      })
+    )
+
+    assert.deepEqual(groups, ['display-only', 'default', 'hidden'])
+  })
+
+  test('uses every displayed user group in user group dropdowns', () => {
     const groups = buildConfiguredUserGroupNameOptions(
       JSON.stringify({
         default: 1,
@@ -75,6 +101,6 @@ describe('group ratio visual editor group options', () => {
       })
     )
 
-    assert.deepEqual(groups, ['vip'])
+    assert.deepEqual(groups, ['vip', 'orphan'])
   })
 })

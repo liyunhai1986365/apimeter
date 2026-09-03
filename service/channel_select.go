@@ -21,6 +21,7 @@ type RetryParam struct {
 	Ctx                     *gin.Context
 	TokenGroup              string
 	ModelName               string
+	RequestPath             string
 	Retry                   *int
 	resetNextTry            bool
 	attempt                 int
@@ -265,7 +266,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else if param.TokenGroup == "auto" {
-		autoGroups := GetUserAutoGroup(userGroup)
+		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
 		agentAutoGroupNames := map[string]string{}
 		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](param.Ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
 			autoGroups, agentAutoGroupNames = agentAutoGroups(agentCtx, userGroup)
@@ -489,6 +490,9 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 			if nativeSeedanceProfileSupportsChannel(profileIDs, param.ModelName, channel.Type) {
 				return true
 			}
+			if nativeWan3ProfileSupportsChannel(profileIDs, param.ModelName, channel.Type) {
+				return true
+			}
 			return false
 		}
 	}
@@ -564,6 +568,21 @@ func nativeSeedanceProfileSupportsChannel(profileIDs []string, modelName string,
 	}
 	for _, profileID := range profileIDs {
 		if profileID == "doubao-seedance-2" || profileID == "doubao-seedance-2-api-assets" {
+			return true
+		}
+	}
+	return false
+}
+
+func nativeWan3ProfileSupportsChannel(profileIDs []string, modelName string, channelType int) bool {
+	if channelType != constant.ChannelTypeAli {
+		return false
+	}
+	if modelName != "wan3.0-video" && modelName != "wan3.0-video-prime" {
+		return false
+	}
+	for _, profileID := range profileIDs {
+		if profileID == "dashscope-wan3-video" {
 			return true
 		}
 	}

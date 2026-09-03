@@ -102,6 +102,9 @@ func GetReadiness(c *gin.Context) {
 }
 
 func GetStatus(c *gin.Context) {
+	c.Header("Cache-Control", "private, no-store")
+	c.Writer.Header().Add("Vary", "Cookie")
+	c.Writer.Header().Add("Vary", "Authorization")
 
 	cs := console_setting.GetConsoleSetting()
 	common.OptionMapRWMutex.RLock()
@@ -109,6 +112,11 @@ func GetStatus(c *gin.Context) {
 
 	passkeySetting := system_setting.GetPasskeySettings()
 	legalSetting := system_setting.GetLegalSettings()
+	mainlandChinaPresentationEnabled := common.OptionMap[common.MainlandChinaPresentationOptionKey] == "true"
+	defaultUserDisplayCurrency := operation_setting.GetDefaultUserDisplayCurrency()
+	if mainlandChinaPresentationEnabled {
+		defaultUserDisplayCurrency = operation_setting.QuotaDisplayTypeCNY
+	}
 
 	data := gin.H{
 		"version":                     common.Version,
@@ -123,10 +131,11 @@ func GetStatus(c *gin.Context) {
 		"linuxdo_minimum_trust_level": common.LinuxDOMinimumTrustLevel,
 		"telegram_oauth":              common.TelegramOAuthEnabled,
 		"telegram_bot_name":           common.TelegramBotName,
-		"theme":                       system_setting.GetThemeSettings().Frontend,
+		"theme":                       "default",
 		"system_name":                 common.SystemName,
 		"logo":                        common.Logo,
 		"footer_html":                 common.Footer,
+		"footer_company_name":         common.OptionMap[common.FooterCompanyNameOptionKey],
 		"customer_service_script":     common.OptionMap["CustomerServiceScript"],
 		"google_analytics_id":         common.OptionMap["GoogleAnalyticsId"],
 		"wechat_qrcode":               common.WeChatAccountQRCodeImageURL,
@@ -134,26 +143,29 @@ func GetStatus(c *gin.Context) {
 		"server_address":              system_setting.ServerAddress,
 		"turnstile_check":             common.TurnstileCheckEnabled,
 		"turnstile_site_key":          common.TurnstileSiteKey,
+		"go_captcha_check":            common.GoCaptchaCheckEnabled,
 		"docs_link":                   operation_setting.GetGeneralSetting().DocsLink,
 		"quota_per_unit":              common.QuotaPerUnit,
 		// 兼容旧前端：保留 display_in_currency，同时提供新的 quota_display_type
-		"display_in_currency":           operation_setting.IsCurrencyDisplay(),
-		"quota_display_type":            operation_setting.GetQuotaDisplayType(),
-		"custom_currency_symbol":        operation_setting.GetGeneralSetting().CustomCurrencySymbol,
-		"custom_currency_exchange_rate": operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate,
-		"enable_batch_update":           common.BatchUpdateEnabled,
-		"enable_drawing":                common.DrawingEnabled,
-		"enable_task":                   common.TaskEnabled,
-		"enable_data_export":            common.DataExportEnabled,
-		"data_export_default_time":      common.DataExportDefaultTime,
-		"default_collapse_sidebar":      common.DefaultCollapseSidebar,
-		"mj_notify_enabled":             setting.MjNotifyEnabled,
-		"chats":                         setting.Chats,
-		"demo_site_enabled":             operation_setting.DemoSiteEnabled,
-		"self_use_mode_enabled":         operation_setting.SelfUseModeEnabled,
-		"register_enabled":              common.RegisterEnabled,
-		"password_register_enabled":     common.PasswordRegisterEnabled,
-		"default_use_auto_group":        setting.DefaultUseAutoGroup,
+		"display_in_currency":                 operation_setting.IsCurrencyDisplay(),
+		"quota_display_type":                  operation_setting.GetQuotaDisplayType(),
+		"default_user_display_currency":       defaultUserDisplayCurrency,
+		"custom_currency_symbol":              operation_setting.GetGeneralSetting().CustomCurrencySymbol,
+		"custom_currency_exchange_rate":       operation_setting.GetGeneralSetting().CustomCurrencyExchangeRate,
+		"enable_batch_update":                 common.BatchUpdateEnabled,
+		"enable_drawing":                      common.DrawingEnabled,
+		"enable_task":                         common.TaskEnabled,
+		"enable_data_export":                  common.DataExportEnabled,
+		"data_export_default_time":            common.DataExportDefaultTime,
+		"default_collapse_sidebar":            common.DefaultCollapseSidebar,
+		"mj_notify_enabled":                   setting.MjNotifyEnabled,
+		"chats":                               setting.Chats,
+		"demo_site_enabled":                   operation_setting.DemoSiteEnabled,
+		"self_use_mode_enabled":               operation_setting.SelfUseModeEnabled,
+		"register_enabled":                    common.RegisterEnabled,
+		"password_register_enabled":           common.PasswordRegisterEnabled,
+		"default_use_auto_group":              setting.DefaultUseAutoGroup,
+		"mainland_china_presentation_enabled": mainlandChinaPresentationEnabled,
 
 		"usd_exchange_rate":              operation_setting.USDExchangeRate,
 		"price":                          operation_setting.Price,
@@ -176,6 +188,7 @@ func GetStatus(c *gin.Context) {
 		"oidc_enabled":                system_setting.GetOIDCSettings().Enabled,
 		"oidc_client_id":              system_setting.GetOIDCSettings().ClientId,
 		"oidc_authorization_endpoint": system_setting.GetOIDCSettings().AuthorizationEndpoint,
+		"oidc_display_name":           system_setting.GetOIDCSettings().GetEffectiveDisplayName(),
 		"passkey_login":               passkeySetting.Enabled,
 		"passkey_display_name":        passkeySetting.RPDisplayName,
 		"passkey_rp_id":               passkeySetting.RPID,
@@ -193,13 +206,43 @@ func GetStatus(c *gin.Context) {
 	if cs.ApiInfoEnabled {
 		data["api_info"] = console_setting.GetApiInfo()
 	}
+	agentCtx, isAgentSite := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext)
+	announcements := make([]map[string]interface{}, 0)
 	if cs.AnnouncementsEnabled {
-		data["announcements"] = console_setting.GetAnnouncements()
+		announcements = console_setting.GetAnnouncements()
+		if isAgentSite && agentCtx != nil {
+			announcements = console_setting.FilterAnnouncementsForAgentSite(announcements)
+		}
+		announcements = console_setting.FilterAnnouncementsForUserGroup(
+			announcements,
+			c.GetString("group"),
+			c.GetInt("id") > 0,
+		)
+		for _, announcement := range announcements {
+			delete(announcement, "target_groups")
+		}
+	}
+	if isAgentSite && agentCtx != nil {
+		agentAnnouncements, err := model.ListPublishedAgentAnnouncements(agentCtx.AgentID, 20, time.Now().Unix())
+		if err != nil {
+			common.SysLog(fmt.Sprintf("failed to load agent %d announcements: %s", agentCtx.AgentID, err.Error()))
+		} else {
+			for _, announcement := range agentAnnouncements {
+				announcements = append(announcements, announcement.PublicData())
+			}
+			if len(agentAnnouncements) > 0 {
+				data["announcements_enabled"] = true
+			}
+		}
+	}
+	if len(announcements) > 0 || cs.AnnouncementsEnabled {
+		console_setting.SortAnnouncements(announcements)
+		data["announcements"] = announcements
 	}
 	if cs.FAQEnabled {
 		data["faq"] = console_setting.GetFAQ()
 	}
-	if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](c, constant.ContextKeyAgentContext); ok && agentCtx != nil {
+	if isAgentSite && agentCtx != nil {
 		agentservice.ApplyBrandingToStatus(data, agentCtx.Branding)
 		agentServerAddress := buildAgentServerAddress(c, agentCtx.Domain)
 		data["server_address"] = agentServerAddress
@@ -464,7 +507,7 @@ func SendPasswordResetEmail(c *gin.Context) {
 	if _, err := model.GetUniqueUserByEmail(email); err == nil {
 		code := common.GenerateVerificationCode(0)
 		common.RegisterVerificationCodeWithKey(email, code, common.PasswordResetPurpose)
-		link := fmt.Sprintf("%s/user/reset?email=%s&token=%s", system_setting.ServerAddress, email, code)
+		link := passwordResetLinkForRequest(c, email, code)
 		subject := fmt.Sprintf("%s密码重置", common.SystemName)
 		content := fmt.Sprintf("<p>您好，你正在进行%s密码重置。</p>"+
 			"<p>点击 <a href='%s'>此处</a> 进行密码重置。</p>"+
@@ -481,6 +524,10 @@ func SendPasswordResetEmail(c *gin.Context) {
 		"success": true,
 		"message": "",
 	})
+}
+
+func passwordResetLinkForRequest(c *gin.Context, email string, code string) string {
+	return fmt.Sprintf("%s/user/reset?email=%s&token=%s", strings.TrimRight(siteServerAddressForRequest(c), "/"), email, code)
 }
 
 type PasswordResetRequest struct {

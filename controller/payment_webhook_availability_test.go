@@ -21,27 +21,38 @@ func confirmPaymentComplianceForTest(t *testing.T) {
 	paymentSetting.ComplianceTermsVersion = operation_setting.CurrentComplianceTermsVersion
 }
 
-func TestStripeWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {
+func TestStripeTopUpSwitchDoesNotDisablePendingOrderWebhooks(t *testing.T) {
 	confirmPaymentComplianceForTest(t)
+	originalEnabled := setting.StripeEnabled
 	originalAPISecret := setting.StripeApiSecret
 	originalWebhookSecret := setting.StripeWebhookSecret
 	originalPriceID := setting.StripePriceId
 	t.Cleanup(func() {
+		setting.StripeEnabled = originalEnabled
 		setting.StripeApiSecret = originalAPISecret
 		setting.StripeWebhookSecret = originalWebhookSecret
 		setting.StripePriceId = originalPriceID
 	})
 
+	setting.StripeEnabled = true
 	setting.StripeWebhookSecret = ""
 	setting.StripeApiSecret = "sk_test_123"
 	setting.StripePriceId = "price_123"
+	require.False(t, isStripeTopUpEnabled())
 	require.False(t, isStripeWebhookEnabled())
 
 	setting.StripeWebhookSecret = "whsec_test"
+	require.True(t, isStripeTopUpEnabled())
 	require.True(t, isStripeWebhookEnabled())
 
+	setting.StripeEnabled = false
+	require.False(t, isStripeTopUpEnabled())
+	require.True(t, isStripeWebhookEnabled())
+
+	setting.StripeEnabled = true
 	setting.StripePriceId = ""
-	require.False(t, isStripeWebhookEnabled())
+	require.False(t, isStripeTopUpEnabled())
+	require.True(t, isStripeWebhookEnabled())
 }
 
 func TestCreemWebhookEnabledRequiresTopUpAndWebhookConfig(t *testing.T) {

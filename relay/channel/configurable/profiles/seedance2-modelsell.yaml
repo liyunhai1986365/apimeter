@@ -1,0 +1,207 @@
+id: seedance2-modelsell
+name: Seedance 2.0 Modelsell
+media_type: video
+accepted_modes:
+  - openai.video.generations
+upstream_modes:
+  - modelsell.seedance.video
+video:
+  native:
+    submit:
+      method: POST
+      path: /api/v3/contents/generations/tasks
+      request:
+        fields:
+          - to: model
+            from: body.model
+          - to: prompt
+            from: body.content.#(type=="text").text
+          - to: size
+            from: body.resolution
+            omit_empty: true
+          - to: duration
+            from: body.duration
+            transform: to_int
+            omit_empty: true
+          - to: images
+            from: body.content.#(type=="image_url")#.image_url.url
+            omit_empty: true
+          - to: metadata.video_url
+            from: body.content.#(type=="video_url").video_url.url
+            omit_empty: true
+          - to: metadata.audio_url
+            from: body.content.#(type=="audio_url").audio_url.url
+            omit_empty: true
+          - to: metadata.ratio
+            from: body.ratio
+            omit_empty: true
+          - to: metadata.watermark
+            from: body.watermark
+            omit_empty: true
+          - to: metadata.generate_audio
+            from: body.generate_audio
+            omit_empty: true
+          - to: metadata.return_last_frame
+            from: body.return_last_frame
+            omit_empty: true
+      response:
+        passthrough: true
+        fields:
+          - to: id
+            from: public_task_id
+        task_id_path: id
+        status_path: status
+    fetch:
+      method: GET
+      path: /api/v3/contents/generations/tasks/{task_id}
+      response_format: volcengine_video_task
+      response:
+        passthrough: true
+        fields:
+          - to: id
+            from: public_task_id
+  billing:
+    ratios:
+      - key: seconds
+        from: request.duration
+        default: 5
+      - key: size
+        value: 1
+  submit:
+    method: POST
+    path: /api/v3/contents/generations/tasks
+    body:
+      fields:
+        - to: model
+          from: upstream_model
+        - to: content
+          from: request.prompt
+          transform: seedance_text_content
+          append: true
+          omit_empty: true
+        - to: content
+          from: request.images
+          transform: seedance_image_content
+          append: true
+          omit_empty: true
+        - to: content
+          from: request.metadata.video_url
+          transform: seedance_video_content
+          first_only: true
+          append: true
+          omit_empty: true
+        - to: content
+          from: request.metadata.audio_url
+          transform: seedance_audio_content
+          first_only: true
+          append: true
+          omit_empty: true
+        - to: generate_audio
+          from: request.metadata.generate_audio
+          omit_empty: true
+        - to: resolution
+          from: request.size
+          omit_empty: true
+        - to: ratio
+          from: request.metadata.ratio
+          omit_empty: true
+        - to: duration
+          from: request.seconds
+          fallback_from: request.duration
+          transform: to_int
+          omit_empty: true
+        - to: watermark
+          from: request.metadata.watermark
+          omit_empty: true
+        - to: return_last_frame
+          from: request.metadata.return_last_frame
+          omit_empty: true
+    response:
+      task_id_path: id
+      status_path: status
+      status_map:
+        queued: QUEUED
+        pending: QUEUED
+        submitted: SUBMITTED
+        running: IN_PROGRESS
+        in_progress: IN_PROGRESS
+        processing: IN_PROGRESS
+        succeeded: SUCCESS
+        completed: SUCCESS
+        success: SUCCESS
+        failed: FAILURE
+        error: FAILURE
+        cancelled: FAILURE
+  fetch:
+    method: GET
+    path: /api/v3/contents/generations/tasks/{task_id}
+    response:
+      task_id_path: data.task_id
+      status_path: data.status
+      result_url_path: data.result_url
+      reason_path: data.data.task.error
+      total_tokens_path: data.data.task.usage.total_tokens
+      completion_tokens_path: data.data.task.usage.completion_tokens
+      status_map:
+        queued: QUEUED
+        pending: QUEUED
+        submitted: SUBMITTED
+        running: IN_PROGRESS
+        in_progress: IN_PROGRESS
+        processing: IN_PROGRESS
+        succeeded: SUCCESS
+        completed: SUCCESS
+        success: SUCCESS
+        failed: FAILURE
+        error: FAILURE
+        cancelled: FAILURE
+    openai_response:
+      fields:
+        - to: metadata.usage.completion_tokens
+          from: usage.completion_tokens
+          fallback_from: data.data.task.usage.completion_tokens
+          omit_empty: true
+        - to: metadata.usage.total_tokens
+          from: usage.total_tokens
+          fallback_from: data.data.task.usage.total_tokens
+          omit_empty: true
+resources:
+  - id: assets_upload
+    name: Modelsell Assets Upload
+    public:
+      method: POST
+      path: /api/assets/upload
+    upstream:
+      method: POST
+      path: /api/assets/upload
+    query:
+      fields:
+        - to: model
+          from: query.model
+          omit_empty: true
+    request:
+      fields:
+        - to: url
+          from: body.url
+        - to: asset_type
+          from: body.asset_type
+        - to: name
+          from: body.name
+          omit_empty: true
+    response:
+      passthrough: true
+  - id: asset_detail
+    name: Modelsell Asset Detail
+    public:
+      method: GET
+      path: /api/assets/{id}
+    upstream:
+      method: GET
+      path: /api/assets/{id}
+    query:
+      fields:
+        - to: model
+          from: query.model
+          omit_empty: true
+    response:
+      passthrough: true

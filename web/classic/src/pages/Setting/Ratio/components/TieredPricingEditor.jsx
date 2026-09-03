@@ -807,12 +807,12 @@ const PRESET_GROUPS = [
     group: '时间促销',
     presets: [
       {
-        key: 'night-discount', label: '夜间半价',
+        key: 'night-discount', label: '夜间 -50%',
         expr: 'tier("base", p * 3 + c * 15)',
         requestRules: [{ conditions: [{ source: SOURCE_TIME, timeFunc: 'hour', timezone: 'Asia/Shanghai', mode: MATCH_RANGE, rangeStart: '21', rangeEnd: '6' }], multiplier: '0.5' }],
       },
       {
-        key: 'weekend-discount', label: '周末8折',
+        key: 'weekend-discount', label: '周末 -20%',
         expr: 'tier("base", p * 3 + c * 15)',
         requestRules: [
           { conditions: [{ source: SOURCE_TIME, timeFunc: 'weekday', timezone: 'Asia/Shanghai', mode: MATCH_EQ, value: '0' }], multiplier: '0.8' },

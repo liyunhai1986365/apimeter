@@ -28,10 +28,16 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
+import { getHiddenDiscountGroups } from '../lib/group-display'
 import { buildModelCardPriceDisplay } from '../lib/model-card-price'
 import { inferModelMetadata } from '../lib/model-metadata'
-import type { PricingModel, TokenUnit } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  TokenUnit,
+} from '../types'
 import { ModalityIcons } from './model-details-modalities'
 import type { ModelPerfBadgeData } from './model-perf-badge'
 
@@ -43,6 +49,7 @@ export interface ModelCardProps {
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   perf?: ModelPerfBadgeData
+  groupDisplay?: PricingGroupDisplayConfig
 }
 
 export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
@@ -65,6 +72,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
     priceRate,
     usdExchangeRate,
     discountLabels,
+    hiddenDiscountGroups: getHiddenDiscountGroups(props.groupDisplay),
   })
   const featuredEntries = priceDisplay.entries.filter((entry) => entry.featured)
   const secondaryEntries = priceDisplay.entries.filter(
@@ -169,9 +177,13 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
             </span>
             <div className='flex min-w-0 shrink-0 items-center gap-1.5'>
               {priceDisplay.discountLabel && (
-                <span className='inline-flex max-w-[92px] items-center truncate rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/15 dark:text-emerald-300'>
-                  <span className='truncate'>{priceDisplay.discountLabel}</span>
-                </span>
+                <DiscountTooltip label={priceDisplay.discountLabel}>
+                  <span className='inline-flex max-w-[92px] items-center truncate rounded-full bg-emerald-500/10 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/15 dark:text-emerald-300'>
+                    <span className='truncate'>
+                      {priceDisplay.discountLabel}
+                    </span>
+                  </span>
+                </DiscountTooltip>
               )}
             </div>
           </div>

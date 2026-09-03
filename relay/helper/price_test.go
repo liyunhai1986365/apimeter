@@ -54,7 +54,9 @@ func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 		},
 	}
 
-	priceData, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{})
+	priceData, err := ModelPriceHelper(ctx, info, 1000, &types.TokenCountMeta{
+		BillingRatios: map[string]float64{"n": 3},
+	})
 	require.NoError(t, err)
 	require.Equal(t, 1500, priceData.QuotaToPreConsume)
 	require.NotNil(t, info.TieredBillingSnapshot)
@@ -350,6 +352,59 @@ func TestModelPriceHelperBillingRatioMatrix(t *testing.T) {
 				require.False(t, priceData.GroupRatioInfo.HasAgentRatio)
 				require.Nil(t, tt.info.AgentBillingSnapshot)
 			}
+		})
+	}
+}
+
+func TestModelPriceHelperUsesModelSpecificGroupRatio(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	originalModelRatio := ratio_setting.ModelRatio2JSONString()
+	originalGroupRatio := ratio_setting.GroupRatio2JSONString()
+	originalGroupGroupRatio := ratio_setting.GroupGroupRatio2JSONString()
+	originalGroupModelRatio := ratio_setting.GroupModelRatio2JSONString()
+	originalUserGroupModelRatio := ratio_setting.UserGroupModelRatio2JSONString()
+	t.Cleanup(func() {
+		require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(originalModelRatio))
+		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(originalGroupRatio))
+		require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(originalGroupGroupRatio))
+		require.NoError(t, ratio_setting.UpdateGroupModelRatioByJSONString(originalGroupModelRatio))
+		require.NoError(t, ratio_setting.UpdateUserGroupModelRatioByJSONString(originalUserGroupModelRatio))
+	})
+
+	require.NoError(t, ratio_setting.UpdateModelRatioByJSONString(`{"glm-5.2":1}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"alibaba":1}`))
+	require.NoError(t, ratio_setting.UpdateGroupGroupRatioByJSONString(`{"vip":{"alibaba":0.8}}`))
+	require.NoError(t, ratio_setting.UpdateGroupModelRatioByJSONString(`{"alibaba":{"glm-5.2":0.7}}`))
+	require.NoError(t, ratio_setting.UpdateUserGroupModelRatioByJSONString(`{"vip":{"alibaba":{"glm-5.2":0.62}}}`))
+
+	tests := []struct {
+		name       string
+		userGroup  string
+		wantRatio  float64
+		wantQuota  int
+		wantSource types.GroupRatioSource
+	}{
+		{name: "group model ratio", userGroup: "default", wantRatio: 0.7, wantQuota: 350, wantSource: types.GroupRatioSourceGroupModel},
+		{name: "user group model override", userGroup: "vip", wantRatio: 0.62, wantQuota: 310, wantSource: types.GroupRatioSourceUserGroupModel},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(recorder)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			info := &relaycommon.RelayInfo{
+				UserGroup:       tt.userGroup,
+				UsingGroup:      "alibaba",
+				TokenGroup:      "alibaba",
+				OriginModelName: "glm-5.2",
+			}
+
+			priceData, err := ModelPriceHelper(ctx, info, 100, &types.TokenCountMeta{})
+			require.NoError(t, err)
+			require.Equal(t, tt.wantRatio, priceData.GroupRatioInfo.GroupRatio)
+			require.Equal(t, tt.wantSource, priceData.GroupRatioInfo.Source)
+			require.Equal(t, tt.wantQuota, priceData.QuotaToPreConsume)
 		})
 	}
 }

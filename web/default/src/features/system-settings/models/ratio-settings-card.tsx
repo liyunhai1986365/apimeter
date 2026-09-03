@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as z from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -30,6 +30,7 @@ import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 import { GroupRatioForm } from './group-ratio-form'
 import { ModelRatioForm } from './model-ratio-form'
+import { buildConfiguredModelNameOptions } from './model-specific-ratio-utils'
 import { ToolPriceSettings } from './tool-price-settings'
 import { UpstreamRatioSync } from './upstream-ratio-sync'
 import {
@@ -169,6 +170,24 @@ const groupSchema = z.object({
       })
     }
   }),
+  GroupModelRatio: z.string().superRefine((value, ctx) => {
+    const result = validateJsonString(value)
+    if (!result.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.message || 'Invalid JSON',
+      })
+    }
+  }),
+  UserGroupModelRatio: z.string().superRefine((value, ctx) => {
+    const result = validateJsonString(value)
+    if (!result.valid) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: result.message || 'Invalid JSON',
+      })
+    }
+  }),
   AutoGroups: z.string().superRefine((value, ctx) => {
     const result = validateJsonString(value, {
       predicate: (parsed) =>
@@ -279,6 +298,8 @@ export function RatioSettingsCard({
     TopupGroupRatio: normalizeJsonString(groupDefaults.TopupGroupRatio),
     UserUsableGroups: normalizeJsonString(groupDefaults.UserUsableGroups),
     GroupGroupRatio: normalizeJsonString(groupDefaults.GroupGroupRatio),
+    GroupModelRatio: normalizeJsonString(groupDefaults.GroupModelRatio),
+    UserGroupModelRatio: normalizeJsonString(groupDefaults.UserGroupModelRatio),
     AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
     GroupDisplayConfig: normalizeJsonString(groupDefaults.GroupDisplayConfig),
     DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
@@ -316,6 +337,10 @@ export function RatioSettingsCard({
       TopupGroupRatio: formatJsonForTextarea(groupDefaults.TopupGroupRatio),
       UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
       GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
+      GroupModelRatio: formatJsonForTextarea(groupDefaults.GroupModelRatio),
+      UserGroupModelRatio: formatJsonForTextarea(
+        groupDefaults.UserGroupModelRatio
+      ),
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
       GroupDisplayConfig: formatJsonForTextarea(
         groupDefaults.GroupDisplayConfig
@@ -366,6 +391,10 @@ export function RatioSettingsCard({
       TopupGroupRatio: normalizeJsonString(groupDefaults.TopupGroupRatio),
       UserUsableGroups: normalizeJsonString(groupDefaults.UserUsableGroups),
       GroupGroupRatio: normalizeJsonString(groupDefaults.GroupGroupRatio),
+      GroupModelRatio: normalizeJsonString(groupDefaults.GroupModelRatio),
+      UserGroupModelRatio: normalizeJsonString(
+        groupDefaults.UserGroupModelRatio
+      ),
       AutoGroups: normalizeJsonString(groupDefaults.AutoGroups),
       GroupDisplayConfig: normalizeJsonString(groupDefaults.GroupDisplayConfig),
       DefaultUseAutoGroup: groupDefaults.DefaultUseAutoGroup,
@@ -380,6 +409,10 @@ export function RatioSettingsCard({
       TopupGroupRatio: formatJsonForTextarea(groupDefaults.TopupGroupRatio),
       UserUsableGroups: formatJsonForTextarea(groupDefaults.UserUsableGroups),
       GroupGroupRatio: formatJsonForTextarea(groupDefaults.GroupGroupRatio),
+      GroupModelRatio: formatJsonForTextarea(groupDefaults.GroupModelRatio),
+      UserGroupModelRatio: formatJsonForTextarea(
+        groupDefaults.UserGroupModelRatio
+      ),
       AutoGroups: formatJsonForTextarea(groupDefaults.AutoGroups),
       GroupDisplayConfig: formatJsonForTextarea(
         groupDefaults.GroupDisplayConfig
@@ -432,6 +465,8 @@ export function RatioSettingsCard({
         TopupGroupRatio: normalizeJsonString(values.TopupGroupRatio),
         UserUsableGroups: normalizeJsonString(values.UserUsableGroups),
         GroupGroupRatio: normalizeJsonString(values.GroupGroupRatio),
+        GroupModelRatio: normalizeJsonString(values.GroupModelRatio),
+        UserGroupModelRatio: normalizeJsonString(values.UserGroupModelRatio),
         AutoGroups: normalizeJsonString(values.AutoGroups),
         GroupDisplayConfig: normalizeJsonString(values.GroupDisplayConfig),
         DefaultUseAutoGroup: values.DefaultUseAutoGroup,
@@ -485,6 +520,21 @@ export function RatioSettingsCard({
       5: 'grid-cols-5',
     }[visibleTabs.length] ?? 'grid-cols-4'
   const defaultTab = visibleTabs[0] ?? 'models'
+  const configuredModelNameOptions = useMemo(
+    () =>
+      buildConfiguredModelNameOptions(
+        modelDefaults.ModelPrice,
+        modelDefaults.ModelRatio,
+        modelDefaults.BillingMode,
+        modelDefaults.BillingExpr
+      ),
+    [
+      modelDefaults.BillingExpr,
+      modelDefaults.BillingMode,
+      modelDefaults.ModelPrice,
+      modelDefaults.ModelRatio,
+    ]
+  )
 
   const renderTabContent = (tab: RatioTabId) => {
     if (tab === 'models') {
@@ -516,6 +566,7 @@ export function RatioSettingsCard({
           form={groupForm}
           onSave={saveGroupRatios}
           isSaving={updateOption.isPending}
+          modelOptions={configuredModelNameOptions}
         />
       )
     }

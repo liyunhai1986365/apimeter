@@ -51,6 +51,7 @@ export type SupplierDirectoryItem = {
   order: number
   vendors: PricingVendor[]
   models: PricingModel[]
+  hideDiscount: boolean
 }
 
 export type SupplierProviderItem = {
@@ -196,6 +197,10 @@ export function buildSupplierDirectoryData(
         order: category.order,
         vendors,
         models,
+        hideDiscount:
+          pricing.group_display?.groups.some(
+            (item) => item.group === group && item.hide_discount === true
+          ) ?? false,
       }
     })
     .sort((a, b) => {
@@ -303,7 +308,7 @@ export function buildSupplierDirectoryData(
           a.label.localeCompare(b.label)
         ),
         discountedGroups: groupsForVendor.filter(
-          (group) => group.ratio > 0 && group.ratio < 1
+          (group) => !group.hideDiscount && group.ratio > 0 && group.ratio < 1
         ),
       }
     })
@@ -411,7 +416,7 @@ export function filterSupplierProviders(
         models: [...modelMap.values()],
         categories: [...categoryMap.values()],
         discountedGroups: groups.filter(
-          (group) => group.ratio > 0 && group.ratio < 1
+          (group) => !group.hideDiscount && group.ratio > 0 && group.ratio < 1
         ),
       }
     })

@@ -19,14 +19,24 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useStatus } from '@/hooks/use-status'
-import { getPricing } from '../api'
+import {
+  getPricing,
+  getPricingForUserGroup,
+  hydratePricingModels,
+} from '../api'
 
-export function usePricingData() {
+export function usePricingData(userGroup?: string) {
   const { status } = useStatus()
+  const requestedUserGroup = userGroup?.trim() || undefined
 
   const { data, isLoading, error, refetch } = useQuery({
-    queryKey: ['pricing'],
-    queryFn: getPricing,
+    queryKey: requestedUserGroup
+      ? ['pricing', 'user-group', requestedUserGroup]
+      : ['pricing'],
+    queryFn: () =>
+      requestedUserGroup
+        ? getPricingForUserGroup(requestedUserGroup)
+        : getPricing(),
     staleTime: 5 * 60 * 1000,
   })
 
@@ -42,29 +52,13 @@ export function usePricingData() {
 
   const models = useMemo(() => {
     if (!data?.data || !data?.vendors) return []
-
-    const vendorMap = new Map(data.vendors.map((v) => [v.id, v]))
-
-    return data.data.map((model) => {
-      const vendor = model.vendor_id
-        ? vendorMap.get(model.vendor_id)
-        : undefined
-      return {
-        ...model,
-        key: model.model_name,
-        vendor_name: vendor?.name,
-        vendor_icon: vendor?.icon,
-        vendor_description: vendor?.description,
-        vendor_sort_order: vendor?.sort_order ?? Number.MAX_SAFE_INTEGER,
-        sort_order: model.sort_order ?? 0,
-        group_ratio: data.group_ratio,
-      }
-    })
+    return hydratePricingModels(data)
   }, [data])
 
   return {
     models,
     vendors: data?.vendors ?? [],
+    userGroup: data?.user_group || undefined,
     groupRatio: data?.group_ratio ?? {},
     usableGroup: data?.usable_group ?? {},
     groupDisplay: data?.group_display ?? { categories: [], groups: [] },

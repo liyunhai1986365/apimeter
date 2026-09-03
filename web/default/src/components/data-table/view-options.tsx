@@ -30,10 +30,19 @@ import {
 
 type DataTableViewOptionsProps<TData> = {
   table: Table<TData>
+  additionalOptions?: DataTableAdditionalViewOption[]
+}
+
+export type DataTableAdditionalViewOption = {
+  id: string
+  label: string
+  checked: boolean
+  onCheckedChange: (checked: boolean) => void
 }
 
 export function DataTableViewOptions<TData>({
   table,
+  additionalOptions = [],
 }: DataTableViewOptionsProps<TData>) {
   const { t } = useTranslation()
   return (
@@ -70,6 +79,16 @@ export function DataTableViewOptions<TData>({
                 </DropdownMenuCheckboxItem>
               )
             })}
+          {additionalOptions.map((option) => (
+            <DropdownMenuCheckboxItem
+              key={option.id}
+              className='capitalize'
+              checked={option.checked}
+              onCheckedChange={(value) => option.onCheckedChange(!!value)}
+            >
+              {option.label}
+            </DropdownMenuCheckboxItem>
+          ))}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>

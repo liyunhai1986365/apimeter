@@ -24,6 +24,12 @@ common.name_cannot_be_empty: "Name cannot be empty"
 common.batch_too_many: "Too many items in batch request, maximum is {{.Max}}"
 
 # Auth middleware messages
+captcha.disabled: "Behavior CAPTCHA is not enabled"
+captcha.invalid: "The behavior CAPTCHA is invalid or has expired. Please verify again"
+captcha.required: "Please complete the behavior CAPTCHA"
+captcha.verification_failed: "Verification failed. Please try a new CAPTCHA"
+captcha.generate_failed: "Failed to generate a CAPTCHA. Please try again later"
+
 auth.not_logged_in: "Unauthorized, not logged in and no access token provided"
 auth.access_token_invalid: "Unauthorized, invalid access token"
 auth.user_info_invalid: "Unauthorized, invalid user info"
@@ -47,6 +53,9 @@ token.expired: "This token has expired"
 token.exhausted: "This token quota is exhausted TokenStatusExhausted[sk-{{.Prefix}}***{{.Suffix}}]"
 token.status_unavailable: "This token status is unavailable"
 token.db_error: "Invalid token, database query error, please contact administrator"
+token.auto_groups_too_many: "A token can select at most {{.Max}} Auto groups"
+token.auto_groups_duplicate: "Auto group {{.Group}} is duplicated"
+token.auto_groups_invalid: "Auto group {{.Group}} is unavailable or unauthorized"
 
 # Redemption messages
 redemption.name_length: "Redemption code name length must be between 1-20"

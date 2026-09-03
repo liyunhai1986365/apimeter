@@ -17,7 +17,7 @@ func TestPaymentReturnPathForRequestUsesAgentDomain(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.SetTheme("default")
 	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://apimeter.ai"
+	system_setting.ServerAddress = "https://modelsell.com"
 	t.Cleanup(func() {
 		common.SetTheme("classic")
 		system_setting.ServerAddress = oldServerAddress
@@ -48,7 +48,7 @@ func TestPaymentReturnPathForRequestFallsBackToServerAddress(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.SetTheme("default")
 	oldServerAddress := system_setting.ServerAddress
-	system_setting.ServerAddress = "https://apimeter.ai"
+	system_setting.ServerAddress = "https://modelsell.com"
 	t.Cleanup(func() {
 		common.SetTheme("classic")
 		system_setting.ServerAddress = oldServerAddress
@@ -65,5 +65,25 @@ func TestPaymentReturnPathForRequestFallsBackToServerAddress(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, "https://apimeter.ai/wallet?pay=success", w.Body.String())
+	require.Equal(t, "https://modelsell.com/wallet?pay=success", w.Body.String())
+}
+
+func TestPasswordResetLinkForRequestUsesAgentDomain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previousAddress := system_setting.ServerAddress
+	system_setting.ServerAddress = "https://modelsell.com"
+	t.Cleanup(func() { system_setting.ServerAddress = previousAddress })
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+		AgentID: 1,
+		Domain:  "agent.example.com",
+	})
+	c.Request = httptest.NewRequest(http.MethodGet, "https://agent.example.com/api/reset_password", nil)
+	c.Request.Header.Set("X-Forwarded-Proto", "https")
+
+	link := passwordResetLinkForRequest(c, "user@example.com", "reset-token")
+
+	require.Equal(t, "https://agent.example.com/user/reset?email=user@example.com&token=reset-token", link)
 }

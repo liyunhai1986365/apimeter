@@ -20,6 +20,9 @@ import { api } from '@/lib/api'
 import type {
   AdminAgentDomain,
   Agent,
+  AgentAnnouncement,
+  AgentAnnouncementEmailSummary,
+  AgentAnnouncementInput,
   AgentAnalytics,
   AgentAnalyticsLogItem,
   AgentBalance,
@@ -75,6 +78,48 @@ export async function getAgentAnalytics(params: {
     '/api/agent/analytics',
     { params }
   )
+  return res.data
+}
+
+export async function listAgentAnnouncements(page = 1, pageSize = 100) {
+  const res = await api.get<{
+    success: boolean
+    data: AgentPage<AgentAnnouncement>
+  }>('/api/agent/announcements', { params: { p: page, page_size: pageSize } })
+  return res.data
+}
+
+export async function createAgentAnnouncement(input: AgentAnnouncementInput) {
+  const res = await api.post<{ success: boolean; data: AgentAnnouncement }>(
+    '/api/agent/announcements',
+    input
+  )
+  return res.data
+}
+
+export async function updateAgentAnnouncement(
+  input: AgentAnnouncementInput & { id: number }
+) {
+  const { id, ...payload } = input
+  const res = await api.put<{ success: boolean; data: AgentAnnouncement }>(
+    `/api/agent/announcements/${id}`,
+    payload
+  )
+  return res.data
+}
+
+export async function deleteAgentAnnouncement(id: number) {
+  const res = await api.delete<{ success: boolean }>(
+    `/api/agent/announcements/${id}`
+  )
+  return res.data
+}
+
+export async function sendAgentAnnouncementEmail(id: number) {
+  const res = await api.post<{
+    success: boolean
+    data: AgentAnnouncementEmailSummary
+  }>(`/api/agent/announcements/${id}/email`)
   return res.data
 }
 

@@ -1,0 +1,542 @@
+package dto
+
+import (
+	"encoding/json"
+	"fmt"
+
+	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/QuantumNous/new-api/relaykit/types"
+)
+
+const (
+	ResponsesOutputTypeImageGenerationCall = "image_generation_call"
+)
+
+type SimpleResponse struct {
+	Usage `json:"usage"`
+	Error any `json:"error"`
+}
+
+// GetOpenAIError 从动态错误类型中提取OpenAIError结构
+func (s *SimpleResponse) GetOpenAIError() *types.OpenAIError {
+	return GetOpenAIError(s.Error)
+}
+
+type TextResponse struct {
+	Id      string                     `json:"id"`
+	Object  string                     `json:"object"`
+	Created int64                      `json:"created"`
+	Model   string                     `json:"model"`
+	Choices []OpenAITextResponseChoice `json:"choices"`
+	Usage   `json:"usage"`
+}
+
+type OpenAITextResponseChoice struct {
+	Index        int `json:"index"`
+	Message      `json:"message"`
+	FinishReason string `json:"finish_reason"`
+}
+
+type OpenAITextResponse struct {
+	Id      string                     `json:"id"`
+	Model   string                     `json:"model"`
+	Object  string                     `json:"object"`
+	Created any                        `json:"created"`
+	Choices []OpenAITextResponseChoice `json:"choices"`
+	Error   any                        `json:"error,omitempty"`
+	Usage   `json:"usage"`
+}
+
+// MarshalJSON keeps the public Chat Completions usage schema separate from the
+// shared internal usage model, which also carries Responses, image, and Claude
+// billing fields.
+func (o OpenAITextResponse) MarshalJSON() ([]byte, error) {
+	type openAITextResponseJSON struct {
+		Id      string                     `json:"id"`
+		Model   string                     `json:"model"`
+		Object  string                     `json:"object"`
+		Created any                        `json:"created"`
+		Choices []OpenAITextResponseChoice `json:"choices"`
+		Error   any                        `json:"error,omitempty"`
+		Usage   OpenAIChatUsage            `json:"usage"`
+	}
+
+	return kitutil.Marshal(openAITextResponseJSON{
+		Id:      o.Id,
+		Model:   o.Model,
+		Object:  o.Object,
+		Created: o.Created,
+		Choices: o.Choices,
+		Error:   o.Error,
+		Usage:   o.Usage.ToOpenAIChatUsage(),
+	})
+}
+
+// GetOpenAIError 从动态错误类型中提取OpenAIError结构
+func (o *OpenAITextResponse) GetOpenAIError() *types.OpenAIError {
+	return GetOpenAIError(o.Error)
+}
+
+type OpenAIEmbeddingResponseItem struct {
+	Object    string    `json:"object"`
+	Index     int       `json:"index"`
+	Embedding []float64 `json:"embedding"`
+}
+
+type OpenAIEmbeddingResponse struct {
+	Object string                        `json:"object"`
+	Data   []OpenAIEmbeddingResponseItem `json:"data"`
+	Model  string                        `json:"model"`
+	Usage  `json:"usage"`
+}
+
+type FlexibleEmbeddingResponseItem struct {
+	Object    string `json:"object"`
+	Index     int    `json:"index"`
+	Embedding any    `json:"embedding"`
+}
+
+type FlexibleEmbeddingResponse struct {
+	Object string                          `json:"object"`
+	Data   []FlexibleEmbeddingResponseItem `json:"data"`
+	Model  string                          `json:"model"`
+	Usage  `json:"usage"`
+}
+
+type ChatCompletionsStreamResponseChoice struct {
+	Delta        ChatCompletionsStreamResponseChoiceDelta `json:"delta,omitempty"`
+	Logprobs     *any                                     `json:"logprobs"`
+	FinishReason *string                                  `json:"finish_reason"`
+	Index        int                                      `json:"index"`
+}
+
+type ChatCompletionsStreamResponseChoiceDelta struct {
+	Content          *string            `json:"content,omitempty"`
+	ReasoningContent *string            `json:"reasoning_content,omitempty"`
+	Reasoning        *string            `json:"reasoning,omitempty"`
+	Role             string             `json:"role,omitempty"`
+	ToolCalls        []ToolCallResponse `json:"tool_calls,omitempty"`
+}
+
+func (c *ChatCompletionsStreamResponseChoiceDelta) SetContentString(s string) {
+	c.Content = &s
+}
+
+func (c *ChatCompletionsStreamResponseChoiceDelta) GetContentString() string {
+	if c.Content == nil {
+		return ""
+	}
+	return *c.Content
+}
+
+func (c *ChatCompletionsStreamResponseChoiceDelta) GetReasoningContent() string {
+	if c.ReasoningContent == nil && c.Reasoning == nil {
+		return ""
+	}
+	if c.ReasoningContent != nil {
+		return *c.ReasoningContent
+	}
+	return *c.Reasoning
+}
+
+func (c *ChatCompletionsStreamResponseChoiceDelta) SetReasoningContent(s string) {
+	c.ReasoningContent = &s
+	//c.Reasoning = &s
+}
+
+type ToolCallResponse struct {
+	// Index is not nil only in chat completion chunk object
+	Index    *int             `json:"index,omitempty"`
+	ID       string           `json:"id,omitempty"`
+	Type     any              `json:"type"`
+	Function FunctionResponse `json:"function"`
+}
+
+func (c *ToolCallResponse) SetIndex(i int) {
+	c.Index = &i
+}
+
+type FunctionResponse struct {
+	Description string `json:"description,omitempty"`
+	Name        string `json:"name,omitempty"`
+	// call function with arguments in JSON format
+	Parameters any    `json:"parameters,omitempty"` // request
+	Arguments  string `json:"arguments"`            // response
+}
+
+type ChatCompletionsStreamResponse struct {
+	Id                string                                `json:"id"`
+	Object            string                                `json:"object"`
+	Created           int64                                 `json:"created"`
+	Model             string                                `json:"model"`
+	SystemFingerprint *string                               `json:"system_fingerprint"`
+	Choices           []ChatCompletionsStreamResponseChoice `json:"choices"`
+	Usage             *Usage                                `json:"usage"`
+}
+
+// MarshalJSON applies the same Chat Completions usage boundary to locally
+// generated stream chunks. Upstream chunks that are passed through untouched
+// retain their original JSON.
+func (c ChatCompletionsStreamResponse) MarshalJSON() ([]byte, error) {
+	type chatCompletionsStreamResponseJSON struct {
+		Id                string                                `json:"id"`
+		Object            string                                `json:"object"`
+		Created           int64                                 `json:"created"`
+		Model             string                                `json:"model"`
+		SystemFingerprint *string                               `json:"system_fingerprint"`
+		Choices           []ChatCompletionsStreamResponseChoice `json:"choices"`
+		Usage             *OpenAIChatUsage                      `json:"usage"`
+	}
+
+	var usage *OpenAIChatUsage
+	if c.Usage != nil {
+		chatUsage := c.Usage.ToOpenAIChatUsage()
+		usage = &chatUsage
+	}
+
+	return kitutil.Marshal(chatCompletionsStreamResponseJSON{
+		Id:                c.Id,
+		Object:            c.Object,
+		Created:           c.Created,
+		Model:             c.Model,
+		SystemFingerprint: c.SystemFingerprint,
+		Choices:           c.Choices,
+		Usage:             usage,
+	})
+}
+
+func (c *ChatCompletionsStreamResponse) IsFinished() bool {
+	if len(c.Choices) == 0 {
+		return false
+	}
+	return c.Choices[0].FinishReason != nil && *c.Choices[0].FinishReason != ""
+}
+
+func (c *ChatCompletionsStreamResponse) IsToolCall() bool {
+	if len(c.Choices) == 0 {
+		return false
+	}
+	return len(c.Choices[0].Delta.ToolCalls) > 0
+}
+
+func (c *ChatCompletionsStreamResponse) GetFirstToolCall() *ToolCallResponse {
+	if c.IsToolCall() {
+		return &c.Choices[0].Delta.ToolCalls[0]
+	}
+	return nil
+}
+
+func (c *ChatCompletionsStreamResponse) ClearToolCalls() {
+	if !c.IsToolCall() {
+		return
+	}
+	for choiceIdx := range c.Choices {
+		for callIdx := range c.Choices[choiceIdx].Delta.ToolCalls {
+			c.Choices[choiceIdx].Delta.ToolCalls[callIdx].ID = ""
+			c.Choices[choiceIdx].Delta.ToolCalls[callIdx].Type = nil
+			c.Choices[choiceIdx].Delta.ToolCalls[callIdx].Function.Name = ""
+		}
+	}
+}
+
+func (c *ChatCompletionsStreamResponse) Copy() *ChatCompletionsStreamResponse {
+	choices := make([]ChatCompletionsStreamResponseChoice, len(c.Choices))
+	copy(choices, c.Choices)
+	return &ChatCompletionsStreamResponse{
+		Id:                c.Id,
+		Object:            c.Object,
+		Created:           c.Created,
+		Model:             c.Model,
+		SystemFingerprint: c.SystemFingerprint,
+		Choices:           choices,
+		Usage:             c.Usage,
+	}
+}
+
+func (c *ChatCompletionsStreamResponse) GetSystemFingerprint() string {
+	if c.SystemFingerprint == nil {
+		return ""
+	}
+	return *c.SystemFingerprint
+}
+
+func (c *ChatCompletionsStreamResponse) SetSystemFingerprint(s string) {
+	c.SystemFingerprint = &s
+}
+
+type ChatCompletionsStreamResponseSimple struct {
+	Choices []ChatCompletionsStreamResponseChoice `json:"choices"`
+	Usage   *Usage                                `json:"usage"`
+}
+
+type CompletionsStreamResponse struct {
+	Choices []struct {
+		Text         string `json:"text"`
+		FinishReason string `json:"finish_reason"`
+	} `json:"choices"`
+}
+
+type Usage struct {
+	PromptTokens         int           `json:"prompt_tokens"`
+	CompletionTokens     int           `json:"completion_tokens"`
+	TotalTokens          int           `json:"total_tokens"`
+	PromptCacheHitTokens int           `json:"prompt_cache_hit_tokens,omitempty"`
+	UsageSemantic        string        `json:"usage_semantic,omitempty"`
+	UsageSource          string        `json:"usage_source,omitempty"`
+	BillingUsage         *BillingUsage `json:"billing_usage,omitempty"`
+
+	PromptTokensDetails    InputTokenDetails   `json:"prompt_tokens_details"`
+	CompletionTokenDetails OutputTokenDetails  `json:"completion_tokens_details"`
+	InputTokens            int                 `json:"input_tokens"`
+	OutputTokens           int                 `json:"output_tokens"`
+	InputTokensDetails     *InputTokenDetails  `json:"input_tokens_details"`
+	OutputTokensDetails    *OutputTokenDetails `json:"output_tokens_details,omitempty"`
+
+	// claude cache 1h
+	ClaudeCacheCreation5mTokens int `json:"claude_cache_creation_5_m_tokens"`
+	ClaudeCacheCreation1hTokens int `json:"claude_cache_creation_1_h_tokens"`
+
+	// OpenRouter Params
+	Cost any `json:"cost,omitempty"`
+}
+
+type OpenAIChatUsage struct {
+	PromptTokens            int                                `json:"prompt_tokens"`
+	CompletionTokens        int                                `json:"completion_tokens"`
+	TotalTokens             int                                `json:"total_tokens"`
+	PromptTokensDetails     *OpenAIChatPromptTokensDetails     `json:"prompt_tokens_details,omitempty"`
+	CompletionTokensDetails *OpenAIChatCompletionTokensDetails `json:"completion_tokens_details,omitempty"`
+}
+
+type OpenAIChatPromptTokensDetails struct {
+	CachedTokens     int `json:"cached_tokens"`
+	AudioTokens      int `json:"audio_tokens"`
+	CacheWriteTokens int `json:"cache_write_tokens,omitempty"`
+}
+
+type OpenAIChatCompletionTokensDetails struct {
+	ReasoningTokens          int `json:"reasoning_tokens"`
+	AudioTokens              int `json:"audio_tokens"`
+	AcceptedPredictionTokens int `json:"accepted_prediction_tokens"`
+	RejectedPredictionTokens int `json:"rejected_prediction_tokens"`
+}
+
+func (u Usage) ToOpenAIChatUsage() OpenAIChatUsage {
+	chatUsage := OpenAIChatUsage{
+		PromptTokens:     u.PromptTokens,
+		CompletionTokens: u.CompletionTokens,
+		TotalTokens:      u.TotalTokens,
+	}
+
+	if u.PromptTokensDetails.CachedTokens != 0 ||
+		u.PromptTokensDetails.AudioTokens != 0 ||
+		u.PromptTokensDetails.CacheWriteTokens != 0 {
+		chatUsage.PromptTokensDetails = &OpenAIChatPromptTokensDetails{
+			CachedTokens:     u.PromptTokensDetails.CachedTokens,
+			AudioTokens:      u.PromptTokensDetails.AudioTokens,
+			CacheWriteTokens: u.PromptTokensDetails.CacheWriteTokens,
+		}
+	}
+
+	if u.CompletionTokenDetails.ReasoningTokens != 0 ||
+		u.CompletionTokenDetails.AudioTokens != 0 ||
+		u.CompletionTokenDetails.AcceptedPredictionTokens != 0 ||
+		u.CompletionTokenDetails.RejectedPredictionTokens != 0 {
+		chatUsage.CompletionTokensDetails = &OpenAIChatCompletionTokensDetails{
+			ReasoningTokens:          u.CompletionTokenDetails.ReasoningTokens,
+			AudioTokens:              u.CompletionTokenDetails.AudioTokens,
+			AcceptedPredictionTokens: u.CompletionTokenDetails.AcceptedPredictionTokens,
+			RejectedPredictionTokens: u.CompletionTokenDetails.RejectedPredictionTokens,
+		}
+	}
+
+	return chatUsage
+}
+
+type OpenAIVideoResponse struct {
+	Id        string `json:"id" example:"file-abc123"`
+	Object    string `json:"object" example:"file"`
+	Bytes     int64  `json:"bytes" example:"120000"`
+	CreatedAt int64  `json:"created_at" example:"1677610602"`
+	ExpiresAt int64  `json:"expires_at" example:"1677614202"`
+	Filename  string `json:"filename" example:"mydata.jsonl"`
+	Purpose   string `json:"purpose" example:"fine-tune"`
+}
+
+type InputTokenDetails struct {
+	CachedTokens         int `json:"cached_tokens"`
+	CachedCreationTokens int `json:"cached_creation_tokens,omitempty"`
+	CacheWriteTokens     int `json:"cache_write_tokens,omitempty"`
+	TextTokens           int `json:"text_tokens"`
+	AudioTokens          int `json:"audio_tokens"`
+	ImageTokens          int `json:"image_tokens"`
+}
+
+func (d InputTokenDetails) CacheCreationTokensTotal() int {
+	total := d.CachedCreationTokens
+	if d.CacheWriteTokens > total {
+		total = d.CacheWriteTokens
+	}
+	if total < 0 {
+		return 0
+	}
+	return total
+}
+
+type OutputTokenDetails struct {
+	TextTokens               int `json:"text_tokens"`
+	AudioTokens              int `json:"audio_tokens"`
+	ImageTokens              int `json:"image_tokens"`
+	ReasoningTokens          int `json:"reasoning_tokens"`
+	AcceptedPredictionTokens int `json:"accepted_prediction_tokens,omitempty"`
+	RejectedPredictionTokens int `json:"rejected_prediction_tokens,omitempty"`
+}
+
+type OpenAIResponsesResponse struct {
+	ID                 string             `json:"id"`
+	Object             string             `json:"object"`
+	CreatedAt          int                `json:"created_at"`
+	Status             json.RawMessage    `json:"status"`
+	Error              any                `json:"error,omitempty"`
+	IncompleteDetails  *IncompleteDetails `json:"incomplete_details,omitempty"`
+	Instructions       json.RawMessage    `json:"instructions"`
+	MaxOutputTokens    int                `json:"max_output_tokens"`
+	Model              string             `json:"model"`
+	Output             []ResponsesOutput  `json:"output"`
+	ParallelToolCalls  bool               `json:"parallel_tool_calls"`
+	PreviousResponseID json.RawMessage    `json:"previous_response_id"`
+	Reasoning          *Reasoning         `json:"reasoning"`
+	Store              bool               `json:"store"`
+	Temperature        float64            `json:"temperature"`
+	ToolChoice         json.RawMessage    `json:"tool_choice"`
+	Tools              []map[string]any   `json:"tools"`
+	TopP               float64            `json:"top_p"`
+	Truncation         json.RawMessage    `json:"truncation"`
+	Usage              *Usage             `json:"usage"`
+	User               json.RawMessage    `json:"user"`
+	Metadata           json.RawMessage    `json:"metadata"`
+}
+
+// GetOpenAIError 从动态错误类型中提取OpenAIError结构
+func (o *OpenAIResponsesResponse) GetOpenAIError() *types.OpenAIError {
+	return GetOpenAIError(o.Error)
+}
+
+type IncompleteDetails struct {
+	Reason string `json:"reason"`
+}
+
+type ResponsesOutput struct {
+	Type      string                   `json:"type"`
+	ID        string                   `json:"id"`
+	Status    string                   `json:"status"`
+	Role      string                   `json:"role"`
+	Content   []ResponsesOutputContent `json:"content"`
+	Quality   string                   `json:"quality"`
+	Size      string                   `json:"size"`
+	Result    string                   `json:"result,omitempty"`
+	CallId    string                   `json:"call_id,omitempty"`
+	Name      string                   `json:"name,omitempty"`
+	Arguments json.RawMessage          `json:"arguments,omitempty"`
+}
+
+// ArgumentsString returns function call arguments in the string form expected by Chat Completions.
+func (r *ResponsesOutput) ArgumentsString() string {
+	if r == nil {
+		return ""
+	}
+	return ResponsesArgumentsString(r.Arguments)
+}
+
+// ResponsesArgumentsString returns function call arguments in the string form expected by Chat Completions.
+func ResponsesArgumentsString(arguments json.RawMessage) string {
+	return kitutil.JsonRawMessageToString(arguments)
+}
+
+type ResponsesOutputContent struct {
+	Type        string        `json:"type"`
+	Text        string        `json:"text"`
+	Annotations []interface{} `json:"annotations"`
+}
+
+type ResponsesReasoningSummaryPart struct {
+	Type string `json:"type"`
+	Text string `json:"text"`
+}
+
+const (
+	BuildInToolWebSearchPreview = "web_search_preview"
+	BuildInToolWebSearch        = "web_search"
+	BuildInToolFileSearch       = "file_search"
+	BuildInToolGoogleSearch     = "google_search"
+	BuildInToolImageGeneration  = "image_generation"
+)
+
+const (
+	BuildInCallWebSearchCall  = "web_search_call"
+	BuildInCallFileSearchCall = "file_search_call"
+	BuildInCallFunctionCall   = "function_call"
+	BuildInCallToolUse        = "tool_use"
+)
+
+const (
+	ResponsesOutputTypeItemAdded = "response.output_item.added"
+	ResponsesOutputTypeItemDone  = "response.output_item.done"
+)
+
+// ResponsesStreamResponse 用于处理 /v1/responses 流式响应
+type ResponsesStreamResponse struct {
+	Type     string                   `json:"type"`
+	Response *OpenAIResponsesResponse `json:"response,omitempty"`
+	Delta    string                   `json:"delta,omitempty"`
+	Item     *ResponsesOutput         `json:"item,omitempty"`
+	// - response.function_call_arguments.delta
+	// - response.function_call_arguments.done
+	OutputIndex  *int                           `json:"output_index,omitempty"`
+	ContentIndex *int                           `json:"content_index,omitempty"`
+	SummaryIndex *int                           `json:"summary_index,omitempty"`
+	ItemID       string                         `json:"item_id,omitempty"`
+	Part         *ResponsesReasoningSummaryPart `json:"part,omitempty"`
+}
+
+// GetOpenAIError 从动态错误类型中提取OpenAIError结构
+func GetOpenAIError(errorField any) *types.OpenAIError {
+	if errorField == nil {
+		return nil
+	}
+
+	switch err := errorField.(type) {
+	case types.OpenAIError:
+		return &err
+	case *types.OpenAIError:
+		return err
+	case map[string]interface{}:
+		// 处理从JSON解析来的map结构
+		openaiErr := &types.OpenAIError{}
+		if errType, ok := err["type"].(string); ok {
+			openaiErr.Type = errType
+		}
+		if errMsg, ok := err["message"].(string); ok {
+			openaiErr.Message = errMsg
+		}
+		if errParam, ok := err["param"].(string); ok {
+			openaiErr.Param = errParam
+		}
+		if errCode, ok := err["code"]; ok {
+			openaiErr.Code = errCode
+		}
+		return openaiErr
+	case string:
+		// 处理简单字符串错误
+		return &types.OpenAIError{
+			Type:    "error",
+			Message: err,
+		}
+	default:
+		// 未知类型，尝试转换为字符串
+		return &types.OpenAIError{
+			Type:    "unknown_error",
+			Message: fmt.Sprintf("%v", err),
+		}
+	}
+}

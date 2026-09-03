@@ -22,9 +22,14 @@ import {
   type CurrencyConfig,
   type CurrencyDisplayType,
   type SystemConfig,
+  type UserCurrencyDisplayType,
   DEFAULT_CURRENCY_CONFIG,
 } from '@/stores/system-config-store'
-import { DEFAULT_SYSTEM_NAME, DEFAULT_LOGO } from '@/lib/constants'
+import {
+  DEFAULT_FOOTER_COMPANY_NAME,
+  DEFAULT_LOGO,
+  DEFAULT_SYSTEM_NAME,
+} from '@/lib/constants'
 import { applyCustomerServiceScript } from '@/lib/customer-service-script'
 import { applyFaviconToDom } from '@/lib/dom-utils'
 import { applyGoogleAnalytics } from '@/lib/google-analytics'
@@ -42,10 +47,13 @@ interface StatusApiResponse {
     logo?: string
     server_address?: string
     footer_html?: string
+    footer_company_name?: string
     customer_service_script?: string
     google_analytics_id?: string
     demo_site_enabled?: boolean
     display_token_stat_enabled?: boolean
+    mainland_china_presentation_enabled?: boolean
+    default_user_display_currency?: UserCurrencyDisplayType
     display_in_currency?: boolean
     quota_display_type?: CurrencyDisplayType
     quota_per_unit?: number
@@ -62,6 +70,10 @@ function toNumber(value: unknown, fallback: number): number {
     if (!Number.isNaN(parsed)) return parsed
   }
   return fallback
+}
+
+function toUserCurrencyDisplayType(value: unknown): UserCurrencyDisplayType {
+  return value === 'CNY' ? 'CNY' : 'USD'
 }
 
 function getStatusData(
@@ -82,6 +94,9 @@ export function mapStatusDataToConfig(
 ): Partial<SystemConfig> {
   const statusData = getStatusData(data)
   if (!statusData) return {}
+
+  const mainlandChinaPresentationEnabled =
+    statusData.mainland_china_presentation_enabled ?? false
 
   const quotaDisplayType =
     (statusData.quota_display_type as CurrencyDisplayType | undefined) ??
@@ -114,10 +129,16 @@ export function mapStatusDataToConfig(
     logo: statusData.logo || DEFAULT_LOGO,
     serverAddress: getPublicServerAddress(data as Record<string, unknown>),
     footerHtml: statusData.footer_html,
+    footerCompanyName:
+      statusData.footer_company_name ?? DEFAULT_FOOTER_COMPANY_NAME,
     customerServiceScript: statusData.customer_service_script,
     googleAnalyticsId: statusData.google_analytics_id,
     demoSiteEnabled: statusData.demo_site_enabled,
     displayTokenStatEnabled: statusData.display_token_stat_enabled,
+    mainlandChinaPresentationEnabled,
+    defaultUserDisplayCurrency: mainlandChinaPresentationEnabled
+      ? 'CNY'
+      : toUserCurrencyDisplayType(statusData.default_user_display_currency),
     currency,
   }
 }

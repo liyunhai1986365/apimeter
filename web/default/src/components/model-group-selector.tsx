@@ -20,8 +20,8 @@ import React, { useState, useMemo, useCallback } from 'react'
 import { ChevronsUpDown, Check, CpuIcon, LayersIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { formatGroupDiscount } from '@/lib/group-discount'
-import { cn } from '@/lib/utils'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
+import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
@@ -45,6 +45,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 
 interface ModelOption {
   label: string
@@ -59,6 +60,7 @@ interface GroupOption {
   ratio?: number
   desc?: string
   description?: string
+  hideDiscount?: boolean
 }
 
 interface ModelSelectorProps {
@@ -422,7 +424,9 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
               {t(userFacingLabels ? groupTerms.modelGroup : 'Model Group')}
             </div>
             {groups.map((group) => {
-              const discount = formatGroupDiscount(group.ratio, discountLabels)
+              const discount = group.hideDiscount
+                ? undefined
+                : formatGroupDiscount(group.ratio, discountLabels)
               return (
                 <CommandItem
                   key={group.value}
@@ -446,9 +450,9 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
                           {discount && (
                             <>
                               {' · '}
-                              {t('Discount: {{value}}', {
-                                value: discount,
-                              })}
+                              <DiscountTooltip label={discount}>
+                                <span>{discount}</span>
+                              </DiscountTooltip>
                             </>
                           )}
                         </div>
@@ -495,10 +499,9 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
               <div className='max-h-[calc(80vh-100px)] overflow-y-auto px-4 pb-6'>
                 <div className='space-y-2'>
                   {groups.map((group) => {
-                    const discount = formatGroupDiscount(
-                      group.ratio,
-                      discountLabels
-                    )
+                    const discount = group.hideDiscount
+                      ? undefined
+                      : formatGroupDiscount(group.ratio, discountLabels)
                     return (
                       <Button
                         key={group.value}
@@ -523,9 +526,9 @@ export const GroupSelector: React.FC<GroupSelectorProps> = React.memo(
                                 {discount && (
                                   <>
                                     {' · '}
-                                    {t('Discount: {{value}}', {
-                                      value: discount,
-                                    })}
+                                    <DiscountTooltip label={discount}>
+                                      <span>{discount}</span>
+                                    </DiscountTooltip>
                                   </>
                                 )}
                               </div>

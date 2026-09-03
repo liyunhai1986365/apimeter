@@ -9,7 +9,9 @@ var (
 	WaffoPancakePrivateKey string
 	WaffoPancakeReturnURL  string
 	WaffoPancakeUnitPrice  float64 = 1.0
-	WaffoPancakeMinTopUp   int     = 1
-	WaffoPancakeStoreID    string
-	WaffoPancakeProductID  string
+	// Deprecated: Waffo Pancake now uses operation_setting.MinTopUp so the
+	// payment-wide minimum has one source of truth.
+	WaffoPancakeMinTopUp  int = 10
+	WaffoPancakeStoreID   string
+	WaffoPancakeProductID string
 )

@@ -37,6 +37,7 @@ import { SettingsSection } from '../components/settings-section'
 import { useUpdateOption } from '../hooks/use-update-option'
 
 const botProtectionSchema = z.object({
+  GoCaptchaCheckEnabled: z.boolean(),
   TurnstileCheckEnabled: z.boolean(),
   TurnstileSiteKey: z.string().optional(),
   TurnstileSecretKey: z.string().optional(),
@@ -77,22 +78,45 @@ export function BotProtectionSection({
   return (
     <SettingsSection
       title={t('Bot Protection')}
-      description={t(
-        'Protect login and registration with Cloudflare Turnstile'
-      )}
+      description={t('Protect login and registration with human verification')}
     >
       <Form {...form}>
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className='space-y-6'
+          className='flex flex-col gap-6'
           autoComplete='off'
         >
           <FormField
             control={form.control}
+            name='GoCaptchaCheckEnabled'
+            render={({ field }) => (
+              <FormItem className='flex flex-row items-center justify-between gap-4 rounded-lg border p-4'>
+                <div className='flex flex-col gap-1'>
+                  <FormLabel className='text-base'>
+                    {t('Enable behavior CAPTCHA')}
+                  </FormLabel>
+                  <FormDescription>
+                    {t(
+                      'Use self-hosted slider verification powered by go-captcha. No external keys are required.'
+                    )}
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
             name='TurnstileCheckEnabled'
             render={({ field }) => (
-              <FormItem className='flex flex-row items-center justify-between rounded-lg border p-4'>
-                <div className='space-y-0.5'>
+              <FormItem className='flex flex-row items-center justify-between gap-4 rounded-lg border p-4'>
+                <div className='flex flex-col gap-1'>
                   <FormLabel className='text-base'>
                     {t('Enable Turnstile')}
                   </FormLabel>

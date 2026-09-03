@@ -38,10 +38,18 @@ import type {
 export async function login(payload: LoginPayload) {
   const turnstile = payload.turnstile ?? ''
   const res = await api.post<LoginResponse>(
-    `/api/user/login?turnstile=${turnstile}`,
+    '/api/user/login',
     {
       username: payload.username,
       password: payload.password,
+    },
+    {
+      params: {
+        turnstile,
+      },
+      headers: payload.go_captcha_token
+        ? { 'X-Go-Captcha-Token': payload.go_captcha_token }
+        : undefined,
     }
   )
   return res.data
@@ -85,11 +93,15 @@ export async function githubOAuthStart(clientId: string, state: string) {
 }
 
 // Get OAuth state for CSRF protection
-export async function getOAuthState(): Promise<string> {
+export async function getOAuthState(provider: string): Promise<string> {
   const aff =
     typeof window !== 'undefined' ? (localStorage.getItem('aff') ?? '') : ''
-  const res = await api.get('/api/oauth/state', { params: { aff } })
-  if (res.data?.success) return res.data.data
+  const res = await api.post('/api/oauth/state', {
+    provider,
+    intent: 'login',
+    aff,
+  })
+  if (res.data?.success) return res.data.data?.flow_token ?? ''
   return ''
 }
 
@@ -105,9 +117,58 @@ export async function wechatLoginByCode(code: string): Promise<ApiResponse> {
 
 // User registration
 export async function register(payload: RegisterPayload): Promise<ApiResponse> {
-  const res = await api.post(`/api/user/register`, payload, {
-    params: { turnstile: payload.turnstile ?? '' },
+  const { turnstile, go_captcha_token: goCaptchaToken, ...body } = payload
+  const res = await api.post(`/api/user/register`, body, {
+    params: {
+      turnstile: turnstile ?? '',
+    },
+    headers: goCaptchaToken
+      ? { 'X-Go-Captcha-Token': goCaptchaToken }
+      : undefined,
   })
+  return res.data
+}
+
+export type CaptchaScene = 'login' | 'register'
+
+export type CaptchaPosition = {
+  x: number
+  y: number
+}
+
+export type CaptchaChallenge = {
+  captcha_key: string
+  image: string
+  tile: string
+  tile_x: number
+  tile_y: number
+  tile_width: number
+  tile_height: number
+  expires_at: number
+}
+
+export async function generateGoCaptcha(scene: CaptchaScene) {
+  const res = await api.post<ApiResponse & { data?: CaptchaChallenge }>(
+    '/api/captcha',
+    { scene }
+  )
+  return res.data
+}
+
+export async function verifyGoCaptcha(
+  scene: CaptchaScene,
+  captchaKey: string,
+  position: CaptchaPosition
+) {
+  const res = await api.post<ApiResponse & { data?: { token?: string } }>(
+    '/api/captcha/verify',
+    {
+      scene,
+      captcha_key: captchaKey,
+      x: position.x,
+      y: position.y,
+    }
+  )
   return res.data
 }
 

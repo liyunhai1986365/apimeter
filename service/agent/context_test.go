@@ -45,6 +45,7 @@ func setupAgentTestDB(t *testing.T) *gorm.DB {
 		&model.AgentLedger{},
 		&model.AgentWithdrawal{},
 		&model.User{},
+		&model.UserSession{},
 	))
 
 	t.Cleanup(func() {
@@ -71,7 +72,7 @@ func TestResolveByHostCachesDomainMisses(t *testing.T) {
 	})
 
 	for range 10 {
-		ctx, err := ResolveByHost("apimeter.ai")
+		ctx, err := ResolveByHost("modelsell.com")
 		require.NoError(t, err)
 		require.Nil(t, ctx)
 	}

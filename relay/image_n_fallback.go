@@ -345,11 +345,11 @@ func buildSplitImageRequestBody(c *gin.Context, info *relaycommon.RelayInfo, ada
 		}
 	}
 	logger.LogDebug(c, "split image request body: %s", jsonData)
-	body, size, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
+	body, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
 	if err != nil {
 		return nil, nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 	}
-	info.UpstreamRequestBodySize = size
+	info.UpstreamRequestBodySize = body.Size()
 	return body, closer, nil
 }
 

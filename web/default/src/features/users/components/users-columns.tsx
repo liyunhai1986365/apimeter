@@ -87,6 +87,8 @@ export function useUsersColumns(): ColumnDef<User>[] {
         const username = row.getValue('username') as string
         const displayName = row.original.display_name
         const remark = row.original.remark
+        const isAgentUser = row.original.is_agent_user
+        const agentSiteName = row.original.agent_site_name
 
         return (
           <div className='flex min-w-[160px] flex-col gap-1'>
@@ -94,6 +96,22 @@ export function useUsersColumns(): ColumnDef<User>[] {
               <LongText className='max-w-[140px] font-medium'>
                 {username}
               </LongText>
+              {isAgentUser && (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <Badge variant='secondary' className='cursor-help' />
+                    }
+                  >
+                    {t('Agent')}
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className='text-xs'>
+                      {t('Agent site name')}: {agentSiteName || '-'}
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
               {remark && (
                 <Tooltip>
                   <TooltipTrigger

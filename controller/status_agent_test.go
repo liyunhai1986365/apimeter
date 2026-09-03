@@ -3,11 +3,13 @@ package controller
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/setting/console_setting"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -50,6 +52,103 @@ func TestGetStatusUsesAgentDomainForDisplayedServerAddress(t *testing.T) {
 	require.Equal(t, "https://agent.example.com/v1/chat/completions", firstApiInfo["url"])
 }
 
+func TestGetStatusHidesMainSiteAnnouncementsOnAgentDomain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	consoleSetting := console_setting.GetConsoleSetting()
+	oldAnnouncementsEnabled := consoleSetting.AnnouncementsEnabled
+	oldAnnouncements := consoleSetting.Announcements
+	consoleSetting.AnnouncementsEnabled = true
+	consoleSetting.Announcements = `[
+		{"id":1,"title":"All users","content":"Visible everywhere","publishDate":"2026-08-25T00:00:00Z","type":"general","audience":"all"},
+		{"id":2,"title":"Main site","content":"Hidden on agent sites","publishDate":"2026-08-25T01:00:00Z","type":"general","audience":"main_site"},
+		{"id":3,"title":"Legacy","content":"Visible everywhere","publishDate":"2026-08-25T02:00:00Z","type":"general"}
+	]`
+	t.Cleanup(func() {
+		consoleSetting.AnnouncementsEnabled = oldAnnouncementsEnabled
+		consoleSetting.Announcements = oldAnnouncements
+	})
+
+	requestStatus := func(agent bool) []interface{} {
+		router := gin.New()
+		router.GET("/api/status", func(c *gin.Context) {
+			if agent {
+				common.SetContextKey(c, constant.ContextKeyAgentContext, &types.AgentContext{
+					AgentID: 1,
+					Domain:  "agent.example.com",
+				})
+			}
+			GetStatus(c)
+		})
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+		require.Equal(t, http.StatusOK, w.Code)
+		var body map[string]interface{}
+		require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+		return body["data"].(map[string]interface{})["announcements"].([]interface{})
+	}
+
+	mainAnnouncements := requestStatus(false)
+	require.Len(t, mainAnnouncements, 3)
+
+	agentAnnouncements := requestStatus(true)
+	require.Len(t, agentAnnouncements, 2)
+	require.Equal(t, "Legacy", agentAnnouncements[0].(map[string]interface{})["title"])
+	require.Equal(t, "All users", agentAnnouncements[1].(map[string]interface{})["title"])
+}
+
+func TestGetStatusShowsTargetedAnnouncementsOnlyToMatchingAuthenticatedGroup(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	consoleSetting := console_setting.GetConsoleSetting()
+	oldAnnouncementsEnabled := consoleSetting.AnnouncementsEnabled
+	oldAnnouncements := consoleSetting.Announcements
+	consoleSetting.AnnouncementsEnabled = true
+	consoleSetting.Announcements = `[
+		{"id":1,"title":"All groups","content":"Visible to everyone","publishDate":"2026-08-25T00:00:00Z","type":"general","target_groups":[]},
+		{"id":2,"title":"VIP only","content":"Visible to VIP","publishDate":"2026-08-25T01:00:00Z","type":"general","target_groups":["vip"]},
+		{"id":3,"title":"Default only","content":"Visible to default","publishDate":"2026-08-25T02:00:00Z","type":"general","target_groups":["default"]}
+	]`
+	t.Cleanup(func() {
+		consoleSetting.AnnouncementsEnabled = oldAnnouncementsEnabled
+		consoleSetting.Announcements = oldAnnouncements
+	})
+
+	requestStatus := func(userID int, group string) []interface{} {
+		router := gin.New()
+		router.GET("/api/status", func(c *gin.Context) {
+			if userID > 0 {
+				c.Set("id", userID)
+				c.Set("group", group)
+			}
+			GetStatus(c)
+		})
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+		require.Equal(t, http.StatusOK, w.Code)
+		require.Equal(t, "private, no-store", w.Header().Get("Cache-Control"))
+		vary := strings.Join(w.Header().Values("Vary"), ",")
+		require.Contains(t, vary, "Cookie")
+		require.Contains(t, vary, "Authorization")
+		var body map[string]interface{}
+		require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+		return body["data"].(map[string]interface{})["announcements"].([]interface{})
+	}
+
+	anonymous := requestStatus(0, "")
+	require.Len(t, anonymous, 1)
+	require.Equal(t, "All groups", anonymous[0].(map[string]interface{})["title"])
+
+	vip := requestStatus(10, "vip")
+	require.Len(t, vip, 2)
+	require.Equal(t, "VIP only", vip[0].(map[string]interface{})["title"])
+	_, exposesTargetGroups := vip[0].(map[string]interface{})["target_groups"]
+	require.False(t, exposesTargetGroups)
+	require.Equal(t, "All groups", vip[1].(map[string]interface{})["title"])
+
+	defaultGroup := requestStatus(11, "default")
+	require.Len(t, defaultGroup, 2)
+	require.Equal(t, "Default only", defaultGroup[0].(map[string]interface{})["title"])
+}
+
 func TestGetStatusIncludesGoogleAnalyticsMeasurementID(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	common.OptionMapRWMutex.Lock()
@@ -75,6 +174,96 @@ func TestGetStatusIncludesGoogleAnalyticsMeasurementID(t *testing.T) {
 	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
 	data := body["data"].(map[string]interface{})
 	require.Equal(t, "G-6B94BX72EW", data["google_analytics_id"])
+}
+
+func TestGetStatusIncludesFooterCompanyName(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldValue := common.OptionMap[common.FooterCompanyNameOptionKey]
+	common.OptionMap[common.FooterCompanyNameOptionKey] = "Example Technology Ltd."
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap[common.FooterCompanyNameOptionKey] = oldValue
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.GET("/api/status", GetStatus)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	require.Equal(t, "Example Technology Ltd.", data["footer_company_name"])
+}
+
+func TestGetStatusIncludesMainlandChinaPresentationFlag(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	generalSetting := operation_setting.GetGeneralSetting()
+	oldDefaultCurrency := generalSetting.DefaultUserDisplayCurrency
+	generalSetting.DefaultUserDisplayCurrency = operation_setting.QuotaDisplayTypeUSD
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldValue := common.OptionMap[common.MainlandChinaPresentationOptionKey]
+	common.OptionMap[common.MainlandChinaPresentationOptionKey] = "true"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		generalSetting.DefaultUserDisplayCurrency = oldDefaultCurrency
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap[common.MainlandChinaPresentationOptionKey] = oldValue
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.GET("/api/status", GetStatus)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	require.Equal(t, true, data["mainland_china_presentation_enabled"])
+	require.Equal(t, operation_setting.QuotaDisplayTypeCNY, data["default_user_display_currency"])
+}
+
+func TestGetStatusIncludesDefaultUserDisplayCurrency(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	generalSetting := operation_setting.GetGeneralSetting()
+	oldValue := generalSetting.DefaultUserDisplayCurrency
+	generalSetting.DefaultUserDisplayCurrency = operation_setting.QuotaDisplayTypeCNY
+	common.OptionMapRWMutex.Lock()
+	if common.OptionMap == nil {
+		common.OptionMap = map[string]string{}
+	}
+	oldMainlandValue := common.OptionMap[common.MainlandChinaPresentationOptionKey]
+	common.OptionMap[common.MainlandChinaPresentationOptionKey] = "false"
+	common.OptionMapRWMutex.Unlock()
+	t.Cleanup(func() {
+		generalSetting.DefaultUserDisplayCurrency = oldValue
+		common.OptionMapRWMutex.Lock()
+		common.OptionMap[common.MainlandChinaPresentationOptionKey] = oldMainlandValue
+		common.OptionMapRWMutex.Unlock()
+	})
+
+	router := gin.New()
+	router.GET("/api/status", GetStatus)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/status", nil))
+
+	require.Equal(t, http.StatusOK, w.Code)
+	var body map[string]interface{}
+	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
+	data := body["data"].(map[string]interface{})
+	require.Equal(t, operation_setting.QuotaDisplayTypeCNY, data["default_user_display_currency"])
 }
 
 func TestGetHomePageContentUsesAgentBrandingContent(t *testing.T) {

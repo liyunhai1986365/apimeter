@@ -44,6 +44,8 @@ const getGroupDefaults = (settings: BillingSettings) => ({
   GroupRatio: settings.GroupRatio,
   UserUsableGroups: settings.UserUsableGroups,
   GroupGroupRatio: settings.GroupGroupRatio,
+  GroupModelRatio: settings.GroupModelRatio,
+  UserGroupModelRatio: settings.UserGroupModelRatio,
   AutoGroups: settings.AutoGroups,
   GroupDisplayConfig: settings.GroupDisplayConfig,
   DefaultUseAutoGroup: settings.DefaultUseAutoGroup,
@@ -95,6 +97,11 @@ const BILLING_SECTIONS = [
           DisplayInCurrencyEnabled: settings.DisplayInCurrencyEnabled,
           DisplayTokenStatEnabled: settings.DisplayTokenStatEnabled,
           general_setting: {
+            default_user_display_currency:
+              settings['general_setting.default_user_display_currency'] ===
+              'CNY'
+                ? 'CNY'
+                : 'USD',
             quota_display_type: parseCurrencyDisplayType(
               settings['general_setting.quota_display_type']
             ),
@@ -156,6 +163,7 @@ const BILLING_SECTIONS = [
           StripeApiSecret: settings.StripeApiSecret,
           StripeWebhookSecret: settings.StripeWebhookSecret,
           StripePriceId: settings.StripePriceId,
+          StripeEnabled: settings.StripeEnabled,
           StripeUnitPrice: settings.StripeUnitPrice,
           StripeMinTopUp: settings.StripeMinTopUp,
           StripePromotionCodesEnabled: settings.StripePromotionCodesEnabled,

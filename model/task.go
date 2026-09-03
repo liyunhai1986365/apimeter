@@ -44,6 +44,10 @@ const (
 	TaskStatusUnknown               = "UNKNOWN"
 )
 
+// TaskRefundLegacyCutoff separates tasks created before timeout refunds were
+// introduced. Those legacy tasks are failed without an automatic refund.
+const TaskRefundLegacyCutoff int64 = 1771718400 // 2026-02-22 00:00:00 UTC
+
 type Task struct {
 	ID         int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
 	CreatedAt  int64                 `json:"created_at" gorm:"index"`
@@ -110,6 +114,7 @@ type TaskPrivateData struct {
 	BillingSource  string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
 	TokenId        int                 `json:"token_id,omitempty"`        // 令牌 ID，用于令牌额度退款
+	NodeName       string              `json:"node_name,omitempty"`       // 发起任务的节点名，轮询结算阶段据此归属日志而非最后查询节点
 	BillingContext *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）
 }
 
@@ -117,6 +122,8 @@ type TaskPrivateData struct {
 type TaskBillingContext struct {
 	ModelPrice            float64                      `json:"model_price,omitempty"`             // 模型单价
 	GroupRatio            float64                      `json:"group_ratio,omitempty"`             // 分组倍率
+	GroupRatioSource      types.GroupRatioSource       `json:"group_ratio_source,omitempty"`      // 分组倍率解析来源
+	UserGroup             string                       `json:"user_group,omitempty"`              // 提交任务时的用户分组
 	ModelRatio            float64                      `json:"model_ratio,omitempty"`             // 模型倍率
 	CompletionRatio       float64                      `json:"completion_ratio,omitempty"`        // 输出倍率
 	CacheRatio            float64                      `json:"cache_ratio,omitempty"`             // 缓存读取倍率
@@ -175,17 +182,17 @@ func (p TaskPrivateData) Value() (driver.Value, error) {
 
 // SyncTaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
 type SyncTaskQueryParams struct {
-	Platform         constant.TaskPlatform
-	ChannelID        string
-	TaskID           string
-	TokenName        string
-	WorkspaceName    string
-	UserID           string
-	Action           string
-	Status           string
-	StartTimestamp   int64
-	EndTimestamp     int64
-	UserIDs          []int
+	Platform       constant.TaskPlatform
+	ChannelID      string
+	TaskID         string
+	TokenName      string
+	WorkspaceName  string
+	UserID         string
+	Action         string
+	Status         string
+	StartTimestamp int64
+	EndTimestamp   int64
+	UserIDs        []int
 	// AllowedWorkspaceIds is the caller's authorization restriction:
 	// nil = unrestricted, non-nil empty = nothing is visible.
 	AllowedWorkspaceIds []int
@@ -495,7 +502,9 @@ func (t *Task) UpdateQuota() error {
 
 // UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).
 // Returns (true, nil) if this caller won the update, (false, nil) if
-// another process already moved the task out of fromStatus.
+// another process already moved the task out of fromStatus. MySQL commonly
+// reports changed rows rather than matched rows, so a same-value no-op update
+// can also return false even when the status predicate still matched.
 //
 // Uses Model().Select("*").Updates() instead of Save() because GORM's Save
 // falls back to INSERT ON CONFLICT when the WHERE-guarded UPDATE matches
@@ -509,7 +518,7 @@ func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
 }
 
 // TaskBulkUpdate performs an unconditional bulk UPDATE by upstream task_id strings.
-// Same caveats as TaskBulkUpdateByID — no CAS guard.
+// Billing-sensitive state transitions must use Task.UpdateWithStatus instead.
 func TaskBulkUpdate(taskIds []string, params map[string]any) error {
 	if len(taskIds) == 0 {
 		return nil

@@ -326,8 +326,17 @@ func MarkCryptoPaymentManuallyCompleted(tx *gorm.DB, tradeNo string, completeTim
 }
 
 func CompleteCryptoPayment(tradeNo, transactionHash, eventIndex string, blockNumber int64) error {
+	_, err := CompleteCryptoPaymentOnce(tradeNo, transactionHash, eventIndex, blockNumber)
+	return err
+}
+
+// CompleteCryptoPaymentOnce completes a pending crypto payment and reports
+// whether this call performed the state transition. Callers use the boolean to
+// avoid sending duplicate notifications when overlapping scans or concurrent
+// admin actions observe an order that has already completed.
+func CompleteCryptoPaymentOnce(tradeNo, transactionHash, eventIndex string, blockNumber int64) (bool, error) {
 	if tradeNo == "" || transactionHash == "" {
-		return errors.New("missing crypto payment reference")
+		return false, errors.New("missing crypto payment reference")
 	}
 
 	var completedTopUp *TopUp
@@ -389,10 +398,10 @@ func CompleteCryptoPayment(tradeNo, transactionHash, eventIndex string, blockNum
 		return nil
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if completedTopUp == nil {
-		return nil
+		return false, nil
 	}
 
 	RecordTopupLog(
@@ -403,5 +412,5 @@ func CompleteCryptoPayment(tradeNo, transactionHash, eventIndex string, blockNum
 		PaymentProviderCrypto,
 	)
 	createAffiliateTopUpRewardAfterSuccess(completedTopUp, quotaToAdd)
-	return nil
+	return true, nil
 }

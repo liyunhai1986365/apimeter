@@ -67,6 +67,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { PageTransition } from '@/components/page-transition'
 import {
   CHANNEL_TYPE_OPTIONS,
@@ -971,21 +972,25 @@ function SupplierCard({
         </CardAction>
       </CardHeader>
       <CardContent className='flex flex-1 flex-col gap-4'>
-        <div className='flex flex-wrap items-center gap-2'>
-          {discount ? (
-            <Badge className='border-info bg-info text-info-foreground'>
-              <BadgePercent data-icon='inline-start' />
-              {discount}
-            </Badge>
-          ) : (
-            <Badge
-              variant='outline'
-              className='text-muted-foreground font-normal'
-            >
-              {t('No active discounts')}
-            </Badge>
-          )}
-        </div>
+        {!supplier.hideDiscount && (
+          <div className='flex flex-wrap items-center gap-2'>
+            {discount ? (
+              <DiscountTooltip label={discount}>
+                <Badge className='border-info bg-info text-info-foreground'>
+                  <BadgePercent data-icon='inline-start' />
+                  {discount}
+                </Badge>
+              </DiscountTooltip>
+            ) : (
+              <Badge
+                variant='outline'
+                className='text-muted-foreground font-normal'
+              >
+                {t('No active discounts')}
+              </Badge>
+            )}
+          </div>
+        )}
       </CardContent>
       <SupplierPerformanceFooter performance={performance} />
     </Card>

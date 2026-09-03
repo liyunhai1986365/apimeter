@@ -36,6 +36,7 @@ export default function SettingsPaymentGateway(props) {
     StripeApiSecret: '',
     StripeWebhookSecret: '',
     StripePriceId: '',
+    StripeEnabled: true,
     StripeUnitPrice: 8.0,
     StripeMinTopUp: 1,
     StripePromotionCodesEnabled: false,
@@ -49,6 +50,10 @@ export default function SettingsPaymentGateway(props) {
         StripeApiSecret: props.options.StripeApiSecret || '',
         StripeWebhookSecret: props.options.StripeWebhookSecret || '',
         StripePriceId: props.options.StripePriceId || '',
+        StripeEnabled:
+          props.options.StripeEnabled !== undefined
+            ? props.options.StripeEnabled
+            : true,
         StripeUnitPrice:
           props.options.StripeUnitPrice !== undefined
             ? parseFloat(props.options.StripeUnitPrice)
@@ -93,6 +98,15 @@ export default function SettingsPaymentGateway(props) {
       }
       if (inputs.StripePriceId !== '') {
         options.push({ key: 'StripePriceId', value: inputs.StripePriceId });
+      }
+      if (
+        originInputs['StripeEnabled'] !== inputs.StripeEnabled &&
+        inputs.StripeEnabled !== undefined
+      ) {
+        options.push({
+          key: 'StripeEnabled',
+          value: inputs.StripeEnabled ? 'true' : 'false',
+        });
       }
       if (
         inputs.StripeUnitPrice !== undefined &&
@@ -159,6 +173,15 @@ export default function SettingsPaymentGateway(props) {
         getFormApi={(api) => (formApiRef.current = api)}
       >
         <Form.Section text={sectionTitle}>
+          <Form.Switch
+            field='StripeEnabled'
+            size='default'
+            checkedText='｜'
+            uncheckedText='〇'
+            label={t('启用 Stripe 支付与自动充值')}
+            extraText={t('关闭后用户不能发起新的 Stripe 支付或自动充值')}
+            style={{ marginBottom: 16 }}
+          />
           <Banner
             type='info'
             icon={<BookOpen size={16} />}

@@ -110,6 +110,9 @@ export function SEOManager() {
   const serverAddress = useSystemConfigStore(
     (state) => state.config.serverAddress
   )
+  const mainlandChinaPresentationEnabled = useSystemConfigStore(
+    (state) => state.config.mainlandChinaPresentationEnabled
+  )
   const initialPathname = useRef(pathname)
   const initialCanonical = useRef(
     document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]')?.href
@@ -133,7 +136,12 @@ export function SEOManager() {
   )
 
   useEffect(() => {
-    const descriptor = resolveSEODescriptor(pathname, systemName, t)
+    const descriptor = resolveSEODescriptor(
+      pathname,
+      systemName,
+      t,
+      mainlandChinaPresentationEnabled
+    )
     if (routeStatusCode === 404) {
       descriptor.title = `${t('Oops! Page Not Found!')} | ${getSiteName(systemName)}`
       descriptor.robots = 'noindex, nofollow'
@@ -212,7 +220,14 @@ export function SEOManager() {
     })
     upsertCanonical(canonical)
     upsertStructuredData(descriptor.structuredData, canonicalOrigin.current)
-  }, [i18n.resolvedLanguage, pathname, routeStatusCode, systemName, t])
+  }, [
+    i18n.resolvedLanguage,
+    mainlandChinaPresentationEnabled,
+    pathname,
+    routeStatusCode,
+    systemName,
+    t,
+  ])
 
   return null
 }

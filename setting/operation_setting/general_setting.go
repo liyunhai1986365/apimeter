@@ -14,6 +14,8 @@ type GeneralSetting struct {
 	DocsLink            string `json:"docs_link"`
 	PingIntervalEnabled bool   `json:"ping_interval_enabled"`
 	PingIntervalSeconds int    `json:"ping_interval_seconds"`
+	// 用户尚未选择顶部价格币种时的默认值：USD / CNY
+	DefaultUserDisplayCurrency string `json:"default_user_display_currency"`
 	// 当前站点额度展示类型：USD / CNY / TOKENS
 	QuotaDisplayType string `json:"quota_display_type"`
 	// 自定义货币符号，用于 CUSTOM 展示类型
@@ -24,9 +26,10 @@ type GeneralSetting struct {
 
 // 默认配置
 var generalSetting = GeneralSetting{
-	DocsLink:                   "https://docs.apimeter.ai",
+	DocsLink:                   "https://docs.newapi.pro",
 	PingIntervalEnabled:        false,
 	PingIntervalSeconds:        60,
+	DefaultUserDisplayCurrency: QuotaDisplayTypeUSD,
 	QuotaDisplayType:           QuotaDisplayTypeUSD,
 	CustomCurrencySymbol:       "¤",
 	CustomCurrencyExchangeRate: 1.0,
@@ -54,6 +57,16 @@ func IsCNYDisplay() bool {
 // GetQuotaDisplayType 返回额度展示类型
 func GetQuotaDisplayType() string {
 	return generalSetting.QuotaDisplayType
+}
+
+// GetDefaultUserDisplayCurrency 返回用户首次访问时的默认价格币种。
+func GetDefaultUserDisplayCurrency() string {
+	switch generalSetting.DefaultUserDisplayCurrency {
+	case QuotaDisplayTypeUSD, QuotaDisplayTypeCNY:
+		return generalSetting.DefaultUserDisplayCurrency
+	default:
+		return QuotaDisplayTypeUSD
+	}
 }
 
 // GetCurrencySymbol 返回当前展示类型对应符号

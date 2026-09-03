@@ -17,11 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { AnimateInView } from '@/components/animate-in-view'
 import { QuickstartPanel } from '../quickstart-panel'
 
 export function ProductConsole() {
   const { t } = useTranslation()
+  const { mainlandChinaPresentationEnabled } = useSystemConfig()
 
   return (
     <section className='relative z-10 px-6 py-16 md:py-24'>
@@ -35,7 +37,9 @@ export function ProductConsole() {
           </h2>
           <p className='text-muted-foreground mt-4 text-sm leading-relaxed md:text-base'>
             {t(
-              'Keep your existing SDKs and point them at a single OpenAI-compatible endpoint.'
+              mainlandChinaPresentationEnabled
+                ? 'Keep your existing applications and point them at a single compatible AI endpoint.'
+                : 'Keep your existing SDKs and point them at a single OpenAI-compatible endpoint.'
             )}
           </p>
         </AnimateInView>

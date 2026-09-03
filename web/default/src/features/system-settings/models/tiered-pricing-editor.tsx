@@ -266,7 +266,7 @@ const PRESET_GROUPS: PresetGroup[] = [
     presets: [
       {
         key: 'night-discount',
-        label: 'Night discount (50%)',
+        label: 'Night -50%',
         expr: 'tier("base", p * 3 + c * 15)',
         requestRules: [
           {
@@ -287,7 +287,7 @@ const PRESET_GROUPS: PresetGroup[] = [
       },
       {
         key: 'weekend-discount',
-        label: 'Weekend discount (80%)',
+        label: 'Weekend -20%',
         expr: 'tier("base", p * 3 + c * 15)',
         requestRules: [
           {

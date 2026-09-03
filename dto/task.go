@@ -11,6 +11,7 @@ type TaskError struct {
 	StatusCode int    `json:"-"`
 	LocalError bool   `json:"-"`
 	Error      error  `json:"-"`
+	RawBody    []byte `json:"-"`
 }
 
 type TaskData interface {

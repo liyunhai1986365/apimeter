@@ -70,7 +70,7 @@ export const STATIC_I18N_KEYS = [
   'AI Creation authorization failed.',
   'OpenMosaic site URL is not configured.',
   'Securely entering AI Creation...',
-  'Enter the site origin only. The menu starts APIMeter SSO and lands on /image.',
+  'Enter the site origin only. The menu starts Modelsell SSO and lands on /image.',
   'Enter a valid OpenMosaic site origin before enabling AI Creation.',
   'Invited Top-Up Reward Rate',
   'Percentage of an invited user top-up awarded to the inviter after 24 hours. Set 0 to disable.',
@@ -285,12 +285,12 @@ export const STATIC_I18N_KEYS = [
   'Cost Tracking',
   'Model Access',
   'Configure mainstream Agent platforms in one command',
-  'APIMeter CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.',
+  'ModelSell CLI automatically writes API keys, API URLs, and default models into Claude Code, Codex CLI, Gemini CLI, and OpenClaw, saving repetitive configuration file edits.',
   'Installation system',
   'Copy command',
   'View CLI docs',
   'Browse Agent tools',
-  'APIMeter CLI interactive configuration screen',
+  'ModelSell CLI interactive configuration screen',
   'Guardrails',
   'Observability',
   'Budgets',
@@ -323,6 +323,7 @@ export const STATIC_I18N_KEYS = [
   'Models unified API gateway',
   'Run every AI provider through one governed gateway',
   'Unify OpenAI, Claude, Gemini, DeepSeek and private channels with shared keys, billing, fallback routing, and live request visibility.',
+  'Connect DeepSeek, Qwen, Doubao, Kimi and other domestic models with shared keys, billing, fallback routing, and live request visibility.',
   'Start routing now',
   'Explore model pricing',
   'Connected model providers',
@@ -332,6 +333,7 @@ export const STATIC_I18N_KEYS = [
   'quota and recharge flows',
   'Developer contract',
   'OpenAI, Claude, Gemini compatible',
+  'Compatible access for domestic models',
   'Live routing fabric',
   'Your app speaks one API. The platform handles the rest.',
   'OpenAI compatible',
@@ -346,6 +348,7 @@ export const STATIC_I18N_KEYS = [
   'Quickstart',
   'Drop in one base URL',
   'Keep your existing SDKs and point them at a single OpenAI-compatible endpoint.',
+  'Keep your existing applications and point them at a single compatible AI endpoint.',
   'Copy code',
   'Input tokens',
   'Output tokens',
@@ -387,6 +390,7 @@ export const STATIC_I18N_KEYS = [
   'Add upstream accounts and map model names once inside the admin console.',
   'Ship one API contract',
   'Point apps at OpenAI-compatible, Claude-compatible, or Gemini-compatible routes.',
+  'Point apps at compatible chat, response, and multimodal routes for domestic models.',
   'Observe every request',
   'Use logs, rankings, and billing data to tune routing decisions continuously.',
   'Ready for your own gateway',
@@ -396,6 +400,29 @@ export const STATIC_I18N_KEYS = [
   'billable models',
   'compatible API families',
   'routing observability',
+
+  // Mainland China presentation
+  'Mainland China presentation',
+  'Show domestic model brands on public static introduction pages',
+  'Configure the model brands and examples shown on public introduction pages.',
+  'Domestic model presentation',
+  'Use domestic model brands and neutral compatibility descriptions on the home page, subscription page, and related static introductions.',
+  'Enable mainland China presentation',
+  'This hides the USD/CNY switch and uses CNY for price display. It does not disable channels, models, API routes, or subscription entitlements.',
+  'Domestic models',
+  'Domestic Model Matrix',
+  'Leading domestic models',
+  'One key connects DeepSeek, Qwen, GLM, Kimi, MiniMax and other leading domestic models.',
+  'One subscription covers domestic coding, image, video, and chat models for multiple workloads.',
+  'Compatible chat, response, image, and video APIs',
+  'Connect supported applications to domestic models with one API key and a unified endpoint.',
+  `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! -90%
+
+Use my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.
+
+The platform supports leading domestic AI models including DeepSeek, Qwen, GLM, Kimi, MiniMax, and Doubao. One API key provides convenient access at competitive prices.
+
+Register now 👉 {{affiliateLink}}`,
 
   // User management (interpolated keys)
   'Remaining Quota ({{currency}})',

@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
-import { Modal, Typography, Card, Skeleton } from '@douyinfe/semi-ui';
+import { Modal, Typography, Card, Skeleton, Tooltip } from '@douyinfe/semi-ui';
 import { SiAlipay, SiWechat, SiStripe } from 'react-icons/si';
 import { CreditCard } from 'lucide-react';
 
@@ -44,6 +44,9 @@ const PaymentConfirmModal = ({
     discountRate && discountRate > 0 && discountRate < 1 && amountNumber > 0;
   const originalAmount = hasDiscount ? amountNumber / discountRate : 0;
   const discountAmount = hasDiscount ? originalAmount - amountNumber : 0;
+  const discountPercent = hasDiscount
+    ? Math.round((1 - discountRate) * 100)
+    : 0;
   return (
     <Modal
       title={
@@ -83,9 +86,16 @@ const PaymentConfirmModal = ({
                     {renderAmount()}
                   </Text>
                   {hasDiscount && (
-                    <Text size='small' className='text-rose-500'>
-                      {Math.round(discountRate * 100)}%
-                    </Text>
+                    <Tooltip
+                      content={t(
+                        'Save {{value}} compared with the standard price',
+                        { value: `${discountPercent}%` },
+                      )}
+                    >
+                      <Text size='small' className='text-rose-500'>
+                        -{discountPercent}%
+                      </Text>
+                    </Tooltip>
                   )}
                 </div>
               )}

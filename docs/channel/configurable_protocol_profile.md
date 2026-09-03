@@ -721,7 +721,7 @@ fetch:
 | `doubao-seedance-2-api-assets` | Doubao Seedance 2.0 API Assets | Seedance 2.0 API Assets 形态 | `/v1/video/generations`、`/v1/videos` |
 | `seedance2-service-inference` | Seedance2 Service Inference | `dreamina-seedance-2-0-*` 等 | `/v1/video/generations`、`/v1/videos` |
 | `seedance2-ark-task-assets` | Seedance2 Ark Task Assets | `doubao-seedance-2-0-*` | `/v1/video/generations`、`/v1/videos` |
-| `seedance2-apimeter` | Seedance 2.0 APIMeter | APIMeter Seedance 2.0 国内/海外模型 | `/v1/video/generations`、`/v1/videos`、`/api/assets/upload`、`/api/assets/{id}` |
+| `seedance2-modelsell` | Seedance 2.0 Modelsell | Modelsell Seedance 2.0 国内/海外模型 | `/v1/video/generations`、`/v1/videos`、`/api/assets/upload`、`/api/assets/{id}` |
 | `kling-video` | Kling Video | `kling-v*`、`kling-o*`、`kling-3.0-turbo`、Kling 扩展能力 | `/v1/video/generations`、`/v1/videos` |
 
 7. 运行测试：

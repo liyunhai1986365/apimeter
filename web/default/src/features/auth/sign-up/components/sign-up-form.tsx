@@ -48,11 +48,13 @@ import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/password-input'
 import { Turnstile } from '@/components/turnstile'
 import { register, wechatLoginByCode } from '@/features/auth/api'
+import { GoCaptcha } from '@/features/auth/components/go-captcha'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 import { registerFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
 import { useEmailVerification } from '@/features/auth/hooks/use-email-verification'
+import { useGoCaptcha } from '@/features/auth/hooks/use-go-captcha'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import {
   getLegalConsentAvailability,
@@ -83,6 +85,13 @@ export function SignUpForm({
     setTurnstileToken,
     validateTurnstile,
   } = useTurnstile()
+  const {
+    isGoCaptchaEnabled,
+    goCaptchaToken,
+    setGoCaptchaToken,
+    validateGoCaptcha,
+    resetGoCaptcha,
+  } = useGoCaptcha()
   const { redirectToLogin, handleLoginSuccess } = useAuthRedirect()
   const {
     isSending: isSendingCode,
@@ -169,7 +178,7 @@ export function SignUpForm({
       }
     }
 
-    if (!validateTurnstile()) return
+    if (!validateTurnstile() || !validateGoCaptcha()) return
 
     setIsLoading(true)
     try {
@@ -180,6 +189,7 @@ export function SignUpForm({
         verification_code: verificationCode || undefined,
         aff_code: getAffiliateCode(),
         turnstile: turnstileToken,
+        go_captcha_token: goCaptchaToken,
       })
 
       if (res?.success) {
@@ -190,6 +200,7 @@ export function SignUpForm({
     } catch (_error) {
       // Errors are handled by global interceptor
     } finally {
+      resetGoCaptcha()
       setIsLoading(false)
     }
   }
@@ -386,12 +397,24 @@ export function SignUpForm({
           className='mt-1'
         />
 
+        {isGoCaptchaEnabled && (
+          <GoCaptcha
+            scene='register'
+            token={goCaptchaToken}
+            onVerify={setGoCaptchaToken}
+          />
+        )}
+
         {/* Submit Button */}
         <Button
           type='submit'
           size='lg'
           className='mt-1 h-12 w-full justify-center'
-          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+          disabled={
+            isLoading ||
+            (isGoCaptchaEnabled && !goCaptchaToken) ||
+            (requiresLegalConsent && !agreedToLegal)
+          }
         >
           {isLoading ? <Loader2 className='h-4 w-4 animate-spin' /> : null}
           {t('Create account')}

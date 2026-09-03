@@ -786,18 +786,30 @@ function InviteOverviewCard({
   onWithdraw: () => void
 }) {
   const { t } = useTranslation()
+  const { mainlandChinaPresentationEnabled } = useSystemConfig()
   const inviteCode = getAffiliateCode(affiliateLink)
   const referralSiteName = getReferralSiteName(siteName)
-  const referralMessage = t(
-    `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! Discounts starting at 90% off
+  const referralMessage = mainlandChinaPresentationEnabled
+    ? t(
+        `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! -90%
+
+Use my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.
+
+The platform supports leading domestic AI models including DeepSeek, Qwen, GLM, Kimi, MiniMax, and Doubao. One API key provides convenient access at competitive prices.
+
+Register now 👉 {{affiliateLink}}`,
+        { siteName: referralSiteName, inviteCode, affiliateLink }
+      )
+    : t(
+        `🎁 Recommend friends to register for {{siteName}} and enjoy free AI credits upon registration! -90%
 
 Use my exclusive invite code [{{inviteCode}}], or click the link to register directly. Both of us can receive credit rewards.
 
 The platform supports leading AI models including GPT-5, Claude, Gemini, and DeepSeek. One API key can access all models at excellent prices.
 
 Register now 👉 {{affiliateLink}}`,
-    { siteName: referralSiteName, inviteCode, affiliateLink }
-  )
+        { siteName: referralSiteName, inviteCode, affiliateLink }
+      )
   return (
     <Card className='h-full'>
       <CardHeader className='border-b'>

@@ -128,11 +128,12 @@ type BillingConfig struct {
 }
 
 type BillingRatioConfig struct {
-	Key      string  `yaml:"key"`
-	From     string  `yaml:"from"`
-	Value    float64 `yaml:"value"`
-	Default  float64 `yaml:"default"`
-	OmitZero bool    `yaml:"omit_zero"`
+	Key       string  `yaml:"key"`
+	From      string  `yaml:"from"`
+	Transform string  `yaml:"transform"`
+	Value     float64 `yaml:"value"`
+	Default   float64 `yaml:"default"`
+	OmitZero  bool    `yaml:"omit_zero"`
 }
 
 type HeaderConfig struct {
@@ -159,6 +160,7 @@ type FieldMapping struct {
 	Value             any             `yaml:"value"`
 	ValueMap          map[string]any  `yaml:"value_map"`
 	OmitEmpty         bool            `yaml:"omit_empty"`
+	OmitNull          bool            `yaml:"omit_null"`
 }
 
 type ResponseConfig struct {
@@ -185,13 +187,6 @@ var (
 	profilesErr  error
 )
 
-// profileAliases keeps persisted channel settings working when a profile is
-// renamed. Return a copy with the requested ID so resource state and channel
-// matching continue to use the identifier already stored in the database.
-var profileAliases = map[string]string{
-	"seedance2-modelsell": "seedance2-apimeter",
-}
-
 func ListProfiles() []*Profile {
 	profiles, err := loadProfiles()
 	if err != nil {
@@ -213,19 +208,11 @@ func GetProfile(id string) (*Profile, bool) {
 	if err != nil {
 		return nil, false
 	}
-	requestedID := strings.TrimSpace(id)
-	lookupID := requestedID
-	if canonicalID, ok := profileAliases[requestedID]; ok {
-		lookupID = canonicalID
-	}
-	profile, ok := profiles[lookupID]
+	profile, ok := profiles[strings.TrimSpace(id)]
 	if !ok {
 		return nil, false
 	}
 	cp := *profile
-	if lookupID != requestedID {
-		cp.ID = requestedID
-	}
 	return &cp, true
 }
 

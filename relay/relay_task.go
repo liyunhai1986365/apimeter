@@ -234,11 +234,15 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		taskErr := service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		if c.GetString("configurable_native_profile_id") != "" {
+			taskErr.RawBody = responseBody
+		}
+		return nil, taskErr
 	}
 
 	// 10. 返回 OtherRatios 给下游（header 必须在 DoResponse 写 body 之前设置）
-	otherRatios := info.PriceData.OtherRatios
+	otherRatios := info.PriceData.CloneOtherRatios()
 	if otherRatios == nil {
 		otherRatios = map[string]float64{}
 	}
@@ -254,10 +258,11 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// 11. 提交后计费调整：让适配器根据上游实际返回调整 OtherRatios
 	finalQuota := info.PriceData.Quota
 	if adjustedRatios := adaptor.AdjustBillingOnSubmit(info, taskData); len(adjustedRatios) > 0 && shouldApplyTaskOtherRatios(info, modelName) {
-		// 基于调整后的 ratios 重新计算 quota
-		finalQuota = recalcQuotaFromRatios(info, adjustedRatios)
-		info.PriceData.OtherRatios = adjustedRatios
-		info.PriceData.Quota = finalQuota
+		if adjustedQuota, ok := recalcQuotaFromRatios(info, adjustedRatios); ok {
+			finalQuota = adjustedQuota
+			info.PriceData.ReplaceOtherRatios(adjustedRatios)
+			info.PriceData.Quota = finalQuota
+		}
 	}
 
 	return &TaskSubmitResult{
@@ -284,30 +289,28 @@ func applyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) {
 }
 
 func shouldApplyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) bool {
+	// ModelPrice/UsePrice is the fixed per-request billing mode exposed by the
+	// pricing API. Task adaptors may still collect duration/resolution metadata,
+	// but those multipliers must not change a fixed request price.
+	if info == nil || info.PriceData.UsePrice {
+		return false
+	}
 	return !common.StringsContains(constant.TaskPricePatches, modelName)
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。
 // 公式: baseQuota × ∏(ratio) — 其中 baseQuota 是不含 OtherRatios 的基础额度。
-func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float64) int {
+func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float64) (int, bool) {
 	// 从 PriceData 获取不含 OtherRatios 的基础价格
-	baseQuota := float64(info.PriceData.Quota)
-	// 先除掉原有的 OtherRatios 恢复基础额度
-	for _, ra := range info.PriceData.OtherRatios {
-		if ra != 1.0 && ra > 0 {
-			baseQuota /= ra
-		}
+	baseQuota := info.PriceData.RemoveOtherRatiosFromFloat(float64(info.PriceData.Quota))
+	priceData := info.PriceData
+	if !priceData.ReplaceOtherRatios(ratios) {
+		return 0, false
 	}
-	// 应用新的 ratios
-	result := baseQuota
-	for _, ra := range ratios {
-		if ra != 1.0 {
-			result *= ra
-		}
-	}
+	result := priceData.ApplyOtherRatiosToFloat(baseQuota)
 	quota, clamp := common.QuotaFromFloatChecked(result)
 	noteTaskQuotaClamp(info, clamp)
-	return quota
+	return quota, true
 }
 
 func noteTaskQuotaClamp(info *relaycommon.RelayInfo, clamp *common.QuotaClamp) {
@@ -558,7 +561,13 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		return nil
 	}
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
-	if err != nil || channelModel.Type != constant.ChannelTypeConfigurable {
+	if err != nil {
+		return nil
+	}
+	isConfigurable := channelModel.Type == constant.ChannelTypeConfigurable
+	isAliWan3Native := returnNativeBody && channelModel.Type == constant.ChannelTypeAli &&
+		(task.Properties.OriginModelName == "wan3.0-video" || task.Properties.OriginModelName == "wan3.0-video-prime")
+	if !isConfigurable && !isAliWan3Native {
 		return nil
 	}
 	baseURL := channelModel.GetBaseURL()
@@ -581,12 +590,15 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		"action":  task.Action,
 	}, proxy)
 	if err != nil || resp == nil {
-		return nil
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	ti, err := adaptor.ParseTaskResult(body)
 	if err == nil && ti != nil {
@@ -643,6 +655,29 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		}
 	}
 	return body
+}
+
+func configurableStoredNativeFetchResponse(adaptor channel.TaskAdaptor, task *model.Task, returnNativeBody bool) []byte {
+	if !returnNativeBody || adaptor == nil || task == nil {
+		return nil
+	}
+	converter, ok := adaptor.(interface {
+		ConvertToNativeFetchResponse(*model.Task, []byte) ([]byte, error)
+	})
+	if !ok {
+		return nil
+	}
+	stored := task.Data
+	if task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+		// Submission data can contain a stale queued status. For a non-terminal
+		// task, prefer the latest status persisted on the task row.
+		stored = nil
+	}
+	response, err := converter.ConvertToNativeFetchResponse(task, stored)
+	if err != nil {
+		return nil
+	}
+	return response
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式

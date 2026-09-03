@@ -207,6 +207,8 @@ func configurableResourceTaskBillingContext(info *relaycommon.RelayInfo) *model.
 	return &model.TaskBillingContext{
 		ModelPrice:            info.PriceData.ModelPrice,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,
+		UserGroup:             info.UserGroup,
 		ModelRatio:            info.PriceData.ModelRatio,
 		CompletionRatio:       info.PriceData.CompletionRatio,
 		CacheRatio:            info.PriceData.CacheRatio,

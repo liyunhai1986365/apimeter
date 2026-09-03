@@ -19,22 +19,21 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { Button } from '@/components/ui/button'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
-import { CODE_SNIPPETS } from '../landing-data'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CODE_SNIPPETS, MAINLAND_CODE_SNIPPETS } from '../landing-data'
 
 export function QuickstartPanel() {
   const { t } = useTranslation()
-  const [activeSnippet, setActiveSnippet] = useState(CODE_SNIPPETS[0].id)
+  const { mainlandChinaPresentationEnabled } = useSystemConfig()
+  const snippets = mainlandChinaPresentationEnabled
+    ? MAINLAND_CODE_SNIPPETS
+    : CODE_SNIPPETS
+  const [activeSnippet, setActiveSnippet] = useState(snippets[0].id)
   const [copied, setCopied] = useState(false)
   const selectedSnippet =
-    CODE_SNIPPETS.find((snippet) => snippet.id === activeSnippet) ??
-    CODE_SNIPPETS[0]
+    snippets.find((snippet) => snippet.id === activeSnippet) ?? snippets[0]
 
   const copyCode = async () => {
     await navigator.clipboard?.writeText(selectedSnippet.code)
@@ -54,7 +53,9 @@ export function QuickstartPanel() {
           </h3>
           <p className='text-muted-foreground mt-2 max-w-xl text-sm leading-relaxed'>
             {t(
-              'Keep your existing SDKs and point them at a single OpenAI-compatible endpoint.'
+              mainlandChinaPresentationEnabled
+                ? 'Keep your existing applications and point them at a single compatible AI endpoint.'
+                : 'Keep your existing SDKs and point them at a single OpenAI-compatible endpoint.'
             )}
           </p>
         </div>
@@ -72,13 +73,13 @@ export function QuickstartPanel() {
 
       <Tabs value={activeSnippet} onValueChange={setActiveSnippet}>
         <TabsList className='mb-3'>
-          {CODE_SNIPPETS.map((snippet) => (
+          {snippets.map((snippet) => (
             <TabsTrigger key={snippet.id} value={snippet.id}>
               {snippet.label}
             </TabsTrigger>
           ))}
         </TabsList>
-        {CODE_SNIPPETS.map((snippet) => (
+        {snippets.map((snippet) => (
           <TabsContent key={snippet.id} value={snippet.id}>
             <pre className='max-h-[360px] overflow-auto rounded-xl bg-slate-950 p-4 text-xs leading-relaxed text-slate-100 shadow-inner'>
               <code>{snippet.code}</code>

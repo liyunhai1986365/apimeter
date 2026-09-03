@@ -505,15 +505,25 @@ const RechargeCard = ({
                               <Coins size={18} />
                               {formatLargeNumber(displayValue)} {symbol}
                               {hasDiscount && (
-                                <Tag style={{ marginLeft: 4 }} color='green'>
-                                  {t('折').includes('off')
-                                    ? (
+                                <Tooltip
+                                  content={t(
+                                    'Save {{value}} compared with the standard price',
+                                    {
+                                      value: `${Number(((1 - parseFloat(discount)) * 100).toFixed(3))}%`,
+                                    },
+                                  )}
+                                >
+                                  <Tag style={{ marginLeft: 4 }} color='green'>
+                                    -
+                                    {Number(
+                                      (
                                         (1 - parseFloat(discount)) *
                                         100
-                                      ).toFixed(1)
-                                    : (discount * 10).toFixed(1)}
-                                  {t('折')}
-                                </Tag>
+                                      ).toFixed(3),
+                                    )}
+                                    %
+                                  </Tag>
+                                </Tooltip>
                               )}
                             </Typography.Title>
                             <div

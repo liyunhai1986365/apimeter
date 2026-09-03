@@ -120,6 +120,20 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
+	if a.isNativeSubmitRequest(c) && profile.videoNative().Submit.Passthrough {
+		var body map[string]any
+		if err := common.UnmarshalBodyReusable(c, &body); err != nil {
+			return nil, err
+		}
+		if info != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
+			body["model"] = info.UpstreamModelName
+		}
+		data, err := common.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(data), nil
+	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil, err
@@ -163,7 +177,14 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		}
 		value := ratio.Value
 		if ratio.From != "" {
-			value = floatValue(valueFromSource(ratio.From, source, info))
+			rawValue := valueFromSource(ratio.From, source, info)
+			if strings.TrimSpace(ratio.Transform) != "" {
+				rawValue, err = applyFieldTransform(ratio.Transform, rawValue, FieldMapping{})
+				if err != nil {
+					continue
+				}
+			}
+			value = floatValue(rawValue)
 		}
 		if value == 0 && ratio.Default != 0 {
 			value = ratio.Default
@@ -189,7 +210,11 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 
 	taskID := strings.TrimSpace(gjson.GetBytes(responseBody, profile.videoSubmit().Response.TaskIDPath).String())
 	if taskID == "" {
-		return "", nil, service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
+		taskErr := service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
+		if a.isNativeSubmitRequest(c) && profile.videoNative().Submit.Response.Passthrough {
+			taskErr.RawBody = responseBody
+		}
+		return "", nil, taskErr
 	}
 
 	if a.isNativeSubmitRequest(c) {
@@ -304,26 +329,40 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 }
 
 func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.TaskInfo {
-	status := mapStatus(resp.StatusMap, gjson.GetBytes(respBody, resp.StatusPath).String())
+	status := mapStatus(resp.StatusMap, firstJSONString(respBody,
+		resp.StatusPath,
+		"status",
+		"task.status",
+		"data.status",
+	))
 	info := &relaycommon.TaskInfo{
-		TaskID:   gjson.GetBytes(respBody, resp.TaskIDPath).String(),
+		TaskID: firstJSONString(respBody,
+			resp.TaskIDPath,
+			"id",
+			"task.id",
+			"data.task_id",
+		),
 		Status:   status,
 		Reason:   configuredTaskFailureReason(resp, respBody),
-		Url:      gjson.GetBytes(respBody, resp.ResultURLPath).String(),
+		Url:      firstJSONString(respBody, resp.ResultURLPath, "content.video_url", "data.result_url"),
 		Progress: progressString(gjson.GetBytes(respBody, resp.ProgressPath)),
 	}
-	totalTokensPath := strings.TrimSpace(resp.TotalTokensPath)
-	if totalTokensPath == "" {
-		totalTokensPath = "usage.total_tokens"
-	}
-	if totalTokens := int(gjson.GetBytes(respBody, totalTokensPath).Int()); totalTokens > 0 {
+	if totalTokens := firstPositiveJSONInt(respBody,
+		resp.TotalTokensPath,
+		"usage.total_tokens",
+		"task.usage.total_tokens",
+		"data.usage.total_tokens",
+		"data.data.task.usage.total_tokens",
+	); totalTokens > 0 {
 		info.TotalTokens = totalTokens
 	}
-	completionTokensPath := strings.TrimSpace(resp.CompletionTokensPath)
-	if completionTokensPath == "" {
-		completionTokensPath = "usage.completion_tokens"
-	}
-	if completionTokens := int(gjson.GetBytes(respBody, completionTokensPath).Int()); completionTokens > 0 {
+	if completionTokens := firstPositiveJSONInt(respBody,
+		resp.CompletionTokensPath,
+		"usage.completion_tokens",
+		"task.usage.completion_tokens",
+		"data.usage.completion_tokens",
+		"data.data.task.usage.completion_tokens",
+	); completionTokens > 0 {
 		info.CompletionTokens = completionTokens
 		if info.TotalTokens == 0 {
 			info.TotalTokens = completionTokens
@@ -400,6 +439,11 @@ func configurableVideoStatus(status model.TaskStatus) string {
 }
 
 var commonVideoResultURLPaths = []string{
+	"content.video_url",
+	"outputs.0",
+	"task.content.video_url",
+	"task.outputs.0",
+	"task.metadata.content.video_url",
 	"video.url",
 	"video_url",
 	"url",
@@ -409,12 +453,15 @@ var commonVideoResultURLPaths = []string{
 	"output.results.0.url",
 	"output.videos.0.url",
 	"data.video_url",
+	"data.result_url",
 	"data.url",
 	"data.video.url",
 	"data.result.url",
 	"data.results.0.url",
 	"data.videos.0.url",
 	"data.task_result.videos.0.url",
+	"data.data.task.outputs.0",
+	"data.data.task.metadata.content.video_url",
 	"result.video_url",
 	"result.url",
 	"result.video.url",
@@ -430,7 +477,11 @@ var commonVideoFailureReasonPaths = []string{
 	"output.message",
 	"output.error.message",
 	"data.message",
+	"data.fail_reason",
 	"data.error.message",
+	"data.data.task.metadata.error.message",
+	"data.data.task.error.message",
+	"data.data.task.error",
 	"result.message",
 	"message",
 }
@@ -446,6 +497,23 @@ func firstJSONString(data []byte, paths ...string) string {
 		}
 	}
 	return ""
+}
+
+func firstPositiveJSONInt(data []byte, paths ...string) int {
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		result := gjson.GetBytes(data, path)
+		if !result.Exists() {
+			continue
+		}
+		if value := int(result.Int()); value > 0 {
+			return value
+		}
+	}
+	return 0
 }
 
 func profileForTask(task *model.Task) *Profile {
@@ -472,14 +540,9 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	if err != nil {
 		return nil, err
 	}
-	if strings.EqualFold(strings.TrimSpace(profile.videoNative().Fetch.ResponseFormat), "task_response") {
-		if len(upstream) > 0 {
-			originTask.Data = upstream
-		}
-		return common.Marshal(dto.TaskResponse[any]{
-			Code: "success",
-			Data: configurableTaskModel2Dto(originTask),
-		})
+	responseFormat := strings.ToLower(strings.TrimSpace(profile.videoNative().Fetch.ResponseFormat))
+	if responseFormat == "volcengine_video_task" {
+		return buildVolcengineVideoTaskResponse(originTask, upstream)
 	}
 	return buildConfiguredResponse(profile.videoNative().Fetch.Response, upstream, &relaycommon.RelayInfo{
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
@@ -488,29 +551,390 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	})
 }
 
-func configurableTaskModel2Dto(task *model.Task) *dto.TaskDto {
-	return &dto.TaskDto{
-		ID:         task.ID,
-		CreatedAt:  task.CreatedAt,
-		UpdatedAt:  task.UpdatedAt,
-		TaskID:     task.TaskID,
-		Platform:   string(task.Platform),
-		UserId:     task.UserId,
-		Group:      task.Group,
-		ChannelId:  task.ChannelId,
-		Quota:      task.Quota,
-		Action:     task.Action,
-		Status:     string(task.Status),
-		FailReason: task.FailReason,
-		ResultURL:  task.GetResultURL(),
-		SubmitTime: task.SubmitTime,
-		StartTime:  task.StartTime,
-		FinishTime: task.FinishTime,
-		Progress:   task.Progress,
-		Properties: task.Properties,
-		Username:   task.Username,
-		Data:       task.Data,
+func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte, error) {
+	if task == nil {
+		return nil, fmt.Errorf("task is required")
 	}
+
+	response := map[string]any{
+		"id": task.TaskID,
+	}
+
+	modelName := strings.TrimSpace(task.Properties.OriginModelName)
+	if modelName == "" {
+		modelName = firstJSONString(upstream, "model", "task.model", "data.model")
+	}
+	if modelName == "" {
+		modelName = strings.TrimSpace(task.Properties.UpstreamModelName)
+	}
+	// model is required by the official task schema. Keep the public model
+	// name instead of exposing an upstream provider alias.
+	response["model"] = modelName
+
+	upstreamStatus := firstJSONString(upstream, "status", "task.status", "data.status")
+	publicStatus := volcengineVideoTaskStatus(upstreamStatus, task.Status)
+	response["status"] = publicStatus
+
+	createdAt := task.CreatedAt
+	if createdAt == 0 {
+		createdAt = task.SubmitTime
+	}
+	if createdAt == 0 {
+		createdAt, _ = firstJSONUnixTime(upstream,
+			"created_at",
+			"task.created_at",
+			"task.metadata.created_at",
+			"data.created_at",
+			"data.data.task.created_at",
+			"data.data.task.metadata.created_at",
+		)
+	}
+	if createdAt > 0 {
+		response["created_at"] = createdAt
+	}
+
+	updatedAt, _ := firstJSONUnixTime(upstream,
+		"updated_at",
+		"task.updated_at",
+		"task.metadata.updated_at",
+		"task.completed_at",
+		"data.updated_at",
+		"data.data.task.updated_at",
+		"data.data.task.metadata.updated_at",
+		"data.data.task.completed_at",
+	)
+	if updatedAt == 0 {
+		updatedAt = task.UpdatedAt
+	}
+	if updatedAt == 0 {
+		updatedAt = task.FinishTime
+	}
+	if updatedAt == 0 {
+		updatedAt = createdAt
+	}
+	if updatedAt > 0 {
+		response["updated_at"] = updatedAt
+	}
+
+	content := map[string]any{}
+	videoURL := firstJSONString(upstream, commonVideoResultURLPaths...)
+	if videoURL == "" {
+		videoURL = task.GetResultURL()
+	}
+	if videoURL != "" {
+		content["video_url"] = videoURL
+	}
+	if lastFrameURL := firstJSONString(upstream,
+		"content.last_frame_url",
+		"task.content.last_frame_url",
+		"task.last_frame_url",
+		"task.metadata.content.last_frame_url",
+		"task.metadata.last_frame_url",
+		"data.data.task.last_frame_url",
+		"data.data.task.metadata.content.last_frame_url",
+		"data.data.task.metadata.last_frame_url",
+	); lastFrameURL != "" {
+		content["last_frame_url"] = lastFrameURL
+	}
+	if len(content) > 0 && publicStatus == "succeeded" {
+		response["content"] = content
+	}
+
+	completionTokens, hasCompletionTokens := firstJSONInt64(upstream,
+		"usage.completion_tokens",
+		"task.usage.completion_tokens",
+		"task.metadata.usage.completion_tokens",
+		"data.usage.completion_tokens",
+		"data.data.task.usage.completion_tokens",
+		"data.data.task.metadata.usage.completion_tokens",
+	)
+	totalTokens, hasTotalTokens := firstJSONInt64(upstream,
+		"usage.total_tokens",
+		"task.usage.total_tokens",
+		"task.metadata.usage.total_tokens",
+		"data.usage.total_tokens",
+		"data.data.task.usage.total_tokens",
+		"data.data.task.metadata.usage.total_tokens",
+	)
+	if hasCompletionTokens || hasTotalTokens {
+		if !hasCompletionTokens {
+			completionTokens = totalTokens
+		}
+		if !hasTotalTokens {
+			totalTokens = completionTokens
+		}
+		usage := map[string]any{
+			"completion_tokens": completionTokens,
+			"total_tokens":      totalTokens,
+		}
+		if value, ok := firstJSONValue(upstream,
+			"usage.tool_usage",
+			"task.usage.tool_usage",
+			"task.metadata.usage.tool_usage",
+			"data.usage.tool_usage",
+			"data.data.task.usage.tool_usage",
+			"data.data.task.metadata.usage.tool_usage",
+		); ok {
+			usage["tool_usage"] = value
+		}
+		response["usage"] = usage
+	}
+
+	stringFields := []struct {
+		name  string
+		paths []string
+	}{
+		{name: "resolution", paths: configurableVideoTaskFieldPaths("resolution")},
+		{name: "ratio", paths: configurableVideoTaskFieldPaths("ratio")},
+		{name: "draft_task_id", paths: configurableVideoTaskFieldPaths("draft_task_id")},
+		{name: "service_tier", paths: configurableVideoTaskFieldPaths("service_tier")},
+		{name: "safety_identifier", paths: configurableVideoTaskFieldPaths("safety_identifier")},
+		{name: "revised_prompt", paths: configurableVideoTaskFieldPaths("revised_prompt")},
+		{name: "subdivisionlevel", paths: configurableVideoTaskFieldPaths("subdivisionlevel")},
+		{name: "fileformat", paths: configurableVideoTaskFieldPaths("fileformat")},
+		{name: "reasoning_effort", paths: configurableVideoTaskFieldPaths("reasoning_effort")},
+	}
+	for _, field := range stringFields {
+		if value, ok := firstJSONScalarString(upstream, field.paths...); ok {
+			response[field.name] = value
+		}
+	}
+
+	integerFields := []struct {
+		name  string
+		paths []string
+	}{
+		{name: "seed", paths: configurableVideoTaskFieldPaths("seed")},
+		{name: "framespersecond", paths: configurableVideoTaskFieldPaths("framespersecond")},
+		{name: "execution_expires_after", paths: configurableVideoTaskFieldPaths("execution_expires_after")},
+	}
+	for _, field := range integerFields {
+		if value, ok := firstJSONInt64(upstream, field.paths...); ok {
+			response[field.name] = value
+		}
+	}
+
+	// Volcengine returns exactly one of frames and duration. Frames takes
+	// precedence because its presence means the create request used frames.
+	if frames, ok := firstJSONInt64(upstream, configurableVideoTaskFieldPaths("frames")...); ok {
+		response["frames"] = frames
+	} else if duration, ok := firstJSONInt64(upstream, configurableVideoTaskFieldPaths(
+		"duration",
+		"task.duration_seconds",
+		"data.data.task.duration_seconds",
+	)...); ok {
+		response["duration"] = duration
+	}
+
+	booleanFields := []struct {
+		name  string
+		paths []string
+	}{
+		{name: "generate_audio", paths: configurableVideoTaskFieldPaths("generate_audio")},
+		{name: "draft", paths: configurableVideoTaskFieldPaths("draft")},
+	}
+	for _, field := range booleanFields {
+		if value, ok := firstJSONBool(upstream, field.paths...); ok {
+			response[field.name] = value
+		}
+	}
+
+	if tools, ok := firstJSONArrayValue(upstream, configurableVideoTaskFieldPaths("tools")...); ok {
+		response["tools"] = tools
+	}
+
+	if publicStatus == "failed" {
+		errorCode := firstJSONString(upstream,
+			"error.code",
+			"task.error.code",
+			"task.metadata.error.code",
+			"data.error.code",
+			"data.data.task.error.code",
+			"data.data.task.metadata.error.code",
+		)
+		errorMessage := configuredTaskFailureReason(ResponseConfig{}, upstream)
+		if errorMessage == "" {
+			errorMessage = strings.TrimSpace(task.FailReason)
+		}
+		if errorCode == "" {
+			errorCode = "TaskFailed"
+		}
+		if errorMessage == "" {
+			errorMessage = "Task failed"
+		}
+		response["error"] = map[string]any{
+			"code":    errorCode,
+			"message": errorMessage,
+		}
+	}
+
+	return common.Marshal(response)
+}
+
+func volcengineVideoTaskStatus(upstreamStatus string, taskStatus model.TaskStatus) string {
+	switch strings.ToLower(strings.TrimSpace(upstreamStatus)) {
+	case "queued", "pending", "submitted", "not_start":
+		return "queued"
+	case "running", "processing", "in_progress":
+		return "running"
+	case "succeeded", "success", "completed":
+		return "succeeded"
+	case "failed", "failure", "error":
+		return "failed"
+	case "cancelled", "canceled":
+		return "cancelled"
+	case "expired":
+		return "expired"
+	}
+
+	switch taskStatus {
+	case model.TaskStatusQueued, model.TaskStatusSubmitted, model.TaskStatusNotStart:
+		return "queued"
+	case model.TaskStatusInProgress:
+		return "running"
+	case model.TaskStatusSuccess:
+		return "succeeded"
+	case model.TaskStatusFailure:
+		return "failed"
+	default:
+		return "queued"
+	}
+}
+
+func firstJSONValue(data []byte, paths ...string) (any, bool) {
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		result := gjson.GetBytes(data, path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		return result.Value(), true
+	}
+	return nil, false
+}
+
+func firstJSONScalarString(data []byte, paths ...string) (string, bool) {
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		result := gjson.GetBytes(data, path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		if result.Type == gjson.String || result.Type == gjson.Number {
+			return result.String(), true
+		}
+	}
+	return "", false
+}
+
+func firstJSONInt64(data []byte, paths ...string) (int64, bool) {
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		result := gjson.GetBytes(data, path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		if result.Type == gjson.Number {
+			return result.Int(), true
+		}
+		if result.Type == gjson.String {
+			if value, err := strconv.ParseInt(strings.TrimSpace(result.String()), 10, 64); err == nil {
+				return value, true
+			}
+		}
+	}
+	return 0, false
+}
+
+func firstJSONBool(data []byte, paths ...string) (bool, bool) {
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		result := gjson.GetBytes(data, path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		if result.Type == gjson.True || result.Type == gjson.False {
+			return result.Bool(), true
+		}
+		if result.Type == gjson.String {
+			if value, err := strconv.ParseBool(strings.TrimSpace(result.String())); err == nil {
+				return value, true
+			}
+		}
+	}
+	return false, false
+}
+
+func firstJSONArrayValue(data []byte, paths ...string) ([]any, bool) {
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		result := gjson.GetBytes(data, path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		if result.IsArray() {
+			values, ok := result.Value().([]any)
+			return values, ok
+		}
+		if result.IsObject() {
+			return []any{result.Value()}, true
+		}
+	}
+	return nil, false
+}
+
+func configurableVideoTaskFieldPaths(field string, extraPaths ...string) []string {
+	paths := []string{
+		field,
+		"task." + field,
+		"task.metadata." + field,
+		"data." + field,
+		"data.data.task." + field,
+		"data.data.task.metadata." + field,
+	}
+	return append(paths, extraPaths...)
+}
+
+func firstJSONUnixTime(data []byte, paths ...string) (int64, bool) {
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+		result := gjson.GetBytes(data, path)
+		if !result.Exists() || result.Type == gjson.Null {
+			continue
+		}
+		if result.Type == gjson.Number {
+			return result.Int(), true
+		}
+		value := strings.TrimSpace(result.String())
+		if value == "" {
+			continue
+		}
+		if unixTime, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return unixTime, true
+		}
+		if parsed, err := time.Parse(time.RFC3339Nano, value); err == nil {
+			return parsed.Unix(), true
+		}
+	}
+	return 0, false
 }
 
 func (a *TaskAdaptor) GetModelList() []string {
@@ -600,8 +1024,8 @@ func (a *TaskAdaptor) parseNativeTaskRequest(c *gin.Context) (relaycommon.TaskSu
 	if err := common.Unmarshal(data, &req); err != nil {
 		return relaycommon.TaskSubmitReq{}, err
 	}
-	if strings.TrimSpace(req.Prompt) == "" {
-		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt is required")
+	if strings.TrimSpace(req.Prompt) == "" && !req.HasImage() && strings.TrimSpace(req.Image) == "" && strings.TrimSpace(req.InputReference) == "" {
+		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt or media is required")
 	}
 	if req.Metadata == nil {
 		req.Metadata = map[string]interface{}{}
@@ -640,6 +1064,9 @@ func buildMappedMap(fields []FieldMapping, source map[string]any, info *relaycom
 			return nil, errors.Wrapf(err, "transform field %s", field.To)
 		}
 		value = applyFieldValueMap(value, field)
+		if field.OmitNull && value == nil {
+			continue
+		}
 		if field.OmitEmpty && isEmptyValue(value) {
 			continue
 		}
@@ -757,6 +1184,27 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 		return value, nil
 	case "to_int":
 		return toIntValue(value)
+	case "wan3_billing_duration":
+		duration, err := toIntValue(value)
+		if err != nil || duration == nil {
+			return 5, nil
+		}
+		seconds := int(floatValue(duration))
+		if seconds == -1 {
+			return 30, nil
+		}
+		return seconds, nil
+	case "wan3_resolution_ratio":
+		switch strings.ToUpper(strings.TrimSpace(fmt.Sprint(value))) {
+		case "480P":
+			return 1, nil
+		case "720P":
+			return 2, nil
+		case "1080P", "", "<NIL>":
+			return 4, nil
+		default:
+			return nil, fmt.Errorf("invalid Wan3 resolution %q", value)
+		}
 	case "media_objects":
 		return mediaObjects(value, field), nil
 	case "seedance_text_content":
@@ -974,6 +1422,9 @@ func buildConfiguredResponse(config ResponseConfig, upstream []byte, info *relay
 				return nil, err
 			}
 			value = applyFieldValueMap(value, field)
+			if field.OmitNull && value == nil {
+				continue
+			}
 			if field.OmitEmpty && isEmptyValue(value) {
 				continue
 			}

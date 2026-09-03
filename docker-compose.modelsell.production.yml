@@ -1,0 +1,106 @@
+name: modelsell-api
+
+services:
+  modelsell-api:
+    image: ${MODELSELL_API_IMAGE:-wagjie/modelsell-api:modelsell-2026.08.05}
+    container_name: modelsell-api
+    restart: unless-stopped
+    command: --log-dir /data/logs
+    ports:
+      - "${MODELSELL_BIND_IP:-0.0.0.0}:${MODELSELL_API_PORT:-3000}:3000"
+    volumes:
+      - modelsell_app_data:/data
+    environment:
+      SYSTEM_NAME: Modelsell API
+      SQL_DSN: "modelsell:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}@tcp(mysql:3306)/modelsell?charset=utf8mb4&parseTime=true&loc=Local"
+      REDIS_CONN_STRING: "redis://:${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}@redis:6379/0"
+      SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
+      CRYPTO_SECRET: ${CRYPTO_SECRET:?Set CRYPTO_SECRET in .env}
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      SESSION_COOKIE_TRUSTED_URL: ${SESSION_COOKIE_TRUSTED_URL:-}
+      FRONTEND_BASE_URL: ${FRONTEND_BASE_URL:-}
+      TZ: ${TZ:-Asia/Shanghai}
+      GIN_MODE: release
+      NODE_TYPE: master
+      NODE_NAME: ${NODE_NAME:-modelsell-docker-1}
+      SQL_MAX_OPEN_CONNS: ${SQL_MAX_OPEN_CONNS:-100}
+      SQL_MAX_IDLE_CONNS: ${SQL_MAX_IDLE_CONNS:-25}
+      SQL_MAX_LIFETIME: ${SQL_MAX_LIFETIME:-60}
+      REDIS_POOL_SIZE: ${REDIS_POOL_SIZE:-20}
+      MEMORY_CACHE_ENABLED: ${MEMORY_CACHE_ENABLED:-true}
+      ERROR_LOG_ENABLED: ${ERROR_LOG_ENABLED:-true}
+      SYNC_FREQUENCY: ${SYNC_FREQUENCY:-60}
+      BATCH_UPDATE_ENABLED: ${BATCH_UPDATE_ENABLED:-true}
+      BATCH_UPDATE_INTERVAL: ${BATCH_UPDATE_INTERVAL:-5}
+      STREAMING_TIMEOUT: ${STREAMING_TIMEOUT:-300}
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:3000/api/status | grep -q '\"success\":true'"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - modelsell
+
+  mysql:
+    image: mysql:8.4
+    container_name: modelsell-mysql
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: modelsell
+      MYSQL_USER: modelsell
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - modelsell_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    networks:
+      - modelsell
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: modelsell-redis
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Set REDIS_PASSWORD in .env}
+      TZ: ${TZ:-Asia/Shanghai}
+    command:
+      - sh
+      - -c
+      - exec redis-server --appendonly yes --appendfsync everysec --requirepass "$$REDIS_PASSWORD"
+    volumes:
+      - modelsell_redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "REDISCLI_AUTH=$$REDIS_PASSWORD redis-cli ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - modelsell
+
+volumes:
+  modelsell_app_data:
+    name: modelsell-api-app-data
+  modelsell_mysql_data:
+    name: modelsell-api-mysql-data
+  modelsell_redis_data:
+    name: modelsell-api-redis-data
+
+networks:
+  modelsell:
+    name: modelsell-api-network
+    driver: bridge

@@ -1,10 +1,6 @@
 package configurable
 
-import (
-	"testing"
-
-	"github.com/stretchr/testify/require"
-)
+import "testing"
 
 func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	profiles := ListProfiles()
@@ -138,42 +134,45 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 		t.Fatalf("unexpected api assets delete path params: %#v", deleteAPIAsset.PathParams)
 	}
 
-	apimeter, ok := GetProfile("seedance2-apimeter")
+	modelsell, ok := GetProfile("seedance2-modelsell")
 	if !ok {
-		t.Fatal("expected seedance2-apimeter profile")
+		t.Fatal("expected seedance2-modelsell profile")
 	}
-	if apimeter.Name != "Seedance 2.0 APIMeter" {
-		t.Fatalf("unexpected APIMeter profile name: %s", apimeter.Name)
+	if modelsell.Name != "Seedance 2.0 Modelsell" {
+		t.Fatalf("unexpected Modelsell profile name: %s", modelsell.Name)
 	}
-	if apimeter.Video == nil || apimeter.Video.Submit.Path != "/api/v3/contents/generations/tasks" {
-		t.Fatalf("unexpected APIMeter Seedance video protocol: %#v", apimeter.Video)
+	if modelsell.Video == nil || modelsell.Video.Submit.Path != "/api/v3/contents/generations/tasks" {
+		t.Fatalf("unexpected Modelsell Seedance video protocol: %#v", modelsell.Video)
 	}
-	apimeterFetch := apimeter.Video.Fetch.Response
-	if apimeterFetch.StatusPath != "data.status" ||
-		apimeterFetch.ResultURLPath != "data.result_url" ||
-		apimeterFetch.TotalTokensPath != "data.data.task.usage.total_tokens" ||
-		apimeterFetch.CompletionTokensPath != "data.data.task.usage.completion_tokens" {
-		t.Fatalf("unexpected APIMeter Seedance fetch response paths: %#v", apimeterFetch)
+	modelsellFetch := modelsell.Video.Fetch.Response
+	if modelsell.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
+		t.Fatalf("unexpected Modelsell Seedance native fetch response format: %s", modelsell.Video.Native.Fetch.ResponseFormat)
 	}
-	apimeterUpload, ok := apimeter.ResourceByID("assets_upload")
+	if modelsellFetch.StatusPath != "data.status" ||
+		modelsellFetch.ResultURLPath != "data.result_url" ||
+		modelsellFetch.TotalTokensPath != "data.data.task.usage.total_tokens" ||
+		modelsellFetch.CompletionTokensPath != "data.data.task.usage.completion_tokens" {
+		t.Fatalf("unexpected Modelsell Seedance fetch response paths: %#v", modelsellFetch)
+	}
+	modelsellUpload, ok := modelsell.ResourceByID("assets_upload")
 	if !ok {
-		t.Fatal("expected APIMeter assets_upload resource")
+		t.Fatal("expected Modelsell assets_upload resource")
 	}
-	if apimeterUpload.Public.Path != "/api/assets/upload" || apimeterUpload.Upstream.Path != "/api/assets/upload" {
-		t.Fatalf("unexpected APIMeter assets upload paths: public=%s upstream=%s", apimeterUpload.Public.Path, apimeterUpload.Upstream.Path)
+	if modelsellUpload.Public.Path != "/api/assets/upload" || modelsellUpload.Upstream.Path != "/api/assets/upload" {
+		t.Fatalf("unexpected Modelsell assets upload paths: public=%s upstream=%s", modelsellUpload.Public.Path, modelsellUpload.Upstream.Path)
 	}
-	if len(apimeterUpload.Query.Fields) != 1 || apimeterUpload.Query.Fields[0].From != "query.model" {
-		t.Fatalf("expected APIMeter upload model query mapping: %#v", apimeterUpload.Query.Fields)
+	if len(modelsellUpload.Query.Fields) != 1 || modelsellUpload.Query.Fields[0].From != "query.model" {
+		t.Fatalf("expected Modelsell upload model query mapping: %#v", modelsellUpload.Query.Fields)
 	}
-	apimeterDetail, ok := apimeter.ResourceByID("asset_detail")
+	modelsellDetail, ok := modelsell.ResourceByID("asset_detail")
 	if !ok {
-		t.Fatal("expected APIMeter asset_detail resource")
+		t.Fatal("expected Modelsell asset_detail resource")
 	}
-	if apimeterDetail.Public.Path != "/api/assets/{id}" || apimeterDetail.Upstream.Path != "/api/assets/{id}" {
-		t.Fatalf("unexpected APIMeter asset detail paths: public=%s upstream=%s", apimeterDetail.Public.Path, apimeterDetail.Upstream.Path)
+	if modelsellDetail.Public.Path != "/api/assets/{id}" || modelsellDetail.Upstream.Path != "/api/assets/{id}" {
+		t.Fatalf("unexpected Modelsell asset detail paths: public=%s upstream=%s", modelsellDetail.Public.Path, modelsellDetail.Upstream.Path)
 	}
-	if len(apimeterDetail.Query.Fields) != 1 || apimeterDetail.Query.Fields[0].From != "query.model" {
-		t.Fatalf("expected APIMeter detail model query mapping: %#v", apimeterDetail.Query.Fields)
+	if len(modelsellDetail.Query.Fields) != 1 || modelsellDetail.Query.Fields[0].From != "query.model" {
+		t.Fatalf("expected Modelsell detail model query mapping: %#v", modelsellDetail.Query.Fields)
 	}
 
 	serviceInference, ok := GetProfile("seedance2-service-inference")
@@ -191,6 +190,9 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 	if serviceInference.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference native fetch path: %s", serviceInference.Video.Native.Fetch.Path)
+	}
+	if serviceInference.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
+		t.Fatalf("unexpected service inference native fetch response format: %s", serviceInference.Video.Native.Fetch.ResponseFormat)
 	}
 	if serviceInference.Video.Fetch.Path != "/v1/video/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference upstream fetch path: %s", serviceInference.Video.Fetch.Path)
@@ -270,6 +272,9 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 	if arkTaskAssets.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
 		t.Fatalf("unexpected ark task assets native fetch path: %s", arkTaskAssets.Video.Native.Fetch.Path)
+	}
+	if arkTaskAssets.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
+		t.Fatalf("unexpected ark task assets native fetch response format: %s", arkTaskAssets.Video.Native.Fetch.ResponseFormat)
 	}
 	arkUpload, ok := arkTaskAssets.ResourceByID("assets_upload")
 	if !ok {
@@ -483,18 +488,24 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	}
 }
 
-func TestGetProfileKeepsPersistedModelsellAliasWorking(t *testing.T) {
-	legacy, ok := GetProfile("seedance2-modelsell")
-	require.True(t, ok)
-	require.Equal(t, "seedance2-modelsell", legacy.ID)
-	require.Equal(t, "Seedance 2.0 APIMeter", legacy.Name)
-	require.NotNil(t, legacy.Video)
-	require.Equal(t, "/api/v3/contents/generations/tasks", legacy.Video.Submit.Path)
-
-	canonical, ok := GetProfile("seedance2-apimeter")
-	require.True(t, ok)
-	require.Equal(t, canonical.Video, legacy.Video)
-	require.Equal(t, canonical.Resources, legacy.Resources)
+func TestWan3ProfileRegistersNativeDashScopeProtocol(t *testing.T) {
+	profile, ok := GetProfile("dashscope-wan3-video")
+	if !ok {
+		t.Fatal("expected dashscope-wan3-video profile")
+	}
+	if !profile.VideoNativeSubmit().Passthrough {
+		t.Fatal("expected Wan3 native submit request passthrough")
+	}
+	if profile.VideoNativeSubmit().Path != "/api/v1/services/aigc/video-generation/video-synthesis" {
+		t.Fatalf("unexpected native submit path: %s", profile.VideoNativeSubmit().Path)
+	}
+	if profile.VideoNativeFetch().Path != "/api/v1/tasks/{task_id}" {
+		t.Fatalf("unexpected native fetch path: %s", profile.VideoNativeFetch().Path)
+	}
+	matches := MatchNativeSubmitProfiles("POST", "/api/v1/services/aigc/video-generation/video-synthesis")
+	if len(matches) == 0 || matches[0].ID != "dashscope-wan3-video" {
+		t.Fatalf("expected Wan3 profile to own the shared native route, got %#v", matches)
+	}
 }
 
 func assertPathVariants(t *testing.T, endpoint EndpointConfig, expected []string) {

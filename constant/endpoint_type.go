@@ -1,11 +1,16 @@
 package constant
 
-type EndpointType string
+import "github.com/QuantumNous/new-api/relaykit/types"
+
+// EndpointType moved to types with the conversion kit; aliases keep host
+// code compiling unchanged.
+type EndpointType = types.EndpointType
 
 const (
 	EndpointTypeOpenAI                EndpointType = "openai"
 	EndpointTypeOpenAIResponse        EndpointType = "openai-response"
 	EndpointTypeOpenAIResponseCompact EndpointType = "openai-response-compact"
+	EndpointTypeOpenAIAlphaSearch     EndpointType = types.EndpointTypeOpenAIAlphaSearch
 	EndpointTypeAnthropic             EndpointType = "anthropic"
 	EndpointTypeGemini                EndpointType = "gemini"
 	EndpointTypeJinaRerank            EndpointType = "jina-rerank"

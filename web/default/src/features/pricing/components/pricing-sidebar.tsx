@@ -31,6 +31,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import {
   ENDPOINT_TYPES,
   FILTER_ALL,
@@ -40,9 +41,14 @@ import {
   getModalityTypeLabels,
   getQuotaTypeLabels,
 } from '../constants'
+import { isGroupDiscountHidden } from '../lib/group-display'
 import { inferModelMetadata } from '../lib/model-metadata'
 import { sortVendorsByConfiguredOrder } from '../lib/vendor-order'
-import type { PricingModel, PricingVendor } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  PricingVendor,
+} from '../types'
 import {
   PRICING_SUPPLIER_FILTER_DEFAULT_OPEN,
   PRICING_VENDOR_FILTER_DEFAULT_OPEN,
@@ -81,6 +87,7 @@ export interface PricingSidebarProps {
   vendors: PricingVendor[]
   groups: string[]
   groupRatios?: Record<string, number>
+  groupDisplay?: PricingGroupDisplayConfig
   models: PricingModel[]
   hasActiveFilters: boolean
   activeFilterCount: number
@@ -135,9 +142,11 @@ function FilterChip(props: {
         </span>
       )}
       {props.option.count == null && props.option.suffix && (
-        <span className='bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]'>
-          {props.option.suffix}
-        </span>
+        <DiscountTooltip label={props.option.suffix}>
+          <span className='bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10px]'>
+            {props.option.suffix}
+          </span>
+        </DiscountTooltip>
       )}
     </button>
   )
@@ -255,7 +264,9 @@ export function PricingSidebar(props: PricingSidebarProps) {
       count: countBy(props.models, (model) =>
         model.enable_groups?.includes(group)
       ),
-      suffix: formatGroupDiscount(props.groupRatios?.[group], discountLabels),
+      suffix: isGroupDiscountHidden(group, props.groupDisplay)
+        ? undefined
+        : formatGroupDiscount(props.groupRatios?.[group], discountLabels),
     })),
   ].filter((option) => option.value === FILTER_ALL || (option.count ?? 0) > 0)
 

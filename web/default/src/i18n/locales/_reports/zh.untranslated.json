@@ -69,6 +69,7 @@
   "MidjourneyPlus": "MidjourneyPlus",
   "MiniMax": "MiniMax",
   "Mistral": "Mistral",
+  "Modelsell Tokens Plan": "Modelsell Tokens Plan",
   "MokaAI": "MokaAI",
   "Moonshot": "Moonshot",
   "Moxing GPT Image 2": "Moxing GPT Image 2",
@@ -116,7 +117,5 @@
   "whsec_xxx": "whsec_xxx",
   "Windows": "Windows",
   "Worker URL": "Worker URL",
-  "Xinference": "Xinference",
-  "EVM / ERC-20": "EVM / ERC-20",
-  "TRON / TRC-20": "TRON / TRC-20"
+  "Xinference": "Xinference"
 }

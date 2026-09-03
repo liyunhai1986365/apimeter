@@ -1,8 +1,8 @@
-# APIMeter API
+# Modelsell API
 
-APIMeter API 是面向团队和企业的统一 AI 模型网关与运营管理平台。它将不同模型供应商的接口、凭据、路由、计量和用户体系集中到一个控制台，并向业务应用提供统一、可治理的 API。
+Modelsell API 是面向团队和企业的统一 AI 模型网关与运营管理平台。它将不同模型供应商的接口、凭据、路由、计量和用户体系集中到一个控制台，并向业务应用提供统一、可治理的 API。
 
-> 本仓库为 APIMeter API 的私有开发仓库。部署和使用前，请确保已经取得上游模型、支付渠道及其他第三方服务的合法授权，并遵守适用的服务条款和法律法规。
+> 本仓库为 Modelsell API 的私有开发仓库。部署和使用前，请确保已经取得上游模型、支付渠道及其他第三方服务的合法授权，并遵守适用的服务条款和法律法规。
 
 ## 主要能力
 
@@ -30,26 +30,25 @@ APIMeter API 是面向团队和企业的统一 AI 模型网关与运营管理平
 要求：Docker Engine 24+、Docker Compose v2。
 
 ```bash
-APIMETER_REPOSITORY_URL=填写实际仓库地址
-git clone "$APIMETER_REPOSITORY_URL" apimeter-api
-cd apimeter-api
+git clone https://github.com/modelsell/modelsell-api.git
+cd modelsell-api
 
-cp .env.apimeter.example .env
+cp .env.modelsell.example .env
 openssl rand -hex 32
 ```
 
 将生成的随机值写入 `.env` 的 `SESSION_SECRET`，然后启动：
 
 ```bash
-docker compose -f docker-compose.apimeter.yml config --quiet
-docker compose -f docker-compose.apimeter.yml pull
-docker compose -f docker-compose.apimeter.yml up -d
+docker compose -f docker-compose.modelsell.yml config --quiet
+docker compose -f docker-compose.modelsell.yml pull
+docker compose -f docker-compose.modelsell.yml up -d
 ```
 
 检查服务：
 
 ```bash
-docker compose -f docker-compose.apimeter.yml ps
+docker compose -f docker-compose.modelsell.yml ps
 curl --fail http://127.0.0.1:3000/api/status
 ```
 
@@ -59,54 +58,53 @@ curl --fail http://127.0.0.1:3000/api/status
 
 ```bash
 # 查看日志
-docker compose -f docker-compose.apimeter.yml logs -f --tail=200 apimeter-api
+docker compose -f docker-compose.modelsell.yml logs -f --tail=200 modelsell-api
 
 # 停止服务并保留数据
-docker compose -f docker-compose.apimeter.yml down
+docker compose -f docker-compose.modelsell.yml down
 
 # 更新并重新启动
-docker compose -f docker-compose.apimeter.yml pull
-docker compose -f docker-compose.apimeter.yml up -d
+docker compose -f docker-compose.modelsell.yml pull
+docker compose -f docker-compose.modelsell.yml up -d
 ```
 
-数据保存在 Docker 命名卷 `apimeter-api-data` 中。不要在未备份时执行 `docker compose down -v`。
+数据保存在 Docker 命名卷 `modelsell-api-data` 中。不要在未备份时执行 `docker compose down -v`。
 
 ### 方式二：生产部署
 
-生产环境使用存量 MySQL + Redis，并固定已经验证的镜像版本：
+生产环境建议使用 MySQL + Redis，并固定已经验证的镜像版本：
 
 ```bash
-cp .env.apimeter.production.example .env
+cp .env.modelsell.production.example .env
 chmod 600 .env
 ```
 
-填写以下配置：
+使用 `openssl rand -hex 32` 分别生成并填写以下配置，且不要复用：
 
-- `SQL_DSN`（指向存量 MySQL）
-- `LOG_SQL_DSN`（留空即复用 `SQL_DSN`）
+- `MYSQL_ROOT_PASSWORD`
+- `MYSQL_PASSWORD`
 - `REDIS_PASSWORD`
-- `SESSION_SECRET`（复用历史值以保留登录态）
-- `CRYPTO_SECRET`（旧部署未单独设置时使用历史 `SESSION_SECRET`）
+- `SESSION_SECRET`
+- `CRYPTO_SECRET`
 
 验证配置并启动：
 
 ```bash
-docker compose --env-file .env -f docker-compose.apimeter.production.yml config --quiet
-docker compose --env-file .env -f docker-compose.apimeter.production.yml pull
-docker compose --env-file .env -f docker-compose.apimeter.production.yml up -d
+docker compose --env-file .env -f docker-compose.modelsell.production.yml config --quiet
+docker compose --env-file .env -f docker-compose.modelsell.production.yml pull
+docker compose --env-file .env -f docker-compose.modelsell.production.yml up -d
 curl --fail http://127.0.0.1:3000/api/status
 ```
 
-完整的服务器准备、HTTPS、备份、恢复、升级和安全检查说明见 [APIMeter API Docker 部署指南](./DOCKER_DEPLOY_APIMETER.md)。
+完整的服务器准备、HTTPS、备份、恢复、升级和安全检查说明见 [Modelsell API Docker 部署指南](./DOCKER_DEPLOY_MODELSELL.md)。
 
 ### 方式三：源码构建
 
 要求：Go 1.25.1+、Bun 1.x、Git，以及 SQLite、MySQL 或 PostgreSQL 中的一种数据库。
 
 ```bash
-APIMETER_REPOSITORY_URL=填写实际仓库地址
-git clone "$APIMETER_REPOSITORY_URL" apimeter-api
-cd apimeter-api
+git clone https://github.com/modelsell/modelsell-api.git
+cd modelsell-api
 
 cd web/default
 bun install
@@ -117,10 +115,8 @@ bun install
 VITE_REACT_APP_VERSION=$(cat ../../VERSION) bun run build
 
 cd ../..
-go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o apimeter-api .
+go build -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o modelsell-api .
 ```
-
-默认前端使用 `https://static.apimeter.ai` 获取 CLI 安装器，并使用 `https://docs.apimeter.ai` 打开文档。自托管这些资源时，在构建默认前端前设置 `VITE_APIMETER_STATIC_URL` 和 `VITE_APIMETER_DOCS_URL`。
 
 创建本地环境文件：
 
@@ -133,16 +129,16 @@ openssl rand -hex 32
 至少在 `.env` 中配置：
 
 ```dotenv
-SYSTEM_NAME=APIMeter API
+SYSTEM_NAME=Modelsell API
 PORT=3000
-SQLITE_PATH=./data/apimeter-api.db
+SQLITE_PATH=./data/modelsell-api.db
 SESSION_SECRET=替换为刚生成的随机值
 ```
 
 启动服务：
 
 ```bash
-./apimeter-api
+./modelsell-api
 ```
 
 需要开发前端时，可在 `web/default` 中运行 `bun run dev`；后端可在仓库根目录运行 `go run main.go`。后端嵌入前端构建产物，因此首次启动前应先完成两个前端的构建。
@@ -154,7 +150,7 @@ SESSION_SECRET=替换为刚生成的随机值
 | 变量 | 用途 |
 | --- | --- |
 | `PORT` | HTTP 监听端口，默认 `3000` |
-| `SYSTEM_NAME` | 控制台显示名称，默认 `APIMeter API` |
+| `SYSTEM_NAME` | 控制台显示名称，默认 `Modelsell API` |
 | `SQLITE_PATH` | SQLite 数据库文件路径 |
 | `SQL_DSN` | MySQL 或 PostgreSQL 连接信息 |
 | `ERROR_LOG_ENABLED` | 将 relay 错误写入日志表；不保存请求体、请求头或响应正文，默认 `false` |
@@ -173,10 +169,10 @@ SESSION_SECRET=替换为刚生成的随机值
 在控制台创建访问令牌并配置至少一个可用渠道后，可以通过 OpenAI 兼容接口调用：
 
 ```bash
-export APIMETER_API_KEY='替换为控制台创建的令牌'
+export MODELSELL_API_KEY='替换为控制台创建的令牌'
 
 curl http://127.0.0.1:3000/v1/chat/completions \
-  -H "Authorization: Bearer ${APIMETER_API_KEY}" \
+  -H "Authorization: Bearer ${MODELSELL_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "model": "your-model-id",

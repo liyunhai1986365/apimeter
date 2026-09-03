@@ -2,8 +2,10 @@ package model
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 )
@@ -42,6 +44,7 @@ const (
 var ErrAgentUserNotFound = errors.New("agent user not found")
 var ErrAgentNotFound = errors.New("agent not found")
 var ErrAgentUserAlreadyBound = errors.New("user already belongs to another agent")
+var ErrAgentAnnouncementNotFound = errors.New("agent announcement not found")
 
 type Agent struct {
 	Id                 int     `json:"id"`
@@ -109,6 +112,17 @@ type AgentUserWithProfile struct {
 	LastLoginAt     int64  `json:"last_login_at" gorm:"column:last_login_at"`
 }
 
+type AgentUserMembership struct {
+	UserId        int    `json:"user_id" gorm:"column:user_id"`
+	AgentName     string `json:"agent_name" gorm:"column:agent_name"`
+	AgentBranding string `json:"-" gorm:"column:agent_branding"`
+}
+
+type agentUserDomain struct {
+	UserId int    `json:"user_id" gorm:"column:user_id"`
+	Domain string `json:"domain" gorm:"column:domain"`
+}
+
 type AgentPricingRule struct {
 	Id           int     `json:"id"`
 	AgentId      int     `json:"agent_id" gorm:"index:idx_agent_pricing_agent_model,priority:1;column:agent_id"`
@@ -139,6 +153,25 @@ type AgentUserGroupConfig struct {
 	GroupRatios   string `json:"group_ratios" gorm:"type:text;column:group_ratios"`
 	CreatedAt     int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
 	UpdatedAt     int64  `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
+}
+
+type AgentAnnouncement struct {
+	Id              int    `json:"id"`
+	AgentId         int    `json:"agent_id" gorm:"index:idx_agent_announcements_agent_publish,priority:1;column:agent_id"`
+	Title           string `json:"title" gorm:"type:varchar(120)"`
+	Content         string `json:"content" gorm:"type:text"`
+	Type            string `json:"type" gorm:"type:varchar(32);index"`
+	Extra           string `json:"extra" gorm:"type:varchar(100)"`
+	PublishAt       int64  `json:"publish_at" gorm:"index:idx_agent_announcements_agent_publish,priority:2;column:publish_at"`
+	Enabled         bool   `json:"enabled" gorm:"index"`
+	CreatedBy       int    `json:"created_by" gorm:"index;column:created_by"`
+	UpdatedBy       int    `json:"updated_by" gorm:"index;column:updated_by"`
+	LastEmailAt     int64  `json:"last_email_at" gorm:"column:last_email_at"`
+	LastEmailTotal  int    `json:"last_email_total" gorm:"column:last_email_total"`
+	LastEmailSent   int    `json:"last_email_sent" gorm:"column:last_email_sent"`
+	LastEmailFailed int    `json:"last_email_failed" gorm:"column:last_email_failed"`
+	CreatedAt       int64  `json:"created_at" gorm:"autoCreateTime;column:created_at"`
+	UpdatedAt       int64  `json:"updated_at" gorm:"autoUpdateTime;column:updated_at"`
 }
 
 type AgentLedger struct {
@@ -311,6 +344,52 @@ func ListAgentDomains(agentId int, startIdx int, num int) ([]*AgentDomain, int64
 	return domains, total, nil
 }
 
+func GetPrimaryActiveAgentDomain(agentId int) (*AgentDomain, error) {
+	var domain AgentDomain
+	query := DB.Model(&AgentDomain{}).
+		Where("agent_id = ? AND status = ?", agentId, AgentDomainStatusActive).
+		Order("id asc").
+		Limit(1).
+		Find(&domain)
+	if query.Error != nil {
+		return nil, query.Error
+	}
+	if query.RowsAffected == 0 {
+		return nil, nil
+	}
+	return &domain, nil
+}
+
+func ListPrimaryActiveAgentDomainsForUsers(userIds []int) (map[int]string, error) {
+	result := make(map[int]string)
+	if len(userIds) == 0 {
+		return result, nil
+	}
+
+	const batchSize = 500
+	for start := 0; start < len(userIds); start += batchSize {
+		end := min(start+batchSize, len(userIds))
+		var rows []agentUserDomain
+		err := DB.Table("agent_users").
+			Select("agent_users.user_id, agent_domains.domain").
+			Joins("JOIN agents ON agents.id = agent_users.agent_id").
+			Joins("JOIN agent_domains ON agent_domains.agent_id = agents.id").
+			Where("agent_users.user_id IN ?", userIds[start:end]).
+			Where("agent_users.status = ? AND agents.status = ? AND agent_domains.status = ?", AgentUserStatusEnabled, AgentStatusEnabled, AgentDomainStatusActive).
+			Order("agent_users.user_id asc, agent_domains.id asc").
+			Find(&rows).Error
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			if _, exists := result[row.UserId]; !exists && strings.TrimSpace(row.Domain) != "" {
+				result[row.UserId] = row.Domain
+			}
+		}
+	}
+	return result, nil
+}
+
 func ListAgentDomainsByStatus(status int, startIdx int, num int) ([]*AgentDomainWithAgent, int64, error) {
 	var domains []*AgentDomainWithAgent
 	var total int64
@@ -417,6 +496,113 @@ func ListAgentUsers(agentId int, keyword string, startIdx int, num int) ([]*Agen
 		return nil, 0, err
 	}
 	return users, total, nil
+}
+
+func ListAgentUserMemberships(userIds []int) ([]*AgentUserMembership, error) {
+	memberships := make([]*AgentUserMembership, 0)
+	if len(userIds) == 0 {
+		return memberships, nil
+	}
+	err := DB.Table("agent_users").
+		Select("agent_users.user_id, agents.name AS agent_name, agents.branding AS agent_branding").
+		Joins("JOIN agents ON agents.id = agent_users.agent_id").
+		Where("agent_users.user_id IN ? AND agent_users.status = ?", userIds, AgentUserStatusEnabled).
+		Find(&memberships).Error
+	return memberships, err
+}
+
+func ListAgentAnnouncements(agentId int, startIdx int, num int) ([]*AgentAnnouncement, int64, error) {
+	announcements := make([]*AgentAnnouncement, 0)
+	var total int64
+	tx := DB.Model(&AgentAnnouncement{}).Where("agent_id = ?", agentId)
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	if err := tx.Order("publish_at desc, id desc").Limit(num).Offset(startIdx).Find(&announcements).Error; err != nil {
+		return nil, 0, err
+	}
+	return announcements, total, nil
+}
+
+func ListPublishedAgentAnnouncements(agentId int, limit int, now int64) ([]*AgentAnnouncement, error) {
+	announcements := make([]*AgentAnnouncement, 0)
+	tx := DB.Where("agent_id = ? AND enabled = ? AND publish_at <= ?", agentId, true, now).
+		Order("publish_at desc, id desc")
+	if limit > 0 {
+		tx = tx.Limit(limit)
+	}
+	if err := tx.Find(&announcements).Error; err != nil {
+		return nil, err
+	}
+	return announcements, nil
+}
+
+func GetAgentAnnouncement(agentId int, announcementId int) (*AgentAnnouncement, error) {
+	var announcement AgentAnnouncement
+	err := DB.Where("agent_id = ? AND id = ?", agentId, announcementId).First(&announcement).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, ErrAgentAnnouncementNotFound
+	}
+	return &announcement, err
+}
+
+func CreateAgentAnnouncement(announcement *AgentAnnouncement) error {
+	return DB.Create(announcement).Error
+}
+
+func UpdateAgentAnnouncement(announcement *AgentAnnouncement) error {
+	return DB.Model(&AgentAnnouncement{}).
+		Where("agent_id = ? AND id = ?", announcement.AgentId, announcement.Id).
+		Updates(map[string]interface{}{
+			"title":      announcement.Title,
+			"content":    announcement.Content,
+			"type":       announcement.Type,
+			"extra":      announcement.Extra,
+			"publish_at": announcement.PublishAt,
+			"enabled":    announcement.Enabled,
+			"updated_by": announcement.UpdatedBy,
+		}).Error
+}
+
+func DeleteAgentAnnouncement(agentId int, announcementId int) error {
+	result := DB.Where("agent_id = ? AND id = ?", agentId, announcementId).Delete(&AgentAnnouncement{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrAgentAnnouncementNotFound
+	}
+	return nil
+}
+
+func RecordAgentAnnouncementEmailResult(agentId int, announcementId int, sentAt int64, total int, sent int, failed int) error {
+	result := DB.Model(&AgentAnnouncement{}).
+		Where("agent_id = ? AND id = ?", agentId, announcementId).
+		Updates(map[string]interface{}{
+			"last_email_at":     sentAt,
+			"last_email_total":  total,
+			"last_email_sent":   sent,
+			"last_email_failed": failed,
+		})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrAgentAnnouncementNotFound
+	}
+	return nil
+}
+
+func (announcement *AgentAnnouncement) PublicData() map[string]interface{} {
+	return map[string]interface{}{
+		"id":          fmt.Sprintf("agent:%d:%d", announcement.AgentId, announcement.Id),
+		"title":       announcement.Title,
+		"content":     announcement.Content,
+		"publishDate": time.Unix(announcement.PublishAt, 0).UTC().Format(time.RFC3339),
+		"type":        announcement.Type,
+		"extra":       announcement.Extra,
+		"source":      "agent",
+	}
 }
 
 func ListAgentLedger(agentId int, startIdx int, num int) ([]*AgentLedger, int64, error) {

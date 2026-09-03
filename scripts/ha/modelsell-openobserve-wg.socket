@@ -1,0 +1,11 @@
+[Unit]
+Description=ModelSell OpenObserve private WireGuard listener
+After=network-online.target wg-quick@wg0.service
+Wants=network-online.target wg-quick@wg0.service
+
+[Socket]
+ListenStream=10.38.145.2:5080
+Accept=no
+
+[Install]
+WantedBy=sockets.target

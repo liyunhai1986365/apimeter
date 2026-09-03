@@ -80,7 +80,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { DateTimePicker } from '@/components/datetime-picker'
 import { MultiSelect } from '@/components/multi-select'
 import { getPerfMetricsGroups } from '@/features/performance-metrics/api'
-import { getPricing } from '@/features/pricing/api'
+import { getPricing, hydratePricingModels } from '@/features/pricing/api'
 import { createApiKey, updateApiKey, getApiKey } from '../api'
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants'
 import {
@@ -305,6 +305,10 @@ export function ApiKeysMutateDrawer({
 
   const models = modelsData?.data || []
   const groupsRaw = groupsData?.data || {}
+  const pricingModels = useMemo(
+    () => (pricingData ? hydratePricingModels(pricingData) : []),
+    [pricingData]
+  )
   const groupPerformance = useMemo(
     () =>
       Object.fromEntries(
@@ -319,10 +323,15 @@ export function ApiKeysMutateDrawer({
     defaultValues: getApiKeyFormDefaultValues(),
   })
   const watchedGroupChain = form.watch('group_chain')
+  const watchedModelLimits = form.watch('model_limits')
   const groups: ApiKeyGroupOption[] = buildApiKeyGroupOptions(
     groupsRaw,
     true,
-    currentRow?.group || watchedGroupChain?.[0]
+    currentRow?.group || watchedGroupChain?.[0],
+    {
+      models: pricingModels,
+      modelLimits: watchedModelLimits,
+    }
   )
 
   // Load existing data when updating
@@ -338,7 +347,8 @@ export function ApiKeysMutateDrawer({
     }
   }, [open, isUpdate, currentRow, form])
 
-  // Correct group after groups load: if the form value is not in available groups, fall back.
+  // Remove unavailable groups after the supplier list loads. Manual routing may
+  // intentionally stay empty until the user chooses a supplier.
   useEffect(() => {
     if ((form.getValues('routing_mode') || 'smart') === 'smart') return
     if (groups.length === 0) return
@@ -346,16 +356,8 @@ export function ApiKeysMutateDrawer({
     const cleanChain = currentChain.filter(
       (group) => !shouldFallbackApiKeyGroup(group, groups)
     )
-    if (cleanChain.length !== currentChain.length || cleanChain.length === 0) {
-      const fallback =
-        groups.find((g) => g.value === AUTO_GROUP_VALUE)?.value ??
-        groups.find((g) => g.value === 'default')?.value ??
-        groups[0]?.value ??
-        AUTO_GROUP_VALUE
-      form.setValue(
-        'group_chain',
-        cleanChain.length > 0 ? cleanChain : [fallback]
-      )
+    if (cleanChain.length !== currentChain.length) {
+      form.setValue('group_chain', cleanChain)
     }
   }, [groups, form])
 
@@ -534,15 +536,7 @@ export function ApiKeysMutateDrawer({
                               AUTO_GROUP_VALUE
                             )
                           ) {
-                            const fallback =
-                              groups.find((g) => g.value === 'default')
-                                ?.value ??
-                              groups[0]?.value ??
-                              ''
-                            form.setValue(
-                              'group_chain',
-                              fallback ? [fallback] : []
-                            )
+                            form.setValue('group_chain', [])
                           }
                         }}
                         className='gap-3'
@@ -682,7 +676,7 @@ export function ApiKeysMutateDrawer({
                                               pricingData?.group_display
                                             }
                                             vendors={pricingData?.vendors}
-                                            models={pricingData?.data}
+                                            models={pricingModels}
                                             groupPerformance={groupPerformance}
                                             triggerLabel={t(
                                               'Select suppliers to ignore'
@@ -720,7 +714,7 @@ export function ApiKeysMutateDrawer({
                                     onChange={groupField.onChange}
                                     groupDisplay={pricingData?.group_display}
                                     vendors={pricingData?.vendors}
-                                    models={pricingData?.data}
+                                    models={pricingModels}
                                     groupPerformance={groupPerformance}
                                   />
                                 </FormControl>

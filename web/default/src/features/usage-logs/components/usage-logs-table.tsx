@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import {
@@ -44,6 +44,7 @@ import { useColumnsByCategory } from '../lib/columns'
 import { usageLogsManualRefreshQueryOptions } from '../lib/query-options'
 import { fetchLogsByCategory } from '../lib/utils'
 import type { LogCategory } from '../types'
+import { CommonLogsCursorPagination } from './common-logs-cursor-pagination'
 import { CommonLogsFilterBar } from './common-logs-filter-bar'
 import { RetryRouteEventsFilterBar } from './retry-route-events-filter-bar'
 import { TaskLogsFilterBar } from './task-logs-filter-bar'
@@ -65,6 +66,8 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
   const isRoot = useIsRoot()
   const isMobile = useMediaQuery('(max-width: 640px)')
   const searchParams = route.useSearch()
+  const isCommon = logCategory === 'common'
+  const [commonCursors, setCommonCursors] = useState<number[]>([0])
   const [columnVisibility, setColumnVisibility] = useState<
     Record<string, boolean>
   >(
@@ -113,6 +116,31 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     ],
   })
 
+  const cursorFilterKey = useMemo(() => {
+    const filters = { ...searchParams } as Record<string, unknown>
+    delete filters.page
+    delete filters.pageSize
+    return JSON.stringify(filters)
+  }, [searchParams])
+
+  useEffect(() => {
+    if (isCommon) setCommonCursors([0])
+  }, [isCommon, cursorFilterKey, pagination.pageSize])
+
+  useEffect(() => {
+    if (
+      isCommon &&
+      pagination.pageIndex > 0 &&
+      commonCursors[pagination.pageIndex] == null
+    ) {
+      onPaginationChange({ ...pagination, pageIndex: 0 })
+    }
+  }, [commonCursors, isCommon, onPaginationChange, pagination])
+
+  const currentCursor = isCommon
+    ? (commonCursors[pagination.pageIndex] ?? 0)
+    : 0
+
   const { data, isLoading, isFetching } = useQuery({
     ...usageLogsManualRefreshQueryOptions,
     queryKey: [
@@ -122,6 +150,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       isRoot,
       pagination.pageIndex + 1,
       pagination.pageSize,
+      currentCursor,
       columnFilters,
       searchParams,
       t,
@@ -132,6 +161,7 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
         isAdmin,
         page: pagination.pageIndex + 1,
         pageSize: pagination.pageSize,
+        cursor: currentCursor,
         searchParams,
         columnFilters,
       })
@@ -173,15 +203,41 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
     getFacetedUniqueValues: getFacetedUniqueValues(),
     manualFiltering: true,
     manualPagination: true,
-    pageCount: Math.ceil((data?.total || 0) / pagination.pageSize),
+    pageCount: isCommon
+      ? -1
+      : Math.ceil((data?.total || 0) / pagination.pageSize),
   })
 
   const pageCount = table.getPageCount()
   useEffect(() => {
-    ensurePageInRange(pageCount)
-  }, [pageCount, ensurePageInRange])
+    if (!isCommon) ensurePageInRange(pageCount)
+  }, [isCommon, pageCount, ensurePageInRange])
 
-  const isCommon = logCategory === 'common'
+  const handleCursorPrevious = () => {
+    if (pagination.pageIndex === 0) return
+    onPaginationChange({
+      ...pagination,
+      pageIndex: pagination.pageIndex - 1,
+    })
+  }
+
+  const handleCursorNext = () => {
+    const nextCursor = data?.next_cursor
+    if (!data?.has_more || !nextCursor) return
+    const nextPageIndex = pagination.pageIndex + 1
+    setCommonCursors((previous) => {
+      const next = previous.slice(0, nextPageIndex)
+      next[nextPageIndex] = nextCursor
+      return next
+    })
+    onPaginationChange({ ...pagination, pageIndex: nextPageIndex })
+  }
+
+  const handleCursorPageSizeChange = (pageSize: number) => {
+    setCommonCursors([0])
+    onPaginationChange({ pageIndex: 0, pageSize })
+  }
+
   const usesCompactRows =
     logCategory === 'common' ||
     logCategory === 'channel-operations' ||
@@ -200,6 +256,19 @@ export function UsageLogsTable({ logCategory }: UsageLogsTableProps) {
       skeletonKeyPrefix='usage-log-skeleton'
       tableClassName='max-h-[calc(100dvh-13rem)] overflow-auto sm:max-h-[calc(100dvh-14rem)]'
       tableHeaderClassName='bg-muted/30 sticky top-0 z-10'
+      pagination={
+        isCommon ? (
+          <CommonLogsCursorPagination
+            pageIndex={pagination.pageIndex}
+            pageSize={pagination.pageSize}
+            hasMore={Boolean(data?.has_more)}
+            isFetching={isFetching}
+            onPrevious={handleCursorPrevious}
+            onNext={handleCursorNext}
+            onPageSizeChange={handleCursorPageSizeChange}
+          />
+        ) : undefined
+      }
       toolbar={
         isCommon ? (
           <CommonLogsFilterBar table={table} />

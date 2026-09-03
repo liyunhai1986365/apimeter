@@ -67,6 +67,7 @@ const DEFAULT_SIDEBAR_MODULES: SidebarModulesAdminConfig = {
     model_profit: true,
     redemption: true,
     user: true,
+    billing_management: true,
     agent_management: true,
     withdrawal_management: true,
     setting: true,
@@ -132,6 +133,7 @@ const URL_TO_CONFIG_MAP: Record<string, { section: string; module: string }> = {
   '/model-monitor': { section: 'admin', module: 'model_monitor' },
   '/model-profit': { section: 'admin', module: 'model_profit' },
   '/users': { section: 'admin', module: 'user' },
+  '/billing-management': { section: 'admin', module: 'billing_management' },
   '/agent-management': { section: 'admin', module: 'agent_management' },
   '/withdrawal-management': {
     section: 'admin',
