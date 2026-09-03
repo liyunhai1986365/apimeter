@@ -70,7 +70,7 @@ video:
         value: 1
   submit:
     method: POST
-    path: /v1/video/generate
+    path: /v2/video/generate
     body:
       fields:
         - to: model
@@ -135,7 +135,7 @@ video:
         cancelled: FAILURE
   fetch:
     method: GET
-    path: /v1/video/tasks/{task_id}
+    path: /v2/video/tasks/{task_id}
     response:
       task_id_path: task.id
       status_path: task.status

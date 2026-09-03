@@ -185,7 +185,7 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if serviceInference.Video.Native.Submit.Path != "/api/v3/contents/generations/tasks" {
 		t.Fatalf("unexpected service inference native submit path: %s", serviceInference.Video.Native.Submit.Path)
 	}
-	if serviceInference.Video.Submit.Path != "/v1/video/generate" {
+	if serviceInference.Video.Submit.Path != "/v2/video/generate" {
 		t.Fatalf("unexpected service inference upstream submit path: %s", serviceInference.Video.Submit.Path)
 	}
 	if serviceInference.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
@@ -194,7 +194,7 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if serviceInference.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
 		t.Fatalf("unexpected service inference native fetch response format: %s", serviceInference.Video.Native.Fetch.ResponseFormat)
 	}
-	if serviceInference.Video.Fetch.Path != "/v1/video/tasks/{task_id}" {
+	if serviceInference.Video.Fetch.Path != "/v2/video/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference upstream fetch path: %s", serviceInference.Video.Fetch.Path)
 	}
 	if serviceInference.Video.Fetch.Response.TotalTokensPath != "task.metadata.usage.total_tokens" {
