@@ -127,6 +127,8 @@ func isRelayRequestLogEndpoint(method string, path string) bool {
 		return true
 	case method == http.MethodPost && path == "/pg/chat/completions":
 		return true
+	case isConfigurableNativeTaskRequestLogEndpoint(method, path):
+		return true
 	case strings.HasPrefix(path, "/v1/"):
 		return isRelayV1RequestLogEndpoint(method, strings.TrimPrefix(path, "/v1"))
 	case strings.HasPrefix(path, "/v1beta/"):
@@ -141,6 +143,21 @@ func isRelayRequestLogEndpoint(method string, path string) bool {
 		return isRelayKlingRequestLogEndpoint(method, strings.TrimPrefix(path, "/kling/v2"))
 	case path == "/jimeng" || path == "/jimeng/":
 		return method == http.MethodPost
+	default:
+		return false
+	}
+}
+
+func isConfigurableNativeTaskRequestLogEndpoint(method string, path string) bool {
+	switch {
+	case path == "/api/v3/contents/generations/tasks":
+		return method == http.MethodPost
+	case strings.HasPrefix(path, "/api/v3/contents/generations/tasks/"):
+		return method == http.MethodGet
+	case path == "/api/v1/services/aigc/video-generation/video-synthesis":
+		return method == http.MethodPost
+	case strings.HasPrefix(path, "/api/v1/tasks/"):
+		return method == http.MethodGet
 	default:
 		return false
 	}
@@ -247,7 +264,9 @@ func shouldSkipRequestLogRecord(c *gin.Context, record model.RequestLogRecord) b
 
 func isTaskFetchRequestLogPath(method string, path string) bool {
 	if method == http.MethodGet {
-		return strings.HasPrefix(path, "/v1/tasks/") ||
+		return strings.HasPrefix(path, "/api/v1/tasks/") ||
+			strings.HasPrefix(path, "/api/v3/contents/generations/tasks/") ||
+			strings.HasPrefix(path, "/v1/tasks/") ||
 			strings.HasPrefix(path, "/v1/video/generations/") ||
 			strings.HasPrefix(path, "/v1/videos/") ||
 			strings.HasPrefix(path, "/kling/v2/videos/text2video/") ||

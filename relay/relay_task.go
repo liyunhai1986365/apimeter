@@ -176,6 +176,13 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err := helper.ModelMappedHelper(c, info, nil); err != nil {
 		return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
 	}
+	// Re-check after mapping so a generic model alias cannot bypass a
+	// model-specific duration limit when it resolves to Seedance upstream.
+	if taskReq, err := relaycommon.GetTaskRequest(c); err == nil {
+		if taskErr := relaycommon.ValidateTaskDurationBounds(taskReq, modelName, info.GetUpstreamModelName()); taskErr != nil {
+			return nil, taskErr
+		}
+	}
 
 	// 3. 预生成公开 task ID（仅首次）
 	if info.PublicTaskID == "" {

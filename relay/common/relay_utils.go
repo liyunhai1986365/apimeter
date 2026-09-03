@@ -140,17 +140,35 @@ func validatePrompt(prompt string) *dto.TaskError {
 	return nil
 }
 
-const MaxTaskDurationSeconds = 3600
+const (
+	MaxTaskDurationSeconds         = 3600
+	MaxSeedanceTaskDurationSeconds = 25
+)
 
-func validateTaskDurationBounds(req TaskSubmitReq) *dto.TaskError {
+func ValidateTaskDurationBounds(req TaskSubmitReq, modelNames ...string) *dto.TaskError {
 	seconds := req.Duration
 	if seconds == 0 && req.Seconds != "" {
 		seconds, _ = strconv.Atoi(req.Seconds)
 	}
-	if seconds < 0 || seconds > MaxTaskDurationSeconds {
-		return createTaskError(fmt.Errorf("seconds must be between 1 and %d", MaxTaskDurationSeconds), "invalid_seconds", http.StatusBadRequest, true)
+	maxSeconds := MaxTaskDurationSeconds
+	if isSeedanceModelName(req.Model) {
+		maxSeconds = MaxSeedanceTaskDurationSeconds
+	} else {
+		for _, modelName := range modelNames {
+			if isSeedanceModelName(modelName) {
+				maxSeconds = MaxSeedanceTaskDurationSeconds
+				break
+			}
+		}
+	}
+	if seconds < 0 || seconds > maxSeconds {
+		return createTaskError(fmt.Errorf("seconds must be between 1 and %d", maxSeconds), "invalid_seconds", http.StatusBadRequest, true)
 	}
 	return nil
+}
+
+func isSeedanceModelName(modelName string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(modelName)), "seedance")
 }
 
 func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string) (TaskSubmitReq, error) {
@@ -231,7 +249,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return taskErr
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := ValidateTaskDurationBounds(req, info.OriginModelName, info.CurrentModel(), info.GetUpstreamModelName()); taskErr != nil {
 		return taskErr
 	}
 
@@ -296,7 +314,7 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 		return taskErr
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := ValidateTaskDurationBounds(req, info.OriginModelName, info.CurrentModel(), info.GetUpstreamModelName()); taskErr != nil {
 		return taskErr
 	}
 

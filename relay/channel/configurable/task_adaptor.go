@@ -69,6 +69,9 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		if err != nil {
 			return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 		}
+		if taskErr := relaycommon.ValidateTaskDurationBounds(req, info.OriginModelName, info.CurrentModel(), info.GetUpstreamModelName()); taskErr != nil {
+			return taskErr
+		}
 		c.Set("task_request", req)
 		info.Action = constant.TaskActionGenerate
 		if info.OriginModelName == "" {

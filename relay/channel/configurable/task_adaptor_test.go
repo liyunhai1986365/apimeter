@@ -370,6 +370,31 @@ func TestTaskAdaptorBuildsSeedanceNativeOfficialRequest(t *testing.T) {
 	require.Equal(t, "reference_image", gjson.GetBytes(mappedBody, "content.1.role").String())
 }
 
+func TestTaskAdaptorRejectsSeedanceNativeDurationOverLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{
+		"model":"dreamina-seedance-2-0-260128",
+		"content":[{"type":"text","text":"a cat"}],
+		"resolution":"480p",
+		"duration":26
+	}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	if _, err := common.GetBodyStorage(c); err != nil {
+		t.Fatalf("cache body: %v", err)
+	}
+
+	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-260128")
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	taskErr := adaptor.ValidateRequestAndSetAction(c, info)
+
+	require.NotNil(t, taskErr)
+	require.Equal(t, "invalid_seconds", taskErr.Code)
+	require.Contains(t, taskErr.Message, "25")
+}
+
 func TestTaskAdaptorSeedanceOfficialAndGenericSubmitUseSameConfiguredEndpoint(t *testing.T) {
 	info := seedanceRelayInfo("doubao-seedance-2-0-260128")
 	adaptor := &TaskAdaptor{}
