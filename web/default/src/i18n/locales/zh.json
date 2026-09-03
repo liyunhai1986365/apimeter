@@ -6930,6 +6930,12 @@
     "Quotation": "报价明细",
     "Quotation spreadsheet downloaded": "报价表格已下载",
     "Unable to generate quotation spreadsheet": "无法生成报价表格",
-    "Prices are recalculated from the server before the quotation is generated.": "生成报价单前会从服务端重新计算价格。"
+    "Prices are recalculated from the server before the quotation is generated.": "生成报价单前会从服务端重新计算价格。",
+    "Billing email sent to {{email}}": "账单邮件已发送至 {{email}}",
+    "Download bill": "下载账单",
+    "Exporting...": "导出中...",
+    "Send bill": "发送账单",
+    "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "确定将账单 {{statement}} 发送至 {{email}} 吗？邮件将附带 CSV 明细文件。",
+    "Send monthly bill": "发送月度账单"
   }
 }

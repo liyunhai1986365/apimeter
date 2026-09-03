@@ -13,6 +13,7 @@ type emailTemplateKind struct {
 	Intro       string
 	ActionText  string
 	AccentColor string
+	Footer      string
 }
 
 var (
@@ -23,6 +24,15 @@ var (
 func emailKind(subject string, content string) emailTemplateKind {
 	lower := strings.ToLower(subject + " " + content)
 	switch {
+	case strings.Contains(lower, "billing-statement"):
+		return emailTemplateKind{
+			Label:       "Monthly statement",
+			Title:       subject,
+			Intro:       "您的月度账单已生成，请核对下方摘要与附件明细。",
+			ActionText:  "查看账单详情",
+			AccentColor: "#0f766e",
+			Footer:      "本邮件由系统自动发送，请勿直接回复。如对账单有疑问，请登录后在月度账单中提交申诉。",
+		}
 	case strings.Contains(lower, "announcement-type:"):
 		return emailTemplateKind{
 			Label:       "Platform announcement",
@@ -100,6 +110,10 @@ func renderEmailTemplate(subject string, content string) string {
 			</tr>`, link, kind.AccentColor, html.EscapeString(kind.ActionText))
 		}
 	}
+	footer := kind.Footer
+	if footer == "" {
+		footer = "如果您没有发起相关操作，可以忽略本邮件。为保障账户安全，请勿将验证码、链接或通知内容转发给他人。"
+	}
 
 	return fmt.Sprintf(`<!doctype html>
 <html>
@@ -139,7 +153,7 @@ func renderEmailTemplate(subject string, content string) string {
 					<tr>
 						<td style="padding:18px 32px 28px;background:#f8fafc;border-top:1px solid #e2e8f0;color:#64748b;font-size:13px;line-height:21px;">
 							<div style="font-weight:700;color:#334155;margin-bottom:4px;">%s</div>
-							<div>如果您没有发起相关操作，可以忽略本邮件。为保障账户安全，请勿将验证码、链接或通知内容转发给他人。</div>
+							<div>%s</div>
 						</td>
 					</tr>
 				</table>
@@ -158,5 +172,6 @@ func renderEmailTemplate(subject string, content string) string {
 		actionBlock,
 		body,
 		html.EscapeString(SystemName),
+		html.EscapeString(footer),
 	)
 }

@@ -6930,6 +6930,12 @@
     "Quotation": "Quotation",
     "Quotation spreadsheet downloaded": "Quotation spreadsheet downloaded",
     "Unable to generate quotation spreadsheet": "Unable to generate quotation spreadsheet",
-    "Prices are recalculated from the server before the quotation is generated.": "Prices are recalculated from the server before the quotation is generated."
+    "Prices are recalculated from the server before the quotation is generated.": "Prices are recalculated from the server before the quotation is generated.",
+    "Billing email sent to {{email}}": "Billing email sent to {{email}}",
+    "Download bill": "Download bill",
+    "Exporting...": "Exporting...",
+    "Send bill": "Send bill",
+    "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.",
+    "Send monthly bill": "Send monthly bill"
   }
 }

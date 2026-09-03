@@ -6930,6 +6930,12 @@
     "Quotation": "Chi tiết báo giá",
     "Quotation spreadsheet downloaded": "Đã tải bảng báo giá",
     "Unable to generate quotation spreadsheet": "Không thể tạo bảng báo giá",
-    "Prices are recalculated from the server before the quotation is generated.": "Giá được tính lại từ máy chủ trước khi tạo báo giá."
+    "Prices are recalculated from the server before the quotation is generated.": "Giá được tính lại từ máy chủ trước khi tạo báo giá.",
+    "Billing email sent to {{email}}": "Đã gửi email hóa đơn đến {{email}}",
+    "Download bill": "Tải hóa đơn",
+    "Exporting...": "Đang xuất...",
+    "Send bill": "Gửi hóa đơn",
+    "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Gửi hóa đơn {{statement}} đến {{email}}? Email sẽ đính kèm tệp CSV chi tiết.",
+    "Send monthly bill": "Gửi hóa đơn hàng tháng"
   }
 }

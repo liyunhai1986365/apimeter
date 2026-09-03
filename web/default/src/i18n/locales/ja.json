@@ -6930,6 +6930,12 @@
     "Quotation": "見積明細",
     "Quotation spreadsheet downloaded": "見積表をダウンロードしました",
     "Unable to generate quotation spreadsheet": "見積表を生成できませんでした",
-    "Prices are recalculated from the server before the quotation is generated.": "見積書を生成する前に、サーバーから価格を再計算します。"
+    "Prices are recalculated from the server before the quotation is generated.": "見積書を生成する前に、サーバーから価格を再計算します。",
+    "Billing email sent to {{email}}": "請求メールを {{email}} に送信しました",
+    "Download bill": "請求書をダウンロード",
+    "Exporting...": "エクスポート中...",
+    "Send bill": "請求書を送信",
+    "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "請求書 {{statement}} を {{email}} に送信しますか？CSV 形式の明細ファイルが添付されます。",
+    "Send monthly bill": "月次請求書を送信"
   }
 }

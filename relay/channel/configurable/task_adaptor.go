@@ -351,8 +351,11 @@ func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.
 		resp.TotalTokensPath,
 		"usage.total_tokens",
 		"task.usage.total_tokens",
+		"task.metadata.usage.total_tokens",
 		"data.usage.total_tokens",
+		"data.task.metadata.usage.total_tokens",
 		"data.data.task.usage.total_tokens",
+		"data.data.task.metadata.usage.total_tokens",
 	); totalTokens > 0 {
 		info.TotalTokens = totalTokens
 	}
@@ -360,8 +363,11 @@ func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.
 		resp.CompletionTokensPath,
 		"usage.completion_tokens",
 		"task.usage.completion_tokens",
+		"task.metadata.usage.completion_tokens",
 		"data.usage.completion_tokens",
+		"data.task.metadata.usage.completion_tokens",
 		"data.data.task.usage.completion_tokens",
+		"data.data.task.metadata.usage.completion_tokens",
 	); completionTokens > 0 {
 		info.CompletionTokens = completionTokens
 		if info.TotalTokens == 0 {

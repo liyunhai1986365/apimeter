@@ -6930,6 +6930,12 @@
     "Quotation": "Предложение",
     "Quotation spreadsheet downloaded": "Таблица предложения загружена",
     "Unable to generate quotation spreadsheet": "Не удалось создать таблицу предложения",
-    "Prices are recalculated from the server before the quotation is generated.": "Перед созданием предложения цены повторно рассчитываются на сервере."
+    "Prices are recalculated from the server before the quotation is generated.": "Перед созданием предложения цены повторно рассчитываются на сервере.",
+    "Billing email sent to {{email}}": "Письмо со счётом отправлено на {{email}}",
+    "Download bill": "Скачать счёт",
+    "Exporting...": "Экспорт...",
+    "Send bill": "Отправить счёт",
+    "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Отправить счёт {{statement}} на {{email}}? К письму будет прикреплён CSV-файл с детализацией.",
+    "Send monthly bill": "Отправить ежемесячный счёт"
   }
 }

@@ -1631,3 +1631,32 @@ func TestSettle_ModelsellWrappedSeedanceUsageRefundsPreConsumeDelta(t *testing.T
 	assert.Equal(t, float64(actualQuota), other["actual_quota"])
 	assert.Equal(t, float64(totalTokens), other["actual_total_tokens"])
 }
+
+func TestTaskInfoFromNewAPIResponseReadsMetadataUsage(t *testing.T) {
+	upstreamTask := &model.Task{
+		TaskID: "task_service_inference_metadata_usage",
+		Status: model.TaskStatusSuccess,
+		Data: json.RawMessage(`{
+			"task":{
+				"id":"mvt-service-inference",
+				"status":"completed",
+				"metadata":{
+					"usage":{"total_tokens":50638,"completion_tokens":50638}
+				}
+			}
+		}`),
+	}
+
+	result := taskInfoFromNewAPIResponse(upstreamTask)
+	require.Equal(t, 50638, result.TotalTokens)
+	require.Equal(t, 50638, result.CompletionTokens)
+
+	result = taskInfoFromNewAPIResponse(&model.Task{
+		Data: json.RawMessage(`{
+			"usage":{"total_tokens":100,"completion_tokens":80},
+			"metadata":"opaque-provider-metadata"
+		}`),
+	})
+	require.Equal(t, 100, result.TotalTokens)
+	require.Equal(t, 80, result.CompletionTokens)
+}

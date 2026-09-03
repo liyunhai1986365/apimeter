@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -34,9 +35,10 @@ type TaskPollingAdaptor interface {
 }
 
 type taskUsageEnvelope struct {
-	Usage *dto.Usage         `json:"usage"`
-	Task  *taskUsageEnvelope `json:"task"`
-	Data  *taskUsageEnvelope `json:"data"`
+	Usage    *dto.Usage         `json:"usage"`
+	Task     *taskUsageEnvelope `json:"task"`
+	Data     *taskUsageEnvelope `json:"data"`
+	Metadata json.RawMessage    `json:"metadata"`
 }
 
 func taskInfoFromNewAPIResponse(task *model.Task) *relaycommon.TaskInfo {
@@ -104,7 +106,17 @@ func firstTaskUsage(envelope *taskUsageEnvelope) *dto.Usage {
 	if usage := firstTaskUsage(envelope.Task); usage != nil {
 		return usage
 	}
-	return firstTaskUsage(envelope.Data)
+	if usage := firstTaskUsage(envelope.Data); usage != nil {
+		return usage
+	}
+	if len(envelope.Metadata) == 0 {
+		return nil
+	}
+	var metadata taskUsageEnvelope
+	if err := common.Unmarshal(envelope.Metadata, &metadata); err != nil {
+		return nil
+	}
+	return firstTaskUsage(&metadata)
 }
 
 func taskUsageHasTokens(usage *dto.Usage) bool {

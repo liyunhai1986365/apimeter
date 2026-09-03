@@ -1094,6 +1094,50 @@ func TestTaskAdaptorReturnsSeedanceServiceInferenceGenericOpenAIShape(t *testing
 	require.False(t, gjson.GetBytes(body, "task").Exists())
 }
 
+func TestTaskAdaptorParsesSeedanceServiceInferenceMetadataUsage(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "dreamina-seedance-2-0-mini-260615",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			UpstreamModelName: "dreamina-seedance-2-0-mini-260615-max",
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-service-inference"},
+			},
+		},
+	}
+	adaptor.Init(info)
+
+	responseBody := []byte(`{
+		"task":{
+			"id":"mvt-6ba1d77745114773",
+			"status":"completed",
+			"model":"dreamina-seedance-2-0-mini-260615-max",
+			"outputs":["https://cdn.example/result.mp4"],
+			"metadata":{
+				"usage":{"completion_tokens":50638,"total_tokens":50638}
+			}
+		}
+	}`)
+	result, err := adaptor.ParseTaskResult(responseBody)
+	require.NoError(t, err)
+	require.Equal(t, "mvt-6ba1d77745114773", result.TaskID)
+	require.Equal(t, string(model.TaskStatusSuccess), result.Status)
+	require.Equal(t, "https://cdn.example/result.mp4", result.Url)
+	require.Equal(t, 50638, result.TotalTokens)
+	require.Equal(t, 50638, result.CompletionTokens)
+
+	openAIResponse, err := applyOpenAIVideoResponseFields(
+		adaptor.profile.Video.Fetch.OpenAIResponse,
+		[]byte(`{"id":"task_public","metadata":{}}`),
+		responseBody,
+		info,
+	)
+	require.NoError(t, err)
+	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.total_tokens").Int())
+	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.completion_tokens").Int())
+}
+
 func TestTaskAdaptorNativeMappedBodySurvivesUpstreamRequestClose(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{

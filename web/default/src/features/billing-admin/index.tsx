@@ -16,7 +16,9 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Download01Icon, Mail01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import dayjs from '@/lib/dayjs'
@@ -29,6 +31,16 @@ import {
 } from '@/lib/format'
 import { formatDiscountPercentage } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,6 +56,7 @@ import { Empty, EmptyHeader, EmptyTitle } from '@/components/ui/empty'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { Spinner } from '@/components/ui/spinner'
 import {
   Table,
   TableBody,
@@ -62,14 +75,27 @@ import type {
 } from '@/features/billing-center/types'
 import {
   adjustAdminBillingStatement,
+  exportAdminBillingStatement,
   generateAdminBillingStatement,
   getAdminBillingStatement,
   getAdminBillingStatements,
   resolveAdminBillingDispute,
   retryAdminBillingAdjustment,
+  sendAdminBillingStatementEmail,
 } from './api'
 
 const PAGE_SIZE = 20
+
+function downloadBlob(blob: Blob, fileName: string) {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
 
 function workflowStatus(item: BillingAdminStatementItem) {
   return item.reconciliation_status === 'exception'
@@ -135,6 +161,14 @@ export function BillingAdmin() {
   const [resolution, setResolution] = useState('')
   const [resolving, setResolving] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [downloading, setDownloading] = useState(false)
+  const [sendEmailOpen, setSendEmailOpen] = useState(false)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const detailRequestRef = useRef(0)
+
+  const selectedItem = items.find((item) => item.statement_no === selectedNo)
+  const activeDetail =
+    detail?.statement.statement_no === selectedNo ? detail : null
 
   const query = useMemo(
     () => ({
@@ -166,12 +200,15 @@ export function BillingAdmin() {
   }, [query])
 
   const fetchDetail = useCallback(async (statementNo: string) => {
+    const requestId = ++detailRequestRef.current
     if (!statementNo) {
       setDetail(null)
       return
     }
     const response = await getAdminBillingStatement(statementNo)
-    if (response.success) setDetail(response.data)
+    if (response.success && requestId === detailRequestRef.current) {
+      setDetail(response.data)
+    }
   }, [])
 
   useEffect(() => {
@@ -274,6 +311,40 @@ export function BillingAdmin() {
       setResolving(false)
     }
   }, [refreshAll, resolution, resolveDispute, t])
+
+  const handleDownload = useCallback(async () => {
+    if (!activeDetail) return
+    setDownloading(true)
+    try {
+      const statement = activeDetail.statement
+      const blob = await exportAdminBillingStatement(statement.statement_no)
+      downloadBlob(
+        blob,
+        `monthly-billing-${statement.period_value}-${statement.statement_no}.csv`
+      )
+      toast.success(t('Billing exported'))
+    } finally {
+      setDownloading(false)
+    }
+  }, [activeDetail, t])
+
+  const handleSendEmail = useCallback(async () => {
+    if (!activeDetail || !selectedItem?.email) return
+    setSendingEmail(true)
+    try {
+      const response = await sendAdminBillingStatementEmail(
+        activeDetail.statement.statement_no
+      )
+      if (response.success) {
+        toast.success(
+          t('Billing email sent to {{email}}', { email: response.data.email })
+        )
+        setSendEmailOpen(false)
+      }
+    } finally {
+      setSendingEmail(false)
+    }
+  }, [activeDetail, selectedItem?.email, t])
 
   return (
     <SectionPageLayout>
@@ -462,9 +533,13 @@ export function BillingAdmin() {
             </div>
           </div>
 
-          {detail && (
+          {activeDetail && (
             <BillingAdminDetail
-              detail={detail}
+              detail={activeDetail}
+              recipientEmail={selectedItem?.email ?? ''}
+              downloading={downloading}
+              onDownload={() => void handleDownload()}
+              onSendEmail={() => setSendEmailOpen(true)}
               onAdjust={() => openAdjustment()}
               onAdjustDispute={(id) => openAdjustment(id)}
               onRejectDispute={(dispute) => {
@@ -601,6 +676,38 @@ export function BillingAdmin() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <AlertDialog
+          open={sendEmailOpen}
+          onOpenChange={(open) => !sendingEmail && setSendEmailOpen(open)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('Send monthly bill')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t(
+                  'Send bill {{statement}} to {{email}}? A CSV detail file will be attached.',
+                  {
+                    statement: activeDetail?.statement.statement_no ?? '-',
+                    email: selectedItem?.email ?? '-',
+                  }
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={sendingEmail}>
+                {t('Cancel')}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => void handleSendEmail()}
+                disabled={sendingEmail}
+              >
+                {sendingEmail && <Spinner data-icon='inline-start' />}
+                {sendingEmail ? t('Sending...') : t('Send bill')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SectionPageLayout.Content>
     </SectionPageLayout>
   )
@@ -608,12 +715,20 @@ export function BillingAdmin() {
 
 function BillingAdminDetail({
   detail,
+  recipientEmail,
+  downloading,
+  onDownload,
+  onSendEmail,
   onAdjust,
   onAdjustDispute,
   onRejectDispute,
   onRetry,
 }: {
   detail: BillingStatementWorkflowDetail
+  recipientEmail: string
+  downloading: boolean
+  onDownload: () => void
+  onSendEmail: () => void
   onAdjust: () => void
   onAdjustDispute: (id: number) => void
   onRejectDispute: (dispute: BillingStatementDispute) => void
@@ -623,16 +738,40 @@ function BillingAdminDetail({
   const statement = detail.statement
   return (
     <Card>
-      <CardHeader className='flex flex-row items-center justify-between gap-3'>
+      <CardHeader className='flex flex-col justify-between gap-3 sm:flex-row sm:items-center'>
         <div className='flex flex-col gap-1'>
           <CardTitle>{statement.statement_no}</CardTitle>
           <span className='text-muted-foreground text-sm'>
             {statement.period_value} · {t('Revision')} {statement.revision}
           </span>
         </div>
-        <Button type='button' onClick={onAdjust}>
-          {t('Adjust statement')}
-        </Button>
+        <div className='flex flex-wrap gap-2'>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={onDownload}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <Spinner data-icon='inline-start' />
+            ) : (
+              <HugeiconsIcon icon={Download01Icon} data-icon='inline-start' />
+            )}
+            {downloading ? t('Exporting...') : t('Download bill')}
+          </Button>
+          <Button
+            type='button'
+            variant='outline'
+            onClick={onSendEmail}
+            disabled={!recipientEmail}
+          >
+            <HugeiconsIcon icon={Mail01Icon} data-icon='inline-start' />
+            {t('Send bill')}
+          </Button>
+          <Button type='button' onClick={onAdjust}>
+            {t('Adjust statement')}
+          </Button>
+        </div>
       </CardHeader>
       <CardContent className='flex flex-col gap-5'>
         <div className='grid gap-3 sm:grid-cols-2 xl:grid-cols-6'>

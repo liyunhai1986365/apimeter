@@ -1,11 +1,13 @@
 package controller
 
 import (
+	"fmt"
 	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -108,6 +110,28 @@ func GetAdminBillingStatement(c *gin.Context) {
 		return
 	}
 	common.ApiSuccess(c, detail)
+}
+
+func ExportAdminBillingStatement(c *gin.Context) {
+	exportBillingMonthlyStatement(c, 0)
+}
+
+func SendAdminBillingStatementEmail(c *gin.Context) {
+	result, err := service.SendBillingStatementEmail(c.Param("statement_no"))
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	model.RecordLogWithAdminInfo(
+		result.UserId,
+		model.LogTypeManage,
+		fmt.Sprintf("管理员发送月度账单邮件: %s", result.StatementNo),
+		map[string]interface{}{
+			"admin_id":       c.GetInt("id"),
+			"admin_username": c.GetString("username"),
+		},
+	)
+	common.ApiSuccess(c, result)
 }
 
 func AdjustAdminBillingStatement(c *gin.Context) {

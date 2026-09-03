@@ -6930,6 +6930,12 @@
     "Quotation": "Devis",
     "Quotation spreadsheet downloaded": "Tableur du devis téléchargé",
     "Unable to generate quotation spreadsheet": "Impossible de générer le tableur du devis",
-    "Prices are recalculated from the server before the quotation is generated.": "Les prix sont recalculés depuis le serveur avant la génération du devis."
+    "Prices are recalculated from the server before the quotation is generated.": "Les prix sont recalculés depuis le serveur avant la génération du devis.",
+    "Billing email sent to {{email}}": "E-mail de facturation envoyé à {{email}}",
+    "Download bill": "Télécharger le relevé",
+    "Exporting...": "Exportation...",
+    "Send bill": "Envoyer le relevé",
+    "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Envoyer le relevé {{statement}} à {{email}} ? Un fichier CSV détaillé sera joint.",
+    "Send monthly bill": "Envoyer le relevé mensuel"
   }
 }

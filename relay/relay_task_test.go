@@ -419,11 +419,11 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 	const tokenID = 99
 	const channelID = 9102
 	const preConsumed = 1250000
-	const actualQuota = 100000
+	const actualQuota = 32611
 	const initialUserQuota = 1000000
 	const initialTokenQuota = 2000000
 
-	expr := `tier("base", c * 0.2)`
+	expr := `tier("480_720p_no_video_input", c * 1.4)`
 	require.NoError(t, model.DB.Create(&model.User{
 		Id:       userID,
 		Username: "seedance-user",
@@ -440,14 +440,18 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 	}).Error)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/api/v3/contents/generations/tasks/upstream-seedance-task", r.URL.Path)
+		require.Equal(t, "/v1/video/tasks/upstream-seedance-task", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
-			"id":"upstream-seedance-task",
-			"status":"completed",
-			"model":"doubao-seedance-2-0-260128",
-			"content":{"video_url":"https://cdn.example/seedance.mp4"},
-			"usage":{"completion_tokens":1000000,"total_tokens":1000000}
+			"task":{
+				"id":"upstream-seedance-task",
+				"status":"completed",
+				"model":"dreamina-seedance-2-0-mini-260615-max",
+				"outputs":["https://cdn.example/seedance.mp4"],
+				"metadata":{
+					"usage":{"completion_tokens":50638,"total_tokens":50638}
+				}
+			}
 		}`))
 	}))
 	defer upstream.Close()
@@ -458,13 +462,13 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 		Key:     "sk-seedance",
 		BaseURL: common.GetPointer(upstream.URL),
 		Status:  common.ChannelStatusEnabled,
-		Name:    "seedance",
-		Models:  "doubao-seedance-2-0-260128",
+		Name:    "seedance-service-inference",
+		Models:  "dreamina-seedance-2-0-mini-260615",
 		Group:   "default",
 	}
 	channel.SetSetting(dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
-			ProfileID: "doubao-seedance-2",
+			ProfileID: "seedance2-service-inference",
 		},
 	})
 	require.NoError(t, model.DB.Create(&channel).Error)
@@ -480,22 +484,22 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 		Quota:     preConsumed,
 		Group:     "default",
 		Properties: model.Properties{
-			OriginModelName:   "doubao-seedance-2-0-260128",
-			UpstreamModelName: "doubao-seedance-2-0-260128",
+			OriginModelName:   "dreamina-seedance-2-0-mini-260615",
+			UpstreamModelName: "dreamina-seedance-2-0-mini-260615-max",
 		},
 		PrivateData: model.TaskPrivateData{
 			UpstreamTaskID: "upstream-seedance-task",
 			BillingSource:  service.BillingSourceWallet,
 			TokenId:        tokenID,
 			BillingContext: &model.TaskBillingContext{
-				GroupRatio:      1,
-				OriginModelName: "doubao-seedance-2-0-260128",
+				GroupRatio:      0.92,
+				OriginModelName: "dreamina-seedance-2-0-mini-260615",
 				TieredBillingSnapshot: &billingexpr.BillingSnapshot{
 					BillingMode:               "tiered_expr",
-					ModelName:                 "doubao-seedance-2-0-260128",
+					ModelName:                 "dreamina-seedance-2-0-mini-260615",
 					ExprString:                expr,
 					ExprHash:                  billingexpr.ExprHashString(expr),
-					GroupRatio:                1,
+					GroupRatio:                0.92,
 					EstimatedPromptTokens:     0,
 					EstimatedCompletionTokens: 0,
 					EstimatedQuotaAfterGroup:  preConsumed,

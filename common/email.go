@@ -1,14 +1,24 @@
 package common
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"mime"
+	"mime/multipart"
 	"net/smtp"
+	"net/textproto"
 	"slices"
 	"strings"
 	"time"
 )
+
+type EmailAttachment struct {
+	Filename    string
+	ContentType string
+	Data        []byte
+}
 
 func generateMessageID() (string, error) {
 	split := strings.Split(SMTPFrom, "@")
@@ -76,6 +86,10 @@ func newSMTPClient(addr string) (*smtp.Client, error) {
 }
 
 func SendEmail(subject string, receiver string, content string) error {
+	return SendEmailWithAttachments(subject, receiver, content, nil)
+}
+
+func SendEmailWithAttachments(subject string, receiver string, content string, attachments []EmailAttachment) error {
 	if SMTPFrom == "" { // for compatibility
 		SMTPFrom = SMTPAccount
 	}
@@ -87,18 +101,13 @@ func SendEmail(subject string, receiver string, content string) error {
 		return fmt.Errorf("SMTP 服务器未配置")
 	}
 	renderedContent := renderEmailTemplate(subject, content)
-	encodedSubject := fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(subject)))
-	mail := []byte(fmt.Sprintf("To: %s\r\n"+
-		"From: %s <%s>\r\n"+
-		"Subject: %s\r\n"+
-		"Date: %s\r\n"+
-		"Message-ID: %s\r\n"+ // 添加 Message-ID 头
-		"Content-Type: text/html; charset=UTF-8\r\n\r\n%s\r\n",
-		receiver, SystemName, SMTPFrom, encodedSubject, time.Now().Format(time.RFC1123Z), id, renderedContent))
+	mail, err := buildEmailMessage(subject, receiver, renderedContent, id, attachments)
+	if err != nil {
+		return err
+	}
 	auth := getSMTPAuth()
 	addr := fmt.Sprintf("%s:%d", SMTPServer, SMTPPort)
 	to := strings.Split(receiver, ";")
-	var err error
 	client, err := newSMTPClient(addr)
 	if err != nil {
 		return err
@@ -134,4 +143,68 @@ func SendEmail(subject string, receiver string, content string) error {
 		SysError(fmt.Sprintf("failed to send email to %s: %v", receiver, err))
 	}
 	return err
+}
+
+func buildEmailMessage(subject string, receiver string, renderedContent string, messageID string, attachments []EmailAttachment) ([]byte, error) {
+	encodedSubject := fmt.Sprintf("=?UTF-8?B?%s?=", base64.StdEncoding.EncodeToString([]byte(subject)))
+	var message bytes.Buffer
+	_, _ = fmt.Fprintf(&message, "To: %s\r\n", receiver)
+	_, _ = fmt.Fprintf(&message, "From: %s <%s>\r\n", SystemName, SMTPFrom)
+	_, _ = fmt.Fprintf(&message, "Subject: %s\r\n", encodedSubject)
+	_, _ = fmt.Fprintf(&message, "Date: %s\r\n", time.Now().Format(time.RFC1123Z))
+	_, _ = fmt.Fprintf(&message, "Message-ID: %s\r\n", messageID)
+	message.WriteString("MIME-Version: 1.0\r\n")
+
+	if len(attachments) == 0 {
+		message.WriteString("Content-Type: text/html; charset=UTF-8\r\n\r\n")
+		message.WriteString(renderedContent)
+		message.WriteString("\r\n")
+		return message.Bytes(), nil
+	}
+
+	multipartWriter := multipart.NewWriter(&message)
+	_, _ = fmt.Fprintf(&message, "Content-Type: multipart/mixed; boundary=%q\r\n\r\n", multipartWriter.Boundary())
+	htmlHeader := make(textproto.MIMEHeader)
+	htmlHeader.Set("Content-Type", "text/html; charset=UTF-8")
+	htmlHeader.Set("Content-Transfer-Encoding", "8bit")
+	htmlPart, err := multipartWriter.CreatePart(htmlHeader)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = htmlPart.Write([]byte(renderedContent)); err != nil {
+		return nil, err
+	}
+
+	for _, attachment := range attachments {
+		filename := strings.TrimSpace(attachment.Filename)
+		if filename == "" || strings.ContainsAny(filename, "\r\n") {
+			return nil, fmt.Errorf("invalid email attachment filename")
+		}
+		contentType := strings.TrimSpace(attachment.ContentType)
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+		header := make(textproto.MIMEHeader)
+		header.Set("Content-Type", mime.FormatMediaType(contentType, map[string]string{"name": filename}))
+		header.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+		header.Set("Content-Transfer-Encoding", "base64")
+		part, createErr := multipartWriter.CreatePart(header)
+		if createErr != nil {
+			return nil, createErr
+		}
+		encoded := base64.StdEncoding.EncodeToString(attachment.Data)
+		for len(encoded) > 76 {
+			if _, err = fmt.Fprintf(part, "%s\r\n", encoded[:76]); err != nil {
+				return nil, err
+			}
+			encoded = encoded[76:]
+		}
+		if _, err = fmt.Fprintf(part, "%s\r\n", encoded); err != nil {
+			return nil, err
+		}
+	}
+	if err = multipartWriter.Close(); err != nil {
+		return nil, err
+	}
+	return message.Bytes(), nil
 }

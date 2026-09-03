@@ -141,8 +141,8 @@ video:
       status_path: task.status
       result_url_path: task.outputs.0
       reason_path: task.metadata.error.message
-      total_tokens_path: task.usage.total_tokens
-      completion_tokens_path: task.usage.completion_tokens
+      total_tokens_path: task.metadata.usage.total_tokens
+      completion_tokens_path: task.metadata.usage.completion_tokens
       status_map:
         queued: QUEUED
         pending: QUEUED
@@ -165,10 +165,12 @@ video:
           from: task.outputs.0
           omit_empty: true
         - to: metadata.usage.completion_tokens
-          from: task.usage.completion_tokens
+          from: task.metadata.usage.completion_tokens
+          fallback_from: task.usage.completion_tokens
           omit_empty: true
         - to: metadata.usage.total_tokens
-          from: task.usage.total_tokens
+          from: task.metadata.usage.total_tokens
+          fallback_from: task.usage.total_tokens
           omit_empty: true
         - to: metadata.last_frame_url
           from: task.last_frame_url

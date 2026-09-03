@@ -51,6 +51,34 @@ export async function getAdminBillingStatement(statementNo: string) {
   return response.data
 }
 
+export async function exportAdminBillingStatement(
+  statementNo: string
+): Promise<Blob> {
+  const response = await api.get<Blob>(
+    `/api/billing/admin/monthly-statements/${encodeURIComponent(statementNo)}/export`,
+    {
+      responseType: 'blob',
+      disableDuplicate: true,
+      skipBusinessError: true,
+    } as Record<string, unknown>
+  )
+  return response.data
+}
+
+export async function sendAdminBillingStatementEmail(statementNo: string) {
+  const response = await api.post<
+    BillingApiResponse<{
+      statement_no: string
+      user_id: number
+      email: string
+      file_name: string
+    }>
+  >(
+    `/api/billing/admin/monthly-statements/${encodeURIComponent(statementNo)}/email`
+  )
+  return response.data
+}
+
 export async function generateAdminBillingStatement(
   userId: number,
   month: string

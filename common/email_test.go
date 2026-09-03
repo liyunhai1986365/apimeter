@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/pem"
 	"fmt"
 	"math/big"
@@ -560,4 +561,45 @@ func TestSendEmailExplicitStartTLSRejectsUntrustedCertificateByDefault(t *testin
 	err := SendEmail("Verification", "receiver@example.com", "<p>123456</p>")
 	require.Error(t, err)
 	require.Contains(t, fmt.Sprint(err), "certificate")
+}
+
+func TestBuildEmailMessageIncludesCSVAttachment(t *testing.T) {
+	withSMTPSettings(t)
+	SMTPFrom = "sender@example.com"
+	SystemName = "New API"
+	csvData := []byte("\xEF\xBB\xBF账期,模型\n2026-08,gpt-5\n")
+
+	message, err := buildEmailMessage(
+		"2026-08 月度账单",
+		"receiver@example.com",
+		"<p>Billing summary</p>",
+		"<test@example.com>",
+		[]EmailAttachment{{
+			Filename:    "monthly-billing-2026-08.csv",
+			ContentType: "text/csv",
+			Data:        csvData,
+		}},
+	)
+
+	require.NoError(t, err)
+	text := string(message)
+	require.Contains(t, text, "Content-Type: multipart/mixed")
+	require.Contains(t, text, "Content-Type: text/html; charset=UTF-8")
+	require.Contains(t, text, `filename=monthly-billing-2026-08.csv`)
+	require.Contains(t, strings.ReplaceAll(text, "\r\n", ""), base64.StdEncoding.EncodeToString(csvData))
+}
+
+func TestBuildEmailMessageRejectsAttachmentHeaderInjection(t *testing.T) {
+	withSMTPSettings(t)
+	SMTPFrom = "sender@example.com"
+
+	_, err := buildEmailMessage(
+		"Statement",
+		"receiver@example.com",
+		"<p>Billing summary</p>",
+		"<test@example.com>",
+		[]EmailAttachment{{Filename: "bill.csv\r\nBcc: attacker@example.com"}},
+	)
+
+	require.ErrorContains(t, err, "invalid email attachment filename")
 }

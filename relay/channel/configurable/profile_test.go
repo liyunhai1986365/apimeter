@@ -197,6 +197,12 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if serviceInference.Video.Fetch.Path != "/v1/video/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference upstream fetch path: %s", serviceInference.Video.Fetch.Path)
 	}
+	if serviceInference.Video.Fetch.Response.TotalTokensPath != "task.metadata.usage.total_tokens" {
+		t.Fatalf("unexpected service inference total tokens path: %s", serviceInference.Video.Fetch.Response.TotalTokensPath)
+	}
+	if serviceInference.Video.Fetch.Response.CompletionTokensPath != "task.metadata.usage.completion_tokens" {
+		t.Fatalf("unexpected service inference completion tokens path: %s", serviceInference.Video.Fetch.Response.CompletionTokensPath)
+	}
 	if len(serviceInference.Resources) != 5 {
 		t.Fatalf("expected service inference asset resources, got %d", len(serviceInference.Resources))
 	}
