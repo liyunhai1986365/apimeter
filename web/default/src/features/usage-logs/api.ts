@@ -28,6 +28,7 @@ import type {
   GetMidjourneyLogsParams,
   GetRetryRouteEventsParams,
   GetTaskLogsParams,
+  TaskLog,
   UserInfo,
 } from './types'
 
@@ -123,7 +124,23 @@ export const getUserMidjourneyLogs = (params: GetMidjourneyLogsParams) =>
 // ============================================================================
 
 export const getAllTaskLogs = (params: GetTaskLogsParams) =>
-  fetchLogs('/api/task', params, true)
+  fetchLogs('/api/task/', params, true)
 
 export const getUserTaskLogs = (params: GetTaskLogsParams) =>
   fetchLogs('/api/task', params, false)
+
+export async function getTaskLogDetail(
+  taskId: string,
+  isAdmin: boolean,
+  signal?: AbortSignal
+): Promise<TaskLog> {
+  const path = buildApiPath('/api/task', isAdmin)
+  const res = await api.get<{
+    success: boolean
+    message?: string
+    data?: TaskLog
+  }>(`${path}/${encodeURIComponent(taskId)}`, { signal })
+  if (!res.data.success || !res.data.data)
+    throw new Error(res.data.message || 'Failed to load logs')
+  return res.data.data
+}

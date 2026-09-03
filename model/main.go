@@ -243,6 +243,9 @@ func InitLogDB() (err error) {
 		if !common.IsMasterNode {
 			return nil
 		}
+		if err := migrateBillingStatementWorkflow(); err != nil {
+			return err
+		}
 		return migrateLogTokenMetrics()
 	}
 	db, err := chooseDB("LOG_SQL_DSN", true)
@@ -302,6 +305,9 @@ func migrateDB() error {
 		&WorkspaceMember{},
 		&Token{},
 		&User{},
+		&UserSession{},
+		&AuthFlow{},
+		&ExternalIdentityClaim{},
 		&CreditQuotaRecord{},
 		&PasskeyCredential{},
 		&Option{},
@@ -311,6 +317,7 @@ func migrateDB() error {
 		&Midjourney{},
 		&TopUp{},
 		&StripeAutoRecharge{},
+		&BalanceForecast{},
 		&CryptoPayment{},
 		&AffiliateTopUpReward{},
 		&AffiliateConsumeReward{},
@@ -343,19 +350,29 @@ func migrateDB() error {
 		&AgentPricingRule{},
 		&AgentGroupRatio{},
 		&AgentUserGroupConfig{},
+		&AgentAnnouncement{},
 		&AgentLedger{},
 		&AgentWithdrawal{},
 		&BillingUsageItem{},
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingBalanceAdjustmentOperation{},
 		&ConfigurableResourceState{},
 		&SystemTask{},
 		&SystemTaskLock{},
 		&SystemInstance{},
 		&RoutingStrategySnapshot{},
+		&CasbinRule{},
+		&AuthzRole{},
 	)
 	if err != nil {
+		return err
+	}
+	if err := InitializeUserAuthVersions(); err != nil {
+		return err
+	}
+	if err := InitializeExternalIdentityClaims(); err != nil {
 		return err
 	}
 	if common.UsingSQLite {
@@ -394,6 +411,9 @@ func migrateDBFast() error {
 		{&WorkspaceMember{}, "WorkspaceMember"},
 		{&Token{}, "Token"},
 		{&User{}, "User"},
+		{&UserSession{}, "UserSession"},
+		{&AuthFlow{}, "AuthFlow"},
+		{&ExternalIdentityClaim{}, "ExternalIdentityClaim"},
 		{&CreditQuotaRecord{}, "CreditQuotaRecord"},
 		{&PasskeyCredential{}, "PasskeyCredential"},
 		{&Option{}, "Option"},
@@ -403,6 +423,7 @@ func migrateDBFast() error {
 		{&Midjourney{}, "Midjourney"},
 		{&TopUp{}, "TopUp"},
 		{&StripeAutoRecharge{}, "StripeAutoRecharge"},
+		{&BalanceForecast{}, "BalanceForecast"},
 		{&CryptoPayment{}, "CryptoPayment"},
 		{&AffiliateTopUpReward{}, "AffiliateTopUpReward"},
 		{&AffiliateConsumeReward{}, "AffiliateConsumeReward"},
@@ -435,13 +456,17 @@ func migrateDBFast() error {
 		{&AgentPricingRule{}, "AgentPricingRule"},
 		{&AgentGroupRatio{}, "AgentGroupRatio"},
 		{&AgentUserGroupConfig{}, "AgentUserGroupConfig"},
+		{&AgentAnnouncement{}, "AgentAnnouncement"},
 		{&AgentLedger{}, "AgentLedger"},
 		{&AgentWithdrawal{}, "AgentWithdrawal"},
 		{&BillingUsageItem{}, "BillingUsageItem"},
 		{&AccountLedgerEntry{}, "AccountLedgerEntry"},
 		{&BillingStatement{}, "BillingStatement"},
 		{&BillingStatementSummary{}, "BillingStatementSummary"},
+		{&BillingBalanceAdjustmentOperation{}, "BillingBalanceAdjustmentOperation"},
 		{&ConfigurableResourceState{}, "ConfigurableResourceState"},
+		{&CasbinRule{}, "CasbinRule"},
+		{&AuthzRole{}, "AuthzRole"},
 	}
 	// 动态计算migration数量，确保errChan缓冲区足够大
 	errChan := make(chan error, len(migrations))
@@ -465,6 +490,12 @@ func migrateDBFast() error {
 		if err != nil {
 			return err
 		}
+	}
+	if err := InitializeUserAuthVersions(); err != nil {
+		return err
+	}
+	if err := InitializeExternalIdentityClaims(); err != nil {
+		return err
 	}
 	if common.UsingSQLite {
 		if err := ensureSubscriptionPlanTableSQLite(); err != nil {
@@ -555,6 +586,9 @@ func migrateLOGDB() error {
 		return err
 	}
 	if err = LOG_DB.AutoMigrate(&BillingUsageItem{}, &AccountLedgerEntry{}, &BillingStatement{}, &BillingStatementSummary{}); err != nil {
+		return err
+	}
+	if err = migrateBillingStatementWorkflow(); err != nil {
 		return err
 	}
 	return migrateLogTokenMetrics()

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import { useSystemConfigStore } from '@/stores/system-config-store'
-import { formatCurrency } from './format'
+import { formatCurrency, formatPaymentAmountFromUSD } from './format'
 
 function resetCurrency(displayCurrency: 'USD' | 'CNY') {
   useSystemConfigStore.setState((state) => ({
@@ -30,5 +30,17 @@ describe('wallet currency formatting', () => {
     resetCurrency('USD')
 
     assert.equal(formatCurrency(73), '$10')
+  })
+
+  test('keeps provider USD payment amounts unchanged for USD display', () => {
+    resetCurrency('USD')
+
+    assert.equal(formatPaymentAmountFromUSD(73), '$73')
+  })
+
+  test('converts provider USD payment amounts for CNY display', () => {
+    resetCurrency('CNY')
+
+    assert.equal(formatPaymentAmountFromUSD(10), '¥73')
   })
 })

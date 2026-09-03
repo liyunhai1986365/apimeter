@@ -37,7 +37,7 @@ export default function SettingsPaymentGateway(props) {
     EpayId: '',
     EpayKey: '',
     Price: 7.3,
-    MinTopUp: 1,
+    MinTopUp: 10,
   });
   const formApiRef = useRef(null);
 
@@ -54,7 +54,7 @@ export default function SettingsPaymentGateway(props) {
         MinTopUp:
           props.options.MinTopUp !== undefined
             ? parseFloat(props.options.MinTopUp)
-            : 1,
+            : 10,
       };
 
       setInputs(currentInputs);

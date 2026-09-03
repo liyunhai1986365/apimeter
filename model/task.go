@@ -44,8 +44,12 @@ const (
 	TaskStatusUnknown               = "UNKNOWN"
 )
 
+// TaskRefundLegacyCutoff separates tasks created before timeout refunds were
+// introduced. Those legacy tasks are failed without an automatic refund.
+const TaskRefundLegacyCutoff int64 = 1771718400 // 2026-02-22 00:00:00 UTC
+
 type Task struct {
-	ID         int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
+	ID         int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT;index:idx_task_image_expiry,priority:3"`
 	CreatedAt  int64                 `json:"created_at" gorm:"index"`
 	UpdatedAt  int64                 `json:"updated_at"`
 	TaskID     string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
@@ -66,8 +70,13 @@ type Task struct {
 	Properties Properties            `json:"properties" gorm:"type:json"`
 	Username   string                `json:"username,omitempty" gorm:"-"`
 	// 禁止返回给用户，内部可能包含key等隐私信息
-	PrivateData TaskPrivateData `json:"-" gorm:"column:private_data;type:json"`
-	Data        json.RawMessage `json:"data" gorm:"type:json"`
+	PrivateData          TaskPrivateData `json:"-" gorm:"column:private_data;type:json"`
+	Data                 json.RawMessage `json:"data" gorm:"type:json"`
+	ImageBase64State     int             `json:"-" gorm:"not null;default:0;index:idx_task_image_expiry,priority:1"`
+	ImageExpiresAt       int64           `json:"-" gorm:"not null;default:0;index:idx_task_image_expiry,priority:2"`
+	ImageBase64ClearedAt int64           `json:"-" gorm:"not null;default:0"`
+	ImageBase64Version   int64           `json:"-" gorm:"not null;default:0"`
+	ImageHasURL          bool            `json:"-" gorm:"not null;default:false"`
 }
 
 func (t *Task) SetData(data any) {
@@ -110,13 +119,18 @@ type TaskPrivateData struct {
 	BillingSource  string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
 	TokenId        int                 `json:"token_id,omitempty"`        // 令牌 ID，用于令牌额度退款
+	NodeName       string              `json:"node_name,omitempty"`       // 发起任务的节点名，轮询结算阶段据此归属日志而非最后查询节点
 	BillingContext *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）
 }
 
 // TaskBillingContext 记录任务提交时的计费参数，以便轮询阶段可以重新计算额度。
 type TaskBillingContext struct {
+	DeferredCost          bool                         `json:"deferred_cost,omitempty"`           // 预扣阶段不确认渠道成本和收益
+	CostSettled           bool                         `json:"cost_settled,omitempty"`            // 已记录最终成本和收益，避免零差额重复入账
 	ModelPrice            float64                      `json:"model_price,omitempty"`             // 模型单价
 	GroupRatio            float64                      `json:"group_ratio,omitempty"`             // 分组倍率
+	GroupRatioSource      types.GroupRatioSource       `json:"group_ratio_source,omitempty"`      // 分组倍率解析来源
+	UserGroup             string                       `json:"user_group,omitempty"`              // 提交任务时的用户分组
 	ModelRatio            float64                      `json:"model_ratio,omitempty"`             // 模型倍率
 	CompletionRatio       float64                      `json:"completion_ratio,omitempty"`        // 输出倍率
 	CacheRatio            float64                      `json:"cache_ratio,omitempty"`             // 缓存读取倍率
@@ -159,8 +173,15 @@ func GenerateTaskID() string {
 }
 
 func (p *TaskPrivateData) Scan(val interface{}) error {
-	bytesValue, _ := val.([]byte)
+	var bytesValue []byte
+	switch value := val.(type) {
+	case []byte:
+		bytesValue = value
+	case string:
+		bytesValue = []byte(value)
+	}
 	if len(bytesValue) == 0 {
+		*p = TaskPrivateData{}
 		return nil
 	}
 	return common.Unmarshal(bytesValue, p)
@@ -175,17 +196,17 @@ func (p TaskPrivateData) Value() (driver.Value, error) {
 
 // SyncTaskQueryParams 用于包含所有搜索条件的结构体，可以根据需求添加更多字段
 type SyncTaskQueryParams struct {
-	Platform         constant.TaskPlatform
-	ChannelID        string
-	TaskID           string
-	TokenName        string
-	WorkspaceName    string
-	UserID           string
-	Action           string
-	Status           string
-	StartTimestamp   int64
-	EndTimestamp     int64
-	UserIDs          []int
+	Platform       constant.TaskPlatform
+	ChannelID      string
+	TaskID         string
+	TokenName      string
+	WorkspaceName  string
+	UserID         string
+	Action         string
+	Status         string
+	StartTimestamp int64
+	EndTimestamp   int64
+	UserIDs        []int
 	// AllowedWorkspaceIds is the caller's authorization restriction:
 	// nil = unrestricted, non-nil empty = nothing is visible.
 	AllowedWorkspaceIds []int
@@ -323,7 +344,8 @@ func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQ
 	}
 
 	// 获取数据
-	err = query.Omit("channel_id").Order("id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
+	// Lists must not load generated media or private billing/request snapshots.
+	err = query.Omit("channel_id", "data", "private_data").Order("id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
@@ -369,7 +391,7 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 	}
 
 	// 获取数据
-	err = query.Order("id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
+	err = query.Omit("data", "private_data").Order("id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
 	if err != nil {
 		return nil
 	}
@@ -446,6 +468,9 @@ func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {
 
 func (Task *Task) Insert() error {
 	hydrateTaskTokenFields(Task)
+	if err := Task.prepareImageRetention(common.GetTimestamp(), false); err != nil {
+		return err
+	}
 	var err error
 	err = DB.Create(Task).Error
 	return err
@@ -484,8 +509,13 @@ func (t *Task) Snapshot() taskSnapshot {
 }
 
 func (Task *Task) Update() error {
-	var err error
-	err = DB.Save(Task).Error
+	if Task.ID == 0 {
+		return Task.Insert()
+	}
+	won, err := Task.updateWithImageVersion(DB.Where("id = ?", Task.ID))
+	if err == nil && !won {
+		return ErrTaskImageVersionConflict
+	}
 	return err
 }
 
@@ -495,24 +525,28 @@ func (t *Task) UpdateQuota() error {
 
 // UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).
 // Returns (true, nil) if this caller won the update, (false, nil) if
-// another process already moved the task out of fromStatus.
+// another process already moved the task out of fromStatus or changed its image
+// version. Unrelated tasks retain the database's same-value update semantics.
 //
 // Uses Model().Select("*").Updates() instead of Save() because GORM's Save
 // falls back to INSERT ON CONFLICT when the WHERE-guarded UPDATE matches
 // zero rows, which silently bypasses the CAS guard.
 func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
-	result := DB.Model(t).Where("status = ?", fromStatus).Select("*").Updates(t)
-	if result.Error != nil {
-		return false, result.Error
+	if t.ID == 0 {
+		return false, gorm.ErrMissingWhereClause
 	}
-	return result.RowsAffected > 0, nil
+	return t.updateWithImageVersion(DB.Where("id = ? AND status = ?", t.ID, fromStatus))
 }
 
 // TaskBulkUpdate performs an unconditional bulk UPDATE by upstream task_id strings.
-// Same caveats as TaskBulkUpdateByID — no CAS guard.
+// Billing-sensitive state transitions must use Task.UpdateWithStatus instead.
 func TaskBulkUpdate(taskIds []string, params map[string]any) error {
 	if len(taskIds) == 0 {
 		return nil
+	}
+	params, err := taskBulkVersionParams(params)
+	if err != nil {
+		return err
 	}
 	return DB.Model(&Task{}).
 		Where("task_id in (?)", taskIds).
@@ -527,6 +561,10 @@ func TaskBulkUpdate(taskIds []string, params map[string]any) error {
 func TaskBulkUpdateByID(ids []int64, params map[string]any) error {
 	if len(ids) == 0 {
 		return nil
+	}
+	params, err := taskBulkVersionParams(params)
+	if err != nil {
+		return err
 	}
 	return DB.Model(&Task{}).
 		Where("id in (?)", ids).

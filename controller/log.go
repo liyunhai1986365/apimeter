@@ -24,6 +24,20 @@ func parseLogQueryInt(value string) int {
 	return parsed
 }
 
+func isLogCursorQuery(c *gin.Context) bool {
+	return c.Query("cursor_mode") == "1"
+}
+
+func logCursorPage(pageInfo *common.PageInfo, logs []*model.Log, nextCursor int, hasMore bool) gin.H {
+	return gin.H{
+		"items":       logs,
+		"page":        pageInfo.GetPage(),
+		"page_size":   pageInfo.GetPageSize(),
+		"has_more":    hasMore,
+		"next_cursor": nextCursor,
+	}
+}
+
 func GetAllLogs(c *gin.Context) {
 	pageInfo := common.GetPageQuery(c)
 	logType, _ := strconv.Atoi(c.Query("type"))
@@ -37,6 +51,19 @@ func GetAllLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
+	if isLogCursorQuery(c) {
+		cursor := parseLogQueryInt(c.Query("cursor"))
+		logs, nextCursor, hasMore, err := model.GetAllLogsByCursor(logType, startTimestamp, endTimestamp, modelName, username, tokenName, cursor, pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId, workspaceName)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if c.GetInt("role") < common.RoleRootUser {
+			model.StripChannelCostFieldsFromLogs(logs)
+		}
+		common.ApiSuccess(c, logCursorPage(pageInfo, logs, nextCursor, hasMore))
+		return
+	}
 	logs, total, err := model.GetAllLogs(logType, startTimestamp, endTimestamp, modelName, username, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), channel, group, requestId, upstreamRequestId, workspaceName)
 	if err != nil {
 		common.ApiError(c, err)
@@ -67,6 +94,19 @@ func GetUserLogs(c *gin.Context) {
 	group := c.Query("group")
 	requestId := c.Query("request_id")
 	upstreamRequestId := c.Query("upstream_request_id")
+	if isLogCursorQuery(c) {
+		cursor := parseLogQueryInt(c.Query("cursor"))
+		logs, nextCursor, hasMore, err := model.GetUserLogsByCursor(scope.OwnerUserId, logType, startTimestamp, endTimestamp, modelName, tokenName, cursor, pageInfo.GetPageSize(), group, requestId, upstreamRequestId, workspaceName, scope.WorkspaceFilter())
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		if scope.IsSubaccount {
+			model.StripChannelCostFieldsFromLogs(logs)
+		}
+		common.ApiSuccess(c, logCursorPage(pageInfo, logs, nextCursor, hasMore))
+		return
+	}
 	logs, total, err := model.GetUserLogs(scope.OwnerUserId, logType, startTimestamp, endTimestamp, modelName, tokenName, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), group, requestId, upstreamRequestId, workspaceName, scope.WorkspaceFilter())
 	if err != nil {
 		common.ApiError(c, err)

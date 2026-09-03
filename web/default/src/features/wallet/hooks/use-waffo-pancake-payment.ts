@@ -19,6 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState, useCallback } from 'react'
 import i18next from 'i18next'
 import { toast } from 'sonner'
+import {
+  closePendingPaymentWindow,
+  isSafePaymentUrl,
+  navigatePendingPaymentWindow,
+  openPendingPaymentWindow,
+} from '@/lib/payment-window'
 import { requestWaffoPancakePayment, isApiSuccess } from '../api'
 
 function getCheckoutUrl(data: unknown): string | null {
@@ -33,23 +39,6 @@ function getCheckoutUrl(data: unknown): string | null {
   return null
 }
 
-/**
- * Reject non-navigable schemes (e.g. javascript:, data:) and relative URLs.
- * Only http/https are allowed for backend-provided redirect targets.
- */
-function isSafeHttpCheckoutUrl(value: string): boolean {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    return false
-  }
-  try {
-    const u = new URL(trimmed)
-    return u.protocol === 'http:' || u.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
 function getErrorMessage(message: string | undefined, data: unknown): string {
   if (typeof data === 'string' && data.trim()) {
     return data
@@ -61,14 +50,16 @@ function getErrorMessage(message: string | undefined, data: unknown): string {
 /**
  * Hook for the Waffo Pancake hosted-checkout flow.
  *
- * Same-tab redirect (window.location.href) rather than window.open: the
- * user-gesture context is lost across the await, so popups get blocked.
+ * A blank page is opened while the click still has user-gesture context, then
+ * navigated after the API returns to avoid asynchronous popup blocking.
  */
 export function useWaffoPancakePayment() {
   const [processing, setProcessing] = useState(false)
 
   const processWaffoPancakePayment = useCallback(
     async (topupAmount: number) => {
+      const paymentWindow = openPendingPaymentWindow()
+      let paymentPageOpened = false
       setProcessing(true)
 
       try {
@@ -80,12 +71,13 @@ export function useWaffoPancakePayment() {
           const checkoutUrl = getCheckoutUrl(response.data)
 
           if (checkoutUrl) {
-            if (!isSafeHttpCheckoutUrl(checkoutUrl)) {
+            if (!isSafePaymentUrl(checkoutUrl)) {
               toast.error(i18next.t('Invalid payment redirect URL'))
               return false
             }
-            toast.success(i18next.t('Redirecting to payment page...'))
-            window.location.href = checkoutUrl
+            navigatePendingPaymentWindow(paymentWindow, checkoutUrl)
+            paymentPageOpened = true
+            toast.success(i18next.t('Payment page opened'))
             return true
           }
         }
@@ -96,6 +88,9 @@ export function useWaffoPancakePayment() {
         toast.error(i18next.t('Payment request failed'))
         return false
       } finally {
+        if (!paymentPageOpened) {
+          closePendingPaymentWindow(paymentWindow)
+        }
         setProcessing(false)
       }
     },

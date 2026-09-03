@@ -78,13 +78,15 @@ func TestCreateCryptoPaymentOrderReservesExactUniqueAmount(t *testing.T) {
 	second := createCryptoPaymentTestOrder(t, 1, "crypto-order-2")
 
 	require.NotEqual(t, first.RequestedAmount, second.RequestedAmount)
-	require.Equal(t, "10.001", first.DisplayAmount)
-	require.Equal(t, "10.002", second.DisplayAmount)
+	for _, payment := range []*CryptoPayment{first, second} {
+		require.Regexp(t, `^10\.0\d{2}$`, payment.DisplayAmount)
+		require.NotEqual(t, "10.000", payment.DisplayAmount)
+	}
 	require.NotNil(t, first.ReservationKey)
 	require.Len(t, *first.ReservationKey, 64)
 }
 
-func TestUniqueAmountCandidateUsesThreeDecimalsAndSmallestValuesFirst(t *testing.T) {
+func TestUniqueAmountCandidateUsesThreeDecimals(t *testing.T) {
 	first, err := uniqueAmountCandidate("10000000", 6, 3, 0)
 	require.NoError(t, err)
 	require.Equal(t, "10001000", first)
@@ -105,21 +107,68 @@ func TestUniqueAmountCandidateUsesThreeDecimalsAndSmallestValuesFirst(t *testing
 	require.Equal(t, "10.429", display)
 }
 
+func TestUniqueAmountAttemptOffsetPrefersRandomLastTwoDigits(t *testing.T) {
+	const maxAttempts = 999
+
+	firstOffset := uniqueAmountAttemptOffset(11, 0, maxAttempts)
+	first, err := uniqueAmountCandidate("500000000", 6, 3, firstOffset)
+	require.NoError(t, err)
+	firstDisplay, err := formatAtomicAmount(first, 6, 3)
+	require.NoError(t, err)
+	require.Equal(t, "500.012", firstDisplay)
+
+	secondOffset := uniqueAmountAttemptOffset(42, 0, maxAttempts)
+	second, err := uniqueAmountCandidate("500000000", 6, 3, secondOffset)
+	require.NoError(t, err)
+	secondDisplay, err := formatAtomicAmount(second, 6, 3)
+	require.NoError(t, err)
+	require.Equal(t, "500.043", secondDisplay)
+
+	// The first 99 attempts stay within .001-.099. Further attempts spill into
+	// .1xx-.9xx without losing any of the original 999 unique candidates.
+	seen := make(map[int]struct{}, maxAttempts)
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		offset := uniqueAmountAttemptOffset(11, attempt, maxAttempts)
+		require.GreaterOrEqual(t, offset, 0)
+		require.Less(t, offset, maxAttempts)
+		_, duplicated := seen[offset]
+		require.False(t, duplicated)
+		seen[offset] = struct{}{}
+		if attempt < 99 {
+			require.Less(t, offset, 99)
+		}
+	}
+	require.Len(t, seen, maxAttempts)
+}
+
+func TestRandomUniqueAmountStartStaysWithinPreferredSuffixRange(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		start, err := randomUniqueAmountStart(99)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, start, 0)
+		require.Less(t, start, 99)
+	}
+}
+
 func TestCompleteCryptoPaymentCreditsExactlyOnceAndRejectsReusedTransfer(t *testing.T) {
 	setupCryptoPaymentTestDB(t)
 	require.NoError(t, DB.Create(&User{Id: 1, Username: "crypto-user"}).Error)
 	first := createCryptoPaymentTestOrder(t, 1, "crypto-order-1")
 	second := createCryptoPaymentTestOrder(t, 1, "crypto-order-2")
 
-	require.NoError(t, CompleteCryptoPayment(first.TradeNo, "0xabc", "0x1", 123))
-	require.NoError(t, CompleteCryptoPayment(first.TradeNo, "0xabc", "0x1", 123))
+	completed, err := CompleteCryptoPaymentOnce(first.TradeNo, "0xabc", "0x1", 123)
+	require.NoError(t, err)
+	require.True(t, completed)
+	completed, err = CompleteCryptoPaymentOnce(first.TradeNo, "0xabc", "0x1", 123)
+	require.NoError(t, err)
+	require.False(t, completed)
 
 	var user User
 	require.NoError(t, DB.First(&user, 1).Error)
 	expectedQuota := int64(10 * common.QuotaPerUnit)
 	require.Equal(t, expectedQuota, int64(user.Quota))
 
-	err := CompleteCryptoPayment(second.TradeNo, "0xabc", "0x1", 123)
+	err = CompleteCryptoPayment(second.TradeNo, "0xabc", "0x1", 123)
 	require.Error(t, err)
 	require.NoError(t, DB.First(&user, 1).Error)
 	require.Equal(t, expectedQuota, int64(user.Quota))

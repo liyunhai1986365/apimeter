@@ -29,6 +29,7 @@ const semSearchValueSchema = z
 const pricingSearchSchema = z.object({
   search: z.string().optional(),
   sort: z.string().optional(),
+  userGroup: z.string().optional(),
   vendor: z.string().optional(),
   group: z.string().optional(),
   quotaType: z.string().optional(),

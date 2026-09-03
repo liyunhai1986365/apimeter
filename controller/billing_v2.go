@@ -1,14 +1,13 @@
 package controller
 
 import (
-	"bytes"
-	"encoding/csv"
 	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -99,90 +98,41 @@ func ExportBillingBreakdowns(c *gin.Context) {
 }
 
 func ExportBillingMonthlyStatement(c *gin.Context) {
-	statementNo := c.Param("statement_no")
-	statement, err := model.GetBillingStatementByNo(statementNo, c.GetInt("id"))
+	exportBillingMonthlyStatement(c, c.GetInt("id"))
+}
+
+func exportBillingMonthlyStatement(c *gin.Context, userId int) {
+	statement, err := model.GetBillingStatementByNo(c.Param("statement_no"), userId)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	summaries, err := model.GetBillingStatementSummaries(statementNo)
+	summaries, err := model.GetBillingStatementSummaries(statement.StatementNo)
 	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	rows := make([]model.BillingBreakdownRow, 0, len(summaries))
-	for _, summary := range summaries {
-		if summary.Dimension != model.BillingStatementSummaryDimensionMonthModelGroup {
-			continue
-		}
-		rows = append(rows, model.BillingBreakdownRow{
-			Period:           summary.Period,
-			PeriodValue:      summary.PeriodValue,
-			ModelName:        summary.ModelName,
-			Group:            summary.Group,
-			BillingSource:    summary.BillingSource,
-			BillingMode:      summary.BillingMode,
-			RequestCount:     summary.RequestCount,
-			InputTokens:      summary.InputTokens,
-			OutputTokens:     summary.OutputTokens,
-			CacheReadTokens:  summary.CacheReadTokens,
-			CacheWriteTokens: summary.CacheWriteTokens,
-			OriginalAmount:   summary.OriginalAmount,
-			DiscountAmount:   summary.DiscountAmount,
-			SettlementAmount: summary.SettlementAmount,
-		})
+	data, err := service.BuildBillingStatementCSV(statement, summaries)
+	if err != nil {
+		common.ApiError(c, err)
+		return
 	}
-	writeBillingBreakdownCSV(c, rows, fmt.Sprintf("monthly-billing-%s-%s.csv", statement.PeriodValue, statement.StatementNo))
+	writeBillingCSV(c, data, service.BillingStatementCSVFileName(statement))
 }
 
 func writeBillingBreakdownCSV(c *gin.Context, rows []model.BillingBreakdownRow, fileName string) {
-	var buf bytes.Buffer
-	buf.WriteString("\xEF\xBB\xBF")
-	writer := csv.NewWriter(&buf)
-	_ = writer.Write([]string{
-		"账期",
-		"模型",
-		"分组",
-		"请求数",
-		"输入 Tokens",
-		"输出 Tokens",
-		"缓存读取 Tokens",
-		"缓存写入 Tokens",
-		"原价(USD)",
-		"分组折扣(USD)",
-		"结算金额(USD)",
-	})
-	for _, row := range rows {
-		_ = writer.Write([]string{
-			row.PeriodValue,
-			row.ModelName,
-			row.Group,
-			strconv.FormatInt(row.RequestCount, 10),
-			strconv.FormatInt(row.InputTokens, 10),
-			strconv.FormatInt(row.OutputTokens, 10),
-			strconv.FormatInt(row.CacheReadTokens, 10),
-			strconv.FormatInt(row.CacheWriteTokens, 10),
-			formatBillingCSVUSDAmount(row.OriginalAmount),
-			formatBillingCSVUSDAmount(row.DiscountAmount),
-			formatBillingCSVUSDAmount(row.SettlementAmount),
-		})
-	}
-	writer.Flush()
-	if err := writer.Error(); err != nil {
+	data, err := service.BuildBillingBreakdownCSV(rows)
+	if err != nil {
 		common.ApiError(c, err)
 		return
 	}
-
-	c.Header("Content-Type", "text/csv; charset=utf-8")
-	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
-	c.Data(200, "text/csv; charset=utf-8", buf.Bytes())
+	writeBillingCSV(c, data, fileName)
 }
 
-func formatBillingCSVUSDAmount(quota int64) string {
-	if common.QuotaPerUnit <= 0 {
-		return "0.000000"
-	}
-	return strconv.FormatFloat(float64(quota)/common.QuotaPerUnit, 'f', 6, 64)
+func writeBillingCSV(c *gin.Context, data []byte, fileName string) {
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, fileName))
+	c.Data(200, "text/csv; charset=utf-8", data)
 }
 
 func billingBreakdownExportFileName(query model.BillingBreakdownQuery) string {

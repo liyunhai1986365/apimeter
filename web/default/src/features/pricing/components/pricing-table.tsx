@@ -37,7 +37,11 @@ import { getPerfMetricsSummary } from '@/features/performance-metrics/api'
 import type { PerfModelSummary } from '@/features/performance-metrics/types'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { sortModelsByCardGroupOrder } from '../lib/model-card-groups'
-import type { PricingModel, TokenUnit } from '../types'
+import type {
+  PricingGroupDisplayConfig,
+  PricingModel,
+  TokenUnit,
+} from '../types'
 import { usePricingColumns } from './pricing-columns'
 
 export interface PricingTableProps {
@@ -48,6 +52,7 @@ export interface PricingTableProps {
   tokenUnit?: TokenUnit
   showRechargePrice?: boolean
   onModelClick?: (modelName: string) => void
+  groupDisplay?: PricingGroupDisplayConfig
 }
 
 export function PricingTable(props: PricingTableProps) {
@@ -82,6 +87,7 @@ export function PricingTable(props: PricingTableProps) {
     usdExchangeRate,
     showRechargePrice,
     perfByModel,
+    groupDisplay: props.groupDisplay,
   })
   const sortedModels = useMemo(
     () => sortModelsByCardGroupOrder(models),

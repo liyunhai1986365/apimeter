@@ -12,7 +12,7 @@ func isPaymentComplianceConfirmed() bool {
 }
 
 func isStripeTopUpEnabled() bool {
-	if !isPaymentComplianceConfirmed() {
+	if !isPaymentComplianceConfirmed() || !setting.StripeEnabled {
 		return false
 	}
 	return strings.TrimSpace(setting.StripeApiSecret) != "" &&
@@ -25,7 +25,10 @@ func isStripeWebhookConfigured() bool {
 }
 
 func isStripeWebhookEnabled() bool {
-	return isStripeTopUpEnabled()
+	// Keep signed callbacks available after the operator disables new Stripe
+	// payments so already-created checkout and automatic-recharge orders can
+	// still settle safely.
+	return isPaymentComplianceConfirmed() && isStripeWebhookConfigured()
 }
 
 func isCreemTopUpEnabled() bool {

@@ -641,7 +641,7 @@ func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesGroupAfterFailure(
 	require.Equal(t, "backup", autoGroup)
 }
 
-func TestCacheGetRandomSatisfiedChannelRoutingStrategyStaysOnFirstGroupWithoutCrossGroupRetry(t *testing.T) {
+func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesWithoutLegacyToggle(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {
 		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
@@ -689,9 +689,9 @@ func TestCacheGetRandomSatisfiedChannelRoutingStrategyStaysOnFirstGroupWithoutCr
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
-	require.Equal(t, 1811, channel.Id)
-	require.Equal(t, "cheap", selectedGroup)
-	require.Equal(t, "cheap", common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
+	require.Equal(t, 1812, channel.Id)
+	require.Equal(t, "expensive", selectedGroup)
+	require.Equal(t, "expensive", common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
 }
 
 func TestCacheGetRandomSatisfiedChannelRoutingStrategyExcludesTokenGroups(t *testing.T) {
@@ -1542,4 +1542,12 @@ func TestCacheGetRandomSatisfiedChannelFiltersImageChatProtocolSupportWithoutMem
 	require.NotNil(t, channel)
 	require.Equal(t, 1001, channel.Id)
 	require.Equal(t, "default", selectedGroup)
+}
+
+func TestNativeWan3ProfileSupportsBuiltInAliChannel(t *testing.T) {
+	profiles := []string{"dashscope-wan3-video", "happyhorse-video"}
+	require.True(t, nativeWan3ProfileSupportsChannel(profiles, "wan3.0-video", constant.ChannelTypeAli))
+	require.True(t, nativeWan3ProfileSupportsChannel(profiles, "wan3.0-video-prime", constant.ChannelTypeAli))
+	require.False(t, nativeWan3ProfileSupportsChannel(profiles, "happyhorse-1.0-t2v", constant.ChannelTypeAli))
+	require.False(t, nativeWan3ProfileSupportsChannel(profiles, "wan3.0-video", constant.ChannelTypeConfigurable))
 }

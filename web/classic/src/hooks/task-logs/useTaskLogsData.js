@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { createElement, useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -30,6 +30,8 @@ import {
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
+import { getTaskImageStatus } from '../../helpers/taskImageRetention';
+import { useTaskImageStatus } from './useTaskImageStatus';
 
 export const useTaskLogsData = () => {
   const { t } = useTranslation();
@@ -39,10 +41,8 @@ export const useTaskLogsData = () => {
     SUBMIT_TIME: 'submit_time',
     FINISH_TIME: 'finish_time',
     DURATION: 'duration',
-    CHANNEL: 'channel',
     USERNAME: 'username',
-    PLATFORM: 'platform',
-    TYPE: 'type',
+    MODEL: 'model',
     TASK_ID: 'task_id',
     TASK_STATUS: 'task_status',
     PROGRESS: 'progress',
@@ -67,6 +67,22 @@ export const useTaskLogsData = () => {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState('');
+  const [imageMetadata, setImageMetadata] = useState(null);
+  const imageStatus = useTaskImageStatus(imageMetadata);
+  useEffect(() => {
+    if (imageStatus === 'expired' || imageStatus === 'partially_expired') {
+      setModalContent(
+        t(imageStatus === 'expired' ? '图片已过期' : '部分图片已过期'),
+      );
+      setImageMetadata(null);
+    }
+  }, [imageStatus, t]);
+  useEffect(() => {
+    if (!isModalOpen) {
+      setModalContent('');
+      setImageMetadata(null);
+    }
+  }, [isModalOpen]);
 
   // 新增：视频预览弹窗状态
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -108,11 +124,15 @@ export const useTaskLogsData = () => {
       try {
         const parsed = JSON.parse(savedColumns);
         const defaults = getDefaultColumnVisibility();
-        const merged = { ...defaults, ...parsed };
+        const merged = Object.fromEntries(
+          Object.entries(defaults).map(([key, value]) => [
+            key,
+            parsed[key] ?? value,
+          ]),
+        );
 
         // For non-admin users, force-hide admin-only columns (does not touch admin settings)
         if (!isAdminUser) {
-          merged[COLUMN_KEYS.CHANNEL] = false;
           merged[COLUMN_KEYS.USERNAME] = false;
         }
         setVisibleColumns(merged);
@@ -131,10 +151,8 @@ export const useTaskLogsData = () => {
       [COLUMN_KEYS.SUBMIT_TIME]: true,
       [COLUMN_KEYS.FINISH_TIME]: true,
       [COLUMN_KEYS.DURATION]: true,
-      [COLUMN_KEYS.CHANNEL]: isAdminUser,
       [COLUMN_KEYS.USERNAME]: isAdminUser,
-      [COLUMN_KEYS.PLATFORM]: true,
-      [COLUMN_KEYS.TYPE]: true,
+      [COLUMN_KEYS.MODEL]: true,
       [COLUMN_KEYS.TASK_ID]: true,
       [COLUMN_KEYS.TASK_STATUS]: true,
       [COLUMN_KEYS.PROGRESS]: true,
@@ -162,10 +180,7 @@ export const useTaskLogsData = () => {
     const updatedColumns = {};
 
     allKeys.forEach((key) => {
-      if (
-        (key === COLUMN_KEYS.CHANNEL || key === COLUMN_KEYS.USERNAME) &&
-        !isAdminUser
-      ) {
+      if (key === COLUMN_KEYS.USERNAME && !isAdminUser) {
         updatedColumns[key] = false;
       } else {
         updatedColumns[key] = checked;
@@ -286,6 +301,97 @@ export const useTaskLogsData = () => {
     setIsAudioModalOpen(true);
   };
 
+  const detailLoading = useRef(false);
+  const openTaskDetail = async (record, preview = true) => {
+    if (detailLoading.current) return;
+    setImageMetadata(null);
+    if (preview && getTaskImageStatus(record) === 'expired') {
+      openContentModal(t('图片已过期'));
+      return;
+    }
+    detailLoading.current = true;
+    openContentModal(t('加载中...'));
+    try {
+      const base = isAdminUser ? '/api/task' : '/api/task/self';
+      const res = await API.get(
+        `${base}/${encodeURIComponent(record.task_id)}`,
+      );
+      if (!res.data.success || !res.data.data)
+        throw new Error(res.data.message);
+      const detail = res.data.data;
+      const status = getTaskImageStatus(detail);
+      if (preview && status === 'expired') {
+        openContentModal(t('图片已过期'));
+        return;
+      }
+      if (status === 'available')
+        setImageMetadata({
+          image_status: detail.image_status,
+          image_expires_at: detail.image_expires_at,
+          image_has_url: detail.image_has_url,
+        });
+      const data =
+        typeof detail.data === 'string' ? JSON.parse(detail.data) : detail.data;
+      if (
+        preview &&
+        Array.isArray(data) &&
+        data.some((clip) => clip.audio_url)
+      ) {
+        setIsModalOpen(false);
+        openAudioModal(data);
+        return;
+      }
+      const image = data?.data?.images?.find(
+        (item) =>
+          item?.url ||
+          (status !== 'partially_expired' &&
+            !item?.image_expired &&
+            item?.b64_json),
+      );
+      const imageUrl =
+        image?.url ||
+        (status !== 'partially_expired' && image?.b64_json
+          ? `data:image/png;base64,${image.b64_json}`
+          : '');
+      if (preview && imageUrl) {
+        openContentModal(
+          createElement('img', {
+            src: imageUrl,
+            alt: t('图片'),
+            style: { maxWidth: '100%' },
+          }),
+        );
+        return;
+      }
+      const resultUrl = detail.result_url || detail.fail_reason;
+      if (
+        preview &&
+        typeof resultUrl === 'string' &&
+        /^(https?:\/\/|\/|data:video\/)/.test(resultUrl)
+      ) {
+        setIsModalOpen(false);
+        openVideoModal(resultUrl);
+        return;
+      }
+      // Keep large base64 values out of the text renderer.
+      openContentModal(
+        JSON.stringify(
+          detail,
+          (key, value) =>
+            typeof value === 'string' && value.length > 2000
+              ? value.slice(0, 2000) + '…'
+              : value,
+          2,
+        ),
+      );
+    } catch (error) {
+      setIsModalOpen(false);
+      showError(error.message || t('加载失败'));
+    } finally {
+      detailLoading.current = false;
+    }
+  };
+
   // User info function
   const showUserInfoFunc = async (userId) => {
     if (!isAdminUser) {
@@ -365,6 +471,7 @@ export const useTaskLogsData = () => {
     refresh,
     copyText,
     openContentModal,
+    openTaskDetail,
     openVideoModal,
     openAudioModal,
     enrichLogs,

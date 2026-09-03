@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useState, useMemo } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { formatDiscountPercentage } from '@/lib/group-discount'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -28,6 +29,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { StatusBadge } from '@/components/status-badge'
 import { safeJsonParseWithValidation } from '../utils/json-parser'
 import { isObjectRecord } from '../utils/json-validators'
@@ -39,6 +41,22 @@ import {
 type AmountDiscountVisualEditorProps = {
   value: string
   onChange: (value: string) => void
+}
+
+function AmountDiscountBadge({ ratio }: { ratio: number }) {
+  const label = formatDiscountPercentage(ratio)
+
+  return (
+    <DiscountTooltip label={label}>
+      <StatusBadge
+        variant={ratio < 1 ? 'info' : 'neutral'}
+        className='font-mono'
+        copyable={false}
+      >
+        {label || '-'}
+      </StatusBadge>
+    </DiscountTooltip>
+  )
 }
 
 export function AmountDiscountVisualEditor({
@@ -111,12 +129,6 @@ export function AmountDiscountVisualEditor({
     setDialogOpen(true)
   }
 
-  const formatPercentage = (rate: number) => {
-    if (rate >= 1) return '0%'
-    const discount = Math.round((1 - rate) * 100)
-    return `${discount}%`
-  }
-
   return (
     <div className='space-y-4'>
       <div className='flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between'>
@@ -171,13 +183,7 @@ export function AmountDiscountVisualEditor({
                       </code>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge
-                        variant={discount.discountRate < 1 ? 'info' : 'neutral'}
-                        className='font-mono'
-                        copyable={false}
-                      >
-                        {formatPercentage(discount.discountRate)} {t('off')}
-                      </StatusBadge>
+                      <AmountDiscountBadge ratio={discount.discountRate} />
                     </TableCell>
                     <TableCell className='text-right'>
                       <div className='flex justify-end gap-2'>
@@ -222,13 +228,7 @@ export function AmountDiscountVisualEditor({
                     <div className='mb-2 font-mono text-base font-medium'>
                       ${discount.amount}
                     </div>
-                    <StatusBadge
-                      variant={discount.discountRate < 1 ? 'info' : 'neutral'}
-                      className='font-mono'
-                      copyable={false}
-                    >
-                      {formatPercentage(discount.discountRate)} {t('off')}
-                    </StatusBadge>
+                    <AmountDiscountBadge ratio={discount.discountRate} />
                   </div>
                   <div className='flex gap-1'>
                     <Button

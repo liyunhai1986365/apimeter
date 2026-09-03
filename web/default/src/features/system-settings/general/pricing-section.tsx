@@ -58,6 +58,7 @@ const createPricingSchema = (t: (key: string) => string) =>
       DisplayInCurrencyEnabled: z.boolean(),
       DisplayTokenStatEnabled: z.boolean(),
       general_setting: z.object({
+        default_user_display_currency: z.enum(['USD', 'CNY']),
         quota_display_type: z.enum(['USD', 'CNY', 'TOKENS', 'CUSTOM']),
         custom_currency_symbol: z.string().max(8).optional(),
         custom_currency_exchange_rate: z.coerce
@@ -174,6 +175,44 @@ export function PricingSection({ defaultValues }: PricingSectionProps) {
                 )}
               />
             )}
+
+            <FormField
+              control={form.control}
+              name='general_setting.default_user_display_currency'
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('Default price currency')}</FormLabel>
+                  <Select
+                    items={[
+                      { value: 'USD', label: t('USD') },
+                      { value: 'CNY', label: t('CNY') },
+                    ]}
+                    value={field.value}
+                    onValueChange={field.onChange}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue
+                          placeholder={t('Default price currency')}
+                        />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent alignItemWithTrigger={false}>
+                      <SelectGroup>
+                        <SelectItem value='USD'>{t('USD')}</SelectItem>
+                        <SelectItem value='CNY'>{t('CNY')}</SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>
+                    {t(
+                      'Used for first-time visitors who have not selected a currency. Existing personal choices are preserved.'
+                    )}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
             <FormField
               control={form.control}

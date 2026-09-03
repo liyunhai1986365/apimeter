@@ -5,6 +5,7 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -120,6 +121,35 @@ func TestListAgentDomainsByStatus(t *testing.T) {
 	assert.Equal(t, "Alpha Agent", domains[0].AgentName)
 	assert.Equal(t, "alpha-agent", domains[0].AgentSlug)
 	assert.Equal(t, 2001, domains[0].OwnerUserId)
+}
+
+func TestPrimaryActiveAgentDomainsUseEnabledMembershipAndFirstDomain(t *testing.T) {
+	truncateTables(t)
+
+	agent := &Agent{OwnerUserId: 2101, Name: "Active Agent", Slug: "active-agent-domain", Status: AgentStatusEnabled}
+	disabledAgent := &Agent{OwnerUserId: 2102, Name: "Disabled Agent", Slug: "disabled-agent-domain", Status: AgentStatusDisabled}
+	require.NoError(t, DB.Create(agent).Error)
+	require.NoError(t, DB.Create(disabledAgent).Error)
+	require.NoError(t, DB.Create(&[]AgentDomain{
+		{AgentId: agent.Id, Domain: "primary.example.com", Status: AgentDomainStatusActive},
+		{AgentId: agent.Id, Domain: "secondary.example.com", Status: AgentDomainStatusActive},
+		{AgentId: agent.Id, Domain: "inactive.example.com", Status: AgentDomainStatusDisabled},
+		{AgentId: disabledAgent.Id, Domain: "disabled-agent.example.com", Status: AgentDomainStatusActive},
+	}).Error)
+	require.NoError(t, DB.Create(&[]AgentUser{
+		{AgentId: agent.Id, UserId: 2201, Status: AgentUserStatusEnabled},
+		{AgentId: agent.Id, UserId: 2202, Status: AgentUserStatusDisabled},
+		{AgentId: disabledAgent.Id, UserId: 2203, Status: AgentUserStatusEnabled},
+	}).Error)
+
+	primary, err := GetPrimaryActiveAgentDomain(agent.Id)
+	require.NoError(t, err)
+	require.NotNil(t, primary)
+	require.Equal(t, "primary.example.com", primary.Domain)
+
+	domains, err := ListPrimaryActiveAgentDomainsForUsers([]int{2201, 2202, 2203, 9999})
+	require.NoError(t, err)
+	require.Equal(t, map[int]string{2201: "primary.example.com"}, domains)
 }
 
 func TestActivateLegacyPendingAgentDomains(t *testing.T) {
@@ -295,4 +325,24 @@ func TestListAgentUsersIncludesUserProfile(t *testing.T) {
 	assert.Equal(t, 1, users[0].Role)
 	assert.Equal(t, int64(1710000000), users[0].UserCreatedAt)
 	assert.Equal(t, int64(1710003600), users[0].LastLoginAt)
+}
+
+func TestAgentAnnouncementsAreIsolatedAndScheduled(t *testing.T) {
+	truncateTables(t)
+	now := time.Now().Unix()
+	require.NoError(t, DB.Create(&[]AgentAnnouncement{
+		{AgentId: 1, Title: "Published", Content: "Visible", Type: "general", PublishAt: now - 10, Enabled: true},
+		{AgentId: 1, Title: "Future", Content: "Scheduled", Type: "general", PublishAt: now + 10, Enabled: true},
+		{AgentId: 1, Title: "Hidden", Content: "Disabled", Type: "general", PublishAt: now - 10, Enabled: false},
+		{AgentId: 2, Title: "Other", Content: "Other agent", Type: "general", PublishAt: now - 10, Enabled: true},
+	}).Error)
+
+	announcements, err := ListPublishedAgentAnnouncements(1, 20, now)
+	require.NoError(t, err)
+	require.Len(t, announcements, 1)
+	require.Equal(t, "Published", announcements[0].Title)
+	require.Contains(t, announcements[0].PublicData()["id"], "agent:1:")
+
+	_, err = GetAgentAnnouncement(1, 4)
+	require.ErrorIs(t, err, ErrAgentAnnouncementNotFound)
 }

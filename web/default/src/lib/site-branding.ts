@@ -18,25 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { DEFAULT_SYSTEM_NAME } from '@/lib/constants'
 
-const APIMETER_NAME = 'APIMeter'
-const APIMETER_CLI_SECTION_HOSTS = new Set([
-  'apimeter.ai',
-  'www.apimeter.ai',
+const MODELSELL_NAME = 'Modelsell'
+const MODELSELL_CLI_SECTION_HOSTS = new Set([
+  'modelsell.com',
+  'www.modelsell.com',
 ])
 const DEFAULT_SERVER_ADDRESS = ''
-const buildEnv = (
-  import.meta as ImportMeta & {
-    env?: Record<string, string | boolean | undefined>
-  }
-).env
-const APIMETER_STATIC_URL = trimSlash(
-  String(
-    buildEnv?.VITE_APIMETER_STATIC_URL || 'https://static.apimeter.ai'
-  )
-)
-const APIMETER_DOCS_URL = trimSlash(
-  String(buildEnv?.VITE_APIMETER_DOCS_URL || 'https://docs.apimeter.ai')
-)
 
 function trimSlash(value: string): string {
   return value.trim().replace(/\/+$/, '')
@@ -50,11 +37,11 @@ export function getCliDisplayName(systemName?: string): string {
   return `${getSiteName(systemName)} CLI`
 }
 
-export function shouldShowAPIMeterCliSection(hostname?: string): boolean {
+export function shouldShowModelSellCliSection(hostname?: string): boolean {
   const host =
     hostname ??
     (typeof window !== 'undefined' ? window.location.hostname : undefined)
-  return APIMETER_CLI_SECTION_HOSTS.has((host || '').trim().toLowerCase())
+  return MODELSELL_CLI_SECTION_HOSTS.has((host || '').trim().toLowerCase())
 }
 
 export function getSitePlanName(systemName?: string): string {
@@ -66,7 +53,9 @@ export function formatSystemTemplate(
   systemName?: string
 ): string {
   const siteName = getSiteName(systemName)
-  return template.replaceAll(APIMETER_NAME, siteName)
+  return template
+    .replaceAll(MODELSELL_NAME, siteName)
+    .replaceAll('ModelSell', siteName)
 }
 
 export function getSiteServerAddress(serverAddress?: string): string {
@@ -86,26 +75,26 @@ export function buildSitePathURL(
 }
 
 export function getCliInstallCommands(
-  _serverAddress?: string
+  serverAddress?: string
 ): Record<'unix' | 'windows', string> {
-  const staticBase = buildSitePathURL(APIMETER_STATIC_URL, '/apimeter-cli')
+  const staticBase = buildSitePathURL(serverAddress, '/modelsell-cli')
   return {
     unix: `curl -fsSL ${staticBase}/install.sh | sh`,
     windows: `irm ${staticBase}/install.ps1 | iex`,
   }
 }
 
-export function getCliDocsURL(_serverAddress?: string): string {
-  return buildSitePathURL(APIMETER_DOCS_URL, '/zh/docs/apps/apimeter-cli')
+export function getCliDocsURL(serverAddress?: string): string {
+  return buildSitePathURL(serverAddress, '/docs/apps/modelsell-cli')
 }
 
-export function getAgentToolsURL(_serverAddress?: string): string {
-  return buildSitePathURL(APIMETER_DOCS_URL, '/zh/docs/apps')
+export function getAgentToolsURL(serverAddress?: string): string {
+  return buildSitePathURL(serverAddress, '/docs/apps')
 }
 
-export function getCliScreenshotURL(_serverAddress?: string): string {
+export function getCliScreenshotURL(serverAddress?: string): string {
   return buildSitePathURL(
-    APIMETER_DOCS_URL,
-    '/assets/docs/apps/apimeter/apimeter-cli.png'
+    serverAddress,
+    '/assets/docs/apps/modelsell/modelsell-cli.png'
   )
 }

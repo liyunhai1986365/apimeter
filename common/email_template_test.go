@@ -77,3 +77,20 @@ func TestRenderEmailTemplateUsesAnnouncementStyle(t *testing.T) {
 		t.Fatalf("expected announcement accent color, got %s", html)
 	}
 }
+
+func TestRenderEmailTemplateUsesBillingStatementStyle(t *testing.T) {
+	html := renderEmailTemplate(
+		"Modelsell API 2026-08 月度账单",
+		`<!-- billing-statement --><p><a href="https://example.com/billing/monthly">查看账单</a></p>`,
+	)
+
+	if !strings.Contains(html, "Monthly statement") {
+		t.Fatalf("expected billing statement label, got %s", html)
+	}
+	if !strings.Contains(html, "查看账单详情") {
+		t.Fatalf("expected billing action button, got %s", html)
+	}
+	if !strings.Contains(html, "请勿直接回复") {
+		t.Fatalf("expected billing-specific footer, got %s", html)
+	}
+}

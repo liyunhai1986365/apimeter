@@ -22,6 +22,7 @@ import type {
   CryptoPaymentConfig,
   CryptoPaymentConfigResponse,
   AnnouncementEmailResponse,
+  AnnouncementAudience,
   DeleteLogsResponse,
   FetchUpstreamRatiosRequest,
   SystemOptionsResponse,
@@ -32,6 +33,7 @@ import type {
   RoutingStrategySnapshotResponse,
   UpstreamChannelsResponse,
   UpstreamRatiosResponse,
+  UserGroupsResponse,
 } from './types'
 
 export async function getSystemOptions() {
@@ -48,11 +50,18 @@ export async function sendAnnouncementEmail(request: {
   title: string
   content: string
   type: string
+  audience: AnnouncementAudience
+  target_groups: string[]
 }) {
   const res = await api.post<AnnouncementEmailResponse>(
     '/api/option/announcements/email',
     request
   )
+  return res.data
+}
+
+export async function getAnnouncementUserGroups() {
+  const res = await api.get<UserGroupsResponse>('/api/group/')
   return res.data
 }
 

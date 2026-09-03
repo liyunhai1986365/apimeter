@@ -17,14 +17,15 @@ type WaffoPancakePriceSnapshot struct {
 }
 
 // WaffoPancakeCreateSessionParams is the input to CreateWaffoPancakeCheckoutSession.
-// BuyerIdentity (merchant-controlled, stable per user) is what survives the
-// buyer editing email at checkout — see WaffoPancakeBuyerIdentityFromUserID.
+// BuyerIdentity must be stable per user (see WaffoPancakeBuyerIdentityFromUserID).
+// OrderMerchantExternalID is our trade_no; Pancake echoes it back in webhooks.
 type WaffoPancakeCreateSessionParams struct {
-	ProductID        string
-	BuyerIdentity    string
-	PriceSnapshot    *WaffoPancakePriceSnapshot
-	BuyerEmail       string
-	ExpiresInSeconds *int
+	ProductID               string
+	BuyerIdentity           string
+	PriceSnapshot           *WaffoPancakePriceSnapshot
+	BuyerEmail              string
+	ExpiresInSeconds        *int
+	OrderMerchantExternalID string
 }
 
 // WaffoPancakeCheckoutSession is the response of CreateWaffoPancakeCheckoutSession.
@@ -52,7 +53,9 @@ type WaffoPancakeWebhookEvent struct {
 }
 
 type WaffoPancakeWebhookData struct {
+	// OrderID is Pancake's ORD_* identifier; OrderMerchantExternalID is our trade_no.
 	OrderID                       string
+	OrderMerchantExternalID       string
 	BuyerEmail                    string
 	Currency                      string
 	Amount                        string
@@ -100,26 +103,15 @@ func CreateWaffoPancakeCheckoutSession(ctx context.Context, params *WaffoPancake
 	if strings.TrimSpace(params.BuyerIdentity) == "" {
 		return nil, fmt.Errorf("missing buyer identity")
 	}
+	if strings.TrimSpace(params.OrderMerchantExternalID) == "" {
+		return nil, fmt.Errorf("missing order merchant external id")
+	}
 	client, err := newWaffoPancakeClient()
 	if err != nil {
 		return nil, fmt.Errorf("build Waffo Pancake client: %w", err)
 	}
 
-	sdkParams := pancake.AuthenticatedCheckoutParams{
-		CreateCheckoutSessionParams: pancake.CreateCheckoutSessionParams{
-			ProductID:        params.ProductID,
-			Currency:         "USD",
-			BuyerEmail:       optionalString(params.BuyerEmail),
-			ExpiresInSeconds: params.ExpiresInSeconds,
-		},
-		BuyerIdentity: params.BuyerIdentity,
-	}
-	if params.PriceSnapshot != nil {
-		sdkParams.PriceSnapshot = &pancake.PriceInfo{
-			Amount:      params.PriceSnapshot.Amount,
-			TaxCategory: pancake.TaxCategory(params.PriceSnapshot.TaxCategory),
-		}
-	}
+	sdkParams := buildWaffoPancakeAuthenticatedCheckoutParams(params)
 
 	session, err := client.Checkout.Authenticated.Create(ctx, sdkParams)
 	if err != nil {
@@ -135,6 +127,26 @@ func CreateWaffoPancakeCheckoutSession(ctx context.Context, params *WaffoPancake
 		Token:          session.Token,
 		TokenExpiresAt: session.TokenExpiresAt,
 	}, nil
+}
+
+func buildWaffoPancakeAuthenticatedCheckoutParams(params *WaffoPancakeCreateSessionParams) pancake.AuthenticatedCheckoutParams {
+	sdkParams := pancake.AuthenticatedCheckoutParams{
+		CreateCheckoutSessionParams: pancake.CreateCheckoutSessionParams{
+			ProductID:               params.ProductID,
+			Currency:                "USD",
+			BuyerEmail:              optionalString(params.BuyerEmail),
+			ExpiresInSeconds:        params.ExpiresInSeconds,
+			OrderMerchantExternalID: optionalString(params.OrderMerchantExternalID),
+		},
+		BuyerIdentity: params.BuyerIdentity,
+	}
+	if params.PriceSnapshot != nil {
+		sdkParams.PriceSnapshot = &pancake.PriceInfo{
+			Amount:      params.PriceSnapshot.Amount,
+			TaxCategory: pancake.TaxCategory(params.PriceSnapshot.TaxCategory),
+		}
+	}
+	return sdkParams
 }
 
 func optionalString(s string) *string {
@@ -159,9 +171,17 @@ func VerifyConfiguredWaffoPancakeWebhook(payload string, signatureHeader string)
 	if err != nil {
 		return nil, err
 	}
+	return mapWaffoPancakeWebhookEvent(evt), nil
+}
+
+func mapWaffoPancakeWebhookEvent(evt *pancake.TypedWebhookEvent[pancake.WebhookEventData]) *WaffoPancakeWebhookEvent {
 	identity := ""
 	if evt.Data.MerchantProvidedBuyerIdentity != nil {
 		identity = *evt.Data.MerchantProvidedBuyerIdentity
+	}
+	externalID := ""
+	if evt.Data.OrderMerchantExternalID != nil {
+		externalID = *evt.Data.OrderMerchantExternalID
 	}
 	return &WaffoPancakeWebhookEvent{
 		ID:        evt.ID,
@@ -172,6 +192,7 @@ func VerifyConfiguredWaffoPancakeWebhook(payload string, signatureHeader string)
 		Mode:      string(evt.Mode),
 		Data: WaffoPancakeWebhookData{
 			OrderID:                       evt.Data.OrderID,
+			OrderMerchantExternalID:       externalID,
 			BuyerEmail:                    evt.Data.BuyerEmail,
 			Currency:                      evt.Data.Currency,
 			Amount:                        evt.Data.Amount,
@@ -179,23 +200,22 @@ func VerifyConfiguredWaffoPancakeWebhook(payload string, signatureHeader string)
 			ProductName:                   evt.Data.ProductName,
 			MerchantProvidedBuyerIdentity: identity,
 		},
-	}, nil
+	}
 }
 
 // ResolveWaffoPancakeTradeNo maps a verified webhook event to a local TopUp
-// trade_no, rejecting any payload whose buyer identity doesn't match the one
-// we recorded at checkout — defence-in-depth on top of signature verification.
+// trade_no via OrderMerchantExternalID and rejects buyer identity mismatches.
 func ResolveWaffoPancakeTradeNo(event *WaffoPancakeWebhookEvent) (string, error) {
 	if event == nil {
 		return "", fmt.Errorf("missing webhook event")
 	}
-	tradeNo := strings.TrimSpace(event.Data.OrderID)
+	tradeNo := strings.TrimSpace(event.Data.OrderMerchantExternalID)
 	if tradeNo == "" {
-		return "", fmt.Errorf("missing webhook orderId")
+		return "", fmt.Errorf("missing webhook orderMerchantExternalId")
 	}
 	topUp := model.GetTopUpByTradeNo(tradeNo)
 	if topUp == nil || topUp.PaymentProvider != model.PaymentProviderWaffoPancake {
-		return "", fmt.Errorf("waffo pancake order not found for webhook orderId=%s", tradeNo)
+		return "", fmt.Errorf("waffo pancake order not found for tradeNo=%s", tradeNo)
 	}
 	expectedIdentity := WaffoPancakeBuyerIdentityFromUserID(topUp.UserId)
 	actualIdentity := strings.TrimSpace(event.Data.MerchantProvidedBuyerIdentity)
@@ -216,13 +236,13 @@ func ResolveWaffoPancakeSubscriptionTradeNo(event *WaffoPancakeWebhookEvent) (st
 	if event == nil {
 		return "", fmt.Errorf("missing webhook event")
 	}
-	tradeNo := strings.TrimSpace(event.Data.OrderID)
+	tradeNo := strings.TrimSpace(event.Data.OrderMerchantExternalID)
 	if tradeNo == "" {
-		return "", fmt.Errorf("missing webhook orderId")
+		return "", fmt.Errorf("missing webhook orderMerchantExternalId")
 	}
 	order := model.GetSubscriptionOrderByTradeNo(tradeNo)
 	if order == nil || order.PaymentProvider != model.PaymentProviderWaffoPancake {
-		return "", fmt.Errorf("waffo pancake subscription order not found for webhook orderId=%s", tradeNo)
+		return "", fmt.Errorf("waffo pancake subscription order not found for tradeNo=%s", tradeNo)
 	}
 	expectedIdentity := WaffoPancakeBuyerIdentityFromUserID(order.UserId)
 	actualIdentity := strings.TrimSpace(event.Data.MerchantProvidedBuyerIdentity)

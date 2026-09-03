@@ -8,6 +8,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/bytedance/gopkg/util/gopool"
+	"github.com/go-redis/redis/v8"
+
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -25,16 +28,25 @@ func Init() {
 }
 
 func RecordRelaySample(info *relaycommon.RelayInfo, success bool, outputTokens int64) {
-	if info == nil {
+	if info == nil || (!info.AttemptStartTime.IsZero() && info.AttemptSampleRecorded) {
 		return
 	}
-	now := time.Now()
+	info.AttemptSampleRecorded = true
+	sample := relaySample(info, success, outputTokens, time.Now())
+	recordSample(sample, true)
+}
+
+func relaySample(info *relaycommon.RelayInfo, success bool, outputTokens int64, now time.Time) Sample {
+	start := info.StartTime
+	if !info.AttemptStartTime.IsZero() {
+		start = info.AttemptStartTime
+	}
 	hasTtft := info.IsStream && info.HasSendResponse()
 	ttftMs := int64(0)
 	if hasTtft {
-		ttftMs = info.FirstResponseTime.Sub(info.StartTime).Milliseconds()
+		ttftMs = info.FirstResponseTime.Sub(start).Milliseconds()
 	}
-	latencyMs := now.Sub(info.StartTime).Milliseconds()
+	latencyMs := now.Sub(start).Milliseconds()
 	generationMs := latencyMs
 	if hasTtft {
 		generationMs = now.Sub(info.FirstResponseTime).Milliseconds()
@@ -42,7 +54,7 @@ func RecordRelaySample(info *relaycommon.RelayInfo, success bool, outputTokens i
 	if generationMs <= 0 {
 		generationMs = latencyMs
 	}
-	Record(Sample{
+	return Sample{
 		Model:        info.OriginModelName,
 		Group:        info.UsingGroup,
 		LatencyMs:    latencyMs,
@@ -51,10 +63,14 @@ func RecordRelaySample(info *relaycommon.RelayInfo, success bool, outputTokens i
 		Success:      success,
 		OutputTokens: outputTokens,
 		GenerationMs: generationMs,
-	})
+	}
 }
 
 func Record(sample Sample) {
+	recordSample(sample, false)
+}
+
+func recordSample(sample Sample, asyncRedis bool) {
 	setting := perf_metrics_setting.GetSetting()
 	if !setting.Enabled || sample.Model == "" {
 		return
@@ -73,7 +89,17 @@ func Record(sample Sample) {
 	}
 	actual, _ := hotBuckets.LoadOrStore(key, &atomicBucket{})
 	actual.(*atomicBucket).add(sample)
-	recordRedis(key, sample)
+	// Capture the client before dispatch so background writes do not read mutable
+	// request or runtime configuration after this attempt has finished.
+	if !common.RedisEnabled || common.RDB == nil {
+		return
+	}
+	client := common.RDB
+	if asyncRedis {
+		gopool.Go(func() { recordRedis(client, key, sample) })
+		return
+	}
+	recordRedis(client, key, sample)
 }
 
 func Query(params QueryParams) (QueryResult, error) {
@@ -414,15 +440,12 @@ func avgTps(value counters) float64 {
 	return float64(value.outputTokens) / (float64(value.generationMs) / 1000)
 }
 
-func recordRedis(key bucketKey, sample Sample) {
-	if !common.RedisEnabled || common.RDB == nil {
-		return
-	}
+func recordRedis(client *redis.Client, key bucketKey, sample Sample) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	redisKey := redisBucketKey(key)
-	pipe := common.RDB.TxPipeline()
+	pipe := client.TxPipeline()
 	pipe.HIncrBy(ctx, redisKey, "req", 1)
 	if sample.Success {
 		pipe.HIncrBy(ctx, redisKey, "ok", 1)

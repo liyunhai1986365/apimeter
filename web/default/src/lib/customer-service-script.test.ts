@@ -12,11 +12,13 @@ class FakeElement {
   id = ''
   src = ''
   async = false
+  fetchPriority = ''
   tagName: string
   removed = false
   attributes = new Map<string, string>()
   children: FakeElement[] = []
   onclick: (() => void) | null = null
+  listeners = new Map<string, EventListener>()
 
   constructor(tagName: string) {
     this.tagName = tagName.toUpperCase()
@@ -37,6 +39,15 @@ class FakeElement {
     return child
   }
 
+  addEventListener(type: string, listener: EventListener) {
+    this.listeners.set(type, listener)
+  }
+
+  dispatchEvent(event: Event) {
+    this.listeners.get(event.type)?.(event)
+    return true
+  }
+
   remove() {
     this.removed = true
     fakeElements.delete(this.id)
@@ -54,6 +65,7 @@ function installFakeDom() {
 
   globalThis.document = {
     head,
+    documentElement: { lang: 'en' },
     createElement,
     getElementById: (id: string) => {
       const existing = fakeElements.get(id)
@@ -88,14 +100,29 @@ function installFakeDom() {
   }
 }
 
-function installFakeWindow(tidioChatApi?: {
-  show: () => void
-  open: () => void
-}) {
+function installFakeWindow(
+  tidioChatApi?: {
+    show: () => void
+    open: () => void
+  },
+  saleWiselySdk?: {
+    destroy?: () => void
+    setLoginInfo?: (user: unknown) => void
+    showChat?: () => void | Promise<unknown>
+  },
+  storage: Record<string, string> = {}
+) {
   Object.defineProperty(globalThis, 'window', {
     configurable: true,
     writable: true,
-    value: tidioChatApi ? { tidioChatApi } : {},
+    value: {
+      ...(tidioChatApi ? { tidioChatApi } : {}),
+      ...(saleWiselySdk ? { SaleWiselySDK: saleWiselySdk } : {}),
+      localStorage: {
+        getItem: (key: string) => storage[key] ?? null,
+      },
+      navigator: { language: 'en-US' },
+    },
   })
 }
 
@@ -117,6 +144,15 @@ describe('extractScriptSrc', () => {
     assert.equal(
       extractScriptSrc('https://code.tidio.co/example.js'),
       'https://code.tidio.co/example.js'
+    )
+  })
+
+  test('extracts the SaleWisely SDK URL', () => {
+    assert.equal(
+      extractScriptSrc(
+        '<script async fetchpriority="low" src="https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=735d606344a8422b87002bd98cb5812d"></script>'
+      ),
+      'https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=735d606344a8422b87002bd98cb5812d'
     )
   })
 
@@ -147,6 +183,58 @@ describe('applyCustomerServiceScript', () => {
     resetCustomerServiceScriptDismissal()
     applyCustomerServiceScript(scriptCode)
     assert.ok(getFakeElement('customer-service-script'))
+  })
+
+  test('prepares SaleWisely user data and loads its SDK with low priority', () => {
+    installFakeDom()
+    installFakeWindow(undefined, undefined, {
+      i18nextLng: 'zhCN',
+      user: JSON.stringify({
+        id: 42,
+        username: 'modelsell-user',
+        display_name: 'ModelSell User',
+        email: 'user@example.com',
+      }),
+    })
+
+    applyCustomerServiceScript(
+      '<script async fetchpriority="low" src="https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=test-app"></script>'
+    )
+
+    const script = getFakeElement('customer-service-script')
+    assert.ok(script)
+    assert.equal(script.fetchPriority, 'low')
+    assert.deepEqual(
+      (window as Window & { _salewiselyUser?: unknown })._salewiselyUser,
+      {
+        userId: '42',
+        userName: 'ModelSell User',
+        email: 'user@example.com',
+        language: 'zh',
+      }
+    )
+    assert.deepEqual(
+      (window as Window & { _salewiselyConfig?: unknown })._salewiselyConfig,
+      { language: 'zh' }
+    )
+  })
+
+  test('removes the previous provider before switching scripts', () => {
+    installFakeDom()
+    installFakeWindow()
+
+    applyCustomerServiceScript('https://code.tidio.co/example.js')
+    assert.ok(getFakeElement('customer-service-script-dismiss'))
+
+    applyCustomerServiceScript(
+      'https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=test-app'
+    )
+
+    assert.equal(getFakeElement('customer-service-script-dismiss'), null)
+    assert.equal(
+      getFakeElement('customer-service-script')?.src,
+      'https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=test-app'
+    )
   })
 })
 
@@ -191,7 +279,54 @@ describe('openCustomerServiceChat', () => {
     assert.equal(opened, 1)
   })
 
-  test('rejects non-Tidio customer service scripts', () => {
+  test('opens a ready SaleWisely widget', () => {
+    installFakeDom()
+    let opened = 0
+    installFakeWindow(undefined, {
+      showChat: () => {
+        opened++
+      },
+    })
+
+    assert.equal(
+      openCustomerServiceChat(
+        'https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=test-app'
+      ),
+      true
+    )
+    assert.equal(opened, 1)
+  })
+
+  test('waits for SaleWisely when the widget is still loading', () => {
+    installFakeDom()
+    installFakeWindow()
+
+    assert.equal(
+      openCustomerServiceChat(
+        'https://file.salewisely.com/sdk/release/salewisely-bundled.js?appId=test-app'
+      ),
+      true
+    )
+
+    const script = getFakeElement('customer-service-script')
+    assert.ok(script)
+
+    let opened = 0
+    ;(
+      window as Window & {
+        SaleWiselySDK?: { showChat: () => void }
+      }
+    ).SaleWiselySDK = {
+      showChat: () => {
+        opened++
+      },
+    }
+    script.dispatchEvent(new Event('load'))
+
+    assert.equal(opened, 1)
+  })
+
+  test('rejects unsupported customer service scripts', () => {
     installFakeDom()
     installFakeWindow()
 

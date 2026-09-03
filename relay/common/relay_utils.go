@@ -3,6 +3,7 @@ package common
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -34,6 +35,67 @@ func GetFullRequestURL(baseURL string, requestURL string, channelType int) strin
 		}
 	}
 	return fullRequestURL
+}
+
+func SanitizeURLForLog(rawURL string) string {
+	if rawURL == "" {
+		return rawURL
+	}
+
+	parsedURL, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+
+	query := parsedURL.Query()
+	if len(query) == 0 {
+		return rawURL
+	}
+
+	changed := false
+	for key := range query {
+		if isSensitiveURLQueryKey(key) {
+			query.Set(key, "***masked***")
+			changed = true
+		}
+	}
+	if !changed {
+		return rawURL
+	}
+
+	parsedURL.RawQuery = query.Encode()
+	return parsedURL.String()
+}
+
+func isSensitiveURLQueryKey(key string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	switch normalized {
+	case "key",
+		"api_key",
+		"api-key",
+		"apikey",
+		"x-api-key",
+		"access_token",
+		"refresh_token",
+		"id_token",
+		"token",
+		"authorization",
+		"auth",
+		"client_secret",
+		"secret",
+		"password",
+		"passwd",
+		"signature",
+		"sig",
+		"awsaccesskeyid",
+		"x-amz-credential",
+		"x-amz-security-token",
+		"x-amz-signature":
+		return true
+	}
+	return strings.Contains(normalized, "token") ||
+		strings.Contains(normalized, "secret") ||
+		strings.Contains(normalized, "signature")
 }
 
 func GetAPIVersion(c *gin.Context) string {
@@ -78,17 +140,41 @@ func validatePrompt(prompt string) *dto.TaskError {
 	return nil
 }
 
-const MaxTaskDurationSeconds = 3600
+const (
+	MaxTaskDurationSeconds         = 3600
+	MaxSeedanceTaskDurationSeconds = 30
+)
 
-func validateTaskDurationBounds(req TaskSubmitReq) *dto.TaskError {
-	seconds := req.Duration
-	if seconds == 0 && req.Seconds != "" {
-		seconds, _ = strconv.Atoi(req.Seconds)
+func ValidateTaskDurationBounds(req TaskSubmitReq, modelNames ...string) *dto.TaskError {
+	if taskErr := validateSeedanceOmniReferenceTask(req); taskErr != nil {
+		return taskErr
 	}
-	if seconds < 0 || seconds > MaxTaskDurationSeconds {
-		return createTaskError(fmt.Errorf("seconds must be between 1 and %d", MaxTaskDurationSeconds), "invalid_seconds", http.StatusBadRequest, true)
+	seconds := req.RequestedDuration()
+	maxSeconds := MaxTaskDurationSeconds
+	if isSeedanceModelName(req.Model) {
+		maxSeconds = MaxSeedanceTaskDurationSeconds
+	} else {
+		for _, modelName := range modelNames {
+			if isSeedanceModelName(modelName) {
+				maxSeconds = MaxSeedanceTaskDurationSeconds
+				break
+			}
+		}
+	}
+	if seconds == -1 && maxSeconds == MaxSeedanceTaskDurationSeconds {
+		return nil
+	}
+	if seconds < 0 || seconds > maxSeconds {
+		if maxSeconds == MaxSeedanceTaskDurationSeconds {
+			return createTaskError(fmt.Errorf("seconds must be -1 (automatic) or between 1 and %d", maxSeconds), "invalid_seconds", http.StatusBadRequest, true)
+		}
+		return createTaskError(fmt.Errorf("seconds must be between 1 and %d", maxSeconds), "invalid_seconds", http.StatusBadRequest, true)
 	}
 	return nil
+}
+
+func isSeedanceModelName(modelName string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(modelName)), "seedance")
 }
 
 func validateMultipartTaskRequest(c *gin.Context, info *RelayInfo, action string) (TaskSubmitReq, error) {
@@ -152,6 +238,9 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 	}
 	if req.InputReference != "" {
 		req.Images = []string{req.InputReference}
+	} else if len(req.Images) == 0 && strings.TrimSpace(req.Image) != "" {
+		// 兼容单图上传
+		req.Images = []string{strings.TrimSpace(req.Image)}
 	}
 
 	if strings.TrimSpace(req.Model) == "" {
@@ -166,7 +255,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return taskErr
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := ValidateTaskDurationBoundsForRelay(req, info); taskErr != nil {
 		return taskErr
 	}
 
@@ -231,7 +320,7 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 		return taskErr
 	}
 
-	if taskErr := validateTaskDurationBounds(req); taskErr != nil {
+	if taskErr := ValidateTaskDurationBoundsForRelay(req, info); taskErr != nil {
 		return taskErr
 	}
 

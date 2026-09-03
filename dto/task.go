@@ -11,6 +11,7 @@ type TaskError struct {
 	StatusCode int    `json:"-"`
 	LocalError bool   `json:"-"`
 	Error      error  `json:"-"`
+	RawBody    []byte `json:"-"`
 }
 
 type TaskData interface {
@@ -30,6 +31,7 @@ func (t *TaskResponse[T]) IsSuccess() bool {
 }
 
 type TaskDto struct {
+	TaskImageAvailability
 	ID         int64           `json:"id"`
 	CreatedAt  int64           `json:"created_at"`
 	UpdatedAt  int64           `json:"updated_at"`

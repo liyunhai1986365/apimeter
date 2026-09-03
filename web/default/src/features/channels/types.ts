@@ -77,6 +77,9 @@ export const channelSchema = z.object({
 
 export type Channel = z.infer<typeof channelSchema>
 
+export type ChannelUpdatePayload = Omit<Partial<Channel>, 'status'>
+export type ManageableChannelStatus = 1 | 2
+
 // ============================================================================
 // Channel Settings Types
 // ============================================================================

@@ -12,11 +12,10 @@ import (
 	"github.com/QuantumNous/new-api/setting/routing_strategy_setting"
 )
 
-// RegisterScheduledSystemTasks wires the periodic channel test, upstream model
-// update, and async task polling (Midjourney / Suno / video) jobs into the
-// system task framework so a DB lease dedups execution across multiple master
-// instances and each run is recorded as one task row. Call this before
-// service.StartSystemTaskRunner.
+// RegisterScheduledSystemTasks wires periodic maintenance, async polling, and
+// monthly billing jobs into the system task framework so a DB lease dedups
+// execution across multiple master instances and each run is recorded as one
+// task row. Call this before service.StartSystemTaskRunner.
 func RegisterScheduledSystemTasks() {
 	// Register channel test handler (implemented)
 	service.RegisterSystemTaskHandler(channelTestHandler{})
@@ -29,6 +28,7 @@ func RegisterScheduledSystemTasks() {
 	service.RegisterSystemTaskHandler(asyncTaskPollHandler{})
 
 	service.RegisterSystemTaskHandler(routingStrategyRefreshHandler{})
+	service.RegisterSystemTaskHandler(monthlyBillingStatementHandler{})
 }
 
 // channelTestHandler runs the scheduled "test all channels" job. Enablement and
@@ -202,4 +202,78 @@ func (routingStrategyRefreshHandler) Run(ctx context.Context, task *model.System
 		return
 	}
 	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, result, nil)
+}
+
+const monthlyBillingRetryInterval = time.Hour
+
+type monthlyBillingStatementTaskPayload struct {
+	Month string `json:"month"`
+}
+
+type monthlyBillingStatementHandler struct{}
+
+func (monthlyBillingStatementHandler) Type() string {
+	return model.SystemTaskTypeMonthlyBilling
+}
+
+func (monthlyBillingStatementHandler) Enabled() bool {
+	latest, err := model.GetLatestSystemTask(model.SystemTaskTypeMonthlyBilling)
+	if err != nil {
+		common.SysLog(fmt.Sprintf("monthly billing scheduler lookup failed: %v", err))
+		return false
+	}
+	return monthlyBillingGenerationDue(time.Now(), latest)
+}
+
+func (monthlyBillingStatementHandler) Interval() time.Duration {
+	return monthlyBillingRetryInterval
+}
+
+func (monthlyBillingStatementHandler) NewPayload() any {
+	return monthlyBillingStatementTaskPayload{Month: previousClosedBillingMonth(time.Now())}
+}
+
+func (monthlyBillingStatementHandler) Run(_ context.Context, task *model.SystemTask, runnerID string) {
+	payload := monthlyBillingStatementTaskPayload{}
+	if err := task.DecodePayload(&payload); err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, err)
+		return
+	}
+	if payload.Month == "" {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, nil, fmt.Errorf("billing month is required"))
+		return
+	}
+	result, err := model.GenerateMonthlyBillingStatementsForMonth(payload.Month)
+	if err == nil && len(result.FailedUsers) > 0 {
+		err = fmt.Errorf("monthly billing generation failed for %d users", len(result.FailedUsers))
+	}
+	if err != nil {
+		finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusFailed, result, err)
+		return
+	}
+	finishSystemTaskHandler(task, runnerID, model.SystemTaskStatusSucceeded, result, nil)
+}
+
+func previousClosedBillingMonth(now time.Time) string {
+	if now.IsZero() {
+		now = time.Now()
+	}
+	utcNow := now.UTC()
+	currentMonth := time.Date(utcNow.Year(), utcNow.Month(), 1, 0, 0, 0, 0, time.UTC)
+	return currentMonth.AddDate(0, -1, 0).Format("2006-01")
+}
+
+func monthlyBillingGenerationDue(now time.Time, latest *model.SystemTask) bool {
+	targetMonth := previousClosedBillingMonth(now)
+	if latest == nil {
+		return true
+	}
+	payload := monthlyBillingStatementTaskPayload{}
+	if err := latest.DecodePayload(&payload); err != nil || payload.Month == "" {
+		return true
+	}
+	if payload.Month > targetMonth {
+		return false
+	}
+	return payload.Month != targetMonth || latest.Status != model.SystemTaskStatusSucceeded
 }

@@ -127,6 +127,21 @@ describe('supplier directory', () => {
     )
   })
 
+  test('keeps hidden discount groups available without exposing discount summaries', () => {
+    const hiddenDiscountPricing = structuredClone(pricing)
+    const officialDisplay = hiddenDiscountPricing.group_display?.groups.find(
+      (group) => group.group === 'official'
+    )
+    if (officialDisplay) officialDisplay.hide_discount = true
+
+    const directory = buildSupplierDirectoryData(hiddenDiscountPricing)
+    const official = directory.items.find((item) => item.group === 'official')
+
+    assert.equal(official?.hideDiscount, true)
+    assert.equal(official?.ratio, 0.75)
+    assert.deepEqual(directory.providers[0].discountedGroups, [])
+  })
+
   test('filters provider rows by category and search', () => {
     const directory = buildSupplierDirectoryData(pricing)
 

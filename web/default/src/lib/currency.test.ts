@@ -9,6 +9,7 @@ function resetCurrency(displayCurrency: 'USD' | 'CNY') {
     displayCurrency,
     config: {
       ...state.config,
+      mainlandChinaPresentationEnabled: false,
       currency: {
         ...state.config.currency,
         quotaDisplayType: 'USD',
@@ -32,5 +33,19 @@ describe('currency display preference', () => {
 
     assert.equal(formatCurrencyFromUSD(10), '¥73')
     assert.equal(formatQuotaWithCurrency(5000000), '¥73')
+  })
+
+  test('forces CNY while mainland China presentation is enabled', () => {
+    resetCurrency('USD')
+    useSystemConfigStore.setState((state) => ({
+      config: {
+        ...state.config,
+        mainlandChinaPresentationEnabled: true,
+      },
+    }))
+
+    assert.equal(formatCurrencyFromUSD(10), '¥73')
+    assert.equal(formatQuotaWithCurrency(5000000), '¥73')
+    assert.equal(useSystemConfigStore.getState().displayCurrency, 'USD')
   })
 })

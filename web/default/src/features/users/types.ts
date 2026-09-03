@@ -53,6 +53,8 @@ export const userSchema = z.object({
   inviter_id: z.number().optional(),
   affiliate_role: z.string().optional(),
   affiliate_role_name: z.string().optional(),
+  is_agent_user: z.boolean().optional(),
+  agent_site_name: z.string().optional(),
   linux_do_id: z.string().optional(),
   status: userStatusSchema,
   role: userRoleSchema,
@@ -97,6 +99,10 @@ export interface GetUsersResponse {
 export interface SearchUsersParams {
   keyword?: string
   group?: string
+  agent?: string
+  inviter_id?: number
+  role?: number
+  status?: number
   p?: number
   page_size?: number
 }

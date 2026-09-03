@@ -17,27 +17,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useQuery } from '@tanstack/react-query'
+import { useAuthStore } from '@/stores/auth-store'
 import { useSystemConfigStore } from '@/stores/system-config-store'
 import { getStatus } from '@/lib/api'
+import { readCachedStatus, writeCachedStatus } from '@/lib/status-cache'
 import type { SystemStatus } from '@/features/auth/types'
 import { mapStatusDataToConfig } from './use-system-config'
 
 // Get initial cache from localStorage
 function getInitialStatus(): SystemStatus | undefined {
-  try {
-    if (typeof window !== 'undefined') {
-      const saved = window.localStorage.getItem('status')
-      return saved ? (JSON.parse(saved) as SystemStatus) : undefined
-    }
-  } catch {
-    /* empty */
-  }
-  return undefined
+  return (readCachedStatus() as SystemStatus | null) ?? undefined
 }
 
 export function useStatus() {
+  const user = useAuthStore((state) => state.auth.user)
   const { data, isLoading, error } = useQuery({
-    queryKey: ['status'],
+    queryKey: ['status', user?.id ?? 'anonymous', user?.group ?? ''],
     queryFn: async () => {
       const status = await getStatus()
       try {
@@ -54,13 +49,8 @@ export function useStatus() {
           )
         }
       }
-      // Save to localStorage
-      try {
-        if (typeof window !== 'undefined' && status) {
-          window.localStorage.setItem('status', JSON.stringify(status))
-        }
-      } catch {
-        /* empty */
+      if (status) {
+        writeCachedStatus(status)
       }
       return status as SystemStatus | null
     },

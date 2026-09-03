@@ -24,6 +24,10 @@ func SubscriptionRequestStripePay(c *gin.Context) {
 	if !requirePaymentCompliance(c) {
 		return
 	}
+	if !setting.StripeEnabled {
+		common.ApiErrorMsg(c, "管理员未开启 Stripe 支付")
+		return
+	}
 
 	var req SubscriptionStripePayRequest
 	if err := c.ShouldBindJSON(&req); err != nil || req.PlanId <= 0 {

@@ -83,15 +83,15 @@ func TestOpenMosaicSSOAuthorizationCodeIsSingleUse(t *testing.T) {
 	token, err := EnsureOpenMosaicSSOToken(DB, user.Id)
 	require.NoError(t, err)
 
-	rawCode, err := CreateOpenMosaicSSOAuthorizationCode(DB, user.Id, "https://openmosaic.example/auth/apimeter/callback", time.Minute)
+	rawCode, err := CreateOpenMosaicSSOAuthorizationCode(DB, user.Id, "https://openmosaic.example/auth/modelsell/callback", time.Minute)
 	require.NoError(t, err)
-	claim, err := ConsumeOpenMosaicSSOAuthorizationCode(DB, rawCode, "https://openmosaic.example/auth/apimeter/callback", time.Now())
+	claim, err := ConsumeOpenMosaicSSOAuthorizationCode(DB, rawCode, "https://openmosaic.example/auth/modelsell/callback", time.Now())
 	require.NoError(t, err)
 	require.Equal(t, user.Id, claim.UserID)
 	require.Equal(t, token.Key, claim.APIKey)
 	require.True(t, claim.EmailVerified)
 
-	_, err = ConsumeOpenMosaicSSOAuthorizationCode(DB, rawCode, "https://openmosaic.example/auth/apimeter/callback", time.Now())
+	_, err = ConsumeOpenMosaicSSOAuthorizationCode(DB, rawCode, "https://openmosaic.example/auth/modelsell/callback", time.Now())
 	require.ErrorIs(t, err, ErrOpenMosaicSSOCodeInvalid)
 }
 
@@ -102,14 +102,14 @@ func TestOpenMosaicSSORejectsExpiredOrMismatchedCode(t *testing.T) {
 	_, err := EnsureOpenMosaicSSOToken(DB, user.Id)
 	require.NoError(t, err)
 
-	rawCode, err := CreateOpenMosaicSSOAuthorizationCode(DB, user.Id, "https://openmosaic.example/auth/apimeter/callback", time.Minute)
+	rawCode, err := CreateOpenMosaicSSOAuthorizationCode(DB, user.Id, "https://openmosaic.example/auth/modelsell/callback", time.Minute)
 	require.NoError(t, err)
 	_, err = ConsumeOpenMosaicSSOAuthorizationCode(DB, rawCode, "https://attacker.example/callback", time.Now())
 	require.ErrorIs(t, err, ErrOpenMosaicSSOCodeInvalid)
 
-	expiredCode, err := CreateOpenMosaicSSOAuthorizationCode(DB, user.Id, "https://openmosaic.example/auth/apimeter/callback", -time.Second)
+	expiredCode, err := CreateOpenMosaicSSOAuthorizationCode(DB, user.Id, "https://openmosaic.example/auth/modelsell/callback", -time.Second)
 	require.NoError(t, err)
-	_, err = ConsumeOpenMosaicSSOAuthorizationCode(DB, expiredCode, "https://openmosaic.example/auth/apimeter/callback", time.Now())
+	_, err = ConsumeOpenMosaicSSOAuthorizationCode(DB, expiredCode, "https://openmosaic.example/auth/modelsell/callback", time.Now())
 	require.ErrorIs(t, err, ErrOpenMosaicSSOCodeInvalid)
 }
 
@@ -117,8 +117,8 @@ func TestOpenMosaicSSOCodeIsBoundToProxySiteOrigin(t *testing.T) {
 	setupOpenMosaicSSOTestDB(t)
 	user := User{Username: "proxy-sso", Status: common.UserStatusEnabled, Role: common.RoleCommonUser}
 	require.NoError(t, DB.Create(&user).Error)
-	rawCode, err := CreateOpenMosaicSSOAuthorizationCodeForSite(DB, user.Id, "https://openmosaic.example/auth/apimeter/callback", "https://proxy.example", time.Minute)
+	rawCode, err := CreateOpenMosaicSSOAuthorizationCodeForSite(DB, user.Id, "https://openmosaic.example/auth/modelsell/callback", "https://proxy.example", time.Minute)
 	require.NoError(t, err)
-	_, err = ConsumeOpenMosaicSSOAuthorizationCodeForSite(DB, rawCode, "https://openmosaic.example/auth/apimeter/callback", "https://attacker.example", time.Now())
+	_, err = ConsumeOpenMosaicSSOAuthorizationCodeForSite(DB, rawCode, "https://openmosaic.example/auth/modelsell/callback", "https://attacker.example", time.Now())
 	require.ErrorIs(t, err, ErrOpenMosaicSSOCodeInvalid)
 }

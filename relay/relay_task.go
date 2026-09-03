@@ -176,6 +176,13 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err := helper.ModelMappedHelper(c, info, nil); err != nil {
 		return nil, service.TaskErrorWrapperLocal(err, "model_mapping_failed", http.StatusBadRequest)
 	}
+	// Re-check after mapping so a generic model alias cannot bypass a
+	// model-specific duration limit when it resolves to Seedance upstream.
+	if taskReq, err := relaycommon.GetTaskRequest(c); err == nil {
+		if taskErr := relaycommon.ValidateTaskDurationBoundsForRelay(taskReq, info); taskErr != nil {
+			return nil, taskErr
+		}
+	}
 
 	// 3. 预生成公开 task ID（仅首次）
 	if info.PublicTaskID == "" {
@@ -234,11 +241,15 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	}
 	if resp != nil && resp.StatusCode != http.StatusOK {
 		responseBody, _ := io.ReadAll(resp.Body)
-		return nil, service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		taskErr := service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
+		if c.GetString("configurable_native_profile_id") != "" {
+			taskErr.RawBody = responseBody
+		}
+		return nil, taskErr
 	}
 
 	// 10. 返回 OtherRatios 给下游（header 必须在 DoResponse 写 body 之前设置）
-	otherRatios := info.PriceData.OtherRatios
+	otherRatios := info.PriceData.CloneOtherRatios()
 	if otherRatios == nil {
 		otherRatios = map[string]float64{}
 	}
@@ -254,10 +265,11 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// 11. 提交后计费调整：让适配器根据上游实际返回调整 OtherRatios
 	finalQuota := info.PriceData.Quota
 	if adjustedRatios := adaptor.AdjustBillingOnSubmit(info, taskData); len(adjustedRatios) > 0 && shouldApplyTaskOtherRatios(info, modelName) {
-		// 基于调整后的 ratios 重新计算 quota
-		finalQuota = recalcQuotaFromRatios(info, adjustedRatios)
-		info.PriceData.OtherRatios = adjustedRatios
-		info.PriceData.Quota = finalQuota
+		if adjustedQuota, ok := recalcQuotaFromRatios(info, adjustedRatios); ok {
+			finalQuota = adjustedQuota
+			info.PriceData.ReplaceOtherRatios(adjustedRatios)
+			info.PriceData.Quota = finalQuota
+		}
 	}
 
 	return &TaskSubmitResult{
@@ -284,30 +296,28 @@ func applyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) {
 }
 
 func shouldApplyTaskOtherRatios(info *relaycommon.RelayInfo, modelName string) bool {
+	// ModelPrice/UsePrice is the fixed per-request billing mode exposed by the
+	// pricing API. Task adaptors may still collect duration/resolution metadata,
+	// but those multipliers must not change a fixed request price.
+	if info == nil || info.PriceData.UsePrice {
+		return false
+	}
 	return !common.StringsContains(constant.TaskPricePatches, modelName)
 }
 
 // recalcQuotaFromRatios 根据 adjustedRatios 重新计算 quota。
 // 公式: baseQuota × ∏(ratio) — 其中 baseQuota 是不含 OtherRatios 的基础额度。
-func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float64) int {
+func recalcQuotaFromRatios(info *relaycommon.RelayInfo, ratios map[string]float64) (int, bool) {
 	// 从 PriceData 获取不含 OtherRatios 的基础价格
-	baseQuota := float64(info.PriceData.Quota)
-	// 先除掉原有的 OtherRatios 恢复基础额度
-	for _, ra := range info.PriceData.OtherRatios {
-		if ra != 1.0 && ra > 0 {
-			baseQuota /= ra
-		}
+	baseQuota := info.PriceData.RemoveOtherRatiosFromFloat(float64(info.PriceData.Quota))
+	priceData := info.PriceData
+	if !priceData.ReplaceOtherRatios(ratios) {
+		return 0, false
 	}
-	// 应用新的 ratios
-	result := baseQuota
-	for _, ra := range ratios {
-		if ra != 1.0 {
-			result *= ra
-		}
-	}
+	result := priceData.ApplyOtherRatiosToFloat(baseQuota)
 	quota, clamp := common.QuotaFromFloatChecked(result)
 	noteTaskQuotaClamp(info, clamp)
-	return quota
+	return quota, true
 }
 
 func noteTaskQuotaClamp(info *relaycommon.RelayInfo, clamp *common.QuotaClamp) {
@@ -326,6 +336,7 @@ var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp 
 }
 
 func RelayTaskFetch(c *gin.Context, relayMode int) (taskResp *dto.TaskError) {
+	c.Header("Cache-Control", "no-store")
 	respBuilder, ok := fetchRespBuilders[relayMode]
 	if !ok {
 		taskResp = service.TaskErrorWrapperLocal(errors.New("invalid_relay_mode"), "invalid_relay_mode", http.StatusBadRequest)
@@ -464,6 +475,9 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 // 仅当渠道类型为 Gemini 或 Vertex 时触发；其他渠道或出错时返回 nil。
 // 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
 func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
+	if view, err := task.ImageRetentionView(common.GetTimestamp()); err != nil || view.ImageContentExpired(common.GetTimestamp()) {
+		return nil
+	}
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
 	if err != nil {
 		return nil
@@ -557,8 +571,28 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	if c == nil || task == nil {
 		return nil
 	}
+	view, viewErr := task.ImageRetentionView(common.GetTimestamp())
+	if viewErr != nil {
+		return nil
+	}
+	if view.ImageAvailability(common.GetTimestamp()).ImageStatus != "" {
+		c.Header("Cache-Control", "no-store")
+	}
+	if view.ImageContentExpired(common.GetTimestamp()) {
+		if returnNativeBody {
+			body, _ := imageTaskResponseWithRetention(view, view.Data)
+			return body
+		}
+		return nil
+	}
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
-	if err != nil || channelModel.Type != constant.ChannelTypeConfigurable {
+	if err != nil {
+		return nil
+	}
+	isConfigurable := channelModel.Type == constant.ChannelTypeConfigurable
+	isAliWan3Native := returnNativeBody && channelModel.Type == constant.ChannelTypeAli &&
+		(task.Properties.OriginModelName == "wan3.0-video" || task.Properties.OriginModelName == "wan3.0-video-prime")
+	if !isConfigurable && !isAliWan3Native {
 		return nil
 	}
 	baseURL := channelModel.GetBaseURL()
@@ -581,13 +615,25 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		"action":  task.Action,
 	}, proxy)
 	if err != nil || resp == nil {
-		return nil
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+	}
+	// A fetch that started before expiry may finish after it.
+	if expired, err := task.ImageRetentionView(common.GetTimestamp()); err == nil && expired.ImageContentExpired(common.GetTimestamp()) {
+		if returnNativeBody {
+			result, _ := imageTaskResponseWithRetention(expired, expired.Data)
+			return result
+		}
 		return nil
 	}
+
 	ti, err := adaptor.ParseTaskResult(body)
 	if err == nil && ti != nil {
 		snap := task.Snapshot()
@@ -639,10 +685,41 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		ConvertToNativeFetchResponse(*model.Task, []byte) ([]byte, error)
 	}); ok {
 		if nativeBody, err := converter.ConvertToNativeFetchResponse(task, body); err == nil {
+			if task.ImageAvailability(common.GetTimestamp()).ImageStatus != "" {
+				result, _ := imageTaskResponseWithRetention(task, nativeBody)
+				return result
+			}
 			return nativeBody
 		}
 	}
+	if task.ImageAvailability(common.GetTimestamp()).ImageStatus != "" {
+		result, _ := imageTaskResponseWithRetention(task, body)
+		return result
+	}
 	return body
+}
+
+func configurableStoredNativeFetchResponse(adaptor channel.TaskAdaptor, task *model.Task, returnNativeBody bool) []byte {
+	if !returnNativeBody || adaptor == nil || task == nil {
+		return nil
+	}
+	converter, ok := adaptor.(interface {
+		ConvertToNativeFetchResponse(*model.Task, []byte) ([]byte, error)
+	})
+	if !ok {
+		return nil
+	}
+	stored := task.Data
+	if task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+		// Submission data can contain a stale queued status. For a non-terminal
+		// task, prefer the latest status persisted on the task row.
+		stored = nil
+	}
+	response, err := converter.ConvertToNativeFetchResponse(task, stored)
+	if err != nil {
+		return nil
+	}
+	return response
 }
 
 // detectVideoFormat 从 Gemini/Vertex 原始响应中探测视频格式
@@ -685,26 +762,38 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 }
 
 func TaskModel2Dto(task *model.Task) *dto.TaskDto {
+	now := common.GetTimestamp()
+	view, err := task.ImageRetentionView(now)
+	if err != nil {
+		// A malformed historical result must not leak an expired payload. The
+		// saved bytes are kept for maintenance; other task metadata stays visible.
+		copy := *task
+		copy.Data = nil
+		copy.PrivateData.ResultURL = ""
+		view = &copy
+	}
+	task = view
 	return &dto.TaskDto{
-		ID:         task.ID,
-		CreatedAt:  task.CreatedAt,
-		UpdatedAt:  task.UpdatedAt,
-		TaskID:     task.TaskID,
-		Platform:   string(task.Platform),
-		UserId:     task.UserId,
-		Group:      task.Group,
-		ChannelId:  task.ChannelId,
-		Quota:      task.Quota,
-		Action:     task.Action,
-		Status:     string(task.Status),
-		FailReason: task.FailReason,
-		ResultURL:  task.GetResultURL(),
-		SubmitTime: task.SubmitTime,
-		StartTime:  task.StartTime,
-		FinishTime: task.FinishTime,
-		Progress:   task.Progress,
-		Properties: task.Properties,
-		Username:   task.Username,
-		Data:       task.Data,
+		TaskImageAvailability: task.ImageAvailability(now),
+		ID:                    task.ID,
+		CreatedAt:             task.CreatedAt,
+		UpdatedAt:             task.UpdatedAt,
+		TaskID:                task.TaskID,
+		Platform:              string(task.Platform),
+		UserId:                task.UserId,
+		Group:                 task.Group,
+		ChannelId:             task.ChannelId,
+		Quota:                 task.Quota,
+		Action:                task.Action,
+		Status:                string(task.Status),
+		FailReason:            task.FailReason,
+		ResultURL:             task.GetResultURL(),
+		SubmitTime:            task.SubmitTime,
+		StartTime:             task.StartTime,
+		FinishTime:            task.FinishTime,
+		Progress:              task.Progress,
+		Properties:            task.Properties,
+		Username:              task.Username,
+		Data:                  task.Data,
 	}
 }

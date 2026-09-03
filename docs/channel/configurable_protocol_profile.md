@@ -24,6 +24,8 @@
 
 调用方接口说明见 [通用图片与视频生成接口](./generic_media_generation.md)。
 
+Seedance 2.5 的任务类型参数、视频编辑和延长请求见 [Seedance 全模态参考任务](./seedance_omni_reference.md)。
+
 ## 渠道配置方式
 
 在管理后台新增渠道时：
@@ -721,7 +723,7 @@ fetch:
 | `doubao-seedance-2-api-assets` | Doubao Seedance 2.0 API Assets | Seedance 2.0 API Assets 形态 | `/v1/video/generations`、`/v1/videos` |
 | `seedance2-service-inference` | Seedance2 Service Inference | `dreamina-seedance-2-0-*` 等 | `/v1/video/generations`、`/v1/videos` |
 | `seedance2-ark-task-assets` | Seedance2 Ark Task Assets | `doubao-seedance-2-0-*` | `/v1/video/generations`、`/v1/videos` |
-| `seedance2-apimeter` | Seedance 2.0 APIMeter | APIMeter Seedance 2.0 国内/海外模型 | `/v1/video/generations`、`/v1/videos`、`/api/assets/upload`、`/api/assets/{id}` |
+| `seedance2-modelsell` | Seedance 2.0 Modelsell | Modelsell Seedance 2.0 国内/海外模型 | `/v1/video/generations`、`/v1/videos`、`/api/assets/upload`、`/api/assets/{id}` |
 | `kling-video` | Kling Video | `kling-v*`、`kling-o*`、`kling-3.0-turbo`、Kling 扩展能力 | `/v1/video/generations`、`/v1/videos` |
 
 7. 运行测试：

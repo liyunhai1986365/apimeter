@@ -20,6 +20,7 @@ const (
 	ContextKeyTokenModelLimitEnabled  ContextKey = "token_model_limit_enabled"
 	ContextKeyTokenModelLimit         ContextKey = "token_model_limit"
 	ContextKeyTokenCrossGroupRetry    ContextKey = "token_cross_group_retry"
+	ContextKeyTokenAutoGroups         ContextKey = "token_auto_groups"
 	ContextKeyTokenBillingSource      ContextKey = "token_billing_source"
 	ContextKeyTokenSubscriptionPlanId ContextKey = "token_subscription_plan_id"
 	ContextKeyTokenUserSubscriptionId ContextKey = "token_user_subscription_id"
@@ -80,4 +81,8 @@ const (
 	ContextKeyIsStream ContextKey = "is_stream"
 
 	ContextKeyAgentContext ContextKey = "agent_context"
+
+	// ContextKeyAuditLogged marks requests already recorded by a handler so the
+	// administrative audit fallback does not create a duplicate entry.
+	ContextKeyAuditLogged ContextKey = "audit_logged"
 )

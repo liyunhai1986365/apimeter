@@ -249,6 +249,8 @@ func insertImageAsyncTask(info *relaycommon.RelayInfo, upstreamTaskID string, re
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
 		ModelPrice:            info.PriceData.ModelPrice,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,
+		UserGroup:             info.UserGroup,
 		ModelRatio:            info.PriceData.ModelRatio,
 		CompletionRatio:       info.PriceData.CompletionRatio,
 		CacheRatio:            info.PriceData.CacheRatio,
@@ -295,6 +297,8 @@ func insertLocalImageAsyncTask(info *relaycommon.RelayInfo, requestBody []byte) 
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
 		ModelPrice:            info.PriceData.ModelPrice,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
+		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,
+		UserGroup:             info.UserGroup,
 		ModelRatio:            info.PriceData.ModelRatio,
 		CompletionRatio:       info.PriceData.CompletionRatio,
 		CacheRatio:            info.PriceData.CacheRatio,
@@ -1155,8 +1159,24 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 	if !exist {
 		return service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
 	}
+	c.Header("Cache-Control", "no-store")
+	task, err = task.ImageRetentionView(common.GetTimestamp())
+	if err != nil {
+		return service.TaskErrorWrapperLocal(errors.New("invalid saved image result"), "invalid_task_result", http.StatusInternalServerError)
+	}
+	if task.ImageContentExpired(common.GetTimestamp()) {
+		output, err := imageTaskResponseWithRetention(task, task.Data)
+		if err != nil {
+			return service.TaskErrorWrapperLocal(errors.New("invalid saved image result"), "invalid_task_result", http.StatusInternalServerError)
+		}
+		c.Data(http.StatusOK, "application/json", output)
+		return nil
+	}
 	if task.PrivateData.AsyncImage && strings.TrimSpace(task.PrivateData.UpstreamTaskID) == "" {
 		output, err := convertLocalImageTaskResponse(task)
+		if err == nil {
+			output, err = imageTaskResponseWithRetention(task, output)
+		}
 		if err != nil {
 			return service.TaskErrorWrapper(err, "convert_task_failed", http.StatusInternalServerError)
 		}
@@ -1172,7 +1192,19 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 		return service.TaskErrorWrapper(fmt.Errorf("%s", string(body)), "fetch_task_failed", statusCode)
 	}
 
+	// Upstream latency can cross the deadline. Check again before URL uploads.
+	if task.ImageContentExpired(common.GetTimestamp()) {
+		output, err := imageTaskResponseWithRetention(task, task.Data)
+		if err != nil {
+			return service.TaskErrorWrapperLocal(errors.New("invalid saved image result"), "invalid_task_result", http.StatusInternalServerError)
+		}
+		c.Data(http.StatusOK, "application/json", output)
+		return nil
+	}
 	output, err := convertImageTaskResponse(task, body)
+	if err == nil {
+		output, err = imageTaskResponseWithRetention(task, output)
+	}
 	if err != nil {
 		return service.TaskErrorWrapper(err, "convert_task_failed", http.StatusInternalServerError)
 	}

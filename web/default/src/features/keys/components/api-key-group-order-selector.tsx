@@ -35,6 +35,14 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Empty,
+  EmptyContent,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from '@/components/ui/empty'
 import { Input } from '@/components/ui/input'
 import {
   Popover,
@@ -100,7 +108,7 @@ function normalizeChain(value: string[]) {
     seen.add(group)
     result.push(group)
   }
-  return result.length > 0 ? result : [AUTO_GROUP_VALUE]
+  return result
 }
 
 type SortButtonConfig = {
@@ -172,97 +180,119 @@ export function ApiKeyGroupOrderSelector({
     emit(removeGroupFromChain(selected, index))
   }
 
-  return (
-    <div className='space-y-2'>
-      <div className='space-y-2'>
-        {selected.map((group, index) => {
-          const option = optionMap.get(group) ?? {
-            value: group,
-            label: group,
-            desc: group,
-          }
-          return (
-            <div
-              key={`${group}-${index}`}
-              className='bg-muted/35 flex min-h-14 items-center gap-2 rounded-lg border px-2.5 py-2 sm:min-h-16 sm:px-3'
-            >
-              <Badge
-                variant='secondary'
-                className='bg-background text-muted-foreground h-6 min-w-7 justify-center rounded-md px-1.5 tabular-nums'
-              >
-                {index + 1}
-              </Badge>
-              <div className='min-w-0 flex-1'>
-                <div className='flex min-w-0 items-center gap-2'>
-                  <span className='truncate text-sm font-medium'>
-                    {option.label}
-                  </span>
-                  <span className='hidden sm:block'>
-                    <GroupRatioBadge ratio={option.ratio} />
-                  </span>
-                </div>
-                <GroupDescription desc={option.desc} />
-              </div>
-              <div className='flex shrink-0 items-center gap-1'>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  className='size-8'
-                  disabled={disabled || index === 0}
-                  onClick={() => move(index, -1)}
-                  title={t('Move up')}
-                >
-                  <ArrowUp className='size-4' />
-                </Button>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  className='size-8'
-                  disabled={disabled || index === selected.length - 1}
-                  onClick={() => move(index, 1)}
-                  title={t('Move down')}
-                >
-                  <ArrowDown className='size-4' />
-                </Button>
-                <Button
-                  type='button'
-                  variant='ghost'
-                  size='icon'
-                  className={cn(
-                    'size-8',
-                    selected.length === 1 &&
-                      group === AUTO_GROUP_VALUE &&
-                      'text-muted-foreground'
-                  )}
-                  disabled={
-                    disabled ||
-                    (selected.length === 1 && group === AUTO_GROUP_VALUE)
-                  }
-                  onClick={() => remove(index)}
-                  title={t('Remove')}
-                >
-                  <Trash2 className='size-4' />
-                </Button>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+  const supplierPicker = (
+    <ApiKeyGroupPickerPopover
+      options={options}
+      selectedValues={selected}
+      onApply={(groups) => emit(addGroupsToChain(selected, groups))}
+      disabled={disabled}
+      groupDisplay={groupDisplay}
+      vendors={vendors}
+      models={models}
+      groupPerformance={groupPerformance}
+      triggerLabel={t(groupTerms.add)}
+      applyLabel={t('Add selected suppliers')}
+    />
+  )
 
-      <ApiKeyGroupPickerPopover
-        options={options}
-        selectedValues={selected}
-        onApply={(groups) => emit(addGroupsToChain(selected, groups))}
-        disabled={disabled}
-        groupDisplay={groupDisplay}
-        vendors={vendors}
-        models={models}
-        groupPerformance={groupPerformance}
-        triggerLabel={t(groupTerms.add)}
-        applyLabel={t('Add selected suppliers')}
-      />
+  return (
+    <div className='flex flex-col gap-2'>
+      {selected.length === 0 ? (
+        <Empty className='bg-muted/20 border py-8'>
+          <EmptyHeader>
+            <EmptyMedia variant='icon'>
+              <SlidersHorizontal />
+            </EmptyMedia>
+            <EmptyTitle>{t('No suppliers selected')}</EmptyTitle>
+            <EmptyDescription>
+              {t('Add suppliers to set the request order for this API key.')}
+            </EmptyDescription>
+          </EmptyHeader>
+          <EmptyContent>{supplierPicker}</EmptyContent>
+        </Empty>
+      ) : (
+        <div className='flex flex-col gap-2'>
+          {selected.map((group, index) => {
+            const option = optionMap.get(group) ?? {
+              value: group,
+              label: group,
+              desc: group,
+            }
+            return (
+              <div
+                key={`${group}-${index}`}
+                className='bg-muted/35 flex min-h-14 items-center gap-2 rounded-lg border px-2.5 py-2 sm:min-h-16 sm:px-3'
+              >
+                <Badge
+                  variant='secondary'
+                  className='bg-background text-muted-foreground h-6 min-w-7 justify-center rounded-md px-1.5 tabular-nums'
+                >
+                  {index + 1}
+                </Badge>
+                <div className='min-w-0 flex-1'>
+                  <div className='flex min-w-0 items-center gap-2'>
+                    <span className='truncate text-sm font-medium'>
+                      {option.label}
+                    </span>
+                    <span className='hidden sm:block'>
+                      <GroupRatioBadge
+                        ratio={option.ratio}
+                        hidden={option.hideDiscount}
+                      />
+                    </span>
+                  </div>
+                  <GroupDescription desc={option.desc} />
+                </div>
+                <div className='flex shrink-0 items-center gap-1'>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='size-8'
+                    disabled={disabled || index === 0}
+                    onClick={() => move(index, -1)}
+                    title={t('Move up')}
+                  >
+                    <ArrowUp className='size-4' />
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className='size-8'
+                    disabled={disabled || index === selected.length - 1}
+                    onClick={() => move(index, 1)}
+                    title={t('Move down')}
+                  >
+                    <ArrowDown className='size-4' />
+                  </Button>
+                  <Button
+                    type='button'
+                    variant='ghost'
+                    size='icon'
+                    className={cn(
+                      'size-8',
+                      selected.length === 1 &&
+                        group === AUTO_GROUP_VALUE &&
+                        'text-muted-foreground'
+                    )}
+                    disabled={
+                      disabled ||
+                      (selected.length === 1 && group === AUTO_GROUP_VALUE)
+                    }
+                    onClick={() => remove(index)}
+                    title={t('Remove')}
+                  >
+                    <Trash2 className='size-4' />
+                  </Button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {selected.length > 0 && supplierPicker}
     </div>
   )
 }
@@ -541,7 +571,10 @@ export function ApiKeyGroupPickerPopover({
                               compact
                               className='hidden sm:flex'
                             />
-                            <GroupRatioBadge ratio={option.ratio} />
+                            <GroupRatioBadge
+                              ratio={option.ratio}
+                              hidden={option.hideDiscount}
+                            />
                           </span>
                           {canOpenSupportedModels && (
                             <a

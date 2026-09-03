@@ -3,8 +3,8 @@ package claude
 import (
 	"testing"
 
-	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -68,7 +68,8 @@ func TestBuildMessageDeltaPatchUsage(t *testing.T) {
 		claudeResponse := &dto.ClaudeResponse{Usage: &dto.ClaudeUsage{OutputTokens: 53}}
 		claudeInfo := &ClaudeResponseInfo{
 			Usage: &dto.Usage{
-				PromptTokens: 100,
+				PromptTokens:     100,
+				CompletionTokens: 200,
 				PromptTokensDetails: dto.InputTokenDetails{
 					CachedTokens:         30,
 					CachedCreationTokens: 50,
@@ -126,4 +127,22 @@ func TestBuildMessageDeltaPatchUsage(t *testing.T) {
 		require.EqualValues(t, 50, usage.CacheCreation.Ephemeral5mInputTokens)
 		require.EqualValues(t, 0, usage.CacheCreation.Ephemeral1hInputTokens)
 	})
+}
+
+func TestHandleStreamFinalResponseCopiesCompletionTokensToBillingUsage(t *testing.T) {
+	claudeInfo := &ClaudeResponseInfo{
+		Done: true,
+		Usage: &dto.Usage{
+			PromptTokens:     80287,
+			CompletionTokens: 140,
+			TotalTokens:      80427,
+		},
+	}
+
+	HandleStreamFinalResponse(nil, &relaycommon.RelayInfo{}, claudeInfo)
+
+	require.NotNil(t, claudeInfo.Usage.BillingUsage)
+	require.NotNil(t, claudeInfo.Usage.BillingUsage.ClaudeUsage)
+	require.EqualValues(t, 80287, claudeInfo.Usage.BillingUsage.ClaudeUsage.InputTokens)
+	require.EqualValues(t, 140, claudeInfo.Usage.BillingUsage.ClaudeUsage.OutputTokens)
 }

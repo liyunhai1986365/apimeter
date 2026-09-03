@@ -14,10 +14,10 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/bytedance/gopkg/util/gopool"
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	"gorm.io/gorm"
 )
 
@@ -109,6 +109,7 @@ const (
 	LogTypeSystem  = 4
 	LogTypeError   = 5
 	LogTypeRefund  = 6
+	LogTypeLogin   = 7
 )
 
 func stripChannelCostFields(otherMap map[string]interface{}) {
@@ -138,6 +139,7 @@ func formatUserLogs(logs []*Log, startIdx int) {
 		if otherMap != nil {
 			// Remove admin-only debug fields.
 			delete(otherMap, "admin_info")
+			delete(otherMap, "audit_info")
 			// delete(otherMap, "reject_reason")
 			delete(otherMap, "stream_status")
 			stripChannelCostFields(otherMap)
@@ -219,6 +221,62 @@ func RecordQuotaLogWithAdminInfo(userId int, logType int, quota int, content str
 	}
 	if err := LOG_DB.Create(log).Error; err != nil {
 		common.SysLog("failed to record quota log: " + err.Error())
+	}
+}
+
+// RecordOperationAuditLog records an administrative operation while keeping
+// structured operator and route metadata separate from the public fallback
+// description.
+func RecordOperationAuditLog(logUserId int, content string, ip string, action string, params map[string]interface{}, adminInfo map[string]interface{}, auditInfo map[string]interface{}) {
+	username, _ := GetUsernameById(logUserId, false)
+	op := map[string]interface{}{"action": action}
+	if len(params) > 0 {
+		op["params"] = params
+	}
+	other := map[string]interface{}{"op": op}
+	if len(adminInfo) > 0 {
+		other["admin_info"] = adminInfo
+	}
+	if len(auditInfo) > 0 {
+		other["audit_info"] = auditInfo
+	}
+	log := &Log{
+		UserId:    logUserId,
+		Username:  username,
+		CreatedAt: common.GetTimestamp(),
+		Type:      LogTypeManage,
+		Content:   content,
+		Ip:        ip,
+		Other:     common.MapToJsonStr(other),
+	}
+	if err := LOG_DB.Create(log).Error; err != nil {
+		common.SysLog("failed to record operation audit log: " + err.Error())
+	}
+}
+
+// RecordLoginLog records a successful dashboard login without persisting
+// credentials or other sensitive request data.
+func RecordLoginLog(userId int, username string, content string, ip string, action string, params map[string]interface{}, extra map[string]interface{}) {
+	other := map[string]interface{}{}
+	for key, value := range extra {
+		other[key] = value
+	}
+	op := map[string]interface{}{"action": action}
+	if len(params) > 0 {
+		op["params"] = params
+	}
+	other["op"] = op
+	log := &Log{
+		UserId:    userId,
+		Username:  username,
+		CreatedAt: common.GetTimestamp(),
+		Type:      LogTypeLogin,
+		Content:   content,
+		Ip:        ip,
+		Other:     common.MapToJsonStr(other),
+	}
+	if err := LOG_DB.Create(log).Error; err != nil {
+		common.SysLog("failed to record login log: " + err.Error())
 	}
 }
 
@@ -455,16 +513,58 @@ func RecordTaskBillingLog(params RecordTaskBillingLogParams) int {
 	return log.Id
 }
 
-func dedupeRepeatedErrorLogsByRequestId(tx *gorm.DB, applyFilters func(*gorm.DB, string) *gorm.DB) *gorm.DB {
+func excludeSupersededRetryErrors(tx *gorm.DB) *gorm.DB {
+	// Resolve the request's final outcome across the whole retry chain, not just
+	// inside the outer query's time/model/channel/type display filters.
 	newer := LOG_DB.Table("logs AS newer").Select("1")
-	newer = applyFilters(newer, "newer")
 	newer = newer.
-		Where("newer.type = ?", LogTypeError).
+		Where("newer.type IN ?", []int{LogTypeConsume, LogTypeError}).
 		Where("newer.request_id = logs.request_id").
+		Where("newer.user_id = logs.user_id").
 		Where("newer.id > logs.id").
 		Limit(1)
 
 	return tx.Where("NOT (logs.type = ? AND logs.request_id <> '' AND EXISTS (?))", LogTypeError, newer)
+}
+
+func buildAllLogsQuery(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, requestId string, upstreamRequestId string, workspace string) (*gorm.DB, error) {
+	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace, nil)
+	if err != nil {
+		return nil, err
+	}
+	prefix := "logs."
+	tx := applyTokenIDFilter(LOG_DB.Model(&Log{}), prefix, tokenIDs, tokenIDsResolved)
+	if logType != LogTypeUnknown {
+		tx = tx.Where(prefix+"type = ?", logType)
+	}
+	if modelName != "" {
+		tx = tx.Where(prefix+"model_name like ?", modelName)
+	}
+	if username != "" {
+		tx = tx.Where(prefix+"username = ?", username)
+	}
+	if tokenName != "" {
+		tx = tx.Where(prefix+"token_name = ?", tokenName)
+	}
+	if requestId != "" {
+		tx = tx.Where(prefix+"request_id = ?", requestId)
+	}
+	if upstreamRequestId != "" {
+		tx = tx.Where(prefix+"upstream_request_id = ?", upstreamRequestId)
+	}
+	if startTimestamp != 0 {
+		tx = tx.Where(prefix+"created_at >= ?", startTimestamp)
+	}
+	if endTimestamp != 0 {
+		tx = tx.Where(prefix+"created_at <= ?", endTimestamp)
+	}
+	if channel != 0 {
+		tx = tx.Where(prefix+"channel_id = ?", channel)
+	}
+	if group != "" {
+		tx = tx.Where(prefix+logGroupCol+" = ?", group)
+	}
+	return excludeSupersededRetryErrors(tx), nil
 }
 
 func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, startIdx int, num int, channel int, group string, requestId string, upstreamRequestId string, workspaceName ...string) (logs []*Log, total int64, err error) {
@@ -472,47 +572,10 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 	if len(workspaceName) > 0 {
 		workspace = workspaceName[0]
 	}
-	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(0, tokenName, workspace, nil)
+	tx, err := buildAllLogsQuery(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, requestId, upstreamRequestId, workspace)
 	if err != nil {
 		return nil, 0, err
 	}
-	applyFilters := func(tx *gorm.DB, alias string) *gorm.DB {
-		prefix := alias + "."
-		tx = applyTokenIDFilter(tx, prefix, tokenIDs, tokenIDsResolved)
-		if logType != LogTypeUnknown {
-			tx = tx.Where(prefix+"type = ?", logType)
-		}
-		if modelName != "" {
-			tx = tx.Where(prefix+"model_name like ?", modelName)
-		}
-		if username != "" {
-			tx = tx.Where(prefix+"username = ?", username)
-		}
-		if tokenName != "" {
-			tx = tx.Where(prefix+"token_name = ?", tokenName)
-		}
-		if requestId != "" {
-			tx = tx.Where(prefix+"request_id = ?", requestId)
-		}
-		if upstreamRequestId != "" {
-			tx = tx.Where(prefix+"upstream_request_id = ?", upstreamRequestId)
-		}
-		if startTimestamp != 0 {
-			tx = tx.Where(prefix+"created_at >= ?", startTimestamp)
-		}
-		if endTimestamp != 0 {
-			tx = tx.Where(prefix+"created_at <= ?", endTimestamp)
-		}
-		if channel != 0 {
-			tx = tx.Where(prefix+"channel_id = ?", channel)
-		}
-		if group != "" {
-			tx = tx.Where(prefix+logGroupCol+" = ?", group)
-		}
-		return tx
-	}
-	tx := applyFilters(LOG_DB.Model(&Log{}), "logs")
-	tx = dedupeRepeatedErrorLogsByRequestId(tx, applyFilters)
 	err = tx.Model(&Log{}).Count(&total).Error
 	if err != nil {
 		return nil, 0, err
@@ -522,6 +585,49 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		return nil, 0, err
 	}
 
+	if err = attachLogChannelNames(logs); err != nil {
+		return logs, total, err
+	}
+
+	return logs, total, nil
+}
+
+func GetAllLogsByCursor(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, cursor int, num int, channel int, group string, requestId string, upstreamRequestId string, workspaceName ...string) (logs []*Log, nextCursor int, hasMore bool, err error) {
+	workspace := ""
+	if len(workspaceName) > 0 {
+		workspace = workspaceName[0]
+	}
+	tx, err := buildAllLogsQuery(logType, startTimestamp, endTimestamp, modelName, username, tokenName, channel, group, requestId, upstreamRequestId, workspace)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	if cursor > 0 {
+		tx = tx.Where("logs.id < ?", cursor)
+	}
+	err = tx.Order("logs.id desc").Limit(num + 1).Find(&logs).Error
+	if err != nil {
+		return nil, 0, false, err
+	}
+	logs, nextCursor, hasMore = trimLogCursorPage(logs, num)
+	if err = attachLogChannelNames(logs); err != nil {
+		return logs, nextCursor, hasMore, err
+	}
+	return logs, nextCursor, hasMore, nil
+}
+
+func trimLogCursorPage(logs []*Log, num int) ([]*Log, int, bool) {
+	hasMore := len(logs) > num
+	if hasMore {
+		logs = logs[:num]
+	}
+	nextCursor := 0
+	if len(logs) > 0 {
+		nextCursor = logs[len(logs)-1].Id
+	}
+	return logs, nextCursor, hasMore
+}
+
+func attachLogChannelNames(logs []*Log) error {
 	channelIds := types.NewSet[int]()
 	for _, log := range logs {
 		if log.ChannelId != 0 {
@@ -549,8 +655,8 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 			}
 		} else {
 			// Bulk query channels from DB
-			if err = DB.Table("channels").Select("id, name").Where("id IN ?", channelIds.Items()).Find(&channels).Error; err != nil {
-				return logs, total, err
+			if err := DB.Table("channels").Select("id, name").Where("id IN ?", channelIds.Items()).Find(&channels).Error; err != nil {
+				return err
 			}
 		}
 		channelMap := make(map[int]string, len(channels))
@@ -562,55 +668,59 @@ func GetAllLogs(logType int, startTimestamp int64, endTimestamp int64, modelName
 		}
 	}
 
-	return logs, total, err
+	return nil
 }
 
 const logSearchCountLimit = 10000
 
-func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, workspace string, allowedWorkspaceIds []int) (logs []*Log, total int64, err error) {
+func buildUserLogsQuery(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, group string, requestId string, upstreamRequestId string, workspace string, allowedWorkspaceIds []int) (*gorm.DB, error) {
 	var modelNamePattern string
+	var err error
 	if modelName != "" {
 		modelNamePattern, err = sanitizeLikePattern(modelName)
 		if err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 	}
 	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspace, allowedWorkspaceIds)
 	if err != nil {
+		return nil, err
+	}
+	prefix := "logs."
+	tx := LOG_DB.Model(&Log{}).Where(prefix+"user_id = ?", userId)
+	tx = applyTokenIDFilter(tx, prefix, tokenIDs, tokenIDsResolved)
+	if logType != LogTypeUnknown {
+		tx = tx.Where(prefix+"type = ?", logType)
+	}
+	if modelName != "" {
+		tx = tx.Where(prefix+"model_name LIKE ? ESCAPE '!'", modelNamePattern)
+	}
+	if tokenName != "" {
+		tx = tx.Where(prefix+"token_name = ?", tokenName)
+	}
+	if requestId != "" {
+		tx = tx.Where(prefix+"request_id = ?", requestId)
+	}
+	if upstreamRequestId != "" {
+		tx = tx.Where(prefix+"upstream_request_id = ?", upstreamRequestId)
+	}
+	if startTimestamp != 0 {
+		tx = tx.Where(prefix+"created_at >= ?", startTimestamp)
+	}
+	if endTimestamp != 0 {
+		tx = tx.Where(prefix+"created_at <= ?", endTimestamp)
+	}
+	if group != "" {
+		tx = tx.Where(prefix+logGroupCol+" = ?", group)
+	}
+	return excludeSupersededRetryErrors(tx), nil
+}
+
+func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, startIdx int, num int, group string, requestId string, upstreamRequestId string, workspace string, allowedWorkspaceIds []int) (logs []*Log, total int64, err error) {
+	tx, err := buildUserLogsQuery(userId, logType, startTimestamp, endTimestamp, modelName, tokenName, group, requestId, upstreamRequestId, workspace, allowedWorkspaceIds)
+	if err != nil {
 		return nil, 0, err
 	}
-	applyFilters := func(tx *gorm.DB, alias string) *gorm.DB {
-		prefix := alias + "."
-		tx = tx.Where(prefix+"user_id = ?", userId)
-		tx = applyTokenIDFilter(tx, prefix, tokenIDs, tokenIDsResolved)
-		if logType != LogTypeUnknown {
-			tx = tx.Where(prefix+"type = ?", logType)
-		}
-		if modelName != "" {
-			tx = tx.Where(prefix+"model_name LIKE ? ESCAPE '!'", modelNamePattern)
-		}
-		if tokenName != "" {
-			tx = tx.Where(prefix+"token_name = ?", tokenName)
-		}
-		if requestId != "" {
-			tx = tx.Where(prefix+"request_id = ?", requestId)
-		}
-		if upstreamRequestId != "" {
-			tx = tx.Where(prefix+"upstream_request_id = ?", upstreamRequestId)
-		}
-		if startTimestamp != 0 {
-			tx = tx.Where(prefix+"created_at >= ?", startTimestamp)
-		}
-		if endTimestamp != 0 {
-			tx = tx.Where(prefix+"created_at <= ?", endTimestamp)
-		}
-		if group != "" {
-			tx = tx.Where(prefix+logGroupCol+" = ?", group)
-		}
-		return tx
-	}
-	tx := applyFilters(LOG_DB.Model(&Log{}), "logs")
-	tx = dedupeRepeatedErrorLogsByRequestId(tx, applyFilters)
 	err = tx.Model(&Log{}).Limit(logSearchCountLimit).Count(&total).Error
 	if err != nil {
 		common.SysError("failed to count user logs: " + err.Error())
@@ -624,6 +734,24 @@ func GetUserLogs(userId int, logType int, startTimestamp int64, endTimestamp int
 
 	formatUserLogs(logs, startIdx)
 	return logs, total, err
+}
+
+func GetUserLogsByCursor(userId int, logType int, startTimestamp int64, endTimestamp int64, modelName string, tokenName string, cursor int, num int, group string, requestId string, upstreamRequestId string, workspace string, allowedWorkspaceIds []int) (logs []*Log, nextCursor int, hasMore bool, err error) {
+	tx, err := buildUserLogsQuery(userId, logType, startTimestamp, endTimestamp, modelName, tokenName, group, requestId, upstreamRequestId, workspace, allowedWorkspaceIds)
+	if err != nil {
+		return nil, 0, false, err
+	}
+	if cursor > 0 {
+		tx = tx.Where("logs.id < ?", cursor)
+	}
+	err = tx.Order("logs.id desc").Limit(num + 1).Find(&logs).Error
+	if err != nil {
+		common.SysError("failed to search user logs by cursor: " + err.Error())
+		return nil, 0, false, errors.New("查询日志失败")
+	}
+	logs, nextCursor, hasMore = trimLogCursorPage(logs, num)
+	formatUserLogs(logs, 0)
+	return logs, nextCursor, hasMore, nil
 }
 
 type Stat struct {
@@ -761,6 +889,40 @@ func logOtherNumber(other map[string]interface{}, key string) (float64, bool) {
 	}
 }
 
+const (
+	TaskCostPending     = "pending"
+	TaskCostSettled     = "settled"
+	TaskCostUnavailable = "unavailable"
+)
+
+// logProfitContribution uses realized task revenue independently of the balance
+// delta in Log.Quota. In particular, a refund can carry positive final profit.
+func logProfitContribution(logType, quota int, otherText string) (revenue, base, cost, profit, requests int) {
+	other, _ := common.StrToMap(otherText)
+	switch other["task_cost_state"] {
+	case TaskCostPending, TaskCostUnavailable:
+		return
+	case TaskCostSettled:
+		actual, ok := logOtherNumber(other, "actual_quota")
+		if !ok || actual < 0 {
+			return
+		}
+		revenue = common.QuotaRound(actual)
+		base, cost, profit = logCostSnapshot(revenue, otherText)
+		requests = 1
+		return
+	}
+	sign := usageStatSign(logType)
+	base, cost, profit = logCostSnapshot(quota, otherText)
+	if logType == LogTypeConsume {
+		_, adjustment := other["pre_consumed_quota"]
+		if !adjustment {
+			requests = 1
+		}
+	}
+	return sign * quota, sign * base, sign * cost, sign * profit, requests
+}
+
 func logCostSnapshot(quota int, otherText string) (baseQuota int, costQuota int, profitQuota int) {
 	other, _ := common.StrToMap(otherText)
 	if base, ok := logOtherNumber(other, "cost_base_quota"); ok {
@@ -824,7 +986,10 @@ func sumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 
 	// 为rpm和tpm创建单独的查询
-	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
+	rpmTpmQuery := LOG_DB.Table("logs").Select(
+		"sum(CASE WHEN other LIKE ? AND other LIKE ? THEN 0 ELSE 1 END) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm",
+		`%"task_cost_state"%`, `%"actual_quota"%`,
+	)
 	costQuery := LOG_DB.Table("logs").Select("type, quota, other")
 	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspace, allowedWorkspaceIds)
 	if err != nil {
@@ -894,18 +1059,22 @@ func sumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 	for _, row := range costRows {
 		sign := usageStatSign(row.Type)
-		baseQuota, costQuota, profitQuota := logCostSnapshot(row.Quota, row.Other)
+		_, baseQuota, costQuota, profitQuota, _ := logProfitContribution(row.Type, row.Quota, row.Other)
 		stat.Quota += sign * row.Quota
-		stat.BaseQuota += sign * baseQuota
-		stat.CostQuota += sign * costQuota
-		stat.ProfitQuota += sign * profitQuota
+		stat.BaseQuota += baseQuota
+		stat.CostQuota += costQuota
+		stat.ProfitQuota += profitQuota
 	}
 
 	return stat, nil
 }
 
 func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspaceName ...string) (summary ModelProfitStatsSummary, err error) {
-	query := LOG_DB.Table("logs").Select("model_name, quota, other")
+	statTypes := usageStatLogTypes(logType)
+	if len(statTypes) == 0 {
+		return summary, nil
+	}
+	query := LOG_DB.Table("logs").Select("type, model_name, quota, other")
 	workspace := ""
 	if len(workspaceName) > 0 {
 		workspace = workspaceName[0]
@@ -941,9 +1110,10 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 	if group != "" {
 		query = query.Where(logGroupCol+" = ?", group)
 	}
-	query = query.Where("type = ?", LogTypeConsume)
+	query = query.Where("type IN ?", statTypes)
 
 	var rows []struct {
+		Type      int
 		ModelName string
 		Quota     int
 		Other     string
@@ -955,6 +1125,10 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 
 	itemByModel := make(map[string]*ModelProfitStat)
 	for _, row := range rows {
+		revenue, baseQuota, costQuota, profitQuota, requests := logProfitContribution(row.Type, row.Quota, row.Other)
+		if revenue == 0 && baseQuota == 0 && costQuota == 0 && profitQuota == 0 && requests == 0 {
+			continue
+		}
 		model := strings.TrimSpace(row.ModelName)
 		if model == "" {
 			model = "unknown"
@@ -964,13 +1138,12 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 			item = &ModelProfitStat{ModelName: model}
 			itemByModel[model] = item
 		}
-		baseQuota, costQuota, profitQuota := logCostSnapshot(row.Quota, row.Other)
-		item.RequestCount++
-		item.Quota += row.Quota
+		item.RequestCount += requests
+		item.Quota += revenue
 		item.BaseQuota += baseQuota
 		item.CostQuota += costQuota
 		item.ProfitQuota += profitQuota
-		summary.Quota += row.Quota
+		summary.Quota += revenue
 		summary.BaseQuota += baseQuota
 		summary.CostQuota += costQuota
 		summary.ProfitQuota += profitQuota

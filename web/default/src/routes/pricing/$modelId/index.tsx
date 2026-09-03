@@ -29,6 +29,7 @@ const semSearchValueSchema = z
 const modelDetailsSearchSchema = z.object({
   search: z.string().optional(),
   sort: z.string().optional(),
+  userGroup: z.string().optional(),
   vendor: z.string().optional(),
   group: z.string().optional(),
   quotaType: z.string().optional(),
@@ -38,9 +39,7 @@ const modelDetailsSearchSchema = z.object({
   tokenUnit: z.enum(['M', 'K']).optional(),
   view: z.enum(['card', 'table']).optional().catch(undefined),
   rechargePrice: z.boolean().optional(),
-  sem: z
-    .union([z.literal('1'), z.literal(1)])
-    .optional(),
+  sem: z.union([z.literal('1'), z.literal(1)]).optional(),
   utm_source: semSearchValueSchema,
   utm_medium: semSearchValueSchema,
   utm_campaign: semSearchValueSchema,

@@ -23,7 +23,13 @@ import { useTranslation } from 'react-i18next';
 import { UserContext } from '../../context/User';
 import { StatusContext } from '../../context/Status';
 import { useSetTheme, useTheme, useActualTheme } from '../../context/Theme';
-import { getLogo, getSystemName, API, showSuccess } from '../../helpers';
+import {
+  getLogo,
+  getSystemName,
+  API,
+  setUserData,
+  showSuccess,
+} from '../../helpers';
 import {
   normalizeLanguage,
   replaceCurrentUrlLanguage,
@@ -148,7 +154,7 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
     await API.get('/api/user/logout');
     showSuccess(t('注销成功!'));
     userDispatch({ type: 'logout' });
-    localStorage.removeItem('user');
+    setUserData(null);
     navigate('/login');
   }, [navigate, t, userDispatch]);
 
@@ -188,7 +194,7 @@ export const useHeaderBar = ({ onMobileMenuToggle, drawerOpen }) => {
               type: 'login',
               payload: nextUser,
             });
-            localStorage.setItem('user', JSON.stringify(nextUser));
+            setUserData(nextUser);
           }
         } catch (error) {
           if (previousLang) {

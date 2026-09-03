@@ -25,17 +25,17 @@ func TestGetUserLogsDeduplicatesErrorLogsByRequestID(t *testing.T) {
 	logs, total, err := GetUserLogs(1001, LogTypeUnknown, 0, 0, "", "", 0, 20, "", "", "", "", nil)
 
 	require.NoError(t, err)
-	require.Equal(t, int64(5), total)
+	require.Equal(t, int64(4), total)
 	contents := logContents(logs)
 	require.NotContains(t, contents, "first error")
-	require.Contains(t, contents, "last error")
+	require.NotContains(t, contents, "last error")
 	require.Contains(t, contents, "other error")
 	require.Contains(t, contents, "empty request id")
 	require.Contains(t, contents, "empty request id second")
 	require.Contains(t, contents, "consume")
 }
 
-func TestGetAllLogsDeduplicatesErrorLogsByRequestIDWithinFilters(t *testing.T) {
+func TestGetAllLogsUsesRequestFinalOutcomeOutsideDisplayFilters(t *testing.T) {
 	truncateTables(t)
 
 	require.NoError(t, LOG_DB.Create(&[]Log{
@@ -47,9 +47,73 @@ func TestGetAllLogsDeduplicatesErrorLogsByRequestIDWithinFilters(t *testing.T) {
 	logs, total, err := GetAllLogs(LogTypeError, 0, 0, "gpt-a", "", "", 0, 20, 0, "", "", "")
 
 	require.NoError(t, err)
-	require.Equal(t, int64(1), total)
-	require.Len(t, logs, 1)
-	require.Equal(t, "last filtered error", logs[0].Content)
+	require.Zero(t, total)
+	require.Empty(t, logs)
+}
+
+func TestGetAllLogsKeepsOnlyLastErrorWhenRetryUltimatelyFails(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 21, UserId: 1001, Type: LogTypeError, CreatedAt: 100, RequestId: "req_failed", Content: "first error"},
+		{Id: 22, UserId: 1001, Type: LogTypeError, CreatedAt: 101, RequestId: "req_failed", Content: "last error"},
+		{Id: 23, UserId: 2002, Type: LogTypeConsume, CreatedAt: 102, RequestId: "req_failed", Content: "other user success"},
+	}).Error)
+
+	logs, total, err := GetAllLogs(LogTypeUnknown, 0, 0, "", "", "", 0, 20, 0, "", "", "")
+
+	require.NoError(t, err)
+	require.Equal(t, int64(2), total)
+	require.Len(t, logs, 2)
+	require.Contains(t, logContents(logs), "last error")
+}
+
+func TestGetAllLogsCursorCollapsesRetriesAndReturnsStableNextCursor(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 31, UserId: 1001, Type: LogTypeError, CreatedAt: 100, RequestId: "req_success", Content: "recovered error"},
+		{Id: 32, UserId: 1001, Type: LogTypeConsume, CreatedAt: 101, RequestId: "req_success", Content: "retry success"},
+		{Id: 33, UserId: 1001, Type: LogTypeError, CreatedAt: 102, RequestId: "req_failed", Content: "first failed error"},
+		{Id: 34, UserId: 1001, Type: LogTypeError, CreatedAt: 103, RequestId: "req_failed", Content: "last failed error"},
+		{Id: 35, UserId: 1001, Type: LogTypeSystem, CreatedAt: 104, Content: "system log"},
+	}).Error)
+
+	firstPage, nextCursor, hasMore, err := GetAllLogsByCursor(
+		LogTypeUnknown, 0, 0, "", "", "", 0, 2, 0, "", "", "",
+	)
+	require.NoError(t, err)
+	require.True(t, hasMore)
+	require.Equal(t, 34, nextCursor)
+	require.Equal(t, []string{"system log", "last failed error"}, logContents(firstPage))
+
+	secondPage, nextCursor, hasMore, err := GetAllLogsByCursor(
+		LogTypeUnknown, 0, 0, "", "", "", nextCursor, 2, 0, "", "", "",
+	)
+	require.NoError(t, err)
+	require.False(t, hasMore)
+	require.Equal(t, 32, nextCursor)
+	require.Equal(t, []string{"retry success"}, logContents(secondPage))
+}
+
+func TestGetUserLogsCursorAppliesOwnerScopeBeforePaging(t *testing.T) {
+	truncateTables(t)
+
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{Id: 41, UserId: 1001, Type: LogTypeError, CreatedAt: 100, RequestId: "req-user-success", Content: "recovered user error"},
+		{Id: 42, UserId: 1001, Type: LogTypeConsume, CreatedAt: 101, RequestId: "req-user-success", Content: "user success"},
+		{Id: 43, UserId: 2002, Type: LogTypeSystem, CreatedAt: 102, Content: "other user"},
+		{Id: 44, UserId: 1001, Type: LogTypeSystem, CreatedAt: 103, Content: "own system log"},
+	}).Error)
+
+	logs, nextCursor, hasMore, err := GetUserLogsByCursor(
+		1001, LogTypeUnknown, 0, 0, "", "", 0, 20, "", "", "", "", nil,
+	)
+
+	require.NoError(t, err)
+	require.False(t, hasMore)
+	require.Equal(t, 42, nextCursor)
+	require.Equal(t, []string{"own system log", "user success"}, logContents(logs))
 }
 
 func TestGetUserLogsFiltersByWorkspaceName(t *testing.T) {

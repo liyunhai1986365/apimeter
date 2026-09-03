@@ -101,11 +101,17 @@ func ResolveTokenGroupChain(ctx *gin.Context, tokenGroup string) []string {
 		userGroup = group.SystemGroupName
 	}
 	if policy.Type == TokenGroupPolicyTypeRoutingStrategy {
+		cacheKey := "relay_smart_groups:" + userGroup + ":" + raw
+		if cached, exists := ctx.Get(cacheKey); exists {
+			return append([]string(nil), cached.([]string)...)
+		}
 		fallback := GetUserAutoGroup(userGroup)
 		if hasAgentCtx && agentCtx != nil {
 			fallback, _ = agentAutoGroups(agentCtx, userGroup)
 		}
-		return excludePolicyGroups(ResolveRoutingStrategyGroups(policy.Strategy, userGroup, fallback), policy.ExcludedGroups)
+		groups := excludePolicyGroups(ResolveRoutingStrategyGroups(policy.Strategy, userGroup, fallback), policy.ExcludedGroups)
+		ctx.Set(cacheKey, append([]string(nil), groups...))
+		return groups
 	}
 	if policy.Type != TokenGroupPolicyTypeOrdered {
 		return nil
@@ -329,4 +335,10 @@ func DefaultTokenGroupPolicy() string {
 		return ""
 	}
 	return string(data)
+}
+
+// IsRoutingStrategyGroupPolicy covers all four smart routing strategies.
+func IsRoutingStrategyGroupPolicy(raw string) bool {
+	policy, ok, err := parseTokenGroupPolicy(raw)
+	return err == nil && ok && policy.Type == TokenGroupPolicyTypeRoutingStrategy
 }

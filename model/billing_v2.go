@@ -34,12 +34,19 @@ const (
 	BillingStatementStatusConfirmed = "confirmed"
 	BillingStatementStatusException = "exception"
 
+	BillingStatementReconciliationMatched   = "matched"
+	BillingStatementReconciliationException = "exception"
+
+	BillingStatementConfirmationPending   = "pending"
+	BillingStatementConfirmationConfirmed = "confirmed"
+	BillingStatementConfirmationDisputed  = "disputed"
+
 	BillingStatementSummaryDimensionMonthModelGroup = "month_model_group"
 )
 
 type BillingUsageItem struct {
 	Id               int     `json:"id"`
-	UserId           int     `json:"user_id" gorm:"index:idx_billing_usage_user_time,priority:1;index"`
+	UserId           int     `json:"user_id" gorm:"index:idx_billing_usage_user_time,priority:1;index:idx_billing_usage_source_time_user,priority:3;index"`
 	TokenId          int     `json:"token_id" gorm:"index"`
 	TokenName        string  `json:"token_name" gorm:"type:varchar(191);index;default:''"`
 	WorkspaceId      int     `json:"workspace_id" gorm:"index;default:0"`
@@ -47,11 +54,11 @@ type BillingUsageItem struct {
 	RequestId        string  `json:"request_id" gorm:"type:varchar(64);index;default:''"`
 	ModelName        string  `json:"model_name" gorm:"type:varchar(191);index;default:''"`
 	Group            string  `json:"group" gorm:"type:varchar(64);index;default:''"`
-	BillingSource    string  `json:"billing_source" gorm:"type:varchar(32);index;default:'wallet'"`
+	BillingSource    string  `json:"billing_source" gorm:"type:varchar(32);index;index:idx_billing_usage_source_time_user,priority:1;default:'wallet'"`
 	BillingMode      string  `json:"billing_mode" gorm:"type:varchar(32);index;default:''"`
 	GroupRatio       float64 `json:"group_ratio" gorm:"default:1"`
 	PricingVersion   string  `json:"pricing_version" gorm:"type:varchar(64);default:''"`
-	BilledAt         int64   `json:"billed_at" gorm:"bigint;index:idx_billing_usage_user_time,priority:2"`
+	BilledAt         int64   `json:"billed_at" gorm:"bigint;index:idx_billing_usage_user_time,priority:2;index:idx_billing_usage_source_time_user,priority:2"`
 	BillingDate      string  `json:"billing_date" gorm:"type:varchar(10);index"`
 	BillingMonth     string  `json:"billing_month" gorm:"type:varchar(7);index"`
 	InputTokens      int64   `json:"input_tokens" gorm:"type:bigint;default:0"`
@@ -88,54 +95,62 @@ type AccountLedgerEntry struct {
 }
 
 type BillingStatement struct {
-	Id               int    `json:"id"`
-	StatementNo      string `json:"statement_no" gorm:"type:varchar(64);uniqueIndex"`
-	UserId           int    `json:"user_id" gorm:"index:idx_billing_statement_user_period,priority:1;index"`
-	Period           string `json:"period" gorm:"type:varchar(16);index"`
-	PeriodValue      string `json:"period_value" gorm:"type:varchar(16);index:idx_billing_statement_user_period,priority:2"`
-	PeriodStart      int64  `json:"period_start" gorm:"bigint;index"`
-	PeriodEnd        int64  `json:"period_end" gorm:"bigint;index"`
-	OpeningBalance   int64  `json:"opening_balance" gorm:"type:bigint;default:0"`
-	ClosingBalance   int64  `json:"closing_balance" gorm:"type:bigint;default:0"`
-	TopupAmount      int64  `json:"topup_amount" gorm:"type:bigint;default:0"`
-	ConsumeAmount    int64  `json:"consume_amount" gorm:"type:bigint;default:0"`
-	RefundAmount     int64  `json:"refund_amount" gorm:"type:bigint;default:0"`
-	AdjustmentAmount int64  `json:"adjustment_amount" gorm:"type:bigint;default:0"`
-	RequestCount     int64  `json:"request_count" gorm:"type:bigint;default:0"`
-	InputTokens      int64  `json:"input_tokens" gorm:"type:bigint;default:0"`
-	OutputTokens     int64  `json:"output_tokens" gorm:"type:bigint;default:0"`
-	CacheReadTokens  int64  `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
-	CacheWriteTokens int64  `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
-	OriginalAmount   int64  `json:"original_amount" gorm:"type:bigint;default:0"`
-	DiscountAmount   int64  `json:"discount_amount" gorm:"type:bigint;default:0"`
-	SettlementAmount int64  `json:"settlement_amount" gorm:"type:bigint;default:0"`
-	DifferenceAmount int64  `json:"difference_amount" gorm:"type:bigint;default:0"`
-	Status           string `json:"status" gorm:"type:varchar(32);index;default:'open'"`
-	GeneratedAt      int64  `json:"generated_at" gorm:"bigint;index"`
-	FinalizedAt      int64  `json:"finalized_at" gorm:"bigint;default:0"`
-	ExceptionCount   int    `json:"exception_count" gorm:"default:0"`
+	Id                   int    `json:"id"`
+	StatementNo          string `json:"statement_no" gorm:"type:varchar(64);uniqueIndex"`
+	UserId               int    `json:"user_id" gorm:"index:idx_billing_statement_user_period,priority:1;index"`
+	Period               string `json:"period" gorm:"type:varchar(16);index"`
+	PeriodValue          string `json:"period_value" gorm:"type:varchar(16);index:idx_billing_statement_user_period,priority:2"`
+	PeriodStart          int64  `json:"period_start" gorm:"bigint;index"`
+	PeriodEnd            int64  `json:"period_end" gorm:"bigint;index"`
+	OpeningBalance       int64  `json:"opening_balance" gorm:"type:bigint;default:0"`
+	ClosingBalance       int64  `json:"closing_balance" gorm:"type:bigint;default:0"`
+	TopupAmount          int64  `json:"topup_amount" gorm:"type:bigint;default:0"`
+	ConsumeAmount        int64  `json:"consume_amount" gorm:"type:bigint;default:0"`
+	RefundAmount         int64  `json:"refund_amount" gorm:"type:bigint;default:0"`
+	AdjustmentAmount     int64  `json:"adjustment_amount" gorm:"type:bigint;default:0"`
+	RequestCount         int64  `json:"request_count" gorm:"type:bigint;default:0"`
+	InputTokens          int64  `json:"input_tokens" gorm:"type:bigint;default:0"`
+	OutputTokens         int64  `json:"output_tokens" gorm:"type:bigint;default:0"`
+	CacheReadTokens      int64  `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
+	CacheWriteTokens     int64  `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
+	OriginalAmount       int64  `json:"original_amount" gorm:"type:bigint;default:0"`
+	DiscountAmount       int64  `json:"discount_amount" gorm:"type:bigint;default:0"`
+	SettlementAmount     int64  `json:"settlement_amount" gorm:"type:bigint;default:0"`
+	BaseSettlementAmount int64  `json:"base_settlement_amount" gorm:"type:bigint;default:0"`
+	DifferenceAmount     int64  `json:"difference_amount" gorm:"type:bigint;default:0"`
+	Status               string `json:"status" gorm:"type:varchar(32);index;default:'open'"`
+	ReconciliationStatus string `json:"reconciliation_status" gorm:"type:varchar(32);index;default:'matched'"`
+	ConfirmationStatus   string `json:"confirmation_status" gorm:"type:varchar(32);index;default:'confirmed'"`
+	Revision             int    `json:"revision" gorm:"default:1"`
+	ConfirmedRevision    int    `json:"confirmed_revision" gorm:"default:0"`
+	ConfirmedAt          int64  `json:"confirmed_at" gorm:"bigint;default:0;index"`
+	WorkflowVersion      int    `json:"-" gorm:"default:0"`
+	GeneratedAt          int64  `json:"generated_at" gorm:"bigint;index"`
+	FinalizedAt          int64  `json:"finalized_at" gorm:"bigint;default:0"`
+	ExceptionCount       int    `json:"exception_count" gorm:"default:0"`
 }
 
 type BillingStatementSummary struct {
-	Id               int    `json:"id"`
-	StatementNo      string `json:"statement_no" gorm:"type:varchar(64);index"`
-	UserId           int    `json:"user_id" gorm:"index"`
-	Period           string `json:"period" gorm:"type:varchar(16);index"`
-	PeriodValue      string `json:"period_value" gorm:"type:varchar(16);index"`
-	Dimension        string `json:"dimension" gorm:"type:varchar(32);index"`
-	DimensionValue   string `json:"dimension_value" gorm:"type:varchar(191);index"`
-	ModelName        string `json:"model_name" gorm:"type:varchar(191);index;default:''"`
-	Group            string `json:"group" gorm:"type:varchar(64);index;default:''"`
-	BillingSource    string `json:"billing_source" gorm:"type:varchar(32);index;default:''"`
-	BillingMode      string `json:"billing_mode" gorm:"type:varchar(32);index;default:''"`
-	RequestCount     int64  `json:"request_count" gorm:"type:bigint;default:0"`
-	InputTokens      int64  `json:"input_tokens" gorm:"type:bigint;default:0"`
-	OutputTokens     int64  `json:"output_tokens" gorm:"type:bigint;default:0"`
-	CacheReadTokens  int64  `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
-	CacheWriteTokens int64  `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
-	OriginalAmount   int64  `json:"original_amount" gorm:"type:bigint;default:0"`
-	DiscountAmount   int64  `json:"discount_amount" gorm:"type:bigint;default:0"`
-	SettlementAmount int64  `json:"settlement_amount" gorm:"type:bigint;default:0"`
+	Id               int     `json:"id"`
+	StatementNo      string  `json:"statement_no" gorm:"type:varchar(64);index"`
+	UserId           int     `json:"user_id" gorm:"index"`
+	Period           string  `json:"period" gorm:"type:varchar(16);index"`
+	PeriodValue      string  `json:"period_value" gorm:"type:varchar(16);index"`
+	Dimension        string  `json:"dimension" gorm:"type:varchar(32);index"`
+	DimensionValue   string  `json:"dimension_value" gorm:"type:varchar(191);index"`
+	ModelName        string  `json:"model_name" gorm:"type:varchar(191);index;default:''"`
+	Group            string  `json:"group" gorm:"type:varchar(64);index;default:''"`
+	GroupRatio       float64 `json:"group_ratio" gorm:"default:0"`
+	BillingSource    string  `json:"billing_source" gorm:"type:varchar(32);index;default:''"`
+	BillingMode      string  `json:"billing_mode" gorm:"type:varchar(32);index;default:''"`
+	RequestCount     int64   `json:"request_count" gorm:"type:bigint;default:0"`
+	InputTokens      int64   `json:"input_tokens" gorm:"type:bigint;default:0"`
+	OutputTokens     int64   `json:"output_tokens" gorm:"type:bigint;default:0"`
+	CacheReadTokens  int64   `json:"cache_read_tokens" gorm:"type:bigint;default:0"`
+	CacheWriteTokens int64   `json:"cache_write_tokens" gorm:"type:bigint;default:0"`
+	OriginalAmount   int64   `json:"original_amount" gorm:"type:bigint;default:0"`
+	DiscountAmount   int64   `json:"discount_amount" gorm:"type:bigint;default:0"`
+	SettlementAmount int64   `json:"settlement_amount" gorm:"type:bigint;default:0"`
 }
 
 type BillingV2BackfillOptions struct {
@@ -157,6 +172,7 @@ type BillingRecentMonthGenerationResult struct {
 	PeriodStart    int64                   `json:"period_start"`
 	PeriodEnd      int64                   `json:"period_end"`
 	Backfill       BillingV2BackfillResult `json:"backfill"`
+	EligibleUsers  int                     `json:"eligible_users"`
 	StatementCount int                     `json:"statement_count"`
 	FailedUsers    []int                   `json:"failed_users"`
 }
@@ -209,12 +225,13 @@ type BillingBreakdownQuery struct {
 }
 
 type BillingBreakdownRow struct {
-	Period        string `json:"period"`
-	PeriodValue   string `json:"period_value"`
-	ModelName     string `json:"model_name"`
-	Group         string `json:"group"`
-	BillingSource string `json:"billing_source"`
-	BillingMode   string `json:"billing_mode"`
+	Period        string  `json:"period"`
+	PeriodValue   string  `json:"period_value"`
+	ModelName     string  `json:"model_name"`
+	Group         string  `json:"group"`
+	GroupRatio    float64 `json:"group_ratio"`
+	BillingSource string  `json:"billing_source"`
+	BillingMode   string  `json:"billing_mode"`
 
 	RequestCount     int64 `json:"request_count"`
 	InputTokens      int64 `json:"input_tokens"`
@@ -359,23 +376,42 @@ func GenerateRecentMonthlyBillingStatements(now time.Time, batchSize int) (Billi
 	currentMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
 	monthTime := currentMonth.AddDate(0, -1, 0)
 	month := monthTime.Format("2006-01")
-	start := monthTime.Unix()
-	end := currentMonth.Add(-time.Second).Unix()
 
 	backfill, err := BackfillBillingV2FromLogs(BillingV2BackfillOptions{
-		StartTimestamp: start,
-		EndTimestamp:   end,
+		StartTimestamp: monthTime.Unix(),
+		EndTimestamp:   currentMonth.Add(-time.Second).Unix(),
 		BatchSize:      batchSize,
 	})
-	result := BillingRecentMonthGenerationResult{
-		Month:       month,
-		PeriodStart: start,
-		PeriodEnd:   end,
-		Backfill:    backfill,
-		FailedUsers: []int{},
-	}
 	if err != nil {
-		return result, err
+		return BillingRecentMonthGenerationResult{
+			Month:       month,
+			PeriodStart: monthTime.Unix(),
+			PeriodEnd:   currentMonth.Add(-time.Second).Unix(),
+			Backfill:    backfill,
+			FailedUsers: []int{},
+		}, err
+	}
+	result, err := GenerateMonthlyBillingStatementsForMonth(month)
+	result.Backfill = backfill
+	return result, err
+}
+
+// GenerateMonthlyBillingStatementsForMonth generates statements for every user
+// that had billable usage, ledger activity, or a non-consume balance event in
+// the requested UTC billing month. It deliberately uses billing projections
+// instead of replaying every raw consume log so month-end generation remains
+// bounded even on installations with millions of requests.
+func GenerateMonthlyBillingStatementsForMonth(month string) (BillingRecentMonthGenerationResult, error) {
+	monthTime, err := time.ParseInLocation("2006-01", strings.TrimSpace(month), time.UTC)
+	if err != nil {
+		return BillingRecentMonthGenerationResult{}, err
+	}
+	currentMonth := monthTime.AddDate(0, 1, 0)
+	result := BillingRecentMonthGenerationResult{
+		Month:       monthTime.Format("2006-01"),
+		PeriodStart: monthTime.Unix(),
+		PeriodEnd:   currentMonth.Add(-time.Second).Unix(),
+		FailedUsers: []int{},
 	}
 
 	userSet := map[int]struct{}{}
@@ -383,7 +419,7 @@ func GenerateRecentMonthlyBillingStatements(now time.Time, batchSize int) (Billi
 		UserId int
 	}
 	if err := LOG_DB.Model(&BillingUsageItem{}).
-		Where("billing_month = ?", month).
+		Where("billing_month = ?", result.Month).
 		Select("user_id").
 		Group("user_id").
 		Scan(&usageUsers).Error; err != nil {
@@ -398,7 +434,7 @@ func GenerateRecentMonthlyBillingStatements(now time.Time, batchSize int) (Billi
 		UserId int
 	}
 	if err := LOG_DB.Model(&AccountLedgerEntry{}).
-		Where("ledger_month = ?", month).
+		Where("ledger_month = ?", result.Month).
 		Select("user_id").
 		Group("user_id").
 		Scan(&ledgerUsers).Error; err != nil {
@@ -409,14 +445,38 @@ func GenerateRecentMonthlyBillingStatements(now time.Time, batchSize int) (Billi
 			userSet[row.UserId] = struct{}{}
 		}
 	}
+	var balanceEventUsers []struct {
+		UserId int
+	}
+	if err := LOG_DB.Model(&Log{}).
+		Where("created_at >= ? AND created_at <= ?", result.PeriodStart, result.PeriodEnd).
+		Where("type IN ?", []int{LogTypeTopup, LogTypeRefund, LogTypeManage}).
+		Select("user_id").
+		Group("user_id").
+		Scan(&balanceEventUsers).Error; err != nil {
+		return result, err
+	}
+	for _, row := range balanceEventUsers {
+		if row.UserId > 0 {
+			userSet[row.UserId] = struct{}{}
+		}
+	}
 
 	users := make([]int, 0, len(userSet))
 	for userId := range userSet {
 		users = append(users, userId)
 	}
 	sort.Ints(users)
+	result.EligibleUsers = len(users)
 	for _, userId := range users {
-		if _, _, err := GenerateMonthlyBillingStatement(userId, month); err != nil {
+		statementNo := fmt.Sprintf("BILL-%s-%d", strings.ReplaceAll(result.Month, "-", ""), userId)
+		if _, _, err := generateMonthlyBillingStatementFromProjections(
+			userId,
+			result.Month,
+			result.PeriodStart,
+			result.PeriodEnd,
+			statementNo,
+		); err != nil {
 			result.FailedUsers = append(result.FailedUsers, userId)
 			continue
 		}
@@ -764,6 +824,7 @@ func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow
 		PeriodValue string
 		ModelName   string
 		Group       string
+		GroupRatio  string
 	}
 	collectors := map[collectorKey]*BillingBreakdownRow{}
 	order := make([]collectorKey, 0)
@@ -772,10 +833,15 @@ func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow
 		if period == BillingStatementPeriodDay {
 			periodValue = item.BillingDate
 		}
+		groupRatio := item.GroupRatio
+		if groupRatio == 0 {
+			groupRatio = 1
+		}
 		key := collectorKey{
 			PeriodValue: billingDisplayValue(periodValue),
 			ModelName:   billingDisplayValue(item.ModelName),
 			Group:       billingDisplayValue(item.Group),
+			GroupRatio:  strconv.FormatFloat(groupRatio, 'f', -1, 64),
 		}
 		row := collectors[key]
 		if row == nil {
@@ -784,6 +850,7 @@ func GetBillingBreakdownRows(query BillingBreakdownQuery) ([]BillingBreakdownRow
 				PeriodValue:   key.PeriodValue,
 				ModelName:     key.ModelName,
 				Group:         key.Group,
+				GroupRatio:    groupRatio,
 				BillingSource: billingDisplayValue(item.BillingSource),
 				BillingMode:   billingDisplayValue(item.BillingMode),
 			}
@@ -948,6 +1015,92 @@ func generateMonthlyBillingStatementFromProjections(userId int, month string, st
 		Scan(&ledgerTotals).Error; err != nil {
 		return BillingStatement{}, nil, err
 	}
+	ledgerAmounts := make(map[string]int64, len(ledgerTotals))
+	for _, row := range ledgerTotals {
+		ledgerAmounts[row.EntryType] = row.Amount
+	}
+	// BillingUsageItem captures the initial consume log, while asynchronous task
+	// settlement writes only the later consume/refund delta to logs. Load just
+	// those bounded balance and settlement-delta rows so the projected monthly
+	// statement remains fast without treating the pre-consumed amount as final.
+	var balanceLogs []Log
+	if err := LOG_DB.Model(&Log{}).
+		Where("user_id = ? AND created_at >= ? AND created_at <= ?", userId, start, end).
+		Where("(type IN ? OR (type = ? AND other LIKE ? AND other LIKE ?))",
+			[]int{LogTypeTopup, LogTypeRefund, LogTypeManage},
+			LogTypeConsume,
+			`%"pre_consumed_quota"%`,
+			`%"actual_quota"%`,
+		).
+		Order("created_at asc, id asc").
+		Find(&balanceLogs).Error; err != nil {
+		return BillingStatement{}, nil, err
+	}
+	rawAmounts := map[string]int64{}
+	rawAmountPresent := map[string]bool{}
+	settlementDeltaLogs := make([]Log, 0)
+	for i := range balanceLogs {
+		log := balanceLogs[i]
+		entryType := ""
+		other, _ := common.StrToMap(log.Other)
+		switch log.Type {
+		case LogTypeTopup:
+			entryType = AccountLedgerEntryTypeTopup
+		case LogTypeRefund:
+			if shouldSkipPlatformBillingSource(billingSourceFromLogOther(other)) {
+				continue
+			}
+			entryType = AccountLedgerEntryTypeRefund
+			settlementDeltaLogs = append(settlementDeltaLogs, log)
+		case LogTypeManage:
+			entryType = AccountLedgerEntryTypeAdjustment
+		case LogTypeConsume:
+			if shouldSkipPlatformBillingSource(billingSourceFromLogOther(other)) {
+				continue
+			}
+			_, hasPreConsumed := other["pre_consumed_quota"]
+			_, hasActual := other["actual_quota"]
+			if !hasPreConsumed || !hasActual {
+				continue
+			}
+			entryType = AccountLedgerEntryTypeConsume
+			settlementDeltaLogs = append(settlementDeltaLogs, log)
+		}
+		if entryType != "" {
+			rawAmounts[entryType] += int64(log.Quota)
+			rawAmountPresent[entryType] = true
+		}
+	}
+	for entryType, amount := range rawAmounts {
+		if _, exists := ledgerAmounts[entryType]; exists {
+			continue
+		}
+		if entryType == AccountLedgerEntryTypeConsume {
+			ledgerAmounts[entryType] = -(usageTotals.SettlementAmount + amount)
+		} else {
+			ledgerAmounts[entryType] = amount
+		}
+	}
+	if _, exists := ledgerAmounts[AccountLedgerEntryTypeConsume]; !exists {
+		// Live consume logging writes BillingUsageItem synchronously but does
+		// not extend the derived account ledger. The projection settlement is
+		// therefore the authoritative consume total when no ledger backfill is
+		// present.
+		ledgerAmounts[AccountLedgerEntryTypeConsume] = -usageTotals.SettlementAmount
+	}
+	projectedRefundAmount := rawAmounts[AccountLedgerEntryTypeRefund]
+	if !rawAmountPresent[AccountLedgerEntryTypeRefund] {
+		projectedRefundAmount = ledgerAmounts[AccountLedgerEntryTypeRefund]
+	}
+	projectedConsumeAmount := usageTotals.SettlementAmount + rawAmounts[AccountLedgerEntryTypeConsume]
+	projectedSettlementAmount := projectedConsumeAmount - projectedRefundAmount
+	projectedOriginalAmount := usageTotals.OriginalAmount
+	projectedDiscountAmount := usageTotals.DiscountAmount
+	for i := range settlementDeltaLogs {
+		item := billingSettlementDeltaItem(&settlementDeltaLogs[i])
+		projectedOriginalAmount += item.OriginalAmount
+		projectedDiscountAmount += item.DiscountAmount
+	}
 	statement := BillingStatement{
 		StatementNo:      statementNo,
 		UserId:           userId,
@@ -960,32 +1113,39 @@ func generateMonthlyBillingStatementFromProjections(userId int, month string, st
 		OutputTokens:     usageTotals.OutputTokens,
 		CacheReadTokens:  usageTotals.CacheReadTokens,
 		CacheWriteTokens: usageTotals.CacheWriteTokens,
-		OriginalAmount:   usageTotals.OriginalAmount,
-		DiscountAmount:   usageTotals.DiscountAmount,
-		SettlementAmount: usageTotals.SettlementAmount,
+		OriginalAmount:   projectedOriginalAmount,
+		DiscountAmount:   projectedDiscountAmount,
+		SettlementAmount: projectedSettlementAmount,
 		GeneratedAt:      time.Now().Unix(),
 	}
-	for _, row := range ledgerTotals {
-		switch row.EntryType {
+	for entryType, amount := range ledgerAmounts {
+		switch entryType {
 		case AccountLedgerEntryTypeTopup:
-			statement.TopupAmount = row.Amount
+			statement.TopupAmount = amount
 		case AccountLedgerEntryTypeConsume:
-			statement.ConsumeAmount = -row.Amount
+			statement.ConsumeAmount = -amount
 		case AccountLedgerEntryTypeRefund:
-			statement.RefundAmount = row.Amount
+			statement.RefundAmount = amount
 		case AccountLedgerEntryTypeAdjustment:
-			statement.AdjustmentAmount = row.Amount
+			statement.AdjustmentAmount = amount
 		}
 	}
 	statement.DifferenceAmount = statement.ConsumeAmount - statement.RefundAmount - statement.SettlementAmount
 	if statement.DifferenceAmount == 0 {
-		statement.Status = BillingStatementStatusConfirmed
+		statement.Status = BillingStatementStatusOpen
+		statement.ReconciliationStatus = BillingStatementReconciliationMatched
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.FinalizedAt = statement.GeneratedAt
 	} else {
 		statement.Status = BillingStatementStatusException
+		statement.ReconciliationStatus = BillingStatementReconciliationException
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.ExceptionCount = 1
 	}
-	summaries, err := buildBillingStatementSummaries(statement)
+	statement.BaseSettlementAmount = statement.SettlementAmount
+	statement.Revision = 1
+	statement.WorkflowVersion = BillingStatementWorkflowVersion
+	summaries, err := buildBillingStatementSummaries(statement, settlementDeltaLogs)
 	if err != nil {
 		return BillingStatement{}, nil, err
 	}
@@ -1006,8 +1166,48 @@ func saveMonthlyBillingStatement(statement *BillingStatement, summaries []Billin
 		if err != nil && err != gorm.ErrRecordNotFound {
 			return err
 		}
+		calculatedBase := statement.BaseSettlementAmount
+		if calculatedBase == 0 && statement.SettlementAmount != 0 {
+			calculatedBase = statement.SettlementAmount
+		}
+		var adjustmentTotal int64
+		if err := tx.Model(&BillingStatementAdjustment{}).
+			Where("statement_no = ?", statement.StatementNo).
+			Select("COALESCE(SUM(amount), 0)").
+			Scan(&adjustmentTotal).Error; err != nil {
+			return err
+		}
+		statement.BaseSettlementAmount = calculatedBase
+		statement.AdjustmentAmount = adjustmentTotal
+		statement.SettlementAmount = calculatedBase + adjustmentTotal
+		changed := existing.Id == 0 ||
+			existing.BaseSettlementAmount != calculatedBase ||
+			existing.ConsumeAmount != statement.ConsumeAmount ||
+			existing.RefundAmount != statement.RefundAmount ||
+			existing.RequestCount != statement.RequestCount ||
+			existing.DifferenceAmount != statement.DifferenceAmount
 		if existing.Id > 0 {
 			statement.Id = existing.Id
+			if changed {
+				statement.Revision = existing.Revision + 1
+				if statement.Revision <= 1 {
+					statement.Revision = 2
+				}
+				statement.ConfirmedRevision = existing.ConfirmedRevision
+				statement.ConfirmedAt = existing.ConfirmedAt
+				if statement.ReconciliationStatus == BillingStatementReconciliationMatched {
+					statement.Status = BillingStatementStatusOpen
+					statement.ConfirmationStatus = BillingStatementConfirmationPending
+				}
+			} else {
+				statement.Status = existing.Status
+				statement.ReconciliationStatus = existing.ReconciliationStatus
+				statement.ConfirmationStatus = existing.ConfirmationStatus
+				statement.Revision = existing.Revision
+				statement.ConfirmedRevision = existing.ConfirmedRevision
+				statement.ConfirmedAt = existing.ConfirmedAt
+			}
+			statement.WorkflowVersion = BillingStatementWorkflowVersion
 			if err := tx.Save(statement).Error; err != nil {
 				return err
 			}
@@ -1016,6 +1216,11 @@ func saveMonthlyBillingStatement(statement *BillingStatement, summaries []Billin
 		}
 		if len(summaries) > 0 {
 			if err := tx.Create(&summaries).Error; err != nil {
+				return err
+			}
+		}
+		if changed {
+			if err := recordBillingStatementEventTx(tx, *statement, BillingStatementEventGenerated, BillingActorSystem, 0, "", ""); err != nil {
 				return err
 			}
 		}
@@ -1072,26 +1277,167 @@ func generateMonthlyBillingStatementFromLogs(userId int, month string, start int
 	}
 	statement.DifferenceAmount = statement.ConsumeAmount - statement.RefundAmount - statement.SettlementAmount
 	if statement.DifferenceAmount == 0 {
-		statement.Status = BillingStatementStatusConfirmed
+		statement.Status = BillingStatementStatusOpen
+		statement.ReconciliationStatus = BillingStatementReconciliationMatched
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.FinalizedAt = statement.GeneratedAt
 	} else {
 		statement.Status = BillingStatementStatusException
+		statement.ReconciliationStatus = BillingStatementReconciliationException
+		statement.ConfirmationStatus = BillingStatementConfirmationPending
 		statement.ExceptionCount = 1
 	}
+	statement.BaseSettlementAmount = statement.SettlementAmount
+	statement.Revision = 1
+	statement.WorkflowVersion = BillingStatementWorkflowVersion
 	summaries := buildBillingStatementSummariesFromItems(statement, billingItems)
 	err := saveMonthlyBillingStatement(&statement, summaries)
 	return statement, summaries, err
 }
 
-func buildBillingStatementSummaries(statement BillingStatement) ([]BillingStatementSummary, error) {
-	var items []BillingUsageItem
+func billingSettlementDeltaItem(log *Log) BillingUsageItem {
+	if log == nil {
+		return BillingUsageItem{}
+	}
+	other, _ := common.StrToMap(log.Other)
+	item := billingUsageItemFromLog(log, other)
+	item.InputTokens = 0
+	item.OutputTokens = 0
+	item.CacheReadTokens = 0
+	item.CacheWriteTokens = 0
+	if log.Type == LogTypeRefund {
+		item.OriginalAmount = -item.OriginalAmount
+		item.SettlementAmount = -item.SettlementAmount
+		item.DiscountAmount = item.OriginalAmount - item.SettlementAmount
+	}
+	return item
+}
+
+func buildBillingStatementSummaries(statement BillingStatement, settlementDeltaLogs []Log) ([]BillingStatementSummary, error) {
+	type summaryAggregate struct {
+		ModelName        string  `gorm:"column:model_name"`
+		GroupName        string  `gorm:"column:group_name"`
+		GroupRatio       float64 `gorm:"column:group_ratio"`
+		BillingSource    string  `gorm:"column:billing_source"`
+		BillingMode      string  `gorm:"column:billing_mode"`
+		RequestCount     int64   `gorm:"column:request_count"`
+		InputTokens      int64   `gorm:"column:input_tokens"`
+		OutputTokens     int64   `gorm:"column:output_tokens"`
+		CacheReadTokens  int64   `gorm:"column:cache_read_tokens"`
+		CacheWriteTokens int64   `gorm:"column:cache_write_tokens"`
+		OriginalAmount   int64   `gorm:"column:original_amount"`
+		DiscountAmount   int64   `gorm:"column:discount_amount"`
+		SettlementAmount int64   `gorm:"column:settlement_amount"`
+	}
+	ratioExpr := "CASE WHEN group_ratio = 0 THEN 1 ELSE group_ratio END"
+	selectExpr := strings.Join([]string{
+		"model_name",
+		logGroupCol + " AS group_name",
+		ratioExpr + " AS group_ratio",
+		"COALESCE(MIN(billing_source), '') AS billing_source",
+		"COALESCE(MIN(billing_mode), '') AS billing_mode",
+		"COALESCE(SUM(CASE WHEN settlement_amount >= 0 THEN 1 ELSE 0 END), 0) AS request_count",
+		"COALESCE(SUM(input_tokens), 0) AS input_tokens",
+		"COALESCE(SUM(output_tokens), 0) AS output_tokens",
+		"COALESCE(SUM(cache_read_tokens), 0) AS cache_read_tokens",
+		"COALESCE(SUM(cache_write_tokens), 0) AS cache_write_tokens",
+		"COALESCE(SUM(original_amount), 0) AS original_amount",
+		"COALESCE(SUM(discount_amount), 0) AS discount_amount",
+		"COALESCE(SUM(settlement_amount), 0) AS settlement_amount",
+	}, ", ")
+	var aggregates []summaryAggregate
 	if err := LOG_DB.Model(&BillingUsageItem{}).
 		Where("user_id = ? AND billing_month = ?", statement.UserId, statement.PeriodValue).
 		Scopes(excludeUserProviderBilling).
-		Find(&items).Error; err != nil {
+		Select(selectExpr).
+		Group(strings.Join([]string{"model_name", logGroupCol, ratioExpr}, ", ")).
+		Scan(&aggregates).Error; err != nil {
 		return nil, err
 	}
-	return buildBillingStatementSummariesFromItems(statement, items), nil
+	summaries := make([]BillingStatementSummary, 0, len(aggregates))
+	for _, row := range aggregates {
+		modelName := billingDisplayValue(row.ModelName)
+		groupName := billingDisplayValue(row.GroupName)
+		billingSource := billingDisplayValue(row.BillingSource)
+		billingMode := billingDisplayValue(row.BillingMode)
+		detailValue := strings.Join([]string{
+			statement.PeriodValue,
+			modelName,
+			groupName,
+			strconv.FormatFloat(row.GroupRatio, 'f', -1, 64),
+		}, " / ")
+		summaries = append(summaries, BillingStatementSummary{
+			StatementNo:      statement.StatementNo,
+			UserId:           statement.UserId,
+			Period:           statement.Period,
+			PeriodValue:      statement.PeriodValue,
+			Dimension:        BillingStatementSummaryDimensionMonthModelGroup,
+			DimensionValue:   detailValue,
+			ModelName:        modelName,
+			Group:            groupName,
+			GroupRatio:       row.GroupRatio,
+			BillingSource:    billingSource,
+			BillingMode:      billingMode,
+			RequestCount:     row.RequestCount,
+			InputTokens:      row.InputTokens,
+			OutputTokens:     row.OutputTokens,
+			CacheReadTokens:  row.CacheReadTokens,
+			CacheWriteTokens: row.CacheWriteTokens,
+			OriginalAmount:   row.OriginalAmount,
+			DiscountAmount:   row.DiscountAmount,
+			SettlementAmount: row.SettlementAmount,
+		})
+	}
+	byDimensionValue := make(map[string]int, len(summaries))
+	for i := range summaries {
+		byDimensionValue[summaries[i].DimensionValue] = i
+	}
+	for i := range settlementDeltaLogs {
+		item := billingSettlementDeltaItem(&settlementDeltaLogs[i])
+		modelName := billingDisplayValue(item.ModelName)
+		groupName := billingDisplayValue(item.Group)
+		groupRatio := item.GroupRatio
+		if groupRatio == 0 {
+			groupRatio = 1
+		}
+		detailValue := strings.Join([]string{
+			statement.PeriodValue,
+			modelName,
+			groupName,
+			strconv.FormatFloat(groupRatio, 'f', -1, 64),
+		}, " / ")
+		summaryIndex, exists := byDimensionValue[detailValue]
+		if !exists {
+			summaries = append(summaries, BillingStatementSummary{
+				StatementNo:    statement.StatementNo,
+				UserId:         statement.UserId,
+				Period:         statement.Period,
+				PeriodValue:    statement.PeriodValue,
+				Dimension:      BillingStatementSummaryDimensionMonthModelGroup,
+				DimensionValue: detailValue,
+				ModelName:      modelName,
+				Group:          groupName,
+				GroupRatio:     groupRatio,
+				BillingSource:  billingDisplayValue(item.BillingSource),
+				BillingMode:    billingDisplayValue(item.BillingMode),
+			})
+			summaryIndex = len(summaries) - 1
+			byDimensionValue[detailValue] = summaryIndex
+		}
+		summaries[summaryIndex].OriginalAmount += item.OriginalAmount
+		summaries[summaryIndex].DiscountAmount += item.DiscountAmount
+		summaries[summaryIndex].SettlementAmount += item.SettlementAmount
+	}
+	sort.SliceStable(summaries, func(i, j int) bool {
+		if summaries[i].ModelName != summaries[j].ModelName {
+			return summaries[i].ModelName < summaries[j].ModelName
+		}
+		if summaries[i].Group != summaries[j].Group {
+			return summaries[i].Group < summaries[j].Group
+		}
+		return summaries[i].GroupRatio < summaries[j].GroupRatio
+	})
+	return summaries, nil
 }
 
 func buildBillingStatementSummariesFromItems(statement BillingStatement, items []BillingUsageItem) []BillingStatementSummary {
@@ -1102,14 +1448,24 @@ func buildBillingStatementSummariesFromItems(statement BillingStatement, items [
 	for _, item := range items {
 		modelName := billingDisplayValue(item.ModelName)
 		groupName := billingDisplayValue(item.Group)
+		groupRatio := item.GroupRatio
+		if groupRatio == 0 {
+			groupRatio = 1
+		}
 		billingSource := billingDisplayValue(item.BillingSource)
 		billingMode := billingDisplayValue(item.BillingMode)
-		detailValue := strings.Join([]string{statement.PeriodValue, modelName, groupName}, " / ")
+		detailValue := strings.Join([]string{
+			statement.PeriodValue,
+			modelName,
+			groupName,
+			strconv.FormatFloat(groupRatio, 'f', -1, 64),
+		}, " / ")
 		values := map[string]BillingStatementSummary{
 			BillingStatementSummaryDimensionMonthModelGroup: {
 				DimensionValue: detailValue,
 				ModelName:      modelName,
 				Group:          groupName,
+				GroupRatio:     groupRatio,
 				BillingSource:  billingSource,
 				BillingMode:    billingMode,
 			},
@@ -1126,6 +1482,7 @@ func buildBillingStatementSummariesFromItems(statement BillingStatement, items [
 					DimensionValue: seed.DimensionValue,
 					ModelName:      seed.ModelName,
 					Group:          seed.Group,
+					GroupRatio:     seed.GroupRatio,
 					BillingSource:  seed.BillingSource,
 					BillingMode:    seed.BillingMode,
 				}
@@ -1151,6 +1508,15 @@ func buildBillingStatementSummariesFromItems(statement BillingStatement, items [
 			summaries = append(summaries, *row)
 		}
 	}
+	sort.SliceStable(summaries, func(i, j int) bool {
+		if summaries[i].ModelName != summaries[j].ModelName {
+			return summaries[i].ModelName < summaries[j].ModelName
+		}
+		if summaries[i].Group != summaries[j].Group {
+			return summaries[i].Group < summaries[j].Group
+		}
+		return summaries[i].GroupRatio < summaries[j].GroupRatio
+	})
 	return summaries
 }
 

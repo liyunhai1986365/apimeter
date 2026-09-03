@@ -67,6 +67,7 @@ import { Route as AuthenticatedDashboardIndexRouteImport } from './routes/_authe
 import { Route as AuthenticatedChannelsIndexRouteImport } from './routes/_authenticated/channels/index'
 import { Route as AuthenticatedChangePasswordIndexRouteImport } from './routes/_authenticated/change-password/index'
 import { Route as AuthenticatedBillingIndexRouteImport } from './routes/_authenticated/billing/index'
+import { Route as AuthenticatedBillingManagementIndexRouteImport } from './routes/_authenticated/billing-management/index'
 import { Route as AuthenticatedAgentsIndexRouteImport } from './routes/_authenticated/agents/index'
 import { Route as AuthenticatedAgentManagementIndexRouteImport } from './routes/_authenticated/agent-management/index'
 import { Route as AuthenticatedUsageLogsSectionRouteImport } from './routes/_authenticated/usage-logs/$section'
@@ -406,6 +407,12 @@ const AuthenticatedBillingIndexRoute =
     path: '/billing/',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedBillingManagementIndexRoute =
+  AuthenticatedBillingManagementIndexRouteImport.update({
+    id: '/billing-management/',
+    path: '/billing-management/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAgentsIndexRoute =
   AuthenticatedAgentsIndexRouteImport.update({
     id: '/agents/',
@@ -588,6 +595,7 @@ export interface FileRoutesByFullPath {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/agent-management/': typeof AuthenticatedAgentManagementIndexRoute
   '/agents/': typeof AuthenticatedAgentsIndexRoute
+  '/billing-management/': typeof AuthenticatedBillingManagementIndexRoute
   '/billing/': typeof AuthenticatedBillingIndexRoute
   '/change-password/': typeof AuthenticatedChangePasswordIndexRoute
   '/channels/': typeof AuthenticatedChannelsIndexRoute
@@ -668,6 +676,7 @@ export interface FileRoutesByTo {
   '/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/agent-management': typeof AuthenticatedAgentManagementIndexRoute
   '/agents': typeof AuthenticatedAgentsIndexRoute
+  '/billing-management': typeof AuthenticatedBillingManagementIndexRoute
   '/billing': typeof AuthenticatedBillingIndexRoute
   '/change-password': typeof AuthenticatedChangePasswordIndexRoute
   '/channels': typeof AuthenticatedChannelsIndexRoute
@@ -753,6 +762,7 @@ export interface FileRoutesById {
   '/_authenticated/usage-logs/$section': typeof AuthenticatedUsageLogsSectionRoute
   '/_authenticated/agent-management/': typeof AuthenticatedAgentManagementIndexRoute
   '/_authenticated/agents/': typeof AuthenticatedAgentsIndexRoute
+  '/_authenticated/billing-management/': typeof AuthenticatedBillingManagementIndexRoute
   '/_authenticated/billing/': typeof AuthenticatedBillingIndexRoute
   '/_authenticated/change-password/': typeof AuthenticatedChangePasswordIndexRoute
   '/_authenticated/channels/': typeof AuthenticatedChannelsIndexRoute
@@ -837,6 +847,7 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/agent-management/'
     | '/agents/'
+    | '/billing-management/'
     | '/billing/'
     | '/change-password/'
     | '/channels/'
@@ -917,6 +928,7 @@ export interface FileRouteTypes {
     | '/usage-logs/$section'
     | '/agent-management'
     | '/agents'
+    | '/billing-management'
     | '/billing'
     | '/change-password'
     | '/channels'
@@ -1001,6 +1013,7 @@ export interface FileRouteTypes {
     | '/_authenticated/usage-logs/$section'
     | '/_authenticated/agent-management/'
     | '/_authenticated/agents/'
+    | '/_authenticated/billing-management/'
     | '/_authenticated/billing/'
     | '/_authenticated/change-password/'
     | '/_authenticated/channels/'
@@ -1480,6 +1493,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedBillingIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/billing-management/': {
+      id: '/_authenticated/billing-management/'
+      path: '/billing-management'
+      fullPath: '/billing-management/'
+      preLoaderRoute: typeof AuthenticatedBillingManagementIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/agents/': {
       id: '/_authenticated/agents/'
       path: '/agents'
@@ -1759,6 +1779,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUsageLogsSectionRoute: typeof AuthenticatedUsageLogsSectionRoute
   AuthenticatedAgentManagementIndexRoute: typeof AuthenticatedAgentManagementIndexRoute
   AuthenticatedAgentsIndexRoute: typeof AuthenticatedAgentsIndexRoute
+  AuthenticatedBillingManagementIndexRoute: typeof AuthenticatedBillingManagementIndexRoute
   AuthenticatedBillingIndexRoute: typeof AuthenticatedBillingIndexRoute
   AuthenticatedChangePasswordIndexRoute: typeof AuthenticatedChangePasswordIndexRoute
   AuthenticatedChannelsIndexRoute: typeof AuthenticatedChannelsIndexRoute
@@ -1800,6 +1821,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAgentManagementIndexRoute:
     AuthenticatedAgentManagementIndexRoute,
   AuthenticatedAgentsIndexRoute: AuthenticatedAgentsIndexRoute,
+  AuthenticatedBillingManagementIndexRoute:
+    AuthenticatedBillingManagementIndexRoute,
   AuthenticatedBillingIndexRoute: AuthenticatedBillingIndexRoute,
   AuthenticatedChangePasswordIndexRoute: AuthenticatedChangePasswordIndexRoute,
   AuthenticatedChannelsIndexRoute: AuthenticatedChannelsIndexRoute,

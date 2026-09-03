@@ -9,6 +9,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/setting/console_setting"
 )
 
 type AnnouncementEmailSender func(subject string, receiver string, content string) error
@@ -16,10 +17,22 @@ type AnnouncementEmailSender func(subject string, receiver string, content strin
 var AnnouncementEmailSenderFunc AnnouncementEmailSender = common.SendEmail
 
 type BroadcastAnnouncementEmailRequest struct {
-	Title   string
-	Content string
-	Type    string
-	Send    AnnouncementEmailSender
+	Title        string
+	Content      string
+	Type         string
+	Audience     string
+	TargetGroups []string
+	Send         AnnouncementEmailSender
+}
+
+type BroadcastAgentAnnouncementEmailRequest struct {
+	AgentID   int
+	AgentName string
+	Title     string
+	Content   string
+	Type      string
+	SiteURL   string
+	Send      AnnouncementEmailSender
 }
 
 type BroadcastAnnouncementEmailSummary struct {
@@ -29,13 +42,9 @@ type BroadcastAnnouncementEmailSummary struct {
 	Errors []string `json:"errors,omitempty"`
 }
 
-var validAnnouncementEmailTypes = map[string]bool{
-	"product_update":     true,
-	"system_maintenance": true,
-	"model_release":      true,
-	"pricing_update":     true,
-	"incident":           true,
-	"general":            true,
+type announcementEmailRecipient struct {
+	UserID int
+	Email  string
 }
 
 func announcementEmailContent(content string, announcementType string) string {
@@ -44,6 +53,15 @@ func announcementEmailContent(content string, announcementType string) string {
 		announcementType = "general"
 	}
 	return fmt.Sprintf("<!-- announcement-type:%s -->\n%s", announcementType, renderAnnouncementMarkdown(content))
+}
+
+func agentAnnouncementEmailContent(content string, announcementType string, agentID int, agentName string) string {
+	return fmt.Sprintf(
+		"<!-- announcement-source:agent:%d -->\n<p><strong>%s</strong></p>\n%s",
+		agentID,
+		html.EscapeString(strings.TrimSpace(agentName)),
+		announcementEmailContent(content, announcementType),
+	)
 }
 
 var (
@@ -157,16 +175,121 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 		return summary, fmt.Errorf("announcement email title and content are required")
 	}
 	req.Type = strings.TrimSpace(req.Type)
-	if req.Type != "" && !validAnnouncementEmailTypes[req.Type] {
+	if req.Type != "" && !console_setting.IsValidAnnouncementType(req.Type) {
 		return summary, fmt.Errorf("invalid announcement type")
+	}
+	req.Audience = strings.TrimSpace(req.Audience)
+	if req.Audience == "" {
+		req.Audience = console_setting.AnnouncementAudienceAll
+	}
+	if req.Audience != console_setting.AnnouncementAudienceAll && req.Audience != console_setting.AnnouncementAudienceMainSite {
+		return summary, fmt.Errorf("invalid announcement audience")
+	}
+	targetGroups, err := console_setting.NormalizeAnnouncementTargetGroups(req.TargetGroups)
+	if err != nil {
+		return summary, err
 	}
 
 	var users []model.User
-	if err := model.DB.
+	userQuery := model.DB.
 		Select("id", "email").
 		Where("status = ?", common.UserStatusEnabled).
-		Where("email <> ?", "").
+		Where("email <> ?", "")
+	if len(targetGroups) > 0 {
+		userQuery = userQuery.Where(map[string]interface{}{"group": targetGroups})
+	}
+	if err := userQuery.
 		Order("id asc").
+		Find(&users).Error; err != nil {
+		return summary, err
+	}
+
+	blockedAgentEmails := make(map[string]struct{})
+	if req.Audience == console_setting.AnnouncementAudienceMainSite {
+		var agentUsers []model.User
+		if err := model.DB.Model(&model.User{}).
+			Select("users.id", "users.email").
+			Joins("JOIN agent_users ON agent_users.user_id = users.id").
+			Where("users.status = ?", common.UserStatusEnabled).
+			Where("users.email <> ?", "").
+			Find(&agentUsers).Error; err != nil {
+			return summary, err
+		}
+		for _, user := range agentUsers {
+			email := strings.ToLower(strings.TrimSpace(user.Email))
+			if email != "" {
+				blockedAgentEmails[email] = struct{}{}
+			}
+		}
+	}
+
+	seen := make(map[string]struct{}, len(users))
+	receivers := make([]announcementEmailRecipient, 0, len(users))
+	for _, user := range users {
+		email := strings.TrimSpace(user.Email)
+		if email == "" {
+			continue
+		}
+		key := strings.ToLower(email)
+		if _, blocked := blockedAgentEmails[key]; blocked {
+			continue
+		}
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		receivers = append(receivers, announcementEmailRecipient{UserID: user.Id, Email: email})
+	}
+	sort.Slice(receivers, func(i, j int) bool { return receivers[i].Email < receivers[j].Email })
+
+	userIds := make([]int, 0, len(receivers))
+	for _, receiver := range receivers {
+		userIds = append(userIds, receiver.UserID)
+	}
+	siteURLs, err := EmailSiteURLsForUsers(userIds)
+	if err != nil {
+		return summary, err
+	}
+
+	summary.Total = len(receivers)
+	content := announcementEmailContent(req.Content, req.Type)
+	for _, receiver := range receivers {
+		receiverContent := RewriteEmailContentForSite(content, siteURLs[receiver.UserID])
+		if err := sender(req.Title, receiver.Email, receiverContent); err != nil {
+			summary.Failed++
+			summary.Errors = append(summary.Errors, fmt.Sprintf("%s: %s", receiver.Email, err.Error()))
+			common.SysLog(fmt.Sprintf("failed to send announcement email to %s: %s", common.MaskEmail(receiver.Email), err.Error()))
+			continue
+		}
+		summary.Sent++
+	}
+	return summary, nil
+}
+
+func BroadcastAgentAnnouncementEmail(req BroadcastAgentAnnouncementEmailRequest) (BroadcastAnnouncementEmailSummary, error) {
+	summary := BroadcastAnnouncementEmailSummary{}
+	if req.AgentID <= 0 {
+		return summary, fmt.Errorf("invalid agent id")
+	}
+	req.Title = strings.TrimSpace(req.Title)
+	req.Content = strings.TrimSpace(req.Content)
+	req.Type = strings.TrimSpace(req.Type)
+	req.AgentName = strings.TrimSpace(req.AgentName)
+	if err := console_setting.ValidateAnnouncementFields(req.Title, req.Content, req.Type, ""); err != nil {
+		return summary, err
+	}
+	if req.AgentName == "" {
+		return summary, fmt.Errorf("agent name is required")
+	}
+
+	var users []model.User
+	if err := model.DB.Model(&model.User{}).
+		Select("users.id", "users.email").
+		Joins("JOIN agent_users ON agent_users.user_id = users.id").
+		Where("agent_users.agent_id = ? AND agent_users.status = ?", req.AgentID, model.AgentUserStatusEnabled).
+		Where("users.status = ?", common.UserStatusEnabled).
+		Where("users.email <> ?", "").
+		Order("users.id asc").
 		Find(&users).Error; err != nil {
 		return summary, err
 	}
@@ -174,26 +297,33 @@ func BroadcastAnnouncementEmail(req BroadcastAnnouncementEmailRequest) (Broadcas
 	seen := make(map[string]struct{}, len(users))
 	receivers := make([]string, 0, len(users))
 	for _, user := range users {
-		email := strings.TrimSpace(user.Email)
-		if email == "" {
+		receiver := strings.TrimSpace(user.Email)
+		if receiver == "" {
 			continue
 		}
-		key := strings.ToLower(email)
+		key := strings.ToLower(receiver)
 		if _, ok := seen[key]; ok {
 			continue
 		}
 		seen[key] = struct{}{}
-		receivers = append(receivers, email)
+		receivers = append(receivers, receiver)
 	}
 	sort.Strings(receivers)
 
+	sender := req.Send
+	if sender == nil {
+		sender = AnnouncementEmailSenderFunc
+	}
 	summary.Total = len(receivers)
-	content := announcementEmailContent(req.Content, req.Type)
+	content := RewriteEmailContentForSite(
+		agentAnnouncementEmailContent(req.Content, req.Type, req.AgentID, req.AgentName),
+		req.SiteURL,
+	)
 	for _, receiver := range receivers {
 		if err := sender(req.Title, receiver, content); err != nil {
 			summary.Failed++
 			summary.Errors = append(summary.Errors, fmt.Sprintf("%s: %s", receiver, err.Error()))
-			common.SysLog(fmt.Sprintf("failed to send announcement email to %s: %s", common.MaskEmail(receiver), err.Error()))
+			common.SysLog(fmt.Sprintf("failed to send agent %d announcement email to %s: %s", req.AgentID, common.MaskEmail(receiver), err.Error()))
 			continue
 		}
 		summary.Sent++

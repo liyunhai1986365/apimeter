@@ -16,17 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getRouteApi } from '@tanstack/react-router'
 import {
   type SortingState,
   type VisibilityState,
   getCoreRowModel,
-  getFacetedRowModel,
-  getFacetedUniqueValues,
-  getFilteredRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
 } from '@tanstack/react-table'
@@ -34,12 +30,13 @@ import { useMediaQuery } from '@/hooks'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
+import { Input } from '@/components/ui/input'
 import {
   DISABLED_ROW_DESKTOP,
   DISABLED_ROW_MOBILE,
   DataTablePage,
 } from '@/components/data-table'
-import { getUsers, searchUsers } from '../api'
+import { getGroups, getUsers, searchUsers } from '../api'
 import {
   USER_STATUS,
   getUserStatusOptions,
@@ -82,9 +79,67 @@ export function UsersTable() {
     columnFilters: [
       { columnId: 'status', searchKey: 'status', type: 'array' },
       { columnId: 'role', searchKey: 'role', type: 'array' },
-      { columnId: 'group', searchKey: 'group', type: 'string' },
+      { columnId: 'group', searchKey: 'group', type: 'array' },
+      { columnId: 'agent', searchKey: 'agent', type: 'string' },
+      { columnId: 'inviterId', searchKey: 'inviterId', type: 'string' },
     ],
   })
+
+  const statusFilter =
+    (columnFilters.find((filter) => filter.id === 'status')
+      ?.value as string[]) || []
+  const roleFilter =
+    (columnFilters.find((filter) => filter.id === 'role')?.value as string[]) ||
+    []
+  const groupFilter =
+    (columnFilters.find((filter) => filter.id === 'group')
+      ?.value as string[]) || []
+  const agentFilter =
+    (columnFilters.find((filter) => filter.id === 'agent')?.value as string) ||
+    ''
+  const inviterIdFilter =
+    (columnFilters.find((filter) => filter.id === 'inviterId')
+      ?.value as string) || ''
+
+  const selectedStatus = statusFilter[0]
+  const selectedRole = roleFilter[0]
+  const selectedGroup = groupFilter[0]
+  const inviterIdNumber = Number(inviterIdFilter)
+  const parsedInviterId =
+    inviterIdFilter !== '' &&
+    Number.isInteger(inviterIdNumber) &&
+    inviterIdNumber >= 0
+      ? inviterIdNumber
+      : undefined
+  const hasFilters = Boolean(
+    globalFilter?.trim() ||
+    selectedStatus ||
+    selectedRole ||
+    selectedGroup ||
+    agentFilter.trim() ||
+    inviterIdFilter.trim()
+  )
+
+  const setTextFilter = (filterId: string, value: string) => {
+    onColumnFiltersChange((previous) => {
+      const remaining = previous.filter((filter) => filter.id !== filterId)
+      return value ? [...remaining, { id: filterId, value }] : remaining
+    })
+  }
+
+  const { data: groupsData } = useQuery({
+    queryKey: ['groups'],
+    queryFn: getGroups,
+  })
+
+  const groupOptions = useMemo(
+    () =>
+      (groupsData?.data || []).map((group) => ({
+        label: group,
+        value: group,
+      })),
+    [groupsData]
+  )
 
   // Fetch data with React Query
   const { data, isLoading, isFetching } = useQuery({
@@ -93,22 +148,35 @@ export function UsersTable() {
       pagination.pageIndex + 1,
       pagination.pageSize,
       globalFilter,
+      selectedStatus,
+      selectedRole,
+      selectedGroup,
+      agentFilter,
+      parsedInviterId,
+      hasFilters,
       refreshTrigger,
     ],
     queryFn: async () => {
-      const hasFilter = globalFilter?.trim()
       const params = {
         p: pagination.pageIndex + 1,
         page_size: pagination.pageSize,
       }
 
-      const result = hasFilter
-        ? await searchUsers({ ...params, keyword: globalFilter })
+      const result = hasFilters
+        ? await searchUsers({
+            ...params,
+            keyword: globalFilter,
+            status: selectedStatus ? Number(selectedStatus) : undefined,
+            role: selectedRole ? Number(selectedRole) : undefined,
+            group: selectedGroup,
+            agent: agentFilter.trim() || undefined,
+            inviter_id: parsedInviterId,
+          })
         : await getUsers(params)
 
       if (!result.success) {
         toast.error(
-          result.message || `Failed to ${hasFilter ? 'search' : 'load'} users`
+          result.message || `Failed to ${hasFilters ? 'search' : 'load'} users`
         )
         return { items: [], total: 0 }
       }
@@ -138,29 +206,13 @@ export function UsersTable() {
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    globalFilterFn: (row, _columnId, filterValue) => {
-      const searchValue = String(filterValue).toLowerCase()
-      const fields = [
-        row.getValue('username'),
-        row.original.display_name,
-        row.original.email,
-      ]
-      return fields.some((field) =>
-        String(field || '')
-          .toLowerCase()
-          .includes(searchValue)
-      )
-    },
     getCoreRowModel: getCoreRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFacetedRowModel: getFacetedRowModel(),
-    getFacetedUniqueValues: getFacetedUniqueValues(),
     onPaginationChange,
     onGlobalFilterChange,
     onColumnFiltersChange,
-    manualPagination: !globalFilter,
+    manualPagination: true,
+    manualFiltering: true,
     pageCount: Math.ceil((data?.total || 0) / pagination.pageSize),
   })
 
@@ -181,7 +233,35 @@ export function UsersTable() {
       )}
       skeletonKeyPrefix='users-skeleton'
       toolbarProps={{
-        searchPlaceholder: t('Filter by username, name or email...'),
+        searchPlaceholder: t('Filter by username, name, email or user ID...'),
+        additionalSearch: (
+          <>
+            <Input
+              type='search'
+              placeholder={t('Filter by agent ID or name...')}
+              value={agentFilter}
+              onChange={(event) => setTextFilter('agent', event.target.value)}
+              className='w-full sm:w-[180px] lg:w-[220px]'
+              aria-label={t('Agent')}
+            />
+            <Input
+              type='number'
+              min={0}
+              step={1}
+              placeholder={t('Inviter ID')}
+              value={inviterIdFilter}
+              onChange={(event) => {
+                const value = event.target.value
+                if (value === '' || /^\d+$/.test(value)) {
+                  setTextFilter('inviterId', value)
+                }
+              }}
+              className='w-full sm:w-[140px]'
+              aria-label={t('Inviter ID')}
+            />
+          </>
+        ),
+        hasAdditionalFilters: Boolean(agentFilter || inviterIdFilter),
         filters: [
           {
             columnId: 'status',
@@ -193,6 +273,12 @@ export function UsersTable() {
             columnId: 'role',
             title: t('Role'),
             options: getUserRoleOptions(t),
+            singleSelect: true,
+          },
+          {
+            columnId: 'group',
+            title: t('User group'),
+            options: groupOptions,
             singleSelect: true,
           },
         ],

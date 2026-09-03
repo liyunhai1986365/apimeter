@@ -21,6 +21,7 @@ import { SystemNoticeBanner } from '@/components/system-notice-banner'
 import { InvitePromoBanner } from '@/features/invite/components/invite-promo-banner'
 import { useInvitePromoBanner } from '@/features/invite/hooks/use-invite-promo-banner'
 import type { TopNavLink } from '../types'
+import { Footer } from './footer'
 import { PublicHeader, type PublicHeaderProps } from './public-header'
 
 type PublicLayoutProps = {
@@ -48,7 +49,7 @@ export function PublicLayout(props: PublicLayoutProps) {
 
   return (
     <div
-      className='bg-background text-foreground relative min-h-svh overflow-x-clip'
+      className='bg-background text-foreground relative flex min-h-svh flex-col overflow-x-clip'
       style={
         {
           '--app-header-height': '4rem',
@@ -85,12 +86,13 @@ export function PublicLayout(props: PublicLayoutProps) {
       />
 
       {props.showMainContainer !== false ? (
-        <main className='container px-4 py-6 pt-[calc(var(--app-header-height)+var(--invite-promo-banner-height)+var(--system-notice-banner-height)+1rem)] md:px-4'>
+        <main className='container flex-1 px-4 py-6 pt-[calc(var(--app-header-height)+var(--invite-promo-banner-height)+var(--system-notice-banner-height)+1rem)] md:px-4'>
           {props.children}
         </main>
       ) : (
         props.children
       )}
+      <Footer className='mt-auto' />
     </div>
   )
 }

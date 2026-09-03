@@ -105,6 +105,7 @@ export {
 // ============================================================================
 
 export { useTurnstile } from './hooks/use-turnstile'
+export { useGoCaptcha } from './hooks/use-go-captcha'
 export { useOAuthLogin } from './hooks/use-oauth-login'
 export { useAuthRedirect } from './hooks/use-auth-redirect'
 export { useEmailVerification } from './hooks/use-email-verification'
@@ -116,6 +117,7 @@ export { useEmailVerification } from './hooks/use-email-verification'
 export { AuthLayout } from './auth-layout'
 export { OAuthProviders } from './components/oauth-providers'
 export { LegalConsent } from './components/legal-consent'
+export { GoCaptcha } from './components/go-captcha'
 export { SignIn } from './sign-in'
 export { SignUp } from './sign-up'
 export { ForgotPassword } from './forgot-password'

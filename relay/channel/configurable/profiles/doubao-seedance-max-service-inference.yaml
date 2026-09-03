@@ -1,0 +1,231 @@
+# Service Inference doubao-seedance-max (doubao-seedance-max.md).
+# Channel type: Configurable; Base URL: https://model.service-inference.ai
+# Put the upstream API key in the channel key field (Bearer auth is automatic).
+# Models (configure channel availability/pricing separately):
+#   doubao-seedance-2-0-260128-max
+#   doubao-seedance-2-0-fast-260128-max
+#   doubao-seedance-2-0-mini-260615-max
+#   doubao-seedance-2-5-260628-max
+#
+# Send the documented JSON body to the gateway's Seedance native endpoint:
+#   POST /api/v3/contents/generations/tasks
+#   GET  /api/v3/contents/generations/tasks/{task_id}
+# The upstream uses /v2/video/generate and /v2/video/tasks/{task_id}.
+# Native submit/fetch responses expose task fields at the top level, with id
+# replaced by the gateway task ID. Use that ID for subsequent gateway queries.
+# Complete content order, media roles, asset:// handles, aspect_ratio, and
+# explicit false/zero values are preserved by native request passthrough.
+#
+# Optional pre-upload uses the documented /v2/db-sd-max/assets endpoints below.
+# No asset group is required. The upstream handles asynchronous preparation.
+# Upstream task-list proxying is omitted: it lists the shared channel account's
+# tasks and cannot enforce gateway user ownership through this YAML alone.
+# Profiles are embedded at build time; rebuild/restart to make this selectable.
+id: doubao-seedance-max-service-inference
+name: Doubao Seedance Max Service Inference
+media_type: video
+accepted_modes:
+  - openai.video.generations
+upstream_modes:
+  - service-inference.doubao-seedance-max.video
+video:
+  native:
+    submit:
+      method: POST
+      path: /api/v3/contents/generations/tasks
+      passthrough: true
+      # These fields feed model selection, validation and duration estimation;
+      # they do not rebuild the native upstream body.
+      request:
+        fields:
+          - to: model
+            from: body.model
+          - to: omni_reference_task_type
+            from: body.omni_reference_task_type
+            omit_null: true
+          - to: metadata.content
+            from: body.content
+            omit_empty: true
+          - to: metadata.ratio
+            from: body.ratio
+            fallback_from: body.aspect_ratio
+            omit_empty: true
+          - to: prompt
+            from: 'body.content.#(type=="text")#|#(text!="").text'
+            omit_empty: true
+          - to: images
+            from: body.content.#(type=="image_url")#.image_url.url
+            omit_empty: true
+          - to: size
+            from: body.resolution
+            omit_empty: true
+          - to: duration
+            from: body.duration
+            transform: to_int
+            omit_empty: true
+      response:
+        passthrough: true
+        root_path: task
+        fields:
+          - to: id
+            from: public_task_id
+        task_id_path: id
+        status_path: status
+    fetch:
+      method: GET
+      path: /api/v3/contents/generations/tasks/{task_id}
+      # Normalize legacy/local snapshots on query failure, then unwrap task.
+      response_format: service_inference_video_task
+      response:
+        passthrough: true
+        root_path: task
+        fields:
+          - to: id
+            from: public_task_id
+  billing:
+    ratios:
+      # Same duration estimate as the existing Service Inference profile.
+      - key: seconds
+        from: request.seconds
+        fallback_from: request.duration
+        transform: seedance_billing_duration
+        default: 4
+      - key: size
+        value: 1
+  submit:
+    method: POST
+    path: /v2/video/generate
+    # Generic /v1/video/generations callers may supply metadata.content to
+    # preserve the same complete array. Otherwise use prompt/images and
+    # metadata.video_url/audio_url (a URL or an array of URLs).
+    body:
+      fields:
+        - to: model
+          from: upstream_model
+        - to: omni_reference_task_type
+          from: request.omni_reference_task_type
+          fallback_from: request.metadata.omni_reference_task_type
+          omit_null: true
+        - to: content
+          from: request.metadata.content
+          omit_empty: true
+        - to: content
+          from: request.prompt
+          transform: seedance_text_content
+          append: true
+          omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
+        - to: content
+          from: request.images
+          transform: seedance_image_content
+          append: true
+          omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
+        - to: content
+          from: request.metadata.video_url
+          transform: seedance_video_content
+          append: true
+          omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
+        - to: content
+          from: request.metadata.audio_url
+          transform: seedance_audio_content
+          append: true
+          omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
+        - to: generate_audio
+          from: request.metadata.generate_audio
+          omit_null: true
+        - to: resolution
+          from: request.size
+          omit_empty: true
+        - to: ratio
+          from: request.metadata.ratio
+          fallback_from: request.metadata.aspect_ratio
+          omit_empty: true
+        - to: duration
+          from: request.seconds
+          fallback_from: request.duration
+          transform: to_int
+          omit_empty: true
+    response:
+      task_id_path: task.id
+      status_path: task.status
+      status_map:
+        preparing: QUEUED
+        pending: QUEUED
+        processing: IN_PROGRESS
+        completed: SUCCESS
+        failed: FAILURE
+  fetch:
+    method: GET
+    path: /v2/video/tasks/{task_id}
+    response:
+      task_id_path: task.id
+      status_path: task.status
+      result_url_path: task.outputs.0
+      reason_path: task.error
+      total_tokens_path: task.usage.total_tokens
+      completion_tokens_path: task.usage.completion_tokens
+      status_map:
+        preparing: QUEUED
+        pending: QUEUED
+        processing: IN_PROGRESS
+        completed: SUCCESS
+        failed: FAILURE
+    openai_response:
+      fields:
+        - to: video_url
+          from: task.outputs.0
+          omit_empty: true
+        - to: metadata.url
+          from: task.outputs.0
+          omit_empty: true
+        - to: metadata.usage.completion_tokens
+          from: task.usage.completion_tokens
+          fallback_from: task.metadata.usage.completion_tokens
+          omit_empty: true
+        - to: metadata.usage.total_tokens
+          from: task.usage.total_tokens
+          fallback_from: task.metadata.usage.total_tokens
+          omit_empty: true
+        - to: metadata.last_frame_url
+          from: task.last_frame_url
+          omit_empty: true
+        - to: metadata.prep
+          from: task.prep
+          omit_empty: true
+resources:
+  - id: assets_create
+    name: Seedance Max Assets Create
+    billing:
+      enabled: false
+    public:
+      method: POST
+      path: /v2/db-sd-max/assets
+    upstream:
+      method: POST
+      path: /v2/db-sd-max/assets
+    # No request mapping: preserve URL, AssetType, Name and optional Model.
+    response:
+      passthrough: true
+  - id: assets_get
+    name: Seedance Max Assets Get
+    billing:
+      enabled: false
+    public:
+      method: GET
+      path: /v2/db-sd-max/assets/{id}
+    upstream:
+      method: GET
+      path: /v2/db-sd-max/assets/{id}
+    response:
+      passthrough: true

@@ -20,7 +20,12 @@ For commercial licensing, please contact support@quantumnous.com
 /**
  * System task status
  */
-export type SystemTaskStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled'
+export type SystemTaskStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
 
 /**
  * System task type
@@ -31,6 +36,7 @@ export type SystemTaskType =
   | 'midjourney_poll'
   | 'async_task_poll'
   | 'log_cleanup'
+  | 'task_image_base64_cleanup'
 
 /**
  * System task from API

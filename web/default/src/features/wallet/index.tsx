@@ -46,7 +46,6 @@ import {
   getDefaultPaymentType,
   getMinTopupAmount,
   isCryptoPayment,
-  isStripePayment,
   isWaffoPancakePayment,
 } from './lib'
 import type {
@@ -202,17 +201,13 @@ export function Wallet(props: WalletProps) {
   // Handle payment method selection
   const handlePaymentMethodSelect = async (method: PaymentMethod) => {
     setSelectedPaymentMethod(method)
+
     setPaymentLoading(method.type)
 
     try {
       // Validate minimum topup
       const minTopup = getMinTopupAmount(topupInfo)
       if (topupAmount < minTopup) {
-        return
-      }
-
-      if (isStripePayment(method.type)) {
-        await processPayment(topupAmount, method.type)
         return
       }
 
@@ -355,6 +350,8 @@ export function Wallet(props: WalletProps) {
             <WalletStatsCard
               user={user}
               totalUsedQuota={totalUsageQuery.data?.data?.quota}
+              forecast={topupInfo?.balance_forecast ?? null}
+              forecastLoading={topupLoading}
               loading={userLoading}
             />
 

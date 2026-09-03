@@ -19,6 +19,8 @@ For commercial licensing, please contact support@quantumnous.com
 import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
+import { Megaphone01Icon } from '@hugeicons/core-free-icons'
+import { HugeiconsIcon } from '@hugeicons/react'
 import {
   BarChart3,
   BadgeDollarSign,
@@ -105,6 +107,7 @@ import {
   upsertAgentUserGroup,
 } from './api'
 import { AgentAnalyticsOverview } from './components/agent-analytics-overview'
+import { AgentAnnouncementManager } from './components/agent-announcement-manager'
 import { AgentBalanceDialog } from './components/agent-balance-dialog'
 import { AgentGroupManager } from './components/agent-group-manager'
 import { AgentUsageLogs } from './components/agent-usage-logs'
@@ -604,6 +607,10 @@ export function Agents() {
                 <ScrollText />
                 {t('Usage Logs')}
               </TabsTrigger>
+              <TabsTrigger value='announcements'>
+                <HugeiconsIcon icon={Megaphone01Icon} />
+                {t('Announcements')}
+              </TabsTrigger>
               <TabsTrigger value='users'>
                 <Users className='size-4' />
                 {t('Users')}
@@ -628,6 +635,10 @@ export function Agents() {
 
             <TabsContent value='logs'>
               <AgentUsageLogs />
+            </TabsContent>
+
+            <TabsContent value='announcements'>
+              <AgentAnnouncementManager />
             </TabsContent>
 
             <TabsContent value='site'>

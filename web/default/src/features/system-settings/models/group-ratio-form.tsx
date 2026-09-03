@@ -47,12 +47,15 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { GroupRatioVisualEditor } from './group-ratio-visual-editor'
 import { GroupSpecialUsableRulesEditor } from './group-special-usable-editor'
+import { ModelSpecificRatioVisualEditor } from './model-specific-ratio-visual-editor'
 
 type GroupFormValues = {
   GroupRatio: string
   TopupGroupRatio: string
   UserUsableGroups: string
   GroupGroupRatio: string
+  GroupModelRatio: string
+  UserGroupModelRatio: string
   AutoGroups: string
   GroupDisplayConfig: string
   DefaultUseAutoGroup: boolean
@@ -63,12 +66,66 @@ type GroupRatioFormProps = {
   form: UseFormReturn<GroupFormValues>
   onSave: (values: GroupFormValues) => Promise<void>
   isSaving: boolean
+  modelOptions: string[]
+}
+
+function ModelSpecificRatioFields({
+  form,
+}: {
+  form: UseFormReturn<GroupFormValues>
+}) {
+  const { t } = useTranslation()
+
+  return (
+    <>
+      <FormField
+        control={form.control}
+        name='GroupModelRatio'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('Model-specific group ratios')}</FormLabel>
+            <FormControl>
+              <Textarea rows={8} {...field} />
+            </FormControl>
+            <FormDescription>
+              {t(
+                'Final ratio overrides by billing group and model. Missing models inherit the existing group ratio.'
+              )}{' '}
+              {`{ "alibaba": { "glm-5.2": 0.7, "qwen3.7": 0.5 } }`}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+
+      <FormField
+        control={form.control}
+        name='UserGroupModelRatio'
+        render={({ field }) => (
+          <FormItem>
+            <FormLabel>{t('User-group model overrides')}</FormLabel>
+            <FormControl>
+              <Textarea rows={10} {...field} />
+            </FormControl>
+            <FormDescription>
+              {t(
+                'Most-specific final ratio overrides by user group, billing group, and model. Missing entries inherit model-specific or group-wide ratios.'
+              )}{' '}
+              {`{ "vip": { "alibaba": { "glm-5.2": 0.62 } } }`}
+            </FormDescription>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    </>
+  )
 }
 
 export const GroupRatioForm = memo(function GroupRatioForm({
   form,
   onSave,
   isSaving,
+  modelOptions,
 }: GroupRatioFormProps) {
   const { t } = useTranslation()
   const [editMode, setEditMode] = useState<'visual' | 'json'>('visual')
@@ -119,7 +176,6 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               groupRatio={form.watch('GroupRatio')}
               topupGroupRatio={form.watch('TopupGroupRatio')}
               userUsableGroups={form.watch('UserUsableGroups')}
-              groupGroupRatio={form.watch('GroupGroupRatio')}
               autoGroups={form.watch('AutoGroups')}
               groupDisplayConfig={form.watch('GroupDisplayConfig')}
               onChange={(field, value) =>
@@ -135,6 +191,17 @@ export const GroupRatioForm = memo(function GroupRatioForm({
               onChange={(value) =>
                 handleFieldChange('GroupSpecialUsableGroup', value)
               }
+            />
+
+            <ModelSpecificRatioVisualEditor
+              groupModelRatio={form.watch('GroupModelRatio')}
+              groupGroupRatio={form.watch('GroupGroupRatio')}
+              userGroupModelRatio={form.watch('UserGroupModelRatio')}
+              groupRatio={form.watch('GroupRatio')}
+              userUsableGroups={form.watch('UserUsableGroups')}
+              groupDisplayConfig={form.watch('GroupDisplayConfig')}
+              modelOptions={modelOptions}
+              onChange={(field, value) => handleFieldChange(field, value)}
             />
 
             <FormField
@@ -246,6 +313,8 @@ export const GroupRatioForm = memo(function GroupRatioForm({
                 </FormItem>
               )}
             />
+
+            <ModelSpecificRatioFields form={form} />
 
             <FormField
               control={form.control}
@@ -422,7 +491,7 @@ function GroupPricingGuide({ open, onOpenChange }: GroupPricingGuideProps) {
                 <GuideCodeBlock>
                   {`${t('Group name')}   ${t('Ratio')}   ${t('User selectable')}   ${t('Description')}
 standard     1.0     ${t('Yes')}               ${t('Standard price')}
-premium      0.5     ${t('Yes')}               ${t('Premium plan, half price')}
+premium      0.5     ${t('Yes')}               ${t('Premium plan, -50%')}
 vip          0.5     ${t('No')}                ${t('Assigned by administrator only')}`}
                 </GuideCodeBlock>
                 <p className='text-muted-foreground text-sm leading-6'>
@@ -472,6 +541,35 @@ vip          0.5     ${t('No')}                ${t('Assigned by administrator on
               </AccordionContent>
             </AccordionItem>
 
+            <AccordionItem value='model-specific-ratio'>
+              <AccordionTrigger>{t('Model-specific pricing')}</AccordionTrigger>
+              <AccordionContent className='space-y-3'>
+                <p className='text-muted-foreground text-sm leading-6'>
+                  {t(
+                    'Use model-specific ratios to price models differently without renaming the billing group.'
+                  )}
+                </p>
+                <GuideCodeBlock>{`{
+  "alibaba": {
+    "glm-5.2": 0.7,
+    "qwen3.7": 0.5
+  }
+}`}</GuideCodeBlock>
+                <GuideCodeBlock>{`{
+  "vip": {
+    "alibaba": {
+      "glm-5.2": 0.62
+    }
+  }
+}`}</GuideCodeBlock>
+                <p className='text-muted-foreground text-sm leading-6'>
+                  {t(
+                    'Resolution order: user-group model override → model-specific group ratio → inter-group override → group ratio.'
+                  )}
+                </p>
+              </AccordionContent>
+            </AccordionItem>
+
             <AccordionItem value='usable'>
               <AccordionTrigger>
                 {t('Special usable group rules')}
@@ -484,7 +582,7 @@ vip          0.5     ${t('No')}                ${t('Assigned by administrator on
                 </p>
                 <GuideCodeBlock>{`{
   "vip": {
-    "+:premium": "${t('Premium plan, half price')}",
+    "+:premium": "${t('Premium plan, -50%')}",
     "-:default": "remove",
     "special": "${t('Special group')}"
   }

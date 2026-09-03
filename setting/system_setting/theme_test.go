@@ -4,10 +4,10 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestDefaultThemeUsesAPIMeterFrontend(t *testing.T) {
-	require.Equal(t, "default", GetThemeSettings().Frontend)
-	require.Equal(t, "default", common.GetTheme())
+func TestFrontendThemeDefaultsToNewFrontend(t *testing.T) {
+	assert.Equal(t, "default", GetThemeSettings().Frontend)
+	assert.Equal(t, "default", common.GetTheme())
 }

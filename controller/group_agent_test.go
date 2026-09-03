@@ -47,9 +47,11 @@ func TestGetUserGroupsUsesAgentConfiguredVisibleGroups(t *testing.T) {
 	t.Cleanup(func() {
 		require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1,"svip":1}`))
 		require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+		require.NoError(t, setting.UpdateGroupDisplayConfigByJSONString(`{"categories":[],"groups":[]}`))
 	})
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":1.25}`))
 	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"默认分组","vip":"vip分组"}`))
+	require.NoError(t, setting.UpdateGroupDisplayConfigByJSONString(`{"categories":[],"groups":[{"group":"vip","order":10,"hide_discount":true}]}`))
 	require.NoError(t, model.DB.Create(&model.User{Id: 101, Username: "agent-user", Group: "default", Status: common.UserStatusEnabled}).Error)
 	require.NoError(t, model.DB.Create(&model.AgentUser{AgentId: 1, UserId: 101, Status: model.AgentUserStatusEnabled, Group: "starter"}).Error)
 	_, err := agentservice.UpsertGroupRatio(1, "vip", "vip", "", 1.5, false)
@@ -81,8 +83,9 @@ func TestGetUserGroupsUsesAgentConfiguredVisibleGroups(t *testing.T) {
 	var body struct {
 		Success bool `json:"success"`
 		Data    map[string]struct {
-			Ratio float64 `json:"ratio"`
-			Desc  string  `json:"desc"`
+			Ratio        float64 `json:"ratio"`
+			Desc         string  `json:"desc"`
+			HideDiscount bool    `json:"hide_discount"`
 		} `json:"data"`
 	}
 	require.NoError(t, common.Unmarshal(w.Body.Bytes(), &body))
@@ -91,6 +94,7 @@ func TestGetUserGroupsUsesAgentConfiguredVisibleGroups(t *testing.T) {
 	require.Contains(t, body.Data, "vip")
 	require.Equal(t, 1.7, body.Data["vip"].Ratio)
 	require.Equal(t, "vip分组", body.Data["vip"].Desc)
+	require.True(t, body.Data["vip"].HideDiscount)
 }
 
 func TestGetSelfUsesAgentUserGroupInAgentContext(t *testing.T) {

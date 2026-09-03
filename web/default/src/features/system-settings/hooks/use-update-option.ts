@@ -40,9 +40,14 @@ const STATUS_RELATED_KEYS = [
   'USDExchangeRate',
   'DisplayInCurrencyEnabled',
   'DisplayTokenStatEnabled',
+  'general_setting.default_user_display_currency',
   'general_setting.quota_display_type',
   'general_setting.custom_currency_symbol',
   'general_setting.custom_currency_exchange_rate',
+  'MainlandChinaPresentationEnabled',
+  'FooterCompanyName',
+  'TurnstileCheckEnabled',
+  'GoCaptchaCheckEnabled',
 ]
 
 export function useUpdateOption() {
@@ -78,6 +83,26 @@ export function useUpdateOption() {
             googleAnalyticsId: value,
           })
           applyGoogleAnalytics(value)
+        }
+
+        if (variables.key === 'MainlandChinaPresentationEnabled') {
+          useSystemConfigStore.getState().setConfig({
+            mainlandChinaPresentationEnabled:
+              variables.value === true || variables.value === 'true',
+          })
+        }
+
+        if (variables.key === 'FooterCompanyName') {
+          useSystemConfigStore.getState().setConfig({
+            footerCompanyName: String(variables.value ?? ''),
+          })
+        }
+
+        if (variables.key === 'general_setting.default_user_display_currency') {
+          useSystemConfigStore.getState().setConfig({
+            defaultUserDisplayCurrency:
+              variables.value === 'CNY' ? 'CNY' : 'USD',
+          })
         }
 
         toast.success(i18next.t('Setting updated successfully'))

@@ -24,8 +24,6 @@ import {
   Settings2,
   AlertTriangle,
   Headphones,
-  Monitor,
-  Cloud,
   Globe,
   ShieldCheck,
   UserCog,
@@ -33,12 +31,21 @@ import {
 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
-import { formatBillingCurrencyFromUSD } from '@/lib/currency'
+import {
+  formatBillingCurrencyFromUSD,
+  getCurrencyDisplay,
+} from '@/lib/currency'
 import { formatLogQuota, formatTokens, formatUseTime } from '@/lib/format'
-import { formatGroupDiscount } from '@/lib/group-discount'
+import { getDiscountSavingsLabel } from '@/lib/group-discount'
 import { cn } from '@/lib/utils'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
-import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '@/components/ui/accordion'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -49,33 +56,29 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import { appendChannelRetryPolicyRule } from '@/features/channels/api'
 import {
   buildRetryPolicyRuleFromLog,
   channelsQueryKeys,
 } from '@/features/channels/lib'
-import { DynamicPricingBreakdown } from '@/features/pricing/components/dynamic-pricing-breakdown'
 import type { UsageLog } from '../../data/schema'
 import {
-  buildCacheBillingRows,
+  buildBillingDetail,
+  type BillingDetailLine,
+} from '../../lib/billing-detail'
+import {
   parseLogOther,
   getParamOverrideActionLabel,
   parseAuditLine,
-  decodeBillingExprB64,
-  getTieredBillingSummary,
-  hasAnyCacheTokens,
   isViolationFeeLog,
   getFirstResponseTimeColor,
   getResponseTimeColor,
   isTaskPreConsumeLog,
-  formatSignedLogQuota,
 } from '../../lib/format'
-import {
-  getLogTypeConfig,
-  isPerCallBilling,
-  isTimingLogType,
-} from '../../lib/utils'
+import { getLocalizedLogContent } from '../../lib/log-content'
+import { getLogTypeConfig, isTimingLogType } from '../../lib/utils'
 import type { LogOtherData } from '../../types'
 
 function timingTextColorClass(
@@ -92,6 +95,10 @@ function DetailRow(props: {
   mono?: boolean
   muted?: boolean
 }) {
+  const isDiscountValue =
+    typeof props.value === 'string' &&
+    Boolean(getDiscountSavingsLabel(props.value))
+
   return (
     <div className='grid min-w-0 grid-cols-[5.25rem_minmax(0,1fr)] gap-2 text-sm sm:grid-cols-[7rem_minmax(0,1fr)] sm:gap-3'>
       <span className='text-muted-foreground min-w-0 text-xs'>
@@ -104,7 +111,13 @@ function DetailRow(props: {
           props.muted && 'text-muted-foreground'
         )}
       >
-        {props.value}
+        {isDiscountValue ? (
+          <DiscountTooltip label={props.value as string}>
+            <span>{props.value}</span>
+          </DiscountTooltip>
+        ) : (
+          props.value
+        )}
       </span>
     </div>
   )
@@ -158,201 +171,169 @@ function PreConsumedCostValue(props: { value: string }) {
 function BillingBreakdown(props: {
   log: UsageLog
   other: LogOtherData
-  isAdmin: boolean
   isRoot: boolean
 }) {
   const { t } = useTranslation()
-  const discountLabels = useGroupDiscountLabels()
-  const { log, other, isAdmin, isRoot } = props
-  const isPerCall = isPerCallBilling(other.model_price)
-  const isClaude = other.claude === true
-  const isTieredExpr = other.billing_mode === 'tiered_expr'
-  const tieredSummary = getTieredBillingSummary(other)
+  const { log, other, isRoot } = props
   const isTaskPreConsume = isTaskPreConsumeLog(log)
-
-  const rows: Array<{ label: string; value: React.ReactNode }> = []
-  const priceOpts = { digitsLarge: 4, digitsSmall: 6, abbreviate: false }
-  const fmtPrice = (usd: number) => formatBillingCurrencyFromUSD(usd, priceOpts)
-  const baseInputUSD = other.model_ratio != null ? other.model_ratio * 2.0 : 0
-
-  if (isTieredExpr) {
-    rows.push({
-      label: t('Billing Mode'),
-      value: t('Dynamic Pricing'),
-    })
-    if (tieredSummary) {
-      if (tieredSummary.tier.label) {
-        rows.push({
-          label: t('Matched Tier'),
-          value: tieredSummary.tier.label,
-        })
-      }
-      for (const entry of tieredSummary.priceEntries) {
-        rows.push({
-          label: t(entry.shortLabel),
-          value: `${fmtPrice(entry.price)}/M`,
-        })
-      }
-    } else {
-      rows.push({
-        label: t('Matched Tier'),
-        value: t('No matching results'),
-      })
-    }
-  } else if (isPerCall) {
-    rows.push({ label: t('Billing Mode'), value: t('Per-call') })
-    if (other.model_price != null) {
-      rows.push({
-        label: t('Model Price'),
-        value: fmtPrice(other.model_price),
-      })
-    }
-  } else {
-    rows.push({ label: t('Billing Mode'), value: t('Per-token') })
-    if (other.model_ratio != null) {
-      rows.push({
-        label: t('Input'),
-        value: `${fmtPrice(baseInputUSD)}/M`,
-      })
-    }
-    if (other.completion_ratio != null && other.model_ratio != null) {
-      rows.push({
-        label: t('Output'),
-        value: `${fmtPrice(baseInputUSD * other.completion_ratio)}/M`,
-      })
-    }
+  const { config } = getCurrencyDisplay()
+  const actualAmountUSD = log.quota / config.quotaPerUnit
+  const detail = buildBillingDetail(
+    log,
+    other,
+    actualAmountUSD,
+    1 / config.quotaPerUnit
+  )
+  const amountOptions = {
+    digitsLarge: 6,
+    digitsSmall: 8,
+    abbreviate: false,
   }
-
-  const userGR = other.user_group_ratio
-  const isUserGR = userGR != null && Number.isFinite(userGR) && userGR !== -1
-  const effectiveGR = isUserGR ? userGR : other.group_ratio
-  if (effectiveGR != null && Number.isFinite(effectiveGR)) {
-    rows.push({
-      label: isUserGR ? t('User Exclusive Discount') : t('Group Discount'),
-      value: formatGroupDiscount(effectiveGR, discountLabels) ?? '-',
-    })
+  const formatAmount = (amount: number) =>
+    formatBillingCurrencyFromUSD(amount, amountOptions)
+  const formatFactor = (value: number) =>
+    new Intl.NumberFormat(undefined, {
+      maximumFractionDigits: 6,
+      useGrouping: false,
+    }).format(value)
+  const formatUnitPrice = (price: number) => {
+    const absolute = Math.abs(price)
+    const digits =
+      absolute > 0 && absolute < 0.0001 ? 8 : absolute < 0.01 ? 6 : 4
+    return `$${price.toFixed(digits)}`
   }
-
-  if (!isTieredExpr && isClaude && hasAnyCacheTokens(other)) {
-    for (const cacheRow of buildCacheBillingRows(other)) {
-      rows.push({
-        label: t(cacheRow.labelKey),
-        value: cacheRow.value,
-      })
-    }
-  }
-
-  if (!isTieredExpr) {
-    if (other.audio_ratio != null && other.audio_ratio !== 1) {
-      rows.push({
-        label: t('Audio input'),
-        value: `${fmtPrice(baseInputUSD * other.audio_ratio)}/M`,
-      })
-    }
-
-    if (
-      other.audio_completion_ratio != null &&
-      other.audio_completion_ratio !== 1
+  const modeLabel =
+    detail.mode === 'dynamic'
+      ? t('Dynamic Pricing')
+      : detail.mode === 'per-call'
+        ? t('Per-call')
+        : t('Per-token')
+  const formulaForLine = (line: BillingDetailLine) => {
+    const parts: string[] = []
+    if (line.amountOnly) {
+      parts.push(formatAmount(line.originalAmountUSD))
+    } else if (
+      line.quantity != null &&
+      line.divisor != null &&
+      line.unitPriceUSD != null
     ) {
-      rows.push({
-        label: t('Audio output'),
-        value: `${fmtPrice(baseInputUSD * other.audio_completion_ratio)}/M`,
-      })
+      let quantity = line.quantity.toLocaleString()
+      if (line.divisor === 1_000_000) quantity += ' / 1M'
+      if (line.divisor === 1_000) quantity += ' / 1K'
+      if (line.divisor === 1 && line.quantityUnitKey) {
+        quantity += ` ${t(line.quantityUnitKey)}`
+      }
+      parts.push(quantity, formatUnitPrice(line.unitPriceUSD))
     }
-
-    if (other.image_ratio != null && other.image_ratio !== 1) {
-      rows.push({
-        label: t('Image input'),
-        value: `${fmtPrice(baseInputUSD * other.image_ratio)}/M`,
-      })
+    for (const factor of line.factors) {
+      parts.push(`${formatFactor(factor.value)} (${t(factor.labelKey)})`)
     }
+    parts.push(
+      `${formatFactor(detail.discount)} (${t(detail.discountLabelKey)})`
+    )
+    return parts.join(' × ')
   }
 
-  if (other.web_search && other.web_search_call_count) {
-    rows.push({
-      label: t('Web Search'),
-      value: `${other.web_search_call_count}x${other.web_search_price ? ` (${fmtPrice(other.web_search_price)})` : ''}`,
-    })
-  }
-
-  if (other.file_search && other.file_search_call_count) {
-    rows.push({
-      label: t('File Search'),
-      value: `${other.file_search_call_count}x${other.file_search_price ? ` (${fmtPrice(other.file_search_price)})` : ''}`,
-    })
-  }
-
-  if (other.image_generation_call && other.image_generation_call_price) {
-    rows.push({
-      label: t('Image Generation'),
-      value: fmtPrice(other.image_generation_call_price),
-    })
-  }
-
-  if (other.audio_input_seperate_price && other.audio_input_price) {
-    rows.push({
-      label: t('Audio Input Price'),
-      value: fmtPrice(other.audio_input_price),
-    })
-  }
-
-  if (isAdmin && other.admin_info) {
-    rows.push({
-      label: t('Billing Source'),
-      value: other.admin_info.local_count_tokens
-        ? t('Local Billing')
-        : t('Upstream Response'),
-    })
-  }
-
+  const costRows: Array<{ label: string; value: React.ReactNode }> = []
   if (isRoot && other.cost_quota != null) {
-    if (other.cost_base_quota != null) {
-      rows.push({
-        label: t('Base Quota'),
-        value: formatLogQuota(other.cost_base_quota),
-      })
-    }
     if (other.channel_ratio != null) {
-      rows.push({
+      costRows.push({
         label: t('Cost Discount'),
         value: `${other.channel_ratio}`,
       })
     }
-    rows.push({
+    costRows.push({
       label: t('Supplier Cost'),
       value: formatLogQuota(other.cost_quota),
     })
     if (other.profit_quota != null) {
-      rows.push({
+      costRows.push({
         label: t('Profit'),
         value: formatLogQuota(other.profit_quota),
       })
     }
     if (other.profit_rate != null) {
-      rows.push({
+      costRows.push({
         label: t('Profit Rate'),
         value: `${(other.profit_rate * 100).toFixed(2)}%`,
       })
     }
   }
 
-  rows.push({
-    label: t('Total Cost'),
-    value: isTaskPreConsume ? (
-      <PreConsumedCostValue value={formatSignedLogQuota(log)} />
-    ) : (
-      formatSignedLogQuota(log)
-    ),
-  })
-
-  if (rows.length === 0) return null
-
   return (
-    <DetailSection label={t('Billing Details')}>
-      {rows.map((row, idx) => (
-        <DetailRow key={idx} label={row.label} value={row.value} mono />
-      ))}
-    </DetailSection>
+    <>
+      <DetailSection label={t('Billing Details')}>
+        <div className='flex flex-wrap items-center gap-1.5'>
+          <Badge variant='secondary'>{modeLabel}</Badge>
+          {detail.matchedTier && (
+            <Badge variant='outline'>
+              {t('Matched Tier')}: {detail.matchedTier}
+            </Badge>
+          )}
+        </div>
+
+        <Accordion className='bg-background/70 rounded-md border px-3'>
+          <AccordionItem value='billing-process' className='border-0'>
+            <AccordionTrigger className='cursor-pointer py-2.5 hover:no-underline'>
+              <span className='flex min-w-0 flex-1 flex-wrap items-baseline gap-x-1.5 gap-y-1 pr-2 font-mono text-xs leading-relaxed'>
+                <span className='text-muted-foreground font-sans'>
+                  {t('Original price')}
+                </span>
+                <span>{formatAmount(detail.originalAmountUSD)}</span>
+                <span className='text-muted-foreground'>×</span>
+                <span>
+                  {formatFactor(detail.discount)} ({t(detail.discountLabelKey)})
+                </span>
+                <span className='text-muted-foreground'>=</span>
+                <span className='text-muted-foreground font-sans'>
+                  {t('Final amount')}
+                </span>
+                <strong className='text-primary text-sm'>
+                  {isTaskPreConsume ? (
+                    <PreConsumedCostValue
+                      value={formatAmount(detail.finalAmountUSD)}
+                    />
+                  ) : (
+                    formatAmount(detail.finalAmountUSD)
+                  )}
+                </strong>
+                <span className='text-muted-foreground ml-auto shrink-0 font-sans font-medium'>
+                  {t('Billing Process')}
+                </span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className='flex flex-col gap-2 pt-1 pb-3'>
+              {detail.lines.map((line, index) => (
+                <div key={line.key} className='flex min-w-0 gap-1.5 text-xs'>
+                  <span className='text-muted-foreground w-2.5 shrink-0 font-mono'>
+                    {index === 0 ? '' : '+'}
+                  </span>
+                  <div className='min-w-0 flex-1'>
+                    <div className='flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5'>
+                      <span className='font-medium'>{t(line.labelKey)}</span>
+                      <span className='shrink-0 font-mono font-medium'>
+                        = {formatAmount(line.finalAmountUSD)}
+                      </span>
+                    </div>
+                    <div className='text-muted-foreground min-w-0 font-mono text-[11px] leading-relaxed break-all sm:break-words'>
+                      {formulaForLine(line)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      </DetailSection>
+
+      {costRows.length > 0 && (
+        <DetailSection label={`${t('Cost')} / ${t('Profit')}`}>
+          {costRows.map((row, index) => (
+            <DetailRow key={index} label={row.label} value={row.value} mono />
+          ))}
+        </DetailSection>
+      )}
+    </>
   )
 }
 
@@ -434,7 +415,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const { copiedText, copyToClipboard } = useCopyToClipboard({ notify: false })
-  const details = props.log.content ?? ''
+  const details = getLocalizedLogContent(props.log, t)
   const other = parseLogOther(props.log.other)
   const typeConfig = getLogTypeConfig(props.log.type)
 
@@ -444,11 +425,6 @@ export function DetailsDialog(props: DetailsDialogProps) {
   const isTopup = props.log.type === 1
   const isManage = props.log.type === 3
   const isSubscription = other?.billing_source === 'subscription'
-  const isTieredBilling =
-    (isConsume || isRefund) &&
-    !isViolation &&
-    other?.billing_mode === 'tiered_expr' &&
-    !!other?.expr_b64
   const hasAudioTokens = other?.ws || other?.audio
   const showTiming = isTimingLogType(props.log.type)
   const showAdminIp =
@@ -557,7 +533,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
         className={cn(
           'min-w-0 overflow-hidden',
           'max-sm:max-h-[calc(100dvh-1.5rem)] max-sm:w-[calc(100vw-1.5rem)] max-sm:max-w-[calc(100vw-1.5rem)] max-sm:p-4',
-          isTieredBilling ? 'sm:max-w-4xl lg:max-w-5xl' : 'sm:max-w-lg'
+          isConsume ? 'sm:max-w-2xl' : 'sm:max-w-lg'
         )}
       >
         <DialogHeader className='max-sm:gap-1'>
@@ -973,7 +949,7 @@ export function DetailsDialog(props: DetailsDialogProps) {
             )}
 
             {/* Token breakdown (for consume/error types with token data) */}
-            {isDisplayableType(props.log.type) && other && (
+            {isDisplayableType(props.log.type) && !isConsume && other && (
               <TokenBreakdown log={props.log} other={other} />
             )}
 
@@ -982,45 +958,9 @@ export function DetailsDialog(props: DetailsDialogProps) {
               <BillingBreakdown
                 log={props.log}
                 other={other}
-                isAdmin={props.isAdmin}
                 isRoot={props.isRoot}
               />
             )}
-
-            {/* Tiered pricing breakdown (when billing_mode is tiered_expr) */}
-            {isTieredBilling && other?.expr_b64 && (
-              <div className='bg-muted/30 min-w-0 overflow-hidden rounded-md border px-3 max-sm:px-2'>
-                <DynamicPricingBreakdown
-                  billingExpr={decodeBillingExprB64(other.expr_b64)}
-                  matchedTierLabel={other.matched_tier}
-                  hideCacheColumns={!hasAnyCacheTokens(other)}
-                />
-              </div>
-            )}
-
-            {/* Admin billing mode indicator for non-consume */}
-            {props.isAdmin &&
-              !isConsume &&
-              props.log.type !== 6 &&
-              other?.admin_info && (
-                <DetailRow
-                  label={t('Billing Source')}
-                  value={
-                    <span className='flex items-center gap-1'>
-                      {other.admin_info.local_count_tokens ? (
-                        <Monitor className='size-3 text-blue-500' />
-                      ) : (
-                        <Cloud className='size-3 text-emerald-500' />
-                      )}
-                      <span className='text-xs'>
-                        {other.admin_info.local_count_tokens
-                          ? t('Local Billing')
-                          : t('Upstream Response')}
-                      </span>
-                    </span>
-                  }
-                />
-              )}
 
             {/* Stream status details (admin only) */}
             {props.isAdmin &&

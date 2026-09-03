@@ -41,6 +41,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { DataTableColumnHeader } from '@/components/data-table'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { StatusBadge, type StatusBadgeProps } from '@/components/status-badge'
 import type { UsageLog } from '../../data/schema'
 import {
@@ -55,6 +56,7 @@ import {
   formatSignedLogQuota,
   formatSensitiveQuota,
 } from '../../lib/format'
+import { getLocalizedLogContent } from '../../lib/log-content'
 import {
   isDisplayableLogType,
   isTimingLogType,
@@ -68,6 +70,7 @@ import { useUsageLogsContext } from '../usage-logs-provider'
 
 interface DetailSegment {
   text: string
+  discountLabel?: string
   muted?: boolean
   danger?: boolean
 }
@@ -248,11 +251,15 @@ function buildDetailSegments(
         : t('Group Discount')
 
       if (effectiveRatio != null && Number.isFinite(effectiveRatio)) {
+        const discountLabel = formatGroupDiscount(
+          effectiveRatio,
+          discountLabels
+        )
         segments.push({
           text: `${ratioLabel} ${
-            formatGroupDiscount(effectiveRatio, discountLabels) ??
-            formatRatioCompact(effectiveRatio)
+            discountLabel ?? formatRatioCompact(effectiveRatio)
           }`,
+          discountLabel,
         })
       }
     }
@@ -312,6 +319,7 @@ export function useCommonLogsColumns(
     columns.push(
       {
         id: 'channel',
+        accessorFn: (log) => log.channel,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('Channel')} />
         ),
@@ -425,6 +433,7 @@ export function useCommonLogsColumns(
       },
       {
         id: 'user',
+        accessorFn: (log) => log.username,
         header: ({ column }) => (
           <DataTableColumnHeader column={column} title={t('User')} />
         ),
@@ -500,12 +509,8 @@ export function useCommonLogsColumns(
       let group = log.group
       if (!group) group = other?.group || ''
 
-      const metaParts: string[] = []
       const groupRatioText = getGroupRatioText(other, discountLabels)
-      if (group) {
-        metaParts.push(sensitiveVisible ? group : '••••')
-      }
-      if (groupRatioText) metaParts.push(groupRatioText)
+      const groupLabel = group ? (sensitiveVisible ? group : '••••') : ''
 
       return (
         <div className='flex max-w-[200px] flex-col gap-0.5'>
@@ -528,9 +533,15 @@ export function useCommonLogsColumns(
               )}
             </Tooltip>
           </TooltipProvider>
-          {metaParts.length > 0 && (
+          {(groupLabel || groupRatioText) && (
             <span className='text-muted-foreground/60 truncate text-[11px]'>
-              {metaParts.join(' · ')}
+              {groupLabel}
+              {groupLabel && groupRatioText && ' · '}
+              {groupRatioText && (
+                <DiscountTooltip label={groupRatioText}>
+                  <span>{groupRatioText}</span>
+                </DiscountTooltip>
+              )}
             </span>
           )}
         </div>
@@ -740,7 +751,7 @@ export function useCommonLogsColumns(
         <DataTableColumnHeader column={column} title={t('Cost')} />
       ),
       cell: function CostCell({ row }) {
-        const { sensitiveVisible } = useUsageLogsContext()
+        const { sensitiveVisible, profitVisible } = useUsageLogsContext()
         const log = row.original
         if (!isDisplayableLogType(log.type)) return null
 
@@ -781,7 +792,10 @@ export function useCommonLogsColumns(
         const quotaStr = formatSignedLogQuota(log)
         const profitQuota = other?.profit_quota
         const hasChannelProfit =
-          isRoot && profitQuota != null && Number.isFinite(profitQuota)
+          isRoot &&
+          profitVisible &&
+          profitQuota != null &&
+          Number.isFinite(profitQuota)
         const profitClassName =
           profitQuota == null || profitQuota === 0
             ? 'text-muted-foreground'
@@ -847,6 +861,7 @@ export function useCommonLogsColumns(
         const [dialogOpen, setDialogOpen] = useState(false)
         const log = row.original
         const other = parseLogOther(log.other)
+        const localizedContent = getLocalizedLogContent(log, t)
 
         const segments = buildDetailSegments(log, other, t, discountLabels)
         const primary = segments[0]
@@ -862,26 +877,28 @@ export function useCommonLogsColumns(
                 title={t('Click to view full details')}
               >
                 {primary ? (
-                  <span
-                    className={cn(
-                      'truncate leading-snug group-hover:underline',
-                      primary.muted
-                        ? 'text-muted-foreground/60'
-                        : primary.danger
-                          ? 'text-red-600 dark:text-red-400'
-                          : 'text-foreground'
-                    )}
-                  >
-                    {primary.text}
-                    {hasMore && (
-                      <span className='text-muted-foreground/40 ml-0.5'>
-                        +{segments.length - 1}
-                      </span>
-                    )}
-                  </span>
-                ) : log.content ? (
+                  <DiscountTooltip label={primary.discountLabel}>
+                    <span
+                      className={cn(
+                        'truncate leading-snug group-hover:underline',
+                        primary.muted
+                          ? 'text-muted-foreground/60'
+                          : primary.danger
+                            ? 'text-red-600 dark:text-red-400'
+                            : 'text-foreground'
+                      )}
+                    >
+                      {primary.text}
+                      {hasMore && (
+                        <span className='text-muted-foreground/40 ml-0.5'>
+                          +{segments.length - 1}
+                        </span>
+                      )}
+                    </span>
+                  </DiscountTooltip>
+                ) : localizedContent ? (
                   <span className='text-muted-foreground truncate group-hover:underline'>
-                    {log.content}
+                    {localizedContent}
                   </span>
                 ) : (
                   <span className='text-muted-foreground/40'>—</span>

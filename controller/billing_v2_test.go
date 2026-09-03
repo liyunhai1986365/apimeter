@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestWriteBillingBreakdownCSVExportsAmountsAsUSD(t *testing.T) {
+func TestWriteBillingBreakdownCSVExportsSupplierDiscountRatioAndAmountsAsUSD(t *testing.T) {
 	originalQuotaPerUnit := common.QuotaPerUnit
 	common.QuotaPerUnit = 500000
 	t.Cleanup(func() {
@@ -28,6 +28,7 @@ func TestWriteBillingBreakdownCSVExportsAmountsAsUSD(t *testing.T) {
 			PeriodValue:      "2026-05",
 			ModelName:        "gpt-test",
 			Group:            "vip",
+			GroupRatio:       0.53,
 			RequestCount:     1,
 			InputTokens:      1000,
 			OutputTokens:     2000,
@@ -46,17 +47,17 @@ func TestWriteBillingBreakdownCSVExportsAmountsAsUSD(t *testing.T) {
 	require.Equal(t, []string{
 		"账期",
 		"模型",
-		"分组",
+		"供应商",
 		"请求数",
 		"输入 Tokens",
 		"输出 Tokens",
 		"缓存读取 Tokens",
 		"缓存写入 Tokens",
 		"原价(USD)",
-		"分组折扣(USD)",
+		"折扣",
 		"结算金额(USD)",
 	}, records[0])
 	require.Equal(t, "1.000000", records[1][8])
-	require.Equal(t, "0.500000", records[1][9])
+	require.Equal(t, "-47%", records[1][9])
 	require.Equal(t, "0.002000", records[1][10])
 }

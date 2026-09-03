@@ -20,6 +20,13 @@ import { useState, useEffect } from 'react'
 import { Crown, CalendarClock, Package } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { formatQuota } from '@/lib/format'
+import {
+  closePendingPaymentWindow,
+  isSafePaymentUrl,
+  navigatePendingPaymentWindow,
+  openPendingPaymentWindow,
+} from '@/lib/payment-window'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import {
@@ -44,7 +51,6 @@ import {
   paySubscriptionEpay,
   paySubscriptionWaffoPancake,
 } from '../../api'
-import { formatQuota } from '@/lib/format'
 import { formatDuration, formatResetPeriod, getResetQuota } from '../../lib'
 import type { PlanRecord } from '../../types'
 
@@ -145,15 +151,21 @@ export function SubscriptionPurchaseDialog(props: Props) {
     }
   }
 
-  // In-tab redirect (not window.open) — user-gesture context is lost
-  // across the await, so a popup would be blocked. Same as the wallet hook.
   const handlePayWaffoPancake = async () => {
+    const paymentWindow = openPendingPaymentWindow()
+    let paymentPageOpened = false
     setPaying(true)
     try {
       const res = await paySubscriptionWaffoPancake({ plan_id: plan.id })
       if (res.message === 'success' && res.data?.checkout_url) {
-        toast.success(t('Redirecting to payment page...'))
-        window.location.href = res.data.checkout_url
+        if (!isSafePaymentUrl(res.data.checkout_url)) {
+          toast.error(t('Invalid payment redirect URL'))
+          return
+        }
+        navigatePendingPaymentWindow(paymentWindow, res.data.checkout_url)
+        paymentPageOpened = true
+        toast.success(t('Payment page opened'))
+        props.onOpenChange(false)
       } else {
         toast.error(
           res.message && res.message !== 'success'
@@ -164,6 +176,9 @@ export function SubscriptionPurchaseDialog(props: Props) {
     } catch {
       toast.error(t('Payment request failed'))
     } finally {
+      if (!paymentPageOpened) {
+        closePendingPaymentWindow(paymentWindow)
+      }
       setPaying(false)
     }
   }

@@ -21,6 +21,7 @@ import { formatGroupDiscount } from '@/lib/group-discount'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
+import { DiscountTooltip } from './discount-tooltip'
 import { StatusBadge, type StatusBadgeProps } from './status-badge'
 
 type GroupBadgeProps = Omit<
@@ -93,18 +94,22 @@ export function GroupBadge(props: GroupBadgeProps) {
     return badge
   }
 
+  const discount = formatGroupDiscount(ratio, discountLabels)
+
   return (
     <span className='inline-flex items-center gap-2 text-xs'>
       {badge}
-      <span
-        className={cn(
-          'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[11px] leading-none tabular-nums',
-          getGroupRatioClassName(ratio)
-        )}
-      >
-        <span className='size-1 rounded-full bg-current opacity-60' />
-        <span>{formatGroupDiscount(ratio, discountLabels)}</span>
-      </span>
+      <DiscountTooltip label={discount}>
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 font-mono text-[11px] leading-none tabular-nums',
+            getGroupRatioClassName(ratio)
+          )}
+        >
+          <span className='size-1 rounded-full bg-current opacity-60' />
+          <span>{discount}</span>
+        </span>
+      </DiscountTooltip>
     </span>
   )
 }

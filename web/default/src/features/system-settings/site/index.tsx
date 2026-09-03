@@ -26,9 +26,10 @@ import {
 const defaultSiteSettings: SiteSettings = {
   'theme.frontend': 'default',
   Notice: '',
-  SystemName: 'APIMeter API',
+  SystemName: 'New API',
   Logo: '',
   Footer: '',
+  FooterCompanyName: 'Axiom Mesh Inc.',
   About: '',
   HomePageContent: '',
   CustomerServiceScript: '',
@@ -39,6 +40,7 @@ const defaultSiteSettings: SiteSettings = {
   HeaderNavModules: '',
   SidebarModulesAdmin: '',
   RankingsDataVisibility: 'masked',
+  MainlandChinaPresentationEnabled: false,
 }
 
 export function SiteSettings() {

@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { create } from 'zustand'
+import { syncCustomerServiceUser } from '@/lib/customer-service-script'
 import type { AffiliateRewardPolicy } from '@/features/invite/types'
 
 export type UserPermissions = {
@@ -88,28 +89,28 @@ export const useAuthStore = create<AuthState>()((set) => {
   return {
     auth: {
       user: initUser,
-      setUser: (user) =>
-        set((state) => {
-          // Persist user to localStorage
-          if (typeof window !== 'undefined') {
-            if (user) {
-              window.localStorage.setItem('user', JSON.stringify(user))
-            } else {
-              window.localStorage.removeItem('user')
-            }
-          }
-          return { ...state, auth: { ...state.auth, user } }
-        }),
-      reset: () =>
-        set((state) => {
-          if (typeof window !== 'undefined') {
+      setUser: (user) => {
+        // Persist user to localStorage
+        if (typeof window !== 'undefined') {
+          if (user) {
+            window.localStorage.setItem('user', JSON.stringify(user))
+          } else {
             window.localStorage.removeItem('user')
           }
-          return {
-            ...state,
-            auth: { ...state.auth, user: null },
-          }
-        }),
+        }
+        syncCustomerServiceUser(user)
+        set((state) => ({ ...state, auth: { ...state.auth, user } }))
+      },
+      reset: () => {
+        if (typeof window !== 'undefined') {
+          window.localStorage.removeItem('user')
+        }
+        syncCustomerServiceUser(null)
+        set((state) => ({
+          ...state,
+          auth: { ...state.auth, user: null },
+        }))
+      },
     },
   }
 })

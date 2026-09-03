@@ -19,6 +19,7 @@ For commercial licensing, please contact support@quantumnous.com
 import { useMemo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
+import { DEFAULT_FOOTER_COMPANY_NAME } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { useSystemConfig } from '@/hooks/use-system-config'
 
@@ -38,6 +39,25 @@ interface FooterProps {
   columns?: FooterColumnProps[]
   copyright?: string
   className?: string
+}
+
+const SUPPORT_EMAIL = 'support@modelsell.com'
+
+function SupportEmailLink(props: { className?: string }) {
+  const { t } = useTranslation()
+
+  return (
+    <a
+      href={`mailto:${SUPPORT_EMAIL}`}
+      aria-label={`${t('footer.columns.about.links.contact')}: ${SUPPORT_EMAIL}`}
+      className={cn(
+        'text-muted-foreground/50 hover:text-foreground text-xs transition-colors duration-200',
+        props.className
+      )}
+    >
+      {SUPPORT_EMAIL}
+    </a>
+  )
 }
 
 function FooterLinkItem(props: { link: FooterLink }) {
@@ -74,11 +94,12 @@ export function Footer(props: FooterProps) {
     systemName,
     logo: systemLogo,
     footerHtml,
+    footerCompanyName = DEFAULT_FOOTER_COMPANY_NAME,
     demoSiteEnabled,
   } = useSystemConfig()
 
   const displayLogo = systemLogo || props.logo || '/logo.png'
-  const displayName = systemName || props.name || 'APIMeter API'
+  const displayName = systemName || props.name || 'New API'
   const isDemoSiteMode = Boolean(demoSiteEnabled)
   const currentYear = new Date().getFullYear()
 
@@ -89,15 +110,15 @@ export function Footer(props: FooterProps) {
         links: [
           {
             text: t('footer.columns.about.links.aboutProject'),
-            href: 'https://docs.apimeter.ai/zh/docs/',
+            href: 'https://docs.newapi.pro/wiki/project-introduction/',
           },
           {
             text: t('footer.columns.about.links.contact'),
-            href: 'https://docs.apimeter.ai/zh/docs/support/',
+            href: 'https://docs.newapi.pro/support/community-interaction/',
           },
           {
             text: t('footer.columns.about.links.features'),
-            href: 'https://docs.apimeter.ai/zh/docs/features/',
+            href: 'https://docs.newapi.pro/wiki/features-introduction/',
           },
         ],
       },
@@ -106,15 +127,15 @@ export function Footer(props: FooterProps) {
         links: [
           {
             text: t('footer.columns.docs.links.quickStart'),
-            href: 'https://docs.apimeter.ai/zh/docs/getting-started/',
+            href: 'https://docs.newapi.pro/getting-started/',
           },
           {
             text: t('footer.columns.docs.links.installation'),
-            href: 'https://docs.apimeter.ai/zh/docs/installation/',
+            href: 'https://docs.newapi.pro/installation/',
           },
           {
             text: t('footer.columns.docs.links.apiDocs'),
-            href: 'https://docs.apimeter.ai/zh/docs/api/',
+            href: 'https://docs.newapi.pro/api/',
           },
         ],
       },
@@ -155,6 +176,7 @@ export function Footer(props: FooterProps) {
               className='custom-footer text-muted-foreground min-w-0 text-center text-sm sm:text-left'
               dangerouslySetInnerHTML={{ __html: footerHtml }}
             />
+            <SupportEmailLink className='shrink-0' />
           </div>
         </div>
       </footer>
@@ -208,10 +230,11 @@ export function Footer(props: FooterProps) {
         {/* Bottom section */}
         <div className='border-border/30 mt-12 flex flex-col items-center justify-between gap-3 border-t pt-6 sm:flex-row'>
           <p className='text-muted-foreground/40 text-xs'>
-            &copy; {currentYear} Axiom Mesh Inc.{' '}
+            &copy; {currentYear} {footerCompanyName && `${footerCompanyName} `}
             {props.copyright ?? t('footer.defaultCopyright')}
           </p>
           <div className='flex items-center gap-4 text-xs'>
+            <SupportEmailLink />
             <Link
               to='/user-agreement'
               className='text-muted-foreground/50 hover:text-foreground transition-colors duration-200'

@@ -69,6 +69,7 @@ type GroupRatioResult struct {
 	BaseGroupRatio    float64
 	AgentGroupRatio   float64
 	HasAgentRatio     bool
+	Source            types.GroupRatioSource
 	DisplayGroup      string
 	UserGroup         string
 	Snapshot          *types.AgentBillingSnapshot
@@ -257,10 +258,11 @@ func ResolveGroupFromRequest(c *gin.Context, groupName string) (types.AgentGroup
 	return ResolveGroup(agentCtx, groupName)
 }
 
-func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, tokenGroup string, usingGroup string) GroupRatioResult {
+func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, tokenGroup string, usingGroup string, modelName string) GroupRatioResult {
 	result := GroupRatioResult{
 		GroupRatio:        1,
 		GroupSpecialRatio: -1,
+		Source:            types.GroupRatioSourceDefault,
 		DisplayGroup:      usingGroup,
 		UserGroup:         userGroup,
 	}
@@ -291,12 +293,12 @@ func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, to
 		result.UserGroup = group.SystemGroupName
 	}
 
-	if userGroupRatio, ok := ratio_setting.GetGroupGroupRatio(result.UserGroup, usingGroup); ok {
-		result.GroupSpecialRatio = userGroupRatio
-		result.GroupRatio = userGroupRatio
+	effectiveRatio := ratio_setting.ResolveEffectiveGroupRatio(result.UserGroup, usingGroup, modelName)
+	result.GroupRatio = effectiveRatio.Ratio
+	result.Source = effectiveRatio.Source
+	if effectiveRatio.IsUserSpecific {
+		result.GroupSpecialRatio = effectiveRatio.Ratio
 		result.HasSpecialRatio = true
-	} else {
-		result.GroupRatio = ratio_setting.GetGroupRatio(usingGroup)
 	}
 	result.BaseGroupRatio = result.GroupRatio
 
@@ -319,6 +321,7 @@ func ResolveGroupRatio(ctx *gin.Context, agentCtx *Context, userGroup string, to
 			result.GroupRatio = agentRatio
 			result.AgentGroupRatio = agentRatio
 			result.HasAgentRatio = true
+			result.Source = types.GroupRatioSourceAgent
 			if result.HasSpecialRatio {
 				result.GroupSpecialRatio = agentRatio
 			}

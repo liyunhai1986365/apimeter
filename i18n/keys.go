@@ -40,6 +40,15 @@ const (
 	MsgAuthInsufficientPrivilege = "auth.insufficient_privilege"
 )
 
+// CAPTCHA messages
+const (
+	MsgCaptchaDisabled           = "captcha.disabled"
+	MsgCaptchaInvalid            = "captcha.invalid"
+	MsgCaptchaRequired           = "captcha.required"
+	MsgCaptchaVerificationFailed = "captcha.verification_failed"
+	MsgCaptchaGenerateFailed     = "captcha.generate_failed"
+)
+
 // Token related messages
 const (
 	MsgTokenNameTooLong          = "token.name_too_long"
@@ -55,6 +64,9 @@ const (
 	MsgTokenExhausted            = "token.exhausted"
 	MsgTokenStatusUnavailable    = "token.status_unavailable"
 	MsgTokenDbError              = "token.db_error"
+	MsgTokenAutoGroupsTooMany    = "token.auto_groups_too_many"
+	MsgTokenAutoGroupsDuplicate  = "token.auto_groups_duplicate"
+	MsgTokenAutoGroupsInvalid    = "token.auto_groups_invalid"
 )
 
 // Redemption related messages

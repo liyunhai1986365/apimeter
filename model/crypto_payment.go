@@ -1,6 +1,7 @@
 package model
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -125,6 +126,35 @@ func uniqueAmountCandidate(baseAtomic string, tokenDecimals, amountDecimals, off
 	return candidate.String(), nil
 }
 
+func randomUniqueAmountStart(maxAttempts int) (int, error) {
+	if maxAttempts <= 0 {
+		return 0, errors.New("unique amount candidate count must be positive")
+	}
+	value, err := rand.Int(rand.Reader, big.NewInt(int64(maxAttempts)))
+	if err != nil {
+		return 0, fmt.Errorf("failed to randomize crypto payment amount: %w", err)
+	}
+	return int(value.Int64()), nil
+}
+
+func uniqueAmountAttemptOffset(start, attempt, maxAttempts int) int {
+	// With three unique decimals, prefer 001-099 so the visible randomness is
+	// concentrated in the last two digits (for example, .012 or .043). If that
+	// range is exhausted, keep the full 999-candidate namespace available.
+	if maxAttempts == 999 {
+		const preferredAttempts = 99
+		if attempt < preferredAttempts {
+			return (start + attempt) % preferredAttempts
+		}
+
+		fallbackAttempt := attempt - preferredAttempts
+		leadingDigit := fallbackAttempt/100 + 1
+		suffix := (start + fallbackAttempt%100) % 100
+		return leadingDigit*100 + suffix - 1
+	}
+	return (start + attempt) % maxAttempts
+}
+
 func formatAtomicAmount(atomicAmount string, decimals, displayDecimals int) (string, error) {
 	value, ok := new(big.Int).SetString(atomicAmount, 10)
 	if !ok || value.Sign() < 0 {
@@ -165,12 +195,21 @@ func CreateCryptoPaymentOrder(params CreateCryptoPaymentParams) (*CryptoPayment,
 		maxAttempts *= 10
 	}
 	maxAttempts--
+	randomRange := maxAttempts
+	if params.UniqueDigits == 3 {
+		randomRange = 99
+	}
+	startOffset, err := randomUniqueAmountStart(randomRange)
+	if err != nil {
+		return nil, err
+	}
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		candidateOffset := uniqueAmountAttemptOffset(startOffset, attempt, maxAttempts)
 		requestedAmount, err := uniqueAmountCandidate(
 			params.BaseAtomicAmount,
 			params.TokenDecimals,
 			params.UniqueDigits,
-			attempt,
+			candidateOffset,
 		)
 		if err != nil {
 			return nil, err
@@ -326,8 +365,17 @@ func MarkCryptoPaymentManuallyCompleted(tx *gorm.DB, tradeNo string, completeTim
 }
 
 func CompleteCryptoPayment(tradeNo, transactionHash, eventIndex string, blockNumber int64) error {
+	_, err := CompleteCryptoPaymentOnce(tradeNo, transactionHash, eventIndex, blockNumber)
+	return err
+}
+
+// CompleteCryptoPaymentOnce completes a pending crypto payment and reports
+// whether this call performed the state transition. Callers use the boolean to
+// avoid sending duplicate notifications when overlapping scans or concurrent
+// admin actions observe an order that has already completed.
+func CompleteCryptoPaymentOnce(tradeNo, transactionHash, eventIndex string, blockNumber int64) (bool, error) {
 	if tradeNo == "" || transactionHash == "" {
-		return errors.New("missing crypto payment reference")
+		return false, errors.New("missing crypto payment reference")
 	}
 
 	var completedTopUp *TopUp
@@ -389,10 +437,10 @@ func CompleteCryptoPayment(tradeNo, transactionHash, eventIndex string, blockNum
 		return nil
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
 	if completedTopUp == nil {
-		return nil
+		return false, nil
 	}
 
 	RecordTopupLog(
@@ -403,5 +451,5 @@ func CompleteCryptoPayment(tradeNo, transactionHash, eventIndex string, blockNum
 		PaymentProviderCrypto,
 	)
 	createAffiliateTopUpRewardAfterSuccess(completedTopUp, quotaToAdd)
-	return nil
+	return true, nil
 }

@@ -15,10 +15,11 @@ type GroupDisplayCategory struct {
 }
 
 type GroupDisplayGroup struct {
-	Group      string `json:"group"`
-	CategoryID string `json:"category_id"`
-	Order      int    `json:"order"`
-	UserGroup  bool   `json:"user_group,omitempty"`
+	Group        string `json:"group"`
+	CategoryID   string `json:"category_id"`
+	Order        int    `json:"order"`
+	UserGroup    bool   `json:"user_group,omitempty"`
+	HideDiscount bool   `json:"hide_discount,omitempty"`
 }
 
 type GroupDisplayConfig struct {
@@ -81,10 +82,11 @@ func NormalizeGroupDisplayConfig(config GroupDisplayConfig) GroupDisplayConfig {
 		}
 		groupNames[name] = struct{}{}
 		groups = append(groups, GroupDisplayGroup{
-			Group:      name,
-			CategoryID: categoryID,
-			Order:      group.Order,
-			UserGroup:  group.UserGroup,
+			Group:        name,
+			CategoryID:   categoryID,
+			Order:        group.Order,
+			UserGroup:    group.UserGroup,
+			HideDiscount: group.HideDiscount,
 		})
 	}
 
@@ -111,6 +113,18 @@ func NormalizeGroupDisplayConfig(config GroupDisplayConfig) GroupDisplayConfig {
 		Categories: categories,
 		Groups:     groups,
 	}
+}
+
+func IsGroupDiscountHidden(groupName string) bool {
+	groupDisplayConfigMutex.RLock()
+	defer groupDisplayConfigMutex.RUnlock()
+
+	for _, group := range groupDisplayConfig.Groups {
+		if group.Group == groupName {
+			return group.HideDiscount
+		}
+	}
+	return false
 }
 
 func GetUserGroupNamesFromDisplayConfig() ([]string, bool) {

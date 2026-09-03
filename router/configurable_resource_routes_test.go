@@ -128,6 +128,10 @@ func TestConfigurableResourceRoutesAreRegisteredWithFullAPIRouterOrder(t *testin
 	assertRouteRegistered(http.MethodGet, "/api/assets")
 	assertRouteRegistered(http.MethodGet, "/api/assets/:id")
 	assertRouteRegistered(http.MethodPost, "/material/assets")
+	assertRouteRegistered(http.MethodPost, "/v2/db-sd-max/assets")
+	assertRouteRegistered(http.MethodGet, "/v2/db-sd-max/assets/:id")
+	assertRouteRegistered(http.MethodPost, "/v2/sd-max/assets")
+	assertRouteRegistered(http.MethodGet, "/v2/sd-max/assets/:id")
 }
 
 func TestKlingConfigurableResourceRoutesAreRegistered(t *testing.T) {

@@ -21,6 +21,7 @@ type RetryParam struct {
 	Ctx                     *gin.Context
 	TokenGroup              string
 	ModelName               string
+	RequestPath             string
 	Retry                   *int
 	resetNextTry            bool
 	attempt                 int
@@ -87,7 +88,7 @@ func (p *RetryParam) RemainingSystemRetries() int {
 	if p == nil {
 		return 0
 	}
-	remaining := common.RetryTimes - p.GetRetry()
+	remaining := p.MaxGroupRetries() - p.GetRetry()
 	if remaining <= 0 && p.nextTokenGroupAvailable {
 		return 1
 	}
@@ -112,41 +113,11 @@ func (p *RetryParam) AdvanceToNextTokenGroup() bool {
 	return true
 }
 
-// CacheGetRandomSatisfiedChannel tries to get a random channel that satisfies the requirements.
-// 尝试获取一个满足要求的随机渠道。
-//
-// For "auto" tokenGroup with cross-group Retry enabled:
-// 对于启用了跨分组重试的 "auto" tokenGroup：
-//
-//   - Each group will exhaust all its priorities before moving to the next group.
-//     每个分组会用完所有优先级后才会切换到下一个分组。
-//
-//   - Uses ContextKeyAutoGroupIndex to track current group index.
-//     使用 ContextKeyAutoGroupIndex 跟踪当前分组索引。
-//
-//   - Retry is the group-local priority cursor and resets when the group changes.
-//     Retry 是组内优先级游标，切换分组时会重置。
-//
-//   - Attempt is request-wide and never resets, so policy limits and logs see the real attempt order.
-//     Attempt 是请求级总尝试序号，不随分组重置，策略上限和日志因此能看到真实顺序。
-//
-//   - When GetRandomSatisfiedChannel returns nil (priorities exhausted), moves to next group.
-//     当 GetRandomSatisfiedChannel 返回 nil（优先级用完）时，切换到下一个分组。
-//
-// Example flow (2 groups, RetryTimes=1):
-// 示例流程（2个分组，RetryTimes=1）：
-//
-//	Attempt=0, Retry=0: GroupA, priority0
-//	                    分组A, 优先级0
-//
-//	Attempt=1, Retry=1: GroupA, priority1; prepare GroupB
-//	                    分组A, 优先级1；准备切换分组B
-//
-//	Attempt=2, Retry=0: GroupB, priority0
-//	                    分组B, 优先级0
-//
-//	Attempt=3, Retry=1: GroupB, priority1
-//	                    分组B, 优先级1
+// CacheGetRandomSatisfiedChannel selects within the token's ordered candidate
+// groups, skipping unsupported channels. Group-local Retry resets on failover;
+// request-wide Attempt does not. Smart policies filter failed credentials and
+// choose the highest remaining priority, with at most three retries per group.
+// Legacy policies retain their priority cursor and configured group budget.
 func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, error) {
 	param.ensureAttemptInitialized()
 	param.nextTokenGroupAvailable = false
@@ -154,6 +125,13 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 	param.tokenGroupCount = 0
 	param.tokenGroupFailover = false
 	var channel *model.Channel
+	defer func() {
+		if channel != nil && param.GetAttempt() == 0 {
+			initial := *param
+			initial.SetRetry(param.GetRetry())
+			param.Ctx.Set(initialRetryParamKey, initial)
+		}
+	}()
 	var err error
 	selectGroup := param.TokenGroup
 	channelGroup := param.TokenGroup
@@ -164,10 +142,13 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		systemChannelGroups = []string{strings.TrimSpace(param.TokenGroup)}
 		channelGroup = strings.TrimSpace(param.TokenGroup)
 	}
-	filter := combineChannelFilters(BuildProtocolChannelFilter(param), RetryPolicyRecoveryFilter(param.Ctx))
+	filter := combineChannelFilters(BuildProtocolChannelFilter(param), RetryPolicyRecoveryFilter(param.Ctx), SmartRetryChannelFilter(param.Ctx, param.ModelName))
 
 	if recoveryGroups := RetryPolicyRecoveryGroupsForAttempt(param.Ctx, param.GetAttempt(), param.ModelName); len(recoveryGroups) > 0 {
 		for _, recoveryGroup := range recoveryGroups {
+			if !SmartRetryGroupAvailable(param.Ctx, recoveryGroup) {
+				continue
+			}
 			if err := validateRetryPolicyRecoveryGroup(param.Ctx, recoveryGroup); err != nil {
 				return nil, recoveryGroup, err
 			}
@@ -215,6 +196,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 
 		for i := startGroupIndex; i < len(policyGroups); i++ {
 			policyGroup := policyGroups[i]
+			if !SmartRetryGroupAvailable(param.Ctx, policyGroup) {
+				continue
+			}
 			priorityRetry := param.GetRetry()
 			if i > startGroupIndex {
 				priorityRetry = 0
@@ -234,7 +218,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 					return nil, policyGroup, err
 				}
 			} else {
-				channel, err = model.GetRandomSatisfiedChannelWithFilter(policyGroup, param.ModelName, priorityRetry, filter)
+				channel, err = model.GetRandomSatisfiedChannelWithFilter(policyGroup, param.ModelName, param.channelPriorityRetry(priorityRetry), filter)
 				if err != nil && !errors.Is(err, model.ErrNoChannelMatchedFilter) {
 					return nil, policyGroup, err
 				}
@@ -256,8 +240,8 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			param.tokenGroupFailover = crossGroupRetry
 			logger.LogDebug(param.Ctx, "Policy selected group: %s", policyGroup)
 
-			if crossGroupRetry && priorityRetry >= common.RetryTimes && i+1 < len(policyGroups) {
-				logger.LogDebug(param.Ctx, "Current policy group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", policyGroup, priorityRetry, common.RetryTimes)
+			if crossGroupRetry && priorityRetry >= param.MaxGroupRetries() && i+1 < len(policyGroups) {
+				logger.LogDebug(param.Ctx, "Current policy group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", policyGroup, priorityRetry, param.MaxGroupRetries())
 				param.AdvanceToNextTokenGroup()
 			} else {
 				common.SetContextKey(param.Ctx, constant.ContextKeyAutoGroupIndex, i)
@@ -265,7 +249,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			break
 		}
 	} else if param.TokenGroup == "auto" {
-		autoGroups := GetUserAutoGroup(userGroup)
+		autoGroups := GetRequestAutoGroups(param.Ctx, userGroup)
 		agentAutoGroupNames := map[string]string{}
 		if agentCtx, ok := common.GetContextKeyType[*types.AgentContext](param.Ctx, constant.ContextKeyAgentContext); ok && agentCtx != nil {
 			autoGroups, agentAutoGroupNames = agentAutoGroups(agentCtx, userGroup)
@@ -297,7 +281,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 			}
 			logger.LogDebug(param.Ctx, "Auto selecting group: %s, priorityRetry: %d", autoGroup, priorityRetry)
 
-			channel, err = model.GetRandomSatisfiedChannelWithFilter(autoGroup, param.ModelName, priorityRetry, filter)
+			channel, err = model.GetRandomSatisfiedChannelWithFilter(autoGroup, param.ModelName, param.channelPriorityRetry(priorityRetry), filter)
 			if err != nil && !errors.Is(err, model.ErrNoChannelMatchedFilter) {
 				return nil, autoGroup, err
 			}
@@ -325,12 +309,12 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 
 			// Prepare state for next retry
 			// 为下一次重试准备状态
-			if crossGroupRetry && priorityRetry >= common.RetryTimes && i+1 < len(autoGroups) {
+			if crossGroupRetry && priorityRetry >= param.MaxGroupRetries() && i+1 < len(autoGroups) {
 				// Current group has exhausted all retries, prepare to switch to next group
 				// This request still uses current group, but next retry will use next group
 				// 当前分组已用完所有重试次数，准备切换到下一个分组
 				// 本次请求仍使用当前分组，但下次重试将使用下一个分组
-				logger.LogDebug(param.Ctx, "Current group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", autoGroup, priorityRetry, common.RetryTimes)
+				logger.LogDebug(param.Ctx, "Current group %s retries exhausted (priorityRetry=%d >= RetryTimes=%d), preparing switch to next group for next retry", autoGroup, priorityRetry, param.MaxGroupRetries())
 				param.AdvanceToNextTokenGroup()
 			} else {
 				// Stay in current group, save current state
@@ -341,7 +325,7 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 		}
 	} else {
 		for _, group := range systemChannelGroups {
-			channel, err = model.GetRandomSatisfiedChannelWithFilter(group, param.ModelName, param.GetRetry(), filter)
+			channel, err = model.GetRandomSatisfiedChannelWithFilter(group, param.ModelName, param.channelPriorityRetry(param.GetRetry()), filter)
 			if err != nil && !errors.Is(err, model.ErrNoChannelMatchedFilter) {
 				return nil, param.TokenGroup, err
 			}
@@ -442,10 +426,9 @@ func shouldStopOnProtocolMismatch(param *RetryParam) bool {
 }
 
 func tokenGroupFailoverEnabled(ctx *gin.Context, groups []string, routingStrategyPolicy bool) bool {
-	if !routingStrategyPolicy && len(groups) > 1 {
-		// An explicit ordered list is itself the user's failover intent. Do
-		// not let a legacy false toggle make every group after the first one
-		// unreachable.
+	if routingStrategyPolicy || len(groups) > 1 {
+		// Smart routing and explicit ordered lists both imply group failover.
+		// A legacy toggle must not make later candidates unreachable.
 		return true
 	}
 	return common.GetContextKeyBool(ctx, constant.ContextKeyTokenCrossGroupRetry)
@@ -487,6 +470,9 @@ func BuildProtocolChannelFilter(param *RetryParam) model.ChannelFilter {
 				return false
 			}
 			if nativeSeedanceProfileSupportsChannel(profileIDs, param.ModelName, channel.Type) {
+				return true
+			}
+			if nativeWan3ProfileSupportsChannel(profileIDs, param.ModelName, channel.Type) {
 				return true
 			}
 			return false
@@ -568,4 +554,28 @@ func nativeSeedanceProfileSupportsChannel(profileIDs []string, modelName string,
 		}
 	}
 	return false
+}
+
+func nativeWan3ProfileSupportsChannel(profileIDs []string, modelName string, channelType int) bool {
+	if channelType != constant.ChannelTypeAli {
+		return false
+	}
+	if modelName != "wan3.0-video" && modelName != "wan3.0-video-prime" {
+		return false
+	}
+	for _, profileID := range profileIDs {
+		if profileID == "dashscope-wan3-video" {
+			return true
+		}
+	}
+	return false
+}
+
+// Failed credentials are filtered out for smart policies. Select the highest
+// remaining priority, so healthy peers are tried before lower priorities.
+func (p *RetryParam) channelPriorityRetry(retry int) int {
+	if IsRoutingStrategyTokenPolicy(p.Ctx) {
+		return 0
+	}
+	return retry
 }

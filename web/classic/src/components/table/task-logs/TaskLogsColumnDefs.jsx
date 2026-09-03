@@ -18,10 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTaskImageStatus } from '../../../hooks/task-logs/useTaskImageStatus';
 import { Progress, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
 import {
-  Music,
-  FileText,
   HelpCircle,
   CheckCircle,
   Pause,
@@ -30,9 +30,6 @@ import {
   XCircle,
   Loader,
   List,
-  Hash,
-  Video,
-  Sparkles,
 } from 'lucide-react';
 import {
   TASK_ACTION_FIRST_TAIL_GENERATE,
@@ -41,29 +38,21 @@ import {
   TASK_ACTION_TEXT_GENERATE,
   TASK_ACTION_REMIX_GENERATE,
 } from '../../../constants/common.constant';
-import { CHANNEL_OPTIONS } from '../../../constants/channel.constants';
 import { stringToColor } from '../../../helpers/render';
 import { Avatar, Space } from '@douyinfe/semi-ui';
 
-const colors = [
-  'amber',
-  'blue',
-  'cyan',
-  'green',
-  'grey',
-  'indigo',
-  'light-blue',
-  'lime',
-  'orange',
-  'pink',
-  'purple',
-  'red',
-  'teal',
-  'violet',
-  'yellow',
-];
-
 // Render functions
+function TaskImageResultLink({ record, openTaskDetail }) {
+  const { t } = useTranslation();
+  const status = useTaskImageStatus(record);
+  if (status === 'expired') return <Tag>{t('图片已过期')}</Tag>;
+  return (
+    <Typography.Text link onClick={() => openTaskDetail(record)}>
+      {status === 'partially_expired' ? t('部分图片已过期') : t('详情')}
+    </Typography.Text>
+  );
+}
+
 const renderTimestamp = (timestampInSeconds) => {
   const date = new Date(timestampInSeconds * 1000); // 从秒转换为毫秒
 
@@ -90,84 +79,22 @@ function renderDuration(submit_time, finishTime) {
   );
 }
 
-const renderType = (type, t) => {
-  switch (type) {
-    case 'MUSIC':
-      return (
-        <Tag color='grey' shape='circle' prefixIcon={<Music size={14} />}>
-          {t('生成音乐')}
-        </Tag>
-      );
-    case 'LYRICS':
-      return (
-        <Tag color='pink' shape='circle' prefixIcon={<FileText size={14} />}>
-          {t('生成歌词')}
-        </Tag>
-      );
-    case TASK_ACTION_GENERATE:
-      return (
-        <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
-          {t('图生视频')}
-        </Tag>
-      );
-    case TASK_ACTION_TEXT_GENERATE:
-      return (
-        <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
-          {t('文生视频')}
-        </Tag>
-      );
-    case TASK_ACTION_FIRST_TAIL_GENERATE:
-      return (
-        <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
-          {t('首尾生视频')}
-        </Tag>
-      );
-    case TASK_ACTION_REFERENCE_GENERATE:
-      return (
-        <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
-          {t('参照生视频')}
-        </Tag>
-      );
-    case TASK_ACTION_REMIX_GENERATE:
-      return (
-        <Tag color='blue' shape='circle' prefixIcon={<Sparkles size={14} />}>
-          {t('视频Remix')}
-        </Tag>
-      );
-    default:
-      return (
-        <Tag color='white' shape='circle' prefixIcon={<HelpCircle size={14} />}>
-          {t('未知')}
-        </Tag>
-      );
+const getTaskModelName = (record) => {
+  let properties = record.properties;
+  if (typeof properties === 'string') {
+    try {
+      properties = JSON.parse(properties);
+    } catch {
+      properties = {};
+    }
   }
-};
-
-const renderPlatform = (platform, t) => {
-  let option = CHANNEL_OPTIONS.find(
-    (opt) => String(opt.value) === String(platform),
+  const original = properties?.origin_model_name;
+  const upstream = properties?.upstream_model_name;
+  return (
+    (typeof original === 'string' && original.trim()) ||
+    (typeof upstream === 'string' && upstream.trim()) ||
+    '-'
   );
-  if (option) {
-    return (
-      <Tag color={option.color} shape='circle'>
-        {option.label}
-      </Tag>
-    );
-  }
-  switch (platform) {
-    case 'suno':
-      return (
-        <Tag color='green' shape='circle'>
-          Suno
-        </Tag>
-      );
-    default:
-      return (
-        <Tag color='white' shape='circle'>
-          {t('未知')}
-        </Tag>
-      );
-  }
 };
 
 const renderStatus = (type, t) => {
@@ -236,8 +163,8 @@ const renderStatus = (type, t) => {
 export const getTaskLogsColumns = ({
   t,
   COLUMN_KEYS,
-  copyText,
   openContentModal,
+  openTaskDetail,
   isAdminUser,
   openVideoModal,
   openAudioModal,
@@ -268,29 +195,6 @@ export const getTaskLogsColumns = ({
       },
     },
     {
-      key: COLUMN_KEYS.CHANNEL,
-      title: t('渠道'),
-      dataIndex: 'channel_id',
-      render: (text, record, index) => {
-        return isAdminUser ? (
-          <div>
-            <Tag
-              color={colors[parseInt(text) % colors.length]}
-              size='large'
-              shape='circle'
-              onClick={() => {
-                copyText(text);
-              }}
-            >
-              {text}
-            </Tag>
-          </div>
-        ) : (
-          <></>
-        );
-      },
-    },
-    {
       key: COLUMN_KEYS.USERNAME,
       title: t('用户'),
       dataIndex: 'username',
@@ -301,34 +205,21 @@ export const getTaskLogsColumns = ({
         const displayText = String(record.username || userId || '?');
         return (
           <Space>
-            <Avatar
-              size='extra-small'
-              color={stringToColor(displayText)}
-            >
+            <Avatar size='extra-small' color={stringToColor(displayText)}>
               {displayText.slice(0, 1)}
             </Avatar>
-            <Typography.Text>
-              {displayText}
-            </Typography.Text>
+            <Typography.Text>{displayText}</Typography.Text>
           </Space>
         );
       },
     },
     {
-      key: COLUMN_KEYS.PLATFORM,
-      title: t('平台'),
-      dataIndex: 'platform',
-      render: (text, record, index) => {
-        return <div>{renderPlatform(text, t)}</div>;
-      },
-    },
-    {
-      key: COLUMN_KEYS.TYPE,
-      title: t('类型'),
-      dataIndex: 'action',
-      render: (text, record, index) => {
-        return <div>{renderType(text, t)}</div>;
-      },
+      key: COLUMN_KEYS.MODEL,
+      title: t('模型'),
+      dataIndex: 'properties',
+      render: (_text, record) => (
+        <Typography.Text>{getTaskModelName(record)}</Typography.Text>
+      ),
     },
     {
       key: COLUMN_KEYS.TASK_ID,
@@ -339,7 +230,7 @@ export const getTaskLogsColumns = ({
           <Typography.Text
             ellipsis={{ showTooltip: true }}
             onClick={() => {
-              openContentModal(JSON.stringify(record, null, 2));
+              openTaskDetail(record, false);
             }}
           >
             <div>{text}</div>
@@ -387,6 +278,20 @@ export const getTaskLogsColumns = ({
       dataIndex: 'fail_reason',
       fixed: 'right',
       render: (text, record, index) => {
+        if (record.image_status)
+          return (
+            <TaskImageResultLink
+              record={record}
+              openTaskDetail={openTaskDetail}
+            />
+          );
+        if (record.data_omitted && record.status === 'SUCCESS') {
+          return (
+            <Typography.Text link onClick={() => openTaskDetail(record)}>
+              {t('详情')}
+            </Typography.Text>
+          );
+        }
         // Suno audio preview
         const isSunoSuccess =
           record.platform === 'suno' &&
@@ -416,7 +321,8 @@ export const getTaskLogsColumns = ({
           record.action === TASK_ACTION_REMIX_GENERATE;
         const isSuccess = record.status === 'SUCCESS';
         const resultUrl = record.result_url;
-        const hasResultUrl = typeof resultUrl === 'string' && /^https?:\/\//.test(resultUrl);
+        const hasResultUrl =
+          typeof resultUrl === 'string' && /^https?:\/\//.test(resultUrl);
         if (isSuccess && isVideoTask && hasResultUrl) {
           return (
             <a

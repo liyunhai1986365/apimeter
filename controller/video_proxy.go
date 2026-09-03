@@ -48,6 +48,16 @@ func VideoProxy(c *gin.Context) {
 		videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
 		return
 	}
+	view, viewErr := task.ImageRetentionView(common.GetTimestamp())
+	if viewErr != nil {
+		videoProxyError(c, http.StatusInternalServerError, "server_error", "Invalid saved task result")
+		return
+	}
+	if view.ImageContentExpired(common.GetTimestamp()) {
+		c.Header("Cache-Control", "no-store")
+		videoProxyError(c, http.StatusGone, "image_expired", "图片已过期")
+		return
+	}
 
 	if task.Status != model.TaskStatusSuccess {
 		videoProxyError(c, http.StatusBadRequest, "invalid_request_error",

@@ -8,6 +8,7 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -22,12 +23,17 @@ func TestBrowserSessionAuthDoesNotRequireNewAPIUserHeader(t *testing.T) {
 	common.RedisEnabled = false
 	db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:browser-session-auth-%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}))
 	model.DB = db
 	require.NoError(t, db.Create(&model.User{
 		Id: 42, Username: "browser-user", Password: "hashed", Role: common.RoleCommonUser,
 		Status: common.UserStatusEnabled, Group: "default", AffCode: "bsat",
 	}).Error)
+	bundle, err := service.CreateLoginSession(42, "password", "127.0.0.1", "browser-session-auth-test")
+	require.NoError(t, err)
+	identity, internal, err := service.ParseDashboardAccessToken(bundle.AccessToken)
+	require.NoError(t, err)
+	require.True(t, internal)
 	t.Cleanup(func() {
 		model.DB = originalDB
 		common.RedisEnabled = originalRedisEnabled
@@ -42,6 +48,9 @@ func TestBrowserSessionAuthDoesNotRequireNewAPIUserHeader(t *testing.T) {
 		session.Set("username", "browser-user")
 		session.Set("role", common.RoleCommonUser)
 		session.Set("status", common.UserStatusEnabled)
+		session.Set("session_id", bundle.Session.SID)
+		session.Set("auth_version", identity.UserAuthVersion)
+		session.Set("session_version", identity.SessionVersion)
 		require.NoError(t, session.Save())
 		c.Status(http.StatusNoContent)
 	})

@@ -6,7 +6,7 @@ import (
 
 	"github.com/QuantumNous/new-api/logger"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
-	"github.com/QuantumNous/new-api/types"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,7 +22,7 @@ func PreConsumeBilling(c *gin.Context, preConsumedQuota int, relayInfo *relaycom
 	if relayInfo != nil && relayInfo.QuotaClamp != nil {
 		clamp := relayInfo.QuotaClamp
 		return types.NewErrorWithStatusCode(
-			fmt.Errorf("pre-consume quota is out of range: operation=%s kind=%s value=%g", clamp.Op, clamp.Kind, clamp.Original),
+			clamp,
 			types.ErrorCodeModelPriceError,
 			http.StatusBadRequest,
 			types.ErrOptionWithSkipRetry(),

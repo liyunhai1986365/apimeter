@@ -19,8 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { Link } from '@tanstack/react-router'
 import { ArrowRight, CirclePlay } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useSystemConfig } from '@/hooks/use-system-config'
 import { Button } from '@/components/ui/button'
-import { LOGO_RAIL_PROVIDERS } from '../../landing-data'
+import {
+  LOGO_RAIL_PROVIDERS,
+  MAINLAND_LOGO_RAIL_PROVIDERS,
+} from '../../landing-data'
 import { ProviderLogoMarquee } from '../provider-logo-marquee'
 
 interface HeroProps {
@@ -29,6 +33,10 @@ interface HeroProps {
 
 export function Hero(props: HeroProps) {
   const { t } = useTranslation()
+  const { mainlandChinaPresentationEnabled } = useSystemConfig()
+  const providers = mainlandChinaPresentationEnabled
+    ? MAINLAND_LOGO_RAIL_PROVIDERS
+    : LOGO_RAIL_PROVIDERS
 
   return (
     <section className='relative z-10 overflow-hidden px-6 pt-24 pb-14 md:pt-32 md:pb-18'>
@@ -60,7 +68,9 @@ export function Hero(props: HeroProps) {
           style={{ animationDelay: '160ms' }}
         >
           {t(
-            'Unify OpenAI, Claude, Gemini, DeepSeek and private channels with shared keys, billing, fallback routing, and live request visibility.'
+            mainlandChinaPresentationEnabled
+              ? 'Connect DeepSeek, Qwen, Doubao, Kimi and other domestic models with shared keys, billing, fallback routing, and live request visibility.'
+              : 'Unify OpenAI, Claude, Gemini, DeepSeek and private channels with shared keys, billing, fallback routing, and live request visibility.'
           )}
         </p>
 
@@ -107,7 +117,7 @@ export function Hero(props: HeroProps) {
           <p className='text-muted-foreground mb-6 text-xs font-medium tracking-wide uppercase'>
             {t('Connected model providers')}
           </p>
-          <ProviderLogoMarquee providers={LOGO_RAIL_PROVIDERS} />
+          <ProviderLogoMarquee providers={providers} />
         </div>
 
         <div
@@ -125,7 +135,11 @@ export function Hero(props: HeroProps) {
             },
             {
               label: t('Developer contract'),
-              value: t('OpenAI, Claude, Gemini compatible'),
+              value: t(
+                mainlandChinaPresentationEnabled
+                  ? 'Compatible access for domestic models'
+                  : 'OpenAI, Claude, Gemini compatible'
+              ),
             },
           ].map((item) => (
             <div

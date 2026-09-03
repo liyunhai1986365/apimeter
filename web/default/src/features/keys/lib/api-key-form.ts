@@ -361,8 +361,7 @@ export function removeGroupFromChain(
   index: number
 ): string[] {
   const current = normalizeGroupChain(groups)
-  const next = current.filter((_, i) => i !== index)
-  return next.length > 0 ? next : [AUTO_GROUP_VALUE]
+  return current.filter((_, i) => i !== index)
 }
 
 export function parseApiKeyGroupChain(

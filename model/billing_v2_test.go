@@ -16,6 +16,8 @@ func TestBillingV2BackfillCreatesUsageAndAccountLedger(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
 	require.NoError(t, LOG_DB.Create(&[]Log{
@@ -110,6 +112,8 @@ func TestBillingV2SkipsUserOwnedProviderConsumeLogs(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
@@ -179,6 +183,8 @@ func TestBillingV2BuildsMonthlyStatementAndDailyReconciliation(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
@@ -297,7 +303,8 @@ func TestBillingV2BuildsMonthlyStatementAndDailyReconciliation(t *testing.T) {
 	assert.Equal(t, int64(15000), statement.OriginalAmount)
 	assert.Equal(t, int64(2000), statement.DiscountAmount)
 	assert.Equal(t, int64(13000), statement.SettlementAmount)
-	assert.Equal(t, BillingStatementStatusConfirmed, statement.Status)
+	assert.Equal(t, BillingStatementStatusOpen, statement.Status)
+	assert.Equal(t, BillingStatementConfirmationPending, statement.ConfirmationStatus)
 	require.Len(t, summaries, 2)
 	var gptVipSummary BillingStatementSummary
 	for _, summary := range summaries {
@@ -318,6 +325,8 @@ func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T)
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	june := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
@@ -359,9 +368,11 @@ func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T)
 	assert.Equal(t, int64(200), statement.RefundAmount)
 	assert.Equal(t, int64(800), statement.SettlementAmount)
 	assert.Equal(t, int64(0), statement.DifferenceAmount)
-	assert.Equal(t, BillingStatementStatusConfirmed, statement.Status)
+	assert.Equal(t, BillingStatementStatusOpen, statement.Status)
+	assert.Equal(t, BillingStatementConfirmationPending, statement.ConfirmationStatus)
 	require.Len(t, summaries, 1)
 	assert.Equal(t, "gpt-raw", summaries[0].ModelName)
+	assert.Equal(t, float64(0.5), summaries[0].GroupRatio)
 	assert.Equal(t, int64(1), summaries[0].RequestCount)
 	assert.Equal(t, int64(800), summaries[0].SettlementAmount)
 
@@ -371,13 +382,15 @@ func TestGenerateMonthlyBillingStatementUsesRawNetUsageAndUTCMonth(t *testing.T)
 	assert.Equal(t, int64(1), julyStatement.RequestCount)
 }
 
-func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
+func TestBillingV2BreakdownRowsSeparateSupplierDiscountChanges(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, LOG_DB.AutoMigrate(
 		&BillingUsageItem{},
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	day := time.Date(2026, 6, 12, 0, 0, 0, 0, time.UTC)
@@ -478,23 +491,33 @@ func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 		Month:  "2026-06",
 	})
 	require.NoError(t, err)
-	require.Len(t, monthlyRows, 2)
-	var vipRow BillingBreakdownRow
+	require.Len(t, monthlyRows, 3)
+	var discountedVIPRow BillingBreakdownRow
+	var fullPriceVIPRow BillingBreakdownRow
 	for _, row := range monthlyRows {
-		if row.ModelName == "gpt-4.1" && row.Group == "vip" {
-			vipRow = row
+		if row.ModelName != "gpt-4.1" || row.Group != "vip" {
+			continue
+		}
+		if row.GroupRatio == 0.8 {
+			discountedVIPRow = row
+		}
+		if row.GroupRatio == 1 {
+			fullPriceVIPRow = row
 		}
 	}
-	assert.Equal(t, "2026-06", vipRow.PeriodValue)
-	assert.Equal(t, BillingSourceWallet, vipRow.BillingSource)
-	assert.Equal(t, int64(4), vipRow.RequestCount)
-	assert.Equal(t, int64(1800), vipRow.InputTokens)
-	assert.Equal(t, int64(360), vipRow.OutputTokens)
-	assert.Equal(t, int64(120), vipRow.CacheReadTokens)
-	assert.Equal(t, int64(60), vipRow.CacheWriteTokens)
-	assert.Equal(t, int64(18500), vipRow.OriginalAmount)
-	assert.Equal(t, int64(3600), vipRow.DiscountAmount)
-	assert.Equal(t, int64(14900), vipRow.SettlementAmount)
+	assert.Equal(t, "2026-06", discountedVIPRow.PeriodValue)
+	assert.Equal(t, BillingSourceWallet, discountedVIPRow.BillingSource)
+	assert.Equal(t, int64(3), discountedVIPRow.RequestCount)
+	assert.Equal(t, int64(1800), discountedVIPRow.InputTokens)
+	assert.Equal(t, int64(360), discountedVIPRow.OutputTokens)
+	assert.Equal(t, int64(120), discountedVIPRow.CacheReadTokens)
+	assert.Equal(t, int64(60), discountedVIPRow.CacheWriteTokens)
+	assert.Equal(t, int64(18000), discountedVIPRow.OriginalAmount)
+	assert.Equal(t, int64(3600), discountedVIPRow.DiscountAmount)
+	assert.Equal(t, int64(14400), discountedVIPRow.SettlementAmount)
+	assert.Equal(t, int64(1), fullPriceVIPRow.RequestCount)
+	assert.Equal(t, int64(500), fullPriceVIPRow.OriginalAmount)
+	assert.Equal(t, int64(500), fullPriceVIPRow.SettlementAmount)
 
 	exportRows, err := GetBillingBreakdownRows(BillingBreakdownQuery{
 		UserId:       1001,
@@ -504,7 +527,7 @@ func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 		NoPagination: true,
 	})
 	require.NoError(t, err)
-	require.Len(t, exportRows, 2)
+	require.Len(t, exportRows, 3)
 
 	dailyRows, err := GetBillingBreakdownRows(BillingBreakdownQuery{
 		UserId:    1001,
@@ -513,23 +536,33 @@ func TestBillingV2BreakdownRowsAggregateByPeriodModelGroup(t *testing.T) {
 		EndDate:   "2026-06-12",
 	})
 	require.NoError(t, err)
-	require.Len(t, dailyRows, 1)
+	require.Len(t, dailyRows, 2)
 	assert.Equal(t, "2026-06-12", dailyRows[0].PeriodValue)
 
 	statement, summaries, err := GenerateMonthlyBillingStatement(1001, "2026-06")
 	require.NoError(t, err)
 	assert.Equal(t, int64(15900), statement.SettlementAmount)
-	var detail BillingStatementSummary
+	require.Len(t, summaries, 3)
+	var discountedDetail BillingStatementSummary
+	var fullPriceDetail BillingStatementSummary
 	for _, summary := range summaries {
 		if summary.Dimension == BillingStatementSummaryDimensionMonthModelGroup &&
 			summary.ModelName == "gpt-4.1" &&
-			summary.Group == "vip" {
-			detail = summary
+			summary.Group == "vip" &&
+			summary.GroupRatio == 0.8 {
+			discountedDetail = summary
+		}
+		if summary.Dimension == BillingStatementSummaryDimensionMonthModelGroup &&
+			summary.ModelName == "gpt-4.1" &&
+			summary.Group == "vip" &&
+			summary.GroupRatio == 1 {
+			fullPriceDetail = summary
 		}
 	}
-	assert.Equal(t, "2026-06", detail.PeriodValue)
-	assert.Equal(t, int64(14900), detail.SettlementAmount)
-	assert.Equal(t, int64(3600), detail.DiscountAmount)
+	assert.Equal(t, "2026-06", discountedDetail.PeriodValue)
+	assert.Equal(t, int64(14400), discountedDetail.SettlementAmount)
+	assert.Equal(t, int64(3600), discountedDetail.DiscountAmount)
+	assert.Equal(t, int64(500), fullPriceDetail.SettlementAmount)
 }
 
 func TestGenerateRecentMonthlyBillingStatementsBackfillsPreviousFullMonth(t *testing.T) {
@@ -539,6 +572,8 @@ func TestGenerateRecentMonthlyBillingStatementsBackfillsPreviousFullMonth(t *tes
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 
 	now := time.Date(2026, 6, 13, 10, 0, 0, 0, time.UTC)
@@ -626,6 +661,147 @@ func TestGenerateRecentMonthlyBillingStatementsBackfillsPreviousFullMonth(t *tes
 	assert.Empty(t, juneRows)
 }
 
+func TestGenerateMonthlyBillingStatementsForMonthUsesBoundedProjections(t *testing.T) {
+	truncateTables(t)
+	require.NoError(t, LOG_DB.AutoMigrate(
+		&BillingUsageItem{},
+		&AccountLedgerEntry{},
+		&BillingStatement{},
+		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
+	))
+
+	august := time.Date(2026, 8, 12, 0, 0, 0, 0, time.UTC)
+	require.NoError(t, LOG_DB.Create(&[]Log{
+		{
+			Id:        7501,
+			UserId:    1001,
+			CreatedAt: august.Add(time.Hour).Unix(),
+			Type:      LogTypeTopup,
+			Quota:     20000,
+		},
+		{
+			Id:        7502,
+			UserId:    1003,
+			CreatedAt: august.Add(2 * time.Hour).Unix(),
+			Type:      LogTypeTopup,
+			Quota:     3000,
+		},
+		{
+			Id:        7503,
+			UserId:    1001,
+			CreatedAt: august.Add(5 * time.Hour).Unix(),
+			Type:      LogTypeRefund,
+			ModelName: "gpt-4.1",
+			Group:     "vip",
+			Quota:     2000,
+			Other: common.MapToJsonStr(map[string]interface{}{
+				"group_ratio":        0.8,
+				"billing_source":     BillingSourceWallet,
+				"billing_mode":       "tiered_expr",
+				"pre_consumed_quota": 8000,
+				"actual_quota":       6000,
+			}),
+		},
+		{
+			Id:        7504,
+			UserId:    1002,
+			CreatedAt: august.Add(6 * time.Hour).Unix(),
+			Type:      LogTypeConsume,
+			ModelName: "claude-sonnet-4",
+			Group:     "default",
+			Quota:     1000,
+			Content:   "tiered_expr：tier=default",
+			Other: common.MapToJsonStr(map[string]interface{}{
+				"group_ratio":        1,
+				"billing_source":     BillingSourceWallet,
+				"billing_mode":       "tiered_expr",
+				"pre_consumed_quota": 5000,
+				"actual_quota":       6000,
+			}),
+		},
+	}).Error)
+	require.NoError(t, RecordBillingUsageItem(&BillingUsageItem{
+		UserId:           1001,
+		LogId:            7511,
+		ModelName:        "gpt-4.1",
+		Group:            "vip",
+		GroupRatio:       0.8,
+		BillingSource:    BillingSourceWallet,
+		BillingMode:      "tiered_expr",
+		BilledAt:         august.Add(3 * time.Hour).Unix(),
+		InputTokens:      1200,
+		OutputTokens:     300,
+		OriginalAmount:   10000,
+		DiscountAmount:   2000,
+		SettlementAmount: 8000,
+	}))
+	require.NoError(t, RecordBillingUsageItem(&BillingUsageItem{
+		UserId:           1002,
+		LogId:            7512,
+		ModelName:        "claude-sonnet-4",
+		Group:            "default",
+		GroupRatio:       1,
+		BillingSource:    BillingSourceWallet,
+		BillingMode:      "tokens",
+		BilledAt:         august.Add(4 * time.Hour).Unix(),
+		InputTokens:      700,
+		OutputTokens:     200,
+		OriginalAmount:   5000,
+		SettlementAmount: 5000,
+	}))
+
+	result, err := GenerateMonthlyBillingStatementsForMonth("2026-08")
+	require.NoError(t, err)
+	assert.Equal(t, 3, result.EligibleUsers)
+	assert.Equal(t, 3, result.StatementCount)
+	assert.Empty(t, result.FailedUsers)
+	assert.Zero(t, result.Backfill.Scanned)
+
+	statement, err := GetBillingStatementByNo("BILL-202608-1001", 1001)
+	require.NoError(t, err)
+	assert.Equal(t, int64(20000), statement.TopupAmount)
+	assert.Equal(t, int64(8000), statement.ConsumeAmount)
+	assert.Equal(t, int64(2000), statement.RefundAmount)
+	assert.Equal(t, int64(6000), statement.SettlementAmount)
+	assert.Zero(t, statement.DifferenceAmount)
+	assert.Equal(t, BillingStatementReconciliationMatched, statement.ReconciliationStatus)
+
+	consumeAdjustment, err := GetBillingStatementByNo("BILL-202608-1002", 1002)
+	require.NoError(t, err)
+	assert.Equal(t, int64(6000), consumeAdjustment.ConsumeAmount)
+	assert.Zero(t, consumeAdjustment.RefundAmount)
+	assert.Equal(t, int64(6000), consumeAdjustment.SettlementAmount)
+	assert.Zero(t, consumeAdjustment.DifferenceAmount)
+	assert.Equal(t, BillingStatementReconciliationMatched, consumeAdjustment.ReconciliationStatus)
+
+	topupOnly, err := GetBillingStatementByNo("BILL-202608-1003", 1003)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3000), topupOnly.TopupAmount)
+	assert.Zero(t, topupOnly.RequestCount)
+
+	var ledgerCount int64
+	require.NoError(t, LOG_DB.Model(&AccountLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount)
+
+	var summaryCount int64
+	require.NoError(t, LOG_DB.Model(&BillingStatementSummary{}).
+		Where("statement_no = ?", statement.StatementNo).
+		Count(&summaryCount).Error)
+	assert.Equal(t, int64(1), summaryCount)
+	var refundSummary BillingStatementSummary
+	require.NoError(t, LOG_DB.Where("statement_no = ?", statement.StatementNo).First(&refundSummary).Error)
+	assert.Equal(t, int64(1), refundSummary.RequestCount)
+	assert.Equal(t, int64(7500), refundSummary.OriginalAmount)
+	assert.Equal(t, int64(1500), refundSummary.DiscountAmount)
+	assert.Equal(t, int64(6000), refundSummary.SettlementAmount)
+	var consumeAdjustmentSummary BillingStatementSummary
+	require.NoError(t, LOG_DB.Where("statement_no = ?", consumeAdjustment.StatementNo).First(&consumeAdjustmentSummary).Error)
+	assert.Equal(t, int64(1), consumeAdjustmentSummary.RequestCount)
+	assert.Equal(t, int64(6000), consumeAdjustmentSummary.SettlementAmount)
+}
+
 func TestRecordBillingUsageConsumeLogDoesNotExtendLedger(t *testing.T) {
 	truncateTables(t)
 	require.NoError(t, LOG_DB.AutoMigrate(
@@ -633,6 +809,8 @@ func TestRecordBillingUsageConsumeLogDoesNotExtendLedger(t *testing.T) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
 	))
 	require.NoError(t, DB.Create(&User{
 		Id:       1001,

@@ -19,7 +19,7 @@ docs
 /output
 /upload
 /new-api
-/apimeter-api
+/modelsell-api
 *.db
 *.db-journal
 *.log

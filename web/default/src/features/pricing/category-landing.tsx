@@ -31,7 +31,8 @@ export function PricingCategoryLanding() {
     from: '/pricing/categories/$category/',
   })
   const category = getSEOCategory(categorySlug)
-  const { models, isLoading, priceRate, usdExchangeRate } = usePricingData()
+  const { models, isLoading, priceRate, usdExchangeRate, groupDisplay } =
+    usePricingData()
   const categoryModels = models.filter(
     (model) =>
       (model.category || MODEL_CATEGORIES.TEXT).toLowerCase() === category?.slug
@@ -126,6 +127,7 @@ export function PricingCategoryLanding() {
                   priceRate={priceRate}
                   usdExchangeRate={usdExchangeRate}
                   showRechargePrice={false}
+                  groupDisplay={groupDisplay}
                   onClick={() =>
                     navigate({
                       to: '/pricing/$modelId',

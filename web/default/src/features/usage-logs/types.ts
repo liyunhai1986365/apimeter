@@ -100,7 +100,34 @@ export interface ChannelAffinityInfo {
   using_group?: string
 }
 
+export interface ToolSurchargeLogItem {
+  name: string
+  count: number
+  /** Price in USD per 1,000 calls. */
+  price: number
+}
+
+export interface BillingRequestRuleTrace {
+  cond: string
+  multiplier: number
+  matched: boolean
+}
+
 export interface LogOtherData {
+  op?: {
+    action?: string
+    params?: Record<string, unknown>
+  }
+  audit_info?: {
+    method?: string
+    route?: string
+    path?: string
+    status?: number
+    success?: boolean
+    params?: Record<string, string>
+  }
+  login_method?: string
+  user_agent?: string
   admin_info?: {
     is_multi_key?: boolean
     multi_key_index?: number
@@ -135,6 +162,9 @@ export interface LogOtherData {
   cache_creation_tokens?: number
   cache_creation_tokens_5m?: number
   cache_creation_tokens_1h?: number
+  cache_write_tokens?: number
+  input_tokens_total?: number
+  usage_semantic?: string
   claude?: boolean
   model_ratio?: number
   completion_ratio?: number
@@ -165,6 +195,8 @@ export interface LogOtherData {
   image?: boolean
   image_ratio?: number
   image_output?: number
+  image_input_tokens?: number
+  image_output_tokens?: number
   web_search?: boolean
   web_search_call_count?: number
   web_search_price?: number
@@ -176,6 +208,8 @@ export interface LogOtherData {
   audio_input_price?: number
   image_generation_call?: boolean
   image_generation_call_price?: number
+  tool_surcharges?: ToolSurchargeLogItem[]
+  request_rules?: BillingRequestRuleTrace[]
   is_system_prompt_overwritten?: boolean
   po?: string[]
   billing_source?: string
@@ -281,6 +315,10 @@ export interface MidjourneyLog {
 // ============================================================================
 
 export interface TaskLog {
+  image_status?: 'available' | 'expired' | 'partially_expired'
+  image_expires_at?: number
+  image_has_url?: boolean
+  image_message?: string
   id: number
   user_id: number
   username?: string
@@ -292,7 +330,8 @@ export interface TaskLog {
   finish_time?: number // seconds
   progress?: string
   progress_message_en?: string
-  data?: string // JSON string
+  data?: unknown // Saved provider result, loaded on demand
+  data_omitted?: boolean
   fail_reason?: string
   result_url?: string
   status: string // NOT_START, SUBMITTED, IN_PROGRESS, SUCCESS, FAILURE, QUEUED, UNKNOWN
@@ -315,6 +354,8 @@ export interface TaskLogProperties {
 export interface GetLogsParams {
   p?: number
   page_size?: number
+  cursor_mode?: 1
+  cursor?: number
   type?: number
   username?: string
   token_name?: string
@@ -435,9 +476,11 @@ export interface GetLogsResponse {
       | RetryRouteEvent[]
       | MidjourneyLog[]
       | TaskLog[]
-    total: number
+    total?: number
     page: number
     page_size: number
+    has_more?: boolean
+    next_cursor?: number
   }
 }
 
@@ -507,6 +550,7 @@ export interface FetchLogsConfig {
   isAdmin: boolean
   page: number
   pageSize: number
+  cursor?: number
   searchParams: Record<string, unknown>
   columnFilters: Array<{ id: string; value: unknown }>
 }

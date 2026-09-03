@@ -2,6 +2,7 @@ package controller
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -16,18 +17,32 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func GetGroups(c *gin.Context) {
+func getConfiguredUserGroupNames() []string {
 	groupNames, configured := setting.GetUserGroupNamesFromDisplayConfig()
 	if !configured {
 		groupNames = make([]string, 0)
 		for groupName := range ratio_setting.GetGroupRatioCopy() {
 			groupNames = append(groupNames, groupName)
 		}
+		sort.Strings(groupNames)
 	}
+	return groupNames
+}
+
+func isConfiguredUserGroup(group string) bool {
+	for _, groupName := range getConfiguredUserGroupNames() {
+		if groupName == group {
+			return true
+		}
+	}
+	return false
+}
+
+func GetGroups(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "",
-		"data":    groupNames,
+		"data":    getConfiguredUserGroupNames(),
 	})
 }
 
@@ -53,8 +68,9 @@ func GetUserGroups(c *gin.Context) {
 				desc = setting.GetUsableGroupDescription(group.SystemGroupName)
 			}
 			usableGroups[group.GroupName] = map[string]interface{}{
-				"ratio": applyAgentUserGroupRatio(agentCtx, userGroup, group),
-				"desc":  desc,
+				"ratio":         applyAgentUserGroupRatio(agentCtx, userGroup, group),
+				"desc":          desc,
+				"hide_discount": setting.IsGroupDiscountHidden(group.SystemGroupName),
 			}
 		}
 		if channels, err := model.ListUserOwnedProviderChannels(userId); err == nil {
@@ -79,8 +95,9 @@ func GetUserGroups(c *gin.Context) {
 		if desc, ok := userUsableGroups[groupName]; ok {
 			ratio := service.GetUserGroupRatio(userGroup, groupName)
 			usableGroups[groupName] = map[string]interface{}{
-				"ratio": applyAgentGroupRatio(c, groupName, ratio),
-				"desc":  desc,
+				"ratio":         applyAgentGroupRatio(c, groupName, ratio),
+				"desc":          desc,
+				"hide_discount": setting.IsGroupDiscountHidden(groupName),
 			}
 		}
 	}

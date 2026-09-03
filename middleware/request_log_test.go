@@ -211,6 +211,10 @@ func TestRequestLogEndpointFilterOnlyAllowsRelayRequests(t *testing.T) {
 		{http.MethodGet, "/v1/models"},
 		{http.MethodGet, "/v1/models/gpt-test"},
 		{http.MethodPost, "/v1beta/models/gemini-pro:generateContent"},
+		{http.MethodPost, "/api/v3/contents/generations/tasks"},
+		{http.MethodGet, "/api/v3/contents/generations/tasks/task_123"},
+		{http.MethodPost, "/api/v1/services/aigc/video-generation/video-synthesis"},
+		{http.MethodGet, "/api/v1/tasks/task_123"},
 		{http.MethodPost, "/mj/submit/imagine"},
 		{http.MethodPost, "/relax/mj/submit/imagine"},
 		{http.MethodPost, "/suno/submit/music"},
@@ -234,6 +238,10 @@ func TestRequestLogEndpointFilterOnlyAllowsRelayRequests(t *testing.T) {
 		{http.MethodGet, "/not-mj/mj-ish"},
 		{http.MethodPost, "/v1/not-a-relay"},
 		{http.MethodGet, "/v1/chat/completions"},
+		{http.MethodGet, "/api/v3/contents/generations/tasks"},
+		{http.MethodPost, "/api/v3/contents/generations/tasks/task_123"},
+		{http.MethodGet, "/api/v1/services/aigc/video-generation/video-synthesis"},
+		{http.MethodPost, "/api/v1/tasks/task_123"},
 	}
 	for _, tc := range blocked {
 		require.False(t, isRelayRequestLogEndpoint(tc.method, tc.path), "%s %s should not be captured", tc.method, tc.path)
@@ -264,6 +272,14 @@ func TestTaskFetchRequestLogSkipsOnlyInProgressSuccessResponses(t *testing.T) {
 			path:       "/suno/fetch",
 			statusCode: http.StatusOK,
 			body:       `{"code":"success","data":[{"task_id":"a","status":"IN_PROGRESS"}]}`,
+			wantSkip:   true,
+		},
+		{
+			name:       "native seedance task in progress",
+			method:     http.MethodGet,
+			path:       "/api/v3/contents/generations/tasks/task_123",
+			statusCode: http.StatusOK,
+			body:       `{"id":"task_123","status":"running"}`,
 			wantSkip:   true,
 		},
 		{

@@ -39,7 +39,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { SignOutDialog } from '@/components/sign-out-dialog'
-import { buildOpenMosaicStartUrl } from '@/lib/openmosaic-language'
 
 const avatarFallbackClassName = 'font-semibold text-white'
 
@@ -129,7 +128,7 @@ export function ProfileDropdown() {
             {openMosaicUrl && (
               <DropdownMenuItem
                 onClick={() => {
-                  window.location.href = buildOpenMosaicStartUrl(openMosaicUrl)
+                  window.location.href = `${openMosaicUrl}/api/auth/modelsell/start?redirect=%2Fhome`
                 }}
               >
                 <ExternalLink className='size-4' />

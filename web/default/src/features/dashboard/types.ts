@@ -148,7 +148,7 @@ export interface ProcessedUsageBreakdownChartData {
 // ============================================================================
 
 export interface AnnouncementItem {
-  id?: number
+  id?: number | string
   title: string
   content: string
   publishDate?: string

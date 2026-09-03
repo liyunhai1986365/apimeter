@@ -1,6 +1,7 @@
 package dto
 
 type ImageTaskResponse struct {
+	TaskImageAvailability
 	ID         string         `json:"id"`
 	State      string         `json:"state"`
 	Progress   int            `json:"progress"`
@@ -17,7 +18,8 @@ type ImageTaskData struct {
 }
 
 type ImageTaskImage struct {
-	URL      string `json:"url"`
-	FileName string `json:"file_name,omitempty"`
-	B64Json  string `json:"b64_json,omitempty"`
+	ImageExpired bool   `json:"image_expired,omitempty"`
+	URL          string `json:"url"`
+	FileName     string `json:"file_name,omitempty"`
+	B64Json      string `json:"b64_json,omitempty"`
 }

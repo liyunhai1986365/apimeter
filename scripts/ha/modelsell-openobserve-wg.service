@@ -1,0 +1,11 @@
+[Unit]
+Description=ModelSell OpenObserve private WireGuard proxy
+Requires=modelsell-openobserve-wg.socket
+After=docker.service modelsell-openobserve-wg.socket
+
+[Service]
+ExecStart=/lib/systemd/systemd-socket-proxyd 127.0.0.1:5080
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true

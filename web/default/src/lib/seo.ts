@@ -84,12 +84,15 @@ export function getHTMLLanguage(language?: string | null): string {
 export function resolveSEODescriptor(
   pathname: string,
   systemName: string | undefined,
-  t: TFunction
+  t: TFunction,
+  mainlandChinaPresentationEnabled = false
 ): SEODescriptor {
   const siteName = getSiteName(systemName)
   const path = normalizeSEOPath(pathname)
   const homeDescription = t(
-    'Unify OpenAI, Claude, Gemini, DeepSeek and private channels with shared keys, billing, fallback routing, and live request visibility.'
+    mainlandChinaPresentationEnabled
+      ? 'Connect DeepSeek, Qwen, Doubao, Kimi and other domestic models with shared keys, billing, fallback routing, and live request visibility.'
+      : 'Unify OpenAI, Claude, Gemini, DeepSeek and private channels with shared keys, billing, fallback routing, and live request visibility.'
   )
 
   if (path === '/') {

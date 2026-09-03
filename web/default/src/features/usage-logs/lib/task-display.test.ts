@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import type { TaskLog } from '../types'
 import {
   buildTaskLogSubtitle,
   formatDrawingSubmitTime,
   getTaskLogImagePreviewUrl,
   getTaskLogVideoPreviewUrl,
+  getTaskImageStatus,
 } from './task-display'
-import type { TaskLog } from '../types'
 
 function taskLog(overrides: Partial<TaskLog>): TaskLog {
   return {
@@ -21,6 +22,43 @@ function taskLog(overrides: Partial<TaskLog>): TaskLog {
     ...overrides,
   }
 }
+
+describe('task image expiry', () => {
+  test('expires at the deadline even before physical cleanup', () => {
+    const metadata = {
+      image_status: 'available' as const,
+      image_expires_at: 100,
+    }
+    assert.equal(getTaskImageStatus(metadata, 99), 'available')
+    assert.equal(getTaskImageStatus(metadata, 100), 'expired')
+    assert.equal(
+      getTaskImageStatus({ ...metadata, image_has_url: true }, 100),
+      'partially_expired'
+    )
+  })
+  test('does not display a cached base64 image after expiry or as video', () => {
+    const log = taskLog({
+      image_status: 'expired',
+      data: { data: { images: [{ b64_json: 'SECRET' }] } },
+    })
+    assert.equal(getTaskLogImagePreviewUrl(log), '')
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
+  })
+  test('keeps the available URL when the first image expired', () => {
+    const log = taskLog({
+      image_status: 'partially_expired',
+      data: {
+        data: {
+          images: [
+            { image_expired: true },
+            { url: 'https://example.com/keep.png' },
+          ],
+        },
+      },
+    })
+    assert.equal(getTaskLogImagePreviewUrl(log), 'https://example.com/keep.png')
+  })
+})
 
 describe('buildTaskLogSubtitle', () => {
   test('shows async image model name instead of generic image-to-video action', () => {
@@ -45,15 +83,71 @@ describe('buildTaskLogSubtitle', () => {
       },
     })
 
-    assert.equal(buildTaskLogSubtitle(log, (value) => value), 'gpt-image-2')
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'gpt-image-2'
+    )
   })
 
-  test('keeps the existing platform and action subtitle for video tasks', () => {
-    const log = taskLog({ platform: 'kling', action: 'generate' })
+  test('uses the recorded model for video tasks too', () => {
+    const log = taskLog({
+      platform: '999',
+      action: 'generate',
+      properties: {
+        origin_model_name: 'doubao-seedance-2-0-mini-260615',
+        upstream_model_name: 'doubao-seedance-2-0-mini-260615-max',
+      },
+    })
 
     assert.equal(
       buildTaskLogSubtitle(log, (value) => value),
-      'kling · Image to Video'
+      'doubao-seedance-2-0-mini-260615'
+    )
+  })
+
+  test('uses nano-banana model names instead of numeric platform and video action', () => {
+    const log = taskLog({
+      platform: '24',
+      properties: { origin_model_name: 'nano-banana-2' },
+    })
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'nano-banana-2'
+    )
+    assert.equal(
+      getTaskLogVideoPreviewUrl({
+        ...log,
+        result_url: 'https://example.com/image.png',
+      }),
+      ''
+    )
+    assert.equal(
+      getTaskLogImagePreviewUrl({
+        ...log,
+        result_url: 'https://example.com/image.png',
+      }),
+      'https://example.com/image.png'
+    )
+  })
+
+  test('uses upstream metadata when the original model is missing', () => {
+    const log = taskLog({
+      properties: JSON.stringify({
+        origin_model_name: ' ',
+        upstream_model_name: 'custom-model',
+      }),
+    })
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'custom-model'
+    )
+  })
+
+  test('does not invent a model from a numeric platform or generic action', () => {
+    const log = taskLog({ platform: '24', properties: undefined })
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'Unknown model'
     )
   })
 })
@@ -97,7 +191,10 @@ describe('getTaskLogVideoPreviewUrl', () => {
       fail_reason: 'https://cdn.example.com/legacy.mp4',
     })
 
-    assert.equal(getTaskLogVideoPreviewUrl(log), '/v1/videos/task_legacy/content')
+    assert.equal(
+      getTaskLogVideoPreviewUrl(log),
+      '/v1/videos/task_legacy/content'
+    )
   })
 
   test('does not expose preview url for failed video tasks', () => {
@@ -152,5 +249,50 @@ describe('getTaskLogImagePreviewUrl', () => {
       getTaskLogImagePreviewUrl(log),
       'https://cdn.example.com/output.jpeg'
     )
+  })
+})
+
+describe('saved task detail payloads', () => {
+  test('previews normalized image objects containing only base64', () => {
+    const log = taskLog({
+      properties: { origin_model_name: 'gpt-image-2-count' },
+      data: { data: { images: [{ url: '', b64_json: 'aW1hZ2U=' }] } },
+    })
+    assert.equal(
+      getTaskLogImagePreviewUrl(log),
+      'data:image/png;base64,aW1hZ2U='
+    )
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
+  })
+
+  test('supports normalized images for custom model names', () => {
+    const log = taskLog({
+      properties: { origin_model_name: 'custom-image-model' },
+      data: { data: { images: [{ url: 'https://example.com/image.png' }] } },
+    })
+    assert.equal(
+      getTaskLogImagePreviewUrl(log),
+      'https://example.com/image.png'
+    )
+  })
+
+  test('reads video URLs from object results returned by the detail endpoint', () => {
+    const log = taskLog({
+      data: { output: { video_url: 'https://example.com/video.mp4' } },
+    })
+    assert.equal(
+      getTaskLogVideoPreviewUrl(log),
+      'https://example.com/video.mp4'
+    )
+  })
+
+  test('summary rows do not contain eager media URLs', () => {
+    const log = taskLog({
+      data: null,
+      data_omitted: true,
+      properties: { origin_model_name: 'gpt-image-2-count' },
+    })
+    assert.equal(getTaskLogImagePreviewUrl(log), '')
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
   })
 })

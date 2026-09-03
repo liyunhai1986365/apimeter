@@ -56,6 +56,7 @@ var workspaceAccountAllowedRoutes = map[string]struct{}{
 	"GET /api/data/self/dimensions": {},
 	"GET /api/data/self/tokens":     {},
 	"GET /api/task/self":            {},
+	"GET /api/task/self/:task_id":   {},
 
 	// The bare list route; the rest of the tree is covered by the prefixes below.
 	"GET /api/workspaces": {},

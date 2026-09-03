@@ -17,7 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { applyCustomerServiceScript } from './customerServiceScript';
+import {
+  applyCustomerServiceScript,
+  syncCustomerServiceUser,
+} from './customerServiceScript';
 import { applyGoogleAnalytics } from './googleAnalytics';
 
 export function setStatusData(data) {
@@ -67,5 +70,10 @@ export function setStatusData(data) {
 }
 
 export function setUserData(data) {
-  localStorage.setItem('user', JSON.stringify(data));
+  if (data) {
+    localStorage.setItem('user', JSON.stringify(data));
+  } else {
+    localStorage.removeItem('user');
+  }
+  syncCustomerServiceUser(data || null);
 }

@@ -72,4 +72,4 @@ export const DEFAULT_DISCOUNT_RATE = 1.0
 /**
  * Default minimum topup amount
  */
-export const DEFAULT_MIN_TOPUP = 1
+export const DEFAULT_MIN_TOPUP = 10

@@ -1685,7 +1685,7 @@ func TestBuildConfigurableResourceRequestMapsQueryFields(t *testing.T) {
 	require.Equal(t, "https://upstream.example.com/material/assets?asset_type=Image&name=avatar", req.URL.String())
 }
 
-func TestBuildAPIMeterAssetsUploadRequestForwardsModelQuery(t *testing.T) {
+func TestBuildModelsellAssetsUploadRequestForwardsModelQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(
@@ -1700,23 +1700,23 @@ func TestBuildAPIMeterAssetsUploadRequestForwardsModelQuery(t *testing.T) {
 	}())
 
 	channel := &model.Channel{
-		BaseURL: common.GetPointer("https://apimeter.example.com"),
+		BaseURL: common.GetPointer("https://modelsell.example.com"),
 	}
-	profile, ok := configurable.GetProfile("seedance2-apimeter")
+	profile, ok := configurable.GetProfile("seedance2-modelsell")
 	require.True(t, ok)
 	resource, ok := profile.ResourceByID("assets_upload")
 	require.True(t, ok)
 
 	req, err := buildConfigurableResourceRequest(c, channel, resource)
 	require.NoError(t, err)
-	require.Equal(t, "https://apimeter.example.com/api/assets/upload?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
+	require.Equal(t, "https://modelsell.example.com/api/assets/upload?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
 	require.Equal(t, http.MethodPost, req.Method)
 	body, err := io.ReadAll(req.Body)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"url":"https://cdn.example.com/image.png","asset_type":"Image","name":"reference"}`, string(body))
 }
 
-func TestBuildAPIMeterAssetDetailRequestForwardsModelQuery(t *testing.T) {
+func TestBuildModelsellAssetDetailRequestForwardsModelQuery(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(
@@ -1725,20 +1725,20 @@ func TestBuildAPIMeterAssetDetailRequestForwardsModelQuery(t *testing.T) {
 		nil,
 	)
 	c.Params = gin.Params{{Key: "id", Value: "asset-123"}}
-	c.Set(middleware.ContextKeyConfigurableResourceProfileID, "seedance2-apimeter")
+	c.Set(middleware.ContextKeyConfigurableResourceProfileID, "seedance2-modelsell")
 	c.Set(middleware.ContextKeyConfigurableResourceID, "asset_detail")
 
 	channel := &model.Channel{
-		BaseURL: common.GetPointer("https://apimeter.example.com"),
+		BaseURL: common.GetPointer("https://modelsell.example.com"),
 	}
-	profile, ok := configurable.GetProfile("seedance2-apimeter")
+	profile, ok := configurable.GetProfile("seedance2-modelsell")
 	require.True(t, ok)
 	resource, ok := profile.ResourceByID("asset_detail")
 	require.True(t, ok)
 
 	req, err := buildConfigurableResourceRequest(c, channel, resource)
 	require.NoError(t, err)
-	require.Equal(t, "https://apimeter.example.com/api/assets/asset-123?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
+	require.Equal(t, "https://modelsell.example.com/api/assets/asset-123?model=dreamina-seedance-2-0-fast-260128", req.URL.String())
 	require.Equal(t, http.MethodGet, req.Method)
 }
 
@@ -1914,6 +1914,52 @@ func TestBuildKlingV1ConfigurableResourceRequestPreservesOriginalBody(t *testing
 	body, err := io.ReadAll(req.Body)
 	require.NoError(t, err)
 	require.JSONEq(t, string(originalBody), string(body))
+}
+
+func TestSeedanceMaxAssetRequestsPreserveDocumentedFormat(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	channel := &model.Channel{BaseURL: common.GetPointer("https://model.service-inference.ai")}
+	for _, tc := range []struct {
+		profileID  string
+		resourceID string
+		method     string
+		path       string
+		body       string
+	}{
+		{"doubao-seedance-max-service-inference", "assets_create", http.MethodPost, "/v2/db-sd-max/assets", `{"URL":"https://cdn.example/ref.png","AssetType":"Image","Name":"strawberry-ref","Model":"doubao-seedance-2-0-260128-max"}`},
+		{"doubao-seedance-max-service-inference", "assets_get", http.MethodGet, "/v2/db-sd-max/assets/mva-e144dfc364a647f1", ""},
+		{"seedance2-service-inference", "max_assets_create", http.MethodPost, "/v2/sd-max/assets", `{"URL":"https://cdn.example/ref.png","AssetType":"Image","Name":"strawberry-ref","Model":"dreamina-seedance-2-0-260128-max"}`},
+		{"seedance2-service-inference", "max_assets_get", http.MethodGet, "/v2/sd-max/assets/mva-e144dfc364a647f1", ""},
+	} {
+		t.Run(tc.profileID+"/"+tc.resourceID, func(t *testing.T) {
+			profile, ok := configurable.GetProfile(tc.profileID)
+			require.True(t, ok)
+			resource, ok := profile.ResourceForEndpoint(tc.method, tc.path)
+			require.True(t, ok)
+			require.Equal(t, tc.resourceID, resource.ID)
+			require.False(t, resource.Billing.Enabled)
+			require.Empty(t, resource.PreRequests)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			c.Set(string(constant.ContextKeyChannelKey), "sk-test")
+			c.Params = gin.Params{{Key: "id", Value: "mva-e144dfc364a647f1"}}
+			request, err := buildConfigurableResourceRequest(c, channel, resource)
+			require.NoError(t, err)
+			require.Equal(t, "https://model.service-inference.ai"+tc.path, request.URL.String())
+			require.Equal(t, tc.method, request.Method)
+			require.Equal(t, "Bearer sk-test", request.Header.Get("Authorization"))
+			if tc.body != "" {
+				body, err := io.ReadAll(request.Body)
+				require.NoError(t, err)
+				require.JSONEq(t, tc.body, string(body))
+			}
+			response := []byte(`{"success":true,"data":{"Id":"mva-e144dfc364a647f1","Ref":"asset://mva-e144dfc364a647f1","Status":"Active","Error":null}}`)
+			mapped, err := configurable.BuildConfiguredResponse(resource.Response, response, nil)
+			require.NoError(t, err)
+			require.JSONEq(t, string(response), string(mapped))
+		})
+	}
 }
 
 func TestKlingConfigurableResourceRequestModelPrefersExplicitModelName(t *testing.T) {

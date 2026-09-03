@@ -68,7 +68,8 @@ type StripeAutoRechargeStatus struct {
 }
 
 func StripeAutoRechargeAvailable() bool {
-	return operation_setting.IsPaymentComplianceConfirmed() &&
+	return setting.StripeEnabled &&
+		operation_setting.IsPaymentComplianceConfirmed() &&
 		(strings.HasPrefix(setting.StripeApiSecret, "sk_") || strings.HasPrefix(setting.StripeApiSecret, "rk_")) &&
 		strings.TrimSpace(setting.StripeWebhookSecret) != "" &&
 		strings.TrimSpace(setting.StripePriceId) != ""

@@ -48,6 +48,23 @@ export type StripePurchaseConversionResponse = ApiResponse<{
   value?: number
   currency?: string
 }>
+
+export interface BalanceForecast {
+  user_id: number
+  balance: number
+  hourly_consumption: number
+  daily_consumption: number
+  used_last_24_hours: number
+  used_last_7_days: number
+  estimated_hours: number
+  estimated_exhausted_at: number
+  sample_started_at: number
+  last_usage_at: number
+  calculated_at: number
+  status: 'ready' | 'depleted' | 'insufficient_data'
+  created_at: number
+  updated_at: number
+}
 export interface StripeAutoRechargeStatus {
   available: boolean
   bound: boolean
@@ -209,6 +226,8 @@ export interface TopupInfo {
   quota_for_invitee?: number
   /** Effective referral policy for the current user */
   affiliate_policy?: AffiliateRewardPolicy
+  /** Latest wallet runway forecast */
+  balance_forecast?: BalanceForecast | null
 }
 
 /**

@@ -32,6 +32,7 @@ import {
 import { SidebarModulesSection } from '../maintenance/sidebar-modules-section'
 import type { SiteSettings } from '../types'
 import { createSectionRegistry } from '../utils/section-registry'
+import { MainlandPresentationSection } from './mainland-presentation-section'
 
 const SITE_SECTIONS = [
   {
@@ -47,6 +48,7 @@ const SITE_SECTIONS = [
           SystemName: settings.SystemName,
           Logo: settings.Logo,
           Footer: settings.Footer,
+          FooterCompanyName: settings.FooterCompanyName,
           About: settings.About,
           HomePageContent: settings.HomePageContent,
           CustomerServiceScript: settings.CustomerServiceScript,
@@ -57,6 +59,17 @@ const SITE_SECTIONS = [
             privacy_policy: settings['legal.privacy_policy'],
           },
         }}
+      />
+    ),
+  },
+  {
+    id: 'mainland-presentation',
+    titleKey: 'Mainland China presentation',
+    descriptionKey:
+      'Show domestic model brands on public static introduction pages',
+    build: (settings: SiteSettings) => (
+      <MainlandPresentationSection
+        defaultValue={settings.MainlandChinaPresentationEnabled}
       />
     ),
   },
@@ -90,7 +103,8 @@ const SITE_SECTIONS = [
     build: (settings: SiteSettings) => (
       <RankingsVisibilitySection
         defaultValue={
-          (settings.RankingsDataVisibility || 'masked') as RankingsDataVisibility
+          (settings.RankingsDataVisibility ||
+            'masked') as RankingsDataVisibility
         }
       />
     ),

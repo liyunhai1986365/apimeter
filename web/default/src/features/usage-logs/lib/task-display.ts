@@ -1,9 +1,27 @@
-import { taskActionMapper } from './mappers'
 import { formatTimestampToDate } from '@/lib/format'
 import { TASK_ACTIONS, TASK_STATUS } from '../constants'
 import type { TaskLog, TaskLogProperties } from '../types'
 
 type TranslateFn = (value: string) => string
+
+export function getTaskImageStatus(
+  log: Pick<TaskLog, 'image_status' | 'image_expires_at' | 'image_has_url'>,
+  now = Date.now() / 1000
+) {
+  if (
+    log.image_status === 'expired' ||
+    log.image_status === 'partially_expired'
+  )
+    return log.image_status
+  if (
+    log.image_status === 'available' &&
+    log.image_expires_at &&
+    now >= log.image_expires_at
+  ) {
+    return log.image_has_url ? 'partially_expired' : 'expired'
+  }
+  return log.image_status
+}
 
 function parseProperties(properties: TaskLog['properties']): TaskLogProperties {
   if (!properties) return {}
@@ -26,6 +44,7 @@ function normalizeModelName(value: unknown): string {
 
 function isImageTaskModel(modelName: string): boolean {
   const normalized = modelName.toLowerCase()
+  if (/^nano-banana(?:-|$)/.test(normalized)) return true
   if (/^gpt-image-\d+/.test(normalized)) return true
   return /^gemini-[\w.-]+-image(?:-[\w.-]+)?$/.test(normalized)
 }
@@ -63,7 +82,9 @@ function parseRecordData(data: TaskLog['data']): Record<string, unknown> {
       return {}
     }
   }
-  return {}
+  return typeof data === 'object' && !Array.isArray(data)
+    ? (data as Record<string, unknown>)
+    : {}
 }
 
 function getAtPath(source: unknown, path: string): unknown {
@@ -135,10 +156,12 @@ export function getTaskLogImageModelName(log: TaskLog): string {
 }
 
 export function buildTaskLogSubtitle(log: TaskLog, t: TranslateFn): string {
-  const imageModelName = getTaskLogImageModelName(log)
-  if (imageModelName) return imageModelName
-
-  return `${t(log.platform)} · ${t(taskActionMapper.getLabel(log.action))}`
+  const properties = parseProperties(log.properties)
+  return (
+    normalizeModelName(properties.origin_model_name) ||
+    normalizeModelName(properties.upstream_model_name) ||
+    t('Unknown model')
+  )
 }
 
 export function formatDrawingSubmitTime(submitTime?: number): string {
@@ -146,7 +169,7 @@ export function formatDrawingSubmitTime(submitTime?: number): string {
 }
 
 export function getTaskLogVideoPreviewUrl(log: TaskLog): string {
-  if (getTaskLogImageModelName(log)) {
+  if (getTaskLogImageModelName(log) || log.image_status) {
     return ''
   }
   if (log.status !== TASK_STATUS.SUCCESS || !isVideoTaskAction(log.action)) {
@@ -170,7 +193,10 @@ export function getTaskLogVideoPreviewUrl(log: TaskLog): string {
 }
 
 export function getTaskLogImagePreviewUrl(log: TaskLog): string {
-  if (!getTaskLogImageModelName(log)) {
+  const imageStatus = getTaskImageStatus(log)
+  if (imageStatus === 'expired') return ''
+  const data = parseRecordData(log.data)
+  if (!getTaskLogImageModelName(log) && !getAtPath(data, 'data.images.0')) {
     return ''
   }
   if (log.status !== TASK_STATUS.SUCCESS) {
@@ -178,13 +204,40 @@ export function getTaskLogImagePreviewUrl(log: TaskLog): string {
   }
 
   const resultUrl = normalizePreviewUrl(log.result_url)
-  if (resultUrl) return resultUrl
+  if (
+    resultUrl &&
+    !(imageStatus === 'partially_expired' && resultUrl.startsWith('data:'))
+  )
+    return resultUrl
 
-  const data = parseRecordData(log.data)
-  for (const path of IMAGE_PREVIEW_URL_PATHS) {
-    const url = normalizePreviewUrl(getAtPath(data, path))
-    if (url) return url
+  const images = getAtPath(data, 'data.images')
+  if (Array.isArray(images)) {
+    for (const image of images) {
+      const url = normalizePreviewUrl(getAtPath(image, 'url'))
+      if (
+        url &&
+        !(imageStatus === 'partially_expired' && url.startsWith('data:'))
+      )
+        return url
+    }
   }
 
+  for (const path of IMAGE_PREVIEW_URL_PATHS) {
+    const url = normalizePreviewUrl(getAtPath(data, path))
+    if (
+      url &&
+      !(imageStatus === 'partially_expired' && url.startsWith('data:'))
+    )
+      return url
+  }
+
+  const base64 = getAtPath(data, 'data.images.0.b64_json')
+  if (
+    imageStatus !== 'partially_expired' &&
+    typeof base64 === 'string' &&
+    base64
+  ) {
+    return `data:image/png;base64,${base64}`
+  }
   return ''
 }

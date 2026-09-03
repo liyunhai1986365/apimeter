@@ -390,7 +390,7 @@ const PersonalSetting = () => {
       showSuccess(t('账户已删除！'));
       await API.get('/api/user/logout');
       userDispatch({ type: 'logout' });
-      localStorage.removeItem('user');
+      setUserData(null);
       navigate('/login');
     } else {
       showError(message);

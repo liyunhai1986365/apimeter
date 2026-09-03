@@ -23,3 +23,20 @@ func TestDerivedAccountLedgerRoutesAreNotRegistered(t *testing.T) {
 		require.False(t, ok, "derived account-ledger route %q must stay disabled", route)
 	}
 }
+
+func TestAdminBillingStatementSingleDeliveryRoutesAreRegistered(t *testing.T) {
+	registered := make(map[string]struct{})
+	for _, route := range registeredAPIRoutes(t) {
+		registered[route.Method+" "+route.Path] = struct{}{}
+	}
+
+	for _, route := range []string{
+		"GET /api/billing/admin/monthly-statements/:statement_no/export",
+		"POST /api/billing/admin/monthly-statements/:statement_no/email",
+	} {
+		_, ok := registered[route]
+		require.True(t, ok, "single-statement delivery route %q must be registered", route)
+	}
+	_, bulkEmailRegistered := registered["POST /api/billing/admin/monthly-statements/email"]
+	require.False(t, bulkEmailRegistered, "bulk statement email route must not be registered")
+}

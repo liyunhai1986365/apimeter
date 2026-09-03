@@ -33,6 +33,7 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { getCurrencyDisplay } from '@/lib/currency'
 import { formatQuota, formatTimestampToDate } from '@/lib/format'
+import { normalizeDiscountLabel } from '@/lib/group-discount'
 import {
   getCliDisplayName,
   getCliInstallCommands,
@@ -48,6 +49,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { CopyButton } from '@/components/copy-button'
+import { DiscountTooltip } from '@/components/discount-tooltip'
 import { SectionPageLayout } from '@/components/layout'
 import {
   fetchSubscriptionTokenKey,
@@ -104,12 +106,21 @@ function getPlanAccessLabel(
   return t('All models')
 }
 
-function getPlanDetailRows(plan: PlanRecord['plan'] | undefined, t: TFunction) {
+type PlanDetailRow = {
+  label?: string
+  value: string
+  discount?: boolean
+}
+
+function getPlanDetailRows(
+  plan: PlanRecord['plan'] | undefined,
+  t: TFunction
+): PlanDetailRow[] {
   if (!plan) return []
   const totalAmount = Number(plan.total_amount || 0)
   const resetAmount = getResetQuota(plan)
   const resetPeriodLabel = formatResetPeriod(plan, t)
-  const discountDescription = plan.discount_description?.trim()
+  const discountLabel = normalizeDiscountLabel(plan.discount_description)
   const resetText =
     resetPeriodLabel === t('No Reset')
       ? t('One-time quota')
@@ -119,15 +130,13 @@ function getPlanDetailRows(plan: PlanRecord['plan'] | undefined, t: TFunction) {
         })
 
   return [
-    [
-      t('Total Quota'),
-      totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited'),
-    ],
-    ...(discountDescription
-      ? [[t('Official Discount:'), discountDescription]]
-      : []),
-    [t('Reset Cadence'), resetText],
-    [t('Model Coverage'), getPlanAccessLabel(plan, t)],
+    {
+      label: t('Total Quota'),
+      value: totalAmount > 0 ? formatQuota(totalAmount) : t('Unlimited'),
+    },
+    ...(discountLabel ? [{ value: discountLabel, discount: true }] : []),
+    { label: t('Reset Cadence'), value: resetText },
+    { label: t('Model Coverage'), value: getPlanAccessLabel(plan, t) },
   ]
 }
 
@@ -138,16 +147,29 @@ function PlanDetailRows({ plan }: { plan?: PlanRecord['plan'] }) {
 
   return (
     <div className='space-y-3'>
-      {rows.map(([label, value]) => (
-        <div key={label} className='flex items-center justify-between gap-4'>
-          <span className='text-muted-foreground text-sm font-medium'>
-            {label}
-          </span>
-          <span className='text-foreground max-w-[62%] truncate text-right text-sm font-semibold'>
-            {value}
-          </span>
-        </div>
-      ))}
+      {rows.map((row) =>
+        row.discount ? (
+          <div key={`discount-${row.value}`} className='flex justify-end'>
+            <DiscountTooltip label={row.value}>
+              <Badge variant='secondary' className='font-mono'>
+                {row.value}
+              </Badge>
+            </DiscountTooltip>
+          </div>
+        ) : (
+          <div
+            key={row.label}
+            className='flex items-center justify-between gap-4'
+          >
+            <span className='text-muted-foreground text-sm font-medium'>
+              {row.label}
+            </span>
+            <span className='text-foreground max-w-[62%] truncate text-right text-sm font-semibold'>
+              {row.value}
+            </span>
+          </div>
+        )
+      )}
     </div>
   )
 }
@@ -333,7 +355,7 @@ function SubscriptionUsagePanel({
   )
 }
 
-function APIMeterCliCard() {
+function ModelSellCliCard() {
   const { t } = useTranslation()
   const { systemName, serverAddress } = useSystemConfig()
   const [target, setTarget] = useState<InstallTarget>('unix')
@@ -553,7 +575,7 @@ function ActiveSubscriptionCard({
                 ) : null}
               </div>
             </div>
-            <APIMeterCliCard />
+            <ModelSellCliCard />
           </CardContent>
         </Card>
       </div>

@@ -32,7 +32,6 @@ import { useAuthStore } from '@/stores/auth-store'
 import { useStatus } from '@/hooks/use-status'
 import { Button } from '@/components/ui/button'
 import { PublicLayout } from '@/components/layout'
-import { Footer } from '@/components/layout/components/footer'
 import {
   formatInviteRegisterReward,
   formatInviteRewardRatio,
@@ -268,7 +267,6 @@ export function Invite() {
           </div>
         </section>
       </main>
-      <Footer />
     </PublicLayout>
   )
 }

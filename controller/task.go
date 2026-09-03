@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"errors"
+	"net/http"
 	"strconv"
 
 	"github.com/QuantumNous/new-api/common"
@@ -12,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // UpdateTaskBulk 薄入口，实际轮询逻辑在 service 层
@@ -20,6 +23,7 @@ func UpdateTaskBulk() {
 }
 
 func GetAllTask(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	pageInfo := common.GetPageQuery(c)
 
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
@@ -40,11 +44,12 @@ func GetAllTask(c *gin.Context) {
 	items := model.TaskGetAllTasks(pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
 	total := model.TaskCountAllTasks(queryParams)
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(tasksToDto(items, true))
+	pageInfo.SetItems(taskListToDto(items, true))
 	common.ApiSuccess(c, pageInfo)
 }
 
 func GetUserTask(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	pageInfo := common.GetPageQuery(c)
 	scope, err := workspaceAccessScope(c)
 	if err != nil {
@@ -71,8 +76,56 @@ func GetUserTask(c *gin.Context) {
 	items := model.TaskGetAllUserTask(scope.OwnerUserId, pageInfo.GetStartIdx(), pageInfo.GetPageSize(), queryParams)
 	total := model.TaskCountAllUserTask(scope.OwnerUserId, queryParams)
 	pageInfo.SetTotal(int(total))
-	pageInfo.SetItems(tasksToDto(items, false))
+	pageInfo.SetItems(taskListToDto(items, false))
 	common.ApiSuccess(c, pageInfo)
+}
+
+type taskListItem struct {
+	*dto.TaskDto
+	DataOmitted bool `json:"data_omitted"`
+}
+
+func taskListToDto(tasks []*model.Task, fillUser bool) []taskListItem {
+	items := tasksToDto(tasks, fillUser)
+	result := make([]taskListItem, len(items))
+	for i, item := range items {
+		// Keep list serialization safe even if a future caller supplies full tasks.
+		item.Data = nil
+		item.ResultURL = ""
+		result[i] = taskListItem{TaskDto: item, DataOmitted: true}
+	}
+	return result
+}
+
+func GetTaskDetail(c *gin.Context) {
+	getTaskDetail(c, 0, nil)
+}
+
+func GetUserTaskDetail(c *gin.Context) {
+	scope, err := workspaceAccessScope(c)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	if scope.OwnerUserId <= 0 {
+		common.ApiError(c, ErrWorkspaceScopeMissing)
+		return
+	}
+	getTaskDetail(c, scope.OwnerUserId, scope.WorkspaceFilter())
+}
+
+func getTaskDetail(c *gin.Context, userId int, allowedWorkspaceIds []int) {
+	task, err := model.GetTaskLogDetail(c.Request.Context(), c.Param("task_id"), userId, allowedWorkspaceIds)
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusNotFound, gin.H{"success": false, "message": "Task not found"})
+		return
+	}
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	c.Header("Cache-Control", "no-store")
+	common.ApiSuccess(c, tasksToDto([]*model.Task{task}, userId == 0)[0])
 }
 
 func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {

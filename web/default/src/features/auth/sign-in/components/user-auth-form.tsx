@@ -55,10 +55,12 @@ import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/password-input'
 import { Turnstile } from '@/components/turnstile'
 import { login, wechatLoginByCode } from '@/features/auth/api'
+import { GoCaptcha } from '@/features/auth/components/go-captcha'
 import { LegalConsent } from '@/features/auth/components/legal-consent'
 import { OAuthProviders } from '@/features/auth/components/oauth-providers'
 import { loginFormSchema } from '@/features/auth/constants'
 import { useAuthRedirect } from '@/features/auth/hooks/use-auth-redirect'
+import { useGoCaptcha } from '@/features/auth/hooks/use-go-captcha'
 import { useTurnstile } from '@/features/auth/hooks/use-turnstile'
 import {
   getLegalConsentAvailability,
@@ -95,6 +97,13 @@ export function UserAuthForm({
     setTurnstileToken,
     validateTurnstile,
   } = useTurnstile()
+  const {
+    isGoCaptchaEnabled,
+    goCaptchaToken,
+    setGoCaptchaToken,
+    validateGoCaptcha,
+    resetGoCaptcha,
+  } = useGoCaptcha()
   const aiCreationSSOUrl = getAICreationSSOUrlFromStatus(
     status as unknown as Record<string, unknown> | null
   )
@@ -166,7 +175,7 @@ export function UserAuthForm({
       return
     }
 
-    if (!validateTurnstile()) return
+    if (!validateTurnstile() || !validateGoCaptcha()) return
 
     setIsLoading(true)
     try {
@@ -174,6 +183,7 @@ export function UserAuthForm({
         username: data.username,
         password: data.password,
         turnstile: turnstileToken,
+        go_captcha_token: goCaptchaToken,
       })
 
       if (res.success) {
@@ -188,6 +198,7 @@ export function UserAuthForm({
     } catch (_error) {
       // Errors are handled by global interceptor
     } finally {
+      resetGoCaptcha()
       setIsLoading(false)
     }
   }
@@ -361,11 +372,23 @@ export function UserAuthForm({
           )}
         />
 
+        {isGoCaptchaEnabled && (
+          <GoCaptcha
+            scene='login'
+            token={goCaptchaToken}
+            onVerify={setGoCaptchaToken}
+          />
+        )}
+
         {/* Submit Button */}
         <Button
           type='submit'
           className='mt-1 h-11 w-full justify-center gap-2 rounded-lg'
-          disabled={isLoading || (requiresLegalConsent && !agreedToLegal)}
+          disabled={
+            isLoading ||
+            (isGoCaptchaEnabled && !goCaptchaToken) ||
+            (requiresLegalConsent && !agreedToLegal)
+          }
         >
           {isLoading ? <Loader2 className='animate-spin' /> : <LogIn />}
           {t('Sign in')}

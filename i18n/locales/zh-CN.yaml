@@ -25,6 +25,12 @@ common.name_cannot_be_empty: "名称不能为空"
 common.batch_too_many: "批量请求数量过多，最多 {{.Max}} 条"
 
 # Auth middleware messages
+captcha.disabled: "行为验证码未启用"
+captcha.invalid: "行为验证码无效或已过期，请重新验证"
+captcha.required: "请完成人机验证"
+captcha.verification_failed: "验证失败，请更换验证码后重试"
+captcha.generate_failed: "验证码生成失败，请稍后重试"
+
 auth.not_logged_in: "无权进行此操作，未登录且未提供 access token"
 auth.access_token_invalid: "无权进行此操作，access token 无效"
 auth.user_info_invalid: "无权进行此操作，用户信息无效"
@@ -48,6 +54,9 @@ token.expired: "该令牌已过期"
 token.exhausted: "该令牌额度已用尽 TokenStatusExhausted[sk-{{.Prefix}}***{{.Suffix}}]"
 token.status_unavailable: "该令牌状态不可用"
 token.db_error: "无效的令牌，数据库查询出错，请联系管理员"
+token.auto_groups_too_many: "每个令牌最多可选择 {{.Max}} 个 Auto 分组"
+token.auto_groups_duplicate: "Auto 分组 {{.Group}} 重复"
+token.auto_groups_invalid: "Auto 分组 {{.Group}} 不可用或无权访问"
 
 # Redemption messages
 redemption.name_length: "兑换码名称长度必须在1-20之间"

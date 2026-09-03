@@ -28,6 +28,13 @@ type QuotaClamp struct {
 	Clamped  int     `json:"clamped"`
 }
 
+func (c *QuotaClamp) Error() string {
+	if c == nil {
+		return ""
+	}
+	return fmt.Sprintf("quota conversion (%s) %s: original=%g, clamped=%d", c.Op, c.Kind, c.Original, c.Clamped)
+}
+
 func (c *QuotaClamp) AuditMap() map[string]interface{} {
 	if c == nil {
 		return nil
@@ -56,6 +63,13 @@ func saturateQuota(value float64, op string) (int, *QuotaClamp) {
 	}
 }
 
+func strictQuota(quota int, clamp *QuotaClamp) (int, error) {
+	if clamp != nil {
+		return 0, clamp
+	}
+	return quota, nil
+}
+
 func QuotaFromFloat(value float64) int {
 	quota, _ := QuotaFromFloatChecked(value)
 	return quota
@@ -63,6 +77,10 @@ func QuotaFromFloat(value float64) int {
 
 func QuotaFromFloatChecked(value float64) (int, *QuotaClamp) {
 	return saturateQuota(value, "QuotaFromFloat")
+}
+
+func QuotaFromFloatStrict(value float64) (int, error) {
+	return strictQuota(QuotaFromFloatChecked(value))
 }
 
 func QuotaRound(value float64) int {
@@ -74,6 +92,10 @@ func QuotaRoundChecked(value float64) (int, *QuotaClamp) {
 	return saturateQuota(math.Round(value), "QuotaRound")
 }
 
+func QuotaRoundStrict(value float64) (int, error) {
+	return strictQuota(QuotaRoundChecked(value))
+}
+
 func QuotaFromDecimal(value decimal.Decimal) int {
 	quota, _ := QuotaFromDecimalChecked(value)
 	return quota
@@ -82,4 +104,8 @@ func QuotaFromDecimal(value decimal.Decimal) int {
 func QuotaFromDecimalChecked(value decimal.Decimal) (int, *QuotaClamp) {
 	f, _ := value.Round(0).Float64()
 	return saturateQuota(f, "QuotaFromDecimal")
+}
+
+func QuotaFromDecimalStrict(value decimal.Decimal) (int, error) {
+	return strictQuota(QuotaFromDecimalChecked(value))
 }

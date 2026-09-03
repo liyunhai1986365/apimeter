@@ -80,6 +80,15 @@ func TestTaskAdaptorBuildsMappedSubmitRequest(t *testing.T) {
 	}
 }
 
+func TestBuildConfiguredResponseRejectsMissingOrNonObjectRoot(t *testing.T) {
+	for _, upstream := range []string{`{}`, `{"task":null}`, `{"task":[]}`, `{"task":"invalid"}`} {
+		t.Run(upstream, func(t *testing.T) {
+			_, err := BuildConfiguredResponse(ResponseConfig{Passthrough: true, RootPath: "task"}, []byte(upstream), nil)
+			require.ErrorContains(t, err, `response root path "task" must select a JSON object`)
+		})
+	}
+}
+
 func TestBuildConfiguredResponseUsesMultipleFallbackSources(t *testing.T) {
 	responseBody, err := BuildConfiguredResponse(ResponseConfig{
 		Fields: []FieldMapping{
@@ -126,6 +135,22 @@ func TestBuildConfiguredResponseMapsConfiguredFieldValues(t *testing.T) {
 	}, []byte(`{"status":"completed"}`), nil)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"data":{"Status":"Active"}}`, string(responseBody))
+}
+
+func TestBuildMappedMapOmitNullPreservesExplicitFalseAndZero(t *testing.T) {
+	body, err := BuildMappedMap([]FieldMapping{
+		{To: "parameters.audio", From: "body.audio", OmitNull: true},
+		{To: "parameters.seed", From: "body.seed", OmitNull: true},
+		{To: "parameters.missing", From: "body.missing", OmitNull: true},
+	}, map[string]any{"audio": false, "seed": 0}, nil)
+	require.NoError(t, err)
+	data, err := common.Marshal(body)
+	require.NoError(t, err)
+	require.True(t, gjson.GetBytes(data, "parameters.audio").Exists())
+	require.False(t, gjson.GetBytes(data, "parameters.audio").Bool())
+	require.True(t, gjson.GetBytes(data, "parameters.seed").Exists())
+	require.Equal(t, int64(0), gjson.GetBytes(data, "parameters.seed").Int())
+	require.False(t, gjson.GetBytes(data, "parameters.missing").Exists())
 }
 
 func TestTaskAdaptorBuildsHappyHorseTextToVideoRequest(t *testing.T) {
@@ -354,6 +379,43 @@ func TestTaskAdaptorBuildsSeedanceNativeOfficialRequest(t *testing.T) {
 	require.Equal(t, "reference_image", gjson.GetBytes(mappedBody, "content.1.role").String())
 }
 
+func TestTaskAdaptorValidatesSeedanceNativeDurationBounds(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	for _, profileID := range []string{"doubao-seedance-max-service-inference", "seedance2-service-inference"} {
+		t.Run(profileID, func(t *testing.T) {
+			for _, duration := range []int{30, 31} {
+				info := seedanceMaxRelayInfo(profileID)
+				body, err := common.Marshal(map[string]any{
+					"model":      info.UpstreamModelName,
+					"content":    []map[string]string{{"type": "text", "text": "a cat"}},
+					"resolution": "480p", "duration": duration,
+				})
+				require.NoError(t, err)
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", bytes.NewReader(body))
+				c.Request.Header.Set("Content-Type", "application/json")
+				_, err = common.GetBodyStorage(c)
+				require.NoError(t, err)
+				adaptor := &TaskAdaptor{}
+				adaptor.Init(info)
+				taskErr := adaptor.ValidateRequestAndSetAction(c, info)
+				if duration == 31 {
+					require.NotNil(t, taskErr)
+					require.Equal(t, "invalid_seconds", taskErr.Code)
+					require.Equal(t, "seconds must be -1 (automatic) or between 1 and 30", taskErr.Message)
+					continue
+				}
+				require.Nil(t, taskErr)
+				reader, err := adaptor.BuildRequestBody(c, info)
+				require.NoError(t, err)
+				upstreamBody, err := io.ReadAll(reader)
+				require.NoError(t, err)
+				require.Equal(t, int64(30), gjson.GetBytes(upstreamBody, "duration").Int())
+			}
+		})
+	}
+}
+
 func TestTaskAdaptorSeedanceOfficialAndGenericSubmitUseSameConfiguredEndpoint(t *testing.T) {
 	info := seedanceRelayInfo("doubao-seedance-2-0-260128")
 	adaptor := &TaskAdaptor{}
@@ -426,14 +488,14 @@ func TestTaskAdaptorBuildsSeedanceServiceInferenceRequest(t *testing.T) {
 	require.True(t, gjson.GetBytes(body, "return_last_frame").Bool())
 }
 
-func TestTaskAdaptorMapsSeedanceServiceInferenceNativeRequestThroughCommonVideoProtocol(t *testing.T) {
+func TestTaskAdaptorPreservesSeedanceServiceInferenceNativeRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{
 		"model":"dreamina-seedance-2-0-fast-260128",
 		"content":[
 			{"type":"text","text":"这个哥们在唱歌"},
-			{"type":"image_url","image_url":{"url":"asset://image-ref"},"role":"source_image"},
-			{"type":"audio_url","audio_url":{"url":"https://example.com/ref.mp3"},"role":"source_audio"}
+			{"type":"image_url","image_url":{"url":"asset://image-ref"},"role":"first_frame"},
+			{"type":"audio_url","audio_url":{"url":"https://example.com/ref.mp3"},"role":"reference_audio"}
 		],
 		"resolution":"480p",
 		"ratio":"16:9",
@@ -463,7 +525,7 @@ func TestTaskAdaptorMapsSeedanceServiceInferenceNativeRequestThroughCommonVideoP
 	require.Equal(t, "dreamina-seedance-2-0-fast-260128", gjson.GetBytes(mappedBody, "model").String())
 	require.Equal(t, "这个哥们在唱歌", gjson.GetBytes(mappedBody, "content.0.text").String())
 	require.Equal(t, "asset://image-ref", gjson.GetBytes(mappedBody, "content.1.image_url.url").String())
-	require.Equal(t, "reference_image", gjson.GetBytes(mappedBody, "content.1.role").String())
+	require.Equal(t, "first_frame", gjson.GetBytes(mappedBody, "content.1.role").String())
 	require.Equal(t, "https://example.com/ref.mp3", gjson.GetBytes(mappedBody, "content.2.audio_url.url").String())
 	require.Equal(t, "reference_audio", gjson.GetBytes(mappedBody, "content.2.role").String())
 	require.Equal(t, "480p", gjson.GetBytes(mappedBody, "resolution").String())
@@ -471,6 +533,7 @@ func TestTaskAdaptorMapsSeedanceServiceInferenceNativeRequestThroughCommonVideoP
 	require.True(t, gjson.GetBytes(mappedBody, "generate_audio").Bool())
 	require.True(t, gjson.GetBytes(mappedBody, "return_last_frame").Bool())
 	require.False(t, gjson.GetBytes(mappedBody, "task").Exists())
+	require.JSONEq(t, string(body), string(mappedBody))
 }
 
 func TestTaskAdaptorParsesSeedanceServiceInferenceResponses(t *testing.T) {
@@ -541,50 +604,209 @@ func TestTaskAdaptorParsesSeedanceServiceInferenceFailureReasonVariants(t *testi
 	require.Equal(t, "fallback string failure reason", result.Reason)
 }
 
-func TestTaskAdaptorReturnsSeedanceServiceInferenceOfficialFetchTaskResponseShape(t *testing.T) {
+func TestTaskAdaptorPreservesSeedanceServiceInferenceNativeFetchFieldsAtRoot(t *testing.T) {
 	adaptor := &TaskAdaptor{}
-	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-260128")
+	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-fast-hc")
 	adaptor.Init(info)
 
 	nativeFetch, err := adaptor.ConvertToNativeFetchResponse(&model.Task{
-		ID:        34,
-		TaskID:    "task_public",
-		ChannelId: 44,
-		UserId:    1,
-		Group:     "default",
-		Platform:  "45",
-		Action:    "generate",
-		Status:    model.TaskStatusInProgress,
-		Progress:  "50%",
-		Quota:     743243,
+		ID:         34,
+		CreatedAt:  1787564840,
+		UpdatedAt:  1787564976,
+		TaskID:     "task_public",
+		ChannelId:  44,
+		UserId:     1,
+		Group:      "default",
+		Platform:   "999",
+		Action:     "generate",
+		Status:     model.TaskStatusSuccess,
+		Progress:   "100%",
+		Quota:      743243,
+		FinishTime: 1787564976,
 		Properties: model.Properties{
-			OriginModelName:   "dreamina-seedance-2-0-260128",
-			UpstreamModelName: "dreamina-seedance-2-0-260128",
+			OriginModelName:   "doubao-seedance-2-0-fast-260128",
+			UpstreamModelName: "dreamina-seedance-2-0-fast-hc",
 		},
 	}, []byte(`{
 		"task":{
 			"id":"mvt-upstream",
-			"status":"processing",
-			"model":"dreamina-seedance-2-0-260128",
-			"duration_seconds":5,
-			"outputs":[],
+			"status":"completed",
+			"model":"dreamina-seedance-2-0-fast-hc",
+			"duration_seconds":4,
+			"outputs":["https://cdn.example/result.mp4"],
 			"error":null,
-			"created_at":"2026-06-22T17:11:36.096Z",
-			"completed_at":null
+			"created_at":"2026-08-24T09:47:19.113Z",
+			"completed_at":"2026-08-24T09:48:41.934Z",
+			"usage":{"completion_tokens":40594,"total_tokens":40594},
+			"metadata":{
+				"updated_at":1787564921,
+				"seed":78256,
+				"resolution":"480p",
+				"ratio":"16:9",
+				"duration":4,
+				"framespersecond":24,
+				"service_tier":"default",
+				"execution_expires_after":172800,
+				"generate_audio":true,
+				"draft":false,
+				"revised_prompt":"a revised prompt",
+				"reasoning_effort":"high",
+				"tools":[{"type":"web_search"}],
+				"camera_fixed":true,
+				"watermark":true,
+				"priority":0,
+				"output_format":"mp4",
+				"return_last_frame":true
+			}
 		}
 	}`))
 	require.NoError(t, err)
-	require.Equal(t, "success", gjson.GetBytes(nativeFetch, "code").String())
-	require.Equal(t, int64(34), gjson.GetBytes(nativeFetch, "data.id").Int())
-	require.Equal(t, "task_public", gjson.GetBytes(nativeFetch, "data.task_id").String())
-	require.Equal(t, "IN_PROGRESS", gjson.GetBytes(nativeFetch, "data.status").String())
-	require.Equal(t, "50%", gjson.GetBytes(nativeFetch, "data.progress").String())
-	require.Equal(t, "dreamina-seedance-2-0-260128", gjson.GetBytes(nativeFetch, "data.properties.origin_model_name").String())
-	require.Equal(t, "processing", gjson.GetBytes(nativeFetch, "data.data.task.status").String())
 	require.False(t, gjson.GetBytes(nativeFetch, "task").Exists())
+	require.Equal(t, "task_public", gjson.GetBytes(nativeFetch, "id").String())
+	require.Equal(t, "completed", gjson.GetBytes(nativeFetch, "status").String())
+	require.Equal(t, "dreamina-seedance-2-0-fast-hc", gjson.GetBytes(nativeFetch, "model").String())
+	require.Equal(t, "2026-08-24T09:47:19.113Z", gjson.GetBytes(nativeFetch, "created_at").String())
+	require.Equal(t, "2026-08-24T09:48:41.934Z", gjson.GetBytes(nativeFetch, "completed_at").String())
+	require.Equal(t, "https://cdn.example/result.mp4", gjson.GetBytes(nativeFetch, "outputs.0").String())
+	require.Equal(t, int64(40594), gjson.GetBytes(nativeFetch, "usage.completion_tokens").Int())
+	require.Equal(t, int64(40594), gjson.GetBytes(nativeFetch, "usage.total_tokens").Int())
+	require.Equal(t, "480p", gjson.GetBytes(nativeFetch, "metadata.resolution").String())
+	require.Equal(t, "16:9", gjson.GetBytes(nativeFetch, "metadata.ratio").String())
+	require.Equal(t, int64(4), gjson.GetBytes(nativeFetch, "duration_seconds").Int())
+	require.Equal(t, gjson.Number, gjson.GetBytes(nativeFetch, "duration_seconds").Type)
+	require.True(t, gjson.GetBytes(nativeFetch, "metadata.generate_audio").Bool())
+	require.True(t, gjson.GetBytes(nativeFetch, "metadata.draft").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "metadata.draft").Bool())
+	require.Equal(t, "a revised prompt", gjson.GetBytes(nativeFetch, "metadata.revised_prompt").String())
+	require.Equal(t, "high", gjson.GetBytes(nativeFetch, "metadata.reasoning_effort").String())
+	require.Equal(t, "web_search", gjson.GetBytes(nativeFetch, "metadata.tools.0.type").String())
+	require.False(t, gjson.GetBytes(nativeFetch, "code").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "data").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "user_id").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "channel_id").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "quota").Exists())
+	for _, requestOnlyField := range []string{
+		"camera_fixed",
+		"watermark",
+		"priority",
+		"output_format",
+		"return_last_frame",
+	} {
+		require.False(t, gjson.GetBytes(nativeFetch, requestOnlyField).Exists(), requestOnlyField)
+	}
 }
 
-func TestTaskAdaptorReturnsSeedanceServiceInferenceOfficialSubmitOpenAIShape(t *testing.T) {
+func TestVolcengineVideoTaskResponseUsesOfficialTypesAndFramesExcludesDuration(t *testing.T) {
+	body, err := buildVolcengineVideoTaskResponse(&model.Task{
+		TaskID:    "task_frames",
+		Status:    model.TaskStatusSuccess,
+		CreatedAt: 1787564840,
+		Properties: model.Properties{
+			OriginModelName: "doubao-seedance-2-0-fast-260128",
+		},
+	}, []byte(`{
+		"status":"succeeded",
+		"updated_at":"1787564921",
+		"content":{"video_url":"https://cdn.example/frames.mp4"},
+		"usage":{"total_tokens":"40594"},
+		"seed":"78256",
+		"duration":"4",
+		"frames":"97",
+		"framespersecond":"24",
+		"execution_expires_after":"172800",
+		"generate_audio":"false",
+		"draft":"false",
+		"tools":{"type":"web_search"}
+	}`))
+	require.NoError(t, err)
+
+	for _, integerField := range []string{
+		"created_at",
+		"updated_at",
+		"usage.completion_tokens",
+		"usage.total_tokens",
+		"seed",
+		"frames",
+		"framespersecond",
+		"execution_expires_after",
+	} {
+		require.Equal(t, gjson.Number, gjson.GetBytes(body, integerField).Type, integerField)
+	}
+	require.Equal(t, int64(97), gjson.GetBytes(body, "frames").Int())
+	require.False(t, gjson.GetBytes(body, "duration").Exists())
+	require.Equal(t, gjson.False, gjson.GetBytes(body, "generate_audio").Type)
+	require.Equal(t, gjson.False, gjson.GetBytes(body, "draft").Type)
+	require.Equal(t, "web_search", gjson.GetBytes(body, "tools.0.type").String())
+}
+
+func TestTaskAdaptorPreservesSeedanceServiceInferenceNativeFailureFieldsAtRoot(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-fast-hc")
+	adaptor.Init(info)
+
+	nativeFetch, err := adaptor.ConvertToNativeFetchResponse(&model.Task{
+		TaskID:    "task_failed",
+		Status:    model.TaskStatusFailure,
+		CreatedAt: 1787564840,
+		Properties: model.Properties{
+			OriginModelName:   "doubao-seedance-2-0-fast-260128",
+			UpstreamModelName: "dreamina-seedance-2-0-fast-hc",
+		},
+	}, []byte(`{
+		"task":{
+			"id":"mvt-failed",
+			"status":"failed",
+			"outputs":[],
+			"error":"fallback failure",
+			"metadata":{
+				"error":{
+					"code":"OutputAudioSensitiveContentDetected.PolicyViolation",
+					"message":"The output audio may be restricted."
+				}
+			}
+		}
+	}`))
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(nativeFetch, "task").Exists())
+	require.Equal(t, "task_failed", gjson.GetBytes(nativeFetch, "id").String())
+	require.Equal(t, "failed", gjson.GetBytes(nativeFetch, "status").String())
+	require.Equal(t, "fallback failure", gjson.GetBytes(nativeFetch, "error").String())
+	require.Equal(t, "OutputAudioSensitiveContentDetected.PolicyViolation", gjson.GetBytes(nativeFetch, "metadata.error.code").String())
+	require.Equal(t, "The output audio may be restricted.", gjson.GetBytes(nativeFetch, "metadata.error.message").String())
+	require.False(t, gjson.GetBytes(nativeFetch, "content").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "code").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "data").Exists())
+
+	fallback, err := buildVolcengineVideoTaskResponse(&model.Task{
+		TaskID: "task_failed_without_error",
+		Status: model.TaskStatusFailure,
+	}, []byte(`{"status":"failed"}`))
+	require.NoError(t, err)
+	require.True(t, gjson.GetBytes(fallback, "model").Exists())
+	require.Equal(t, "TaskFailed", gjson.GetBytes(fallback, "error.code").String())
+	require.Equal(t, "Task failed", gjson.GetBytes(fallback, "error.message").String())
+}
+
+func TestVolcengineVideoTaskStatus(t *testing.T) {
+	tests := []struct {
+		upstream string
+		internal model.TaskStatus
+		want     string
+	}{
+		{upstream: "pending", internal: model.TaskStatusQueued, want: "queued"},
+		{upstream: "processing", internal: model.TaskStatusInProgress, want: "running"},
+		{upstream: "completed", internal: model.TaskStatusSuccess, want: "succeeded"},
+		{upstream: "failed", internal: model.TaskStatusFailure, want: "failed"},
+		{upstream: "cancelled", internal: model.TaskStatusFailure, want: "cancelled"},
+		{upstream: "expired", internal: model.TaskStatusFailure, want: "expired"},
+		{internal: model.TaskStatusSuccess, want: "succeeded"},
+	}
+	for _, tt := range tests {
+		require.Equal(t, tt.want, volcengineVideoTaskStatus(tt.upstream, tt.internal))
+	}
+}
+
+func TestTaskAdaptorPreservesSeedanceServiceInferenceNativeSubmitFieldsAtRoot(t *testing.T) {
 	adaptor := &TaskAdaptor{}
 	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-260128")
 	info.TaskRelayInfo = &relaycommon.TaskRelayInfo{
@@ -606,17 +828,14 @@ func TestTaskAdaptorReturnsSeedanceServiceInferenceOfficialSubmitOpenAIShape(t *
 
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
-		Body:       io.NopCloser(bytes.NewReader([]byte(`{"task":{"id":"mvt-upstream","status":"pending","model":"dreamina-seedance-2-0-260128","outputs":[]}}`))),
+		Body:       io.NopCloser(bytes.NewReader([]byte(`{"task":{"id":"mvt-upstream","status":"preparing","model":"dreamina-seedance-2-0-fast-260128-max","duration_seconds":10,"outputs":[],"error":null,"created_at":"2026-09-06T11:53:01.301Z","completed_at":null,"prep":{"total":2,"active":0,"failed":0,"attempt":1}}}`))),
 	}
-	taskID, _, taskErr := adaptor.DoResponse(c, resp, info)
+	taskID, stored, taskErr := adaptor.DoResponse(c, resp, info)
 	require.Nil(t, taskErr)
 	require.Equal(t, "mvt-upstream", taskID)
-	require.Equal(t, "task_public", gjson.GetBytes(recorder.Body.Bytes(), "id").String())
-	require.Equal(t, "task_public", gjson.GetBytes(recorder.Body.Bytes(), "task_id").String())
-	require.Equal(t, "video", gjson.GetBytes(recorder.Body.Bytes(), "object").String())
-	require.Equal(t, "queued", gjson.GetBytes(recorder.Body.Bytes(), "status").String())
-	require.Equal(t, "dreamina-seedance-2-0-260128", gjson.GetBytes(recorder.Body.Bytes(), "model").String())
+	require.Equal(t, "mvt-upstream", gjson.GetBytes(stored, "task.id").String())
 	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "task").Exists())
+	require.JSONEq(t, `{"id":"task_public","status":"preparing","model":"dreamina-seedance-2-0-fast-260128-max","duration_seconds":10,"outputs":[],"error":null,"created_at":"2026-09-06T11:53:01.301Z","completed_at":null,"prep":{"total":2,"active":0,"failed":0,"attempt":1}}`, recorder.Body.String())
 }
 
 func TestTaskAdaptorReturnsSeedanceServiceInferenceGenericSubmitShape(t *testing.T) {
@@ -650,6 +869,85 @@ func TestTaskAdaptorReturnsSeedanceServiceInferenceGenericSubmitShape(t *testing
 	require.Equal(t, "video", gjson.GetBytes(recorder.Body.Bytes(), "object").String())
 	require.Equal(t, "queued", gjson.GetBytes(recorder.Body.Bytes(), "status").String())
 	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "task").Exists())
+}
+
+func TestTaskAdaptorReturnsSeedanceServiceInferencePreparingProgress(t *testing.T) {
+	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-260128-max")
+	info.TaskRelayInfo.PublicTaskID = "task_public"
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	upstream := []byte(`{"task":{"id":"mvt-upstream","status":"preparing","duration_seconds":15,"prep":{"total":7,"active":3,"failed":1,"attempt":2,"failedRefs":["@Image2"]}}}`)
+
+	// Native queries preserve the full preparation state and replace only the ID.
+	native, err := adaptor.ConvertToNativeFetchResponse(&model.Task{TaskID: "task_public", Status: model.TaskStatusQueued}, upstream)
+	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(native, "task").Exists())
+	require.Equal(t, "task_public", gjson.GetBytes(native, "id").String())
+	require.Equal(t, "preparing", gjson.GetBytes(native, "status").String())
+	require.JSONEq(t, gjson.GetBytes(upstream, "task.prep").Raw, gjson.GetBytes(native, "prep").Raw)
+
+	// Generic clients keep the OpenAI status, with the upstream state in metadata.
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/video/generations", nil)
+	_, _, taskErr := adaptor.DoResponse(c, &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewReader(upstream))}, info)
+	require.Nil(t, taskErr)
+	response := recorder.Body.Bytes()
+	require.Equal(t, "task_public", gjson.GetBytes(response, "id").String())
+	require.Equal(t, "queued", gjson.GetBytes(response, "status").String())
+	require.Equal(t, "preparing", gjson.GetBytes(response, "metadata.upstream_status").String())
+	require.Equal(t, int64(15), gjson.GetBytes(response, "metadata.duration_seconds").Int())
+	require.JSONEq(t, gjson.GetBytes(upstream, "task.prep").Raw, gjson.GetBytes(response, "metadata.prep").Raw)
+	fetched, err := applyOpenAIVideoResponseFields(adaptor.profile.Video.Fetch.OpenAIResponse, []byte(`{"id":"task_public","metadata":{}}`), upstream, info)
+	require.NoError(t, err)
+	require.Equal(t, "preparing", gjson.GetBytes(fetched, "metadata.upstream_status").String())
+	require.JSONEq(t, gjson.GetBytes(upstream, "task.prep").Raw, gjson.GetBytes(fetched, "metadata.prep").Raw)
+}
+
+func TestSeedanceServiceInferenceFetchFallsBackToLocalTaskState(t *testing.T) {
+	for _, profileID := range []string{"doubao-seedance-max-service-inference", "seedance2-service-inference"} {
+		t.Run(profileID, func(t *testing.T) {
+			testSeedanceMaxFetchFallsBackToLocalTaskState(t, profileID)
+		})
+	}
+}
+
+func testSeedanceMaxFetchFallsBackToLocalTaskState(t *testing.T, profileID string) {
+	info := seedanceMaxRelayInfo(profileID)
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	for _, tc := range []struct {
+		status model.TaskStatus
+		want   string
+	}{
+		{model.TaskStatusQueued, "pending"},
+		{model.TaskStatusInProgress, "processing"},
+		{model.TaskStatusSuccess, "completed"},
+		{model.TaskStatusFailure, "failed"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			task := &model.Task{
+				TaskID: "task_public", Status: tc.status, FailReason: "stored failure",
+				Properties:  model.Properties{OriginModelName: info.UpstreamModelName},
+				PrivateData: model.TaskPrivateData{ResultURL: "https://cdn.example/stored.mp4", Key: "must-not-be-returned"},
+			}
+			body, err := adaptor.ConvertToNativeFetchResponse(task, nil)
+			require.NoError(t, err)
+			require.False(t, gjson.GetBytes(body, "task").Exists())
+			require.Equal(t, "task_public", gjson.GetBytes(body, "id").String())
+			require.Equal(t, tc.want, gjson.GetBytes(body, "status").String())
+			require.Equal(t, task.Properties.OriginModelName, gjson.GetBytes(body, "model").String())
+			require.NotContains(t, string(body), "must-not-be-returned")
+			if tc.status == model.TaskStatusSuccess {
+				require.Equal(t, "https://cdn.example/stored.mp4", gjson.GetBytes(body, "outputs.0").String())
+			} else {
+				require.Empty(t, gjson.GetBytes(body, "outputs").Array())
+			}
+			if tc.status == model.TaskStatusFailure {
+				require.Equal(t, "stored failure", gjson.GetBytes(body, "error").String())
+			}
+		})
+	}
 }
 
 func TestTaskAdaptorBuildsKlingTextToVideoRequest(t *testing.T) {
@@ -922,6 +1220,50 @@ func TestTaskAdaptorReturnsSeedanceServiceInferenceGenericOpenAIShape(t *testing
 	require.False(t, gjson.GetBytes(body, "task").Exists())
 }
 
+func TestTaskAdaptorParsesSeedanceServiceInferenceMetadataUsage(t *testing.T) {
+	adaptor := &TaskAdaptor{}
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "dreamina-seedance-2-0-mini-260615",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			UpstreamModelName: "dreamina-seedance-2-0-mini-260615-max",
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-service-inference"},
+			},
+		},
+	}
+	adaptor.Init(info)
+
+	responseBody := []byte(`{
+		"task":{
+			"id":"mvt-6ba1d77745114773",
+			"status":"completed",
+			"model":"dreamina-seedance-2-0-mini-260615-max",
+			"outputs":["https://cdn.example/result.mp4"],
+			"metadata":{
+				"usage":{"completion_tokens":50638,"total_tokens":50638}
+			}
+		}
+	}`)
+	result, err := adaptor.ParseTaskResult(responseBody)
+	require.NoError(t, err)
+	require.Equal(t, "mvt-6ba1d77745114773", result.TaskID)
+	require.Equal(t, string(model.TaskStatusSuccess), result.Status)
+	require.Equal(t, "https://cdn.example/result.mp4", result.Url)
+	require.Equal(t, 50638, result.TotalTokens)
+	require.Equal(t, 50638, result.CompletionTokens)
+
+	openAIResponse, err := applyOpenAIVideoResponseFields(
+		adaptor.profile.Video.Fetch.OpenAIResponse,
+		[]byte(`{"id":"task_public","metadata":{}}`),
+		responseBody,
+		info,
+	)
+	require.NoError(t, err)
+	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.total_tokens").Int())
+	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.completion_tokens").Int())
+}
+
 func TestTaskAdaptorNativeMappedBodySurvivesUpstreamRequestClose(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{
@@ -1014,8 +1356,8 @@ func TestTaskAdaptorParsesSeedanceResponses(t *testing.T) {
 	}
 }
 
-func TestTaskAdaptorParsesAPIMeterWrappedSeedanceUsage(t *testing.T) {
-	profile, ok := GetProfile("seedance2-apimeter")
+func TestTaskAdaptorParsesModelsellWrappedSeedanceUsage(t *testing.T) {
+	profile, ok := GetProfile("seedance2-modelsell")
 	require.True(t, ok)
 
 	wrapped := []byte(`{
@@ -1023,20 +1365,20 @@ func TestTaskAdaptorParsesAPIMeterWrappedSeedanceUsage(t *testing.T) {
 		"data":{
 			"data":{
 				"task":{
-					"id":"mvt-apimeter",
+					"id":"mvt-modelsell",
 					"status":"completed",
 					"usage":{"total_tokens":50638,"completion_tokens":50638}
 				}
 			},
 			"status":"SUCCESS",
-			"task_id":"task_apimeter",
+			"task_id":"task_modelsell",
 			"result_url":"https://cdn.example/result.mp4"
 		},
-		"message":""
+		"message":"success"
 	}`)
 	result := ParseConfiguredTaskInfo(profile.Video.Fetch.Response, wrapped)
 
-	require.Equal(t, "task_apimeter", result.TaskID)
+	require.Equal(t, "task_modelsell", result.TaskID)
 	require.Equal(t, string(model.TaskStatusSuccess), result.Status)
 	require.Equal(t, "https://cdn.example/result.mp4", result.Url)
 	require.Equal(t, 50638, result.TotalTokens)
@@ -1051,6 +1393,59 @@ func TestTaskAdaptorParsesAPIMeterWrappedSeedanceUsage(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.total_tokens").Int())
 	require.Equal(t, int64(50638), gjson.GetBytes(openAIResponse, "metadata.usage.completion_tokens").Int())
+
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(&relaycommon.RelayInfo{
+		OriginModelName: "doubao-seedance-2-0-fast-260128",
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			UpstreamModelName: "doubao-seedance-2-0-fast-260128",
+			ChannelSetting: dto.ChannelSettings{
+				Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-modelsell"},
+			},
+		},
+	})
+	legacyNativeFetch, err := adaptor.ConvertToNativeFetchResponse(&model.Task{
+		TaskID:    "task_public",
+		Status:    model.TaskStatusSuccess,
+		CreatedAt: 1787564840,
+		Properties: model.Properties{
+			OriginModelName:   "doubao-seedance-2-0-fast-260128",
+			UpstreamModelName: "doubao-seedance-2-0-fast-260128",
+		},
+	}, wrapped)
+	require.NoError(t, err)
+	require.Equal(t, "task_public", gjson.GetBytes(legacyNativeFetch, "id").String())
+	require.Equal(t, "succeeded", gjson.GetBytes(legacyNativeFetch, "status").String())
+	require.Equal(t, "https://cdn.example/result.mp4", gjson.GetBytes(legacyNativeFetch, "content.video_url").String())
+	require.Equal(t, int64(50638), gjson.GetBytes(legacyNativeFetch, "usage.total_tokens").Int())
+	require.False(t, gjson.GetBytes(legacyNativeFetch, "error").Exists())
+	require.False(t, gjson.GetBytes(legacyNativeFetch, "code").Exists())
+	require.False(t, gjson.GetBytes(legacyNativeFetch, "data").Exists())
+
+	flat := []byte(`{
+		"id":"task_modelsell_flat",
+		"status":"succeeded",
+		"model":"doubao-seedance-2-0-fast-260128",
+		"content":{"video_url":"https://cdn.example/flat-result.mp4"},
+		"usage":{"total_tokens":40594,"completion_tokens":40594}
+	}`)
+	flatResult := ParseConfiguredTaskInfo(profile.Video.Fetch.Response, flat)
+	require.Equal(t, "task_modelsell_flat", flatResult.TaskID)
+	require.Equal(t, string(model.TaskStatusSuccess), flatResult.Status)
+	require.Equal(t, "https://cdn.example/flat-result.mp4", flatResult.Url)
+	require.Equal(t, 40594, flatResult.TotalTokens)
+	require.Equal(t, 40594, flatResult.CompletionTokens)
+
+	flatOpenAIResponse, err := applyOpenAIVideoResponseFields(
+		profile.Video.Fetch.OpenAIResponse,
+		[]byte(`{"id":"task_public","metadata":{}}`),
+		flat,
+		&relaycommon.RelayInfo{},
+	)
+	require.NoError(t, err)
+	require.Equal(t, int64(40594), gjson.GetBytes(flatOpenAIResponse, "metadata.usage.total_tokens").Int())
+	require.Equal(t, int64(40594), gjson.GetBytes(flatOpenAIResponse, "metadata.usage.completion_tokens").Int())
 }
 
 func TestTaskAdaptorParsesSeedanceArkTaskAssetsOfficialResponses(t *testing.T) {
@@ -1096,7 +1491,8 @@ func TestTaskAdaptorParsesSeedanceArkTaskAssetsOfficialResponses(t *testing.T) {
 		t.Fatalf("unexpected object: %s body=%s", got, recorder.Body.String())
 	}
 
-	result, err := adaptor.ParseTaskResult([]byte(`{"id":"cgt-20260701195008-fxr55","status":"succeeded","content":{"video_url":"https://example.com/result.mp4"},"usage":{"completion_tokens":100858}}`))
+	officialResponse := []byte(`{"id":"cgt-20260701195008-fxr55","status":"succeeded","model":"doubao-seedance-2-0-mini-260615","content":{"video_url":"https://example.com/result.mp4"},"usage":{"completion_tokens":100858}}`)
+	result, err := adaptor.ParseTaskResult(officialResponse)
 	if err != nil {
 		t.Fatalf("parse result: %v", err)
 	}
@@ -1112,6 +1508,22 @@ func TestTaskAdaptorParsesSeedanceArkTaskAssetsOfficialResponses(t *testing.T) {
 	if result.TotalTokens != 100858 {
 		t.Fatalf("unexpected total tokens: %d", result.TotalTokens)
 	}
+
+	nativeFetch, err := adaptor.ConvertToNativeFetchResponse(&model.Task{
+		TaskID:    "task_public",
+		Status:    model.TaskStatusSuccess,
+		CreatedAt: 1787564840,
+		Properties: model.Properties{
+			OriginModelName:   "doubao-seedance-2-0-mini-260615",
+			UpstreamModelName: "doubao-seedance-2-0-mini-260615",
+		},
+	}, officialResponse)
+	require.NoError(t, err)
+	require.Equal(t, "task_public", gjson.GetBytes(nativeFetch, "id").String())
+	require.Equal(t, "succeeded", gjson.GetBytes(nativeFetch, "status").String())
+	require.Equal(t, "https://example.com/result.mp4", gjson.GetBytes(nativeFetch, "content.video_url").String())
+	require.False(t, gjson.GetBytes(nativeFetch, "code").Exists())
+	require.False(t, gjson.GetBytes(nativeFetch, "data").Exists())
 }
 
 func TestTaskAdaptorBuildsSeedanceArkTaskAssetsURLsFromRootBaseURL(t *testing.T) {
@@ -1216,6 +1628,50 @@ func TestTaskAdaptorBuildsHappyHorseNativeDashScopeRequest(t *testing.T) {
 	if got := gjson.GetBytes(mappedBody, "parameters.watermark").Bool(); got {
 		t.Fatalf("unexpected watermark: %v body=%s", got, mappedBody)
 	}
+}
+
+func TestTaskAdaptorPassesThroughWan3NativeRequestIncludingFalseAndZero(t *testing.T) {
+	body := []byte(`{
+		"model":"wan3.0-video",
+		"input":{"media":[{"type":"file","url":"https://example.com/source.zip"}]},
+		"parameters":{"resolution":"1080P","ratio":"adaptive","duration":-1,"audio":false,"seed":0,"prompt_extend":false,"watermark":false}
+	}`)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/services/aigc/video-generation/video-synthesis", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+	_, err := common.GetBodyStorage(c)
+	require.NoError(t, err)
+
+	info := &relaycommon.RelayInfo{
+		OriginModelName: "wan3.0-video",
+		TaskRelayInfo:   &relaycommon.TaskRelayInfo{},
+		ChannelMeta: &relaycommon.ChannelMeta{
+			ChannelType:       constant.ChannelTypeConfigurable,
+			UpstreamModelName: "wan3.0-video-prime",
+			ChannelSetting: dto.ChannelSettings{Protocol: &dto.ChannelProtocolSettings{
+				ProfileID: "dashscope-wan3-video",
+			}},
+		},
+	}
+	adaptor := &TaskAdaptor{}
+	adaptor.Init(info)
+	require.Nil(t, adaptor.ValidateRequestAndSetAction(c, info))
+	reader, err := adaptor.BuildRequestBody(c, info)
+	require.NoError(t, err)
+	upstream, err := io.ReadAll(reader)
+	require.NoError(t, err)
+
+	require.Equal(t, "wan3.0-video-prime", gjson.GetBytes(upstream, "model").String())
+	require.Equal(t, "file", gjson.GetBytes(upstream, "input.media.0.type").String())
+	require.True(t, gjson.GetBytes(upstream, "parameters.audio").Exists())
+	require.False(t, gjson.GetBytes(upstream, "parameters.audio").Bool())
+	require.True(t, gjson.GetBytes(upstream, "parameters.seed").Exists())
+	require.Equal(t, int64(0), gjson.GetBytes(upstream, "parameters.seed").Int())
+	require.Equal(t, int64(-1), gjson.GetBytes(upstream, "parameters.duration").Int())
+
+	ratios := adaptor.EstimateBilling(c, info)
+	require.Equal(t, 30.0, ratios["seconds"])
+	require.Equal(t, 4.0, ratios["resolution"])
 }
 
 func TestTaskAdaptorParsesSubmitAndFetchResponses(t *testing.T) {

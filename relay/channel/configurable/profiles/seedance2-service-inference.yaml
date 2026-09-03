@@ -1,3 +1,18 @@
+# Service Inference dreamina-seedance-max (seedance-max.md).
+# Base URL: https://model.service-inference.ai; channel key uses Bearer auth.
+# Configure channel availability/pricing for the required upstream models:
+#   dreamina-seedance-2-0-260128-max
+#   dreamina-seedance-2-0-fast-260128-max
+#   dreamina-seedance-2-0-mini-260615-max
+#   dreamina-seedance-2-5-260628-max
+#
+# Gateway native entry remains /api/v3/contents/generations/tasks.
+# Native responses expose the upstream task fields at the top level, including
+# prep; use id (the gateway public task ID) for subsequent gateway queries.
+# Generic /v1/video/generations retains its OpenAI response format.
+# Max pre-upload uses /v2/sd-max/assets; legacy v1 resources remain below.
+# Task-list proxying and upstream response-header forwarding require gateway
+# code support. Do not proxy the shared upstream account's task list directly.
 id: seedance2-service-inference
 name: Seedance2 Service Inference
 media_type: video
@@ -10,13 +25,21 @@ video:
     submit:
       method: POST
       path: /api/v3/contents/generations/tasks
-      response_format: openai_video
+      passthrough: true
+      # Extract validation/estimation fields without rebuilding native content.
       request:
         fields:
           - to: model
             from: body.model
+          - to: omni_reference_task_type
+            from: body.omni_reference_task_type
+            omit_null: true
+          - to: metadata.content
+            from: body.content
+            omit_empty: true
           - to: prompt
-            from: body.content.#(type=="text").text
+            from: 'body.content.#(type=="text")#|#(text!="").text'
+            omit_empty: true
           - to: size
             from: body.resolution
             omit_empty: true
@@ -28,13 +51,14 @@ video:
             from: body.content.#(type=="image_url")#.image_url.url
             omit_empty: true
           - to: metadata.video_url
-            from: body.content.#(type=="video_url").video_url.url
+            from: body.content.#(type=="video_url")#.video_url.url
             omit_empty: true
           - to: metadata.audio_url
-            from: body.content.#(type=="audio_url").audio_url.url
+            from: body.content.#(type=="audio_url")#.audio_url.url
             omit_empty: true
           - to: metadata.ratio
             from: body.ratio
+            fallback_from: body.aspect_ratio
             omit_empty: true
           - to: metadata.watermark
             from: body.watermark
@@ -47,56 +71,80 @@ video:
             omit_empty: true
       response:
         passthrough: true
+        root_path: task
         fields:
-          - to: task.id
+          - to: id
             from: public_task_id
-        task_id_path: task.id
-        status_path: task.status
+        task_id_path: id
+        status_path: status
     fetch:
       method: GET
       path: /api/v3/contents/generations/tasks/{task_id}
-      response_format: task_response
+      # Normalize legacy/local snapshots on query failure, then unwrap task.
+      response_format: service_inference_video_task
       response:
         passthrough: true
+        root_path: task
         fields:
-          - to: task.id
+          - to: id
             from: public_task_id
   billing:
     ratios:
       - key: seconds
-        from: request.duration
+        from: request.seconds
+        fallback_from: request.duration
+        transform: seedance_billing_duration
         default: 4
       - key: size
         value: 1
   submit:
     method: POST
-    path: /v1/video/generate
+    path: /v2/video/generate
+    # Generic callers can provide metadata.content to preserve media roles and
+    # order. Otherwise prompt/images and video_url/audio_url arrays are rebuilt.
     body:
       fields:
         - to: model
           from: upstream_model
+        - to: omni_reference_task_type
+          from: request.omni_reference_task_type
+          fallback_from: request.metadata.omni_reference_task_type
+          omit_null: true
+        - to: content
+          from: request.metadata.content
+          omit_empty: true
         - to: content
           from: request.prompt
           transform: seedance_text_content
           append: true
           omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
         - to: content
           from: request.images
           transform: seedance_image_content
           append: true
           omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
         - to: content
           from: request.metadata.video_url
           transform: seedance_video_content
-          first_only: true
           append: true
           omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
         - to: content
           from: request.metadata.audio_url
           transform: seedance_audio_content
-          first_only: true
           append: true
           omit_empty: true
+          conditions:
+            - field: request.metadata.content
+              non_empty: false
         - to: generate_audio
           from: request.metadata.generate_audio
           omit_empty: true
@@ -105,6 +153,7 @@ video:
           omit_empty: true
         - to: ratio
           from: request.metadata.ratio
+          fallback_from: request.metadata.aspect_ratio
           omit_empty: true
         - to: duration
           from: request.seconds
@@ -121,6 +170,7 @@ video:
       task_id_path: task.id
       status_path: task.status
       status_map:
+        preparing: QUEUED
         queued: QUEUED
         pending: QUEUED
         submitted: SUBMITTED
@@ -133,17 +183,31 @@ video:
         failed: FAILURE
         error: FAILURE
         cancelled: FAILURE
+    openai_response:
+      fields:
+        - to: metadata.prep
+          from: task.prep
+          omit_empty: true
+        - to: metadata.upstream_status
+          from: task.status
+          omit_empty: true
+        - to: metadata.duration_seconds
+          from: task.duration_seconds
+          omit_empty: true
   fetch:
     method: GET
-    path: /v1/video/tasks/{task_id}
+    path: /v2/video/tasks/{task_id}
     response:
       task_id_path: task.id
       status_path: task.status
       result_url_path: task.outputs.0
+      # Keep detailed legacy diagnostics when present; the parser also accepts
+      # the documented task.error string and task.error.message as fallbacks.
       reason_path: task.metadata.error.message
       total_tokens_path: task.usage.total_tokens
       completion_tokens_path: task.usage.completion_tokens
       status_map:
+        preparing: QUEUED
         queued: QUEUED
         pending: QUEUED
         submitted: SUBMITTED
@@ -166,14 +230,55 @@ video:
           omit_empty: true
         - to: metadata.usage.completion_tokens
           from: task.usage.completion_tokens
+          fallback_from: task.metadata.usage.completion_tokens
           omit_empty: true
         - to: metadata.usage.total_tokens
           from: task.usage.total_tokens
+          fallback_from: task.metadata.usage.total_tokens
           omit_empty: true
         - to: metadata.last_frame_url
           from: task.last_frame_url
           omit_empty: true
+        - to: metadata.outputs
+          from: task.outputs
+          omit_empty: true
+        - to: metadata.prep
+          from: task.prep
+          omit_empty: true
+        - to: metadata.upstream_status
+          from: task.status
+          omit_empty: true
+        - to: metadata.duration_seconds
+          from: task.duration_seconds
+          omit_empty: true
 resources:
+  - id: max_assets_create
+    name: Dreamina Seedance Max Assets Create
+    billing:
+      enabled: false
+    public:
+      method: POST
+      path: /v2/sd-max/assets
+    upstream:
+      method: POST
+      path: /v2/sd-max/assets
+    # Preserve URL, AssetType, Name and optional Model with their original case.
+    # No asset-group prerequisite; preparation is handled asynchronously upstream.
+    response:
+      passthrough: true
+  - id: max_assets_get
+    name: Dreamina Seedance Max Assets Get
+    billing:
+      enabled: false
+    public:
+      method: GET
+      path: /v2/sd-max/assets/{id}
+    upstream:
+      method: GET
+      path: /v2/sd-max/assets/{id}
+    response:
+      passthrough: true
+  # Legacy v1 resources for existing clients. Max handles use the v2 routes above.
   - id: asset_groups_create
     name: Asset Groups Create
     public:

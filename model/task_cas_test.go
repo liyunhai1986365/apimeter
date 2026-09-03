@@ -22,7 +22,7 @@ func TestMain(m *testing.M) {
 	DB = db
 	LOG_DB = db
 
-	common.UsingSQLite = true
+	common.SetDatabaseTypes(common.DatabaseTypeSQLite, common.DatabaseTypeSQLite)
 	common.RedisEnabled = false
 	common.BatchUpdateEnabled = false
 	common.LogConsumeEnabled = true
@@ -37,6 +37,9 @@ func TestMain(m *testing.M) {
 	if err := db.AutoMigrate(
 		&Task{},
 		&User{},
+		&UserSession{},
+		&AuthFlow{},
+		&ExternalIdentityClaim{},
 		&CreditQuotaRecord{},
 		&Token{},
 		&Workspace{},
@@ -49,6 +52,7 @@ func TestMain(m *testing.M) {
 		&QuotaData{},
 		&TopUp{},
 		&StripeAutoRecharge{},
+		&BalanceForecast{},
 		&AffiliateTopUpReward{},
 		&AffiliateConsumeReward{},
 		&AffiliateWithdrawal{},
@@ -61,6 +65,7 @@ func TestMain(m *testing.M) {
 		&AgentUser{},
 		&AgentPricingRule{},
 		&AgentGroupRatio{},
+		&AgentAnnouncement{},
 		&AgentLedger{},
 		&AgentWithdrawal{},
 		&PerfMetric{},
@@ -68,6 +73,10 @@ func TestMain(m *testing.M) {
 		&AccountLedgerEntry{},
 		&BillingStatement{},
 		&BillingStatementSummary{},
+		&BillingStatementDispute{},
+		&BillingStatementAdjustment{},
+		&BillingStatementEvent{},
+		&BillingBalanceAdjustmentOperation{},
 		&RetryRouteEvent{},
 		&Midjourney{},
 		&SystemTask{},
@@ -78,6 +87,8 @@ func TestMain(m *testing.M) {
 		&PasskeyCredential{},
 		&UserOAuthBinding{},
 		&Option{},
+		&CasbinRule{},
+		&AuthzRole{},
 	); err != nil {
 		panic("failed to migrate: " + err.Error())
 	}
@@ -89,6 +100,9 @@ func truncateTables(t *testing.T) {
 	t.Helper()
 	t.Cleanup(func() {
 		DB.Exec("DELETE FROM tasks")
+		DB.Exec("DELETE FROM auth_flows")
+		DB.Exec("DELETE FROM external_identity_claims")
+		DB.Exec("DELETE FROM user_sessions")
 		DB.Exec("DELETE FROM users")
 		DB.Exec("DELETE FROM credit_quota_records")
 		DB.Exec("DELETE FROM tokens")
@@ -102,6 +116,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM quota_data")
 		DB.Exec("DELETE FROM top_ups")
 		DB.Exec("DELETE FROM stripe_auto_recharges")
+		DB.Exec("DELETE FROM balance_forecasts")
 		DB.Exec("DELETE FROM affiliate_top_up_rewards")
 		DB.Exec("DELETE FROM affiliate_consume_rewards")
 		DB.Exec("DELETE FROM affiliate_withdrawals")
@@ -114,6 +129,7 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM agent_users")
 		DB.Exec("DELETE FROM agent_pricing_rules")
 		DB.Exec("DELETE FROM agent_group_ratios")
+		DB.Exec("DELETE FROM agent_announcements")
 		DB.Exec("DELETE FROM agent_ledgers")
 		DB.Exec("DELETE FROM agent_withdrawals")
 		DB.Exec("DELETE FROM perf_metrics")
@@ -121,6 +137,10 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM account_ledger_entries")
 		DB.Exec("DELETE FROM billing_statements")
 		DB.Exec("DELETE FROM billing_statement_summaries")
+		DB.Exec("DELETE FROM billing_statement_disputes")
+		DB.Exec("DELETE FROM billing_statement_adjustments")
+		DB.Exec("DELETE FROM billing_statement_events")
+		DB.Exec("DELETE FROM billing_balance_adjustment_operations")
 		DB.Exec("DELETE FROM midjourneys")
 		DB.Exec("DELETE FROM system_tasks")
 		DB.Exec("DELETE FROM system_task_locks")
@@ -131,6 +151,8 @@ func truncateTables(t *testing.T) {
 		DB.Exec("DELETE FROM user_oauth_bindings")
 		DB.Exec("DELETE FROM retry_route_events")
 		DB.Exec("DELETE FROM options")
+		DB.Exec("DELETE FROM casbin_rule")
+		DB.Exec("DELETE FROM authz_roles")
 	})
 }
 

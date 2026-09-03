@@ -23,6 +23,8 @@ import { Typography } from '@douyinfe/semi-ui';
 import { getFooterHTML, getLogo, getSystemName } from '../../helpers';
 import { StatusContext } from '../../context/Status';
 
+const SUPPORT_EMAIL = 'support@modelsell.com';
+
 const FooterBar = () => {
   const { t } = useTranslation();
   const [footer, setFooter] = useState(getFooterHTML());
@@ -30,6 +32,8 @@ const FooterBar = () => {
   const logo = getLogo();
   const [statusState] = useContext(StatusContext);
   const isDemoSiteMode = statusState?.status?.demo_site_enabled || false;
+  const footerCompanyName =
+    statusState?.status?.footer_company_name ?? 'Axiom Mesh Inc.';
 
   const loadFooter = () => {
     let footer_html = localStorage.getItem('footer_html');
@@ -63,7 +67,7 @@ const FooterBar = () => {
                 </p>
                 <div className='flex flex-col gap-4'>
                   <a
-                    href='https://docs.apimeter.ai/zh/docs/'
+                    href='https://docs.newapi.pro/wiki/project-introduction/'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='!text-semi-color-text-1'
@@ -71,7 +75,7 @@ const FooterBar = () => {
                     {t('关于项目')}
                   </a>
                   <a
-                    href='https://docs.apimeter.ai/zh/docs/support/'
+                    href='https://docs.newapi.pro/support/community-interaction/'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='!text-semi-color-text-1'
@@ -79,7 +83,7 @@ const FooterBar = () => {
                     {t('联系我们')}
                   </a>
                   <a
-                    href='https://docs.apimeter.ai/zh/docs/features/'
+                    href='https://docs.newapi.pro/wiki/features-introduction/'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='!text-semi-color-text-1'
@@ -95,7 +99,7 @@ const FooterBar = () => {
                 </p>
                 <div className='flex flex-col gap-4'>
                   <a
-                    href='https://docs.apimeter.ai/zh/docs/getting-started/'
+                    href='https://docs.newapi.pro/getting-started/'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='!text-semi-color-text-1'
@@ -103,7 +107,7 @@ const FooterBar = () => {
                     {t('快速开始')}
                   </a>
                   <a
-                    href='https://docs.apimeter.ai/zh/docs/installation/'
+                    href='https://docs.newapi.pro/installation/'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='!text-semi-color-text-1'
@@ -111,7 +115,7 @@ const FooterBar = () => {
                     {t('安装指南')}
                   </a>
                   <a
-                    href='https://docs.apimeter.ai/zh/docs/api/'
+                    href='https://docs.newapi.pro/api/'
                     target='_blank'
                     rel='noopener noreferrer'
                     className='!text-semi-color-text-1'
@@ -191,13 +195,22 @@ const FooterBar = () => {
         <div className='flex flex-col md:flex-row items-center justify-between w-full max-w-[1110px] gap-6'>
           <div className='flex flex-wrap items-center gap-2'>
             <Typography.Text className='text-sm !text-semi-color-text-1'>
-              © {currentYear} Axiom Mesh Inc. {t('版权所有')}
+              © {currentYear}{' '}
+              {footerCompanyName ? `${footerCompanyName} ` : ''}
+              {t('版权所有')}
             </Typography.Text>
           </div>
+          <a
+            href={`mailto:${SUPPORT_EMAIL}`}
+            aria-label={`${t('联系我们')}: ${SUPPORT_EMAIL}`}
+            className='text-sm !text-semi-color-text-1 hover:underline'
+          >
+            {SUPPORT_EMAIL}
+          </a>
         </div>
       </footer>
     ),
-    [logo, systemName, t, currentYear, isDemoSiteMode],
+    [logo, systemName, t, currentYear, isDemoSiteMode, footerCompanyName],
   );
 
   useEffect(() => {
@@ -213,6 +226,13 @@ const FooterBar = () => {
               className='custom-footer na-cb6feafeb3990c78 text-sm !text-semi-color-text-1'
               dangerouslySetInnerHTML={{ __html: footer }}
             ></div>
+            <a
+              href={`mailto:${SUPPORT_EMAIL}`}
+              aria-label={`${t('联系我们')}: ${SUPPORT_EMAIL}`}
+              className='text-sm !text-semi-color-text-1 hover:underline'
+            >
+              {SUPPORT_EMAIL}
+            </a>
           </div>
         </footer>
       ) : (

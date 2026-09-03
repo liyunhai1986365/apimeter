@@ -13,7 +13,7 @@ func TestNormalizeGroupDisplayConfig(t *testing.T) {
 			{ID: " ", Name: "Blank", Order: 1},
 		},
 		Groups: []GroupDisplayGroup{
-			{Group: " vip ", CategoryID: "partner", Order: 20, UserGroup: true},
+			{Group: " vip ", CategoryID: "partner", Order: 20, UserGroup: true, HideDiscount: true},
 			{Group: "default", CategoryID: "official", Order: 10},
 			{Group: "vip", CategoryID: "official", Order: 30},
 			{Group: "orphan", CategoryID: "missing", Order: 5, UserGroup: true},
@@ -43,11 +43,42 @@ func TestNormalizeGroupDisplayConfig(t *testing.T) {
 	if !config.Groups[1].UserGroup {
 		t.Fatalf("expected vip to keep user group flag, got %+v", config.Groups[1])
 	}
+	if !config.Groups[1].HideDiscount {
+		t.Fatalf("expected vip to keep hide discount flag, got %+v", config.Groups[1])
+	}
 	if config.Groups[2].Group != "orphan" || config.Groups[2].CategoryID != "" {
 		t.Fatalf("expected unknown category to be cleared, got %+v", config.Groups[2])
 	}
 	if !config.Groups[2].UserGroup {
 		t.Fatalf("expected orphan to keep user group flag, got %+v", config.Groups[2])
+	}
+}
+
+func TestIsGroupDiscountHidden(t *testing.T) {
+	t.Cleanup(func() {
+		if err := UpdateGroupDisplayConfigByJSONString(`{"categories":[],"groups":[]}`); err != nil {
+			t.Fatalf("failed to reset group display config: %v", err)
+		}
+	})
+
+	if err := UpdateGroupDisplayConfigByJSONString(`{
+		"categories": [],
+		"groups": [
+			{"group": "default", "order": 10},
+			{"group": "vip", "order": 20, "hide_discount": true}
+		]
+	}`); err != nil {
+		t.Fatalf("failed to update group display config: %v", err)
+	}
+
+	if IsGroupDiscountHidden("default") {
+		t.Fatal("expected default discount to remain visible")
+	}
+	if !IsGroupDiscountHidden("vip") {
+		t.Fatal("expected vip discount to be hidden")
+	}
+	if IsGroupDiscountHidden("missing") {
+		t.Fatal("expected unconfigured group discount to remain visible")
 	}
 }
 
