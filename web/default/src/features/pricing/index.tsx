@@ -235,8 +235,10 @@ export function Pricing() {
   const { t } = useTranslation()
   const isAdmin = useIsAdmin()
   const navigate = useNavigate()
-  const [selectedUserGroup, setSelectedUserGroup] = useState<string>()
   const search = useSearch({ from: '/pricing/' })
+  const [selectedUserGroup, setSelectedUserGroup] = useState<
+    string | undefined
+  >(search.userGroup)
   const toOptionalSearchString = (
     value: string | number | boolean | undefined
   ): string | undefined => (value === undefined ? undefined : String(value))
@@ -346,10 +348,13 @@ export function Pricing() {
       navigate({
         to: '/pricing/$modelId',
         params: { modelId: modelName },
-        search,
+        search: {
+          ...search,
+          userGroup: isAdmin ? userGroup : undefined,
+        },
       })
     },
-    [navigate, search]
+    [isAdmin, navigate, search, userGroup]
   )
 
   const handleClearAll = useCallback(() => {

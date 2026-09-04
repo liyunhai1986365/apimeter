@@ -103,6 +103,7 @@ export type PricingModel = {
 export type PricingSearchSearch = {
   search?: string
   sort?: string
+  userGroup?: string
   vendor?: string
   group?: string
   quotaType?: string

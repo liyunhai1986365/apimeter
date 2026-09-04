@@ -40,6 +40,7 @@ import { formatGroupDiscount } from '@/lib/group-discount'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { USER_FACING_GROUP_TERMS } from '@/lib/user-facing-group-terms'
 import { cn } from '@/lib/utils'
+import { useIsAdmin } from '@/hooks/use-admin'
 import { useGroupDiscountLabels } from '@/hooks/use-group-discount-labels'
 import {
   Accordion,
@@ -996,6 +997,7 @@ function ProviderPriceCard(props: {
 
 function GroupPricingSection(props: {
   model: PricingModel
+  userGroup?: string
   groupRatio: Record<string, number>
   usableGroup: PricingUsableGroupMap
   groupDisplay?: PricingGroupDisplayConfig
@@ -1054,12 +1056,29 @@ function GroupPricingSection(props: {
     return types
   }, [props.model, t])
 
+  const heading = (
+    <div
+      className={cn(
+        'mb-3 flex flex-wrap items-center justify-between gap-2',
+        isPage && 'mb-4'
+      )}
+    >
+      <SectionTitle className='mb-0'>
+        {t(USER_FACING_GROUP_TERMS.pricingBy)}
+      </SectionTitle>
+      {props.userGroup && (
+        <Badge variant='outline'>
+          <span className='text-muted-foreground'>{t('User group')}:</span>
+          {props.userGroup}
+        </Badge>
+      )}
+    </div>
+  )
+
   if (availableGroups.length === 0) {
     return (
       <section>
-        <SectionTitle className={cn(isPage && 'mb-4')}>
-          {t(USER_FACING_GROUP_TERMS.pricingBy)}
-        </SectionTitle>
+        {heading}
         <p className='text-muted-foreground text-sm'>
           {t(
             'This model is not available in any group, or no group pricing information is configured.'
@@ -1075,9 +1094,7 @@ function GroupPricingSection(props: {
     if (dynamicTiers.length === 0) {
       return (
         <section>
-          <SectionTitle className={cn(isPage && 'mb-4')}>
-            {t(USER_FACING_GROUP_TERMS.pricingBy)}
-          </SectionTitle>
+          {heading}
           <div className='rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 dark:border-amber-500/20 dark:bg-amber-500/10'>
             <div className='text-sm font-medium text-amber-800 dark:text-amber-200'>
               {t('Special billing expression')}
@@ -1102,9 +1119,7 @@ function GroupPricingSection(props: {
 
     return (
       <section>
-        <SectionTitle className={cn(isPage && 'mb-4')}>
-          {t(USER_FACING_GROUP_TERMS.pricingBy)}
-        </SectionTitle>
+        {heading}
         <div className={cn('grid gap-3', isPage && 'gap-4')}>
           {availableGroups.map((group) => {
             const ratio = effectiveGroupRatios[group] ?? 1
@@ -1159,9 +1174,7 @@ function GroupPricingSection(props: {
 
   return (
     <section>
-      <SectionTitle className={cn(isPage && 'mb-4')}>
-        {t(USER_FACING_GROUP_TERMS.pricingBy)}
-      </SectionTitle>
+      {heading}
       <div className={cn('grid gap-3', isPage && 'gap-4')}>
         {availableGroups.map((group) => {
           const ratio = effectiveGroupRatios[group] ?? 1
@@ -1215,6 +1228,7 @@ const TAB_META: Record<
 
 export interface ModelDetailsContentProps {
   model: PricingModel
+  userGroup?: string
   groupRatio: Record<string, number>
   usableGroup: PricingUsableGroupMap
   groupDisplay?: PricingGroupDisplayConfig
@@ -1620,6 +1634,7 @@ export function ModelDetailsContent(props: ModelDetailsContentProps) {
             >
               <GroupPricingSection
                 model={props.model}
+                userGroup={props.userGroup}
                 groupRatio={props.groupRatio}
                 usableGroup={props.usableGroup}
                 groupDisplay={props.groupDisplay}
@@ -1796,12 +1811,14 @@ export function ModelDetailsDrawer(props: ModelDetailsDrawerProps) {
 
 export function ModelDetails() {
   const { t } = useTranslation()
+  const isAdmin = useIsAdmin()
   const { modelId } = useParams({ from: '/pricing/$modelId/' })
   const search = useSearch({ from: '/pricing/$modelId/' })
   const navigate = useNavigate()
 
   const {
     models,
+    userGroup,
     groupRatio,
     usableGroup,
     groupDisplay,
@@ -1810,7 +1827,7 @@ export function ModelDetails() {
     isLoading,
     priceRate,
     usdExchangeRate,
-  } = usePricingData()
+  } = usePricingData(isAdmin ? search.userGroup : undefined)
 
   const tokenUnit: TokenUnit =
     search.tokenUnit === 'K' ? 'K' : DEFAULT_TOKEN_UNIT
@@ -1905,6 +1922,7 @@ export function ModelDetails() {
 
           <ModelDetailsContent
             model={model}
+            userGroup={userGroup}
             groupRatio={groupRatio || {}}
             usableGroup={usableGroup || {}}
             groupDisplay={groupDisplay}
