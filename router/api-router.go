@@ -465,7 +465,7 @@ func SetApiRouter(router *gin.Engine) {
 			billingAdminRoute.GET("/monthly-statements/:statement_no", controller.GetAdminBillingStatement)
 			billingAdminRoute.GET("/monthly-statements/:statement_no/export", controller.ExportAdminBillingStatement)
 			billingAdminRoute.POST("/monthly-statements/generate", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.GenerateAdminBillingMonthlyStatement)
-			billingAdminRoute.POST("/monthly-statements/:statement_no/email", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.SendAdminBillingStatementEmail)
+			billingAdminRoute.POST("/monthly-statements/:statement_no/email", middleware.CriticalRateLimit(), controller.SendAdminBillingStatementEmail)
 			billingAdminRoute.POST("/monthly-statements/:statement_no/adjustments", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.AdjustAdminBillingStatement)
 			billingAdminRoute.POST("/adjustments/:adjustment_no/retry", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.RetryAdminBillingAdjustment)
 			billingAdminRoute.POST("/disputes/:dispute_id/resolve", middleware.CriticalRateLimit(), middleware.SecureVerificationRequired(), controller.ResolveAdminBillingDispute)
