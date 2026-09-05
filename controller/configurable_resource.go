@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
@@ -24,15 +25,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func RelayConfigurableResource(c *gin.Context) {
-	profileID := strings.TrimSpace(c.GetString(middleware.ContextKeyConfigurableResourceProfileID))
-	resourceID := strings.TrimSpace(c.GetString(middleware.ContextKeyConfigurableResourceID))
-
-	channelModel, profile, resource, err := selectConfigurableResourceRoute(c, profileID, resourceID)
-	if err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{"error": err.Error()})
-		return
-	}
+func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channel, profile *configurable.Profile, resource *configurable.ResourceConfig) *types.NewAPIError {
 	requestModel := configurableResourceRequestModel(c, resource)
 	if requestModel != "" {
 		common.SetContextKey(c, constant.ContextKeyOriginalModel, requestModel)
@@ -42,12 +35,12 @@ func RelayConfigurableResource(c *gin.Context) {
 	c.Set(middleware.ContextKeyConfigurableResourceID, resource.ID)
 	if apiErr := middleware.SetupContextForSelectedChannel(c, channelModel, requestModel); apiErr != nil {
 		c.JSON(apiErr.StatusCode, gin.H{"error": apiErr.ToOpenAIError()})
-		return
+		return nil
 	}
 	billingInfo, apiErr := beginConfigurableResourceBilling(c, profile, resource, requestModel)
 	if apiErr != nil {
 		c.JSON(apiErr.StatusCode, gin.H{"error": apiErr.ToOpenAIError()})
-		return
+		return nil
 	}
 	billingSettled := false
 	defer func() {
@@ -56,10 +49,23 @@ func RelayConfigurableResource(c *gin.Context) {
 		}
 	}()
 
+	attemptInfo := billingInfo
+	if attemptInfo == nil {
+		attemptInfo = relaycommon.GenRelayInfoOpenAI(c, nil)
+	}
+	attemptInfo.OriginModelName = requestModel
+	attemptInfo.UsingGroup = common.GetContextKeyString(c, constant.ContextKeyAutoGroup)
+	if attemptInfo.UsingGroup == "" {
+		attemptInfo.UsingGroup = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	}
+	attemptInfo.BeginAttempt()
+	c.Set("relay_resource_attempt_info", attemptInfo)
+	service.RecordSmartRetryGroupAttempt(c, attemptInfo.UsingGroup)
+
 	client, err := service.GetHttpClientWithProxy(channelModel.GetSetting().Proxy)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil
 	}
 	if client == nil {
 		client = http.DefaultClient
@@ -67,12 +73,12 @@ func RelayConfigurableResource(c *gin.Context) {
 	preResults, err := executeConfigurableResourcePreRequests(c, client, channelModel, resource)
 	if err != nil {
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
+		return nil
 	}
 	upstreamReq, err := buildConfigurableResourceRequestWithPreResults(c, channelModel, resource, preResults)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
+		return nil
 	}
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf(
 		"configurable resource proxy: method=%s path=%s channel_id=%d profile=%s resource=%s upstream=%s",
@@ -88,14 +94,17 @@ func RelayConfigurableResource(c *gin.Context) {
 		if billingInfo != nil {
 			service.ChargeViolationFeeIfNeeded(c, billingInfo, types.NewError(err, types.ErrorCodeDoRequestFailed))
 		}
-		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
-		return
+		apiErr := types.NewErrorWithStatusCode(err, types.ErrorCodeDoRequestFailed, http.StatusBadGateway)
+		if upstreamReq.Method != http.MethodGet && upstreamReq.Method != http.MethodHead {
+			apiErr = types.NewErrorWithStatusCode(err, types.ErrorCodeDoRequestFailed, http.StatusBadGateway, types.ErrOptionWithSkipRetry())
+		}
+		return apiErr
 	}
 	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
+		return nil
 	}
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf(
 		"configurable resource response: method=%s path=%s channel_id=%d profile=%s resource=%s upstream_status=%d",
@@ -106,6 +115,14 @@ func RelayConfigurableResource(c *gin.Context) {
 		resource.ID,
 		resp.StatusCode,
 	))
+	if service.IsRoutingStrategyTokenPolicy(c) && resp.StatusCode >= http.StatusBadRequest {
+		resp.Body = io.NopCloser(bytes.NewReader(responseBody))
+		apiErr := service.NormalizeViolationFeeError(service.RelayErrorHandler(c.Request.Context(), resp, false))
+		if billingInfo != nil {
+			service.ChargeViolationFeeIfNeeded(c, billingInfo, apiErr)
+		}
+		return apiErr
+	}
 	if !resource.Response.Passthrough || len(resource.Response.Fields) > 0 {
 		responseBody, err = configurable.BuildConfiguredResponse(resource.Response, responseBody, &relaycommon.RelayInfo{
 			ChannelMeta: &relaycommon.ChannelMeta{
@@ -118,7 +135,7 @@ func RelayConfigurableResource(c *gin.Context) {
 		})
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			return nil
 		}
 	}
 	var asyncTaskInfo *relaycommon.TaskInfo
@@ -126,7 +143,7 @@ func RelayConfigurableResource(c *gin.Context) {
 		asyncTaskInfo = configurable.ParseConfiguredTaskInfo(resource.AsyncTask.Response, responseBody)
 		if strings.TrimSpace(asyncTaskInfo.TaskID) == "" {
 			c.JSON(http.StatusBadGateway, gin.H{"error": "configurable async task id is empty"})
-			return
+			return nil
 		}
 	}
 	if billingInfo != nil {
@@ -134,7 +151,7 @@ func RelayConfigurableResource(c *gin.Context) {
 			service.ChargeViolationFeeIfNeeded(c, billingInfo, types.NewErrorWithStatusCode(fmt.Errorf("configurable resource upstream status %d", resp.StatusCode), types.ErrorCodeBadResponseStatusCode, resp.StatusCode))
 		} else if err := service.SettleBilling(c, billingInfo, billingInfo.PriceData.Quota); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
+			return nil
 		} else {
 			billingSettled = true
 		}
@@ -148,7 +165,9 @@ func RelayConfigurableResource(c *gin.Context) {
 	if strings.TrimSpace(contentType) == "" {
 		contentType = "application/json"
 	}
+	perfmetrics.RecordRelaySample(attemptInfo, resp.StatusCode < http.StatusBadRequest, 0)
 	c.Data(resp.StatusCode, contentType, responseBody)
+	return nil
 }
 
 func persistConfigurableResourceTask(c *gin.Context, channelModel *model.Channel, resource *configurable.ResourceConfig, info *relaycommon.RelayInfo, taskInfo *relaycommon.TaskInfo, responseBody []byte) error {
@@ -458,6 +477,9 @@ func configurableResourceChannelAbilityEnabled(channelModel *model.Channel, grou
 }
 
 func configurableResourceCandidateGroups(c *gin.Context) []string {
+	if service.IsRoutingStrategyTokenPolicy(c) {
+		return service.ResolveTokenGroupChain(c, service.AutoGroupName)
+	}
 	usingGroup := common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	if usingGroup == "" {
 		usingGroup = common.GetContextKeyString(c, constant.ContextKeyUserGroup)

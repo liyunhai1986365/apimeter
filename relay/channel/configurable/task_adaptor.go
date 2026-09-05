@@ -553,11 +553,66 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	if responseFormat == "volcengine_video_task" {
 		return buildVolcengineVideoTaskResponse(originTask, upstream)
 	}
+	if responseFormat == "service_inference_video_task" && !gjson.GetBytes(upstream, "task").IsObject() {
+		upstream, err = buildServiceInferenceLegacyTaskResponse(originTask, upstream)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return buildConfiguredResponse(profile.videoNative().Fetch.Response, upstream, &relaycommon.RelayInfo{
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
 			PublicTaskID: originTask.TaskID,
 		},
 	})
+}
+
+// Legacy snapshots may contain a New API envelope, or no upstream body while
+// a task is still running. Reuse the established safe field extraction instead
+// of forwarding that envelope or returning a task with only an ID.
+func buildServiceInferenceLegacyTaskResponse(task *model.Task, upstream []byte) ([]byte, error) {
+	normalized, err := buildVolcengineVideoTaskResponse(task, upstream)
+	if err != nil {
+		return nil, err
+	}
+	status := gjson.GetBytes(normalized, "status").String()
+	status = map[string]string{
+		"queued": "pending", "running": "processing", "succeeded": "completed",
+		"failed": "failed", "cancelled": "failed", "expired": "failed",
+	}[status]
+	result := map[string]any{
+		"id": task.TaskID, "model": gjson.GetBytes(normalized, "model").String(),
+		"status": status, "outputs": []string{}, "error": nil, "completed_at": nil,
+	}
+	if status == "completed" {
+		if videoURL := gjson.GetBytes(normalized, "content.video_url").String(); videoURL != "" {
+			result["outputs"] = []string{videoURL}
+		}
+	} else if status == "failed" {
+		reason := gjson.GetBytes(normalized, "error.message").String()
+		if reason == "" {
+			reason = firstJSONString(upstream, commonVideoFailureReasonPaths...)
+		}
+		if reason == "" {
+			reason = "Task " + gjson.GetBytes(normalized, "status").String()
+		}
+		result["error"] = reason
+	}
+	for output, source := range map[string]string{
+		"duration_seconds": "duration", "usage": "usage", "last_frame_url": "content.last_frame_url",
+	} {
+		if value := gjson.GetBytes(normalized, source); value.Exists() {
+			result[output] = value.Value()
+		}
+	}
+	if createdAt := gjson.GetBytes(normalized, "created_at").Int(); createdAt > 0 {
+		result["created_at"] = time.Unix(createdAt, 0).UTC().Format(time.RFC3339)
+	}
+	if status == "completed" || status == "failed" {
+		if completedAt := gjson.GetBytes(normalized, "updated_at").Int(); completedAt > 0 {
+			result["completed_at"] = time.Unix(completedAt, 0).UTC().Format(time.RFC3339)
+		}
+	}
+	return common.Marshal(map[string]any{"task": result})
 }
 
 func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte, error) {

@@ -40,6 +40,9 @@ func BuildRetryRouteEvent(c *gin.Context, decision operation_setting.RetryPolicy
 	if event.OriginalModel == "" {
 		event.OriginalModel = c.GetString("original_model")
 	}
+	if group := common.GetContextKeyString(c, constant.ContextKeyAutoGroup); group != "" {
+		event.SourceGroup = group
+	}
 	if event.SourceGroup == "" {
 		event.SourceGroup = c.GetString("group")
 	}
@@ -109,6 +112,7 @@ func MarkRetryRouteFinal(c *gin.Context, success bool, status string) {
 	if c == nil {
 		return
 	}
+	c.Set("relay_route_final_success", success)
 	requestID := c.GetString(common.RequestIdKey)
 	if requestID == "" {
 		return

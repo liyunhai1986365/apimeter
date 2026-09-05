@@ -1916,6 +1916,52 @@ func TestBuildKlingV1ConfigurableResourceRequestPreservesOriginalBody(t *testing
 	require.JSONEq(t, string(originalBody), string(body))
 }
 
+func TestSeedanceMaxAssetRequestsPreserveDocumentedFormat(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	channel := &model.Channel{BaseURL: common.GetPointer("https://model.service-inference.ai")}
+	for _, tc := range []struct {
+		profileID  string
+		resourceID string
+		method     string
+		path       string
+		body       string
+	}{
+		{"doubao-seedance-max-service-inference", "assets_create", http.MethodPost, "/v2/db-sd-max/assets", `{"URL":"https://cdn.example/ref.png","AssetType":"Image","Name":"strawberry-ref","Model":"doubao-seedance-2-0-260128-max"}`},
+		{"doubao-seedance-max-service-inference", "assets_get", http.MethodGet, "/v2/db-sd-max/assets/mva-e144dfc364a647f1", ""},
+		{"seedance2-service-inference", "max_assets_create", http.MethodPost, "/v2/sd-max/assets", `{"URL":"https://cdn.example/ref.png","AssetType":"Image","Name":"strawberry-ref","Model":"dreamina-seedance-2-0-260128-max"}`},
+		{"seedance2-service-inference", "max_assets_get", http.MethodGet, "/v2/sd-max/assets/mva-e144dfc364a647f1", ""},
+	} {
+		t.Run(tc.profileID+"/"+tc.resourceID, func(t *testing.T) {
+			profile, ok := configurable.GetProfile(tc.profileID)
+			require.True(t, ok)
+			resource, ok := profile.ResourceForEndpoint(tc.method, tc.path)
+			require.True(t, ok)
+			require.Equal(t, tc.resourceID, resource.ID)
+			require.False(t, resource.Billing.Enabled)
+			require.Empty(t, resource.PreRequests)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			c.Set(string(constant.ContextKeyChannelKey), "sk-test")
+			c.Params = gin.Params{{Key: "id", Value: "mva-e144dfc364a647f1"}}
+			request, err := buildConfigurableResourceRequest(c, channel, resource)
+			require.NoError(t, err)
+			require.Equal(t, "https://model.service-inference.ai"+tc.path, request.URL.String())
+			require.Equal(t, tc.method, request.Method)
+			require.Equal(t, "Bearer sk-test", request.Header.Get("Authorization"))
+			if tc.body != "" {
+				body, err := io.ReadAll(request.Body)
+				require.NoError(t, err)
+				require.JSONEq(t, tc.body, string(body))
+			}
+			response := []byte(`{"success":true,"data":{"Id":"mva-e144dfc364a647f1","Ref":"asset://mva-e144dfc364a647f1","Status":"Active","Error":null}}`)
+			mapped, err := configurable.BuildConfiguredResponse(resource.Response, response, nil)
+			require.NoError(t, err)
+			require.JSONEq(t, string(response), string(mapped))
+		})
+	}
+}
+
 func TestKlingConfigurableResourceRequestModelPrefersExplicitModelName(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model_name":"kling-v2-6","prompt":"scene"}`)

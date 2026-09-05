@@ -263,10 +263,16 @@ func Distribute() func(c *gin.Context) {
 			return
 		}
 		common.SetContextKey(c, constant.ContextKeyRequestStartTime, time.Now())
-		SetupContextForSelectedChannel(c, channel, modelRequest.Model)
+		if err := SetupContextForSelectedChannel(c, channel, modelRequest.Model); err != nil {
+			service.MarkSmartRetryChannelFailure(c, channel, modelRequest.Model, true)
+			// Let the controller perform failover using the same candidate plan.
+			c.Set("relay_initial_channel_error", err)
+		}
 		c.Next()
 		if channel != nil && c.Writer != nil && c.Writer.Status() < http.StatusBadRequest {
-			service.RecordChannelAffinity(c, channel.Id)
+			if success, exists := c.Get("relay_route_final_success"); !exists || success == true {
+				service.RecordChannelAffinity(c, common.GetContextKeyInt(c, constant.ContextKeyChannelId))
+			}
 		}
 	}
 }
@@ -520,6 +526,7 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
+	c.Set("relay_selected_channel", channel)
 	common.SetContextKey(c, constant.ContextKeyChannelId, channel.Id)
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
 	common.SetContextKey(c, constant.ContextKeyChannelType, channel.Type)
@@ -538,7 +545,8 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelParamOverride, paramOverride)
 	common.SetContextKey(c, constant.ContextKeyChannelHeaderOverride, headerOverride)
-	if nil != channel.OpenAIOrganization && *channel.OpenAIOrganization != "" {
+	common.SetContextKey(c, constant.ContextKeyChannelOrganization, "")
+	if channel.OpenAIOrganization != nil {
 		common.SetContextKey(c, constant.ContextKeyChannelOrganization, *channel.OpenAIOrganization)
 	}
 	common.SetContextKey(c, constant.ContextKeyChannelAutoBan, channel.GetAutoBan())
@@ -546,7 +554,9 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
 
-	key, index, newAPIError := channel.GetNextEnabledKey()
+	key, index, newAPIError := channel.GetNextEnabledKeyMatching(func(key string, _ int) bool {
+		return service.ChannelRetryKeyAllowed(c, channel, modelName, key)
+	})
 	if newAPIError != nil {
 		return newAPIError
 	}

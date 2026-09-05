@@ -166,12 +166,12 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelAndReturnsOpenAIShape(t
 	require.Equal(t, "https://cdn.example/seedance.mp4", reloaded.GetResultURL())
 }
 
-func TestSeedanceNativeFetchReturnsVolcengineShapeWithoutInternalEnvelope(t *testing.T) {
+func TestSeedanceNativeFetchReturnsServiceInferenceEnvelope(t *testing.T) {
 	setupRelayTaskTestDB(t)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodGet, r.Method)
-		require.Equal(t, "/v1/video/tasks/mvt-upstream", r.URL.Path)
+		require.Equal(t, "/v2/video/tasks/mvt-upstream", r.URL.Path)
 		require.Equal(t, "Bearer sk-seedance", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
@@ -244,15 +244,15 @@ func TestSeedanceNativeFetchReturnsVolcengineShapeWithoutInternalEnvelope(t *tes
 
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
-	require.Equal(t, "task_public", gjson.GetBytes(body, "id").String())
-	require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
-	require.Equal(t, "doubao-seedance-2-0-fast-260128", gjson.GetBytes(body, "model").String())
-	require.Equal(t, "https://cdn.example/seedance.mp4", gjson.GetBytes(body, "content.video_url").String())
-	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())
-	require.Equal(t, "480p", gjson.GetBytes(body, "resolution").String())
-	require.True(t, gjson.GetBytes(body, "generate_audio").Bool())
-	require.True(t, gjson.GetBytes(body, "draft").Exists())
-	require.False(t, gjson.GetBytes(body, "draft").Bool())
+	require.Equal(t, "task_public", gjson.GetBytes(body, "task.id").String())
+	require.Equal(t, "completed", gjson.GetBytes(body, "task.status").String())
+	require.Equal(t, "dreamina-seedance-2-0-fast-hc", gjson.GetBytes(body, "task.model").String())
+	require.Equal(t, "https://cdn.example/seedance.mp4", gjson.GetBytes(body, "task.outputs.0").String())
+	require.Equal(t, int64(40594), gjson.GetBytes(body, "task.usage.total_tokens").Int())
+	require.Equal(t, "480p", gjson.GetBytes(body, "task.metadata.resolution").String())
+	require.True(t, gjson.GetBytes(body, "task.metadata.generate_audio").Bool())
+	require.True(t, gjson.GetBytes(body, "task.metadata.draft").Exists())
+	require.False(t, gjson.GetBytes(body, "task.metadata.draft").Bool())
 	require.False(t, gjson.GetBytes(body, "code").Exists())
 	require.False(t, gjson.GetBytes(body, "data").Exists())
 	require.False(t, gjson.GetBytes(body, "user_id").Exists())
@@ -323,11 +323,11 @@ func TestWan3NativeFetchUsesBuiltInAliChannelAndPreservesDashScopeShape(t *testi
 	require.Equal(t, "https://cdn.example/wan3.mp4", reloaded.GetResultURL())
 }
 
-func TestSeedanceNativeFetchKeepsVolcengineShapeWhenUpstreamFetchFails(t *testing.T) {
+func TestSeedanceNativeFetchNormalizesLegacySnapshotWhenUpstreamFetchFails(t *testing.T) {
 	setupRelayTaskTestDB(t)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/video/tasks/mvt-upstream", r.URL.Path)
+		require.Equal(t, "/v2/video/tasks/mvt-upstream", r.URL.Path)
 		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
 	}))
 	defer upstream.Close()
@@ -401,11 +401,11 @@ func TestSeedanceNativeFetchKeepsVolcengineShapeWhenUpstreamFetchFails(t *testin
 
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
-	require.Equal(t, "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv", gjson.GetBytes(body, "id").String())
-	require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
-	require.Equal(t, "https://cdn.example/stored-result.mp4", gjson.GetBytes(body, "content.video_url").String())
-	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())
-	require.Equal(t, int64(4), gjson.GetBytes(body, "duration").Int())
+	require.Equal(t, "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv", gjson.GetBytes(body, "task.id").String())
+	require.Equal(t, "completed", gjson.GetBytes(body, "task.status").String())
+	require.Equal(t, "https://cdn.example/stored-result.mp4", gjson.GetBytes(body, "task.outputs.0").String())
+	require.Equal(t, int64(40594), gjson.GetBytes(body, "task.usage.total_tokens").Int())
+	require.Equal(t, int64(4), gjson.GetBytes(body, "task.duration_seconds").Int())
 	require.False(t, gjson.GetBytes(body, "code").Exists())
 	require.False(t, gjson.GetBytes(body, "data").Exists())
 	require.False(t, gjson.GetBytes(body, "priority").Exists())
@@ -440,7 +440,7 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 	}).Error)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/video/tasks/upstream-seedance-task", r.URL.Path)
+		require.Equal(t, "/v2/video/tasks/upstream-seedance-task", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"task":{
@@ -572,7 +572,7 @@ func TestVideoGenerationsFetchRealtimeConfigurableFailurePersistsReasonAndRefund
 	}).Error)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/v1/video/tasks/upstream-seedance-task", r.URL.Path)
+		require.Equal(t, "/v2/video/tasks/upstream-seedance-task", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{
 			"task":{

@@ -191,19 +191,19 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if serviceInference.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference native fetch path: %s", serviceInference.Video.Native.Fetch.Path)
 	}
-	if serviceInference.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
+	if !serviceInference.Video.Native.Submit.Passthrough || serviceInference.Video.Native.Submit.ResponseFormat != "" || serviceInference.Video.Native.Fetch.ResponseFormat != "service_inference_video_task" {
 		t.Fatalf("unexpected service inference native fetch response format: %s", serviceInference.Video.Native.Fetch.ResponseFormat)
 	}
 	if serviceInference.Video.Fetch.Path != "/v2/video/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference upstream fetch path: %s", serviceInference.Video.Fetch.Path)
 	}
-	if serviceInference.Video.Fetch.Response.TotalTokensPath != "task.metadata.usage.total_tokens" {
+	if serviceInference.Video.Fetch.Response.TotalTokensPath != "task.usage.total_tokens" {
 		t.Fatalf("unexpected service inference total tokens path: %s", serviceInference.Video.Fetch.Response.TotalTokensPath)
 	}
-	if serviceInference.Video.Fetch.Response.CompletionTokensPath != "task.metadata.usage.completion_tokens" {
+	if serviceInference.Video.Fetch.Response.CompletionTokensPath != "task.usage.completion_tokens" {
 		t.Fatalf("unexpected service inference completion tokens path: %s", serviceInference.Video.Fetch.Response.CompletionTokensPath)
 	}
-	if len(serviceInference.Resources) != 5 {
+	if len(serviceInference.Resources) != 7 {
 		t.Fatalf("expected service inference asset resources, got %d", len(serviceInference.Resources))
 	}
 	groupCreate, ok := serviceInference.ResourceByID("asset_groups_create")

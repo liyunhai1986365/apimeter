@@ -84,16 +84,18 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
-	TokenId           int
-	TokenKey          string
-	TokenGroup        string
-	UserId            int
-	UsingGroup        string // 使用的分组，当auto跨分组重试时，会变动
-	UserGroup         string // 用户所在分组
-	TokenUnlimited    bool
-	StartTime         time.Time
-	FirstResponseTime time.Time
-	isFirstResponse   bool
+	TokenId               int
+	TokenKey              string
+	TokenGroup            string
+	UserId                int
+	UsingGroup            string // 使用的分组，当auto跨分组重试时，会变动
+	UserGroup             string // 用户所在分组
+	TokenUnlimited        bool
+	AttemptStartTime      time.Time
+	AttemptSampleRecorded bool
+	StartTime             time.Time
+	FirstResponseTime     time.Time
+	isFirstResponse       bool
 	//SendLastReasoningResponse bool
 	IsStream               bool
 	IsGeminiBatchEmbedding bool
@@ -938,7 +940,11 @@ func (info *RelayInfo) SetFirstResponseTime() {
 }
 
 func (info *RelayInfo) HasSendResponse() bool {
-	return info.FirstResponseTime.After(info.StartTime)
+	start := info.StartTime
+	if !info.AttemptStartTime.IsZero() {
+		start = info.AttemptStartTime
+	}
+	return info.FirstResponseTime.After(start)
 }
 
 type TaskRelayInfo struct {
@@ -1204,4 +1210,13 @@ func RemoveGeminiDisabledFields(jsonData []byte) ([]byte, error) {
 		return jsonData, nil
 	}
 	return jsonDataAfter, nil
+}
+
+// BeginAttempt keeps request timing intact for billing/logs while separating the
+// upstream latency and first-token timing used by routing performance metrics.
+func (info *RelayInfo) BeginAttempt() {
+	info.AttemptStartTime = time.Now()
+	info.AttemptSampleRecorded = false
+	info.FirstResponseTime = info.AttemptStartTime.Add(-time.Second)
+	info.isFirstResponse = true
 }

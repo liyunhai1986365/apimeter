@@ -641,7 +641,7 @@ func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesGroupAfterFailure(
 	require.Equal(t, "backup", autoGroup)
 }
 
-func TestCacheGetRandomSatisfiedChannelRoutingStrategyStaysOnFirstGroupWithoutCrossGroupRetry(t *testing.T) {
+func TestCacheGetRandomSatisfiedChannelRoutingStrategyAdvancesWithoutLegacyToggle(t *testing.T) {
 	db := openChannelSelectTestDB(t)
 	t.Cleanup(func() {
 		_ = setting.UpdateAutoGroupsByJsonString(`["default"]`)
@@ -689,9 +689,9 @@ func TestCacheGetRandomSatisfiedChannelRoutingStrategyStaysOnFirstGroupWithoutCr
 	})
 	require.NoError(t, err)
 	require.NotNil(t, channel)
-	require.Equal(t, 1811, channel.Id)
-	require.Equal(t, "cheap", selectedGroup)
-	require.Equal(t, "cheap", common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
+	require.Equal(t, 1812, channel.Id)
+	require.Equal(t, "expensive", selectedGroup)
+	require.Equal(t, "expensive", common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
 }
 
 func TestCacheGetRandomSatisfiedChannelRoutingStrategyExcludesTokenGroups(t *testing.T) {
