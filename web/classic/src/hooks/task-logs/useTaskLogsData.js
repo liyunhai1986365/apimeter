@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 
-import { useState, useEffect } from 'react';
+import { createElement, useRef, useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Modal } from '@douyinfe/semi-ui';
 import {
@@ -286,6 +286,73 @@ export const useTaskLogsData = () => {
     setIsAudioModalOpen(true);
   };
 
+  const detailLoading = useRef(false);
+  const openTaskDetail = async (record, preview = true) => {
+    if (detailLoading.current) return;
+    detailLoading.current = true;
+    openContentModal(t('加载中...'));
+    try {
+      const base = isAdminUser ? '/api/task' : '/api/task/self';
+      const res = await API.get(
+        `${base}/${encodeURIComponent(record.task_id)}`,
+      );
+      if (!res.data.success || !res.data.data)
+        throw new Error(res.data.message);
+      const detail = res.data.data;
+      const data =
+        typeof detail.data === 'string' ? JSON.parse(detail.data) : detail.data;
+      if (
+        preview &&
+        Array.isArray(data) &&
+        data.some((clip) => clip.audio_url)
+      ) {
+        setIsModalOpen(false);
+        openAudioModal(data);
+        return;
+      }
+      const image = data?.data?.images?.[0];
+      const imageUrl =
+        image?.url ||
+        (image?.b64_json ? `data:image/png;base64,${image.b64_json}` : '');
+      if (preview && imageUrl) {
+        openContentModal(
+          createElement('img', {
+            src: imageUrl,
+            alt: t('图片'),
+            style: { maxWidth: '100%' },
+          }),
+        );
+        return;
+      }
+      const resultUrl = detail.result_url || detail.fail_reason;
+      if (
+        preview &&
+        typeof resultUrl === 'string' &&
+        /^(https?:\/\/|\/|data:video\/)/.test(resultUrl)
+      ) {
+        setIsModalOpen(false);
+        openVideoModal(resultUrl);
+        return;
+      }
+      // Keep large base64 values out of the text renderer.
+      openContentModal(
+        JSON.stringify(
+          detail,
+          (key, value) =>
+            typeof value === 'string' && value.length > 2000
+              ? value.slice(0, 2000) + '…'
+              : value,
+          2,
+        ),
+      );
+    } catch (error) {
+      setIsModalOpen(false);
+      showError(error.message || t('加载失败'));
+    } finally {
+      detailLoading.current = false;
+    }
+  };
+
   // User info function
   const showUserInfoFunc = async (userId) => {
     if (!isAdminUser) {
@@ -365,6 +432,7 @@ export const useTaskLogsData = () => {
     refresh,
     copyText,
     openContentModal,
+    openTaskDetail,
     openVideoModal,
     openAudioModal,
     enrichLogs,

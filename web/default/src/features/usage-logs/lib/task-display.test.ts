@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import type { TaskLog } from '../types'
 import {
   buildTaskLogSubtitle,
   formatDrawingSubmitTime,
   getTaskLogImagePreviewUrl,
   getTaskLogVideoPreviewUrl,
 } from './task-display'
-import type { TaskLog } from '../types'
 
 function taskLog(overrides: Partial<TaskLog>): TaskLog {
   return {
@@ -45,7 +45,10 @@ describe('buildTaskLogSubtitle', () => {
       },
     })
 
-    assert.equal(buildTaskLogSubtitle(log, (value) => value), 'gpt-image-2')
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'gpt-image-2'
+    )
   })
 
   test('keeps the existing platform and action subtitle for video tasks', () => {
@@ -97,7 +100,10 @@ describe('getTaskLogVideoPreviewUrl', () => {
       fail_reason: 'https://cdn.example.com/legacy.mp4',
     })
 
-    assert.equal(getTaskLogVideoPreviewUrl(log), '/v1/videos/task_legacy/content')
+    assert.equal(
+      getTaskLogVideoPreviewUrl(log),
+      '/v1/videos/task_legacy/content'
+    )
   })
 
   test('does not expose preview url for failed video tasks', () => {
@@ -152,5 +158,50 @@ describe('getTaskLogImagePreviewUrl', () => {
       getTaskLogImagePreviewUrl(log),
       'https://cdn.example.com/output.jpeg'
     )
+  })
+})
+
+describe('saved task detail payloads', () => {
+  test('previews normalized image objects containing only base64', () => {
+    const log = taskLog({
+      properties: { origin_model_name: 'gpt-image-2-count' },
+      data: { data: { images: [{ url: '', b64_json: 'aW1hZ2U=' }] } },
+    })
+    assert.equal(
+      getTaskLogImagePreviewUrl(log),
+      'data:image/png;base64,aW1hZ2U='
+    )
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
+  })
+
+  test('supports normalized images for custom model names', () => {
+    const log = taskLog({
+      properties: { origin_model_name: 'custom-image-model' },
+      data: { data: { images: [{ url: 'https://example.com/image.png' }] } },
+    })
+    assert.equal(
+      getTaskLogImagePreviewUrl(log),
+      'https://example.com/image.png'
+    )
+  })
+
+  test('reads video URLs from object results returned by the detail endpoint', () => {
+    const log = taskLog({
+      data: { output: { video_url: 'https://example.com/video.mp4' } },
+    })
+    assert.equal(
+      getTaskLogVideoPreviewUrl(log),
+      'https://example.com/video.mp4'
+    )
+  })
+
+  test('summary rows do not contain eager media URLs', () => {
+    const log = taskLog({
+      data: null,
+      data_omitted: true,
+      properties: { origin_model_name: 'gpt-image-2-count' },
+    })
+    assert.equal(getTaskLogImagePreviewUrl(log), '')
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
   })
 })
