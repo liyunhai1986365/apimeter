@@ -234,7 +234,9 @@ func MaintainTaskImage(ctx context.Context, id int64, now int64) (changed bool, 
 			removedBytes += int64(len(private.Raw) - len(body))
 		}
 	}
-	result := db.Model(&Task{}).Where("id = ? AND status = ? AND image_base64_version = ? AND image_expires_at = ?", id, original.Status, original.ImageBase64Version, original.ImageExpiresAt).Updates(updates)
+	// UpdateColumns bypasses GORM's automatic updated_at callback. Image
+	// maintenance must preserve the task's original business timestamps.
+	result := db.Model(&Task{}).Where("id = ? AND status = ? AND image_base64_version = ? AND image_expires_at = ?", id, original.Status, original.ImageBase64Version, original.ImageExpiresAt).UpdateColumns(updates)
 	err, changed = result.Error, result.RowsAffected > 0
 	if changed && original.ImageExpiresAt == 0 && task.ImageExpiresAt > 0 {
 		_, estimatedTime = original.imageLegacyCompletedAt(now)

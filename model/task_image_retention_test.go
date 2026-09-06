@@ -75,7 +75,7 @@ func TestTaskImageCleanupKeepsTaskBillingAndRejectsStaleWrites(t *testing.T) {
 	require.NoError(t, DB.Create(&task).Error)
 	t.Cleanup(func() { DB.Delete(&Task{}, task.ID) })
 	private := `{"key":"private-key","result_url":"data:image/png;base64,PRIVATE_PAYLOAD","unknown_snapshot":{"integer":9007199254740993}}`
-	require.NoError(t, DB.Model(&task).Update("private_data", private).Error)
+	require.NoError(t, DB.Model(&task).UpdateColumn("private_data", private).Error)
 	stale := task
 	changed, removed, _, err := MaintainTaskImage(context.Background(), task.ID, now)
 	require.NoError(t, err)
@@ -88,6 +88,7 @@ func TestTaskImageCleanupKeepsTaskBillingAndRejectsStaleWrites(t *testing.T) {
 	require.Equal(t, task.Quota, saved.Quota)
 	require.Equal(t, task.FinishTime, saved.FinishTime)
 	require.Equal(t, task.UpdatedAt, saved.UpdatedAt)
+	require.Equal(t, now-86400, saved.UpdatedAt)
 	require.Equal(t, task.Status, saved.Status)
 	require.Equal(t, "private-key", saved.PrivateData.Key)
 	require.Contains(t, string(saved.Data), `"total_tokens":991`)
