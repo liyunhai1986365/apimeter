@@ -167,6 +167,18 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelAndReturnsOpenAIShape(t
 }
 
 func TestSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T) {
+	for _, profileID := range []string{"doubao-seedance-max-service-inference", "seedance2-service-inference"} {
+		t.Run(profileID, func(t *testing.T) {
+			testSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t, profileID)
+		})
+	}
+}
+
+func testSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T, profileID string) {
+	upstreamModel := "dreamina-seedance-2-0-fast-hc"
+	if profileID == "doubao-seedance-max-service-inference" {
+		upstreamModel = "doubao-seedance-2-0-mini-260615-max"
+	}
 	setupRelayTaskTestDB(t)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -178,7 +190,7 @@ func TestSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T) {
 			"task":{
 				"id":"mvt-upstream",
 				"status":"completed",
-				"model":"dreamina-seedance-2-0-fast-hc",
+				"model":"` + upstreamModel + `",
 				"duration_seconds":4,
 				"outputs":["https://cdn.example/seedance.mp4"],
 				"error":null,
@@ -207,12 +219,12 @@ func TestSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T) {
 		BaseURL: common.GetPointer(upstream.URL),
 		Status:  common.ChannelStatusEnabled,
 		Name:    "seedance-service-inference",
-		Models:  "doubao-seedance-2-0-fast-260128",
+		Models:  upstreamModel,
 		Group:   "default",
 	}
 	channel.SetSetting(dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
-			ProfileID: "seedance2-service-inference",
+			ProfileID: profileID,
 		},
 	})
 	require.NoError(t, model.DB.Create(&channel).Error)
@@ -227,8 +239,8 @@ func TestSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T) {
 		Progress:   "30%",
 		SubmitTime: 1787564840,
 		Properties: model.Properties{
-			OriginModelName:   "doubao-seedance-2-0-fast-260128",
-			UpstreamModelName: "dreamina-seedance-2-0-fast-hc",
+			OriginModelName:   upstreamModel,
+			UpstreamModelName: upstreamModel,
 		},
 		PrivateData: model.TaskPrivateData{
 			UpstreamTaskID: "mvt-upstream",
@@ -240,14 +252,14 @@ func TestSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v3/contents/generations/tasks/task_public", nil)
 	c.Set("id", 7)
 	c.Set("task_id", "task_public")
-	c.Set("configurable_native_profile_id", "seedance2-service-inference")
+	c.Set("configurable_native_profile_id", profileID)
 
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
 	require.False(t, gjson.GetBytes(body, "task").Exists())
 	require.Equal(t, "task_public", gjson.GetBytes(body, "id").String())
 	require.Equal(t, "completed", gjson.GetBytes(body, "status").String())
-	require.Equal(t, "dreamina-seedance-2-0-fast-hc", gjson.GetBytes(body, "model").String())
+	require.Equal(t, upstreamModel, gjson.GetBytes(body, "model").String())
 	require.Equal(t, "https://cdn.example/seedance.mp4", gjson.GetBytes(body, "outputs.0").String())
 	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())
 	require.Equal(t, "480p", gjson.GetBytes(body, "metadata.resolution").String())

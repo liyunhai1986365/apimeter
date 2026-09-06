@@ -893,8 +893,17 @@ func TestTaskAdaptorReturnsSeedanceServiceInferencePreparingProgress(t *testing.
 }
 
 func TestSeedanceServiceInferenceFetchFallsBackToLocalTaskState(t *testing.T) {
+	for _, profileID := range []string{"doubao-seedance-max-service-inference", "seedance2-service-inference"} {
+		t.Run(profileID, func(t *testing.T) {
+			testSeedanceMaxFetchFallsBackToLocalTaskState(t, profileID)
+		})
+	}
+}
+
+func testSeedanceMaxFetchFallsBackToLocalTaskState(t *testing.T, profileID string) {
+	info := seedanceMaxRelayInfo(profileID)
 	adaptor := &TaskAdaptor{}
-	adaptor.Init(seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-260128-max"))
+	adaptor.Init(info)
 	for _, tc := range []struct {
 		status model.TaskStatus
 		want   string
@@ -907,7 +916,7 @@ func TestSeedanceServiceInferenceFetchFallsBackToLocalTaskState(t *testing.T) {
 		t.Run(tc.want, func(t *testing.T) {
 			task := &model.Task{
 				TaskID: "task_public", Status: tc.status, FailReason: "stored failure",
-				Properties:  model.Properties{OriginModelName: "dreamina-seedance-2-0-260128-max"},
+				Properties:  model.Properties{OriginModelName: info.UpstreamModelName},
 				PrivateData: model.TaskPrivateData{ResultURL: "https://cdn.example/stored.mp4", Key: "must-not-be-returned"},
 			}
 			body, err := adaptor.ConvertToNativeFetchResponse(task, nil)
