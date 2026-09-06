@@ -135,9 +135,14 @@ func TestSeedanceMaxTaskLifecycleAndPublicResponses(t *testing.T) {
 			require.Nil(t, taskErr)
 			require.Equal(t, "mvt-upstream", id)
 			require.JSONEq(t, string(preparing), string(stored))
-			require.Equal(t, "task_public", gjson.Get(recorder.Body.String(), "task.id").String())
-			require.Equal(t, "preparing", gjson.Get(recorder.Body.String(), "task.status").String())
-			require.Equal(t, int64(7), gjson.Get(recorder.Body.String(), "task.prep.total").Int())
+			responsePrefix := "task."
+			if profileID == "seedance2-service-inference" {
+				responsePrefix = ""
+				require.False(t, gjson.Get(recorder.Body.String(), "task").Exists())
+			}
+			require.Equal(t, "task_public", gjson.Get(recorder.Body.String(), responsePrefix+"id").String())
+			require.Equal(t, "preparing", gjson.Get(recorder.Body.String(), responsePrefix+"status").String())
+			require.Equal(t, int64(7), gjson.Get(recorder.Body.String(), responsePrefix+"prep.total").Int())
 			completed := []byte(`{"task":{"id":"mvt-upstream","status":"completed","outputs":["https://cdn.example/result.mp4"],"usage":{"completion_tokens":40594,"total_tokens":40594},"last_frame_url":"https://cdn.example/last.png"}}`)
 			result, err := a.ParseTaskResult(completed)
 			require.NoError(t, err)
@@ -146,7 +151,12 @@ func TestSeedanceMaxTaskLifecycleAndPublicResponses(t *testing.T) {
 			require.Equal(t, "https://cdn.example/result.mp4", result.Url)
 			public, err := a.ConvertToNativeFetchResponse(&model.Task{TaskID: "task_public"}, completed)
 			require.NoError(t, err)
-			expected, err := sjson.SetBytes(completed, "task.id", "task_public")
+			expected := completed
+			if profileID == "seedance2-service-inference" {
+				expected = []byte(gjson.GetBytes(completed, "task").Raw)
+				require.False(t, gjson.GetBytes(public, "task").Exists())
+			}
+			expected, err = sjson.SetBytes(expected, responsePrefix+"id", "task_public")
 			require.NoError(t, err)
 			require.JSONEq(t, string(expected), string(public))
 			failed, err := a.ParseTaskResult([]byte(`{"task":{"id":"mvt-upstream","status":"failed","error":"Reference material @Image2 could not be prepared: url is not reachable"}}`))

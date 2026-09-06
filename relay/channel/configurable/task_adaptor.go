@@ -1465,6 +1465,13 @@ func mapStatus(statusMap map[string]string, upstream string) string {
 }
 
 func buildConfiguredResponse(config ResponseConfig, upstream []byte, info *relaycommon.RelayInfo) ([]byte, error) {
+	if rootPath := strings.TrimSpace(config.RootPath); rootPath != "" {
+		root := gjson.GetBytes(upstream, rootPath)
+		if !root.IsObject() {
+			return nil, fmt.Errorf("response root path %q must select a JSON object", rootPath)
+		}
+		upstream = []byte(root.Raw)
+	}
 	var source map[string]any
 	if len(upstream) > 0 {
 		if err := common.Unmarshal(upstream, &source); err != nil {

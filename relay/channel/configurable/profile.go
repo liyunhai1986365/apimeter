@@ -164,7 +164,9 @@ type FieldMapping struct {
 }
 
 type ResponseConfig struct {
-	Passthrough          bool              `yaml:"passthrough"`
+	Passthrough bool `yaml:"passthrough"`
+	// RootPath selects the response object before applying field mappings.
+	RootPath             string            `yaml:"root_path"`
 	Fields               []FieldMapping    `yaml:"fields"`
 	TaskIDPath           string            `yaml:"task_id_path"`
 	StatusPath           string            `yaml:"status_path"`

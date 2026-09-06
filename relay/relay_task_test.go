@@ -166,7 +166,7 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelAndReturnsOpenAIShape(t
 	require.Equal(t, "https://cdn.example/seedance.mp4", reloaded.GetResultURL())
 }
 
-func TestSeedanceNativeFetchReturnsServiceInferenceEnvelope(t *testing.T) {
+func TestSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T) {
 	setupRelayTaskTestDB(t)
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -244,15 +244,16 @@ func TestSeedanceNativeFetchReturnsServiceInferenceEnvelope(t *testing.T) {
 
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
-	require.Equal(t, "task_public", gjson.GetBytes(body, "task.id").String())
-	require.Equal(t, "completed", gjson.GetBytes(body, "task.status").String())
-	require.Equal(t, "dreamina-seedance-2-0-fast-hc", gjson.GetBytes(body, "task.model").String())
-	require.Equal(t, "https://cdn.example/seedance.mp4", gjson.GetBytes(body, "task.outputs.0").String())
-	require.Equal(t, int64(40594), gjson.GetBytes(body, "task.usage.total_tokens").Int())
-	require.Equal(t, "480p", gjson.GetBytes(body, "task.metadata.resolution").String())
-	require.True(t, gjson.GetBytes(body, "task.metadata.generate_audio").Bool())
-	require.True(t, gjson.GetBytes(body, "task.metadata.draft").Exists())
-	require.False(t, gjson.GetBytes(body, "task.metadata.draft").Bool())
+	require.False(t, gjson.GetBytes(body, "task").Exists())
+	require.Equal(t, "task_public", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "completed", gjson.GetBytes(body, "status").String())
+	require.Equal(t, "dreamina-seedance-2-0-fast-hc", gjson.GetBytes(body, "model").String())
+	require.Equal(t, "https://cdn.example/seedance.mp4", gjson.GetBytes(body, "outputs.0").String())
+	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())
+	require.Equal(t, "480p", gjson.GetBytes(body, "metadata.resolution").String())
+	require.True(t, gjson.GetBytes(body, "metadata.generate_audio").Bool())
+	require.True(t, gjson.GetBytes(body, "metadata.draft").Exists())
+	require.False(t, gjson.GetBytes(body, "metadata.draft").Bool())
 	require.False(t, gjson.GetBytes(body, "code").Exists())
 	require.False(t, gjson.GetBytes(body, "data").Exists())
 	require.False(t, gjson.GetBytes(body, "user_id").Exists())
@@ -401,11 +402,12 @@ func TestSeedanceNativeFetchNormalizesLegacySnapshotWhenUpstreamFetchFails(t *te
 
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
-	require.Equal(t, "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv", gjson.GetBytes(body, "task.id").String())
-	require.Equal(t, "completed", gjson.GetBytes(body, "task.status").String())
-	require.Equal(t, "https://cdn.example/stored-result.mp4", gjson.GetBytes(body, "task.outputs.0").String())
-	require.Equal(t, int64(40594), gjson.GetBytes(body, "task.usage.total_tokens").Int())
-	require.Equal(t, int64(4), gjson.GetBytes(body, "task.duration_seconds").Int())
+	require.False(t, gjson.GetBytes(body, "task").Exists())
+	require.Equal(t, "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "completed", gjson.GetBytes(body, "status").String())
+	require.Equal(t, "https://cdn.example/stored-result.mp4", gjson.GetBytes(body, "outputs.0").String())
+	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())
+	require.Equal(t, int64(4), gjson.GetBytes(body, "duration_seconds").Int())
 	require.False(t, gjson.GetBytes(body, "code").Exists())
 	require.False(t, gjson.GetBytes(body, "data").Exists())
 	require.False(t, gjson.GetBytes(body, "priority").Exists())
