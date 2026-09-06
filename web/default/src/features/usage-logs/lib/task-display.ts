@@ -1,7 +1,6 @@
 import { formatTimestampToDate } from '@/lib/format'
 import { TASK_ACTIONS, TASK_STATUS } from '../constants'
 import type { TaskLog, TaskLogProperties } from '../types'
-import { taskActionMapper } from './mappers'
 
 type TranslateFn = (value: string) => string
 
@@ -26,6 +25,7 @@ function normalizeModelName(value: unknown): string {
 
 function isImageTaskModel(modelName: string): boolean {
   const normalized = modelName.toLowerCase()
+  if (/^nano-banana(?:-|$)/.test(normalized)) return true
   if (/^gpt-image-\d+/.test(normalized)) return true
   return /^gemini-[\w.-]+-image(?:-[\w.-]+)?$/.test(normalized)
 }
@@ -137,10 +137,12 @@ export function getTaskLogImageModelName(log: TaskLog): string {
 }
 
 export function buildTaskLogSubtitle(log: TaskLog, t: TranslateFn): string {
-  const imageModelName = getTaskLogImageModelName(log)
-  if (imageModelName) return imageModelName
-
-  return `${t(log.platform)} · ${t(taskActionMapper.getLabel(log.action))}`
+  const properties = parseProperties(log.properties)
+  return (
+    normalizeModelName(properties.origin_model_name) ||
+    normalizeModelName(properties.upstream_model_name) ||
+    t('Unknown model')
+  )
 }
 
 export function formatDrawingSubmitTime(submitTime?: number): string {

@@ -51,12 +51,65 @@ describe('buildTaskLogSubtitle', () => {
     )
   })
 
-  test('keeps the existing platform and action subtitle for video tasks', () => {
-    const log = taskLog({ platform: 'kling', action: 'generate' })
+  test('uses the recorded model for video tasks too', () => {
+    const log = taskLog({
+      platform: '999',
+      action: 'generate',
+      properties: {
+        origin_model_name: 'doubao-seedance-2-0-mini-260615',
+        upstream_model_name: 'doubao-seedance-2-0-mini-260615-max',
+      },
+    })
 
     assert.equal(
       buildTaskLogSubtitle(log, (value) => value),
-      'kling · Image to Video'
+      'doubao-seedance-2-0-mini-260615'
+    )
+  })
+
+  test('uses nano-banana model names instead of numeric platform and video action', () => {
+    const log = taskLog({
+      platform: '24',
+      properties: { origin_model_name: 'nano-banana-2' },
+    })
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'nano-banana-2'
+    )
+    assert.equal(
+      getTaskLogVideoPreviewUrl({
+        ...log,
+        result_url: 'https://example.com/image.png',
+      }),
+      ''
+    )
+    assert.equal(
+      getTaskLogImagePreviewUrl({
+        ...log,
+        result_url: 'https://example.com/image.png',
+      }),
+      'https://example.com/image.png'
+    )
+  })
+
+  test('uses upstream metadata when the original model is missing', () => {
+    const log = taskLog({
+      properties: JSON.stringify({
+        origin_model_name: ' ',
+        upstream_model_name: 'custom-model',
+      }),
+    })
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'custom-model'
+    )
+  })
+
+  test('does not invent a model from a numeric platform or generic action', () => {
+    const log = taskLog({ platform: '24', properties: undefined })
+    assert.equal(
+      buildTaskLogSubtitle(log, (value) => value),
+      'Unknown model'
     )
   })
 })

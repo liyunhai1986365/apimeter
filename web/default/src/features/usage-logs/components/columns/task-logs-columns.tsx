@@ -32,11 +32,7 @@ import type { TaskLog } from '../../types'
 import { FailReasonDialog } from '../dialogs/fail-reason-dialog'
 import { TaskResultCell } from '../task-result-cell'
 import { useUsageLogsContext } from '../usage-logs-provider'
-import {
-  createDurationColumn,
-  createChannelColumn,
-  createProgressColumn,
-} from './column-helpers'
+import { createDurationColumn, createProgressColumn } from './column-helpers'
 
 export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
   const { t } = useTranslation()
@@ -70,7 +66,7 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
   ]
 
   if (isAdmin) {
-    columns.push(createChannelColumn<TaskLog>({ headerLabel: t('Channel') }), {
+    columns.push({
       id: 'user',
       header: ({ column }) => (
         <DataTableColumnHeader column={column} title={t('User')} />
@@ -135,7 +131,10 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
               showDot={false}
               className='border-border/60 bg-muted/30 max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono'
             />
-            <span className='text-muted-foreground/60 truncate text-[11px]'>
+            <span
+              className='text-muted-foreground/60 truncate text-[11px]'
+              title={buildTaskLogSubtitle(log, t)}
+            >
               {buildTaskLogSubtitle(log, t)}
             </span>
           </div>

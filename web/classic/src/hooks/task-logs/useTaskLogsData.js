@@ -39,10 +39,8 @@ export const useTaskLogsData = () => {
     SUBMIT_TIME: 'submit_time',
     FINISH_TIME: 'finish_time',
     DURATION: 'duration',
-    CHANNEL: 'channel',
     USERNAME: 'username',
-    PLATFORM: 'platform',
-    TYPE: 'type',
+    MODEL: 'model',
     TASK_ID: 'task_id',
     TASK_STATUS: 'task_status',
     PROGRESS: 'progress',
@@ -108,11 +106,15 @@ export const useTaskLogsData = () => {
       try {
         const parsed = JSON.parse(savedColumns);
         const defaults = getDefaultColumnVisibility();
-        const merged = { ...defaults, ...parsed };
+        const merged = Object.fromEntries(
+          Object.entries(defaults).map(([key, value]) => [
+            key,
+            parsed[key] ?? value,
+          ]),
+        );
 
         // For non-admin users, force-hide admin-only columns (does not touch admin settings)
         if (!isAdminUser) {
-          merged[COLUMN_KEYS.CHANNEL] = false;
           merged[COLUMN_KEYS.USERNAME] = false;
         }
         setVisibleColumns(merged);
@@ -131,10 +133,8 @@ export const useTaskLogsData = () => {
       [COLUMN_KEYS.SUBMIT_TIME]: true,
       [COLUMN_KEYS.FINISH_TIME]: true,
       [COLUMN_KEYS.DURATION]: true,
-      [COLUMN_KEYS.CHANNEL]: isAdminUser,
       [COLUMN_KEYS.USERNAME]: isAdminUser,
-      [COLUMN_KEYS.PLATFORM]: true,
-      [COLUMN_KEYS.TYPE]: true,
+      [COLUMN_KEYS.MODEL]: true,
       [COLUMN_KEYS.TASK_ID]: true,
       [COLUMN_KEYS.TASK_STATUS]: true,
       [COLUMN_KEYS.PROGRESS]: true,
@@ -162,10 +162,7 @@ export const useTaskLogsData = () => {
     const updatedColumns = {};
 
     allKeys.forEach((key) => {
-      if (
-        (key === COLUMN_KEYS.CHANNEL || key === COLUMN_KEYS.USERNAME) &&
-        !isAdminUser
-      ) {
+      if (key === COLUMN_KEYS.USERNAME && !isAdminUser) {
         updatedColumns[key] = false;
       } else {
         updatedColumns[key] = checked;
