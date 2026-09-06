@@ -142,7 +142,7 @@ func validatePrompt(prompt string) *dto.TaskError {
 
 const (
 	MaxTaskDurationSeconds         = 3600
-	MaxSeedanceTaskDurationSeconds = 25
+	MaxSeedanceTaskDurationSeconds = 30
 )
 
 func ValidateTaskDurationBounds(req TaskSubmitReq, modelNames ...string) *dto.TaskError {

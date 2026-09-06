@@ -31,10 +31,12 @@ func TestTaskDurationBounds(t *testing.T) {
 		{name: "huge seconds string is rejected", body: `{"model":"sora-2","prompt":"a cat","seconds":"9999999999"}`, wantErr: true},
 		{name: "negative duration is rejected", body: `{"model":"sora-2","prompt":"a cat","duration":-8}`, wantErr: true},
 		{name: "normal duration is accepted", body: `{"model":"sora-2","prompt":"a cat","seconds":"8"}`},
-		{name: "seedance duration at limit is accepted", body: `{"model":"dreamina-seedance-2-0-260128","prompt":"a cat","duration":25}`},
-		{name: "seedance duration over limit is rejected", body: `{"model":"dreamina-seedance-2-0-260128","prompt":"a cat","duration":26}`, wantErr: true},
-		{name: "seedance seconds over limit is rejected", body: `{"model":"doubao-seedance-2.0-pro","prompt":"a cat","seconds":"26"}`, wantErr: true},
-		{name: "non seedance duration over 25 is accepted", body: `{"model":"other-video-model","prompt":"a cat","duration":26}`},
+		{name: "seedance duration above old limit is accepted", body: `{"model":"dreamina-seedance-2-0-260128","prompt":"a cat","duration":26}`},
+		{name: "seedance duration at limit is accepted", body: `{"model":"dreamina-seedance-2-0-260128","prompt":"a cat","duration":30}`},
+		{name: "seedance seconds at limit is accepted", body: `{"model":"doubao-seedance-2.0-pro","prompt":"a cat","seconds":"30"}`},
+		{name: "seedance duration over limit is rejected", body: `{"model":"dreamina-seedance-2-0-260128","prompt":"a cat","duration":31}`, wantErr: true},
+		{name: "seedance seconds over limit is rejected", body: `{"model":"doubao-seedance-2.0-pro","prompt":"a cat","seconds":"31"}`, wantErr: true},
+		{name: "non seedance duration over 30 is accepted", body: `{"model":"other-video-model","prompt":"a cat","duration":31}`},
 	}
 
 	for _, tt := range tests {
@@ -66,12 +68,14 @@ func TestTaskDurationBoundsUsesMappedSeedanceModel(t *testing.T) {
 	req := TaskSubmitReq{
 		Model:    "video-model-alias",
 		Prompt:   "a cat",
-		Duration: 26,
+		Duration: 30,
 	}
 
+	require.Nil(t, ValidateTaskDurationBounds(req, "dreamina-seedance-2-0-260128"))
+	req.Duration = 31
 	taskErr := ValidateTaskDurationBounds(req, "dreamina-seedance-2-0-260128")
 
 	require.NotNil(t, taskErr)
 	require.Equal(t, "invalid_seconds", taskErr.Code)
-	require.Contains(t, taskErr.Message, "25")
+	require.Equal(t, "seconds must be between 1 and 30", taskErr.Message)
 }

@@ -379,29 +379,41 @@ func TestTaskAdaptorBuildsSeedanceNativeOfficialRequest(t *testing.T) {
 	require.Equal(t, "reference_image", gjson.GetBytes(mappedBody, "content.1.role").String())
 }
 
-func TestTaskAdaptorRejectsSeedanceNativeDurationOverLimit(t *testing.T) {
+func TestTaskAdaptorValidatesSeedanceNativeDurationBounds(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := []byte(`{
-		"model":"dreamina-seedance-2-0-260128",
-		"content":[{"type":"text","text":"a cat"}],
-		"resolution":"480p",
-		"duration":26
-	}`)
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", bytes.NewReader(body))
-	c.Request.Header.Set("Content-Type", "application/json")
-	if _, err := common.GetBodyStorage(c); err != nil {
-		t.Fatalf("cache body: %v", err)
+	for _, profileID := range []string{"doubao-seedance-max-service-inference", "seedance2-service-inference"} {
+		t.Run(profileID, func(t *testing.T) {
+			for _, duration := range []int{30, 31} {
+				info := seedanceMaxRelayInfo(profileID)
+				body, err := common.Marshal(map[string]any{
+					"model":      info.UpstreamModelName,
+					"content":    []map[string]string{{"type": "text", "text": "a cat"}},
+					"resolution": "480p", "duration": duration,
+				})
+				require.NoError(t, err)
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c.Request = httptest.NewRequest(http.MethodPost, "/api/v3/contents/generations/tasks", bytes.NewReader(body))
+				c.Request.Header.Set("Content-Type", "application/json")
+				_, err = common.GetBodyStorage(c)
+				require.NoError(t, err)
+				adaptor := &TaskAdaptor{}
+				adaptor.Init(info)
+				taskErr := adaptor.ValidateRequestAndSetAction(c, info)
+				if duration == 31 {
+					require.NotNil(t, taskErr)
+					require.Equal(t, "invalid_seconds", taskErr.Code)
+					require.Equal(t, "seconds must be between 1 and 30", taskErr.Message)
+					continue
+				}
+				require.Nil(t, taskErr)
+				reader, err := adaptor.BuildRequestBody(c, info)
+				require.NoError(t, err)
+				upstreamBody, err := io.ReadAll(reader)
+				require.NoError(t, err)
+				require.Equal(t, int64(30), gjson.GetBytes(upstreamBody, "duration").Int())
+			}
+		})
 	}
-
-	info := seedanceServiceInferenceRelayInfo("dreamina-seedance-2-0-260128")
-	adaptor := &TaskAdaptor{}
-	adaptor.Init(info)
-	taskErr := adaptor.ValidateRequestAndSetAction(c, info)
-
-	require.NotNil(t, taskErr)
-	require.Equal(t, "invalid_seconds", taskErr.Code)
-	require.Contains(t, taskErr.Message, "25")
 }
 
 func TestTaskAdaptorSeedanceOfficialAndGenericSubmitUseSameConfiguredEndpoint(t *testing.T) {
