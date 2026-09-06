@@ -6936,6 +6936,9 @@
     "Exporting...": "Exporting...",
     "Send bill": "Send bill",
     "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.",
-    "Send monthly bill": "Send monthly bill"
+    "Send monthly bill": "Send monthly bill",
+    "Image expired": "Image expired",
+    "Some images expired": "Some images expired",
+    "Task Image Cleanup": "Task Image Cleanup"
   }
 }

@@ -6936,6 +6936,9 @@
     "Exporting...": "Exportation...",
     "Send bill": "Envoyer le relevé",
     "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Envoyer le relevé {{statement}} à {{email}} ? Un fichier CSV détaillé sera joint.",
-    "Send monthly bill": "Envoyer le relevé mensuel"
+    "Send monthly bill": "Envoyer le relevé mensuel",
+    "Image expired": "Image expirée",
+    "Some images expired": "Certaines images ont expiré",
+    "Task Image Cleanup": "Nettoyage des images des tâches"
   }
 }

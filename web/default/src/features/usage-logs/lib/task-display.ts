@@ -4,6 +4,25 @@ import type { TaskLog, TaskLogProperties } from '../types'
 
 type TranslateFn = (value: string) => string
 
+export function getTaskImageStatus(
+  log: Pick<TaskLog, 'image_status' | 'image_expires_at' | 'image_has_url'>,
+  now = Date.now() / 1000
+) {
+  if (
+    log.image_status === 'expired' ||
+    log.image_status === 'partially_expired'
+  )
+    return log.image_status
+  if (
+    log.image_status === 'available' &&
+    log.image_expires_at &&
+    now >= log.image_expires_at
+  ) {
+    return log.image_has_url ? 'partially_expired' : 'expired'
+  }
+  return log.image_status
+}
+
 function parseProperties(properties: TaskLog['properties']): TaskLogProperties {
   if (!properties) return {}
   if (typeof properties === 'string') {
@@ -150,7 +169,7 @@ export function formatDrawingSubmitTime(submitTime?: number): string {
 }
 
 export function getTaskLogVideoPreviewUrl(log: TaskLog): string {
-  if (getTaskLogImageModelName(log)) {
+  if (getTaskLogImageModelName(log) || log.image_status) {
     return ''
   }
   if (log.status !== TASK_STATUS.SUCCESS || !isVideoTaskAction(log.action)) {
@@ -174,6 +193,8 @@ export function getTaskLogVideoPreviewUrl(log: TaskLog): string {
 }
 
 export function getTaskLogImagePreviewUrl(log: TaskLog): string {
+  const imageStatus = getTaskImageStatus(log)
+  if (imageStatus === 'expired') return ''
   const data = parseRecordData(log.data)
   if (!getTaskLogImageModelName(log) && !getAtPath(data, 'data.images.0')) {
     return ''
@@ -183,15 +204,39 @@ export function getTaskLogImagePreviewUrl(log: TaskLog): string {
   }
 
   const resultUrl = normalizePreviewUrl(log.result_url)
-  if (resultUrl) return resultUrl
+  if (
+    resultUrl &&
+    !(imageStatus === 'partially_expired' && resultUrl.startsWith('data:'))
+  )
+    return resultUrl
+
+  const images = getAtPath(data, 'data.images')
+  if (Array.isArray(images)) {
+    for (const image of images) {
+      const url = normalizePreviewUrl(getAtPath(image, 'url'))
+      if (
+        url &&
+        !(imageStatus === 'partially_expired' && url.startsWith('data:'))
+      )
+        return url
+    }
+  }
 
   for (const path of IMAGE_PREVIEW_URL_PATHS) {
     const url = normalizePreviewUrl(getAtPath(data, path))
-    if (url) return url
+    if (
+      url &&
+      !(imageStatus === 'partially_expired' && url.startsWith('data:'))
+    )
+      return url
   }
 
   const base64 = getAtPath(data, 'data.images.0.b64_json')
-  if (typeof base64 === 'string' && base64) {
+  if (
+    imageStatus !== 'partially_expired' &&
+    typeof base64 === 'string' &&
+    base64
+  ) {
     return `data:image/png;base64,${base64}`
   }
   return ''

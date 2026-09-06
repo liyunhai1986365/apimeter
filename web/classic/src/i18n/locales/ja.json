@@ -3664,6 +3664,9 @@
     "Slide to verify": "スライドして認証",
     "Behavior verification": "行動認証",
     "Drag the slider to fit the puzzle piece into the gap.": "スライダーを動かして、パズルピースを切り抜き部分に合わせてください。",
-    "Enable behavior CAPTCHA": "行動 CAPTCHA を有効にする"
+    "Enable behavior CAPTCHA": "行動 CAPTCHA を有効にする",
+    "图片已过期": "画像の有効期限が切れました",
+    "部分图片已过期": "一部の画像の有効期限が切れました",
+    "任务图片清理": "タスク画像のクリーンアップ"
   }
 }

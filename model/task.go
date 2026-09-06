@@ -49,7 +49,7 @@ const (
 const TaskRefundLegacyCutoff int64 = 1771718400 // 2026-02-22 00:00:00 UTC
 
 type Task struct {
-	ID         int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT"`
+	ID         int64                 `json:"id" gorm:"primary_key;AUTO_INCREMENT;index:idx_task_image_expiry,priority:3"`
 	CreatedAt  int64                 `json:"created_at" gorm:"index"`
 	UpdatedAt  int64                 `json:"updated_at"`
 	TaskID     string                `json:"task_id" gorm:"type:varchar(191);index"` // 第三方id，不一定有/ song id\ Task id
@@ -70,8 +70,13 @@ type Task struct {
 	Properties Properties            `json:"properties" gorm:"type:json"`
 	Username   string                `json:"username,omitempty" gorm:"-"`
 	// 禁止返回给用户，内部可能包含key等隐私信息
-	PrivateData TaskPrivateData `json:"-" gorm:"column:private_data;type:json"`
-	Data        json.RawMessage `json:"data" gorm:"type:json"`
+	PrivateData          TaskPrivateData `json:"-" gorm:"column:private_data;type:json"`
+	Data                 json.RawMessage `json:"data" gorm:"type:json"`
+	ImageBase64State     int             `json:"-" gorm:"not null;default:0;index:idx_task_image_expiry,priority:1"`
+	ImageExpiresAt       int64           `json:"-" gorm:"not null;default:0;index:idx_task_image_expiry,priority:2"`
+	ImageBase64ClearedAt int64           `json:"-" gorm:"not null;default:0"`
+	ImageBase64Version   int64           `json:"-" gorm:"not null;default:0"`
+	ImageHasURL          bool            `json:"-" gorm:"not null;default:false"`
 }
 
 func (t *Task) SetData(data any) {
@@ -166,8 +171,15 @@ func GenerateTaskID() string {
 }
 
 func (p *TaskPrivateData) Scan(val interface{}) error {
-	bytesValue, _ := val.([]byte)
+	var bytesValue []byte
+	switch value := val.(type) {
+	case []byte:
+		bytesValue = value
+	case string:
+		bytesValue = []byte(value)
+	}
 	if len(bytesValue) == 0 {
+		*p = TaskPrivateData{}
 		return nil
 	}
 	return common.Unmarshal(bytesValue, p)
@@ -454,6 +466,9 @@ func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {
 
 func (Task *Task) Insert() error {
 	hydrateTaskTokenFields(Task)
+	if err := Task.prepareImageRetention(common.GetTimestamp(), false); err != nil {
+		return err
+	}
 	var err error
 	err = DB.Create(Task).Error
 	return err
@@ -492,8 +507,13 @@ func (t *Task) Snapshot() taskSnapshot {
 }
 
 func (Task *Task) Update() error {
-	var err error
-	err = DB.Save(Task).Error
+	if Task.ID == 0 {
+		return Task.Insert()
+	}
+	won, err := Task.updateWithImageVersion(DB.Where("id = ?", Task.ID))
+	if err == nil && !won {
+		return ErrTaskImageVersionConflict
+	}
 	return err
 }
 
@@ -503,19 +523,17 @@ func (t *Task) UpdateQuota() error {
 
 // UpdateWithStatus performs a conditional UPDATE guarded by fromStatus (CAS).
 // Returns (true, nil) if this caller won the update, (false, nil) if
-// another process already moved the task out of fromStatus. MySQL commonly
-// reports changed rows rather than matched rows, so a same-value no-op update
-// can also return false even when the status predicate still matched.
+// another process already moved the task out of fromStatus or changed its image
+// version. Unrelated tasks retain the database's same-value update semantics.
 //
 // Uses Model().Select("*").Updates() instead of Save() because GORM's Save
 // falls back to INSERT ON CONFLICT when the WHERE-guarded UPDATE matches
 // zero rows, which silently bypasses the CAS guard.
 func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
-	result := DB.Model(t).Where("status = ?", fromStatus).Select("*").Updates(t)
-	if result.Error != nil {
-		return false, result.Error
+	if t.ID == 0 {
+		return false, gorm.ErrMissingWhereClause
 	}
-	return result.RowsAffected > 0, nil
+	return t.updateWithImageVersion(DB.Where("id = ? AND status = ?", t.ID, fromStatus))
 }
 
 // TaskBulkUpdate performs an unconditional bulk UPDATE by upstream task_id strings.
@@ -523,6 +541,10 @@ func (t *Task) UpdateWithStatus(fromStatus TaskStatus) (bool, error) {
 func TaskBulkUpdate(taskIds []string, params map[string]any) error {
 	if len(taskIds) == 0 {
 		return nil
+	}
+	params, err := taskBulkVersionParams(params)
+	if err != nil {
+		return err
 	}
 	return DB.Model(&Task{}).
 		Where("task_id in (?)", taskIds).
@@ -537,6 +559,10 @@ func TaskBulkUpdate(taskIds []string, params map[string]any) error {
 func TaskBulkUpdateByID(ids []int64, params map[string]any) error {
 	if len(ids) == 0 {
 		return nil
+	}
+	params, err := taskBulkVersionParams(params)
+	if err != nil {
+		return err
 	}
 	return DB.Model(&Task{}).
 		Where("id in (?)", ids).

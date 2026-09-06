@@ -336,6 +336,7 @@ var fetchRespBuilders = map[int]func(c *gin.Context) (respBody []byte, taskResp 
 }
 
 func RelayTaskFetch(c *gin.Context, relayMode int) (taskResp *dto.TaskError) {
+	c.Header("Cache-Control", "no-store")
 	respBuilder, ok := fetchRespBuilders[relayMode]
 	if !ok {
 		taskResp = service.TaskErrorWrapperLocal(errors.New("invalid_relay_mode"), "invalid_relay_mode", http.StatusBadRequest)
@@ -474,6 +475,9 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 // 仅当渠道类型为 Gemini 或 Vertex 时触发；其他渠道或出错时返回 nil。
 // 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
 func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
+	if view, err := task.ImageRetentionView(common.GetTimestamp()); err != nil || view.ImageContentExpired(common.GetTimestamp()) {
+		return nil
+	}
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
 	if err != nil {
 		return nil
@@ -567,6 +571,20 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	if c == nil || task == nil {
 		return nil
 	}
+	view, viewErr := task.ImageRetentionView(common.GetTimestamp())
+	if viewErr != nil {
+		return nil
+	}
+	if view.ImageAvailability(common.GetTimestamp()).ImageStatus != "" {
+		c.Header("Cache-Control", "no-store")
+	}
+	if view.ImageContentExpired(common.GetTimestamp()) {
+		if returnNativeBody {
+			body, _ := imageTaskResponseWithRetention(view, view.Data)
+			return body
+		}
+		return nil
+	}
 	channelModel, err := model.GetChannelById(task.ChannelId, true)
 	if err != nil {
 		return nil
@@ -607,6 +625,15 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	if err != nil {
 		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
+	// A fetch that started before expiry may finish after it.
+	if expired, err := task.ImageRetentionView(common.GetTimestamp()); err == nil && expired.ImageContentExpired(common.GetTimestamp()) {
+		if returnNativeBody {
+			result, _ := imageTaskResponseWithRetention(expired, expired.Data)
+			return result
+		}
+		return nil
+	}
+
 	ti, err := adaptor.ParseTaskResult(body)
 	if err == nil && ti != nil {
 		snap := task.Snapshot()
@@ -658,8 +685,16 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		ConvertToNativeFetchResponse(*model.Task, []byte) ([]byte, error)
 	}); ok {
 		if nativeBody, err := converter.ConvertToNativeFetchResponse(task, body); err == nil {
+			if task.ImageAvailability(common.GetTimestamp()).ImageStatus != "" {
+				result, _ := imageTaskResponseWithRetention(task, nativeBody)
+				return result
+			}
 			return nativeBody
 		}
+	}
+	if task.ImageAvailability(common.GetTimestamp()).ImageStatus != "" {
+		result, _ := imageTaskResponseWithRetention(task, body)
+		return result
 	}
 	return body
 }
@@ -727,26 +762,38 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 }
 
 func TaskModel2Dto(task *model.Task) *dto.TaskDto {
+	now := common.GetTimestamp()
+	view, err := task.ImageRetentionView(now)
+	if err != nil {
+		// A malformed historical result must not leak an expired payload. The
+		// saved bytes are kept for maintenance; other task metadata stays visible.
+		copy := *task
+		copy.Data = nil
+		copy.PrivateData.ResultURL = ""
+		view = &copy
+	}
+	task = view
 	return &dto.TaskDto{
-		ID:         task.ID,
-		CreatedAt:  task.CreatedAt,
-		UpdatedAt:  task.UpdatedAt,
-		TaskID:     task.TaskID,
-		Platform:   string(task.Platform),
-		UserId:     task.UserId,
-		Group:      task.Group,
-		ChannelId:  task.ChannelId,
-		Quota:      task.Quota,
-		Action:     task.Action,
-		Status:     string(task.Status),
-		FailReason: task.FailReason,
-		ResultURL:  task.GetResultURL(),
-		SubmitTime: task.SubmitTime,
-		StartTime:  task.StartTime,
-		FinishTime: task.FinishTime,
-		Progress:   task.Progress,
-		Properties: task.Properties,
-		Username:   task.Username,
-		Data:       task.Data,
+		TaskImageAvailability: task.ImageAvailability(now),
+		ID:                    task.ID,
+		CreatedAt:             task.CreatedAt,
+		UpdatedAt:             task.UpdatedAt,
+		TaskID:                task.TaskID,
+		Platform:              string(task.Platform),
+		UserId:                task.UserId,
+		Group:                 task.Group,
+		ChannelId:             task.ChannelId,
+		Quota:                 task.Quota,
+		Action:                task.Action,
+		Status:                string(task.Status),
+		FailReason:            task.FailReason,
+		ResultURL:             task.GetResultURL(),
+		SubmitTime:            task.SubmitTime,
+		StartTime:             task.StartTime,
+		FinishTime:            task.FinishTime,
+		Progress:              task.Progress,
+		Properties:            task.Properties,
+		Username:              task.Username,
+		Data:                  task.Data,
 	}
 }

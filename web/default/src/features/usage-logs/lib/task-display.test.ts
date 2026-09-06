@@ -6,6 +6,7 @@ import {
   formatDrawingSubmitTime,
   getTaskLogImagePreviewUrl,
   getTaskLogVideoPreviewUrl,
+  getTaskImageStatus,
 } from './task-display'
 
 function taskLog(overrides: Partial<TaskLog>): TaskLog {
@@ -21,6 +22,43 @@ function taskLog(overrides: Partial<TaskLog>): TaskLog {
     ...overrides,
   }
 }
+
+describe('task image expiry', () => {
+  test('expires at the deadline even before physical cleanup', () => {
+    const metadata = {
+      image_status: 'available' as const,
+      image_expires_at: 100,
+    }
+    assert.equal(getTaskImageStatus(metadata, 99), 'available')
+    assert.equal(getTaskImageStatus(metadata, 100), 'expired')
+    assert.equal(
+      getTaskImageStatus({ ...metadata, image_has_url: true }, 100),
+      'partially_expired'
+    )
+  })
+  test('does not display a cached base64 image after expiry or as video', () => {
+    const log = taskLog({
+      image_status: 'expired',
+      data: { data: { images: [{ b64_json: 'SECRET' }] } },
+    })
+    assert.equal(getTaskLogImagePreviewUrl(log), '')
+    assert.equal(getTaskLogVideoPreviewUrl(log), '')
+  })
+  test('keeps the available URL when the first image expired', () => {
+    const log = taskLog({
+      image_status: 'partially_expired',
+      data: {
+        data: {
+          images: [
+            { image_expired: true },
+            { url: 'https://example.com/keep.png' },
+          ],
+        },
+      },
+    })
+    assert.equal(getTaskLogImagePreviewUrl(log), 'https://example.com/keep.png')
+  })
+})
 
 describe('buildTaskLogSubtitle', () => {
   test('shows async image model name instead of generic image-to-video action', () => {

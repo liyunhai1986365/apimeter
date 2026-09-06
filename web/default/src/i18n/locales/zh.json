@@ -6936,6 +6936,9 @@
     "Exporting...": "导出中...",
     "Send bill": "发送账单",
     "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "确定将账单 {{statement}} 发送至 {{email}} 吗？邮件将附带 CSV 明细文件。",
-    "Send monthly bill": "发送月度账单"
+    "Send monthly bill": "发送月度账单",
+    "Image expired": "图片已过期",
+    "Some images expired": "部分图片已过期",
+    "Task Image Cleanup": "任务图片清理"
   }
 }

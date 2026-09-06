@@ -23,6 +23,7 @@ func UpdateTaskBulk() {
 }
 
 func GetAllTask(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	pageInfo := common.GetPageQuery(c)
 
 	startTimestamp, _ := strconv.ParseInt(c.Query("start_timestamp"), 10, 64)
@@ -48,6 +49,7 @@ func GetAllTask(c *gin.Context) {
 }
 
 func GetUserTask(c *gin.Context) {
+	c.Header("Cache-Control", "no-store")
 	pageInfo := common.GetPageQuery(c)
 	scope, err := workspaceAccessScope(c)
 	if err != nil {

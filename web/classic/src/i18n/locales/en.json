@@ -3843,6 +3843,9 @@
     "Slide to verify": "Slide to verify",
     "Behavior verification": "Behavior verification",
     "Drag the slider to fit the puzzle piece into the gap.": "Drag the slider to fit the puzzle piece into the gap.",
-    "Enable behavior CAPTCHA": "Enable behavior CAPTCHA"
+    "Enable behavior CAPTCHA": "Enable behavior CAPTCHA",
+    "图片已过期": "Image expired",
+    "部分图片已过期": "Some images expired",
+    "任务图片清理": "Task Image Cleanup"
   }
 }

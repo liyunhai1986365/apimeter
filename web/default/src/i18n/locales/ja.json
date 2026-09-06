@@ -6936,6 +6936,9 @@
     "Exporting...": "エクスポート中...",
     "Send bill": "請求書を送信",
     "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "請求書 {{statement}} を {{email}} に送信しますか？CSV 形式の明細ファイルが添付されます。",
-    "Send monthly bill": "月次請求書を送信"
+    "Send monthly bill": "月次請求書を送信",
+    "Image expired": "画像の有効期限が切れました",
+    "Some images expired": "一部の画像の有効期限が切れました",
+    "Task Image Cleanup": "タスク画像のクリーンアップ"
   }
 }

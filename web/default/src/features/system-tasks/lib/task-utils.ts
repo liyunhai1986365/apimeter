@@ -28,6 +28,7 @@ export function getTaskTypeLabel(type: SystemTaskType): string {
     midjourney_poll: 'Midjourney Poll',
     async_task_poll: 'Async Task Poll',
     log_cleanup: 'Log Cleanup',
+    task_image_base64_cleanup: 'Task Image Cleanup',
   }
   return labels[type] || type
 }

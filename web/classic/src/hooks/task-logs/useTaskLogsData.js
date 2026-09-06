@@ -30,6 +30,8 @@ import {
 } from '../../helpers';
 import { ITEMS_PER_PAGE } from '../../constants';
 import { useTableCompactMode } from '../common/useTableCompactMode';
+import { getTaskImageStatus } from '../../helpers/taskImageRetention';
+import { useTaskImageStatus } from './useTaskImageStatus';
 
 export const useTaskLogsData = () => {
   const { t } = useTranslation();
@@ -65,6 +67,22 @@ export const useTaskLogsData = () => {
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState('');
+  const [imageMetadata, setImageMetadata] = useState(null);
+  const imageStatus = useTaskImageStatus(imageMetadata);
+  useEffect(() => {
+    if (imageStatus === 'expired' || imageStatus === 'partially_expired') {
+      setModalContent(
+        t(imageStatus === 'expired' ? '图片已过期' : '部分图片已过期'),
+      );
+      setImageMetadata(null);
+    }
+  }, [imageStatus, t]);
+  useEffect(() => {
+    if (!isModalOpen) {
+      setModalContent('');
+      setImageMetadata(null);
+    }
+  }, [isModalOpen]);
 
   // 新增：视频预览弹窗状态
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
@@ -286,6 +304,11 @@ export const useTaskLogsData = () => {
   const detailLoading = useRef(false);
   const openTaskDetail = async (record, preview = true) => {
     if (detailLoading.current) return;
+    setImageMetadata(null);
+    if (preview && getTaskImageStatus(record) === 'expired') {
+      openContentModal(t('图片已过期'));
+      return;
+    }
     detailLoading.current = true;
     openContentModal(t('加载中...'));
     try {
@@ -296,6 +319,17 @@ export const useTaskLogsData = () => {
       if (!res.data.success || !res.data.data)
         throw new Error(res.data.message);
       const detail = res.data.data;
+      const status = getTaskImageStatus(detail);
+      if (preview && status === 'expired') {
+        openContentModal(t('图片已过期'));
+        return;
+      }
+      if (status === 'available')
+        setImageMetadata({
+          image_status: detail.image_status,
+          image_expires_at: detail.image_expires_at,
+          image_has_url: detail.image_has_url,
+        });
       const data =
         typeof detail.data === 'string' ? JSON.parse(detail.data) : detail.data;
       if (
@@ -307,10 +341,18 @@ export const useTaskLogsData = () => {
         openAudioModal(data);
         return;
       }
-      const image = data?.data?.images?.[0];
+      const image = data?.data?.images?.find(
+        (item) =>
+          item?.url ||
+          (status !== 'partially_expired' &&
+            !item?.image_expired &&
+            item?.b64_json),
+      );
       const imageUrl =
         image?.url ||
-        (image?.b64_json ? `data:image/png;base64,${image.b64_json}` : '');
+        (status !== 'partially_expired' && image?.b64_json
+          ? `data:image/png;base64,${image.b64_json}`
+          : '');
       if (preview && imageUrl) {
         openContentModal(
           createElement('img', {

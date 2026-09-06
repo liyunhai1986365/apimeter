@@ -315,6 +315,10 @@ export interface MidjourneyLog {
 // ============================================================================
 
 export interface TaskLog {
+  image_status?: 'available' | 'expired' | 'partially_expired'
+  image_expires_at?: number
+  image_has_url?: boolean
+  image_message?: string
   id: number
   user_id: number
   username?: string

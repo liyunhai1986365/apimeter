@@ -6936,6 +6936,9 @@
     "Exporting...": "Экспорт...",
     "Send bill": "Отправить счёт",
     "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Отправить счёт {{statement}} на {{email}}? К письму будет прикреплён CSV-файл с детализацией.",
-    "Send monthly bill": "Отправить ежемесячный счёт"
+    "Send monthly bill": "Отправить ежемесячный счёт",
+    "Image expired": "Срок хранения изображения истёк",
+    "Some images expired": "Срок хранения некоторых изображений истёк",
+    "Task Image Cleanup": "Очистка изображений задач"
   }
 }

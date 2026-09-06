@@ -1826,16 +1826,13 @@ func TestConfigurableNativeFetchStoresFailureReason(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/tasks/task_public", nil)
 	c.Set("configurable_native_profile_id", "happyhorse-video")
 
-	body := tryConfigurableNativeFetch(c, &model.Task{
-		TaskID:    "task_public",
-		UserId:    7,
-		ChannelId: channel.Id,
-		Status:    model.TaskStatusInProgress,
-		Progress:  "30%",
-		PrivateData: model.TaskPrivateData{
-			UpstreamTaskID: "upstream-task",
-		},
-	})
+	// Production callers load the row, including its ID and result version.
+	// A synthetic ID-less task would turn the old status-only UPDATE into a
+	// bulk update; the versioned writer requires the actual persisted snapshot.
+	persisted, found, err := model.GetByTaskId(7, "task_public")
+	require.NoError(t, err)
+	require.True(t, found)
+	body := tryConfigurableNativeFetch(c, persisted)
 	require.True(t, strings.Contains(string(body), `"message":"The parameter is invalid."`), string(body))
 
 	reloaded, exists, err := model.GetByTaskId(7, "task_public")

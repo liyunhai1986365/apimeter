@@ -18,6 +18,8 @@ For commercial licensing, please contact support@quantumnous.com
 */
 
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { useTaskImageStatus } from '../../../hooks/task-logs/useTaskImageStatus';
 import { Progress, Tag, Tooltip, Typography } from '@douyinfe/semi-ui';
 import {
   HelpCircle,
@@ -40,6 +42,17 @@ import { stringToColor } from '../../../helpers/render';
 import { Avatar, Space } from '@douyinfe/semi-ui';
 
 // Render functions
+function TaskImageResultLink({ record, openTaskDetail }) {
+  const { t } = useTranslation();
+  const status = useTaskImageStatus(record);
+  if (status === 'expired') return <Tag>{t('图片已过期')}</Tag>;
+  return (
+    <Typography.Text link onClick={() => openTaskDetail(record)}>
+      {status === 'partially_expired' ? t('部分图片已过期') : t('详情')}
+    </Typography.Text>
+  );
+}
+
 const renderTimestamp = (timestampInSeconds) => {
   const date = new Date(timestampInSeconds * 1000); // 从秒转换为毫秒
 
@@ -265,6 +278,13 @@ export const getTaskLogsColumns = ({
       dataIndex: 'fail_reason',
       fixed: 'right',
       render: (text, record, index) => {
+        if (record.image_status)
+          return (
+            <TaskImageResultLink
+              record={record}
+              openTaskDetail={openTaskDetail}
+            />
+          );
         if (record.data_omitted && record.status === 'SUCCESS') {
           return (
             <Typography.Text link onClick={() => openTaskDetail(record)}>

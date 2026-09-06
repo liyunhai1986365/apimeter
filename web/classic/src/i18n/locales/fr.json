@@ -3695,6 +3695,9 @@
     "Slide to verify": "Faire glisser pour vérifier",
     "Behavior verification": "Vérification comportementale",
     "Drag the slider to fit the puzzle piece into the gap.": "Faites glisser le curseur pour placer la pièce du puzzle dans l’encoche.",
-    "Enable behavior CAPTCHA": "Activer le CAPTCHA comportemental"
+    "Enable behavior CAPTCHA": "Activer le CAPTCHA comportemental",
+    "图片已过期": "Image expirée",
+    "部分图片已过期": "Certaines images ont expiré",
+    "任务图片清理": "Nettoyage des images des tâches"
   }
 }

@@ -4229,6 +4229,9 @@
     "Slide to verify": "Trượt để xác minh",
     "Behavior verification": "Xác minh hành vi",
     "Drag the slider to fit the puzzle piece into the gap.": "Kéo thanh trượt để khớp mảnh ghép vào chỗ trống.",
-    "Enable behavior CAPTCHA": "Bật CAPTCHA hành vi"
+    "Enable behavior CAPTCHA": "Bật CAPTCHA hành vi",
+    "图片已过期": "Hình ảnh đã hết hạn",
+    "部分图片已过期": "Một số hình ảnh đã hết hạn",
+    "任务图片清理": "Dọn dẹp hình ảnh tác vụ"
   }
 }

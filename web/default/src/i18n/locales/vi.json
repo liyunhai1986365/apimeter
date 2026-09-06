@@ -6936,6 +6936,9 @@
     "Exporting...": "Đang xuất...",
     "Send bill": "Gửi hóa đơn",
     "Send bill {{statement}} to {{email}}? A CSV detail file will be attached.": "Gửi hóa đơn {{statement}} đến {{email}}? Email sẽ đính kèm tệp CSV chi tiết.",
-    "Send monthly bill": "Gửi hóa đơn hàng tháng"
+    "Send monthly bill": "Gửi hóa đơn hàng tháng",
+    "Image expired": "Hình ảnh đã hết hạn",
+    "Some images expired": "Một số hình ảnh đã hết hạn",
+    "Task Image Cleanup": "Dọn dẹp hình ảnh tác vụ"
   }
 }

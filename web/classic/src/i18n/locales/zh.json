@@ -2635,6 +2635,9 @@
     "Slide to verify": "滑动验证",
     "Behavior verification": "行为验证",
     "Drag the slider to fit the puzzle piece into the gap.": "拖动滑块，将拼图块对准缺口。",
-    "Enable behavior CAPTCHA": "启用行为验证码"
+    "Enable behavior CAPTCHA": "启用行为验证码",
+    "图片已过期": "图片已过期",
+    "部分图片已过期": "部分图片已过期",
+    "任务图片清理": "任务图片清理"
   }
 }
