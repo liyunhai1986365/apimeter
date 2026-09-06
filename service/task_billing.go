@@ -58,7 +58,11 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 		other["is_model_mapped"] = true
 		other["upstream_model_name"] = info.UpstreamModelName
 	}
-	appendChannelCostInfo(other, info, info.PriceData.Quota)
+	if DeferTaskCost(info) {
+		other["task_cost_state"] = model.TaskCostPending
+	} else {
+		appendChannelCostInfo(other, info, info.PriceData.Quota)
+	}
 	logID := model.RecordConsumeLog(c, info.UserId, model.RecordConsumeLogParams{
 		Force:     info.AgentBillingSnapshot != nil,
 		ChannelId: info.ChannelId,
@@ -82,6 +86,49 @@ func LogTaskConsumption(c *gin.Context, info *relaycommon.RelayInfo) {
 // ---------------------------------------------------------------------------
 // 异步任务计费辅助函数
 // ---------------------------------------------------------------------------
+
+// DeferTaskCost distinguishes estimated task charges from final per-call prices.
+func DeferTaskCost(info *relaycommon.RelayInfo) bool {
+	return !info.PriceData.UsePrice && !common.StringsContains(constant.TaskPricePatches, info.OriginModelName)
+}
+
+func taskCostDeferred(task *model.Task) bool {
+	return task.PrivateData.BillingContext != nil && task.PrivateData.BillingContext.DeferredCost
+}
+
+// A settlement log carries the full actual cost, even when its quota is only a
+// refund/supplement delta. The log marker keeps those two accounting bases apart.
+func appendTaskCostInfo(ctx context.Context, other map[string]interface{}, task *model.Task, actualQuota int) {
+	if !taskCostDeferred(task) {
+		return
+	}
+	other["task_cost_state"] = model.TaskCostSettled
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{}}
+	if actualQuota > 0 {
+		channel, err := model.GetChannelById(task.ChannelId, false)
+		if err != nil {
+			logger.LogWarn(ctx, fmt.Sprintf("任务 %s 无法读取结算渠道成本: %s", task.TaskID, err.Error()))
+			other["task_cost_state"] = model.TaskCostUnavailable
+			return
+		}
+		if channel.ChannelRatio != nil {
+			info.ChannelMeta.ChannelRatio = *channel.ChannelRatio
+		}
+	}
+	appendChannelCostInfo(other, info, actualQuota)
+}
+
+func markTaskCostSettled(ctx context.Context, task *model.Task, logID int) {
+	if !taskCostDeferred(task) || logID <= 0 {
+		return
+	}
+	task.PrivateData.BillingContext.CostSettled = true
+	if task.ID > 0 {
+		if err := model.DB.Model(task).Update("private_data", task.PrivateData).Error; err != nil {
+			logger.LogWarn(ctx, fmt.Sprintf("保存任务收益结算状态失败 task %s: %s", task.TaskID, err.Error()))
+		}
+	}
+}
 
 // resolveTokenKey 通过 TokenId 运行时获取令牌 Key（用于 Redis 缓存操作）。
 // 如果令牌已被删除或查询失败，返回空字符串。
@@ -211,6 +258,7 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 	other["actual_quota"] = 0
 	other["actual_total_tokens"] = 0
 	other["actual_completion_tokens"] = 0
+	appendTaskCostInfo(ctx, other, task, 0)
 	bc := task.PrivateData.BillingContext
 	settlesAgentRefund := !task.PrivateData.AsyncImage && bc != nil && bc.AgentBillingSnapshot != nil
 	logID := model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
@@ -225,6 +273,7 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 		Group:     task.Group,
 		Other:     other,
 	})
+	markTaskCostSettled(ctx, task, logID)
 	// Native async image submissions only reserve user quota at submit time; their
 	// agent profit is settled once actual usage arrives, so a failed submission
 	// has no earlier agent ledger entry to reverse.
@@ -479,7 +528,10 @@ func settleImageTaskActualQuota(ctx context.Context, task *model.Task, actualQuo
 }
 
 func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int, reason string, extraOther map[string]interface{}) {
-	if actualQuota <= 0 {
+	if actualQuota < 0 || (actualQuota == 0 && !taskCostDeferred(task)) {
+		return
+	}
+	if taskCostDeferred(task) && task.PrivateData.BillingContext.CostSettled {
 		return
 	}
 	preConsumedQuota := task.Quota
@@ -488,7 +540,9 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	if quotaDelta == 0 {
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 预扣费准确（%s，%s）",
 			task.TaskID, logger.LogQuota(actualQuota), reason))
-		return
+		if !taskCostDeferred(task) {
+			return
+		}
 	}
 
 	logger.LogInfo(ctx, fmt.Sprintf("任务 %s 差额结算：delta=%s（实际：%s，预扣：%s，%s）",
@@ -500,17 +554,19 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	))
 
 	// 调整资金来源
-	if err := taskAdjustFunding(task, quotaDelta); err != nil {
-		logger.LogError(ctx, fmt.Sprintf("差额结算资金调整失败 task %s: %s", task.TaskID, err.Error()))
-		return
+	if quotaDelta != 0 {
+		if err := taskAdjustFunding(task, quotaDelta); err != nil {
+			logger.LogError(ctx, fmt.Sprintf("差额结算资金调整失败 task %s: %s", task.TaskID, err.Error()))
+			return
+		}
+
+		// 调整令牌额度
+		taskAdjustTokenQuota(ctx, task, quotaDelta)
+
+		// 预扣阶段已累计一次请求；差额结算只修正用量，不能重复增加请求数。
+		model.UpdateUserUsedQuota(task.UserId, quotaDelta)
+		model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
 	}
-
-	// 调整令牌额度
-	taskAdjustTokenQuota(ctx, task, quotaDelta)
-
-	// 预扣阶段已累计一次请求；差额结算只修正用量，不能重复增加请求数。
-	model.UpdateUserUsedQuota(task.UserId, quotaDelta)
-	model.UpdateChannelUsedQuota(task.ChannelId, quotaDelta)
 
 	task.Quota = actualQuota
 	if task.ID > 0 {
@@ -521,7 +577,7 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 
 	var logType int
 	var logQuota int
-	if quotaDelta > 0 {
+	if quotaDelta >= 0 {
 		logType = model.LogTypeConsume
 		logQuota = quotaDelta
 	} else {
@@ -535,6 +591,7 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	for key, value := range extraOther {
 		other[key] = value
 	}
+	appendTaskCostInfo(ctx, other, task, actualQuota)
 	bc := task.PrivateData.BillingContext
 	settlesAgentAdjustment := bc != nil && bc.AgentBillingSnapshot != nil
 	logID := model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
@@ -551,6 +608,7 @@ func recalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 		Group:            task.Group,
 		Other:            other,
 	})
+	markTaskCostSettled(ctx, task, logID)
 	if settlesAgentAdjustment {
 		if err := agentservice.SettleConsumeAdjustment(bc.AgentBillingSnapshot, task.UserId, logID, preConsumedQuota, actualQuota); err != nil {
 			logger.LogError(ctx, fmt.Sprintf("任务差额代理收益结算失败 task %s: %s", task.TaskID, err.Error()))
@@ -590,6 +648,7 @@ func RecalculateTaskQuotaByTokens(ctx context.Context, task *model.Task, totalTo
 	modelRatio, hasRatioSetting := taskBillingModelRatio(task, modelName)
 	// 只有配置了倍率(非固定价格)时才按 token 重新计费
 	if !hasRatioSetting || modelRatio <= 0 {
+		RecalculateTaskQuota(ctx, task, task.Quota, "任务完成，按预扣额度结算")
 		return
 	}
 

@@ -155,6 +155,8 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 		// 如果返回了 total_tokens 并且配置了模型倍率(非固定价格),则按提交时冻结的计费上下文重新计费
 		if taskResult.TotalTokens > 0 {
 			service.RecalculateTaskQuotaByTokens(ctx, task, taskResult.TotalTokens)
+		} else {
+			service.RecalculateTaskQuota(ctx, task, task.Quota, "任务完成，按预扣额度结算")
 		}
 	case model.TaskStatusFailure:
 		logger.LogJson(ctx, fmt.Sprintf("Task %s failed", taskId), task)

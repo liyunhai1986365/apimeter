@@ -1018,6 +1018,7 @@ func RelayTask(c *gin.Context) {
 		task.TokenId = relayInfo.TokenId
 		task.TokenName = c.GetString("token_name")
 		task.PrivateData.BillingContext = &model.TaskBillingContext{
+			DeferredCost:          service.DeferTaskCost(relayInfo),
 			ModelPrice:            relayInfo.PriceData.ModelPrice,
 			GroupRatio:            relayInfo.PriceData.GroupRatioInfo.GroupRatio,
 			GroupRatioSource:      relayInfo.PriceData.GroupRatioInfo.Source,

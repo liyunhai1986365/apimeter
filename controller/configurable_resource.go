@@ -219,11 +219,31 @@ func persistConfigurableResourceTask(c *gin.Context, channelModel *model.Channel
 	default:
 		task.Progress = "10%"
 	}
-	return task.Insert()
+	if err := task.Insert(); err != nil {
+		return err
+	}
+	// Some asynchronous endpoints finish in their submission response and will
+	// never be picked up by the unfinished-task poller.
+	if task.PrivateData.BillingContext.DeferredCost {
+		switch task.Status {
+		case model.TaskStatusSuccess:
+			if !service.RecalculateTaskQuotaByTieredExpr(c, task, taskInfo) {
+				if taskInfo.TotalTokens > 0 {
+					service.RecalculateTaskQuotaByTokens(c, task, taskInfo.TotalTokens)
+				} else {
+					service.RecalculateTaskQuota(c, task, task.Quota, "任务完成，按预扣额度结算")
+				}
+			}
+		case model.TaskStatusFailure:
+			service.RefundTaskQuota(c, task, taskInfo.Reason)
+		}
+	}
+	return nil
 }
 
 func configurableResourceTaskBillingContext(info *relaycommon.RelayInfo) *model.TaskBillingContext {
 	return &model.TaskBillingContext{
+		DeferredCost:          service.DeferTaskCost(info),
 		ModelPrice:            info.PriceData.ModelPrice,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
 		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,

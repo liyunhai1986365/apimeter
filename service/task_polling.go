@@ -1062,6 +1062,7 @@ func settleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 		return
 	}
 	// 3. 无调整，保持预扣额度
+	RecalculateTaskQuota(ctx, task, task.Quota, "任务完成，按预扣额度结算")
 }
 
 // SettleTaskBillingOnComplete lets non-polling task fetch paths reuse the

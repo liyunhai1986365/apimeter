@@ -889,6 +889,40 @@ func logOtherNumber(other map[string]interface{}, key string) (float64, bool) {
 	}
 }
 
+const (
+	TaskCostPending     = "pending"
+	TaskCostSettled     = "settled"
+	TaskCostUnavailable = "unavailable"
+)
+
+// logProfitContribution uses realized task revenue independently of the balance
+// delta in Log.Quota. In particular, a refund can carry positive final profit.
+func logProfitContribution(logType, quota int, otherText string) (revenue, base, cost, profit, requests int) {
+	other, _ := common.StrToMap(otherText)
+	switch other["task_cost_state"] {
+	case TaskCostPending, TaskCostUnavailable:
+		return
+	case TaskCostSettled:
+		actual, ok := logOtherNumber(other, "actual_quota")
+		if !ok || actual < 0 {
+			return
+		}
+		revenue = common.QuotaRound(actual)
+		base, cost, profit = logCostSnapshot(revenue, otherText)
+		requests = 1
+		return
+	}
+	sign := usageStatSign(logType)
+	base, cost, profit = logCostSnapshot(quota, otherText)
+	if logType == LogTypeConsume {
+		_, adjustment := other["pre_consumed_quota"]
+		if !adjustment {
+			requests = 1
+		}
+	}
+	return sign * quota, sign * base, sign * cost, sign * profit, requests
+}
+
 func logCostSnapshot(quota int, otherText string) (baseQuota int, costQuota int, profitQuota int) {
 	other, _ := common.StrToMap(otherText)
 	if base, ok := logOtherNumber(other, "cost_base_quota"); ok {
@@ -952,7 +986,10 @@ func sumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 
 	// 为rpm和tpm创建单独的查询
-	rpmTpmQuery := LOG_DB.Table("logs").Select("count(*) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm")
+	rpmTpmQuery := LOG_DB.Table("logs").Select(
+		"sum(CASE WHEN other LIKE ? AND other LIKE ? THEN 0 ELSE 1 END) rpm, sum(prompt_tokens) + sum(completion_tokens) tpm",
+		`%"task_cost_state"%`, `%"actual_quota"%`,
+	)
 	costQuery := LOG_DB.Table("logs").Select("type, quota, other")
 	tokenIDs, tokenIDsResolved, err := resolveTokenIDsForFilters(userId, tokenName, workspace, allowedWorkspaceIds)
 	if err != nil {
@@ -1022,18 +1059,22 @@ func sumUsedQuota(logType int, startTimestamp int64, endTimestamp int64, modelNa
 	}
 	for _, row := range costRows {
 		sign := usageStatSign(row.Type)
-		baseQuota, costQuota, profitQuota := logCostSnapshot(row.Quota, row.Other)
+		_, baseQuota, costQuota, profitQuota, _ := logProfitContribution(row.Type, row.Quota, row.Other)
 		stat.Quota += sign * row.Quota
-		stat.BaseQuota += sign * baseQuota
-		stat.CostQuota += sign * costQuota
-		stat.ProfitQuota += sign * profitQuota
+		stat.BaseQuota += baseQuota
+		stat.CostQuota += costQuota
+		stat.ProfitQuota += profitQuota
 	}
 
 	return stat, nil
 }
 
 func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, modelName string, username string, tokenName string, channel int, group string, workspaceName ...string) (summary ModelProfitStatsSummary, err error) {
-	query := LOG_DB.Table("logs").Select("model_name, quota, other")
+	statTypes := usageStatLogTypes(logType)
+	if len(statTypes) == 0 {
+		return summary, nil
+	}
+	query := LOG_DB.Table("logs").Select("type, model_name, quota, other")
 	workspace := ""
 	if len(workspaceName) > 0 {
 		workspace = workspaceName[0]
@@ -1069,9 +1110,10 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 	if group != "" {
 		query = query.Where(logGroupCol+" = ?", group)
 	}
-	query = query.Where("type = ?", LogTypeConsume)
+	query = query.Where("type IN ?", statTypes)
 
 	var rows []struct {
+		Type      int
 		ModelName string
 		Quota     int
 		Other     string
@@ -1083,6 +1125,10 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 
 	itemByModel := make(map[string]*ModelProfitStat)
 	for _, row := range rows {
+		revenue, baseQuota, costQuota, profitQuota, requests := logProfitContribution(row.Type, row.Quota, row.Other)
+		if revenue == 0 && baseQuota == 0 && costQuota == 0 && profitQuota == 0 && requests == 0 {
+			continue
+		}
 		model := strings.TrimSpace(row.ModelName)
 		if model == "" {
 			model = "unknown"
@@ -1092,13 +1138,12 @@ func SumModelProfitStats(logType int, startTimestamp int64, endTimestamp int64, 
 			item = &ModelProfitStat{ModelName: model}
 			itemByModel[model] = item
 		}
-		baseQuota, costQuota, profitQuota := logCostSnapshot(row.Quota, row.Other)
-		item.RequestCount++
-		item.Quota += row.Quota
+		item.RequestCount += requests
+		item.Quota += revenue
 		item.BaseQuota += baseQuota
 		item.CostQuota += costQuota
 		item.ProfitQuota += profitQuota
-		summary.Quota += row.Quota
+		summary.Quota += revenue
 		summary.BaseQuota += baseQuota
 		summary.CostQuota += costQuota
 		summary.ProfitQuota += profitQuota

@@ -125,6 +125,8 @@ type TaskPrivateData struct {
 
 // TaskBillingContext 记录任务提交时的计费参数，以便轮询阶段可以重新计算额度。
 type TaskBillingContext struct {
+	DeferredCost          bool                         `json:"deferred_cost,omitempty"`           // 预扣阶段不确认渠道成本和收益
+	CostSettled           bool                         `json:"cost_settled,omitempty"`            // 已记录最终成本和收益，避免零差额重复入账
 	ModelPrice            float64                      `json:"model_price,omitempty"`             // 模型单价
 	GroupRatio            float64                      `json:"group_ratio,omitempty"`             // 分组倍率
 	GroupRatioSource      types.GroupRatioSource       `json:"group_ratio_source,omitempty"`      // 分组倍率解析来源

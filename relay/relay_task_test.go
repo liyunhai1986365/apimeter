@@ -457,14 +457,15 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 	defer upstream.Close()
 
 	channel := model.Channel{
-		Id:      channelID,
-		Type:    constant.ChannelTypeConfigurable,
-		Key:     "sk-seedance",
-		BaseURL: common.GetPointer(upstream.URL),
-		Status:  common.ChannelStatusEnabled,
-		Name:    "seedance-service-inference",
-		Models:  "dreamina-seedance-2-0-mini-260615",
-		Group:   "default",
+		Id:           channelID,
+		ChannelRatio: common.GetPointer(0.6),
+		Type:         constant.ChannelTypeConfigurable,
+		Key:          "sk-seedance",
+		BaseURL:      common.GetPointer(upstream.URL),
+		Status:       common.ChannelStatusEnabled,
+		Name:         "seedance-service-inference",
+		Models:       "dreamina-seedance-2-0-mini-260615",
+		Group:        "default",
 	}
 	channel.SetSetting(dto.ChannelSettings{
 		Protocol: &dto.ChannelProtocolSettings{
@@ -492,6 +493,7 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 			BillingSource:  service.BillingSourceWallet,
 			TokenId:        tokenID,
 			BillingContext: &model.TaskBillingContext{
+				DeferredCost:    true,
 				GroupRatio:      0.92,
 				OriginModelName: "dreamina-seedance-2-0-mini-260615",
 				TieredBillingSnapshot: &billingexpr.BillingSnapshot{
@@ -543,6 +545,11 @@ func TestVideoGenerationsFetchRealtimeConfigurableChannelSettlesTerminalTask(t *
 	require.Equal(t, "task_public", gjson.Get(log.Other, "task_id").String())
 	require.Equal(t, float64(preConsumed), gjson.Get(log.Other, "pre_consumed_quota").Float())
 	require.Equal(t, float64(actualQuota), gjson.Get(log.Other, "actual_quota").Float())
+	require.Equal(t, model.TaskCostSettled, gjson.Get(log.Other, "task_cost_state").String())
+	expectedCost := common.QuotaRound(float64(common.QuotaRound(float64(actualQuota)/0.92)) * 0.6)
+	require.Equal(t, int64(expectedCost), gjson.Get(log.Other, "cost_quota").Int())
+	require.Equal(t, int64(actualQuota-expectedCost), gjson.Get(log.Other, "profit_quota").Int())
+	require.True(t, reloaded.PrivateData.BillingContext.CostSettled)
 }
 
 func TestVideoGenerationsFetchRealtimeConfigurableFailurePersistsReasonAndRefundsOnce(t *testing.T) {
