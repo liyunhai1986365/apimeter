@@ -128,12 +128,13 @@ type BillingConfig struct {
 }
 
 type BillingRatioConfig struct {
-	Key       string  `yaml:"key"`
-	From      string  `yaml:"from"`
-	Transform string  `yaml:"transform"`
-	Value     float64 `yaml:"value"`
-	Default   float64 `yaml:"default"`
-	OmitZero  bool    `yaml:"omit_zero"`
+	Key          string  `yaml:"key"`
+	From         string  `yaml:"from"`
+	FallbackFrom string  `yaml:"fallback_from"`
+	Transform    string  `yaml:"transform"`
+	Value        float64 `yaml:"value"`
+	Default      float64 `yaml:"default"`
+	OmitZero     bool    `yaml:"omit_zero"`
 }
 
 type HeaderConfig struct {

@@ -179,7 +179,7 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	// Re-check after mapping so a generic model alias cannot bypass a
 	// model-specific duration limit when it resolves to Seedance upstream.
 	if taskReq, err := relaycommon.GetTaskRequest(c); err == nil {
-		if taskErr := relaycommon.ValidateTaskDurationBounds(taskReq, modelName, info.GetUpstreamModelName()); taskErr != nil {
+		if taskErr := relaycommon.ValidateTaskDurationBoundsForRelay(taskReq, info); taskErr != nil {
 			return nil, taskErr
 		}
 	}

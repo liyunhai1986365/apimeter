@@ -24,6 +24,8 @@
 
 调用方接口说明见 [通用图片与视频生成接口](./generic_media_generation.md)。
 
+Seedance 2.5 的任务类型参数、视频编辑和延长请求见 [Seedance 全模态参考任务](./seedance_omni_reference.md)。
+
 ## 渠道配置方式
 
 在管理后台新增渠道时：

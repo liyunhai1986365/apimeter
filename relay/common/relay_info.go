@@ -963,18 +963,19 @@ type TaskRelayInfo struct {
 }
 
 type TaskSubmitReq struct {
-	Prompt          string                 `json:"prompt"`
-	Model           string                 `json:"model,omitempty"`
-	Mode            string                 `json:"mode,omitempty"`
-	Image           string                 `json:"image,omitempty"`
-	Images          []string               `json:"images,omitempty"`
-	Size            string                 `json:"size,omitempty"`
-	ReferenceImages []VideoReference       `json:"reference_images,omitempty"`
-	Video           *VideoReference        `json:"video,omitempty"`
-	Duration        int                    `json:"duration,omitempty"`
-	Seconds         string                 `json:"seconds,omitempty"`
-	InputReference  string                 `json:"input_reference,omitempty"`
-	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+	Prompt                string                 `json:"prompt"`
+	Model                 string                 `json:"model,omitempty"`
+	Mode                  string                 `json:"mode,omitempty"`
+	Image                 string                 `json:"image,omitempty"`
+	Images                []string               `json:"images,omitempty"`
+	Size                  string                 `json:"size,omitempty"`
+	ReferenceImages       []VideoReference       `json:"reference_images,omitempty"`
+	Video                 *VideoReference        `json:"video,omitempty"`
+	Duration              int                    `json:"duration,omitempty"`
+	Seconds               string                 `json:"seconds,omitempty"`
+	InputReference        string                 `json:"input_reference,omitempty"`
+	Metadata              map[string]interface{} `json:"metadata,omitempty"`
+	OmniReferenceTaskType *string                `json:"omni_reference_task_type,omitempty"`
 }
 
 type VideoReference struct {
@@ -1023,7 +1024,6 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 			var metadataObj map[string]interface{}
 			if err := common.Unmarshal([]byte(metadataStr), &metadataObj); err == nil {
 				t.Metadata = metadataObj
-				return nil
 			}
 		}
 
@@ -1033,6 +1033,17 @@ func (t *TaskSubmitReq) UnmarshalJSON(data []byte) error {
 		}
 	}
 
+	// Generic video callers may put provider options in metadata. A top-level
+	// value takes precedence, including an explicitly empty (invalid) string.
+	if t.OmniReferenceTaskType == nil && t.Metadata != nil {
+		if value, exists := t.Metadata["omni_reference_task_type"]; exists && value != nil {
+			taskType, ok := value.(string)
+			if !ok {
+				return fmt.Errorf("omni_reference_task_type must be a string")
+			}
+			t.OmniReferenceTaskType = &taskType
+		}
+	}
 	return nil
 }
 func (t *TaskSubmitReq) UnmarshalMetadata(v any) error {

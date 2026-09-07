@@ -54,15 +54,16 @@ type requestPayload struct {
 	Tools                 []struct {
 		Type string `json:"type,omitempty"`
 	} `json:"tools,omitempty"`
-	SafetyIdentifier string         `json:"safety_identifier,omitempty"`
-	Priority         *dto.IntValue  `json:"priority,omitempty"`
-	Resolution       string         `json:"resolution,omitempty"`
-	Ratio            string         `json:"ratio,omitempty"`
-	Duration         *dto.IntValue  `json:"duration,omitempty"`
-	Frames           *dto.IntValue  `json:"frames,omitempty"`
-	Seed             *dto.IntValue  `json:"seed,omitempty"`
-	CameraFixed      *dto.BoolValue `json:"camera_fixed,omitempty"`
-	Watermark        *dto.BoolValue `json:"watermark,omitempty"`
+	SafetyIdentifier      string         `json:"safety_identifier,omitempty"`
+	Priority              *dto.IntValue  `json:"priority,omitempty"`
+	Resolution            string         `json:"resolution,omitempty"`
+	Ratio                 string         `json:"ratio,omitempty"`
+	Duration              *dto.IntValue  `json:"duration,omitempty"`
+	Frames                *dto.IntValue  `json:"frames,omitempty"`
+	Seed                  *dto.IntValue  `json:"seed,omitempty"`
+	CameraFixed           *dto.BoolValue `json:"camera_fixed,omitempty"`
+	Watermark             *dto.BoolValue `json:"watermark,omitempty"`
+	OmniReferenceTaskType *string        `json:"omni_reference_task_type,omitempty"`
 }
 
 type responsePayload struct {
@@ -124,6 +125,9 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		if err != nil {
 			return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 		}
+		if taskErr := relaycommon.ValidateTaskDurationBoundsForRelay(req, info); taskErr != nil {
+			return taskErr
+		}
 		info.Action = constant.TaskActionGenerate
 		c.Set("task_request", req)
 		return nil
@@ -152,9 +156,9 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		return nil
 	}
 	ratios := map[string]float64{}
-	seconds := req.Duration
-	if seconds <= 0 {
-		seconds, _ = strconv.Atoi(req.Seconds)
+	seconds := req.RequestedDuration()
+	if seconds == -1 {
+		seconds = relaycommon.MaxSeedanceTaskDurationSeconds
 	}
 	if seconds > 0 {
 		ratios["seconds"] = float64(seconds)
@@ -313,9 +317,22 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
 	}
+	if r.Ratio == "" {
+		r.Ratio, _ = metadata["aspect_ratio"].(string)
+	}
+	if len(r.Content) == 0 || metadata["content"] == nil {
+		for _, url := range relaycommon.SeedanceReferenceVideoURLs(metadata["video_url"]) {
+			r.Content = append(r.Content, ContentItem{
+				Type: "video_url", VideoURL: &MediaURL{URL: url}, Role: "reference_video",
+			})
+		}
+	}
 
-	if sec, _ := strconv.Atoi(req.Seconds); sec > 0 {
+	if sec := req.RequestedDuration(); sec != 0 {
 		r.Duration = lo.ToPtr(dto.IntValue(sec))
+	}
+	if req.OmniReferenceTaskType != nil {
+		r.OmniReferenceTaskType = req.OmniReferenceTaskType
 	}
 
 	r.Content = lo.Reject(r.Content, func(c ContentItem, _ int) bool { return c.Type == "text" })
@@ -344,9 +361,10 @@ func seedanceNativeTaskSubmitReq(c *gin.Context) (relaycommon.TaskSubmitReq, err
 	}
 
 	req := relaycommon.TaskSubmitReq{
-		Model:    native.Model,
-		Size:     native.Resolution,
-		Metadata: map[string]interface{}{},
+		Model:                 native.Model,
+		Size:                  native.Resolution,
+		Metadata:              map[string]interface{}{},
+		OmniReferenceTaskType: native.OmniReferenceTaskType,
 	}
 	if native.Duration != nil {
 		req.Duration = int(*native.Duration)

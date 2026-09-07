@@ -40,6 +40,16 @@ video:
         fields:
           - to: model
             from: body.model
+          - to: omni_reference_task_type
+            from: body.omni_reference_task_type
+            omit_null: true
+          - to: metadata.content
+            from: body.content
+            omit_empty: true
+          - to: metadata.ratio
+            from: body.ratio
+            fallback_from: body.aspect_ratio
+            omit_empty: true
           - to: prompt
             from: 'body.content.#(type=="text")#|#(text!="").text'
             omit_empty: true
@@ -76,7 +86,9 @@ video:
     ratios:
       # Same duration estimate as the existing Service Inference profile.
       - key: seconds
-        from: request.duration
+        from: request.seconds
+        fallback_from: request.duration
+        transform: seedance_billing_duration
         default: 4
       - key: size
         value: 1
@@ -90,6 +102,10 @@ video:
       fields:
         - to: model
           from: upstream_model
+        - to: omni_reference_task_type
+          from: request.omni_reference_task_type
+          fallback_from: request.metadata.omni_reference_task_type
+          omit_null: true
         - to: content
           from: request.metadata.content
           omit_empty: true

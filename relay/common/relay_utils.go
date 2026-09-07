@@ -146,10 +146,10 @@ const (
 )
 
 func ValidateTaskDurationBounds(req TaskSubmitReq, modelNames ...string) *dto.TaskError {
-	seconds := req.Duration
-	if seconds == 0 && req.Seconds != "" {
-		seconds, _ = strconv.Atoi(req.Seconds)
+	if taskErr := validateSeedanceOmniReferenceTask(req); taskErr != nil {
+		return taskErr
 	}
+	seconds := req.RequestedDuration()
 	maxSeconds := MaxTaskDurationSeconds
 	if isSeedanceModelName(req.Model) {
 		maxSeconds = MaxSeedanceTaskDurationSeconds
@@ -161,7 +161,13 @@ func ValidateTaskDurationBounds(req TaskSubmitReq, modelNames ...string) *dto.Ta
 			}
 		}
 	}
+	if seconds == -1 && maxSeconds == MaxSeedanceTaskDurationSeconds {
+		return nil
+	}
 	if seconds < 0 || seconds > maxSeconds {
+		if maxSeconds == MaxSeedanceTaskDurationSeconds {
+			return createTaskError(fmt.Errorf("seconds must be -1 (automatic) or between 1 and %d", maxSeconds), "invalid_seconds", http.StatusBadRequest, true)
+		}
 		return createTaskError(fmt.Errorf("seconds must be between 1 and %d", maxSeconds), "invalid_seconds", http.StatusBadRequest, true)
 	}
 	return nil
@@ -249,7 +255,7 @@ func ValidateMultipartDirect(c *gin.Context, info *RelayInfo) *dto.TaskError {
 		return taskErr
 	}
 
-	if taskErr := ValidateTaskDurationBounds(req, info.OriginModelName, info.CurrentModel(), info.GetUpstreamModelName()); taskErr != nil {
+	if taskErr := ValidateTaskDurationBoundsForRelay(req, info); taskErr != nil {
 		return taskErr
 	}
 
@@ -314,7 +320,7 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 		return taskErr
 	}
 
-	if taskErr := ValidateTaskDurationBounds(req, info.OriginModelName, info.CurrentModel(), info.GetUpstreamModelName()); taskErr != nil {
+	if taskErr := ValidateTaskDurationBoundsForRelay(req, info); taskErr != nil {
 		return taskErr
 	}
 

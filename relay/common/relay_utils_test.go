@@ -77,5 +77,5 @@ func TestTaskDurationBoundsUsesMappedSeedanceModel(t *testing.T) {
 
 	require.NotNil(t, taskErr)
 	require.Equal(t, "invalid_seconds", taskErr.Code)
-	require.Equal(t, "seconds must be between 1 and 30", taskErr.Message)
+	require.Equal(t, "seconds must be -1 (automatic) or between 1 and 30", taskErr.Message)
 }

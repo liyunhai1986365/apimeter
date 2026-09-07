@@ -69,7 +69,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		if err != nil {
 			return service.TaskErrorWrapperLocal(err, "invalid_request", http.StatusBadRequest)
 		}
-		if taskErr := relaycommon.ValidateTaskDurationBounds(req, info.OriginModelName, info.CurrentModel(), info.GetUpstreamModelName()); taskErr != nil {
+		if taskErr := relaycommon.ValidateTaskDurationBoundsForRelay(req, info); taskErr != nil {
 			return taskErr
 		}
 		c.Set("task_request", req)
@@ -181,6 +181,9 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		value := ratio.Value
 		if ratio.From != "" {
 			rawValue := valueFromSource(ratio.From, source, info)
+			if isEmptyValue(rawValue) && ratio.FallbackFrom != "" {
+				rawValue = valueFromSource(ratio.FallbackFrom, source, info)
+			}
 			if strings.TrimSpace(ratio.Transform) != "" {
 				rawValue, err = applyFieldTransform(ratio.Transform, rawValue, FieldMapping{})
 				if err != nil {
@@ -1248,6 +1251,17 @@ func applyFieldTransform(transform string, value any, field FieldMapping) (any, 
 		return value, nil
 	case "to_int":
 		return toIntValue(value)
+	case "seedance_billing_duration":
+		duration, err := toIntValue(value)
+		if err != nil || duration == nil {
+			return duration, err
+		}
+		if floatValue(duration) == -1 {
+			// The input video's duration is only known upstream. Reserve the
+			// supported maximum; tiered billing settles reported actual usage.
+			return relaycommon.MaxSeedanceTaskDurationSeconds, nil
+		}
+		return duration, nil
 	case "wan3_billing_duration":
 		duration, err := toIntValue(value)
 		if err != nil || duration == nil {

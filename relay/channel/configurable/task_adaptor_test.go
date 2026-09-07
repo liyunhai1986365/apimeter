@@ -402,7 +402,7 @@ func TestTaskAdaptorValidatesSeedanceNativeDurationBounds(t *testing.T) {
 				if duration == 31 {
 					require.NotNil(t, taskErr)
 					require.Equal(t, "invalid_seconds", taskErr.Code)
-					require.Equal(t, "seconds must be between 1 and 30", taskErr.Message)
+					require.Equal(t, "seconds must be -1 (automatic) or between 1 and 30", taskErr.Message)
 					continue
 				}
 				require.Nil(t, taskErr)

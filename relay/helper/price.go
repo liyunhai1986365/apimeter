@@ -368,7 +368,8 @@ func isSeedance2TaskPreConsume(c *gin.Context, modelName string) bool {
 		return false
 	}
 	normalizedModel := strings.ToLower(modelName)
-	return strings.Contains(normalizedModel, "seedance-2.0") || strings.Contains(normalizedModel, "seedance-2-0")
+	return strings.Contains(normalizedModel, "seedance-2.0") || strings.Contains(normalizedModel, "seedance-2-0") ||
+		strings.Contains(normalizedModel, "seedance-2.5") || strings.Contains(normalizedModel, "seedance-2-5")
 }
 
 func captureAgentQuotaSnapshot(snapshot *types.AgentBillingSnapshot, chargedQuota int) {
