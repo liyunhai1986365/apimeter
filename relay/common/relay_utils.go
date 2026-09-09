@@ -302,6 +302,16 @@ func isKnownTaskField(field string) bool {
 }
 
 func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {
+	return validateBasicTaskRequest(c, info, action, false)
+}
+
+// ValidateSeedanceTaskRequest accepts native content and media-only requests
+// without relaxing the prompt requirement for other video providers.
+func ValidateSeedanceTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {
+	return validateBasicTaskRequest(c, info, action, true)
+}
+
+func validateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string, seedance bool) *dto.TaskError {
 	var err error
 	contentType := c.GetHeader("Content-Type")
 	var req TaskSubmitReq
@@ -316,8 +326,10 @@ func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *d
 		return createTaskError(err, "invalid_request", http.StatusBadRequest, true)
 	}
 
-	if taskErr := validatePrompt(req.Prompt); taskErr != nil {
-		return taskErr
+	if !seedance || !HasSeedanceInput(req) {
+		if taskErr := validatePrompt(req.Prompt); taskErr != nil {
+			return taskErr
+		}
 	}
 
 	if taskErr := ValidateTaskDurationBoundsForRelay(req, info); taskErr != nil {

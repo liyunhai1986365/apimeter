@@ -30,12 +30,17 @@ import (
 // ============================
 
 type ContentItem struct {
-	Type     string    `json:"type,omitempty"`
-	Text     string    `json:"text,omitempty"`
-	ImageURL *MediaURL `json:"image_url,omitempty"`
-	VideoURL *MediaURL `json:"video_url,omitempty"`
-	AudioURL *MediaURL `json:"audio_url,omitempty"`
-	Role     string    `json:"role,omitempty"`
+	Type      string     `json:"type,omitempty"`
+	Text      string     `json:"text,omitempty"`
+	ImageURL  *MediaURL  `json:"image_url,omitempty"`
+	VideoURL  *MediaURL  `json:"video_url,omitempty"`
+	AudioURL  *MediaURL  `json:"audio_url,omitempty"`
+	Role      string     `json:"role,omitempty"`
+	DraftTask *DraftTask `json:"draft_task,omitempty"`
+}
+
+type DraftTask struct {
+	ID string `json:"id"`
 }
 
 type MediaURL struct {
@@ -63,6 +68,7 @@ type requestPayload struct {
 	Seed                  *dto.IntValue  `json:"seed,omitempty"`
 	CameraFixed           *dto.BoolValue `json:"camera_fixed,omitempty"`
 	Watermark             *dto.BoolValue `json:"watermark,omitempty"`
+	OutputFormat          *string        `json:"output_format,omitempty"`
 	OmniReferenceTaskType *string        `json:"omni_reference_task_type,omitempty"`
 }
 
@@ -133,7 +139,7 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		return nil
 	}
 	// Accept only POST /v1/video/generations as "generate" action.
-	return relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
+	return relaycommon.ValidateSeedanceTaskRequest(c, info, constant.TaskActionGenerate)
 }
 
 // BuildRequestURL constructs the upstream URL.
@@ -164,7 +170,10 @@ func (a *TaskAdaptor) EstimateBilling(c *gin.Context, info *relaycommon.RelayInf
 		ratios["seconds"] = float64(seconds)
 	}
 	hasVideo := hasVideoInMetadata(req.Metadata)
-	resolution, _ := req.Metadata["resolution"].(string)
+	resolution := req.Size
+	if resolution == "" {
+		resolution, _ = req.Metadata["resolution"].(string)
+	}
 	if ratio, ok := GetVideoInputRatio(info.OriginModelName, resolution, hasVideo); ok && ratio != 1 {
 		ratios["video_input"] = ratio
 	}
@@ -181,12 +190,15 @@ func hasVideoInMetadata(metadata map[string]interface{}) bool {
 		return false
 	}
 	contentRaw, ok := metadata["content"]
-	if !ok {
-		return false
+	if !ok || contentRaw == nil {
+		return len(relaycommon.SeedanceReferenceVideoURLs(metadata["video_url"])) > 0
 	}
 	contentSlice, ok := contentRaw.([]interface{})
 	if !ok {
 		return false
+	}
+	if len(contentSlice) == 0 {
+		return len(relaycommon.SeedanceReferenceVideoURLs(metadata["video_url"])) > 0
 	}
 	for _, item := range contentSlice {
 		itemMap, ok := item.(map[string]interface{})
@@ -205,6 +217,22 @@ func hasVideoInMetadata(metadata map[string]interface{}) bool {
 
 // BuildRequestBody converts request into Doubao specific format.
 func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayInfo) (io.Reader, error) {
+	if isSeedanceNativeTaskRequest(c) {
+		var body map[string]any
+		if err := common.UnmarshalBodyReusable(c, &body); err != nil {
+			return nil, err
+		}
+		if info.IsModelMapped {
+			body["model"] = info.UpstreamModelName
+		} else {
+			info.UpstreamModelName, _ = body["model"].(string)
+		}
+		data, err := common.Marshal(body)
+		if err != nil {
+			return nil, err
+		}
+		return bytes.NewReader(data), nil
+	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
 		return nil, err
@@ -301,18 +329,6 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 		Content: []ContentItem{},
 	}
 
-	// Add images if present
-	if req.HasImage() {
-		for _, imgURL := range req.Images {
-			r.Content = append(r.Content, ContentItem{
-				Type: "image_url",
-				ImageURL: &MediaURL{
-					URL: imgURL,
-				},
-			})
-		}
-	}
-
 	metadata := req.Metadata
 	if err := taskcommon.UnmarshalMetadata(metadata, &r); err != nil {
 		return nil, errors.Wrap(err, "unmarshal metadata failed")
@@ -320,10 +336,30 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	if r.Ratio == "" {
 		r.Ratio, _ = metadata["aspect_ratio"].(string)
 	}
-	if len(r.Content) == 0 || metadata["content"] == nil {
+	if req.Size != "" {
+		r.Resolution = req.Size
+	}
+	// Full content owns text, order and roles. Build shorthand only when it is
+	// absent or empty, consistently with the configurable Seedance profiles.
+	if len(r.Content) == 0 {
+		if strings.TrimSpace(req.Prompt) != "" {
+			r.Content = append(r.Content, ContentItem{Type: "text", Text: req.Prompt})
+		}
+		images := req.Images
+		if len(images) == 0 && strings.TrimSpace(req.Image) != "" {
+			images = []string{req.Image}
+		}
+		for _, url := range images {
+			r.Content = append(r.Content, ContentItem{Type: "image_url", ImageURL: &MediaURL{URL: url}, Role: "reference_image"})
+		}
 		for _, url := range relaycommon.SeedanceReferenceVideoURLs(metadata["video_url"]) {
 			r.Content = append(r.Content, ContentItem{
 				Type: "video_url", VideoURL: &MediaURL{URL: url}, Role: "reference_video",
+			})
+		}
+		for _, url := range relaycommon.SeedanceReferenceVideoURLs(metadata["audio_url"]) {
+			r.Content = append(r.Content, ContentItem{
+				Type: "audio_url", AudioURL: &MediaURL{URL: url}, Role: "reference_audio",
 			})
 		}
 	}
@@ -334,12 +370,6 @@ func (a *TaskAdaptor) convertToRequestPayload(req *relaycommon.TaskSubmitReq) (*
 	if req.OmniReferenceTaskType != nil {
 		r.OmniReferenceTaskType = req.OmniReferenceTaskType
 	}
-
-	r.Content = lo.Reject(r.Content, func(c ContentItem, _ int) bool { return c.Type == "text" })
-	r.Content = append(r.Content, ContentItem{
-		Type: "text",
-		Text: req.Prompt,
-	})
 
 	return &r, nil
 }
@@ -352,6 +382,10 @@ func isSeedanceNativeTaskRequest(c *gin.Context) bool {
 }
 
 func seedanceNativeTaskSubmitReq(c *gin.Context) (relaycommon.TaskSubmitReq, error) {
+	var metadata map[string]any
+	if err := common.UnmarshalBodyReusable(c, &metadata); err != nil {
+		return relaycommon.TaskSubmitReq{}, err
+	}
 	var native requestPayload
 	if err := common.UnmarshalBodyReusable(c, &native); err != nil {
 		return relaycommon.TaskSubmitReq{}, err
@@ -363,7 +397,7 @@ func seedanceNativeTaskSubmitReq(c *gin.Context) (relaycommon.TaskSubmitReq, err
 	req := relaycommon.TaskSubmitReq{
 		Model:                 native.Model,
 		Size:                  native.Resolution,
-		Metadata:              map[string]interface{}{},
+		Metadata:              metadata,
 		OmniReferenceTaskType: native.OmniReferenceTaskType,
 	}
 	if native.Duration != nil {
@@ -380,16 +414,7 @@ func seedanceNativeTaskSubmitReq(c *gin.Context) (relaycommon.TaskSubmitReq, err
 		req.Metadata["generate_audio"] = bool(*native.GenerateAudio)
 	}
 
-	content := make([]interface{}, 0, len(native.Content))
 	for _, item := range native.Content {
-		content = append(content, map[string]interface{}{
-			"type":      item.Type,
-			"text":      item.Text,
-			"image_url": item.ImageURL,
-			"video_url": item.VideoURL,
-			"audio_url": item.AudioURL,
-			"role":      item.Role,
-		})
 		switch item.Type {
 		case "text":
 			if req.Prompt == "" {
@@ -401,9 +426,9 @@ func seedanceNativeTaskSubmitReq(c *gin.Context) (relaycommon.TaskSubmitReq, err
 			}
 		}
 	}
-	req.Metadata["content"] = content
-	if strings.TrimSpace(req.Prompt) == "" {
-		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt is required")
+	delete(req.Metadata, "model")
+	if !relaycommon.HasSeedanceInput(req) {
+		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt or media is required")
 	}
 	return req, nil
 }
@@ -433,10 +458,13 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 		// 解析 usage 信息用于按倍率计费
 		taskResult.CompletionTokens = resTask.Usage.CompletionTokens
 		taskResult.TotalTokens = resTask.Usage.TotalTokens
-	case "failed":
+	case "failed", "cancelled", "canceled", "expired":
 		taskResult.Status = model.TaskStatusFailure
 		taskResult.Progress = "100%"
 		taskResult.Reason = resTask.Error.Message
+		if taskResult.Reason == "" {
+			taskResult.Reason = "Task " + resTask.Status
+		}
 	default:
 		// Unknown status, treat as processing
 		taskResult.Status = model.TaskStatusInProgress
@@ -461,11 +489,20 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	openAIVideo.CreatedAt = originTask.CreatedAt
 	openAIVideo.CompletedAt = originTask.UpdatedAt
 	openAIVideo.Model = originTask.Properties.OriginModelName
+	for key, value := range relaycommon.SeedanceVideoMetadata(originTask.Data) {
+		openAIVideo.SetMetadata(key, value)
+	}
 
-	if dResp.Status == "failed" {
+	if originTask.Status == model.TaskStatusFailure {
 		openAIVideo.Error = &dto.OpenAIVideoError{
 			Message: dResp.Error.Message,
 			Code:    dResp.Error.Code,
+		}
+		if openAIVideo.Error.Message == "" {
+			openAIVideo.Error.Message = "Task " + dResp.Status
+		}
+		if openAIVideo.Error.Code == "" {
+			openAIVideo.Error.Code = dResp.Status
 		}
 	}
 

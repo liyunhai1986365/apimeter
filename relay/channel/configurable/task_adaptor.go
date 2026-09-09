@@ -84,7 +84,11 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 		a.selectedSubmitPath = a.selectVideoSubmitPath(req, info)
 		return nil
 	}
-	taskErr := relaycommon.ValidateBasicTaskRequest(c, info, constant.TaskActionGenerate)
+	validate := relaycommon.ValidateBasicTaskRequest
+	if a.profile != nil && relaycommon.IsSeedanceVideoProfile(a.profile.ID) {
+		validate = relaycommon.ValidateSeedanceTaskRequest
+	}
+	taskErr := validate(c, info, constant.TaskActionGenerate)
 	if taskErr != nil {
 		return taskErr
 	}
@@ -417,6 +421,11 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	}
 	if resultURL != "" {
 		video.SetMetadata("url", resultURL)
+	}
+	if profile != nil && relaycommon.IsSeedanceVideoProfile(profile.ID) {
+		for key, value := range relaycommon.SeedanceVideoMetadata(originTask.Data) {
+			video.SetMetadata(key, value)
+		}
 	}
 	if originTask.Status == model.TaskStatusFailure {
 		reason := firstJSONString(originTask.Data, commonVideoFailureReasonPaths...)
@@ -752,6 +761,7 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 		paths []string
 	}{
 		{name: "resolution", paths: configurableVideoTaskFieldPaths("resolution")},
+		{name: "output_format", paths: configurableVideoTaskFieldPaths("output_format")},
 		{name: "ratio", paths: configurableVideoTaskFieldPaths("ratio")},
 		{name: "draft_task_id", paths: configurableVideoTaskFieldPaths("draft_task_id")},
 		{name: "service_tier", paths: configurableVideoTaskFieldPaths("service_tier")},
@@ -772,6 +782,7 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 		paths []string
 	}{
 		{name: "seed", paths: configurableVideoTaskFieldPaths("seed")},
+		{name: "priority", paths: configurableVideoTaskFieldPaths("priority")},
 		{name: "framespersecond", paths: configurableVideoTaskFieldPaths("framespersecond")},
 		{name: "execution_expires_after", paths: configurableVideoTaskFieldPaths("execution_expires_after")},
 	}
@@ -1091,7 +1102,11 @@ func (a *TaskAdaptor) parseNativeTaskRequest(c *gin.Context) (relaycommon.TaskSu
 	if err := common.Unmarshal(data, &req); err != nil {
 		return relaycommon.TaskSubmitReq{}, err
 	}
-	if strings.TrimSpace(req.Prompt) == "" && !req.HasImage() && strings.TrimSpace(req.Image) == "" && strings.TrimSpace(req.InputReference) == "" {
+	if relaycommon.IsSeedanceVideoProfile(a.profile.ID) {
+		if !relaycommon.HasSeedanceInput(req) {
+			return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt or media is required")
+		}
+	} else if strings.TrimSpace(req.Prompt) == "" && !req.HasImage() && strings.TrimSpace(req.Image) == "" && strings.TrimSpace(req.InputReference) == "" {
 		return relaycommon.TaskSubmitReq{}, fmt.Errorf("prompt or media is required")
 	}
 	if req.Metadata == nil {

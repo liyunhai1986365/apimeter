@@ -145,11 +145,9 @@ video:
           conditions:
             - field: request.metadata.content
               non_empty: false
-        - to: generate_audio
-          from: request.metadata.generate_audio
-          omit_empty: true
         - to: resolution
           from: request.size
+          fallback_from: request.metadata.resolution
           omit_empty: true
         - to: ratio
           from: request.metadata.ratio
@@ -160,12 +158,49 @@ video:
           fallback_from: request.duration
           transform: to_int
           omit_empty: true
+        # Forward only explicitly supplied options; preserve false and zero.
+        - to: generate_audio
+          from: request.metadata.generate_audio
+          omit_null: true
         - to: watermark
           from: request.metadata.watermark
-          omit_empty: true
+          omit_null: true
         - to: return_last_frame
           from: request.metadata.return_last_frame
-          omit_empty: true
+          omit_null: true
+        - to: seed
+          from: request.metadata.seed
+          omit_null: true
+        - to: camera_fixed
+          from: request.metadata.camera_fixed
+          omit_null: true
+        - to: draft
+          from: request.metadata.draft
+          omit_null: true
+        - to: service_tier
+          from: request.metadata.service_tier
+          omit_null: true
+        - to: execution_expires_after
+          from: request.metadata.execution_expires_after
+          omit_null: true
+        - to: priority
+          from: request.metadata.priority
+          omit_null: true
+        - to: safety_identifier
+          from: request.metadata.safety_identifier
+          omit_null: true
+        - to: callback_url
+          from: request.metadata.callback_url
+          omit_null: true
+        - to: output_format
+          from: request.metadata.output_format
+          omit_null: true
+        - to: tools
+          from: request.metadata.tools
+          omit_null: true
+        - to: frames
+          from: request.metadata.frames
+          omit_null: true
     response:
       task_id_path: task.id
       status_path: task.status
@@ -181,8 +216,10 @@ video:
         completed: SUCCESS
         success: SUCCESS
         failed: FAILURE
-        error: FAILURE
+        expired: FAILURE
         cancelled: FAILURE
+        canceled: FAILURE
+        error: FAILURE
     openai_response:
       fields:
         - to: metadata.prep
@@ -218,8 +255,10 @@ video:
         completed: SUCCESS
         success: SUCCESS
         failed: FAILURE
-        error: FAILURE
+        expired: FAILURE
         cancelled: FAILURE
+        canceled: FAILURE
+        error: FAILURE
     openai_response:
       fields:
         - to: video_url
