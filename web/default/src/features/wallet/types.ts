@@ -311,6 +311,28 @@ export interface CryptoPaymentOrder {
   complete_time: number
   transaction_hash?: string
   block_number?: number
+  progress?: CryptoPaymentProgress
+}
+
+export interface CryptoPaymentProgress {
+  stage:
+    | 'checking'
+    | 'waiting'
+    | 'confirming'
+    | 'crediting'
+    | 'completed'
+    | 'expired'
+  checked_at: number
+  transaction_hash?: string
+  transaction_time?: number
+  block_number?: number
+  head_block?: number
+  confirmations: number
+  required_confirmations: number
+  confirmed_seconds: number
+  required_seconds: number
+  retrying: boolean
+  stale: boolean
 }
 
 /**

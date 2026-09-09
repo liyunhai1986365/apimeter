@@ -413,6 +413,7 @@ type evmGroupScanPlan struct {
 	payments  []*model.CryptoPayment
 	nextBlock int64
 	transfers []evmVerifiedTransfer
+	progress  map[int]model.CryptoPaymentProgress
 }
 
 func safeEVMRPCError(err error) error {
@@ -524,6 +525,9 @@ func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, paym
 		if payment.NetworkType != model.CryptoNetworkEVM || payment.ChainId != config.ChainId {
 			continue
 		}
+		if head < payment.ScanFromBlock-1 {
+			return 0, errors.New("EVM RPC head is behind the payment scan cursor")
+		}
 		key := strings.ToLower(payment.WalletAddress + ":" + payment.TokenContract)
 		groups[key] = append(groups[key], payment)
 	}
@@ -540,12 +544,40 @@ func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, paym
 				fromBlock = paymentFromBlock
 			}
 		}
-		if fromBlock <= 0 || fromBlock > confirmedHead {
+		if fromBlock <= 0 {
 			continue
 		}
-		toBlock := confirmedHead
+		// Observe recent blocks too, but keep settlement and cursor advancement
+		// behind the existing confirmation boundary.
+		toBlock := head
 		if toBlock-fromBlock+1 > maxEVMBlockRange {
 			toBlock = fromBlock + maxEVMBlockRange - 1
+		}
+		plan := evmGroupScanPlan{
+			payments:  group,
+			nextBlock: min(toBlock, confirmedHead) + 1,
+			transfers: make([]evmVerifiedTransfer, 0),
+			progress:  make(map[int]model.CryptoPaymentProgress, len(group)),
+		}
+		for _, payment := range group {
+			stage := "waiting"
+			if toBlock < confirmedHead {
+				stage = "checking"
+			}
+			plan.progress[payment.Id] = model.CryptoPaymentProgress{
+				Stage: stage, CheckedAt: common.GetTimestamp(),
+				HeadBlock: head, RequiredConfirmations: config.Confirmations,
+			}
+			previous := payment.ReadProgress()
+			if previous.TransactionHash != "" && previous.BlockNumber > toBlock {
+				// Another older order can make this batch stop before a known
+				// transfer. Do not erase an observation we have not rescanned.
+				plan.progress[payment.Id] = previous
+			}
+		}
+		if fromBlock > head {
+			plans = append(plans, plan)
+			continue
 		}
 
 		paymentByAmount := make(map[string]*model.CryptoPayment, len(group))
@@ -566,15 +598,14 @@ func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, paym
 			)
 		}
 
-		plan := evmGroupScanPlan{
-			payments:  group,
-			nextBlock: toBlock + 1,
-			transfers: make([]evmVerifiedTransfer, 0),
-		}
 		verifiedPayments := make(map[int]struct{})
 		blockTimestamps := make(map[int64]int64)
 		for _, logEntry := range logs {
 			if logEntry.Removed || !strings.EqualFold(logEntry.Address, group[0].TokenContract) || len(logEntry.Topics) < 3 {
+				continue
+			}
+			if !strings.EqualFold(logEntry.Topics[0], erc20TransferTopic) ||
+				!strings.EqualFold(logEntry.Topics[2], evmRecipientTopic(group[0].WalletAddress)) {
 				continue
 			}
 			atomicValue, err := normalizeEVMAtomicValue(logEntry.Data)
@@ -589,7 +620,7 @@ func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, paym
 				continue
 			}
 			blockNumber, err := parseHexInt64(logEntry.BlockNumber)
-			if err != nil || blockNumber < payment.StartBlock {
+			if err != nil || blockNumber < payment.StartBlock || blockNumber < fromBlock || blockNumber > toBlock {
 				continue
 			}
 			blockTimestamp, exists := blockTimestamps[blockNumber]
@@ -607,7 +638,7 @@ func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, paym
 				}
 				blockTimestamps[blockNumber] = blockTimestamp
 			}
-			if payment.ExpiresAt > 0 && blockTimestamp > payment.ExpiresAt {
+			if blockTimestamp < payment.CreateTime || (payment.ExpiresAt > 0 && blockTimestamp > payment.ExpiresAt) {
 				continue
 			}
 
@@ -634,6 +665,21 @@ func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, paym
 				return 0, fmt.Errorf("mismatched EVM receipt transaction hash for %s", shortEVMReference(logEntry.TransactionHash))
 			}
 			verifiedPayments[payment.Id] = struct{}{}
+			progress := plan.progress[payment.Id]
+			progress.Stage = "confirming"
+			progress.TransactionHash = logEntry.TransactionHash
+			progress.TransactionTime = blockTimestamp
+			progress.BlockNumber = blockNumber
+			// Match settlement's existing head - required confirmations rule:
+			// count blocks mined after the block containing this transfer.
+			progress.Confirmations = head - blockNumber
+			if blockNumber <= confirmedHead {
+				progress.Stage = "crediting"
+			}
+			plan.progress[payment.Id] = progress
+			if blockNumber > confirmedHead {
+				continue
+			}
 			plan.transfers = append(plan.transfers, evmVerifiedTransfer{
 				payment:         payment,
 				transactionHash: logEntry.TransactionHash,
@@ -648,6 +694,9 @@ func scanEVMPaymentsWithEndpoint(config CryptoNetworkConfig, rpcURL string, paym
 	// succeeded. This lets the caller safely retry the complete scan against a
 	// fallback endpoint without partially crediting orders or advancing cursors.
 	for _, plan := range plans {
+		for _, payment := range plan.payments {
+			saveCryptoPaymentProgress(payment, plan.progress[payment.Id])
+		}
 		retryPayment := make(map[int]struct{})
 		for _, transfer := range plan.transfers {
 			completed, err := model.CompleteCryptoPaymentOnce(
@@ -694,6 +743,7 @@ func scanEVMPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment
 		}
 		errorsByEndpoint = append(errorsByEndpoint, fmt.Errorf("RPC %d: %w", index+1, safeEVMRPCError(endpointErr)))
 	}
+	markCryptoPaymentProgressRetrying(payments, model.CryptoNetworkEVM)
 	return 0, fmt.Errorf("all EVM RPC endpoints failed: %w", errors.Join(errorsByEndpoint...))
 }
 
@@ -748,6 +798,7 @@ func getTronTransactionInfo(ctx context.Context, config CryptoNetworkConfig, tra
 func scanTronPaymentGroup(ctx context.Context, config CryptoNetworkConfig, active []*model.CryptoPayment) error {
 	minTimestamp := active[0].CreateTimeMillis
 	paymentByAmount := make(map[string]*model.CryptoPayment, len(active))
+	observed := make(map[int]bool, len(active))
 	for _, payment := range active {
 		paymentByAmount[payment.RequestedAmount] = payment
 		if payment.CreateTimeMillis < minTimestamp {
@@ -789,11 +840,23 @@ func scanTronPaymentGroup(ctx context.Context, config CryptoNetworkConfig, activ
 			if payment.ExpiresAt > 0 && transfer.BlockTimestamp > payment.ExpiresAt*1000 {
 				continue
 			}
-			if time.Now().UnixMilli()-transfer.BlockTimestamp < config.ConfirmationSeconds*1000 {
-				continue
-			}
 			info, err := getTronTransactionInfo(ctx, config, transfer.TransactionId)
 			if err != nil {
+				return err
+			}
+			elapsed := max(int64(0), (time.Now().UnixMilli()-transfer.BlockTimestamp)/1000)
+			progress := model.CryptoPaymentProgress{
+				Stage: "confirming", CheckedAt: common.GetTimestamp(),
+				TransactionHash: transfer.TransactionId, TransactionTime: transfer.BlockTimestamp / 1000,
+				BlockNumber: info.BlockNumber, ConfirmedSeconds: elapsed,
+				RequiredSeconds: config.ConfirmationSeconds,
+			}
+			if elapsed >= config.ConfirmationSeconds {
+				progress.Stage = "crediting"
+			}
+			saveCryptoPaymentProgress(payment, progress)
+			observed[payment.Id] = true
+			if elapsed < config.ConfirmationSeconds {
 				continue
 			}
 			completed, err := model.CompleteCryptoPaymentOnce(payment.TradeNo, transfer.TransactionId, "", info.BlockNumber)
@@ -810,10 +873,17 @@ func scanTronPaymentGroup(ctx context.Context, config CryptoNetworkConfig, activ
 
 		fingerprint = response.Meta.Fingerprint
 		if fingerprint == "" || len(response.Data) == 0 {
-			break
+			for _, payment := range active {
+				if !observed[payment.Id] {
+					saveCryptoPaymentProgress(payment, model.CryptoPaymentProgress{
+						Stage: "waiting", CheckedAt: common.GetTimestamp(), RequiredSeconds: config.ConfirmationSeconds,
+					})
+				}
+			}
+			return nil
 		}
 	}
-	return nil
+	return errors.New("TRON payment scan pagination limit reached")
 }
 
 func scanTronPayments(config CryptoNetworkConfig, payments []*model.CryptoPayment) error {
@@ -830,6 +900,7 @@ func scanTronPayments(config CryptoNetworkConfig, payments []*model.CryptoPaymen
 	}
 	for _, group := range groups {
 		if err := scanTronPaymentGroup(context.Background(), config, group); err != nil {
+			markCryptoPaymentProgressRetrying(group, model.CryptoNetworkTron)
 			return err
 		}
 	}

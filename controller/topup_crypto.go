@@ -358,7 +358,7 @@ func RequestCryptoPayment(c *gin.Context) {
 		common.ApiErrorMsg(c, "创建链上支付订单失败")
 		return
 	}
-	common.ApiSuccess(c, payment)
+	common.ApiSuccess(c, service.CryptoPaymentOrderWithProgress(payment))
 }
 
 func GetCryptoPaymentOrder(c *gin.Context) {
@@ -372,5 +372,5 @@ func GetCryptoPaymentOrder(c *gin.Context) {
 		common.ApiErrorMsg(c, "支付订单不存在")
 		return
 	}
-	common.ApiSuccess(c, payment)
+	common.ApiSuccess(c, service.CryptoPaymentOrderWithProgress(payment))
 }
