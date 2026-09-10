@@ -15,6 +15,7 @@ import (
 	taskdto "github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	"github.com/QuantumNous/new-api/relay/channel/task/taskcommon"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -280,14 +281,28 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 		return
 	}
 
-	ov := dto.NewOpenAIVideo()
-	ov.ID = info.PublicTaskID
-	ov.TaskID = info.PublicTaskID
-	ov.CreatedAt = time.Now().Unix()
-	ov.Model = info.OriginModelName
-
-	c.JSON(http.StatusOK, ov)
+	if isSeedanceNativeTaskRequest(c) {
+		nativeResponse, err := configurable.BuildVolcengineVideoTaskCreateResponse(info.PublicTaskID)
+		if err != nil {
+			taskErr = service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
+			return
+		}
+		c.Data(http.StatusOK, "application/json", nativeResponse)
+	} else {
+		ov := dto.NewOpenAIVideo()
+		ov.ID = info.PublicTaskID
+		ov.TaskID = info.PublicTaskID
+		ov.CreatedAt = time.Now().Unix()
+		ov.Model = info.OriginModelName
+		c.JSON(http.StatusOK, ov)
+	}
 	return dResp.ID, responseBody, nil
+}
+
+// ConvertToNativeFetchResponse returns the official Ark query response for
+// direct Doubao/VolcEngine channels, including upstream wrapped task bodies.
+func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstream []byte) ([]byte, error) {
+	return configurable.BuildVolcengineVideoTaskResponse(originTask, upstream)
 }
 
 // FetchTask fetch task status

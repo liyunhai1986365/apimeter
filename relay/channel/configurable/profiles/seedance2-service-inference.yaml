@@ -7,8 +7,8 @@
 #   dreamina-seedance-2-5-260628-max
 #
 # Gateway native entry remains /api/v3/contents/generations/tasks.
-# Native responses expose the upstream task fields at the top level, including
-# prep; use id (the gateway public task ID) for subsequent gateway queries.
+# Native responses follow the official Ark protocol; id is the gateway public
+# task ID used for subsequent queries.
 # Generic /v1/video/generations retains its OpenAI response format.
 # Max pre-upload uses /v2/sd-max/assets; legacy v1 resources remain below.
 # Task-list proxying and upstream response-header forwarding require gateway
@@ -25,6 +25,7 @@ video:
     submit:
       method: POST
       path: /api/v3/contents/generations/tasks
+      response_format: volcengine_video_task_create
       passthrough: true
       # Extract validation/estimation fields without rebuilding native content.
       request:
@@ -71,23 +72,18 @@ video:
             omit_empty: true
       response:
         passthrough: true
-        root_path: task
-        fields:
-          - to: id
-            from: public_task_id
         task_id_path: id
         status_path: status
     fetch:
       method: GET
       path: /api/v3/contents/generations/tasks/{task_id}
-      # Normalize legacy/local snapshots on query failure, then unwrap task.
-      response_format: service_inference_video_task
+      response_format: volcengine_video_task
+      # Normalize legacy/local snapshots on query failure to the official
+      # root-level response shape.
       response:
         passthrough: true
-        root_path: task
-        fields:
-          - to: id
-            from: public_task_id
+        task_id_path: id
+        status_path: status
   billing:
     ratios:
       - key: seconds

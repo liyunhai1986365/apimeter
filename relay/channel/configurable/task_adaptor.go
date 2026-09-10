@@ -228,7 +228,14 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 
 	if a.isNativeSubmitRequest(c) {
-		if strings.EqualFold(strings.TrimSpace(profile.videoNative().Submit.ResponseFormat), "openai_video") {
+		if isVolcengineVideoTaskSubmitEndpoint(profile.videoNative().Submit.Path) ||
+			strings.EqualFold(strings.TrimSpace(profile.videoNative().Submit.ResponseFormat), "volcengine_video_task_create") {
+			nativeResponse, err := BuildVolcengineVideoTaskCreateResponse(publicTaskID(info))
+			if err != nil {
+				return "", nil, service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
+			}
+			c.Data(http.StatusOK, "application/json", nativeResponse)
+		} else if strings.EqualFold(strings.TrimSpace(profile.videoNative().Submit.ResponseFormat), "openai_video") {
 			ovBody, err := a.buildOpenAIVideoSubmitResponse(profile.videoSubmit().OpenAIResponse, responseBody, info)
 			if err != nil {
 				return "", nil, service.TaskErrorWrapper(err, "build_native_openai_video_response_failed", http.StatusInternalServerError)
@@ -249,6 +256,15 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 		c.Data(http.StatusOK, "application/json", ovBody)
 	}
 	return taskID, responseBody, nil
+}
+
+// BuildVolcengineVideoTaskCreateResponse returns the official Ark creation
+// response. The gateway deliberately returns its public task ID so the caller
+// can use that ID in the subsequent gateway query.
+func BuildVolcengineVideoTaskCreateResponse(publicTaskID string) ([]byte, error) {
+	return common.Marshal(map[string]any{
+		"id": publicTaskID,
+	})
 }
 
 func (a *TaskAdaptor) buildOpenAIVideoSubmitResponse(config ResponseConfig, responseBody []byte, info *relaycommon.RelayInfo) ([]byte, error) {
@@ -561,15 +577,12 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	if err != nil {
 		return nil, err
 	}
+	if isVolcengineVideoTaskFetchEndpoint(profile.videoNative().Fetch.Path) {
+		return BuildVolcengineVideoTaskResponse(originTask, upstream)
+	}
 	responseFormat := strings.ToLower(strings.TrimSpace(profile.videoNative().Fetch.ResponseFormat))
 	if responseFormat == "volcengine_video_task" {
-		return buildVolcengineVideoTaskResponse(originTask, upstream)
-	}
-	if responseFormat == "service_inference_video_task" && !gjson.GetBytes(upstream, "task").IsObject() {
-		upstream, err = buildServiceInferenceLegacyTaskResponse(originTask, upstream)
-		if err != nil {
-			return nil, err
-		}
+		return BuildVolcengineVideoTaskResponse(originTask, upstream)
 	}
 	return buildConfiguredResponse(profile.videoNative().Fetch.Response, upstream, &relaycommon.RelayInfo{
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
@@ -578,53 +591,18 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	})
 }
 
-// Legacy snapshots may contain a New API envelope, or no upstream body while
-// a task is still running. Reuse the established safe field extraction instead
-// of forwarding that envelope or returning a task with only an ID.
-func buildServiceInferenceLegacyTaskResponse(task *model.Task, upstream []byte) ([]byte, error) {
-	normalized, err := buildVolcengineVideoTaskResponse(task, upstream)
-	if err != nil {
-		return nil, err
-	}
-	status := gjson.GetBytes(normalized, "status").String()
-	status = map[string]string{
-		"queued": "pending", "running": "processing", "succeeded": "completed",
-		"failed": "failed", "cancelled": "failed", "expired": "failed",
-	}[status]
-	result := map[string]any{
-		"id": task.TaskID, "model": gjson.GetBytes(normalized, "model").String(),
-		"status": status, "outputs": []string{}, "error": nil, "completed_at": nil,
-	}
-	if status == "completed" {
-		if videoURL := gjson.GetBytes(normalized, "content.video_url").String(); videoURL != "" {
-			result["outputs"] = []string{videoURL}
-		}
-	} else if status == "failed" {
-		reason := gjson.GetBytes(normalized, "error.message").String()
-		if reason == "" {
-			reason = firstJSONString(upstream, commonVideoFailureReasonPaths...)
-		}
-		if reason == "" {
-			reason = "Task " + gjson.GetBytes(normalized, "status").String()
-		}
-		result["error"] = reason
-	}
-	for output, source := range map[string]string{
-		"duration_seconds": "duration", "usage": "usage", "last_frame_url": "content.last_frame_url",
-	} {
-		if value := gjson.GetBytes(normalized, source); value.Exists() {
-			result[output] = value.Value()
-		}
-	}
-	if createdAt := gjson.GetBytes(normalized, "created_at").Int(); createdAt > 0 {
-		result["created_at"] = time.Unix(createdAt, 0).UTC().Format(time.RFC3339)
-	}
-	if status == "completed" || status == "failed" {
-		if completedAt := gjson.GetBytes(normalized, "updated_at").Int(); completedAt > 0 {
-			result["completed_at"] = time.Unix(completedAt, 0).UTC().Format(time.RFC3339)
-		}
-	}
-	return common.Marshal(map[string]any{"task": result})
+// BuildVolcengineVideoTaskResponse normalizes all supported upstream task
+// envelopes to the official Ark query response shape.
+func BuildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte, error) {
+	return buildVolcengineVideoTaskResponse(task, upstream)
+}
+
+func isVolcengineVideoTaskSubmitEndpoint(path string) bool {
+	return strings.TrimSuffix(strings.TrimSpace(path), "/") == "/api/v3/contents/generations/tasks"
+}
+
+func isVolcengineVideoTaskFetchEndpoint(path string) bool {
+	return strings.TrimSuffix(strings.TrimSpace(path), "/") == "/api/v3/contents/generations/tasks/{task_id}"
 }
 
 func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte, error) {
@@ -633,7 +611,8 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 	}
 
 	response := map[string]any{
-		"id": task.TaskID,
+		"id":    task.TaskID,
+		"error": nil,
 	}
 
 	modelName := strings.TrimSpace(task.Properties.OriginModelName)
@@ -671,6 +650,7 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 
 	updatedAt, _ := firstJSONUnixTime(upstream,
 		"updated_at",
+		"completed_at",
 		"task.updated_at",
 		"task.metadata.updated_at",
 		"task.completed_at",
@@ -702,6 +682,7 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 	}
 	if lastFrameURL := firstJSONString(upstream,
 		"content.last_frame_url",
+		"last_frame_url",
 		"task.content.last_frame_url",
 		"task.last_frame_url",
 		"task.metadata.content.last_frame_url",
@@ -766,10 +747,6 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 		{name: "draft_task_id", paths: configurableVideoTaskFieldPaths("draft_task_id")},
 		{name: "service_tier", paths: configurableVideoTaskFieldPaths("service_tier")},
 		{name: "safety_identifier", paths: configurableVideoTaskFieldPaths("safety_identifier")},
-		{name: "revised_prompt", paths: configurableVideoTaskFieldPaths("revised_prompt")},
-		{name: "subdivisionlevel", paths: configurableVideoTaskFieldPaths("subdivisionlevel")},
-		{name: "fileformat", paths: configurableVideoTaskFieldPaths("fileformat")},
-		{name: "reasoning_effort", paths: configurableVideoTaskFieldPaths("reasoning_effort")},
 	}
 	for _, field := range stringFields {
 		if value, ok := firstJSONScalarString(upstream, field.paths...); ok {
@@ -782,7 +759,6 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 		paths []string
 	}{
 		{name: "seed", paths: configurableVideoTaskFieldPaths("seed")},
-		{name: "priority", paths: configurableVideoTaskFieldPaths("priority")},
 		{name: "framespersecond", paths: configurableVideoTaskFieldPaths("framespersecond")},
 		{name: "execution_expires_after", paths: configurableVideoTaskFieldPaths("execution_expires_after")},
 	}
@@ -798,6 +774,7 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 		response["frames"] = frames
 	} else if duration, ok := firstJSONInt64(upstream, configurableVideoTaskFieldPaths(
 		"duration",
+		"duration_seconds",
 		"task.duration_seconds",
 		"data.data.task.duration_seconds",
 	)...); ok {
@@ -821,7 +798,7 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 		response["tools"] = tools
 	}
 
-	if publicStatus == "failed" {
+	if publicStatus == "failed" || publicStatus == "expired" || publicStatus == "cancelled" {
 		errorCode := firstJSONString(upstream,
 			"error.code",
 			"task.error.code",
@@ -831,18 +808,22 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 			"data.data.task.metadata.error.code",
 		)
 		errorMessage := configuredTaskFailureReason(ResponseConfig{}, upstream)
-		if errorMessage == "" {
+		if errorMessage == "" && publicStatus == "failed" {
 			errorMessage = strings.TrimSpace(task.FailReason)
 		}
-		if errorCode == "" {
-			errorCode = "TaskFailed"
-		}
-		if errorMessage == "" {
-			errorMessage = "Task failed"
-		}
-		response["error"] = map[string]any{
-			"code":    errorCode,
-			"message": errorMessage,
+		// Preserve provider errors on expired/cancelled tasks as well. Only
+		// synthesize an error for failed tasks when no provider detail exists.
+		if publicStatus == "failed" || errorCode != "" || errorMessage != "" {
+			if errorCode == "" {
+				errorCode = "TaskFailed"
+			}
+			if errorMessage == "" {
+				errorMessage = "Task " + publicStatus
+			}
+			response["error"] = map[string]any{
+				"code":    errorCode,
+				"message": errorMessage,
+			}
 		}
 	}
 
@@ -851,7 +832,7 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 
 func volcengineVideoTaskStatus(upstreamStatus string, taskStatus model.TaskStatus) string {
 	switch strings.ToLower(strings.TrimSpace(upstreamStatus)) {
-	case "queued", "pending", "submitted", "not_start":
+	case "queued", "preparing", "pending", "submitted", "not_start":
 		return "queued"
 	case "running", "processing", "in_progress":
 		return "running"

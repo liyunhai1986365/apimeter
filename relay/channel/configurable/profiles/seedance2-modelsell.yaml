@@ -10,6 +10,7 @@ video:
     submit:
       method: POST
       path: /api/v3/contents/generations/tasks
+      response_format: volcengine_video_task_create
       passthrough: true
       request:
         fields:
