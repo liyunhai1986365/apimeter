@@ -404,6 +404,60 @@ func TestOpenAIImageEditMultipartParamOverrideCanDeleteConfiguredResponseFormat(
 	require.Len(t, form.File["image"], 1)
 }
 
+func TestOpenAIImageEditMultipartParamOverrideDeletesClientResponseFormat(t *testing.T) {
+	for _, responseFormat := range []string{"url", "b64_json", "custom"} {
+		t.Run(responseFormat, func(t *testing.T) {
+			var source bytes.Buffer
+			writer := multipart.NewWriter(&source)
+			require.NoError(t, writer.WriteField("model", "gpt-image-2.5-sunburst"))
+			require.NoError(t, writer.WriteField("prompt", "edit the image"))
+			require.NoError(t, writer.WriteField("response_format", responseFormat))
+			file, err := writer.CreateFormFile("image", "input.png")
+			require.NoError(t, err)
+			_, err = file.Write([]byte("fake image"))
+			require.NoError(t, err)
+			require.NoError(t, writer.Close())
+
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(source.Bytes()))
+			c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+			info := &relaycommon.RelayInfo{
+				RelayMode: relayconstant.RelayModeImagesEdits,
+				ChannelMeta: &relaycommon.ChannelMeta{
+					ParamOverride: map[string]any{
+						"operations": []any{map[string]any{"mode": "delete", "path": "response_format"}},
+					},
+				},
+			}
+			request := dto.ImageRequest{Model: "gpt-image-2.5-sunburst", Prompt: "edit the image", ResponseFormat: responseFormat}
+			adaptor := &Adaptor{}
+			for _, deleteResponseFormat := range []bool{true, false} {
+				if !deleteResponseFormat {
+					// A fallback channel that accepts the field must still see the original value.
+					info.ParamOverride = nil
+				}
+				converted, err := adaptor.ConvertImageRequest(c, info, request)
+				require.NoError(t, err)
+				body, ok := converted.(*bytes.Buffer)
+				require.True(t, ok)
+				form, err := multipart.NewReader(body, multipartBoundary(t, c.Request.Header.Get("Content-Type"))).ReadForm(1 << 20)
+				require.NoError(t, err)
+				if deleteResponseFormat {
+					require.NotContains(t, form.Value, "response_format")
+				} else {
+					require.Equal(t, []string{responseFormat}, form.Value["response_format"])
+				}
+				require.Equal(t, []string{request.Model}, form.Value["model"])
+				require.Equal(t, []string{request.Prompt}, form.Value["prompt"])
+				require.Len(t, form.File["image"], 1)
+				require.NoError(t, form.RemoveAll())
+				require.Equal(t, []string{responseFormat}, c.Request.MultipartForm.Value["response_format"])
+			}
+			require.NoError(t, c.Request.MultipartForm.RemoveAll())
+		})
+	}
+}
+
 func TestOpenAIImageEditMultipartTokenFormatOverridesUserAndChannelResponseFormat(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		RelayMode:          relayconstant.RelayModeImagesEdits,

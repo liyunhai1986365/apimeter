@@ -477,7 +477,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		mf := c.Request.MultipartForm
 		if mf == nil {
 			if _, err := c.MultipartForm(); err != nil {
-				return nil, errors.New("failed to parse multipart form")
+				return nil, fmt.Errorf("failed to parse multipart form: %w", err)
 			}
 			mf = c.Request.MultipartForm
 		}
@@ -485,7 +485,7 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		// 写入所有非文件字段
 		if mf != nil {
 			for key, values := range mf.Value {
-				if key == "model" || (key == "response_format" && request.ResponseFormat != "") {
+				if key == "model" || (key == "response_format" && (deleteResponseFormat || request.ResponseFormat != "")) {
 					continue
 				}
 				for _, value := range values {
