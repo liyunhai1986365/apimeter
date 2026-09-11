@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
+import { api } from '@/lib/api'
 import {
+  createAgentDomains,
+  createAdminAgentDomains,
   buildAgentGroupRuleRows,
   buildAgentGroupRatioPayload,
   buildAgentUserGroupPayload,
@@ -17,6 +20,45 @@ import {
   parseAgentBranding,
   stringifyAgentBranding,
 } from './api'
+
+describe('agent domain creation', () => {
+  test('keeps failed batches as errors so the form does not reset or report success', async () => {
+    const originalPost = api.post
+    api.post = (async () => ({
+      data: { success: false, message: 'agent domain already exists' },
+    })) as typeof api.post
+    try {
+      await assert.rejects(
+        createAgentDomains({ domains: ['taken.example.com'] })
+      )
+      await assert.rejects(
+        createAdminAgentDomains({ agentId: 7, domains: ['taken.example.com'] })
+      )
+    } finally {
+      api.post = originalPost
+    }
+  })
+
+  test('sends all new domains together using the owner or selected agent scope', async () => {
+    const originalPost = api.post
+    const calls: { url: string; data: unknown }[] = []
+    api.post = (async (url, data) => {
+      calls.push({ url, data })
+      return { data: { success: true, data: [] } }
+    }) as typeof api.post
+    const domains = ['site.example.com', 'api.example.com']
+    try {
+      await createAgentDomains({ domains })
+      await createAdminAgentDomains({ agentId: 7, domains })
+    } finally {
+      api.post = originalPost
+    }
+    assert.deepEqual(calls, [
+      { url: '/api/agent/domains/batch', data: { domains } },
+      { url: '/api/agents/7/domains/batch', data: { domains } },
+    ])
+  })
+})
 
 describe('agent branding helpers', () => {
   test('preserves custom home page content in agent branding', () => {

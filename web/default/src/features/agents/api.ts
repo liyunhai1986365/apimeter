@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { t } from 'i18next'
 import { api } from '@/lib/api'
 import type {
   AdminAgentDomain,
@@ -37,6 +38,11 @@ import type {
   AgentUser,
   AgentWithdrawal,
 } from './types'
+
+const domainMutationConfig = {
+  skipBusinessError: true,
+  skipErrorHandler: true,
+} as Record<string, unknown>
 
 export function buildAgentUserGroupOptions(userGroups: AgentUserGroupConfig[]) {
   return userGroups
@@ -148,11 +154,14 @@ export async function listAgentDomains(page = 1, pageSize = 20) {
   return res.data
 }
 
-export async function createAgentDomain(input: { domain: string }) {
-  const res = await api.post<{ success: boolean; data: AgentDomain }>(
-    '/api/agent/domains',
-    input
-  )
+export async function createAgentDomains(input: { domains: string[] }) {
+  const res = await api.post<{
+    success: boolean
+    message?: string
+    data: AgentDomain[]
+  }>('/api/agent/domains/batch', input, domainMutationConfig)
+  if (!res.data.success)
+    throw new Error(t(res.data.message || 'Operation failed'))
   return res.data
 }
 
@@ -250,14 +259,21 @@ export function stringifyAgentBranding(input: AgentBranding) {
   })
 }
 
-export async function createAdminAgentDomain(input: {
+export async function createAdminAgentDomains(input: {
   agentId: number
-  domain: string
+  domains: string[]
 }) {
-  const res = await api.post<{ success: boolean; data: AgentDomain }>(
-    `/api/agents/${input.agentId}/domains`,
-    { domain: input.domain }
+  const res = await api.post<{
+    success: boolean
+    message?: string
+    data: AgentDomain[]
+  }>(
+    `/api/agents/${input.agentId}/domains/batch`,
+    { domains: input.domains },
+    domainMutationConfig
   )
+  if (!res.data.success)
+    throw new Error(t(res.data.message || 'Operation failed'))
   return res.data
 }
 

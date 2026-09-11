@@ -79,7 +79,7 @@ import {
   addAdminAgentBalance,
   bindAdminAgentUser,
   createAdminAgent,
-  createAdminAgentDomain,
+  createAdminAgentDomains,
   getAgentGroupRatioFormDraft,
   getAgentGroupRatioInputFloor,
   getAdminAgentBalance,
@@ -99,6 +99,7 @@ import {
   upsertAdminAgentUserGroup,
 } from './api'
 import { AgentBalanceDialog } from './components/agent-balance-dialog'
+import { AgentDomainForm } from './components/agent-domain-form'
 import { AgentGroupManager } from './components/agent-group-manager'
 import { AgentUserGroupManager } from './components/agent-user-group-manager'
 import {
@@ -173,7 +174,8 @@ export function AgentManagement() {
   const [brandHomePageContent, setBrandHomePageContent] = useState('')
   const [brandHeaderNavModules, setBrandHeaderNavModules] = useState('')
   const [brandSiteStyle, setBrandSiteStyle] = useState('')
-  const [newDomain, setNewDomain] = useState('')
+  const [domainsPageNumber, setDomainsPageNumber] = useState(1)
+  const [domainsPageSize, setDomainsPageSize] = useState(20)
   const [bindUserId, setBindUserId] = useState('')
   const [systemGroupName, setSystemGroupName] = useState('default')
   const [groupDescription, setGroupDescription] = useState('')
@@ -220,8 +222,20 @@ export function AgentManagement() {
   })
 
   const selectedDomainsQuery = useQuery({
-    queryKey: ['admin', 'agents', selectedAgentId, 'domains'],
-    queryFn: () => listAdminAgentDomainsByAgent(selectedAgentId ?? 0, 1, 50),
+    queryKey: [
+      'admin',
+      'agents',
+      selectedAgentId,
+      'domains',
+      domainsPageNumber,
+      domainsPageSize,
+    ],
+    queryFn: () =>
+      listAdminAgentDomainsByAgent(
+        selectedAgentId ?? 0,
+        domainsPageNumber,
+        domainsPageSize
+      ),
     enabled: selectedAgentId != null,
   })
 
@@ -271,6 +285,7 @@ export function AgentManagement() {
   const totalAgentUsers = selectedUsersPage.total
   const selectAgent = (agentId: number) => {
     if (selectedAgentId !== agentId) {
+      setDomainsPageNumber(1)
       setSelectedUsersKeywordInput('')
       setSelectedUsersKeyword('')
       setSelectedUsersPageNumber(1)
@@ -361,10 +376,10 @@ export function AgentManagement() {
   })
 
   const createDomainMutation = useMutation({
-    mutationFn: createAdminAgentDomain,
+    mutationFn: createAdminAgentDomains,
     onSuccess: () => {
-      toast.success(t('Domain added'))
-      setNewDomain('')
+      toast.success(t('Domains added'))
+      setDomainsPageNumber(1)
       refreshSelectedAgent()
     },
     onError: (error) => {
@@ -465,7 +480,6 @@ export function AgentManagement() {
     Number(newAgentOwnerId) > 0 &&
     newAgentName.trim() !== '' &&
     newAgentSlug.trim() !== ''
-  const canCreateDomain = selectedAgentId != null && newDomain.trim() !== ''
   const canBindUser = selectedAgentId != null && Number(bindUserId) > 0
   const selectedGroupBaseRatio = getAgentGroupRatioInputFloor(
     selectedGroupRatios,
@@ -873,6 +887,15 @@ export function AgentManagement() {
           if (!open) setDetailAgentId(null)
         }}
         domains={selectedDomains}
+        domainsPage={domainsPageNumber}
+        domainsPageSize={domainsPageSize}
+        domainsTotal={selectedDomainsPage.total}
+        domainsLoading={selectedDomainsQuery.isFetching}
+        onDomainsPageChange={setDomainsPageNumber}
+        onDomainsPageSizeChange={(pageSize) => {
+          setDomainsPageSize(pageSize)
+          setDomainsPageNumber(1)
+        }}
         groupRatios={selectedGroupRatios}
         userGroups={selectedUserGroups}
         users={selectedUsers}
@@ -889,7 +912,6 @@ export function AgentManagement() {
         brandHeaderNavConfig={brandHeaderNavConfig}
         brandHeaderNavSerialized={brandHeaderNavSerialized}
         brandSiteStyleConfig={brandSiteStyleConfig}
-        newDomain={newDomain}
         bindUserId={bindUserId}
         systemGroupName={systemGroupName}
         groupDescription={groupDescription}
@@ -904,11 +926,9 @@ export function AgentManagement() {
         isPricingPending={savePricingMutation.isPending}
         isUserGroupPending={saveUserGroupMutation.isPending}
         isDomainStatusPending={updateDomainStatusMutation.isPending}
-        canCreateDomain={canCreateDomain}
         canBindUser={canBindUser}
         canSavePricing={canSavePricing}
         canSaveUserGroup={canSaveUserGroup}
-        onNewDomainChange={setNewDomain}
         onBindUserIdChange={setBindUserId}
         onUsersKeywordChange={setSelectedUsersKeywordInput}
         onUsersSearch={searchSelectedAgentUsers}
@@ -999,13 +1019,13 @@ export function AgentManagement() {
           })
           setBrandHeaderNavModules(serialized)
         }}
-        onCreateDomain={() =>
-          selectedAgentId != null &&
-          createDomainMutation.mutate({
-            agentId: selectedAgentId,
-            domain: newDomain.trim(),
+        onCreateDomains={async (domains) => {
+          if (detailAgentId == null) throw new Error(t('Operation failed'))
+          return createDomainMutation.mutateAsync({
+            agentId: detailAgentId,
+            domains,
           })
-        }
+        }}
         onBindUser={() =>
           selectedAgentId != null &&
           bindUserMutation.mutate({
@@ -1178,6 +1198,12 @@ function AgentDetailDialog(props: {
   agent?: Agent | null
   open: boolean
   domains: AgentDomain[]
+  domainsPage: number
+  domainsPageSize: number
+  domainsTotal: number
+  domainsLoading: boolean
+  onDomainsPageChange: (page: number) => void
+  onDomainsPageSizeChange: (pageSize: number) => void
   groupRatios: AgentGroupRatio[]
   userGroups: AgentUserGroupConfig[]
   users: AgentUser[]
@@ -1192,7 +1218,6 @@ function AgentDetailDialog(props: {
   brandHeaderNavConfig: HeaderNavModules
   brandHeaderNavSerialized: string
   brandSiteStyleConfig: ThemeCustomization
-  newDomain: string
   bindUserId: string
   systemGroupName: string
   groupDescription: string
@@ -1208,12 +1233,10 @@ function AgentDetailDialog(props: {
   isUserGroupPending: boolean
   isDomainStatusPending: boolean
   isBrandingPending: boolean
-  canCreateDomain: boolean
   canBindUser: boolean
   canSavePricing: boolean
   canSaveUserGroup: boolean
   onOpenChange: (open: boolean) => void
-  onNewDomainChange: (value: string) => void
   onBindUserIdChange: (value: string) => void
   onUsersKeywordChange: (value: string) => void
   onUsersSearch: () => void
@@ -1234,7 +1257,7 @@ function AgentDetailDialog(props: {
   onSaveBranding: () => void
   onSaveSiteStyle: () => void
   onSaveHeaderNavigation: (serialized: string) => Promise<unknown> | unknown
-  onCreateDomain: () => void
+  onCreateDomains: (domains: string[]) => Promise<unknown>
   onBindUser: () => void
   onSavePricing: () => void
   onResetPricing: () => void
@@ -1358,38 +1381,25 @@ function AgentDetailDialog(props: {
 
             <div className='grid gap-4 xl:grid-cols-2'>
               <section className='rounded-lg border p-3'>
-                <div className='mb-3 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
-                  <div>
-                    <h3 className='text-sm font-semibold'>
-                      {t('Agent Domains')}
-                    </h3>
-                    <p className='text-muted-foreground mt-1 text-xs'>
-                      {t('Domains are configured by admins only.')}
-                    </p>
-                  </div>
-                  <div className='flex gap-2'>
-                    <Input
-                      value={props.newDomain}
-                      onChange={(event) =>
-                        props.onNewDomainChange(event.target.value)
-                      }
-                      placeholder={t('agent.example.com')}
-                    />
-                    <Button
-                      disabled={!props.canCreateDomain || props.isDomainPending}
-                      onClick={props.onCreateDomain}
-                    >
-                      <Plus />
-                      {t('Add Domain')}
-                    </Button>
-                  </div>
+                <div className='mb-3 flex flex-col gap-2'>
+                  <h3 className='text-sm font-semibold'>
+                    {t('Agent Domains')}
+                  </h3>
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'Users can use the same API key on any active domain of this agent.'
+                    )}
+                  </p>
+                  <p className='text-muted-foreground text-xs'>
+                    {t(
+                      'Point each domain to its CNAME target. Adding domains keeps existing domains available.'
+                    )}
+                  </p>
                 </div>
-                <AgentUsersSearchControls
-                  keyword={props.usersKeyword}
-                  isLoading={props.usersLoading}
-                  onKeywordChange={props.onUsersKeywordChange}
-                  onSearch={props.onUsersSearch}
-                  onClear={props.onUsersClear}
+                <AgentDomainForm
+                  key={props.agent?.id}
+                  isPending={props.isDomainPending}
+                  onSubmit={props.onCreateDomains}
                 />
                 <Table>
                   <TableHeader>
@@ -1465,6 +1475,15 @@ function AgentDetailDialog(props: {
                     )}
                   </TableBody>
                 </Table>
+                <AgentUsersPaginationControls
+                  page={props.domainsPage}
+                  pageSize={props.domainsPageSize}
+                  total={props.domainsTotal}
+                  itemCount={props.domains.length}
+                  isLoading={props.domainsLoading}
+                  onPageChange={props.onDomainsPageChange}
+                  onPageSizeChange={props.onDomainsPageSizeChange}
+                />
               </section>
 
               <section className='rounded-lg border p-3'>
@@ -1496,6 +1515,13 @@ function AgentDetailDialog(props: {
                     </Button>
                   </div>
                 </div>
+                <AgentUsersSearchControls
+                  keyword={props.usersKeyword}
+                  isLoading={props.usersLoading}
+                  onKeywordChange={props.onUsersKeywordChange}
+                  onSearch={props.onUsersSearch}
+                  onClear={props.onUsersClear}
+                />
                 <Table>
                   <TableHeader>
                     <TableRow>

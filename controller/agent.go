@@ -422,6 +422,26 @@ func AgentDomainTLSAsk(c *gin.Context) {
 	common.ApiSuccess(c, gin.H{"domain": agentservice.NormalizeHost(domain)})
 }
 
+func AgentCreateDomains(c *gin.Context) {
+	agentID, ok := currentAgentID(c)
+	if !ok {
+		return
+	}
+	var req struct {
+		Domains []string `json:"domains"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	domains, err := agentservice.CreateDomains(agentID, req.Domains)
+	if err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	common.ApiSuccess(c, domains)
+}
+
 func AgentUpdateDomainStatus(c *gin.Context) {
 	agentID, ok := currentAgentID(c)
 	if !ok {

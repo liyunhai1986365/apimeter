@@ -218,39 +218,11 @@ func BuildWithdrawalViews(withdrawals []*model.AgentWithdrawal) ([]*WithdrawalVi
 }
 
 func CreateDomain(agentID int, rawDomain string) (*model.AgentDomain, error) {
-	domain := NormalizeHost(rawDomain)
-	if domain == "" || !strings.Contains(domain, ".") {
-		return nil, ErrInvalidAgentDomain
-	}
-	var existing model.AgentDomain
-	err := model.DB.Where("domain = ?", domain).First(&existing).Error
-	if err == nil {
-		return nil, ErrAgentDomainAlreadyExists
-	}
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, err
-	}
-	token, err := common.GenerateRandomCharsKey(32)
+	domains, err := CreateDomains(agentID, []string{rawDomain})
 	if err != nil {
 		return nil, err
 	}
-	token = strings.ToLower(token)
-	agentDomain := &model.AgentDomain{
-		AgentId:     agentID,
-		Domain:      domain,
-		Status:      model.AgentDomainStatusActive,
-		VerifyToken: token,
-		ForceHttps:  true,
-	}
-	if err := model.DB.Create(agentDomain).Error; err != nil {
-		if isAgentDomainDuplicateError(err) {
-			return nil, ErrAgentDomainAlreadyExists
-		}
-		return nil, err
-	}
-	InvalidateDomainResolution(domain)
-	FillDomainCNAMETarget(agentDomain)
-	return agentDomain, nil
+	return domains[0], nil
 }
 
 func isAgentDomainDuplicateError(err error) bool {
