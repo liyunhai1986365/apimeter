@@ -465,6 +465,19 @@ available = sum(agent_ledger.profit_quota)
 - 用户域名可将 CNAME 指向 `<verify_token>.<AGENT_CNAME_BASE_DOMAIN>`，也可通过 CDN 或其他反向代理接入。
 - 主站管理员可启用或禁用域名。
 
+一个代理可绑定多个域名，新增域名不会替换已有域名。代理后台和主站代理管理均支持每行一个或逗号分隔批量添加，每批最多 50 个（不是代理域名总数上限），列表支持分页。每个域名单独配置返回的 CNAME 目标；反向代理须保留原始 Host。
+
+API 用户绑定的是代理 ID，不是注册时的域名。同一代理的已启用用户可以使用同一个 API Key，通过该代理任意已启用域名请求 API，例如 `https://api-a.example.com/v1/chat/completions` 与 `https://api-b.example.com/v1/chat/completions`；余额、分组、定价和归属不因域名改变。其他代理的用户不能通过这些域名访问。
+
+新增批量接口（权限与原单域名接口相同）：
+
+- 代理后台：`POST /api/agent/domains/batch`
+- 主站管理员：`POST /api/agents/:id/domains/batch`
+- 请求：`{"domains":["api-a.example.com","api-b.example.com"]}`
+- 成功响应的 `data` 为域名记录数组，每条包含独立的 `cname_target`。
+- 批量内域名规范化后去重；已有域名冲突或任一域名无效时整批不写入。
+- 原有 `POST /domains` 的 `{"domain":"api.example.com"}` 请求与单条响应保持兼容。
+
 自动 SSL：
 
 - 服务端提供 `GET /api/agent/domains/tls-ask?domain=<domain>` 供 Caddy On-Demand TLS 调用。

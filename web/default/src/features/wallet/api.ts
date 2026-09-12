@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { isAxiosError } from 'axios'
 import { api } from '@/lib/api'
 import type {
   RedemptionRequest,
@@ -120,13 +121,26 @@ export async function requestCryptoPayment(
 }
 
 export async function getCryptoPaymentOrder(
-  tradeNo: string
+  tradeNo: string,
+  signal?: AbortSignal
 ): Promise<CryptoPaymentResponse> {
-  const res = await api.get(
-    `/api/user/crypto/order/${encodeURIComponent(tradeNo)}`,
-    { skipBusinessError: true } as Record<string, unknown>
-  )
-  return res.data
+  try {
+    const res = await api.get(
+      `/api/user/crypto/order/${encodeURIComponent(tradeNo)}`,
+      {
+        signal,
+        timeout: 10000,
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      } as Record<string, unknown>
+    )
+    return res.data
+  } catch (error) {
+    // Preserve the global session-expiry handling. Other polling failures
+    // belong in the dialog, not in the global 500-page redirect/toast handler.
+    if (isAxiosError(error) && error.response?.status === 401) throw error
+    throw new Error('Crypto payment status unavailable', { cause: error })
+  }
 }
 
 /**

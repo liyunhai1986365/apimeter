@@ -60,6 +60,54 @@
 
 也可以用 `"seconds": "-1"` 代替 `duration`；两者同时提供时必须一致。不提供完整 `metadata.content` 时，可使用 `metadata.video_url`（URL 或 URL 数组），网关会构建 `reference_video` 条目并加入 `prompt`。
 
+## 全系列参数兼容
+
+上述六个模板及内置火山视频渠道，在通用接口中按以下规则构造上游请求。适用于 Seedance 1.x、2.0 / Fast / Mini、2.5 及渠道别名；是否实际支持某项能力由选中的上游模型决定。
+
+| 通用参数 | 原生字段 |
+| --- | --- |
+| `size`，兼容 `metadata.resolution` | `resolution`，`size` 优先 |
+| `metadata.ratio`，兼容 `metadata.aspect_ratio` | `ratio` |
+| `duration` / `seconds` | `duration` |
+| `metadata.generate_audio` | `generate_audio` |
+| `metadata.watermark` | `watermark` |
+| `metadata.return_last_frame` | `return_last_frame` |
+| `metadata.seed` / `metadata.priority` | `seed` / `priority` |
+| `metadata.camera_fixed` / `metadata.draft` | `camera_fixed` / `draft` |
+| `metadata.service_tier` | `service_tier` |
+| `metadata.execution_expires_after` | `execution_expires_after` |
+| `metadata.safety_identifier` | `safety_identifier` |
+| `metadata.callback_url` | `callback_url` |
+| `metadata.output_format` | `output_format` |
+| `metadata.tools` / `metadata.frames` | `tools` / `frames` |
+
+未提供的可选参数不发送，显式 `false` 和 `0` 保留。不要把高级选项放在通用请求顶层并假定会自动转发。回调由上游发出，不保证把回调中的上游任务 ID 改成网关公共 ID。
+
+`metadata.video_url` 和 `metadata.audio_url` 支持单个 URL 或 URL 数组，所有条目按顺序保留。非空 `metadata.content` 完整替换快捷输入，保留多段文本、媒体角色和 `draft_task.id`；此时无需重复顶层 `prompt`。有效图片、视频、音频或样片输入也不需要附加空提示词。原生入口保留完整请求体并应用渠道模型映射。
+
+例如通用接口请求水印和最后一帧：
+
+```json
+{
+  "model": "doubao-seedance-2-0-260128",
+  "prompt": "生成一段苹果果茶广告。",
+  "duration": 15,
+  "size": "720p",
+  "metadata": {
+    "ratio": "16:9",
+    "generate_audio": true,
+    "watermark": true,
+    "return_last_frame": true
+  }
+}
+```
+
+`GET /v1/videos/{task_id}` 返回规范化视频对象。上游提供时，尾帧在 `metadata.last_frame_url`，用量（包含工具用量）在 `metadata.usage`，输出格式在 `metadata.output_format`；显式返回的 `false` / `0` 保留。
+
+`GET /v1/video/generations/{task_id}` 保留兼容 `{code, data}` 包装，状态读取 `data.status`（成功为 `SUCCESS`），视频读取 `data.result_url`。上游快照在 `data.data`：方舟尾帧为 `content.last_frame_url`，Service Inference / Max 可能为 `task.last_frame_url` 或 `task.metadata.content.last_frame_url`。上游没有返回尾帧时，网关不会生成或补造尾帧 URL。`expired`、`cancelled` 等终态按失败结束，不再继续等待。
+
+字段清单对照[火山引擎官方 SDK](https://github.com/volcengine/volcengine-go-sdk/blob/master/service/arkruntime/model/content_generation.go)。`frames`、`camera_fixed`、`draft`、`service_tier` 等属于模型相关能力，网关支持传递不代表每个模型都接受它们。
+
 ## 校验与计费
 
 | 任务类型 | 校验规则 |

@@ -4,11 +4,97 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/tidwall/gjson"
 )
+
+// IsSeedanceVideoProfile identifies the built-in Seedance protocol templates.
+func IsSeedanceVideoProfile(id string) bool {
+	switch id {
+	case "doubao-seedance-2", "doubao-seedance-2-api-assets", "seedance2-modelsell",
+		"seedance2-ark-task-assets", "seedance2-service-inference", "doubao-seedance-max-service-inference":
+		return true
+	}
+	return false
+}
+
+// HasSeedanceInput follows the same full-content-over-shorthand precedence as
+// the upstream mappings. A draft task or audio/video input need not have text.
+func HasSeedanceInput(req TaskSubmitReq) bool {
+	if content, ok := req.Metadata["content"]; ok && content != nil {
+		data, err := common.Marshal(content)
+		if err != nil {
+			return false
+		}
+		items := gjson.ParseBytes(data)
+		if items.IsArray() && len(items.Array()) > 0 {
+			for _, item := range items.Array() {
+				var path string
+				switch item.Get("type").String() {
+				case "text":
+					path = "text"
+				case "image_url", "video_url", "audio_url":
+					path = item.Get("type").String() + ".url"
+				case "draft_task":
+					path = "draft_task.id"
+				}
+				if path != "" && strings.TrimSpace(item.Get(path).String()) != "" {
+					return true
+				}
+			}
+			return false
+		}
+	}
+	return strings.TrimSpace(req.Prompt) != "" || len(req.Images) > 0 || strings.TrimSpace(req.Image) != "" ||
+		len(SeedanceReferenceVideoURLs(req.Metadata["video_url"])) > 0 ||
+		len(SeedanceReferenceVideoURLs(req.Metadata["audio_url"])) > 0
+}
+
+// SeedanceVideoMetadata exposes documented result fields across Ark, Service
+// Inference/Max, and saved gateway envelopes. Never copy arbitrary upstream
+// metadata: it can contain provider IDs, request inputs, or private fields.
+func SeedanceVideoMetadata(data []byte) map[string]any {
+	roots := []string{"", "task.", "task.metadata.", "data.", "data.data.task.", "data.data.task.metadata."}
+	metadata := map[string]any{}
+	first := func(paths ...string) (any, bool) {
+		for _, root := range roots {
+			for _, path := range paths {
+				value := gjson.GetBytes(data, root+path)
+				if value.Exists() && value.Type != gjson.Null {
+					if value.Type == gjson.String && strings.TrimSpace(value.String()) == "" {
+						continue
+					}
+					return value.Value(), true
+				}
+			}
+		}
+		return nil, false
+	}
+	if value, ok := first("last_frame_url", "content.last_frame_url"); ok {
+		metadata["last_frame_url"] = value
+	}
+	usage := map[string]any{}
+	for _, field := range []string{"completion_tokens", "total_tokens", "tool_usage"} {
+		if value, ok := first("usage." + field); ok {
+			usage[field] = value
+		}
+	}
+	if len(usage) > 0 {
+		metadata["usage"] = usage
+	}
+	for _, field := range []string{"output_format", "resolution", "ratio", "duration", "duration_seconds", "frames", "framespersecond",
+		"seed", "watermark", "camera_fixed", "generate_audio", "draft", "draft_task_id", "service_tier", "execution_expires_after",
+		"priority", "safety_identifier", "tools", "outputs", "prep", "revised_prompt"} {
+		if value, ok := first(field); ok {
+			metadata[field] = value
+		}
+	}
+	return metadata
+}
 
 // RequestedDuration follows the same seconds-over-duration precedence as the
 // video request mappings. It preserves Seedance's automatic-duration sentinel.

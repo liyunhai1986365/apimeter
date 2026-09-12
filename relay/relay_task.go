@@ -430,8 +430,11 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 
 	isOpenAIVideoAPI := strings.HasPrefix(c.Request.RequestURI, "/v1/videos/")
 
-	// Configurable channels support realtime fetch through their profile fetch endpoint.
-	if realtimeResp := tryConfigurableFetch(c, originTask, c.GetString("configurable_native_profile_id") != ""); len(realtimeResp) > 0 {
+	// Native Ark task queries must use the official response shape regardless of
+	// whether the selected channel is configurable or direct Doubao/VolcEngine.
+	returnNativeBody := c.GetString("configurable_native_profile_id") != "" ||
+		isVolcengineVideoTaskQueryRequest(c)
+	if realtimeResp := tryConfigurableFetch(c, originTask, returnNativeBody); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
 	}
@@ -590,9 +593,14 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		return nil
 	}
 	isConfigurable := channelModel.Type == constant.ChannelTypeConfigurable
+	isDirectVolcEngine := channelModel.Type == constant.ChannelTypeDoubaoVideo ||
+		channelModel.Type == constant.ChannelTypeVolcEngine
 	isAliWan3Native := returnNativeBody && channelModel.Type == constant.ChannelTypeAli &&
 		(task.Properties.OriginModelName == "wan3.0-video" || task.Properties.OriginModelName == "wan3.0-video-prime")
-	if !isConfigurable && !isAliWan3Native {
+	if isDirectVolcEngine && !isVolcengineVideoTaskQueryRequest(c) {
+		return nil
+	}
+	if !isConfigurable && !isDirectVolcEngine && !isAliWan3Native {
 		return nil
 	}
 	baseURL := channelModel.GetBaseURL()
@@ -697,6 +705,19 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		return result
 	}
 	return body
+}
+
+func isVolcengineVideoTaskQueryRequest(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	if c.Request.Method != http.MethodGet {
+		return false
+	}
+	if !strings.HasPrefix(c.Request.URL.Path, "/api/v3/contents/generations/tasks/") {
+		return false
+	}
+	return true
 }
 
 func configurableStoredNativeFetchResponse(adaptor channel.TaskAdaptor, task *model.Task, returnNativeBody bool) []byte {

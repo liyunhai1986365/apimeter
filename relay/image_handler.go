@@ -64,6 +64,17 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	}
 	adaptor.Init(info)
 	originalRelayMode := info.RelayMode
+	originalRequestURLPath := info.RequestURLPath
+	originalHeaders := c.Request.Header
+	// Image conversion may rebuild multipart headers and switch generations to
+	// edits. Keep those changes local to this attempt: retries replay the original
+	// body and must apply the next channel's conversion settings from scratch.
+	c.Request.Header = originalHeaders.Clone()
+	defer func() {
+		c.Request.Header = originalHeaders
+		info.RelayMode = originalRelayMode
+		info.RequestURLPath = originalRequestURLPath
+	}()
 
 	var requestBody io.Reader
 

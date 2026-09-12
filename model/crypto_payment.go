@@ -56,6 +56,7 @@ type CryptoPayment struct {
 	BlockNumber           int64   `json:"block_number,omitempty"`
 	ReservationKey        *string `json:"-" gorm:"uniqueIndex;type:varchar(64)"`
 	TransactionKey        *string `json:"-" gorm:"uniqueIndex;type:varchar(64)"`
+	ProgressSnapshot      string  `json:"-" gorm:"type:text"`
 }
 
 type CreateCryptoPaymentParams struct {
@@ -319,6 +320,12 @@ func ExpireCryptoPayments(now, evmScannedThrough int64, tronScanComplete bool) e
 	ids := make([]int, 0, len(payments))
 	tradeNos := make([]string, 0, len(payments))
 	for _, payment := range payments {
+		progress := payment.ReadProgress()
+		if progress.TransactionHash != "" && (progress.Stage == "confirming" || progress.Stage == "crediting") {
+			// An in-window transfer may finish confirming after the payment
+			// window closes. Keep its reservation until verification completes.
+			continue
+		}
 		switch payment.NetworkType {
 		case CryptoNetworkEVM:
 			if evmScannedThrough <= 0 || payment.ScanFromBlock <= evmScannedThrough {

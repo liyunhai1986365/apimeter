@@ -82,7 +82,7 @@ import { HeaderNavigationSection } from '@/features/system-settings/maintenance/
 import { USER_STATUS, USER_STATUSES } from '@/features/users/constants'
 import { WithdrawalDialog } from '@/features/withdrawals/components/withdrawal-dialog'
 import {
-  createAgentDomain,
+  createAgentDomains,
   clearAgentViewContext,
   buildAgentUserGroupOptions,
   getAgentGroupRatioInputFloor,
@@ -109,6 +109,7 @@ import {
 import { AgentAnalyticsOverview } from './components/agent-analytics-overview'
 import { AgentAnnouncementManager } from './components/agent-announcement-manager'
 import { AgentBalanceDialog } from './components/agent-balance-dialog'
+import { AgentDomainForm } from './components/agent-domain-form'
 import { AgentGroupManager } from './components/agent-group-manager'
 import { AgentUsageLogs } from './components/agent-usage-logs'
 import { AgentUserGroupManager } from './components/agent-user-group-manager'
@@ -231,7 +232,8 @@ export function Agents() {
   const [homePageContent, setHomePageContent] = useState('')
   const [headerNavModules, setHeaderNavModules] = useState('')
   const [siteStyle, setSiteStyle] = useState('')
-  const [newDomain, setNewDomain] = useState('')
+  const [domainsPageNumber, setDomainsPageNumber] = useState(1)
+  const [domainsPageSize, setDomainsPageSize] = useState(20)
   const [groupRatio, setGroupRatio] = useState('1')
   const [withdrawalOpen, setWithdrawalOpen] = useState(false)
   const [fundUser, setFundUser] = useState<AgentUser | null>(null)
@@ -256,8 +258,8 @@ export function Agents() {
     queryFn: getAgentSelf,
   })
   const domainsQuery = useQuery({
-    queryKey: ['agent', 'domains'],
-    queryFn: () => listAgentDomains(),
+    queryKey: ['agent', 'domains', domainsPageNumber, domainsPageSize],
+    queryFn: () => listAgentDomains(domainsPageNumber, domainsPageSize),
   })
   const groupRatiosQuery = useQuery({
     queryKey: ['agent', 'group-ratios'],
@@ -298,10 +300,10 @@ export function Agents() {
   })
 
   const createDomainMutation = useMutation({
-    mutationFn: createAgentDomain,
+    mutationFn: createAgentDomains,
     onSuccess: () => {
-      toast.success(t('Domain added'))
-      setNewDomain('')
+      toast.success(t('Domains added'))
+      setDomainsPageNumber(1)
       refreshAgent()
     },
     onError: (error) => {
@@ -434,7 +436,6 @@ export function Agents() {
   const userGroupOptions = buildAgentUserGroupOptions(userGroups)
   const ledger = ledgerPage.items
   const withdrawals = withdrawalsPage.items
-  const canCreateDomain = newDomain.trim() !== ''
   const selectedGroupBaseRatio = getAgentGroupRatioInputFloor(
     groupRatios,
     systemGroupName
@@ -777,38 +778,28 @@ export function Agents() {
                 </section>
 
                 <section className='rounded-lg border p-3'>
-                  <div className='mb-3 grid gap-2 md:grid-cols-[minmax(0,1fr)_minmax(260px,360px)]'>
-                    <div>
-                      <h3 className='text-sm font-semibold'>
-                        {t('Agent Domains')}
-                      </h3>
-                      <p className='text-muted-foreground mt-1 text-xs'>
-                        {t(
-                          'Add a custom domain, then point its CNAME to the target.'
-                        )}
-                      </p>
-                    </div>
-                    <div className='grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]'>
-                      <Input
-                        value={newDomain}
-                        onChange={(event) => setNewDomain(event.target.value)}
-                        placeholder={t('agent.example.com')}
-                      />
-                      <Button
-                        disabled={
-                          !canCreateDomain || createDomainMutation.isPending
-                        }
-                        onClick={() =>
-                          createDomainMutation.mutate({
-                            domain: newDomain.trim(),
-                          })
-                        }
-                      >
-                        <Globe2 />
-                        {t('Add Domain')}
-                      </Button>
-                    </div>
+                  <div className='mb-3 flex flex-col gap-2'>
+                    <h3 className='text-sm font-semibold'>
+                      {t('Agent Domains')}
+                    </h3>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        'Users can use the same API key on any active domain of this agent.'
+                      )}
+                    </p>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        'Point each domain to its CNAME target. Adding domains keeps existing domains available.'
+                      )}
+                    </p>
                   </div>
+                  <AgentDomainForm
+                    key={self?.agent?.id}
+                    isPending={createDomainMutation.isPending}
+                    onSubmit={(domains) =>
+                      createDomainMutation.mutateAsync({ domains })
+                    }
+                  />
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -862,6 +853,18 @@ export function Agents() {
                       )}
                     </TableBody>
                   </Table>
+                  <AgentUsersPaginationControls
+                    page={domainsPageNumber}
+                    pageSize={domainsPageSize}
+                    total={domainsPage.total}
+                    itemCount={domains.length}
+                    isLoading={domainsQuery.isFetching}
+                    onPageChange={setDomainsPageNumber}
+                    onPageSizeChange={(pageSize) => {
+                      setDomainsPageSize(pageSize)
+                      setDomainsPageNumber(1)
+                    }}
+                  />
                 </section>
               </div>
             </TabsContent>

@@ -191,7 +191,9 @@ func TestListProfilesLoadsEmbeddedProfiles(t *testing.T) {
 	if serviceInference.Video.Native.Fetch.Path != "/api/v3/contents/generations/tasks/{task_id}" {
 		t.Fatalf("unexpected service inference native fetch path: %s", serviceInference.Video.Native.Fetch.Path)
 	}
-	if !serviceInference.Video.Native.Submit.Passthrough || serviceInference.Video.Native.Submit.ResponseFormat != "" || serviceInference.Video.Native.Fetch.ResponseFormat != "service_inference_video_task" {
+	if !serviceInference.Video.Native.Submit.Passthrough ||
+		serviceInference.Video.Native.Submit.ResponseFormat != "volcengine_video_task_create" ||
+		serviceInference.Video.Native.Fetch.ResponseFormat != "volcengine_video_task" {
 		t.Fatalf("unexpected service inference native fetch response format: %s", serviceInference.Video.Native.Fetch.ResponseFormat)
 	}
 	if serviceInference.Video.Fetch.Path != "/v2/video/tasks/{task_id}" {

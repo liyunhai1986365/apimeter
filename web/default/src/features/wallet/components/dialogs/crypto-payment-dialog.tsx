@@ -6,7 +6,6 @@ it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of the
 License, or (at your option) any later version.
 */
-import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   CheckmarkCircle02Icon,
   Copy01Icon,
@@ -16,6 +15,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { QRCodeSVG } from 'qrcode.react'
 import { useTranslation } from 'react-i18next'
 import { useCopyToClipboard } from '@/hooks/use-copy-to-clipboard'
+import { useOpenCustomerService } from '@/hooks/use-open-customer-service'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -27,8 +27,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { getCryptoPaymentOrder, isApiSuccess } from '../../api'
+import { useCryptoPaymentOrder } from '../../hooks/use-crypto-payment-order'
+import { getCryptoPaymentView } from '../../lib/crypto-payment-progress'
 import type { CryptoPaymentOrder } from '../../types'
+import { CryptoPaymentProgress } from './crypto-payment-progress'
 
 interface CryptoPaymentDialogProps {
   open: boolean
@@ -51,72 +53,40 @@ export function CryptoPaymentDialog({
 }: CryptoPaymentDialogProps) {
   const { t } = useTranslation()
   const { copyToClipboard } = useCopyToClipboard()
-  const [currentOrder, setCurrentOrder] = useState(order)
-  const [now, setNow] = useState(() => Math.floor(Date.now() / 1000))
-  const paidNotified = useRef(false)
-
-  const tradeNo = currentOrder?.trade_no
-  const orderStatus = currentOrder?.status
-
-  useEffect(() => {
-    if (!open || !tradeNo || orderStatus !== 'pending') return
-
-    const timer = window.setInterval(() => {
-      setNow(Math.floor(Date.now() / 1000))
-    }, 1000)
-    return () => window.clearInterval(timer)
-  }, [open, tradeNo, orderStatus])
-
-  useEffect(() => {
-    if (!open || !tradeNo || orderStatus !== 'pending') return
-
-    let cancelled = false
-    const poll = async () => {
-      try {
-        const response = await getCryptoPaymentOrder(tradeNo)
-        if (!cancelled && isApiSuccess(response) && response.data) {
-          setCurrentOrder(response.data)
-        }
-      } catch {
-        // Keep the order visible and retry. A transient node/API failure must
-        // not make the user create a second payment.
-      }
-    }
-    const timer = window.setInterval(poll, 5000)
-    void poll()
-    return () => {
-      cancelled = true
-      window.clearInterval(timer)
-    }
-  }, [open, tradeNo, orderStatus])
-
-  useEffect(() => {
-    if (
-      (currentOrder?.status !== 'success' &&
-        currentOrder?.status !== 'manual') ||
-      paidNotified.current
-    )
-      return
-    paidNotified.current = true
-    void onPaid()
-  }, [currentOrder?.status, onPaid])
-
-  const remaining = Math.max(0, (currentOrder?.expires_at ?? 0) - now)
-  const status = currentOrder?.status ?? 'pending'
-  const isPaid = status === 'success' || status === 'manual'
-  const isVerifying = status === 'pending' && remaining === 0
-  const statusLabel = useMemo(() => {
-    if (isPaid) return t('Payment received')
-    if (status === 'expired') return t('Order expired')
-    if (isVerifying) return t('Payment verification in progress')
-    return t('Waiting for payment')
-  }, [isPaid, isVerifying, status, t])
-
+  const openCustomerService = useOpenCustomerService()
+  const { currentOrder, now, pollingFailed } = useCryptoPaymentOrder(
+    order,
+    open,
+    onPaid
+  )
   if (!currentOrder) return null
+
+  const {
+    isPaid,
+    isVerifying,
+    hasTransfer,
+    remaining,
+    showPaymentInstructions,
+    transactionHash,
+  } = getCryptoPaymentView(currentOrder, now, pollingFailed)
+  const status = currentOrder.status
+  let statusLabel = t('Waiting for payment')
+  if (isVerifying) statusLabel = t('Payment verification in progress')
+  if (hasTransfer && !isPaid) statusLabel = t('Confirming on chain')
+  if (currentOrder.progress?.stage === 'crediting')
+    statusLabel = t('Crediting balance')
+  if (status === 'expired') statusLabel = t('Order expired')
+  if (isPaid) statusLabel = t('Payment received')
+
+  let timeLabel = currentOrder.network_name
+  if (status === 'pending') {
+    timeLabel = t('Expires in {{time}}', { time: formatRemaining(remaining) })
+  }
+  if (isVerifying) timeLabel = t('Payment window closed')
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className='sm:max-w-lg'>
+      <DialogContent className='max-h-[90dvh] overflow-y-auto sm:max-w-lg'>
         <DialogHeader>
           <DialogTitle>{t('Crypto payment')}</DialogTitle>
           <DialogDescription>
@@ -126,7 +96,7 @@ export function CryptoPaymentDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className='space-y-4'>
+        <div className='flex flex-col gap-4'>
           <div className='flex items-center justify-between gap-3'>
             <Badge variant={isPaid ? 'default' : 'secondary'}>
               {status === 'pending' && (
@@ -145,17 +115,28 @@ export function CryptoPaymentDialog({
               {statusLabel}
             </Badge>
             <span className='text-muted-foreground text-sm tabular-nums'>
-              {isVerifying
-                ? t('Payment window closed')
-                : status === 'pending'
-                  ? t('Expires in {{time}}', {
-                      time: formatRemaining(remaining),
-                    })
-                  : currentOrder.network_name}
+              {timeLabel}
             </span>
           </div>
 
-          {status === 'pending' && !isVerifying && (
+          <CryptoPaymentProgress
+            order={currentOrder}
+            now={now}
+            pollingFailed={pollingFailed}
+          />
+
+          {!isPaid && (
+            <Alert>
+              <AlertTitle>{t('Already paid? Do not pay again')}</AlertTitle>
+              <AlertDescription>
+                {t(
+                  'Please wait patiently for confirmation and automatic crediting. If you have already transferred, do not send another payment.'
+                )}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {showPaymentInstructions && (
             <div className='flex justify-center rounded-xl border bg-white p-4'>
               <QRCodeSVG
                 value={currentOrder.qr_content}
@@ -166,7 +147,7 @@ export function CryptoPaymentDialog({
             </div>
           )}
 
-          <div className='space-y-3 rounded-xl border p-4'>
+          <div className='flex flex-col gap-3 rounded-xl border p-4'>
             <div>
               <p className='text-muted-foreground text-xs'>
                 {t('Exact amount')}
@@ -215,7 +196,7 @@ export function CryptoPaymentDialog({
             </div>
           </div>
 
-          {status === 'pending' && !isVerifying && (
+          {showPaymentInstructions && (
             <Alert>
               <AlertTitle>
                 {t(
@@ -225,18 +206,6 @@ export function CryptoPaymentDialog({
               <AlertDescription>
                 {t(
                   'The receiving wallet must receive the full amount shown above. Use the configured token and network; gas or network fees must not be deducted from the payment amount.'
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
-
-          {isVerifying && (
-            <Alert>
-              <HugeiconsIcon icon={Loading03Icon} className='animate-spin' />
-              <AlertTitle>{t('Payment verification in progress')}</AlertTitle>
-              <AlertDescription>
-                {t(
-                  'Do not send a new transfer. The payment window is closed while the server finishes checking confirmed chain data.'
                 )}
               </AlertDescription>
             </Alert>
@@ -257,14 +226,47 @@ export function CryptoPaymentDialog({
               <AlertTitle>{t('Order expired')}</AlertTitle>
               <AlertDescription>
                 {t(
-                  'Do not transfer to this expired order. Close it and create a new payment order.'
+                  'This order has expired. If you already paid, do not transfer again. Contact support to verify your payment.'
                 )}
               </AlertDescription>
             </Alert>
           )}
+          <div className='flex flex-col gap-3 rounded-xl border p-4'>
+            <PaymentReference
+              label={t('Order number')}
+              value={currentOrder.trade_no}
+              onCopy={copyToClipboard}
+            />
+            {transactionHash && (
+              <PaymentReference
+                label={t('Transaction hash')}
+                value={transactionHash}
+                onCopy={copyToClipboard}
+              />
+            )}
+            {!isPaid && (
+              <p className='text-muted-foreground text-xs'>
+                {t(
+                  'If your balance is still not credited, contact support with your order number and transaction hash. Support can verify the payment and manually credit it.'
+                )}
+              </p>
+            )}
+          </div>
         </div>
 
         <DialogFooter>
+          {!isPaid && (
+            <Button
+              type='button'
+              variant='outline'
+              onClick={() => {
+                onOpenChange(false)
+                openCustomerService()
+              }}
+            >
+              {t('Contact support')}
+            </Button>
+          )}
           <Button
             type='button'
             variant='outline'
@@ -275,5 +277,30 @@ export function CryptoPaymentDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function PaymentReference(props: {
+  label: string
+  value: string
+  onCopy: (value: string) => unknown
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className='flex flex-col gap-1'>
+      <p className='text-muted-foreground text-xs'>{props.label}</p>
+      <div className='flex items-center gap-2'>
+        <code className='min-w-0 flex-1 text-xs break-all'>{props.value}</code>
+        <Button
+          type='button'
+          variant='outline'
+          size='icon-sm'
+          onClick={() => props.onCopy(props.value)}
+          aria-label={t('Copy {{label}}', { label: props.label })}
+        >
+          <HugeiconsIcon icon={Copy01Icon} />
+        </Button>
+      </div>
+    </div>
   )
 }

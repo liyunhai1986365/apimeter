@@ -1,5 +1,16 @@
 {
   "translation": {
+    "Add Domains": "新增網域",
+    "Add up to 50 domains at a time.": "每次最多新增 50 個網域。",
+    "Domains added": "網域已新增",
+    "Enter at least one domain.": "請至少輸入一個網域。",
+    "Enter one domain per line or separate them with commas. Add up to 50 at a time.": "每行輸入一個網域，或以逗號分隔。每次最多新增 50 個。",
+    "Enter valid domain names without a protocol or path.": "請輸入有效網域，不要包含通訊協定或路徑。",
+    "Point each domain to its CNAME target. Adding domains keeps existing domains available.": "請為每個網域設定對應的 CNAME 解析。新增網域不影響既有網域的使用。",
+    "Users can use the same API key on any active domain of this agent.": "代理使用者可使用同一個 API Key，透過該代理任意已啟用網域呼叫 API。",
+    "agent domain already exists": "網域已被綁定，請移除已綁定的網域後重試",
+    "invalid agent domain": "代理網域無效，請輸入不含通訊協定或路徑的網域",
+    "provide between 1 and 50 agent domains": "請提供 1 至 50 個代理網域",
     "Agent": "代理",
     "Agent site name": "代理網站名稱",
     "Agent-site users will not see this announcement or receive its email.": "代理站點用戶將不會看到此公告，也不會收到公告郵件。",
