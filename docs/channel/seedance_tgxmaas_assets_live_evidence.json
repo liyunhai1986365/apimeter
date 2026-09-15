@@ -1,0 +1,271 @@
+{
+  "date": "2026-09-15",
+  "model": "doubao-seedance-2-5-260628",
+  "profile": "seedance-tgxmaas",
+  "result": "PASS",
+  "created_groups": 1,
+  "created_assets": 1,
+  "test_resources_deleted": true,
+  "liveness_tested": false,
+  "video_generation_with_asset_tested": false,
+  "responses": {
+    "asset-create": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262564E82BAAA1B5EA8BB28B",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "asset_584be302e4b24dc68b7bd13b129fdfd6",
+          "upstream_asset_id": "asset-20260915132625-m84k4",
+          "GroupId": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983",
+          "AssetType": "Image",
+          "Status": "Processing",
+          "ProjectName": "default",
+          "CreateTime": 1789449985,
+          "UpdateTime": 1789449985
+        }
+      }
+    },
+    "asset-delete": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "DeleteAsset",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262864E82BAAA1B5EA8BB2E3",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "asset_584be302e4b24dc68b7bd13b129fdfd6"
+        }
+      }
+    },
+    "asset-get-updated": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262864E82BAAA1B5EA8BB2E0",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "asset_584be302e4b24dc68b7bd13b129fdfd6",
+          "upstream_asset_id": "asset-20260915132625-m84k4",
+          "GroupId": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983-updated",
+          "AssetType": "Image",
+          "Status": "Active",
+          "ProjectName": "default",
+          "CreateTime": 1789449985,
+          "UpdateTime": 1789449988
+        }
+      }
+    },
+    "asset-get": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262864E82BAAA1B5EA8BB2D8",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "asset_584be302e4b24dc68b7bd13b129fdfd6",
+          "upstream_asset_id": "asset-20260915132625-m84k4",
+          "GroupId": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983",
+          "AssetType": "Image",
+          "Status": "Active",
+          "ProjectName": "default",
+          "CreateTime": 1789449985,
+          "UpdateTime": 1789449988
+        }
+      }
+    },
+    "asset-list": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202609150526288264937348268d9d6MItBUlV9",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "Id": "asset_584be302e4b24dc68b7bd13b129fdfd6",
+              "upstream_asset_id": "asset-20260915132625-m84k4",
+              "GroupId": "ag_8b01989babf84795b9768a7f68bceed9",
+              "Name": "codex-protocol-test-1789449983-updated",
+              "AssetType": "Image",
+              "Status": "Active",
+              "ProjectName": "default",
+              "CreateTime": 1789449985,
+              "UpdateTime": 1789449988
+            }
+          ]
+        }
+      }
+    },
+    "asset-update": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "UpdateAsset",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262864E82BAAA1B5EA8BB2DB",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "asset_584be302e4b24dc68b7bd13b129fdfd6",
+          "upstream_asset_id": "asset-20260915132625-m84k4",
+          "GroupId": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983-updated",
+          "AssetType": "Image",
+          "Status": "Active",
+          "ProjectName": "default",
+          "CreateTime": 1789449985,
+          "UpdateTime": 1789449988
+        }
+      }
+    },
+    "group-create": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "CreateAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262464E82BAAA1B5EA8BB273",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983",
+          "Description": "Temporary protocol verification; delete after test",
+          "GroupType": "AIGC",
+          "ProjectName": "default",
+          "CreateTime": 1789449984,
+          "UpdateTime": 1789449984
+        }
+      }
+    },
+    "group-delete": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "DeleteAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262864E82BAAA1B5EA8BB2E7",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "ag_8b01989babf84795b9768a7f68bceed9"
+        }
+      }
+    },
+    "group-get-updated": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "GetAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262564E82BAAA1B5EA8BB287",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983-updated",
+          "Description": "Updated by protocol test",
+          "GroupType": "AIGC",
+          "ProjectName": "default",
+          "CreateTime": 1789449984,
+          "UpdateTime": 1789449985
+        }
+      }
+    },
+    "group-get": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "GetAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262464E82BAAA1B5EA8BB27A",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983",
+          "Description": "Temporary protocol verification; delete after test",
+          "GroupType": "AIGC",
+          "ProjectName": "default",
+          "CreateTime": 1789449984,
+          "UpdateTime": 1789449984
+        }
+      }
+    },
+    "group-list": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202609150526251939957128268d9d68BL3gXiF",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "Id": "ag_8b01989babf84795b9768a7f68bceed9",
+              "Name": "codex-protocol-test-1789449983-updated",
+              "Description": "Updated by protocol test",
+              "GroupType": "AIGC",
+              "ProjectName": "default",
+              "CreateTime": 1789449984,
+              "UpdateTime": 1789449985
+            }
+          ]
+        }
+      }
+    },
+    "group-update": {
+      "http_status": 200,
+      "body": {
+        "ResponseMetadata": {
+          "Action": "UpdateAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "2026091513262464E82BAAA1B5EA8BB27C",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Id": "ag_8b01989babf84795b9768a7f68bceed9",
+          "Name": "codex-protocol-test-1789449983-updated",
+          "Description": "Updated by protocol test",
+          "GroupType": "AIGC",
+          "ProjectName": "default",
+          "CreateTime": 1789449984,
+          "UpdateTime": 1789449985
+        }
+      }
+    }
+  }
+}

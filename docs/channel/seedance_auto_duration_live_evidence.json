@@ -1,0 +1,30 @@
+{
+  "date": "2026-09-15",
+  "profile": "seedance-tgxmaas",
+  "upstream": "https://api.sctgx.cn",
+  "request": {
+    "content": [
+      {
+        "text": "A red ball on a white table, static camera.",
+        "type": "text"
+      }
+    ],
+    "duration": -1,
+    "generate_audio": false,
+    "model": "doubao-seedance-2-5-260628",
+    "resolution": "480p"
+  },
+  "task_id": "cgt-20260915175355-f74tm",
+  "status": "succeeded",
+  "actual_duration": 5,
+  "output_format": "mp4",
+  "usage": {
+    "completion_tokens": 48437,
+    "total_tokens": 48437
+  },
+  "video_bytes": 791507,
+  "video_create_count": 1,
+  "repeat_query_no_extra_local_charge": true,
+  "test_duration_seconds": 172.94,
+  "result": "PASS"
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 )
@@ -42,6 +43,9 @@ func RelayConfigurableResource(c *gin.Context) {
 			}
 			break
 		}
+		if !authorizeConfigurableResourceModel(c, resource) {
+			return
+		}
 		modelName := configurableResourceRequestModel(c, resource)
 		service.UpdateCurrentRetryRouteTarget(c, channel, common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
 		lastErr = relayConfigurableResourceAttempt(c, channel, profile, resource)
@@ -70,7 +74,7 @@ func RelayConfigurableResource(c *gin.Context) {
 func configurableResourceAllowsReplay(c *gin.Context, resource *configurable.ResourceConfig) bool {
 	// Existing task/asset IDs belong to their original provider. Pre-requests may
 	// create resources even when the main request is rejected, so never replay them.
-	if len(c.Params) > 0 || len(resource.PathParams) > 0 {
+	if resource.DisableReplay || len(c.Params) > 0 || len(resource.PathParams) > 0 {
 		return false
 	}
 	for _, pre := range resource.PreRequests {
@@ -152,4 +156,22 @@ func selectSmartConfigurableResourceRoute(c *gin.Context, profileID, resourceID 
 		return candidate.channel, candidate.profile, candidate.resource, nil
 	}
 	return nil, nil, nil, fmt.Errorf("no untried configurable resource channel for %s %s", c.Request.Method, c.Request.URL.Path)
+}
+
+// Resolve the endpoint before authorizing: fixed/default models may come from
+// the profile. Resources without any model still require an explicit allowed model.
+func authorizeConfigurableResourceModel(c *gin.Context, resource *configurable.ResourceConfig) bool {
+	if !common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled) {
+		return true
+	}
+	name := configurableResourceRequestModel(c, resource)
+	limits, _ := c.Get("token_model_limit")
+	allowed, _ := limits.(map[string]bool)
+	if name != "" {
+		if _, ok := allowed[ratio_setting.FormatMatchingModelName(name)]; ok {
+			return true
+		}
+	}
+	c.JSON(http.StatusForbidden, gin.H{"error": gin.H{"code": "model_not_allowed", "message": "resource access requires an explicitly authorized model"}})
+	return false
 }

@@ -282,12 +282,7 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 
 	if isSeedanceNativeTaskRequest(c) {
-		nativeResponse, err := configurable.BuildVolcengineVideoTaskCreateResponse(info.PublicTaskID)
-		if err != nil {
-			taskErr = service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
-			return
-		}
-		c.Data(http.StatusOK, "application/json", nativeResponse)
+		c.Set(configurable.NativeTaskSubmitResponseKey, responseBody)
 	} else {
 		ov := dto.NewOpenAIVideo()
 		ov.ID = info.PublicTaskID

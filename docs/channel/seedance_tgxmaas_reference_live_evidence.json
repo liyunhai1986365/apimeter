@@ -1,0 +1,46 @@
+{
+  "date": "2026-09-15",
+  "profile": "seedance-tgxmaas",
+  "credential_source": "User-provided connection key (not stored here)",
+  "model": "doubao-seedance-2-5-260628",
+  "video_request": {
+    "content": [
+      {
+        "text": "A red ball on a white table, static camera, gentle motion.",
+        "type": "text"
+      },
+      {
+        "image_url": {
+          "url": "asset://asset_8e3761e09df74d9183160abc01e664a4"
+        },
+        "role": "first_frame",
+        "type": "image_url"
+      }
+    ],
+    "duration": 4,
+    "generate_audio": false,
+    "model": "doubao-seedance-2-5-260628",
+    "resolution": "480p"
+  },
+  "video_response": {
+    "id": "cgt-20260915140318-u0sy4",
+    "status": "succeeded",
+    "duration": 4,
+    "resolution": "480p",
+    "usage": {
+      "completion_tokens": 38830,
+      "total_tokens": 38830
+    }
+  },
+  "asset_id": "asset_8e3761e09df74d9183160abc01e664a4",
+  "upstream_asset_id": "asset-20260915140314-knw76",
+  "group_id": "ag_ca3dce961b0349eab20c0992fc50af8e",
+  "video_bytes": 953058,
+  "video_sha256": "f86510ffde01652e58d8bcc68753f5f5b0ed8858ed6b0146e9cb02209e3366b4",
+  "full_decode_exit_code": 0,
+  "repeat_query_quota_unchanged": true,
+  "test_asset_deleted": true,
+  "test_group_deleted": true,
+  "video_creations": 1,
+  "test_result": "PASS"
+}

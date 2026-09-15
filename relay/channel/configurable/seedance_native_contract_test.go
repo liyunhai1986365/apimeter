@@ -49,16 +49,19 @@ func TestSeedanceNativeResponseContractAcrossProfiles(t *testing.T) {
 			require.Equal(t, "cgt-upstream", id)
 			require.JSONEq(t, upstream, string(stored))
 			require.Equal(t, http.StatusOK, recorder.Code)
-			require.JSONEq(t, `{"id":"task_public"}`, recorder.Body.String())
+			pending, ok := c.Get(NativeTaskSubmitResponseKey)
+			require.True(t, ok)
+			require.Empty(t, recorder.Body.String())
+			require.JSONEq(t, `{"id":"cgt-upstream"}`, string(pending.([]byte)))
 
 			task := &model.Task{
-				TaskID: "task_public", Status: model.TaskStatusSuccess,
+				TaskID: "task_public", PrivateData: model.TaskPrivateData{UpstreamTaskID: "cgt-upstream"}, Status: model.TaskStatusSuccess,
 				Properties: model.Properties{OriginModelName: "doubao-seedance-2-5-260628"},
 			}
 			body, err := a.ConvertToNativeFetchResponse(task, []byte(officialTask))
 			require.NoError(t, err)
-			// Every documented field must survive. Only the task ID is replaced.
-			expected := bytes.ReplaceAll([]byte(officialTask), []byte(`"id":"cgt-upstream"`), []byte(`"id":"task_public"`))
+			// Official responses retain the upstream ID and every field.
+			expected := []byte(officialTask)
 			require.JSONEq(t, string(expected), string(body))
 		})
 	}

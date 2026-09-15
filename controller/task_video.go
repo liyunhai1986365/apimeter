@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/tidwall/gjson"
 )
 
 func UpdateVideoTaskAll(ctx context.Context, platform constant.TaskPlatform, taskChannelM map[int][]string, taskM map[string]*model.Task) error {
@@ -93,6 +94,24 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("readAll failed for task %s: %w", taskId, err)
+	}
+
+	if isSeedanceTaskChannel(channel) {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 || !gjson.ValidBytes(responseBody) {
+			return fmt.Errorf("Seedance upstream query unavailable (HTTP %d)", resp.StatusCode)
+		}
+		if statusErr := relaycommon.ValidateSeedanceTaskStatus(responseBody); statusErr != nil {
+			return statusErr
+		}
+		result, parseErr := adaptor.ParseTaskResult(responseBody)
+		if parseErr != nil || result == nil {
+			return fmt.Errorf("invalid Seedance task response")
+		}
+		if identityErr := relaycommon.ValidateSeedanceTaskIdentity(responseBody, result, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); identityErr != nil {
+			return identityErr
+		}
+		task.Data = responseBody
+		return updateSeedanceVideoTask(ctx, adaptor, task, result)
 	}
 
 	logger.LogDebug(ctx, "UpdateVideoSingleTask response: %s", responseBody)
@@ -227,4 +246,56 @@ func truncateBase64(s string) string {
 		return s
 	}
 	return s[:maxKeep] + "..."
+}
+
+// Seedance foreground queries and background polling must claim the same
+// transition before billing. Stale workers cannot overwrite a completed task.
+func isSeedanceTaskChannel(ch *model.Channel) bool {
+	if ch.Type == constant.ChannelTypeVolcEngine || ch.Type == constant.ChannelTypeDoubaoVideo {
+		return true
+	}
+	settings := ch.GetSetting()
+	return ch.Type == constant.ChannelTypeConfigurable && settings.Protocol != nil && relaycommon.IsSeedanceVideoProfile(settings.Protocol.ProfileID)
+}
+
+func updateSeedanceVideoTask(ctx context.Context, adaptor channel.TaskAdaptor, task *model.Task, result *relaycommon.TaskInfo) error {
+	previous := task.Status
+	if previous == model.TaskStatusSuccess || previous == model.TaskStatusFailure {
+		return nil
+	}
+	switch result.Status {
+	case model.TaskStatusSubmitted, model.TaskStatusQueued, model.TaskStatusInProgress, model.TaskStatusSuccess, model.TaskStatusFailure:
+	default:
+		return fmt.Errorf("unknown Seedance task status %q", result.Status)
+	}
+	task.Status = model.TaskStatus(result.Status)
+	task.Progress = result.Progress
+	if result.Url != "" {
+		task.PrivateData.ResultURL = result.Url
+	}
+	now := time.Now().Unix()
+	if task.Status == model.TaskStatusInProgress && task.StartTime == 0 {
+		task.StartTime = now
+	}
+	terminal := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
+	if terminal {
+		task.Progress = "100%"
+		if task.FinishTime == 0 {
+			task.FinishTime = now
+		}
+	}
+	if task.Status == model.TaskStatusFailure {
+		task.FailReason = result.Reason
+	}
+	won, err := task.UpdateWithStatus(previous)
+	if err != nil || !won {
+		return err
+	}
+	if task.Status == model.TaskStatusSuccess {
+		service.SettleTaskBillingOnComplete(ctx, adaptor, task, result)
+	}
+	if task.Status == model.TaskStatusFailure && task.Quota != 0 {
+		service.RefundTaskQuota(ctx, task, task.FailReason)
+	}
+	return nil
 }

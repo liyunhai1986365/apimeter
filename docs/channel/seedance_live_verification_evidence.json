@@ -1,0 +1,90 @@
+{
+  "date": "2026-09-15",
+  "model": "doubao-seedance-2-5-260628",
+  "request": {
+    "content": [
+      {
+        "text": "A red ball on a white table, static camera.",
+        "type": "text"
+      }
+    ],
+    "duration": 4,
+    "execution_expires_after": 3600,
+    "generate_audio": false,
+    "model": "doubao-seedance-2-5-260628",
+    "output_format": "mov",
+    "resolution": "480p",
+    "return_last_frame": true,
+    "safety_identifier": "seedance-gateway-verification",
+    "seed": 0,
+    "tools": [
+      {
+        "type": "web_search"
+      }
+    ]
+  },
+  "create": {
+    "id": "cgt-20260915103136-kj0gq",
+    "upstream_task_id": "cgt-20260915103136-kj0gq"
+  },
+  "response_fields": {
+    "id": "cgt-20260915103136-kj0gq",
+    "upstream_task_id": "cgt-20260915103136-kj0gq",
+    "status": "succeeded",
+    "seed": 0,
+    "duration": 4,
+    "output_format": "mov",
+    "execution_expires_after": 3600,
+    "usage": {
+      "completion_tokens": 38830,
+      "tool_usage": {
+        "web_search": 0
+      },
+      "total_tokens": 38830
+    },
+    "safety_identifier": "seedance-gateway-verification",
+    "tools": [
+      {
+        "type": "web_search"
+      }
+    ]
+  },
+  "official_url_equals_video_url": true,
+  "gateway_lifecycle_test": "PASS",
+  "repeat_query_quota_unchanged": true,
+  "video": {
+    "bytes": 793854,
+    "sha256": "7f307ec296f1b36297575206928e6a30ef4eafcece18113567ccf9425bedb0f7",
+    "container_brand": "qt",
+    "full_decode_exit_code": 0
+  },
+  "frame": {
+    "bytes": 75788,
+    "sha256": "a6fbd11326e11a290acd1c3e0b699ad94aa2d85ca9e26662f3d20a54653d1f39"
+  },
+  "duration_minus_one_retest": {
+    "date": "2026-09-15",
+    "request": {
+      "content": [
+        {
+          "text": "A red ball on a white table, static camera.",
+          "type": "text"
+        }
+      ],
+      "duration": -1,
+      "generate_audio": false,
+      "model": "doubao-seedance-2-5-260628",
+      "resolution": "480p"
+    },
+    "http_status": 400,
+    "response": {
+      "error": {
+        "code": "invalid_request",
+        "message": "plugin usage value must be a finite non-negative number"
+      }
+    },
+    "request_id": "202609150352153340251588268d9d6kPfAOx54",
+    "creation_attempts": 1,
+    "task_created": false
+  }
+}

@@ -721,11 +721,11 @@ func TestVolcengineVideoTaskResponseUsesOfficialTypesAndFramesExcludesDuration(t
 		"tools":{"type":"web_search"}
 	}`))
 	require.NoError(t, err)
+	require.False(t, gjson.GetBytes(body, "usage.completion_tokens").Exists())
 
 	for _, integerField := range []string{
 		"created_at",
 		"updated_at",
-		"usage.completion_tokens",
 		"usage.total_tokens",
 		"seed",
 		"frames",
@@ -838,7 +838,10 @@ func TestTaskAdaptorPreservesSeedanceServiceInferenceNativeSubmitFieldsAtRoot(t 
 	require.Equal(t, "mvt-upstream", taskID)
 	require.Equal(t, "mvt-upstream", gjson.GetBytes(stored, "task.id").String())
 	require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "task").Exists())
-	require.JSONEq(t, `{"id":"task_public"}`, recorder.Body.String())
+	pending, ok := c.Get(NativeTaskSubmitResponseKey)
+	require.True(t, ok)
+	require.Empty(t, recorder.Body.String())
+	require.JSONEq(t, `{"id":"mvt-upstream"}`, string(pending.([]byte)))
 }
 
 func TestTaskAdaptorReturnsSeedanceServiceInferenceGenericSubmitShape(t *testing.T) {
@@ -1485,7 +1488,11 @@ func TestTaskAdaptorParsesSeedanceArkTaskAssetsOfficialResponses(t *testing.T) {
 	if !bytes.Contains(taskData, []byte("cgt-20260701195008-fxr55")) {
 		t.Fatalf("expected original task data, got %s", taskData)
 	}
-	if got := gjson.GetBytes(recorder.Body.Bytes(), "id").String(); got != "task_public" {
+	pending, ok := c.Get(NativeTaskSubmitResponseKey)
+	if !ok || recorder.Body.Len() != 0 {
+		t.Fatal("response must await persistence")
+	}
+	if got := gjson.GetBytes(pending.([]byte), "id").String(); got != "cgt-20260701195008-fxr55" {
 		t.Fatalf("unexpected public response id: %s body=%s", got, recorder.Body.String())
 	}
 	if gjson.GetBytes(recorder.Body.Bytes(), "task_id").Exists() ||

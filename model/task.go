@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -111,6 +113,8 @@ func (m Properties) Value() (driver.Value, error) {
 }
 
 type TaskPrivateData struct {
+	OfficialTaskID string `json:"official_task_id,omitempty"` // 火山原始 ID；中转供应商查询仍使用 UpstreamTaskID
+
 	Key            string `json:"key,omitempty"`
 	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
 	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
@@ -155,6 +159,14 @@ func (t *Task) GetUpstreamTaskID() string {
 		return t.PrivateData.UpstreamTaskID
 	}
 	return t.TaskID
+}
+
+// GetNativeTaskID is the public Ark ID; the provider lookup ID remains separate.
+func (t *Task) GetNativeTaskID() string {
+	if t.PrivateData.OfficialTaskID != "" {
+		return t.PrivateData.OfficialTaskID
+	}
+	return t.GetUpstreamTaskID()
 }
 
 // GetResultURL 获取任务结果 URL（视频地址等）
@@ -280,7 +292,10 @@ func InitTask(platform constant.TaskPlatform, relayInfo *commonRelay.RelayInfo) 
 	privateData := TaskPrivateData{}
 	if relayInfo != nil && relayInfo.ChannelMeta != nil {
 		if relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeGemini ||
-			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVertexAi {
+			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVertexAi ||
+			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeVolcEngine ||
+			relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeDoubaoVideo ||
+			(relayInfo.ChannelMeta.ChannelType == constant.ChannelTypeConfigurable && relayInfo.ChannelMeta.ChannelSetting.Protocol != nil && commonRelay.IsSeedanceVideoProfile(relayInfo.ChannelMeta.ChannelSetting.Protocol.ProfileID)) {
 			privateData.Key = relayInfo.ChannelMeta.ApiKey
 		}
 		if relayInfo.UpstreamModelName != "" {
@@ -450,6 +465,40 @@ func GetByTaskId(userId int, taskId string) (*Task, bool, error) {
 		return nil, false, err
 	}
 	return task, exist, err
+}
+
+// GetByTaskIDOrUpstreamID resolves native video IDs within the authenticated
+// user's tasks. A collision is an error rather than an arbitrary channel choice.
+// Reuses private_data; no schema migration is required.
+func GetByTaskIDOrUpstreamID(userID int, taskID string) (*Task, bool, error) {
+	if taskID == "" || userID <= 0 {
+		return nil, false, nil
+	}
+	var expression string
+	switch DB.Dialector.Name() {
+	case "mysql":
+		expression = "JSON_UNQUOTE(JSON_EXTRACT(private_data, '$.upstream_task_id'))"
+	case "postgres":
+		expression = "CAST(private_data AS json) ->> 'upstream_task_id'"
+	case "sqlite":
+		expression = "json_extract(private_data, '$.upstream_task_id')"
+	default:
+		return nil, false, fmt.Errorf("unsupported database for native task lookup")
+	}
+	officialExpression := strings.ReplaceAll(expression, "upstream_task_id", "official_task_id")
+	var tasks []Task
+	err := DB.Where("user_id = ?", userID).
+		Where("task_id = ? OR ("+expression+") = ? OR ("+officialExpression+") = ?", taskID, taskID, taskID).Limit(2).Find(&tasks).Error
+	if err != nil {
+		return nil, false, err
+	}
+	if len(tasks) > 1 {
+		return nil, false, fmt.Errorf("ambiguous native task ID")
+	}
+	if len(tasks) == 0 {
+		return nil, false, nil
+	}
+	return &tasks[0], true, nil
 }
 
 func GetByTaskIds(userId int, taskIds []any) ([]*Task, error) {

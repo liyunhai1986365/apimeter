@@ -231,3 +231,23 @@ func TestConfigurableResourceCommonAssetsUploadDoesNotFallThroughInFullRouterOrd
 		t.Fatalf("expected /api/assets/upload not to fall through to welcome/status response, got body=%s", recorder.Body.String())
 	}
 }
+
+func TestTgxMaasResourceRoutesRegistered(t *testing.T) {
+	r := gin.New()
+	SetVideoRouter(r)
+	routes := map[string]bool{}
+	for _, route := range r.Routes() {
+		routes[route.Method+" "+route.Path] = true
+	}
+	for _, endpoint := range []string{
+		"POST /v1/private-avatar/groups", "POST /v1/private-avatar/groups/list",
+		"GET /v1/private-avatar/groups/:group_id", "PATCH /v1/private-avatar/groups/:group_id", "DELETE /v1/private-avatar/groups/:group_id",
+		"POST /v1/private-avatar/assets", "POST /v1/private-avatar/assets/list",
+		"GET /v1/private-avatar/assets/:asset_id", "PATCH /v1/private-avatar/assets/:asset_id", "DELETE /v1/private-avatar/assets/:asset_id",
+		"POST /v1/real-avatar/auth/session", "POST /v1/real-avatar/groups/from-token",
+	} {
+		if !routes[endpoint] {
+			t.Errorf("missing TgxMaas route: %s", endpoint)
+		}
+	}
+}

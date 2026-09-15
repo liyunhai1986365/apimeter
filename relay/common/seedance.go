@@ -16,7 +16,7 @@ import (
 func IsSeedanceVideoProfile(id string) bool {
 	switch id {
 	case "doubao-seedance-2", "doubao-seedance-2-api-assets", "seedance2-modelsell",
-		"seedance2-ark-task-assets", "seedance2-service-inference", "doubao-seedance-max-service-inference":
+		"seedance2-ark-task-assets", "seedance-tgxmaas", "seedance2-service-inference", "doubao-seedance-max-service-inference":
 		return true
 	}
 	return false
@@ -208,4 +208,64 @@ func SeedanceReferenceVideoURLs(value any) []string {
 		}
 	}
 	return urls
+}
+
+// ValidateSeedanceTaskIdentity checks both the configured parser's ID and the
+// native envelope IDs before a response can update or settle a task.
+func ValidateSeedanceTaskIdentity(body []byte, info *TaskInfo, upstreamID, officialID string) error {
+	if info != nil && info.TaskID != "" && info.TaskID != upstreamID {
+		return fmt.Errorf("upstream returned a different task ID")
+	}
+	found := false
+	for _, path := range []string{"id", "task.id", "data.task_id", "data.data.task.id"} {
+		id := gjson.GetBytes(body, path)
+		if !id.Exists() {
+			continue
+		}
+		if id.Type != gjson.String || strings.TrimSpace(id.String()) == "" {
+			return fmt.Errorf("upstream returned an invalid task ID")
+		}
+		if id.String() != upstreamID {
+			return fmt.Errorf("upstream returned a different task ID")
+		}
+		found = true
+	}
+	if !found {
+		return fmt.Errorf("upstream response is missing a task ID")
+	}
+	if id := gjson.GetBytes(body, "upstream_task_id"); officialID != "" && id.Exists() && id.String() != officialID {
+		return fmt.Errorf("upstream returned a different official task ID")
+	}
+	return nil
+}
+
+// ValidateSeedanceTaskStatus validates the raw value before adaptors can map an
+// unknown or null status to an invented processing state.
+func ValidateSeedanceTaskStatus(body []byte, paths ...string) error {
+	if len(paths) == 0 {
+		paths = []string{"status", "task.status", "data.status", "data.data.task.status"}
+	}
+	for _, path := range paths {
+		status := gjson.GetBytes(body, path)
+		if !status.Exists() {
+			continue
+		}
+		if status.Type == gjson.String {
+			switch strings.ToLower(strings.TrimSpace(status.String())) {
+			case "queued", "preparing", "pending", "submitted", "not_start", "running", "processing", "in_progress", "succeeded", "success", "completed", "failed", "failure", "error", "cancelled", "canceled", "expired":
+				return nil
+			}
+		}
+		return fmt.Errorf("invalid Seedance task status")
+	}
+	return fmt.Errorf("Seedance task status is not available yet")
+}
+
+// Configurable adaptors must validate the same path used by their parser,
+// including the selected fetch variant. Other adaptors use the Ark schema.
+func ValidateSeedanceTaskStatusForAdaptor(adaptor any, body []byte) error {
+	if validator, ok := adaptor.(interface{ ValidateTaskStatus([]byte) error }); ok {
+		return validator.ValidateTaskStatus(body)
+	}
+	return ValidateSeedanceTaskStatus(body)
 }

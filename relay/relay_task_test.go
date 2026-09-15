@@ -241,13 +241,13 @@ func testSeedanceNativeFetchDirectChannel(t *testing.T, channelType int) {
 
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
-	require.Equal(t, "task_direct", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "cgt-upstream", gjson.GetBytes(body, "id").String())
 	require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
 	require.Equal(t, "https://cdn.example/direct.mp4", gjson.GetBytes(body, "content.video_url").String())
 	require.False(t, gjson.GetBytes(body, "task").Exists())
 	require.False(t, gjson.GetBytes(body, "outputs").Exists())
 	require.False(t, gjson.GetBytes(body, "metadata").Exists())
-	require.Equal(t, "null", gjson.GetBytes(body, "error").Raw)
+	require.False(t, gjson.GetBytes(body, "error").Exists())
 
 	// A later upstream outage must use the persisted official task result.
 	fallback, taskErr := videoFetchByIDRespBodyBuilder(c)
@@ -355,7 +355,7 @@ func testSeedanceNativeFetchReturnsServiceInferenceFieldsAtRoot(t *testing.T, pr
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
 	require.False(t, gjson.GetBytes(body, "task").Exists())
-	require.Equal(t, "task_public", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "mvt-upstream", gjson.GetBytes(body, "id").String())
 	require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
 	require.Equal(t, upstreamModel, gjson.GetBytes(body, "model").String())
 	require.Equal(t, "https://cdn.example/seedance.mp4", gjson.GetBytes(body, "content.video_url").String())
@@ -514,7 +514,7 @@ func TestSeedanceNativeFetchNormalizesLegacySnapshotWhenUpstreamFetchFails(t *te
 	body, taskErr := videoFetchByIDRespBodyBuilder(c)
 	require.Nil(t, taskErr)
 	require.False(t, gjson.GetBytes(body, "task").Exists())
-	require.Equal(t, "task_hFov9erMp4JxHoKFLHeeYIInprezMjZv", gjson.GetBytes(body, "id").String())
+	require.Equal(t, "mvt-upstream", gjson.GetBytes(body, "id").String())
 	require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
 	require.Equal(t, "https://cdn.example/stored-result.mp4", gjson.GetBytes(body, "content.video_url").String())
 	require.Equal(t, int64(40594), gjson.GetBytes(body, "usage.total_tokens").Int())

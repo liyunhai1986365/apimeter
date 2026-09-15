@@ -82,19 +82,21 @@ type NativeEndpointConfig struct {
 }
 
 type ResourceConfig struct {
-	ID          string                `yaml:"id"`
-	Name        string                `yaml:"name"`
-	Model       string                `yaml:"model"`
-	Billing     ResourceBillingConfig `yaml:"billing"`
-	AsyncTask   AsyncTaskConfig       `yaml:"async_task"`
-	Public      EndpointConfig        `yaml:"public"`
-	Aliases     []EndpointConfig      `yaml:"aliases"`
-	Upstream    EndpointConfig        `yaml:"upstream"`
-	PreRequests []PreRequestConfig    `yaml:"pre_requests"`
-	PathParams  map[string]string     `yaml:"path_params"`
-	Query       BodyConfig            `yaml:"query"`
-	Request     BodyConfig            `yaml:"request"`
-	Response    ResponseConfig        `yaml:"response"`
+	FixedModel    bool                  `yaml:"fixed_model"`    // Model is determined by the endpoint, not client input.
+	DisableReplay bool                  `yaml:"disable_replay"` // Resource operations bound to one upstream account must not fail over.
+	ID            string                `yaml:"id"`
+	Name          string                `yaml:"name"`
+	Model         string                `yaml:"model"`
+	Billing       ResourceBillingConfig `yaml:"billing"`
+	AsyncTask     AsyncTaskConfig       `yaml:"async_task"`
+	Public        EndpointConfig        `yaml:"public"`
+	Aliases       []EndpointConfig      `yaml:"aliases"`
+	Upstream      EndpointConfig        `yaml:"upstream"`
+	PreRequests   []PreRequestConfig    `yaml:"pre_requests"`
+	PathParams    map[string]string     `yaml:"path_params"`
+	Query         BodyConfig            `yaml:"query"`
+	Request       BodyConfig            `yaml:"request"`
+	Response      ResponseConfig        `yaml:"response"`
 }
 
 type ResourceBillingConfig struct {

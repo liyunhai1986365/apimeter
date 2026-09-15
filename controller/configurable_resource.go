@@ -101,6 +101,11 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 		return apiErr
 	}
 	defer resp.Body.Close()
+	for _, header := range []string{"Retry-After", "X-Request-Id"} {
+		if value := resp.Header.Get(header); value != "" {
+			c.Header(header, value)
+		}
+	}
 	responseBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -419,6 +424,9 @@ func configurableResourceForChannelEndpoint(channelModel *model.Channel, method,
 }
 
 func configurableResourceRequestModel(c *gin.Context, resource *configurable.ResourceConfig) string {
+	if resource != nil && resource.FixedModel {
+		return strings.TrimSpace(resource.Model)
+	}
 	source, err := configurableResourceSource(c)
 	if err != nil {
 		return ""
@@ -614,18 +622,29 @@ func buildConfigurableResourceBody(c *gin.Context, resource *configurable.Resour
 }
 
 func buildConfigurableResourceBodyWithPreResults(c *gin.Context, resource *configurable.ResourceConfig, preResults map[string]any) ([]byte, error) {
+	if len(resource.Request.Fields) == 0 {
+		storage, err := common.GetBodyStorage(c)
+		if err != nil {
+			return nil, err
+		}
+		raw, err := storage.Bytes()
+		if err != nil {
+			return nil, err
+		}
+		if len(bytes.TrimSpace(raw)) == 0 {
+			return []byte("{}"), nil
+		}
+		if !gjson.ValidBytes(raw) || !gjson.ParseBytes(raw).IsObject() {
+			return nil, fmt.Errorf("resource body must be a JSON object")
+		}
+		return raw, nil
+	}
 	source, err := configurableResourceSource(c)
 	if err != nil {
 		return nil, err
 	}
 	if len(preResults) > 0 {
 		source["pre"] = preResults
-	}
-	if len(resource.Request.Fields) == 0 {
-		if body, ok := source["body"].(map[string]any); ok {
-			return common.Marshal(body)
-		}
-		return []byte("{}"), nil
 	}
 	body, err := configurable.BuildMappedMap(resource.Request.Fields, source, nil)
 	if err != nil {

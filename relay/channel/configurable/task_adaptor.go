@@ -2,6 +2,7 @@ package configurable
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -128,18 +129,17 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		return nil, err
 	}
 	if a.isNativeSubmitRequest(c) && profile.videoNative().Submit.Passthrough {
-		var body map[string]any
+		var body json.RawMessage
 		if err := common.UnmarshalBodyReusable(c, &body); err != nil {
 			return nil, err
 		}
 		if info != nil && strings.TrimSpace(info.UpstreamModelName) != "" {
-			body["model"] = info.UpstreamModelName
+			body, err = sjson.SetBytes(body, "model", info.UpstreamModelName)
+			if err != nil {
+				return nil, err
+			}
 		}
-		data, err := common.Marshal(body)
-		if err != nil {
-			return nil, err
-		}
-		return bytes.NewReader(data), nil
+		return bytes.NewReader(body), nil
 	}
 	req, err := relaycommon.GetTaskRequest(c)
 	if err != nil {
@@ -218,9 +218,12 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	}
 	_ = resp.Body.Close()
 
-	taskID := strings.TrimSpace(gjson.GetBytes(responseBody, profile.videoSubmit().Response.TaskIDPath).String())
-	if taskID == "" {
-		taskErr := service.TaskErrorWrapper(fmt.Errorf("task_id is empty"), "invalid_response", http.StatusInternalServerError)
+	idValue := gjson.GetBytes(responseBody, profile.videoSubmit().Response.TaskIDPath)
+	officialID := gjson.GetBytes(responseBody, "upstream_task_id")
+	taskID := strings.TrimSpace(idValue.String())
+	if !gjson.ValidBytes(responseBody) || idValue.Type != gjson.String || taskID == "" ||
+		(officialID.Exists() && (officialID.Type != gjson.String || strings.TrimSpace(officialID.String()) == "")) {
+		taskErr := service.TaskErrorWrapper(fmt.Errorf("upstream task ID must be a non-empty string in a valid JSON response"), "invalid_response", http.StatusBadGateway)
 		if a.isNativeSubmitRequest(c) && profile.videoNative().Submit.Response.Passthrough {
 			taskErr.RawBody = responseBody
 		}
@@ -230,11 +233,14 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	if a.isNativeSubmitRequest(c) {
 		if isVolcengineVideoTaskSubmitEndpoint(profile.videoNative().Submit.Path) ||
 			strings.EqualFold(strings.TrimSpace(profile.videoNative().Submit.ResponseFormat), "volcengine_video_task_create") {
-			nativeResponse, err := BuildVolcengineVideoTaskCreateResponse(publicTaskID(info))
+			nativeResponse, err := BuildVolcengineVideoTaskCreateResponse(taskID)
 			if err != nil {
 				return "", nil, service.TaskErrorWrapper(err, "build_native_response_failed", http.StatusInternalServerError)
 			}
-			c.Data(http.StatusOK, "application/json", nativeResponse)
+			if gjson.GetBytes(responseBody, "id").String() == taskID {
+				nativeResponse = responseBody
+			}
+			c.Set(NativeTaskSubmitResponseKey, nativeResponse)
 		} else if strings.EqualFold(strings.TrimSpace(profile.videoNative().Submit.ResponseFormat), "openai_video") {
 			ovBody, err := a.buildOpenAIVideoSubmitResponse(profile.videoSubmit().OpenAIResponse, responseBody, info)
 			if err != nil {
@@ -258,12 +264,13 @@ func (a *TaskAdaptor) DoResponse(c *gin.Context, resp *http.Response, info *rela
 	return taskID, responseBody, nil
 }
 
-// BuildVolcengineVideoTaskCreateResponse returns the official Ark creation
-// response. The gateway deliberately returns its public task ID so the caller
-// can use that ID in the subsequent gateway query.
-func BuildVolcengineVideoTaskCreateResponse(publicTaskID string) ([]byte, error) {
+// NativeTaskSubmitResponseKey defers writing until the controller persists the task.
+const NativeTaskSubmitResponseKey = "seedance_native_submit_response"
+
+// BuildVolcengineVideoTaskCreateResponse normalizes wrapped provider creation responses.
+func BuildVolcengineVideoTaskCreateResponse(upstreamTaskID string) ([]byte, error) {
 	return common.Marshal(map[string]any{
-		"id": publicTaskID,
+		"id": upstreamTaskID,
 	})
 }
 
@@ -343,15 +350,34 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
-	profile, err := a.requireProfile()
+	_, err := a.requireProfile()
 	if err != nil {
 		return nil, err
 	}
-	resp := profile.videoFetch().Response
+	return ParseConfiguredTaskInfo(a.fetchResponseConfig(), respBody), nil
+}
+
+func (a *TaskAdaptor) fetchResponseConfig() ResponseConfig {
 	if a.selectedFetchResp != nil {
-		resp = *a.selectedFetchResp
+		return *a.selectedFetchResp
 	}
-	return ParseConfiguredTaskInfo(resp, respBody), nil
+	return a.profile.videoFetch().Response
+}
+
+func (a *TaskAdaptor) ValidateTaskStatus(body []byte) error {
+	if _, err := a.requireProfile(); err != nil {
+		return err
+	}
+	resp := a.fetchResponseConfig()
+	if err := relaycommon.ValidateSeedanceTaskStatus(body, resp.StatusPath); err != nil {
+		return err
+	}
+	switch mapStatus(resp.StatusMap, gjson.GetBytes(body, resp.StatusPath).String()) {
+	case model.TaskStatusSubmitted, model.TaskStatusQueued, model.TaskStatusInProgress, model.TaskStatusSuccess, model.TaskStatusFailure:
+		return nil
+	default:
+		return fmt.Errorf("invalid configured Seedance task status")
+	}
 }
 
 func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.TaskInfo {
@@ -578,11 +604,11 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 		return nil, err
 	}
 	if isVolcengineVideoTaskFetchEndpoint(profile.videoNative().Fetch.Path) {
-		return BuildVolcengineVideoTaskResponse(originTask, upstream)
+		return buildVolcengineVideoTaskResponse(originTask, upstream, a.fetchResponseConfig().StatusPath)
 	}
 	responseFormat := strings.ToLower(strings.TrimSpace(profile.videoNative().Fetch.ResponseFormat))
 	if responseFormat == "volcengine_video_task" {
-		return BuildVolcengineVideoTaskResponse(originTask, upstream)
+		return buildVolcengineVideoTaskResponse(originTask, upstream, a.fetchResponseConfig().StatusPath)
 	}
 	return buildConfiguredResponse(profile.videoNative().Fetch.Response, upstream, &relaycommon.RelayInfo{
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{
@@ -605,13 +631,25 @@ func isVolcengineVideoTaskFetchEndpoint(path string) bool {
 	return strings.TrimSuffix(strings.TrimSpace(path), "/") == "/api/v3/contents/generations/tasks/{task_id}"
 }
 
-func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte, error) {
+func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte, statusPaths ...string) ([]byte, error) {
 	if task == nil {
 		return nil, fmt.Errorf("task is required")
 	}
 
+	statusPath := ""
+	if len(statusPaths) > 0 {
+		statusPath = statusPaths[0]
+	}
+	// Official flat Ark responses are already the public protocol. Preserve
+	// raw values (including large numbers), unknown fields, and absent usage.
+	if (statusPath == "" || statusPath == "status") && gjson.ValidBytes(upstream) && gjson.GetBytes(upstream, "id").Type == gjson.String {
+		switch gjson.GetBytes(upstream, "status").String() {
+		case "queued", "running", "succeeded", "failed", "cancelled", "expired":
+			return sjson.SetBytes(upstream, "id", task.GetNativeTaskID())
+		}
+	}
 	response := map[string]any{
-		"id":    task.TaskID,
+		"id":    task.GetNativeTaskID(),
 		"error": nil,
 	}
 
@@ -627,6 +665,9 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 	response["model"] = modelName
 
 	upstreamStatus := firstJSONString(upstream, "status", "task.status", "data.status")
+	if statusPath != "" {
+		upstreamStatus = firstJSONString(upstream, statusPath)
+	}
 	publicStatus := volcengineVideoTaskStatus(upstreamStatus, task.Status)
 	response["status"] = publicStatus
 
@@ -697,44 +738,29 @@ func buildVolcengineVideoTaskResponse(task *model.Task, upstream []byte) ([]byte
 		response["content"] = content
 	}
 
-	completionTokens, hasCompletionTokens := firstJSONInt64(upstream,
-		"usage.completion_tokens",
-		"task.usage.completion_tokens",
-		"task.metadata.usage.completion_tokens",
-		"data.usage.completion_tokens",
-		"data.data.task.usage.completion_tokens",
-		"data.data.task.metadata.usage.completion_tokens",
-	)
-	totalTokens, hasTotalTokens := firstJSONInt64(upstream,
-		"usage.total_tokens",
-		"task.usage.total_tokens",
-		"task.metadata.usage.total_tokens",
-		"data.usage.total_tokens",
-		"data.data.task.usage.total_tokens",
-		"data.data.task.metadata.usage.total_tokens",
-	)
-	if hasCompletionTokens || hasTotalTokens {
-		if !hasCompletionTokens {
-			completionTokens = totalTokens
+	for _, path := range []string{"usage", "task.usage", "task.metadata.usage", "data.usage", "data.data.task.usage", "data.data.task.metadata.usage"} {
+		usage := gjson.GetBytes(upstream, path)
+		if !usage.Exists() || usage.Type == gjson.Null {
+			continue
 		}
-		if !hasTotalTokens {
-			totalTokens = completionTokens
+		// Preserve all numeric values and unknown nested fields verbatim. Only
+		// legacy string-encoded known counts need normalization.
+		raw := []byte(usage.Raw)
+		if usage.IsObject() {
+			for _, name := range []string{"completion_tokens", "total_tokens"} {
+				if value := usage.Get(name); value.Type == gjson.String {
+					if count, err := strconv.ParseInt(value.String(), 10, 64); err == nil {
+						updated, err := sjson.SetBytes(raw, name, count)
+						if err != nil {
+							return nil, err
+						}
+						raw = updated
+					}
+				}
+			}
 		}
-		usage := map[string]any{
-			"completion_tokens": completionTokens,
-			"total_tokens":      totalTokens,
-		}
-		if value, ok := firstJSONValue(upstream,
-			"usage.tool_usage",
-			"task.usage.tool_usage",
-			"task.metadata.usage.tool_usage",
-			"data.usage.tool_usage",
-			"data.data.task.usage.tool_usage",
-			"data.data.task.metadata.usage.tool_usage",
-		); ok {
-			usage["tool_usage"] = value
-		}
-		response["usage"] = usage
+		response["usage"] = json.RawMessage(raw)
+		break
 	}
 
 	stringFields := []struct {

@@ -545,7 +545,7 @@ func nativeSeedanceProfileSupportsChannel(profileIDs []string, modelName string,
 	if channelType != constant.ChannelTypeVolcEngine && channelType != constant.ChannelTypeDoubaoVideo {
 		return false
 	}
-	if !strings.HasPrefix(modelName, "doubao-seedance-2-0-") {
+	if !strings.HasPrefix(modelName, "doubao-seedance-") {
 		return false
 	}
 	for _, profileID := range profileIDs {

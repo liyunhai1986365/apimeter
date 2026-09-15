@@ -22,6 +22,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 
 	"github.com/samber/lo"
+	"github.com/tidwall/gjson"
 )
 
 // TaskPollingAdaptor 定义轮询所需的最小适配器接口，避免 service -> relay 的循环依赖
@@ -215,37 +216,39 @@ func TaskPollingLoop() {
 			if len(tasks) == 0 {
 				continue
 			}
-			taskChannelM := make(map[int][]string)
-			taskM := make(map[string]*model.Task)
-			nullTaskIds := make([]int64, 0)
-			for _, task := range tasks {
-				upstreamID := task.GetUpstreamTaskID()
-				if upstreamID == "" {
-					// 统计失败的未完成任务
-					nullTaskIds = append(nullTaskIds, task.ID)
+			for _, tasks := range groupTasksForPolling(tasks) {
+				taskChannelM := make(map[int][]string)
+				taskM := make(map[string]*model.Task)
+				nullTaskIds := make([]int64, 0)
+				for _, task := range tasks {
+					upstreamID := task.GetUpstreamTaskID()
+					if upstreamID == "" {
+						// 统计失败的未完成任务
+						nullTaskIds = append(nullTaskIds, task.ID)
+						continue
+					}
+					for _, id := range splitTaskUpstreamIDs(upstreamID) {
+						taskM[id] = task
+						taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
+					}
+				}
+				if len(nullTaskIds) > 0 {
+					err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
+						"status":   "FAILURE",
+						"progress": "100%",
+					})
+					if err != nil {
+						logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
+					} else {
+						logger.LogInfo(ctx, fmt.Sprintf("Fix null task_id task success: %v", nullTaskIds))
+					}
+				}
+				if len(taskChannelM) == 0 {
 					continue
 				}
-				for _, id := range splitTaskUpstreamIDs(upstreamID) {
-					taskM[id] = task
-					taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
-				}
-			}
-			if len(nullTaskIds) > 0 {
-				err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
-					"status":   "FAILURE",
-					"progress": "100%",
-				})
-				if err != nil {
-					logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
-				} else {
-					logger.LogInfo(ctx, fmt.Sprintf("Fix null task_id task success: %v", nullTaskIds))
-				}
-			}
-			if len(taskChannelM) == 0 {
-				continue
-			}
 
-			DispatchPlatformUpdate(platform, taskChannelM, taskM)
+				DispatchPlatformUpdate(platform, taskChannelM, taskM)
+			}
 		}
 		if len(imageTaskChannelM) > 0 {
 			if err := UpdateImageTasks(ctx, imageTaskChannelM, imageTaskM); err != nil {
@@ -859,6 +862,15 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		logger.LogError(ctx, fmt.Sprintf("Task %s not found in taskM", taskId))
 		return fmt.Errorf("task %s not found", taskId)
 	}
+	if task.ChannelId != ch.Id {
+		return fmt.Errorf("task %s does not belong to channel %d", taskId, ch.Id)
+	}
+	settings := ch.GetSetting()
+	seedance := ch.Type == constant.ChannelTypeVolcEngine || ch.Type == constant.ChannelTypeDoubaoVideo ||
+		(ch.Type == constant.ChannelTypeConfigurable && settings.Protocol != nil && relaycommon.IsSeedanceVideoProfile(settings.Protocol.ProfileID))
+	if seedance && (task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure) {
+		return nil
+	}
 	key := ch.Key
 
 	privateData := task.PrivateData
@@ -870,7 +882,13 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		"action":  task.Action,
 	}, proxy)
 	if err != nil {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
 		return fmt.Errorf("fetchTask failed for task %s: %w", taskId, err)
+	}
+	if resp == nil || resp.Body == nil {
+		return fmt.Errorf("empty upstream response for task %s", taskId)
 	}
 	defer resp.Body.Close()
 	responseBody, err := io.ReadAll(resp.Body)
@@ -885,7 +903,26 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 	taskResult := &relaycommon.TaskInfo{}
 	// try parse as New API response format
 	var responseItems taskdto.TaskResponse[model.Task]
-	if err = common.Unmarshal(responseBody, &responseItems); err == nil && responseItems.IsSuccess() {
+	if seedance {
+		if resp.StatusCode < 200 || resp.StatusCode >= 300 || !gjson.ValidBytes(responseBody) {
+			return fmt.Errorf("Seedance upstream query unavailable (HTTP %d)", resp.StatusCode)
+		}
+		if statusErr := relaycommon.ValidateSeedanceTaskStatusForAdaptor(adaptor, responseBody); statusErr != nil {
+			return statusErr
+		}
+		taskResult, err = adaptor.ParseTaskResult(responseBody)
+		if err != nil || taskResult == nil {
+			return fmt.Errorf("invalid Seedance task response")
+		}
+		if err := relaycommon.ValidateSeedanceTaskIdentity(responseBody, taskResult, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); err != nil {
+			return err
+		}
+		switch taskResult.Status {
+		case model.TaskStatusSubmitted, model.TaskStatusQueued, model.TaskStatusInProgress, model.TaskStatusSuccess, model.TaskStatusFailure:
+		default:
+			return fmt.Errorf("unknown Seedance task status %q", taskResult.Status)
+		}
+	} else if err = common.Unmarshal(responseBody, &responseItems); err == nil && responseItems.IsSuccess() {
 		logger.LogDebug(ctx, "updateVideoSingleTask parsed as new api response format: %+v", responseItems)
 		t := responseItems.Data
 		taskResult = taskInfoFromNewAPIResponse(&t)
@@ -894,7 +931,11 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		return fmt.Errorf("parseTaskResult failed for task %s: %w", taskId, err)
 	}
 
-	task.Data = redactVideoResponseBody(responseBody)
+	if seedance {
+		task.Data = responseBody
+	} else {
+		task.Data = redactVideoResponseBody(responseBody)
+	}
 
 	logger.LogDebug(ctx, "updateVideoSingleTask taskResult: %+v", taskResult)
 
@@ -1122,45 +1163,52 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 		if len(tasks) == 0 {
 			continue
 		}
-		taskChannelM := make(map[int][]string)
-		taskM := make(map[string]*model.Task)
-		nullTaskIds := make([]int64, 0)
+		reportedChannels := make(map[int]bool)
+		for _, tasks := range groupTasksForPolling(tasks) {
+			taskChannelM := make(map[int][]string)
+			taskM := make(map[string]*model.Task)
+			nullTaskIds := make([]int64, 0)
 
-		for _, task := range tasks {
-			upstreamID := task.GetUpstreamTaskID()
-			if upstreamID == "" {
-				nullTaskIds = append(nullTaskIds, task.ID)
+			for _, task := range tasks {
+				upstreamID := task.GetUpstreamTaskID()
+				if upstreamID == "" {
+					nullTaskIds = append(nullTaskIds, task.ID)
+					continue
+				}
+				for _, id := range splitTaskUpstreamIDs(upstreamID) {
+					taskM[id] = task
+					taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
+				}
+			}
+
+			if len(nullTaskIds) > 0 {
+				err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
+					"status":   "FAILURE",
+					"progress": "100%",
+				})
+				if err != nil {
+					logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
+				}
+			}
+
+			if len(taskChannelM) == 0 {
 				continue
 			}
-			for _, id := range splitTaskUpstreamIDs(upstreamID) {
-				taskM[id] = task
-				taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
+
+			for channelID := range taskChannelM {
+				if reportedChannels[channelID] {
+					continue
+				}
+				reportedChannels[channelID] = true
+				if ctx.Err() != nil {
+					break
+				}
+				processedChannels++
+				reportProgress(processedChannels, totalChannels)
 			}
-		}
 
-		if len(nullTaskIds) > 0 {
-			err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
-				"status":   "FAILURE",
-				"progress": "100%",
-			})
-			if err != nil {
-				logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
-			}
+			DispatchPlatformUpdate(platform, taskChannelM, taskM)
 		}
-
-		if len(taskChannelM) == 0 {
-			continue
-		}
-
-		for _ = range taskChannelM {
-			if ctx.Err() != nil {
-				break
-			}
-			processedChannels++
-			reportProgress(processedChannels, totalChannels)
-		}
-
-		DispatchPlatformUpdate(platform, taskChannelM, taskM)
 	}
 
 	if len(imageTaskChannelM) > 0 {
@@ -1192,4 +1240,37 @@ func groupTasksByChannel(tasks []*model.Task) map[int][]*model.Task {
 		result[task.ChannelId] = append(result[task.ChannelId], task)
 	}
 	return result
+}
+
+// The downstream batch API indexes tasks by upstream ID. Split collisions even
+// within one channel so each local task retains its own saved credentials.
+func groupTasksForPolling(tasks []*model.Task) [][]*model.Task {
+	var batches [][]*model.Task
+	for _, channelTasks := range groupTasksByChannel(tasks) {
+		var batch []*model.Task
+		seen := make(map[string]bool)
+		for _, task := range channelTasks {
+			ids := splitTaskUpstreamIDs(task.GetUpstreamTaskID())
+			collision := false
+			for _, id := range ids {
+				if seen[id] {
+					collision = true
+					break
+				}
+			}
+			if collision {
+				batches = append(batches, batch)
+				batch = nil
+				seen = make(map[string]bool)
+			}
+			batch = append(batch, task)
+			for _, id := range ids {
+				seen[id] = true
+			}
+		}
+		if len(batch) > 0 {
+			batches = append(batches, batch)
+		}
+	}
+	return batches
 }

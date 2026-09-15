@@ -19,7 +19,7 @@ import (
 
 var seedanceOptionProfiles = []string{
 	"doubao-seedance-2", "doubao-seedance-2-api-assets", "seedance2-modelsell",
-	"seedance2-ark-task-assets", "seedance2-service-inference", "doubao-seedance-max-service-inference",
+	"seedance2-ark-task-assets", "seedance-tgxmaas", "seedance2-service-inference", "doubao-seedance-max-service-inference",
 }
 
 func TestSeedanceOptionsReachUpstreamAcrossProfiles(t *testing.T) {

@@ -1,0 +1,139 @@
+# Seedance TgxMaas 渠道协议档案
+
+档案 ID：`seedance-tgxmaas`。后台显示名称：`Seedance TgxMaas Video and Assets`。
+
+本档案接入 TgxMaas 的视频和素材库封装协议，覆盖素材组 5 项、素材 5 项、真人认证 2 项操作。与官方协议的区别见[文档对照](seedance_asset_api_documentation_review.md)。素材 ID 保留 TgxMaas 返回的本地 ID，不伪装成火山原始 ID。
+
+## 配置渠道
+
+- 渠道类型：`Configurable Protocol`，类型编号 `999`。
+- Protocol Profile：`seedance-tgxmaas`。
+- Base URL：`https://api.sctgx.cn`，不要加 `/doubao`；视频路径已在档案中包含此前缀，素材路径没有此前缀。
+- Key：TgxMaas 的 Bearer Key，不是火山 AK/SK。
+- 模型：配置该账号实际可用的 Seedance 模型，例如 `doubao-seedance-2-5-260628`。
+- 推荐为这一上游账号使用专用分组，分组内只配置这一渠道及一个固定 Key；相关客户端令牌固定使用该分组，不进行跨账号自动路由。
+
+渠道 setting 示例：
+
+```json
+{
+  "protocol": {
+    "profile_id": "seedance-tgxmaas"
+  }
+}
+```
+
+档案随后端二进制 embed 打包，需重新构建并部署后才能在后台选到；本次没有操作线上渠道或部署。旧 `seedance2-ark-task-assets` 档案继续保留，其 `/v1/task/submit` 素材协议未被替换。
+
+## 素材库入口
+
+客户端向本网关调用下列相同路径，使用本网关 Token；网关自动替换为所选渠道的 TgxMaas Bearer Key。
+
+| 操作 | 方法 | 路径 |
+| --- | --- | --- |
+| 创建素材组 | POST | `/v1/private-avatar/groups` |
+| 素材组列表 | POST | `/v1/private-avatar/groups/list` |
+| 获取素材组 | GET | `/v1/private-avatar/groups/{group_id}` |
+| 更新素材组 | PATCH | `/v1/private-avatar/groups/{group_id}` |
+| 删除素材组 | DELETE | `/v1/private-avatar/groups/{group_id}` |
+| 创建素材 | POST | `/v1/private-avatar/assets` |
+| 素材列表 | POST | `/v1/private-avatar/assets/list` |
+| 获取素材 | GET | `/v1/private-avatar/assets/{asset_id}` |
+| 更新素材名称 | PATCH | `/v1/private-avatar/assets/{asset_id}` |
+| 删除素材 | DELETE | `/v1/private-avatar/assets/{asset_id}` |
+| 创建活体会话 | POST | `/v1/real-avatar/auth/session` |
+| 兑换真人素材组 | POST | `/v1/real-avatar/groups/from-token` |
+
+JSON 请求体不做字段白名单过滤，保留原字段大小写、显式零值/false、Filter、NextToken、CallbackURL 和 BytedToken。素材请求的 model 原样传递，应填写上游真实模型名；它是 TgxMaas 的路由参数。GET 及路径型操作不需要添加 model，采用所选专用渠道。
+
+响应采用 passthrough，保留供应商实际返回的 ResponseMetadata、Result、ID、分页令牌及扩展字段。不会根据文档错误的公共示例重建响应。沿用通用资源引擎的错误处理；启用智能路由策略时，HTTP 错误可能被引擎统一包装。
+
+素材 Processing 是供应商入库状态，不作为本网关视频任务落库和计费；本档案未启用资源调用的本地计费。上游费用按其自身服务执行。
+
+## 素材到视频的使用流程
+
+1. 创建素材组，保存返回的 `Result.Id`。
+2. 创建素材，将该 ID 原样放进 `GroupId`，提交 URL、AssetType 和 Name。
+3. 使用返回的素材 ID 查询，等待 Status=Active。
+4. 在同一上游账号对应的视频渠道提交视频任务，素材 URL 使用 `asset://<TgxMaas素材ID>`。
+5. 视频客户端入口为 `/api/v3/contents/generations/tasks`，上游转到 `/doubao/api/v3/contents/generations/tasks`；原生视频请求保留素材引用，供应商负责解析其本地素材 ID。
+6. 视频任务仍使用现有 cgt ID 映射、查询和结算流程。
+
+真人流程使用客户自己的 HTTPS 回调页面；取得 BytedToken 后由用户完成认证，再在同一模型和账号下兑换素材组。本网关不创建回调页面，也不自动执行真人认证。
+
+## 账号归属与重试边界
+
+本档案是渠道级协议适配，不新增素材归属数据库。本网关校验客户端 Token、分组和渠道权限，但不会额外把每个 TgxMaas 素材 ID 绑定到本网关用户。
+
+共享同一上游 Key 的本网关用户会共享同一个 TgxMaas 用户资源范围。供应商宣称的“按用户隔离”指它自己的 Token 所属用户，不能直接等同于本网关的终端用户隔离。需要终端用户独立素材空间时，应分配独立上游账号/Key 及独立可访问分组，或另行建设素材归属映射与授权校验。
+
+全部 12 项设置 `disable_replay: true`：错误不会通过通用资源重试切换到另一上游账号。该配置防止单次请求跨渠道重放，但不建立跨多次请求的资源渠道绑定，所以仍需前述固定渠道配置。
+
+## 验证
+
+已通过独立 HTTP Mock＋Gin TokenAuth＋资源渠道选择＋隔离 SQLite 的 12 项接口测试，验证方法、路径、渠道 Bearer 替换、请求保真、响应 ID/分页/大整数/扩展字段、未鉴权阻断、资源不创建视频计费任务及禁用重放。真人流程测试使用合成 H5Link/BytedToken，并非实际真人认证。
+
+同时验证正式路由自动注册全部 12 个入口，现有 Seedance 参数和全模态引用测试覆盖新档案。
+
+```bash
+go test ./controller ./relay/channel/configurable ./relay/common ./router -count=1
+go test -race ./controller -run '^TestTgxMaasResourceProtocol$' -count=1
+```
+
+两组均通过。初次交付仅 Mock 验证；后续真实验证结果见下节。没有数据库表结构变更。
+
+## 真实素材库验证（2026-09-15）
+
+用户要求实测后，使用本档案、生产 Gin 鉴权/渠道选择/资源转发链路和隔离 SQLite，完成以下测试：
+
+- 创建 1 个临时素材组，查询、更新名称和描述、再次查询确认更新，按组 ID 筛选列表。
+- 使用本会话先前生成的红色小球视频末帧 URL 创建 1 个图片素材，轮询见 Processing → Active。
+- 更新素材名称并再次查询确认，按测试组筛选 Active 素材列表。
+- 删除本次创建的素材，然后删除本次创建的素材组，均返回 HTTP 200。没有删除其他资源。
+
+10 类普通素材/素材组操作全部通过，含重复确认与轮询共发出 13 次 HTTP 请求。真人认证 2 项仍只通过 Mock，不执行自动活体认证；本轮未新增视频生成来验证 asset:// 引用。
+
+本次资源（已删除）：
+
+- 素材组：`ag_8b01989babf84795b9768a7f68bceed9`。
+- 素材本地 ID：`asset_584be302e4b24dc68b7bd13b129fdfd6`。
+- 实测素材响应额外包含 `upstream_asset_id: asset-20260915132625-m84k4`。档案完整保留该字段，不需要额外转换即可取得上游原始素材 ID。
+
+这修正文档核对时的能力判断：TgxMaas 文档只介绍本地 ID，但实际创建/查询/更新素材响应同时提供上游 ID。素材组响应没有发现上游 ID 字段；查询和修改仍应按 TgxMaas 文档使用本地 Id，不能凭此断言可按官方 ID 查询。
+
+实际 ResponseMetadata.Action 与操作一致；删除成功 Result 包含被删除资源 Id，与火山官方 Result={} 有差异，档案原样保留。
+
+真实日志 `/tmp/tgxmaas-assets-live.log`，原始响应 `/tmp/tgxmaas-assets-live-evidence/`；[脱敏证据](seedance_tgxmaas_assets_live_evidence.json) 已入文档目录，移除了签名素材 URL。连接密钥临时文件已删除。
+
+实测期间隔离测试数据库缺少 retry_route_events 表，导致重试轨迹日志保存告警，业务调用仍通过。已在测试夹具补齐该表并重跑 Mock；生产数据库结构没有变更，也未为此重复创建真实素材。
+
+复现入口是显式启用的 `TestTgxMaasAssetsLive`，默认跳过；配置环境变量 `TGXMAAS_ASSETS_LIVE_CONFIG` 指向含 url/key/model/asset_url 的临时连接 JSON，`TGXMAAS_ASSETS_LIVE_EVIDENCE` 指定证据目录。该测试创建并清理真实资源，不应在日常 CI 中启用。
+
+### 可选素材引用视频测试
+
+`TestTgxMaasAssetsLive` 的临时配置可增加 `"generate_video": true`。开启后，在测试素材 Active 后使用 `asset://<本次素材ID>` 作为 first_frame，提交一次 4 秒、480p 视频，并通过 cgt ID 轮询到成功、下载结果、核对 usage 和重复查询额度不变，然后清理本次素材与组。默认关闭，避免普通素材测试额外生成视频。
+
+如果视频已接受但没有确认终态，测试保留其输入素材并报告 ID，不重复创建视频、不删除仍可能在使用的输入资源。
+
+### 使用用户提供 Key 的素材引用视频实测（2026-09-15）
+
+已通过本档案完成真实完整链路：创建组 → 创建图片素材 → Processing/Active 查询 → 素材/组更新及列表 → `asset://` 本地素材 ID 作为视频首帧 → 创建一次视频 → cgt 查询至 succeeded → 视频下载和完整解码 → 重复查询额度不变 → 删除本次素材及素材组。
+
+- 使用会话中用户提供的 TgxMaas Key，未存入仓库，临时连接文件已删除。
+- 视频模型：`doubao-seedance-2-5-260628`，时长 4 秒、480p、无音频。
+- 任务 ID：`cgt-20260915140318-u0sy4`。
+- 素材 ID：`asset_8e3761e09df74d9183160abc01e664a4`，已删除。
+- 素材组 ID：`ag_ca3dce961b0349eab20c0992fc50af8e`，已删除。
+- 视频文件 953058 字节，FFmpeg 全文件解码退出码 0。
+- usage：completion_tokens=38830、total_tokens=38830；重复终态查询没有再次扣费。
+- 用例通过，耗时约 425 秒。只创建一个视频任务；真实视频任务记录未删除。
+- 真人认证仍未实际执行，不属于本次素材引用验证。
+
+日志 `/tmp/tgxmaas-reference-live.log`；[脱敏证据](seedance_tgxmaas_reference_live_evidence.json)。此前“素材引用视频未实测”的限制已由本轮验证补齐，真人认证限制仍保留。本次验证通过本地修改后的生产处理链路转发到真实服务，未部署到线上网关。
+
+
+## Token 权限和异常提交处理
+
+开启模型白名单的 Token 调用素材接口时必须显式指定允许的 `model`（JSON body 或 query）。GET/DELETE 可使用 `?model=实际允许模型名`。空白名单、禁止模型或省略模型均返回 403，普通和智能路由执行相同校验。未开启模型限制的 Token 保持原有无模型调用能力。这是模型访问控制，不改变同一上游账号共享素材空间的边界。
+
+视频创建已收到上游 HTTP 2xx，但无法解析出合法任务 ID 或响应不完整时，网关返回 502 `task_submission_unconfirmed`，不自动重放请求，并保留预扣等待对账。客户端不能据此自动重新 POST；应记录网关请求 ID，交由管理员核对上游是否创建成功。素材响应保留上游 `Retry-After` 和 `X-Request-Id`，便于退避和定位。

@@ -1,0 +1,261 @@
+{
+  "date": "2026-09-15",
+  "scope": "Current local gateway code -> live TgxMaas upstream; no deployment",
+  "profile": "seedance-tgxmaas",
+  "model": "doubao-seedance-2-5-260628",
+  "task_id": "cgt-20260915174215-w4wla",
+  "status": "succeeded",
+  "video_create_count": 1,
+  "live_test_duration_seconds": 184.23,
+  "checks": {
+    "seed": {
+      "request": 0,
+      "response": 0,
+      "match": true
+    },
+    "duration": {
+      "request": 4,
+      "response": 4,
+      "match": true
+    },
+    "resolution": {
+      "request": "480p",
+      "response": "480p",
+      "match": true
+    },
+    "generate_audio": {
+      "request": false,
+      "response": false,
+      "match": true
+    },
+    "execution_expires_after": {
+      "request": 3600,
+      "response": 3600,
+      "match": true
+    },
+    "safety_identifier": {
+      "request": "seedance-post-review-verification",
+      "response": "seedance-post-review-verification",
+      "match": true
+    },
+    "tools": {
+      "request": [
+        {
+          "type": "web_search"
+        }
+      ],
+      "response": [
+        {
+          "type": "web_search"
+        }
+      ],
+      "match": true
+    },
+    "output_format": {
+      "request": "mov",
+      "response": "mov",
+      "match": true
+    }
+  },
+  "usage": {
+    "completion_tokens": 38830,
+    "tool_usage": {
+      "web_search": 0
+    },
+    "total_tokens": 38830
+  },
+  "video_bytes": 1027792,
+  "frame_bytes": 99838,
+  "response_fields": [
+    "content",
+    "created_at",
+    "draft",
+    "duration",
+    "execution_expires_after",
+    "framespersecond",
+    "generate_audio",
+    "id",
+    "model",
+    "official_url",
+    "output_format",
+    "priority",
+    "ratio",
+    "resolution",
+    "safety_identifier",
+    "seed",
+    "service_tier",
+    "status",
+    "tools",
+    "updated_at",
+    "upstream_task_id",
+    "usage"
+  ],
+  "upstream_extensions_preserved": [
+    "upstream_task_id",
+    "official_url"
+  ],
+  "repeat_query_no_extra_local_charge": true,
+  "ordinary_asset_endpoints_passed": 10,
+  "test_assets_deleted": true,
+  "liveness_executed": false,
+  "duration_minus_one_tested": false,
+  "bitrate_mode_tested": false,
+  "assets": {
+    "asset-create": {
+      "action": "CreateAsset",
+      "request_id": "2026091517421517982871887E1A3BB15A",
+      "result_fields": [
+        "AssetType",
+        "CreateTime",
+        "GroupId",
+        "Id",
+        "Name",
+        "ProjectName",
+        "Status",
+        "URL",
+        "UpdateTime",
+        "upstream_asset_id"
+      ],
+      "has_error": false
+    },
+    "asset-delete": {
+      "action": "DeleteAsset",
+      "request_id": "2026091517421917982871887E1A3BB26E",
+      "result_fields": [
+        "Id"
+      ],
+      "has_error": false
+    },
+    "asset-get-updated": {
+      "action": "GetAsset",
+      "request_id": "2026091517421917982871887E1A3BB267",
+      "result_fields": [
+        "AssetType",
+        "CreateTime",
+        "GroupId",
+        "Id",
+        "Name",
+        "ProjectName",
+        "Status",
+        "URL",
+        "UpdateTime",
+        "upstream_asset_id"
+      ],
+      "has_error": false
+    },
+    "asset-get": {
+      "action": "GetAsset",
+      "request_id": "2026091517421817982871887E1A3BB24E",
+      "result_fields": [
+        "AssetType",
+        "CreateTime",
+        "GroupId",
+        "Id",
+        "Name",
+        "ProjectName",
+        "Status",
+        "URL",
+        "UpdateTime",
+        "upstream_asset_id"
+      ],
+      "has_error": false
+    },
+    "asset-list": {
+      "action": "ListAssets",
+      "request_id": "202609150942192725486578268d9d6ntkkxVyV",
+      "result_fields": [
+        "Items"
+      ],
+      "has_error": false
+    },
+    "asset-update": {
+      "action": "UpdateAsset",
+      "request_id": "2026091517421917982871887E1A3BB255",
+      "result_fields": [
+        "AssetType",
+        "CreateTime",
+        "GroupId",
+        "Id",
+        "Name",
+        "ProjectName",
+        "Status",
+        "URL",
+        "UpdateTime",
+        "upstream_asset_id"
+      ],
+      "has_error": false
+    },
+    "group-create": {
+      "action": "CreateAssetGroup",
+      "request_id": "2026091517421417982871887E1A3BB13B",
+      "result_fields": [
+        "CreateTime",
+        "Description",
+        "GroupType",
+        "Id",
+        "Name",
+        "ProjectName",
+        "UpdateTime"
+      ],
+      "has_error": false
+    },
+    "group-delete": {
+      "action": "DeleteAssetGroup",
+      "request_id": "2026091517421917982871887E1A3BB276",
+      "result_fields": [
+        "Id"
+      ],
+      "has_error": false
+    },
+    "group-get-updated": {
+      "action": "GetAssetGroup",
+      "request_id": "2026091517421517982871887E1A3BB157",
+      "result_fields": [
+        "CreateTime",
+        "Description",
+        "GroupType",
+        "Id",
+        "Name",
+        "ProjectName",
+        "UpdateTime"
+      ],
+      "has_error": false
+    },
+    "group-get": {
+      "action": "GetAssetGroup",
+      "request_id": "2026091517421417982871887E1A3BB147",
+      "result_fields": [
+        "CreateTime",
+        "Description",
+        "GroupType",
+        "Id",
+        "Name",
+        "ProjectName",
+        "UpdateTime"
+      ],
+      "has_error": false
+    },
+    "group-list": {
+      "action": "ListAssetGroups",
+      "request_id": "202609150942152631718038268d9d6bPAXNx9D",
+      "result_fields": [
+        "Items"
+      ],
+      "has_error": false
+    },
+    "group-update": {
+      "action": "UpdateAssetGroup",
+      "request_id": "2026091517421417982871887E1A3BB14C",
+      "result_fields": [
+        "CreateTime",
+        "Description",
+        "GroupType",
+        "Id",
+        "Name",
+        "ProjectName",
+        "UpdateTime"
+      ],
+      "has_error": false
+    }
+  }
+}

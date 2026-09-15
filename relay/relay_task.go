@@ -23,7 +23,11 @@ import (
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
+
+// TaskSubmitAcceptedKey records HTTP acceptance before response parsing or persistence.
+const TaskSubmitAcceptedKey = "task_submit_upstream_accepted"
 
 type TaskSubmitResult struct {
 	UpstreamTaskID string
@@ -239,7 +243,15 @@ func RelayTaskSubmit(c *gin.Context, info *relaycommon.RelayInfo) (*TaskSubmitRe
 	if err != nil {
 		return nil, service.TaskErrorWrapper(err, "do_request_failed", http.StatusInternalServerError)
 	}
-	if resp != nil && resp.StatusCode != http.StatusOK {
+	seedance := info.ChannelType == constant.ChannelTypeVolcEngine || info.ChannelType == constant.ChannelTypeDoubaoVideo ||
+		(info.ChannelType == constant.ChannelTypeConfigurable && info.ChannelSetting.Protocol != nil && relaycommon.IsSeedanceVideoProfile(info.ChannelSetting.Protocol.ProfileID))
+	if seedance && resp != nil && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		c.Set(TaskSubmitAcceptedKey, true)
+	}
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
+	if resp != nil && resp.StatusCode != http.StatusOK && !c.GetBool(TaskSubmitAcceptedKey) {
 		responseBody, _ := io.ReadAll(resp.Body)
 		taskErr := service.TaskErrorWrapper(fmt.Errorf("%s", string(responseBody)), "fail_to_fetch_task", resp.StatusCode)
 		if c.GetString("configurable_native_profile_id") != "" {
@@ -418,7 +430,11 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	}
 	userId := c.GetInt("id")
 
-	originTask, exist, err := model.GetByTaskId(userId, taskId)
+	lookup := model.GetByTaskId
+	if isVolcengineVideoTaskQueryRequest(c) {
+		lookup = model.GetByTaskIDOrUpstreamID
+	}
+	originTask, exist, err := lookup(userId, taskId)
 	if err != nil {
 		taskResp = service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
 		return
@@ -437,6 +453,12 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	if realtimeResp := tryConfigurableFetch(c, originTask, returnNativeBody); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
+	}
+	if fetchErr, ok := c.Get("seedance_native_fetch_error"); ok {
+		return nil, fetchErr.(*dto.TaskError)
+	}
+	if isVolcengineVideoTaskQueryRequest(c) {
+		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("native task response unavailable"), "get_task_failed", http.StatusBadGateway)
 	}
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
@@ -603,6 +625,11 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	if !isConfigurable && !isDirectVolcEngine && !isAliWan3Native {
 		return nil
 	}
+	// Task integrity follows the provider protocol, not the client's URL or
+	// response format. Generic queries mutate the same task as native queries.
+	settings := channelModel.GetSetting()
+	protectSeedance := isVolcengineVideoTaskQueryRequest(c) || isDirectVolcEngine ||
+		(isConfigurable && settings.Protocol != nil && relaycommon.IsSeedanceVideoProfile(settings.Protocol.ProfileID))
 	baseURL := channelModel.GetBaseURL()
 	proxy := channelModel.GetSetting().Proxy
 	adaptor := GetTaskAdaptor(constant.TaskPlatform(strconv.Itoa(channelModel.Type)))
@@ -618,19 +645,50 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 			UpstreamModelName: task.Properties.UpstreamModelName,
 		},
 	})
-	resp, err := adaptor.FetchTask(baseURL, channelModel.Key, map[string]any{
+	key := channelModel.Key
+	if task.PrivateData.Key != "" {
+		key = task.PrivateData.Key
+	}
+	resp, err := adaptor.FetchTask(baseURL, key, map[string]any{
 		"task_id": task.GetUpstreamTaskID(),
 		"action":  task.Action,
 	}, proxy)
 	if err != nil || resp == nil {
+		if resp != nil && resp.Body != nil {
+			_ = resp.Body.Close()
+		}
+		if protectSeedance && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("upstream query unavailable"), "upstream_query_failed", http.StatusBadGateway))
+			return nil
+		}
 		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		if protectSeedance {
+			if resp.StatusCode >= 500 && (task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure) {
+				c.Header("X-Oneapi-Task-Cache", "terminal")
+				return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+			}
+			body, readErr := io.ReadAll(resp.Body)
+			fetchErr := service.TaskErrorWrapperLocal(fmt.Errorf("upstream query failed"), "upstream_query_failed", resp.StatusCode)
+			if readErr == nil && gjson.ValidBytes(body) {
+				fetchErr.RawBody = body
+			}
+			if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+				c.Header("Retry-After", retryAfter)
+			}
+			c.Set("seedance_native_fetch_error", fetchErr)
+			return nil
+		}
 		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		if protectSeedance && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure {
+			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("incomplete upstream query response"), "upstream_query_failed", http.StatusBadGateway))
+			return nil
+		}
 		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 	}
 	// A fetch that started before expiry may finish after it.
@@ -643,7 +701,37 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	}
 
 	ti, err := adaptor.ParseTaskResult(body)
-	if err == nil && ti != nil {
+	if protectSeedance {
+		if identityErr := relaycommon.ValidateSeedanceTaskIdentity(body, ti, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); identityErr != nil {
+			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(identityErr, "upstream_query_failed", http.StatusBadGateway))
+			return nil
+		}
+		if task.PrivateData.OfficialTaskID != "" {
+			// Some intermediary providers briefly return only the two IDs after
+			// acceptance. Do not invent an official status or settle this body.
+			if gjson.ValidBytes(body) && gjson.GetBytes(body, "id").String() == task.GetUpstreamTaskID() &&
+				gjson.GetBytes(body, "upstream_task_id").String() == task.PrivateData.OfficialTaskID &&
+				len(gjson.ParseBytes(body).Map()) == 2 {
+				if task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure {
+					c.Header("X-Oneapi-Task-Cache", "terminal")
+					return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+				}
+				c.Header("Retry-After", "2")
+				c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("task accepted; status is not available yet; retry this GET without resubmitting"), "task_status_pending", http.StatusServiceUnavailable))
+				return nil
+			}
+		}
+	}
+	if protectSeedance && (err != nil || ti == nil || !gjson.ValidBytes(body) ||
+		relaycommon.ValidateSeedanceTaskStatusForAdaptor(adaptor, body) != nil) {
+		c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("invalid upstream query response"), "upstream_query_failed", http.StatusBadGateway))
+		return nil
+	}
+	if protectSeedance && (task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure) && ti != nil && ti.Status != string(task.Status) {
+		c.Header("X-Oneapi-Task-Cache", "terminal")
+		return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+	}
+	if err == nil && ti != nil && (!protectSeedance || (task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure)) {
 		snap := task.Snapshot()
 		now := time.Now().Unix()
 		if ti.Status != "" {
@@ -675,14 +763,34 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 			task.Data = body
 		}
 		isDone := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
-		if !snap.Equal(task.Snapshot()) {
+		changed := !snap.Equal(task.Snapshot())
+		reloadConcurrent := false
+		if changed {
 			won, updateErr := task.UpdateWithStatus(snap.Status)
+			if protectSeedance && updateErr != nil {
+				c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("failed to persist task query result"), "task_persistence_failed", http.StatusInternalServerError))
+				return nil
+			}
+			reloadConcurrent = protectSeedance && !won
 			if updateErr == nil && won && isDone && snap.Status != task.Status {
 				if task.Status == model.TaskStatusSuccess {
 					service.SettleTaskBillingOnComplete(c.Request.Context(), adaptor, task, ti)
 				} else if task.Quota != 0 {
 					service.RefundTaskQuota(c.Request.Context(), task, task.FailReason)
 				}
+			}
+		}
+		// Even an unchanged upstream response can race a background transition.
+		// Recheck the persisted state before returning the pre-fetch snapshot.
+		if protectSeedance && (reloadConcurrent || !changed) {
+			persisted, exists, reloadErr := model.GetByTaskId(task.UserId, task.TaskID)
+			if reloadErr != nil || !exists {
+				c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("failed to reload concurrent task result"), "get_task_failed", http.StatusInternalServerError))
+				return nil
+			}
+			if reloadConcurrent || persisted.Status != task.Status {
+				*task = *persisted
+				return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 			}
 		}
 	}
@@ -735,6 +843,13 @@ func configurableStoredNativeFetchResponse(adaptor channel.TaskAdaptor, task *mo
 		// Submission data can contain a stale queued status. For a non-terminal
 		// task, prefer the latest status persisted on the task row.
 		stored = nil
+	} else {
+		// Local timeout/refund can make the task terminal while its last upstream
+		// body is still queued/running. Only reuse a matching terminal response.
+		result, err := adaptor.ParseTaskResult(stored)
+		if err != nil || result == nil || result.Status != string(task.Status) {
+			stored = nil
+		}
 	}
 	response, err := converter.ConvertToNativeFetchResponse(task, stored)
 	if err != nil {

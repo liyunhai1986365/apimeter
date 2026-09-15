@@ -100,8 +100,12 @@ func TestTaskAdaptorReturnsOfficialSeedanceCreateResponse(t *testing.T) {
 	if gjson.GetBytes(stored, "id").String() != "cgt-upstream" {
 		t.Fatalf("unexpected stored response: %s", stored)
 	}
-	got := recorder.Body.String()
-	if got != `{"id":"task_public"}` {
+	pending, ok := c.Get("seedance_native_submit_response")
+	if !ok || recorder.Body.Len() != 0 {
+		t.Fatal("response must wait for persistence")
+	}
+	got := string(pending.([]byte))
+	if got != `{"id":"cgt-upstream"}` {
 		t.Fatalf("unexpected official create response: %s", got)
 	}
 	if gjson.GetBytes(recorder.Body.Bytes(), "task_id").Exists() ||

@@ -753,3 +753,13 @@ cd web/default && bun run typecheck
 3. 在任务私有数据中保存 `profile_id`，让任务查询和 OpenAI Image/OpenAI Video 转换完全按提交时 profile 解析。
 4. 增加更多 response transform 配置，把不同上游结果统一转换为 OpenAI Image、OpenAI Video 或通用 TaskResponse。
 5. 增加 profile 级能力声明，用于前端自动提示字段、尺寸、分辨率和计费分档。
+
+## TgxMaas 素材库档案与禁止资源重放
+
+`seedance-tgxmaas` 接入 TgxMaas 视频和 12 项素材库/真人认证接口，配置步骤及账号隔离边界见 [TgxMaas 档案说明](seedance_tgxmaas_profile.md)。
+
+资源可设置 `disable_replay: true`，用于禁止请求失败后跨渠道重放。默认 false，原有档案行为不变。适用于供应商账号绑定的素材 ID、分组 ID 和认证会话等资源；该开关不提供跨多次请求的资源渠道绑定，仍需固定渠道或单独维护归属映射。
+
+资源的 `model` 默认表示请求未提供模型时的默认值；可显式声明 `fixed_model: true`，表示实际模型由该端点固定。此时渠道能力筛选、Token 白名单、计费及任务记录统一使用配置的 `model`，客户端的 `model` / `model_name` 不覆盖它。内置 Kling 3.0 Turbo 文生视频和图生视频端点已声明固定模型，管理员无需额外配置。未声明固定模型的端点继续保留显式请求模型优先的行为。
+
+Token 模型权限在解析出实际资源端点之后检查。具有固定或默认模型的接口不要求客户端重复提交模型；既未配置模型、请求也未提供模型的资源接口，仍拒绝开启模型白名单的 Token。

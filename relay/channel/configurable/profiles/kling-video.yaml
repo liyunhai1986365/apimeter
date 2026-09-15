@@ -285,6 +285,7 @@ resources:
   - id: turbo_text2video_create
     name: Kling 3.0 Turbo Text To Video Create
     model: kling-3.0-turbo
+    fixed_model: true
     billing:
       enabled: true
     async_task: &kling_turbo_async_task
@@ -324,6 +325,7 @@ resources:
   - id: turbo_image2video_create
     name: Kling 3.0 Turbo Image To Video Create
     model: kling-3.0-turbo
+    fixed_model: true
     billing:
       enabled: true
     async_task: *kling_turbo_async_task

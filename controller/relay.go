@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	"github.com/QuantumNous/new-api/relay"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/conversion"
@@ -33,6 +34,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
 )
 
 func relayHandler(c *gin.Context, info *relaycommon.RelayInfo) *types.NewAPIError {
@@ -915,8 +918,9 @@ func RelayTask(c *gin.Context) {
 
 	var result *relay.TaskSubmitResult
 	var taskErr *taskdto.TaskError
+	upstreamAccepted := false
 	defer func() {
-		if taskErr != nil && relayInfo.Billing != nil {
+		if taskErr != nil && !upstreamAccepted && !c.GetBool(relay.TaskSubmitAcceptedKey) && relayInfo.Billing != nil {
 			relayInfo.Billing.Refund(c)
 		}
 	}()
@@ -971,6 +975,11 @@ func RelayTask(c *gin.Context) {
 			perfmetrics.RecordRelaySample(relayInfo, true, 0)
 			break
 		}
+		if c.GetBool(relay.TaskSubmitAcceptedKey) {
+			logger.LogError(c, fmt.Sprintf("task submission accepted by channel %d but local processing failed (%s); reservation retained, reconcile before resubmitting", channel.Id, taskErr.Code))
+			taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("upstream accepted the submission but its result could not be confirmed; do not resubmit; contact the administrator with the request ID for reconciliation"), "task_submission_unconfirmed", http.StatusBadGateway)
+			break
+		}
 		service.MarkSmartRetryChannelFailure(c, channel, retryParam.ModelName, false)
 		if !taskErr.LocalError && shouldRecordPerfFailure(&types.NewAPIError{StatusCode: taskErr.StatusCode}) {
 			recordRelayAttemptFailure(c, relayInfo)
@@ -1005,6 +1014,7 @@ func RelayTask(c *gin.Context) {
 
 	// ── 成功：结算 + 日志 + 插入任务 ──
 	if taskErr == nil {
+		upstreamAccepted = true
 		if settleErr := service.SettleBilling(c, relayInfo, result.Quota); settleErr != nil {
 			common.SysError("settle task billing error: " + settleErr.Error())
 		}
@@ -1012,6 +1022,15 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
+		if pending, ok := c.Get(configurable.NativeTaskSubmitResponseKey); ok {
+			officialID := gjson.GetBytes(result.TaskData, "upstream_task_id").String()
+			if strings.HasPrefix(officialID, "cgt-") {
+				task.PrivateData.OfficialTaskID = officialID
+				if response, err := sjson.SetBytes(pending.([]byte), "id", officialID); err == nil {
+					c.Set(configurable.NativeTaskSubmitResponseKey, response)
+				}
+			}
+		}
 		task.PrivateData.BillingSource = relayInfo.BillingSource
 		task.PrivateData.SubscriptionId = relayInfo.SubscriptionId
 		task.PrivateData.TokenId = relayInfo.TokenId
@@ -1043,7 +1062,12 @@ func RelayTask(c *gin.Context) {
 		task.Data = result.TaskData
 		task.Action = relayInfo.Action
 		if insertErr := task.Insert(); insertErr != nil {
-			common.SysError("insert task error: " + insertErr.Error())
+			common.SysError(fmt.Sprintf("insert task error: public_id=%s upstream_id=%s: %v", task.TaskID, result.UpstreamTaskID, insertErr))
+			if _, pending := c.Get(configurable.NativeTaskSubmitResponseKey); pending {
+				taskErr = service.TaskErrorWrapperLocal(fmt.Errorf("upstream task %s accepted but local persistence failed; do not resubmit", result.UpstreamTaskID), "task_persistence_failed", http.StatusInternalServerError)
+			}
+		} else if pending, ok := c.Get(configurable.NativeTaskSubmitResponseKey); ok {
+			c.Data(http.StatusOK, "application/json", pending.([]byte))
 		}
 	}
 
@@ -1065,7 +1089,7 @@ func respondTaskError(c *gin.Context, taskErr *taskdto.TaskError) {
 }
 
 func shouldRetryTaskRelay(c *gin.Context, channelId int, taskErr *taskdto.TaskError, retryTimes int, hasNextTokenGroup bool) bool {
-	if taskErr == nil || taskErr.LocalError || taskErr.Code == "do_request_failed" || taskErr.Code == "copy_response_body_failed" {
+	if c.GetBool(relay.TaskSubmitAcceptedKey) || taskErr == nil || taskErr.LocalError || taskErr.Code == "do_request_failed" || taskErr.Code == "copy_response_body_failed" {
 		return false
 	}
 	// A submit timeout may have already created a task. Preserve origin-bound

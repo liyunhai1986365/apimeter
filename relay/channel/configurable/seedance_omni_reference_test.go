@@ -18,7 +18,7 @@ func TestSeedanceOmniReferenceAcrossProfiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, profileID := range []string{
 		"seedance2-service-inference", "doubao-seedance-max-service-inference",
-		"doubao-seedance-2", "doubao-seedance-2-api-assets", "seedance2-modelsell", "seedance2-ark-task-assets",
+		"doubao-seedance-2", "doubao-seedance-2-api-assets", "seedance2-modelsell", "seedance2-ark-task-assets", "seedance-tgxmaas",
 	} {
 		for _, mode := range []string{"native", "generic", "generic_metadata"} {
 			for _, taskType := range []string{"", "auto", "reference", "edit", "extend"} {
