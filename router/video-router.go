@@ -17,6 +17,7 @@ type configurableAssetEndpoint struct {
 }
 
 func SetVideoRouter(router *gin.Engine) {
+	router.POST("/", middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayArkAssetAction)
 	// Video proxy: accepts either session auth (dashboard) or token auth (API clients)
 	videoProxyRouter := router.Group("/v1")
 	videoProxyRouter.Use(middleware.RouteTag("relay"))

@@ -251,3 +251,27 @@ func TestTgxMaasResourceRoutesRegistered(t *testing.T) {
 		}
 	}
 }
+
+func TestTgxMaasCompatibilityRoutesRequireAuthentication(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	SetApiRouter(r)
+	SetDashboardRouter(r)
+	SetRelayRouter(r)
+	SetVideoRouter(r)
+	for _, tc := range []struct{ method, path string }{
+		{"POST", "/?Action=CreateAsset&Version=2024-01-01"},
+		{"POST", "/api/assets"}, {"POST", "/api/assets/upload"}, {"GET", "/api/assets"},
+		{"GET", "/api/assets/asset_local"}, {"PATCH", "/api/assets/asset_local"}, {"DELETE", "/api/assets/asset_local"},
+		{"POST", "/api/asset-groups"}, {"GET", "/api/asset-groups"},
+		{"GET", "/api/asset-groups/ag_local"}, {"PATCH", "/api/asset-groups/ag_local"}, {"DELETE", "/api/asset-groups/ag_local"},
+		{"POST", "/v1/asset-groups"}, {"GET", "/v1/asset-groups"},
+		{"GET", "/v1/asset-groups/ag_local"}, {"PATCH", "/v1/asset-groups/ag_local"}, {"DELETE", "/v1/asset-groups/ag_local"},
+	} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(tc.method, tc.path, strings.NewReader(`{}`)))
+		if w.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s: expected 401, got %d: %s", tc.method, tc.path, w.Code, w.Body.String())
+		}
+	}
+}

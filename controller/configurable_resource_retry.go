@@ -46,6 +46,10 @@ func RelayConfigurableResource(c *gin.Context) {
 		if !authorizeConfigurableResourceModel(c, resource) {
 			return
 		}
+		if err := prepareTgxMaasAssetRequest(c, channel, profile, resource); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
 		modelName := configurableResourceRequestModel(c, resource)
 		service.UpdateCurrentRetryRouteTarget(c, channel, common.GetContextKeyString(c, constant.ContextKeyAutoGroup))
 		lastErr = relayConfigurableResourceAttempt(c, channel, profile, resource)

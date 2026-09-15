@@ -622,6 +622,9 @@ func buildConfigurableResourceBody(c *gin.Context, resource *configurable.Resour
 }
 
 func buildConfigurableResourceBodyWithPreResults(c *gin.Context, resource *configurable.ResourceConfig, preResults map[string]any) ([]byte, error) {
+	if body, ok := c.Get(tgxMaasAssetBodyKey); ok {
+		return body.([]byte), nil
+	}
 	if len(resource.Request.Fields) == 0 {
 		storage, err := common.GetBodyStorage(c)
 		if err != nil {

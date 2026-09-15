@@ -237,6 +237,11 @@ resources:
     public:
       method: POST
       path: /v1/private-avatar/groups
+    aliases:
+      - method: POST
+        path: /api/asset-groups
+      - method: POST
+        path: /v1/asset-groups
     upstream:
       method: POST
       path: /v1/private-avatar/groups
@@ -250,6 +255,11 @@ resources:
     public:
       method: POST
       path: /v1/private-avatar/groups/list
+    aliases:
+      - method: GET
+        path: /api/asset-groups
+      - method: GET
+        path: /v1/asset-groups
     upstream:
       method: POST
       path: /v1/private-avatar/groups/list
@@ -263,6 +273,11 @@ resources:
     public:
       method: GET
       path: /v1/private-avatar/groups/{group_id}
+    aliases:
+      - method: GET
+        path: /api/asset-groups/{group_id}
+      - method: GET
+        path: /v1/asset-groups/{group_id}
     upstream:
       method: GET
       path: /v1/private-avatar/groups/{group_id}
@@ -276,6 +291,11 @@ resources:
     public:
       method: PATCH
       path: /v1/private-avatar/groups/{group_id}
+    aliases:
+      - method: PATCH
+        path: /api/asset-groups/{group_id}
+      - method: PATCH
+        path: /v1/asset-groups/{group_id}
     upstream:
       method: PATCH
       path: /v1/private-avatar/groups/{group_id}
@@ -289,6 +309,11 @@ resources:
     public:
       method: DELETE
       path: /v1/private-avatar/groups/{group_id}
+    aliases:
+      - method: DELETE
+        path: /api/asset-groups/{group_id}
+      - method: DELETE
+        path: /v1/asset-groups/{group_id}
     upstream:
       method: DELETE
       path: /v1/private-avatar/groups/{group_id}
@@ -302,6 +327,11 @@ resources:
     public:
       method: POST
       path: /v1/private-avatar/assets
+    aliases:
+      - method: POST
+        path: /api/assets
+      - method: POST
+        path: /api/assets/upload
     upstream:
       method: POST
       path: /v1/private-avatar/assets
@@ -315,6 +345,9 @@ resources:
     public:
       method: POST
       path: /v1/private-avatar/assets/list
+    aliases:
+      - method: GET
+        path: /api/assets
     upstream:
       method: POST
       path: /v1/private-avatar/assets/list
@@ -328,6 +361,11 @@ resources:
     public:
       method: GET
       path: /v1/private-avatar/assets/{asset_id}
+    aliases:
+      - method: GET
+        path: /api/assets/{id}
+    path_params:
+      asset_id: id
     upstream:
       method: GET
       path: /v1/private-avatar/assets/{asset_id}
@@ -341,6 +379,11 @@ resources:
     public:
       method: PATCH
       path: /v1/private-avatar/assets/{asset_id}
+    aliases:
+      - method: PATCH
+        path: /api/assets/{id}
+    path_params:
+      asset_id: id
     upstream:
       method: PATCH
       path: /v1/private-avatar/assets/{asset_id}
@@ -354,6 +397,11 @@ resources:
     public:
       method: DELETE
       path: /v1/private-avatar/assets/{asset_id}
+    aliases:
+      - method: DELETE
+        path: /api/assets/{id}
+    path_params:
+      asset_id: id
     upstream:
       method: DELETE
       path: /v1/private-avatar/assets/{asset_id}

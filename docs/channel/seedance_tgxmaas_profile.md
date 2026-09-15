@@ -137,3 +137,45 @@ go test -race ./controller -run '^TestTgxMaasResourceProtocol$' -count=1
 开启模型白名单的 Token 调用素材接口时必须显式指定允许的 `model`（JSON body 或 query）。GET/DELETE 可使用 `?model=实际允许模型名`。空白名单、禁止模型或省略模型均返回 403，普通和智能路由执行相同校验。未开启模型限制的 Token 保持原有无模型调用能力。这是模型访问控制，不改变同一上游账号共享素材空间的边界。
 
 视频创建已收到上游 HTTP 2xx，但无法解析出合法任务 ID 或响应不完整时，网关返回 502 `task_submission_unconfirmed`，不自动重放请求，并保留预扣等待对账。客户端不能据此自动重新 POST；应记录网关请求 ID，交由管理员核对上游是否创建成功。素材响应保留上游 `Retry-After` 和 `X-Request-Id`，便于退避和定位。
+
+## 官方 Action 与通用接口转换
+
+在 `seedance-tgxmaas` 渠道上，以下两类入口复用现有资源鉴权、渠道选择和上游 Bearer Key。需要部署包含本次转换代码的新版本；仅更新渠道配置不会改变旧版本的路由能力。
+
+- 官方操作形式：`POST /?Action=<操作名>&Version=2024-01-01`，JSON 请求体使用官方字段名，客户端使用本网关 Bearer Token。
+- 通用入口：素材 `/api/assets`（创建/列表）、`/api/assets/upload`（创建）、`/api/assets/{id}`（详情/更新/删除）；分组 `/api/asset-groups` 和 `/v1/asset-groups`（创建/列表），在其后追加 `/{group_id}` 获取详情、更新或删除。创建用 POST、列表/详情用 GET、更新用 PATCH、删除用 DELETE。
+
+| Action | TgxMaas 上游 |
+| --- | --- |
+| CreateAsset | POST /v1/private-avatar/assets |
+| ListAssets | POST /v1/private-avatar/assets/list |
+| GetAsset | GET /v1/private-avatar/assets/{Id} |
+| UpdateAsset | PATCH /v1/private-avatar/assets/{Id} |
+| DeleteAsset | DELETE /v1/private-avatar/assets/{Id} |
+| CreateAssetGroup | POST /v1/private-avatar/groups |
+| ListAssetGroups | POST /v1/private-avatar/groups/list |
+| GetAssetGroup | GET /v1/private-avatar/groups/{Id} |
+| UpdateAssetGroup | PATCH /v1/private-avatar/groups/{Id} |
+| DeleteAssetGroup | DELETE /v1/private-avatar/groups/{Id} |
+
+Action 请求中的 `Id` 转为路径参数。通用请求兼容 `name/description/url/asset_type/group_id` 等小写字段，转换成 `Name/Description/URL/AssetType/GroupId`；不允许同时提交大小写两种名称。未映射扩展字段、显式零值、false 和大整数保留。
+
+列表使用 `Filter`、`MaxResults`、`NextToken`；通用 GET 可传 `filter`（URL 编码的 JSON 对象）、`max_results`、`next_token`，转换为上游 POST JSON。仅支持默认项目，非默认 `ProjectName` 与 `PageNumber/PageSize`（包括 `page/page_size`）返回 400，避免伪装支持上游未确认的分页或项目语义。
+
+例如，创建素材组：
+
+```http
+POST /?Action=CreateAssetGroup&Version=2024-01-01
+Authorization: Bearer <网关Token>
+Content-Type: application/json
+
+{"Name":"examples","model":"doubao-seedance-2-5-260628"}
+```
+
+随后将返回的 `Result.Id` 放入 CreateAsset 的 `GroupId`。查询/更新/删除也使用 `Result.Id`；`upstream_asset_id` 作为官方原始素材 ID 保留返回，不替换操作 ID。响应保持供应商原始结构和分页令牌。
+
+转换入口未指定 model 时，未启用模型白名单的 Token 会从选中渠道的可用模型中选取一个补给供应商；模型受限 Token 仍须通过 JSON 或 query 显式指定允许的 model。Token 所属分组需覆盖渠道分组，相关资源应固定使用同一供应商账号。
+
+这是官方 Action/字段到供应商接口的转换，不实现官方 AK/SK 签名认证，不保证官方 SDK 直接替换域名即可使用，也不提供官方 ID 到供应商 ID 的反向查找。
+
+本次验证使用模拟上游覆盖两种入口的 10 项操作、字段/查询映射、ID 保留、非法请求和模型权限，并检查完整路由注册顺序；未新增真实上游调用。
