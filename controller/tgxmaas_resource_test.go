@@ -87,7 +87,7 @@ func TestTgxMaasResourceProtocol(t *testing.T) {
 func tgxMaasResourceTestRouter(t *testing.T, upstream, key, modelName string) *gin.Engine {
 	t.Helper()
 	r := seedanceTestRouter(t, upstream, key, modelName)
-	require.NoError(t, model.DB.AutoMigrate(&model.RetryRouteEvent{}))
+	require.NoError(t, model.DB.AutoMigrate(&model.RetryRouteEvent{}, &model.ConfigurableResourceState{}))
 	ch, err := model.GetChannelById(20, true)
 	require.NoError(t, err)
 	ch.Type = constant.ChannelTypeConfigurable
@@ -111,11 +111,15 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 		t.Skip("requires explicit TGXMAAS_ASSETS_LIVE_CONFIG")
 	}
 	var cfg struct {
-		URL           string `json:"url"`
-		Key           string `json:"key"`
-		Model         string `json:"model"`
-		AssetURL      string `json:"asset_url"`
-		GenerateVideo bool   `json:"generate_video"`
+		URL              string `json:"url"`
+		Key              string `json:"key"`
+		Model            string `json:"model"`
+		AssetURL         string `json:"asset_url"`
+		GenerateVideo    bool   `json:"generate_video"`
+		OfficialActions  bool   `json:"official_actions"`
+		ProjectName      string `json:"project_name"`
+		PagePagination   bool   `json:"page_pagination"`
+		VerifyOriginalID bool   `json:"verify_original_id"`
 	}
 	data, err := os.ReadFile(configPath)
 	require.NoError(t, err)
@@ -126,7 +130,59 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 	require.NotEmpty(t, evidence)
 	require.NoError(t, os.MkdirAll(evidence, 0700))
 	r := tgxMaasResourceTestRouter(t, cfg.URL, cfg.Key, cfg.Model)
+	if cfg.OfficialActions {
+		registerTgxConversionTestRoutes(t, r)
+	}
 	call := func(label, method, path string, body any) *httptest.ResponseRecorder {
+		if strings.HasPrefix(path, "/v1/private-avatar/") {
+			mapped := map[string]any{}
+			if original, ok := body.(map[string]any); ok {
+				for key, value := range original {
+					mapped[key] = value
+				}
+			}
+			if cfg.ProjectName != "" {
+				mapped["ProjectName"] = cfg.ProjectName
+			}
+			if cfg.PagePagination && strings.HasSuffix(path, "/list") {
+				delete(mapped, "MaxResults")
+				delete(mapped, "NextToken")
+				mapped["PageNumber"], mapped["PageSize"] = 1, 10
+			}
+			body = mapped
+		}
+		if cfg.OfficialActions && strings.HasPrefix(path, "/v1/private-avatar/") {
+			parts := strings.Split(strings.TrimPrefix(path, "/v1/private-avatar/"), "/")
+			kind, plural := "Asset", "Assets"
+			if parts[0] == "groups" {
+				kind, plural = "AssetGroup", "AssetGroups"
+			}
+			action := ""
+			switch method {
+			case "POST":
+				action = "Create" + kind
+				if len(parts) == 2 && parts[1] == "list" {
+					action = "List" + plural
+				}
+			case "GET":
+				action = "Get" + kind
+			case "PATCH":
+				action = "Update" + kind
+			case "DELETE":
+				action = "Delete" + kind
+			}
+			mapped := map[string]any{}
+			if original, ok := body.(map[string]any); ok {
+				for key, value := range original {
+					mapped[key] = value
+				}
+			}
+			if len(parts) == 2 && parts[1] != "list" {
+				mapped["Id"] = parts[1]
+			}
+			body = mapped
+			method, path = "POST", "/?Action="+action+"&Version=2024-01-01"
+		}
 		raw := ""
 		if body != nil {
 			b, e := common.Marshal(body)
@@ -198,6 +254,16 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 		time.Sleep(3 * time.Second)
 	}
 	require.True(t, active, "asset did not become Active before deadline")
+	if cfg.VerifyOriginalID {
+		originalID := gjson.Get(fetched.Body.String(), "Result.upstream_asset_id").String()
+		if originalID == "" && strings.HasPrefix(assetID, "asset-") {
+			originalID = assetID
+		}
+		require.NotEmpty(t, originalID, "supplier did not return an original asset ID")
+		original := call("asset-get-original-id", "GET", "/v1/private-avatar/assets/"+originalID, nil)
+		success(original)
+		require.Equal(t, "Active", gjson.Get(original.Body.String(), "Result.Status").String())
+	}
 	success(call("asset-update", "PATCH", "/v1/private-avatar/assets/"+assetID, map[string]any{"Name": name + "-updated"}))
 	fetched = call("asset-get-updated", "GET", "/v1/private-avatar/assets/"+assetID, nil)
 	success(fetched)

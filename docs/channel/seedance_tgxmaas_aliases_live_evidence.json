@@ -1,0 +1,248 @@
+{
+  "date": "2026-09-16",
+  "upstream": "https://api.sctgx.cn",
+  "profile": "seedance-tgxmaas",
+  "model": "doubao-seedance-2-5-260628",
+  "mode": "local gateway production handlers with isolated SQLite and live upstream; not deployed gateway",
+  "result": "PASS",
+  "created_groups": 2,
+  "created_assets": 2,
+  "cleanup": "all test resources deleted",
+  "video_tasks_created": 0,
+  "requests": [
+    {
+      "step": "group-create",
+      "method": "POST",
+      "path": "/api/asset-groups",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_df7e0b6dc02f44309e0affad71cbfaba"
+      }
+    },
+    {
+      "step": "group-get",
+      "method": "GET",
+      "path": "/api/asset-groups/ag_df7e0b6dc02f44309e0affad71cbfaba",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_df7e0b6dc02f44309e0affad71cbfaba"
+      }
+    },
+    {
+      "step": "asset-create",
+      "method": "POST",
+      "path": "/api/assets",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_8049070b68124e65a706f646dd93535e",
+        "GroupId": "ag_df7e0b6dc02f44309e0affad71cbfaba",
+        "upstream_asset_id": "asset-20260916134943-n7kx4",
+        "Status": "Processing"
+      }
+    },
+    {
+      "step": "asset-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_8049070b68124e65a706f646dd93535e",
+        "GroupId": "ag_df7e0b6dc02f44309e0affad71cbfaba",
+        "upstream_asset_id": "asset-20260916134943-n7kx4",
+        "Status": "Processing"
+      }
+    },
+    {
+      "step": "asset-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_8049070b68124e65a706f646dd93535e",
+        "GroupId": "ag_df7e0b6dc02f44309e0affad71cbfaba",
+        "upstream_asset_id": "asset-20260916134943-n7kx4",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "asset-get",
+      "method": "GET",
+      "path": "/api/assets/asset_8049070b68124e65a706f646dd93535e",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_8049070b68124e65a706f646dd93535e",
+        "GroupId": "ag_df7e0b6dc02f44309e0affad71cbfaba",
+        "upstream_asset_id": "asset-20260916134943-n7kx4",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "asset-get",
+      "method": "GET",
+      "path": "/v1/assets/asset_8049070b68124e65a706f646dd93535e",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_8049070b68124e65a706f646dd93535e",
+        "GroupId": "ag_df7e0b6dc02f44309e0affad71cbfaba",
+        "upstream_asset_id": "asset-20260916134943-n7kx4",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "asset-get",
+      "method": "GET",
+      "path": "/v1/assets/get?asset_id=asset_8049070b68124e65a706f646dd93535e",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_8049070b68124e65a706f646dd93535e",
+        "GroupId": "ag_df7e0b6dc02f44309e0affad71cbfaba",
+        "upstream_asset_id": "asset-20260916134943-n7kx4",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "group-final-get",
+      "method": "GET",
+      "path": "/api/asset-groups/ag_df7e0b6dc02f44309e0affad71cbfaba",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_df7e0b6dc02f44309e0affad71cbfaba"
+      }
+    },
+    {
+      "step": "asset-cleanup",
+      "method": "DELETE",
+      "path": "/api/assets/asset_8049070b68124e65a706f646dd93535e",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_8049070b68124e65a706f646dd93535e"
+      }
+    },
+    {
+      "step": "group-cleanup",
+      "method": "DELETE",
+      "path": "/api/asset-groups/ag_df7e0b6dc02f44309e0affad71cbfaba",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_df7e0b6dc02f44309e0affad71cbfaba"
+      }
+    },
+    {
+      "step": "group-create",
+      "method": "POST",
+      "path": "/v1/asset-groups",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_c39b41f7aef641189334982d99cf8898"
+      }
+    },
+    {
+      "step": "group-get",
+      "method": "GET",
+      "path": "/v1/asset-groups/ag_c39b41f7aef641189334982d99cf8898",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_c39b41f7aef641189334982d99cf8898"
+      }
+    },
+    {
+      "step": "asset-create",
+      "method": "POST",
+      "path": "/v1/assets",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_7f350ae860f94409bd87882ef183e3f7",
+        "GroupId": "ag_c39b41f7aef641189334982d99cf8898",
+        "upstream_asset_id": "asset-20260916134947-ct4zb",
+        "Status": "Processing"
+      }
+    },
+    {
+      "step": "asset-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_7f350ae860f94409bd87882ef183e3f7",
+        "GroupId": "ag_c39b41f7aef641189334982d99cf8898",
+        "upstream_asset_id": "asset-20260916134947-ct4zb",
+        "Status": "Processing"
+      }
+    },
+    {
+      "step": "asset-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_7f350ae860f94409bd87882ef183e3f7",
+        "GroupId": "ag_c39b41f7aef641189334982d99cf8898",
+        "upstream_asset_id": "asset-20260916134947-ct4zb",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "asset-get",
+      "method": "GET",
+      "path": "/api/assets/asset_7f350ae860f94409bd87882ef183e3f7",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_7f350ae860f94409bd87882ef183e3f7",
+        "GroupId": "ag_c39b41f7aef641189334982d99cf8898",
+        "upstream_asset_id": "asset-20260916134947-ct4zb",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "asset-get",
+      "method": "GET",
+      "path": "/v1/assets/asset_7f350ae860f94409bd87882ef183e3f7",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_7f350ae860f94409bd87882ef183e3f7",
+        "GroupId": "ag_c39b41f7aef641189334982d99cf8898",
+        "upstream_asset_id": "asset-20260916134947-ct4zb",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "asset-get",
+      "method": "GET",
+      "path": "/v1/assets/get?asset_id=asset_7f350ae860f94409bd87882ef183e3f7",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_7f350ae860f94409bd87882ef183e3f7",
+        "GroupId": "ag_c39b41f7aef641189334982d99cf8898",
+        "upstream_asset_id": "asset-20260916134947-ct4zb",
+        "Status": "Active"
+      }
+    },
+    {
+      "step": "group-final-get",
+      "method": "GET",
+      "path": "/v1/asset-groups/ag_c39b41f7aef641189334982d99cf8898",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_c39b41f7aef641189334982d99cf8898"
+      }
+    },
+    {
+      "step": "asset-cleanup",
+      "method": "DELETE",
+      "path": "/v1/assets/asset_7f350ae860f94409bd87882ef183e3f7",
+      "http_status": 200,
+      "response": {
+        "Id": "asset_7f350ae860f94409bd87882ef183e3f7"
+      }
+    },
+    {
+      "step": "group-cleanup",
+      "method": "DELETE",
+      "path": "/v1/asset-groups/ag_c39b41f7aef641189334982d99cf8898",
+      "http_status": 200,
+      "response": {
+        "Id": "ag_c39b41f7aef641189334982d99cf8898"
+      }
+    }
+  ]
+}

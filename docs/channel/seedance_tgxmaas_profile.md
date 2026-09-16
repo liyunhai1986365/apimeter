@@ -160,7 +160,7 @@ go test -race ./controller -run '^TestTgxMaasResourceProtocol$' -count=1
 
 Action 请求中的 `Id` 转为路径参数。通用请求兼容 `name/description/url/asset_type/group_id` 等小写字段，转换成 `Name/Description/URL/AssetType/GroupId`；不允许同时提交大小写两种名称。未映射扩展字段、显式零值、false 和大整数保留。
 
-列表使用 `Filter`、`MaxResults`、`NextToken`；通用 GET 可传 `filter`（URL 编码的 JSON 对象）、`max_results`、`next_token`，转换为上游 POST JSON。仅支持默认项目，非默认 `ProjectName` 与 `PageNumber/PageSize`（包括 `page/page_size`）返回 400，避免伪装支持上游未确认的分页或项目语义。
+列表支持 `Filter` 与 `PageNumber/PageSize`，同时保留 `MaxResults/NextToken`；两套分页参数不可混用，页码和数量必须为正整数。通用 GET 支持对应 snake_case query（filter 为 URL 编码 JSON），转换为上游 POST JSON。`ProjectName` 可以指定非默认项目，省略时交由上游执行默认项目或组项目继承规则。详情 GET 也会携带项目参数。
 
 例如，创建素材组：
 
@@ -176,6 +176,77 @@ Content-Type: application/json
 
 转换入口未指定 model 时，未启用模型白名单的 Token 会从选中渠道的可用模型中选取一个补给供应商；模型受限 Token 仍须通过 JSON 或 query 显式指定允许的 model。Token 所属分组需覆盖渠道分组，相关资源应固定使用同一供应商账号。
 
-这是官方 Action/字段到供应商接口的转换，不实现官方 AK/SK 签名认证，不保证官方 SDK 直接替换域名即可使用，也不提供官方 ID 到供应商 ID 的反向查找。
+这是官方 Action/字段到供应商接口的转换，客户端仍使用网关 Bearer Token，不实现官方 AK/SK 签名认证。已记录的原始 ID 可反查供应商操作 ID，见下文项目与 ID 兼容说明。
 
 本次验证使用模拟上游覆盖两种入口的 10 项操作、字段/查询映射、ID 保留、非法请求和模型权限，并检查完整路由注册顺序；未新增真实上游调用。
+
+### `/v1` 素材入口兼容
+
+以下入口与 `/api` 入口使用相同的 TgxMaas 转换和权限检查：
+
+| 网关入口 | 作用 | TgxMaas 上游 |
+| --- | --- | --- |
+| POST /v1/asset-groups | 创建分组，支持 name/description 或 Name/Description | POST /v1/private-avatar/groups |
+| POST /v1/assets | 创建素材，携带有效 group_id（或 GroupId） | POST /v1/private-avatar/assets |
+| GET /v1/assets | 列表，使用 filter/max_results/next_token | POST /v1/private-avatar/assets/list |
+| POST /v1/assets/get | JSON 携带 asset_id，也兼容 Id/id | GET /v1/private-avatar/assets/{素材ID} |
+| GET /v1/assets/get?asset_id=asset_local | query 携带素材 ID | GET /v1/private-avatar/assets/{素材ID} |
+| GET/PATCH/DELETE /v1/assets/{id} | 详情/更新/删除 | 同方法 /v1/private-avatar/assets/{id} |
+
+`POST /v1/asset-groups` 是网关兼容创建路径，不会原样发给 TgxMaas；供应商实际创建路径仍是 `/v1/private-avatar/groups`。`/v1/assets/get` 缺少 ID、ID 类型非法或多个 ID 字段冲突时返回 400，不会向上游发送缺少路径参数的查询。
+
+完整路由集成测试使用渠道 14（type=999、profile=seedance-tgxmaas、group=default）和模拟上游，交叉验证 `/api/asset-groups`、`/v1/asset-groups` 创建分组及 `/api/assets`、`/v1/assets` 携带同一 GroupId 创建素材，再通过详情和 get 入口读回双 ID、GroupId 和 Active 状态。该测试不代表真实素材处理已重新实测。
+
+### 2026-09-16 真实上游复查
+
+使用用户授权的 TgxMaas 连接，通过本地修改后的生产控制器、TokenAuth、渠道选择与隔离 SQLite 连接 `https://api.sctgx.cn`；不是直接绕过网关调用供应商，也不代表已部署网关已更新。
+
+五个入口全部实测 HTTP 200：`POST /api/asset-groups`、`POST /api/assets`（携带有效 group_id）、`POST /v1/assets`、`POST /v1/assets/get`、`POST /v1/asset-groups`。两份素材均从 Processing 转为 Active，查询核对供应商素材 ID、火山原始 upstream_asset_id 和 GroupId 一致。另验证两个路径详情入口及 GET /v1/assets/get?asset_id=...，并在素材完成处理后再次读回分组。
+
+只创建两个临时分组及两个图片素材，均已删除；没有生成视频。临时凭证文件已删除，仓库证据不含 Key、签名链接或完整原始响应。
+
+- 可复现用例：`TestTgxMaasAssetAliasesLive`，默认跳过；显式设置 `TGXMAAS_ALIASES_LIVE_CONFIG`（url/key/model/asset_url）和 `TGXMAAS_ALIASES_LIVE_EVIDENCE` 才会运行。
+- [脱敏逐请求证据](seedance_tgxmaas_aliases_live_evidence.json)。
+- 完整私有过程日志：`/tmp/tgxmaas-aliases-live.log`，原始响应：`/tmp/tgxmaas-aliases-live-evidence/`。
+
+
+## 项目、分页与原始 ID 兼容（2026-09-16 修复）
+
+对照供应商 [私域素材指南](https://api.sctgx.cn/api-docs/9456586m0)，官方 Action、通用 REST 和供应商原生 REST 三类入口现均支持项目与页码分页。示例：
+
+```http
+POST /?Action=ListAssets&Version=2024-01-01
+Authorization: Bearer <网关 Token>
+Content-Type: application/json
+```
+
+```json
+{
+  "ProjectName": "your-authorized-project",
+  "Filter": {"GroupIds": ["创建分组返回的ID"], "Statuses": ["Active"]},
+  "PageNumber": 1,
+  "PageSize": 10
+}
+```
+
+- `GetAsset/GetAssetGroup` 的 JSON `ProjectName` 转换为上游 GET query；REST 详情支持 `?ProjectName=...` 或 `?project_name=...`。项目值按 URL 编码保留。创建/修改/删除也保留项目范围。
+- 原生视频请求使用顶层 `ProjectName`；通用视频请求使用 `metadata.ProjectName` 或 `metadata.project_name`。不会强行注入 default，保留省略时的继承语义。
+- 供应商当前实测仍返回 `asset_...` 操作 ID 和 `upstream_asset_id=asset-...`；直接请求供应商原始 ID 详情返回 404。网关从成功创建、查询、更新、列表响应中学习双层 ID，持久保存在现有 `ConfigurableResourceState` 表，按网关用户、渠道、项目隔离。
+- 已学习的原始 ID 可用于官方 Action/REST 的查询、更新、删除；分组响应提供 `upstream_group_id` 时同样学习，创建素材 GroupId 和列表 Filter.GroupIds 可转换。没有返回的原始分组 ID 不会凭空生成。
+- 图片、视频、音频的 `asset://asset-...` 引用也使用同一映射，保留原 content 顺序和 role。历史素材需先通过供应商操作 ID 查询或列表读取以建立映射；未记录的原始 ID继续传给上游。
+- 响应继续保留供应商实际 Result.Id 与 upstream_asset_id，不替换返回结构。映射不等同于完整素材所有权管理：渠道选择仍需使用同一上游账号，共享渠道 Key 的用户资源隔离由部署配置及供应商权限共同保证。
+
+验证：三种入口共 30 项操作的 Mock、项目 query、分页和非法混用校验、持久 ID 生命周期、三种媒体引用转换以及用户/渠道/项目映射范围验证通过。真实官方 Action 测试覆盖普通素材/组全部 10 项操作，页码参数被接收，原始 asset ID 详情返回 200，测试资源已清理。非默认授权项目、多页翻页实际效果及本次媒体引用生成未实测。
+
+脱敏证据：[seedance_tgxmaas_project_live_evidence.json](seedance_tgxmaas_project_live_evidence.json)。复现 `TestTgxMaasAssetsLive` 配置增加 `official_actions=true`、`project_name=default`、`page_pagination=true`、`verify_original_id=true`；仅显式启用时连接供应商。
+
+
+## 新 Key 与 nmyk 项目复测（2026-09-16）
+
+使用用户另行提供的新 Key，通过本地生产处理链路重新实测。`default` 返回无启用素材渠道；指定供应商分配的 `ProjectName=nmyk` 后，普通素材/组 10 项操作全部成功，原始 asset ID 查询成功，素材处理为 Active，测试对象已清理。此次补齐了非默认授权项目的真实验证。
+
+视频模型 `doubao-seedance-2-5-260628`：MOV 和 MP4 各一个任务完成并下载；MOV 组合请求 `duration=-1` 返回 12 秒，`seed=0`、`execution_expires_after=3600`、`safety_identifier` 正确返回，JPEG 尾帧下载成功；返回 cgt 原始任务 ID、完整 usage 和火山 TOS 链接。两种容器标识分别为 qt/isom。
+
+`tools=[web_search]` 被接收，但实际搜索次数仍为 0。seed 的随机性控制效果、超时到期终止行为未验证。`bitrate_mode=vbr` 单独请求被上游 HTTP 400 拒绝，未创建任务；网关通用视频入口现已补齐 `metadata.bitrate_mode` 映射，Mock 验证原生/通用入口均保留该字段，这不代表上游接受。
+
+脱敏证据：[seedance_new_key_capabilities_20260916.json](seedance_new_key_capabilities_20260916.json)。未在仓库保存 Key 或签名 URL；临时凭证配置已删除。

@@ -1,0 +1,308 @@
+{
+  "date": "2026-09-16",
+  "upstream": "https://api.sctgx.cn",
+  "model": "doubao-seedance-2-5-260628",
+  "scope": "new user-supplied credential; local production handlers, isolated SQLite and real supplier; not deployed gateway",
+  "mov": {
+    "request": {
+      "content": [
+        {
+          "text": "请联网搜索玻璃蛙的外观特征，生成一段展示玻璃蛙在绿叶上活动的自然纪录片镜头。",
+          "type": "text"
+        }
+      ],
+      "duration": -1,
+      "execution_expires_after": 3600,
+      "generate_audio": false,
+      "model": "doubao-seedance-2-5-260628",
+      "output_format": "mov",
+      "resolution": "480p",
+      "return_last_frame": true,
+      "safety_identifier": "new-key-capability-check",
+      "seed": 0,
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ]
+    },
+    "response": {
+      "id": "cgt-20260916160213-i1d48",
+      "status": "succeeded",
+      "duration": 12,
+      "seed": 0,
+      "output_format": "mov",
+      "usage": {
+        "completion_tokens": 115690,
+        "tool_usage": {
+          "web_search": 0
+        },
+        "total_tokens": 115690
+      },
+      "execution_expires_after": 3600,
+      "safety_identifier": "new-key-capability-check",
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ]
+    },
+    "test_passed": true,
+    "url_hosts": {
+      "last_frame_url": "ark-acg-cn-beijing.tos-cn-beijing.volces.com",
+      "video_url": "ark-acg-cn-beijing.tos-cn-beijing.volces.com"
+    },
+    "video.bin": {
+      "bytes": 5307753,
+      "sha256": "8c8128c092fecf77bac236af438df7cf5e065c97ba3212872699583e83e89c1b",
+      "ftyp_major_brand": "qt  "
+    },
+    "frame.bin": {
+      "bytes": 161941,
+      "sha256": "f33a5659b6a9a0e794de9b68b032c4ab47b797059f44718023120dd4f4ece2dd",
+      "format": "jpeg"
+    },
+    "official_url_equals_video_url": true
+  },
+  "mp4": {
+    "request": {
+      "content": [
+        {
+          "text": "A red ball on a white table, static camera.",
+          "type": "text"
+        }
+      ],
+      "duration": 4,
+      "generate_audio": false,
+      "model": "doubao-seedance-2-5-260628",
+      "output_format": "mp4",
+      "resolution": "480p"
+    },
+    "response": {
+      "id": "cgt-20260916160302-gp2gx",
+      "status": "succeeded",
+      "duration": 4,
+      "seed": 44603,
+      "output_format": "mp4",
+      "usage": {
+        "completion_tokens": 38830,
+        "total_tokens": 38830
+      },
+      "execution_expires_after": 172800
+    },
+    "test_passed": true,
+    "url_hosts": {
+      "video_url": "ark-acg-cn-beijing.tos-cn-beijing.volces.com"
+    },
+    "video.bin": {
+      "bytes": 1220469,
+      "sha256": "9ff143d4653fd30f1925c62c7d99f9d80678d49704b16e5ef797fbf80529b016",
+      "ftyp_major_brand": "isom"
+    },
+    "official_url_equals_video_url": true
+  },
+  "bitrate": {
+    "http_status": 400,
+    "request": {
+      "bitrate_mode": "vbr",
+      "content": [
+        {
+          "text": "A red ball on a white table, static camera.",
+          "type": "text"
+        }
+      ],
+      "duration": 4,
+      "generate_audio": false,
+      "model": "doubao-seedance-2-5-260628",
+      "output_format": "mp4",
+      "resolution": "480p"
+    },
+    "response": {
+      "error": {
+        "code": "invalid_request",
+        "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"the parameter bitrate_mode specified in the request is not valid for model doubao-seedance-2-5 in t2v Request id: 02178954573220296de9f55314d9c1d75ac853e3e9cad7e212591\",\"param\":\"bitrate_mode\",\"type\":\"BadRequest\"}}"
+      }
+    },
+    "task_created": false
+  },
+  "assets": {
+    "project": "nmyk",
+    "test_passed": true,
+    "requests": [
+      {
+        "step": "group-create",
+        "http_status": 200
+      },
+      {
+        "step": "group-get",
+        "http_status": 200
+      },
+      {
+        "step": "group-update",
+        "http_status": 200
+      },
+      {
+        "step": "group-get-updated",
+        "http_status": 200
+      },
+      {
+        "step": "group-list",
+        "http_status": 200
+      },
+      {
+        "step": "asset-create",
+        "http_status": 200
+      },
+      {
+        "step": "asset-get",
+        "http_status": 200
+      },
+      {
+        "step": "asset-get",
+        "http_status": 200
+      },
+      {
+        "step": "asset-get",
+        "http_status": 200
+      },
+      {
+        "step": "asset-get",
+        "http_status": 200
+      },
+      {
+        "step": "asset-get-original-id",
+        "http_status": 200
+      },
+      {
+        "step": "asset-update",
+        "http_status": 200
+      },
+      {
+        "step": "asset-get-updated",
+        "http_status": 200
+      },
+      {
+        "step": "asset-list",
+        "http_status": 200
+      },
+      {
+        "step": "asset-delete",
+        "http_status": 200
+      },
+      {
+        "step": "group-delete",
+        "http_status": 200
+      }
+    ],
+    "responses": [
+      {
+        "step": "asset-create",
+        "result": {
+          "Id": "asset_004af32ad6f248d980aeea6d107d5667",
+          "upstream_asset_id": "asset-20260916160447-wmhfg",
+          "GroupId": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk",
+          "Status": "Processing"
+        }
+      },
+      {
+        "step": "asset-delete",
+        "result": {
+          "Id": "asset_004af32ad6f248d980aeea6d107d5667"
+        }
+      },
+      {
+        "step": "asset-get-original-id",
+        "result": {
+          "Id": "asset_004af32ad6f248d980aeea6d107d5667",
+          "upstream_asset_id": "asset-20260916160447-wmhfg",
+          "GroupId": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk",
+          "Status": "Active"
+        }
+      },
+      {
+        "step": "asset-get-updated",
+        "result": {
+          "Id": "asset_004af32ad6f248d980aeea6d107d5667",
+          "upstream_asset_id": "asset-20260916160447-wmhfg",
+          "GroupId": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk",
+          "Status": "Active"
+        }
+      },
+      {
+        "step": "asset-get",
+        "result": {
+          "Id": "asset_004af32ad6f248d980aeea6d107d5667",
+          "upstream_asset_id": "asset-20260916160447-wmhfg",
+          "GroupId": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk",
+          "Status": "Active"
+        }
+      },
+      {
+        "step": "asset-list",
+        "result": {}
+      },
+      {
+        "step": "asset-update",
+        "result": {
+          "Id": "asset_004af32ad6f248d980aeea6d107d5667",
+          "upstream_asset_id": "asset-20260916160447-wmhfg",
+          "GroupId": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk",
+          "Status": "Active"
+        }
+      },
+      {
+        "step": "group-create",
+        "result": {
+          "Id": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk"
+        }
+      },
+      {
+        "step": "group-delete",
+        "result": {
+          "Id": "ag_e930b636ddbe4baf94563355c4965873"
+        }
+      },
+      {
+        "step": "group-get-updated",
+        "result": {
+          "Id": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk"
+        }
+      },
+      {
+        "step": "group-get",
+        "result": {
+          "Id": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk"
+        }
+      },
+      {
+        "step": "group-list",
+        "result": {}
+      },
+      {
+        "step": "group-update",
+        "result": {
+          "Id": "ag_e930b636ddbe4baf94563355c4965873",
+          "ProjectName": "nmyk"
+        }
+      }
+    ],
+    "cleanup": "created asset and group deleted"
+  },
+  "default_project_error": {
+    "error": {
+      "code": "invalid_request_error",
+      "message": "no enabled Volcengine asset channel is configured for ProjectName \"default\"",
+      "param": "",
+      "request_id": "202609160802121973614758268d9d6pXbpoMnq",
+      "type": "invalid_request_error"
+    }
+  }
+}

@@ -128,6 +128,13 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 		}
 		return apiErr
 	}
+	if profile.ID == "seedance-tgxmaas" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if err := rememberTgxMaasAssetHandles(c, channelModel.Id, resource.ID, responseBody); err != nil {
+			// Preserve the accepted operation's response; returning a creation
+			// error here could cause callers to create duplicate resources.
+			common.SysError("persist TgxMaas asset handle: " + err.Error())
+		}
+	}
 	if !resource.Response.Passthrough || len(resource.Response.Fields) > 0 {
 		responseBody, err = configurable.BuildConfiguredResponse(resource.Response, responseBody, &relaycommon.RelayInfo{
 			ChannelMeta: &relaycommon.ChannelMeta{
@@ -600,6 +607,20 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 			}
 			requestURL += separator + encoded
 		}
+	}
+	// TgxMaas details use GET; project scope must survive the Action/body
+	// conversion instead of being discarded with the body.
+	if converted, ok := c.Get(tgxMaasAssetQueryKey); ok {
+		parsed, err := url.Parse(requestURL)
+		if err != nil {
+			return nil, err
+		}
+		query := parsed.Query()
+		for key, values := range converted.(url.Values) {
+			query[key] = values
+		}
+		parsed.RawQuery = query.Encode()
+		requestURL = parsed.String()
 	}
 	req, err := http.NewRequest(method, requestURL, bodyReader)
 	if err != nil {

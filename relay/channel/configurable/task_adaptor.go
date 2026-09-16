@@ -139,6 +139,12 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 				return nil, err
 			}
 		}
+		if profile.ID == "seedance-tgxmaas" {
+			body, err = resolveTgxMaasVideoAssets(body, info)
+			if err != nil {
+				return nil, err
+			}
+		}
 		return bytes.NewReader(body), nil
 	}
 	req, err := relaycommon.GetTaskRequest(c)
@@ -152,6 +158,12 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	data, err := common.Marshal(body)
 	if err != nil {
 		return nil, err
+	}
+	if profile.ID == "seedance-tgxmaas" {
+		data, err = resolveTgxMaasVideoAssets(data, info)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return bytes.NewReader(data), nil
 }

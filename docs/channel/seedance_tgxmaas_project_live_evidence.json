@@ -1,0 +1,193 @@
+{
+  "upstream": "https://api.sctgx.cn",
+  "profile": "seedance-tgxmaas",
+  "date": "2026-09-16",
+  "entry": "POST /?Action=...&Version=2024-01-01",
+  "project": "default",
+  "pagination_request": {
+    "PageNumber": 1,
+    "PageSize": 10
+  },
+  "scope": "local production handlers and isolated SQLite against live supplier; not deployed production gateway",
+  "result": "PASS",
+  "requests": [
+    {
+      "step": "group-create",
+      "http_status": 200
+    },
+    {
+      "step": "group-get",
+      "http_status": 200
+    },
+    {
+      "step": "group-update",
+      "http_status": 200
+    },
+    {
+      "step": "group-get-updated",
+      "http_status": 200
+    },
+    {
+      "step": "group-list",
+      "http_status": 200
+    },
+    {
+      "step": "asset-create",
+      "http_status": 200
+    },
+    {
+      "step": "asset-get",
+      "http_status": 200
+    },
+    {
+      "step": "asset-get",
+      "http_status": 200
+    },
+    {
+      "step": "asset-get-original-id",
+      "http_status": 200
+    },
+    {
+      "step": "asset-update",
+      "http_status": 200
+    },
+    {
+      "step": "asset-get-updated",
+      "http_status": 200
+    },
+    {
+      "step": "asset-list",
+      "http_status": 200
+    },
+    {
+      "step": "asset-delete",
+      "http_status": 200
+    },
+    {
+      "step": "group-delete",
+      "http_status": 200
+    }
+  ],
+  "responses": [
+    {
+      "step": "asset-create",
+      "result": {
+        "Id": "asset_959002f274c14afd967815c84d2bff18",
+        "GroupId": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default",
+        "Status": "Processing",
+        "upstream_asset_id": "asset-20260916153210-7bqlv"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "asset-delete",
+      "result": {
+        "Id": "asset_959002f274c14afd967815c84d2bff18"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "asset-get-original-id",
+      "result": {
+        "Id": "asset_959002f274c14afd967815c84d2bff18",
+        "GroupId": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default",
+        "Status": "Active",
+        "upstream_asset_id": "asset-20260916153210-7bqlv"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "asset-get-updated",
+      "result": {
+        "Id": "asset_959002f274c14afd967815c84d2bff18",
+        "GroupId": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default",
+        "Status": "Active",
+        "upstream_asset_id": "asset-20260916153210-7bqlv"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "asset-get",
+      "result": {
+        "Id": "asset_959002f274c14afd967815c84d2bff18",
+        "GroupId": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default",
+        "Status": "Active",
+        "upstream_asset_id": "asset-20260916153210-7bqlv"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "asset-list",
+      "result": {},
+      "item_ids": [
+        "asset_959002f274c14afd967815c84d2bff18"
+      ]
+    },
+    {
+      "step": "asset-update",
+      "result": {
+        "Id": "asset_959002f274c14afd967815c84d2bff18",
+        "GroupId": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default",
+        "Status": "Active",
+        "upstream_asset_id": "asset-20260916153210-7bqlv"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "group-create",
+      "result": {
+        "Id": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "group-delete",
+      "result": {
+        "Id": "ag_acda3d49b1b3411483a57bcb9d176870"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "group-get-updated",
+      "result": {
+        "Id": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "group-get",
+      "result": {
+        "Id": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default"
+      },
+      "item_ids": []
+    },
+    {
+      "step": "group-list",
+      "result": {},
+      "item_ids": [
+        "ag_acda3d49b1b3411483a57bcb9d176870"
+      ]
+    },
+    {
+      "step": "group-update",
+      "result": {
+        "Id": "ag_acda3d49b1b3411483a57bcb9d176870",
+        "ProjectName": "default"
+      },
+      "item_ids": []
+    }
+  ],
+  "original_asset_id_query": "HTTP 404 before alias persistence; HTTP 200 after fix",
+  "cleanup": "only newly created asset and group deleted",
+  "nondefault_project_live_verified": false,
+  "multipage_semantics_live_verified": false,
+  "video_generation_performed": false
+}

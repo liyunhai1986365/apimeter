@@ -2,6 +2,7 @@ package configurable
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -49,6 +50,10 @@ func TestSeedanceOptionsReachUpstreamAcrossProfiles(t *testing.T) {
 						"seed": 0, "priority": 0, "frames": 121, "execution_expires_after": 3600,
 						"callback_url": "https://example.com/callback", "safety_identifier": "hashed-user",
 						"service_tier": "default", "output_format": "mov", "tools": []any{map[string]any{"type": "web_search"}},
+					}
+					if profile == "seedance-tgxmaas" {
+						options["ProjectName"] = "brand-project"
+						options["bitrate_mode"] = "vbr"
 					}
 					payload := map[string]any{"model": "public-video-alias", "prompt": "A scene", "size": "720p", "metadata": options}
 					path := "/v1/video/generations"
@@ -136,5 +141,54 @@ func TestSeedanceGenericResultsPreserveNestedLastFrameAndZeroUsage(t *testing.T)
 			require.Equal(t, "false", gjson.GetBytes(body, "metadata.generate_audio").Raw)
 			require.NotContains(t, string(body), "must-not-leak")
 		})
+	}
+}
+
+func TestTgxMaasVideoOriginalAssetURIs(t *testing.T) {
+	db := openConfigurableTaskAdaptorTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.ConfigurableResourceState{}))
+	info := seedanceMaxRelayInfo("seedance-tgxmaas")
+	info.ChannelId, info.UserId = 20, 1
+	for _, id := range []string{"image", "video", "audio"} {
+		require.NoError(t, model.SaveTgxMaasAssetHandle(20, 1, "brand", "asset-"+id, "asset_local_"+id))
+	}
+	for _, mode := range []string{"generic", "native"} {
+		content := []any{
+			map[string]any{"type": "text", "text": "参考@图像1和@视频1及@音频1"},
+			map[string]any{"type": "image_url", "role": "reference_image", "image_url": map[string]any{"url": "asset://asset-image"}},
+			map[string]any{"type": "video_url", "role": "reference_video", "video_url": map[string]any{"url": "asset://asset-video"}},
+			map[string]any{"type": "audio_url", "role": "reference_audio", "audio_url": map[string]any{"url": "asset://asset-audio"}},
+		}
+		payload := map[string]any{"model": "public-video-alias", "metadata": map[string]any{"project_name": "brand", "content": content}}
+		path := "/v1/video/generations"
+		if mode == "native" {
+			payload = map[string]any{"model": "public-video-alias", "ProjectName": "brand", "content": content}
+			path = "/api/v3/contents/generations/tasks"
+		}
+		raw, err := common.Marshal(payload)
+		require.NoError(t, err)
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest("POST", path, bytes.NewReader(raw))
+		c.Request.Header.Set("Content-Type", "application/json")
+		a := &TaskAdaptor{}
+		a.Init(info)
+		require.Nil(t, a.ValidateRequestAndSetAction(c, info))
+		reader, err := a.BuildRequestBody(c, info)
+		require.NoError(t, err)
+		body, err := io.ReadAll(reader)
+		require.NoError(t, err)
+		require.Equal(t, "brand", gjson.GetBytes(body, "ProjectName").String())
+		for i, kind := range []string{"image", "video", "audio"} {
+			require.Equal(t, "asset://asset_local_"+kind, gjson.GetBytes(body, fmt.Sprintf("content.%d.%s_url.url", i+1, kind)).String())
+			require.Equal(t, "reference_"+kind, gjson.GetBytes(body, fmt.Sprintf("content.%d.role", i+1)).String())
+		}
+	}
+	for _, scope := range []struct {
+		channel, user int
+		project       string
+	}{{21, 1, "brand"}, {20, 2, "brand"}, {20, 1, "other"}} {
+		id, err := model.ResolveTgxMaasAssetHandle(scope.channel, scope.user, scope.project, "asset-image")
+		require.NoError(t, err)
+		require.Equal(t, "asset-image", id)
 	}
 }

@@ -83,6 +83,10 @@ video:
       fields:
         - to: model
           from: upstream_model
+        - to: ProjectName
+          from: request.metadata.ProjectName
+          fallback_from: request.metadata.project_name
+          omit_null: true
         - to: omni_reference_task_type
           from: request.omni_reference_task_type
           fallback_from: request.metadata.omni_reference_task_type
@@ -168,6 +172,9 @@ video:
           omit_null: true
         - to: callback_url
           from: request.metadata.callback_url
+          omit_null: true
+        - to: bitrate_mode
+          from: request.metadata.bitrate_mode
           omit_null: true
         - to: output_format
           from: request.metadata.output_format
@@ -332,6 +339,8 @@ resources:
         path: /api/assets
       - method: POST
         path: /api/assets/upload
+      - method: POST
+        path: /v1/assets
     upstream:
       method: POST
       path: /v1/private-avatar/assets
@@ -348,6 +357,8 @@ resources:
     aliases:
       - method: GET
         path: /api/assets
+      - method: GET
+        path: /v1/assets
     upstream:
       method: POST
       path: /v1/private-avatar/assets/list
@@ -364,6 +375,12 @@ resources:
     aliases:
       - method: GET
         path: /api/assets/{id}
+      - method: GET
+        path: /v1/assets/{id}
+      - method: POST
+        path: /v1/assets/get
+      - method: GET
+        path: /v1/assets/get
     path_params:
       asset_id: id
     upstream:
@@ -382,6 +399,8 @@ resources:
     aliases:
       - method: PATCH
         path: /api/assets/{id}
+      - method: PATCH
+        path: /v1/assets/{id}
     path_params:
       asset_id: id
     upstream:
@@ -400,6 +419,8 @@ resources:
     aliases:
       - method: DELETE
         path: /api/assets/{id}
+      - method: DELETE
+        path: /v1/assets/{id}
     path_params:
       asset_id: id
     upstream:

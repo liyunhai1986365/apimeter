@@ -1,0 +1,617 @@
+{
+  "date": "2026-09-16",
+  "upstream": "https://api.sctgx.cn",
+  "profile": "seedance-tgxmaas",
+  "scope": "local production gateway handlers, isolated SQLite, live supplier; not a deployed gateway or direct official account test",
+  "parameters": {
+    "request": {
+      "content": [
+        {
+          "text": "A red ball on a white table, static camera.",
+          "type": "text"
+        }
+      ],
+      "duration": -1,
+      "execution_expires_after": 3600,
+      "generate_audio": false,
+      "model": "doubao-seedance-2-5-260628",
+      "output_format": "mov",
+      "resolution": "480p",
+      "return_last_frame": true,
+      "safety_identifier": "independent-audit-20260916",
+      "seed": 0,
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ]
+    },
+    "response": {
+      "id": "cgt-20260916135246-354qu",
+      "upstream_task_id": "cgt-20260916135246-354qu",
+      "status": "succeeded",
+      "model": "doubao-seedance-2-5-260628",
+      "seed": 0,
+      "duration": 5,
+      "resolution": "480p",
+      "output_format": "mov",
+      "execution_expires_after": 3600,
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ],
+      "safety_identifier": "independent-audit-20260916",
+      "usage": {
+        "completion_tokens": 48437,
+        "tool_usage": {
+          "web_search": 0
+        },
+        "total_tokens": 48437
+      }
+    },
+    "log_result": "PASS",
+    "video.bin": {
+      "bytes": 766038,
+      "sha256": "f05adef7fd9ab091816dc73f98ebd669ee561c1691c7ba10f79e2bc87c4f0d99",
+      "ftyp_major_brand": "qt  "
+    },
+    "frame.bin": {
+      "bytes": 81079,
+      "sha256": "11595884c6fc66bc1fa0f1c3530be4bcca9be36e955789d6ae714ba6162c24c6",
+      "is_png": false,
+      "detected_format": "jpeg"
+    },
+    "url_hosts": {
+      "last_frame_url": "ark-acg-cn-beijing.tos-cn-beijing.volces.com",
+      "video_url": "ark-acg-cn-beijing.tos-cn-beijing.volces.com"
+    },
+    "official_url_equals_video_url": true
+  },
+  "search": {
+    "request": {
+      "content": [
+        {
+          "text": "请使用联网搜索确认玻璃蛙的真实外形。微距镜头对准叶片上翠绿的玻璃蛙，焦点从光滑的皮肤转移到透明腹部，一颗鲜红的心脏正在规律地收缩扩张。",
+          "type": "text"
+        }
+      ],
+      "duration": 4,
+      "generate_audio": false,
+      "model": "doubao-seedance-2-5-260628",
+      "output_format": "mp4",
+      "resolution": "480p",
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ]
+    },
+    "response": {
+      "id": "cgt-20260916140101-4dxfa",
+      "upstream_task_id": "cgt-20260916140101-4dxfa",
+      "status": "succeeded",
+      "model": "doubao-seedance-2-5-260628",
+      "seed": 31662,
+      "duration": 4,
+      "resolution": "480p",
+      "output_format": "mp4",
+      "execution_expires_after": 172800,
+      "tools": [
+        {
+          "type": "web_search"
+        }
+      ],
+      "usage": {
+        "completion_tokens": 38830,
+        "tool_usage": {
+          "web_search": 0
+        },
+        "total_tokens": 38830
+      }
+    },
+    "log_result": "PASS",
+    "video.bin": {
+      "bytes": 1874560,
+      "sha256": "b1a3a223e187d8966ddfbd1cb45e89d599b48f49f075888088b4aa70cc657693",
+      "ftyp_major_brand": "isom"
+    },
+    "url_hosts": {
+      "video_url": "ark-acg-cn-beijing.tos-cn-beijing.volces.com"
+    },
+    "official_url_equals_video_url": true
+  },
+  "bitrate": {
+    "request": {
+      "bitrate_mode": "vbr",
+      "content": [
+        {
+          "text": "A red ball on a white table, static camera.",
+          "type": "text"
+        }
+      ],
+      "duration": 4,
+      "generate_audio": false,
+      "model": "doubao-seedance-2-5-260628",
+      "resolution": "480p"
+    },
+    "response": {
+      "error": {
+        "code": "invalid_request",
+        "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"the parameter bitrate_mode specified in the request is not valid for model doubao-seedance-2-5 in t2v Request id: 0217895379914447820404c56ac6dd9ce215ba8b602495a5c357d\",\"param\":\"bitrate_mode\",\"type\":\"BadRequest\"}}"
+      }
+    },
+    "http_status": 400,
+    "task_created": false
+  },
+  "official_asset_actions": {
+    "result": "PASS",
+    "requests": [
+      {
+        "step": "group-create",
+        "status": 200
+      },
+      {
+        "step": "group-get",
+        "status": 200
+      },
+      {
+        "step": "group-update",
+        "status": 200
+      },
+      {
+        "step": "group-get-updated",
+        "status": 200
+      },
+      {
+        "step": "group-list",
+        "status": 200
+      },
+      {
+        "step": "asset-create",
+        "status": 200
+      },
+      {
+        "step": "asset-get",
+        "status": 200
+      },
+      {
+        "step": "asset-get",
+        "status": 200
+      },
+      {
+        "step": "asset-update",
+        "status": 200
+      },
+      {
+        "step": "asset-get-updated",
+        "status": 200
+      },
+      {
+        "step": "asset-list",
+        "status": 200
+      },
+      {
+        "step": "asset-delete",
+        "status": 200
+      },
+      {
+        "step": "group-delete",
+        "status": 200
+      }
+    ],
+    "responses": [
+      {
+        "step": "asset-create",
+        "result_keys": [
+          "Id",
+          "upstream_asset_id",
+          "GroupId",
+          "Name",
+          "AssetType",
+          "URL",
+          "Status",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "asset_ba7fae94ef6c4eef8dadccfbc683a484",
+          "upstream_asset_id": "asset-20260916135348-h8msr",
+          "GroupId": "ag_99e9d039615f497eaf82db93323ba10a",
+          "Status": "Processing"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "asset-delete",
+        "result_keys": [
+          "Id"
+        ],
+        "result": {
+          "Id": "asset_ba7fae94ef6c4eef8dadccfbc683a484"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "asset-get-updated",
+        "result_keys": [
+          "Id",
+          "upstream_asset_id",
+          "GroupId",
+          "Name",
+          "AssetType",
+          "URL",
+          "Status",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "asset_ba7fae94ef6c4eef8dadccfbc683a484",
+          "upstream_asset_id": "asset-20260916135348-h8msr",
+          "GroupId": "ag_99e9d039615f497eaf82db93323ba10a",
+          "Status": "Active"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "asset-get",
+        "result_keys": [
+          "Id",
+          "upstream_asset_id",
+          "GroupId",
+          "Name",
+          "AssetType",
+          "URL",
+          "Status",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "asset_ba7fae94ef6c4eef8dadccfbc683a484",
+          "upstream_asset_id": "asset-20260916135348-h8msr",
+          "GroupId": "ag_99e9d039615f497eaf82db93323ba10a",
+          "Status": "Active"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "asset-list",
+        "result_keys": [
+          "Items"
+        ],
+        "result": {},
+        "item_ids": [
+          "asset_ba7fae94ef6c4eef8dadccfbc683a484"
+        ],
+        "error_present": false
+      },
+      {
+        "step": "asset-update",
+        "result_keys": [
+          "Id",
+          "upstream_asset_id",
+          "GroupId",
+          "Name",
+          "AssetType",
+          "URL",
+          "Status",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "asset_ba7fae94ef6c4eef8dadccfbc683a484",
+          "upstream_asset_id": "asset-20260916135348-h8msr",
+          "GroupId": "ag_99e9d039615f497eaf82db93323ba10a",
+          "Status": "Active"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "group-create",
+        "result_keys": [
+          "Id",
+          "Name",
+          "Description",
+          "GroupType",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "ag_99e9d039615f497eaf82db93323ba10a"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "group-delete",
+        "result_keys": [
+          "Id"
+        ],
+        "result": {
+          "Id": "ag_99e9d039615f497eaf82db93323ba10a"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "group-get-updated",
+        "result_keys": [
+          "Id",
+          "Name",
+          "Description",
+          "GroupType",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "ag_99e9d039615f497eaf82db93323ba10a"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "group-get",
+        "result_keys": [
+          "Id",
+          "Name",
+          "Description",
+          "GroupType",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "ag_99e9d039615f497eaf82db93323ba10a"
+        },
+        "item_ids": [],
+        "error_present": false
+      },
+      {
+        "step": "group-list",
+        "result_keys": [
+          "Items"
+        ],
+        "result": {},
+        "item_ids": [
+          "ag_99e9d039615f497eaf82db93323ba10a"
+        ],
+        "error_present": false
+      },
+      {
+        "step": "group-update",
+        "result_keys": [
+          "Id",
+          "Name",
+          "Description",
+          "GroupType",
+          "ProjectName",
+          "CreateTime",
+          "UpdateTime"
+        ],
+        "result": {
+          "Id": "ag_99e9d039615f497eaf82db93323ba10a"
+        },
+        "item_ids": [],
+        "error_present": false
+      }
+    ],
+    "cleanup": "test asset and group deleted"
+  },
+  "official_documents": [
+    {
+      "DocumentID": 1298459,
+      "Title": "Base URL及鉴权",
+      "UpdatedTime": "2026-06-23T08:51:46Z",
+      "DocumentCode": "base-url-and-authentication",
+      "url": "https://www.volcengine.com/docs/82379/1298459",
+      "markdown_sha256": "c602cf15c2bf9807e6aa4857edf5f894c3f2fa008b81c35fee6743f02092b075"
+    },
+    {
+      "DocumentID": 1520757,
+      "Title": "创建视频生成任务",
+      "UpdatedTime": "2026-09-09T11:08:06Z",
+      "DocumentCode": "create-video-generation-task-api",
+      "url": "https://www.volcengine.com/docs/82379/1520757",
+      "markdown_sha256": "83af18893175ab2a99d64dc57b25a16b54e64c46819e9d0c0671e6c1c70ac91d"
+    },
+    {
+      "DocumentID": 1521309,
+      "Title": "查询视频生成任务",
+      "UpdatedTime": "2026-09-09T11:08:06Z",
+      "DocumentCode": "get-video-generation-task-api",
+      "url": "https://www.volcengine.com/docs/82379/1521309",
+      "markdown_sha256": "acecd9f8899d08286531e66505d3fd7de062c9a6094b61c21b1d14f1425757ed"
+    },
+    {
+      "DocumentID": 1521675,
+      "Title": "查询视频生成任务列表",
+      "UpdatedTime": "2026-09-09T11:08:06Z",
+      "DocumentCode": "list-video-generation-tasks",
+      "url": "https://www.volcengine.com/docs/82379/1521675",
+      "markdown_sha256": "8722942d050eb1899d5861f9a7dbc571316e62853c013bdf53e6985bf15b4ed9"
+    },
+    {
+      "DocumentID": 1521720,
+      "Title": "取消或删除视频生成任务",
+      "UpdatedTime": "2026-09-09T11:08:06Z",
+      "DocumentCode": "cancel-or-delete-video-generation-tasks",
+      "url": "https://www.volcengine.com/docs/82379/1521720",
+      "markdown_sha256": "50ed00af90cb05db2fde1deae9f71f6f7d8f9f8b81f2c0a9c3a3a11dc254446d"
+    },
+    {
+      "DocumentID": 2291680,
+      "Title": "Doubao Seedance 2.0 系列教程",
+      "UpdatedTime": "2026-09-15T07:29:46Z",
+      "DocumentCode": "doubao-seedance-2-0",
+      "url": "https://www.volcengine.com/docs/82379/2291680",
+      "markdown_sha256": "45dd4b6f6f4e01786f547e0700eab730a5bbd52f406902976e831f2e406460ce"
+    },
+    {
+      "DocumentID": 2318270,
+      "Title": "创建素材资产组合",
+      "UpdatedTime": "2026-09-04T12:17:59Z",
+      "DocumentCode": "createassetgroup",
+      "url": "https://www.volcengine.com/docs/82379/2318270",
+      "markdown_sha256": "0cf2140b75cb72ba41835a0dc84a23071932e37a1965d85d00628d14adfc6b10"
+    },
+    {
+      "DocumentID": 2318271,
+      "Title": "创建素材资产",
+      "UpdatedTime": "2026-09-04T15:45:20Z",
+      "DocumentCode": "createasset",
+      "url": "https://www.volcengine.com/docs/82379/2318271",
+      "markdown_sha256": "857ee8e6499112c3bf26395884c713bc56b1870ea0d34434f479f190966ca2e8"
+    },
+    {
+      "DocumentID": 2318272,
+      "Title": "查询素材资产组合列表",
+      "UpdatedTime": "2026-09-04T15:45:47Z",
+      "DocumentCode": "listassetgroups",
+      "url": "https://www.volcengine.com/docs/82379/2318272",
+      "markdown_sha256": "0f0cc03dedee3b3f65b140d223cba72f1bfa454bf68152d4777784b7a1e494ae"
+    },
+    {
+      "DocumentID": 2318273,
+      "Title": "查询素材资产列表",
+      "UpdatedTime": "2026-09-04T15:46:01Z",
+      "DocumentCode": "listassets",
+      "url": "https://www.volcengine.com/docs/82379/2318273",
+      "markdown_sha256": "f9221664fbdde024c1d8bb924571119d33251029b6e82dfc66186c733a935c1d"
+    },
+    {
+      "DocumentID": 2318274,
+      "Title": "查询素材资产信息",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "getasset",
+      "url": "https://www.volcengine.com/docs/82379/2318274",
+      "markdown_sha256": "65ee3fb8af829fcce969c6bc7bf8c04c10ca40eed57117c55dd466ea799981df"
+    },
+    {
+      "DocumentID": 2318275,
+      "Title": "查询素材资产组合信息",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "getassetgroup",
+      "url": "https://www.volcengine.com/docs/82379/2318275",
+      "markdown_sha256": "fc7b989bbd2a902c34a91362dacaef988d365697378b7c770d8e029e7c4bc31a"
+    },
+    {
+      "DocumentID": 2318276,
+      "Title": "更新素材资产组合信息",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "updateassetgroup",
+      "url": "https://www.volcengine.com/docs/82379/2318276",
+      "markdown_sha256": "9a05f0d009e1fbd27454461704d25746c3cbf73e70026c5b20a8b0c47f4dfa73"
+    },
+    {
+      "DocumentID": 2318277,
+      "Title": "更新素材资产信息",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "updateasset",
+      "url": "https://www.volcengine.com/docs/82379/2318277",
+      "markdown_sha256": "1c89e01ea051c636021d60534e8b41eff895eb7d83757519c89a015a2662ea65"
+    },
+    {
+      "DocumentID": 2318278,
+      "Title": "删除素材资产",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "deleteasset",
+      "url": "https://www.volcengine.com/docs/82379/2318278",
+      "markdown_sha256": "2b7fb440040d542ac33c1aec2060cb6ac6c314462e38b383c771724f305eea5a"
+    },
+    {
+      "DocumentID": 2333565,
+      "Title": "私域虚拟人像素材资产库使用指南",
+      "UpdatedTime": "2026-08-31T15:56:52Z",
+      "DocumentCode": "private-virtual-avatar-library-guide-preview",
+      "url": "https://www.volcengine.com/docs/82379/2333565",
+      "markdown_sha256": "7bd6b57280435b84d65fad4076e89d335a2bc53cde4eb4486d325a12018ae240"
+    },
+    {
+      "DocumentID": 2333587,
+      "Title": "拉起真人认证 H5",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "h5-createvisualvalidatesession",
+      "url": "https://www.volcengine.com/docs/82379/2333587",
+      "markdown_sha256": "de219b1da3f4a79eed1bf09ba6f8745785c574fdd11b707ac5d3a8538261b50c"
+    },
+    {
+      "DocumentID": 2333588,
+      "Title": "获取真人 Asset Group ID",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "asset-group-id-getvisualvalidateresult",
+      "url": "https://www.volcengine.com/docs/82379/2333588",
+      "markdown_sha256": "9c9694c524c40ef7fbc418506688b93f0360cfdc6be818f012808bf2f4ec10d8"
+    },
+    {
+      "DocumentID": 2333589,
+      "Title": "私域真人人像素材资产使用指南",
+      "UpdatedTime": "2026-08-31T15:57:12Z",
+      "DocumentCode": "guide-preview",
+      "url": "https://www.volcengine.com/docs/82379/2333589",
+      "markdown_sha256": "3db2b8a2dddcbf734654229c9d65c16401859f29015e87b66effd6744c1a36cf"
+    },
+    {
+      "DocumentID": 2341606,
+      "Title": "删除素材资产组",
+      "UpdatedTime": "2026-09-04T12:18:00Z",
+      "DocumentCode": "deleteassetgroup",
+      "url": "https://www.volcengine.com/docs/82379/2341606",
+      "markdown_sha256": "a1e2ba747f4dcabd5ca5325713a5025e379631243fc49eaaa70c0f57fe085dc7"
+    },
+    {
+      "DocumentID": 2389900,
+      "Title": "上报视频生成模型效果问题",
+      "UpdatedTime": "2026-09-02T06:13:33Z",
+      "DocumentCode": "caseplatformv1badcasereport",
+      "url": "https://www.volcengine.com/docs/82379/2389900",
+      "markdown_sha256": "5ec22b94087be6bf465d0bcda713bfa483f75ca81de64d4c7aa3825f4d7b9f56"
+    },
+    {
+      "DocumentID": 2551134,
+      "Title": "查询视频生成模型效果问题结果",
+      "UpdatedTime": "2026-09-02T06:13:33Z",
+      "DocumentCode": "caseplatformv1badcasequery",
+      "url": "https://www.volcengine.com/docs/82379/2551134",
+      "markdown_sha256": "d72e28d241b5f5d4d5f1246ec25b70d6e2aae4b68e4a3ad27195ee6a521699bd"
+    },
+    {
+      "DocumentID": 2607688,
+      "Title": "Doubao Seedance 2.5 教程",
+      "UpdatedTime": "2026-09-11T07:19:14Z",
+      "DocumentCode": "doubao-seedance-2-5",
+      "url": "https://www.volcengine.com/docs/82379/2607688",
+      "markdown_sha256": "f23461d4a6010dac2157e803cc64e7d8073f249c8e657bef8f1009c9bee61925"
+    },
+    {
+      "DocumentID": 2612140,
+      "Title": "查询模型限流",
+      "UpdatedTime": "2026-09-04T12:24:13Z",
+      "DocumentCode": "listmodelratelimit",
+      "url": "https://www.volcengine.com/docs/82379/2612140",
+      "markdown_sha256": "db6db28c4d4d2b36eb84c8a2338dd52e2eef480d72bbd936081610c3a5e0a0ce"
+    }
+  ],
+  "quota_verified_for_supplier_key": false,
+  "load_test_performed": false,
+  "known_gap_reproduction": {
+    "edit_without_ratio": {
+      "status": 400,
+      "message": "omni_reference_task_type: edit requires ratio=adaptive"
+    },
+    "extend_without_ratio": {
+      "status": 400,
+      "message": "omni_reference_task_type: extend requires ratio=adaptive"
+    }
+  }
+}
