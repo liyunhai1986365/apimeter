@@ -911,7 +911,7 @@ func UpdateWholeChannelStatus(channelId int, status int, reason string) bool {
 	}
 	shouldUpdateAbilities = true
 
-	err = channel.SaveWithoutKey()
+	err = channel.saveStatusState()
 	if err != nil {
 		common.SysLog(fmt.Sprintf("failed to update whole channel status: channel_id=%d, status=%d, error=%v", channel.Id, status, err))
 		return false

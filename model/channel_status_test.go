@@ -100,3 +100,86 @@ func TestSaveStatusStateFromSingleKeySnapshotPreservesUnownedColumns(t *testing.
 	assert.Equal(t, "manual operation", otherInfo["status_reason"])
 	assert.Equal(t, float64(1234), otherInfo["status_time"])
 }
+
+func TestUpdateWholeChannelStatusPreservesConcurrentAssetCredentialRotation(t *testing.T) {
+	t.Setenv("CRYPTO_SECRET", "channel-status-test-only")
+	for _, credentials := range []struct {
+		name     string
+		original AssetCredentials
+		rotated  AssetCredentials
+	}{
+		{"api_key", AssetCredentials{APIKey: "original-asset-key"}, AssetCredentials{APIKey: "rotated-asset-key"}},
+		{"aksk", AssetCredentials{AccessKeyID: "original-ak", SecretAccessKey: "original-sk"}, AssetCredentials{AccessKeyID: "rotated-ak", SecretAccessKey: "rotated-sk"}},
+	} {
+		for _, mode := range []string{"single", "multi"} {
+			t.Run(credentials.name+"/"+mode, func(t *testing.T) {
+				setupChannelStatusTest(t)
+				channel := Channel{
+					Name: "asset-credential-rotation", Key: "video-key", Models: "model", Group: "default",
+					Status: common.ChannelStatusEnabled, UsedQuota: 100, Setting: common.GetPointer("{}"),
+					ChannelInfo: ChannelInfo{IsMultiKey: mode == "multi", MultiKeySize: 1},
+				}
+				require.NoError(t, channel.SetAssetCredentials(&credentials.original))
+				require.NoError(t, channel.Insert())
+				rotated := channel
+				require.NoError(t, rotated.SetAssetCredentials(&credentials.rotated))
+
+				// Commit another writer's changes after the status flow reads its
+				// snapshot, but before it starts its write transaction.
+				rotatedDuringSave := false
+				const callback = "test:rotate_asset_credentials_before_status_save"
+				require.NoError(t, DB.Callback().Update().Before("gorm:begin_transaction").Register(callback, func(tx *gorm.DB) {
+					if rotatedDuringSave || tx.Statement.Table != "channels" {
+						return
+					}
+					rotatedDuringSave = true
+					require.NoError(t, DB.Model(&Channel{}).Where("id = ?", channel.Id).Updates(map[string]any{
+						"asset_secret": rotated.AssetSecret,
+						"key":          "rotated-video-key",
+						"used_quota":   gorm.Expr("used_quota + ?", 250),
+						"setting":      `{"proxy":"http://proxy.example"}`,
+					}).Error)
+				}))
+				t.Cleanup(func() { _ = DB.Callback().Update().Remove(callback) })
+
+				require.True(t, UpdateWholeChannelStatus(channel.Id, common.ChannelStatusAutoDisabled, "monitor failure"))
+				require.True(t, rotatedDuringSave)
+				stored, err := GetChannelById(channel.Id, true)
+				require.NoError(t, err)
+				actualCredentials, err := stored.GetAssetCredentials()
+				require.NoError(t, err)
+				assert.Equal(t, credentials.rotated, *actualCredentials)
+				assert.Equal(t, "rotated-video-key", stored.Key)
+				assert.Equal(t, int64(350), stored.UsedQuota)
+				assert.Equal(t, `{"proxy":"http://proxy.example"}`, *stored.Setting)
+				assert.Equal(t, common.ChannelStatusAutoDisabled, stored.Status)
+				assert.Equal(t, "monitor failure", stored.GetOtherInfo()["status_reason"])
+				assert.False(t, IsChannelEnabledForGroupModel("default", "model", channel.Id))
+			})
+		}
+	}
+}
+
+func TestUpdateWholeChannelStatusEnablesMultiKeyChannel(t *testing.T) {
+	setupChannelStatusTest(t)
+	channel := Channel{
+		Name: "enable-whole-channel", Key: "key-a\nkey-b", Models: "model", Group: "default",
+		Status: common.ChannelStatusAutoDisabled,
+		ChannelInfo: ChannelInfo{
+			IsMultiKey: true, MultiKeySize: 2, MultiKeyMode: constant.MultiKeyModePolling, MultiKeyPollingIndex: 1,
+			MultiKeyStatusList:     map[int]int{0: common.ChannelStatusAutoDisabled, 1: common.ChannelStatusAutoDisabled},
+			MultiKeyDisabledReason: map[int]string{0: "key failure", 1: "key failure"},
+			MultiKeyDisabledTime:   map[int]int64{0: 123, 1: 123},
+		},
+	}
+	require.NoError(t, channel.Insert())
+	require.True(t, UpdateWholeChannelStatus(channel.Id, common.ChannelStatusEnabled, "recovered"))
+	stored, err := GetChannelById(channel.Id, true)
+	require.NoError(t, err)
+	assert.Equal(t, common.ChannelStatusEnabled, stored.Status)
+	assert.Empty(t, stored.ChannelInfo.MultiKeyStatusList)
+	assert.Empty(t, stored.ChannelInfo.MultiKeyDisabledReason)
+	assert.Empty(t, stored.ChannelInfo.MultiKeyDisabledTime)
+	assert.Equal(t, 1, stored.ChannelInfo.MultiKeyPollingIndex)
+	assert.True(t, IsChannelEnabledForGroupModel("default", "model", channel.Id))
+}
