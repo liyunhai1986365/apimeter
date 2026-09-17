@@ -36,6 +36,17 @@ func configurableResourceHasIndependentHealth(ch *model.Channel, resource *confi
 	return resource.AssetLibrary && assetLibraryHasIndependentHealth(ch)
 }
 
+// A separate base URL may isolate health, but only dedicated credentials allow
+// asset requests to skip channel-key selection.
+func configurableResourceHasIndependentCredentials(ch *model.Channel, resource *configurable.ResourceConfig) bool {
+	if !resource.AssetLibrary {
+		return false
+	}
+	cfg := assetLibrary(ch)
+	return cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" && cfg.Backend != "disabled" &&
+		(cfg.AuthMode == "api_key" || cfg.AuthMode == "aksk")
+}
+
 func configurableResourceStateKey(ch *model.Channel, resource *configurable.ResourceConfig, key string) string {
 	if resource.AssetLibrary {
 		return ch.AssetStateKey(key)

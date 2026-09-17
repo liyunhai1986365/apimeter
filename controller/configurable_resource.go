@@ -33,7 +33,11 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	}
 	c.Set(middleware.ContextKeyConfigurableResourceProfileID, profile.ID)
 	c.Set(middleware.ContextKeyConfigurableResourceID, resource.ID)
-	if apiErr := middleware.SetupContextForSelectedChannel(c, channelModel, requestModel); apiErr != nil {
+	setupContext := middleware.SetupContextForSelectedChannel
+	if configurableResourceHasIndependentCredentials(channelModel, resource) {
+		setupContext = middleware.SetupContextForSelectedChannelWithIndependentAuth
+	}
+	if apiErr := setupContext(c, channelModel, requestModel); apiErr != nil {
 		c.JSON(apiErr.StatusCode, gin.H{"error": apiErr.ToOpenAIError()})
 		return nil
 	}
@@ -349,6 +353,10 @@ func selectConfigurableResourceChannel(c *gin.Context, profileID, resourceID str
 }
 
 func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path string) (*model.Channel, *configurable.Profile, *configurable.ResourceConfig, error) {
+	// Asset backend settings must not reclassify missing video channels as
+	// unsupported asset operations. Match the method and path, including aliases.
+	_, requestedResource, matched := configurable.MatchResource(method, path)
+	isAssetRequest := matched && requestedResource.AssetLibrary
 	if channelIDRaw, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId); ok {
 		channelID, parseErr := parseSpecificChannelID(channelIDRaw)
 		if parseErr != nil {
@@ -362,7 +370,7 @@ func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path s
 		if ok {
 			return channelModel, profile, resource, nil
 		}
-		if cfg := assetLibrary(channelModel); cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" {
+		if cfg := assetLibrary(channelModel); isAssetRequest && cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" {
 			return nil, nil, nil, errUnsupportedAssetOperation
 		}
 		return nil, nil, nil, fmt.Errorf("specific channel %d does not match configurable resource %s %s", channelID, method, path)
@@ -382,7 +390,7 @@ func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path s
 	hasExplicitBackend := false
 	for i := range channels {
 		for _, group := range groups {
-			if cfg := assetLibrary(&channels[i]); cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" {
+			if cfg := assetLibrary(&channels[i]); isAssetRequest && cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" {
 				if p, found := configurable.AssetProfile(channels[i].GetSetting().Protocol); found && configurableResourceChannelMatches(&channels[i], p.ID, "", group) && configurableResourceChannelAbilityEnabled(&channels[i], group, configurableResourceRequestModel(c, nil)) {
 					hasExplicitBackend = true
 				}

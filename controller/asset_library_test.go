@@ -198,6 +198,59 @@ func TestAssetLibraryUnsupportedOperation(t *testing.T) {
 	require.Contains(t, w.Body.String(), "unsupported_asset_operation")
 }
 
+func TestAssetLibraryRouteErrorClassification(t *testing.T) {
+	for _, mode := range []string{"normal", "specific", "smart", "smart_specific"} {
+		t.Run(mode, func(t *testing.T) {
+			preserveSmartRetryTestConfiguration(t)
+			r := tgxMaasResourceTestRouter(t, "http://127.0.0.1:1", "video-key", "model")
+			ch, err := model.GetChannelById(20, true)
+			require.NoError(t, err)
+			settings := ch.GetSetting()
+			settings.Protocol.AssetLibrary = &relaydto.AssetLibrarySettings{Backend: "task", AuthMode: "channel_key"}
+			ch.SetSetting(settings)
+			require.NoError(t, model.DB.Save(ch).Error)
+			if strings.HasPrefix(mode, "smart") {
+				require.NoError(t, setting.UpdateAutoGroupsByJsonString(`["default"]`))
+				require.NoError(t, model.DB.AutoMigrate(&model.RoutingStrategySnapshot{}))
+				strategy := model.RoutingStrategies()[0]
+				require.NoError(t, model.UpsertRoutingStrategySnapshot(&model.RoutingStrategySnapshot{Strategy: strategy, UserGroup: "default", Groups: `["default"]`, Scores: `{}`, Config: `{}`}))
+				require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"group": "auto", "group_policy": `{"type":"routing_strategy","strategy":"` + strategy + `"}`}).Error)
+			}
+			// Apply the same authenticated selection mode to public paths, aliases,
+			// and official actions (which are converted before channel selection).
+			r.Use(func(c *gin.Context) {
+				if strings.HasSuffix(mode, "specific") {
+					common.SetContextKey(c, constant.ContextKeyTokenSpecificChannelId, 20)
+				}
+				c.Next()
+			})
+			registerTgxConversionTestRoutes(t, r)
+			r.GET("/kling/tasks", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+			r.GET("/kling/v1/videos/text2video/:id", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+			for _, tc := range []struct {
+				method, path, body string
+				status             int
+			}{
+				{"GET", "/kling/tasks?task_ids=task_mock", "", http.StatusServiceUnavailable},
+				{"GET", "/kling/v1/videos/text2video/task_mock", "", http.StatusServiceUnavailable},
+				{"POST", "/api/asset-groups", `{"Name":"unsupported"}`, http.StatusNotImplemented},
+				{"GET", "/api/asset-groups/ag_mock", "", http.StatusNotImplemented},
+				{"POST", "/?Action=CreateAssetGroup&Version=2024-01-01", `{"Name":"unsupported"}`, http.StatusNotImplemented},
+			} {
+				t.Run(tc.method+" "+tc.path, func(t *testing.T) {
+					w := seedanceCall(r, tc.method, tc.path, tc.body, 1)
+					require.Equal(t, tc.status, w.Code, w.Body.String())
+					if tc.status == http.StatusNotImplemented {
+						require.Contains(t, w.Body.String(), "unsupported_asset_operation")
+					} else {
+						require.NotContains(t, w.Body.String(), "unsupported_asset_operation")
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestAssetLibraryChannelSaveAPI(t *testing.T) {
 	t.Setenv("CRYPTO_SECRET", "test-persistent-secret")
 	openConfigurableResourceTestDB(t)

@@ -522,6 +522,17 @@ func getModelRequest(c *gin.Context) (*ModelRequest, bool, error) {
 }
 
 func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+	return setupContextForSelectedChannel(c, channel, modelName, true)
+}
+
+// SetupContextForSelectedChannelWithIndependentAuth initializes channel metadata
+// without selecting or advancing channel keys. The caller must authenticate the
+// upstream request with its independent credentials.
+func SetupContextForSelectedChannelWithIndependentAuth(c *gin.Context, channel *model.Channel, modelName string) *types.NewAPIError {
+	return setupContextForSelectedChannel(c, channel, modelName, false)
+}
+
+func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, modelName string, selectChannelKey bool) *types.NewAPIError {
 	c.Set("original_model", modelName) // for retry
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
@@ -554,21 +565,27 @@ func SetupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	common.SetContextKey(c, constant.ContextKeyChannelModelMapping, channel.GetModelMapping())
 	common.SetContextKey(c, constant.ContextKeyChannelStatusCodeMapping, channel.GetStatusCodeMapping())
 
-	key, index, newAPIError := channel.GetNextEnabledKeyMatching(func(key string, _ int) bool {
-		return service.ChannelRetryKeyAllowed(c, channel, modelName, key)
-	})
-	if newAPIError != nil {
-		return newAPIError
-	}
-	if channel.ChannelInfo.IsMultiKey {
-		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)
-		common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
+	if selectChannelKey {
+		key, index, newAPIError := channel.GetNextEnabledKeyMatching(func(key string, _ int) bool {
+			return service.ChannelRetryKeyAllowed(c, channel, modelName, key)
+		})
+		if newAPIError != nil {
+			return newAPIError
+		}
+		if channel.ChannelInfo.IsMultiKey {
+			common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, true)
+			common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, index)
+		} else {
+			// 必须设置为 false，否则在重试到单个 key 的时候会导致日志显示错误
+			common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, false)
+		}
+		common.SetContextKey(c, constant.ContextKeyChannelKey, key)
 	} else {
-		// 必须设置为 false，否则在重试到单个 key 的时候会导致日志显示错误
+		// Do not retain a video credential or multi-key state from an earlier attempt.
+		common.SetContextKey(c, constant.ContextKeyChannelKey, "")
 		common.SetContextKey(c, constant.ContextKeyChannelIsMultiKey, false)
+		common.SetContextKey(c, constant.ContextKeyChannelMultiKeyIndex, 0)
 	}
-	// c.Request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", key))
-	common.SetContextKey(c, constant.ContextKeyChannelKey, key)
 	common.SetContextKey(c, constant.ContextKeyChannelBaseUrl, channel.GetBaseURL())
 
 	common.SetContextKey(c, constant.ContextKeySystemPromptOverride, false)

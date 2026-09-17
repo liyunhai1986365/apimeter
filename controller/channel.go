@@ -3,6 +3,7 @@ package controller
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -767,14 +768,6 @@ func AddChannel(c *gin.Context) {
 		return
 	}
 
-	if addChannelRequest.Mode == "multi_to_single" && assetLibrary(addChannelRequest.Channel) != nil && assetLibrary(addChannelRequest.Channel).AuthMode == "channel_key" {
-		common.ApiError(c, fmt.Errorf("use dedicated asset credentials for multi-key channels"))
-		return
-	}
-	if err := prepareAssetCredentials(addChannelRequest.Channel, nil, addChannelRequest.AssetCredentials); err != nil {
-		common.ApiError(c, err)
-		return
-	}
 	addChannelRequest.Channel.CreatedTime = common.GetTimestamp()
 	keys := make([]string, 0)
 	switch addChannelRequest.Mode {
@@ -829,6 +822,12 @@ func AddChannel(c *gin.Context) {
 		return
 	}
 
+	// Validate against the final key mode. The shared asset validator allows
+	// inherited/disabled libraries and requires dedicated keys for active ones.
+	if err := prepareAssetCredentials(addChannelRequest.Channel, nil, addChannelRequest.AssetCredentials); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	channels := make([]model.Channel, 0, len(keys))
 	for _, key := range keys {
 		if key == "" {
@@ -1161,24 +1160,32 @@ func AppendChannelRetryPolicyRule(c *gin.Context) {
 		return
 	}
 
-	channel, err := model.GetChannelById(id, true)
+	var channel *model.Channel
+	for attempt := 0; attempt < 5; attempt++ {
+		channel, err = model.GetChannelById(id, true)
+		if err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		previous := channel.Setting
+		setting := channel.GetSetting()
+		setting.RetryPolicyRules = append(setting.RetryPolicyRules, req.Rule)
+		channel.SetSetting(setting)
+		if err = channel.ValidateSettings(); err != nil {
+			common.ApiError(c, err)
+			return
+		}
+		err = channel.UpdateSetting(previous)
+		if !errors.Is(err, model.ErrChannelUpdateConflict) {
+			break
+		}
+	}
 	if err != nil {
-		common.ApiError(c, err)
-		return
-	}
-
-	setting := channel.GetSetting()
-	setting.RetryPolicyRules = append(setting.RetryPolicyRules, req.Rule)
-	channel.SetSetting(setting)
-	if err := channel.ValidateSettings(); err != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"success": false,
-			"message": err.Error(),
-		})
-		return
-	}
-	if err := channel.Update(); err != nil {
-		common.ApiError(c, err)
+		if errors.Is(err, model.ErrChannelUpdateConflict) {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		} else {
+			common.ApiError(c, err)
+		}
 		return
 	}
 	model.InitChannelCache()
@@ -1219,6 +1226,12 @@ func UpdateChannel(c *gin.Context) {
 			"message": err.Error(),
 		})
 		return
+	}
+	// Key-list edits and key management share the same read/write lock.
+	if channel.Key != "" || (channel.MultiKeyMode != nil && *channel.MultiKeyMode != "") {
+		lock := model.GetChannelPollingLock(channel.Id)
+		lock.Lock()
+		defer lock.Unlock()
 	}
 	// Preserve existing ChannelInfo to ensure multi-key channels keep correct state even if the client does not send ChannelInfo in the request.
 	originChannel, err := model.GetChannelById(channel.Id, true)
@@ -1336,9 +1349,14 @@ func UpdateChannel(c *gin.Context) {
 		return
 	}
 	channel.AssetCredentials = nil
-	err = channel.Update()
+	updateKeyState := channel.Key != "" || (channel.MultiKeyMode != nil && *channel.MultiKeyMode != "")
+	err = channel.UpdateWithSnapshot(originChannel, updateKeyState)
 	if err != nil {
-		common.ApiError(c, err)
+		if errors.Is(err, model.ErrChannelUpdateConflict) {
+			c.JSON(http.StatusConflict, gin.H{"success": false, "message": err.Error()})
+		} else {
+			common.ApiError(c, err)
+		}
 		return
 	}
 	model.InitChannelCache()
@@ -1746,6 +1764,10 @@ func ManageMultiKeys(c *gin.Context) {
 		return
 	}
 
+	lock := model.GetChannelPollingLock(request.ChannelId)
+	lock.Lock()
+	defer lock.Unlock()
+
 	channel, err := model.GetChannelById(request.ChannelId, true)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -1767,10 +1789,6 @@ func ManageMultiKeys(c *gin.Context) {
 		common.ApiErrorI18n(c, i18n.MsgAuthInsufficientPrivilege)
 		return
 	}
-
-	lock := model.GetChannelPollingLock(channel.Id)
-	lock.Lock()
-	defer lock.Unlock()
 
 	switch request.Action {
 	case "get_key_status":
@@ -1917,7 +1935,7 @@ func ManageMultiKeys(c *gin.Context) {
 
 		channel.ChannelInfo.MultiKeyStatusList[keyIndex] = 2 // disabled
 
-		err = channel.Update()
+		err = channel.UpdateMultiKeyState(false)
 		if err != nil {
 			common.ApiError(c, err)
 			return
@@ -1959,7 +1977,7 @@ func ManageMultiKeys(c *gin.Context) {
 			delete(channel.ChannelInfo.MultiKeyDisabledReason, keyIndex)
 		}
 
-		err = channel.Update()
+		err = channel.UpdateMultiKeyState(false)
 		if err != nil {
 			common.ApiError(c, err)
 			return
@@ -1983,7 +2001,7 @@ func ManageMultiKeys(c *gin.Context) {
 		channel.ChannelInfo.MultiKeyDisabledTime = make(map[int]int64)
 		channel.ChannelInfo.MultiKeyDisabledReason = make(map[int]string)
 
-		err = channel.Update()
+		err = channel.UpdateMultiKeyState(false)
 		if err != nil {
 			common.ApiError(c, err)
 			return
@@ -2030,7 +2048,7 @@ func ManageMultiKeys(c *gin.Context) {
 			return
 		}
 
-		err = channel.Update()
+		err = channel.UpdateMultiKeyState(false)
 		if err != nil {
 			common.ApiError(c, err)
 			return
@@ -2110,7 +2128,7 @@ func ManageMultiKeys(c *gin.Context) {
 		channel.ChannelInfo.MultiKeyDisabledTime = newDisabledTime
 		channel.ChannelInfo.MultiKeyDisabledReason = newDisabledReason
 
-		err = channel.Update()
+		err = channel.UpdateMultiKeyState(true)
 		if err != nil {
 			common.ApiError(c, err)
 			return
@@ -2178,7 +2196,7 @@ func ManageMultiKeys(c *gin.Context) {
 		channel.ChannelInfo.MultiKeyDisabledTime = newDisabledTime
 		channel.ChannelInfo.MultiKeyDisabledReason = newDisabledReason
 
-		err = channel.Update()
+		err = channel.UpdateMultiKeyState(true)
 		if err != nil {
 			common.ApiError(c, err)
 			return

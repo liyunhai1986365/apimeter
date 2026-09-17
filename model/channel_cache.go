@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -22,6 +23,7 @@ var channelsIDM map[int]*Channel                     // all channels include dis
 // request-path filtering does not reparse JSON for every relay attempt.
 var channel2advancedCustomConfig map[int]*dto.AdvancedCustomConfig
 var channelSyncLock sync.RWMutex
+var channelCacheGeneration atomic.Uint64
 
 var ErrNoChannelMatchedFilter = errors.New("no channel matched filter")
 
@@ -32,10 +34,14 @@ func InitChannelCache() {
 		InvalidatePricingCache()
 		return
 	}
+	generation := channelCacheGeneration.Add(1)
 	newChannelId2channel := make(map[int]*Channel)
 	newChannel2advancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
 	var channels []*Channel
-	DB.Find(&channels)
+	if err := DB.Find(&channels).Error; err != nil {
+		common.SysError("refresh channel cache: " + err.Error())
+		return
+	}
 	for _, channel := range channels {
 		newChannelId2channel[channel.Id] = channel
 		if channel.Type == constant.ChannelTypeAdvancedCustom {
@@ -45,7 +51,10 @@ func InitChannelCache() {
 		}
 	}
 	var abilities []*Ability
-	DB.Find(&abilities)
+	if err := DB.Find(&abilities).Error; err != nil {
+		common.SysError("refresh channel abilities: " + err.Error())
+		return
+	}
 	groups := make(map[string]bool)
 	for _, ability := range abilities {
 		groups[ability.Group] = true
@@ -81,6 +90,10 @@ func InitChannelCache() {
 	}
 
 	channelSyncLock.Lock()
+	if generation != channelCacheGeneration.Load() {
+		channelSyncLock.Unlock()
+		return
+	}
 	group2model2channels = newGroup2model2channels
 	//channelsIDM = newChannelId2channel
 	for i, channel := range newChannelId2channel {
@@ -282,6 +295,7 @@ func CacheUpdateChannelStatus(id int, status int) {
 	}
 	channelSyncLock.Lock()
 	defer channelSyncLock.Unlock()
+	channelCacheGeneration.Add(1)
 	if channel, ok := channelsIDM[id]; ok {
 		channel.Status = status
 	}
@@ -310,6 +324,8 @@ func CacheUpdateChannel(channel *Channel) {
 		channelSyncLock.Unlock()
 		return
 	}
+
+	channelCacheGeneration.Add(1)
 
 	if channelsIDM == nil {
 		channelsIDM = make(map[int]*Channel)

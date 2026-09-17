@@ -168,9 +168,11 @@ func selectSmartConfigurableResourceRoute(c *gin.Context, profileID, resourceID 
 		if !service.SmartRetryGroupAvailable(c, candidate.group) {
 			continue
 		}
-		filter := service.SmartRetryChannelFilter(c, configurableResourceRequestModel(c, candidate.resource))
-		if filter != nil && !filter(candidate.channel) {
-			continue
+		if !configurableResourceHasIndependentCredentials(candidate.channel, candidate.resource) {
+			filter := service.SmartRetryChannelFilter(c, configurableResourceRequestModel(c, candidate.resource))
+			if filter != nil && !filter(candidate.channel) {
+				continue
+			}
 		}
 		common.SetContextKey(c, constant.ContextKeyAutoGroup, candidate.group)
 		common.SetContextKey(c, constant.ContextKeyUsingGroup, candidate.group)
