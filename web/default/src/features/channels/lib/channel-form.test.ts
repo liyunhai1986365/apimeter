@@ -3,6 +3,7 @@ import { describe, test } from 'node:test'
 import type { Channel } from '../types'
 import {
   CHANNEL_FORM_DEFAULT_VALUES,
+  channelFormSchema,
   CONVERSION_OPTIONS,
   CONVERSION_OPTION_OPENAI_IMAGE_GENERATIONS_TO_GEMINI,
   REQUEST_MODE_OPTIONS,
@@ -225,5 +226,136 @@ describe('channel form payload transforms', () => {
       'openai.image.generations_to_gemini.generate_content',
       'future.image.conversion',
     ])
+  })
+})
+
+describe('TgxMaas channel project', () => {
+  const formData = {
+    ...CHANNEL_FORM_DEFAULT_VALUES,
+    name: 'project-channel',
+    type: 999,
+    key: 'test-key',
+    models: 'seedance',
+    protocol_profile_id: 'seedance-tgxmaas',
+    protocol_project_name: ' nmyk ',
+  }
+  test('requires a project only for the TgxMaas profile', () => {
+    assert.equal(
+      channelFormSchema.safeParse({ ...formData, protocol_project_name: '' })
+        .success,
+      false
+    )
+    assert.equal(
+      channelFormSchema.safeParse({ ...formData, protocol_project_name: '  ' })
+        .success,
+      false
+    )
+    assert.equal(channelFormSchema.safeParse(formData).success, true)
+    assert.equal(
+      channelFormSchema.safeParse({
+        ...formData,
+        protocol_profile_id: 'generic-video-json',
+        protocol_project_name: '',
+      }).success,
+      true
+    )
+  })
+  test('saves, reloads and updates the channel project', () => {
+    const createPayload = transformFormDataToCreatePayload(formData)
+    const setting = JSON.parse(createPayload.channel.setting || '{}')
+    assert.equal(setting.protocol.project_name, 'nmyk')
+    const channel = {
+      ...createPayload.channel,
+      id: 42,
+      channel_info: { is_multi_key: false },
+    } as Channel
+    const defaults = transformChannelToFormDefaults(channel)
+    assert.equal(defaults.protocol_project_name, 'nmyk')
+    const update = transformFormDataToUpdatePayload(defaults, 42)
+    assert.equal(
+      JSON.parse(update.setting || '{}').protocol.project_name,
+      'nmyk'
+    )
+    const switched = transformFormDataToCreatePayload({
+      ...formData,
+      protocol_profile_id: 'generic-video-json',
+    })
+    assert.equal(
+      JSON.parse(switched.channel.setting || '{}').protocol.project_name,
+      undefined
+    )
+  })
+})
+
+describe('independent asset library configuration', () => {
+  test('sends official credentials separately from public channel settings', () => {
+    const values = {
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      type: 999,
+      name: 'official-assets',
+      key: 'video-key',
+      models: 'seedance',
+      protocol_profile_id: 'seedance2-ark-task-assets',
+      protocol_project_name: 'nmyk',
+      asset_backend: 'volcengine-assets',
+      asset_base_url: 'https://ark.cn-beijing.volcengineapi.com',
+      asset_access_key_id: 'asset-ak',
+      asset_secret_access_key: 'asset-sk',
+    }
+    const create = transformFormDataToCreatePayload(values)
+    const update = transformFormDataToUpdatePayload(values, 42)
+    const settings = JSON.parse(create.channel.setting || '{}')
+    assert.equal(settings.protocol.profile_id, 'seedance2-ark-task-assets')
+    assert.equal(settings.protocol.project_name, 'nmyk')
+    assert.equal(settings.protocol.asset_library.auth_mode, 'aksk')
+    assert.deepEqual(create.asset_credentials, {
+      access_key_id: 'asset-ak',
+      secret_access_key: 'asset-sk',
+    })
+    assert.deepEqual(update.asset_credentials, create.asset_credentials)
+    assert.equal(create.channel.setting?.includes('asset-sk'), false)
+    assert.equal(
+      transformFormDataToUpdatePayload(
+        { ...values, asset_access_key_id: '', asset_secret_access_key: '' },
+        42
+      ).asset_credentials,
+      undefined
+    )
+  })
+  test('requires projects only for backends that use them', () => {
+    const values = {
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      type: 999,
+      name: 'test',
+      key: 'video-key',
+      models: 'seedance',
+      protocol_profile_id: 'seedance2-ark-task-assets',
+      asset_backend: 'volcengine-assets',
+    }
+    assert.equal(channelFormSchema.safeParse(values).success, false)
+    assert.equal(
+      channelFormSchema.safeParse({ ...values, protocol_project_name: 'nmyk' })
+        .success,
+      true
+    )
+    assert.equal(
+      channelFormSchema.safeParse({ ...values, asset_backend: 'task' }).success,
+      true
+    )
+  })
+  test('drops hidden credentials when switching to inherited or disabled libraries', () => {
+    for (const backend of ['inherit', 'disabled']) {
+      const values = {
+        ...CHANNEL_FORM_DEFAULT_VALUES,
+        type: 999,
+        asset_backend: backend,
+        asset_auth_mode: 'api_key',
+        asset_api_key: 'hidden-secret',
+      }
+      assert.equal(
+        transformFormDataToCreatePayload(values).asset_credentials,
+        undefined
+      )
+    }
   })
 })

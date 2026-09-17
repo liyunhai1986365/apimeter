@@ -1,0 +1,323 @@
+{
+  "scope": "local running gateway against real upstreams",
+  "project": "nmyk",
+  "requests": [
+    {
+      "backend": "tgxmaas",
+      "step": "invalid-asset-key",
+      "method": "POST",
+      "path": "/v1/private-avatar/groups/list",
+      "http_status": 401,
+      "error": "{'message': 'Invalid token (request id: 202609170627579973565118268d9d6sA3Nn38h)', 'type': 'new_api_error', 'param': '', 'code': ''}",
+      "expected_status": 401
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "group-create",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "CreateAssetGroup"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "group-alias-get",
+      "method": "GET",
+      "path": "/api/asset-groups/group-20260917142759-4cdqm",
+      "http_status": 200
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "group-update",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "UpdateAssetGroup"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "group-get",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "GetAssetGroup"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "group-list",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "ListAssetGroups"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-create",
+      "method": "POST",
+      "path": "/api/assets",
+      "http_status": 200
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-v1-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-v1-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-v1-get",
+      "method": "GET",
+      "path": "/v1/assets/asset-20260917142759-p9whg",
+      "http_status": 200
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-original-id-get",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "GetAsset"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-update",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "UpdateAsset"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-get",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "GetAsset"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-list",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "ListAssets"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "v1-group-create",
+      "method": "POST",
+      "path": "/v1/asset-groups",
+      "http_status": 200
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "v1-group-delete",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "DeleteAssetGroup"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "asset-delete",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "DeleteAsset"
+    },
+    {
+      "backend": "volcengine-assets",
+      "step": "group-delete",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "DeleteAssetGroup"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "group-create",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "CreateAssetGroup"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "group-alias-get",
+      "method": "GET",
+      "path": "/api/asset-groups/ag_18e58947460a426b848bb50e276a30b0",
+      "http_status": 200
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "group-update",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "UpdateAssetGroup"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "group-get",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "GetAssetGroup"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "group-list",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "ListAssetGroups"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-create",
+      "method": "POST",
+      "path": "/api/assets",
+      "http_status": 200
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-v1-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-v1-post-get",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http_status": 200
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-v1-get",
+      "method": "GET",
+      "path": "/v1/assets/asset_bd849f3881c6402ba9e85c75719fbb43",
+      "http_status": 200
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-original-id-get",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "GetAsset"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-update",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "UpdateAsset"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-get",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "GetAsset"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-list",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "ListAssets"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "v1-group-create",
+      "method": "POST",
+      "path": "/v1/asset-groups",
+      "http_status": 200
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "v1-group-delete",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "DeleteAssetGroup"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "asset-delete",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "DeleteAsset"
+    },
+    {
+      "backend": "tgxmaas",
+      "step": "group-delete",
+      "method": "POST",
+      "path": "/",
+      "http_status": 200,
+      "action": "DeleteAssetGroup"
+    }
+  ],
+  "backends": {
+    "volcengine-assets": {
+      "asset_id": "asset-20260917142759-p9whg",
+      "original_id": "asset-20260917142759-p9whg",
+      "group_id": "group-20260917142759-4cdqm",
+      "status": "Active"
+    },
+    "tgxmaas": {
+      "asset_id": "asset_bd849f3881c6402ba9e85c75719fbb43",
+      "original_id": "asset-20260917142805-c9v6m",
+      "group_id": "ag_18e58947460a426b848bb50e276a30b0",
+      "status": "Active"
+    }
+  },
+  "cleanup": [
+    "asset-20260917142759-p9whg",
+    "group-20260917142759-4cdqm",
+    "asset_bd849f3881c6402ba9e85c75719fbb43",
+    "ag_18e58947460a426b848bb50e276a30b0"
+  ],
+  "asset_401_preserves_video_channel": true,
+  "result": "PASS",
+  "date": "2026-09-17",
+  "video": {
+    "task_id": "cgt-20260917141944-n0m94",
+    "status": "succeeded",
+    "bytes": 2062468,
+    "usage": {
+      "completion_tokens": 38703,
+      "total_tokens": 38703
+    },
+    "has_last_frame": true
+  },
+  "video_requery": {
+    "http_status": 200,
+    "status": "succeeded",
+    "no_extra_charge": true
+  },
+  "mock_regression": "PASS: controller, model, relay/channel/configurable, router (asset/channel/Seedance/smart retry selection)",
+  "final_review": "No new blocking issue found in the fixes",
+  "limitations": [
+    "Human liveness actions covered by mock only; interactive H5 verification was not performed."
+  ],
+  "observations": [
+    "An initial ListAssets request omitted Filter.GroupType and returned HTTP 400; the corrected request passed.",
+    "An immediate group read once returned the old name after a successful update. Final verification allowed up to ten one-second reads for visibility.",
+    "Video polling initially returned upstream task_status_pending (503), then running (200), then succeeded (200)."
+  ]
+}

@@ -248,6 +248,7 @@ video:
           omit_empty: true
 resources:
   - id: assets_create
+    asset_library: true
     name: Seedance Max Assets Create
     billing:
       enabled: false
@@ -261,6 +262,7 @@ resources:
     response:
       passthrough: true
   - id: assets_get
+    asset_library: true
     name: Seedance Max Assets Get
     billing:
       enabled: false

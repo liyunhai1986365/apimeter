@@ -221,6 +221,7 @@ video:
           omit_empty: true
 resources:
   - id: assets_upload
+    asset_library: true
     name: Assets Upload
     public:
       method: POST
@@ -240,6 +241,7 @@ resources:
     response:
       passthrough: true
   - id: assets_create
+    asset_library: true
     name: Assets Create
     public:
       method: POST
@@ -259,6 +261,7 @@ resources:
     response:
       passthrough: true
   - id: assets_list
+    asset_library: true
     name: Assets List
     public:
       method: GET
@@ -289,6 +292,7 @@ resources:
     response:
       passthrough: true
   - id: asset_detail
+    asset_library: true
     name: Asset Detail
     public:
       method: GET
@@ -301,6 +305,7 @@ resources:
     response:
       passthrough: true
   - id: asset_delete
+    asset_library: true
     name: Asset Delete
     public:
       method: DELETE

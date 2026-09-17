@@ -255,3 +255,54 @@ func TestTgxAssetOriginalHandleLifecycle(t *testing.T) {
 		require.Equal(t, "/v1/private-avatar/assets/asset_local", gotPath)
 	}
 }
+
+func TestTgxMaasChannelDefaultProject(t *testing.T) {
+	var gotProject, gotBodyProject string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		gotProject, gotBodyProject = r.URL.Query().Get("ProjectName"), gjson.GetBytes(raw, "ProjectName").String()
+		_, _ = w.Write([]byte(`{"Result":{}}`))
+	}))
+	defer upstream.Close()
+	r := tgxMaasResourceTestRouter(t, upstream.URL, "fixture-key", tgxRegressionModel)
+	registerTgxConversionTestRoutes(t, r)
+	ch, err := model.GetChannelById(20, true)
+	require.NoError(t, err)
+	setting := ch.GetSetting()
+	setting.Protocol.ProjectName = " nmyk "
+	ch.SetSetting(setting)
+	require.NoError(t, model.DB.Save(ch).Error)
+	for _, tc := range []struct {
+		method, path, body, project string
+		hasBody                     bool
+	}{
+		{"POST", "/?Action=CreateAssetGroup&Version=2024-01-01", `{"Name":"test"}`, "nmyk", true},
+		{"POST", "/?Action=CreateAsset&Version=2024-01-01", `{"GroupId":"ag_local","URL":"https://example.com/a.jpg","AssetType":"Image"}`, "nmyk", true},
+		{"POST", "/?Action=GetAsset&Version=2024-01-01", `{"Id":"asset_local"}`, "nmyk", false},
+		{"POST", "/?Action=ListAssets&Version=2024-01-01", `{"PageNumber":1,"PageSize":10}`, "nmyk", true},
+		{"PATCH", "/api/assets/asset_local", `{"Name":"updated"}`, "nmyk", true},
+		{"DELETE", "/api/assets/asset_local", `{}`, "nmyk", true},
+		{"GET", "/v1/private-avatar/assets/asset_local", "", "nmyk", false},
+		{"POST", "/v1/assets/get", `{"asset_id":"asset_local"}`, "nmyk", false},
+		{"POST", "/?Action=GetAssetGroup&Version=2024-01-01", `{"Id":"ag_local","ProjectName":"other"}`, "other", false},
+		{"GET", "/api/assets/asset_local?project_name=other", "", "other", false},
+		{"POST", "/v1/private-avatar/assets/list", `{"ProjectName":"other"}`, "other", true},
+	} {
+		w := seedanceCall(r, tc.method, tc.path, tc.body, 1)
+		require.Equal(t, 200, w.Code, w.Body.String())
+		require.Equal(t, tc.project, gotProject, tc.path)
+		if tc.hasBody {
+			require.Equal(t, tc.project, gotBodyProject, tc.path)
+		}
+	}
+	for _, project := range []string{"", "  ", "nmyk"} {
+		setting.Protocol.ProjectName = project
+		ch.SetSetting(setting)
+		err := validateChannel(ch, false)
+		if strings.TrimSpace(project) == "" {
+			require.ErrorContains(t, err, "ProjectName")
+		} else {
+			require.NoError(t, err)
+		}
+	}
+}

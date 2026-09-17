@@ -82,6 +82,7 @@ type NativeEndpointConfig struct {
 }
 
 type ResourceConfig struct {
+	AssetLibrary  bool                  `yaml:"asset_library"`  // Only these resources use the channel's independent asset backend.
 	FixedModel    bool                  `yaml:"fixed_model"`    // Model is determined by the endpoint, not client input.
 	DisableReplay bool                  `yaml:"disable_replay"` // Resource operations bound to one upstream account must not fail over.
 	ID            string                `yaml:"id"`

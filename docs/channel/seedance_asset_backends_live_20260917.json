@@ -1,0 +1,434 @@
+{
+  "date": "2026-09-17",
+  "project_name": "nmyk",
+  "execution": "Local production gateway handlers connected to real upstream services",
+  "runs": [
+    {
+      "backend": "official",
+      "passed": true,
+      "ordinary_operations_passed": 10,
+      "requests": [
+        {
+          "step": "group-create",
+          "http_status": 200
+        },
+        {
+          "step": "group-get",
+          "http_status": 200
+        },
+        {
+          "step": "group-update",
+          "http_status": 200
+        },
+        {
+          "step": "group-get-updated",
+          "http_status": 200
+        },
+        {
+          "step": "group-list",
+          "http_status": 200
+        },
+        {
+          "step": "asset-create",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get-original-id",
+          "http_status": 200
+        },
+        {
+          "step": "asset-update",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get-updated",
+          "http_status": 200
+        },
+        {
+          "step": "asset-list",
+          "http_status": 200
+        },
+        {
+          "step": "asset-delete",
+          "http_status": 200
+        },
+        {
+          "step": "group-delete",
+          "http_status": 200
+        }
+      ],
+      "group_id": "group-20260917133024-wzp4d",
+      "asset_id": "asset-20260917133024-gcr99",
+      "asset_status": "Active",
+      "returned_project": "nmyk",
+      "test_resources_deleted": true
+    },
+    {
+      "backend": "tgxmaas",
+      "passed": true,
+      "ordinary_operations_passed": 10,
+      "requests": [
+        {
+          "step": "group-create",
+          "http_status": 200
+        },
+        {
+          "step": "group-get",
+          "http_status": 200
+        },
+        {
+          "step": "group-update",
+          "http_status": 200
+        },
+        {
+          "step": "group-get-updated",
+          "http_status": 200
+        },
+        {
+          "step": "group-list",
+          "http_status": 200
+        },
+        {
+          "step": "asset-create",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get-original-id",
+          "http_status": 200
+        },
+        {
+          "step": "asset-update",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get-updated",
+          "http_status": 200
+        },
+        {
+          "step": "asset-list",
+          "http_status": 200
+        },
+        {
+          "step": "asset-delete",
+          "http_status": 200
+        },
+        {
+          "step": "group-delete",
+          "http_status": 200
+        }
+      ],
+      "group_id": "ag_3fcf5de7c8d64717880aa0031504d321",
+      "asset_id": "asset_e320add21445427fa19c6d50d9e0e8bc",
+      "asset_status": "Active",
+      "returned_project": "nmyk",
+      "test_resources_deleted": true
+    },
+    {
+      "backend": "official_assets_with_tgxmaas_video",
+      "passed": true,
+      "ordinary_operations_passed": 10,
+      "requests": [
+        {
+          "step": "group-create",
+          "http_status": 200
+        },
+        {
+          "step": "group-get",
+          "http_status": 200
+        },
+        {
+          "step": "group-update",
+          "http_status": 200
+        },
+        {
+          "step": "group-get-updated",
+          "http_status": 200
+        },
+        {
+          "step": "group-list",
+          "http_status": 200
+        },
+        {
+          "step": "asset-create",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get-original-id",
+          "http_status": 200
+        },
+        {
+          "step": "asset-update",
+          "http_status": 200
+        },
+        {
+          "step": "asset-get-updated",
+          "http_status": 200
+        },
+        {
+          "step": "asset-list",
+          "http_status": 200
+        },
+        {
+          "step": "video-create",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 503
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-get",
+          "http_status": 200
+        },
+        {
+          "step": "video-repeat",
+          "http_status": 200
+        },
+        {
+          "step": "asset-delete",
+          "http_status": 200
+        },
+        {
+          "step": "group-delete",
+          "http_status": 200
+        }
+      ],
+      "group_id": "group-20260917133058-kv877",
+      "asset_id": "asset-20260917133058-jh7jf",
+      "asset_status": "Active",
+      "returned_project": "nmyk",
+      "test_resources_deleted": true,
+      "video": {
+        "id": "cgt-20260917133102-qsq8z",
+        "status": "succeeded",
+        "duration": 4,
+        "usage": {
+          "completion_tokens": 38762,
+          "total_tokens": 38762
+        },
+        "download_http_status": 200,
+        "bytes": 2057456,
+        "sha256": "69f3e9d0763ee2ef7751b8fe6ef3c730805efb52cf70b2ccc9e5c3603e818b6f",
+        "container_signature_checked": true,
+        "local_repeat_query_did_not_charge_again": true
+      }
+    }
+  ],
+  "liveness": "Not executed; requires a real callback URL and completion of the H5 verification flow"
+}

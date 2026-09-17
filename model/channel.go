@@ -22,6 +22,7 @@ import (
 )
 
 type Channel struct {
+	AssetSecret        string   `json:"-" gorm:"type:text"`
 	Id                 int      `json:"id"`
 	Type               int      `json:"type" gorm:"default:0"`
 	Key                string   `json:"key" gorm:"not null"`

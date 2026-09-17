@@ -163,6 +163,7 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.32.0
 	github.com/QuantumNous/new-api/relaykit v0.0.0
 	github.com/alicebob/miniredis/v2 v2.38.0
+	github.com/volcengine/volc-sdk-golang v1.0.23
 )
 
 require github.com/golang/freetype v0.0.0-20170609003504-e2365dfdc4a0 // indirect

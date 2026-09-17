@@ -229,6 +229,7 @@ video:
           omit_empty: true
 resources:
   - id: assets_upload
+    asset_library: true
     name: Assets Upload
     public:
       method: POST
@@ -252,6 +253,7 @@ resources:
     response:
       passthrough: true
   - id: asset_query
+    asset_library: true
     name: Asset Query
     public:
       method: GET

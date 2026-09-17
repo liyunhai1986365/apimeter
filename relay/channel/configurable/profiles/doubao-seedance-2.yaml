@@ -221,6 +221,7 @@ video:
           omit_empty: true
 resources:
   - id: material_assets
+    asset_library: true
     name: Material Assets
     public:
       method: POST
@@ -254,6 +255,7 @@ resources:
           fallback_froms:
             - asset_id
   - id: material_assets_list
+    asset_library: true
     name: Material Assets List
     public:
       method: GET
@@ -287,6 +289,7 @@ resources:
     response:
       passthrough: true
   - id: material_asset_detail
+    asset_library: true
     name: Material Asset Detail
     public:
       method: GET
@@ -302,6 +305,7 @@ resources:
     response:
       passthrough: true
   - id: material_asset_delete
+    asset_library: true
     name: Material Asset Delete
     public:
       method: DELETE

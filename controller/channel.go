@@ -633,6 +633,12 @@ func validateChannel(channel *model.Channel, isAdd bool) error {
 		}
 	}
 
+	if channel.Type == constant.ChannelTypeConfigurable {
+		if protocol := channel.GetSetting().Protocol; protocol != nil && protocol.ProfileID == "seedance-tgxmaas" && (protocol.AssetLibrary == nil || protocol.AssetLibrary.Backend == "inherit" || protocol.AssetLibrary.Backend == "tgxmaas") && strings.TrimSpace(protocol.ProjectName) == "" {
+			return fmt.Errorf("Seedance TgxMaas 渠道必须填写 ProjectName")
+		}
+	}
+
 	// VertexAI 特殊校验
 	if channel.Type == constant.ChannelTypeVertexAi {
 		if channel.Other == "" {
@@ -705,10 +711,11 @@ func RefreshCodexChannelCredential(c *gin.Context) {
 }
 
 type AddChannelRequest struct {
-	Mode                      string                `json:"mode"`
-	MultiKeyMode              constant.MultiKeyMode `json:"multi_key_mode"`
-	BatchAddSetKeyPrefix2Name bool                  `json:"batch_add_set_key_prefix_2_name"`
-	Channel                   *model.Channel        `json:"channel"`
+	AssetCredentials          *model.AssetCredentials `json:"asset_credentials,omitempty"`
+	Mode                      string                  `json:"mode"`
+	MultiKeyMode              constant.MultiKeyMode   `json:"multi_key_mode"`
+	BatchAddSetKeyPrefix2Name bool                    `json:"batch_add_set_key_prefix_2_name"`
+	Channel                   *model.Channel          `json:"channel"`
 }
 
 func getVertexArrayKeys(keys string) ([]string, error) {
@@ -760,6 +767,14 @@ func AddChannel(c *gin.Context) {
 		return
 	}
 
+	if addChannelRequest.Mode == "multi_to_single" && assetLibrary(addChannelRequest.Channel) != nil && assetLibrary(addChannelRequest.Channel).AuthMode == "channel_key" {
+		common.ApiError(c, fmt.Errorf("use dedicated asset credentials for multi-key channels"))
+		return
+	}
+	if err := prepareAssetCredentials(addChannelRequest.Channel, nil, addChannelRequest.AssetCredentials); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	addChannelRequest.Channel.CreatedTime = common.GetTimestamp()
 	keys := make([]string, 0)
 	switch addChannelRequest.Mode {
@@ -1123,6 +1138,7 @@ func DeleteChannelBatch(c *gin.Context) {
 }
 
 type PatchChannel struct {
+	AssetCredentials *model.AssetCredentials `json:"asset_credentials,omitempty"`
 	model.Channel
 	MultiKeyMode *string `json:"multi_key_mode"`
 	KeyMode      *string `json:"key_mode"` // 多key模式下密钥覆盖或者追加
@@ -1315,6 +1331,11 @@ func UpdateChannel(c *gin.Context) {
 			// 覆盖模式：直接使用新密钥（默认行为，不需要特殊处理）
 		}
 	}
+	if err := prepareAssetCredentials(&channel.Channel, originChannel, channel.AssetCredentials); err != nil {
+		common.ApiError(c, err)
+		return
+	}
+	channel.AssetCredentials = nil
 	err = channel.Update()
 	if err != nil {
 		common.ApiError(c, err)

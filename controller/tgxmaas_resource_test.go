@@ -19,6 +19,7 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
+	relaydto "github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -111,15 +112,20 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 		t.Skip("requires explicit TGXMAAS_ASSETS_LIVE_CONFIG")
 	}
 	var cfg struct {
-		URL              string `json:"url"`
-		Key              string `json:"key"`
-		Model            string `json:"model"`
-		AssetURL         string `json:"asset_url"`
-		GenerateVideo    bool   `json:"generate_video"`
-		OfficialActions  bool   `json:"official_actions"`
-		ProjectName      string `json:"project_name"`
-		PagePagination   bool   `json:"page_pagination"`
-		VerifyOriginalID bool   `json:"verify_original_id"`
+		AssetBackend         string `json:"asset_backend"`
+		AssetBaseURL         string `json:"asset_base_url"`
+		AssetAccessKeyID     string `json:"asset_access_key_id"`
+		AssetSecretAccessKey string `json:"asset_secret_access_key"`
+		URL                  string `json:"url"`
+		Key                  string `json:"key"`
+		Model                string `json:"model"`
+		AssetURL             string `json:"asset_url"`
+		GenerateVideo        bool   `json:"generate_video"`
+		OfficialActions      bool   `json:"official_actions"`
+		ProjectName          string `json:"project_name"`
+		ChannelProjectName   string `json:"channel_project_name"`
+		PagePagination       bool   `json:"page_pagination"`
+		VerifyOriginalID     bool   `json:"verify_original_id"`
 	}
 	data, err := os.ReadFile(configPath)
 	require.NoError(t, err)
@@ -130,6 +136,28 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 	require.NotEmpty(t, evidence)
 	require.NoError(t, os.MkdirAll(evidence, 0700))
 	r := tgxMaasResourceTestRouter(t, cfg.URL, cfg.Key, cfg.Model)
+	if cfg.ChannelProjectName != "" {
+		ch, err := model.GetChannelById(20, true)
+		require.NoError(t, err)
+		setting := ch.GetSetting()
+		setting.Protocol.ProjectName = cfg.ChannelProjectName
+		ch.SetSetting(setting)
+		require.NoError(t, model.DB.Save(ch).Error)
+	}
+	if cfg.AssetBackend != "" {
+		require.Equal(t, configurable.OfficialAssetBackend, cfg.AssetBackend)
+		require.True(t, cfg.OfficialActions, "official live test requires official_actions")
+		require.NotEmpty(t, cfg.ChannelProjectName, "configure the authorized project on the channel")
+		// This fixture uses an isolated test database, never production credentials.
+		t.Setenv("CRYPTO_SECRET", "asset-live-fixture-only")
+		ch, err := model.GetChannelById(20, true)
+		require.NoError(t, err)
+		setting := ch.GetSetting()
+		setting.Protocol.AssetLibrary = &relaydto.AssetLibrarySettings{Backend: cfg.AssetBackend, BaseURL: cfg.AssetBaseURL, AuthMode: "aksk", Region: "cn-beijing"}
+		ch.SetSetting(setting)
+		require.NoError(t, prepareAssetCredentials(ch, nil, &model.AssetCredentials{AccessKeyID: cfg.AssetAccessKeyID, SecretAccessKey: cfg.AssetSecretAccessKey}))
+		require.NoError(t, model.DB.Save(ch).Error)
+	}
 	if cfg.OfficialActions {
 		registerTgxConversionTestRoutes(t, r)
 	}
@@ -188,6 +216,9 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 			b, e := common.Marshal(body)
 			require.NoError(t, e)
 			raw = string(b)
+		}
+		if cfg.ChannelProjectName != "" && cfg.ProjectName == "" {
+			require.False(t, gjson.Get(raw, "ProjectName").Exists(), "client must omit ProjectName to verify the channel default")
 		}
 		response := seedanceCall(r, method, path, raw, 1)
 		require.NoError(t, os.WriteFile(filepath.Join(evidence, label+".json"), response.Body.Bytes(), 0600))
@@ -274,7 +305,7 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 
 	if cfg.GenerateVideo {
 		payload := map[string]any{"model": cfg.Model, "content": []map[string]any{
-			{"type": "text", "text": "A red ball on a white table, static camera, gentle motion."},
+			{"type": "text", "text": "Keep the fruit arrangement from the reference image, static camera, subtle natural lighting changes."},
 			{"type": "image_url", "image_url": map[string]string{"url": "asset://" + assetID}, "role": "first_frame"},
 		}, "duration": 4, "resolution": "480p", "generate_audio": false}
 		raw, err := common.Marshal(payload)

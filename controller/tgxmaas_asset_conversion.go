@@ -23,16 +23,18 @@ const arkAssetActionKey = "ark_asset_action"
 // authentication. IDs remain provider handles, including in subsequent calls.
 func RelayArkAssetAction(c *gin.Context) {
 	actions := map[string]struct{ method, path, param string }{
-		"CreateAsset":      {"POST", "/v1/private-avatar/assets", ""},
-		"ListAssets":       {"POST", "/v1/private-avatar/assets/list", ""},
-		"GetAsset":         {"GET", "/v1/private-avatar/assets/", "asset_id"},
-		"UpdateAsset":      {"PATCH", "/v1/private-avatar/assets/", "asset_id"},
-		"DeleteAsset":      {"DELETE", "/v1/private-avatar/assets/", "asset_id"},
-		"CreateAssetGroup": {"POST", "/v1/private-avatar/groups", ""},
-		"ListAssetGroups":  {"POST", "/v1/private-avatar/groups/list", ""},
-		"GetAssetGroup":    {"GET", "/v1/private-avatar/groups/", "group_id"},
-		"UpdateAssetGroup": {"PATCH", "/v1/private-avatar/groups/", "group_id"},
-		"DeleteAssetGroup": {"DELETE", "/v1/private-avatar/groups/", "group_id"},
+		"CreateVisualValidateSession": {"POST", "/v1/real-avatar/auth/session", ""},
+		"GetVisualValidateResult":     {"POST", "/v1/real-avatar/groups/from-token", ""},
+		"CreateAsset":                 {"POST", "/v1/private-avatar/assets", ""},
+		"ListAssets":                  {"POST", "/v1/private-avatar/assets/list", ""},
+		"GetAsset":                    {"GET", "/v1/private-avatar/assets/", "asset_id"},
+		"UpdateAsset":                 {"PATCH", "/v1/private-avatar/assets/", "asset_id"},
+		"DeleteAsset":                 {"DELETE", "/v1/private-avatar/assets/", "asset_id"},
+		"CreateAssetGroup":            {"POST", "/v1/private-avatar/groups", ""},
+		"ListAssetGroups":             {"POST", "/v1/private-avatar/groups/list", ""},
+		"GetAssetGroup":               {"GET", "/v1/private-avatar/groups/", "group_id"},
+		"UpdateAssetGroup":            {"PATCH", "/v1/private-avatar/groups/", "group_id"},
+		"DeleteAssetGroup":            {"DELETE", "/v1/private-avatar/groups/", "group_id"},
 	}
 	action := c.Query("Action")
 	target, ok := actions[action]
@@ -71,10 +73,11 @@ func validAssetHandle(id string) bool {
 	return strings.TrimSpace(id) != "" && id != "." && id != ".." && !strings.ContainsAny(id, "/\\?#%\r\n")
 }
 
-// Conversion is scoped to the selected TgxMaas profile, so shared generic
-// routes retain the contracts of other providers.
+// Normalize official and TgxMaas asset contracts after selecting the backend;
+// shared generic routes retain the contracts of other providers.
 func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *configurable.Profile, resource *configurable.ResourceConfig) error {
-	if profile.ID != "seedance-tgxmaas" || strings.HasPrefix(c.Request.URL.Path, "/v1/real-avatar/") {
+	official := profile.ID == configurable.OfficialAssetBackend
+	if !official && profile.ID != "seedance-tgxmaas" {
 		return nil
 	}
 	native := c.GetString(arkAssetActionKey) == "" && strings.HasPrefix(c.Request.URL.Path, "/v1/private-avatar/")
@@ -157,9 +160,16 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 		// path. Reuse the profile's asset_id -> id mapping for the upstream GET.
 		c.Params = gin.Params{{Key: "id", Value: id}}
 	}
+	if _, supplied := body["ProjectName"]; !supplied {
+		if protocol := ch.GetSetting().Protocol; protocol != nil {
+			if project := strings.TrimSpace(protocol.ProjectName); project != "" {
+				body["ProjectName"], _ = common.Marshal(project)
+			}
+		}
+	}
 	// Preserve project scope for every operation, including GET requests whose
-	// upstream transport has no JSON body. Do not default it here: asset creation
-	// inherits the group's project when the client omits ProjectName.
+	// upstream transport has no JSON body. Without a channel default, leave
+	// omission intact so the supplier can inherit the group's project.
 	query := url.Values{}
 	if raw, ok := body["ProjectName"]; ok {
 		var project string
@@ -188,7 +198,10 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 	}
 	project := query.Get("ProjectName")
 	resolve := func(id string) (string, error) {
-		return model.ResolveTgxMaasAssetHandle(ch.Id, common.GetContextKeyInt(c, constant.ContextKeyUserId), project, id)
+		if official {
+			return id, nil
+		}
+		return model.ResolveTgxMaasAssetHandle(ch.Id, common.GetContextKeyInt(c, constant.ContextKeyUserId), ch.AssetHandleProject(project), id)
 	}
 	for i := range c.Params {
 		id, err := resolve(c.Params[i].Value)
@@ -231,10 +244,10 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 		}
 		body["Filter"], _ = common.Marshal(filter)
 	}
-	if c.GetString(arkAssetActionKey) != "" {
+	if !official && c.GetString(arkAssetActionKey) != "" {
 		delete(body, "Id")
 	}
-	if _, ok := body["model"]; !ok && !native {
+	if _, ok := body["model"]; !ok && !native && !official {
 		name := configurableResourceRequestModel(c, resource)
 		if name == "" {
 			for _, candidate := range strings.Split(ch.Models, ",") {
@@ -258,6 +271,14 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 			body["model"] = raw
 		}
 	}
+	if official {
+		delete(body, "model")
+		delete(body, "asset_id")
+		delete(body, "id")
+		for _, param := range c.Params {
+			body["Id"], _ = common.Marshal(param.Value)
+		}
+	}
 	raw, err := common.Marshal(body)
 	if err != nil {
 		return err
@@ -266,7 +287,7 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 	return nil
 }
 
-func rememberTgxMaasAssetHandles(c *gin.Context, channelID int, resourceID string, response []byte) error {
+func rememberTgxMaasAssetHandles(c *gin.Context, ch *model.Channel, resourceID string, response []byte) error {
 	if gjson.GetBytes(response, "ResponseMetadata.Error").Exists() {
 		return nil
 	}
@@ -289,7 +310,7 @@ func rememberTgxMaasAssetHandles(c *gin.Context, channelID int, resourceID strin
 		if scope == "" {
 			scope = project
 		}
-		return model.SaveTgxMaasAssetHandle(channelID, common.GetContextKeyInt(c, constant.ContextKeyUserId), scope, original, item.Get("Id").String())
+		return model.SaveTgxMaasAssetHandle(ch.Id, common.GetContextKeyInt(c, constant.ContextKeyUserId), ch.AssetHandleProject(scope), original, item.Get("Id").String())
 	}
 	result := gjson.GetBytes(response, "Result")
 	if err := remember(result); err != nil {

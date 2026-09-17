@@ -288,6 +288,7 @@ video:
           omit_empty: true
 resources:
   - id: max_assets_create
+    asset_library: true
     name: Dreamina Seedance Max Assets Create
     billing:
       enabled: false
@@ -302,6 +303,7 @@ resources:
     response:
       passthrough: true
   - id: max_assets_get
+    asset_library: true
     name: Dreamina Seedance Max Assets Get
     billing:
       enabled: false
@@ -315,6 +317,7 @@ resources:
       passthrough: true
   # Legacy v1 resources for existing clients. Max handles use the v2 routes above.
   - id: asset_groups_create
+    asset_library: true
     name: Asset Groups Create
     public:
       method: POST
@@ -325,6 +328,7 @@ resources:
     response:
       passthrough: true
   - id: asset_group_detail
+    asset_library: true
     name: Asset Group Detail
     public:
       method: GET
@@ -335,6 +339,7 @@ resources:
     response:
       passthrough: true
   - id: assets_upload
+    asset_library: true
     name: Assets Upload
     public:
       method: POST
@@ -381,6 +386,7 @@ resources:
         - to: data.Id
           from: id
   - id: assets_create
+    asset_library: true
     name: Assets Create
     public:
       method: POST
@@ -424,6 +430,7 @@ resources:
     response:
       passthrough: true
   - id: assets_get
+    asset_library: true
     name: Assets Get
     public:
       method: POST

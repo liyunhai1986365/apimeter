@@ -18,7 +18,12 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { z } from 'zod'
 import { CHANNEL_STATUS, MODEL_FETCHABLE_TYPES } from '../constants'
-import type { Channel, ChannelUpdatePayload } from '../types'
+import type {
+  Channel,
+  ChannelUpdatePayload,
+  AssetCredentialsInput,
+  AssetLibrarySettings,
+} from '../types'
 
 const jsonArrayString = z.string().refine((value) => {
   const trimmed = value.trim()
@@ -148,72 +153,97 @@ export const FALLBACK_PROTOCOL_PROFILE_OPTIONS = [
 // Form Validation Schema
 // ============================================================================
 
-export const channelFormSchema = z.object({
-  name: z.string().min(1, 'Channel name is required'),
-  type: z.number().min(0, 'Channel type is required'),
-  base_url: z.string().optional(),
-  key: z.string(),
-  openai_organization: z.string().optional(),
-  models: z.string().min(1, 'At least one model is required'),
-  group: z.array(z.string()).min(1, 'At least one group is required'),
-  model_mapping: z.string().optional(),
-  priority: z.number().optional(),
-  weight: z.number().optional(),
-  channel_ratio: z.number().min(0, 'Cost discount cannot be negative'),
-  test_model: z.string().optional(),
-  auto_ban: z.number().optional(),
-  retry_enabled: z.boolean().optional(),
-  status: z.number(),
-  status_code_mapping: z.string().optional(),
-  tag: z.string().optional(),
-  remark: z
-    .string()
-    .max(255, 'Remark must be less than 255 characters')
-    .optional(),
-  setting: z.string().optional(),
-  param_override: z.string().optional(),
-  header_override: z.string().optional(),
-  settings: z.string().optional(),
-  other: z.string().optional(),
-  // Multi-key options (not sent to backend directly)
-  multi_key_mode: z.enum(['single', 'batch', 'multi_to_single']).optional(),
-  multi_key_type: z.enum(['random', 'polling']).optional(),
-  batch_add_set_key_prefix_2_name: z.boolean().optional(),
-  key_mode: z.enum(['append', 'replace']).optional(), // For editing multi-key channels
-  // Channel extra settings (stored in setting JSON, not sent directly)
-  force_format: z.boolean().optional(),
-  thinking_to_content: z.boolean().optional(),
-  proxy: z.string().optional(),
-  pass_through_body_enabled: z.boolean().optional(),
-  aws_bedrock_request_conversion_enabled: z.boolean().optional(),
-  image_auto_convert_generation_with_image_to_edit: z.boolean().optional(),
-  image_auto_convert_json_edit_to_multipart: z.boolean().optional(),
-  openai_image_response_format: z.enum(['', 'url', 'b64_json']).optional(),
-  system_prompt: z.string().optional(),
-  system_prompt_override: z.boolean().optional(),
-  retry_policy_rules: jsonArrayString.optional(),
-  protocol_native_modes: z.array(z.string()).optional(),
-  protocol_enabled_conversions: z.array(z.string()).optional(),
-  protocol_profile_id: z.string().optional(),
-  image_async_wait_timeout_seconds: z.number().min(0).optional(),
-  // Type-specific settings (stored in settings JSON)
-  is_enterprise_account: z.boolean().optional(), // OpenRouter specific
-  vertex_key_type: z.enum(['json', 'api_key']).optional(), // Vertex AI specific
-  aws_key_type: z.enum(['ak_sk', 'api_key']).optional(), // AWS specific
-  azure_responses_version: z.string().optional(), // Azure specific
-  // Field passthrough controls (stored in settings JSON)
-  allow_service_tier: z.boolean().optional(), // OpenAI/Anthropic
-  disable_store: z.boolean().optional(), // OpenAI only
-  allow_safety_identifier: z.boolean().optional(), // OpenAI only
-  allow_include_obfuscation: z.boolean().optional(), // OpenAI: include usage obfuscation
-  allow_inference_geo: z.boolean().optional(), // OpenAI/Anthropic: inference geography
-  allow_speed: z.boolean().optional(), // Anthropic: speed mode control
-  claude_beta_query: z.boolean().optional(), // Anthropic: beta query passthrough
-  // Upstream model update settings (stored in settings JSON)
-  upstream_model_update_check_enabled: z.boolean().optional(),
-  upstream_model_update_auto_sync_enabled: z.boolean().optional(),
-  upstream_model_update_ignored_models: z.string().optional(),
-})
+export const channelFormSchema = z
+  .object({
+    name: z.string().min(1, 'Channel name is required'),
+    type: z.number().min(0, 'Channel type is required'),
+    base_url: z.string().optional(),
+    key: z.string(),
+    openai_organization: z.string().optional(),
+    models: z.string().min(1, 'At least one model is required'),
+    group: z.array(z.string()).min(1, 'At least one group is required'),
+    model_mapping: z.string().optional(),
+    priority: z.number().optional(),
+    weight: z.number().optional(),
+    channel_ratio: z.number().min(0, 'Cost discount cannot be negative'),
+    test_model: z.string().optional(),
+    auto_ban: z.number().optional(),
+    retry_enabled: z.boolean().optional(),
+    status: z.number(),
+    status_code_mapping: z.string().optional(),
+    tag: z.string().optional(),
+    remark: z
+      .string()
+      .max(255, 'Remark must be less than 255 characters')
+      .optional(),
+    setting: z.string().optional(),
+    param_override: z.string().optional(),
+    header_override: z.string().optional(),
+    settings: z.string().optional(),
+    other: z.string().optional(),
+    // Multi-key options (not sent to backend directly)
+    multi_key_mode: z.enum(['single', 'batch', 'multi_to_single']).optional(),
+    multi_key_type: z.enum(['random', 'polling']).optional(),
+    batch_add_set_key_prefix_2_name: z.boolean().optional(),
+    key_mode: z.enum(['append', 'replace']).optional(), // For editing multi-key channels
+    // Channel extra settings (stored in setting JSON, not sent directly)
+    force_format: z.boolean().optional(),
+    thinking_to_content: z.boolean().optional(),
+    proxy: z.string().optional(),
+    pass_through_body_enabled: z.boolean().optional(),
+    aws_bedrock_request_conversion_enabled: z.boolean().optional(),
+    image_auto_convert_generation_with_image_to_edit: z.boolean().optional(),
+    image_auto_convert_json_edit_to_multipart: z.boolean().optional(),
+    openai_image_response_format: z.enum(['', 'url', 'b64_json']).optional(),
+    system_prompt: z.string().optional(),
+    system_prompt_override: z.boolean().optional(),
+    retry_policy_rules: jsonArrayString.optional(),
+    protocol_native_modes: z.array(z.string()).optional(),
+    protocol_enabled_conversions: z.array(z.string()).optional(),
+    protocol_profile_id: z.string().optional(),
+    protocol_project_name: z.string().optional(),
+    asset_backend: z.string().optional(),
+    asset_base_url: z.string().optional(),
+    asset_auth_mode: z.string().optional(),
+    asset_region: z.string().optional(),
+    asset_api_key: z.string().optional(),
+    asset_access_key_id: z.string().optional(),
+    asset_secret_access_key: z.string().optional(),
+    image_async_wait_timeout_seconds: z.number().min(0).optional(),
+    // Type-specific settings (stored in settings JSON)
+    is_enterprise_account: z.boolean().optional(), // OpenRouter specific
+    vertex_key_type: z.enum(['json', 'api_key']).optional(), // Vertex AI specific
+    aws_key_type: z.enum(['ak_sk', 'api_key']).optional(), // AWS specific
+    azure_responses_version: z.string().optional(), // Azure specific
+    // Field passthrough controls (stored in settings JSON)
+    allow_service_tier: z.boolean().optional(), // OpenAI/Anthropic
+    disable_store: z.boolean().optional(), // OpenAI only
+    allow_safety_identifier: z.boolean().optional(), // OpenAI only
+    allow_include_obfuscation: z.boolean().optional(), // OpenAI: include usage obfuscation
+    allow_inference_geo: z.boolean().optional(), // OpenAI/Anthropic: inference geography
+    allow_speed: z.boolean().optional(), // Anthropic: speed mode control
+    claude_beta_query: z.boolean().optional(), // Anthropic: beta query passthrough
+    // Upstream model update settings (stored in settings JSON)
+    upstream_model_update_check_enabled: z.boolean().optional(),
+    upstream_model_update_auto_sync_enabled: z.boolean().optional(),
+    upstream_model_update_ignored_models: z.string().optional(),
+  })
+  .superRefine((values, ctx) => {
+    if (
+      values.type === 999 &&
+      ((values.protocol_profile_id === 'seedance-tgxmaas' &&
+        (!values.asset_backend || values.asset_backend === 'inherit')) ||
+        values.asset_backend === 'tgxmaas' ||
+        values.asset_backend === 'volcengine-assets') &&
+      !values.protocol_project_name?.trim()
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['protocol_project_name'],
+        message: 'ProjectName is required for this asset library',
+      })
+    }
+  })
 
 export type ChannelFormValues = z.infer<typeof channelFormSchema>
 
@@ -264,6 +294,14 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   protocol_native_modes: [],
   protocol_enabled_conversions: [],
   protocol_profile_id: '',
+  protocol_project_name: '',
+  asset_backend: 'inherit',
+  asset_base_url: '',
+  asset_auth_mode: 'channel_key',
+  asset_region: 'cn-beijing',
+  asset_api_key: '',
+  asset_access_key_id: '',
+  asset_secret_access_key: '',
   image_async_wait_timeout_seconds: undefined,
   // Type-specific settings
   is_enterprise_account: false,
@@ -314,6 +352,14 @@ export function transformChannelToFormDefaults(
     protocol_native_modes: [] as string[],
     protocol_enabled_conversions: [] as string[],
     protocol_profile_id: '',
+    protocol_project_name: '',
+    asset_backend: 'inherit',
+    asset_base_url: '',
+    asset_auth_mode: 'channel_key',
+    asset_region: 'cn-beijing',
+    asset_api_key: '',
+    asset_access_key_id: '',
+    asset_secret_access_key: '',
     image_async_wait_timeout_seconds: undefined as number | undefined,
   }
 
@@ -354,9 +400,21 @@ export function transformChannelToFormDefaults(
         )
           ? parsed.protocol.enabled_conversions
           : [],
+        asset_backend: parsed.protocol?.asset_library?.backend || 'inherit',
+        asset_base_url: parsed.protocol?.asset_library?.base_url || '',
+        asset_auth_mode:
+          parsed.protocol?.asset_library?.auth_mode || 'channel_key',
+        asset_region: parsed.protocol?.asset_library?.region || 'cn-beijing',
+        asset_api_key: '',
+        asset_access_key_id: '',
+        asset_secret_access_key: '',
         protocol_profile_id:
           typeof parsed.protocol?.profile_id === 'string'
             ? parsed.protocol.profile_id
+            : '',
+        protocol_project_name:
+          typeof parsed.protocol?.project_name === 'string'
+            ? parsed.protocol.project_name
             : '',
         image_async_wait_timeout_seconds:
           typeof parsed.protocol?.image_async_wait_timeout_seconds === 'number'
@@ -470,6 +528,8 @@ function buildSettingJSON(formData: ChannelFormValues): string {
     native_modes: string[]
     enabled_conversions: string[]
     profile_id?: string
+    project_name?: string
+    asset_library?: AssetLibrarySettings
     image_async_wait_timeout_seconds?: number
   } = {
     native_modes: formData.protocol_native_modes || [],
@@ -481,6 +541,32 @@ function buildSettingJSON(formData: ChannelFormValues): string {
   }
   if (formData.protocol_profile_id?.trim()) {
     protocol.profile_id = formData.protocol_profile_id.trim()
+  }
+
+  if (
+    formData.type === 999 &&
+    (protocol.profile_id === 'seedance-tgxmaas' ||
+      (formData.asset_backend &&
+        !['inherit', 'disabled'].includes(formData.asset_backend))) &&
+    formData.protocol_project_name?.trim()
+  ) {
+    protocol.project_name = formData.protocol_project_name.trim()
+  }
+
+  if (
+    formData.type === 999 &&
+    formData.asset_backend &&
+    formData.asset_backend !== 'inherit'
+  ) {
+    protocol.asset_library = {
+      backend: formData.asset_backend,
+      base_url: formData.asset_base_url?.trim(),
+      auth_mode:
+        formData.asset_backend === 'volcengine-assets'
+          ? 'aksk'
+          : formData.asset_auth_mode || 'channel_key',
+      region: formData.asset_region?.trim() || 'cn-beijing',
+    }
   }
 
   const settingObj = {
@@ -623,6 +709,7 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
   multi_key_mode?: 'random' | 'polling'
   batch_add_set_key_prefix_2_name?: boolean
   channel: Partial<Channel>
+  asset_credentials?: AssetCredentialsInput
 } {
   const mode = formData.multi_key_mode || 'single'
 
@@ -666,6 +753,7 @@ export function transformFormDataToCreatePayload(formData: ChannelFormValues): {
     batch_add_set_key_prefix_2_name:
       mode === 'batch' ? formData.batch_add_set_key_prefix_2_name : undefined,
     channel,
+    asset_credentials: buildAssetCredentials(formData),
   }
 }
 
@@ -678,6 +766,7 @@ export function transformFormDataToUpdatePayload(
 ): ChannelUpdatePayload {
   const payload: ChannelUpdatePayload = {
     id: channelId,
+    asset_credentials: buildAssetCredentials(formData),
     name: formData.name,
     type: formData.type,
     base_url: formData.base_url || null,
@@ -786,4 +875,29 @@ export function formatModels(models: string[]): string {
  */
 export function formatGroups(groups: string[]): string {
   return groups.join(',')
+}
+
+function buildAssetCredentials(
+  values: ChannelFormValues
+): AssetCredentialsInput | undefined {
+  if (
+    values.type !== 999 ||
+    !values.asset_backend ||
+    ['inherit', 'disabled'].includes(values.asset_backend)
+  )
+    return undefined
+  if (values.asset_backend === 'volcengine-assets') {
+    if (
+      !values.asset_access_key_id?.trim() &&
+      !values.asset_secret_access_key?.trim()
+    )
+      return undefined
+    return {
+      access_key_id: values.asset_access_key_id?.trim(),
+      secret_access_key: values.asset_secret_access_key?.trim(),
+    }
+  }
+  if (values.asset_auth_mode === 'api_key' && values.asset_api_key?.trim())
+    return { api_key: values.asset_api_key.trim() }
+  return undefined
 }

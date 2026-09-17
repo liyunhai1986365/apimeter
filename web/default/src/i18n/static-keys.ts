@@ -19,6 +19,31 @@ For commercial licensing, please contact support@quantumnous.com
 // Static translation keys that don't get picked up by the t('...') regex.
 // These cover dynamic labels (e.g. constants, configs) that are passed into t at runtime.
 export const STATIC_I18N_KEYS = [
+  'ProjectName is required for this asset library',
+  'Follow video protocol',
+  'Volcengine official assets (12 operations)',
+  'TgxMaas assets (12 operations)',
+  'Unified task assets (upload and query)',
+  'Modelsell assets (upload and query)',
+  'API assets REST (create, list, get, delete)',
+  'Material assets REST (create, list, get, delete)',
+  'Service Inference assets (assets and groups)',
+  'Max Service Inference assets (create and query)',
+  'Disable asset library',
+  'Asset library Base URL',
+  'Empty means use channel Base URL',
+  'Signing region',
+  'Asset AccessKey ID',
+  'Asset Secret Access Key',
+  'Asset API key',
+  'Asset library type',
+  'Asset library settings are independent of video generation. Available operations depend on the selected provider.',
+  'Asset authentication',
+  'Use channel key',
+  'Use separate API key',
+  'Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.',
+
+  'ProjectName is required for Seedance TgxMaas',
   'Task Image Cleanup',
   // Header navigation
   'Home',

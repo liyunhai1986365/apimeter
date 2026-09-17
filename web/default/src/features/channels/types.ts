@@ -77,7 +77,20 @@ export const channelSchema = z.object({
 
 export type Channel = z.infer<typeof channelSchema>
 
-export type ChannelUpdatePayload = Omit<Partial<Channel>, 'status'>
+export type AssetCredentialsInput = {
+  api_key?: string
+  access_key_id?: string
+  secret_access_key?: string
+}
+export type AssetLibrarySettings = {
+  backend: string
+  base_url?: string
+  auth_mode: string
+  region?: string
+}
+export type ChannelUpdatePayload = Omit<Partial<Channel>, 'status'> & {
+  asset_credentials?: AssetCredentialsInput
+}
 export type ManageableChannelStatus = 1 | 2
 
 // ============================================================================
@@ -97,9 +110,11 @@ export interface ChannelSettings {
   system_prompt_override?: boolean
   retry_policy_rules?: RetryPolicyRule[]
   protocol?: {
+    asset_library?: AssetLibrarySettings
     native_modes?: string[]
     enabled_conversions?: string[]
     profile_id?: string
+    project_name?: string
     image_async_wait_timeout_seconds?: number
   }
 }

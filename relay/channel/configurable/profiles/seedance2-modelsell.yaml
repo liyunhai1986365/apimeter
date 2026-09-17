@@ -235,6 +235,7 @@ video:
           omit_empty: true
 resources:
   - id: assets_upload
+    asset_library: true
     name: Modelsell Assets Upload
     public:
       method: POST
@@ -259,6 +260,7 @@ resources:
     response:
       passthrough: true
   - id: asset_detail
+    asset_library: true
     name: Modelsell Asset Detail
     public:
       method: GET

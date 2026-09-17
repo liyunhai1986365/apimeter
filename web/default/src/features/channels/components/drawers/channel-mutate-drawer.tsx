@@ -168,6 +168,7 @@ import {
 import { ParamOverrideEditorDialog } from '../dialogs/param-override-editor-dialog'
 import { StatusCodeRiskDialog } from '../dialogs/status-code-risk-dialog'
 import { ModelMappingEditor } from '../model-mapping-editor'
+import { AssetLibraryFields } from './asset-library-fields'
 
 type ChannelMutateDrawerProps = {
   open: boolean
@@ -2564,14 +2565,10 @@ export function ChannelMutateDrawer({
                                         Number(field.value)
                                       )
                                     field.onChange(nextRatio)
-                                    form.setValue(
-                                      'channel_ratio',
-                                      nextRatio,
-                                      {
-                                        shouldDirty: true,
-                                        shouldValidate: true,
-                                      }
-                                    )
+                                    form.setValue('channel_ratio', nextRatio, {
+                                      shouldDirty: true,
+                                      shouldValidate: true,
+                                    })
                                   }}
                                 >
                                   <Divide className='size-3.5' />
@@ -3441,9 +3438,7 @@ export function ChannelMutateDrawer({
                               <Select
                                 value={field.value || 'none'}
                                 onValueChange={(value) =>
-                                  field.onChange(
-                                    value === 'none' ? '' : value
-                                  )
+                                  field.onChange(value === 'none' ? '' : value)
                                 }
                               >
                                 <FormControl>
@@ -3518,6 +3513,10 @@ export function ChannelMutateDrawer({
                           </FormItem>
                         )}
                       />
+
+                      {currentType === 999 && (
+                        <AssetLibraryFields form={form} />
+                      )}
 
                       <FormField
                         control={form.control}

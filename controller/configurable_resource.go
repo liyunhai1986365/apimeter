@@ -129,7 +129,7 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 		return apiErr
 	}
 	if profile.ID == "seedance-tgxmaas" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		if err := rememberTgxMaasAssetHandles(c, channelModel.Id, resource.ID, responseBody); err != nil {
+		if err := rememberTgxMaasAssetHandles(c, channelModel, resource.ID, responseBody); err != nil {
 			// Preserve the accepted operation's response; returning a creation
 			// error here could cause callers to create duplicate resources.
 			common.SysError("persist TgxMaas asset handle: " + err.Error())
@@ -177,7 +177,9 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	if strings.TrimSpace(contentType) == "" {
 		contentType = "application/json"
 	}
-	perfmetrics.RecordRelaySample(attemptInfo, resp.StatusCode < http.StatusBadRequest, 0)
+	if !configurableResourceHasIndependentHealth(channelModel, resource) {
+		perfmetrics.RecordRelaySample(attemptInfo, resp.StatusCode < http.StatusBadRequest, 0)
+	}
 	c.Data(resp.StatusCode, contentType, responseBody)
 	return nil
 }
@@ -288,7 +290,7 @@ func selectConfigurableResourceRoute(c *gin.Context, profileID, resourceID strin
 		if !ok {
 			return nil, nil, nil, fmt.Errorf("configurable resource %s not found", resourceID)
 		}
-		channelModel, err := selectConfigurableResourceChannel(c, profileID)
+		channelModel, err := selectConfigurableResourceChannel(c, profileID, resourceID)
 		if err != nil {
 			return nil, nil, nil, err
 		}
@@ -302,7 +304,7 @@ func selectConfigurableResourceRoute(c *gin.Context, profileID, resourceID strin
 	return channelModel, profile, resource, nil
 }
 
-func selectConfigurableResourceChannel(c *gin.Context, profileID string) (*model.Channel, error) {
+func selectConfigurableResourceChannel(c *gin.Context, profileID, resourceID string) (*model.Channel, error) {
 	if channelIDRaw, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId); ok {
 		channelID, parseErr := parseSpecificChannelID(channelIDRaw)
 		if parseErr != nil {
@@ -312,7 +314,7 @@ func selectConfigurableResourceChannel(c *gin.Context, profileID string) (*model
 		if err != nil {
 			return nil, err
 		}
-		if configurableResourceChannelMatches(channelModel, profileID, "") {
+		if configurableResourceChannelMatches(channelModel, profileID, resourceID, "") {
 			return channelModel, nil
 		}
 		return nil, fmt.Errorf("specific channel %d does not match configurable profile %s", channelID, profileID)
@@ -326,7 +328,7 @@ func selectConfigurableResourceChannel(c *gin.Context, profileID string) (*model
 	candidates := make([]*model.Channel, 0, len(channels))
 	for i := range channels {
 		for _, group := range groups {
-			if configurableResourceChannelMatches(&channels[i], profileID, group) {
+			if configurableResourceChannelMatches(&channels[i], profileID, resourceID, group) {
 				candidates = append(candidates, &channels[i])
 				break
 			}
@@ -360,6 +362,9 @@ func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path s
 		if ok {
 			return channelModel, profile, resource, nil
 		}
+		if cfg := assetLibrary(channelModel); cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" {
+			return nil, nil, nil, errUnsupportedAssetOperation
+		}
 		return nil, nil, nil, fmt.Errorf("specific channel %d does not match configurable resource %s %s", channelID, method, path)
 	}
 
@@ -374,8 +379,14 @@ func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path s
 		resource *configurable.ResourceConfig
 	}
 	candidates := make([]candidate, 0, len(channels))
+	hasExplicitBackend := false
 	for i := range channels {
 		for _, group := range groups {
+			if cfg := assetLibrary(&channels[i]); cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" {
+				if p, found := configurable.AssetProfile(channels[i].GetSetting().Protocol); found && configurableResourceChannelMatches(&channels[i], p.ID, "", group) && configurableResourceChannelAbilityEnabled(&channels[i], group, configurableResourceRequestModel(c, nil)) {
+					hasExplicitBackend = true
+				}
+			}
 			profile, resource, ok := configurableResourceForChannelEndpoint(&channels[i], method, path, group)
 			requestModel := configurableResourceRequestModel(c, resource)
 			if ok && configurableResourceChannelAbilityEnabled(&channels[i], group, requestModel) {
@@ -385,6 +396,9 @@ func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path s
 		}
 	}
 	if len(candidates) == 0 {
+		if hasExplicitBackend {
+			return nil, nil, nil, errUnsupportedAssetOperation
+		}
 		return nil, nil, nil, fmt.Errorf("no available configurable resource channel for %s %s", method, path)
 	}
 	sort.SliceStable(candidates, func(i, j int) bool {
@@ -419,7 +433,14 @@ func configurableResourceForChannelEndpoint(channelModel *model.Channel, method,
 			return nil, nil, false
 		}
 	}
-	profile, ok := configurable.GetProfile(setting.Protocol.ProfileID)
+	// Video, audio and other capability resources keep their original protocol
+	// even when the administrator disables or replaces the asset library.
+	if profile, ok := configurable.GetProfile(setting.Protocol.ProfileID); ok {
+		if resource, found := profile.ResourceForEndpoint(method, path); found && !resource.AssetLibrary {
+			return profile, resource, true
+		}
+	}
+	profile, ok := configurable.AssetProfile(setting.Protocol)
 	if !ok {
 		return nil, nil, false
 	}
@@ -532,13 +553,27 @@ func configurableResourceCandidateGroups(c *gin.Context) []string {
 	return []string{usingGroup}
 }
 
-func configurableResourceChannelMatches(channelModel *model.Channel, profileID, group string) bool {
+func configurableResourceChannelMatches(channelModel *model.Channel, profileID, resourceID, group string) bool {
 	if channelModel == nil || channelModel.Type != constant.ChannelTypeConfigurable || channelModel.Status != common.ChannelStatusEnabled {
 		return false
 	}
 	setting := channelModel.GetSetting()
-	if setting.Protocol == nil || strings.TrimSpace(setting.Protocol.ProfileID) != profileID {
+	if setting.Protocol == nil {
 		return false
+	}
+	profileMatches := false
+	if strings.TrimSpace(setting.Protocol.ProfileID) == profileID && resourceID != "" {
+		if profile, ok := configurable.GetProfile(profileID); ok {
+			if resource, found := profile.ResourceByID(resourceID); found && !resource.AssetLibrary {
+				profileMatches = true
+			}
+		}
+	}
+	if !profileMatches {
+		assetProfile, ok := configurable.AssetProfile(setting.Protocol)
+		if !ok || assetProfile.ID != profileID {
+			return false
+		}
 	}
 	if strings.TrimSpace(group) == "" {
 		return true
@@ -585,7 +620,7 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 	if upstreamPath == "" {
 		upstreamPath = replacePathParams(resource.Public.Path, c)
 	}
-	requestURL := strings.TrimRight(channelModel.GetBaseURL(), "/") + "/" + strings.TrimLeft(upstreamPath, "/")
+	requestURL := strings.TrimRight(configurableResourceBaseURL(channelModel, resource), "/") + "/" + strings.TrimLeft(upstreamPath, "/")
 
 	var bodyReader io.Reader
 	if method != http.MethodGet && method != http.MethodHead {
@@ -610,7 +645,7 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 	}
 	// TgxMaas details use GET; project scope must survive the Action/body
 	// conversion instead of being discarded with the body.
-	if converted, ok := c.Get(tgxMaasAssetQueryKey); ok {
+	if converted, ok := c.Get(tgxMaasAssetQueryKey); ok && (assetLibrary(channelModel) == nil || assetLibrary(channelModel).Backend != configurable.OfficialAssetBackend) {
 		parsed, err := url.Parse(requestURL)
 		if err != nil {
 			return nil, err
@@ -635,6 +670,9 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	configurable.ApplyConfiguredHeaders(req, resource.Upstream.Headers, apiKey, "")
+	if err := authorizeConfigurableResourceRequest(c, channelModel, resource, req); err != nil {
+		return nil, err
+	}
 	return req, nil
 }
 
@@ -804,7 +842,7 @@ func resolveManagedConfigurablePreRequest(c *gin.Context, client *http.Client, c
 		preRequest.ID,
 		common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		stateKey,
+		configurableResourceStateKey(channelModel, resource, stateKey),
 	)
 	if err != nil || state == nil || strings.TrimSpace(state.StateValue) == "" {
 		return nil, &model.ConfigurableResourceState{}, false, nil
@@ -846,7 +884,7 @@ func validateManagedConfigurablePreRequest(c *gin.Context, client *http.Client, 
 	}
 	path := strings.ReplaceAll(validate.Path, "{group_id}", stateValue)
 	path = strings.ReplaceAll(path, "{value}", stateValue)
-	requestURL := strings.TrimRight(channelModel.GetBaseURL(), "/") + "/" + strings.TrimLeft(path, "/")
+	requestURL := strings.TrimRight(configurableResourceBaseURL(channelModel, resource), "/") + "/" + strings.TrimLeft(path, "/")
 	req, err := http.NewRequest(method, requestURL, nil)
 	if err != nil {
 		return false, nil, err
@@ -858,6 +896,9 @@ func validateManagedConfigurablePreRequest(c *gin.Context, client *http.Client, 
 	}
 	configurable.ApplyConfiguredHeaders(req, resource.Upstream.Headers, apiKey, "")
 	configurable.ApplyConfiguredHeaders(req, validate.Headers, apiKey, "")
+	if err := authorizeConfigurableResourceRequest(c, channelModel, resource, req); err != nil {
+		return false, nil, err
+	}
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf(
 		"configurable resource managed_state validate: method=%s path=%s channel_id=%d resource=%s pre_request=%s upstream=%s",
 		c.Request.Method,
@@ -906,7 +947,7 @@ func saveManagedConfigurablePreRequestResult(c *gin.Context, channelModel *model
 		PreRequestID: preRequest.ID,
 		UserID:       common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		TokenID:      common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		StateKey:     stateKey,
+		StateKey:     configurableResourceStateKey(channelModel, resource, stateKey),
 		StateValue:   value,
 		Status:       model.ConfigurableResourceStateStatusActive,
 	})
@@ -960,7 +1001,7 @@ func buildConfigurablePreRequest(c *gin.Context, channelModel *model.Channel, re
 		method = http.MethodGet
 	}
 	upstreamPath := replacePathParams(preRequest.Upstream.Path, c)
-	requestURL := strings.TrimRight(channelModel.GetBaseURL(), "/") + "/" + strings.TrimLeft(upstreamPath, "/")
+	requestURL := strings.TrimRight(configurableResourceBaseURL(channelModel, resource), "/") + "/" + strings.TrimLeft(upstreamPath, "/")
 	source, err := configurableResourceSource(c)
 	if err != nil {
 		return nil, err
@@ -1011,6 +1052,9 @@ func buildConfigurablePreRequest(c *gin.Context, channelModel *model.Channel, re
 	}
 	configurable.ApplyConfiguredHeaders(req, resource.Upstream.Headers, apiKey, "")
 	configurable.ApplyConfiguredHeaders(req, preRequest.Upstream.Headers, apiKey, "")
+	if err := authorizeConfigurableResourceRequest(c, channelModel, resource, req); err != nil {
+		return nil, err
+	}
 	return req, nil
 }
 

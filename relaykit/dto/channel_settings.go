@@ -86,11 +86,20 @@ type RetryPolicyStrategy struct {
 	SampleRate           int  `json:"sample_rate,omitempty"`
 }
 
+type AssetLibrarySettings struct {
+	Backend  string `json:"backend"`
+	BaseURL  string `json:"base_url,omitempty"`
+	AuthMode string `json:"auth_mode"`
+	Region   string `json:"region,omitempty"`
+}
+
 type ChannelProtocolSettings struct {
-	NativeModes                  []string `json:"native_modes,omitempty"`
-	EnabledConversions           []string `json:"enabled_conversions,omitempty"`
-	ProfileID                    string   `json:"profile_id,omitempty"`
-	ImageAsyncWaitTimeoutSeconds *int     `json:"image_async_wait_timeout_seconds,omitempty"`
+	AssetLibrary                 *AssetLibrarySettings `json:"asset_library,omitempty"`
+	ProjectName                  string                `json:"project_name,omitempty"`
+	NativeModes                  []string              `json:"native_modes,omitempty"`
+	EnabledConversions           []string              `json:"enabled_conversions,omitempty"`
+	ProfileID                    string                `json:"profile_id,omitempty"`
+	ImageAsyncWaitTimeoutSeconds *int                  `json:"image_async_wait_timeout_seconds,omitempty"`
 }
 
 func (s ChannelSettings) ImageGenerationWithImageToEditEnabled() bool {

@@ -192,3 +192,51 @@ func TestTgxMaasVideoOriginalAssetURIs(t *testing.T) {
 		require.Equal(t, "asset-image", id)
 	}
 }
+
+func TestTgxMaasVideoChannelDefaultProject(t *testing.T) {
+	db := openConfigurableTaskAdaptorTestDB(t)
+	require.NoError(t, db.AutoMigrate(&model.ConfigurableResourceState{}))
+	for _, project := range []string{"nmyk", "other"} {
+		require.NoError(t, model.SaveTgxMaasAssetHandle(20, 1, project, "asset-original", "asset_local_"+project))
+	}
+	for _, mode := range []string{"native", "generic"} {
+		for _, explicit := range []bool{false, true} {
+			info := seedanceMaxRelayInfo("seedance-tgxmaas")
+			info.ChannelSetting.Protocol.ProjectName = " nmyk "
+			info.ChannelId, info.UserId = 20, 1
+			content := []any{
+				map[string]any{"type": "text", "text": "test"},
+				map[string]any{"type": "image_url", "role": "reference_image", "image_url": map[string]any{"url": "asset://asset-original"}},
+			}
+			payload := map[string]any{"model": "public-video-alias", "metadata": map[string]any{"content": content}}
+			path := "/v1/video/generations"
+			if mode == "native" {
+				payload = map[string]any{"model": "public-video-alias", "content": content}
+				path = "/api/v3/contents/generations/tasks"
+			}
+			want := "nmyk"
+			if explicit {
+				want = "other"
+				if mode == "native" {
+					payload["ProjectName"] = want
+				} else {
+					payload["metadata"].(map[string]any)["project_name"] = want
+				}
+			}
+			raw, err := common.Marshal(payload)
+			require.NoError(t, err)
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest("POST", path, bytes.NewReader(raw))
+			c.Request.Header.Set("Content-Type", "application/json")
+			a := &TaskAdaptor{}
+			a.Init(info)
+			require.Nil(t, a.ValidateRequestAndSetAction(c, info))
+			reader, err := a.BuildRequestBody(c, info)
+			require.NoError(t, err)
+			body, err := io.ReadAll(reader)
+			require.NoError(t, err)
+			require.Equal(t, want, gjson.GetBytes(body, "ProjectName").String(), mode)
+			require.Equal(t, "asset://asset_local_"+want, gjson.GetBytes(body, "content.1.image_url.url").String(), mode)
+		}
+	}
+}

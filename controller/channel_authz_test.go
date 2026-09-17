@@ -38,6 +38,13 @@ func TestChannelHasSensitiveChanges(t *testing.T) {
 		}))
 	})
 
+	t.Run("asset credentials require sensitive permission", func(t *testing.T) {
+		updated := PatchChannel{Channel: *origin, AssetCredentials: &model.AssetCredentials{APIKey: "replacement"}}
+		assert.True(t, channelHasSensitiveChanges(&updated, origin, map[string]any{"asset_credentials": map[string]any{"api_key": "replacement"}}))
+		updated.AssetCredentials = nil
+		assert.False(t, channelHasSensitiveChanges(&updated, origin, map[string]any{"asset_credentials": nil}))
+	})
+
 	t.Run("key change", func(t *testing.T) {
 		updated := PatchChannel{Channel: *origin}
 		updated.Key = "new-key"

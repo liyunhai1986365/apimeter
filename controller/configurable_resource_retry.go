@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -38,6 +39,10 @@ func RelayConfigurableResource(c *gin.Context) {
 			channel, profile, resource, err = selectConfigurableResourceRoute(c, profileID, resourceID)
 		}
 		if err != nil {
+			if errors.Is(err, errUnsupportedAssetOperation) {
+				c.JSON(http.StatusNotImplemented, gin.H{"error": gin.H{"code": "unsupported_asset_operation", "message": err.Error()}})
+				return
+			}
 			if lastErr == nil {
 				lastErr = types.NewErrorWithStatusCode(err, types.ErrorCodeGetChannelFailed, http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
 			}
@@ -56,6 +61,12 @@ func RelayConfigurableResource(c *gin.Context) {
 		if lastErr == nil {
 			service.MarkRetryRouteFinal(c, c.Writer.Status() < 400, "completed")
 			return
+		}
+		if configurableResourceHasIndependentHealth(channel, resource) {
+			// Log the asset failure without disabling video keys or recording a
+			// video routing-health failure. Asset operations are never replayed.
+			processChannelError(c, *types.NewChannelError(channel.Id, channel.Type, channel.Name, channel.ChannelInfo.IsMultiKey, "", false), lastErr)
+			break
 		}
 		service.MarkSmartRetryChannelFailure(c, channel, modelName, false)
 		if !selectedChannelAllowsRetry(c) {
@@ -120,7 +131,7 @@ func selectSmartConfigurableResourceRoute(c *gin.Context, profileID, resourceID 
 				var resource *configurable.ResourceConfig
 				var ok bool
 				if profileID != "" && resourceID != "" {
-					if !configurableResourceChannelMatches(channel, profileID, group) {
+					if !configurableResourceChannelMatches(channel, profileID, resourceID, group) {
 						continue
 					}
 					profile, ok = configurable.GetProfile(profileID)
@@ -146,6 +157,12 @@ func selectSmartConfigurableResourceRoute(c *gin.Context, profileID, resourceID 
 			return candidates[i].channel.Id < candidates[j].channel.Id
 		})
 		c.Set(cacheKey, candidates)
+	}
+	if len(candidates) == 0 {
+		_, _, _, err := selectConfigurableResourceRoute(c, profileID, resourceID)
+		if err != nil {
+			return nil, nil, nil, err
+		}
 	}
 	for _, candidate := range candidates {
 		if !service.SmartRetryGroupAvailable(c, candidate.group) {

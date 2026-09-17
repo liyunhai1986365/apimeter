@@ -43,3 +43,35 @@ func ResolveTgxMaasAssetHandle(channelID, userID int, project, id string) (strin
 	}
 	return state.StateValue, nil
 }
+
+// Explicit backends have independent account/endpoint scopes. Legacy channels
+// retain their existing lookup keys. Replacing dedicated credentials invalidates
+// aliases conservatively rather than applying an old account's IDs to a new one.
+func (ch *Channel) AssetHandleProject(project string) string {
+	p := ch.GetSetting().Protocol
+	if p == nil || p.AssetLibrary == nil || p.AssetLibrary.Backend == "" || p.AssetLibrary.Backend == "inherit" {
+		return project
+	}
+	if project == "" {
+		project = "default"
+	}
+	cfg := p.AssetLibrary
+	endpoint := cfg.BaseURL
+	if endpoint == "" {
+		endpoint = ch.GetBaseURL()
+	}
+	credential := ch.AssetSecret
+	if cfg.AuthMode == "channel_key" {
+		credential = ch.Key
+	}
+	scope := sha256.Sum256([]byte(cfg.Backend + "\x00" + strings.TrimRight(endpoint, "/") + "\x00" + cfg.AuthMode + "\x00" + credential))
+	return fmt.Sprintf("%s\x00%x", project, scope)
+}
+
+func (ch *Channel) AssetStateKey(key string) string {
+	scoped := ch.AssetHandleProject(key)
+	if scoped == key {
+		return key
+	}
+	return fmt.Sprintf("%x", sha256.Sum256([]byte(scoped)))
+}

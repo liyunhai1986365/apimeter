@@ -10,6 +10,9 @@ func equalStringPtr(a, b *string) bool {
 }
 
 func channelHasSensitiveChanges(channel *PatchChannel, origin *model.Channel, requestData map[string]any) bool {
+	if _, ok := requestData["asset_credentials"]; ok && channel.AssetCredentials != nil {
+		return true
+	}
 	if _, ok := requestData["type"]; ok && channel.Type != origin.Type {
 		return true
 	}
@@ -74,9 +77,10 @@ func channelHasSensitiveChanges(channel *PatchChannel, origin *model.Channel, re
 
 // channelSensitiveFields lists the channel fields whose modification requires
 // ChannelSensitiveWrite. They are each checked individually in
-// channelHasSensitiveChanges with a precise old-vs-new comparison; this set is
+// channelHasSensitiveChanges (write-only credentials always count as changes); this set is
 // used to exclude them from the fail-closed scan for unknown fields.
 var channelSensitiveFields = map[string]struct{}{
+	"asset_credentials":   {},
 	"type":                {},
 	"key":                 {},
 	"base_url":            {},

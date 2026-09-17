@@ -250,3 +250,20 @@ Content-Type: application/json
 `tools=[web_search]` 被接收，但实际搜索次数仍为 0。seed 的随机性控制效果、超时到期终止行为未验证。`bitrate_mode=vbr` 单独请求被上游 HTTP 400 拒绝，未创建任务；网关通用视频入口现已补齐 `metadata.bitrate_mode` 映射，Mock 验证原生/通用入口均保留该字段，这不代表上游接受。
 
 脱敏证据：[seedance_new_key_capabilities_20260916.json](seedance_new_key_capabilities_20260916.json)。未在仓库保存 Key 或签名 URL；临时凭证配置已删除。
+
+## 渠道默认项目
+
+在默认主题的渠道编辑页选择 `seedance-tgxmaas` 协议后，需填写「项目名称（ProjectName）」，例如供应商分配的 `nmyk`。配置保存在渠道 `setting.protocol.project_name`：
+
+```json
+{
+  "protocol": {
+    "profile_id": "seedance-tgxmaas",
+    "project_name": "nmyk"
+  }
+}
+```
+
+素材的官方 Action、通用 REST、供应商原生 REST，以及原生/通用视频请求未传 `ProjectName` 时，网关使用该渠道配置。详情 GET 同样会转为 query 传递；原始 ID 映射按最终项目查询和保存。请求显式填写的项目优先，配置不是项目权限隔离策略。
+
+新建或保存该协议渠道时前后端均校验项目必填。已有未配置项目的渠道在运行时保留原有行为；补填配置后客户端无需逐次传项目。此配置不替代供应商侧的 AK/SK 和项目授权。

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Enter the project assigned by your supplier. Used for asset and video requests when ProjectName is omitted.": "填寫供應商分配的專案名稱。素材和影片請求未傳 ProjectName 時使用此值。",
+    "Project name (ProjectName)": "專案名稱（ProjectName）",
+    "ProjectName is required for Seedance TgxMaas": "Seedance TgxMaas 必須填寫 ProjectName",
     "Add Domains": "新增網域",
     "Add up to 50 domains at a time.": "每次最多新增 50 個網域。",
     "Domains added": "網域已新增",
@@ -5346,6 +5349,29 @@
     "Used for first-time visitors who have not selected a currency. Existing personal choices are preserved.": "用於尚未選擇幣別的首次造訪使用者。使用者已儲存的個人選擇不會被覆蓋。",
     "Image expired": "圖片已過期",
     "Some images expired": "部分圖片已過期",
-    "Task Image Cleanup": "任務圖片清理"
+    "Task Image Cleanup": "任務圖片清理",
+    "Follow video protocol": "跟隨影片協定",
+    "Volcengine official assets (12 operations)": "火山官方素材庫（12 項操作）",
+    "TgxMaas assets (12 operations)": "TgxMaas 素材庫（12 項操作）",
+    "Unified task assets (upload and query)": "統一任務式素材庫（上傳、查詢）",
+    "Modelsell assets (upload and query)": "Modelsell 素材庫（上傳、查詢）",
+    "API assets REST (create, list, get, delete)": "API 素材 REST（建立、列表、查詢、刪除）",
+    "Material assets REST (create, list, get, delete)": "Material 素材 REST（建立、列表、查詢、刪除）",
+    "Service Inference assets (assets and groups)": "Service Inference 素材庫（素材及分組）",
+    "Max Service Inference assets (create and query)": "Max Service Inference 素材庫（建立、查詢）",
+    "Disable asset library": "不啟用素材庫",
+    "Asset library Base URL": "素材庫 Base URL",
+    "Empty means use channel Base URL": "留空則沿用渠道 Base URL",
+    "Signing region": "簽章區域",
+    "Asset AccessKey ID": "素材庫 AccessKey ID",
+    "Asset Secret Access Key": "素材庫 Secret Access Key",
+    "Asset API key": "素材庫 API Key",
+    "Asset library type": "素材庫類型",
+    "Asset library settings are independent of video generation. Available operations depend on the selected provider.": "素材庫設定獨立於影片生成，支援的操作取決於所選供應商。",
+    "Asset authentication": "素材庫驗證",
+    "Use channel key": "沿用渠道 Key",
+    "Use separate API key": "使用獨立 API Key",
+    "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "編輯時密鑰留空會保留已儲存的憑據。更換官方憑據時需同時填寫 AK 和 SK。",
+    "ProjectName is required for this asset library": "此素材庫必須填寫 ProjectName"
   }
 }

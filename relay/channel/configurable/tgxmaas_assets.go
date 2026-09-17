@@ -16,7 +16,26 @@ func resolveTgxMaasVideoAssets(body []byte, info *relaycommon.RelayInfo) ([]byte
 	if info == nil || info.ChannelMeta == nil {
 		return body, nil
 	}
+	if !gjson.GetBytes(body, "ProjectName").Exists() && info.ChannelSetting.Protocol != nil {
+		if project := strings.TrimSpace(info.ChannelSetting.Protocol.ProjectName); project != "" {
+			var err error
+			body, err = sjson.SetBytes(body, "ProjectName", project)
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	if p := info.ChannelSetting.Protocol; p != nil && p.AssetLibrary != nil && p.AssetLibrary.Backend != "" && p.AssetLibrary.Backend != "inherit" && p.AssetLibrary.Backend != "tgxmaas" {
+		return body, nil
+	}
 	project := gjson.GetBytes(body, "ProjectName").String()
+	if p := info.ChannelSetting.Protocol; p != nil && p.AssetLibrary != nil && p.AssetLibrary.Backend == "tgxmaas" {
+		ch, err := model.GetChannelById(info.ChannelId, true)
+		if err != nil {
+			return nil, err
+		}
+		project = ch.AssetHandleProject(project)
+	}
 	for i, item := range gjson.GetBytes(body, "content").Array() {
 		kind := item.Get("type").String()
 		if kind != "image_url" && kind != "video_url" && kind != "audio_url" {

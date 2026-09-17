@@ -238,6 +238,7 @@ video:
           omit_empty: true
 resources:
   - id: asset_groups_create
+    asset_library: true
     name: Create Asset Group
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -256,6 +257,7 @@ resources:
     response:
       passthrough: true
   - id: asset_groups_list
+    asset_library: true
     name: List Asset Groups
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -274,6 +276,7 @@ resources:
     response:
       passthrough: true
   - id: asset_groups_get
+    asset_library: true
     name: Get Asset Group
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -292,6 +295,7 @@ resources:
     response:
       passthrough: true
   - id: asset_groups_update
+    asset_library: true
     name: Update Asset Group
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -310,6 +314,7 @@ resources:
     response:
       passthrough: true
   - id: asset_groups_delete
+    asset_library: true
     name: Delete Asset Group
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -328,6 +333,7 @@ resources:
     response:
       passthrough: true
   - id: assets_create
+    asset_library: true
     name: Create Asset
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -348,6 +354,7 @@ resources:
     response:
       passthrough: true
   - id: assets_list
+    asset_library: true
     name: List Assets
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -366,6 +373,7 @@ resources:
     response:
       passthrough: true
   - id: assets_get
+    asset_library: true
     name: Get Asset
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -390,6 +398,7 @@ resources:
     response:
       passthrough: true
   - id: assets_update
+    asset_library: true
     name: Update Asset
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -410,6 +419,7 @@ resources:
     response:
       passthrough: true
   - id: assets_delete
+    asset_library: true
     name: Delete Asset
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -430,6 +440,7 @@ resources:
     response:
       passthrough: true
   - id: liveness_session_create
+    asset_library: true
     name: Create Liveness Session
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
@@ -443,6 +454,7 @@ resources:
     response:
       passthrough: true
   - id: liveness_group_exchange
+    asset_library: true
     name: Exchange Liveness Group
     # Resource IDs and BytedToken are bound to one upstream account.
     disable_replay: true
