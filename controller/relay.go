@@ -1022,13 +1022,20 @@ func RelayTask(c *gin.Context) {
 
 		task := model.InitTask(result.Platform, relayInfo)
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
-		if pending, ok := c.Get(configurable.NativeTaskSubmitResponseKey); ok {
-			officialID := gjson.GetBytes(result.TaskData, "upstream_task_id").String()
-			if strings.HasPrefix(officialID, "cgt-") {
-				task.PrivateData.OfficialTaskID = officialID
-				if response, err := sjson.SetBytes(pending.([]byte), "id", officialID); err == nil {
-					c.Set(configurable.NativeTaskSubmitResponseKey, response)
-				}
+		pending, nativeResponse := c.Get(configurable.NativeTaskSubmitResponseKey)
+		seedance := relayInfo.ChannelType == constant.ChannelTypeVolcEngine || relayInfo.ChannelType == constant.ChannelTypeDoubaoVideo ||
+			(relayInfo.ChannelType == constant.ChannelTypeConfigurable && relayInfo.ChannelSetting.Protocol != nil && relaycommon.IsSeedanceVideoProfile(relayInfo.ChannelSetting.Protocol.ProfileID))
+		// Persist the upstream's official ID for generic submissions too. Lookup
+		// and pending-response validation must not depend on the client format.
+		if seedance || nativeResponse {
+			officialID := gjson.GetBytes(result.TaskData, "upstream_task_id")
+			if officialID.Type == gjson.String && strings.HasPrefix(officialID.String(), "cgt-") {
+				task.PrivateData.OfficialTaskID = officialID.String()
+			}
+		}
+		if nativeResponse && task.PrivateData.OfficialTaskID != "" {
+			if response, err := sjson.SetBytes(pending.([]byte), "id", task.PrivateData.OfficialTaskID); err == nil {
+				c.Set(configurable.NativeTaskSubmitResponseKey, response)
 			}
 		}
 		task.PrivateData.BillingSource = relayInfo.BillingSource

@@ -1,0 +1,4141 @@
+{
+  "date": "2026-09-17",
+  "scope": "current local full gateway with isolated SQLite; real TgxMaas video API and official AK/SK assets",
+  "build": {
+    "head": "547fc6e9080812b86d4bd82777b2c481e980f26a",
+    "binary_sha256": "e0ca17d111a82d8612750a6eeb676b9be1b1e2321ae1506888f8be62870d0471",
+    "working_tree_diff_sha256": "2de450936ce25ca5bdf34e16b0a2441f21ad4f91113c4e2f32eebf9b0dbb7a57",
+    "uncommitted_changes_included": true
+  },
+  "video": {
+    "started_at": "2026-09-17T15:48:20+0800",
+    "gateway": "http://127.0.0.1:3097",
+    "upstream": "https://api.sctgx.cn",
+    "model": "doubao-seedance-2-5-260628",
+    "requests": [
+      {
+        "label": "native-mov-create",
+        "method": "POST",
+        "path": "/api/v3/contents/generations/tasks",
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "请使用联网搜索查找玻璃蛙的真实外观特征，生成自然纪录片镜头：一只玻璃蛙在雨林绿叶上缓慢爬行。镜头稳定，光线自然。"
+            }
+          ],
+          "resolution": "480p",
+          "duration": -1,
+          "seed": 0,
+          "return_last_frame": true,
+          "execution_expires_after": 3600,
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "output_format": "mov",
+          "generate_audio": false
+        },
+        "http_status": 200,
+        "response": {
+          "id": "cgt-20260917154821-qkxe4",
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.437
+      },
+      {
+        "label": "generic-mp4-create",
+        "method": "POST",
+        "path": "/v1/video/generations",
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "prompt": "请联网搜索查找朱鹮的外观特征，生成一段朱鹮在浅水湿地缓慢行走的自然纪录片。",
+          "duration": 4,
+          "size": "480p",
+          "metadata": {
+            "seed": 0,
+            "return_last_frame": true,
+            "execution_expires_after": 3600,
+            "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "tools": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "generate_audio": false,
+            "output_format": "mp4"
+          }
+        },
+        "http_status": 200,
+        "response": {
+          "id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+          "task_id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+          "object": "video",
+          "model": "doubao-seedance-2-5-260628",
+          "status": "queued",
+          "progress": 0,
+          "created_at": 1789631301
+        },
+        "elapsed": 0.685
+      },
+      {
+        "label": "bitrate-vbr",
+        "method": "POST",
+        "path": "/api/v3/contents/generations/tasks",
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "A red ball on a white table, static camera."
+            }
+          ],
+          "duration": 4,
+          "resolution": "480p",
+          "output_format": "mp4",
+          "generate_audio": false,
+          "bitrate_mode": "vbr"
+        },
+        "http_status": 400,
+        "response": {
+          "error": {
+            "code": "invalid_request",
+            "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"the parameter bitrate_mode specified in the request is not valid for model doubao-seedance-2-5 in t2v Request id: 0217896313025468df8e1a1401bb5aa62b5b494646ada58be08ab\",\"param\":\"bitrate_mode\",\"type\":\"BadRequest\"}}"
+          }
+        },
+        "elapsed": 0.373
+      },
+      {
+        "label": "bitrate-cbr",
+        "method": "POST",
+        "path": "/api/v3/contents/generations/tasks",
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "A red ball on a white table, static camera."
+            }
+          ],
+          "duration": 4,
+          "resolution": "480p",
+          "output_format": "mp4",
+          "generate_audio": false,
+          "bitrate_mode": "cbr"
+        },
+        "http_status": 400,
+        "response": {
+          "error": {
+            "code": "invalid_request",
+            "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"the parameter bitrate_mode specified in the request is not valid for model doubao-seedance-2-5 in t2v Request id: 0217896313029378df8e1a1401bb5aa62b5b494646ada587e445c\",\"param\":\"bitrate_mode\",\"type\":\"BadRequest\"}}"
+          }
+        },
+        "elapsed": 0.606
+      },
+      {
+        "label": "expiry-below-minimum",
+        "method": "POST",
+        "path": "/api/v3/contents/generations/tasks",
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "A red ball on a white table."
+            }
+          ],
+          "duration": 4,
+          "resolution": "480p",
+          "execution_expires_after": 3599
+        },
+        "http_status": 400,
+        "response": {
+          "error": {
+            "code": "invalid_request",
+            "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"The parameter `execution_expires_after` specified in the request is not valid: the specified execution_expires_after 3599 does not support content generation. Request id: 0217896313035368df8e1a1401bb5aa62b5b494646ada583bb46d\",\"param\":\"execution_expires_after\",\"type\":\"BadRequest\"}}"
+          }
+        },
+        "elapsed": 0.713
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 503,
+        "response": {
+          "code": "task_status_pending",
+          "message": "task accepted; status is not available yet; retry this GET without resubmitting",
+          "data": null
+        },
+        "elapsed": 0.111
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 502,
+        "response": {
+          "code": "upstream_query_failed",
+          "message": "invalid upstream query response",
+          "data": null
+        },
+        "elapsed": 0.113
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 503,
+        "response": {
+          "code": "task_status_pending",
+          "message": "task accepted; status is not available yet; retry this GET without resubmitting",
+          "data": null
+        },
+        "elapsed": 0.131
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 502,
+        "response": {
+          "code": "upstream_query_failed",
+          "message": "invalid upstream query response",
+          "data": null
+        },
+        "elapsed": 0.116
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.129
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.125
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.12
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.123
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.122
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.111
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.129
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.113
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.13
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.119
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.121
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.123
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.131
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.125
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.119
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.117
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 1.139
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.117
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.1
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.144
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.138
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.189
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.121
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.11
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.105
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.119
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.108
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.118
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.113
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.107
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.107
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.124
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.133
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.117
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.129
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.133
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.118
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.12
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.113
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631302,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mp4",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631302,
+          "upstream_task_id": "cgt-20260917154822-b1j0y"
+        },
+        "elapsed": 0.114
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.117
+      },
+      {
+        "label": "generic_mp4-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]"
+          },
+          "created_at": 1789631302,
+          "draft": false,
+          "duration": 4,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+          "output_format": "mp4",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631524,
+          "upstream_task_id": "cgt-20260917154822-b1j0y",
+          "usage": {
+            "completion_tokens": 38830,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 38830
+          }
+        },
+        "elapsed": 0.111
+      },
+      {
+        "label": "generic_mp4-generic-fetch",
+        "method": "GET",
+        "path": "/v1/video/generations/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "code": "success",
+          "message": "",
+          "data": {
+            "id": 2,
+            "created_at": 1789631301,
+            "updated_at": 1789631529,
+            "task_id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+            "platform": "999",
+            "user_id": 1,
+            "group": "auto",
+            "channel_id": 2,
+            "quota": 500,
+            "action": "generate",
+            "status": "SUCCESS",
+            "fail_reason": "",
+            "result_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+            "submit_time": 1789631301,
+            "start_time": 1789631326,
+            "finish_time": 1789631529,
+            "progress": "100%",
+            "properties": {
+              "input": "",
+              "upstream_model_name": "doubao-seedance-2-5-260628",
+              "origin_model_name": "doubao-seedance-2-5-260628"
+            },
+            "data": {
+              "content": {
+                "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.jpeg?[signed-query-redacted]",
+                "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]"
+              },
+              "created_at": 1789631302,
+              "draft": false,
+              "duration": 4,
+              "execution_expires_after": 3600,
+              "framespersecond": 24,
+              "generate_audio": false,
+              "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+              "model": "doubao-seedance-2-5-260628",
+              "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+              "output_format": "mp4",
+              "priority": 0,
+              "ratio": "16:9",
+              "resolution": "480p",
+              "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+              "seed": 0,
+              "service_tier": "default",
+              "status": "succeeded",
+              "tools": [
+                {
+                  "type": "web_search"
+                }
+              ],
+              "updated_at": 1789631524,
+              "upstream_task_id": "cgt-20260917154822-b1j0y",
+              "usage": {
+                "completion_tokens": 38830,
+                "tool_usage": {
+                  "web_search": 0
+                },
+                "total_tokens": 38830
+              }
+            }
+          }
+        },
+        "elapsed": 0.105
+      },
+      {
+        "label": "generic_mp4-repeat",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]"
+          },
+          "created_at": 1789631302,
+          "draft": false,
+          "duration": 4,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+          "output_format": "mp4",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631524,
+          "upstream_task_id": "cgt-20260917154822-b1j0y",
+          "usage": {
+            "completion_tokens": 38830,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 38830
+          }
+        },
+        "elapsed": 0.114
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.106
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.111
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.103
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.111
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.128
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.103
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.106
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.109
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.124
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.107
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.113
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.109
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.109
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.136
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.111
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.118
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.123
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.103
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.108
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.131
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.113
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.1
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.121
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.117
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.124
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.108
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.134
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.152
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.107
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.105
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.126
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.156
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.112
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.14
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.111
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.137
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.123
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.114
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.129
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "created_at": 1789631301,
+          "draft": false,
+          "execution_expires_after": 3600,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "output_format": "mov",
+          "priority": 0,
+          "service_tier": "default",
+          "status": "running",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631301,
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "elapsed": 0.116
+      },
+      {
+        "label": "native_mov-poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]"
+          },
+          "created_at": 1789631301,
+          "draft": false,
+          "duration": 10,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]",
+          "output_format": "mov",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631935,
+          "upstream_task_id": "cgt-20260917154821-qkxe4",
+          "usage": {
+            "completion_tokens": 96475,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 96475
+          }
+        },
+        "elapsed": 0.132
+      },
+      {
+        "label": "native_mov-repeat",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20260917154821-qkxe4",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]"
+          },
+          "created_at": 1789631301,
+          "draft": false,
+          "duration": 10,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]",
+          "output_format": "mov",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631935,
+          "upstream_task_id": "cgt-20260917154821-qkxe4",
+          "usage": {
+            "completion_tokens": 96475,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 96475
+          }
+        },
+        "elapsed": 0.121
+      }
+    ],
+    "videos": {
+      "native_mov": {
+        "create_response": {
+          "id": "cgt-20260917154821-qkxe4",
+          "upstream_task_id": "cgt-20260917154821-qkxe4"
+        },
+        "id": "cgt-20260917154821-qkxe4",
+        "status": "succeeded",
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "请使用联网搜索查找玻璃蛙的真实外观特征，生成自然纪录片镜头：一只玻璃蛙在雨林绿叶上缓慢爬行。镜头稳定，光线自然。"
+            }
+          ],
+          "resolution": "480p",
+          "duration": -1,
+          "seed": 0,
+          "return_last_frame": true,
+          "execution_expires_after": 3600,
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "output_format": "mov",
+          "generate_audio": false
+        },
+        "native": true,
+        "last_response": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]"
+          },
+          "created_at": 1789631301,
+          "draft": false,
+          "duration": 10,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "cgt-20260917154821-qkxe4",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]",
+          "output_format": "mov",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631935,
+          "upstream_task_id": "cgt-20260917154821-qkxe4",
+          "usage": {
+            "completion_tokens": 96475,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 96475
+          }
+        },
+        "native_id": "cgt-20260917154821-qkxe4",
+        "video_url_download": {
+          "http_status": 200,
+          "bytes": 4488642,
+          "sha256": "d1e587d7d8753a4a9e0acdf352108ae39b34d609e849bbc81314a60815edc82e",
+          "host": "ark-acg-cn-beijing.tos-cn-beijing.volces.com",
+          "ftyp_major_brand": "qt  "
+        },
+        "last_frame_url_download": {
+          "http_status": 200,
+          "bytes": 128340,
+          "sha256": "3bc7bfe0685060b0db19fcb6ea56a832152795c3a1d43931179ecda00e75e4d4",
+          "host": "ark-acg-cn-beijing.tos-cn-beijing.volces.com",
+          "format": "jpeg"
+        },
+        "repeat_query": {
+          "http_status": 200,
+          "quota_before": 99999000,
+          "quota_after": 99999000,
+          "no_extra_charge": true
+        },
+        "media_metadata": {
+          "duration_seconds": 10.042,
+          "width": 854,
+          "height": 480
+        },
+        "upstream_create": {
+          "time": 1789631300.496129,
+          "method": "POST",
+          "path": "/doubao/api/v3/contents/generations/tasks",
+          "request": {
+            "model": "doubao-seedance-2-5-260628",
+            "content": [
+              {
+                "type": "text",
+                "text": "请使用联网搜索查找玻璃蛙的真实外观特征，生成自然纪录片镜头：一只玻璃蛙在雨林绿叶上缓慢爬行。镜头稳定，光线自然。"
+              }
+            ],
+            "resolution": "480p",
+            "duration": -1,
+            "seed": 0,
+            "return_last_frame": true,
+            "execution_expires_after": 3600,
+            "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "tools": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "output_format": "mov",
+            "generate_audio": false,
+            "ProjectName": "nmyk"
+          },
+          "status": 200,
+          "response": {
+            "id": "task_gSW6WBOy2Byzvs1d6uopKLux8KAm29bJ",
+            "upstream_task_id": "cgt-20260917154821-qkxe4"
+          },
+          "elapsed": 0.432
+        },
+        "upstream_final": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]"
+          },
+          "created_at": 1789631301,
+          "draft": false,
+          "duration": 10,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "task_gSW6WBOy2Byzvs1d6uopKLux8KAm29bJ",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/4exkq-12845171906202-tgc_40dd6b645471caffff00000000000000000000583567136987120/cgt-20260917154821-qkxe4.mov?[signed-query-redacted]",
+          "output_format": "mov",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631935,
+          "upstream_task_id": "cgt-20260917154821-qkxe4",
+          "usage": {
+            "completion_tokens": 96475,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 96475
+          }
+        },
+        "usage_matches_upstream": true,
+        "video_link_matches_upstream": true,
+        "official_url_equals_video_url": true,
+        "generic_usage_matches_upstream": null,
+        "parameter_transmission": {
+          "duration": {
+            "expected": -1,
+            "upstream": -1,
+            "equal": true
+          },
+          "seed": {
+            "expected": 0,
+            "upstream": 0,
+            "equal": true
+          },
+          "return_last_frame": {
+            "expected": true,
+            "upstream": true,
+            "equal": true
+          },
+          "execution_expires_after": {
+            "expected": 3600,
+            "upstream": 3600,
+            "equal": true
+          },
+          "safety_identifier": {
+            "expected": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "upstream": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "equal": true
+          },
+          "tools": {
+            "expected": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "upstream": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "equal": true
+          },
+          "output_format": {
+            "expected": "mov",
+            "upstream": "mov",
+            "equal": true
+          }
+        }
+      },
+      "generic_mp4": {
+        "create_response": {
+          "id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+          "task_id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+          "object": "video",
+          "model": "doubao-seedance-2-5-260628",
+          "status": "queued",
+          "progress": 0,
+          "created_at": 1789631301
+        },
+        "id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+        "status": "succeeded",
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "prompt": "请联网搜索查找朱鹮的外观特征，生成一段朱鹮在浅水湿地缓慢行走的自然纪录片。",
+          "duration": 4,
+          "size": "480p",
+          "metadata": {
+            "seed": 0,
+            "return_last_frame": true,
+            "execution_expires_after": 3600,
+            "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "tools": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "generate_audio": false,
+            "output_format": "mp4"
+          }
+        },
+        "native": false,
+        "last_response": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]"
+          },
+          "created_at": 1789631302,
+          "draft": false,
+          "duration": 4,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+          "output_format": "mp4",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631524,
+          "upstream_task_id": "cgt-20260917154822-b1j0y",
+          "usage": {
+            "completion_tokens": 38830,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 38830
+          }
+        },
+        "native_id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+        "generic_fetch": {
+          "http_status": 200,
+          "response": {
+            "code": "success",
+            "message": "",
+            "data": {
+              "id": 2,
+              "created_at": 1789631301,
+              "updated_at": 1789631529,
+              "task_id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+              "platform": "999",
+              "user_id": 1,
+              "group": "auto",
+              "channel_id": 2,
+              "quota": 500,
+              "action": "generate",
+              "status": "SUCCESS",
+              "fail_reason": "",
+              "result_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+              "submit_time": 1789631301,
+              "start_time": 1789631326,
+              "finish_time": 1789631529,
+              "progress": "100%",
+              "properties": {
+                "input": "",
+                "upstream_model_name": "doubao-seedance-2-5-260628",
+                "origin_model_name": "doubao-seedance-2-5-260628"
+              },
+              "data": {
+                "content": {
+                  "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.jpeg?[signed-query-redacted]",
+                  "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]"
+                },
+                "created_at": 1789631302,
+                "draft": false,
+                "duration": 4,
+                "execution_expires_after": 3600,
+                "framespersecond": 24,
+                "generate_audio": false,
+                "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+                "model": "doubao-seedance-2-5-260628",
+                "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+                "output_format": "mp4",
+                "priority": 0,
+                "ratio": "16:9",
+                "resolution": "480p",
+                "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+                "seed": 0,
+                "service_tier": "default",
+                "status": "succeeded",
+                "tools": [
+                  {
+                    "type": "web_search"
+                  }
+                ],
+                "updated_at": 1789631524,
+                "upstream_task_id": "cgt-20260917154822-b1j0y",
+                "usage": {
+                  "completion_tokens": 38830,
+                  "tool_usage": {
+                    "web_search": 0
+                  },
+                  "total_tokens": 38830
+                }
+              }
+            }
+          }
+        },
+        "video_url_download": {
+          "http_status": 200,
+          "bytes": 2030442,
+          "sha256": "e62de0738c2080de93a5f5832646025e73ecccac24c1f182114b1a5e220d2db3",
+          "host": "ark-acg-cn-beijing.tos-cn-beijing.volces.com",
+          "ftyp_major_brand": "isom"
+        },
+        "last_frame_url_download": {
+          "http_status": 200,
+          "bytes": 199310,
+          "sha256": "d15cde58ab55f84ea6b7bf57b6f6814a574e40f4c80d410b4b7333ee54f37185",
+          "host": "ark-acg-cn-beijing.tos-cn-beijing.volces.com",
+          "format": "jpeg"
+        },
+        "repeat_query": {
+          "http_status": 200,
+          "quota_before": 99999000,
+          "quota_after": 99999000,
+          "no_extra_charge": true
+        },
+        "media_metadata": {
+          "duration_seconds": 4.042,
+          "width": 854,
+          "height": 480
+        },
+        "upstream_create": {
+          "time": 1789631300.9329941,
+          "method": "POST",
+          "path": "/doubao/api/v3/contents/generations/tasks",
+          "request": {
+            "content": [
+              {
+                "text": "请联网搜索查找朱鹮的外观特征，生成一段朱鹮在浅水湿地缓慢行走的自然纪录片。",
+                "type": "text"
+              }
+            ],
+            "duration": 4,
+            "execution_expires_after": 3600,
+            "generate_audio": false,
+            "model": "doubao-seedance-2-5-260628",
+            "output_format": "mp4",
+            "resolution": "480p",
+            "return_last_frame": true,
+            "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "seed": 0,
+            "tools": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "ProjectName": "nmyk"
+          },
+          "status": 200,
+          "response": {
+            "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+            "upstream_task_id": "cgt-20260917154822-b1j0y"
+          },
+          "elapsed": 0.677
+        },
+        "upstream_final": {
+          "content": {
+            "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.jpeg?[signed-query-redacted]",
+            "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]"
+          },
+          "created_at": 1789631302,
+          "draft": false,
+          "duration": 4,
+          "execution_expires_after": 3600,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+          "model": "doubao-seedance-2-5-260628",
+          "official_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+          "output_format": "mp4",
+          "priority": 0,
+          "ratio": "16:9",
+          "resolution": "480p",
+          "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+          "seed": 0,
+          "service_tier": "default",
+          "status": "succeeded",
+          "tools": [
+            {
+              "type": "web_search"
+            }
+          ],
+          "updated_at": 1789631524,
+          "upstream_task_id": "cgt-20260917154822-b1j0y",
+          "usage": {
+            "completion_tokens": 38830,
+            "tool_usage": {
+              "web_search": 0
+            },
+            "total_tokens": 38830
+          }
+        },
+        "usage_matches_upstream": true,
+        "video_link_matches_upstream": true,
+        "official_url_equals_video_url": true,
+        "generic_usage_matches_upstream": true,
+        "parameter_transmission": {
+          "duration": {
+            "expected": 4,
+            "upstream": 4,
+            "equal": true
+          },
+          "seed": {
+            "expected": 0,
+            "upstream": 0,
+            "equal": true
+          },
+          "return_last_frame": {
+            "expected": true,
+            "upstream": true,
+            "equal": true
+          },
+          "execution_expires_after": {
+            "expected": 3600,
+            "upstream": 3600,
+            "equal": true
+          },
+          "safety_identifier": {
+            "expected": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "upstream": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+            "equal": true
+          },
+          "tools": {
+            "expected": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "upstream": [
+              {
+                "type": "web_search"
+              }
+            ],
+            "equal": true
+          },
+          "output_format": {
+            "expected": "mp4",
+            "upstream": "mp4",
+            "equal": true
+          }
+        }
+      }
+    },
+    "probes": {
+      "bitrate_vbr": {
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "A red ball on a white table, static camera."
+            }
+          ],
+          "duration": 4,
+          "resolution": "480p",
+          "output_format": "mp4",
+          "generate_audio": false,
+          "bitrate_mode": "vbr"
+        },
+        "http_status": 400,
+        "response": {
+          "error": {
+            "code": "invalid_request",
+            "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"the parameter bitrate_mode specified in the request is not valid for model doubao-seedance-2-5 in t2v Request id: 0217896313025468df8e1a1401bb5aa62b5b494646ada58be08ab\",\"param\":\"bitrate_mode\",\"type\":\"BadRequest\"}}"
+          }
+        }
+      },
+      "bitrate_cbr": {
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "A red ball on a white table, static camera."
+            }
+          ],
+          "duration": 4,
+          "resolution": "480p",
+          "output_format": "mp4",
+          "generate_audio": false,
+          "bitrate_mode": "cbr"
+        },
+        "http_status": 400,
+        "response": {
+          "error": {
+            "code": "invalid_request",
+            "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"the parameter bitrate_mode specified in the request is not valid for model doubao-seedance-2-5 in t2v Request id: 0217896313029378df8e1a1401bb5aa62b5b494646ada587e445c\",\"param\":\"bitrate_mode\",\"type\":\"BadRequest\"}}"
+          }
+        }
+      },
+      "expiry_below_minimum": {
+        "request": {
+          "model": "doubao-seedance-2-5-260628",
+          "content": [
+            {
+              "type": "text",
+              "text": "A red ball on a white table."
+            }
+          ],
+          "duration": 4,
+          "resolution": "480p",
+          "execution_expires_after": 3599
+        },
+        "http_status": 400,
+        "response": {
+          "error": {
+            "code": "invalid_request",
+            "message": "{\"error\":{\"code\":\"InvalidParameter\",\"message\":\"The parameter `execution_expires_after` specified in the request is not valid: the specified execution_expires_after 3599 does not support content generation. Request id: 0217896313035368df8e1a1401bb5aa62b5b494646ada583bb46d\",\"param\":\"execution_expires_after\",\"type\":\"BadRequest\"}}"
+          }
+        }
+      }
+    },
+    "finished_at": "2026-09-17T15:59:05+0800",
+    "all_terminal": true
+  },
+  "assets": {
+    "scope": "local running gateway against real upstreams",
+    "project": "nmyk",
+    "requests": [
+      {
+        "backend": "tgxmaas",
+        "step": "invalid-asset-key",
+        "method": "POST",
+        "path": "/v1/private-avatar/groups/list",
+        "http_status": 401,
+        "error": "{'message': 'Invalid token (request id: 202609170748202760865618268d9d68JwDY8r3)', 'type': 'new_api_error', 'param': '', 'code': ''}"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "group-create",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "CreateAssetGroup"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "group-alias-get",
+        "method": "GET",
+        "path": "/api/asset-groups/group-20260917154821-pkjsj",
+        "http_status": 200
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "group-update",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "UpdateAssetGroup"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "group-get",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "GetAssetGroup"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "group-list",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "ListAssetGroups"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-create",
+        "method": "POST",
+        "path": "/api/assets",
+        "http_status": 200
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-v1-post-get",
+        "method": "POST",
+        "path": "/v1/assets/get",
+        "http_status": 200
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-v1-post-get",
+        "method": "POST",
+        "path": "/v1/assets/get",
+        "http_status": 200
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-v1-post-get",
+        "method": "POST",
+        "path": "/v1/assets/get",
+        "http_status": 200
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-v1-get",
+        "method": "GET",
+        "path": "/v1/assets/asset-20260917154821-kpt96",
+        "http_status": 200
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-original-id-get",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "GetAsset"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-update",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "UpdateAsset"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-get",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "GetAsset"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-list",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "ListAssets"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "v1-group-create",
+        "method": "POST",
+        "path": "/v1/asset-groups",
+        "http_status": 200
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "v1-group-delete",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "DeleteAssetGroup"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "asset-delete",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "DeleteAsset"
+      },
+      {
+        "backend": "volcengine-assets",
+        "step": "group-delete",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "DeleteAssetGroup"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "group-create",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "CreateAssetGroup"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "group-alias-get",
+        "method": "GET",
+        "path": "/api/asset-groups/ag_816d6cb98d5e4c92a351754d56b2961e",
+        "http_status": 200
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "group-update",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "UpdateAssetGroup"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "group-get",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "GetAssetGroup"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "group-list",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "ListAssetGroups"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-create",
+        "method": "POST",
+        "path": "/api/assets",
+        "http_status": 200
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-v1-post-get",
+        "method": "POST",
+        "path": "/v1/assets/get",
+        "http_status": 200
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-v1-post-get",
+        "method": "POST",
+        "path": "/v1/assets/get",
+        "http_status": 200
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-v1-post-get",
+        "method": "POST",
+        "path": "/v1/assets/get",
+        "http_status": 200
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-v1-get",
+        "method": "GET",
+        "path": "/v1/assets/asset_0b3cb4990bf44e208c7615888a647d1e",
+        "http_status": 200
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-original-id-get",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "GetAsset"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-update",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "UpdateAsset"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-get",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "GetAsset"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-list",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "ListAssets"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "v1-group-create",
+        "method": "POST",
+        "path": "/v1/asset-groups",
+        "http_status": 200
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "v1-group-delete",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "DeleteAssetGroup"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "asset-delete",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "DeleteAsset"
+      },
+      {
+        "backend": "tgxmaas",
+        "step": "group-delete",
+        "method": "POST",
+        "path": "/",
+        "http_status": 200,
+        "action": "DeleteAssetGroup"
+      }
+    ],
+    "backends": {
+      "volcengine-assets": {
+        "asset_id": "asset-20260917154821-kpt96",
+        "original_id": "asset-20260917154821-kpt96",
+        "group_id": "group-20260917154821-pkjsj",
+        "status": "Active"
+      },
+      "tgxmaas": {
+        "asset_id": "asset_0b3cb4990bf44e208c7615888a647d1e",
+        "original_id": "asset-20260917154830-xfqds",
+        "group_id": "ag_816d6cb98d5e4c92a351754d56b2961e",
+        "status": "Active"
+      }
+    },
+    "cleanup": [
+      "asset-20260917154821-kpt96",
+      "group-20260917154821-pkjsj",
+      "asset_0b3cb4990bf44e208c7615888a647d1e",
+      "ag_816d6cb98d5e4c92a351754d56b2961e"
+    ],
+    "asset_401_preserves_video_channel": true,
+    "result": "PASS"
+  },
+  "aliases": {
+    "requests": [
+      {
+        "backend": "volcengine-assets",
+        "method": "POST",
+        "path": "/api/asset-groups",
+        "request": {
+          "name": "local-alias-test-1789631474"
+        },
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715511589E56C390D1D9FF65C73",
+            "Action": "CreateAssetGroup",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "Id": "group-20260917155115-v5kvw"
+          }
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "POST",
+        "path": "/v1/assets",
+        "request": {
+          "group_id": "group-20260917155115-v5kvw",
+          "url": "https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg",
+          "asset_type": "Image"
+        },
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715511589E56C390D1D9FF65C78",
+            "Action": "CreateAsset",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "Id": "asset-20260917155115-lzv7c"
+          }
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "GET",
+        "path": "/v1/assets/get?asset_id=asset-20260917155115-lzv7c",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715511689E56C390D1D9FF65C81",
+            "Action": "GetAsset",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "Id": "asset-20260917155115-lzv7c",
+            "Name": "",
+            "URL": "",
+            "AssetType": "Image",
+            "GroupId": "group-20260917155115-v5kvw",
+            "Status": "Processing",
+            "Moderation": {
+              "Strategy": "Default"
+            },
+            "CreateTime": "2026-09-17T07:51:16Z",
+            "UpdateTime": "2026-09-17T07:51:16Z",
+            "ProjectName": "nmyk"
+          }
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "GET",
+        "path": "/v1/assets/get?asset_id=asset-20260917155115-lzv7c",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715511989E56C390D1D9FF65CD2",
+            "Action": "GetAsset",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "Id": "asset-20260917155115-lzv7c",
+            "Name": "",
+            "URL": "",
+            "AssetType": "Image",
+            "GroupId": "group-20260917155115-v5kvw",
+            "Status": "Processing",
+            "Moderation": {
+              "Strategy": "Default"
+            },
+            "CreateTime": "2026-09-17T07:51:16Z",
+            "UpdateTime": "2026-09-17T07:51:16Z",
+            "ProjectName": "nmyk"
+          }
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "GET",
+        "path": "/v1/assets/get?asset_id=asset-20260917155115-lzv7c",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715512289E56C390D1D9FF65D30",
+            "Action": "GetAsset",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "Id": "asset-20260917155115-lzv7c",
+            "Name": "",
+            "URL": "https://ark-media-asset.tos-cn-beijing.volces.com/2129101375/091715511592188827.jpg?[signed-query-redacted]",
+            "AssetType": "Image",
+            "GroupId": "group-20260917155115-v5kvw",
+            "Status": "Active",
+            "Moderation": {
+              "Strategy": "Default"
+            },
+            "CreateTime": "2026-09-17T07:51:16Z",
+            "UpdateTime": "2026-09-17T07:51:21Z",
+            "ProjectName": "nmyk"
+          }
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "GET",
+        "path": "/v1/assets?Filter=%7B%22GroupIds%22%3A+%5B%22group-20260917155115-v5kvw%22%5D%2C+%22GroupType%22%3A+%22AIGC%22%7D&PageNumber=1&PageSize=10",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715512289E56C390D1D9FF65D34",
+            "Action": "ListAssets",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "Items": [
+              {
+                "Id": "asset-20260917155115-lzv7c",
+                "Name": "",
+                "URL": "https://ark-media-asset.tos-cn-beijing.volces.com/2129101375/091715511592188827.jpg?[signed-query-redacted]",
+                "AssetType": "Image",
+                "GroupId": "group-20260917155115-v5kvw",
+                "Status": "Active",
+                "Moderation": {
+                  "Strategy": "Default"
+                },
+                "CreateTime": "2026-09-17T07:51:16Z",
+                "UpdateTime": "2026-09-17T07:51:21Z",
+                "ProjectName": "nmyk"
+              }
+            ],
+            "TotalCount": 1,
+            "PageNumber": 1,
+            "PageSize": 10
+          }
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "GET",
+        "path": "/v1/asset-groups?Filter=%7B%22GroupIds%22%3A+%5B%22group-20260917155115-v5kvw%22%5D%2C+%22GroupType%22%3A+%22AIGC%22%7D&PageNumber=1&PageSize=10",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715512289E56C390D1D9FF65D36",
+            "Action": "ListAssetGroups",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "TotalCount": 1,
+            "Items": [
+              {
+                "Id": "group-20260917155115-v5kvw",
+                "Name": "local-alias-test-1789631474",
+                "GroupType": "AIGC",
+                "ProjectName": "nmyk",
+                "CreateTime": "2026-09-17T07:51:15Z",
+                "UpdateTime": "2026-09-17T07:51:15Z"
+              }
+            ],
+            "PageNumber": 1,
+            "PageSize": 10
+          }
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "DELETE",
+        "path": "/v1/assets/asset-20260917155115-lzv7c",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715512289E56C390D1D9FF65D38",
+            "Action": "DeleteAsset",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {}
+        }
+      },
+      {
+        "backend": "volcengine-assets",
+        "method": "DELETE",
+        "path": "/v1/asset-groups/group-20260917155115-v5kvw",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "RequestId": "2026091715512289E56C390D1D9FF65D3A",
+            "Action": "DeleteAssetGroup",
+            "Version": "2024-01-01",
+            "Service": "ark",
+            "Region": "cn-beijing"
+          },
+          "Result": {
+            "Id": "group-20260917155115-v5kvw"
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "POST",
+        "path": "/api/asset-groups",
+        "request": {
+          "name": "local-alias-test-1789631481"
+        },
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "CreateAssetGroup",
+            "Region": "cn-beijing",
+            "RequestId": "202609171551228644EE802FE7F9699D6F",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Id": "ag_47d54837c72d4e54b7dfc570ddee9482",
+            "Name": "local-alias-test-1789631481",
+            "GroupType": "AIGC",
+            "ProjectName": "nmyk",
+            "CreateTime": 1789631482,
+            "UpdateTime": 1789631482
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "POST",
+        "path": "/v1/assets",
+        "request": {
+          "group_id": "ag_47d54837c72d4e54b7dfc570ddee9482",
+          "url": "https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg",
+          "asset_type": "Image"
+        },
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "CreateAsset",
+            "Region": "cn-beijing",
+            "RequestId": "202609171551238644EE802FE7F9699D7A",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Id": "asset_4cb0c59e01374cd4b337f55425aca0a3",
+            "upstream_asset_id": "asset-20260917155123-kvj94",
+            "GroupId": "ag_47d54837c72d4e54b7dfc570ddee9482",
+            "AssetType": "Image",
+            "URL": "https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg",
+            "Status": "Processing",
+            "ProjectName": "nmyk",
+            "CreateTime": 1789631483,
+            "UpdateTime": 1789631483
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "GET",
+        "path": "/v1/assets/get?asset_id=asset_4cb0c59e01374cd4b337f55425aca0a3",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "GetAsset",
+            "Region": "cn-beijing",
+            "RequestId": "202609171551238644EE802FE7F9699D98",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Id": "asset_4cb0c59e01374cd4b337f55425aca0a3",
+            "upstream_asset_id": "asset-20260917155123-kvj94",
+            "GroupId": "ag_47d54837c72d4e54b7dfc570ddee9482",
+            "AssetType": "Image",
+            "URL": "https://upload.wikimedia.org/wikipedia/commons/1/15/Red_Apple.jpg",
+            "Status": "Processing",
+            "ProjectName": "nmyk",
+            "CreateTime": 1789631483,
+            "UpdateTime": 1789631483
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "GET",
+        "path": "/v1/assets/get?asset_id=asset_4cb0c59e01374cd4b337f55425aca0a3",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "GetAsset",
+            "Region": "cn-beijing",
+            "RequestId": "202609171551278644EE802FE7F9699DFF",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Id": "asset_4cb0c59e01374cd4b337f55425aca0a3",
+            "upstream_asset_id": "asset-20260917155123-kvj94",
+            "GroupId": "ag_47d54837c72d4e54b7dfc570ddee9482",
+            "AssetType": "Image",
+            "URL": "https://ark-media-asset.tos-cn-beijing.volces.com/2129101375/091715512324971814.jpg?[signed-query-redacted]",
+            "Status": "Active",
+            "ProjectName": "nmyk",
+            "CreateTime": 1789631483,
+            "UpdateTime": 1789631487
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "GET",
+        "path": "/v1/assets?Filter=%7B%22GroupIds%22%3A+%5B%22ag_47d54837c72d4e54b7dfc570ddee9482%22%5D%2C+%22GroupType%22%3A+%22AIGC%22%7D&PageNumber=1&PageSize=10",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "ListAssets",
+            "Region": "cn-beijing",
+            "RequestId": "202609170751272188613408268d9d6rDKo1TEv",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Items": [
+              {
+                "Id": "asset_4cb0c59e01374cd4b337f55425aca0a3",
+                "upstream_asset_id": "asset-20260917155123-kvj94",
+                "GroupId": "ag_47d54837c72d4e54b7dfc570ddee9482",
+                "AssetType": "Image",
+                "URL": "https://ark-media-asset.tos-cn-beijing.volces.com/2129101375/091715512324971814.jpg?[signed-query-redacted]",
+                "Status": "Active",
+                "ProjectName": "nmyk",
+                "CreateTime": 1789631483,
+                "UpdateTime": 1789631487
+              }
+            ]
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "GET",
+        "path": "/v1/asset-groups?Filter=%7B%22GroupIds%22%3A+%5B%22ag_47d54837c72d4e54b7dfc570ddee9482%22%5D%2C+%22GroupType%22%3A+%22AIGC%22%7D&PageNumber=1&PageSize=10",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "ListAssetGroups",
+            "Region": "cn-beijing",
+            "RequestId": "202609170751273793280578268d9d6mJTcp7CQ",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Items": [
+              {
+                "Id": "ag_47d54837c72d4e54b7dfc570ddee9482",
+                "Name": "local-alias-test-1789631481",
+                "GroupType": "AIGC",
+                "ProjectName": "nmyk",
+                "CreateTime": 1789631482,
+                "UpdateTime": 1789631482
+              }
+            ]
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "DELETE",
+        "path": "/v1/assets/asset_4cb0c59e01374cd4b337f55425aca0a3",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "DeleteAsset",
+            "Region": "cn-beijing",
+            "RequestId": "202609171551278644EE802FE7F9699E0E",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Id": "asset_4cb0c59e01374cd4b337f55425aca0a3"
+          }
+        }
+      },
+      {
+        "backend": "tgxmaas",
+        "method": "DELETE",
+        "path": "/v1/asset-groups/ag_47d54837c72d4e54b7dfc570ddee9482",
+        "request": null,
+        "http_status": 200,
+        "response": {
+          "ResponseMetadata": {
+            "Action": "DeleteAssetGroup",
+            "Region": "cn-beijing",
+            "RequestId": "202609171551278644EE802FE7F9699E14",
+            "Service": "ark",
+            "Version": "2024-01-01"
+          },
+          "Result": {
+            "Id": "ag_47d54837c72d4e54b7dfc570ddee9482"
+          }
+        }
+      }
+    ],
+    "cleanup": [
+      "asset-20260917155115-lzv7c",
+      "group-20260917155115-v5kvw",
+      "asset_4cb0c59e01374cd4b337f55425aca0a3",
+      "ag_47d54837c72d4e54b7dfc570ddee9482"
+    ],
+    "result": "PASS"
+  },
+  "generic_official_id_query": {
+    "method": "GET",
+    "path": "/api/v3/contents/generations/tasks/cgt-20260917154822-b1j0y",
+    "http_status": 400,
+    "response": {
+      "code": "task_not_exist",
+      "message": "task_not_exist",
+      "data": null
+    }
+  },
+  "pending_upstream_responses": [
+    {
+      "time": 1789631303.3125873,
+      "method": "GET",
+      "path": "/doubao/api/v3/contents/generations/tasks/task_gSW6WBOy2Byzvs1d6uopKLux8KAm29bJ",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "task_gSW6WBOy2Byzvs1d6uopKLux8KAm29bJ",
+        "upstream_task_id": "cgt-20260917154821-qkxe4"
+      },
+      "elapsed": 0.108
+    },
+    {
+      "time": 1789631303.4257567,
+      "method": "GET",
+      "path": "/doubao/api/v3/contents/generations/tasks/task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+        "upstream_task_id": "cgt-20260917154822-b1j0y"
+      },
+      "elapsed": 0.109
+    },
+    {
+      "time": 1789631313.541854,
+      "method": "GET",
+      "path": "/doubao/api/v3/contents/generations/tasks/task_gSW6WBOy2Byzvs1d6uopKLux8KAm29bJ",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "task_gSW6WBOy2Byzvs1d6uopKLux8KAm29bJ",
+        "upstream_task_id": "cgt-20260917154821-qkxe4"
+      },
+      "elapsed": 0.125
+    },
+    {
+      "time": 1789631313.671183,
+      "method": "GET",
+      "path": "/doubao/api/v3/contents/generations/tasks/task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+      "request": null,
+      "status": 200,
+      "response": {
+        "id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+        "upstream_task_id": "cgt-20260917154822-b1j0y"
+      },
+      "elapsed": 0.112
+    }
+  ],
+  "documentation": {
+    "1520757": {
+      "url": "https://www.volcengine.com/docs/82379/1520757",
+      "title": "创建视频生成任务",
+      "sha256": "c703fdefbb3cbd2dbda4a4eb34e231d6707530475b9cddc7f38174bfe8ad0b40"
+    },
+    "1521309": {
+      "url": "https://www.volcengine.com/docs/82379/1521309",
+      "title": "查询视频生成任务",
+      "sha256": "3635304fd043ab5a019df441f84f9796441e4d0e2fc278aa056dbe84ff8bc7e6"
+    },
+    "2607688": {
+      "url": "https://www.volcengine.com/docs/82379/2607688",
+      "title": "Doubao Seedance 2.5 教程",
+      "sha256": "0c0828f6294006abc1f8b18581db06c8825c40fe1c6cfcd097c99e03aea4d8a9"
+    },
+    "supplier": {
+      "url": "https://api.sctgx.cn/api-docs/9456586m0",
+      "sha256": "2899bf5060343ca31b3bb2ec0138c69f3436efef88a6db721373d2c1de1cceec"
+    }
+  },
+  "task_mapping": [
+    {
+      "task_id": "task_JdbhpMkaiFn699w6XmLoUhc8Os6Ym5VG",
+      "status": "SUCCESS",
+      "upstream_task_id": "task_gSW6WBOy2Byzvs1d6uopKLux8KAm29bJ",
+      "official_task_id": "cgt-20260917154821-qkxe4"
+    },
+    {
+      "task_id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+      "status": "SUCCESS",
+      "upstream_task_id": "task_FTo7vV9mFtsFff0MiB3Wdn0Ns49VQ0qC",
+      "official_task_id": null
+    }
+  ],
+  "openai_video_fetch": {
+    "method": "GET",
+    "path": "/v1/videos/task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+    "http_status": 200,
+    "response": {
+      "id": "task_aUp2T0fJjYQ1CpejSzONLyr5HrY8oSCO",
+      "object": "video",
+      "model": "doubao-seedance-2-5-260628",
+      "status": "completed",
+      "progress": 100,
+      "created_at": 1789631301,
+      "completed_at": 1789631529,
+      "video_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+      "metadata": {
+        "draft": false,
+        "duration": 4,
+        "execution_expires_after": 3600,
+        "framespersecond": 24,
+        "generate_audio": false,
+        "last_frame_url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Image/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.jpeg?[signed-query-redacted]",
+        "output_format": "mp4",
+        "priority": 0,
+        "ratio": "16:9",
+        "resolution": "480p",
+        "safety_identifier": "523afc0cf40589f67467da5d4d93f736932dd8dac97b0a5749191b93f09d7718",
+        "seed": 0,
+        "service_tier": "default",
+        "tools": [
+          {
+            "type": "web_search"
+          }
+        ],
+        "url": "https://ark-acg-cn-beijing.tos-cn-beijing.volces.com/doubao-seedance-2-5/2129101375/Video/y0j1b-22845171906202-tgc_6dab14312471caffff00000000000000000000324663136987120/cgt-20260917154822-b1j0y.mp4?[signed-query-redacted]",
+        "usage": {
+          "completion_tokens": 38830,
+          "tool_usage": {
+            "web_search": 0
+          },
+          "total_tokens": 38830
+        }
+      }
+    }
+  },
+  "cleanup": {
+    "local_gateway_stopped": true,
+    "upstream_recorder_stopped": true,
+    "temporary_credentials_removed": true,
+    "isolated_database_removed": true,
+    "created_assets_deleted": 4,
+    "created_groups_deleted": 6
+  }
+}
