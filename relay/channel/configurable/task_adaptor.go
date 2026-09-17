@@ -362,11 +362,17 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 }
 
 func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, error) {
-	_, err := a.requireProfile()
+	profile, err := a.requireProfile()
 	if err != nil {
 		return nil, err
 	}
-	return ParseConfiguredTaskInfo(a.fetchResponseConfig(), respBody), nil
+	resp := a.fetchResponseConfig()
+	result := ParseConfiguredTaskInfo(resp, respBody)
+	if relaycommon.IsSeedanceVideoProfile(profile.ID) {
+		result.TaskID = firstJSONString(respBody, configuredTaskIDPath(resp, respBody))
+		result.Status = mapStatus(resp.StatusMap, firstJSONString(respBody, configuredTaskStatusPath(resp, respBody)))
+	}
+	return result, nil
 }
 
 func (a *TaskAdaptor) fetchResponseConfig() ResponseConfig {
@@ -381,15 +387,46 @@ func (a *TaskAdaptor) ValidateTaskStatus(body []byte) error {
 		return err
 	}
 	resp := a.fetchResponseConfig()
-	if err := relaycommon.ValidateSeedanceTaskStatus(body, resp.StatusPath); err != nil {
+	path := configuredTaskStatusPath(resp, body)
+	if err := relaycommon.ValidateSeedanceTaskStatus(body, path); err != nil {
 		return err
 	}
-	switch mapStatus(resp.StatusMap, gjson.GetBytes(body, resp.StatusPath).String()) {
+	switch mapStatus(resp.StatusMap, firstJSONString(body, path)) {
 	case model.TaskStatusSubmitted, model.TaskStatusQueued, model.TaskStatusInProgress, model.TaskStatusSuccess, model.TaskStatusFailure:
 		return nil
 	default:
 		return fmt.Errorf("invalid configured Seedance task status")
 	}
+}
+
+func (a *TaskAdaptor) ValidateTaskIdentity(body []byte, info *relaycommon.TaskInfo, upstreamID, officialID string) error {
+	if _, err := a.requireProfile(); err != nil {
+		return err
+	}
+	return relaycommon.ValidateSeedanceTaskIdentity(body, info, upstreamID, officialID, configuredTaskIDPath(a.fetchResponseConfig(), body))
+}
+
+// Fall back when the response uses another envelope, such as flat Ark JSON.
+// Once a task envelope exists, missing or malformed fields in it must not be
+// hidden by an outer request status or an ID from another layer.
+func firstPresentTaskPath(body []byte, paths ...string) string {
+	for _, path := range paths {
+		if path != "" && gjson.GetBytes(body, path).Exists() {
+			return path
+		}
+		if dot := strings.LastIndex(path, "."); dot > 0 && gjson.GetBytes(body, path[:dot]).Exists() {
+			return path
+		}
+	}
+	return paths[len(paths)-1]
+}
+
+func configuredTaskStatusPath(resp ResponseConfig, body []byte) string {
+	return firstPresentTaskPath(body, resp.StatusPath, "status", "task.status", "data.status")
+}
+
+func configuredTaskIDPath(resp ResponseConfig, body []byte) string {
+	return firstPresentTaskPath(body, resp.TaskIDPath, "id", "task.id", "data.task_id")
 }
 
 func ParseConfiguredTaskInfo(resp ResponseConfig, respBody []byte) *relaycommon.TaskInfo {
@@ -616,11 +653,11 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 		return nil, err
 	}
 	if isVolcengineVideoTaskFetchEndpoint(profile.videoNative().Fetch.Path) {
-		return buildVolcengineVideoTaskResponse(originTask, upstream, a.fetchResponseConfig().StatusPath)
+		return buildVolcengineVideoTaskResponse(originTask, upstream, configuredTaskStatusPath(a.fetchResponseConfig(), upstream))
 	}
 	responseFormat := strings.ToLower(strings.TrimSpace(profile.videoNative().Fetch.ResponseFormat))
 	if responseFormat == "volcengine_video_task" {
-		return buildVolcengineVideoTaskResponse(originTask, upstream, a.fetchResponseConfig().StatusPath)
+		return buildVolcengineVideoTaskResponse(originTask, upstream, configuredTaskStatusPath(a.fetchResponseConfig(), upstream))
 	}
 	return buildConfiguredResponse(profile.videoNative().Fetch.Response, upstream, &relaycommon.RelayInfo{
 		TaskRelayInfo: &relaycommon.TaskRelayInfo{

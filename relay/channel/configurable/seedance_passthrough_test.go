@@ -2,11 +2,54 @@ package configurable
 
 import (
 	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 	"testing"
 )
+
+func TestModelsellResponseValidationUsesAuthoritativeFields(t *testing.T) {
+	a := &TaskAdaptor{}
+	a.Init(seedanceMaxRelayInfo("seedance2-modelsell"))
+	for _, tc := range []struct {
+		name, body           string
+		validID, validStatus bool
+	}{
+		{"wrapped_provider_id", `{"data":{"task_id":"owner","status":"SUCCESS","data":{"task":{"id":"provider-id","status":"completed"}}}}`, true, true},
+		{"flat_fallback", `{"id":"owner","status":"succeeded"}`, true, true},
+		{"wrong_primary_id", `{"id":"owner","status":"succeeded","data":{"task_id":"other","status":"SUCCESS"}}`, false, true},
+		{"null_primary_id", `{"id":"owner","status":"succeeded","data":{"task_id":null,"status":"SUCCESS"}}`, false, true},
+		{"numeric_primary_id", `{"id":"owner","status":"succeeded","data":{"task_id":123,"status":"SUCCESS"}}`, false, true},
+		{"blank_primary_id", `{"id":"owner","status":"succeeded","data":{"task_id":"","status":"SUCCESS"}}`, false, true},
+		{"missing_id", `{"status":"succeeded"}`, false, true},
+		{"missing_wrapped_id", `{"id":"owner","data":{"status":"SUCCESS"}}`, false, true},
+		{"wrong_official_id", `{"id":"owner","upstream_task_id":"other","status":"succeeded"}`, false, true},
+		{"null_primary_status", `{"id":"owner","status":"succeeded","data":{"task_id":"owner","status":null}}`, true, false},
+		{"unknown_primary_status", `{"id":"owner","status":"succeeded","data":{"task_id":"owner","status":"unknown"}}`, true, false},
+		{"numeric_primary_status", `{"id":"owner","status":"succeeded","data":{"task_id":"owner","status":123}}`, true, false},
+		{"blank_primary_status", `{"id":"owner","status":"succeeded","data":{"task_id":"owner","status":""}}`, true, false},
+		{"missing_status", `{"id":"owner"}`, true, false},
+		{"missing_wrapped_status", `{"status":"succeeded","data":{"task_id":"owner"}}`, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := []byte(tc.body)
+			parsed, err := a.ParseTaskResult(body)
+			require.NoError(t, err)
+			require.Equal(t, tc.validID, relaycommon.ValidateSeedanceTaskIdentityForAdaptor(a, body, parsed, "owner", "official") == nil)
+			require.Equal(t, tc.validStatus, relaycommon.ValidateSeedanceTaskStatusForAdaptor(a, body) == nil)
+		})
+	}
+	// Fetch variants must override both parser and validator identity paths.
+	response := a.profile.videoFetch().Response
+	response.TaskIDPath = "task.id"
+	a.selectedFetchResp = &response
+	body := []byte(`{"task":{"id":"other"},"data":{"task_id":"owner","status":"SUCCESS"}}`)
+	parsed, err := a.ParseTaskResult(body)
+	require.NoError(t, err)
+	require.Equal(t, "other", parsed.TaskID)
+	require.Error(t, relaycommon.ValidateSeedanceTaskIdentityForAdaptor(a, body, parsed, "owner", ""))
+}
 
 func TestSeedanceNativeResponsePreservesExtensionsAndAbsentUsage(t *testing.T) {
 	task := &model.Task{TaskID: "task_internal", PrivateData: model.TaskPrivateData{UpstreamTaskID: "cgt-original"}, Status: model.TaskStatusSuccess}

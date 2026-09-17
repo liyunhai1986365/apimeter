@@ -212,12 +212,15 @@ func SeedanceReferenceVideoURLs(value any) []string {
 
 // ValidateSeedanceTaskIdentity checks both the configured parser's ID and the
 // native envelope IDs before a response can update or settle a task.
-func ValidateSeedanceTaskIdentity(body []byte, info *TaskInfo, upstreamID, officialID string) error {
+func ValidateSeedanceTaskIdentity(body []byte, info *TaskInfo, upstreamID, officialID string, paths ...string) error {
 	if info != nil && info.TaskID != "" && info.TaskID != upstreamID {
 		return fmt.Errorf("upstream returned a different task ID")
 	}
 	found := false
-	for _, path := range []string{"id", "task.id", "data.task_id", "data.data.task.id"} {
+	if len(paths) == 0 {
+		paths = []string{"id", "task.id", "data.task_id", "data.data.task.id"}
+	}
+	for _, path := range paths {
 		id := gjson.GetBytes(body, path)
 		if !id.Exists() {
 			continue
@@ -237,6 +240,17 @@ func ValidateSeedanceTaskIdentity(body []byte, info *TaskInfo, upstreamID, offic
 		return fmt.Errorf("upstream returned a different official task ID")
 	}
 	return nil
+}
+
+// Configurable providers may wrap a provider task inside their own task. Let
+// their parser identify the authoritative ID instead of comparing both layers.
+func ValidateSeedanceTaskIdentityForAdaptor(adaptor any, body []byte, info *TaskInfo, upstreamID, officialID string) error {
+	if validator, ok := adaptor.(interface {
+		ValidateTaskIdentity([]byte, *TaskInfo, string, string) error
+	}); ok {
+		return validator.ValidateTaskIdentity(body, info, upstreamID, officialID)
+	}
+	return ValidateSeedanceTaskIdentity(body, info, upstreamID, officialID)
 }
 
 // ValidateSeedanceTaskStatus validates the raw value before adaptors can map an

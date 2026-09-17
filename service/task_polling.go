@@ -914,7 +914,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		if err != nil || taskResult == nil {
 			return fmt.Errorf("invalid Seedance task response")
 		}
-		if err := relaycommon.ValidateSeedanceTaskIdentity(responseBody, taskResult, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); err != nil {
+		if err := relaycommon.ValidateSeedanceTaskIdentityForAdaptor(adaptor, responseBody, taskResult, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); err != nil {
 			return err
 		}
 		switch taskResult.Status {

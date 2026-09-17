@@ -702,7 +702,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 
 	ti, err := adaptor.ParseTaskResult(body)
 	if protectSeedance {
-		if identityErr := relaycommon.ValidateSeedanceTaskIdentity(body, ti, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); identityErr != nil {
+		if identityErr := relaycommon.ValidateSeedanceTaskIdentityForAdaptor(adaptor, body, ti, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); identityErr != nil {
 			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(identityErr, "upstream_query_failed", http.StatusBadGateway))
 			return nil
 		}

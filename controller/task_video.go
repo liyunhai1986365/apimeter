@@ -100,14 +100,14 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 		if resp.StatusCode < 200 || resp.StatusCode >= 300 || !gjson.ValidBytes(responseBody) {
 			return fmt.Errorf("Seedance upstream query unavailable (HTTP %d)", resp.StatusCode)
 		}
-		if statusErr := relaycommon.ValidateSeedanceTaskStatus(responseBody); statusErr != nil {
+		if statusErr := relaycommon.ValidateSeedanceTaskStatusForAdaptor(adaptor, responseBody); statusErr != nil {
 			return statusErr
 		}
 		result, parseErr := adaptor.ParseTaskResult(responseBody)
 		if parseErr != nil || result == nil {
 			return fmt.Errorf("invalid Seedance task response")
 		}
-		if identityErr := relaycommon.ValidateSeedanceTaskIdentity(responseBody, result, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); identityErr != nil {
+		if identityErr := relaycommon.ValidateSeedanceTaskIdentityForAdaptor(adaptor, responseBody, result, task.GetUpstreamTaskID(), task.PrivateData.OfficialTaskID); identityErr != nil {
 			return identityErr
 		}
 		task.Data = responseBody
