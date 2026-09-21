@@ -124,6 +124,7 @@ func TestConfigurableResourceRoutesAreRegisteredWithFullAPIRouterOrder(t *testin
 	}
 
 	assertRouteRegistered(http.MethodPost, "/api/assets/upload")
+	assertRouteRegistered(http.MethodPost, "/api/volcengine_asset")
 	assertRouteRegistered(http.MethodPost, "/api/assets")
 	assertRouteRegistered(http.MethodGet, "/api/assets")
 	assertRouteRegistered(http.MethodGet, "/api/assets/:id")

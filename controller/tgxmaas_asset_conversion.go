@@ -73,11 +73,11 @@ func validAssetHandle(id string) bool {
 	return strings.TrimSpace(id) != "" && id != "." && id != ".." && !strings.ContainsAny(id, "/\\?#%\r\n")
 }
 
-// Normalize official and TgxMaas asset contracts after selecting the backend;
+// Normalize Action and TgxMaas asset contracts after selecting the backend;
 // shared generic routes retain the contracts of other providers.
 func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *configurable.Profile, resource *configurable.ResourceConfig) error {
-	official := profile.ID == configurable.OfficialAssetBackend
-	if !official && profile.ID != "seedance-tgxmaas" {
+	actionBackend := configurable.IsAssetActionBackend(profile.ID)
+	if !actionBackend && profile.ID != "seedance-tgxmaas" {
 		return nil
 	}
 	native := c.GetString(arkAssetActionKey) == "" && strings.HasPrefix(c.Request.URL.Path, "/v1/private-avatar/")
@@ -95,9 +95,22 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 			return fmt.Errorf("asset body must be a JSON object")
 		}
 	}
+	input, err := assetRequestInput(c)
+	if err != nil {
+		return err
+	}
+	project, err := assetRequestProject(c.Request.URL.Query(), input)
+	if err != nil {
+		return err
+	}
+	for key := range body {
+		if assetProjectField(key) {
+			delete(body, key)
+		}
+	}
 	aliases := map[string]string{
 		"name": "Name", "description": "Description", "url": "URL", "asset_type": "AssetType", "group_id": "GroupId",
-		"group_type": "GroupType", "project_name": "ProjectName", "filter": "Filter", "next_token": "NextToken", "max_results": "MaxResults",
+		"group_type": "GroupType", "filter": "Filter", "next_token": "NextToken", "max_results": "MaxResults",
 		"page_number": "PageNumber", "page_size": "PageSize", "page": "PageNumber",
 	}
 	for from, to := range aliases {
@@ -111,7 +124,7 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 	}
 	if c.GetString(arkAssetActionKey) == "" {
 		for key, values := range c.Request.URL.Query() {
-			if c.Request.Method != http.MethodGet && key != "ProjectName" && key != "project_name" {
+			if assetProjectField(key) || c.Request.Method != http.MethodGet {
 				continue
 			}
 			if len(values) != 1 {
@@ -160,22 +173,19 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 		// path. Reuse the profile's asset_id -> id mapping for the upstream GET.
 		c.Params = gin.Params{{Key: "id", Value: id}}
 	}
-	if _, supplied := body["ProjectName"]; !supplied {
-		if protocol := ch.GetSetting().Protocol; protocol != nil {
-			if project := strings.TrimSpace(protocol.ProjectName); project != "" {
-				body["ProjectName"], _ = common.Marshal(project)
-			}
+	if project == "" {
+		if access, ok := c.Get(assetAccessContextKey); ok && access.(*assetAccessRequest).project != "" {
+			project = access.(*assetAccessRequest).project
+		} else if protocol := ch.GetSetting().Protocol; protocol != nil {
+			project = strings.TrimSpace(protocol.ProjectName)
 		}
 	}
 	// Preserve project scope for every operation, including GET requests whose
 	// upstream transport has no JSON body. Without a channel default, leave
 	// omission intact so the supplier can inherit the group's project.
 	query := url.Values{}
-	if raw, ok := body["ProjectName"]; ok {
-		var project string
-		if strings.TrimSpace(string(raw)) == "null" || common.Unmarshal(raw, &project) != nil {
-			return fmt.Errorf("ProjectName must be a string")
-		}
+	if project != "" {
+		body["ProjectName"], _ = common.Marshal(project)
 		query.Set("ProjectName", project)
 	}
 	c.Set(tgxMaasAssetQueryKey, query)
@@ -196,9 +206,18 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 			}
 		}
 	}
-	project := query.Get("ProjectName")
 	resolve := func(id string) (string, error) {
-		if official {
+		if actionBackend {
+			return id, nil
+		}
+		if raw, ok := c.Get(assetAccessContextKey); ok {
+			for _, binding := range raw.(*assetAccessRequest).bindings {
+				if binding.ID == id && (binding.Kind == "asset" || binding.Kind == "group") && binding.CanonicalID != "" {
+					return binding.CanonicalID, nil
+				}
+			}
+			// The access layer already checked this request. Never consult an
+			// unscoped legacy alias for an authorized current-account handle.
 			return id, nil
 		}
 		return model.ResolveTgxMaasAssetHandle(ch.Id, common.GetContextKeyInt(c, constant.ContextKeyUserId), ch.AssetHandleProject(project), id)
@@ -244,15 +263,17 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 		}
 		body["Filter"], _ = common.Marshal(filter)
 	}
-	if !official && c.GetString(arkAssetActionKey) != "" {
+	if !actionBackend && c.GetString(arkAssetActionKey) != "" {
 		delete(body, "Id")
 	}
-	if _, ok := body["model"]; !ok && !native && !official {
+	if _, ok := body["model"]; !ok && !native && !actionBackend {
 		name := configurableResourceRequestModel(c, resource)
 		if name == "" {
 			for _, candidate := range strings.Split(ch.Models, ",") {
 				candidate = strings.TrimSpace(candidate)
-				for _, group := range configurableResourceCandidateGroups(c) {
+				// The asset channel is already selected. Fill the upstream model
+				// from its enabled abilities regardless of the current token's groups.
+				for _, group := range ch.GetGroups() {
 					if candidate != "" && configurableResourceChannelAbilityEnabled(ch, group, candidate) {
 						name = candidate
 						break
@@ -271,7 +292,7 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 			body["model"] = raw
 		}
 	}
-	if official {
+	if actionBackend {
 		delete(body, "model")
 		delete(body, "asset_id")
 		delete(body, "id")

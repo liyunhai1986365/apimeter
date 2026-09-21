@@ -28,15 +28,15 @@ import (
 func TestTgxMaasResourceProtocol(t *testing.T) {
 	cases := []struct{ id, method, path, body, response string }{
 		{"asset_groups_create", "POST", "/v1/private-avatar/groups", `{"model":"doubao-seedance-2-5-260628","Name":"group","Description":"","extension":{"zero":0,"enabled":false}}`, `{"ResponseMetadata":{"Action":"CreateAssetGroup"},"Result":{"Id":"ag_local"}}`},
-		{"asset_groups_list", "POST", "/v1/private-avatar/groups/list", `{"model":"doubao-seedance-2-5-260628","NextToken":"opaque+/=token","MaxResults":20,"Filter":{"GroupType":"AIGC"}}`, `{"ResponseMetadata":{"Action":"ListAssetGroups"},"Result":{"Items":[{"Id":"ag_local"}],"NextToken":"opaque+/=next"}}`},
+		{"asset_groups_list", "POST", "/v1/private-avatar/groups/list", `{"model":"doubao-seedance-2-5-260628","MaxResults":20,"Filter":{"GroupType":"AIGC"}}`, `{"ResponseMetadata":{"Action":"ListAssetGroups"},"Result":{"Items":[{"Id":"ag_local"}],"NextToken":""}}`},
 		{"asset_groups_get", "GET", "/v1/private-avatar/groups/ag_local", "", `{"Result":{"Id":"ag_local","Name":"group"}}`},
 		{"asset_groups_update", "PATCH", "/v1/private-avatar/groups/ag_local", `{"Name":"renamed","Description":""}`, `{"Result":{"Id":"ag_local"}}`},
-		{"asset_groups_delete", "DELETE", "/v1/private-avatar/groups/ag_local", "", `{"Result":{}}`},
 		{"assets_create", "POST", "/v1/private-avatar/assets", `{"model":"doubao-seedance-2-5-260628","GroupId":"ag_local","URL":"https://example.com/image.png","AssetType":"Image","Name":"asset"}`, `{"Result":{"Id":"asset_local","upstream_asset_id":"asset-official","GroupId":"ag_local","Status":"Processing"}}`},
-		{"assets_list", "POST", "/v1/private-avatar/assets/list", `{"Filter":{"GroupIds":["ag_local"],"Statuses":["Active"]},"NextToken":"opaque-token"}`, `{"Result":{"Items":[{"Id":"asset_local","LastInferenceTime":"2026-09-15T00:00:00Z"}],"NextToken":"next"}}`},
+		{"assets_list", "POST", "/v1/private-avatar/assets/list", `{"Filter":{"GroupIds":["ag_local"],"Statuses":["Active"]},"MaxResults":20}`, `{"Result":{"Items":[{"Id":"asset_local","LastInferenceTime":"2026-09-15T00:00:00Z"}],"NextToken":""}}`},
 		{"assets_get", "GET", "/v1/private-avatar/assets/asset_local", "", `{"Result":{"Id":"asset_local","Status":"Failed","Error":{"Code":"DownloadFailed","Message":"fixture"},"extension":9007199254740993}}`},
 		{"assets_update", "PATCH", "/v1/private-avatar/assets/asset_local", `{"Name":"renamed"}`, `{"Result":{"Id":"asset_local"}}`},
 		{"assets_delete", "DELETE", "/v1/private-avatar/assets/asset_local", "", `{"Result":{}}`},
+		{"asset_groups_delete", "DELETE", "/v1/private-avatar/groups/ag_local", "", `{"Result":{}}`},
 		{"liveness_session_create", "POST", "/v1/real-avatar/auth/session", `{"model":"doubao-seedance-2-5-260628","CallbackURL":"https://client.example/callback","Lng":"zh"}`, `{"Result":{"H5Link":"https://provider.example/auth","BytedToken":"opaque-session"}}`},
 		{"liveness_group_exchange", "POST", "/v1/real-avatar/groups/from-token", `{"model":"doubao-seedance-2-5-260628","BytedToken":"opaque-session"}`, `{"Result":{"Id":"ag_local_real","GroupType":"LivenessFace"}}`},
 	}
@@ -51,7 +51,11 @@ func TestTgxMaasResourceProtocol(t *testing.T) {
 		data, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
 		if tc.body != "" {
-			require.JSONEq(t, tc.body, string(data))
+			want := tc.body
+			if strings.HasSuffix(tc.id, "_list") {
+				want = strings.ReplaceAll(want, `"MaxResults":20`, `"MaxResults":100`)
+			}
+			require.JSONEq(t, want, string(data))
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(tc.response))

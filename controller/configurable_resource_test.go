@@ -11,13 +11,13 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/internal/testdb"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
-	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -32,13 +32,12 @@ func openConfigurableResourceTestDB(t *testing.T) *gorm.DB {
 	originUsingPostgreSQL := common.UsingPostgreSQL
 	originRedisEnabled := common.RedisEnabled
 	originMemoryCacheEnabled := common.MemoryCacheEnabled
-	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
+	db := testdb.AssetOpener(t, "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared")()
 	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Token{}, &model.Channel{}, &model.Ability{}, &model.ConfigurableResourceState{}, &model.Task{}, &model.Log{}))
 	model.DB = db
 	model.LOG_DB = db
-	common.UsingSQLite = true
-	common.UsingMySQL = false
+	common.UsingSQLite = db.Dialector.Name() == "sqlite"
+	common.UsingMySQL = db.Dialector.Name() == "mysql"
 	common.UsingPostgreSQL = false
 	common.RedisEnabled = false
 	common.MemoryCacheEnabled = false
@@ -430,6 +429,8 @@ func TestRelayConfigurableResourceSelectsAPIAssetsProfileAndMapsDetailIDToMateri
 	})
 	require.NoError(t, db.Create(channel).Error)
 	createConfigurableResourceAbility(t, db, channel.Id, "user-filled-any-model", true, 0)
+
+	seedAssetOwnershipForTest(t, 20, 10, "asset", "asset-direct")
 
 	router := gin.New()
 	router.GET("/api/assets/:id",
@@ -935,6 +936,8 @@ func TestRelayConfigurableResourceSkipsServiceInferenceAssetGroupPreRequestWhenG
 	require.NoError(t, db.Create(channel).Error)
 	createConfigurableResourceAbility(t, db, channel.Id, "dreamina-seedance-2-0-fast-260128", true, 0)
 
+	seedAssetOwnershipForTest(t, 20, 10, "group", "group-existing")
+
 	router := gin.New()
 	router.POST("/api/assets/upload", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
 
@@ -1001,6 +1004,10 @@ func TestRelayConfigurableResourceReusesManagedAssetGroupWhenValidationSucceeds(
 	channel.SetSetting(dto.ChannelSettings{Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-service-inference"}})
 	require.NoError(t, db.Create(channel).Error)
 	createConfigurableResourceAbility(t, db, channel.Id, "dreamina-seedance-2-0-fast-260128", true, 0)
+	profile, _ := configurable.AssetProfile(channel.GetSetting().Protocol)
+	resource, _ := profile.ResourceByID("assets_upload")
+	scopedKey := configurableResourceStateKey(channel, resource, "asset_group_id")
+	require.NoError(t, db.Model(&model.ConfigurableResourceState{}).Where("state_key = ?", "asset_group_id").Update("state_key", scopedKey).Error)
 
 	router := gin.New()
 	router.POST("/api/assets/upload", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
@@ -1069,6 +1076,10 @@ func TestRelayConfigurableResourceCreatesManagedAssetGroupWhenValidationFails(t 
 	channel.SetSetting(dto.ChannelSettings{Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-service-inference"}})
 	require.NoError(t, db.Create(channel).Error)
 	createConfigurableResourceAbility(t, db, channel.Id, "dreamina-seedance-2-0-fast-260128", true, 0)
+	profile, _ := configurable.AssetProfile(channel.GetSetting().Protocol)
+	resource, _ := profile.ResourceByID("assets_upload")
+	scopedKey := configurableResourceStateKey(channel, resource, "asset_group_id")
+	require.NoError(t, db.Model(&model.ConfigurableResourceState{}).Where("state_key = ?", "asset_group_id").Update("state_key", scopedKey).Error)
 
 	router := gin.New()
 	router.POST("/api/assets/upload", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
@@ -1085,7 +1096,7 @@ func TestRelayConfigurableResourceCreatesManagedAssetGroupWhenValidationFails(t 
 	require.JSONEq(t, `{"group_id":"group-created","url":"https://cdn.example.com/image.png","asset_type":"Image","name":"child"}`, upstreamBody)
 
 	var state model.ConfigurableResourceState
-	require.NoError(t, db.Where("channel_id = ? AND state_key = ?", 20, "asset_group_id").First(&state).Error)
+	require.NoError(t, db.Where("channel_id = ? AND state_key = ?", 20, scopedKey).First(&state).Error)
 	require.Equal(t, "group-created", state.StateValue)
 	require.Equal(t, model.ConfigurableResourceStateStatusActive, state.Status)
 }
@@ -1289,6 +1300,9 @@ func TestRelayConfigurableResourceUsesAssetDetailQueryModelToSelectDreaminaChann
 	require.NoError(t, db.Create(dreaminaChannel).Error)
 	createConfigurableResourceAbility(t, db, dreaminaChannel.Id, "dreamina-seedance-2-0-fast-260128", true, dreaminaPriority)
 
+	seedAssetOwnershipForTest(t, 21, 10, "asset", "asset-dreamina")
+	seedAssetOwnershipForTest(t, 21, 10, "task", "task-dreamina")
+
 	router := gin.New()
 	router.GET("/api/assets/:id", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
 
@@ -1395,6 +1409,8 @@ func TestRelayConfigurableResourceSelectsHighestPrioritySupportedAssetsUploadCha
 	require.NoError(t, db.Create(highChannel).Error)
 	createConfigurableResourceAbility(t, db, highChannel.Id, "dreamina-seedance-2-0-fast-260128", true, highPriority)
 
+	seedAssetOwnershipForTest(t, highChannel.Id, 10, "group", "group-service")
+
 	router := gin.New()
 	router.POST("/api/assets/upload", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
 
@@ -1475,7 +1491,7 @@ func TestRelayConfigurableResourceSkipsChannelsWithoutEnabledAbilityForAssetsUpl
 	router.POST("/api/assets", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
 
 	recorder := httptest.NewRecorder()
-	request := httptest.NewRequest(http.MethodPost, "/api/assets", strings.NewReader(`{"model":"dreamina-seedance-2-0-fast-260128","group_id":"group-service","url":"https://cdn.example.com/image.png","asset_type":"Image","name":"child"}`))
+	request := httptest.NewRequest(http.MethodPost, "/api/assets", strings.NewReader(`{"model":"dreamina-seedance-2-0-fast-260128","url":"https://cdn.example.com/image.png","asset_type":"Image","name":"child"}`))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Authorization", "Bearer resourcetokenkey")
 	router.ServeHTTP(recorder, request)
@@ -1538,6 +1554,9 @@ func TestRelayConfigurableResourceProxiesMaterialDetailPathParam(t *testing.T) {
 		Protocol: &dto.ChannelProtocolSettings{ProfileID: "doubao-seedance-2"},
 	})
 	require.NoError(t, db.Create(channel).Error)
+
+	createConfigurableResourceAbility(t, db, channel.Id, "user-filled-any-model", true, 0)
+	seedAssetOwnershipForTest(t, 20, 10, "asset", "asset-123")
 
 	router := gin.New()
 	router.GET("/material/assets/:asset_id",
@@ -1607,6 +1626,9 @@ func TestRelayConfigurableResourceProxiesAssetsDetailAliasIDToMaterialAssetID(t 
 		Protocol: &dto.ChannelProtocolSettings{ProfileID: "doubao-seedance-2"},
 	})
 	require.NoError(t, db.Create(channel).Error)
+
+	createConfigurableResourceAbility(t, db, channel.Id, "user-filled-any-model", true, 0)
+	seedAssetOwnershipForTest(t, 20, 10, "asset", "asset-kkidc")
 
 	router := gin.New()
 	router.GET("/api/assets/:id",

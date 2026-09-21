@@ -22,6 +22,7 @@ export const STATIC_I18N_KEYS = [
   'ProjectName is required for this asset library',
   'Follow video protocol',
   'Volcengine official assets (12 operations)',
+  'Youniyouju assets (12 operations, Token)',
   'TgxMaas assets (12 operations)',
   'Unified task assets (upload and query)',
   'Modelsell assets (upload and query)',

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"net/http"
@@ -49,6 +50,13 @@ func configurableResourceHasIndependentCredentials(ch *model.Channel, resource *
 
 func configurableResourceStateKey(ch *model.Channel, resource *configurable.ResourceConfig, key string) string {
 	if resource.AssetLibrary {
+		// Cache groups within the persistent channel/endpoint identity, so
+		// credential rotation keeps using the same library and ownership.
+		if p, ok := configurable.AssetProfile(ch.GetSetting().Protocol); ok {
+			if scope, err := assetAccountScope(ch, p); err == nil {
+				return fmt.Sprintf("%x", sha256.Sum256([]byte("asset-managed-v1\x00"+scope+"\x00"+key)))
+			}
+		}
 		return ch.AssetStateKey(key)
 	}
 	return key
@@ -185,10 +193,36 @@ func prepareAssetCredentials(ch *model.Channel, original *model.Channel, credent
 	if err := validateAssetLibrary(&validationChannel, credentials); err != nil {
 		return err
 	}
+	// Establish the old endpoint's identity before replacing its credentials.
+	// This also upgrades channels whose ownership predates persistent scopes,
+	// without changing any existing bindings. A failed edit can safely leave
+	// this idempotent identity initialization in place.
+	if original != nil && original.Type == constant.ChannelTypeConfigurable {
+		if p, ok := configurable.AssetProfile(original.GetSetting().Protocol); ok {
+			for _, resource := range p.Resources {
+				if resource.AssetLibrary && (!original.ChannelInfo.IsMultiKey || configurableResourceHasIndependentCredentials(original, &resource)) {
+					if _, err := assetAccountScope(original, p); err != nil {
+						return err
+					}
+					break
+				}
+			}
+		}
+	}
 	if credentials != nil {
 		cfg := assetLibrary(&validationChannel)
 		if cfg == nil || (cfg.AuthMode != "api_key" && cfg.AuthMode != "aksk") {
 			return fmt.Errorf("select dedicated asset authentication before supplying credentials")
+		}
+		if original != nil && original.AssetSecret != "" {
+			stored, err := original.GetAssetCredentials()
+			if err == nil && *stored == *credentials {
+				// Avoid re-encrypting an unchanged credential.
+				// Keep it in the explicit update so UpdateWithSnapshot rejects a
+				// concurrent rotation instead of writing this stale secret back.
+				ch.AssetSecret = original.AssetSecret
+				return nil
+			}
 		}
 		return ch.SetAssetCredentials(credentials)
 	}

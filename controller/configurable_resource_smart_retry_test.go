@@ -18,7 +18,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSmartRetryConfigurableResourceUsesRankedBackup(t *testing.T) {
+func TestSmartRetryAssetResourceNeverReplays(t *testing.T) {
 	for _, strategy := range model.RoutingStrategies() {
 		t.Run(strategy, func(t *testing.T) {
 			preserveSmartRetryTestConfiguration(t)
@@ -55,6 +55,7 @@ func TestSmartRetryConfigurableResourceUsesRankedBackup(t *testing.T) {
 			}
 			router := gin.New()
 			router.POST("/material/assets", func(c *gin.Context) {
+				common.SetContextKey(c, constant.ContextKeyUserId, 1)
 				common.SetContextKey(c, constant.ContextKeyUserGroup, "default")
 				common.SetContextKey(c, constant.ContextKeyUsingGroup, "auto")
 				common.SetContextKey(c, constant.ContextKeyTokenGroupPolicy, `{"type":"routing_strategy","strategy":"`+strategy+`"}`)
@@ -64,10 +65,10 @@ func TestSmartRetryConfigurableResourceUsesRankedBackup(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, "/material/assets", strings.NewReader(`{"url":"https://cdn.example.com/test.jpg","asset_type":"Image"}`))
 			request.Header.Set("Content-Type", "application/json")
 			router.ServeHTTP(recorder, request)
-			require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
-			require.Contains(t, recorder.Body.String(), "asset-backup")
+			require.Equal(t, http.StatusServiceUnavailable, recorder.Code, recorder.Body.String())
+			require.JSONEq(t, `{"error":{"message":"overloaded","type":"server_error"}}`, recorder.Body.String())
 			require.Equal(t, int32(1), calls[0].Load(), "ranking must take precedence over the backup channel's higher priority")
-			require.Equal(t, int32(1), calls[1].Load())
+			require.Zero(t, calls[1].Load(), "asset requests must not replay against another supplier account")
 		})
 	}
 }

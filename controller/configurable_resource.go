@@ -105,15 +105,28 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 		return apiErr
 	}
 	defer resp.Body.Close()
+	var responseReader io.Reader = resp.Body
+	if resource.AssetLibrary {
+		responseReader = io.LimitReader(resp.Body, (16<<20)+1)
+	}
+	responseBody, err := io.ReadAll(responseReader)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return nil
+	}
+	if resource.AssetLibrary && len(responseBody) > 16<<20 {
+		assetAccessError(c, http.StatusBadGateway, "asset_response_too_large", fmt.Errorf("upstream asset response exceeds size limit"))
+		return nil
+	}
+	resp, responseBody, err = filterAssetListResponse(c, client, channelModel, resource, upstreamReq, resp, responseBody)
+	if err != nil {
+		assetAccessError(c, http.StatusBadGateway, "asset_list_failed", err)
+		return nil
+	}
 	for _, header := range []string{"Retry-After", "X-Request-Id"} {
 		if value := resp.Header.Get(header); value != "" {
 			c.Header(header, value)
 		}
-	}
-	responseBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return nil
 	}
 	logger.LogInfo(c.Request.Context(), fmt.Sprintf(
 		"configurable resource response: method=%s path=%s channel_id=%d profile=%s resource=%s upstream_status=%d",
@@ -124,13 +137,20 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 		resource.ID,
 		resp.StatusCode,
 	))
-	if service.IsRoutingStrategyTokenPolicy(c) && resp.StatusCode >= http.StatusBadRequest {
+	if !resource.AssetLibrary && service.IsRoutingStrategyTokenPolicy(c) && resp.StatusCode >= http.StatusBadRequest {
 		resp.Body = io.NopCloser(bytes.NewReader(responseBody))
 		apiErr := service.NormalizeViolationFeeError(service.RelayErrorHandler(c.Request.Context(), resp, false))
 		if billingInfo != nil {
 			service.ChargeViolationFeeIfNeeded(c, billingInfo, apiErr)
 		}
 		return apiErr
+	}
+	if resource.AssetLibrary && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if err := rememberAssetResponse(c, resource, responseBody); err != nil {
+			common.SysError("persist asset access binding: " + err.Error())
+			assetAccessError(c, http.StatusBadGateway, "asset_binding_failed", fmt.Errorf("upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID"))
+			return nil
+		}
 	}
 	if profile.ID == "seedance-tgxmaas" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if err := rememberTgxMaasAssetHandles(c, channelModel, resource.ID, responseBody); err != nil {
@@ -139,7 +159,7 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 			common.SysError("persist TgxMaas asset handle: " + err.Error())
 		}
 	}
-	if !resource.Response.Passthrough || len(resource.Response.Fields) > 0 {
+	if (!resource.AssetLibrary || (resp.StatusCode < 400 && assetResponseSuccessful(responseBody))) && (!resource.Response.Passthrough || len(resource.Response.Fields) > 0) {
 		responseBody, err = configurable.BuildConfiguredResponse(resource.Response, responseBody, &relaycommon.RelayInfo{
 			ChannelMeta: &relaycommon.ChannelMeta{
 				ChannelType:    channelModel.Type,
@@ -653,7 +673,7 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 	}
 	// TgxMaas details use GET; project scope must survive the Action/body
 	// conversion instead of being discarded with the body.
-	if converted, ok := c.Get(tgxMaasAssetQueryKey); ok && (assetLibrary(channelModel) == nil || assetLibrary(channelModel).Backend != configurable.OfficialAssetBackend) {
+	if converted, ok := c.Get(tgxMaasAssetQueryKey); ok && (assetLibrary(channelModel) == nil || !configurable.IsAssetActionBackend(assetLibrary(channelModel).Backend)) {
 		parsed, err := url.Parse(requestURL)
 		if err != nil {
 			return nil, err
@@ -665,7 +685,7 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 		parsed.RawQuery = query.Encode()
 		requestURL = parsed.String()
 	}
-	req, err := http.NewRequest(method, requestURL, bodyReader)
+	req, err := http.NewRequestWithContext(c.Request.Context(), method, requestURL, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -678,6 +698,9 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 	}
 	configurable.ApplyConfiguredHeaders(req, resource.Upstream.Headers, apiKey, "")
+	if err := rewriteAssetListRequest(c, resource, req, 1, ""); err != nil {
+		return nil, err
+	}
 	if err := authorizeConfigurableResourceRequest(c, channelModel, resource, req); err != nil {
 		return nil, err
 	}
@@ -784,6 +807,9 @@ func executeConfigurableResourcePreRequests(c *gin.Context, client *http.Client,
 		}
 		if managedOK {
 			results[preID] = managedResult
+			if err := rememberAssetPreGroup(c, resource, preID, managedResult); err != nil {
+				return nil, err
+			}
 			continue
 		}
 		req, err := buildConfigurablePreRequest(c, channelModel, resource, preRequest, results)
@@ -825,6 +851,11 @@ func executeConfigurableResourcePreRequests(c *gin.Context, client *http.Client,
 			return nil, err
 		}
 		results[preID] = result
+		if resultMap, ok := result.(map[string]any); ok {
+			if err := rememberAssetPreGroup(c, resource, preID, resultMap); err != nil {
+				return nil, err
+			}
+		}
 		if preRequest.ManagedState != nil {
 			resultMap, _ := result.(map[string]any)
 			if err := saveManagedConfigurablePreRequestResult(c, channelModel, resource, preRequest, resultMap); err != nil {

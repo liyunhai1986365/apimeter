@@ -915,6 +915,18 @@ func RelayTask(c *gin.Context) {
 		respondTaskError(c, taskErr)
 		return
 	}
+	if err := lockAssetVideoChannel(c, relayInfo); err != nil {
+		status, code := http.StatusBadRequest, "invalid_asset_reference"
+		if errors.Is(err, model.ErrAssetNotOwned) {
+			status, code = http.StatusNotFound, "asset_not_found"
+		} else if errors.Is(err, errAssetStateUnavailable) {
+			status, code = http.StatusInternalServerError, "asset_state_unavailable"
+		} else if common.IsRequestBodyTooLargeError(err) || errors.Is(err, common.ErrRequestBodyTooLarge) {
+			status, code = http.StatusRequestEntityTooLarge, "read_request_body_failed"
+		}
+		respondTaskError(c, service.TaskErrorWrapperLocal(err, code, status))
+		return
+	}
 
 	var result *relay.TaskSubmitResult
 	var taskErr *taskdto.TaskError

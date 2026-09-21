@@ -21,6 +21,7 @@ import type { ChannelFormValues } from '../../lib/channel-form'
 const backends = [
   ['inherit', 'Follow video protocol'],
   ['volcengine-assets', 'Volcengine official assets (12 operations)'],
+  ['youniyouju', 'Youniyouju assets (12 operations, Token)'],
   ['tgxmaas', 'TgxMaas assets (12 operations)'],
   ['task', 'Unified task assets (upload and query)'],
   ['modelsell', 'Modelsell assets (upload and query)'],
@@ -40,7 +41,7 @@ export function AssetLibraryFields(props: {
   const profile = props.form.watch('protocol_profile_id')
   const explicit = !['inherit', 'disabled'].includes(backend)
   const official = backend === 'volcengine-assets'
-  const project =
+  const projectRequired =
     official ||
     backend === 'tgxmaas' ||
     (backend === 'inherit' && profile === 'seedance-tgxmaas')
@@ -65,12 +66,14 @@ export function AssetLibraryFields(props: {
         ? 'https://ark.cn-beijing.volcengineapi.com'
         : t('Empty means use channel Base URL'),
     })
-  if (project)
+  if (projectRequired || backend === 'youniyouju')
     inputs.push({
       name: 'protocol_project_name',
       label: 'Project name (ProjectName)',
-      placeholder: 'nmyk',
-      required: true,
+      placeholder: projectRequired
+        ? 'nmyk'
+        : t('Leave empty to use the platform project'),
+      required: projectRequired,
     })
   if (official)
     inputs.push(
@@ -134,6 +137,13 @@ export function AssetLibraryFields(props: {
                 'Asset library settings are independent of video generation. Available operations depend on the selected provider.'
               )}
             </FieldDescription>
+            {backend === 'youniyouju' && (
+              <FieldDescription>
+                {t(
+                  'Use the platform Token and root Base URL. The asset API path is added automatically. Leave Base URL empty to use the channel address.'
+                )}
+              </FieldDescription>
+            )}
           </Field>
         )}
       />

@@ -92,7 +92,7 @@ func TestDedicatedAssetsDoNotRequireEnabledVideoKey(t *testing.T) {
 				ch.SetSetting(cfg)
 				require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", ch.Id).Update("setting", ch.Setting).Error)
 
-				for _, boundary := range []string{"disabled_channel", "wrong_group", "disabled_ability", "restricted_token", "missing_credentials", "invalid_credentials"} {
+				for _, boundary := range []string{"disabled_channel", "wrong_group", "disabled_ability", "missing_credentials", "invalid_credentials"} {
 					t.Run(boundary, func(t *testing.T) {
 						wantStatus := http.StatusServiceUnavailable
 						switch boundary {
@@ -105,10 +105,6 @@ func TestDedicatedAssetsDoNotRequireEnabledVideoKey(t *testing.T) {
 						case "disabled_ability":
 							require.NoError(t, model.DB.Model(&model.Ability{}).Where("channel_id = ?", ch.Id).Update("enabled", false).Error)
 							defer model.DB.Model(&model.Ability{}).Where("channel_id = ?", ch.Id).Update("enabled", true)
-						case "restricted_token":
-							wantStatus = http.StatusForbidden
-							require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"model_limits_enabled": true, "model_limits": "other"}).Error)
-							defer model.DB.Model(&model.Token{}).Where("id = ?", 1).Update("model_limits_enabled", false)
 						case "missing_credentials", "invalid_credentials":
 							wantStatus = http.StatusBadRequest
 							secret := ""
@@ -123,6 +119,9 @@ func TestDedicatedAssetsDoNotRequireEnabledVideoKey(t *testing.T) {
 						require.EqualValues(t, 2, calls.Load(), "authorization failures must not reach the asset upstream")
 					})
 				}
+				// Asset management only isolates users; video model limits do not
+				// prevent listing that user's assets on the selected library.
+				require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"model_limits_enabled": true, "model_limits": "other"}).Error)
 				response = seedanceCall(r, "POST", "/v1/private-avatar/groups/list", `{"model":"model"}`, 1)
 				require.Equal(t, http.StatusOK, response.Code, response.Body.String())
 				require.EqualValues(t, 3, calls.Load())
@@ -154,8 +153,8 @@ func TestSharedAssetCredentialsStillRequireVideoKeys(t *testing.T) {
 				ch.ChannelInfo = model.ChannelInfo{IsMultiKey: true, MultiKeySize: 1, MultiKeyMode: constant.MultiKeyModeRandom, MultiKeyStatusList: map[int]int{0: common.ChannelStatusManuallyDisabled}}
 				require.NoError(t, model.DB.Save(ch).Error)
 				response := seedanceCall(r, "POST", "/v1/private-avatar/groups/list", `{"model":"model"}`, 1)
-				require.Equal(t, http.StatusInternalServerError, response.Code, response.Body.String())
-				require.Contains(t, response.Body.String(), "channel:no_available_key")
+				require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+				require.Contains(t, response.Body.String(), "dedicated credentials")
 				require.Zero(t, calls.Load())
 			})
 		}

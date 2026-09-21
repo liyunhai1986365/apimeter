@@ -30,9 +30,11 @@ func TestTgxRegressionResourceModelPermission(t *testing.T) {
 	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"model_limits_enabled": true, "model_limits": "allowed-other-model"}).Error)
 	video := seedanceCall(r, "POST", "/api/v3/contents/generations/tasks", `{"model":"`+tgxRegressionModel+`","content":[{"type":"text","text":"test"}]}`, 1)
 	require.Equal(t, 403, video.Code)
+	seedAssetOwnershipForTest(t, 20, 1, "group", "ag_test")
 	resource := seedanceCall(r, "POST", "/v1/private-avatar/assets", `{"model":"`+tgxRegressionModel+`","GroupId":"ag_test","URL":"https://example.com/input.png","AssetType":"Image","Name":"test"}`, 1)
 	t.Logf("same restricted token: video=%d asset=%d upstream calls=%d", video.Code, resource.Code, calls.Load())
-	require.Equal(t, 403, resource.Code)
+	require.Equal(t, 200, resource.Code, "video model permissions do not restrict owned asset management")
+	require.EqualValues(t, 1, calls.Load())
 }
 
 func TestTgxRegressionRequestPrecision(t *testing.T) {
@@ -230,6 +232,7 @@ func TestTgxRegressionVideoNativeLifecycle(t *testing.T) {
 			}))
 			defer upstream.Close()
 			r := tgxMaasResourceTestRouter(t, upstream.URL, "test", tgxRegressionModel)
+			seedAssetOwnershipForTest(t, 20, 1, "asset", "asset_local")
 			payload := `{"model":"` + tgxRegressionModel + `","content":[{"type":"text","text":"test"},{"type":"image_url","role":"first_frame","image_url":{"url":"asset://asset_local"}}],"duration":-1,"seed":0,"return_last_frame":false,"execution_expires_after":3600,"safety_identifier":"test-user","tools":[{"type":"web_search"}],"bitrate_mode":"vbr","output_format":"mov"}`
 			created := seedanceCall(r, "POST", "/api/v3/contents/generations/tasks", payload, 1)
 			require.Equal(t, 200, created.Code, created.Body.String())
@@ -321,22 +324,16 @@ func TestTgxRegressionResourceTokenPermissionsAcrossRouting(t *testing.T) {
 				require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"model_limits_enabled": true, "model_limits": allowed}).Error)
 				for _, tc := range []struct {
 					method, path, body string
-					explicit           bool
 				}{
-					{"POST", "/v1/private-avatar/assets", `{"model":"` + tgxRegressionModel + `"}`, true},
-					{"GET", "/v1/private-avatar/assets/asset_local?model=" + tgxRegressionModel, "", true},
-					{"POST", "/v1/private-avatar/assets", `{}`, false},
-					{"GET", "/v1/private-avatar/assets/asset_local", "", false},
+					{"POST", "/v1/private-avatar/assets", `{"model":"` + tgxRegressionModel + `"}`},
+					{"GET", "/v1/private-avatar/assets/asset_local?model=" + tgxRegressionModel, ""},
+					{"POST", "/v1/private-avatar/assets", `{}`},
+					{"GET", "/v1/private-avatar/assets/asset_local", ""},
 				} {
 					before := calls.Load()
 					response := seedanceCall(r, tc.method, tc.path, tc.body, 1)
-					if allowed == tgxRegressionModel && tc.explicit {
-						require.Equal(t, 200, response.Code, response.Body.String())
-						require.Equal(t, before+1, calls.Load())
-					} else {
-						require.Equal(t, 403, response.Code, response.Body.String())
-						require.Equal(t, before, calls.Load())
-					}
+					require.Equal(t, 200, response.Code, response.Body.String())
+					require.Equal(t, before+1, calls.Load(), "token video model limits must not split a user's asset library")
 				}
 			}
 		})

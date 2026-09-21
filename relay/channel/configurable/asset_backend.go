@@ -3,6 +3,14 @@ package configurable
 import "github.com/QuantumNous/new-api/relaykit/dto"
 
 const OfficialAssetBackend = "volcengine-assets"
+const YouniyoujuAssetBackend = "youniyouju"
+const YouniyoujuAssetPath = "/api/volcengine_asset"
+
+// Action backends carry resource IDs in JSON and preserve provider IDs directly.
+// Authentication remains a separate, backend-specific setting.
+func IsAssetActionBackend(backend string) bool {
+	return backend == OfficialAssetBackend || backend == YouniyoujuAssetBackend
+}
 
 // Asset backends reuse existing resource contracts without changing video routes.
 var AssetBackendProfiles = map[string]string{
@@ -32,16 +40,20 @@ func AssetProfile(protocol *dto.ChannelProtocolSettings) (*Profile, bool) {
 	if cfg.Backend == "disabled" {
 		return nil, false
 	}
-	if cfg.Backend == OfficialAssetBackend {
+	if IsAssetActionBackend(cfg.Backend) {
 		p, ok := GetProfile("seedance-tgxmaas")
 		if !ok {
 			return nil, false
 		}
-		p.ID = OfficialAssetBackend
+		p.ID = cfg.Backend
+		path := "/"
+		if cfg.Backend == YouniyoujuAssetBackend {
+			path = YouniyoujuAssetPath
+		}
 		p.Resources = append([]ResourceConfig(nil), p.Resources...)
 		for i := range p.Resources {
 			r := &p.Resources[i]
-			r.Upstream = EndpointConfig{Method: "POST", Path: "/?Action=" + OfficialAssetActions[r.ID] + "&Version=2024-01-01"}
+			r.Upstream = EndpointConfig{Method: "POST", Path: path + "?Action=" + OfficialAssetActions[r.ID] + "&Version=2024-01-01"}
 			r.DisableReplay = true
 		}
 		return p, true

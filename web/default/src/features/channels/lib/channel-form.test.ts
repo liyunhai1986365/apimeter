@@ -288,6 +288,54 @@ describe('TgxMaas channel project', () => {
 })
 
 describe('independent asset library configuration', () => {
+  test('preserves Youniyouju Token configuration without requiring an official project', () => {
+    const values = {
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      type: 999,
+      name: 'youniyouju',
+      key: 'video-token',
+      models: 'seedance',
+      protocol_profile_id: 'doubao-seedance-2',
+      asset_backend: 'youniyouju',
+      asset_auth_mode: 'api_key',
+      asset_base_url: 'https://assets.example',
+      asset_api_key: 'asset-token',
+    }
+    assert.equal(channelFormSchema.safeParse(values).success, true)
+    const create = transformFormDataToCreatePayload(values)
+    const settings = JSON.parse(create.channel.setting || '{}')
+    assert.equal(settings.protocol.asset_library.backend, 'youniyouju')
+    assert.equal(settings.protocol.asset_library.auth_mode, 'api_key')
+    assert.equal(
+      settings.protocol.asset_library.base_url,
+      'https://assets.example'
+    )
+    assert.deepEqual(create.asset_credentials, { api_key: 'asset-token' })
+    assert.equal(create.channel.setting?.includes('asset-token'), false)
+    const defaults = transformChannelToFormDefaults({
+      ...create.channel,
+      id: 42,
+      channel_info: { is_multi_key: false },
+    } as Channel)
+    assert.equal(defaults.asset_backend, 'youniyouju')
+    assert.equal(defaults.asset_auth_mode, 'api_key')
+    assert.equal(defaults.asset_base_url, 'https://assets.example')
+    assert.equal(
+      transformFormDataToUpdatePayload({ ...values, asset_api_key: '' }, 42)
+        .asset_credentials,
+      undefined
+    )
+    const shared = transformFormDataToCreatePayload({
+      ...values,
+      asset_auth_mode: 'channel_key',
+    })
+    assert.equal(shared.asset_credentials, undefined)
+    assert.equal(
+      JSON.parse(shared.channel.setting || '{}').protocol.asset_library
+        .auth_mode,
+      'channel_key'
+    )
+  })
   test('sends official credentials separately from public channel settings', () => {
     const values = {
       ...CHANNEL_FORM_DEFAULT_VALUES,

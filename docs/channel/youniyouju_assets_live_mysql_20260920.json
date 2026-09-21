@@ -1,0 +1,286 @@
+{
+  "date": "2026-09-20",
+  "origin": "https://www.youniyouju.com",
+  "database": "MySQL 5.7.44 in isolated Docker container",
+  "test": "TestYouniyoujuAssetsLive",
+  "result": "PASS",
+  "duration_seconds": 26.84,
+  "execution": "Production AddChannel/GetChannel/UpdateChannel handlers, gateway token authentication and asset relay handlers with an isolated MySQL database; real supplier HTTP requests.",
+  "video_profile": "doubao-seedance-2",
+  "asset_backend": "youniyouju",
+  "project_name": "omitted (platform default)",
+  "modes": {
+    "channel_key": {
+      "result": "PASS",
+      "channel_configuration": [
+        {
+          "step": "channel-create",
+          "http_status": 200,
+          "success": true
+        },
+        {
+          "step": "channel-read",
+          "http_status": 200,
+          "success": true
+        },
+        {
+          "step": "channel-edit-preserve-key",
+          "http_status": 200,
+          "success": true
+        }
+      ],
+      "gateway_asset_calls": [
+        {
+          "step": "initial-ListAssetGroups",
+          "http_status": 200,
+          "request_id": "20260920230307E824A87D5B737F4D73A4"
+        },
+        {
+          "step": "initial-ListAssets",
+          "http_status": 200,
+          "request_id": "202609202303079669D9E03A6777F43267"
+        },
+        {
+          "step": "group-create",
+          "http_status": 200,
+          "request_id": "202609202303080B5C91213E98F9F326ED"
+        },
+        {
+          "step": "group-get",
+          "http_status": 200,
+          "request_id": "20260920230309460DFA4271BEDAD6E2DE"
+        },
+        {
+          "step": "group-update-rest",
+          "http_status": 200,
+          "request_id": "202609202303097B849BDFCB48AAA31857"
+        },
+        {
+          "step": "group-get-updated",
+          "http_status": 200,
+          "request_id": "20260920230310C49EE824CCFD02133286"
+        },
+        {
+          "step": "group-list",
+          "http_status": 200,
+          "request_id": "2026092023031032AF0ED5F0204FA94790"
+        },
+        {
+          "step": "asset-create",
+          "http_status": 200,
+          "request_id": "20260920230311325DC1E63B4F34D3053D"
+        },
+        {
+          "step": "asset-get-rest",
+          "http_status": 200,
+          "asset_status": "Processing",
+          "request_id": "20260920230311150D0E97F8DD99FD1BCA"
+        },
+        {
+          "step": "asset-get-rest",
+          "http_status": 200,
+          "asset_status": "Active",
+          "request_id": "202609202303153A00A34CF48236D46A64"
+        },
+        {
+          "step": "asset-update",
+          "http_status": 200,
+          "request_id": "2026092023031691EBA68460951AA3A628"
+        },
+        {
+          "step": "asset-get-updated",
+          "http_status": 200,
+          "asset_status": "Active",
+          "request_id": "2026092023031649696AD5E105F6F4B5FE"
+        },
+        {
+          "step": "asset-list",
+          "http_status": 200,
+          "request_id": "2026092023031690A6BF9536A9C9F5D653"
+        },
+        {
+          "step": "asset-delete-rest",
+          "http_status": 200,
+          "request_id": "2026092023031706F096721CF651ACD999"
+        },
+        {
+          "step": "asset-list-after-delete",
+          "http_status": 200,
+          "request_id": "20260920230318CABD9608F3C9EA8E38D2"
+        },
+        {
+          "step": "group-delete",
+          "http_status": 200,
+          "request_id": "20260920230319BBF00F3AAA4D6EA43531"
+        },
+        {
+          "step": "group-list-after-delete",
+          "http_status": 200,
+          "request_id": "2026092023032048D3FC6BCEBA3CDE71DD"
+        }
+      ],
+      "supplier_cleanup_verification": [
+        {
+          "step": "supplier-asset-deleted",
+          "http_status": 200,
+          "deletion_confirmed": true
+        },
+        {
+          "step": "supplier-group-deleted",
+          "http_status": 200,
+          "deletion_confirmed": true
+        }
+      ]
+    },
+    "api_key": {
+      "result": "PASS",
+      "channel_configuration": [
+        {
+          "step": "channel-create",
+          "http_status": 200,
+          "success": true
+        },
+        {
+          "step": "channel-read",
+          "http_status": 200,
+          "success": true
+        },
+        {
+          "step": "channel-edit-preserve-key",
+          "http_status": 200,
+          "success": true
+        },
+        {
+          "step": "channel-edit-independent-video",
+          "http_status": 200,
+          "success": true
+        }
+      ],
+      "gateway_asset_calls": [
+        {
+          "step": "initial-ListAssetGroups",
+          "http_status": 200,
+          "request_id": "20260920230320B88109BA3E4BD24CF052"
+        },
+        {
+          "step": "initial-ListAssets",
+          "http_status": 200,
+          "request_id": "2026092023032113B6719F652D15D28BAC"
+        },
+        {
+          "step": "group-create",
+          "http_status": 200,
+          "request_id": "20260920230322B661F89067AF2CDBDC7C"
+        },
+        {
+          "step": "group-get",
+          "http_status": 200,
+          "request_id": "20260920230322DA261D2C5CD9802A01D1"
+        },
+        {
+          "step": "group-update-rest",
+          "http_status": 200,
+          "request_id": "20260920230323CAAAA062BC9AFD004D64"
+        },
+        {
+          "step": "group-get-updated",
+          "http_status": 200,
+          "request_id": "2026092023032335E2F0A5B08C6B679DC3"
+        },
+        {
+          "step": "group-list",
+          "http_status": 200,
+          "request_id": "202609202303244984740FD8CB677F5A21"
+        },
+        {
+          "step": "asset-create",
+          "http_status": 200,
+          "request_id": "2026092023032490618172D2DC939E9F9D"
+        },
+        {
+          "step": "asset-get-rest",
+          "http_status": 200,
+          "asset_status": "Processing",
+          "request_id": "20260920230325CC95EA2523655B374395"
+        },
+        {
+          "step": "asset-get-rest",
+          "http_status": 200,
+          "asset_status": "Active",
+          "request_id": "20260920230328C916B6F6B9AC84D31C7E"
+        },
+        {
+          "step": "asset-update",
+          "http_status": 200,
+          "request_id": "20260920230329B8DF91219300D89DCDCD"
+        },
+        {
+          "step": "asset-get-updated",
+          "http_status": 200,
+          "asset_status": "Active",
+          "request_id": "20260920230329D42B2440B1EB4FFF7F42"
+        },
+        {
+          "step": "asset-list",
+          "http_status": 200,
+          "request_id": "20260920230330913F28D027C01DFE8D48"
+        },
+        {
+          "step": "asset-independent-token-url",
+          "http_status": 200,
+          "asset_status": "Active",
+          "request_id": "202609202303308480E859D321E2E5EC3C"
+        },
+        {
+          "step": "asset-delete-rest",
+          "http_status": 200,
+          "request_id": "2026092023033190A6BF9536A9C9F5DC48"
+        },
+        {
+          "step": "asset-list-after-delete",
+          "http_status": 200,
+          "request_id": "2026092023033202849C2A0FAC00E50B2D"
+        },
+        {
+          "step": "group-delete",
+          "http_status": 200,
+          "request_id": "2026092023033238FCAF64750CACE02D29"
+        },
+        {
+          "step": "group-list-after-delete",
+          "http_status": 200,
+          "request_id": "20260920230333C6A1C187EB57B833DB14"
+        }
+      ],
+      "supplier_cleanup_verification": [
+        {
+          "step": "supplier-asset-deleted",
+          "http_status": 200,
+          "deletion_confirmed": true
+        },
+        {
+          "step": "supplier-group-deleted",
+          "http_status": 200,
+          "deletion_confirmed": true
+        }
+      ]
+    }
+  },
+  "cleanup": {
+    "temporary_assets_created": 2,
+    "temporary_assets_deleted": 2,
+    "temporary_groups_created": 2,
+    "temporary_groups_deleted": 2,
+    "confirmed_by_direct_supplier_lists": true,
+    "remaining_test_schemas": 0
+  },
+  "not_exercised": [
+    "CreateVisualValidateSession",
+    "GetVisualValidateResult",
+    "video generation",
+    "video model availability",
+    "deployed gateway administration UI"
+  ],
+  "production_schema_changes": false,
+  "gateway_video_tasks_created": 0
+}

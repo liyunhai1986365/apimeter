@@ -25,6 +25,13 @@ func TestAssetBackendIndependentProfiles(t *testing.T) {
 	official, ok := AssetProfile(&dto.ChannelProtocolSettings{AssetLibrary: &dto.AssetLibrarySettings{Backend: OfficialAssetBackend}})
 	require.True(t, ok)
 	require.Len(t, official.Resources, 12)
+	proxy, ok := AssetProfile(&dto.ChannelProtocolSettings{AssetLibrary: &dto.AssetLibrarySettings{Backend: YouniyoujuAssetBackend}})
+	require.True(t, ok)
+	require.Len(t, proxy.Resources, 12)
+	for _, resource := range proxy.Resources {
+		require.True(t, resource.AssetLibrary)
+		require.True(t, resource.DisableReplay, "asset handles and liveness tokens must not be replayed on another account")
+	}
 	legacy, _ := GetProfile("seedance-tgxmaas")
 	require.Equal(t, "/v1/private-avatar/groups", legacy.Resources[0].Upstream.Path)
 }

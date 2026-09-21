@@ -12,10 +12,10 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
+	"github.com/QuantumNous/new-api/internal/testdb"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/gin-gonic/gin"
-	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"gorm.io/gorm"
@@ -1984,13 +1984,12 @@ func openConfigurableTaskAdaptorTestDB(t *testing.T) *gorm.DB {
 	originalMySQL := common.UsingMySQL
 	originalPostgreSQL := common.UsingPostgreSQL
 
-	common.UsingSQLite = true
-	common.UsingMySQL = false
+	db := testdb.AssetOpener(t, "file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared")()
+	common.UsingSQLite = db.Dialector.Name() == "sqlite"
+	common.UsingMySQL = db.Dialector.Name() == "mysql"
 	common.UsingPostgreSQL = false
 	model.InitColForTest()
 
-	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
-	require.NoError(t, err)
 	require.NoError(t, db.AutoMigrate(&model.Channel{}))
 	model.DB = db
 
@@ -1999,9 +1998,7 @@ func openConfigurableTaskAdaptorTestDB(t *testing.T) *gorm.DB {
 		common.UsingSQLite = originalSQLite
 		common.UsingMySQL = originalMySQL
 		common.UsingPostgreSQL = originalPostgreSQL
-		if sqlDB, err := db.DB(); err == nil {
-			_ = sqlDB.Close()
-		}
+		model.InitColForTest()
 	})
 
 	return db

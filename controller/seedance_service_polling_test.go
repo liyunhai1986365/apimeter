@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
 
 // Exercise the service entry used by the production poller, with a real profile
@@ -70,7 +71,14 @@ func TestSeedanceServicePollingIdentityAndResponseGuards(t *testing.T) {
 				require.Empty(t, task.Data)
 				require.Equal(t, 123, saved.Quota)
 			} else {
-				require.Equal(t, tc.body, string(saved.Data), "preserve full upstream response without numeric rounding")
+				// MySQL JSON columns normalize whitespace/key order. Check the
+				// document structurally, and numbers separately without float64.
+				require.JSONEq(t, tc.body, string(saved.Data), "preserve the full upstream response")
+				for _, path := range []string{"usage.total_tokens", "usage.extra"} {
+					if number := gjson.Get(tc.body, path); number.Exists() {
+						require.Equal(t, number.Raw, gjson.GetBytes(saved.Data, path).Raw, "preserve exact numeric value at %s", path)
+					}
+				}
 				poll(&saved)
 				require.EqualValues(t, 1, requests.Load(), "persisted terminal task must not be polled or billed again")
 			}

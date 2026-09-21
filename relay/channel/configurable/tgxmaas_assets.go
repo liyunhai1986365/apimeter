@@ -16,8 +16,34 @@ func resolveTgxMaasVideoAssets(body []byte, info *relaycommon.RelayInfo) ([]byte
 	if info == nil || info.ChannelMeta == nil {
 		return body, nil
 	}
-	if !gjson.GetBytes(body, "ProjectName").Exists() && info.ChannelSetting.Protocol != nil {
-		if project := strings.TrimSpace(info.ChannelSetting.Protocol.ProjectName); project != "" {
+	if info.TaskRelayInfo != nil && info.AssetProject != nil {
+		// The access layer checked native and generic/form project aliases.
+		// Send one spelling with that exact project, including after mapping.
+		var names []string
+		gjson.ParseBytes(body).ForEach(func(key, _ gjson.Result) bool {
+			if strings.EqualFold(key.String(), "ProjectName") || strings.EqualFold(key.String(), "project_name") {
+				names = append(names, key.String())
+			}
+			return true
+		})
+		for _, name := range names {
+			var err error
+			body, err = sjson.DeleteBytes(body, name)
+			if err != nil {
+				return nil, err
+			}
+		}
+		var err error
+		body, err = sjson.SetBytes(body, "ProjectName", *info.AssetProject)
+		if err != nil {
+			return nil, err
+		}
+	} else if !gjson.GetBytes(body, "ProjectName").Exists() {
+		project := ""
+		if info.ChannelSetting.Protocol != nil {
+			project = strings.TrimSpace(info.ChannelSetting.Protocol.ProjectName)
+		}
+		if project != "" {
 			var err error
 			body, err = sjson.SetBytes(body, "ProjectName", project)
 			if err != nil {
@@ -46,9 +72,17 @@ func resolveTgxMaasVideoAssets(body []byte, info *relaycommon.RelayInfo) ([]byte
 			continue
 		}
 		id := strings.TrimPrefix(uri, "asset://")
-		resolved, err := model.ResolveTgxMaasAssetHandle(info.ChannelId, info.UserId, project, id)
-		if err != nil {
-			return nil, err
+		resolved := id
+		var err error
+		if info.TaskRelayInfo != nil && info.AssetAliases != nil {
+			if alias := info.AssetAliases[id]; alias != "" {
+				resolved = alias
+			}
+		} else {
+			resolved, err = model.ResolveTgxMaasAssetHandle(info.ChannelId, info.UserId, project, id)
+			if err != nil {
+				return nil, err
+			}
 		}
 		if resolved != id {
 			body, err = sjson.SetBytes(body, fmt.Sprintf("content.%d.%s.url", i, kind), "asset://"+resolved)

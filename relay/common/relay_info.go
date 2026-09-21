@@ -960,6 +960,13 @@ type TaskRelayInfo struct {
 	// a specific channel (e.g., remix on origin task's channel). Stored as any
 	// to avoid an import cycle with model; callers type-assert to *model.Channel.
 	LockedChannel any
+
+	// AssetProject follows the authorized asset when a channel's default
+	// project changes. Request-local routing metadata; never a database column.
+	AssetProject *string
+	// AssetAliases contains handles authorized against the current account.
+	// It prevents legacy alias caches from being used after account rotation.
+	AssetAliases map[string]string
 }
 
 type TaskSubmitReq struct {

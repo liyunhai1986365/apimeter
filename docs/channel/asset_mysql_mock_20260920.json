@@ -1,0 +1,99 @@
+{
+  "date": "2026-09-20",
+  "scope": "Asset/Seedance/Tgx/ConfigurableResource local HTTP mocks with real MySQL",
+  "test_filter": "Asset|Seedance|Tgx|ConfigurableResource",
+  "production_schema_changes": false,
+  "versions": [
+    {
+      "mysql_version": "5.7.44",
+      "passed_test_events_including_subtests": 730,
+      "failed_test_events": 0,
+      "skipped_test_events": 4,
+      "packages": {
+        "github.com/QuantumNous/new-api/model": {
+          "status": "pass",
+          "elapsed_seconds": 0.106
+        },
+        "github.com/QuantumNous/new-api/relay/channel/configurable": {
+          "status": "pass",
+          "elapsed_seconds": 0.246
+        },
+        "github.com/QuantumNous/new-api/controller": {
+          "status": "pass",
+          "elapsed_seconds": 50.664
+        }
+      },
+      "isolated_mysql_schemas_created": 218,
+      "isolated_mysql_schemas_remaining_after_tests": 0,
+      "skipped_live_tests": [
+        "TestSeedanceGatewayLive",
+        "TestTgxMaasAssetAliasesLive",
+        "TestTgxMaasAssetsLive",
+        "TestYouniyoujuAssetsLive"
+      ],
+      "key_regressions": {
+        "TestAssetBindingConcurrentRegistrationMySQL": "pass",
+        "TestAssetBindingPersistenceAndIsolation": "pass",
+        "TestAssetBindingSessionExpiryAndStorage": "pass",
+        "TestAssetSecurityAllBackends": "pass",
+        "TestYouniyoujuAssetActions": "pass",
+        "TestOfficialAssetLibraryAllActions": "pass",
+        "TestAssetReviewProjectNormalization": "pass",
+        "TestAssetReviewVideoProjectNormalization": "pass",
+        "TestSeedanceServicePollingIdentityAndResponseGuards": "pass"
+      }
+    },
+    {
+      "mysql_version": "8.4.11",
+      "passed_test_events_including_subtests": 730,
+      "failed_test_events": 0,
+      "skipped_test_events": 4,
+      "packages": {
+        "github.com/QuantumNous/new-api/model": {
+          "status": "pass",
+          "elapsed_seconds": 0.173
+        },
+        "github.com/QuantumNous/new-api/relay/channel/configurable": {
+          "status": "pass",
+          "elapsed_seconds": 0.199
+        },
+        "github.com/QuantumNous/new-api/controller": {
+          "status": "pass",
+          "elapsed_seconds": 62.125
+        }
+      },
+      "isolated_mysql_schemas_created": 218,
+      "isolated_mysql_schemas_remaining_after_tests": 0,
+      "skipped_live_tests": [
+        "TestSeedanceGatewayLive",
+        "TestTgxMaasAssetAliasesLive",
+        "TestTgxMaasAssetsLive",
+        "TestYouniyoujuAssetsLive"
+      ],
+      "key_regressions": {
+        "TestAssetBindingConcurrentRegistrationMySQL": "pass",
+        "TestAssetBindingPersistenceAndIsolation": "pass",
+        "TestAssetBindingSessionExpiryAndStorage": "pass",
+        "TestAssetSecurityAllBackends": "pass",
+        "TestYouniyoujuAssetActions": "pass",
+        "TestOfficialAssetLibraryAllActions": "pass",
+        "TestAssetReviewProjectNormalization": "pass",
+        "TestAssetReviewVideoProjectNormalization": "pass",
+        "TestSeedanceServicePollingIdentityAndResponseGuards": "pass"
+      }
+    }
+  ],
+  "sqlite_full_package_regression": {
+    "packages": [
+      "model",
+      "controller",
+      "relay/channel/configurable"
+    ],
+    "status": "pass"
+  },
+  "adjustments": [
+    "Added opt-in ASSET_TEST_MYSQL_DSN fixtures with isolated schema creation and cleanup.",
+    "Added 16 simultaneous registrations by two users to verify MySQL ownership uniqueness.",
+    "Updated polling JSON assertions for MySQL JSON normalization while preserving exact large-integer checks."
+  ]
+}

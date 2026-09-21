@@ -1,0 +1,163 @@
+{
+  "date": "2026-09-20",
+  "origin": "https://www.youniyouju.com",
+  "test": "TestYouniyoujuAssetsLive",
+  "result": "PASS",
+  "execution": "Production token authentication, channel selection and relay handlers with an isolated SQLite test database; real supplier HTTP requests.",
+  "video_profile": "doubao-seedance-2",
+  "asset_backend": "youniyouju",
+  "upstream_path": "/api/volcengine_asset?Action=<Action>&Version=2024-01-01",
+  "verified": [
+    "10 group/asset CRUD actions",
+    "Processing to Active",
+    "read back updated group and asset names",
+    "channel_key mode using channel Base URL",
+    "api_key mode using independent asset Base URL while video URL and Key differ",
+    "Action and REST entry points",
+    "list verification after deletion",
+    "no video billing tasks created"
+  ],
+  "calls": [
+    {
+      "step": "initial-ListAssetGroups",
+      "action": "ListAssetGroups",
+      "http_status": 200,
+      "request_id": "2026092016371502849C2A0FAC00B88D0F"
+    },
+    {
+      "step": "initial-ListAssets",
+      "action": "ListAssets",
+      "http_status": 200,
+      "request_id": "202609201637163AA1E22B21B24DB0F641"
+    },
+    {
+      "step": "group-create",
+      "action": "CreateAssetGroup",
+      "http_status": 200,
+      "request_id": "202609201637167630045182BA099EDBF0"
+    },
+    {
+      "step": "group-get",
+      "action": "GetAssetGroup",
+      "http_status": 200,
+      "request_id": "20260920163717F95B446A201B7DDAFBDB"
+    },
+    {
+      "step": "group-update-rest",
+      "action": "UpdateAssetGroup",
+      "http_status": 200,
+      "request_id": "20260920163717A0E4ED3EBAF27D14E646"
+    },
+    {
+      "step": "group-get-updated",
+      "action": "GetAssetGroup",
+      "http_status": 200,
+      "request_id": "20260920163718CA249DC9B1E3E72C2566"
+    },
+    {
+      "step": "group-list",
+      "action": "ListAssetGroups",
+      "http_status": 200,
+      "request_id": "20260920163718782630356AC120DA7E1E"
+    },
+    {
+      "step": "asset-create",
+      "action": "CreateAsset",
+      "http_status": 200,
+      "request_id": "202609201637187603A93323C7FEC95C6A"
+    },
+    {
+      "step": "asset-get-rest",
+      "action": "GetAsset",
+      "http_status": 200,
+      "request_id": "20260920163719F28943BA10BC5016861E",
+      "asset_status": "Processing"
+    },
+    {
+      "step": "asset-get-rest",
+      "action": "GetAsset",
+      "http_status": 200,
+      "request_id": "20260920163722445022B14D3839688DE5",
+      "asset_status": "Active"
+    },
+    {
+      "step": "asset-update",
+      "action": "UpdateAsset",
+      "http_status": 200,
+      "request_id": "20260920163723790260BD2A013D769921"
+    },
+    {
+      "step": "asset-get-updated",
+      "action": "GetAsset",
+      "http_status": 200,
+      "request_id": "2026092016372332AF0ED5F0204F7D23C4",
+      "asset_status": "Active"
+    },
+    {
+      "step": "asset-list",
+      "action": "ListAssets",
+      "http_status": 200,
+      "request_id": "20260920163724CE0A098CA95957A8CBEB"
+    },
+    {
+      "step": "asset-independent-token-url",
+      "action": "GetAsset",
+      "http_status": 200,
+      "request_id": "20260920163724913F28D027C01DEEEB1F",
+      "asset_status": "Active"
+    },
+    {
+      "step": "asset-delete-rest",
+      "action": "DeleteAsset",
+      "http_status": 200,
+      "request_id": "2026092016372544FE79EC20D9F7B00FE8"
+    },
+    {
+      "step": "asset-list-after-delete",
+      "action": "ListAssets",
+      "http_status": 200,
+      "request_id": "20260920163725CABD9608F3C9EA61C3E6"
+    },
+    {
+      "step": "group-delete",
+      "action": "DeleteAssetGroup",
+      "http_status": 200,
+      "request_id": "2026092016372690A6BF9536A9C9ABDD96"
+    },
+    {
+      "step": "group-list-after-delete",
+      "action": "ListAssetGroups",
+      "http_status": 200,
+      "request_id": "202609201637267E5E4C1DD0996CAC9F9A"
+    }
+  ],
+  "cleanup": {
+    "test_groups_created": 3,
+    "test_assets_created": 3,
+    "test_groups_remaining": 0,
+    "test_assets_remaining": 0,
+    "verification": "First two runs checked against all pages of account group/asset lists; final run checked asset list before group deletion and paginated group list after deletion."
+  },
+  "supplier_observations": [
+    {
+      "case": "Platform Postman example image",
+      "query_http_status": 200,
+      "asset_status": "Failed",
+      "error_code": "InputImageSensitiveContentDetected",
+      "effect": "Asset name masked; resource was deleted."
+    },
+    {
+      "case": "ListAssetGroups filtered by a deleted test group ID",
+      "http_status": 404,
+      "content_type": "text/html",
+      "reproduced_directly": true,
+      "unfiltered_list_http_status": 200
+    }
+  ],
+  "not_live_tested": [
+    "Deployed server configuration",
+    "Video generation and model access",
+    "Liveness H5 verification and authenticated group exchange"
+  ],
+  "privacy": "No supplier Token, account list contents or signed asset URLs included."
+}

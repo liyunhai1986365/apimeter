@@ -62,6 +62,7 @@ func verifyAssetSignature(t *testing.T, r *http.Request, body []byte) {
 func TestOfficialAssetLibraryAllActions(t *testing.T) {
 	t.Setenv("CRYPTO_SECRET", "test-only-persistent-secret")
 	var expectedAction, expectedID, expectedProject string
+	assetID, groupID := "asset-official", "group-official"
 	var calls int
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		calls++
@@ -81,7 +82,20 @@ func TestOfficialAssetLibraryAllActions(t *testing.T) {
 		require.Equal(t, "false", gjson.GetBytes(body, "extension.enabled").Raw)
 		verifyAssetSignature(t, r, body)
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"ResponseMetadata":{"RequestId":"mock-request"},"Result":{"Id":"asset-official","extension":9007199254740993}}`))
+		result := `"Id":"` + assetID + `"`
+		if strings.Contains(expectedAction, "AssetGroup") {
+			result = `"Id":"` + groupID + `"`
+		}
+		if strings.HasPrefix(expectedAction, "List") {
+			result = `"Items":[],"TotalCount":0`
+		}
+		if expectedAction == "CreateVisualValidateSession" {
+			result = `"BytedToken":"mock-token"`
+		}
+		if expectedAction == "GetVisualValidateResult" {
+			result = `"GroupId":"human-group"`
+		}
+		_, _ = fmt.Fprintf(w, `{"ResponseMetadata":{"RequestId":"mock-request"},"Result":{%s,"extension":9007199254740993}}`, result)
 	}))
 	defer upstream.Close()
 	// Any attempt to reuse the VIDEO URL is a failure.
@@ -92,13 +106,16 @@ func TestOfficialAssetLibraryAllActions(t *testing.T) {
 	ch.SetSetting(dto.ChannelSettings{Protocol: &dto.ChannelProtocolSettings{ProfileID: "seedance2-ark-task-assets", ProjectName: "nmyk", AssetLibrary: &relaydto.AssetLibrarySettings{Backend: configurable.OfficialAssetBackend, BaseURL: upstream.URL, AuthMode: "aksk"}}})
 	require.NoError(t, prepareAssetCredentials(ch, nil, &model.AssetCredentials{AccessKeyID: "mock-ak", SecretAccessKey: "mock-sk"}))
 	require.NoError(t, model.DB.Save(ch).Error)
-	actions := []string{"CreateAssetGroup", "ListAssetGroups", "GetAssetGroup", "UpdateAssetGroup", "DeleteAssetGroup", "CreateAsset", "GetAsset", "ListAssets", "UpdateAsset", "DeleteAsset", "CreateVisualValidateSession", "GetVisualValidateResult"}
+	actions := []string{"CreateAssetGroup", "ListAssetGroups", "GetAssetGroup", "UpdateAssetGroup", "CreateAsset", "GetAsset", "ListAssets", "UpdateAsset", "DeleteAsset", "DeleteAssetGroup", "CreateVisualValidateSession", "GetVisualValidateResult"}
 	for _, action := range actions {
 		t.Run(action, func(t *testing.T) {
 			expectedAction, expectedProject, expectedID = action, "nmyk", ""
 			body := map[string]any{"model": "doubao-seedance-2-5-260628", "extension": map[string]any{"zero": 0, "enabled": false}}
 			if strings.HasPrefix(action, "GetAsset") || strings.HasPrefix(action, "Update") || strings.HasPrefix(action, "Delete") {
-				expectedID = "asset-official"
+				expectedID = assetID
+				if strings.Contains(action, "AssetGroup") {
+					expectedID = groupID
+				}
 				body["Id"] = expectedID
 			}
 			if action == "CreateAsset" {
@@ -125,9 +142,10 @@ func TestOfficialAssetLibraryAllActions(t *testing.T) {
 			require.Contains(t, response.Body.String(), "9007199254740993")
 		})
 	}
+	assetID, groupID = "asset-second", "group-second"
 	for _, tc := range []struct{ method, path, action, id string }{
-		{"POST", "/api/assets", "CreateAsset", ""}, {"GET", "/v1/assets/asset-official", "GetAsset", "asset-official"},
-		{"POST", "/v1/assets/get", "GetAsset", "asset-official"}, {"POST", "/v1/asset-groups", "CreateAssetGroup", ""},
+		{"POST", "/api/assets", "CreateAsset", ""}, {"GET", "/v1/assets/asset-second", "GetAsset", "asset-second"},
+		{"POST", "/v1/assets/get", "GetAsset", "asset-second"}, {"POST", "/v1/asset-groups", "CreateAssetGroup", ""},
 	} {
 		expectedAction, expectedProject, expectedID = tc.action, "nmyk", tc.id
 		body := `{"Id":"` + tc.id + `","extension":{"zero":0,"enabled":false}}`
@@ -234,7 +252,8 @@ func TestAssetLibraryRouteErrorClassification(t *testing.T) {
 				{"GET", "/kling/tasks?task_ids=task_mock", "", http.StatusServiceUnavailable},
 				{"GET", "/kling/v1/videos/text2video/task_mock", "", http.StatusServiceUnavailable},
 				{"POST", "/api/asset-groups", `{"Name":"unsupported"}`, http.StatusNotImplemented},
-				{"GET", "/api/asset-groups/ag_mock", "", http.StatusNotImplemented},
+				// Unknown handles fail ownership before selecting a backend.
+				{"GET", "/api/asset-groups/ag_mock", "", http.StatusNotFound},
 				{"POST", "/?Action=CreateAssetGroup&Version=2024-01-01", `{"Name":"unsupported"}`, http.StatusNotImplemented},
 			} {
 				t.Run(tc.method+" "+tc.path, func(t *testing.T) {

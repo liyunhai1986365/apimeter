@@ -18,6 +18,9 @@ type configurableAssetEndpoint struct {
 
 func SetVideoRouter(router *gin.Engine) {
 	router.POST("/", middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayArkAssetAction)
+	if !routeRegistered(router, "POST", configurable.YouniyoujuAssetPath) {
+		router.POST(configurable.YouniyoujuAssetPath, middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayArkAssetAction)
+	}
 	// Video proxy: accepts either session auth (dashboard) or token auth (API clients)
 	videoProxyRouter := router.Group("/v1")
 	videoProxyRouter.Use(middleware.RouteTag("relay"))
@@ -123,6 +126,7 @@ func registerCommonConfigurableAssetRoutes(router *gin.Engine, registered map[st
 }
 
 func registerCommonConfigurableAssetAPIRoutes(apiRouter *gin.RouterGroup) {
+	apiRouter.POST(strings.TrimPrefix(configurable.YouniyoujuAssetPath, "/api"), middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayArkAssetAction)
 	for _, endpoint := range commonConfigurableAssetEndpoints() {
 		apiPath := "/" + strings.TrimPrefix(endpoint.path, "/api/")
 		apiRouter.Handle(endpoint.method, ginPath(apiPath), middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayConfigurableResource)

@@ -1,5 +1,8 @@
 {
   "translation": {
+    "Youniyouju assets (12 operations, Token)": "有你有劇素材庫（12 項操作，Token）",
+    "Use the platform Token and root Base URL. The asset API path is added automatically. Leave Base URL empty to use the channel address.": "使用平台 Token 和根位址，系統會自動加入素材介面路徑。位址留空則沿用渠道位址。",
+    "Leave empty to use the platform project": "留空使用平台預設專案",
     "Enter the project assigned by your supplier. Used for asset and video requests when ProjectName is omitted.": "填寫供應商分配的專案名稱。素材和影片請求未傳 ProjectName 時使用此值。",
     "Project name (ProjectName)": "專案名稱（ProjectName）",
     "ProjectName is required for Seedance TgxMaas": "Seedance TgxMaas 必須填寫 ProjectName",

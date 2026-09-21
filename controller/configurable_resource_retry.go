@@ -22,6 +22,13 @@ import (
 func RelayConfigurableResource(c *gin.Context) {
 	profileID := strings.TrimSpace(c.GetString(middleware.ContextKeyConfigurableResourceProfileID))
 	resourceID := strings.TrimSpace(c.GetString(middleware.ContextKeyConfigurableResourceID))
+	// Resolve owned handles before routing. Another token belonging to the
+	// same user must not need access to the original channel's group/model.
+	assetAccess, accessErr := resolveAssetAccessRoute(c, profileID, resourceID)
+	if accessErr != nil {
+		respondAssetAccessError(c, accessErr)
+		return
+	}
 	smart := service.IsRoutingStrategyTokenPolicy(c)
 	param := &service.RetryParam{Ctx: c, TokenGroup: service.AutoGroupName, Retry: common.GetPointer(0)}
 	var lastErr *types.NewAPIError
@@ -33,7 +40,9 @@ func RelayConfigurableResource(c *gin.Context) {
 		var profile *configurable.Profile
 		var resource *configurable.ResourceConfig
 		var err error
-		if smart {
+		if assetAccess != nil && assetAccess.channel != nil {
+			channel, profile, resource = assetAccess.channel, assetAccess.profile, assetAccess.resource
+		} else if smart {
 			channel, profile, resource, err = selectSmartConfigurableResourceRoute(c, profileID, resourceID)
 		} else {
 			channel, profile, resource, err = selectConfigurableResourceRoute(c, profileID, resourceID)
@@ -49,6 +58,10 @@ func RelayConfigurableResource(c *gin.Context) {
 			break
 		}
 		if !authorizeConfigurableResourceModel(c, resource) {
+			return
+		}
+		if err := prepareAssetAccess(c, channel, profile, resource); err != nil {
+			respondAssetAccessError(c, err)
 			return
 		}
 		if err := prepareTgxMaasAssetRequest(c, channel, profile, resource); err != nil {
@@ -89,7 +102,7 @@ func RelayConfigurableResource(c *gin.Context) {
 func configurableResourceAllowsReplay(c *gin.Context, resource *configurable.ResourceConfig) bool {
 	// Existing task/asset IDs belong to their original provider. Pre-requests may
 	// create resources even when the main request is rejected, so never replay them.
-	if resource.DisableReplay || len(c.Params) > 0 || len(resource.PathParams) > 0 {
+	if resource.AssetLibrary || resource.DisableReplay || len(c.Params) > 0 || len(resource.PathParams) > 0 {
 		return false
 	}
 	for _, pre := range resource.PreRequests {
@@ -181,9 +194,12 @@ func selectSmartConfigurableResourceRoute(c *gin.Context, profileID, resourceID 
 	return nil, nil, nil, fmt.Errorf("no untried configurable resource channel for %s %s", c.Request.Method, c.Request.URL.Path)
 }
 
-// Resolve the endpoint before authorizing: fixed/default models may come from
-// the profile. Resources without any model still require an explicit allowed model.
+// Asset management is authorized by user ownership. Other resources still
+// require an allowed model, including fixed/default models from their profile.
 func authorizeConfigurableResourceModel(c *gin.Context, resource *configurable.ResourceConfig) bool {
+	if resource.AssetLibrary {
+		return true
+	}
 	if !common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled) {
 		return true
 	}

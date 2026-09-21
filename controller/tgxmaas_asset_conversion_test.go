@@ -37,11 +37,19 @@ func TestTgxAssetConversionActionsAndGeneric(t *testing.T) {
 				method, path = r.Method, r.URL.Path
 				body, _ = io.ReadAll(r.Body)
 				require.Equal(t, "Bearer fixture-key", r.Header.Get("Authorization"))
-				_, _ = w.Write([]byte(`{"Result":{"Id":"asset_local","upstream_asset_id":"asset-official"},"extension":9007199254740993}`))
+				result := `{"Id":"asset_local","upstream_asset_id":"asset-official"}`
+				if strings.Contains(path, "/groups") {
+					result = `{"Id":"ag_local"}`
+				}
+				if strings.HasSuffix(path, "/list") {
+					result = `{"Items":[],"NextToken":""}`
+				}
+				_, _ = w.Write([]byte(`{"Result":` + result + `,"extension":9007199254740993}`))
 			}))
 			defer upstream.Close()
 			r := tgxMaasResourceTestRouter(t, upstream.URL, "fixture-key", tgxRegressionModel)
 			registerTgxConversionTestRoutes(t, r)
+			seedAssetOwnershipForTest(t, 20, 1, "group", "ag_local")
 			cases := []struct{ action, method, path, upstream, body string }{
 				{"CreateAsset", "POST", "/api/assets", "/v1/private-avatar/assets", `{"group_id":"ag_local","url":"https://example.com/a.png","asset_type":"Image","name":"a","extension":9007199254740993}`},
 				{"ListAssets", "GET", "/api/assets", "/v1/private-avatar/assets/list", `{"Filter":{"GroupIds":["ag_local"]},"MaxResults":20}`},
@@ -69,7 +77,9 @@ func TestTgxAssetConversionActionsAndGeneric(t *testing.T) {
 						wantMethod = "POST"
 					}
 					require.Equal(t, wantMethod, method)
-					require.Equal(t, "asset-official", gjson.GetBytes(response.Body.Bytes(), "Result.upstream_asset_id").String())
+					if !strings.Contains(tc.action, "Group") && !strings.HasPrefix(tc.action, "List") {
+						require.Equal(t, "asset-official", gjson.GetBytes(response.Body.Bytes(), "Result.upstream_asset_id").String())
+					}
 					require.Contains(t, response.Body.String(), "9007199254740993")
 					if wantMethod == "POST" || wantMethod == "PATCH" {
 						require.Equal(t, tgxRegressionModel, gjson.GetBytes(body, "model").String())
@@ -86,11 +96,9 @@ func TestTgxAssetConversionActionsAndGeneric(t *testing.T) {
 					}
 				})
 			}
-			response := seedanceCall(r, "GET", "/api/assets?max_results=20&next_token=abc%2B123&filter=%7B%22GroupIds%22%3A%5B%22ag_local%22%5D%7D", "", 1)
-			require.Equal(t, 200, response.Code, response.Body.String())
-			require.Equal(t, int64(20), gjson.GetBytes(body, "MaxResults").Int())
-			require.Equal(t, "abc+123", gjson.GetBytes(body, "NextToken").String())
-			require.Equal(t, "ag_local", gjson.GetBytes(body, "Filter.GroupIds.0").String())
+			response := seedanceCall(r, "GET", "/api/assets?max_results=20&next_token=abc%2B123", "", 1)
+			require.Equal(t, 400, response.Code, "provider cursors cannot bypass gateway pagination")
+
 		})
 	}
 }
@@ -121,14 +129,14 @@ func TestTgxAssetConversionRejectsInvalidAndUnauthorized(t *testing.T) {
 	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"model_limits_enabled": true, "model_limits": tgxRegressionModel}).Error)
 	for _, path := range []string{"/?Action=CreateAssetGroup&Version=2024-01-01", "/api/asset-groups"} {
 		w := seedanceCall(r, "POST", path, `{"Name":"group"}`, 1)
-		require.Equal(t, 403, w.Code, w.Body.String())
+		require.Equal(t, 200, w.Code, "asset management does not require an explicit video model: %s", w.Body.String())
 		w = seedanceCall(r, "POST", path, `{"Name":"group","model":"`+tgxRegressionModel+`"}`, 1)
 		require.Equal(t, 200, w.Code, w.Body.String())
 	}
-	require.Equal(t, 2, calls)
+	require.Equal(t, 4, calls)
 	w := seedanceCall(r, "GET", "/api/assets?model=forbidden", `{"model":"`+tgxRegressionModel+`"}`, 1)
 	require.Equal(t, 400, w.Code, w.Body.String())
-	require.Equal(t, 2, calls, "query must not override the model authorized from the body")
+	require.Equal(t, 4, calls, "conflicting routing models must be rejected before forwarding")
 }
 
 // Match the supplier guide's original handles, project scope and page-based
@@ -143,16 +151,26 @@ func TestTgxAssetDocumentedProjectAndPagination(t *testing.T) {
 				gotBody, _ = io.ReadAll(r.Body)
 				require.Empty(t, r.URL.Query().Get("Action"))
 				require.Empty(t, r.URL.Query().Get("Version"))
-				_, _ = w.Write([]byte(`{"Result":{"Id":"asset-20260916-original","GroupId":"group-20260916-original","ProjectName":"brand + cn","Status":"Active"}}`))
+				id := "asset-20260916-original"
+				if strings.Contains(gotPath, "/groups") {
+					id = "group-20260916-original"
+				}
+				if strings.HasSuffix(gotPath, "/list") {
+					_, _ = w.Write([]byte(`{"Result":{"Items":[],"TotalCount":0}}`))
+					return
+				}
+				_, _ = w.Write([]byte(`{"Result":{"Id":"` + id + `","ProjectName":"brand + cn","Status":"Active"}}`))
 			}))
 			defer upstream.Close()
 			r := tgxMaasResourceTestRouter(t, upstream.URL, "fixture-key", tgxRegressionModel)
 			registerTgxConversionTestRoutes(t, r)
+			seedAssetOwnershipForTest(t, 20, 1, "group", "group-20260916-original")
+			seedAssetOwnershipForTest(t, 20, 1, "group", "group-original")
 			for _, kind := range []struct{ singular, plural, native, generic, id string }{
 				{"Asset", "Assets", "assets", "assets", "asset-20260916-original"},
 				{"AssetGroup", "AssetGroups", "groups", "asset-groups", "group-20260916-original"},
 			} {
-				for _, op := range []string{"Create", "List", "Get", "Update", "Delete"} {
+				for _, op := range []string{"Create", "List", "Get", "Update"} {
 					t.Run(op+kind.singular, func(t *testing.T) {
 						body := map[string]any{"ProjectName": "brand + cn"}
 						method, suffix, action := "POST", "", op+kind.singular
@@ -200,15 +218,17 @@ func TestTgxAssetDocumentedProjectAndPagination(t *testing.T) {
 						} else {
 							require.Equal(t, "brand + cn", gjson.GetBytes(gotBody, "ProjectName").String())
 							if op == "List" {
-								require.Equal(t, int64(2), gjson.GetBytes(gotBody, "PageNumber").Int())
-								require.Equal(t, int64(10), gjson.GetBytes(gotBody, "PageSize").Int())
+								require.Equal(t, int64(1), gjson.GetBytes(gotBody, "PageNumber").Int())
+								require.Equal(t, int64(100), gjson.GetBytes(gotBody, "PageSize").Int())
 								require.Equal(t, "group-20260916-original", gjson.GetBytes(gotBody, "Filter.GroupIds.0").String())
 							}
 							if mode == "official" {
 								require.False(t, gjson.GetBytes(gotBody, "Id").Exists())
 							}
 						}
-						require.Equal(t, "asset-20260916-original", gjson.GetBytes(w.Body.Bytes(), "Result.Id").String())
+						if op != "List" {
+							require.Equal(t, kind.id, gjson.GetBytes(w.Body.Bytes(), "Result.Id").String())
+						}
 					})
 				}
 			}
@@ -223,7 +243,7 @@ func TestTgxAssetDocumentedProjectAndPagination(t *testing.T) {
 			}
 			w := seedanceCall(r, "GET", "/api/assets?page_number=2&page_size=10&project_name=brand", "", 1)
 			require.Equal(t, 200, w.Code, w.Body.String())
-			require.Equal(t, int64(2), gjson.GetBytes(gotBody, "PageNumber").Int())
+			require.Equal(t, int64(1), gjson.GetBytes(gotBody, "PageNumber").Int())
 			require.Equal(t, "brand", gjson.GetBytes(gotBody, "ProjectName").String())
 			// Omission must retain group-project inheritance rather than inject default.
 			w = seedanceCall(r, "POST", "/api/assets", `{"group_id":"group-original","asset_type":"Audio","url":"https://example.com/a.mp3"}`, 1)
@@ -243,6 +263,7 @@ func TestTgxAssetOriginalHandleLifecycle(t *testing.T) {
 	defer upstream.Close()
 	r := tgxMaasResourceTestRouter(t, upstream.URL, "fixture-key", tgxRegressionModel)
 	registerTgxConversionTestRoutes(t, r)
+	seedAssetOwnershipForTest(t, 20, 1, "group", "ag_local")
 	w := seedanceCall(r, "POST", "/?Action=CreateAsset&Version=2024-01-01", `{"GroupId":"ag_local","AssetType":"Image","URL":"https://example.com/a.png","ProjectName":"brand"}`, 1)
 	require.Equal(t, 200, w.Code, w.Body.String())
 	// The mapping is in SQLite, not a request-local or process-global cache.
@@ -261,6 +282,10 @@ func TestTgxMaasChannelDefaultProject(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		raw, _ := io.ReadAll(r.Body)
 		gotProject, gotBodyProject = r.URL.Query().Get("ProjectName"), gjson.GetBytes(raw, "ProjectName").String()
+		if strings.HasSuffix(r.URL.Path, "/list") {
+			_, _ = w.Write([]byte(`{"Result":{"Items":[]}}`))
+			return
+		}
 		_, _ = w.Write([]byte(`{"Result":{}}`))
 	}))
 	defer upstream.Close()
@@ -272,6 +297,8 @@ func TestTgxMaasChannelDefaultProject(t *testing.T) {
 	setting.Protocol.ProjectName = " nmyk "
 	ch.SetSetting(setting)
 	require.NoError(t, model.DB.Save(ch).Error)
+	seedAssetOwnershipForTest(t, 20, 1, "group", "ag_local")
+	seedAssetOwnershipForTest(t, 20, 1, "asset", "asset_local")
 	for _, tc := range []struct {
 		method, path, body, project string
 		hasBody                     bool
@@ -281,7 +308,6 @@ func TestTgxMaasChannelDefaultProject(t *testing.T) {
 		{"POST", "/?Action=GetAsset&Version=2024-01-01", `{"Id":"asset_local"}`, "nmyk", false},
 		{"POST", "/?Action=ListAssets&Version=2024-01-01", `{"PageNumber":1,"PageSize":10}`, "nmyk", true},
 		{"PATCH", "/api/assets/asset_local", `{"Name":"updated"}`, "nmyk", true},
-		{"DELETE", "/api/assets/asset_local", `{}`, "nmyk", true},
 		{"GET", "/v1/private-avatar/assets/asset_local", "", "nmyk", false},
 		{"POST", "/v1/assets/get", `{"asset_id":"asset_local"}`, "nmyk", false},
 		{"POST", "/?Action=GetAssetGroup&Version=2024-01-01", `{"Id":"ag_local","ProjectName":"other"}`, "other", false},

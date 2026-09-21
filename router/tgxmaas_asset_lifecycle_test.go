@@ -130,8 +130,8 @@ func TestTgxMaasAssetAliasesLifecycle(t *testing.T) {
 	require.Equal(t, before, calls)
 	require.NoError(t, db.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"model_limits_enabled": true, "model_limits": modelName}).Error)
 	w := call("POST", "/v1/assets/get", `{"asset_id":"asset_local"}`)
-	require.Equal(t, 403, w.Code, w.Body.String())
-	require.Equal(t, before, calls)
+	require.Equal(t, 200, w.Code, "owned asset lookup does not require a video model: %s", w.Body.String())
+	require.Equal(t, before+1, calls)
 	w = call("POST", "/v1/assets/get", `{"asset_id":"asset_local","model":"`+modelName+`"}`)
 	require.Equal(t, 200, w.Code, w.Body.String())
 }
