@@ -1,0 +1,52 @@
+# Requires Docker Compose >= 2.30 for env_file.format: raw.
+# Explicit service selection is required; plain `up -d` starts no services.
+name: apimeter-upgrade
+
+x-app: &app
+  profiles: [manual]
+  restart: "no"
+  network_mode: host
+  env_file:
+    - path: ./env/shared.env
+      format: raw
+  command: ["--log-dir", "/data/logs"]
+  stop_grace_period: 16m
+  cpus: 2
+  mem_limit: 2g
+
+services:
+  old-slave:
+    <<: *app
+    image: wagjie/modelsell-api@sha256:f45ab9f8be563e6f08d72a0301bd9300ca69a6aea7135338285f516a20bc3f44
+    environment:
+      NODE_TYPE: slave
+      NODE_NAME: upgrade-old-slave
+      PORT: "3011"
+    volumes:
+      - ./data/old-slave:/data
+      - ./data/shared/relay-temp-images:/data/relay-temp-images
+
+  new-master:
+    <<: *app
+    image: apimeter/apimeter@sha256:bd4c728b7c614f4f181ad86e8d90d12043eb0e3e6383af06fcd1a5a206de2ede
+    environment:
+      NODE_TYPE: master
+      NODE_NAME: upgrade-new-master
+      PORT: "3012"
+      SHUTDOWN_TIMEOUT_SECONDS: "900"
+      CHANNEL_UPDATE_FREQUENCY: "30"
+    volumes:
+      - ./data/new-master:/data
+      - ./data/shared/relay-temp-images:/data/relay-temp-images
+
+  new-slave:
+    <<: *app
+    image: apimeter/apimeter@sha256:bd4c728b7c614f4f181ad86e8d90d12043eb0e3e6383af06fcd1a5a206de2ede
+    environment:
+      NODE_TYPE: slave
+      NODE_NAME: upgrade-new-slave
+      PORT: "3013"
+      SHUTDOWN_TIMEOUT_SECONDS: "900"
+    volumes:
+      - ./data/new-slave:/data
+      - ./data/shared/relay-temp-images:/data/relay-temp-images

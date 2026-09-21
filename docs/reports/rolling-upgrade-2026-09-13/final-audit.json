@@ -1,0 +1,152 @@
+{
+  "schema": {
+    "modelsell": {
+      "before_tables": 60,
+      "after_tables": 66,
+      "added": [
+        "agent_announcements",
+        "auth_flows",
+        "authz_roles",
+        "casbin_rule",
+        "external_identity_claims",
+        "user_sessions"
+      ],
+      "removed": [],
+      "changed": [
+        "crypto_payments",
+        "midjourneys",
+        "tasks",
+        "tokens",
+        "users"
+      ]
+    },
+    "modelsell-log": {
+      "before_tables": 9,
+      "after_tables": 9,
+      "added": [],
+      "removed": [],
+      "changed": []
+    }
+  },
+  "billing_window": {
+    "rows_sum_min_max": "743\t7430\t10\t10",
+    "duplicate_request_ids": "0"
+  },
+  "log_checks": {
+    "old": {
+      "unknown_column": 0,
+      "missing_table": 0,
+      "deadlock": 0,
+      "lock_timeout": 0,
+      "panic": 0,
+      "database_migration_started": 0
+    },
+    "new": {
+      "unknown_column": 0,
+      "missing_table": 0,
+      "deadlock": 0,
+      "lock_timeout": 0,
+      "panic": 0,
+      "database_migration_started": 4
+    }
+  },
+  "isolated_network": {
+    "name": "compat0913",
+    "internal": true,
+    "containers": [
+      "compat0913-db",
+      "compat0913-mock",
+      "compat0913-new",
+      "compat0913-old",
+      "compat0913-redis"
+    ]
+  },
+  "test_container_ports": {
+    "compat0913-old": {
+      "3000/tcp": null,
+      "34101/tcp": null
+    },
+    "compat0913-new": {
+      "3000/tcp": null,
+      "34102/tcp": null
+    },
+    "compat0913-mock": {},
+    "compat0913-redis": {
+      "6379/tcp": null
+    },
+    "compat0913-db": {
+      "3306/tcp": null,
+      "33060/tcp": null
+    }
+  },
+  "existing_containers_unchanged": true,
+  "existing_containers": {
+    "/test57-app-1": {
+      "id": "904659c7f0c9b720ef2e3512d9bce45af756a63769beb766b4b69468c32a7bcd",
+      "started_at": "2026-09-12T11:33:26.02160725Z",
+      "status": "exited",
+      "restarts": 0
+    },
+    "/test57-db-1": {
+      "id": "4210471f6e777a4525181db8b7f652eadd8d86d236d1b64eee6e907555171dc8",
+      "started_at": "2026-09-12T12:08:05.147323745Z",
+      "status": "exited",
+      "restarts": 0
+    },
+    "/apimeter-server-mysql-test-1": {
+      "id": "ef57c1d06755569419cc9e15cc06cc1a221314ce2c80d822b3588753d9fd4dee",
+      "started_at": "2026-09-12T10:47:20.822902165Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/apimeter": {
+      "id": "211621ceeb293fb35b6d46a30af80a4584e59d5fa155a74d0e666e13a589db1b",
+      "started_at": "2026-09-12T10:09:01.916373096Z",
+      "status": "exited",
+      "restarts": 7
+    },
+    "/sub2api": {
+      "id": "5904ea5e2ef675df862bdb4428be9fc3f2566244dadd737581049fc9da347a45",
+      "started_at": "2026-08-13T01:22:02.442370575Z",
+      "status": "running",
+      "restarts": 1
+    },
+    "/sub2api-postgres": {
+      "id": "3f4d9893efb1d97a6a75ecb0022425ee1bad1cf2e1e34f068f9892c1d1476106",
+      "started_at": "2026-08-11T06:29:00.202159614Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/sub2api-redis": {
+      "id": "74492179c15a8941560cae386165dc08a9e66b1fb24551389838e1d221493fae",
+      "started_at": "2026-08-11T06:29:00.202616738Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/new-api": {
+      "id": "14dd186b62d7b77a02252010489f566aa321595ddd13bc0c6a72005db2ed691f",
+      "started_at": "2026-08-11T06:13:11.650957312Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/postgres": {
+      "id": "b52e9ba969cf68fff1640aab5ef58093db6366abefe95e1b819ab0c19cd912ea",
+      "started_at": "2026-08-11T06:13:11.47873936Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/redis": {
+      "id": "e27136dd39b97f4a1dd201ffd6f3ce62de14ed89f3145145fdaca6836f063d8a",
+      "started_at": "2026-08-11T06:13:11.477987315Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/apimeter-docs": {
+      "id": "4dbda133ca1a67adfbcfc1595cd95a9c210ba79273031b4b82c46531cb8aba37",
+      "started_at": "2026-08-03T07:39:35.195644328Z",
+      "status": "running",
+      "restarts": 0
+    }
+  },
+  "test_containers_stopped": true
+}

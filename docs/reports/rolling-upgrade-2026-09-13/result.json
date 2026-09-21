@@ -1,0 +1,371 @@
+{
+  "images": {
+    "wagjie/modelsell-api:modelsell-2026.08.05": {
+      "id": "sha256:f45ab9f8be563e6f08d72a0301bd9300ca69a6aea7135338285f516a20bc3f44",
+      "digests": [
+        "wagjie/modelsell-api@sha256:f45ab9f8be563e6f08d72a0301bd9300ca69a6aea7135338285f516a20bc3f44"
+      ],
+      "labels": {
+        "org.opencontainers.image.description": "Modelsell API gateway",
+        "org.opencontainers.image.title": "Modelsell API",
+        "org.opencontainers.image.vendor": "Modelsell"
+      },
+      "entrypoint": [
+        "/modelsell-api"
+      ]
+    },
+    "apimeter/apimeter:v1.0.2": {
+      "id": "sha256:bd4c728b7c614f4f181ad86e8d90d12043eb0e3e6383af06fcd1a5a206de2ede",
+      "digests": [
+        "apimeter/apimeter@sha256:bd4c728b7c614f4f181ad86e8d90d12043eb0e3e6383af06fcd1a5a206de2ede"
+      ],
+      "labels": {
+        "org.opencontainers.image.created": "2026-09-12T08:04:58.927Z",
+        "org.opencontainers.image.description": "",
+        "org.opencontainers.image.licenses": "AGPL-3.0",
+        "org.opencontainers.image.revision": "6b56551d67d2151e2e5d65d1c1e9afb08259e92e",
+        "org.opencontainers.image.source": "https://github.com/liyunhai1986365/apimeter",
+        "org.opencontainers.image.title": "apimeter",
+        "org.opencontainers.image.url": "https://github.com/liyunhai1986365/apimeter",
+        "org.opencontainers.image.vendor": "Modelsell",
+        "org.opencontainers.image.version": "v1.0.2"
+      },
+      "entrypoint": [
+        "/modelsell-api"
+      ]
+    },
+    "mysql:5.7.43": {
+      "id": "sha256:4f9bfb0f7dd97739ceedb546b381534bb11e9b4abf013d6ad9ae6473fed66099",
+      "digests": [
+        "mysql@sha256:4f9bfb0f7dd97739ceedb546b381534bb11e9b4abf013d6ad9ae6473fed66099"
+      ],
+      "labels": null,
+      "entrypoint": [
+        "docker-entrypoint.sh"
+      ]
+    },
+    "redis:8-alpine": {
+      "id": "sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241",
+      "digests": [
+        "redis@sha256:978f0e01593e65eed801f2402944efcd936d43b5027e4908a7897baf88ed6241"
+      ],
+      "labels": null,
+      "entrypoint": [
+        "docker-entrypoint.sh"
+      ]
+    },
+    "python:3.12-alpine": {
+      "id": "sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a",
+      "digests": [
+        "python@sha256:b64631e04e4920160c50fbe8d8df828f7f35f06f425cb44aa09bca53e708a35a"
+      ],
+      "labels": null,
+      "entrypoint": null
+    }
+  },
+  "before": {
+    "user": "99999980\t20\t2",
+    "token": "99999980\t20\t1",
+    "logs": "2\t2\t20\n4\t1\t0",
+    "log_max_id": "494220"
+  },
+  "after": {
+    "user": "99992550\t7450\t745",
+    "token": "99992550\t7450\t1",
+    "logs": "2\t745\t7450\n4\t1\t0\n7\t1\t0",
+    "log_max_id": "494970"
+  },
+  "groups": {
+    "baseline/old/chat": {
+      "count": 120,
+      "failures": 0,
+      "p95_seconds": 0.0568,
+      "max_seconds": 0.0754
+    },
+    "baseline/old/logs": {
+      "count": 31,
+      "failures": 0,
+      "p95_seconds": 0.0057,
+      "max_seconds": 0.0247
+    },
+    "baseline/old/long_sse": {
+      "count": 1,
+      "failures": 0,
+      "p95_seconds": 90.0457,
+      "max_seconds": 90.0457
+    },
+    "baseline/old/self": {
+      "count": 60,
+      "failures": 0,
+      "p95_seconds": 0.004,
+      "max_seconds": 0.0235
+    },
+    "baseline/old/sse": {
+      "count": 60,
+      "failures": 0,
+      "p95_seconds": 0.3129,
+      "max_seconds": 0.331
+    },
+    "baseline/old/tokens": {
+      "count": 21,
+      "failures": 0,
+      "p95_seconds": 0.0076,
+      "max_seconds": 0.0249
+    },
+    "migration/old/chat": {
+      "count": 5,
+      "failures": 0,
+      "p95_seconds": 0.0577,
+      "max_seconds": 0.0577
+    },
+    "migration/old/logs": {
+      "count": 1,
+      "failures": 0,
+      "p95_seconds": 0.0049,
+      "max_seconds": 0.0049
+    },
+    "migration/old/self": {
+      "count": 3,
+      "failures": 0,
+      "p95_seconds": 0.0043,
+      "max_seconds": 0.0043
+    },
+    "migration/old/sse": {
+      "count": 3,
+      "failures": 0,
+      "p95_seconds": 0.3113,
+      "max_seconds": 0.3113
+    },
+    "mixed/new/chat": {
+      "count": 139,
+      "failures": 0,
+      "p95_seconds": 0.0562,
+      "max_seconds": 0.0588
+    },
+    "mixed/new/self": {
+      "count": 139,
+      "failures": 0,
+      "p95_seconds": 0.005,
+      "max_seconds": 0.0064
+    },
+    "mixed/old/chat": {
+      "count": 277,
+      "failures": 0,
+      "p95_seconds": 0.0568,
+      "max_seconds": 0.0955
+    },
+    "mixed/old/logs": {
+      "count": 69,
+      "failures": 0,
+      "p95_seconds": 0.0065,
+      "max_seconds": 0.0075
+    },
+    "mixed/old/self": {
+      "count": 138,
+      "failures": 0,
+      "p95_seconds": 0.0046,
+      "max_seconds": 0.0056
+    },
+    "mixed/old/sse": {
+      "count": 138,
+      "failures": 0,
+      "p95_seconds": 0.3127,
+      "max_seconds": 0.3143
+    },
+    "mixed/old/tokens": {
+      "count": 46,
+      "failures": 0,
+      "p95_seconds": 0.0084,
+      "max_seconds": 0.0087
+    }
+  },
+  "checks": {
+    "old_async_image_submit": {
+      "status": 503,
+      "ok": false,
+      "elapsed": 0.0017,
+      "error": "{'code': 'model_not_found', 'message': 'Failed to get available channel for model dall-e-3 under group default (distributor): 当前模型 dall-e-3 没有可用渠道支持 openai.image.generations 请求模式或 openai.image.generations_to_gemini.generate_content 转化 (request id: 202609130335252942894098268d9d6Of5Htxe2)', 'type': 'new_api_error'}"
+    },
+    "old_async_image_task_created": false,
+    "new_ready": {
+      "ok": true,
+      "elapsed": 2.1962642669677734,
+      "started": 1789270525.295561,
+      "finished": 1789270527.4918253
+    },
+    "old_cookie_on_new": {
+      "status": 401,
+      "ok": false,
+      "elapsed": 0.0011,
+      "error": "Unauthorized, invalid access token"
+    },
+    "new_session_on_old": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0037
+    },
+    "old_revoke_token_warmup": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.055
+    },
+    "new_disable_token": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.006
+    },
+    "old_reject_disabled_token": {
+      "status": 401,
+      "ok": false,
+      "elapsed": 0.0039,
+      "error": "{'code': '', 'message': 'Invalid token (request id: 202609130335338010689738268d9d6KuZTBozb)', 'type': 'new_api_error'}"
+    },
+    "new_enable_token": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0063
+    },
+    "old_accept_enabled_token": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0565
+    },
+    "new_disable_user": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0135
+    },
+    "old_cookie_disabled_user": {
+      "status": 401,
+      "ok": false,
+      "elapsed": 0.0029,
+      "error": "User has been banned"
+    },
+    "old_token_disabled_user": {
+      "status": 403,
+      "ok": false,
+      "elapsed": 0.0017,
+      "error": "{'code': '', 'message': 'User has been banned (request id: 202609130335458964199548268d9d6imWUaPvv)', 'type': 'new_api_error'}"
+    },
+    "new_enable_user": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0075
+    },
+    "long_sse": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 90.0457
+    },
+    "new_stopped:/api/user/self": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0034
+    },
+    "new_stopped:/api/log/self?p=1&page_size=10": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0039
+    },
+    "new_stopped:/api/token/?p=1&page_size=10": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0041
+    },
+    "new_stopped:chat": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0534
+    },
+    "old_restarted:/api/user/self": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0032
+    },
+    "old_restarted:/api/log/self?p=1&page_size=10": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0052
+    },
+    "old_restarted:/api/token/?p=1&page_size=10": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0069
+    },
+    "old_restarted:chat": {
+      "status": 200,
+      "ok": true,
+      "elapsed": 0.0563
+    }
+  },
+  "failures": [],
+  "existing_containers_unchanged": true,
+  "protected_after": {
+    "/test57-app-1": {
+      "id": "904659c7f0c9b720ef2e3512d9bce45af756a63769beb766b4b69468c32a7bcd",
+      "started_at": "2026-09-12T11:33:26.02160725Z",
+      "status": "exited",
+      "restarts": 0
+    },
+    "/test57-db-1": {
+      "id": "4210471f6e777a4525181db8b7f652eadd8d86d236d1b64eee6e907555171dc8",
+      "started_at": "2026-09-12T12:08:05.147323745Z",
+      "status": "exited",
+      "restarts": 0
+    },
+    "/apimeter-server-mysql-test-1": {
+      "id": "ef57c1d06755569419cc9e15cc06cc1a221314ce2c80d822b3588753d9fd4dee",
+      "started_at": "2026-09-12T10:47:20.822902165Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/apimeter": {
+      "id": "211621ceeb293fb35b6d46a30af80a4584e59d5fa155a74d0e666e13a589db1b",
+      "started_at": "2026-09-12T10:09:01.916373096Z",
+      "status": "exited",
+      "restarts": 7
+    },
+    "/sub2api": {
+      "id": "5904ea5e2ef675df862bdb4428be9fc3f2566244dadd737581049fc9da347a45",
+      "started_at": "2026-08-13T01:22:02.442370575Z",
+      "status": "running",
+      "restarts": 1
+    },
+    "/sub2api-postgres": {
+      "id": "3f4d9893efb1d97a6a75ecb0022425ee1bad1cf2e1e34f068f9892c1d1476106",
+      "started_at": "2026-08-11T06:29:00.202159614Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/sub2api-redis": {
+      "id": "74492179c15a8941560cae386165dc08a9e66b1fb24551389838e1d221493fae",
+      "started_at": "2026-08-11T06:29:00.202616738Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/new-api": {
+      "id": "14dd186b62d7b77a02252010489f566aa321595ddd13bc0c6a72005db2ed691f",
+      "started_at": "2026-08-11T06:13:11.650957312Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/postgres": {
+      "id": "b52e9ba969cf68fff1640aab5ef58093db6366abefe95e1b819ab0c19cd912ea",
+      "started_at": "2026-08-11T06:13:11.47873936Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/redis": {
+      "id": "e27136dd39b97f4a1dd201ffd6f3ce62de14ed89f3145145fdaca6836f063d8a",
+      "started_at": "2026-08-11T06:13:11.477987315Z",
+      "status": "running",
+      "restarts": 0
+    },
+    "/apimeter-docs": {
+      "id": "4dbda133ca1a67adfbcfc1595cd95a9c210ba79273031b4b82c46531cb8aba37",
+      "started_at": "2026-08-03T07:39:35.195644328Z",
+      "status": "running",
+      "restarts": 0
+    }
+  }
+}

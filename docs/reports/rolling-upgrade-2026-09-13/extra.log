@@ -1,0 +1,18 @@
+old_async_image_submit {"status": 200, "ok": true, "elapsed": 0.0284}
+old_task_initial_on_old {"status": 200, "ok": true, "elapsed": 0.002}
+old_task_initial_on_new {"status": 200, "ok": true, "elapsed": 0.0043}
+old_task_final_on_old {"status": 200, "ok": true, "elapsed": 0.0047}
+old_task_final_on_new {"status": 200, "ok": true, "elapsed": 0.0036}
+new_async_image_submit {"status": 200, "ok": true, "elapsed": 0.0099}
+new_task_initial_on_old {"status": 200, "ok": true, "elapsed": 0.0025}
+new_task_initial_on_new {"status": 200, "ok": true, "elapsed": 0.0022}
+new_task_final_on_old {"status": 200, "ok": true, "elapsed": 0.0038}
+new_task_final_on_new {"status": 200, "ok": true, "elapsed": 0.0035}
+LOGIN new compatrevoke {'status': 200, 'ok': True, 'elapsed': 0.0731} data_keys ['access_expires_at', 'access_token', 'aff_code', 'aff_count', 'aff_history_quota', 'aff_quota', 'affiliate_policy', 'affiliate_role', 'allowed_modules', 'credit_quota', 'discord_id', 'display_name', 'email', 'github_id', 'group', 'has_agent', 'id', 'inviter_id', 'linux_do_id', 'must_change_password', 'oidc_id', 'parent_user_id', 'permissions', 'quota', 'request_count', 'role', 'session', 'setting', 'sidebar_modules', 'status', 'stripe_customer', 'telegram_id', 'token_type', 'used_quota', 'user', 'username', 'wechat_id', 'workspace_subaccount']
+new_session_before_logout_on_old {"status": 200, "ok": true, "elapsed": 0.0027}
+new_logout {"status": 200, "ok": true, "elapsed": 0.0065}
+revoked_new_session_on_new {"status": 401, "ok": false, "elapsed": 0.0013, "error": "Unauthorized, not logged in and no access token provided"}
+revoked_new_session_on_old {"status": 200, "ok": true, "elapsed": 0.0025}
+old_register_after_migration {"status": 200, "ok": true, "elapsed": 0.0818}
+LOGIN new compatpost {'status': 200, 'ok': True, 'elapsed': 0.0726} data_keys ['access_expires_at', 'access_token', 'aff_code', 'aff_count', 'aff_history_quota', 'aff_quota', 'affiliate_policy', 'affiliate_role', 'allowed_modules', 'credit_quota', 'discord_id', 'display_name', 'email', 'github_id', 'group', 'has_agent', 'id', 'inviter_id', 'linux_do_id', 'must_change_password', 'oidc_id', 'parent_user_id', 'permissions', 'quota', 'request_count', 'role', 'session', 'setting', 'sidebar_modules', 'status', 'stripe_customer', 'telegram_id', 'token_type', 'used_quota', 'user', 'username', 'wechat_id', 'workspace_subaccount']
+EXTRA COMPLETE

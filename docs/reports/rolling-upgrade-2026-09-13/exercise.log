@@ -1,0 +1,38 @@
+PROGRESS baseline requests 75 failures 0
+PROGRESS baseline requests 148 failures 0
+PROGRESS baseline requests 220 failures 0
+PROGRESS baseline requests 292 failures 0
+CHECK old_async_image_submit {"status": 503, "ok": false, "elapsed": 0.0017, "error": "{'code': 'model_not_found', 'message': 'Failed to get available channel for model dall-e-3 under group default (distributor): 当前模型 dall-e-3 没有可用渠道支持 openai.image.generations 请求模式或 openai.image.generations_to_gemini.generate_content 转化 (request id: 202609130335252942894098268d9d6Of5Htxe2)', 'type': 'new_api_error'}"}
+NEW MASTER STARTED 1789270525.295561
+NEW MASTER READINESS {'ok': True, 'elapsed': 2.1962642669677734, 'started': 1789270525.295561, 'finished': 1789270527.4918253}
+CHECK old_cookie_on_new {"status": 401, "ok": false, "elapsed": 0.0011, "error": "Unauthorized, invalid access token"}
+LOGIN new compatroot {'status': 200, 'ok': True, 'elapsed': 0.0831} data_keys ['access_expires_at', 'access_token', 'aff_code', 'aff_count', 'aff_history_quota', 'aff_quota', 'affiliate_policy', 'affiliate_role', 'allowed_modules', 'credit_quota', 'discord_id', 'display_name', 'email', 'github_id', 'group', 'has_agent', 'id', 'inviter_id', 'linux_do_id', 'must_change_password', 'oidc_id', 'parent_user_id', 'permissions', 'quota', 'request_count', 'role', 'session', 'setting', 'sidebar_modules', 'status', 'stripe_customer', 'telegram_id', 'token_type', 'used_quota', 'user', 'username', 'wechat_id', 'workspace_subaccount']
+LOGIN new compatuser {'status': 200, 'ok': True, 'elapsed': 0.0739} data_keys ['access_expires_at', 'access_token', 'aff_code', 'aff_count', 'aff_history_quota', 'aff_quota', 'affiliate_policy', 'affiliate_role', 'allowed_modules', 'credit_quota', 'discord_id', 'display_name', 'email', 'github_id', 'group', 'has_agent', 'id', 'inviter_id', 'linux_do_id', 'must_change_password', 'oidc_id', 'parent_user_id', 'permissions', 'quota', 'request_count', 'role', 'session', 'setting', 'sidebar_modules', 'status', 'stripe_customer', 'telegram_id', 'token_type', 'used_quota', 'user', 'username', 'wechat_id', 'workspace_subaccount']
+LOGIN new compatrevoke {'status': 200, 'ok': True, 'elapsed': 0.0752} data_keys ['access_expires_at', 'access_token', 'aff_code', 'aff_count', 'aff_history_quota', 'aff_quota', 'affiliate_policy', 'affiliate_role', 'allowed_modules', 'credit_quota', 'discord_id', 'display_name', 'email', 'github_id', 'group', 'has_agent', 'id', 'inviter_id', 'linux_do_id', 'must_change_password', 'oidc_id', 'parent_user_id', 'permissions', 'quota', 'request_count', 'role', 'session', 'setting', 'sidebar_modules', 'status', 'stripe_customer', 'telegram_id', 'token_type', 'used_quota', 'user', 'username', 'wechat_id', 'workspace_subaccount']
+CHECK new_session_on_old {"status": 200, "ok": true, "elapsed": 0.0037}
+CHECK old_revoke_token_warmup {"status": 200, "ok": true, "elapsed": 0.055}
+CHECK new_disable_token {"status": 200, "ok": true, "elapsed": 0.006}
+CHECK old_reject_disabled_token {"status": 401, "ok": false, "elapsed": 0.0039, "error": "{'code': '', 'message': 'Invalid token (request id: 202609130335338010689738268d9d6KuZTBozb)', 'type': 'new_api_error'}"}
+CHECK new_enable_token {"status": 200, "ok": true, "elapsed": 0.0063}
+CHECK old_accept_enabled_token {"status": 200, "ok": true, "elapsed": 0.0565}
+CHECK new_disable_user {"status": 200, "ok": true, "elapsed": 0.0135}
+CHECK old_cookie_disabled_user {"status": 401, "ok": false, "elapsed": 0.0029, "error": "User has been banned"}
+CHECK old_token_disabled_user {"status": 403, "ok": false, "elapsed": 0.0017, "error": "{'code': '', 'message': 'User has been banned (request id: 202609130335458964199548268d9d6imWUaPvv)', 'type': 'new_api_error'}"}
+CHECK new_enable_user {"status": 200, "ok": true, "elapsed": 0.0075}
+PROGRESS mixed requests 228 failures 0
+PROGRESS mixed requests 331 failures 0
+PROGRESS mixed requests 433 failures 0
+PROGRESS mixed requests 536 failures 0
+PROGRESS mixed requests 638 failures 0
+PROGRESS mixed requests 741 failures 0
+PROGRESS mixed requests 843 failures 0
+PROGRESS mixed requests 946 failures 0
+CHECK new_stopped:/api/user/self {"status": 200, "ok": true, "elapsed": 0.0034}
+CHECK new_stopped:/api/log/self?p=1&page_size=10 {"status": 200, "ok": true, "elapsed": 0.0039}
+CHECK new_stopped:/api/token/?p=1&page_size=10 {"status": 200, "ok": true, "elapsed": 0.0041}
+CHECK new_stopped:chat {"status": 200, "ok": true, "elapsed": 0.0534}
+CHECK old_restarted:/api/user/self {"status": 200, "ok": true, "elapsed": 0.0032}
+CHECK old_restarted:/api/log/self?p=1&page_size=10 {"status": 200, "ok": true, "elapsed": 0.0052}
+CHECK old_restarted:/api/token/?p=1&page_size=10 {"status": 200, "ok": true, "elapsed": 0.0069}
+CHECK old_restarted:chat {"status": 200, "ok": true, "elapsed": 0.0563}
+COMPLETE {"requests": 1251, "failures": 0, "existing_containers_unchanged": true, "result": "/opt/apimeter-server/compat-20260913/result.json"}

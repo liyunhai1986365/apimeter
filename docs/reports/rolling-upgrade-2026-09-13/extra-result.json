@@ -1,0 +1,125 @@
+{
+  "old_async_image_submit": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0284
+  },
+  "old_async_shape": {
+    "keys": [
+      "id",
+      "state",
+      "progress",
+      "create_time",
+      "update_time",
+      "action",
+      "data"
+    ],
+    "task_id_present": true
+  },
+  "old_task_initial_on_old": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.002
+  },
+  "old_task_initial_on_new": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0043
+  },
+  "old_task_final_on_old": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0047
+  },
+  "old_task_state_on_old": {
+    "state": "succeeded",
+    "has_data": true,
+    "error": null
+  },
+  "old_task_final_on_new": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0036
+  },
+  "old_task_state_on_new": {
+    "state": "succeeded",
+    "has_data": true,
+    "error": null
+  },
+  "new_async_image_submit": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0099
+  },
+  "new_async_shape": {
+    "keys": [
+      "id",
+      "state",
+      "progress",
+      "create_time",
+      "update_time",
+      "action",
+      "data"
+    ],
+    "task_id_present": true
+  },
+  "new_task_initial_on_old": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0025
+  },
+  "new_task_initial_on_new": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0022
+  },
+  "new_task_final_on_old": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0038
+  },
+  "new_task_state_on_old": {
+    "state": "succeeded",
+    "has_data": true,
+    "error": null
+  },
+  "new_task_final_on_new": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0035
+  },
+  "new_task_state_on_new": {
+    "state": "succeeded",
+    "has_data": true,
+    "error": null
+  },
+  "new_session_before_logout_on_old": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0027
+  },
+  "new_logout": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0065
+  },
+  "revoked_new_session_on_new": {
+    "status": 401,
+    "ok": false,
+    "elapsed": 0.0013,
+    "error": "Unauthorized, not logged in and no access token provided"
+  },
+  "revoked_new_session_on_old": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0025
+  },
+  "old_register_after_migration": {
+    "status": 200,
+    "ok": true,
+    "elapsed": 0.0818
+  },
+  "old_created_user_auth_version": "1",
+  "old_created_user_new_login": true,
+  "image_tasks_db": "1\tSUCCESS\t20000\t100%\n1\tSUCCESS\t20000\t100%"
+}

@@ -1,0 +1,92 @@
+{
+  "scope": "isolated test57 only; no application start; SQL writes rolled back",
+  "checks": {
+    "modelsell.users_rows_before": 38,
+    "modelsell.users_old_columns_read": true,
+    "modelsell.users_insert_update_assertions": [
+      "1",
+      "1",
+      "1",
+      "1"
+    ],
+    "modelsell.users_insert_update_pass": true,
+    "modelsell.users_rollback_row_count_unchanged": true,
+    "modelsell-log.logs_rows_before": 494212,
+    "modelsell-log.logs_old_columns_read": true,
+    "modelsell-log.logs_insert_update_assertions": [
+      "1",
+      "1"
+    ],
+    "modelsell-log.logs_insert_update_pass": true,
+    "modelsell-log.logs_rollback_row_count_unchanged": true
+  },
+  "mysql_version": "5.7.43",
+  "schema_changes": {
+    "modelsell": {
+      "before_count": 60,
+      "after_count": 66,
+      "changes": [
+        {
+          "table": "agent_announcements",
+          "kind": "added",
+          "diff": "--- before\n+++ after\n@@ -0,0 +1,24 @@\n+CREATE TABLE `agent_announcements` (\n+  `id` bigint(20) NOT NULL AUTO_INCREMENT,\n+  `agent_id` bigint(20) DEFAULT NULL,\n+  `title` varchar(120) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `content` text COLLATE utf8mb4_unicode_ci,\n+  `type` varchar(32) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `extra` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `publish_at` bigint(20) DEFAULT NULL,\n+  `enabled` tinyint(1) DEFAULT NULL,\n+  `created_by` bigint(20) DEFAULT NULL,\n+  `updated_by` bigint(20) DEFAULT NULL,\n+  `last_email_at` bigint(20) DEFAULT NULL,\n+  `last_email_total` bigint(20) DEFAULT NULL,\n+  `last_email_sent` bigint(20) DEFAULT NULL,\n+  `last_email_failed` bigint(20) DEFAULT NULL,\n+  `created_at` bigint(20) DEFAULT NULL,\n+  `updated_at` bigint(20) DEFAULT NULL,\n+  PRIMARY KEY (`id`),\n+  KEY `idx_agent_announcements_agent_publish` (`agent_id`,`publish_at`),\n+  KEY `idx_agent_announcements_type` (`type`),\n+  KEY `idx_agent_announcements_enabled` (`enabled`),\n+  KEY `idx_agent_announcements_created_by` (`created_by`),\n+  KEY `idx_agent_announcements_updated_by` (`updated_by`)\n+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+        },
+        {
+          "table": "auth_flows",
+          "kind": "added",
+          "diff": "--- before\n+++ after\n@@ -0,0 +1,19 @@\n+CREATE TABLE `auth_flows` (\n+  `id` bigint(20) NOT NULL AUTO_INCREMENT,\n+  `token_hash` char(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `purpose` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `provider` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `intent` varchar(16) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `user_id` bigint(20) DEFAULT NULL,\n+  `session_id` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `payload` text COLLATE utf8mb4_unicode_ci,\n+  `created_at` datetime(3) DEFAULT NULL,\n+  `expires_at` datetime(3) NOT NULL,\n+  `consumed_at` datetime(3) DEFAULT NULL,\n+  PRIMARY KEY (`id`),\n+  UNIQUE KEY `idx_auth_flows_token_hash` (`token_hash`),\n+  KEY `idx_auth_flows_consumed_at` (`consumed_at`),\n+  KEY `idx_auth_flow_purpose_expiry` (`purpose`,`expires_at`),\n+  KEY `idx_auth_flows_user_id` (`user_id`),\n+  KEY `idx_auth_flows_session_id` (`session_id`)\n+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+        },
+        {
+          "table": "authz_roles",
+          "kind": "added",
+          "diff": "--- before\n+++ after\n@@ -0,0 +1,13 @@\n+CREATE TABLE `authz_roles` (\n+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,\n+  `key` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `name` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `description` text COLLATE utf8mb4_unicode_ci,\n+  `built_in` tinyint(1) DEFAULT NULL,\n+  `enabled` tinyint(1) DEFAULT NULL,\n+  `sort` bigint(20) DEFAULT NULL,\n+  `created_at` bigint(20) DEFAULT NULL,\n+  `updated_at` bigint(20) DEFAULT NULL,\n+  PRIMARY KEY (`id`),\n+  UNIQUE KEY `idx_authz_roles_key` (`key`)\n+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+        },
+        {
+          "table": "casbin_rule",
+          "kind": "added",
+          "diff": "--- before\n+++ after\n@@ -0,0 +1,13 @@\n+CREATE TABLE `casbin_rule` (\n+  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,\n+  `ptype` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `v0` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `v1` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `v2` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `v3` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `v4` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `v5` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  PRIMARY KEY (`id`),\n+  UNIQUE KEY `idx_casbin_rule_unique` (`ptype`,`v0`,`v1`,`v2`,`v3`,`v4`,`v5`),\n+  KEY `idx_casbin_rule` (`ptype`,`v0`,`v1`,`v2`,`v3`,`v4`,`v5`)\n+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+        },
+        {
+          "table": "crypto_payments",
+          "kind": "changed",
+          "diff": "--- before\n+++ after\n@@ -25,6 +25,7 @@\n   `block_number` bigint(20) DEFAULT NULL,\n   `reservation_key` varchar(64) DEFAULT NULL,\n   `transaction_key` varchar(64) DEFAULT NULL,\n+  `progress_snapshot` text,\n   PRIMARY KEY (`id`),\n   UNIQUE KEY `idx_crypto_payments_reservation_key` (`reservation_key`),\n   UNIQUE KEY `idx_crypto_payments_transaction_key` (`transaction_key`),"
+        },
+        {
+          "table": "external_identity_claims",
+          "kind": "added",
+          "diff": "--- before\n+++ after\n@@ -0,0 +1,11 @@\n+CREATE TABLE `external_identity_claims` (\n+  `id` bigint(20) NOT NULL AUTO_INCREMENT,\n+  `provider` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `subject` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `user_id` bigint(20) NOT NULL,\n+  `created_at` datetime(3) DEFAULT NULL,\n+  PRIMARY KEY (`id`),\n+  UNIQUE KEY `idx_external_identity_subject` (`provider`,`subject`),\n+  UNIQUE KEY `idx_external_identity_user` (`provider`,`user_id`),\n+  KEY `idx_external_identity_claims_user_id` (`user_id`)\n+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+        },
+        {
+          "table": "midjourneys",
+          "kind": "changed",
+          "diff": "--- before\n+++ after\n@@ -21,6 +21,8 @@\n   `quota` bigint(20) DEFAULT NULL,\n   `buttons` longtext,\n   `properties` longtext,\n+  `token_id` bigint(20) DEFAULT '0',\n+  `billing_channel_id` bigint(20) DEFAULT '0',\n   PRIMARY KEY (`id`),\n   KEY `idx_midjourneys_action` (`action`),\n   KEY `idx_midjourneys_mj_id` (`mj_id`),"
+        },
+        {
+          "table": "tasks",
+          "kind": "changed",
+          "diff": "--- before\n+++ after\n@@ -20,6 +20,11 @@\n   `properties` json DEFAULT NULL,\n   `private_data` json DEFAULT NULL,\n   `data` json DEFAULT NULL,\n+  `image_base64_state` bigint(20) NOT NULL DEFAULT '0',\n+  `image_expires_at` bigint(20) NOT NULL DEFAULT '0',\n+  `image_base64_cleared_at` bigint(20) NOT NULL DEFAULT '0',\n+  `image_base64_version` bigint(20) NOT NULL DEFAULT '0',\n+  `image_has_url` tinyint(1) NOT NULL DEFAULT '0',\n   PRIMARY KEY (`id`),\n   KEY `idx_tasks_status` (`status`),\n   KEY `idx_tasks_submit_time` (`submit_time`),\n@@ -33,5 +38,6 @@\n   KEY `idx_tasks_action` (`action`),\n   KEY `idx_tasks_progress` (`progress`),\n   KEY `idx_tasks_created_at` (`created_at`),\n-  KEY `idx_tasks_channel_id` (`channel_id`)\n+  KEY `idx_tasks_channel_id` (`channel_id`),\n+  KEY `idx_task_image_expiry` (`image_base64_state`,`image_expires_at`,`id`)\n ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;"
+        },
+        {
+          "table": "tokens",
+          "kind": "changed",
+          "diff": "--- before\n+++ after\n@@ -22,6 +22,7 @@\n   `subscription_plan_id` bigint(20) DEFAULT '0',\n   `user_subscription_id` bigint(20) DEFAULT '0',\n   `deleted_at` datetime(3) DEFAULT NULL,\n+  `auto_groups` text,\n   PRIMARY KEY (`id`),\n   UNIQUE KEY `idx_tokens_key` (`key`),\n   KEY `idx_tokens_subscription_plan_id` (`subscription_plan_id`),"
+        },
+        {
+          "table": "user_sessions",
+          "kind": "added",
+          "diff": "--- before\n+++ after\n@@ -0,0 +1,23 @@\n+CREATE TABLE `user_sessions` (\n+  `sid` varchar(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `user_id` bigint(20) NOT NULL,\n+  `version` bigint(20) NOT NULL DEFAULT '1',\n+  `user_auth_version` bigint(20) NOT NULL,\n+  `status` varchar(16) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `refresh_hash` char(64) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `previous_refresh_hash` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `previous_valid_until` bigint(20) NOT NULL DEFAULT '0',\n+  `login_method` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL,\n+  `ip` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  `user_agent` text COLLATE utf8mb4_unicode_ci,\n+  `created_at` bigint(20) DEFAULT NULL,\n+  `last_active_at` bigint(20) NOT NULL,\n+  `expires_at` bigint(20) NOT NULL,\n+  `revoked_at` bigint(20) NOT NULL DEFAULT '0',\n+  `revoked_reason` varchar(64) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n+  PRIMARY KEY (`sid`),\n+  KEY `idx_user_sessions_user_status_expiry` (`user_id`,`status`,`expires_at`),\n+  KEY `idx_user_sessions_user_created` (`user_id`,`created_at`),\n+  KEY `idx_user_sessions_status_revoked` (`status`,`revoked_at`),\n+  KEY `idx_user_sessions_expires_at` (`expires_at`)\n+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;"
+        },
+        {
+          "table": "users",
+          "kind": "changed",
+          "diff": "--- before\n+++ after\n@@ -33,6 +33,7 @@\n   `affiliate_role` varchar(64) DEFAULT NULL,\n   `parent_user_id` bigint(20) DEFAULT '0',\n   `must_change_password` tinyint(1) DEFAULT '0',\n+  `auth_version` bigint(20) NOT NULL DEFAULT '1',\n   PRIMARY KEY (`id`),\n   UNIQUE KEY `username` (`username`),\n   UNIQUE KEY `idx_users_access_token` (`access_token`),"
+        }
+      ]
+    },
+    "modelsell-log": {
+      "before_count": 9,
+      "after_count": 9,
+      "changes": []
+    }
+  }
+}
