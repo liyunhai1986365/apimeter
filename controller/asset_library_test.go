@@ -139,7 +139,11 @@ func TestOfficialAssetLibraryAllActions(t *testing.T) {
 			require.NoError(t, err)
 			response := seedanceCall(r, "POST", "/?Action="+action+"&Version=2024-01-01", string(raw), 1)
 			require.Equal(t, 200, response.Code, response.Body.String())
-			require.Contains(t, response.Body.String(), "9007199254740993")
+			if strings.HasPrefix(action, "Delete") {
+				require.Equal(t, `{}`, gjson.GetBytes(response.Body.Bytes(), "Result").Raw)
+			} else {
+				require.Contains(t, response.Body.String(), "9007199254740993")
+			}
 		})
 	}
 	assetID, groupID = "asset-second", "group-second"
@@ -252,8 +256,8 @@ func TestAssetLibraryRouteErrorClassification(t *testing.T) {
 				{"GET", "/kling/tasks?task_ids=task_mock", "", http.StatusServiceUnavailable},
 				{"GET", "/kling/v1/videos/text2video/task_mock", "", http.StatusServiceUnavailable},
 				{"POST", "/api/asset-groups", `{"Name":"unsupported"}`, http.StatusNotImplemented},
-				// Unknown handles fail ownership before selecting a backend.
-				{"GET", "/api/asset-groups/ag_mock", "", http.StatusNotFound},
+				// Unregistered handles need a supported detail operation to verify existence.
+				{"GET", "/api/asset-groups/ag_mock", "", http.StatusNotImplemented},
 				{"POST", "/?Action=CreateAssetGroup&Version=2024-01-01", `{"Name":"unsupported"}`, http.StatusNotImplemented},
 			} {
 				t.Run(tc.method+" "+tc.path, func(t *testing.T) {

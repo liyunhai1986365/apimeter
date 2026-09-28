@@ -32,6 +32,7 @@ type assetListPagination struct {
 	cursorPrefix       string
 	owned              map[string]string // handle -> canonical resource ID
 	ownedCount         int
+	filteredTotal      *int // Matched upstream resources, after ownership/filtering.
 }
 
 func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPagination, error) {
@@ -269,6 +270,7 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 	}
 	start := min(p.offset, len(owned))
 	end := min(start+p.size, len(owned))
+	p.filteredTotal = common.GetPointer(len(owned))
 	pageItems := append([]json.RawMessage{}, owned[start:end]...)
 	itemsJSON, err := common.Marshal(pageItems)
 	if err != nil {

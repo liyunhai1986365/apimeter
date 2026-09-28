@@ -1,0 +1,164 @@
+{
+  "date": "2026-09-28",
+  "source_commit": "1cf177b08",
+  "includes_current_working_tree": true,
+  "instance": "isolated localhost API using production routers and handlers",
+  "database": "SQLite",
+  "business_code_modified_during_live_test": false,
+  "successful_video_submissions": 2,
+  "billing": "Nominal local test price 0.001 USD per task; supplier billing is real and separate.",
+  "new_confirmed_issue": "ASSET-04: model-limited token task GET returns 403; same token/task returns 200 with model limit disabled.",
+  "providers": [
+    {
+      "name": "tgxmaas",
+      "upstream": "https://api.sctgx.cn",
+      "gateway_group": "live_tgxmaas",
+      "gateway_channel_id": 1,
+      "gateway_token_id": 1,
+      "profile": "seedance-tgxmaas",
+      "asset_backend": "tgxmaas",
+      "asset_project": "nmyk",
+      "asset_id": "asset_2bc10774733d4c46a83c2c20fbf443dc",
+      "asset_group_id": "ag_fb4f287ba27d4c8a94f04d99b25114da",
+      "asset_status_before_cleanup": "Active",
+      "model": "doubao-seedance-2-5-260628",
+      "video_task_id": "cgt-20260928175857-hsmev",
+      "video_status": "succeeded",
+      "request": {
+        "duration": 4,
+        "resolution": "480p",
+        "generate_audio": false,
+        "asset_reference": true
+      },
+      "response": {
+        "duration": 4,
+        "resolution": "480p",
+        "ratio": "33:31",
+        "framespersecond": 24,
+        "seed": 9133
+      },
+      "usage": {
+        "completion_tokens": 38762,
+        "total_tokens": 38762
+      },
+      "video_container": {
+        "bytes": 2023503,
+        "duration_seconds": 4.042,
+        "dimensions": [
+          660.0,
+          620.0
+        ]
+      },
+      "video_sha256": "9f375e175ba13b217fedc8d08b9e95f897cc0772a6a1fa3dfe881355ae294d06",
+      "task_record": {
+        "task_id": "task_JM2on99rjl1t3bgrWazEelMZQxaJmu0h",
+        "channel_id": 1,
+        "token_id": 1,
+        "group": "live_tgxmaas",
+        "status": "SUCCESS",
+        "quota": 500
+      },
+      "repeat_query_billing_unchanged": true,
+      "model_limit_control": {
+        "enabled_http": 403,
+        "disabled_http": 200,
+        "same_key": true,
+        "same_task": true,
+        "video_recreated": false
+      },
+      "group_routing_lists": {
+        "ListAssetGroups": [
+          "ag_fb4f287ba27d4c8a94f04d99b25114da"
+        ],
+        "ListAssets": [
+          "asset_2bc10774733d4c46a83c2c20fbf443dc"
+        ]
+      },
+      "cleanup": {
+        "asset_delete_http": 200,
+        "group_delete_http": 200,
+        "gateway_lists_empty": true,
+        "provider_physical_deletion_independently_checked": false
+      }
+    },
+    {
+      "name": "xtemplate",
+      "upstream": "https://drama.xtemplate.cn",
+      "gateway_group": "live_xtemplate",
+      "gateway_channel_id": 2,
+      "gateway_token_id": 2,
+      "profile": "doubao-seedance-2",
+      "asset_backend": "youniyouju",
+      "asset_project": null,
+      "asset_id": "asset-20260928175147-nt2lq",
+      "asset_group_id": "group-20260928175146-6hw7v",
+      "asset_status_before_cleanup": "Active",
+      "model": "doubao-seedance-2-5-260628",
+      "video_task_id": "cgt-20260928175630-k8c4l",
+      "video_status": "succeeded",
+      "request": {
+        "duration": 4,
+        "resolution": "480p",
+        "generate_audio": false,
+        "asset_reference": true
+      },
+      "response": {
+        "duration": 4,
+        "resolution": "480p",
+        "ratio": "33:31",
+        "framespersecond": 24,
+        "seed": 14461
+      },
+      "usage": {
+        "completion_tokens": 38762,
+        "total_tokens": 38762
+      },
+      "video_container": {
+        "bytes": 1702548,
+        "duration_seconds": 4.042,
+        "dimensions": [
+          660.0,
+          620.0
+        ]
+      },
+      "video_sha256": "1ea1e0fc2449bc965f1f1cc1c8d6bbdef8e0d58db471e639f2c0e1f25d6342ce",
+      "task_record": {
+        "task_id": "task_hYImayTJDoeKDehdCHhAssthrmL0KmcC",
+        "channel_id": 2,
+        "token_id": 2,
+        "group": "live_xtemplate",
+        "status": "SUCCESS",
+        "quota": 500
+      },
+      "repeat_query_billing_unchanged": true,
+      "model_limit_control": {
+        "enabled_http": 403,
+        "disabled_http": 200,
+        "same_key": true,
+        "same_task": true,
+        "video_recreated": false
+      },
+      "group_routing_lists": {
+        "ListAssetGroups": [
+          "group-20260928175146-6hw7v"
+        ],
+        "ListAssets": [
+          "asset-20260928175147-nt2lq"
+        ]
+      },
+      "cleanup": {
+        "asset_delete_http": 200,
+        "group_delete_http": 200,
+        "gateway_lists_empty": true,
+        "provider_physical_deletion_independently_checked": false
+      }
+    }
+  ],
+  "customer_response_internal_field_check": "passed",
+  "verification_limits": [
+    "No full video decoder available; checked MP4 container and downloaded complete files.",
+    "No MySQL/PostgreSQL live test in this run.",
+    "Two test tokens ended with model limits disabled to complete video queries."
+  ],
+  "isolated_gateway_stopped_after_test": true
+}

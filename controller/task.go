@@ -151,6 +151,10 @@ func tasksToDto(tasks []*model.Task, fillUser bool) []*dto.TaskDto {
 			}
 		}
 		result[i] = relay.TaskModel2Dto(task)
+		if fillUser {
+			// Channel metadata is only returned by the administrator endpoints.
+			result[i].ChannelId = task.ChannelId
+		}
 	}
 	return result
 }

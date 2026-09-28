@@ -916,6 +916,9 @@ func RelayTask(c *gin.Context) {
 		return
 	}
 	if err := lockAssetVideoChannel(c, relayInfo); err != nil {
+		if respondAssetLookupError(c, err) {
+			return
+		}
 		status, code := http.StatusBadRequest, "invalid_asset_reference"
 		if errors.Is(err, model.ErrAssetNotOwned) {
 			status, code = http.StatusNotFound, "asset_not_found"

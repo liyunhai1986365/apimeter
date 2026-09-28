@@ -25,6 +25,7 @@ type assetReference struct{ kind, id string }
 type assetAccessRequest struct {
 	op       assetOperation
 	refs     []assetReference
+	pending  []assetReference
 	bindings []model.AssetBinding
 	channel  *model.Channel
 	profile  *configurable.Profile
@@ -303,8 +304,8 @@ func assetAccountScope(ch *model.Channel, profile *configurable.Profile) (string
 	return scope, nil
 }
 
-// Resolve every supplied ID before selecting an upstream. A missing/revoked
-// binding never falls back to the currently highest-priority supplier account.
+// Resolve registered IDs before routing. Only completely unregistered handles
+// may use the selected route for a verified historical claim.
 func resolveAssetAccessRoute(c *gin.Context, profileID, resourceID string) (*assetAccessRequest, error) {
 	var resource *configurable.ResourceConfig
 	if profileID != "" && resourceID != "" {
@@ -339,6 +340,13 @@ func resolveAssetAccessRoute(c *gin.Context, profileID, resourceID string) (*ass
 				common.SysError("read asset task binding: " + err.Error())
 				return nil, errAssetStateUnavailable
 			}
+		}
+		if len(bindings) == 0 {
+			if err := canClaimLegacyAsset(ref); err != nil {
+				return nil, err
+			}
+			a.pending = append(a.pending, ref)
+			continue
 		}
 		var matches []model.AssetBinding
 		for _, binding := range bindings {
@@ -418,6 +426,20 @@ func prepareAssetAccess(c *gin.Context, ch *model.Channel, profile *configurable
 	if a.project == "" && ch.GetSetting().Protocol != nil {
 		a.project = strings.TrimSpace(ch.GetSetting().Protocol.ProjectName)
 	}
+	for _, ref := range a.pending {
+		binding, err := claimLegacyAsset(c, ch, profile, resource, ref, a.project)
+		if err != nil {
+			return err
+		}
+		a.bindings = append(a.bindings, binding)
+		if a.project == "" {
+			a.project = binding.Project
+		}
+		if ref.kind == "group" {
+			a.groupID = binding.CanonicalID
+		}
+	}
+	a.pending = nil
 	if a.op.action == "list" {
 		a.list, err = newAssetListPagination(c, a)
 	}
@@ -428,18 +450,42 @@ func assetResponseSuccessful(body []byte) bool {
 	if !gjson.ValidBytes(body) {
 		return false
 	}
-	for _, path := range []string{"error", "ResponseMetadata.Error"} {
-		if value := gjson.GetBytes(body, path); value.Exists() && value.Type != gjson.Null && value.Raw != "{}" && value.String() != "" {
+	root := gjson.ParseBytes(body)
+	if !root.IsObject() && !root.IsArray() {
+		return false
+	}
+	for _, path := range []string{"error", "Error", "ResponseMetadata.Error"} {
+		if assetResponseHasError(root.Get(path)) {
 			return false
 		}
 	}
-	if value := gjson.GetBytes(body, "success"); value.Exists() && value.Type == gjson.False {
-		return false
+	for _, path := range []string{"success", "Success"} {
+		if value := root.Get(path); value.Exists() && value.Type == gjson.False {
+			return false
+		}
 	}
-	if value := gjson.GetBytes(body, "code"); value.Exists() && value.String() != "0" && value.String() != "200" {
-		return false
+	for _, path := range []string{"code", "Code"} {
+		if value := root.Get(path); value.Exists() && value.Type != gjson.Null && value.String() != "0" && value.String() != "200" {
+			return false
+		}
 	}
 	return true
+}
+
+func assetResponseHasError(value gjson.Result) bool {
+	if !value.Exists() || value.Type == gjson.Null || value.Type == gjson.False {
+		return false
+	}
+	if value.IsObject() {
+		return len(value.Map()) > 0
+	}
+	if value.IsArray() {
+		return len(value.Array()) > 0
+	}
+	if value.Type == gjson.Number {
+		return value.Num != 0
+	}
+	return strings.TrimSpace(value.String()) != ""
 }
 
 func assetResponseStrings(body []byte, fields ...string) []string {
@@ -452,6 +498,64 @@ func assetResponseStrings(body []byte, fields ...string) []string {
 		}
 	}
 	return result
+}
+
+// Only fill missing ownership metadata. Conflicting provider metadata cannot
+// move an existing handle to another project or parent group.
+func applyAssetResponseMetadata(binding *model.AssetBinding, body []byte) error {
+	var values []gjson.Result
+	for _, path := range []string{"", "Result", "data", "result"} {
+		value := gjson.ParseBytes(body)
+		if path != "" {
+			value = value.Get(path)
+		}
+		values = append(values, value)
+		project, err := assetRequestProject(nil, value)
+		if err != nil || (project != "" && binding.Project != "" && project != binding.Project) {
+			return model.ErrAssetNotOwned
+		}
+		if project != "" {
+			binding.Project = project
+		}
+	}
+	for _, value := range values {
+		if binding.Kind != "asset" && binding.Kind != "task" {
+			continue
+		}
+		for _, field := range []string{"GroupId", "group_id"} {
+			group := value.Get(field)
+			if !group.Exists() || group.Type == gjson.Null || (group.Type == gjson.String && group.String() == "") {
+				continue
+			}
+			if group.Type != gjson.String || !validAssetHandle(group.String()) {
+				return model.ErrAssetNotOwned
+			}
+			id := group.String()
+			// TgxMaas may return the original ID of a group whose authorized
+			// binding uses a supplier-local canonical ID.
+			groups, err := model.FindAssetBindings(binding.UserID, "group", id)
+			if err != nil {
+				common.SysError("read response asset group binding: " + err.Error())
+				return errAssetStateUnavailable
+			}
+			for _, owned := range groups {
+				if owned.ChannelID == binding.ChannelID && owned.Scope == binding.Scope {
+					if owned.Project != "" && binding.Project != "" && owned.Project != binding.Project {
+						return model.ErrAssetNotOwned
+					}
+					if binding.Project == "" {
+						binding.Project = owned.Project
+					}
+					id = owned.CanonicalID
+				}
+			}
+			if binding.GroupID != "" && binding.GroupID != id {
+				return model.ErrAssetNotOwned
+			}
+			binding.GroupID = id
+		}
+	}
+	return nil
 }
 
 func rememberAssetResponse(c *gin.Context, resource *configurable.ResourceConfig, body []byte) error {
@@ -504,28 +608,45 @@ func rememberAssetResponse(c *gin.Context, resource *configurable.ResourceConfig
 	if a.op.action == "get" {
 		for _, existing := range a.bindings {
 			if existing.Kind == kind || (kind == "asset" && existing.Kind == "task") {
-				binding.CanonicalID, binding.GroupID = existing.CanonicalID, existing.GroupID
+				binding.CanonicalID = existing.CanonicalID
+				if existing.GroupID != "" {
+					binding.GroupID = existing.GroupID
+				}
 				break
 			}
 		}
 	}
+	if err := applyAssetResponseMetadata(&binding, body); err != nil {
+		return err
+	}
+	var bindings []model.AssetBinding
+	add := func(kind, id string) {
+		item := binding
+		item.Kind, item.ID = kind, id
+		bindings = append(bindings, item)
+	}
 	for _, id := range ids {
-		if err := model.SaveAssetBinding(binding, id); err != nil {
-			return err
-		}
+		add(kind, id)
 	}
 	if kind == "asset" {
-		binding.Kind = "task"
 		for _, id := range assetResponseStrings(body, "task_id", "TaskId") {
-			if err := model.SaveAssetBinding(binding, id); err != nil {
-				return err
+			add("task", id)
+		}
+	}
+	if a.op.action == "get" {
+		for _, existing := range a.bindings {
+			if existing.Kind == kind || (kind == "asset" && existing.Kind == "task") {
+				add(existing.Kind, existing.ID)
 			}
 		}
 	}
-	return nil
+	return model.SaveAssetBindings(bindings)
 }
 
 func respondAssetAccessError(c *gin.Context, err error) {
+	if respondAssetLookupError(c, err) {
+		return
+	}
 	switch {
 	case errors.Is(err, model.ErrAssetNotOwned):
 		assetAccessError(c, http.StatusNotFound, "asset_not_found", model.ErrAssetNotOwned)

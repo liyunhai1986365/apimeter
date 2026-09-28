@@ -1498,7 +1498,8 @@ func TestRelayConfigurableResourceSkipsChannelsWithoutEnabledAbilityForAssetsUpl
 
 	require.Equal(t, http.StatusServiceUnavailable, recorder.Code, recorder.Body.String())
 	require.False(t, upstreamHit, "disabled ability channel should not receive asset upload")
-	require.Contains(t, recorder.Body.String(), "no available configurable resource channel")
+	require.Contains(t, recorder.Body.String(), "asset_service_unavailable")
+	require.NotContains(t, recorder.Body.String(), "configurable resource channel")
 }
 
 func TestRelayConfigurableResourceProxiesMaterialDetailPathParam(t *testing.T) {

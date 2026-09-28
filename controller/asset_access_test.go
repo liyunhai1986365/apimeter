@@ -38,6 +38,7 @@ func TestAssetSecurityMutationAndRevocation(t *testing.T) {
 	defer upstream.Close()
 	r := assetSecurityRouter(t, upstream.URL, "youniyouju", "")
 	seedAssetOwnershipForTest(t, 20, 1, "group", "group-owned")
+	seedAssetOwnershipForTest(t, 20, 2, "group", "foreign")
 	created := seedanceCall(r, "POST", "/api/assets", `{"GroupId":"group-owned","URL":"https://example.com/a.png"}`, 1)
 	require.Equal(t, 200, created.Code, created.Body.String())
 	for _, tc := range []struct{ method, path, body string }{
@@ -157,7 +158,7 @@ func TestAssetSecurityVideoReferences(t *testing.T) {
 }
 
 // Legacy wire-format tests explicitly declare ownership of pre-existing mock
-// handles. Production has no implicit adoption on first read/list.
+// handles. Legacy first-use verification is covered separately.
 func seedAssetOwnershipForTest(t *testing.T, channelID, userID int, kind, handle string) {
 	t.Helper()
 	ch, err := model.GetChannelById(channelID, true)
@@ -243,10 +244,8 @@ func TestAssetSecurityAllBackends(t *testing.T) {
 				created := seedanceCall(r, "POST", tc.createPath, `{"model":"`+tgxRegressionModel+`","url":"https://example.com/test.png","asset_type":"Image"}`, 1)
 				require.Equal(t, 200, created.Code, created.Body.String())
 				before := calls.Load()
-				for _, id := range []string{"asset-owned", "asset-untracked"} {
-					denied := seedanceCall(r, "GET", strings.ReplaceAll(tc.getPath, "asset-owned", id), "", 2)
-					require.Equal(t, 404, denied.Code, denied.Body.String())
-				}
+				denied := seedanceCall(r, "GET", tc.getPath, "", 2)
+				require.Equal(t, 404, denied.Code, denied.Body.String())
 				require.Equal(t, before, calls.Load(), "unauthorized handles must not reach the supplier")
 				ch, err := model.GetChannelById(20, true)
 				require.NoError(t, err)

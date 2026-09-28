@@ -38,6 +38,10 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 		setupContext = middleware.SetupContextForSelectedChannelWithIndependentAuth
 	}
 	if apiErr := setupContext(c, channelModel, requestModel); apiErr != nil {
+		if resource.AssetLibrary {
+			assetInternalError(c, apiErr.StatusCode, "asset_service_unavailable", apiErr)
+			return nil
+		}
 		c.JSON(apiErr.StatusCode, gin.H{"error": apiErr.ToOpenAIError()})
 		return nil
 	}
@@ -68,6 +72,10 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 
 	client, err := service.GetHttpClientWithProxy(channelModel.GetSetting().Proxy)
 	if err != nil {
+		if resource.AssetLibrary {
+			assetInternalError(c, http.StatusInternalServerError, "asset_service_unavailable", err)
+			return nil
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return nil
 	}
@@ -76,11 +84,19 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	}
 	preResults, err := executeConfigurableResourcePreRequests(c, client, channelModel, resource)
 	if err != nil {
+		if resource.AssetLibrary {
+			assetInternalError(c, http.StatusBadGateway, "asset_prepare_failed", err)
+			return nil
+		}
 		c.JSON(http.StatusBadGateway, gin.H{"error": err.Error()})
 		return nil
 	}
 	upstreamReq, err := buildConfigurableResourceRequestWithPreResults(c, channelModel, resource, preResults)
 	if err != nil {
+		if resource.AssetLibrary {
+			assetInternalError(c, http.StatusBadRequest, "asset_prepare_failed", err)
+			return nil
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return nil
 	}
@@ -111,6 +127,10 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	}
 	responseBody, err := io.ReadAll(responseReader)
 	if err != nil {
+		if resource.AssetLibrary {
+			assetInternalError(c, http.StatusBadGateway, "asset_response_failed", err)
+			return nil
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return nil
 	}
@@ -120,7 +140,7 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	}
 	resp, responseBody, err = filterAssetListResponse(c, client, channelModel, resource, upstreamReq, resp, responseBody)
 	if err != nil {
-		assetAccessError(c, http.StatusBadGateway, "asset_list_failed", err)
+		assetInternalError(c, http.StatusBadGateway, "asset_list_failed", err)
 		return nil
 	}
 	for _, header := range []string{"Retry-After", "X-Request-Id"} {
@@ -203,6 +223,13 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	}
 	if !configurableResourceHasIndependentHealth(channelModel, resource) {
 		perfmetrics.RecordRelaySample(attemptInfo, resp.StatusCode < http.StatusBadRequest, 0)
+	}
+	if resource.AssetLibrary {
+		responseBody, err = publicAssetResponse(responseBody)
+		if err != nil {
+			assetInternalError(c, http.StatusBadGateway, "asset_response_failed", err)
+			return nil
+		}
 	}
 	c.Data(resp.StatusCode, contentType, responseBody)
 	return nil

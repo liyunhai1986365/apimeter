@@ -424,17 +424,7 @@ func sunoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *dt
 }
 
 func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *dto.TaskError) {
-	taskId := c.Param("task_id")
-	if taskId == "" {
-		taskId = c.GetString("task_id")
-	}
-	userId := c.GetInt("id")
-
-	lookup := model.GetByTaskId
-	if isVolcengineVideoTaskQueryRequest(c) {
-		lookup = model.GetByTaskIDOrUpstreamID
-	}
-	originTask, exist, err := lookup(userId, taskId)
+	originTask, exist, err := service.LookupVideoTask(c)
 	if err != nil {
 		taskResp = service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
 		return
@@ -449,7 +439,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	// Native Ark task queries must use the official response shape regardless of
 	// whether the selected channel is configurable or direct Doubao/VolcEngine.
 	returnNativeBody := c.GetString("configurable_native_profile_id") != "" ||
-		isVolcengineVideoTaskQueryRequest(c)
+		service.IsVolcengineVideoTaskQueryRequest(c)
 	if realtimeResp := tryConfigurableFetch(c, originTask, returnNativeBody); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
@@ -457,7 +447,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	if fetchErr, ok := c.Get("seedance_native_fetch_error"); ok {
 		return nil, fetchErr.(*dto.TaskError)
 	}
-	if isVolcengineVideoTaskQueryRequest(c) {
+	if service.IsVolcengineVideoTaskQueryRequest(c) {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("native task response unavailable"), "get_task_failed", http.StatusBadGateway)
 	}
 	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
@@ -469,7 +459,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	if isOpenAIVideoAPI {
 		adaptor := GetTaskAdaptor(originTask.Platform)
 		if adaptor == nil {
-			taskResp = service.TaskErrorWrapperLocal(fmt.Errorf("invalid channel id: %d", originTask.ChannelId), "invalid_channel_id", http.StatusBadRequest)
+			taskResp = service.TaskErrorWrapperLocal(errors.New("task service is unavailable"), "invalid_channel_id", http.StatusBadRequest)
 			return
 		}
 		if converter, ok := adaptor.(channel.OpenAIVideoConverter); ok {
@@ -619,7 +609,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		channelModel.Type == constant.ChannelTypeVolcEngine
 	isAliWan3Native := returnNativeBody && channelModel.Type == constant.ChannelTypeAli &&
 		(task.Properties.OriginModelName == "wan3.0-video" || task.Properties.OriginModelName == "wan3.0-video-prime")
-	if isDirectVolcEngine && !isVolcengineVideoTaskQueryRequest(c) {
+	if isDirectVolcEngine && !service.IsVolcengineVideoTaskQueryRequest(c) {
 		return nil
 	}
 	if !isConfigurable && !isDirectVolcEngine && !isAliWan3Native {
@@ -628,7 +618,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	// Task integrity follows the provider protocol, not the client's URL or
 	// response format. Generic queries mutate the same task as native queries.
 	settings := channelModel.GetSetting()
-	protectSeedance := isVolcengineVideoTaskQueryRequest(c) || isDirectVolcEngine ||
+	protectSeedance := service.IsVolcengineVideoTaskQueryRequest(c) || isDirectVolcEngine ||
 		(isConfigurable && settings.Protocol != nil && relaycommon.IsSeedanceVideoProfile(settings.Protocol.ProfileID))
 	baseURL := channelModel.GetBaseURL()
 	proxy := channelModel.GetSetting().Proxy
@@ -815,19 +805,6 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 	return body
 }
 
-func isVolcengineVideoTaskQueryRequest(c *gin.Context) bool {
-	if c == nil || c.Request == nil || c.Request.URL == nil {
-		return false
-	}
-	if c.Request.Method != http.MethodGet {
-		return false
-	}
-	if !strings.HasPrefix(c.Request.URL.Path, "/api/v3/contents/generations/tasks/") {
-		return false
-	}
-	return true
-}
-
 func configurableStoredNativeFetchResponse(adaptor channel.TaskAdaptor, task *model.Task, returnNativeBody bool) []byte {
 	if !returnNativeBody || adaptor == nil || task == nil {
 		return nil
@@ -897,6 +874,8 @@ func mapTaskStatusToSimple(status model.TaskStatus) string {
 	}
 }
 
+// TaskModel2Dto is also used directly by token-authenticated task endpoints.
+// Administrator controllers explicitly add channel metadata to their responses.
 func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 	now := common.GetTimestamp()
 	view, err := task.ImageRetentionView(now)
@@ -918,7 +897,6 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 		Platform:              string(task.Platform),
 		UserId:                task.UserId,
 		Group:                 task.Group,
-		ChannelId:             task.ChannelId,
 		Quota:                 task.Quota,
 		Action:                task.Action,
 		Status:                string(task.Status),

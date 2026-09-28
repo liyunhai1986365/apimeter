@@ -62,11 +62,11 @@ Content-Type: application/json
 
 素材按本网关用户隔离，同一用户的多个 Token 可共同管理已有素材，不另按 Token 的视频模型或渠道分组限制素材权限。列表只展示所选素材库中当前用户的素材；使用素材生成视频仍执行原有视频模型权限检查和计费。
 
-网关保留原始素材/分组 ID、扩展字段以及响应结构；不会套用 TgxMaas 的 ID 别名。`CreateAsset` 不填 `GroupId` 时保留省略状态，由平台自动分组；列表不填 `Filter.GroupIds` 时交由平台执行团队/个人筛选。
+网关保留原始素材/分组 ID 和素材业务扩展字段；不会套用 TgxMaas 的 ID 别名。供应商入口 `/api/volcengine_asset?Action=...` 和 REST 入口保留响应结构；客户使用官方入口 `/?Action=...&Version=2024-01-01` 时，成功响应统一为 `ResponseMetadata` / `Result`，失败统一为 `ResponseMetadata.Error`。`CreateAsset` 不填 `GroupId` 时保留省略状态，由平台自动分组；列表不填 `Filter.GroupIds` 时交由平台执行团队/个人筛选。
 
-真人认证支持文档中的 `callback_url`/`CallbackURL` 和 `BytedToken`/`bytedToken`/`byted_token`，透传给平台验证。返回的顶层 `BytedToken`、`H5Link`、`CallbackURL`、`GroupId` 原样保留。用户仍需打开 H5 链接并完成认证，回调由客户端接收。真人素材显式指定认证后得到的 `GroupId`，素材达到 `Active` 后使用 `asset://<素材 ID>` 引用。
+真人认证支持文档中的 `callback_url`/`CallbackURL` 和 `BytedToken`/`bytedToken`/`byted_token`，透传给平台验证。供应商入口和 REST 入口返回的顶层 `BytedToken`、`H5Link`、`CallbackURL`、`GroupId` 原样保留；官方入口将这些字段放入 `Result`。用户仍需打开 H5 链接并完成认证，回调由客户端接收。真人素材显式指定认证后得到的 `GroupId`，素材达到 `Active` 后使用 `asset://<素材 ID>` 引用。
 
-这些操作不会作为视频任务计费，也不会自动改用其他账号重放。上游错误状态、错误体和 `Retry-After` 保留。
+这些操作不会作为视频任务计费，也不会自动改用其他账号重放。上游错误状态与 `Retry-After` 保留；官方入口转换错误结构，供应商入口和 REST 入口保留原有错误结构。
 
 ## 视频与边界
 
@@ -138,6 +138,6 @@ go test ./controller -run '^TestYouniyoujuAssetsLive$' -count=1 -v -timeout 12m
 
 本渠道与其他素材后端统一执行[归属与渠道绑定策略](seedance_asset_backends.md#2026-09-20-客户隔离与渠道绑定修复)。客户使用自己的网关用户和 API Token；同一用户下的多个 Token 共享素材。真人认证凭证只能由创建它的用户兑换，回调地址仍由客户在创建认证链接时传入。
 
-列表只显示当前客户的已登记素材，并由网关重新分页。后续查询、修改、删除及视频中的 `asset://` 引用会绑定原渠道。升级前没有归属记录的素材、改换素材账号后的旧 ID 会返回 `404 asset_not_found`，不能通过再次查询自动认领。
+列表只显示当前客户的已登记素材，并由网关重新分页。后续查询、修改、删除及视频中的 `asset://` 引用会绑定原渠道。2026-09-27 起，完全没有归属记录的旧素材可在首次携带 ID 访问时认领：先向选中渠道查询详情，确认存在后将素材及返回的别名归属当前网关用户，再继续操作。列表不会批量认领旧素材。已属于其他用户、已删除/撤销或属于旧素材库范围的 ID 仍返回 `404 asset_not_found`。知道别人尚未认领的旧素材 ID 的用户也可能先认领；详见[升级兼容性规则](seedance_asset_backends.md)。
 
 本轮安全修复复用现有状态表，不修改数据库结构。安全修复后的 CRUD 和渠道配置已经通过上述 MySQL 真实联调；跨用户等权限场景另由 mock 回归覆盖。

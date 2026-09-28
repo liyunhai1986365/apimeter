@@ -52,6 +52,10 @@ func RelayConfigurableResource(c *gin.Context) {
 				c.JSON(http.StatusNotImplemented, gin.H{"error": gin.H{"code": "unsupported_asset_operation", "message": err.Error()}})
 				return
 			}
+			if assetAccess != nil {
+				assetInternalError(c, http.StatusServiceUnavailable, "asset_service_unavailable", err)
+				return
+			}
 			if lastErr == nil {
 				lastErr = types.NewErrorWithStatusCode(err, types.ErrorCodeGetChannelFailed, http.StatusServiceUnavailable, types.ErrOptionWithSkipRetry())
 			}
@@ -95,6 +99,10 @@ func RelayConfigurableResource(c *gin.Context) {
 	}
 	service.MarkRetryRouteFinal(c, false, "failed")
 	if lastErr != nil && !c.Writer.Written() {
+		if assetAccess != nil {
+			assetInternalError(c, lastErr.StatusCode, "asset_request_failed", lastErr)
+			return
+		}
 		c.JSON(lastErr.StatusCode, gin.H{"error": lastErr.ToOpenAIError()})
 	}
 }

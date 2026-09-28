@@ -309,7 +309,7 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 }
 
 func rememberTgxMaasAssetHandles(c *gin.Context, ch *model.Channel, resourceID string, response []byte) error {
-	if gjson.GetBytes(response, "ResponseMetadata.Error").Exists() {
+	if !assetResponseSuccessful(response) {
 		return nil
 	}
 	project := ""

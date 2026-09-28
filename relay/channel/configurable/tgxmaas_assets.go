@@ -16,6 +16,7 @@ func resolveTgxMaasVideoAssets(body []byte, info *relaycommon.RelayInfo) ([]byte
 	if info == nil || info.ChannelMeta == nil {
 		return body, nil
 	}
+	authorized := info.TaskRelayInfo != nil && info.AssetAliases != nil
 	if info.TaskRelayInfo != nil && info.AssetProject != nil {
 		// The access layer checked native and generic/form project aliases.
 		// Send one spelling with that exact project, including after mapping.
@@ -55,7 +56,7 @@ func resolveTgxMaasVideoAssets(body []byte, info *relaycommon.RelayInfo) ([]byte
 		return body, nil
 	}
 	project := gjson.GetBytes(body, "ProjectName").String()
-	if p := info.ChannelSetting.Protocol; p != nil && p.AssetLibrary != nil && p.AssetLibrary.Backend == "tgxmaas" {
+	if p := info.ChannelSetting.Protocol; !authorized && p != nil && p.AssetLibrary != nil && p.AssetLibrary.Backend == "tgxmaas" {
 		ch, err := model.GetChannelById(info.ChannelId, true)
 		if err != nil {
 			return nil, err
@@ -67,18 +68,21 @@ func resolveTgxMaasVideoAssets(body []byte, info *relaycommon.RelayInfo) ([]byte
 		if kind != "image_url" && kind != "video_url" && kind != "audio_url" {
 			continue
 		}
-		uri := item.Get(kind + ".url").String()
-		if !strings.HasPrefix(uri, "asset://asset-") {
+		uri := strings.TrimSpace(item.Get(kind + ".url").String())
+		if !strings.HasPrefix(strings.ToLower(uri), "asset://") {
 			continue
 		}
-		id := strings.TrimPrefix(uri, "asset://")
+		id := uri[len("asset://"):]
 		resolved := id
 		var err error
-		if info.TaskRelayInfo != nil && info.AssetAliases != nil {
+		if authorized {
 			if alias := info.AssetAliases[id]; alias != "" {
 				resolved = alias
 			}
 		} else {
+			if !strings.HasPrefix(id, "asset-") {
+				continue
+			}
 			resolved, err = model.ResolveTgxMaasAssetHandle(info.ChannelId, info.UserId, project, id)
 			if err != nil {
 				return nil, err

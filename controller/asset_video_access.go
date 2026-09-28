@@ -115,11 +115,56 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 	if preferredGroup == "" {
 		preferredGroup = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
 	}
+	// Resolve known handles first, regardless of media order. A legacy handle
+	// in the same request must be verified on that original channel.
+	known := map[string][]model.AssetBinding{}
+	var ordered, pending []string
 	for _, id := range ids {
+		if _, seen := known[id]; seen {
+			continue
+		}
 		bindings, err := model.FindAssetBindings(info.UserId, "asset", id)
 		if err != nil {
 			common.SysError("read video asset binding: " + err.Error())
 			return errAssetStateUnavailable
+		}
+		known[id] = bindings
+		if len(bindings) == 0 {
+			if err := canClaimLegacyAsset(assetReference{"asset", id}); err != nil {
+				return err
+			}
+			pending = append(pending, id)
+		} else {
+			ordered = append(ordered, id)
+		}
+	}
+	for _, id := range append(ordered, pending...) {
+		bindings := known[id]
+		if len(bindings) == 0 {
+			ch := selected
+			if ch == nil {
+				if locked, ok := info.LockedChannel.(*model.Channel); ok && locked != nil {
+					ch = locked
+				} else {
+					var err error
+					ch, err = model.GetChannelById(common.GetContextKeyInt(c, constant.ContextKeyChannelId), true)
+					if err != nil {
+						return model.ErrAssetNotOwned
+					}
+				}
+			}
+			if ch.Status != common.ChannelStatusEnabled || (protocolFilter != nil && !protocolFilter(ch)) {
+				return model.ErrAssetNotOwned
+			}
+			profile, ok := configurable.AssetProfile(ch.GetSetting().Protocol)
+			if !ok {
+				return model.ErrAssetNotOwned
+			}
+			binding, err := claimLegacyAsset(c, ch, profile, nil, assetReference{"asset", id}, project)
+			if err != nil {
+				return err
+			}
+			bindings = []model.AssetBinding{binding}
 		}
 		matches := 0
 		var candidate *model.Channel

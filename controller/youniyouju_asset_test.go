@@ -35,7 +35,7 @@ func TestYouniyoujuAssetActions(t *testing.T) {
 		{"GetVisualValidateResult", "POST", "/v1/real-avatar/groups/from-token", `{"BytedToken":"session-token"}`, `{"GroupId":"group-human"}`},
 	}
 	for _, auth := range []string{"channel_key", "api_key"} {
-		for _, entry := range []string{"action", "generic"} {
+		for _, entry := range []string{"action", "generic", "official"} {
 			t.Run(auth+"/"+entry, func(t *testing.T) {
 				t.Setenv("CRYPTO_SECRET", "test-only-persistent-secret")
 				var current, calls int
@@ -88,11 +88,27 @@ func TestYouniyoujuAssetActions(t *testing.T) {
 						if entry == "action" {
 							method = "POST"
 							path = "/api/volcengine_asset?Action=" + tc.action + "&Version=2024-01-01"
+						} else if entry == "official" {
+							method = "POST"
+							path = "/?Action=" + tc.action + "&Version=2024-01-01"
 						}
 						body := tc.body[:len(tc.body)-1] + `,"model":"` + tgxRegressionModel + `","extension":{"zero":0,"enabled":false,"integer":9007199254740993}}`
 						response := seedanceCall(r, method, path, body, 1)
 						require.Equal(t, http.StatusOK, response.Code, response.Body.String())
-						require.Equal(t, tc.response, response.Body.String())
+						if entry == "official" {
+							want := gjson.Get(tc.response, "Result").Raw
+							if want == "" {
+								want = tc.response // Liveness responses are bare supplier objects.
+							}
+							if strings.HasPrefix(tc.action, "List") {
+								want = want[:len(want)-1] + `,"TotalCount":1,"PageNumber":1,"PageSize":20}`
+							}
+							require.JSONEq(t, want, gjson.GetBytes(response.Body.Bytes(), "Result").Raw)
+							require.Equal(t, tc.action, gjson.GetBytes(response.Body.Bytes(), "ResponseMetadata.Action").String())
+							require.NotEmpty(t, gjson.GetBytes(response.Body.Bytes(), "ResponseMetadata.RequestId").String())
+						} else {
+							require.Equal(t, tc.response, response.Body.String())
+						}
 					})
 				}
 				require.Equal(t, len(cases), calls)
@@ -144,6 +160,6 @@ func TestYouniyoujuAssetErrorsAndRouting(t *testing.T) {
 	response := seedanceCall(r, "POST", "/?Action=CreateAsset&Version=2024-01-01", `{"group_id":"group-human","URL":"https://example.com/human.png","AssetType":"Image"}`, 1)
 	require.Equal(t, http.StatusTooManyRequests, response.Code)
 	require.Equal(t, "5", response.Header().Get("Retry-After"))
-	require.JSONEq(t, `{"error":{"code":"RateLimit","message":"try later"}}`, response.Body.String())
+	require.JSONEq(t, `{"Code":"RateLimit","Message":"try later"}`, gjson.GetBytes(response.Body.Bytes(), "ResponseMetadata.Error").Raw)
 	require.Equal(t, 1, calls)
 }

@@ -101,7 +101,7 @@ func seedanceTestRouter(t *testing.T, upstream, key, modelName string) *gin.Engi
 	r := gin.New()
 	r.Use(middleware.RequestId())
 	r.POST("/api/v3/contents/generations/tasks", middleware.ConfigurableNativeProfile("doubao-seedance-2", relayconstant.RelayModeVideoSubmit), middleware.TokenAuth(), middleware.Distribute(), RelayTask)
-	r.GET("/api/v3/contents/generations/tasks/:task_id", middleware.ConfigurableNativeProfile("doubao-seedance-2", relayconstant.RelayModeVideoFetchByID), middleware.TokenAuth(), middleware.Distribute(), RelayTaskFetch)
+	r.GET("/api/v3/contents/generations/tasks/:task_id", middleware.ConfigurableNativeProfile("doubao-seedance-2", relayconstant.RelayModeVideoFetchByID), middleware.TokenAuth(), middleware.DistributeVideoTaskFetch(), RelayTaskFetch)
 	// Request-failure refunds and quota cache updates are asynchronous. Drain
 	// them before the fixture restores process-global DB/cache settings.
 	t.Cleanup(func() {

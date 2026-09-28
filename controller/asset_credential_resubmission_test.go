@@ -228,7 +228,7 @@ func TestAssetCredentialRotationPreservesLegacyBindings(t *testing.T) {
 			require.NoError(t, model.SaveAssetBinding(revoked, "revoked"))
 			require.NoError(t, model.InvalidateAssetBindings(revoked, false))
 			var before []model.ConfigurableResourceState
-			require.NoError(t, model.DB.Order("id").Find(&before).Error)
+			require.NoError(t, model.DB.Where("profile_id = ?", "asset-access-v1").Order("id").Find(&before).Error)
 			require.Len(t, before, 3, "the fixture must contain only legacy ownership rows")
 
 			patch := map[string]any{"id": ch.Id}

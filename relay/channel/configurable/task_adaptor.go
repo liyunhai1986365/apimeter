@@ -139,7 +139,9 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 				return nil, err
 			}
 		}
-		if profile.ID == "seedance-tgxmaas" {
+		// The access layer also resolves aliases for an independent TgxMaas
+		// asset backend paired with a different video profile.
+		if profile.ID == "seedance-tgxmaas" || (info != nil && info.TaskRelayInfo != nil && len(info.AssetAliases) > 0) {
 			body, err = resolveTgxMaasVideoAssets(body, info)
 			if err != nil {
 				return nil, err
@@ -159,7 +161,7 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
-	if profile.ID == "seedance-tgxmaas" {
+	if profile.ID == "seedance-tgxmaas" || (info != nil && info.TaskRelayInfo != nil && len(info.AssetAliases) > 0) {
 		data, err = resolveTgxMaasVideoAssets(data, info)
 		if err != nil {
 			return nil, err

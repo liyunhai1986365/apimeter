@@ -83,6 +83,17 @@ func ConfigurableResource(profileID, resourceID string) gin.HandlerFunc {
 }
 
 func Distribute() func(c *gin.Context) {
+	return distribute(false)
+}
+
+// DistributeVideoTaskFetch authorizes the saved model before a video task query.
+// Only routes handled by RelayTaskFetch may use this entry point: adapters can
+// rewrite relay_mode without changing the handler selected by the router.
+func DistributeVideoTaskFetch() func(c *gin.Context) {
+	return distribute(true)
+}
+
+func distribute(videoTaskFetch bool) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		var channel *model.Channel
 		channelId, ok := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId)
@@ -111,6 +122,18 @@ func Distribute() func(c *gin.Context) {
 			// check token model mapping
 			modelLimitEnable := common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled)
 			if modelLimitEnable {
+				if videoTaskFetch {
+					task, exists, lookupErr := service.LookupVideoTask(c)
+					if lookupErr != nil {
+						c.AbortWithStatusJSON(http.StatusInternalServerError, service.TaskErrorWrapper(lookupErr, "get_task_failed", http.StatusInternalServerError))
+						return
+					}
+					if !exists {
+						c.AbortWithStatusJSON(http.StatusBadRequest, service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest))
+						return
+					}
+					modelRequest.Model = task.Properties.OriginModelName
+				}
 				s, ok := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
 				if !ok {
 					// token model limit is empty, all models are not allowed
@@ -123,7 +146,7 @@ func Distribute() func(c *gin.Context) {
 					tokenModelLimit = map[string]bool{}
 				}
 				matchName := ratio_setting.FormatMatchingModelName(modelRequest.Model) // match gpts & thinking-*
-				if _, ok := tokenModelLimit[matchName]; !ok {
+				if _, ok := tokenModelLimit[matchName]; !ok || (videoTaskFetch && modelRequest.Model == "") {
 					abortWithOpenAiMessage(c, http.StatusForbidden, i18n.T(c, i18n.MsgDistributorTokenModelForbidden, map[string]any{"Model": modelRequest.Model}))
 					return
 				}

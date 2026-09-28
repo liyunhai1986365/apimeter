@@ -17,7 +17,7 @@ type configurableAssetEndpoint struct {
 }
 
 func SetVideoRouter(router *gin.Engine) {
-	router.POST("/", middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayArkAssetAction)
+	router.POST("/", middleware.RouteTag("relay"), controller.ArkAssetResponse, middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayArkAssetAction)
 	if !routeRegistered(router, "POST", configurable.YouniyoujuAssetPath) {
 		router.POST(configurable.YouniyoujuAssetPath, middleware.RouteTag("relay"), middleware.ConfigurableResource("", ""), middleware.TokenAuth(), controller.RelayArkAssetAction)
 	}
@@ -31,29 +31,29 @@ func SetVideoRouter(router *gin.Engine) {
 
 	videoV1Router := router.Group("/v1")
 	videoV1Router.Use(middleware.RouteTag("relay"))
-	videoV1Router.Use(middleware.TokenAuth(), middleware.Distribute())
+	videoV1Router.Use(middleware.TokenAuth())
 	{
-		videoV1Router.POST("/video/generations", controller.RelayTask)
-		videoV1Router.GET("/video/generations/:task_id", controller.RelayTaskFetch)
-		videoV1Router.POST("/videos/:video_id/remix", controller.RelayTask)
+		videoV1Router.POST("/video/generations", middleware.Distribute(), controller.RelayTask)
+		videoV1Router.GET("/video/generations/:task_id", middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
+		videoV1Router.POST("/videos/:video_id/remix", middleware.Distribute(), controller.RelayTask)
 	}
 	// openai compatible API video routes
 	// docs: https://platform.openai.com/docs/api-reference/videos/create
 	{
-		videoV1Router.POST("/videos", controller.RelayTask)
-		videoV1Router.GET("/videos/:task_id", controller.RelayTaskFetch)
+		videoV1Router.POST("/videos", middleware.Distribute(), controller.RelayTask)
+		videoV1Router.GET("/videos/:task_id", middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
 	}
 
 	registerConfigurableNativeRoutes(router)
 
 	klingV2Router := router.Group("/kling/v2")
 	klingV2Router.Use(middleware.RouteTag("relay"))
-	klingV2Router.Use(middleware.KlingRequestConvert(), middleware.TokenAuth(), middleware.Distribute())
+	klingV2Router.Use(middleware.KlingRequestConvert(), middleware.TokenAuth())
 	{
-		klingV2Router.POST("/videos/text2video", controller.RelayTask)
-		klingV2Router.POST("/videos/image2video", controller.RelayTask)
-		klingV2Router.GET("/videos/text2video/:task_id", controller.RelayTaskFetch)
-		klingV2Router.GET("/videos/image2video/:task_id", controller.RelayTaskFetch)
+		klingV2Router.POST("/videos/text2video", middleware.Distribute(), controller.RelayTask)
+		klingV2Router.POST("/videos/image2video", middleware.Distribute(), controller.RelayTask)
+		klingV2Router.GET("/videos/text2video/:task_id", middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
+		klingV2Router.GET("/videos/image2video/:task_id", middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
 	}
 
 	// Jimeng official API routes - direct mapping to official API format
@@ -100,7 +100,7 @@ func registerConfigurableNativeFetchRoute(router *gin.Engine, profile *configura
 		return
 	}
 	registered[key] = true
-	router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(profile.ID, relayconstant.RelayModeVideoFetchByID), middleware.TokenAuth(), middleware.Distribute(), controller.RelayTaskFetch)
+	router.Handle(endpoint.Method, ginPath(endpoint.Path), middleware.RouteTag("relay"), middleware.ConfigurableNativeProfile(profile.ID, relayconstant.RelayModeVideoFetchByID), middleware.TokenAuth(), middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
 }
 
 func registerConfigurableResourceRoutes(router *gin.Engine, profile *configurable.Profile, registered map[string]bool) {

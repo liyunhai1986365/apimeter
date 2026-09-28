@@ -48,8 +48,6 @@ func TestGetAllLogsCursorResponseOmitsExactTotal(t *testing.T) {
 				"cache_write_tokens": 0,
 				"use_time": 0,
 				"is_stream": false,
-				"channel": 0,
-				"channel_name": "",
 				"token_id": 0,
 				"group": "",
 				"ip": "",

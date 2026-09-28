@@ -38,8 +38,8 @@ type Log struct {
 	CacheWriteTokens  int    `json:"cache_write_tokens" gorm:"default:0"`
 	UseTime           int    `json:"use_time" gorm:"default:0"`
 	IsStream          bool   `json:"is_stream"`
-	ChannelId         int    `json:"channel" gorm:"index"`
-	ChannelName       string `json:"channel_name" gorm:"->"`
+	ChannelId         int    `json:"channel,omitempty" gorm:"index"`
+	ChannelName       string `json:"channel_name,omitempty" gorm:"->"`
 	TokenId           int    `json:"token_id" gorm:"default:0;index"`
 	Group             string `json:"group" gorm:"index"`
 	Ip                string `json:"ip" gorm:"index;default:''"`
@@ -133,15 +133,15 @@ func StripChannelCostFieldsFromLogs(logs []*Log) {
 
 func formatUserLogs(logs []*Log, startIdx int) {
 	for i := range logs {
+		logs[i].ChannelId = 0
 		logs[i].ChannelName = ""
 		var otherMap map[string]interface{}
 		otherMap, _ = common.StrToMap(logs[i].Other)
 		if otherMap != nil {
 			// Remove admin-only debug fields.
-			delete(otherMap, "admin_info")
-			delete(otherMap, "audit_info")
-			// delete(otherMap, "reject_reason")
-			delete(otherMap, "stream_status")
+			for _, field := range []string{"channel", "channel_id", "channel_name", "channel_type", "admin_info", "audit_info", "retry_route_event_ids", "reject_reason", "stream_status"} {
+				delete(otherMap, field)
+			}
 			stripChannelCostFields(otherMap)
 		}
 		logs[i].Other = common.MapToJsonStr(otherMap)

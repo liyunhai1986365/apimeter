@@ -6,6 +6,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -83,7 +84,7 @@ func TestSeedanceQueryEntrypointsPreserveIntegrityAndFormat(t *testing.T) {
 					c.Request = httptest.NewRequest("GET", path, nil)
 					c.Set("id", 7)
 					c.Set("task_id", "task_local")
-					if isVolcengineVideoTaskQueryRequest(c) {
+					if service.IsVolcengineVideoTaskQueryRequest(c) {
 						c.Set("task_id", "cgt-owner")
 					}
 					body, taskErr := videoFetchByIDRespBodyBuilder(c)

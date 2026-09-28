@@ -88,7 +88,8 @@ SELECT
     COALESCE(
         NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(q.request_json, '$.ratio')), 'null'), ''),
         NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(q.request_json, '$.aspect_ratio')), 'null'), ''),
-        NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(q.request_json, '$.metadata.ratio')), 'null'), '')
+        NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(q.request_json, '$.metadata.ratio')), 'null'), ''),
+        NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(q.request_json, '$.metadata.aspect_ratio')), 'null'), '')
     ) AS `请求画面比例`,
     CAST(COALESCE(
         NULLIF(NULLIF(JSON_UNQUOTE(JSON_EXTRACT(q.response_json, '$.usage.prompt_tokens')), 'null'), ''),
@@ -192,7 +193,8 @@ FROM (
                         WHERE l.user_id = @user_id
                           AND l.created_at >= UNIX_TIMESTAMP(@start_time)
                           AND l.created_at <= UNIX_TIMESTAMP(@end_time)
-                          AND l.model_name LIKE @model_pattern
+                          AND CONVERT(l.model_name USING utf8mb4) COLLATE utf8mb4_unicode_ci
+                              LIKE CONVERT(@model_pattern USING utf8mb4) COLLATE utf8mb4_unicode_ci
                           AND (@log_type = 0 OR l.type = @log_type)
                           -- 与页面一致：同一请求已产生新消费/错误记录时，不展示被替代的旧错误。
                           AND NOT (l.type = 5 AND l.request_id <> '' AND EXISTS (
