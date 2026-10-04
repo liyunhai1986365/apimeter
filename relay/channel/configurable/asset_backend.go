@@ -5,6 +5,7 @@ import "github.com/QuantumNous/new-api/relaykit/dto"
 const OfficialAssetBackend = "volcengine-assets"
 const YouniyoujuAssetBackend = "youniyouju"
 const YouniyoujuAssetPath = "/api/volcengine_asset"
+const HanxingtuAssetBackend = "hanxingtu"
 
 // Action backends carry resource IDs in JSON and preserve provider IDs directly.
 // Authentication remains a separate, backend-specific setting.
@@ -14,6 +15,7 @@ func IsAssetActionBackend(backend string) bool {
 
 // Asset backends reuse existing resource contracts without changing video routes.
 var AssetBackendProfiles = map[string]string{
+	HanxingtuAssetBackend:   "hanxingtu",
 	"tgxmaas":               "seedance-tgxmaas",
 	"task":                  "seedance2-ark-task-assets",
 	"modelsell":             "seedance2-modelsell",

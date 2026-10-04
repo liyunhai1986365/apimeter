@@ -6,13 +6,14 @@
 
 默认主题：添加/编辑「可配置协议」渠道，在 Protocol Profile 下选择「素材库类型」。视频协议与素材协议独立。例如视频使用 `seedance2-ark-task-assets`，素材库选择「火山官方素材库」。
 
-共有 11 个选项：9 种具体素材后端，加上“跟随视频协议”和“不启用”。下表表示当前代码声明的协议能力，不等同于每个供应商账号均已实测或获授权。
+共有 12 个选项：10 种具体素材后端，加上“跟随视频协议”和“不启用”。下表表示当前代码声明的协议能力，不等同于每个供应商账号均已实测或获授权。
 
 | 类型 | backend 值 | 已支持操作 | 上游路径 | 鉴权 |
 | --- | --- | --- | --- | --- |
 | 跟随视频协议 | `inherit` | 取决于视频 Profile 自带素材能力 | 使用视频 Profile 定义 | 沿用原协议/渠道鉴权 |
 | 火山官方素材库 | `volcengine-assets` | 素材 5 项、分组 5 项、真人认证 2 项 | `POST /?Action=…&Version=2024-01-01` | 独立 AK/SK |
 | 有你有剧 | `youniyouju` | 素材 5 项、分组 5 项、真人认证 2 项 | `POST /api/volcengine_asset?Action=…&Version=2024-01-01` | Token |
+| Hanxingtu | `hanxingtu` | 素材创建、查询、列表、删除；分组创建、列表、删除（共 7 项） | `POST /v1/asset/<Action>` | Token |
 | TgxMaas | `tgxmaas` | 素材 5 项、分组 5 项、真人认证 2 项 | `/v1/private-avatar/*`、`/v1/real-avatar/*` | Token |
 | 统一任务式 | `task` | 上传、查询 | `POST /v1/task/submit`；模型 `doubao-asset`，`input.action` 为 `upload` 或 `query` | Token |
 | Modelsell | `modelsell` | 上传、详情查询 | `POST /api/assets/upload`、`GET /api/assets/{id}` | Token |
@@ -33,6 +34,8 @@
 除新建的有你有剧 Action 映射外，第三方后端主要复用项目已有 YAML 档案。未声明的操作不伪装为支持；在有可用的显式素材后端、但没有对应操作时，返回 501 / unsupported_asset_operation。
 
 有你有剧后端复用 Action 操作映射，使用平台 Token，ProjectName 可留空；配置和接口示例见 [有你有剧接入](youniyouju_assets.md)。
+
+Hanxingtu 后端使用根 Base URL 和 Bearer Key，支持文档中的 7 项操作、顶层 `Items` 响应和游标分页。素材项目固定为 `default`，不继承视频项目。配置、限制及 Mock 范围见 [Hanxingtu 接入](hanxingtu_assets.md)。
 
 第三方素材地址留空时复用视频渠道 Base URL，也可单独指定。鉴权可复用渠道 Key 或使用独立 API Key。多 Key 视频渠道使用独立素材凭据，避免素材操作被轮询到另一个账号。
 

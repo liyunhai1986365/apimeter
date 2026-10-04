@@ -7004,6 +7004,7 @@
     "Use channel key": "チャネルのキーを使用",
     "Use separate API key": "個別の API キーを使用",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "編集時に認証情報を空欄にすると保存済みの値を保持します。公式認証情報を変更する場合は AK と SK の両方を入力してください。",
-    "ProjectName is required for this asset library": "この素材ライブラリには ProjectName が必要です"
+    "ProjectName is required for this asset library": "この素材ライブラリには ProjectName が必要です",
+    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材ライブラリ（7 操作、Token）"
   }
 }

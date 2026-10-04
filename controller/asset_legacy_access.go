@@ -119,8 +119,8 @@ func claimLegacyAsset(c *gin.Context, ch *model.Channel, profile *configurable.P
 	if err != nil {
 		return empty, err
 	}
-	if project == "" && ch.GetSetting().Protocol != nil {
-		project = strings.TrimSpace(ch.GetSetting().Protocol.ProjectName)
+	if project == "" {
+		project = assetDefaultProject(ch, profile)
 	}
 	input := map[string]any{"Id": ref.id}
 	input[ref.kind+"_id"] = ref.id

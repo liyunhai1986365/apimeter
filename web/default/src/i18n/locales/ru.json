@@ -7004,6 +7004,7 @@
     "Use channel key": "Использовать ключ канала",
     "Use separate API key": "Использовать отдельный API-ключ",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "При редактировании оставьте поля пустыми, чтобы сохранить учетные данные. Для замены официальных данных укажите AK и SK.",
-    "ProjectName is required for this asset library": "Для этой библиотеки требуется ProjectName"
+    "ProjectName is required for this asset library": "Для этой библиотеки требуется ProjectName",
+    "Hanxingtu assets (7 operations, Token)": "Библиотека ресурсов Hanxingtu (7 операций, Token)"
   }
 }

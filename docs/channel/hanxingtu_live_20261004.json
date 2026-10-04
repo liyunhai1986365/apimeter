@@ -1,0 +1,110 @@
+{
+  "date": "2026-10-04",
+  "upstream_base_url": "https://api.hanxingtu.com",
+  "local_channel": {
+    "id": 1,
+    "name": "live-Hanxingtu",
+    "group": "default",
+    "video_profile": "doubao-seedance-2",
+    "asset_backend": "hanxingtu",
+    "asset_auth_mode": "channel_key",
+    "api_url": "http://127.0.0.1:45411",
+    "persistent_database": "/tmp/apimeter-hanxingtu-live-20261004/gateway.db"
+  },
+  "models": [
+    "doubao-seedance-2-0-260128",
+    "doubao-seedance-2-0-fast-260128",
+    "doubao-seedance-2-0-mini-260615",
+    "doubao-seedance-2-5-260628"
+  ],
+  "video": {
+    "result": "passed",
+    "submission_count": 1,
+    "request": {
+      "model": "doubao-seedance-2-0-fast-260128",
+      "content": [
+        {
+          "type": "text",
+          "text": "A ripe orange resting on a plain wooden table in soft natural daylight. The camera slowly moves closer. Realistic product photography, no text, no logos."
+        }
+      ],
+      "duration": 4,
+      "resolution": "720p",
+      "ratio": "16:9",
+      "generate_audio": false,
+      "watermark": false
+    },
+    "create_response": {
+      "id": "task_cLk549Pudnz4L9cfh7WMRRSKuH8yZbR2"
+    },
+    "status_transitions": [
+      "queued",
+      "running",
+      "succeeded"
+    ],
+    "elapsed_upstream_seconds": 308,
+    "final_response_without_content_urls": {
+      "created_at": 1791086375,
+      "doubao-id": "cgt-20261004115938-n99br",
+      "duration": 4,
+      "error": null,
+      "id": "task_cLk549Pudnz4L9cfh7WMRRSKuH8yZbR2",
+      "model": "doubao-seedance-2-0-fast-260128",
+      "ratio": "16:9",
+      "resolution": "720p",
+      "status": "succeeded",
+      "updated_at": 1791086683,
+      "usage": {
+        "completion_tokens": 87299,
+        "total_tokens": 87299
+      }
+    },
+    "download": {
+      "bytes": 3223382,
+      "sha256": "d84fda58eb971afd84a54df10ee9e22c19b8eb7ec537366e72d0243ec0375765",
+      "tracks": [
+        {
+          "width": 1280.0,
+          "height": 720.0,
+          "type": "vide"
+        },
+        {
+          "width": 0.0,
+          "height": 0.0,
+          "type": "soun"
+        }
+      ],
+      "brand": "isom",
+      "duration_seconds": 4.064
+    },
+    "repeat_query_billing_unchanged": true,
+    "generic_fetch_status": "completed",
+    "file": "/tmp/apimeter-hanxingtu-live-20261004/video.mp4"
+  },
+  "assets": {
+    "result": "blocked_by_upstream_account_permission",
+    "direct_http_status": 403,
+    "gateway_http_status": 403,
+    "response": {
+      "error": {
+        "code": "AccessDenied",
+        "message": "管理员未为当前用户开通素材库功能，请先联系管理员开通"
+      }
+    },
+    "created_resources": 0,
+    "asset_reference_video_tested": false
+  },
+  "limits": [
+    "Only Seedance 2.0 Fast was used for real video generation; listing the other models does not verify their generation.",
+    "The local gateway used a nominal per-call test price. This report does not measure actual supplier charges.",
+    "The downloaded MP4 contains an audio track although generate_audio=false was requested. Audio samples were not decoded to determine whether the track is silent.",
+    "Credentials and raw evidence remain in the private local test directory. No production deployment was changed."
+  ],
+  "asset_retest": {
+    "result": "passed",
+    "report": "hanxingtu_assets_live_20261004.json",
+    "asset_operations_passed": 7,
+    "asset_reference_video_succeeded": true,
+    "temporary_resources_deleted": true
+  }
+}

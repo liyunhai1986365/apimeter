@@ -7004,6 +7004,7 @@
     "Use channel key": "Utiliser la clé du canal",
     "Use separate API key": "Utiliser une clé API distincte",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "Lors de la modification, laissez les identifiants vides pour conserver ceux enregistrés. Pour les remplacer, renseignez AK et SK.",
-    "ProjectName is required for this asset library": "ProjectName est requis pour cette bibliothèque de ressources"
+    "ProjectName is required for this asset library": "ProjectName est requis pour cette bibliothèque de ressources",
+    "Hanxingtu assets (7 operations, Token)": "Ressources Hanxingtu (7 opérations, Token)"
   }
 }

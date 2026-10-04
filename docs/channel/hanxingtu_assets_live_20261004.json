@@ -1,0 +1,175 @@
+{
+  "date": "2026-10-04",
+  "result": "passed",
+  "upstream_base_url": "https://api.hanxingtu.com",
+  "channel": {
+    "id": 1,
+    "name": "live-Hanxingtu",
+    "video_profile": "doubao-seedance-2",
+    "asset_backend": "hanxingtu",
+    "asset_auth_mode": "channel_key",
+    "gateway_url": "http://127.0.0.1:45411"
+  },
+  "permission_recheck": {
+    "direct_http_status": 200,
+    "gateway_http_status": 200
+  },
+  "asset_operations": [
+    {
+      "action": "CreateAssetGroup",
+      "path": "/v1/asset/CreateAssetGroup",
+      "http_status": 200,
+      "passed": true
+    },
+    {
+      "action": "ListAssetGroups",
+      "path": "/v1/asset/ListAssetGroups",
+      "http_status": 200,
+      "passed": true
+    },
+    {
+      "action": "CreateAsset",
+      "path": "/v1/asset/CreateAsset",
+      "http_status": 200,
+      "passed": true
+    },
+    {
+      "action": "ListAssets",
+      "path": "/v1/asset/ListAssets",
+      "http_status": 200,
+      "passed": true
+    },
+    {
+      "action": "GetAsset",
+      "path": "/v1/asset/GetAsset",
+      "http_status": 200,
+      "passed": true
+    },
+    {
+      "action": "DeleteAsset",
+      "path": "/v1/asset/DeleteAsset",
+      "http_status": 200,
+      "passed": true
+    },
+    {
+      "action": "DeleteAssetGroup",
+      "path": "/v1/asset/DeleteAssetGroup",
+      "http_status": 200,
+      "passed": true
+    }
+  ],
+  "assets": {
+    "group_id": "group-20261004123712-7f9df",
+    "asset_id": "asset-20261004123713-c8xgw",
+    "asset_type": "Image",
+    "status_before_video": "Active",
+    "query_entries": [
+      "POST /v1/asset/GetAsset",
+      "GET /api/assets/{id}",
+      "POST /?Action=GetAsset&Version=2024-01-01"
+    ]
+  },
+  "video": {
+    "result": "passed",
+    "submission_count": 1,
+    "request": {
+      "method": "POST",
+      "path": "/api/v3/contents/generations/tasks",
+      "body": {
+        "model": "doubao-seedance-2-0-fast-260128",
+        "content": [
+          {
+            "type": "text",
+            "text": "Keep the arrangement of fruit from the reference image. A gentle slow camera push-in, soft natural light, realistic product photography. No text or logos."
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "asset://asset-20261004123713-c8xgw"
+            },
+            "role": "reference_image"
+          }
+        ],
+        "duration": 4,
+        "resolution": "720p",
+        "ratio": "16:9",
+        "generate_audio": false,
+        "watermark": false
+      }
+    },
+    "create_response": {
+      "http_status": 200,
+      "body": {
+        "id": "task_gAP3QFmTjjFCow84D1k4YQGXBPms3Oee"
+      }
+    },
+    "status_transitions": [
+      "queued",
+      "running",
+      "succeeded"
+    ],
+    "elapsed_upstream_seconds": 344,
+    "final_response_without_content_urls": {
+      "created_at": 1791088664,
+      "doubao-id": "cgt-20261004123751-llvhk",
+      "duration": 4,
+      "error": null,
+      "id": "task_gAP3QFmTjjFCow84D1k4YQGXBPms3Oee",
+      "model": "doubao-seedance-2-0-fast-260128",
+      "ratio": "16:9",
+      "resolution": "720p",
+      "status": "succeeded",
+      "updated_at": 1791089008,
+      "usage": {
+        "completion_tokens": 87299,
+        "total_tokens": 87299
+      }
+    },
+    "download": {
+      "bytes": 3529013,
+      "sha256": "2ad3ed60854b4b8f4f6c709346771679ac32f6851f979323b5279e59a6915bb7",
+      "tracks": [
+        {
+          "width": 1280.0,
+          "height": 720.0,
+          "type": "vide"
+        },
+        {
+          "width": 0.0,
+          "height": 0.0,
+          "type": "soun"
+        }
+      ],
+      "brand": "isom",
+      "duration_seconds": 4.064
+    },
+    "file": "/tmp/apimeter-hanxingtu-live-20261004/assets-retry/video.mp4",
+    "repeat_queries": [
+      {
+        "entry": "video-repeat-native",
+        "http_status": 200,
+        "status": "succeeded"
+      },
+      {
+        "entry": "video-repeat-generic",
+        "http_status": 200,
+        "status": "completed"
+      }
+    ],
+    "repeat_query_billing_unchanged": true
+  },
+  "cleanup": {
+    "asset_deleted": true,
+    "group_deleted": true,
+    "supplier_asset_absence_verified": true,
+    "supplier_group_absence_verified": true,
+    "deleted_asset_rejected_by_gateway_http_status": 404
+  },
+  "limits": [
+    "One temporary group, one image asset, and one Seedance 2.0 Fast video were used. Other asset media types and video models were not live-tested.",
+    "Multi-page pagination and dedicated asset credentials remain covered by Mock tests, not this live run.",
+    "The local gateway uses a nominal test price; these results do not measure supplier charges.",
+    "The MP4 contains an audio track although generate_audio=false was requested; audio samples were not decoded to determine whether it is silent."
+  ],
+  "private_evidence_directory": "/tmp/apimeter-hanxingtu-live-20261004/assets-retry"
+}

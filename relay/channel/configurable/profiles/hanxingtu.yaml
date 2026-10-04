@@ -1,0 +1,143 @@
+# Hanxingtu asset library; configure the video protocol independently.
+# Root Base URL, e.g. https://api.hanxingtu.com, without /v1.
+id: hanxingtu
+name: Hanxingtu Assets
+media_type: asset
+resources:
+  - id: asset_groups_create
+    asset_library: true
+    disable_replay: true
+    public:
+      method: POST
+      path: /v1/asset/CreateAssetGroup
+    aliases:
+      - method: POST
+        path: /api/asset-groups
+      - method: POST
+        path: /v1/asset-groups
+      - method: POST
+        path: /v1/private-avatar/groups
+    upstream:
+      method: POST
+      path: /v1/asset/CreateAssetGroup
+    # Ark fields are normalized by prepareHanxingtuAssetRequest.
+    response:
+      passthrough: true
+  - id: asset_groups_list
+    asset_library: true
+    disable_replay: true
+    public:
+      method: POST
+      path: /v1/asset/ListAssetGroups
+    aliases:
+      - method: GET
+        path: /api/asset-groups
+      - method: GET
+        path: /v1/asset-groups
+      - method: POST
+        path: /v1/private-avatar/groups/list
+    upstream:
+      method: POST
+      path: /v1/asset/ListAssetGroups
+    # Ark fields are normalized by prepareHanxingtuAssetRequest.
+    response:
+      passthrough: true
+  - id: asset_groups_delete
+    asset_library: true
+    disable_replay: true
+    public:
+      method: POST
+      path: /v1/asset/DeleteAssetGroup
+    aliases:
+      - method: DELETE
+        path: /api/asset-groups/{group_id}
+      - method: DELETE
+        path: /v1/asset-groups/{group_id}
+      - method: DELETE
+        path: /v1/private-avatar/groups/{group_id}
+    upstream:
+      method: POST
+      path: /v1/asset/DeleteAssetGroup
+    # Ark fields are normalized by prepareHanxingtuAssetRequest.
+    response:
+      passthrough: true
+  - id: assets_create
+    asset_library: true
+    disable_replay: true
+    public:
+      method: POST
+      path: /v1/asset/CreateAsset
+    aliases:
+      - method: POST
+        path: /api/assets
+      - method: POST
+        path: /api/assets/upload
+      - method: POST
+        path: /v1/assets
+      - method: POST
+        path: /v1/private-avatar/assets
+    upstream:
+      method: POST
+      path: /v1/asset/CreateAsset
+    # Ark fields are normalized by prepareHanxingtuAssetRequest.
+    response:
+      passthrough: true
+  - id: assets_list
+    asset_library: true
+    disable_replay: true
+    public:
+      method: POST
+      path: /v1/asset/ListAssets
+    aliases:
+      - method: GET
+        path: /api/assets
+      - method: GET
+        path: /v1/assets
+      - method: POST
+        path: /v1/private-avatar/assets/list
+    upstream:
+      method: POST
+      path: /v1/asset/ListAssets
+    # Ark fields are normalized by prepareHanxingtuAssetRequest.
+    response:
+      passthrough: true
+  - id: assets_get
+    asset_library: true
+    disable_replay: true
+    public:
+      method: POST
+      path: /v1/asset/GetAsset
+    aliases:
+      - method: GET
+        path: /api/assets/{id}
+      - method: GET
+        path: /v1/assets/{id}
+      - method: POST
+        path: /v1/assets/get
+      - method: GET
+        path: /v1/private-avatar/assets/{asset_id}
+    upstream:
+      method: POST
+      path: /v1/asset/GetAsset
+    # Ark fields are normalized by prepareHanxingtuAssetRequest.
+    response:
+      passthrough: true
+  - id: assets_delete
+    asset_library: true
+    disable_replay: true
+    public:
+      method: POST
+      path: /v1/asset/DeleteAsset
+    aliases:
+      - method: DELETE
+        path: /api/assets/{id}
+      - method: DELETE
+        path: /v1/assets/{id}
+      - method: DELETE
+        path: /v1/private-avatar/assets/{asset_id}
+    upstream:
+      method: POST
+      path: /v1/asset/DeleteAsset
+    # Ark fields are normalized by prepareHanxingtuAssetRequest.
+    response:
+      passthrough: true

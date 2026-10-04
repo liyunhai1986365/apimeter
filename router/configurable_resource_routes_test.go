@@ -10,6 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+func TestHanxingtuAssetRoutesRequireToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	SetVideoRouter(r)
+	for _, action := range []string{"CreateAssetGroup", "ListAssetGroups", "DeleteAssetGroup", "CreateAsset", "ListAssets", "GetAsset", "DeleteAsset"} {
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, httptest.NewRequest(http.MethodPost, "/v1/asset/"+action, strings.NewReader(`{}`)))
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("%s: expected token authentication, got %d: %s", action, w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestConfigurableResourceRoutesAreRegisteredFromProfiles(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()

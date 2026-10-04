@@ -5375,6 +5375,7 @@
     "Use channel key": "沿用渠道 Key",
     "Use separate API key": "使用獨立 API Key",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "編輯時密鑰留空會保留已儲存的憑據。更換官方憑據時需同時填寫 AK 和 SK。",
-    "ProjectName is required for this asset library": "此素材庫必須填寫 ProjectName"
+    "ProjectName is required for this asset library": "此素材庫必須填寫 ProjectName",
+    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材庫（7 項操作，Token）"
   }
 }

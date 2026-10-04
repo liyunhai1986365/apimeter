@@ -48,6 +48,10 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 		}
 		return ""
 	}
+	hanxingtu := a.profile != nil && a.profile.ID == configurable.HanxingtuAssetBackend
+	if hanxingtu {
+		p.size = 10
+	}
 	for target, raw := range map[*int]string{&p.page: value("PageNumber", "page_number", "page"), &p.size: value("PageSize", "page_size", "MaxResults", "max_results")} {
 		if raw == "" {
 			continue
@@ -70,6 +74,14 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 	cursor := value("NextToken", "next_token")
 	p.cursorMode = cursor != "" || value("MaxResults", "max_results") != ""
 	p.upstreamCursor = p.cursorMode && a.resource.Upstream.Method != http.MethodGet
+	if hanxingtu {
+		// This provider only accepts cursors, including when clients omit
+		// pagination or use the gateway's page-number compatibility API.
+		p.upstreamCursor = true
+		if value("PageNumber", "page_number", "page", "PageSize", "page_size") == "" {
+			p.cursorMode = true
+		}
+	}
 	if cursor != "" {
 		if !strings.HasPrefix(cursor, p.cursorPrefix) {
 			return nil, fmt.Errorf("asset pagination token does not belong to this user/account; restart listing")
@@ -137,7 +149,7 @@ func rewriteAssetListRequest(c *gin.Context, resource *configurable.ResourceConf
 	for _, key := range []string{"PageNumber", "PageSize", "NextToken", "MaxResults", "page", "page_number", "page_size", "next_token", "max_results"} {
 		delete(body, key)
 	}
-	if p.cursorMode {
+	if p.upstreamCursor {
 		body["MaxResults"] = json.RawMessage(strconv.Itoa(assetListBatchSize))
 		if cursor != "" {
 			body["NextToken"], _ = common.Marshal(cursor)
@@ -160,7 +172,7 @@ func assetListItems(body []byte) (string, gjson.Result, error) {
 	if root := gjson.ParseBytes(body); root.IsArray() {
 		return "", root, nil
 	}
-	for _, path := range []string{"Result.Items", "data.items", "data.list", "data.assets", "data", "items", "list", "assets", "result.items"} {
+	for _, path := range []string{"Result.Items", "Items", "data.items", "data.list", "data.assets", "data", "items", "list", "assets", "result.items"} {
 		items := gjson.GetBytes(body, path)
 		if items.IsArray() || (items.Exists() && items.Type == gjson.Null) {
 			return path, items, nil
@@ -310,6 +322,9 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 			path = "Result.NextToken"
 		}
 		output, _ = sjson.SetBytes(output, path, next)
+		if next == "" && raw.(*assetAccessRequest).profile != nil && raw.(*assetAccessRequest).profile.ID == configurable.HanxingtuAssetBackend {
+			output, _ = sjson.DeleteBytes(output, path)
+		}
 	}
 	return resp, output, nil
 }

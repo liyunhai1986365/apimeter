@@ -22,6 +22,7 @@ const backends = [
   ['inherit', 'Follow video protocol'],
   ['volcengine-assets', 'Volcengine official assets (12 operations)'],
   ['youniyouju', 'Youniyouju assets (12 operations, Token)'],
+  ['hanxingtu', 'Hanxingtu assets (7 operations, Token)'],
   ['tgxmaas', 'TgxMaas assets (12 operations)'],
   ['task', 'Unified task assets (upload and query)'],
   ['modelsell', 'Modelsell assets (upload and query)'],
@@ -137,7 +138,7 @@ export function AssetLibraryFields(props: {
                 'Asset library settings are independent of video generation. Available operations depend on the selected provider.'
               )}
             </FieldDescription>
-            {backend === 'youniyouju' && (
+            {['youniyouju', 'hanxingtu'].includes(backend) && (
               <FieldDescription>
                 {t(
                   'Use the platform Token and root Base URL. The asset API path is added automatically. Leave Base URL empty to use the channel address.'

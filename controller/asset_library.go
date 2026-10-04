@@ -19,6 +19,17 @@ import (
 
 var errUnsupportedAssetOperation = errors.New("selected asset library does not support this operation")
 
+// Independent asset projects must not inherit a separately configured video project.
+func assetDefaultProject(ch *model.Channel, profile *configurable.Profile) string {
+	if profile != nil && profile.ID == configurable.HanxingtuAssetBackend {
+		return "default"
+	}
+	if protocol := ch.GetSetting().Protocol; protocol != nil {
+		return strings.TrimSpace(protocol.ProjectName)
+	}
+	return ""
+}
+
 func configurableResourceBaseURL(ch *model.Channel, resource *configurable.ResourceConfig) string {
 	if resource.AssetLibrary {
 		return assetBaseURL(ch)

@@ -423,8 +423,8 @@ func prepareAssetAccess(c *gin.Context, ch *model.Channel, profile *configurable
 		return model.ErrAssetNotOwned
 	}
 	a.channel, a.profile, a.resource, a.scope = ch, profile, resource, scope
-	if a.project == "" && ch.GetSetting().Protocol != nil {
-		a.project = strings.TrimSpace(ch.GetSetting().Protocol.ProjectName)
+	if a.project == "" {
+		a.project = assetDefaultProject(ch, profile)
 	}
 	for _, ref := range a.pending {
 		binding, err := claimLegacyAsset(c, ch, profile, resource, ref, a.project)
