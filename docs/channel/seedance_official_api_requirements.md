@@ -358,6 +358,7 @@ curl -sS -D /tmp/seedance-fetch.headers \
 - 复用 `private_data` JSON 新增 `official_task_id` 属性，不新增数据库列、不执行迁移；原 `upstream_task_id` 保存与供应商通信所用 ID。
 - 创建和查询响应的 `id` 使用官方 ID。历史本地 ID、供应商查询 ID 也可作为查询别名；全部查询限定当前用户，出现歧义拒绝查询。
 - 对官方平铺响应只替换对外 ID，完整保留其他字段及数字精度。响应缺失的请求字段不伪造回显，模型不支持的功能不能由网关补造。
-- 双 ID 均匹配但上游仅返回这两个 ID 时，非终态返回 HTTP 503、`code: task_status_pending`、`Retry-After: 2`。客户端继续 GET 同一 ID，不重发创建；已有终态缓存则使用缓存。ID 不匹配或其他异常响应仍报错。
+- 双 ID 均匹配、上游 HTTP 成功但仅返回这两个 ID 时，重新读取本地任务并返回 HTTP 200。原生接口将已受理/排队状态（包括本地初始 `NOT_START`）表示为 `queued`，已有运行状态保留 `running`，已有终态则使用终态缓存；通用查询接口保留各自响应格式。等待响应携带 `Retry-After: 2`、`Cache-Control: no-store`、`X-Oneapi-Task-Cache: local`，明确来自本地状态映射，并非本次上游返回的官方状态；终态缓存沿用 `X-Oneapi-Task-Cache: terminal`。不修改持久状态、不结算，不补造结果链接或用量。客户端继续 GET 同一 ID，不重发创建。ID 不匹配或其他异常响应仍报错，上游真实 HTTP 错误仍按原逻辑处理。（2026-10-09 修订：替代初始窗口返回 `503 task_status_pending` 的旧策略。）
+- Seedance 的 `/v1/videos/{id}` 将本地初始 `NOT_START` 映射为 `queued`，只有终态携带 `completed_at`；`/v1/video/generations/{id}` 继续使用通用任务 DTO 的内部状态枚举。
 - Seedance 模型系列走对应原生渠道，不再将渠道筛选写死为 2.0；实际模型须在渠道模型列表中配置。
 - 参数专项结果区分：网关保真、上游接受、实际功能生效。完整结论以最新验证报告为准，不能仅依据创建成功判定 seed/安全标识/工具/码率的语义生效。

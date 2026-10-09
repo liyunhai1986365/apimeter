@@ -324,6 +324,7 @@ export interface TaskLog {
   username?: string
   platform: string // suno, kling, runway, etc.
   task_id: string
+  official_task_id?: string
   action: string // MUSIC, LYRICS, GENERATE, TEXT_GENERATE, etc.
   channel_id: number
   submit_time: number // seconds

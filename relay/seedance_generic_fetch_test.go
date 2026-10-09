@@ -50,19 +50,28 @@ func TestSeedanceQueryEntrypointsPreserveIntegrityAndFormat(t *testing.T) {
 	for _, path := range []string{"/v1/videos/task_local", "/v1/video/generations/task_local", "/api/v3/contents/generations/tasks/cgt-owner"} {
 		t.Run(path, func(t *testing.T) {
 			for _, tc := range []struct {
-				name, body                string
-				initial                   model.TaskStatus
-				upstreamStatus, errStatus int
+				name, body                 string
+				initial                    model.TaskStatus
+				upstreamStatus, errStatus  int
+				nativeStatus, openAIStatus string
 			}{
-				{"wrong_id", `{"id":"task-other","status":"succeeded"}`, model.TaskStatusInProgress, 200, 502},
-				{"missing_status", `{"id":"task-owner"}`, model.TaskStatusInProgress, 200, 502},
-				{"unknown_status", `{"id":"task-owner","status":"unexpected"}`, model.TaskStatusInProgress, 200, 502},
-				{"only_ids", `{"id":"task-owner","upstream_task_id":"cgt-owner"}`, model.TaskStatusInProgress, 200, 503},
-				{"throttled", `{"error":{"code":"Throttled"}}`, model.TaskStatusInProgress, 429, 429},
-				{"unavailable", `{"error":{"code":"Unavailable"}}`, model.TaskStatusInProgress, 503, 503},
-				{"terminal_stale", `{"id":"task-owner","status":"running"}`, model.TaskStatusSuccess, 200, 0},
-				{"terminal_failure", `{"id":"task-owner","status":"failed"}`, model.TaskStatusSuccess, 200, 0},
-				{"terminal_unavailable", `{"error":{"code":"Unavailable"}}`, model.TaskStatusSuccess, 503, 0},
+				{"wrong_id", `{"id":"task-other","status":"succeeded"}`, model.TaskStatusInProgress, 200, 502, "", ""},
+				{"missing_status", `{"id":"task-owner"}`, model.TaskStatusInProgress, 200, 502, "", ""},
+				{"unknown_status", `{"id":"task-owner","status":"unexpected"}`, model.TaskStatusInProgress, 200, 502, "", ""},
+				{"only_ids_not_start", `{"id":"task-owner","upstream_task_id":"cgt-owner"}`, model.TaskStatusNotStart, 200, 0, "queued", "queued"},
+				{"only_ids_submitted", `{"id":"task-owner","upstream_task_id":"cgt-owner"}`, model.TaskStatusSubmitted, 200, 0, "queued", "queued"},
+				{"only_ids_queued", `{"id":"task-owner","upstream_task_id":"cgt-owner"}`, model.TaskStatusQueued, 200, 0, "queued", "queued"},
+				{"only_ids_running", `{"id":"task-owner","upstream_task_id":"cgt-owner"}`, model.TaskStatusInProgress, 200, 0, "running", "in_progress"},
+				{"only_ids_wrong_official", `{"id":"task-owner","upstream_task_id":"cgt-other"}`, model.TaskStatusSubmitted, 200, 502, "", ""},
+				{"only_ids_wrong_supplier", `{"id":"task-other","upstream_task_id":"cgt-owner"}`, model.TaskStatusSubmitted, 200, 502, "", ""},
+				{"ids_with_error", `{"id":"task-owner","upstream_task_id":"cgt-owner","error":{"code":"Unavailable"}}`, model.TaskStatusSubmitted, 200, 502, "", ""},
+				{"throttled", `{"error":{"code":"Throttled"}}`, model.TaskStatusInProgress, 429, 429, "", ""},
+				{"unavailable", `{"error":{"code":"Unavailable"}}`, model.TaskStatusInProgress, 503, 503, "", ""},
+				{"only_ids_unavailable", `{"id":"task-owner","upstream_task_id":"cgt-owner"}`, model.TaskStatusSubmitted, 503, 503, "", ""},
+				{"terminal_only_ids", `{"id":"task-owner","upstream_task_id":"cgt-owner"}`, model.TaskStatusSuccess, 200, 0, "succeeded", "completed"},
+				{"terminal_stale", `{"id":"task-owner","status":"running"}`, model.TaskStatusSuccess, 200, 0, "succeeded", "completed"},
+				{"terminal_failure", `{"id":"task-owner","status":"failed"}`, model.TaskStatusSuccess, 200, 0, "succeeded", "completed"},
+				{"terminal_unavailable", `{"error":{"code":"Unavailable"}}`, model.TaskStatusSuccess, 503, 0, "succeeded", "completed"},
 			} {
 				t.Run(tc.name, func(t *testing.T) {
 					setupRelayTaskTestDB(t)
@@ -98,13 +107,17 @@ func TestSeedanceQueryEntrypointsPreserveIntegrityAndFormat(t *testing.T) {
 						switch path {
 						case "/v1/videos/task_local":
 							require.Equal(t, "task_local", gjson.GetBytes(body, "id").String())
-							require.Equal(t, "completed", gjson.GetBytes(body, "status").String())
+							require.Equal(t, tc.openAIStatus, gjson.GetBytes(body, "status").String())
 						case "/v1/video/generations/task_local":
 							require.Equal(t, "task_local", gjson.GetBytes(body, "data.task_id").String())
-							require.Equal(t, "SUCCESS", gjson.GetBytes(body, "data.status").String())
+							require.Equal(t, string(tc.initial), gjson.GetBytes(body, "data.status").String())
 						default:
 							require.Equal(t, "cgt-owner", gjson.GetBytes(body, "id").String())
-							require.Equal(t, "succeeded", gjson.GetBytes(body, "status").String())
+							require.Equal(t, tc.nativeStatus, gjson.GetBytes(body, "status").String())
+							if tc.initial != model.TaskStatusSuccess {
+								require.False(t, gjson.GetBytes(body, "content").Exists())
+								require.False(t, gjson.GetBytes(body, "usage").Exists())
+							}
 						}
 					}
 					var saved model.Task

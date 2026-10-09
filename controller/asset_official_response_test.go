@@ -51,7 +51,7 @@ func TestOfficialAssetResponseContracts(t *testing.T) {
 			result: `{"BytedToken":"session","H5Link":"https://example.com/auth","CallbackURL":"https://client.example/callback"}`,
 		},
 		{name: "liveness-result", action: "GetVisualValidateResult", status: 200, body: `{"group_id":"human-group"}`, result: `{"GroupId":"human-group"}`},
-		{name: "rest-delete", action: "DeleteAsset", status: 204, wantStatus: 200, result: `{}`},
+		{name: "rest-delete", action: "DeleteAsset", status: 204},
 		{name: "supplier-delete", action: "DeleteAssetGroup", status: 200, body: `{"Result":{"Id":"deleted"}}`, result: `{}`},
 		{name: "official-error", action: "GetAsset", status: 404, body: `{"ResponseMetadata":{"RequestId":"upstream-request","Error":{"Code":"AssetNotFound","Message":"missing","CodeN":123}}}`, code: "AssetNotFound", message: "missing"},
 		{name: "rest-error", action: "CreateAsset", status: 429, body: `{"error":{"code":"RateLimit","message":"try later","channel_id":42}}`, code: "RateLimit", message: "try later"},
@@ -83,6 +83,10 @@ func TestOfficialAssetResponseContracts(t *testing.T) {
 			require.Empty(t, w.Header().Get("Content-Length"))
 			require.Equal(t, "5", w.Header().Get("Retry-After"))
 			require.Equal(t, "upstream-header", w.Header().Get("X-Request-Id"))
+			if wantStatus == http.StatusNoContent {
+				require.Empty(t, w.Body.String())
+				return
+			}
 			body := gjson.ParseBytes(w.Body.Bytes())
 			require.Equal(t, tc.action, body.Get("ResponseMetadata.Action").String())
 			require.Equal(t, "2024-01-01", body.Get("ResponseMetadata.Version").String())
@@ -146,8 +150,8 @@ func TestOfficialAssetResponseLifecycle(t *testing.T) {
 			require.Equal(t, 404, denied.Code)
 			require.Equal(t, "asset_not_found", gjson.GetBytes(denied.Body.Bytes(), "ResponseMetadata.Error.Code").String())
 			deleted := seedanceCall(r, "POST", "/?Action=DeleteAsset&Version=2024-01-01", `{"Id":"own-1"}`, 1)
-			require.Equal(t, 200, deleted.Code, deleted.Body.String())
-			require.Equal(t, `{}`, gjson.GetBytes(deleted.Body.Bytes(), "Result").Raw)
+			require.Equal(t, http.StatusNoContent, deleted.Code, deleted.Body.String())
+			require.Empty(t, deleted.Body.String())
 			gone := seedanceCall(r, "POST", "/?Action=GetAsset&Version=2024-01-01", `{"Id":"own-1"}`, 1)
 			require.Equal(t, 404, gone.Code)
 		})

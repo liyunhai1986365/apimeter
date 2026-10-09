@@ -227,14 +227,25 @@ export const getTaskLogsColumns = ({
       dataIndex: 'task_id',
       render: (text, record, index) => {
         return (
-          <Typography.Text
-            ellipsis={{ showTooltip: true }}
-            onClick={() => {
-              openTaskDetail(record, false);
-            }}
-          >
-            <div>{text}</div>
-          </Typography.Text>
+          <div className='flex flex-col gap-1'>
+            <Typography.Text
+              ellipsis={{ showTooltip: true }}
+              onClick={() => {
+                openTaskDetail(record, false);
+              }}
+            >
+              <div>{text}</div>
+            </Typography.Text>
+            {record.official_task_id && (
+              <Typography.Text
+                type='secondary'
+                size='small'
+                copyable={{ content: record.official_task_id }}
+              >
+                {t('官方任务ID')}: {record.official_task_id}
+              </Typography.Text>
+            )}
+          </div>
         );
       },
     },

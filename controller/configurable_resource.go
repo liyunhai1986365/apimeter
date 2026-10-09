@@ -85,6 +85,9 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	preResults, err := executeConfigurableResourcePreRequests(c, client, channelModel, resource)
 	if err != nil {
 		if resource.AssetLibrary {
+			if respondAssetLookupError(c, err) {
+				return nil
+			}
 			assetInternalError(c, http.StatusBadGateway, "asset_prepare_failed", err)
 			return nil
 		}
@@ -870,6 +873,9 @@ func executeConfigurableResourcePreRequests(c *gin.Context, client *http.Client,
 			preID,
 			resp.StatusCode,
 		))
+		if resource.AssetLibrary && (resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices || (gjson.ValidBytes(body) && !assetResponseSuccessful(body))) {
+			return nil, &assetLookupError{status: resp.StatusCode, header: resp.Header, body: body}
+		}
 		if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 			return nil, fmt.Errorf("configurable resource pre_request %s failed with status %d: %s", preID, resp.StatusCode, strings.TrimSpace(string(body)))
 		}
@@ -984,7 +990,15 @@ func validateManagedConfigurablePreRequest(c *gin.Context, client *http.Client, 
 		return false, nil, readErr
 	}
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		// Only a missing group permits recreation. Transient upstream failures
+		// must preserve the cached group and stop the asset operation.
+		if resource.AssetLibrary && resp.StatusCode != http.StatusNotFound && resp.StatusCode != http.StatusGone {
+			return false, nil, &assetLookupError{status: resp.StatusCode, header: resp.Header, body: body}
+		}
 		return false, nil, nil
+	}
+	if resource.AssetLibrary && gjson.ValidBytes(body) && !assetResponseSuccessful(body) {
+		return false, nil, &assetLookupError{status: resp.StatusCode, header: resp.Header, body: body}
 	}
 	var result map[string]any
 	if err := common.Unmarshal(body, &result); err != nil {

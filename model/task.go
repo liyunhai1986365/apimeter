@@ -169,6 +169,18 @@ func (t *Task) GetNativeTaskID() string {
 	return t.GetUpstreamTaskID()
 }
 
+// GetOfficialTaskID also recognizes direct Ark IDs in older tasks. Supplier
+// lookup IDs must not be presented as official IDs.
+func (t *Task) GetOfficialTaskID() string {
+	if t.PrivateData.OfficialTaskID != "" {
+		return t.PrivateData.OfficialTaskID
+	}
+	if id := t.GetUpstreamTaskID(); strings.HasPrefix(id, "cgt-") {
+		return id
+	}
+	return ""
+}
+
 // GetResultURL 获取任务结果 URL（视频地址等）
 // 新数据存在 PrivateData.ResultURL 中；旧数据回退到 FailReason（历史兼容）
 func (t *Task) GetResultURL() string {
@@ -364,6 +376,9 @@ func TaskGetAllUserTask(userId int, startIdx int, num int, queryParams SyncTaskQ
 	if err != nil {
 		return nil
 	}
+	if err := loadTaskLogIDs(tasks); err != nil {
+		return nil
+	}
 
 	return tasks
 }
@@ -408,6 +423,9 @@ func TaskGetAllTasks(startIdx int, num int, queryParams SyncTaskQueryParams) []*
 	// 获取数据
 	err = query.Omit("data", "private_data").Order("id desc").Limit(num).Offset(startIdx).Find(&tasks).Error
 	if err != nil {
+		return nil
+	}
+	if err := loadTaskLogIDs(tasks); err != nil {
 		return nil
 	}
 
@@ -474,20 +492,12 @@ func GetByTaskIDOrUpstreamID(userID int, taskID string) (*Task, bool, error) {
 	if taskID == "" || userID <= 0 {
 		return nil, false, nil
 	}
-	var expression string
-	switch DB.Dialector.Name() {
-	case "mysql":
-		expression = "JSON_UNQUOTE(JSON_EXTRACT(private_data, '$.upstream_task_id'))"
-	case "postgres":
-		expression = "CAST(private_data AS json) ->> 'upstream_task_id'"
-	case "sqlite":
-		expression = "json_extract(private_data, '$.upstream_task_id')"
-	default:
-		return nil, false, fmt.Errorf("unsupported database for native task lookup")
+	expression, officialExpression, err := taskPrivateIDExpressions()
+	if err != nil {
+		return nil, false, err
 	}
-	officialExpression := strings.ReplaceAll(expression, "upstream_task_id", "official_task_id")
 	var tasks []Task
-	err := DB.Where("user_id = ?", userID).
+	err = DB.Where("user_id = ?", userID).
 		Where("task_id = ? OR ("+expression+") = ? OR ("+officialExpression+") = ?", taskID, taskID, taskID).Limit(2).Find(&tasks).Error
 	if err != nil {
 		return nil, false, err

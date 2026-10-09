@@ -85,42 +85,64 @@ func TestSeedanceFetchConcurrentWinnerAndPersistenceError(t *testing.T) {
 }
 
 func TestSeedanceUnchangedFetchRechecksConcurrentState(t *testing.T) {
-	for _, winner := range []string{"failed", "succeeded", "running", "missing"} {
-		t.Run(winner, func(t *testing.T) {
-			setupRelayTaskTestDB(t)
-			var task *model.Task
-			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				switch winner {
-				case "failed", "succeeded":
-					status := model.TaskStatusFailure
-					if winner == "succeeded" {
-						status = model.TaskStatusSuccess
+	for _, response := range []struct{ name, body string }{
+		{"running", `{"id":"cgt-owner","status":"running","future":{"preserve":true}}`},
+		{"only_ids", `{"id":"cgt-owner","upstream_task_id":"cgt-owner"}`},
+	} {
+		for _, winner := range []string{"failed", "succeeded", "cancelled", "expired", "running", "missing"} {
+			t.Run(response.name+"/"+winner, func(t *testing.T) {
+				setupRelayTaskTestDB(t)
+				var task *model.Task
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					switch winner {
+					case "failed", "succeeded", "cancelled", "expired":
+						status := model.TaskStatusFailure
+						if winner == "succeeded" {
+							status = model.TaskStatusSuccess
+						}
+						require.NoError(t, model.DB.Model(&model.Task{}).Where("id = ?", task.ID).Updates(map[string]any{"status": status, "data": []byte(fmt.Sprintf(`{"id":"cgt-owner","status":%q}`, winner))}).Error)
+					case "running":
+						require.NoError(t, model.DB.Model(&model.Task{}).Where("id = ?", task.ID).Updates(map[string]any{"status": model.TaskStatusInProgress, "progress": "50%"}).Error)
+					case "missing":
+						require.NoError(t, model.DB.Delete(&model.Task{}, task.ID).Error)
 					}
-					require.NoError(t, model.DB.Model(&model.Task{}).Where("id = ?", task.ID).Updates(map[string]any{"status": status, "data": []byte(fmt.Sprintf(`{"id":"cgt-owner","status":%q}`, winner))}).Error)
-				case "missing":
-					require.NoError(t, model.DB.Delete(&model.Task{}, task.ID).Error)
+					_, _ = w.Write([]byte(response.body))
+				}))
+				defer upstream.Close()
+				ch := model.Channel{Id: 9105, Type: constant.ChannelTypeVolcEngine, Key: "test", BaseURL: common.GetPointer(upstream.URL)}
+				require.NoError(t, model.DB.Create(&ch).Error)
+				task = &model.Task{TaskID: "task_unchanged", UserId: 7, ChannelId: ch.Id, Status: model.TaskStatusInProgress, Progress: "50%", PrivateData: model.TaskPrivateData{UpstreamTaskID: "cgt-owner", OfficialTaskID: "cgt-owner"}}
+				if response.name == "only_ids" {
+					task.Status = model.TaskStatusNotStart
+					task.Progress = "0%"
 				}
-				_, _ = w.Write([]byte(`{"id":"cgt-owner","status":"running","future":{"preserve":true}}`))
-			}))
-			defer upstream.Close()
-			ch := model.Channel{Id: 9105, Type: constant.ChannelTypeVolcEngine, Key: "test", BaseURL: common.GetPointer(upstream.URL)}
-			require.NoError(t, model.DB.Create(&ch).Error)
-			task = &model.Task{TaskID: "task_unchanged", UserId: 7, ChannelId: ch.Id, Status: model.TaskStatusInProgress, Progress: "50%", PrivateData: model.TaskPrivateData{UpstreamTaskID: "cgt-owner"}}
-			require.NoError(t, model.DB.Create(task).Error)
-			c, _ := gin.CreateTestContext(httptest.NewRecorder())
-			c.Request = httptest.NewRequest("GET", "/api/v3/contents/generations/tasks/cgt-owner", nil)
-			body := tryConfigurableFetch(c, task, true)
-			if winner == "missing" {
-				require.Empty(t, body)
-				value, ok := c.Get("seedance_native_fetch_error")
-				require.True(t, ok)
-				require.Equal(t, "get_task_failed", value.(*dto.TaskError).Code)
-			} else {
-				require.Equal(t, winner, gjson.GetBytes(body, "status").String())
-				if winner == "running" {
-					require.True(t, gjson.GetBytes(body, "future.preserve").Bool())
+				require.NoError(t, model.DB.Create(task).Error)
+				c, _ := gin.CreateTestContext(httptest.NewRecorder())
+				c.Request = httptest.NewRequest("GET", "/api/v3/contents/generations/tasks/cgt-owner", nil)
+				body := tryConfigurableFetch(c, task, true)
+				if winner == "missing" {
+					require.Empty(t, body)
+					value, ok := c.Get("seedance_native_fetch_error")
+					require.True(t, ok)
+					require.Equal(t, "get_task_failed", value.(*dto.TaskError).Code)
+				} else {
+					_, hasError := c.Get("seedance_native_fetch_error")
+					require.False(t, hasError)
+					require.Equal(t, winner, gjson.GetBytes(body, "status").String())
+					if response.name == "only_ids" {
+						if winner == "running" {
+							require.Equal(t, "local", c.Writer.Header().Get("X-Oneapi-Task-Cache"))
+							require.Equal(t, "2", c.Writer.Header().Get("Retry-After"))
+						} else {
+							require.Equal(t, "terminal", c.Writer.Header().Get("X-Oneapi-Task-Cache"))
+							require.Empty(t, c.Writer.Header().Get("Retry-After"))
+						}
+					}
+					if winner == "running" && response.name == "running" {
+						require.True(t, gjson.GetBytes(body, "future.preserve").Bool())
+					}
 				}
-			}
-		})
+			})
+		}
 	}
 }

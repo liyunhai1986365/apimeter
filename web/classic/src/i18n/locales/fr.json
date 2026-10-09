@@ -1221,6 +1221,7 @@
     "完整流程：": "Full workflow:",
     "完整的 Base URL，支持变量{model}": "URL de base complète, prend en charge la variable {model}",
     "官方": "Officiel",
+    "官方任务ID": "ID officiel de la tâche",
     "官方文档": "Documentation officielle",
     "官方模型同步": "Synchronisation des modèles officiels",
     "官方说明": "Documentation officielle",

@@ -494,10 +494,15 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	openAIVideo.ID = originTask.TaskID
 	openAIVideo.TaskID = originTask.TaskID
 	openAIVideo.Status = originTask.Status.ToVideoStatus()
+	if originTask.Status == model.TaskStatusNotStart {
+		openAIVideo.Status = dto.VideoStatusQueued
+	}
 	openAIVideo.SetProgressStr(originTask.Progress)
 	openAIVideo.SetMetadata("url", dResp.Content.VideoURL)
 	openAIVideo.CreatedAt = originTask.CreatedAt
-	openAIVideo.CompletedAt = originTask.UpdatedAt
+	if originTask.Status == model.TaskStatusSuccess || originTask.Status == model.TaskStatusFailure {
+		openAIVideo.CompletedAt = originTask.UpdatedAt
+	}
 	openAIVideo.Model = originTask.Properties.OriginModelName
 	for key, value := range relaycommon.SeedanceVideoMetadata(originTask.Data) {
 		openAIVideo.SetMetadata(key, value)

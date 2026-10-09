@@ -698,17 +698,25 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		}
 		if task.PrivateData.OfficialTaskID != "" {
 			// Some intermediary providers briefly return only the two IDs after
-			// acceptance. Do not invent an official status or settle this body.
+			// acceptance. Return the persisted status without settling this body.
 			if gjson.ValidBytes(body) && gjson.GetBytes(body, "id").String() == task.GetUpstreamTaskID() &&
 				gjson.GetBytes(body, "upstream_task_id").String() == task.PrivateData.OfficialTaskID &&
 				len(gjson.ParseBytes(body).Map()) == 2 {
+				// Background polling may have advanced the task during this fetch.
+				persisted, exists, reloadErr := model.GetByTaskId(task.UserId, task.TaskID)
+				if reloadErr != nil || !exists {
+					c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("failed to reload concurrent task result"), "get_task_failed", http.StatusInternalServerError))
+					return nil
+				}
+				*task = *persisted
+				c.Header("Cache-Control", "no-store")
 				if task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure {
 					c.Header("X-Oneapi-Task-Cache", "terminal")
-					return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
+				} else {
+					c.Header("X-Oneapi-Task-Cache", "local")
+					c.Header("Retry-After", "2")
 				}
-				c.Header("Retry-After", "2")
-				c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("task accepted; status is not available yet; retry this GET without resubmitting"), "task_status_pending", http.StatusServiceUnavailable))
-				return nil
+				return configurableStoredNativeFetchResponse(adaptor, task, returnNativeBody)
 			}
 		}
 	}
@@ -894,6 +902,7 @@ func TaskModel2Dto(task *model.Task) *dto.TaskDto {
 		CreatedAt:             task.CreatedAt,
 		UpdatedAt:             task.UpdatedAt,
 		TaskID:                task.TaskID,
+		OfficialTaskID:        task.GetOfficialTaskID(),
 		Platform:              string(task.Platform),
 		UserId:                task.UserId,
 		Group:                 task.Group,

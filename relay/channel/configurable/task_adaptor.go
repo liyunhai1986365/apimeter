@@ -503,6 +503,9 @@ func (a *TaskAdaptor) ConvertToOpenAIVideo(originTask *model.Task) ([]byte, erro
 	video.ID = originTask.TaskID
 	video.Model = originTask.Properties.OriginModelName
 	video.Status = configurableVideoStatus(originTask.Status)
+	if profile != nil && relaycommon.IsSeedanceVideoProfile(profile.ID) && originTask.Status == model.TaskStatusNotStart {
+		video.Status = dto.VideoStatusQueued
+	}
 	video.SetProgressStr(originTask.Progress)
 	video.CreatedAt = originTask.CreatedAt
 	if originTask.Status == model.TaskStatusSuccess || originTask.Status == model.TaskStatusFailure {

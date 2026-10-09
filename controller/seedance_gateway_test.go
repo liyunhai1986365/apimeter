@@ -224,9 +224,15 @@ func TestSeedanceIntermediaryGateway(t *testing.T) {
 			path := "/api/v3/contents/generations/tasks/" + id
 			require.NotEqual(t, 200, seedanceCall(r, "GET", path, "", 2).Code)
 			pending := seedanceCall(r, "GET", path, "", 1)
-			require.Equal(t, 503, pending.Code)
-			require.Equal(t, "task_status_pending", gjson.Get(pending.Body.String(), "code").String())
+			require.Equal(t, http.StatusOK, pending.Code, pending.Body.String())
+			require.Equal(t, id, gjson.Get(pending.Body.String(), "id").String())
+			require.Equal(t, "queued", gjson.Get(pending.Body.String(), "status").String())
+			require.Equal(t, "null", gjson.Get(pending.Body.String(), "error").Raw)
+			require.False(t, gjson.Get(pending.Body.String(), "content").Exists())
+			require.False(t, gjson.Get(pending.Body.String(), "usage").Exists())
 			require.Equal(t, "2", pending.Header().Get("Retry-After"))
+			require.Equal(t, "no-store", pending.Header().Get("Cache-Control"))
+			require.Equal(t, "local", pending.Header().Get("X-Oneapi-Task-Cache"))
 			fetched := seedanceCall(r, "GET", path, "", 1)
 			if scenario == "intermediarywrongid" {
 				require.Equal(t, 502, fetched.Code)
@@ -337,7 +343,7 @@ func TestSeedanceGatewayLive(t *testing.T) {
 	for time.Now().Before(deadline) {
 		fetched := seedanceCall(r, "GET", "/api/v3/contents/generations/tasks/"+id, "", 1)
 		require.NoError(t, os.WriteFile(filepath.Join(evidenceDir, "fetch.json"), fetched.Body.Bytes(), 0600))
-		if fetched.Code == 429 || (fetched.Code == 503 && gjson.Get(fetched.Body.String(), "code").String() == "task_status_pending") {
+		if fetched.Code == http.StatusTooManyRequests {
 			t.Logf("Query not ready (%d); retrying GET only", fetched.Code)
 			time.Sleep(2 * time.Second)
 			continue

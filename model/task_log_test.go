@@ -15,7 +15,11 @@ func TestTaskLogsExcludeMediaAndPrivateSnapshots(t *testing.T) {
 	data, err := common.Marshal(map[string]any{"data": map[string]any{"images": []any{map[string]any{"b64_json": strings.Repeat("A", 1024*1024)}}}})
 	require.NoError(t, err)
 	task := Task{TaskID: "task-large-image", UserId: 1001, ChannelId: 9, SubmitTime: 100, Status: TaskStatusSuccess,
-		Data: data, PrivateData: TaskPrivateData{Key: "private-secret", ResultURL: "https://example.com/result.png"},
+		Data: data, PrivateData: TaskPrivateData{
+			Key: "private-secret", ResultURL: "https://example.com/result.png",
+			UpstreamTaskID: "task-supplier", OfficialTaskID: "cgt-official",
+			BillingContext: &TaskBillingContext{OriginModelName: strings.Repeat("snapshot", 128*1024)},
+		},
 		Properties: Properties{OriginModelName: "gpt-image-2"}}
 	require.NoError(t, DB.Create(&task).Error)
 	for _, tasks := range [][]*Task{
@@ -24,7 +28,8 @@ func TestTaskLogsExcludeMediaAndPrivateSnapshots(t *testing.T) {
 	} {
 		require.Len(t, tasks, 1)
 		require.Empty(t, tasks[0].Data)
-		require.Equal(t, TaskPrivateData{}, tasks[0].PrivateData)
+		require.Equal(t, TaskPrivateData{UpstreamTaskID: "task-supplier", OfficialTaskID: "cgt-official"}, tasks[0].PrivateData)
+		require.Equal(t, "cgt-official", tasks[0].GetOfficialTaskID())
 		require.Equal(t, task.Properties, tasks[0].Properties)
 		body, err := common.Marshal(tasks)
 		require.NoError(t, err)
@@ -40,6 +45,68 @@ func TestTaskLogsExcludeMediaAndPrivateSnapshots(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, exists)
 	require.Equal(t, []byte(data), []byte(providerTask.Data))
+}
+
+func TestTaskLogOfficialIDs(t *testing.T) {
+	truncateTables(t)
+	tasks := []Task{
+		{TaskID: "task-middle", UserId: 1001, PrivateData: TaskPrivateData{UpstreamTaskID: "task-supplier", OfficialTaskID: "cgt-official"}},
+		{TaskID: "task-direct", UserId: 1001, PrivateData: TaskPrivateData{UpstreamTaskID: "cgt-direct"}},
+		{TaskID: "cgt-legacy", UserId: 1001},
+		{TaskID: "task-supplier-only", UserId: 1001, PrivateData: TaskPrivateData{UpstreamTaskID: "task-vendor"}},
+		{TaskID: "task-no-id", UserId: 1001},
+		{TaskID: "task-json-null", UserId: 1001},
+		{TaskID: "task-other-owner", UserId: 2002, PrivateData: TaskPrivateData{OfficialTaskID: "cgt-private"}},
+	}
+	require.NoError(t, DB.Create(&tasks).Error)
+	require.NoError(t, DB.Model(&Task{}).Where("task_id = ?", "task-json-null").
+		Update("private_data", `{"official_task_id":null,"upstream_task_id":null}`).Error)
+	expected := map[string]string{
+		"task-middle": "cgt-official", "task-direct": "cgt-direct", "cgt-legacy": "cgt-legacy",
+		"task-supplier-only": "", "task-no-id": "", "task-json-null": "",
+	}
+	for _, page := range [][]*Task{
+		TaskGetAllTasks(0, 100, SyncTaskQueryParams{UserID: "1001"}),
+		TaskGetAllUserTask(1001, 0, 100, SyncTaskQueryParams{}),
+	} {
+		require.Len(t, page, len(expected))
+		for _, task := range page {
+			id, ok := expected[task.TaskID]
+			require.True(t, ok, "unexpected task: %s", task.TaskID)
+			require.Equal(t, id, task.GetOfficialTaskID())
+		}
+	}
+	page := TaskGetAllUserTask(1001, 1, 2, SyncTaskQueryParams{})
+	require.Len(t, page, 2)
+	require.Equal(t, "task-no-id", page[0].TaskID)
+	require.Equal(t, "task-supplier-only", page[1].TaskID)
+	require.Empty(t, TaskGetAllUserTask(1001, 100, 2, SyncTaskQueryParams{}))
+}
+
+func TestTaskLogIDsTolerateLegacySQLitePrivateData(t *testing.T) {
+	truncateTables(t)
+	for _, raw := range []string{"", " ", "invalid-json", `{"upstream_task_id":`} {
+		t.Run(raw, func(t *testing.T) {
+			truncateTables(t)
+			require.NoError(t, DB.Create(&[]Task{
+				{TaskID: "task-legacy", UserId: 1001},
+				{TaskID: "task-valid", UserId: 1001, PrivateData: TaskPrivateData{OfficialTaskID: "cgt-valid"}},
+			}).Error)
+			require.NoError(t, DB.Model(&Task{}).Where("task_id = ?", "task-legacy").Update("private_data", raw).Error)
+			for _, page := range [][]*Task{
+				TaskGetAllTasks(0, 100, SyncTaskQueryParams{UserID: "1001"}),
+				TaskGetAllUserTask(1001, 0, 100, SyncTaskQueryParams{}),
+			} {
+				require.Len(t, page, 2, "legacy metadata must not hide the entire log page")
+				require.Equal(t, "cgt-valid", page[0].GetOfficialTaskID())
+				require.Empty(t, page[1].GetOfficialTaskID())
+			}
+			found, exists, err := GetByTaskIDOrUpstreamID(1001, "cgt-valid")
+			require.NoError(t, err)
+			require.True(t, exists)
+			require.Equal(t, "task-valid", found.TaskID)
+		})
+	}
 }
 
 func TestTaskLogDetailEnforcesOwnerAndWorkspace(t *testing.T) {

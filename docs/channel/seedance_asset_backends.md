@@ -62,10 +62,12 @@ Hanxingtu 后端使用根 Base URL 和 Bearer Key，支持文档中的 7 项操�
 - 成功响应只包含顶层 `ResponseMetadata` 和 `Result`。已有 `Result` 保留业务内容；第三方 `data`、`result` 或裸对象移入 `Result`，已知字段别名转换为 `Id`、`Status`、`Items`、`TotalCount` 等官方命名。业务字段中的大整数、零值和 false 保留，素材 ID 不替换成另一层 ID。
 - `ResponseMetadata` 带有当前请求的 `Action`、`Version`、`Service`、`Region` 和 `RequestId`。请求 ID 优先保留上游响应中的值，其次使用上游响应头或网关请求 ID。
 - 第三方错误、网关参数/归属/路由错误和鉴权失败统一放入 `ResponseMetadata.Error.Code/Message`；保留已有错误码、HTTP 错误状态、`X-Request-Id` 和 `Retry-After`。HTTP 200 中的业务错误仍为错误响应，素材查询中的 `Result.Status=Failed` 和 `Result.Error` 则仍是一次成功查询的业务结果。非 JSON 错误转成通用 JSON 错误，不回显 HTML 诊断页。
-- 真人认证的裸 `BytedToken`、`H5Link`、`CallbackURL`、`GroupId` 也放入 `Result`。删除成功统一返回 `Result: {}`，第三方的 HTTP 204 转为 HTTP 200，以便携带官方 JSON 响应。
+- 真人认证的裸 `BytedToken`、`H5Link`、`CallbackURL`、`GroupId` 也放入 `Result`。删除成功的 JSON 响应返回 `Result: {}`；上游 HTTP 204 保持 204，响应体为空。
 - 列表仍只含当前客户的素材，`NextToken` 仍为网关游标；格式转换不会增加供应商未提供的操作，也不补造缺失的素材业务数据。
 
 同日复审补齐了失败与边界处理：识别 HTTP 200 中的 `Error` / `Code` / `Success: false`，失败的删除不撤销本地归属；内部字段过滤后仍保留安全的错误标记，空错误对象按 JSON 内容判断，不受空格影响。裸数组列表使用完成归属过滤后的真实匹配数生成总数及游标。素材对象内部的 `data` 扩展字段不会被当成响应外壳解包。创建/详情缺少有效 ID、认证创建缺少 BytedToken 或列表结构无效时，官方入口返回 `502 asset_response_failed`；响应异常不代表上游未执行，禁止自动重放创建。运行时异常返回官方格式的 `500 asset_internal_error`，异常细节只写服务端日志。
+
+2026-10-09 状态码透传补充：素材查询的 `Processing` 状态不改写为 HTTP 503，保留上游 HTTP 200/202；上游实际返回的 429、503 等状态码继续透传，并保留 `Retry-After` 和 `X-Request-Id`。自动建组及缓存分组校验的上游错误也保留原状态码，HTTP 200 中的业务错误中止后续上传。仅在缓存分组校验返回 404/410 时重新建组，其余错误保留缓存并返回给客户端。网关自身的鉴权、归属校验、连接失败和响应格式错误仍使用对应的本地错误状态码。
 
 `/api/assets`、`/v1/assets`、`/v1/private-avatar/...` 等 REST 入口，以及 `/api/volcengine_asset?Action=...` 第三方入口继续使用各自原有响应格式。入口选择只影响客户协议，不改变素材归属或上游鉴权方式。
 

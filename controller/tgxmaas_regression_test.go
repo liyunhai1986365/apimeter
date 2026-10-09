@@ -246,10 +246,16 @@ func TestTgxRegressionVideoNativeLifecycle(t *testing.T) {
 			denied := seedanceCall(r, "GET", path, "", 2)
 			require.NotEqual(t, 200, denied.Code)
 			require.Zero(t, gets.Load())
-			for p, code := range []int{503, 429, 502, 200} {
+			for p, code := range []int{200, 429, 502, 200} {
 				phase.Store(int32(p))
 				response := seedanceCall(r, "GET", path, "", 1)
 				require.Equal(t, code, response.Code, response.Body.String())
+				if p == 0 {
+					require.Equal(t, "cgt-official", gjson.GetBytes(response.Body.Bytes(), "id").String())
+					require.Equal(t, "queued", gjson.GetBytes(response.Body.Bytes(), "status").String())
+					require.Equal(t, "local", response.Header().Get("X-Oneapi-Task-Cache"))
+					require.Equal(t, "no-store", response.Header().Get("Cache-Control"))
+				}
 				if p == 0 || p == 1 {
 					require.Equal(t, "2", response.Header().Get("Retry-After"))
 				}

@@ -52,6 +52,9 @@ func TestSeedanceGenericSubmitPersistsOfficialID(t *testing.T) {
 					require.NoError(t, model.DB.Save(ch).Error)
 				}
 				r.POST(entry, middleware.TokenAuth(), middleware.Distribute(), RelayTask)
+				for _, path := range []string{"/v1/videos/:task_id", "/v1/video/generations/:task_id"} {
+					r.GET(path, middleware.TokenAuth(), middleware.DistributeVideoTaskFetch(), RelayTaskFetch)
+				}
 				created := seedanceCall(r, http.MethodPost, entry, `{"model":"doubao-seedance-2-5-260628","prompt":"mock video","duration":4,"metadata":{"upstream_task_id":"cgt-client-spoof"}}`, 1)
 				require.Equal(t, http.StatusOK, created.Code, created.Body.String())
 				localID := gjson.Get(created.Body.String(), "id").String()
@@ -76,10 +79,23 @@ func TestSeedanceGenericSubmitPersistsOfficialID(t *testing.T) {
 				require.NoError(t, model.DB.First(&before, 1).Error)
 				for _, id := range []string{localID, officialID} {
 					pending := seedanceCall(r, http.MethodGet, queryPath+id, "", 1)
-					require.Equal(t, http.StatusServiceUnavailable, pending.Code, pending.Body.String())
-					require.Equal(t, "task_status_pending", gjson.Get(pending.Body.String(), "code").String())
+					require.Equal(t, http.StatusOK, pending.Code, pending.Body.String())
+					require.Equal(t, officialID, gjson.Get(pending.Body.String(), "id").String())
+					require.Equal(t, "queued", gjson.Get(pending.Body.String(), "status").String())
+					require.Equal(t, "null", gjson.Get(pending.Body.String(), "error").Raw)
+					require.Equal(t, "doubao-seedance-2-5-260628", gjson.Get(pending.Body.String(), "model").String())
 					require.Equal(t, "2", pending.Header().Get("Retry-After"))
+					require.Equal(t, "local", pending.Header().Get("X-Oneapi-Task-Cache"))
 				}
+				// Production tasks start as NOT_START, which is an internal status,
+				// not a valid status for the OpenAI video response.
+				pendingVideo := seedanceCall(r, http.MethodGet, "/v1/videos/"+localID, "", 1)
+				require.Equal(t, http.StatusOK, pendingVideo.Code, pendingVideo.Body.String())
+				assert.Equal(t, "queued", gjson.Get(pendingVideo.Body.String(), "status").String())
+				assert.False(t, gjson.Get(pendingVideo.Body.String(), "completed_at").Exists(), pendingVideo.Body.String())
+				pendingTask := seedanceCall(r, http.MethodGet, "/v1/video/generations/"+localID, "", 1)
+				require.Equal(t, http.StatusOK, pendingTask.Code, pendingTask.Body.String())
+				require.Equal(t, string(task.Status), gjson.Get(pendingTask.Body.String(), "data.status").String())
 				phase.Store(1)
 				wrong := seedanceCall(r, http.MethodGet, queryPath+officialID, "", 1)
 				require.Equal(t, http.StatusBadGateway, wrong.Code, wrong.Body.String())
@@ -104,7 +120,11 @@ func TestSeedanceGenericSubmitPersistsOfficialID(t *testing.T) {
 				require.NoError(t, model.DB.First(&after, 1).Error)
 				require.Equal(t, before.Quota, after.Quota, "repeated queries must not charge again")
 				require.EqualValues(t, 1, submissions.Load())
-				require.EqualValues(t, 7, queries.Load())
+				wantQueries := 7
+				if backend == "seedance-tgxmaas" {
+					wantQueries += 2 // Configurable generic queries also refresh upstream.
+				}
+				require.EqualValues(t, wantQueries, queries.Load())
 			})
 		}
 	}

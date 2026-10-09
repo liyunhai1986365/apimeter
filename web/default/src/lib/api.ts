@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import axios from 'axios'
+import axios, { type AxiosRequestConfig } from 'axios'
 import i18next from 'i18next'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
@@ -46,10 +46,12 @@ export const api = axios.create({
 const inFlightGet = new Map<string, Promise<unknown>>()
 const originalGet = api.get.bind(api)
 
-api.get = ((url: string, config = {}) => {
+api.get = ((url: string, config: AxiosRequestConfig = {}) => {
   const disableDuplicate = (config as unknown as Record<string, unknown>)
     ?.disableDuplicate
-  if (disableDuplicate) return originalGet(url, config)
+  // Cancellable requests belong to their caller and must not share its lifetime.
+  if (disableDuplicate || config.signal || config.cancelToken)
+    return originalGet(url, config)
 
   const params = (config as unknown as Record<string, unknown>)?.params
     ? JSON.stringify((config as unknown as Record<string, unknown>).params)
@@ -91,6 +93,8 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
+    if (axios.isCancel(error)) return Promise.reject(error)
+
     const skip = error?.config?.skipErrorHandler
     if (!skip) {
       const status = error?.response?.status

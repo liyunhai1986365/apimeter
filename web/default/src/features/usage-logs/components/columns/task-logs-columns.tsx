@@ -23,6 +23,7 @@ import { getUserAvatarFallback, getUserAvatarStyle } from '@/lib/avatar'
 import { formatTimestampToDate } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { CopyButton } from '@/components/copy-button'
 import { DataTableColumnHeader } from '@/components/data-table'
 import { StatusBadge } from '@/components/status-badge'
 import { TASK_STATUS } from '../../constants'
@@ -123,7 +124,7 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
           return <span className='text-muted-foreground/60 text-xs'>-</span>
         }
         return (
-          <div className='flex max-w-[170px] flex-col gap-0.5'>
+          <div className='flex max-w-[300px] flex-col gap-0.5'>
             <StatusBadge
               label={taskId}
               autoColor={taskId}
@@ -131,6 +132,23 @@ export function useTaskLogsColumns(isAdmin: boolean): ColumnDef<TaskLog>[] {
               showDot={false}
               className='border-border/60 bg-muted/30 max-w-full truncate rounded-md border px-1.5 py-0.5 font-mono'
             />
+            {log.official_task_id && (
+              <div className='text-muted-foreground flex min-w-0 items-center gap-1 text-[11px]'>
+                <span className='shrink-0'>{t('Official Task ID')}:</span>
+                <span
+                  className='truncate font-mono'
+                  title={log.official_task_id}
+                >
+                  {log.official_task_id}
+                </span>
+                <CopyButton
+                  value={log.official_task_id}
+                  className='size-5'
+                  tooltip={`${t('Official Task ID')}: ${log.official_task_id}`}
+                  onClick={(event) => event.stopPropagation()}
+                />
+              </div>
+            )}
             <span
               className='text-muted-foreground/60 truncate text-[11px]'
               title={buildTaskLogSubtitle(log, t)}

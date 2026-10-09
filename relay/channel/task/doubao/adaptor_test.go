@@ -15,6 +15,42 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestSeedanceOpenAIVideoStatusAndCompletionTime(t *testing.T) {
+	for _, tc := range []struct {
+		status   model.TaskStatus
+		want     string
+		terminal bool
+	}{
+		{model.TaskStatusNotStart, "queued", false},
+		{model.TaskStatusSubmitted, "queued", false},
+		{model.TaskStatusQueued, "queued", false},
+		{model.TaskStatusInProgress, "in_progress", false},
+		{model.TaskStatusSuccess, "completed", true},
+		{model.TaskStatusFailure, "failed", true},
+	} {
+		t.Run(string(tc.status), func(t *testing.T) {
+			task := &model.Task{
+				TaskID: "task_public", Status: tc.status, CreatedAt: 100, UpdatedAt: 200,
+				Data: []byte(`{"id":"task_supplier","upstream_task_id":"cgt-official"}`),
+			}
+			body, err := (&TaskAdaptor{}).ConvertToOpenAIVideo(task)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := gjson.GetBytes(body, "status").String(); got != tc.want {
+				t.Fatalf("status = %q, want %q", got, tc.want)
+			}
+			completed := gjson.GetBytes(body, "completed_at")
+			if completed.Exists() != tc.terminal || (tc.terminal && completed.Int() != task.UpdatedAt) {
+				t.Fatalf("unexpected completion timestamp: %s", body)
+			}
+			if task.Status != tc.status {
+				t.Fatal("formatting must not change the stored status")
+			}
+		})
+	}
+}
+
 func TestTaskAdaptorAcceptsSeedanceNativeContentRequest(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

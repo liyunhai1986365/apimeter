@@ -327,7 +327,7 @@ func TestTgxMaasAssetsLive(t *testing.T) {
 		videoDeadline := time.Now().Add(12 * time.Minute)
 		for time.Now().Before(videoDeadline) {
 			videoFetched := call("video-get", "GET", "/api/v3/contents/generations/tasks/"+videoID, nil)
-			if videoFetched.Code == 429 || (videoFetched.Code == 503 && gjson.Get(videoFetched.Body.String(), "code").String() == "task_status_pending") {
+			if videoFetched.Code == http.StatusTooManyRequests {
 				time.Sleep(3 * time.Second)
 				continue
 			}

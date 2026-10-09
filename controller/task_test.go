@@ -19,12 +19,17 @@ import (
 func TestTaskListDTOExcludesFullResults(t *testing.T) {
 	data, err := common.Marshal(map[string]string{"b64_json": strings.Repeat("A", 1024*1024)})
 	require.NoError(t, err)
-	task := &model.Task{TaskID: "task-list", ChannelId: 72, Data: data, PrivateData: model.TaskPrivateData{Key: "private-key", ResultURL: "data:image/png;base64,huge"}}
+	task := &model.Task{TaskID: "task-list", ChannelId: 72, Data: data, PrivateData: model.TaskPrivateData{
+		Key: "private-key", ResultURL: "data:image/png;base64,huge",
+		UpstreamTaskID: "task-supplier", OfficialTaskID: "cgt-official",
+	}}
 	items := taskListToDto([]*model.Task{task}, false)
 	body, err := common.Marshal(items)
 	require.NoError(t, err)
 	require.Less(t, len(body), 2000)
 	require.Contains(t, string(body), `"data_omitted":true`)
+	require.Contains(t, string(body), `"official_task_id":"cgt-official"`)
+	require.NotContains(t, string(body), "task-supplier")
 	require.NotContains(t, string(body), "private-key")
 	require.NotContains(t, string(body), "channel_id")
 	require.Equal(t, 72, task.ChannelId)
@@ -45,7 +50,7 @@ func TestUserTaskDetailRequiresScopeAndHidesPrivateData(t *testing.T) {
 	data, err := common.Marshal(map[string]any{"images": []string{"saved-result"}})
 	require.NoError(t, err)
 	require.NoError(t, db.Create(&model.Task{TaskID: "task-owned", UserId: 1001, ChannelId: 9, Data: data,
-		PrivateData: model.TaskPrivateData{Key: "private-api-key", ResultURL: "https://example.com/result.png"}}).Error)
+		PrivateData: model.TaskPrivateData{Key: "private-api-key", ResultURL: "https://example.com/result.png", OfficialTaskID: "cgt-owned"}}).Error)
 	for _, tc := range []struct {
 		name    string
 		owner   int
@@ -76,10 +81,12 @@ func TestUserTaskDetailRequiresScopeAndHidesPrivateData(t *testing.T) {
 			require.Equal(t, tc.success, response.Success)
 			require.NotContains(t, w.Body.String(), "private-api-key")
 			if tc.success {
+				require.Contains(t, w.Body.String(), `"official_task_id":"cgt-owned"`)
 				require.Contains(t, w.Body.String(), "saved-result")
 				require.NotContains(t, w.Body.String(), `"channel_id"`)
 				require.Equal(t, "no-store", w.Header().Get("Cache-Control"))
 			} else {
+				require.NotContains(t, w.Body.String(), "cgt-owned")
 				require.NotContains(t, w.Body.String(), "saved-result")
 			}
 		})

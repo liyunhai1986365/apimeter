@@ -102,6 +102,9 @@ func (w *arkAssetResponseWriter) Flush()        { w.WriteHeaderNow() }
 // RawMessage keeps IDs, timestamps, explicit zero/false, and large extension
 // numbers intact. Only the public envelope and known field aliases change.
 func officialAssetResponse(c *gin.Context, status int, body []byte) (int, []byte, error) {
+	if status == http.StatusNoContent {
+		return status, nil, nil
+	}
 	filtered, err := publicAssetResponse(body)
 	if err != nil {
 		return status, nil, err
@@ -177,9 +180,6 @@ func officialAssetResponse(c *gin.Context, status int, body []byte) (int, []byte
 		}
 		delete(metadata, "Error")
 		response["Result"] = result
-		if status == http.StatusNoContent {
-			status = http.StatusOK // The official API returns a JSON Result on delete.
-		}
 	}
 	encoded, err := common.Marshal(response)
 	return status, encoded, err
