@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/go-sql-driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -15,8 +17,10 @@ import (
 const assetBindingProfile = "asset-access-v1"
 const assetLibraryScopeProfile = "asset-library-scope-v1"
 const assetBindingLockProfile = "asset-access-lock-v1"
+const assetBindingBatchSize = 500
 
 var ErrAssetNotOwned = errors.New("asset resource is unknown or not owned by this user")
+var errAssetBindingLockRace = errors.New("asset binding mutex was concurrently initialized")
 
 // AssetBinding reuses ConfigurableResourceState; it does not add a table or
 // column. UserID/TokenID on the stored row are zero so its existing unique key
@@ -85,55 +89,148 @@ func SaveAssetBindings(bindings []AssetBinding) error {
 	return registerAssetBindings(bindings, false)
 }
 
-// Lock persistent, global handle rows before reading any ownership snapshots.
-// An asset and its asynchronous task handle share the same lock namespace.
+func assetBindingLockKey(kind, stateKey string) string {
+	// An asset and its asynchronous task handle share the same lock namespace.
+	return assetBindingKind(kind) + ":" + stateKey
+}
+
+// Prepare persistent mutex rows outside the ownership transaction. These inert
+// rows contain no ownership and may survive a rejected claim. MySQL duplicate
+// UPDATE must also be avoided here: its PRIMARY gap lock can block an ownership
+// insert while it waits for the mutex already held by that ownership transaction.
 // The existing ownership unique key alone is insufficient across channels.
-func lockAssetBindings(tx *gorm.DB, bindings []AssetBinding) error {
-	keys := make(map[string]bool)
-	for _, binding := range bindings {
-		kind := binding.Kind
-		if kind == "task" {
-			kind = "asset"
-		}
-		keys[kind+":"+assetBindingKey(binding.ID)] = true
-	}
+func prepareAssetBindingLocks(db *gorm.DB, keys assetBindingLockPlan) ([]int, error) {
 	ordered := make([]string, 0, len(keys))
 	for key := range keys {
 		ordered = append(ordered, key)
 	}
 	sort.Strings(ordered)
-	for _, key := range ordered {
-		state := ConfigurableResourceState{ProfileID: assetBindingLockProfile,
-			ResourceID: "handle", PreRequestID: "global", StateKey: key,
-			Status: ConfigurableResourceStateStatusActive}
-		// An upsert also acquires SQLite's write lock before any reads. Updating
-		// an existing row avoids shared-lock upgrades under MySQL contention.
-		if err := tx.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "channel_id"}, {Name: "profile_id"}, {Name: "resource_id"}, {Name: "pre_request_id"}, {Name: "user_id"}, {Name: "token_id"}, {Name: "state_key"}},
-			DoUpdates: clause.AssignmentColumns([]string{"status"}),
-		}).Create(&state).Error; err != nil {
-			return err
+	storedIDs := make(map[string]int, len(ordered))
+	lookup := func(keys []string) error {
+		for start := 0; start < len(keys); start += assetBindingBatchSize {
+			batch := keys[start:min(start+assetBindingBatchSize, len(keys))]
+			var states []ConfigurableResourceState
+			if err := db.Select("id", "state_key").Where("channel_id = 0 AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND user_id = 0 AND token_id = 0 AND state_key IN ?",
+				assetBindingLockProfile, "handle", "global", batch).Find(&states).Error; err != nil {
+				return err
+			}
+			for _, state := range states {
+				storedIDs[state.StateKey] = state.Id
+			}
 		}
-		if err := lockForUpdate(tx).Where("channel_id = 0 AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND user_id = 0 AND token_id = 0 AND state_key = ?",
-			assetBindingLockProfile, "handle", "global", key).First(&ConfigurableResourceState{}).Error; err != nil {
-			return err
+		return nil
+	}
+	if err := lookup(ordered); err != nil {
+		return nil, err
+	}
+	var missing []string
+	for _, key := range ordered {
+		if storedIDs[key] == 0 {
+			missing = append(missing, key)
 		}
 	}
-	return nil
+	// Keep each initialization statement below SQLite's legacy parameter limit.
+	// Each batch commits independently, before any ownership locks are acquired.
+	const insertBatchSize = 50
+	for start := 0; start < len(missing); start += insertBatchSize {
+		batch := missing[start:min(start+insertBatchSize, len(missing))]
+		states := make([]ConfigurableResourceState, 0, len(batch))
+		for _, key := range batch {
+			states = append(states, ConfigurableResourceState{ProfileID: assetBindingLockProfile,
+				ResourceID: "handle", PreRequestID: "global", StateKey: key,
+				Status: ConfigurableResourceStateStatusActive})
+		}
+		create := db.Clauses(clause.OnConflict{DoNothing: true})
+		if db.Dialector.Name() == common.DatabaseTypeMySQL {
+			// Under REPEATABLE READ, IGNORE retains duplicate-key shared gap
+			// locks while attempting the next insert. A plain INSERT aborts on
+			// the first duplicate instead; roll back and rediscover missing rows.
+			create = db
+		}
+		if err := create.Transaction(func(tx *gorm.DB) error { return tx.Create(&states).Error }); err != nil {
+			var duplicate *mysql.MySQLError
+			if errors.As(err, &duplicate) && duplicate.Number == 1062 {
+				return nil, fmt.Errorf("%w: %w", errAssetBindingLockRace, err)
+			}
+			return nil, err
+		}
+	}
+	if err := lookup(missing); err != nil {
+		return nil, err
+	}
+	ids := make([]int, 0, len(ordered))
+	for _, key := range ordered {
+		if storedIDs[key] == 0 {
+			return nil, gorm.ErrRecordNotFound
+		}
+		ids = append(ids, storedIDs[key])
+	}
+	// Every writer uses the same immutable PK order, including across batches.
+	sort.Ints(ids)
+	return ids, nil
 }
 
-func saveAssetBinding(tx *gorm.DB, binding AssetBinding, handle string) error {
-	if binding.UserID <= 0 || binding.ChannelID <= 0 || binding.Scope == "" || handle == "" {
-		return fmt.Errorf("invalid asset binding")
+// Drive MySQL batches from a materialized, ordered list of IDs. STRAIGHT_JOIN
+// forces one unique PRIMARY lookup per ID: an IN list plus FORCE INDEX can
+// still become a full index scan and retain unrelated next-key locks under RR.
+func assetBindingPrimaryRows(tx *gorm.DB, ids []int) *gorm.DB {
+	query := tx.Model(&ConfigurableResourceState{})
+	if tx.Dialector.Name() == common.DatabaseTypeMySQL {
+		table := tx.NamingStrategy.TableName("ConfigurableResourceState")
+		selects := make([]string, len(ids))
+		args := make([]any, len(ids))
+		for i, id := range ids {
+			selects[i], args[i] = "SELECT ? AS binding_row_id", id
+		}
+		// LIMIT preserves the derived table's ORDER BY during optimization.
+		rows := clause.Expr{SQL: strings.Join(selects, " UNION ALL ") + " ORDER BY binding_row_id LIMIT " + strconv.Itoa(len(ids)), Vars: args}
+		// Keep an explicit row predicate for GORM's global-update guard too.
+		return query.Table("(?) AS asset_binding_ids STRAIGHT_JOIN ? FORCE INDEX (PRIMARY) ON ?.id = asset_binding_ids.binding_row_id",
+			rows, clause.Table{Name: table}, clause.Table{Name: table}).
+			Where("id = asset_binding_ids.binding_row_id")
 	}
+	return query.Where("id IN ?", ids)
+}
+
+// Acquire all mutexes in primary-key order before reading an ownership snapshot.
+func lockAssetBindings(tx *gorm.DB, ids []int) (map[string]ConfigurableResourceState, error) {
+	states := make(map[string]ConfigurableResourceState, len(ids))
+	for start := 0; start < len(ids); start += assetBindingBatchSize {
+		batch := ids[start:min(start+assetBindingBatchSize, len(ids))]
+		query := assetBindingPrimaryRows(tx, batch)
+		if tx.Dialector.Name() == common.DatabaseTypeSQLite {
+			// SQLite acquires its write reservation before any snapshot reads.
+			// Lifecycle mutexes can be revoked; acquiring a lock must not reset
+			// their status. SQLite's write reservation serializes later reads.
+			result := query.UpdateColumn("id", gorm.Expr("id"))
+			if result.Error != nil {
+				return nil, result.Error
+			}
+			if result.RowsAffected != int64(len(batch)) {
+				return nil, gorm.ErrRecordNotFound
+			}
+		}
+		var locked []ConfigurableResourceState
+		if err := lockForUpdate(query).Select("id", "state_key", "status", "state_value").Order("id").Find(&locked).Error; err != nil {
+			return nil, err
+		}
+		if len(locked) != len(batch) {
+			return nil, gorm.ErrRecordNotFound
+		}
+		for _, state := range locked {
+			states[state.StateKey] = state
+		}
+	}
+	return states, nil
+}
+
+func saveAssetBinding(tx *gorm.DB, binding AssetBinding, lifecycle *assetBindingLifecycle) error {
+	handle := binding.ID // registerAssetBindings validates all input before locking.
 	if binding.Kind == "session" {
 		// BytedToken is a bearer credential. Persist only its digest and expiry.
 		binding.ID, binding.CanonicalID = "", ""
-	} else {
-		binding.ID = handle
-		if binding.CanonicalID == "" {
-			binding.CanonicalID = handle
-		}
+	} else if binding.CanonicalID == "" {
+		binding.CanonicalID = handle
 	}
 	metadata, err := common.Marshal(binding)
 	if err != nil {
@@ -147,12 +244,22 @@ func saveAssetBinding(tx *gorm.DB, binding AssetBinding, handle string) error {
 		Status: ConfigurableResourceStateStatusActive, Metadata: string(metadata),
 		CreatedAt: now, UpdatedAt: now, LastUsedAt: now,
 	}
-	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).Create(&state).Error; err != nil {
-		return err
-	}
 	var stored ConfigurableResourceState
-	if err := lockForUpdate(tx).Where("channel_id = ? AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND user_id = 0 AND token_id = 0 AND state_key = ?",
-		binding.ChannelID, assetBindingProfile, binding.Kind, binding.Scope, state.StateKey).First(&stored).Error; err != nil {
+	// The global handle mutex serializes registrations. A nonlocking lookup
+	// avoids locking a missing unique-key gap when registering a new handle.
+	result := tx.Where("channel_id = ? AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND user_id = 0 AND token_id = 0 AND state_key = ?",
+		binding.ChannelID, assetBindingProfile, binding.Kind, binding.Scope, state.StateKey).Limit(1).Find(&stored)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		if err := lifecycle.validate(binding); err != nil {
+			return err
+		}
+		return tx.Create(&state).Error
+	}
+	// Read the current row under lock so a concurrent revocation is respected.
+	if err := lockForUpdate(tx).First(&stored, stored.Id).Error; err != nil {
 		return err
 	}
 	if stored.StateValue != state.StateValue || stored.Status != ConfigurableResourceStateStatusActive {
@@ -175,6 +282,9 @@ func saveAssetBinding(tx *gorm.DB, binding AssetBinding, handle string) error {
 	}
 	if existing.GroupID == "" {
 		existing.GroupID = binding.GroupID
+	}
+	if err := lifecycle.validate(existing); err != nil {
+		return err
 	}
 	// An async handle can remain canonical after its final asset ID arrives.
 	// Hydrating metadata must never replace that established identity.
@@ -211,6 +321,7 @@ func ClaimLegacyAssetBindings(bindings []AssetBinding) error {
 }
 
 func registerAssetBindings(bindings []AssetBinding, legacy bool) error {
+	plan := make(assetBindingLockPlan)
 	for _, binding := range bindings {
 		if binding.UserID <= 0 || binding.ChannelID <= 0 || binding.Scope == "" || binding.ID == "" {
 			return fmt.Errorf("invalid asset binding")
@@ -218,32 +329,50 @@ func registerAssetBindings(bindings []AssetBinding, legacy bool) error {
 		if binding.Kind != "asset" && binding.Kind != "group" && binding.Kind != "task" && (legacy || binding.Kind != "session") {
 			return fmt.Errorf("unsupported asset kind")
 		}
+		plan.include(binding, nil)
 	}
-	return DB.Transaction(func(tx *gorm.DB) error {
-		if err := lockAssetBindings(tx, bindings); err != nil {
+	if len(bindings) == 0 {
+		return nil
+	}
+	db := DB
+	return retryAssetBindingWrite(db, func() error {
+		ids, err := prepareAssetBindingLocks(db, plan)
+		if err != nil {
 			return err
 		}
-		for _, binding := range bindings {
-			var states []ConfigurableResourceState
-			if err := assetHandleStates(tx, binding.Kind, binding.ID).Find(&states).Error; err != nil {
+		// Keep the configured isolation; all mutexes precede snapshot reads.
+		return db.Transaction(func(tx *gorm.DB) error {
+			locked, err := lockAssetBindings(tx, ids)
+			if err != nil {
 				return err
 			}
-			for _, state := range states {
-				// New resources may reuse provider-local IDs in unrelated accounts.
-				// Legacy claims require a globally unregistered handle; ordinary
-				// writes still cannot add a second owner in the same account scope.
-				if !legacy && state.PreRequestID != binding.Scope {
-					continue
-				}
-				if state.ChannelID != binding.ChannelID || state.PreRequestID != binding.Scope || state.StateValue != strconv.Itoa(binding.UserID) || state.Status != ConfigurableResourceStateStatusActive {
-					return ErrAssetNotOwned
-				}
-			}
-			if err := saveAssetBinding(tx, binding, binding.ID); err != nil {
+			resolved, err := plan.resolveStored(tx, bindings, locked)
+			if err != nil {
 				return err
 			}
-		}
-		return nil
+			lifecycle := newAssetBindingLifecycle(tx, locked)
+			for _, binding := range resolved {
+				var states []ConfigurableResourceState
+				if err := assetHandleStates(tx, binding.Kind, binding.ID).Find(&states).Error; err != nil {
+					return err
+				}
+				for _, state := range states {
+					// New resources may reuse provider-local IDs in unrelated accounts.
+					// Legacy claims require a globally unregistered handle; ordinary
+					// writes still cannot add a second owner in the same account scope.
+					if !legacy && state.PreRequestID != binding.Scope {
+						continue
+					}
+					if state.ChannelID != binding.ChannelID || state.PreRequestID != binding.Scope || state.StateValue != strconv.Itoa(binding.UserID) || state.Status != ConfigurableResourceStateStatusActive {
+						return ErrAssetNotOwned
+					}
+				}
+				if err := saveAssetBinding(tx, binding, lifecycle); err != nil {
+					return err
+				}
+			}
+			return lifecycle.markInitialized()
+		})
 	})
 }
 
@@ -283,25 +412,90 @@ func decodeAssetBindings(states []ConfigurableResourceState) ([]AssetBinding, er
 }
 
 func InvalidateAssetBindings(binding AssetBinding, deleteGroup bool) error {
-	var states []ConfigurableResourceState
-	if err := DB.Where("channel_id = ? AND profile_id = ? AND pre_request_id = ? AND state_value = ? AND status = ?",
-		binding.ChannelID, assetBindingProfile, binding.Scope, strconv.Itoa(binding.UserID), ConfigurableResourceStateStatusActive).Find(&states).Error; err != nil {
-		return err
+	if binding.ChannelID <= 0 || binding.UserID <= 0 || binding.Scope == "" || assetCanonicalID(binding) == "" {
+		return fmt.Errorf("invalid asset binding")
 	}
-	var ids []int
-	for _, state := range states {
-		var item AssetBinding
-		if err := common.UnmarshalJsonStr(state.Metadata, &item); err != nil {
+	if deleteGroup && binding.Kind != "group" {
+		return fmt.Errorf("invalid asset group revocation")
+	}
+	db := DB
+	return retryAssetBindingWrite(db, func() error {
+		target, records, err := assetRevocationRecords(db, binding, deleteGroup)
+		if err != nil {
 			return err
 		}
-		sameKind := item.Kind == binding.Kind || (binding.Kind == "asset" && item.Kind == "task")
-		if (sameKind && item.CanonicalID == binding.CanonicalID) || (deleteGroup && item.GroupID == binding.CanonicalID) {
-			ids = append(ids, state.Id)
+		if len(records) == 0 {
+			return nil
 		}
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	return DB.Model(&ConfigurableResourceState{}).Where("id IN ?", ids).
-		Updates(map[string]any{"status": ConfigurableResourceStateStatusInvalid, "updated_at": common.GetTimestamp()}).Error
+		plan := make(assetBindingLockPlan)
+		// Every registration locks its effective identity before touching a
+		// binding. Deletion needs those identities, not every alias handle:
+		// that keeps large alias sets batched and stabilizes new aliases too.
+		plan.includeKeys(assetOwnLifecycleKeys(target), nil)
+		for _, record := range records {
+			plan.includeKeys(assetOwnLifecycleKeys(record.binding), nil)
+		}
+		mutexIDs, err := prepareAssetBindingLocks(db, plan)
+		if err != nil {
+			return err
+		}
+		return db.Transaction(func(tx *gorm.DB) error {
+			// Match registration's mutex order before touching any ownership row.
+			// Only then can ownership updates be batched without reversing the
+			// alias lock order of a concurrent poll.
+			locked, err := lockAssetBindings(tx, mutexIDs)
+			if err != nil {
+				return err
+			}
+			// This is the first snapshot read, after all locks. Writers of new
+			// aliases/children share the canonical/group lifecycle mutexes.
+			target, records, err = assetRevocationRecords(tx, binding, deleteGroup)
+			if err != nil {
+				return err
+			}
+			missing := plan.includeKeys(assetOwnLifecycleKeys(target), locked)
+			for _, record := range records {
+				if plan.includeKeys(assetOwnLifecycleKeys(record.binding), locked) {
+					missing = true
+				}
+			}
+			if missing {
+				return errAssetBindingPlanChanged
+			}
+			if len(records) == 0 {
+				return nil
+			}
+			updates := make(map[int]bool)
+			addIdentity := func(item AssetBinding) {
+				for _, key := range assetOwnLifecycleKeys(item) {
+					state := locked[key]
+					if state.Status != ConfigurableResourceStateStatusInvalid {
+						updates[state.Id] = true
+					}
+				}
+			}
+			addIdentity(target)
+			for _, record := range records {
+				if record.state.Status != ConfigurableResourceStateStatusInvalid {
+					updates[record.state.Id] = true
+				}
+				addIdentity(record.binding)
+			}
+			ids := make([]int, 0, len(updates))
+			for id := range updates {
+				ids = append(ids, id)
+			}
+			sort.Ints(ids)
+			now := common.GetTimestamp()
+			for start := 0; start < len(ids); start += assetBindingBatchSize {
+				batch := ids[start:min(start+assetBindingBatchSize, len(ids))]
+				// Keep PK ranges bounded and all batches in the same transaction.
+				if err := assetBindingPrimaryRows(tx, batch).
+					Updates(map[string]any{"status": ConfigurableResourceStateStatusInvalid, "updated_at": now}).Error; err != nil {
+					return err
+				}
+			}
+			return nil
+		})
+	})
 }

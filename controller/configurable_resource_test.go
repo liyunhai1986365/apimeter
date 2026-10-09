@@ -38,7 +38,7 @@ func openConfigurableResourceTestDB(t *testing.T) *gorm.DB {
 	model.LOG_DB = db
 	common.UsingSQLite = db.Dialector.Name() == "sqlite"
 	common.UsingMySQL = db.Dialector.Name() == "mysql"
-	common.UsingPostgreSQL = false
+	common.UsingPostgreSQL = db.Dialector.Name() == "postgres"
 	common.RedisEnabled = false
 	common.MemoryCacheEnabled = false
 	model.InitColForTest()
@@ -1301,7 +1301,12 @@ func TestRelayConfigurableResourceUsesAssetDetailQueryModelToSelectDreaminaChann
 	createConfigurableResourceAbility(t, db, dreaminaChannel.Id, "dreamina-seedance-2-0-fast-260128", true, dreaminaPriority)
 
 	seedAssetOwnershipForTest(t, 21, 10, "asset", "asset-dreamina")
-	seedAssetOwnershipForTest(t, 21, 10, "task", "task-dreamina")
+	assets, err := model.FindAssetBindings(10, "asset", "asset-dreamina")
+	require.NoError(t, err)
+	require.Len(t, assets, 1)
+	task := assets[0]
+	task.Kind = "task" // The task and final ID belong to the same upstream asset.
+	require.NoError(t, model.SaveAssetBinding(task, "task-dreamina"))
 
 	router := gin.New()
 	router.GET("/api/assets/:id", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)

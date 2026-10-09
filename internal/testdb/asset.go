@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/glebarez/sqlite"
 	driver "github.com/go-sql-driver/mysql"
 	"gorm.io/driver/mysql"
@@ -64,6 +65,13 @@ func AssetOpener(t *testing.T, sqliteDSN string) func() *gorm.DB {
 		if err != nil {
 			t.Fatalf("open asset test database: %v", err)
 		}
+		// Match production's dialect flags: otherwise lockForUpdate may still
+		// see SQLite and silently omit row locks in a real MySQL test.
+		sqlite, mysql, postgres := common.UsingSQLite, common.UsingMySQL, common.UsingPostgreSQL
+		common.SetMainDatabaseType(db.Dialector.Name())
+		t.Cleanup(func() {
+			common.UsingSQLite, common.UsingMySQL, common.UsingPostgreSQL = sqlite, mysql, postgres
+		})
 		pool, err := db.DB()
 		if err != nil {
 			t.Fatal(err)
