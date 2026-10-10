@@ -61,19 +61,14 @@ func respondAssetLookupError(c *gin.Context, err error) bool {
 	return true
 }
 
-func canClaimLegacyAsset(ref assetReference) error {
+func canClaimLegacyAsset(ref assetReference, registered bool) error {
 	if ref.kind != "asset" && ref.kind != "group" && ref.kind != "task" {
 		return model.ErrAssetNotOwned // Unknown/expired bearer sessions cannot be recovered.
 	}
 	if !validAssetHandle(ref.id) {
 		return model.ErrAssetNotOwned
 	}
-	exists, err := model.HasAssetBinding(ref.kind, ref.id)
-	if err != nil {
-		common.SysError("read legacy asset state: " + err.Error())
-		return errAssetStateUnavailable
-	}
-	if exists {
+	if registered {
 		return model.ErrAssetNotOwned
 	}
 	return nil
@@ -115,7 +110,7 @@ func claimLegacyAsset(c *gin.Context, ch *model.Channel, profile *configurable.P
 	if resource == nil {
 		return empty, errUnsupportedAssetOperation
 	}
-	scope, err := assetAccountScope(ch, profile)
+	scope, err := assetAccountScopeForRequest(c, ch, profile)
 	if err != nil {
 		return empty, err
 	}
@@ -206,7 +201,7 @@ func claimLegacyAsset(c *gin.Context, ch *model.Channel, profile *configurable.P
 		kind = "asset"
 	}
 	binding := model.AssetBinding{ChannelID: ch.Id, UserID: common.GetContextKeyInt(c, constant.ContextKeyUserId), Backend: profile.ID, Scope: scope, Kind: kind, CanonicalID: ids[0], Project: project}
-	if err := applyAssetResponseMetadata(&binding, body); err != nil {
+	if err := applyAssetResponseMetadata(ctx, &binding, body); err != nil {
 		return empty, err
 	}
 	var bindings []model.AssetBinding
@@ -234,7 +229,7 @@ func claimLegacyAsset(c *gin.Context, ch *model.Channel, profile *configurable.P
 	if err := add(ref.kind, ref.id); err != nil {
 		return empty, err
 	}
-	if err := model.ClaimLegacyAssetBindings(bindings); err != nil {
+	if err := model.ClaimLegacyAssetBindingsContext(ctx, bindings); err != nil {
 		if errors.Is(err, model.ErrAssetNotOwned) {
 			return empty, err
 		}

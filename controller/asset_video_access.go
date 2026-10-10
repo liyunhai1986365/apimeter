@@ -123,14 +123,14 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 		if _, seen := known[id]; seen {
 			continue
 		}
-		bindings, err := model.FindAssetBindings(info.UserId, "asset", id)
+		bindings, registered, err := model.FindAssetAccessBindingsContext(c.Request.Context(), info.UserId, "asset", id, false)
 		if err != nil {
 			common.SysError("read video asset binding: " + err.Error())
 			return errAssetStateUnavailable
 		}
 		known[id] = bindings
 		if len(bindings) == 0 {
-			if err := canClaimLegacyAsset(assetReference{"asset", id}); err != nil {
+			if err := canClaimLegacyAsset(assetReference{"asset", id}, registered); err != nil {
 				return err
 			}
 			pending = append(pending, id)
@@ -147,9 +147,9 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 					ch = locked
 				} else {
 					var err error
-					ch, err = model.GetChannelById(common.GetContextKeyInt(c, constant.ContextKeyChannelId), true)
+					ch, err = assetChannelForRequest(c, common.GetContextKeyInt(c, constant.ContextKeyChannelId))
 					if err != nil {
-						return model.ErrAssetNotOwned
+						return err
 					}
 				}
 			}
@@ -181,8 +181,14 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 					continue
 				}
 			}
-			ch, err := model.GetChannelById(binding.ChannelID, true)
-			if err != nil || ch.Status != common.ChannelStatusEnabled {
+			ch, err := assetChannelForRequest(c, binding.ChannelID)
+			if err != nil {
+				if errors.Is(err, model.ErrAssetNotOwned) {
+					continue
+				}
+				return err
+			}
+			if ch.Status != common.ChannelStatusEnabled {
 				continue
 			}
 			if protocolFilter != nil && !protocolFilter(ch) {
@@ -192,7 +198,7 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 			if !ok {
 				continue
 			}
-			scope, err := assetAccountScope(ch, profile)
+			scope, err := assetAccountScopeForRequest(c, ch, profile)
 			if errors.Is(err, errAssetStateUnavailable) {
 				return err
 			}

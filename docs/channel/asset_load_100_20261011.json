@@ -1,0 +1,71 @@
+{
+  "clients": 100,
+  "creates": {
+    "count": 100,
+    "http": {
+      "200": 100
+    },
+    "states": {
+      "Processing": 100
+    },
+    "p50_ms": 237.090658,
+    "p95_ms": 271.922474,
+    "p99_ms": 272.517117,
+    "max_ms": 273.393447,
+    "peak_in_flight": 100
+  },
+  "duration_seconds": 57.364031857,
+  "instances": 1,
+  "interval_seconds": 3,
+  "late_rounds": 0,
+  "log_pool_limit": 5,
+  "log_pool_peak_in_use": 0,
+  "log_pool_wait_count": 0,
+  "main_pool_limit": 30,
+  "main_pool_peak_in_use": 30,
+  "main_pool_wait_count": 16153,
+  "main_pool_wait_ms": 61205.349075,
+  "monitor_errors": 0,
+  "mysql_version": "5.7.43-log",
+  "polls": {
+    "count": 2000,
+    "http": {
+      "200": 2000
+    },
+    "states": {
+      "Active": 1700,
+      "Processing": 300
+    },
+    "p50_ms": 76.597256,
+    "p95_ms": 91.222937,
+    "p99_ms": 95.808297,
+    "max_ms": 98.196149,
+    "peak_in_flight": 100
+  },
+  "ready": {
+    "count": 116,
+    "http": {
+      "200": 116
+    },
+    "p50_ms": 0.919895,
+    "p95_ms": 2.540969,
+    "p99_ms": 3.213118,
+    "max_ms": 33.651308,
+    "peak_in_flight": 1
+  },
+  "redis": "disabled",
+  "rounds": 20,
+  "sampled_server_lock_waiters_peak": 0,
+  "status": {
+    "count": 20,
+    "http": {
+      "200": 20
+    },
+    "p50_ms": 0.452135,
+    "p95_ms": 1.256882,
+    "p99_ms": 32.515269,
+    "max_ms": 32.515269,
+    "peak_in_flight": 1
+  },
+  "upstream_delay_ms": 20
+}

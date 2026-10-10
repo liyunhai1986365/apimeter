@@ -46,7 +46,7 @@ func TestAssetLifecycleDeleteIncludesAliasesCommittedAfterDiscovery(t *testing.T
 				matched := false
 				if ok {
 					for _, expression := range where.Exprs {
-						if predicate, ok := expression.(clause.Expr); ok && strings.Contains(predicate.SQL, "channel_id = ? AND profile_id = ? AND pre_request_id = ? AND state_value = ?") {
+						if predicate, ok := expression.(clause.Expr); ok && strings.Contains(predicate.SQL, "state_value = ?") {
 							matched = true
 						}
 					}

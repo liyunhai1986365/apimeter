@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -315,6 +316,16 @@ func rememberTgxMaasAssetHandles(c *gin.Context, ch *model.Channel, resourceID s
 	if !assetResponseSuccessful(response) {
 		return nil
 	}
+	ctx := c.Request.Context()
+	if raw, ok := c.Get(assetAccessContextKey); ok {
+		if access, ok := raw.(*assetAccessRequest); ok && access.op.action == "create" {
+			// A completed upstream creation still needs its routing association
+			// even if the caller disconnected while waiting for the response.
+			ctx = context.Background()
+		}
+	}
+	ctx, cancel := context.WithTimeout(ctx, model.AssetOperationTimeout)
+	defer cancel()
 	project := ""
 	if raw, ok := c.Get(tgxMaasAssetBodyKey); ok {
 		project = gjson.GetBytes(raw.([]byte), "ProjectName").String()
@@ -334,7 +345,7 @@ func rememberTgxMaasAssetHandles(c *gin.Context, ch *model.Channel, resourceID s
 		if scope == "" {
 			scope = project
 		}
-		return model.SaveTgxMaasAssetHandle(ch.Id, common.GetContextKeyInt(c, constant.ContextKeyUserId), ch.AssetHandleProject(scope), original, item.Get("Id").String())
+		return model.SaveTgxMaasAssetHandleContext(ctx, ch.Id, common.GetContextKeyInt(c, constant.ContextKeyUserId), ch.AssetHandleProject(scope), original, item.Get("Id").String())
 	}
 	result := gjson.GetBytes(response, "Result")
 	if err := remember(result); err != nil {

@@ -148,3 +148,79 @@ func TestRetryRouteEventContextTracksCurrentEvent(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, 123, id)
 }
+
+func TestRetryRouteWithoutEventsSkipsUpdatesAndPreservesOutcome(t *testing.T) {
+	db := openRetryRouteEventRecorderTestDB(t)
+	updates := 0
+	const callback = "test:retry_route_empty_update"
+	require.NoError(t, db.Callback().Update().Before("gorm:begin_transaction").Register(callback, func(*gorm.DB) {
+		updates++
+	}))
+	t.Cleanup(func() { require.NoError(t, db.Callback().Update().Remove(callback)) })
+
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set(common.RequestIdKey, "req-no-events")
+	for _, success := range []bool{true, false} {
+		MarkRetryRouteFinal(c, success, "completed")
+		outcome, exists := c.Get("relay_route_final_success")
+		require.True(t, exists)
+		require.Equal(t, success, outcome)
+	}
+	AttachRetryRouteLog(c, 101)
+	require.Zero(t, updates, "requests without recorded retry events must not start an UPDATE")
+}
+
+func TestRetryRouteFinalUpdatesAllRecordedEvents(t *testing.T) {
+	db := openRetryRouteEventRecorderTestDB(t)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set(common.RequestIdKey, "req-final-events")
+	// A matched stop decision is still an event, even without an actual retry.
+	for _, shouldRetry := range []bool{true, false} {
+		RecordRetryRouteDecision(c, operation_setting.RetryPolicyDecision{Matched: true, ShouldRetry: shouldRetry}, nil)
+	}
+	_, recorded := GetCurrentRetryRouteEventID(c)
+	require.True(t, recorded)
+	unrelated := &model.RetryRouteEvent{RequestId: "req-other-final"}
+	require.NoError(t, model.RecordRetryRouteEvent(unrelated))
+
+	for _, outcome := range []struct {
+		success bool
+		status  string
+	}{{true, "success"}, {false, "failed"}} {
+		MarkRetryRouteFinal(c, outcome.success, outcome.status)
+		var events []model.RetryRouteEvent
+		require.NoError(t, db.Where("request_id = ?", "req-final-events").Find(&events).Error)
+		require.Len(t, events, 2)
+		for _, event := range events {
+			require.Equal(t, outcome.success, event.FinalSuccess)
+			require.Equal(t, outcome.status, event.FinalStatus)
+		}
+	}
+	require.NoError(t, db.First(unrelated, unrelated.Id).Error)
+	require.Empty(t, unrelated.FinalStatus)
+	require.False(t, unrelated.FinalSuccess)
+}
+
+func TestRetryRouteLogAttachesAllUnlinkedRecordedEvents(t *testing.T) {
+	db := openRetryRouteEventRecorderTestDB(t)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set(common.RequestIdKey, "req-log-events")
+	for range 2 {
+		RecordRetryRouteDecision(c, operation_setting.RetryPolicyDecision{Matched: true, ShouldRetry: true}, nil)
+	}
+	previouslyLinked := &model.RetryRouteEvent{RequestId: "req-log-events", LogId: 90}
+	unrelated := &model.RetryRouteEvent{RequestId: "req-other-log"}
+	require.NoError(t, model.RecordRetryRouteEvent(previouslyLinked))
+	require.NoError(t, model.RecordRetryRouteEvent(unrelated))
+
+	AttachRetryRouteLog(c, 101)
+	AttachRetryRouteLog(c, 102)
+	var events []model.RetryRouteEvent
+	require.NoError(t, db.Where("request_id = ?", "req-log-events").Order("id").Find(&events).Error)
+	require.Len(t, events, 3)
+	require.Equal(t, 101, events[0].LogId)
+	require.Equal(t, 101, events[1].LogId)
+	require.Equal(t, 90, events[2].LogId, "an existing log association must be preserved")
+	require.NoError(t, db.First(unrelated, unrelated.Id).Error)
+	require.Zero(t, unrelated.LogId)
+}

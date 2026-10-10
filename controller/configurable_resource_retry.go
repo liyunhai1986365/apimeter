@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -28,6 +29,11 @@ func RelayConfigurableResource(c *gin.Context) {
 	if accessErr != nil {
 		respondAssetAccessError(c, accessErr)
 		return
+	}
+	if assetAccess != nil && assetAccess.op.action == "list" {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), assetListScanTimeout)
+		defer cancel()
+		c.Request = c.Request.WithContext(ctx)
 	}
 	smart := service.IsRoutingStrategyTokenPolicy(c)
 	param := &service.RetryParam{Ctx: c, TokenGroup: service.AutoGroupName, Retry: common.GetPointer(0)}

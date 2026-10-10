@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -281,6 +282,13 @@ func newAssetAccessRequest(c *gin.Context, resource *configurable.ResourceConfig
 }
 
 func assetAccountScope(ch *model.Channel, profile *configurable.Profile) (string, error) {
+	return resolveAssetAccountScope(context.Background(), ch, profile, nil)
+}
+
+func resolveAssetAccountScope(ctx context.Context, ch *model.Channel, profile *configurable.Profile, scopes map[assetScopeCacheKey]string) (string, error) {
+	if ctx.Err() != nil {
+		return "", errAssetStateUnavailable
+	}
 	credential, auth := ch.Key, "channel_key"
 	if cfg := assetLibrary(ch); cfg != nil && cfg.Backend != "" && cfg.Backend != "inherit" && cfg.Backend != "disabled" {
 		auth = cfg.AuthMode
@@ -293,19 +301,26 @@ func assetAccountScope(ch *model.Channel, profile *configurable.Profile) (string
 	}
 	endpoint := profile.ID + "\x00" + strings.TrimRight(assetBaseURL(ch), "/") + "\x00" + auth
 	endpointKey := fmt.Sprintf("%x", sha256.Sum256([]byte(endpoint)))
+	cacheKey := assetScopeCacheKey{channelID: ch.Id, endpointKey: endpointKey}
+	if scope, ok := scopes[cacheKey]; ok {
+		return scope, nil
+	}
 	// Seed with the legacy scope only on first use. Credentials no longer
 	// participate in matching once this endpoint has a persistent identity.
 	initialScope := fmt.Sprintf("%x", sha256.Sum256([]byte(endpoint+"\x00"+credential)))
-	scope, err := model.ResolveAssetLibraryScope(ch.Id, endpointKey, initialScope)
+	scope, err := model.ResolveAssetLibraryScopeContext(ctx, ch.Id, endpointKey, initialScope)
 	if err != nil {
 		common.SysError("resolve asset library scope: " + err.Error())
 		return "", errAssetStateUnavailable
 	}
+	if scopes != nil {
+		scopes[cacheKey] = scope
+	}
 	return scope, nil
 }
 
-// Resolve registered IDs before routing. Only completely unregistered handles
-// may use the selected route for a verified historical claim.
+// Resolve registered ownership before routing. Only completely unregistered
+// handles need upstream verification and a one-time historical claim.
 func resolveAssetAccessRoute(c *gin.Context, profileID, resourceID string) (*assetAccessRequest, error) {
 	var resource *configurable.ResourceConfig
 	if profileID != "" && resourceID != "" {
@@ -327,41 +342,36 @@ func resolveAssetAccessRoute(c *gin.Context, profileID, resourceID string) (*ass
 		return nil, model.ErrAssetNotOwned
 	}
 	for _, ref := range a.refs {
-		bindings, err := model.FindAssetBindings(userID, ref.kind, ref.id)
+		bindings, registered, err := model.FindAssetAccessBindingsContext(c.Request.Context(), userID, ref.kind, ref.id, a.op.action == "get")
 		if err != nil {
 			common.SysError("read asset binding: " + err.Error())
 			return nil, errAssetStateUnavailable
 		}
-		// Some async upload APIs initially return only a task handle. It has
-		// the same ownership requirements and may be used to resolve the asset.
-		if len(bindings) == 0 && ref.kind == "asset" && a.op.action == "get" {
-			bindings, err = model.FindAssetBindings(userID, "task", ref.id)
-			if err != nil {
-				common.SysError("read asset task binding: " + err.Error())
-				return nil, errAssetStateUnavailable
-			}
-		}
 		if len(bindings) == 0 {
-			if err := canClaimLegacyAsset(ref); err != nil {
+			if err := canClaimLegacyAsset(ref, registered); err != nil {
 				return nil, err
 			}
 			a.pending = append(a.pending, ref)
 			continue
 		}
 		var matches []model.AssetBinding
+		var matchedChannel *model.Channel
 		for _, binding := range bindings {
 			if a.channel != nil && binding.ChannelID != a.channel.Id {
 				continue
 			}
-			ch, err := model.GetChannelById(binding.ChannelID, true)
+			ch, err := assetChannelForRequest(c, binding.ChannelID)
 			if err != nil {
-				continue
+				if errors.Is(err, model.ErrAssetNotOwned) {
+					continue
+				}
+				return nil, err
 			}
 			profile, candidate, ok := assetResourceChannel(c, ch)
 			if !ok {
 				continue
 			}
-			scope, err := assetAccountScope(ch, profile)
+			scope, err := assetAccountScopeForRequest(c, ch, profile)
 			if errors.Is(err, errAssetStateUnavailable) {
 				return nil, err
 			}
@@ -369,17 +379,14 @@ func resolveAssetAccessRoute(c *gin.Context, profileID, resourceID string) (*ass
 				continue
 			}
 			matches = append(matches, binding)
+			matchedChannel = ch
 			a.profile, a.resource = profile, candidate
 		}
 		if len(matches) != 1 {
 			return nil, model.ErrAssetNotOwned
 		}
 		binding := matches[0]
-		a.channel, err = model.GetChannelById(binding.ChannelID, true)
-		if err != nil {
-			common.SysError("read bound asset channel: " + err.Error())
-			return nil, errAssetStateUnavailable
-		}
+		a.channel = matchedChannel
 		a.scope = binding.Scope
 		if a.project == "" {
 			a.project = binding.Project
@@ -415,7 +422,7 @@ func prepareAssetAccess(c *gin.Context, ch *model.Channel, profile *configurable
 		return fmt.Errorf("asset access policy was not initialized")
 	}
 	a := raw.(*assetAccessRequest)
-	scope, err := assetAccountScope(ch, profile)
+	scope, err := assetAccountScopeForRequest(c, ch, profile)
 	if err != nil {
 		return err
 	}
@@ -502,7 +509,7 @@ func assetResponseStrings(body []byte, fields ...string) []string {
 
 // Only fill missing ownership metadata. Conflicting provider metadata cannot
 // move an existing handle to another project or parent group.
-func applyAssetResponseMetadata(binding *model.AssetBinding, body []byte) error {
+func applyAssetResponseMetadata(ctx context.Context, binding *model.AssetBinding, body []byte, known ...model.AssetBinding) error {
 	var values []gjson.Result
 	for _, path := range []string{"", "Result", "data", "result"} {
 		value := gjson.ParseBytes(body)
@@ -516,6 +523,17 @@ func applyAssetResponseMetadata(binding *model.AssetBinding, body []byte) error 
 		}
 		if project != "" {
 			binding.Project = project
+		}
+	}
+	// A provider may repeat the same group at multiple response roots. Resolve
+	// it once per response, within the already authorized channel/account.
+	resolvedGroups := make(map[string][]model.AssetBinding)
+	for _, group := range known {
+		// A nonempty project is immutable. Reuse the exact group handle
+		// verified for this request; missing projects still need a fresh read.
+		// Writes revalidate deletion under the lifecycle locks before saving.
+		if group.Kind == "group" && group.Project != "" && group.ChannelID == binding.ChannelID && group.Scope == binding.Scope && group.UserID == binding.UserID {
+			resolvedGroups[group.ID] = []model.AssetBinding{group}
 		}
 	}
 	for _, value := range values {
@@ -533,10 +551,18 @@ func applyAssetResponseMetadata(binding *model.AssetBinding, body []byte) error 
 			id := group.String()
 			// TgxMaas may return the original ID of a group whose authorized
 			// binding uses a supplier-local canonical ID.
-			groups, err := model.FindAssetBindings(binding.UserID, "group", id)
-			if err != nil {
-				common.SysError("read response asset group binding: " + err.Error())
-				return errAssetStateUnavailable
+			groups, resolved := resolvedGroups[id]
+			if !resolved {
+				var err error
+				groups, err = model.FindScopedAssetBindingsContext(ctx, binding.ChannelID, binding.UserID, binding.Scope, "group", id)
+				if err != nil {
+					if errors.Is(err, model.ErrAssetRevoked) {
+						return err
+					}
+					common.SysError("read response asset group binding: " + err.Error())
+					return errAssetStateUnavailable
+				}
+				resolvedGroups[id] = groups
 			}
 			for _, owned := range groups {
 				if owned.ChannelID == binding.ChannelID && owned.Scope == binding.Scope {
@@ -572,14 +598,7 @@ func rememberAssetResponse(c *gin.Context, resource *configurable.ResourceConfig
 		return nil
 	}
 	if a.op.action == "delete" {
-		for _, binding := range a.bindings {
-			if binding.Kind == a.op.kind {
-				if err := model.InvalidateAssetBindings(binding, a.op.kind == "group"); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+		return rememberAssetDeletion(a)
 	}
 	if a.op.action == "list" || a.op.action == "update" {
 		return nil
@@ -616,7 +635,15 @@ func rememberAssetResponse(c *gin.Context, resource *configurable.ResourceConfig
 			}
 		}
 	}
-	if err := applyAssetResponseMetadata(&binding, body); err != nil {
+	// Queries may abandon alias discovery on cancellation. After a successful
+	// upstream creation, finish recording ownership even if the caller left.
+	ctx := context.Background()
+	if a.op.action == "get" {
+		ctx = c.Request.Context()
+	}
+	ctx, cancel := context.WithTimeout(ctx, model.AssetOperationTimeout)
+	defer cancel()
+	if err := applyAssetResponseMetadata(ctx, &binding, body, a.bindings...); err != nil {
 		return err
 	}
 	var bindings []model.AssetBinding
@@ -640,7 +667,20 @@ func rememberAssetResponse(c *gin.Context, resource *configurable.ResourceConfig
 			}
 		}
 	}
-	return model.SaveAssetBindings(bindings)
+	return model.SaveAssetBindingsContext(ctx, bindings)
+}
+
+func rememberAssetDeletion(a *assetAccessRequest) error {
+	ctx, cancel := context.WithTimeout(context.Background(), model.AssetOperationTimeout)
+	defer cancel()
+	for _, binding := range a.bindings {
+		if binding.Kind == a.op.kind {
+			if err := model.InvalidateAssetBindingsContext(ctx, binding, a.op.kind == "group"); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func respondAssetAccessError(c *gin.Context, err error) {
@@ -659,7 +699,7 @@ func respondAssetAccessError(c *gin.Context, err error) {
 	}
 }
 
-func rememberAssetPreGroup(c *gin.Context, resource *configurable.ResourceConfig, preID string, result map[string]any) error {
+func rememberAssetPreGroupContext(ctx context.Context, c *gin.Context, resource *configurable.ResourceConfig, preID string, result map[string]any) error {
 	if !resource.AssetLibrary || preID != "asset_group" {
 		return nil
 	}
@@ -672,8 +712,8 @@ func rememberAssetPreGroup(c *gin.Context, resource *configurable.ResourceConfig
 	if id == "" {
 		return fmt.Errorf("automatic asset group did not return an ID")
 	}
-	binding := model.AssetBinding{ChannelID: a.channel.Id, UserID: common.GetContextKeyInt(c, constant.ContextKeyUserId), Backend: a.profile.ID, Scope: a.scope, Kind: "group", Project: a.project}
-	if err := model.SaveAssetBinding(binding, id); err != nil {
+	binding := model.AssetBinding{ChannelID: a.channel.Id, UserID: common.GetContextKeyInt(c, constant.ContextKeyUserId), Backend: a.profile.ID, Scope: a.scope, Kind: "group", ID: id, Project: a.project}
+	if err := model.SaveAssetBindingsContext(ctx, []model.AssetBinding{binding}); err != nil {
 		return err
 	}
 	a.groupID = id

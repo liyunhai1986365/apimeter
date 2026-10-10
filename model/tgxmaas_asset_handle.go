@@ -1,12 +1,15 @@
 package model
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // Keep aliases in the existing persistent resource state store. They are scoped
@@ -20,14 +23,46 @@ func tgxMaasHandleKey(project, id string) string {
 }
 
 func SaveTgxMaasAssetHandle(channelID, userID int, project, originalID, providerID string) error {
+	return SaveTgxMaasAssetHandleContext(context.Background(), channelID, userID, project, originalID, providerID)
+}
+
+// Unchanged supplier mappings are reads, including mappings recorded before
+// this optimization. Do not refresh their timestamps on every poll.
+func SaveTgxMaasAssetHandleContext(ctx context.Context, channelID, userID int, project, originalID, providerID string) error {
 	if originalID == "" || providerID == "" || originalID == providerID {
 		return nil
 	}
-	return UpsertConfigurableResourceState(&ConfigurableResourceState{
+	db := DB.WithContext(ctx)
+	key := tgxMaasHandleKey(project, originalID)
+	var stored ConfigurableResourceState
+	result := db.Where("channel_id = ? AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND user_id = ? AND token_id = 0 AND state_key = ?",
+		channelID, "seedance-tgxmaas", "asset_handle", "original_id", userID, key).Limit(1).Find(&stored)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected > 0 && stored.StateValue == providerID && stored.Status == ConfigurableResourceStateStatusActive {
+		return nil
+	}
+	now := common.GetTimestamp()
+	state := ConfigurableResourceState{
 		ChannelID: channelID, ProfileID: "seedance-tgxmaas", ResourceID: "asset_handle",
 		PreRequestID: "original_id", UserID: userID,
-		StateKey: tgxMaasHandleKey(project, originalID), StateValue: providerID,
-	})
+		StateKey: key, StateValue: providerID, Status: ConfigurableResourceStateStatusActive,
+		CreatedAt: now, UpdatedAt: now, LastUsedAt: now,
+	}
+	// Preserve mapping changes returned by the supplier, scoped to this user
+	// and account. Only a new/changed response reaches this write.
+	err := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "channel_id"}, {Name: "profile_id"}, {Name: "resource_id"}, {Name: "pre_request_id"}, {Name: "user_id"}, {Name: "token_id"}, {Name: "state_key"}},
+		DoUpdates: clause.AssignmentColumns([]string{"state_value", "status", "updated_at", "last_used_at"}),
+	}).Create(&state).Error
+	// Keep the transaction: closing a cancelled MySQL connection does not
+	// guarantee an already submitted autocommit write will stop on the server.
+	// GORM may append a rollback error that masks the original context error.
+	if err != nil && ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
 }
 
 func ResolveTgxMaasAssetHandle(channelID, userID int, project, id string) (string, error) {

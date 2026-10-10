@@ -50,36 +50,51 @@ func GetReadiness(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), 3*time.Second)
 	defer cancel()
 
-	checks := gin.H{}
-	ready := true
-
-	if err := model.CheckDatabaseReadiness(ctx, model.DB); err != nil {
-		checks["database"] = "unavailable"
-		ready = false
-	} else {
-		checks["database"] = "ok"
+	mainDB, logDB := model.DB, model.LOG_DB
+	probes := []readinessProbe{{name: "database", check: func(ctx context.Context) error {
+		return model.CheckDatabaseReadiness(ctx, mainDB)
+	}}}
+	if logDB != mainDB {
+		probes = append(probes, readinessProbe{name: "log_database", check: func(ctx context.Context) error {
+			return model.CheckDatabaseReadiness(ctx, logDB)
+		}})
 	}
-
-	if model.LOG_DB != model.DB {
-		if err := model.CheckDatabaseReadiness(ctx, model.LOG_DB); err != nil {
-			checks["log_database"] = "unavailable"
+	checks := gin.H{"redis": "disabled"}
+	if common.RedisEnabled {
+		redisClient := common.RDB
+		probes = append(probes, readinessProbe{name: "redis", check: func(ctx context.Context) error {
+			if redisClient == nil {
+				return fmt.Errorf("initialize Redis: client is unavailable")
+			}
+			if err := redisClient.Ping(ctx).Err(); err != nil {
+				return fmt.Errorf("ping Redis: %w", err)
+			}
+			return nil
+		}})
+	}
+	results := runReadinessChecks(ctx, probes)
+	ready := true
+	for _, result := range results {
+		checks[result.name] = "ok"
+		if result.err != nil {
+			checks[result.name] = "unavailable"
 			ready = false
-		} else {
-			checks["log_database"] = "ok"
 		}
-	} else {
+	}
+	if logDB == mainDB {
 		checks["log_database"] = checks["database"]
 	}
-
-	if common.RedisEnabled {
-		if common.RDB == nil || common.RDB.Ping(ctx).Err() != nil {
-			checks["redis"] = "unavailable"
-			ready = false
+	for _, result := range results {
+		message := fmt.Sprintf("readiness check: dependency=%s status=%s duration=%s", result.name, checks[result.name], result.duration)
+		if result.err != nil {
+			// Database errors retain their phase (ping / writable-state check).
+			// Keep dependency diagnostics in service logs, not the public response.
+			logger.LogWarn(c.Request.Context(), fmt.Sprintf("%s error=%q", message, result.err))
+		} else if !ready {
+			logger.LogInfo(c.Request.Context(), message)
 		} else {
-			checks["redis"] = "ok"
+			logger.LogDebug(c.Request.Context(), message)
 		}
-	} else {
-		checks["redis"] = "disabled"
 	}
 
 	nodeType := "slave"

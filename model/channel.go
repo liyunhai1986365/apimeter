@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
@@ -511,12 +512,17 @@ func SearchChannels(keyword string, group string, model string, idSort bool, sco
 }
 
 func GetChannelById(id int, selectAll bool) (*Channel, error) {
+	return GetChannelByIdContext(context.Background(), id, selectAll)
+}
+
+func GetChannelByIdContext(ctx context.Context, id int, selectAll bool) (*Channel, error) {
 	channel := &Channel{Id: id}
+	db := DB.WithContext(ctx)
 	var err error = nil
 	if selectAll {
-		err = DB.First(channel, "id = ?", id).Error
+		err = db.First(channel, "id = ?", id).Error
 	} else {
-		err = DB.Omit("key").First(channel, "id = ?", id).Error
+		err = db.Omit("key").First(channel, "id = ?", id).Error
 	}
 	if err != nil {
 		return nil, err

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -71,6 +72,21 @@ func configurableResourceStateKey(ch *model.Channel, resource *configurable.Reso
 		return ch.AssetStateKey(key)
 	}
 	return key
+}
+
+func configurableResourceStateKeyForRequest(ctx context.Context, c *gin.Context, ch *model.Channel, resource *configurable.ResourceConfig, key string) (string, error) {
+	if !resource.AssetLibrary {
+		return key, nil
+	}
+	profile, ok := configurable.AssetProfile(ch.GetSetting().Protocol)
+	if !ok {
+		return "", fmt.Errorf("asset profile is unavailable")
+	}
+	scope, err := resolveAssetAccountScope(ctx, ch, profile, assetLookupsForRequest(c).scopes)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", sha256.Sum256([]byte("asset-managed-v1\x00"+scope+"\x00"+key))), nil
 }
 
 func assetLibrary(ch *model.Channel) *relaydto.AssetLibrarySettings {

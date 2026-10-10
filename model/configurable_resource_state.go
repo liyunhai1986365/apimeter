@@ -1,6 +1,7 @@
 package model
 
 import (
+	"context"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -32,8 +33,12 @@ type ConfigurableResourceState struct {
 }
 
 func FindActiveConfigurableResourceState(channelID int, profileID, resourceID, preRequestID string, userID, tokenID int, stateKey string) (*ConfigurableResourceState, error) {
+	return FindActiveConfigurableResourceStateContext(context.Background(), channelID, profileID, resourceID, preRequestID, userID, tokenID, stateKey)
+}
+
+func FindActiveConfigurableResourceStateContext(ctx context.Context, channelID int, profileID, resourceID, preRequestID string, userID, tokenID int, stateKey string) (*ConfigurableResourceState, error) {
 	var state ConfigurableResourceState
-	err := DB.Where(
+	err := DB.WithContext(ctx).Where(
 		"channel_id = ? AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND user_id = ? AND token_id = ? AND state_key = ? AND status = ?",
 		channelID,
 		strings.TrimSpace(profileID),
@@ -51,6 +56,10 @@ func FindActiveConfigurableResourceState(channelID int, profileID, resourceID, p
 }
 
 func UpsertConfigurableResourceState(state *ConfigurableResourceState) error {
+	return UpsertConfigurableResourceStateContext(context.Background(), state)
+}
+
+func UpsertConfigurableResourceStateContext(ctx context.Context, state *ConfigurableResourceState) error {
 	if state == nil {
 		return nil
 	}
@@ -67,7 +76,7 @@ func UpsertConfigurableResourceState(state *ConfigurableResourceState) error {
 	if strings.TrimSpace(state.Status) == "" {
 		state.Status = ConfigurableResourceStateStatusActive
 	}
-	return DB.Clauses(clause.OnConflict{
+	return DB.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns: []clause.Column{
 			{Name: "channel_id"},
 			{Name: "profile_id"},
@@ -82,11 +91,15 @@ func UpsertConfigurableResourceState(state *ConfigurableResourceState) error {
 }
 
 func MarkConfigurableResourceStateInvalid(state *ConfigurableResourceState) error {
+	return MarkConfigurableResourceStateInvalidContext(context.Background(), state)
+}
+
+func MarkConfigurableResourceStateInvalidContext(ctx context.Context, state *ConfigurableResourceState) error {
 	if state == nil || state.Id <= 0 {
 		return nil
 	}
-	return DB.Model(&ConfigurableResourceState{}).
-		Where("id = ?", state.Id).
+	return DB.WithContext(ctx).Model(&ConfigurableResourceState{}).
+		Where("id = ? AND state_value = ?", state.Id, state.StateValue).
 		Updates(map[string]any{
 			"status":     ConfigurableResourceStateStatusInvalid,
 			"fail_count": gorm.Expr("fail_count + ?", 1),

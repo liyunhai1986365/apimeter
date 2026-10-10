@@ -2,6 +2,8 @@ package controller
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -23,6 +25,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
+	"gorm.io/gorm"
 )
 
 func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channel, profile *configurable.Profile, resource *configurable.ResourceConfig) *types.NewAPIError {
@@ -168,14 +171,33 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 		}
 		return apiErr
 	}
+	assetQueryRevoked := false
+	// Only a successful upstream operation may change local ownership. A
+	// deletion returning 404/410 is passed through without local revocation.
 	if resource.AssetLibrary && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if err := rememberAssetResponse(c, resource, responseBody); err != nil {
-			common.SysError("persist asset access binding: " + err.Error())
-			assetAccessError(c, http.StatusBadGateway, "asset_binding_failed", fmt.Errorf("upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID"))
-			return nil
+			if raw, ok := c.Get(assetAccessContextKey); ok && errors.Is(err, model.ErrAssetRevoked) {
+				if access, ok := raw.(*assetAccessRequest); ok {
+					assetQueryRevoked = access.op.action == "get"
+				}
+			}
+			// An authorized query can complete upstream before a concurrent
+			// deletion, yet arrive here after revocation. Keep that response;
+			// neither restore ownership/aliases nor invent an upstream error.
+			if !assetQueryRevoked {
+				common.SysError("persist asset access binding: " + err.Error())
+				message := "upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID"
+				if raw, ok := c.Get(assetAccessContextKey); ok {
+					if access, ok := raw.(*assetAccessRequest); ok && access.op.action == "delete" && (access.op.kind == "group" || access.op.kind == "asset") {
+						message = fmt.Sprintf("upstream deleted the %s but local revocation could not be completed; contact the administrator with the request ID", access.op.kind)
+					}
+				}
+				assetAccessError(c, http.StatusBadGateway, "asset_binding_failed", fmt.Errorf("%s", message))
+				return nil
+			}
 		}
 	}
-	if profile.ID == "seedance-tgxmaas" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if !assetQueryRevoked && profile.ID == "seedance-tgxmaas" && resp.StatusCode >= 200 && resp.StatusCode < 300 {
 		if err := rememberTgxMaasAssetHandles(c, channelModel, resource.ID, responseBody); err != nil {
 			// Preserve the accepted operation's response; returning a creation
 			// error here could cause callers to create duplicate resources.
@@ -837,7 +859,7 @@ func executeConfigurableResourcePreRequests(c *gin.Context, client *http.Client,
 		}
 		if managedOK {
 			results[preID] = managedResult
-			if err := rememberAssetPreGroup(c, resource, preID, managedResult); err != nil {
+			if err := rememberAssetPreGroupContext(c.Request.Context(), c, resource, preID, managedResult); err != nil {
 				return nil, err
 			}
 			continue
@@ -884,19 +906,27 @@ func executeConfigurableResourcePreRequests(c *gin.Context, client *http.Client,
 			return nil, err
 		}
 		results[preID] = result
-		if resultMap, ok := result.(map[string]any); ok {
-			if err := rememberAssetPreGroup(c, resource, preID, resultMap); err != nil {
-				return nil, err
-			}
-		}
-		if preRequest.ManagedState != nil {
-			resultMap, _ := result.(map[string]any)
-			if err := saveManagedConfigurablePreRequestResult(c, channelModel, resource, preRequest, resultMap); err != nil {
-				return nil, err
-			}
+		resultMap, _ := result.(map[string]any)
+		if err := persistConfigurablePreRequestResult(c, channelModel, resource, preRequest, resultMap); err != nil {
+			return nil, err
 		}
 	}
 	return results, nil
+}
+
+func persistConfigurablePreRequestResult(c *gin.Context, channelModel *model.Channel, resource *configurable.ResourceConfig, preRequest configurable.PreRequestConfig, result map[string]any) error {
+	ctx := context.Background()
+	if resource.AssetLibrary {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, model.AssetOperationTimeout)
+		defer cancel()
+	}
+	if result != nil {
+		if err := rememberAssetPreGroupContext(ctx, c, resource, preRequest.ID, result); err != nil {
+			return err
+		}
+	}
+	return saveManagedConfigurablePreRequestResult(ctx, c, channelModel, resource, preRequest, result)
 }
 
 func resolveManagedConfigurablePreRequest(c *gin.Context, client *http.Client, channelModel *model.Channel, resource *configurable.ResourceConfig, preRequest configurable.PreRequestConfig) (map[string]any, *model.ConfigurableResourceState, bool, error) {
@@ -907,24 +937,38 @@ func resolveManagedConfigurablePreRequest(c *gin.Context, client *http.Client, c
 	if stateKey == "" {
 		return nil, nil, false, fmt.Errorf("configurable resource managed_state key is required")
 	}
-	state, err := model.FindActiveConfigurableResourceState(
+	ctx := context.Background()
+	if resource.AssetLibrary {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(c.Request.Context(), model.AssetOperationTimeout)
+		defer cancel()
+	}
+	stateKey, err := configurableResourceStateKeyForRequest(ctx, c, channelModel, resource, stateKey)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	state, err := model.FindActiveConfigurableResourceStateContext(
+		ctx,
 		channelModel.Id,
 		common.GetContextKeyString(c, middleware.ContextKeyConfigurableResourceProfileID),
 		resource.ID,
 		preRequest.ID,
 		common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		configurableResourceStateKey(channelModel, resource, stateKey),
+		stateKey,
 	)
-	if err != nil || state == nil || strings.TrimSpace(state.StateValue) == "" {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil, false, fmt.Errorf("read configurable resource managed_state %s: %w", preRequest.ID, err)
+	}
+	if errors.Is(err, gorm.ErrRecordNotFound) || state == nil || strings.TrimSpace(state.StateValue) == "" {
 		return nil, &model.ConfigurableResourceState{}, false, nil
 	}
-	ok, result, err := validateManagedConfigurablePreRequest(c, client, channelModel, resource, preRequest, state.StateValue)
+	ok, result, err := validateManagedConfigurablePreRequest(ctx, c, client, channelModel, resource, preRequest, state.StateValue)
 	if err != nil {
 		return nil, state, false, err
 	}
 	if !ok {
-		if err := model.MarkConfigurableResourceStateInvalid(state); err != nil {
+		if err := model.MarkConfigurableResourceStateInvalidContext(ctx, state); err != nil {
 			return nil, state, false, err
 		}
 		return nil, state, false, nil
@@ -937,6 +981,11 @@ func resolveManagedConfigurablePreRequest(c *gin.Context, client *http.Client, c
 		valuePath = "id"
 	}
 	result[valuePath] = state.StateValue
+	// A reused asset group has not changed. Rewriting its shared cache row on
+	// every upload adds a hot exclusive lock and can overwrite a newer group.
+	if resource.AssetLibrary {
+		return result, state, true, nil
+	}
 	state.LastUsedAt = common.GetTimestamp()
 	state.UpdatedAt = state.LastUsedAt
 	if err := model.UpsertConfigurableResourceState(state); err != nil {
@@ -945,7 +994,7 @@ func resolveManagedConfigurablePreRequest(c *gin.Context, client *http.Client, c
 	return result, state, true, nil
 }
 
-func validateManagedConfigurablePreRequest(c *gin.Context, client *http.Client, channelModel *model.Channel, resource *configurable.ResourceConfig, preRequest configurable.PreRequestConfig, stateValue string) (bool, map[string]any, error) {
+func validateManagedConfigurablePreRequest(ctx context.Context, c *gin.Context, client *http.Client, channelModel *model.Channel, resource *configurable.ResourceConfig, preRequest configurable.PreRequestConfig, stateValue string) (bool, map[string]any, error) {
 	validate := preRequest.ManagedState.Validate
 	if strings.TrimSpace(validate.Path) == "" {
 		return true, map[string]any{strings.TrimSpace(preRequest.ManagedState.ValuePath): stateValue}, nil
@@ -960,6 +1009,9 @@ func validateManagedConfigurablePreRequest(c *gin.Context, client *http.Client, 
 	req, err := http.NewRequest(method, requestURL, nil)
 	if err != nil {
 		return false, nil, err
+	}
+	if resource.AssetLibrary {
+		req = req.WithContext(ctx)
 	}
 	req.Header.Set("Accept", "application/json")
 	apiKey := common.GetContextKeyString(c, constant.ContextKeyChannelKey)
@@ -1007,7 +1059,7 @@ func validateManagedConfigurablePreRequest(c *gin.Context, client *http.Client, 
 	return true, result, nil
 }
 
-func saveManagedConfigurablePreRequestResult(c *gin.Context, channelModel *model.Channel, resource *configurable.ResourceConfig, preRequest configurable.PreRequestConfig, result map[string]any) error {
+func saveManagedConfigurablePreRequestResult(ctx context.Context, c *gin.Context, channelModel *model.Channel, resource *configurable.ResourceConfig, preRequest configurable.PreRequestConfig, result map[string]any) error {
 	if preRequest.ManagedState == nil {
 		return nil
 	}
@@ -1020,14 +1072,18 @@ func saveManagedConfigurablePreRequestResult(c *gin.Context, channelModel *model
 	if strings.TrimSpace(value) == "" {
 		return nil
 	}
-	return model.UpsertConfigurableResourceState(&model.ConfigurableResourceState{
+	stateKey, err := configurableResourceStateKeyForRequest(ctx, c, channelModel, resource, stateKey)
+	if err != nil {
+		return err
+	}
+	return model.UpsertConfigurableResourceStateContext(ctx, &model.ConfigurableResourceState{
 		ChannelID:    channelModel.Id,
 		ProfileID:    common.GetContextKeyString(c, middleware.ContextKeyConfigurableResourceProfileID),
 		ResourceID:   resource.ID,
 		PreRequestID: preRequest.ID,
 		UserID:       common.GetContextKeyInt(c, constant.ContextKeyUserId),
 		TokenID:      common.GetContextKeyInt(c, constant.ContextKeyTokenId),
-		StateKey:     configurableResourceStateKey(channelModel, resource, stateKey),
+		StateKey:     stateKey,
 		StateValue:   value,
 		Status:       model.ConfigurableResourceStateStatusActive,
 	})
@@ -1121,6 +1177,9 @@ func buildConfigurablePreRequest(c *gin.Context, channelModel *model.Channel, re
 	req, err := http.NewRequest(method, requestURL, bodyReader)
 	if err != nil {
 		return nil, err
+	}
+	if resource.AssetLibrary {
+		req = req.WithContext(c.Request.Context())
 	}
 	req.Header.Set("Accept", "application/json")
 	if bodyReader != nil {

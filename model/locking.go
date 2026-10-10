@@ -23,3 +23,13 @@ func lockForUpdate(tx *gorm.DB) *gorm.DB {
 	}
 	return tx.Clauses(clause.Locking{Strength: "UPDATE"})
 }
+
+// lockForShare lets readers coordinate with an exclusive writer without
+// serializing one another. GORM's MySQL 5.7 dialect emits LOCK IN SHARE MODE;
+// PostgreSQL and MySQL 8 use FOR SHARE. SQLite keeps its write reservation.
+func lockForShare(tx *gorm.DB) *gorm.DB {
+	if common.UsingMainDatabase(common.DatabaseTypeSQLite) {
+		return tx
+	}
+	return tx.Clauses(clause.Locking{Strength: "SHARE"})
+}

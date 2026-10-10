@@ -113,6 +113,11 @@ func MarkRetryRouteFinal(c *gin.Context, success bool, status string) {
 		return
 	}
 	c.Set("relay_route_final_success", success)
+	// The final outcome also drives channel affinity when no retry event exists.
+	// Only requests with a successfully recorded event need a database update.
+	if _, ok := GetCurrentRetryRouteEventID(c); !ok {
+		return
+	}
 	requestID := c.GetString(common.RequestIdKey)
 	if requestID == "" {
 		return
@@ -124,6 +129,9 @@ func MarkRetryRouteFinal(c *gin.Context, success bool, status string) {
 
 func AttachRetryRouteLog(c *gin.Context, logID int) {
 	if c == nil || logID <= 0 {
+		return
+	}
+	if _, ok := GetCurrentRetryRouteEventID(c); !ok {
 		return
 	}
 	requestID := c.GetString(common.RequestIdKey)

@@ -25,6 +25,7 @@ type assetBindingWriteObserver struct {
 	selects   atomic.Int64
 	updates   atomic.Int64
 	deadlocks atomic.Int64
+	rowLocks  atomic.Int64
 }
 
 func (l *assetBindingWriteObserver) Trace(ctx context.Context, begin time.Time, fc func() (string, int64), err error) {
@@ -37,6 +38,9 @@ func (l *assetBindingWriteObserver) Trace(ctx context.Context, begin time.Time, 
 	}
 	if strings.HasPrefix(sql, "UPDATE ") {
 		l.updates.Add(1)
+	}
+	if strings.Contains(sql, "FOR UPDATE") || strings.Contains(sql, "FOR SHARE") || strings.Contains(sql, "LOCK IN SHARE MODE") {
+		l.rowLocks.Add(1)
 	}
 	var mysqlErr *mysql.MySQLError
 	if errors.As(err, &mysqlErr) && mysqlErr.Number == 1213 {
@@ -230,7 +234,7 @@ func TestAssetBindingMutexInitializationRaceMySQL(t *testing.T) {
 	}
 }
 
-func TestAssetBindingRevocationDuringAliasPollingMySQL57(t *testing.T) {
+func TestAssetBindingRevocationDuringAliasHydrationMySQL57(t *testing.T) {
 	observer := setupAssetBindingConcurrencyTest(t)
 	if DB.Dialector.Name() != "mysql" {
 		t.Skip("requires ASSET_TEST_MYSQL_DSN for InnoDB row-lock ordering")
@@ -244,6 +248,9 @@ func TestAssetBindingRevocationDuringAliasPollingMySQL57(t *testing.T) {
 	alias := asset
 	alias.ID = "alias"
 	require.NoError(t, SaveAssetBindings([]AssetBinding{asset, alias}))
+	// Unchanged polling is read-only; filling missing metadata still needs
+	// the write transaction whose lock order must agree with deletion.
+	asset.Project, alias.Project = "project", "project"
 	var aliasRow ConfigurableResourceState
 	require.NoError(t, assetHandleStates(DB, alias.Kind, alias.ID).First(&aliasRow).Error)
 
@@ -284,7 +291,7 @@ func TestAssetBindingRevocationDuringAliasPollingMySQL57(t *testing.T) {
 	select {
 	case connectionID = <-locked:
 	case <-time.After(15 * time.Second):
-		t.Fatal("polling did not acquire the alias row lock")
+		t.Fatal("metadata hydration did not acquire the alias row lock")
 	}
 	revoked := make(chan error, 1)
 	writers.Add(1)
@@ -377,7 +384,7 @@ func TestAssetBindingRevocationRollbackAndRetry(t *testing.T) {
 					return
 				}
 				updates++
-				if updates == 2 {
+				if updates == 1 {
 					tx.AddError(injected)
 				}
 			}))
@@ -385,20 +392,25 @@ func TestAssetBindingRevocationRollbackAndRetry(t *testing.T) {
 			err := InvalidateAssetBindings(asset, false)
 			if retryable {
 				require.NoError(t, err)
-				require.Equal(t, 4, updates, "retry must redo both batches after rollback")
+				require.Equal(t, 2, updates, "retry must redo the identity update after rollback")
 			} else {
 				require.ErrorIs(t, err, injected)
-				require.Equal(t, 2, updates, "unrelated storage failures must not be retried")
+				require.Equal(t, 1, updates, "unrelated storage failures must not be retried")
 			}
 			var stored []ConfigurableResourceState
 			require.NoError(t, DB.Where("profile_id = ?", assetBindingProfile).Find(&stored).Error)
 			require.Len(t, stored, len(bindings))
-			expectedStatus := ConfigurableResourceStateStatusActive
-			if retryable {
-				expectedStatus = ConfigurableResourceStateStatusInvalid
-			}
 			for _, state := range stored {
-				require.Equal(t, expectedStatus, state.Status, "every batch must commit or roll back together")
+				require.Equal(t, ConfigurableResourceStateStatusActive, state.Status, "identity revocation must not rewrite any aliases")
+			}
+			for _, binding := range []AssetBinding{bindings[0], bindings[len(bindings)-1]} {
+				found, err := FindAssetBindings(binding.UserID, binding.Kind, binding.ID)
+				require.NoError(t, err)
+				if retryable {
+					require.Empty(t, found)
+				} else {
+					require.Len(t, found, 1, "failed revocation must roll back for the whole family")
+				}
 			}
 			fresh := asset
 			fresh.ID = "alias-after-revocation-attempt"

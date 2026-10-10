@@ -2,7 +2,6 @@ package controller
 
 import (
 	"bytes"
-	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -92,27 +91,29 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 		}
 		p.offset = offset
 	}
-	bindings, err := model.ListAssetBindings(a.channel.Id, userID, a.scope, a.op.kind)
+	canonicalIDs := map[string]bool{}
+	err := model.WalkAssetBindingsContext(c.Request.Context(), a.channel.Id, userID, a.scope, a.op.kind, func(bindings []model.AssetBinding) error {
+		for _, binding := range bindings {
+			if a.project == "" || binding.Project == "" || binding.Project == a.project {
+				canonical := binding.CanonicalID
+				if canonical == "" {
+					canonical = binding.ID
+				}
+				if canonical == "" {
+					continue
+				}
+				canonicalIDs[canonical] = true
+				p.owned[canonical] = canonical
+				if binding.ID != "" {
+					p.owned[binding.ID] = canonical
+				}
+			}
+		}
+		return nil
+	})
 	if err != nil {
 		common.SysError("list asset bindings: " + err.Error())
 		return nil, errAssetStateUnavailable
-	}
-	canonicalIDs := map[string]bool{}
-	for _, binding := range bindings {
-		if a.project == "" || binding.Project == "" || binding.Project == a.project {
-			canonical := binding.CanonicalID
-			if canonical == "" {
-				canonical = binding.ID
-			}
-			if canonical == "" {
-				continue
-			}
-			canonicalIDs[canonical] = true
-			p.owned[canonical] = canonical
-			if binding.ID != "" {
-				p.owned[binding.ID] = canonical
-			}
-		}
 	}
 	p.ownedCount = len(canonicalIDs)
 	return p, nil
@@ -189,8 +190,7 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 	p := raw.(*assetAccessRequest).list
 	// Limit elapsed work, not account size. A user's matching resource may be
 	// beyond page 100; cancellation and a scan deadline still bound the request.
-	ctx, cancel := context.WithTimeout(c.Request.Context(), assetListScanTimeout)
-	defer cancel()
+	ctx := c.Request.Context()
 	template := append([]byte(nil), body...)
 	listPath, _, err := assetListItems(body)
 	if err != nil {

@@ -147,6 +147,7 @@ func TestAssetBindingPreservesSessionConfigurationMySQL(t *testing.T) {
 			BinlogFormat string
 			Isolation    string
 			LogBin       bool
+			LockWait     int
 		}
 		var version string
 		if err := DB.Raw("SELECT VERSION()").Scan(&version).Error; err != nil {
@@ -157,7 +158,7 @@ func TestAssetBindingPreservesSessionConfigurationMySQL(t *testing.T) {
 			isolationVariable = "@@session.tx_isolation"
 		}
 		read := func(config *configuration) error {
-			return DB.Raw("SELECT @@session.binlog_format AS binlog_format, @@global.log_bin AS log_bin, " + isolationVariable + " AS isolation").Scan(config).Error
+			return DB.Raw("SELECT @@session.binlog_format AS binlog_format, @@global.log_bin AS log_bin, @@session.innodb_lock_wait_timeout AS lock_wait, " + isolationVariable + " AS isolation").Scan(config).Error
 		}
 		var before, after configuration
 		if err := read(&before); err != nil {
@@ -256,14 +257,14 @@ func TestAssetBindingBulkRevocationDoesNotLockUnrelatedRowsMySQL(t *testing.T) {
 		defer writers.Done()
 		revoked <- InvalidateAssetBindings(group, true)
 	}()
+	var statement pausedStatement
 	select {
-	case statement := <-paused:
-		assertPrimaryIndex(statement.sql, statement.args)
+	case statement = <-paused:
 	case <-time.After(15 * time.Second):
 		t.Fatal("revocation did not reach its first batch")
 	}
-	// While deletion holds its mutexes and first updated batch, a neighboring
-	// asset must remain writable and a brand-new binding must be insertable.
+	// While deletion holds its identity locks, a neighboring asset must remain
+	// writable and a brand-new binding must be insertable.
 	unrelated := make(chan error, 1)
 	writers.Add(1)
 	go func() {
@@ -280,5 +281,8 @@ func TestAssetBindingBulkRevocationDoesNotLockUnrelatedRowsMySQL(t *testing.T) {
 	}
 	once.Do(func() { close(release) })
 	require.NoError(t, <-revoked)
+	// MySQL's EXPLAIN UPDATE can wait on the updated row. Inspect the captured
+	// statement after commit so the plan check cannot exhaust the held transaction.
+	assertPrimaryIndex(statement.sql, statement.args)
 	require.Zero(t, observer.deadlocks.Load())
 }
