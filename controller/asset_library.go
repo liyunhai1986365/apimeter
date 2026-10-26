@@ -22,6 +22,9 @@ var errUnsupportedAssetOperation = errors.New("selected asset library does not s
 
 // Independent asset projects must not inherit a separately configured video project.
 func assetDefaultProject(ch *model.Channel, profile *configurable.Profile) string {
+	if profile != nil && profile.ID == configurable.ArkCompatibleAssetBackend {
+		return ""
+	}
 	if profile != nil && profile.ID == configurable.HanxingtuAssetBackend {
 		return "default"
 	}
@@ -158,6 +161,11 @@ func validateAssetLibrary(ch *model.Channel, credentials *model.AssetCredentials
 	}
 	if cfg.Backend == "inherit" || cfg.Backend == "disabled" {
 		return nil
+	}
+	if cfg.Backend == configurable.ArkCompatibleAssetBackend {
+		if err := configurable.ValidateArkCompatibleAssetConfig(cfg); err != nil {
+			return err
+		}
 	}
 	profile, ok := configurable.AssetProfile(ch.GetSetting().Protocol)
 	if !ok {

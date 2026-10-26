@@ -32,6 +32,9 @@ func TestAssetBindingHistoricalTupleRegistration(t *testing.T) {
 			binding := AssetBinding{ChannelID: 91, UserID: 44, Scope: "account", Kind: kind, ID: "old-handle", CanonicalID: "old-handle"}
 			row := insertAssetRevocationFilterFixture(t, binding, ConfigurableResourceStateStatusActive)
 			require.NoError(t, DB.Model(&row).Updates(map[string]any{"user_id": 7, "token_id": 8}).Error)
+			// First access repairs relationships. Later polling of the historical
+			// tuple must be just as read-only as polling a newly created binding.
+			require.NoError(t, SaveAssetBindings([]AssetBinding{binding}))
 			observer.inserts.Store(0)
 			observer.updates.Store(0)
 			observer.rowLocks.Store(0)

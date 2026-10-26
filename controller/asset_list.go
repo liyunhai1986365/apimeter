@@ -2,6 +2,7 @@ package controller
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -31,11 +32,14 @@ type assetListPagination struct {
 	cursorPrefix       string
 	owned              map[string]string // handle -> canonical resource ID
 	ownedCount         int
-	filteredTotal      *int // Matched upstream resources, after ownership/filtering.
+	filteredTotal      *int              // Matched upstream resources, after ownership/filtering.
+	proofs             map[string]string // canonical ID -> stored handle for final authorization
+	pageProofs         map[string]string // stored handle -> canonical ID for this page
+	pages              *assetListPageSet
 }
 
 func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPagination, error) {
-	p := &assetListPagination{page: 1, size: 20, owned: map[string]string{}}
+	p := &assetListPagination{page: 1, size: 20}
 	value := func(keys ...string) string {
 		for _, key := range keys {
 			if v := a.input.Get(key); v.Exists() {
@@ -73,6 +77,9 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 	cursor := value("NextToken", "next_token")
 	p.cursorMode = cursor != "" || value("MaxResults", "max_results") != ""
 	p.upstreamCursor = p.cursorMode && a.resource.Upstream.Method != http.MethodGet
+	if a.profile != nil && a.profile.ID == configurable.ArkCompatibleAssetBackend {
+		p.upstreamCursor = configurable.ArkCompatibleAssetConfig(assetLibrary(a.channel)).Pagination == "cursor"
+	}
 	if hanxingtu {
 		// This provider only accepts cursors, including when clients omit
 		// pagination or use the gateway's page-number compatibility API.
@@ -91,8 +98,14 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 		}
 		p.offset = offset
 	}
+	return p, nil
+}
+
+func loadAssetListOwnership(ctx context.Context, a *assetAccessRequest, userID int) error {
+	p := a.list
+	p.owned, p.proofs, p.pageProofs = map[string]string{}, map[string]string{}, map[string]string{}
 	canonicalIDs := map[string]bool{}
-	err := model.WalkAssetBindingsContext(c.Request.Context(), a.channel.Id, userID, a.scope, a.op.kind, func(bindings []model.AssetBinding) error {
+	err := model.WalkAssetBindingsContext(ctx, a.channel.Id, userID, a.scope, a.op.kind, func(bindings []model.AssetBinding) error {
 		for _, binding := range bindings {
 			if a.project == "" || binding.Project == "" || binding.Project == a.project {
 				canonical := binding.CanonicalID
@@ -104,6 +117,7 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 				}
 				canonicalIDs[canonical] = true
 				p.owned[canonical] = canonical
+				p.proofs[canonical] = binding.ID
 				if binding.ID != "" {
 					p.owned[binding.ID] = canonical
 				}
@@ -113,10 +127,10 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 	})
 	if err != nil {
 		common.SysError("list asset bindings: " + err.Error())
-		return nil, errAssetStateUnavailable
+		return errAssetStateUnavailable
 	}
 	p.ownedCount = len(canonicalIDs)
-	return p, nil
+	return nil
 }
 
 // Apply pagination before authorization/signing. Filtering just one upstream
@@ -182,7 +196,7 @@ func assetListItems(body []byte) (string, gjson.Result, error) {
 	return "", gjson.Result{}, fmt.Errorf("unrecognized asset list response; refusing to expose an unfiltered account list")
 }
 
-func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Channel, resource *configurable.ResourceConfig, req *http.Request, resp *http.Response, body []byte) (*http.Response, []byte, error) {
+func scanAssetListResponse(c *gin.Context, client *http.Client, ch *model.Channel, resource *configurable.ResourceConfig, req *http.Request, resp *http.Response, body []byte) (*http.Response, []byte, error) {
 	raw, exists := c.Get(assetAccessContextKey)
 	if !resource.AssetLibrary || !exists || raw.(*assetAccessRequest).list == nil || resp.StatusCode >= 400 || !assetResponseSuccessful(body) {
 		return resp, body, nil
@@ -192,10 +206,12 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 	// beyond page 100; cancellation and a scan deadline still bound the request.
 	ctx := c.Request.Context()
 	template := append([]byte(nil), body...)
-	listPath, _, err := assetListItems(body)
+	kind := raw.(*assetAccessRequest).op.kind
+	parsed, err := parseAssetListPage(resp, body, kind)
 	if err != nil {
 		return resp, nil, err
 	}
+	listPath := parsed.path
 	var owned []json.RawMessage
 	seenPages := map[[sha256.Size]byte]bool{}
 	seenIDs := map[string]bool{}
@@ -204,26 +220,20 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 		if err := ctx.Err(); err != nil {
 			return resp, nil, fmt.Errorf("asset list scan interrupted: %w", err)
 		}
-		_, items, err := assetListItems(body)
-		if err != nil {
-			return resp, nil, err
-		}
-		rows := items.Array()
+		rows := parsed.rows
 		for _, row := range rows {
-			ids := assetResponseStrings([]byte(row.Raw), "Id", "id", "asset_id", "AssetId", "GroupId", "group_id")
-			// An asset's parent GroupId is not proof of ownership of the asset.
-			if raw.(*assetAccessRequest).op.kind == "asset" {
-				ids = assetResponseStrings([]byte(row.Raw), "Id", "id", "asset_id", "AssetId")
-			}
-			if len(ids) == 0 {
+			if row.id == "" {
 				continue
 			}
-			canonical, ownedByUser := p.owned[ids[0]]
+			canonical, ownedByUser := p.owned[row.id]
 			if !ownedByUser || seenIDs[canonical] {
 				continue
 			}
 			seenIDs[canonical] = true
-			owned = append(owned, json.RawMessage(row.Raw))
+			if len(seenIDs) > p.offset && len(seenIDs) <= p.offset+p.size {
+				owned = append(owned, json.RawMessage(row.raw))
+				p.pageProofs[p.proofs[canonical]] = canonical
+			}
 		}
 		scanned += int64(len(rows))
 		next := gjson.GetBytes(body, "Result.NextToken").String()
@@ -251,7 +261,7 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 		}
 		// Store only a digest per page instead of retaining every account-wide
 		// response. Repeated cursors are loops even if their page data changes.
-		pageKey := items.Raw
+		pageKey := parsed.items.Raw
 		if p.upstreamCursor {
 			pageKey = next
 		}
@@ -267,23 +277,20 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 		if err := authorizeConfigurableResourceRequest(c, ch, resource, nextReq); err != nil {
 			return resp, nil, err
 		}
-		nextResp, err := client.Do(nextReq)
+		parsed, err = p.pages.read(client, nextReq, kind)
 		if err != nil {
 			return resp, nil, err
 		}
-		body, err = io.ReadAll(io.LimitReader(nextResp.Body, 16<<20+1))
-		_ = nextResp.Body.Close()
-		if err != nil || len(body) > 16<<20 {
-			return resp, nil, fmt.Errorf("cannot read asset list page within size limit")
-		}
+		nextResp := parsed.response
+		body = parsed.body
 		if nextResp.StatusCode >= 400 || !assetResponseSuccessful(body) {
 			return nextResp, body, nil
 		}
 	}
-	start := min(p.offset, len(owned))
-	end := min(start+p.size, len(owned))
-	p.filteredTotal = common.GetPointer(len(owned))
-	pageItems := append([]json.RawMessage{}, owned[start:end]...)
+	total := len(seenIDs)
+	end := min(p.offset+p.size, total)
+	p.filteredTotal = common.GetPointer(total)
+	pageItems := append([]json.RawMessage{}, owned...)
 	itemsJSON, err := common.Marshal(pageItems)
 	if err != nil {
 		return resp, nil, err
@@ -298,7 +305,7 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 	for _, root := range []string{"", "Result.", "data.", "result."} {
 		for _, field := range []string{"TotalCount", "total", "total_count", "count"} {
 			if gjson.GetBytes(output, root+field).Exists() {
-				output, _ = sjson.SetBytes(output, root+field, len(owned))
+				output, _ = sjson.SetBytes(output, root+field, total)
 			}
 		}
 		for field, value := range map[string]int{"PageNumber": p.page, "page": p.page, "PageSize": p.size, "page_size": p.size} {
@@ -314,7 +321,7 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 	}
 	if p.cursorMode {
 		next := ""
-		if end < len(owned) {
+		if end < total {
 			next = p.cursorPrefix + strconv.Itoa(end)
 		}
 		path := "NextToken"

@@ -7,11 +7,12 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // v2 records the parents of the whole canonical family, including aliases whose
-// own metadata has not acquired a GroupID. Only natural writes initialize it;
-// historical reads never backfill or rewrite ownership records.
+// own metadata has not acquired a GroupID. Writes maintain it atomically;
+// reads repair missing relationships without rewriting ownership records.
 const assetLifecycleRelated = "lifecycle-v2"
 
 type assetIdentityMetadata struct {
@@ -49,6 +50,18 @@ func assetIdentityRefs(refs map[string]AssetBinding, binding AssetBinding) {
 }
 
 func assetIdentityStates(db *gorm.DB, keys []string) *gorm.DB {
+	if db.Dialector.Name() == common.DatabaseTypeMySQL && len(keys) > 8 {
+		// Large IN lists can make MySQL 5.7 scan the complete mutex prefix.
+		// Drive one full unique-index equality lookup per requested identity.
+		selects, args := make([]string, len(keys)), make([]any, len(keys))
+		for i, key := range keys {
+			selects[i], args[i] = "SELECT ? AS wanted_identity", key
+		}
+		return db.Model(&ConfigurableResourceState{}).Table("(?) AS wanted STRAIGHT_JOIN ? AS identity_rows FORCE INDEX (idx_configurable_resource_state_scope) ON "+
+			"identity_rows.channel_id = 0 AND identity_rows.profile_id = ? AND identity_rows.resource_id = ? AND "+
+			"identity_rows.pre_request_id = ? AND identity_rows.user_id = 0 AND identity_rows.token_id = 0 AND identity_rows.state_key = wanted.wanted_identity",
+			clause.Expr{SQL: strings.Join(selects, " UNION ALL "), Vars: args}, clause.Table{Name: db.NamingStrategy.TableName("ConfigurableResourceState")}, assetBindingLockProfile, "handle", "global")
+	}
 	return db.Model(&ConfigurableResourceState{}).Where(
 		"channel_id = 0 AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND user_id = 0 AND token_id = 0 AND state_key IN ?",
 		assetBindingLockProfile, "handle", "global", keys)
@@ -119,10 +132,6 @@ func loadAssetBindingHistory(db *gorm.DB, refs map[string]AssetBinding) (assetBi
 			}
 		}
 		for scope, nodes := range legacy {
-			kinds := []string{scope.kind}
-			if scope.kind == "asset" {
-				kinds = []string{"asset", "task"}
-			}
 			for start := 0; start < len(nodes); start += assetBindingBatchSize {
 				batch := nodes[start:min(start+assetBindingBatchSize, len(nodes))]
 				ids := make([]string, len(batch))
@@ -131,32 +140,28 @@ func loadAssetBindingHistory(db *gorm.DB, refs map[string]AssetBinding) (assetBi
 					ids[i] = node.ref.ID
 					wanted[assetLifecycleKey(node.ref, node.ref.Kind, node.ref.ID)] = node
 				}
-				query := db.Model(&ConfigurableResourceState{}).Select("id", "metadata", "status").Where("channel_id = ? AND profile_id = ? AND resource_id IN ? AND pre_request_id = ?",
-					scope.channel, assetBindingProfile, kinds, scope.scope)
-				err := walkAssetStateRows(assetMetadataCandidates(query, ids), func(states []ConfigurableResourceState) error {
-					for _, state := range states {
-						var binding AssetBinding
-						if err := common.UnmarshalJsonStr(state.Metadata, &binding); err != nil {
-							return err
-						}
-						for _, key := range assetOwnLifecycleKeys(binding) {
-							node := wanted[key]
-							if node == nil {
-								continue
-							}
-							node.revoked = node.revoked || state.Status != ConfigurableResourceStateStatusActive
-							if assetBindingKind(binding.Kind) == "asset" && binding.GroupID != "" {
-								node.parents[binding.GroupID] = true
-							}
-							if binding.Kind == "group" && assetCanonicalID(binding) != node.ref.ID {
-								node.parents[assetCanonicalID(binding)] = true
-							}
-						}
-					}
-					return nil
-				})
+				states, err := readAssetHistoryCandidates(db, scope.channel, scope.scope, scope.kind, ids)
 				if err != nil {
 					return nil, err
+				}
+				for _, state := range states {
+					var binding AssetBinding
+					if err := common.UnmarshalJsonStr(state.Metadata, &binding); err != nil {
+						return nil, err
+					}
+					for _, key := range assetOwnLifecycleKeys(binding) {
+						node := wanted[key]
+						if node == nil {
+							continue
+						}
+						node.revoked = node.revoked || state.Status != ConfigurableResourceStateStatusActive
+						if assetBindingKind(binding.Kind) == "asset" && binding.GroupID != "" {
+							node.parents[binding.GroupID] = true
+						}
+						if binding.Kind == "group" && assetCanonicalID(binding) != node.ref.ID {
+							node.parents[assetCanonicalID(binding)] = true
+						}
+					}
 				}
 			}
 		}
@@ -202,7 +207,7 @@ func filterActiveAssetBindings(db *gorm.DB, bindings []AssetBinding) ([]AssetBin
 	for _, binding := range bindings {
 		assetIdentityRefs(refs, binding)
 	}
-	history, err := loadAssetBindingHistory(db, refs)
+	history, err := loadAssetBindingHistoryForRead(db, refs)
 	if err != nil {
 		return nil, err
 	}

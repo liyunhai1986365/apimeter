@@ -168,6 +168,15 @@ type RelayInfo struct {
 	UpstreamRequestBodySize int64
 
 	PriceData hosttypes.PriceData
+	// BillingImageCount is the observed image quantity for image settlement.
+	BillingImageCount *int
+	// ImageDataNormalizer applies the relay's format/storage policy to completed
+	// stream images. Context and relay state are explicit so cloned attempts do
+	// not retain the original request's context or billing state.
+	ImageDataNormalizer func(*gin.Context, *RelayInfo, dto.ImageData) (dto.ImageData, error) `json:"-"`
+	// ImageTaskWaiter resolves task JSON before a streaming image response.
+	// A nonempty result has already passed the relay's format/storage policy.
+	ImageTaskWaiter func(*gin.Context, *RelayInfo, []byte) ([]byte, *types.NewAPIError) `json:"-"`
 
 	// QuotaClamp is set (non-nil) when a quota conversion saturated at the
 	// int32 bound (or NaN fallback) while computing this request's charge.

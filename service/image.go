@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -67,7 +68,12 @@ func DecodeBase64FileData(base64String string) (string, string, error) {
 
 // GetImageFromUrl 获取图片的类型和base64编码的数据
 func GetImageFromUrl(url string) (mimeType string, data string, err error) {
-	resp, err := DoDownloadRequest(url)
+	return GetImageFromUrlContext(context.Background(), url)
+}
+
+// GetImageFromUrlContext keeps both response headers and body reads cancellable.
+func GetImageFromUrlContext(ctx context.Context, url string) (mimeType string, data string, err error) {
+	resp, err := DoDownloadRequestContext(ctx, url)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to download image: %w", err)
 	}

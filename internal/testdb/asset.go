@@ -20,8 +20,9 @@ import (
 
 // AssetOpener preserves the default SQLite fixture unless ASSET_TEST_MYSQL_DSN
 // is explicitly set. The supplied MySQL database is never modified: each test
-// creates a random schema and drops only that schema during cleanup. Reopening
-// uses the same schema so persistence can be checked across connections.
+// creates a random schema and drops only that schema during cleanup. Explicit
+// ASSET_TEST_KEEP_DATABASES=1 retains it for diagnosis. Reopening uses the same
+// schema so persistence can be checked across connections.
 func AssetOpener(t *testing.T, sqliteDSN string) func() *gorm.DB {
 	t.Helper()
 	dialector := func() gorm.Dialector { return sqlite.Open(sqliteDSN) }
@@ -46,11 +47,15 @@ func AssetOpener(t *testing.T, sqliteDSN string) func() *gorm.DB {
 		if _, err := admin.Exec("CREATE DATABASE `" + name + "` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"); err != nil {
 			t.Fatalf("create isolated MySQL test schema: %v", err)
 		}
-		t.Cleanup(func() {
-			if _, err := admin.Exec("DROP DATABASE `" + name + "`"); err != nil {
-				t.Errorf("drop isolated MySQL test schema: %v", err)
-			}
-		})
+		if os.Getenv("ASSET_TEST_KEEP_DATABASES") == "1" {
+			t.Logf("preserving isolated MySQL test schema for diagnosis: %s", name)
+		} else {
+			t.Cleanup(func() {
+				if _, err := admin.Exec("DROP DATABASE `" + name + "`"); err != nil {
+					t.Errorf("drop isolated MySQL test schema: %v", err)
+				}
+			})
+		}
 		cfg.DBName = name
 		dialector = func() gorm.Dialector { return mysql.Open(cfg.FormatDSN()) }
 		var version string

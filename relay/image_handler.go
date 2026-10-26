@@ -2,16 +2,18 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
-	"github.com/QuantumNous/new-api/pkg/billingexpr"
+	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/conversion"
@@ -31,6 +33,9 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	if !ok {
 		return types.NewErrorWithStatusCode(fmt.Errorf("invalid request type, expected dto.ImageRequest, got %T", info.Request), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
+	// Response handling can change IsStream. Each channel attempt must start
+	// with the original client intent, including after a JSON upstream error.
+	info.IsStream = imageReq.IsStream(c.Request)
 
 	request, err := common.DeepCopy(imageReq)
 	if err != nil {
@@ -63,6 +68,8 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		return types.NewError(fmt.Errorf("invalid api type: %d", info.ApiType), types.ErrorCodeInvalidApiType, types.ErrOptionWithSkipRetry())
 	}
 	adaptor.Init(info)
+	info.ImageDataNormalizer = normalizeStreamImageData
+	info.ImageTaskWaiter = waitImageAsyncSubmitResponse
 	originalRelayMode := info.RelayMode
 	originalRequestURLPath := info.RequestURLPath
 	originalHeaders := c.Request.Header
@@ -134,7 +141,19 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	var httpResp *http.Response
 	if resp != nil {
 		httpResp = resp.(*http.Response)
-		info.IsStream = info.IsStream || strings.HasPrefix(httpResp.Header.Get("Content-Type"), "text/event-stream")
+		contentType := strings.ToLower(httpResp.Header.Get("Content-Type"))
+		if info.IsAsyncImageRequest {
+			// Let the upstream choose between an async task, a completed JSON
+			// response, and SSE, even when the client also requested streaming.
+			// Task JSON must reach task registration instead of JSON-to-SSE.
+			info.IsStream = strings.HasPrefix(contentType, "text/event-stream")
+		} else if strings.HasPrefix(contentType, "application/json") && info.ApiType != constant.APITypeOpenAI && info.ApiType != constant.APITypeXai {
+			// Some providers return JSON even when stream was requested. Select
+			// capture from the actual response; OpenAI/xAI wrap JSON as SSE.
+			info.IsStream = false
+		} else {
+			info.IsStream = info.IsStream || strings.HasPrefix(contentType, "text/event-stream")
+		}
 		if httpResp.StatusCode != http.StatusOK {
 			if httpResp.StatusCode == http.StatusCreated && info.ApiType == constant.APITypeReplicate {
 				// replicate channel returns 201 Created when using Prefer: wait, treat it as success.
@@ -177,11 +196,17 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		}
 	}
 
+	responseNormalized := responseHandledBySplit
 	if responseCapture.HasBody() {
 		if syncBody, syncErr := waitImageAsyncSubmitResponse(c, info, responseCapture.BodyBytes()); syncErr != nil {
 			return syncErr
 		} else if len(syncBody) > 0 {
+			usage, newAPIError = openai.OpenaiImageResponseUsage(info, syncBody, http.StatusOK)
+			if newAPIError != nil {
+				return markImageSubmitUncertainError(newAPIError)
+			}
 			responseCapture.ReplaceBody(http.StatusOK, syncBody)
+			responseNormalized = true
 		} else {
 			if info.IsAsyncImageRequest && isImageAsyncSubmitBody(responseCapture.BodyBytes()) {
 				body, err := imageAsyncSubmitResponseWithoutUsage(responseCapture.BodyBytes())
@@ -219,7 +244,8 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 		}
 	}
 
-	if responseCapture.HasBody() {
+	if responseCapture.HasBody() && !responseNormalized {
+		// Resolved tasks and split results already passed the storage policy.
 		body, normalized, err := normalizeOpenAIImageResponseByFormat(c, info, responseCapture.BodyBytes())
 		if err != nil {
 			return newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
@@ -232,6 +258,9 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	imageN := uint(1)
 	if request.N != nil {
 		imageN = *request.N
+	}
+	if info.BillingImageCount != nil && *info.BillingImageCount > 0 {
+		imageN = uint(*info.BillingImageCount)
 	}
 
 	// n is handled via OtherRatio so it is applied exactly once in quota
@@ -318,14 +347,29 @@ func finishStreamImageBilling(c *gin.Context, info *relaycommon.RelayInfo, reque
 	return nil
 }
 
+func normalizeStreamImageData(c *gin.Context, info *relaycommon.RelayInfo, image dto.ImageData) (dto.ImageData, error) {
+	// Bound the whole completed-image conversion (download plus storage), even
+	// if RELAY_TIMEOUT is disabled or the upstream keeps sending heartbeats.
+	ctx, cancel := context.WithTimeout(c.Request.Context(), imageResultProcessingTimeout())
+	defer cancel()
+	storageContext := c.Copy()
+	storageContext.Request = c.Request.Clone(ctx)
+	return imageTaskImageToOpenAIData(imageStorageContext(storageContext, info), dto.ImageTaskImage{
+		URL: image.Url, B64Json: image.B64Json,
+	}, buildImageResponsePolicy(info))
+}
+
+func imageResultProcessingTimeout() time.Duration {
+	const defaultSeconds = 180
+	seconds := common.GetEnvOrDefault("IMAGE_RESULT_PROCESSING_TIMEOUT_SECONDS", defaultSeconds)
+	if seconds <= 0 {
+		seconds = defaultSeconds
+	}
+	return time.Duration(seconds) * time.Second
+}
+
 func attachImageBillingResponseBody(info *relaycommon.RelayInfo, body []byte) {
-	if info == nil || len(body) == 0 {
-		return
-	}
-	if info.BillingRequestInput == nil {
-		info.BillingRequestInput = &billingexpr.RequestInput{}
-	}
-	info.BillingRequestInput.ResponseBody = append(info.BillingRequestInput.ResponseBody[:0], body...)
+	info.SetImageBillingResponse(body)
 }
 
 func logImageCapturedResponse(c *gin.Context, responseCapture *imageResponseCapture) {

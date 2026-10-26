@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, test } from 'node:test'
 import type { Channel } from '../types'
 import {
+  type ChannelFormValues,
   CHANNEL_FORM_DEFAULT_VALUES,
   channelFormSchema,
   CONVERSION_OPTIONS,
@@ -288,6 +289,83 @@ describe('TgxMaas channel project', () => {
 })
 
 describe('independent asset library configuration', () => {
+  test('round trips custom Ark configuration and keeps credentials separate', () => {
+    const values: ChannelFormValues = {
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      type: 999,
+      name: 'MoreRouter',
+      key: 'video-key',
+      models: 'seedance',
+      protocol_profile_id: 'doubao-seedance-2',
+      asset_backend: 'ark-compatible',
+      asset_auth_mode: 'api_key',
+      asset_api_key: 'asset-secret',
+      asset_base_url: 'https://morerouter.cn',
+      asset_endpoint_path: '/api',
+      asset_api_version: '2024-01-01',
+      asset_fixed_query: '{"ns":"asset_manager_intl"}',
+      asset_pagination: 'cursor',
+    }
+    assert.equal(channelFormSchema.safeParse(values).success, true)
+    const payload = transformFormDataToCreatePayload(values)
+    const library = JSON.parse(payload.channel.setting || '{}').protocol
+      .asset_library
+    assert.deepEqual(library.ark_compatible, {
+      endpoint_path: '/api',
+      api_version: '2024-01-01',
+      fixed_query: { ns: 'asset_manager_intl' },
+      pagination: 'cursor',
+    })
+    assert.deepEqual(payload.asset_credentials, { api_key: 'asset-secret' })
+    assert.equal(payload.channel.setting?.includes('asset-secret'), false)
+    const defaults = transformChannelToFormDefaults({
+      ...payload.channel,
+      id: 42,
+      channel_info: { is_multi_key: false },
+    } as Channel)
+    assert.equal(defaults.asset_endpoint_path, '/api')
+    assert.equal(defaults.asset_pagination, 'cursor')
+    assert.deepEqual(JSON.parse(defaults.asset_fixed_query || '{}'), {
+      ns: 'asset_manager_intl',
+    })
+    assert.equal(
+      transformFormDataToUpdatePayload(defaults, 42).asset_credentials,
+      undefined
+    )
+    for (const patch of [
+      { asset_endpoint_path: '//evil.example/api' },
+      { asset_endpoint_path: '/api?Action=DeleteAsset' },
+      { asset_api_version: 'bad-version' },
+      { asset_fixed_query: '{"Action":"DeleteAsset"}' },
+      { asset_fixed_query: '{"Version":"other"}' },
+      { asset_fixed_query: '{"token":"secret"}' },
+      { asset_fixed_query: '{"ns":1}' },
+      { asset_fixed_query: '[]' },
+      { asset_fixed_query: 'invalid' },
+    ]) {
+      assert.equal(
+        channelFormSchema.safeParse({ ...values, ...patch }).success,
+        false
+      )
+      assert.equal(
+        channelFormSchema.safeParse({
+          ...values,
+          ...patch,
+          asset_backend: 'youniyouju',
+        }).success,
+        true
+      )
+    }
+    const oldBackend = transformFormDataToCreatePayload({
+      ...values,
+      asset_backend: 'youniyouju',
+    })
+    assert.equal(
+      JSON.parse(oldBackend.channel.setting || '{}').protocol.asset_library
+        .ark_compatible,
+      undefined
+    )
+  })
   test('preserves Youniyouju Token configuration without requiring an official project', () => {
     const values = {
       ...CHANNEL_FORM_DEFAULT_VALUES,

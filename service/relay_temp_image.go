@@ -2,6 +2,7 @@ package service
 
 import (
 	"bytes"
+	"context"
 	"crypto/hmac"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -117,9 +118,16 @@ func saveTemporaryImageWithConfig(c *gin.Context, fileHeader *multipart.FileHead
 }
 
 func saveTemporaryImageBytesWithConfig(c *gin.Context, data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+	ctx := context.Background()
+	if c != nil && c.Request != nil {
+		ctx = c.Request.Context()
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
 	case "oss", "r2":
-		return saveTemporaryImageBytesToCloudStorage(data, contentType, filename, cfg)
+		return saveTemporaryImageBytesToCloudStorage(ctx, data, contentType, filename, cfg)
 	case "local", "":
 		return saveTemporaryImageBytesToLocal(c, data, filename, cfg)
 	default:
@@ -143,12 +151,12 @@ func saveTemporaryImageToCloudStorage(fileHeader *multipart.FileHeader, cfg temp
 	}
 }
 
-func saveTemporaryImageBytesToCloudStorage(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+func saveTemporaryImageBytesToCloudStorage(ctx context.Context, data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(cfg.Storage)) {
 	case "oss":
-		return saveTemporaryImageBytesToOSS(data, contentType, filename, cfg)
+		return saveTemporaryImageBytesToOSS(ctx, data, contentType, filename, cfg)
 	case "r2":
-		return saveTemporaryImageBytesToR2(data, contentType, filename, cfg)
+		return saveTemporaryImageBytesToR2(ctx, data, contentType, filename, cfg)
 	default:
 		return "", fmt.Errorf("unsupported cloud temp image storage: %s", cfg.Storage)
 	}
@@ -260,7 +268,7 @@ func saveTemporaryImageToOSS(fileHeader *multipart.FileHeader, cfg tempImageStor
 	return tempImageOSSPublicURL(cfg, objectName, canonicalResource)
 }
 
-func saveTemporaryImageBytesToOSS(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+func saveTemporaryImageBytesToOSS(ctx context.Context, data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
 	if err := validateOSSConfig(cfg); err != nil {
 		return "", err
 	}
@@ -272,7 +280,7 @@ func saveTemporaryImageBytesToOSS(data []byte, contentType, filename string, cfg
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest(http.MethodPut, requestURL, bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, requestURL, bytes.NewReader(data))
 	if err != nil {
 		return "", fmt.Errorf("create oss upload request failed: %w", err)
 	}
@@ -351,12 +359,12 @@ func saveTemporaryFileBytesToCloudStorage(data []byte, contentType, filename str
 	}
 }
 
-func saveTemporaryImageBytesToR2(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
+func saveTemporaryImageBytesToR2(ctx context.Context, data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
 	if contentType = strings.TrimSpace(contentType); contentType == "" {
 		contentType = tempImageContentTypeForFilename(filename)
 	}
 	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, relayTempImageExt(filename))
-	return putBytesToR2(data, contentType, objectName, cfg)
+	return putBytesToR2(ctx, data, contentType, objectName, cfg)
 }
 
 func saveTemporaryFileBytesToR2(data []byte, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
@@ -364,7 +372,7 @@ func saveTemporaryFileBytesToR2(data []byte, contentType, filename string, cfg t
 		contentType = "application/octet-stream"
 	}
 	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, "/"+filepath.Base(filename))
-	return putBytesToR2(data, contentType, objectName, cfg)
+	return putBytesToR2(context.Background(), data, contentType, objectName, cfg)
 }
 
 func saveTemporaryImageReaderToR2(reader io.Reader, size int64, contentType, filename string, cfg tempImageStorageConfig) (string, error) {
@@ -372,14 +380,14 @@ func saveTemporaryImageReaderToR2(reader io.Reader, size int64, contentType, fil
 		contentType = tempImageContentTypeForFilename(filename)
 	}
 	objectName := tempImageOSSObjectName(cfg.OSSObjectPrefix, relayTempImageExt(filename))
-	return putReaderToR2(reader, size, contentType, objectName, cfg, "UNSIGNED-PAYLOAD")
+	return putReaderToR2(context.Background(), reader, size, contentType, objectName, cfg, "UNSIGNED-PAYLOAD")
 }
 
-func putBytesToR2(data []byte, contentType, objectName string, cfg tempImageStorageConfig) (string, error) {
-	return putReaderToR2(bytes.NewReader(data), int64(len(data)), contentType, objectName, cfg, sha256Hex(data))
+func putBytesToR2(ctx context.Context, data []byte, contentType, objectName string, cfg tempImageStorageConfig) (string, error) {
+	return putReaderToR2(ctx, bytes.NewReader(data), int64(len(data)), contentType, objectName, cfg, sha256Hex(data))
 }
 
-func putReaderToR2(reader io.Reader, size int64, contentType, objectName string, cfg tempImageStorageConfig, payloadHash string) (string, error) {
+func putReaderToR2(ctx context.Context, reader io.Reader, size int64, contentType, objectName string, cfg tempImageStorageConfig, payloadHash string) (string, error) {
 	if err := validateR2Config(cfg); err != nil {
 		return "", err
 	}
@@ -393,7 +401,7 @@ func putReaderToR2(reader io.Reader, size int64, contentType, objectName string,
 	if err != nil {
 		return "", err
 	}
-	req, err := http.NewRequest(http.MethodPut, requestURL, reader)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, requestURL, reader)
 	if err != nil {
 		return "", fmt.Errorf("create r2 upload request failed: %w", err)
 	}

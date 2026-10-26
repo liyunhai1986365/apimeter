@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/logger"
 	"github.com/QuantumNous/new-api/relay/channel"
+	"github.com/QuantumNous/new-api/relay/channel/openai"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/service"
@@ -195,17 +196,32 @@ func submitSingleSplitImageRequest(
 	if !ok || usage == nil {
 		return splitImageAttemptResult{apiErr: newImageSubmitUncertainError(fmt.Errorf("invalid image split usage type: %T", usageValue), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)}
 	}
+	responseNormalized := false
 	if capture.HasBody() {
 		syncBody, syncErr := waitImageAsyncSubmitResponse(attemptContext, attemptInfo, capture.BodyBytes())
 		if syncErr != nil {
 			return splitImageAttemptResult{apiErr: syncErr}
 		}
 		if len(syncBody) > 0 {
+			usage, responseErr = openai.OpenaiImageResponseUsage(attemptInfo, syncBody, http.StatusOK)
+			if responseErr != nil {
+				return splitImageAttemptResult{apiErr: markImageSubmitUncertainError(responseErr)}
+			}
 			capture.ReplaceBody(http.StatusOK, syncBody)
+			responseNormalized = true
 		}
 	}
 	if !capture.HasBody() {
 		return splitImageAttemptResult{apiErr: newImageSubmitUncertainError(fmt.Errorf("image split response body is empty"), types.ErrorCodeBadResponseBody, http.StatusBadGateway)}
+	}
+	if !responseNormalized {
+		body, changed, err := normalizeOpenAIImageResponseByFormat(attemptContext, attemptInfo, capture.BodyBytes())
+		if err != nil {
+			return splitImageAttemptResult{apiErr: newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)}
+		}
+		if changed {
+			capture.ReplaceBody(capture.Status(), body)
+		}
 	}
 
 	var payload map[string]any

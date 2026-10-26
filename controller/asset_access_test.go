@@ -209,6 +209,7 @@ func TestAssetSecurityAllBackends(t *testing.T) {
 	cases := []struct{ backend, profile, createPath, getPath, response string }{
 		{"volcengine-assets", "", "/api/assets", "/api/assets/asset-owned", `{"Result":{"Id":"asset-owned"}}`},
 		{"youniyouju", "", "/api/assets", "/api/assets/asset-owned", `{"Result":{"Id":"asset-owned"}}`},
+		{"ark-compatible", "", "/api/assets", "/api/assets/asset-owned", `{"Result":{"Id":"asset-owned"}}`},
 		{"tgxmaas", "seedance-tgxmaas", "/api/assets", "/api/assets/asset-owned", `{"Result":{"Id":"asset-owned"}}`},
 		{"task", "seedance2-ark-task-assets", "/api/assets/upload", "/api/assets/asset-owned", `{"code":0,"data":{"asset_id":"asset-owned"}}`},
 		{"modelsell", "seedance2-modelsell", "/api/assets/upload", "/api/assets/asset-owned", `{"code":0,"data":{"Id":"asset-owned"}}`},

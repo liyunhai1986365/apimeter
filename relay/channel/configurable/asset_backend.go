@@ -6,11 +6,12 @@ const OfficialAssetBackend = "volcengine-assets"
 const YouniyoujuAssetBackend = "youniyouju"
 const YouniyoujuAssetPath = "/api/volcengine_asset"
 const HanxingtuAssetBackend = "hanxingtu"
+const ArkCompatibleAssetBackend = "ark-compatible"
 
 // Action backends carry resource IDs in JSON and preserve provider IDs directly.
 // Authentication remains a separate, backend-specific setting.
 func IsAssetActionBackend(backend string) bool {
-	return backend == OfficialAssetBackend || backend == YouniyoujuAssetBackend
+	return backend == OfficialAssetBackend || backend == YouniyoujuAssetBackend || backend == ArkCompatibleAssetBackend
 }
 
 // Asset backends reuse existing resource contracts without changing video routes.
@@ -41,6 +42,9 @@ func AssetProfile(protocol *dto.ChannelProtocolSettings) (*Profile, bool) {
 	}
 	if cfg.Backend == "disabled" {
 		return nil, false
+	}
+	if cfg.Backend == ArkCompatibleAssetBackend {
+		return arkCompatibleAssetProfile(cfg)
 	}
 	if IsAssetActionBackend(cfg.Backend) {
 		p, ok := GetProfile("seedance-tgxmaas")

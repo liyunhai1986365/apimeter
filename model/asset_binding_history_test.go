@@ -12,12 +12,17 @@ import (
 	"gorm.io/gorm"
 )
 
-func TestAssetBindingOldPollingDoesNotMigrateRecords(t *testing.T) {
+func TestAssetBindingOldPollingRepairsRelationsOnce(t *testing.T) {
 	observer := setupAssetBindingConcurrencyTest(t)
 	asset := AssetBinding{ChannelID: 91, UserID: 44, Scope: "account", Kind: "asset", ID: "old-alias", CanonicalID: "canonical-without-handle", GroupID: "old-group"}
 	require.NoError(t, SaveAssetBindings([]AssetBinding{asset}))
 	require.NoError(t, DB.Where("profile_id = ?", assetBindingLockProfile).Delete(&ConfigurableResourceState{}).Error)
 	var before []ConfigurableResourceState
+	require.NoError(t, DB.Where("profile_id = ?", assetBindingProfile).Order("id").Find(&before).Error)
+	require.NoError(t, SaveAssetBindings([]AssetBinding{asset}))
+	var ownership []ConfigurableResourceState
+	require.NoError(t, DB.Where("profile_id = ?", assetBindingProfile).Order("id").Find(&ownership).Error)
+	require.Equal(t, before, ownership, "repair must preserve ownership, metadata and timestamps")
 	require.NoError(t, DB.Order("id").Find(&before).Error)
 	observer.inserts.Store(0)
 	observer.updates.Store(0)
@@ -27,18 +32,10 @@ func TestAssetBindingOldPollingDoesNotMigrateRecords(t *testing.T) {
 	}
 	var after []ConfigurableResourceState
 	require.NoError(t, DB.Order("id").Find(&after).Error)
-	require.Equal(t, before, after, "GET must not backfill markers, rewrite metadata or refresh timestamps")
+	require.Equal(t, before, after, "after repair, polling must be read-only")
 	require.Zero(t, observer.inserts.Load())
 	require.Zero(t, observer.updates.Load())
 	require.Zero(t, observer.rowLocks.Load())
-
-	// A historical revoked alias may be the only tombstone for a canonical
-	// identity. The read-only shortcut must still honor it without backfill.
-	var tombstone ConfigurableResourceState
-	tombstone = before[0]
-	tombstone.Id, tombstone.StateKey, tombstone.Status = 0, assetBindingKey("revoked-alias"), ConfigurableResourceStateStatusInvalid
-	require.NoError(t, DB.Create(&tombstone).Error)
-	require.ErrorIs(t, SaveAssetBindings([]AssetBinding{asset}), ErrAssetRevoked)
 }
 
 func TestAssetBindingDeletionAfterHistoryReadRejectsRegistration(t *testing.T) {

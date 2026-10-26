@@ -146,12 +146,17 @@ func TestAssetIdentityParentChangedAfterSnapshotCannotRevive(t *testing.T) {
 	require.False(t, registered)
 }
 
-func TestAssetIdentityV1PollingDoesNotBackfillParents(t *testing.T) {
+func TestAssetIdentityV1PollingRepairsParentsOnce(t *testing.T) {
 	observer := setupAssetBindingConcurrencyTest(t)
 	asset := AssetBinding{ChannelID: 91, UserID: 44, Scope: "account", Kind: "asset", ID: "old", CanonicalID: "family", GroupID: "parent"}
 	require.NoError(t, SaveAssetBindings([]AssetBinding{asset}))
 	require.NoError(t, DB.Model(&ConfigurableResourceState{}).Where("profile_id = ?", assetBindingLockProfile).
 		Updates(map[string]any{"state_value": assetLifecycleInitialized, "metadata": ""}).Error)
+	require.NoError(t, SaveAssetBindings([]AssetBinding{asset}))
+	var identity ConfigurableResourceState
+	require.NoError(t, assetIdentityStates(DB, []string{assetLifecycleKey(asset, "asset", asset.CanonicalID)}).First(&identity).Error)
+	require.Equal(t, assetLifecycleRelated, identity.StateValue)
+	require.JSONEq(t, `{"parents":["parent"]}`, identity.Metadata)
 	var before, after []ConfigurableResourceState
 	require.NoError(t, DB.Order("id").Find(&before).Error)
 	observer.inserts.Store(0)

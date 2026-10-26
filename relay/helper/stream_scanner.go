@@ -85,7 +85,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		info.StreamStatus = relaycommon.NewStreamStatus()
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(c.Request.Context())
 
 	streamingTimeout := time.Duration(constant.StreamingTimeout) * time.Second
 
@@ -199,6 +199,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	}
 
 	dataChan := make(chan string, 10)
+	handlerDone := make(chan struct{})
 
 	wg.Add(1)
 	gopool.Go(func() {
@@ -208,10 +209,13 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 				info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonPanic, fmt.Errorf("handler panic: %v", r))
 			}
 			stop()
+			close(handlerDone)
 			wg.Done()
 		}()
-		sr := newStreamResult(info.StreamStatus)
+		sr := newStreamResult(ctx, info.StreamStatus)
 		for data := range dataChan {
+			// Preserve buffered usage/accounting events on cancellation. Blocking
+			// callback I/O uses sr.Context() and stops without discarding usage here.
 			sr.reset()
 			func() {
 				writeMutex.Lock()
@@ -296,7 +300,16 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	case <-ticker.C:
 		info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, nil)
 	case <-stopChan:
-		// EndReason already set by the goroutine that triggered stopChan
+		// EOF/[DONE] can arrive while the final callback is still downloading
+		// or storing an image. Drain queued events, but keep cancellation and
+		// the idle timeout active until the handler actually finishes.
+		select {
+		case <-handlerDone:
+		case <-ticker.C:
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonTimeout, nil)
+		case <-c.Request.Context().Done():
+			info.StreamStatus.SetEndReason(relaycommon.StreamEndReasonClientGone, c.Request.Context().Err())
+		}
 	case <-c.Request.Context().Done():
 		// 客户端断开：立即 cleanup 关闭上游 resp.Body，解除 scanner 阻塞并让上游停止生成，
 		// 避免为已放弃的请求继续消费上游 token。

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"strconv"
 	"strings"
 
@@ -201,6 +202,13 @@ func GetAndValidOpenAIImageRequest(c *gin.Context, relayMode int) (*dto.ImageReq
 			imageRequest.Quality = formData.Get("quality")
 			imageRequest.ResponseFormat = formData.Get("response_format")
 			imageRequest.Size = formData.Get("size")
+			if formData.Has("stream") {
+				stream, err := strconv.ParseBool(formData.Get("stream"))
+				if err != nil {
+					return nil, types.NewErrorWithStatusCode(errors.New("stream must be a boolean"), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+				}
+				imageRequest.Stream = &stream
+			}
 			if imageValue := formData.Get("image"); imageValue != "" {
 				imageRequest.Image, _ = common.Marshal(imageValue)
 			}

@@ -34,8 +34,11 @@ func TestImageRequestPreservesSeedreamFieldsAndExplicitFalse(t *testing.T) {
 	}`, string(body))
 }
 
-func TestImageRequestDoesNotEnableStreamingForOtherImageModels(t *testing.T) {
-	var request ImageRequest
-	require.NoError(t, common.Unmarshal([]byte(`{"model":"gpt-image-2","prompt":"draw","stream":true}`), &request))
-	require.False(t, request.IsStream(nil))
+func TestImageRequestStreamFlag(t *testing.T) {
+	for _, model := range []string{"gpt-image-1", "gpt-image-1.5", "gpt-image-2", "dall-e-3", "custom-image-alias", "doubao-seedream-5-0-260128"} {
+		for _, stream := range []*bool{nil, common.GetPointer(false), common.GetPointer(true)} {
+			request := ImageRequest{Model: model, Stream: stream}
+			require.Equal(t, stream != nil && *stream, request.IsStream(nil), model)
+		}
+	}
 }

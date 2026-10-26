@@ -168,8 +168,7 @@ func isImageAsyncSubmitBody(body []byte) bool {
 	if !ok {
 		return false
 	}
-	var imageResponse dto.ImageResponse
-	return common.Unmarshal(body, &imageResponse) != nil || len(imageResponse.Data) == 0
+	return relaycommon.ImageResponseCount(body) == 0
 }
 
 func imageAsyncSubmitResponseWithoutUsage(body []byte) ([]byte, error) {
@@ -183,6 +182,12 @@ func imageAsyncSubmitResponseWithoutUsage(body []byte) ([]byte, error) {
 
 func shouldWrapLocalImageAsync(info *relaycommon.RelayInfo) bool {
 	if info == nil || !info.IsAsyncImageRequest || info.RelayMode != relayconstant.RelayModeImagesGenerations {
+		return false
+	}
+	// A streaming request must reach the upstream before choosing a response
+	// mode. A local task worker expects JSON and cannot relay SSE to the client.
+	// Read the request flag because a failed attempt may change info.IsStream.
+	if request, ok := info.Request.(*dto.ImageRequest); ok && request.IsStream(nil) {
 		return false
 	}
 	settings := dto.ChannelSettings{}
@@ -222,7 +227,7 @@ func markImageSubmitUncertainError(err *types.NewAPIError) *types.NewAPIError {
 
 func recordImageAsyncSubmitResponse(info *relaycommon.RelayInfo, responseBody []byte) *types.NewAPIError {
 	upstreamTaskID, ok := parseImageAsyncSubmitResponse(responseBody)
-	if !ok {
+	if !ok || !isImageAsyncSubmitBody(responseBody) {
 		return nil
 	}
 	if !info.IsAsyncImageRequest {
@@ -605,7 +610,7 @@ func localImageTaskResponseFromOpenAIImageBody(taskID, action string, now time.T
 
 func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, responseBody []byte) ([]byte, *types.NewAPIError) {
 	upstreamTaskID, ok := parseImageAsyncSubmitResponse(responseBody)
-	if !ok || info.IsAsyncImageRequest {
+	if !ok || info.IsAsyncImageRequest || !isImageAsyncSubmitBody(responseBody) {
 		return nil, nil
 	}
 	if info.ChannelMeta == nil {
@@ -642,13 +647,28 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy 
 	if maxStep <= 0 {
 		return nil, fmt.Errorf("image async task wait disabled")
 	}
-	for step := 0; step < maxStep; step++ {
-		if err := imageAsyncWaitContextErr(c); err != nil {
-			return nil, err
+	requestContext := context.Background()
+	if c != nil && c.Request != nil {
+		requestContext = c.Request.Context()
+	}
+	ctx, cancel := context.WithTimeout(requestContext, time.Duration(imageAsyncWaitTimeoutSeconds(c))*time.Second)
+	defer cancel()
+	waitError := func(err error) error {
+		if requestContext.Err() != nil {
+			return requestContext.Err()
 		}
-		body, statusCode, err := fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy, settings...)
+		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			return fmt.Errorf("image async task wait timeout: %w", ctx.Err())
+		}
+		return err
+	}
+	for step := 0; step < maxStep; step++ {
+		if err := ctx.Err(); err != nil {
+			return nil, waitError(err)
+		}
+		body, statusCode, err := fetchImageTaskResultOnce(ctx, baseURL, key, upstreamTaskID, proxy, settings...)
 		if err != nil {
-			return nil, err
+			return nil, waitError(err)
 		}
 		if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
 			return nil, fmt.Errorf("fetch image task status code: %d, body: %s", statusCode, string(body))
@@ -670,8 +690,8 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy 
 		}
 
 		if step < maxStep-1 {
-			if err := sleepImageAsyncWait(c, waitSeconds); err != nil {
-				return nil, err
+			if err := sleepImageAsyncWait(ctx, waitSeconds); err != nil {
+				return nil, waitError(err)
 			}
 		}
 	}
@@ -679,16 +699,20 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy 
 }
 
 func imageAsyncWaitMaxStep(c *gin.Context) int {
+	return imageAsyncWaitSteps(imageAsyncWaitTimeoutSeconds(c))
+}
+
+func imageAsyncWaitTimeoutSeconds(c *gin.Context) int {
 	if c != nil {
 		if settings, ok := c.Get(string(constant.ContextKeyChannelSetting)); ok {
 			if channelSettings, ok := settings.(dto.ChannelSettings); ok &&
 				channelSettings.Protocol != nil &&
 				channelSettings.Protocol.ImageAsyncWaitTimeoutSeconds != nil {
-				return imageAsyncWaitSteps(*channelSettings.Protocol.ImageAsyncWaitTimeoutSeconds)
+				return *channelSettings.Protocol.ImageAsyncWaitTimeoutSeconds
 			}
 		}
 	}
-	return imageAsyncWaitSteps(common.GetEnvOrDefault("IMAGE_ASYNC_WAIT_TIMEOUT_SECONDS", defaultImageAsyncWaitTimeoutSeconds))
+	return common.GetEnvOrDefault("IMAGE_ASYNC_WAIT_TIMEOUT_SECONDS", defaultImageAsyncWaitTimeoutSeconds)
 }
 
 func imageAsyncWaitSteps(timeoutSeconds int) int {
@@ -698,29 +722,12 @@ func imageAsyncWaitSteps(timeoutSeconds int) int {
 	return (timeoutSeconds + 1) / 2
 }
 
-func imageAsyncWaitContextErr(c *gin.Context) error {
-	if c == nil || c.Request == nil || c.Request.Context() == nil {
-		return nil
-	}
-	if err := c.Request.Context().Err(); err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return err
-		}
-		return err
-	}
-	return nil
-}
-
-func sleepImageAsyncWait(c *gin.Context, d time.Duration) error {
-	if c == nil || c.Request == nil || c.Request.Context() == nil {
-		time.Sleep(d)
-		return nil
-	}
+func sleepImageAsyncWait(ctx context.Context, d time.Duration) error {
 	timer := time.NewTimer(d)
 	defer timer.Stop()
 	select {
-	case <-c.Request.Context().Done():
-		return c.Request.Context().Err()
+	case <-ctx.Done():
+		return ctx.Err()
 	case <-timer.C:
 		return nil
 	}
@@ -769,7 +776,10 @@ func convertImageAsyncResultToOpenAIResponse(c *gin.Context, info *relaycommon.R
 	if len(imageResp.Data) == 0 {
 		return nil, fmt.Errorf("image task succeeded without images")
 	}
-	return common.Marshal(imageResp)
+	return common.Marshal(struct {
+		dto.ImageResponse
+		Usage *dto.Usage `json:"usage,omitempty"`
+	}{ImageResponse: imageResp, Usage: taskResp.Usage})
 }
 
 type imageResponsePolicy struct {
@@ -841,7 +851,7 @@ func imageTaskImageToOpenAIData(c *gin.Context, image dto.ImageTaskImage, policy
 			}
 			return dto.ImageData{B64Json: cleanBase64}, nil
 		}
-		_, base64Data, err := service.GetImageFromUrl(imageURL)
+		_, base64Data, err := service.GetImageFromUrlContext(imageResponseContext(c), imageURL)
 		if err != nil {
 			return dto.ImageData{}, err
 		}
@@ -893,7 +903,7 @@ func imageTaskImageToStoredURLAndBase64(c *gin.Context, imageURL, imageBase64 st
 		}
 		return dto.ImageData{Url: url, B64Json: cleanBase64}, nil
 	}
-	_, base64Data, err := service.GetImageFromUrl(imageURL)
+	_, base64Data, err := service.GetImageFromUrlContext(imageResponseContext(c), imageURL)
 	if err != nil {
 		return dto.ImageData{}, err
 	}
@@ -909,6 +919,13 @@ func isHTTPImageReference(ref string) bool {
 	return strings.HasPrefix(ref, "http://") || strings.HasPrefix(ref, "https://")
 }
 
+func imageResponseContext(c *gin.Context) context.Context {
+	if c != nil && c.Request != nil {
+		return c.Request.Context()
+	}
+	return context.Background()
+}
+
 func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.RelayInfo, body []byte) ([]byte, bool, error) {
 	policy := buildImageResponsePolicy(info)
 	storageCtx := imageStorageContext(c, info)
@@ -916,12 +933,19 @@ func normalizeOpenAIImageResponseByFormat(c *gin.Context, info *relaycommon.Rela
 	if err := common.Unmarshal(body, &payload); err != nil {
 		return nil, false, err
 	}
+	changed := false
 	dataValue, ok := payload["data"].([]any)
 	if !ok {
-		return body, false, nil
+		image, isObject := payload["data"].(map[string]any)
+		if !isObject {
+			return body, false, nil
+		}
+		// Canonicalize single-image objects so storage, task wrapping and
+		// downstream OpenAI clients all consume the same data[] structure.
+		dataValue = []any{image}
+		changed = true
 	}
 
-	changed := false
 	for i, item := range dataValue {
 		image, ok := item.(map[string]any)
 		if !ok {
@@ -1065,7 +1089,7 @@ func stringFromImageMap(image map[string]any, keys ...string) string {
 	return ""
 }
 
-func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string, settings ...dto.ChannelSettings) ([]byte, int, error) {
+func fetchImageTaskResultOnce(ctx context.Context, baseURL, key, upstreamTaskID, proxy string, settings ...dto.ChannelSettings) ([]byte, int, error) {
 	profile := configurableImageProfileFromSettingsSlice(settings...)
 	var req *http.Request
 	var err error
@@ -1084,7 +1108,7 @@ func fetchImageTaskResultOnce(baseURL, key, upstreamTaskID, proxy string, settin
 	if client == nil {
 		client = http.DefaultClient
 	}
-	resp, err := client.Do(req)
+	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
 		return nil, 0, err
 	}

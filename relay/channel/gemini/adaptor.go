@@ -164,7 +164,9 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	}
 
 	action := "generateContent"
-	if info.IsStream {
+	// The OpenAI image adaptor consumes generateContent JSON responses.
+	// Native Gemini and chat streams keep using streamGenerateContent.
+	if info.IsStream && info.RelayMode != constant.RelayModeImagesGenerations && info.RelayMode != constant.RelayModeImagesEdits {
 		action = "streamGenerateContent?alt=sse"
 		if info.RelayMode == constant.RelayModeGemini {
 			info.DisablePing = true

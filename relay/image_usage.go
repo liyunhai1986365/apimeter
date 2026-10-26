@@ -36,7 +36,11 @@ func ensureEstimatedImageUsageIfMissing(info *relaycommon.RelayInfo, request *dt
 
 	imageInputTokens := estimateGPTImage2InputImageTokens(info, request)
 	inputTokens := promptTokens + imageInputTokens
-	outputTokens := dto.EstimateGPTImage2OutputTokens(request)
+	outputRequest := *request
+	if info != nil && info.BillingImageCount != nil && *info.BillingImageCount > 0 {
+		outputRequest.N = common.GetPointer(uint(*info.BillingImageCount))
+	}
+	outputTokens := dto.EstimateGPTImage2OutputTokens(&outputRequest)
 	usage.PromptTokens = inputTokens
 	usage.CompletionTokens = outputTokens
 	usage.TotalTokens = inputTokens + outputTokens

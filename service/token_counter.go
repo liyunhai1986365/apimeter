@@ -254,6 +254,12 @@ func EstimateRequestToken(c *gin.Context, meta *types.TokenCountMeta, info *rela
 		if file.Source == nil {
 			continue
 		}
+		// Known images on these models use a fixed estimate below. Fetching
+		// their URLs cannot improve that estimate and can reject valid relays
+		// when the image host is reachable only by the upstream provider.
+		if file.FileType == types.FileTypeImage && !common.IsOpenAITextModel(model) {
+			continue
+		}
 
 		// 如果文件类型未知且需要获取，通过 MIME 类型检测
 		if file.FileType == "" || (file.Source.IsURL() && shouldFetchFiles) {

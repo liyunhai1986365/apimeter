@@ -87,10 +87,20 @@ type RetryPolicyStrategy struct {
 }
 
 type AssetLibrarySettings struct {
-	Backend  string `json:"backend"`
-	BaseURL  string `json:"base_url,omitempty"`
-	AuthMode string `json:"auth_mode"`
-	Region   string `json:"region,omitempty"`
+	Backend       string                      `json:"backend"`
+	BaseURL       string                      `json:"base_url,omitempty"`
+	AuthMode      string                      `json:"auth_mode"`
+	Region        string                      `json:"region,omitempty"`
+	ArkCompatible *ArkCompatibleAssetSettings `json:"ark_compatible,omitempty"`
+}
+
+// ArkCompatibleAssetSettings describes a Bearer-authenticated Ark Action endpoint.
+// Projects are managed by the upstream; credentials are stored separately.
+type ArkCompatibleAssetSettings struct {
+	EndpointPath string            `json:"endpoint_path,omitempty"`
+	APIVersion   string            `json:"api_version,omitempty"`
+	FixedQuery   map[string]string `json:"fixed_query,omitempty"`
+	Pagination   string            `json:"pagination,omitempty"`
 }
 
 type ChannelProtocolSettings struct {

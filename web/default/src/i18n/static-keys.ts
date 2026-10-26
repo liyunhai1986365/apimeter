@@ -833,6 +833,21 @@ Register now 👉 {{affiliateLink}}`,
   'Batch detection failed',
   'Batch detection complete: {{channels}} channels, {{add}} to add, {{remove}} to remove, {{fails}} failed',
 
+  // Ark-compatible asset settings and validation
+  'Ark-compatible assets (custom)',
+  'Asset endpoint path',
+  'Asset API version',
+  'Fixed query parameters (JSON)',
+  'Upstream pagination',
+  'Page numbers (PageNumber / PageSize)',
+  'Cursor (MaxResults / NextToken)',
+  'String values only. Action and Version are generated automatically. Put credentials in the key field.',
+  'Supports 10 asset and group operations with Bearer authentication. The upstream manages ProjectName; omit it from client requests. Liveness is not supported.',
+  'MoreRouter: Base URL https://morerouter.cn, path /api, fixed query {"ns":"asset_manager"} (international: asset_manager_intl). Confirm pagination with your provider.',
+  'Use a path starting with / containing only letters, digits, /, _ or -',
+  'Use YYYY-MM-DD for the API version',
+  'Use a JSON object with string values; reserved parameters and credentials are not allowed',
+
   // Misc
   'Cancel',
   'Status',

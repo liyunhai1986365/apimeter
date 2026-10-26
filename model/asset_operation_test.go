@@ -89,6 +89,57 @@ func TestAssetListPoolWaitHasDeadline(t *testing.T) {
 	require.Equal(t, before.WaitCount+1, pool.Stats().WaitCount)
 }
 
+func TestAssetListPageRevalidationPoolWaitHasDeadline(t *testing.T) {
+	setupAssetBindingConcurrencyTest(t)
+	asset := AssetBinding{ChannelID: 91, UserID: 44, Scope: "account", Kind: "asset", ID: "owned", CanonicalID: "owned"}
+	require.NoError(t, SaveAssetBindings([]AssetBinding{asset}))
+	pool, err := DB.DB()
+	require.NoError(t, err)
+	pool.SetMaxOpenConns(1)
+	conn, err := pool.Conn(context.Background())
+	require.NoError(t, err)
+	defer conn.Close()
+	for _, tc := range []struct {
+		name    string
+		timeout time.Duration
+	}{
+		{name: "server_timeout"},
+		{name: "shorter_caller_timeout", timeout: 80 * time.Millisecond},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			budget := AssetOperationTimeout
+			if tc.timeout > 0 {
+				var cancelDeadline context.CancelFunc
+				ctx, cancelDeadline = context.WithTimeout(ctx, tc.timeout)
+				defer cancelDeadline()
+				budget = tc.timeout
+			}
+			// Fail instead of hanging if the server-side deadline regresses.
+			watchdog := time.AfterFunc(budget+3*time.Second, cancel)
+			defer watchdog.Stop()
+			before := pool.Stats()
+			start := time.Now()
+			bindings, err := FindScopedAssetBindingsBatchContext(ctx, asset.ChannelID, asset.UserID, asset.Scope, asset.Kind, []string{asset.ID})
+			elapsed := time.Since(start)
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			require.Nil(t, bindings, "a timed-out authorization must not return unverified bindings")
+			if tc.timeout == 0 {
+				require.GreaterOrEqual(t, elapsed, budget)
+			}
+			require.Less(t, elapsed, budget+2*time.Second)
+			require.Equal(t, before.WaitCount+1, pool.Stats().WaitCount)
+			require.Equal(t, before.InUse, pool.Stats().InUse, "only the deliberately held connection may remain")
+			t.Logf("final authorization pool wait stopped after %s", elapsed)
+		})
+	}
+	require.NoError(t, conn.Close())
+	bindings, err := FindScopedAssetBindingsBatchContext(context.Background(), asset.ChannelID, asset.UserID, asset.Scope, asset.Kind, []string{asset.ID})
+	require.NoError(t, err)
+	require.Equal(t, []AssetBinding{asset}, bindings, "authorization must succeed once a connection is available")
+}
+
 func TestAssetIdentityLockTimeoutReleasesPoolMySQL(t *testing.T) {
 	setupAssetBindingConcurrencyTest(t)
 	if DB.Dialector.Name() != "mysql" {

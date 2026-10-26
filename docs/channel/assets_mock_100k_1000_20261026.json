@@ -1,0 +1,290 @@
+{
+  "test_date": "2026-10-26",
+  "result": "failed_under_load",
+  "environment": {
+    "gateway_and_mock_cpus": 4,
+    "gateway_and_mock_memory_limit_mib": 2048,
+    "go_memory_target_mib": 1400,
+    "mysql_container_cpu_memory_limits": "not set",
+    "redis": "disabled",
+    "gateway_instances": 1,
+    "http_client_timeout_seconds": 20,
+    "schema_isolation": "random test schemas; no production DB writes"
+  },
+  "run": {
+    "backend": "ark-compatible",
+    "clients": 1000,
+    "creates": {
+      "count": 1000,
+      "http": {
+        "0": 196,
+        "200": 22,
+        "502": 782
+      },
+      "errors": [
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}",
+        "POST /api/assets: HTTP 502: {\"error\":{\"code\":\"asset_binding_failed\",\"message\":\"upstream accepted the operation but its ownership could not be persisted; do not resubmit; contact the administrator with the request ID\"}}"
+      ],
+      "states": {
+        "Processing": 22
+      },
+      "p50_ms": 15371.659385,
+      "p95_ms": 20000.362347,
+      "p99_ms": 20000.930258,
+      "max_ms": 20001.25694,
+      "peak_in_flight": 1000
+    },
+    "database_samples": {
+      "create": {
+        "samples": 212,
+        "pool_peak": 30,
+        "full_samples": 212,
+        "full_longest_samples": 212,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 0,
+        "locked_transaction_age_upper_ms": 0,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "historical_poll": {
+        "samples": 8,
+        "pool_peak": 30,
+        "full_samples": 5,
+        "full_longest_samples": 5,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 0,
+        "locked_transaction_age_upper_ms": 0,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "list_1000": {
+        "samples": 187,
+        "pool_peak": 30,
+        "full_samples": 176,
+        "full_longest_samples": 176,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 0,
+        "locked_transaction_age_upper_ms": 0,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "new_asset_poll": {
+        "samples": 47,
+        "pool_peak": 30,
+        "full_samples": 46,
+        "full_longest_samples": 46,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 2,
+        "locked_transaction_age_upper_ms": 810.822,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "single_list": {
+        "samples": 141,
+        "pool_peak": 27,
+        "full_samples": 0,
+        "full_longest_samples": 0,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 1,
+        "locked_transaction_age_upper_ms": 507.44,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      }
+    },
+    "duration_seconds": 60.743219802,
+    "historical_assets": 100000,
+    "historical_polls": {
+      "count": 1000,
+      "http": {
+        "200": 1000
+      },
+      "states": {
+        "Active": 1000
+      },
+      "p50_ms": 558.357672,
+      "p95_ms": 645.806377,
+      "p99_ms": 675.085393,
+      "max_ms": 699.358869,
+      "peak_in_flight": 1000
+    },
+    "initial_state_rows": 300004,
+    "lists": {
+      "count": 1000,
+      "http": {
+        "0": 22,
+        "500": 978
+      },
+      "errors": [
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}",
+        "GET /api/assets: HTTP 500: {\"error\":{\"code\":\"asset_state_unavailable\",\"message\":\"asset ownership state is unavailable; contact the administrator\"}}"
+      ],
+      "p50_ms": 15966.540931,
+      "p95_ms": 18533.821392,
+      "p99_ms": 20003.921037,
+      "max_ms": 20017.059582,
+      "peak_in_flight": 1000
+    },
+    "main_pool_end_in_use": 0,
+    "main_pool_limit": 30,
+    "main_pool_wait_count": 45745,
+    "main_pool_wait_ms": 31430639.429985,
+    "mysql_version": "5.7.43-log",
+    "phase_completed": "finished",
+    "polls": {
+      "count": 66,
+      "http": {
+        "200": 66
+      },
+      "states": {
+        "Processing": 66
+      },
+      "p50_ms": 82.012735,
+      "p95_ms": 4598.920906,
+      "p99_ms": 4607.627189,
+      "max_ms": 4607.627189,
+      "peak_in_flight": 22
+    },
+    "ready": {
+      "count": 65,
+      "http": {
+        "200": 58,
+        "503": 7
+      },
+      "errors": [
+        "GET /api/ready: HTTP 503: {\"data\":{\"checks\":{\"database\":\"unavailable\",\"log_database\":\"ok\",\"redis\":\"disabled\"},\"node_name\":\"\",\"node_type\":\"slave\",\"version\":\"v0.0.0\"},\"success\":false}",
+        "GET /api/ready: HTTP 503: {\"data\":{\"checks\":{\"database\":\"unavailable\",\"log_database\":\"ok\",\"redis\":\"disabled\"},\"node_name\":\"\",\"node_type\":\"slave\",\"version\":\"v0.0.0\"},\"success\":false}",
+        "GET /api/ready: HTTP 503: {\"data\":{\"checks\":{\"database\":\"unavailable\",\"log_database\":\"ok\",\"redis\":\"disabled\"},\"node_name\":\"\",\"node_type\":\"slave\",\"version\":\"v0.0.0\"},\"success\":false}",
+        "GET /api/ready: HTTP 503: {\"data\":{\"checks\":{\"database\":\"unavailable\",\"log_database\":\"ok\",\"redis\":\"disabled\"},\"node_name\":\"\",\"node_type\":\"slave\",\"version\":\"v0.0.0\"},\"success\":false}",
+        "GET /api/ready: HTTP 503: {\"data\":{\"checks\":{\"database\":\"unavailable\",\"log_database\":\"ok\",\"redis\":\"disabled\"},\"node_name\":\"\",\"node_type\":\"slave\",\"version\":\"v0.0.0\"},\"success\":false}",
+        "GET /api/ready: HTTP 503: {\"data\":{\"checks\":{\"database\":\"unavailable\",\"log_database\":\"ok\",\"redis\":\"disabled\"},\"node_name\":\"\",\"node_type\":\"slave\",\"version\":\"v0.0.0\"},\"success\":false}",
+        "GET /api/ready: HTTP 503: {\"data\":{\"checks\":{\"database\":\"unavailable\",\"log_database\":\"ok\",\"redis\":\"disabled\"},\"node_name\":\"\",\"node_type\":\"slave\",\"version\":\"v0.0.0\"},\"success\":false}"
+      ],
+      "p50_ms": 71.748906,
+      "p95_ms": 3000.812468,
+      "p99_ms": 3061.732717,
+      "max_ms": 3061.732717,
+      "peak_in_flight": 1
+    },
+    "recovery_ms": 0.005349,
+    "rounds": 3,
+    "sample_interval_ms": 100,
+    "seed_seconds": 20.012489701,
+    "single_list": {
+      "count": 1,
+      "http": {
+        "200": 1
+      },
+      "p50_ms": 14035.800617,
+      "p95_ms": 14035.800617,
+      "p99_ms": 14035.800617,
+      "max_ms": 14035.800617,
+      "peak_in_flight": 1
+    },
+    "sql_trace": {
+      "count": 48405,
+      "errors": {
+        "deadline_exceeded": 1578,
+        "other": 133
+      },
+      "lock_queries": 264,
+      "max_lock_query_ms": 7.559887,
+      "max_ms": 19227.346499,
+      "slow_over_100ms": 22685
+    },
+    "status": {
+      "count": 21,
+      "http": {
+        "200": 21
+      },
+      "p50_ms": 0.36114,
+      "p95_ms": 95.969252,
+      "p99_ms": 96.211624,
+      "max_ms": 96.211624,
+      "peak_in_flight": 1
+    },
+    "upstream": "mock",
+    "upstream_delay_ms": 1,
+    "upstream_requests": {
+      "CreateAsset": 997,
+      "GetAsset": 1066,
+      "ListAssets": 1010
+    }
+  },
+  "sample_timeline_summary": {
+    "create": {
+      "first_sample_ms": 801,
+      "last_sample_ms": 21901,
+      "longest_consecutive_full_sample_span_ms": 21100
+    },
+    "historical_poll": {
+      "first_sample_ms": 119,
+      "last_sample_ms": 700,
+      "longest_consecutive_full_sample_span_ms": 399
+    },
+    "list_1000": {
+      "first_sample_ms": 40802,
+      "last_sample_ms": 60721,
+      "longest_consecutive_full_sample_span_ms": 18814
+    },
+    "new_asset_poll": {
+      "first_sample_ms": 22001,
+      "last_sample_ms": 26604,
+      "longest_consecutive_full_sample_span_ms": 4499
+    },
+    "single_list": {
+      "first_sample_ms": 26712,
+      "last_sample_ms": 40701,
+      "longest_consecutive_full_sample_span_ms": 0
+    }
+  },
+  "longest_full_sample_span_across_phases_ms": 25699,
+  "cleanup": {
+    "containers": [
+      {
+        "name": "/apimeter-asset-100k-1000-20261026",
+        "status": "exited",
+        "exit_code": 1,
+        "oom_killed": false,
+        "memory_limit_bytes": 2147483648,
+        "nano_cpus": 4000000000
+      },
+      {
+        "name": "/apimeter-asset-100k-1000-20261026-v2",
+        "status": "exited",
+        "exit_code": 1,
+        "oom_killed": false,
+        "memory_limit_bytes": 2147483648,
+        "nano_cpus": 4000000000
+      }
+    ],
+    "test_schema_count": 4,
+    "remaining_test_schemas": 0,
+    "removed_test_containers": 2,
+    "credentials_file_removed": true
+  },
+  "limitations": [
+    "1000 simultaneous client requests per burst, not sustained 1000 QPS",
+    "Current lifecycle-v2 inventory: one user, one channel/account, one group; 100000 assets bulk seeded from real model binding prototype",
+    "MySQL 5.7 trx_started has one-second precision; sampled locked transaction age is an upper bound, not exact lock hold duration",
+    "SQL trace duration includes connection pool waits; 100 ms sampling cannot exclude shorter lock waits",
+    "Polls of newly created IDs have only 22-way concurrency because only 22 create requests returned success",
+    "Initial preflight rejected create requests carrying ProjectName; fixed request shape and reran all phases. Main results use only rerun.",
+    "Final total ownership count after delayed creation completion was not separately recorded; create success means HTTP success observed by clients."
+  ]
+}

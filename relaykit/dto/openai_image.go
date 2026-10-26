@@ -289,12 +289,7 @@ func parsePartialImages(raw json.RawMessage) int {
 }
 
 func (i *ImageRequest) IsStream(_ *http.Request) bool {
-	if i.Stream == nil || !*i.Stream {
-		return false
-	}
-	// Seedream 5.0 is the image family with a documented SSE contract. Keep
-	// legacy image providers on their existing non-streaming response path.
-	return strings.Contains(strings.ToLower(i.Model), "seedream-5-0")
+	return i.Stream != nil && *i.Stream
 }
 
 func (i *ImageRequest) SetModelName(modelName string) {

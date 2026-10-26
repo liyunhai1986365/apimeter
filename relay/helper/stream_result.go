@@ -1,6 +1,8 @@
 package helper
 
 import (
+	"context"
+
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 )
 
@@ -8,13 +10,18 @@ import (
 // to record soft errors, signal fatal stops, or mark normal completion.
 // StreamScannerHandler checks IsStopped() after each callback invocation.
 type StreamResult struct {
+	ctx     context.Context
 	status  *relaycommon.StreamStatus
 	stopped bool
 }
 
-func newStreamResult(status *relaycommon.StreamStatus) *StreamResult {
-	return &StreamResult{status: status}
+func newStreamResult(ctx context.Context, status *relaycommon.StreamStatus) *StreamResult {
+	return &StreamResult{ctx: ctx, status: status}
 }
+
+// Context cancels blocking callback work on client cancellation or stream
+// timeout. Normal upstream EOF still allows queued events to finish processing.
+func (r *StreamResult) Context() context.Context { return r.ctx }
 
 // Error records a soft error. The stream continues processing.
 // Can be called multiple times per chunk.

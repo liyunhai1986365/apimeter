@@ -17,10 +17,12 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { ChannelFormValues } from '../../lib/channel-form'
+import { ArkCompatibleAssetFields } from './ark-compatible-asset-fields'
 
 const backends = [
   ['inherit', 'Follow video protocol'],
   ['volcengine-assets', 'Volcengine official assets (12 operations)'],
+  ['ark-compatible', 'Ark-compatible assets (custom)'],
   ['youniyouju', 'Youniyouju assets (12 operations, Token)'],
   ['hanxingtu', 'Hanxingtu assets (7 operations, Token)'],
   ['tgxmaas', 'TgxMaas assets (12 operations)'],
@@ -107,6 +109,10 @@ export function AssetLibraryFields(props: {
               {t('Asset library type')}
             </FieldLabel>
             <Select
+              items={backends.map(([value, label]) => ({
+                value,
+                label: t(label),
+              }))}
               value={field.value || 'inherit'}
               onValueChange={(value) => {
                 field.onChange(value)
@@ -206,6 +212,9 @@ export function AssetLibraryFields(props: {
           )}
         />
       ))}
+      {backend === 'ark-compatible' && (
+        <ArkCompatibleAssetFields form={props.form} />
+      )}
       {explicit && (
         <FieldDescription>
           {t(

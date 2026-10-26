@@ -18,7 +18,7 @@ import (
 )
 
 func TestAssetUserIsolationSharesCRUDWithAnotherToken(t *testing.T) {
-	for _, backend := range []string{"youniyouju", "tgxmaas", "volcengine-assets"} {
+	for _, backend := range []string{"youniyouju", "tgxmaas", "volcengine-assets", "ark-compatible"} {
 		t.Run(backend, func(t *testing.T) {
 			preserveSmartRetryTestConfiguration(t)
 			var calls atomic.Int32

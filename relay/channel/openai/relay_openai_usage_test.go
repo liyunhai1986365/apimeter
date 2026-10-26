@@ -189,7 +189,7 @@ func TestOpenaiHandlerWithUsageMapsOutputTokenDetails(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
 	body := `{
 		"created": 1710000000,
-		"data": [],
+		"data": [{"url":"https://example.com/image.png"}],
 		"usage": {
 			"input_tokens": 12,
 			"output_tokens": 1764,

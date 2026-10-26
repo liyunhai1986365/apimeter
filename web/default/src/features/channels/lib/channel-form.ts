@@ -24,6 +24,11 @@ import type {
   AssetCredentialsInput,
   AssetLibrarySettings,
 } from '../types'
+import {
+  ARK_ASSET_DEFAULTS,
+  parseAssetFixedQuery,
+  validAssetEndpointPath,
+} from './ark-compatible-assets'
 
 const jsonArrayString = z.string().refine((value) => {
   const trimmed = value.trim()
@@ -206,6 +211,10 @@ export const channelFormSchema = z
     asset_base_url: z.string().optional(),
     asset_auth_mode: z.string().optional(),
     asset_region: z.string().optional(),
+    asset_endpoint_path: z.string().optional(),
+    asset_api_version: z.string().optional(),
+    asset_fixed_query: z.string().optional(),
+    asset_pagination: z.enum(['page', 'cursor']).optional(),
     asset_api_key: z.string().optional(),
     asset_access_key_id: z.string().optional(),
     asset_secret_access_key: z.string().optional(),
@@ -229,6 +238,39 @@ export const channelFormSchema = z
     upstream_model_update_ignored_models: z.string().optional(),
   })
   .superRefine((values, ctx) => {
+    if (values.type === 999 && values.asset_backend === 'ark-compatible') {
+      if (
+        !validAssetEndpointPath(values.asset_endpoint_path?.trim() || '/api')
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['asset_endpoint_path'],
+          message:
+            'Use a path starting with / containing only letters, digits, /, _ or -',
+        })
+      }
+      if (
+        !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(
+          values.asset_api_version?.trim() || '2024-01-01'
+        )
+      ) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['asset_api_version'],
+          message: 'Use YYYY-MM-DD for the API version',
+        })
+      }
+      try {
+        parseAssetFixedQuery(values.asset_fixed_query || '{}')
+      } catch {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['asset_fixed_query'],
+          message:
+            'Use a JSON object with string values; reserved parameters and credentials are not allowed',
+        })
+      }
+    }
     if (
       values.type === 999 &&
       ((values.protocol_profile_id === 'seedance-tgxmaas' &&
@@ -295,6 +337,7 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   protocol_enabled_conversions: [],
   protocol_profile_id: '',
   protocol_project_name: '',
+  ...ARK_ASSET_DEFAULTS,
   asset_backend: 'inherit',
   asset_base_url: '',
   asset_auth_mode: 'channel_key',
@@ -353,6 +396,7 @@ export function transformChannelToFormDefaults(
     protocol_enabled_conversions: [] as string[],
     protocol_profile_id: '',
     protocol_project_name: '',
+    ...ARK_ASSET_DEFAULTS,
     asset_backend: 'inherit',
     asset_base_url: '',
     asset_auth_mode: 'channel_key',
@@ -400,6 +444,20 @@ export function transformChannelToFormDefaults(
         )
           ? parsed.protocol.enabled_conversions
           : [],
+        asset_endpoint_path:
+          parsed.protocol?.asset_library?.ark_compatible?.endpoint_path ||
+          ARK_ASSET_DEFAULTS.asset_endpoint_path,
+        asset_api_version:
+          parsed.protocol?.asset_library?.ark_compatible?.api_version ||
+          ARK_ASSET_DEFAULTS.asset_api_version,
+        asset_fixed_query: JSON.stringify(
+          parsed.protocol?.asset_library?.ark_compatible?.fixed_query || {},
+          null,
+          2
+        ),
+        asset_pagination:
+          parsed.protocol?.asset_library?.ark_compatible?.pagination ||
+          ARK_ASSET_DEFAULTS.asset_pagination,
         asset_backend: parsed.protocol?.asset_library?.backend || 'inherit',
         asset_base_url: parsed.protocol?.asset_library?.base_url || '',
         asset_auth_mode:
@@ -566,6 +624,14 @@ function buildSettingJSON(formData: ChannelFormValues): string {
           ? 'aksk'
           : formData.asset_auth_mode || 'channel_key',
       region: formData.asset_region?.trim() || 'cn-beijing',
+    }
+    if (formData.asset_backend === 'ark-compatible') {
+      protocol.asset_library.ark_compatible = {
+        endpoint_path: formData.asset_endpoint_path?.trim() || '/api',
+        api_version: formData.asset_api_version?.trim() || '2024-01-01',
+        fixed_query: parseAssetFixedQuery(formData.asset_fixed_query || '{}'),
+        pagination: formData.asset_pagination || 'page',
+      }
     }
   }
 

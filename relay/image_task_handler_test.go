@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -840,6 +841,17 @@ func TestShouldWrapSyncImageProviderForAsyncRequest(t *testing.T) {
 	require.True(t, shouldWrapLocalImageAsync(info))
 }
 
+func TestAsyncStreamRequestSkipsLocalWrappingAfterJSONRetry(t *testing.T) {
+	info := &relaycommon.RelayInfo{
+		IsAsyncImageRequest: true,
+		RelayMode:           relayconstant.RelayModeImagesGenerations,
+		Request:             &dto.ImageRequest{Stream: common.GetPointer(true)},
+		// A previous channel can return JSON and reset the observed mode.
+		IsStream: false,
+	}
+	require.False(t, shouldWrapLocalImageAsync(info))
+}
+
 func TestShouldKeepNativeAsyncImageProfile(t *testing.T) {
 	info := &relaycommon.RelayInfo{
 		IsAsyncImageRequest: true,
@@ -1082,6 +1094,114 @@ func TestConvertLocalImageTaskResponseDoesNotExposeStoredRequestWithID(t *testin
 	require.Equal(t, "task_local", gjson.GetBytes(body, "id").String())
 	require.Equal(t, "queued", gjson.GetBytes(body, "state").String())
 	require.False(t, gjson.GetBytes(body, "prompt").Exists())
+}
+
+func TestImageHelperAsyncStreamingUsesUpstreamResponse(t *testing.T) {
+	const usageJSON = `"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}`
+	const completed = "event: image_generation.completed\ndata: {\"type\":\"image_generation.completed\",\"b64_json\":\"" + imageTaskTestPNGBase64 + "\",\"usage\":{\"input_tokens\":10,\"output_tokens\":20,\"total_tokens\":30}}\n\ndata: [DONE]\n\n"
+	for _, tt := range []struct {
+		name, contentType, body string
+		status, wantError       int
+		wantStream, wantTask    bool
+	}{
+		{"SSE image", "text/event-stream", completed, http.StatusOK, 0, true, false},
+		{"completed JSON with ID", "application/json", `{"id":"completed-image-id","data":[{"b64_json":"` + imageTaskTestPNGBase64 + `"}],` + usageJSON + `}`, http.StatusOK, 0, false, false},
+		{"task JSON", "application/json", `{"id":"native-image-task","object":"image.task",` + usageJSON + `}`, http.StatusOK, 0, false, true},
+		{"task without JSON content type", "text/plain", `{"id":"native-image-task","object":"image.task"}`, http.StatusOK, 0, false, true},
+		{"upstream HTTP error", "application/json", `{"error":{"message":"upstream rejected parameters","type":"invalid_request_error"}}`, http.StatusBadRequest, http.StatusBadRequest, false, false},
+		{"upstream JSON error", "application/json", `{"error":{"message":"generation failed","type":"server_error"}}`, http.StatusOK, http.StatusBadGateway, false, false},
+		{"upstream SSE error", "text/event-stream", "event: error\ndata: {\"type\":\"error\",\"message\":\"generation failed\"}\n\n", http.StatusOK, http.StatusBadGateway, true, false},
+	} {
+		for _, usePrice := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/price=%t", tt.name, usePrice), func(t *testing.T) {
+				setupImageTaskTestDB(t)
+				require.NoError(t, model.DB.AutoMigrate(&model.User{}))
+				require.NoError(t, model.DB.Create(&model.User{Id: 7, Username: "async-stream-user", Quota: 50000}).Error)
+				require.NoError(t, model.DB.Create(&model.Channel{Id: 11, Type: constant.ChannelTypeOpenAI, Name: "async-stream-channel"}).Error)
+				previousBatch, previousTimeout := common.BatchUpdateEnabled, constant.StreamingTimeout
+				common.BatchUpdateEnabled, constant.StreamingTimeout = false, 30
+				t.Cleanup(func() { common.BatchUpdateEnabled, constant.StreamingTimeout = previousBatch, previousTimeout })
+				service.InitHttpClient()
+				var upstreamCalls atomic.Int32
+				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					upstreamCalls.Add(1)
+					require.Equal(t, "/v1/images/generations", r.URL.Path)
+					require.Equal(t, "true", r.URL.Query().Get("async"))
+					var sent dto.ImageRequest
+					require.NoError(t, common.DecodeJson(r.Body, &sent))
+					require.NotNil(t, sent.Stream)
+					require.True(t, *sent.Stream)
+					w.Header().Set("Content-Type", tt.contentType)
+					w.WriteHeader(tt.status)
+					_, _ = io.WriteString(w, tt.body)
+				}))
+				defer upstream.Close()
+				body := []byte(`{"model":"gpt-image-1","prompt":"cat","stream":true}`)
+				recorder := httptest.NewRecorder()
+				c, _ := gin.CreateTestContext(recorder)
+				c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations?async=true", bytes.NewReader(body))
+				c.Request.Header.Set("Content-Type", "application/json")
+				c.Set(string(constant.ContextKeyChannelType), constant.ChannelTypeOpenAI)
+				c.Set(string(constant.ContextKeyChannelId), 11)
+				c.Set(string(constant.ContextKeyChannelBaseUrl), upstream.URL)
+				c.Set(string(constant.ContextKeyChannelKey), "local-test-key")
+				t.Cleanup(func() { common.CleanupBodyStorage(c) })
+				billing := &imageAsyncBillingStub{quota: 1000}
+				info := &relaycommon.RelayInfo{
+					UserId: 7, OriginModelName: "gpt-image-1", StartTime: time.Now(), DisablePing: true,
+					Request:             &dto.ImageRequest{Model: "gpt-image-1", Prompt: "cat", Stream: common.GetPointer(true)},
+					IsAsyncImageRequest: true, IsStream: true, Billing: billing,
+					RelayMode: relayconstant.RelayModeImagesGenerations, RequestURLPath: c.Request.URL.String(),
+					PriceData: types.PriceData{UsePrice: usePrice, ModelPrice: 0.01, ModelRatio: 1, CompletionRatio: 1, GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1}},
+				}
+				apiErr := ImageHelper(c, info)
+				require.EqualValues(t, 1, upstreamCalls.Load(), "both flags must reach the upstream directly")
+				require.Equal(t, tt.wantStream, info.IsStream)
+				var tasks []model.Task
+				require.NoError(t, model.DB.Find(&tasks).Error)
+				var user model.User
+				require.NoError(t, model.DB.First(&user, 7).Error)
+				if tt.wantError != 0 {
+					require.NotNil(t, apiErr)
+					require.Equal(t, tt.wantError, apiErr.StatusCode)
+					require.Zero(t, billing.settleCalls)
+					require.Zero(t, user.UsedQuota)
+					require.Empty(t, tasks)
+					return
+				}
+				require.Nil(t, apiErr)
+				require.Zero(t, billing.refundCalls)
+				if tt.wantTask {
+					require.Len(t, tasks, 1)
+					require.Equal(t, "native-image-task", tasks[0].TaskID)
+					require.Equal(t, "native-image-task", tasks[0].GetUpstreamTaskID())
+					require.Equal(t, model.TaskStatus(model.TaskStatusSubmitted), tasks[0].Status)
+					require.Equal(t, 1000, tasks[0].Quota)
+					require.Equal(t, "native-image-task", gjson.GetBytes(recorder.Body.Bytes(), "id").String())
+					require.False(t, gjson.GetBytes(recorder.Body.Bytes(), "usage").Exists())
+					require.Zero(t, billing.settleCalls, "task submission must defer settlement")
+					require.Zero(t, user.UsedQuota)
+					require.Zero(t, user.RequestCount)
+				} else {
+					require.Empty(t, tasks, "completed images must not also create a billable task")
+					require.Equal(t, 1, billing.settleCalls)
+					wantQuota := 30
+					if usePrice {
+						wantQuota = 5000
+					}
+					require.Equal(t, wantQuota, user.UsedQuota)
+					require.Equal(t, 1, user.RequestCount)
+					if tt.wantStream {
+						require.Equal(t, "text/event-stream", recorder.Header().Get("Content-Type"))
+						require.Equal(t, tt.body, recorder.Body.String())
+					} else {
+						require.Contains(t, recorder.Header().Get("Content-Type"), "application/json")
+						require.JSONEq(t, tt.body, recorder.Body.String())
+					}
+				}
+			})
+		}
+	}
 }
 
 func TestImageHelperAsyncTrueReturnsLocalTaskForSyncProvider(t *testing.T) {

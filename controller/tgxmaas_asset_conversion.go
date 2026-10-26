@@ -188,6 +188,9 @@ func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *conf
 	// upstream transport has no JSON body. Without a channel default, leave
 	// omission intact so the supplier can inherit the group's project.
 	query := url.Values{}
+	if profile.ID == configurable.ArkCompatibleAssetBackend {
+		project = "" // The supplier selects the project; never inherit the video project.
+	}
 	if project != "" {
 		body["ProjectName"], _ = common.Marshal(project)
 		query.Set("ProjectName", project)

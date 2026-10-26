@@ -37,6 +37,85 @@ func walkAssetStateRows(query *gorm.DB, visit func([]ConfigurableResourceState) 
 	}
 }
 
+// Walk a fixed channel/account/kind in the order of the existing scope index.
+// Paging by primary key made MySQL repeatedly sort the entire account range.
+// Historical nonzero user/token tuples remain visible; these are not owner IDs.
+// The query must contain only account/kind predicates: an unindexed owner or
+// status predicate here defeats the covering GROUP BY and repeats full scans.
+func walkScopedAssetStateRows(query *gorm.DB, visit func([]ConfigurableResourceState) error) error {
+	if query.Dialector.Name() == common.DatabaseTypeMySQL {
+		query = query.Table("? FORCE INDEX (idx_configurable_resource_state_scope)", clause.Table{Name: query.NamingStrategy.TableName("ConfigurableResourceState")})
+	}
+	const prefix = "channel_id, profile_id, resource_id, pre_request_id, user_id, token_id"
+	var scopes []ConfigurableResourceState
+	if err := query.Session(&gorm.Session{}).Select(prefix).Group(prefix).Order("user_id, token_id").Find(&scopes).Error; err != nil {
+		return err
+	}
+	for _, scope := range scopes {
+		lastKey := ""
+		for {
+			if err := query.Statement.Context.Err(); err != nil {
+				return err
+			}
+			page := query.Session(&gorm.Session{}).Where("user_id = ? AND token_id = ? AND state_key > ?", scope.UserID, scope.TokenID, lastKey)
+			if len(query.Statement.Selects) > 0 {
+				page = page.Select(append(append([]string{}, query.Statement.Selects...), "state_key"))
+			}
+			var states []ConfigurableResourceState
+			if err := page.Order("state_key").Limit(assetBindingBatchSize).Find(&states).Error; err != nil {
+				return err
+			}
+			if err := visit(states); err != nil {
+				return err
+			}
+			if len(states) < assetBindingBatchSize {
+				break
+			}
+			lastKey = states[len(states)-1].StateKey
+		}
+	}
+	return query.Statement.Context.Err()
+}
+
+// Recheck only the bounded set of handles about to be returned in a list page.
+// No ownership or revocation result is cached across callers.
+func FindScopedAssetBindingsBatchContext(ctx context.Context, channelID, userID int, scope, kind string, handles []string) ([]AssetBinding, error) {
+	if len(handles) == 0 {
+		return nil, nil
+	}
+	// Final list authorization runs after the shared scan has finished. Bound
+	// its own pool wait and all query batches, even without a caller deadline.
+	ctx, cancel := context.WithTimeout(ctx, AssetOperationTimeout)
+	defer cancel()
+	var result []AssetBinding
+	db := DB.WithContext(ctx)
+	for start := 0; start < len(handles); start += assetBindingBatchSize {
+		var digests []string
+		for _, handle := range handles[start:min(start+assetBindingBatchSize, len(handles))] {
+			digests = append(digests, assetBindingKey(handle))
+		}
+		query := scopedAssetHandleStates(db, AssetBinding{ChannelID: channelID, Scope: scope, Kind: kind}, digests)
+		prefix := ""
+		if db.Dialector.Name() == common.DatabaseTypeMySQL {
+			prefix = "asset_candidates."
+		}
+		var states []ConfigurableResourceState
+		if err := query.Where(prefix+"state_value = ? AND "+prefix+"status = ?", strconv.Itoa(userID), ConfigurableResourceStateStatusActive).Find(&states).Error; err != nil {
+			return nil, err
+		}
+		bindings, err := decodeAssetBindings(states)
+		if err != nil {
+			return nil, err
+		}
+		active, err := filterActiveAssetBindings(db, bindings)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, active...)
+	}
+	return result, nil
+}
+
 // Resolve canonical identities using the existing complete scope index;
 // querying by profile + handle alone cannot seek into that index.
 func scopedAssetHandleStates(db *gorm.DB, binding AssetBinding, handles []string) *gorm.DB {
@@ -194,9 +273,9 @@ func assetRegistrationStates(db *gorm.DB, bindings []AssetBinding) (map[string][
 	return states, nil
 }
 
-// This path never starts a transaction, creates mutexes or acquires row locks.
-// A concurrent deletion may commit after these reads, but a read-only poll
-// cannot revive it. Any change is revalidated under the writer's locks.
+// Complete unchanged bindings need no transaction or row locks. Missing legacy
+// relationships are repaired separately without rewriting ownership. A poll
+// cannot revive concurrent deletion; repairs revalidate under the writers' locks.
 func assetBindingsCurrent(db *gorm.DB, bindings []AssetBinding) (bool, error) {
 	var existingBindings []AssetBinding
 	families := make(map[string]string)

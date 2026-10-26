@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -18,6 +19,38 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestImageHelperPreservesStreamRequestAcrossChannelRetry(t *testing.T) {
+	failed := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = io.WriteString(w, `{"error":{"message":"temporarily unavailable","type":"server_error"}}`)
+	}))
+	defer failed.Close()
+	success := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":[{"b64_json":"`+imageTaskTestPNGBase64+`"}],"usage":{"input_tokens":10,"output_tokens":20,"total_tokens":30}}`)
+	}))
+	defer success.Close()
+	request := &dto.ImageRequest{Model: "gemini-3-pro-image-preview", Prompt: "cat", Stream: common.GetPointer(true)}
+	ctx, recorder, info := newImageResponsePolicyTestContext(t, constant.ChannelTypeGemini, failed.URL, request)
+	info.BeginAttempt()
+	apiErr := ImageHelper(ctx, info)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusServiceUnavailable, apiErr.StatusCode)
+	require.False(t, ctx.Writer.Written())
+	require.False(t, info.IsStream, "Gemini's JSON response selects non-stream handling for this attempt")
+
+	common.SetContextKey(ctx, constant.ContextKeyChannelType, constant.ChannelTypeOpenAI)
+	common.SetContextKey(ctx, constant.ContextKeyChannelBaseUrl, success.URL)
+	info.BeginAttempt()
+	require.Nil(t, ImageHelper(ctx, info))
+	require.Equal(t, "text/event-stream", recorder.Header().Get("Content-Type"), "retry must preserve the requested response mode")
+	require.Contains(t, recorder.Body.String(), "event: image_generation.completed")
+	require.Contains(t, recorder.Body.String(), imageTaskTestPNGBase64)
+	require.True(t, strings.HasSuffix(recorder.Body.String(), "data: [DONE]\n\n"))
+	require.Equal(t, 1, info.Billing.(*imageAsyncBillingStub).settleCalls)
+}
 
 func TestImageHelperRetriesWithOriginalRequestFormat(t *testing.T) {
 	gin.SetMode(gin.TestMode)

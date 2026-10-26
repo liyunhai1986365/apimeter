@@ -87,6 +87,12 @@ export type AssetLibrarySettings = {
   base_url?: string
   auth_mode: string
   region?: string
+  ark_compatible?: {
+    endpoint_path?: string
+    api_version?: string
+    fixed_query?: Record<string, string>
+    pagination?: 'page' | 'cursor'
+  }
 }
 export type ChannelUpdatePayload = Omit<Partial<Channel>, 'status'> & {
   asset_credentials?: AssetCredentialsInput

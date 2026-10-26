@@ -63,6 +63,17 @@ func TestEnsureEstimatedImageUsageDoesNotOverrideRealUsage(t *testing.T) {
 	require.Equal(t, 20, usage.TotalTokens)
 }
 
+func TestEnsureEstimatedImageUsageUsesCompletedCount(t *testing.T) {
+	info := &relaycommon.RelayInfo{OriginModelName: "gpt-image-2"}
+	info.SetEstimatePromptTokens(11)
+	info.UpdateImageCount(1)
+	request := &dto.ImageRequest{Model: "gpt-image-2", Prompt: "cat", Size: "1024x1024", Quality: "medium", N: common.GetPointer(uint(3))}
+	usage := &dto.Usage{}
+	require.True(t, ensureEstimatedImageUsageIfMissing(info, request, usage))
+	require.Equal(t, 765, usage.OutputTokens)
+	require.Equal(t, uint(3), *request.N, "settlement must not rewrite the original request")
+}
+
 func TestImageResponseBodyWithUsageInjectsUsageWhenMissing(t *testing.T) {
 	usage := &dto.Usage{
 		PromptTokens:     11,

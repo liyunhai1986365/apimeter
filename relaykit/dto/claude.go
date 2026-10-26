@@ -313,8 +313,10 @@ func (c *ClaudeRequest) GetTokenCountMeta() *types.TokenCountMeta {
 					texts = append(texts, string(b))
 				}
 			case "tool_result":
-				if media.Content != nil {
-					b, _ := kitutil.Marshal(media.Content)
+				textContent, images := claudeToolResultTokenContent(media.Content)
+				fileMeta = append(fileMeta, images...)
+				if textContent != nil {
+					b, _ := kitutil.Marshal(textContent)
 					texts = append(texts, string(b))
 				}
 			}
@@ -357,6 +359,38 @@ func (c *ClaudeRequest) GetTokenCountMeta() *types.TokenCountMeta {
 	tokenCountMeta.CombineText = strings.Join(texts, "\n")
 	tokenCountMeta.Files = fileMeta
 	return &tokenCountMeta
+}
+
+// Tool results can contain images. Count them as media rather than tokenizing
+// their base64 payload, while preserving all other result fields for estimation.
+// Content has already been JSON-decoded by ClaudeMessage.ParseContent.
+func claudeToolResultTokenContent(content any) (any, []*types.FileMeta) {
+	blocks, ok := content.([]any)
+	if !ok {
+		return content, nil
+	}
+	remaining := make([]any, 0, len(blocks))
+	var images []*types.FileMeta
+	for _, raw := range blocks {
+		block, ok := raw.(map[string]any)
+		if ok && block["type"] == "image" {
+			image, err := kitutil.Any2Type[ClaudeMediaMessage](block)
+			if err == nil {
+				if source := image.ToFileSource(); source != nil {
+					images = append(images, &types.FileMeta{FileType: types.FileTypeImage, Source: source})
+					continue
+				}
+			}
+		}
+		remaining = append(remaining, raw)
+	}
+	if len(images) == 0 {
+		return content, nil
+	}
+	if len(remaining) == 0 {
+		return nil, images
+	}
+	return remaining, images
 }
 
 func (c *ClaudeRequest) IsStream(ctx *http.Request) bool {

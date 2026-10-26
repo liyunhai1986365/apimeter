@@ -184,7 +184,8 @@ func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 			}
 		}
 
-		if info.IsStream {
+		// Image responses are handled by Gemini's JSON image adaptor.
+		if info.IsStream && info.RelayMode != constant.RelayModeImagesGenerations && info.RelayMode != constant.RelayModeImagesEdits {
 			suffix = "streamGenerateContent?alt=sse"
 		} else {
 			suffix = "generateContent"

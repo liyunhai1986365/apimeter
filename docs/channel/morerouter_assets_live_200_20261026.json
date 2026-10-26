@@ -1,0 +1,721 @@
+{
+  "date": "2026-10-26",
+  "execution": "Current workspace production gateway handlers and real MoreRouter, isolated MySQL 5.7.43, one temporary container per run, 2 CPUs and 1 GiB memory limit",
+  "upstream": "https://morerouter.cn",
+  "namespace": "asset_manager",
+  "pagination": "page",
+  "observed_contract": {
+    "success_response": "bare object; gateway Action entry wraps it in Result",
+    "asset_type": "Image",
+    "list_filter": {
+      "GroupType": "AIGC"
+    },
+    "throttle_transport_status": 502
+  },
+  "runs": {
+    "create_and_query_200": {
+      "cleanup_failures": null,
+      "clients": 200,
+      "create_wave_seconds": 2.675957191,
+      "deleted_assets": 125,
+      "duration_seconds": 56.125532278,
+      "group_deleted": true,
+      "instances": 1,
+      "log_pool_limit": 5,
+      "main_pool_end_in_use": 0,
+      "main_pool_limit": 30,
+      "main_pool_peak_in_use": 30,
+      "main_pool_wait_count": 14116,
+      "main_pool_wait_ms": 136168.247267,
+      "monitor_errors": 0,
+      "mysql_version": "5.7.43-log",
+      "namespace": "asset_manager",
+      "passed": false,
+      "redis": "disabled",
+      "rounds": 10,
+      "sampled_server_lock_waiters_peak": 0,
+      "upstream": "https://morerouter.cn",
+      "verified_absent_assets": 125,
+      "created_assets": 125,
+      "created_groups": 1,
+      "final_state_counts": {
+        "Active": 124,
+        "": 76
+      },
+      "requests": {
+        "CreateAsset": {
+          "count": 200,
+          "http": {
+            "200": 124,
+            "502": 76
+          },
+          "p50_ms": 999.385838,
+          "p95_ms": 2401.902652,
+          "p99_ms": 2621.233353,
+          "max_ms": 2675.171308,
+          "peak_in_flight": 200
+        },
+        "CreateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 1748.981428,
+          "p95_ms": 1748.981428,
+          "p99_ms": 1748.981428,
+          "max_ms": 1748.981428,
+          "peak_in_flight": 1
+        },
+        "DeleteAsset": {
+          "count": 125,
+          "http": {
+            "200": 112,
+            "502": 13
+          },
+          "p50_ms": 73.579496,
+          "p95_ms": 200.775666,
+          "p99_ms": 217.672738,
+          "max_ms": 223.07959,
+          "peak_in_flight": 5
+        },
+        "DeleteAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 202.334632,
+          "p95_ms": 202.334632,
+          "p99_ms": 202.334632,
+          "max_ms": 202.334632,
+          "peak_in_flight": 1
+        },
+        "GetAsset": {
+          "count": 1241,
+          "http": {
+            "200": 1241
+          },
+          "states": {
+            "Active": 1234,
+            "Processing": 7
+          },
+          "p50_ms": 400.482294,
+          "p95_ms": 1610.049557,
+          "p99_ms": 1683.321606,
+          "max_ms": 1730.085287,
+          "peak_in_flight": 124
+        },
+        "GetAssetGroup": {
+          "count": 201,
+          "http": {
+            "200": 61,
+            "502": 140
+          },
+          "p50_ms": 463.77713,
+          "p95_ms": 4901.154615,
+          "p99_ms": 4916.796637,
+          "max_ms": 5001.477687,
+          "peak_in_flight": 200
+        },
+        "ListAssetGroups": {
+          "count": 201,
+          "http": {
+            "200": 61,
+            "502": 140
+          },
+          "p50_ms": 429.00343,
+          "p95_ms": 2400.635314,
+          "p99_ms": 2420.428905,
+          "max_ms": 2504.922616,
+          "peak_in_flight": 200
+        },
+        "ListAssets": {
+          "count": 200,
+          "http": {
+            "200": 12,
+            "502": 188
+          },
+          "p50_ms": 693.657938,
+          "p95_ms": 2023.221031,
+          "p99_ms": 2138.211199,
+          "max_ms": 2172.708896,
+          "peak_in_flight": 200
+        },
+        "UpdateAsset": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 390.944535,
+          "p95_ms": 390.944535,
+          "p99_ms": 390.944535,
+          "max_ms": 390.944535,
+          "peak_in_flight": 1
+        },
+        "UpdateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 399.233153,
+          "p95_ms": 399.233153,
+          "p99_ms": 399.233153,
+          "max_ms": 399.233153,
+          "peak_in_flight": 1
+        },
+        "direct_delete": {
+          "count": 13,
+          "http": {
+            "200": 13
+          },
+          "p50_ms": 57.401754,
+          "p95_ms": 193.182653,
+          "p99_ms": 193.182653,
+          "max_ms": 193.182653,
+          "peak_in_flight": 3
+        },
+        "direct_list": {
+          "count": 2,
+          "http": {
+            "200": 2
+          },
+          "p50_ms": 62.869854,
+          "p95_ms": 1289.34842,
+          "p99_ms": 1289.34842,
+          "max_ms": 1289.34842,
+          "peak_in_flight": 1
+        },
+        "direct_verify": {
+          "count": 126,
+          "http": {
+            "502": 126
+          },
+          "p50_ms": 124.960044,
+          "p95_ms": 182.839272,
+          "p99_ms": 186.916094,
+          "max_ms": 192.206093,
+          "peak_in_flight": 5
+        },
+        "ready": {
+          "count": 113,
+          "http": {
+            "200": 113
+          },
+          "p50_ms": 0.851091,
+          "p95_ms": 3.248439,
+          "p99_ms": 5.13444,
+          "max_ms": 188.5646,
+          "peak_in_flight": 1
+        },
+        "smoke_create": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 861.396339,
+          "p95_ms": 861.396339,
+          "p99_ms": 861.396339,
+          "max_ms": 861.396339,
+          "peak_in_flight": 1
+        },
+        "status": {
+          "count": 19,
+          "http": {
+            "200": 19
+          },
+          "p50_ms": 0.417743,
+          "p95_ms": 1.276163,
+          "p99_ms": 1.276163,
+          "max_ms": 1.276163,
+          "peak_in_flight": 1
+        }
+      },
+      "upstream_requests": {
+        "CreateAsset": {
+          "count": 201,
+          "http": {
+            "200": 125,
+            "502": 76
+          },
+          "p50_ms": 842.842534,
+          "p95_ms": 2221.867162,
+          "p99_ms": 2418.321309,
+          "max_ms": 2464.242732,
+          "peak_in_flight": 200
+        },
+        "CreateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 1732.47657,
+          "p95_ms": 1732.47657,
+          "p99_ms": 1732.47657,
+          "max_ms": 1732.47657,
+          "peak_in_flight": 1
+        },
+        "DeleteAsset": {
+          "count": 125,
+          "http": {
+            "200": 112,
+            "502": 13
+          },
+          "p50_ms": 62.76436,
+          "p95_ms": 193.896297,
+          "p99_ms": 208.016572,
+          "max_ms": 209.708311,
+          "peak_in_flight": 5
+        },
+        "DeleteAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 194.080275,
+          "p95_ms": 194.080275,
+          "p99_ms": 194.080275,
+          "max_ms": 194.080275,
+          "peak_in_flight": 1
+        },
+        "GetAsset": {
+          "count": 1241,
+          "http": {
+            "200": 1241
+          },
+          "p50_ms": 336.093436,
+          "p95_ms": 1535.614079,
+          "p99_ms": 1624.734879,
+          "max_ms": 1663.046284,
+          "peak_in_flight": 124
+        },
+        "GetAssetGroup": {
+          "count": 201,
+          "http": {
+            "200": 61,
+            "502": 140
+          },
+          "p50_ms": 378.386361,
+          "p95_ms": 4798.08634,
+          "p99_ms": 4812.71105,
+          "max_ms": 4899.397547,
+          "peak_in_flight": 199
+        },
+        "ListAssetGroups": {
+          "count": 201,
+          "http": {
+            "200": 61,
+            "502": 140
+          },
+          "p50_ms": 337.558153,
+          "p95_ms": 2302.036803,
+          "p99_ms": 2326.754924,
+          "max_ms": 2411.541136,
+          "peak_in_flight": 200
+        },
+        "ListAssets": {
+          "count": 249,
+          "http": {
+            "200": 61,
+            "502": 188
+          },
+          "p50_ms": 296.438887,
+          "p95_ms": 1426.535004,
+          "p99_ms": 1509.05845,
+          "max_ms": 1543.011609,
+          "peak_in_flight": 151
+        },
+        "UpdateAsset": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 388.398526,
+          "p95_ms": 388.398526,
+          "p99_ms": 388.398526,
+          "max_ms": 388.398526,
+          "peak_in_flight": 1
+        },
+        "UpdateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 397.072872,
+          "p95_ms": 397.072872,
+          "p99_ms": 397.072872,
+          "max_ms": 397.072872,
+          "peak_in_flight": 1
+        }
+      },
+      "failure_reasons": {
+        "CreateAsset": {
+          "QuotaWriteQPMExceeded": 76
+        },
+        "GetAssetGroup": {
+          "AccountFlowLimitExceeded": 140
+        },
+        "ListAssetGroups": {
+          "AccountFlowLimitExceeded": 140
+        },
+        "ListAssets": {
+          "AccountFlowLimitExceeded": 188
+        },
+        "DeleteAsset": {
+          "AccountFlowLimitExceeded": 13
+        }
+      },
+      "list_count_assertion_note": "The original live run additionally asserted 201 assets after 200 submissions; only 124 submissions succeeded, so 12 successful lists correctly returned 125. The fixture now uses the observed creation count. No extra batch was submitted."
+    },
+    "same_asset_query_200": {
+      "cleanup_failures": null,
+      "clients": 200,
+      "create_wave_seconds": 0,
+      "deleted_assets": 1,
+      "duration_seconds": 45.765124569,
+      "group_deleted": true,
+      "instances": 1,
+      "log_pool_limit": 5,
+      "main_pool_end_in_use": 0,
+      "main_pool_limit": 30,
+      "main_pool_peak_in_use": 30,
+      "main_pool_wait_count": 13496,
+      "main_pool_wait_ms": 146965.175713,
+      "monitor_errors": 0,
+      "mysql_version": "5.7.43-log",
+      "namespace": "asset_manager",
+      "passed": true,
+      "pool_full_estimated_ms": 1100,
+      "pool_full_longest_sample_streak_ms": 200,
+      "pool_full_samples": 11,
+      "pool_sample_interval_ms": 100,
+      "pool_samples": 458,
+      "query_only": true,
+      "redis": "disabled",
+      "rounds": 10,
+      "sampled_lock_wait_age_upper_bound_ms": 0,
+      "sampled_locked_transaction_age_upper_bound_ms": 192.292,
+      "sampled_locked_transactions_peak": 1,
+      "sampled_server_lock_waiters_peak": 0,
+      "sql_trace": {
+        "count": 22210,
+        "errors": {},
+        "lock_queries": 7,
+        "max_lock_query_ms": 2.749064,
+        "max_ms": 106.083958,
+        "slow_over_100ms": 1
+      },
+      "upstream": "https://morerouter.cn",
+      "verified_absent_assets": 1,
+      "created_assets": 1,
+      "created_groups": 1,
+      "final_state_counts": {
+        "Active": 200
+      },
+      "requests": {
+        "CreateAsset": {
+          "count": 0,
+          "http": null,
+          "p50_ms": 0,
+          "p95_ms": 0,
+          "p99_ms": 0,
+          "max_ms": 0,
+          "peak_in_flight": 0
+        },
+        "CreateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 1611.028559,
+          "p95_ms": 1611.028559,
+          "p99_ms": 1611.028559,
+          "max_ms": 1611.028559,
+          "peak_in_flight": 1
+        },
+        "DeleteAsset": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 74.404218,
+          "p95_ms": 74.404218,
+          "p99_ms": 74.404218,
+          "max_ms": 74.404218,
+          "peak_in_flight": 1
+        },
+        "DeleteAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 90.303221,
+          "p95_ms": 90.303221,
+          "p99_ms": 90.303221,
+          "max_ms": 90.303221,
+          "peak_in_flight": 1
+        },
+        "GetAsset": {
+          "count": 2001,
+          "http": {
+            "200": 2001
+          },
+          "states": {
+            "Active": 2000,
+            "Processing": 1
+          },
+          "p50_ms": 494.098141,
+          "p95_ms": 4897.656441,
+          "p99_ms": 5055.170963,
+          "max_ms": 5138.169881,
+          "peak_in_flight": 200
+        },
+        "GetAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 72.852624,
+          "p95_ms": 72.852624,
+          "p99_ms": 72.852624,
+          "max_ms": 72.852624,
+          "peak_in_flight": 1
+        },
+        "ListAssetGroups": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 66.453473,
+          "p95_ms": 66.453473,
+          "p99_ms": 66.453473,
+          "max_ms": 66.453473,
+          "peak_in_flight": 1
+        },
+        "ListAssets": {
+          "count": 0,
+          "http": null,
+          "p50_ms": 0,
+          "p95_ms": 0,
+          "p99_ms": 0,
+          "max_ms": 0,
+          "peak_in_flight": 0
+        },
+        "UpdateAsset": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 218.2438,
+          "p95_ms": 218.2438,
+          "p99_ms": 218.2438,
+          "max_ms": 218.2438,
+          "peak_in_flight": 1
+        },
+        "UpdateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 389.775294,
+          "p95_ms": 389.775294,
+          "p99_ms": 389.775294,
+          "max_ms": 389.775294,
+          "peak_in_flight": 1
+        },
+        "direct_delete": {
+          "count": 0,
+          "http": null,
+          "p50_ms": 0,
+          "p95_ms": 0,
+          "p99_ms": 0,
+          "max_ms": 0,
+          "peak_in_flight": 0
+        },
+        "direct_list": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 4163.169737,
+          "p95_ms": 4163.169737,
+          "p99_ms": 4163.169737,
+          "max_ms": 4163.169737,
+          "peak_in_flight": 1
+        },
+        "direct_verify": {
+          "count": 2,
+          "http": {
+            "502": 2
+          },
+          "p50_ms": 54.009292,
+          "p95_ms": 61.422326,
+          "p99_ms": 61.422326,
+          "max_ms": 61.422326,
+          "peak_in_flight": 1
+        },
+        "ready": {
+          "count": 92,
+          "http": {
+            "200": 92
+          },
+          "p50_ms": 1.231065,
+          "p95_ms": 31.30288,
+          "p99_ms": 51.758267,
+          "max_ms": 51.758267,
+          "peak_in_flight": 1
+        },
+        "smoke_create": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 912.327365,
+          "p95_ms": 912.327365,
+          "p99_ms": 912.327365,
+          "max_ms": 912.327365,
+          "peak_in_flight": 1
+        },
+        "status": {
+          "count": 16,
+          "http": {
+            "200": 16
+          },
+          "p50_ms": 0.632732,
+          "p95_ms": 0.925672,
+          "p99_ms": 0.925672,
+          "max_ms": 0.925672,
+          "peak_in_flight": 1
+        }
+      },
+      "upstream_requests": {
+        "CreateAsset": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 897.450368,
+          "p95_ms": 897.450368,
+          "p99_ms": 897.450368,
+          "max_ms": 897.450368,
+          "peak_in_flight": 1
+        },
+        "CreateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 1579.419355,
+          "p95_ms": 1579.419355,
+          "p99_ms": 1579.419355,
+          "max_ms": 1579.419355,
+          "peak_in_flight": 1
+        },
+        "DeleteAsset": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 59.955367,
+          "p95_ms": 59.955367,
+          "p99_ms": 59.955367,
+          "max_ms": 59.955367,
+          "peak_in_flight": 1
+        },
+        "DeleteAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 79.147298,
+          "p95_ms": 79.147298,
+          "p99_ms": 79.147298,
+          "max_ms": 79.147298,
+          "peak_in_flight": 1
+        },
+        "GetAsset": {
+          "count": 2001,
+          "http": {
+            "200": 2001
+          },
+          "p50_ms": 392.709102,
+          "p95_ms": 4791.881027,
+          "p99_ms": 4953.837161,
+          "max_ms": 5022.118204,
+          "peak_in_flight": 200
+        },
+        "GetAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 62.491435,
+          "p95_ms": 62.491435,
+          "p99_ms": 62.491435,
+          "max_ms": 62.491435,
+          "peak_in_flight": 1
+        },
+        "ListAssetGroups": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 61.184192,
+          "p95_ms": 61.184192,
+          "p99_ms": 61.184192,
+          "max_ms": 61.184192,
+          "peak_in_flight": 1
+        },
+        "UpdateAsset": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 215.005391,
+          "p95_ms": 215.005391,
+          "p99_ms": 215.005391,
+          "max_ms": 215.005391,
+          "peak_in_flight": 1
+        },
+        "UpdateAssetGroup": {
+          "count": 1,
+          "http": {
+            "200": 1
+          },
+          "p50_ms": 387.558322,
+          "p95_ms": 387.558322,
+          "p99_ms": 387.558322,
+          "max_ms": 387.558322,
+          "peak_in_flight": 1
+        }
+      }
+    }
+  },
+  "preflight": {
+    "missing_list_filter": "upstream MissingParameter.Filter / MissingParameter.Filter.GroupType; forwarded as HTTP 502",
+    "lowercase_image": "upstream InvalidParameter.AssetType; no asset created",
+    "temporary_groups_created_and_verified_deleted": 1
+  },
+  "cleanup": {
+    "total_assets_created": 126,
+    "total_assets_deleted_and_upstream_verified_absent": 126,
+    "total_groups_created": 3,
+    "total_groups_deleted_and_upstream_verified_absent": 3,
+    "verification": "Direct supplier GetAsset/GetAssetGroup returned an embedded Volcengine 404 NotFound, wrapped by MoreRouter in HTTP 502. Not a local ownership-only 404.",
+    "isolated_test_schemas_checked": 14,
+    "isolated_test_schemas_remaining": 0,
+    "temporary_credentials_removed": true
+  },
+  "lock_regression": {
+    "passed": true,
+    "top_level_tests": 7,
+    "held_identity_return_seconds": 3.005416347,
+    "pool_in_use_after_timeout": 1,
+    "remaining_connection": "intentionally held test transaction only",
+    "server_waiters_cleared": true
+  },
+  "containers": {
+    "cpu_limit": 2,
+    "memory_limit_bytes": 1073741824,
+    "oom_killed": false,
+    "removed": true
+  }
+}

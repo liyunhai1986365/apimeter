@@ -16,7 +16,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func TestAssetResponseHistoricalAssetTuplePollingIsReadOnly(t *testing.T) {
+func TestAssetResponseHistoricalAssetTuplePollingRepairsOnce(t *testing.T) {
 	var upstreamCalls atomic.Int32
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		upstreamCalls.Add(1)
@@ -35,9 +35,19 @@ func TestAssetResponseHistoricalAssetTuplePollingIsReadOnly(t *testing.T) {
 	require.NoError(t, db.Model(&model.ConfigurableResourceState{}).
 		Where("profile_id = ? AND resource_id = ?", "asset-access-v1", "asset").
 		Updates(map[string]any{"user_id": 7, "token_id": 8}).Error)
-	// A historical asset may predate lifecycle markers; GET must not backfill it.
+	// A historical asset may predate lifecycle markers. The first GET repairs
+	// only its relationships, preserving the old ownership tuple and metadata.
 	require.NoError(t, db.Where("profile_id = ?", "asset-access-lock-v1").Delete(&model.ConfigurableResourceState{}).Error)
 	var before, after []model.ConfigurableResourceState
+	require.NoError(t, db.Where("profile_id = ?", "asset-access-v1").Order("id").Find(&before).Error)
+	first := seedanceCall(router, "GET", "/api/assets/old-asset", "", 1)
+	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
+	require.NoError(t, db.Where("profile_id = ?", "asset-access-v1").Order("id").Find(&after).Error)
+	require.Equal(t, before, after, "repair must not rewrite historical ownership")
+	var repaired int64
+	require.NoError(t, db.Model(&model.ConfigurableResourceState{}).
+		Where("profile_id = ? AND state_value = ?", "asset-access-lock-v1", "lifecycle-v2").Count(&repaired).Error)
+	require.Positive(t, repaired)
 	require.NoError(t, db.Order("id").Find(&before).Error)
 	var writes, locks atomic.Int32
 	recordWrite := func(tx *gorm.DB) {
@@ -68,7 +78,7 @@ func TestAssetResponseHistoricalAssetTuplePollingIsReadOnly(t *testing.T) {
 	require.Zero(t, locks.Load())
 	denied := seedanceCall(router, "GET", "/api/assets/old-asset", "", 2)
 	require.Equal(t, http.StatusNotFound, denied.Code)
-	require.EqualValues(t, 3, upstreamCalls.Load())
+	require.EqualValues(t, 4, upstreamCalls.Load())
 }
 
 func TestAssetResponseHistoricalGroupTuplePreservesSuccessfulGET(t *testing.T) {

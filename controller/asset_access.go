@@ -300,6 +300,9 @@ func resolveAssetAccountScope(ctx context.Context, ch *model.Channel, profile *c
 		return "", fmt.Errorf("asset libraries require dedicated credentials for multi-key channels")
 	}
 	endpoint := profile.ID + "\x00" + strings.TrimRight(assetBaseURL(ch), "/") + "\x00" + auth
+	if profile.ID == configurable.ArkCompatibleAssetBackend {
+		endpoint += "\x00" + configurable.ArkCompatibleAssetEndpoint(assetLibrary(ch), "")
+	}
 	endpointKey := fmt.Sprintf("%x", sha256.Sum256([]byte(endpoint)))
 	cacheKey := assetScopeCacheKey{channelID: ch.Id, endpointKey: endpointKey}
 	if scope, ok := scopes[cacheKey]; ok {
@@ -422,6 +425,15 @@ func prepareAssetAccess(c *gin.Context, ch *model.Channel, profile *configurable
 		return fmt.Errorf("asset access policy was not initialized")
 	}
 	a := raw.(*assetAccessRequest)
+	if profile.ID == configurable.ArkCompatibleAssetBackend {
+		project, err := assetRequestProject(c.Request.URL.Query(), a.input)
+		if err != nil {
+			return err
+		}
+		if project != "" {
+			return fmt.Errorf("ProjectName is managed by the upstream asset library; omit it from the request")
+		}
+	}
 	scope, err := assetAccountScopeForRequest(c, ch, profile)
 	if err != nil {
 		return err

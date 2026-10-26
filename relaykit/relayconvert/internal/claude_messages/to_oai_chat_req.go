@@ -133,7 +133,16 @@ func ClaudeMessagesRequestToOpenAIChat(claudeRequest dto.ClaudeRequest, info con
 		}
 	}
 
+	pendingToolCalls := make(map[string]bool)
+	var deferredUserContent []dto.MediaContent
 	for _, claudeMessage := range claudeRequest.Messages {
+		if claudeMessage.Role == "assistant" {
+			if len(deferredUserContent) > 0 {
+				return nil, fmt.Errorf("tool results are missing before the next assistant message")
+			}
+			clear(pendingToolCalls)
+		}
+		hasToolImages := false
 		openAIMessage := dto.Message{
 			Role: claudeMessage.Role,
 		}
@@ -157,10 +166,9 @@ func ClaudeMessagesRequestToOpenAIChat(claudeRequest dto.ClaudeRequest, info con
 					}
 					mediaMessages = append(mediaMessages, message)
 				case "image":
-					imageData := fmt.Sprintf("data:%s;base64,%s", mediaMsg.Source.MediaType, mediaMsg.Source.Data)
-					mediaMessage := dto.MediaContent{
-						Type:     "image_url",
-						ImageUrl: &dto.MessageImageUrl{Url: imageData},
+					mediaMessage, err := claudeImageToChat(mediaMsg)
+					if err != nil {
+						return nil, err
 					}
 					mediaMessages = append(mediaMessages, mediaMessage)
 				case "tool_use":
@@ -173,6 +181,7 @@ func ClaudeMessagesRequestToOpenAIChat(claudeRequest dto.ClaudeRequest, info con
 						},
 					}
 					toolCalls = append(toolCalls, toolCall)
+					pendingToolCalls[mediaMsg.Id] = true
 				case "tool_result":
 					toolName := mediaMsg.Name
 					if toolName == "" {
@@ -183,31 +192,109 @@ func ClaudeMessagesRequestToOpenAIChat(claudeRequest dto.ClaudeRequest, info con
 						Name:       &toolName,
 						ToolCallId: mediaMsg.ToolUseId,
 					}
-					if mediaMsg.IsStringContent() {
-						oaiToolMessage.SetStringContent(mediaMsg.GetStringContent())
-					} else {
-						mediaContents := mediaMsg.ParseMediaContent()
-						encodedJSON, _ := kitutil.Marshal(mediaContents)
-						oaiToolMessage.SetStringContent(string(encodedJSON))
+					toolText, toolImages, err := claudeToolResultToChat(mediaMsg)
+					if err != nil {
+						return nil, fmt.Errorf("convert tool result %s: %w", mediaMsg.ToolUseId, err)
 					}
+					oaiToolMessage.SetStringContent(toolText)
 					openAIMessages = append(openAIMessages, oaiToolMessage)
+					delete(pendingToolCalls, mediaMsg.ToolUseId)
+					// Chat tool replies cannot carry image content. Append their
+					// images to the user message emitted after all tool replies,
+					// with the call ID so parallel results remain distinguishable.
+					mediaMessages = append(mediaMessages, toolImages...)
+					hasToolImages = hasToolImages || len(toolImages) > 0
 				}
 			}
 
 			if len(toolCalls) > 0 {
 				openAIMessage.SetToolCalls(toolCalls)
 			}
-			if len(mediaMessages) > 0 && len(toolCalls) == 0 {
+			if len(mediaMessages) > 0 {
 				openAIMessage.SetMediaContent(mediaMessages)
 			}
+		}
+		if openAIMessage.Role == "user" && (hasToolImages || len(deferredUserContent) > 0) {
+			// Claude may split parallel results across consecutive user turns.
+			// Keep the generated image message after the entire tool reply set.
+			deferredUserContent = append(deferredUserContent, openAIMessage.ParseContent()...)
+			if len(pendingToolCalls) > 0 {
+				continue
+			}
+			openAIMessage.SetMediaContent(deferredUserContent)
+			deferredUserContent = nil
 		}
 		if len(openAIMessage.ParseContent()) > 0 || len(openAIMessage.ToolCalls) > 0 {
 			openAIMessages = append(openAIMessages, openAIMessage)
 		}
 	}
+	if len(deferredUserContent) > 0 {
+		return nil, fmt.Errorf("tool results are missing for image-bearing tool output")
+	}
 
 	openAIRequest.Messages = openAIMessages
 	return &openAIRequest, nil
+}
+
+func claudeImageToChat(image dto.ClaudeMediaMessage) (dto.MediaContent, error) {
+	if image.Source == nil {
+		return dto.MediaContent{}, fmt.Errorf("image source is required")
+	}
+	source := image.Source
+	var imageURL string
+	switch source.Type {
+	case "url":
+		if strings.TrimSpace(source.Url) == "" {
+			return dto.MediaContent{}, fmt.Errorf("image URL is required")
+		}
+		imageURL = source.Url
+	case "base64":
+		data, ok := source.Data.(string)
+		if !ok || data == "" || strings.TrimSpace(source.MediaType) == "" {
+			return dto.MediaContent{}, fmt.Errorf("base64 image data and media_type are required")
+		}
+		imageURL = fmt.Sprintf("data:%s;base64,%s", source.MediaType, data)
+	default:
+		return dto.MediaContent{}, fmt.Errorf("unsupported image source type %q", source.Type)
+	}
+	return dto.MediaContent{
+		Type:         "image_url",
+		ImageUrl:     &dto.MessageImageUrl{Url: imageURL},
+		CacheControl: image.CacheControl,
+	}, nil
+}
+
+func claudeToolResultToChat(result dto.ClaudeMediaMessage) (string, []dto.MediaContent, error) {
+	if result.IsStringContent() {
+		return result.GetStringContent(), nil, nil
+	}
+	blocks, err := kitutil.Any2Type[[]dto.ClaudeMediaMessage](result.Content)
+	if err != nil {
+		return "", nil, err
+	}
+	remaining := make([]dto.ClaudeMediaMessage, 0, len(blocks))
+	var images []dto.MediaContent
+	for _, block := range blocks {
+		if block.Type != "image" {
+			remaining = append(remaining, block)
+			continue
+		}
+		image, err := claudeImageToChat(block)
+		if err != nil {
+			return "", nil, err
+		}
+		images = append(images, image)
+	}
+	if len(images) == 0 {
+		encoded, err := kitutil.Marshal(blocks)
+		return string(encoded), nil, err
+	}
+	images = append([]dto.MediaContent{{Type: "text", Text: fmt.Sprintf("Images from tool call %s:", result.ToolUseId)}}, images...)
+	if len(remaining) == 0 {
+		return "Image output is attached in the following user message.", images, nil
+	}
+	encoded, err := kitutil.Marshal(remaining)
+	return string(encoded), images, err
 }
 
 func requestToJSONString(v interface{}) string {

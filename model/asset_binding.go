@@ -103,8 +103,8 @@ func SaveAssetBindings(bindings []AssetBinding) error {
 	return SaveAssetBindingsContext(context.Background(), bindings)
 }
 
-// SaveAssetBindingsContext keeps unchanged polling reads out of the write
-// transaction. Only new aliases or missing metadata need lifecycle locks.
+// SaveAssetBindingsContext keeps complete unchanged polling reads out of the
+// write transaction. New aliases or incomplete relationships need lifecycle locks.
 func SaveAssetBindingsContext(ctx context.Context, bindings []AssetBinding) error {
 	ctx, cancel := context.WithTimeout(ctx, AssetOperationTimeout)
 	defer cancel()
@@ -553,24 +553,31 @@ func ListAssetBindingsContext(ctx context.Context, channelID, userID int, scope,
 
 // WalkAssetBindingsContext releases the connection between bounded batches.
 // It never holds a read transaction while decoding history or contacting an
-// upstream. Callers can build compact handle maps without retaining all rows.
+// upstream. Overlapping readers share account enumeration; only their owners'
+// decoded bindings are retained, and live relationships are checked per reader.
 func WalkAssetBindingsContext(ctx context.Context, channelID, userID int, scope, kind string, visit func([]AssetBinding) error) error {
 	ctx, cancel := context.WithTimeout(ctx, AssetOperationTimeout)
 	defer cancel()
 	db := DB.WithContext(ctx)
-	query := db.Model(&ConfigurableResourceState{}).Select("id", "metadata").Where("channel_id = ? AND profile_id = ? AND resource_id = ? AND pre_request_id = ? AND state_value = ? AND status = ?",
-		channelID, assetBindingProfile, kind, scope, strconv.Itoa(userID), ConfigurableResourceStateStatusActive)
-	return walkAssetStateRows(query, func(states []ConfigurableResourceState) error {
-		bindings, err := decodeAssetBindings(states)
+	bindings, err := readAssetListBindings(db, channelID, userID, scope, kind)
+	if err != nil {
+		return err
+	}
+	for start := 0; start < len(bindings); start += assetBindingBatchSize {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		// Shared enumeration is not authorization. Check live relationships for
+		// each reader, in bounded batches, after its account scan completes.
+		active, err := filterActiveAssetBindings(db, bindings[start:min(start+assetBindingBatchSize, len(bindings))])
 		if err != nil {
 			return err
 		}
-		bindings, err = filterActiveAssetBindings(db, bindings)
-		if err != nil {
+		if err := visit(active); err != nil {
 			return err
 		}
-		return visit(bindings)
-	})
+	}
+	return ctx.Err()
 }
 
 func decodeAssetBindings(states []ConfigurableResourceState) ([]AssetBinding, error) {

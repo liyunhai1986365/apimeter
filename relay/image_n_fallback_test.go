@@ -141,7 +141,7 @@ func TestSubmitSplitImageRequestsAggregatesOfficialResponse(t *testing.T) {
 
 		response := fmt.Sprintf(`{
 			"created":%d,
-			"data":[{"b64_json":"image-%d"}],
+			"data":[{"b64_json":"%s","revised_prompt":"image-%d"}],
 			"output_format":"png",
 			"quality":"medium",
 			"size":"1024x1024",
@@ -152,7 +152,7 @@ func TestSubmitSplitImageRequestsAggregatesOfficialResponse(t *testing.T) {
 				"input_tokens_details":{"text_tokens":%d,"image_tokens":0},
 				"output_tokens_details":{"image_tokens":%d,"text_tokens":0}
 			}
-		}`, 100+requestNumber, requestNumber, requestNumber+2, requestNumber+4, requestNumber*2+6, requestNumber+2, requestNumber+4)
+		}`, 100+requestNumber, imageTaskTestPNGBase64, requestNumber, requestNumber+2, requestNumber+4, requestNumber*2+6, requestNumber+2, requestNumber+4)
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(response))
 	}))
@@ -208,9 +208,11 @@ func TestSubmitSplitImageRequestsAggregatesOfficialResponse(t *testing.T) {
 
 	body := capture.BodyBytes()
 	require.Contains(t, []int64{101, 103}, gjson.GetBytes(body, "created").Int())
+	require.Equal(t, imageTaskTestPNGBase64, gjson.GetBytes(body, "data.0.b64_json").String())
+	require.Equal(t, imageTaskTestPNGBase64, gjson.GetBytes(body, "data.1.b64_json").String())
 	require.ElementsMatch(t, []string{"image-1", "image-3"}, []string{
-		gjson.GetBytes(body, "data.0.b64_json").String(),
-		gjson.GetBytes(body, "data.1.b64_json").String(),
+		gjson.GetBytes(body, "data.0.revised_prompt").String(),
+		gjson.GetBytes(body, "data.1.revised_prompt").String(),
 	})
 	require.Equal(t, int64(8), gjson.GetBytes(body, "usage.input_tokens").Int())
 	require.Equal(t, int64(12), gjson.GetBytes(body, "usage.output_tokens").Int())

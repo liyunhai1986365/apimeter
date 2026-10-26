@@ -1,0 +1,253 @@
+{
+  "date": "2026-10-26",
+  "database_schema_changes": false,
+  "new_indexes": false,
+  "environment": {
+    "gateway_and_mock_cpus": 4,
+    "gateway_and_mock_memory_limit_mib": 2048,
+    "go_memory_target_mib": 1400,
+    "mysql_container_cpu_memory_limits": "not set",
+    "redis": "disabled",
+    "gateway_instances": 1,
+    "http_client_timeout_seconds": 20,
+    "schema_isolation": "random test schemas; no production DB writes"
+  },
+  "final_run": {
+    "backend": "ark-compatible",
+    "clients": 1000,
+    "creates": {
+      "count": 1000,
+      "http": {
+        "200": 1000
+      },
+      "states": {
+        "Processing": 1000
+      },
+      "p50_ms": 2119.836387,
+      "p95_ms": 2342.314551,
+      "p99_ms": 2356.967274,
+      "max_ms": 2361.501855,
+      "peak_in_flight": 1000
+    },
+    "database_samples": {
+      "create": {
+        "samples": 23,
+        "pool_peak": 30,
+        "full_samples": 11,
+        "full_longest_samples": 6,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 19,
+        "locked_transaction_age_upper_ms": 1000.808,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "historical_poll": {
+        "samples": 8,
+        "pool_peak": 30,
+        "full_samples": 7,
+        "full_longest_samples": 7,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 0,
+        "locked_transaction_age_upper_ms": 0,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "list_1000": {
+        "samples": 70,
+        "pool_peak": 30,
+        "full_samples": 6,
+        "full_longest_samples": 3,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 0,
+        "locked_transaction_age_upper_ms": 0,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "new_asset_poll": {
+        "samples": 16,
+        "pool_peak": 30,
+        "full_samples": 15,
+        "full_longest_samples": 10,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 0,
+        "locked_transaction_age_upper_ms": 0,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      },
+      "single_list": {
+        "samples": 67,
+        "pool_peak": 2,
+        "full_samples": 0,
+        "full_longest_samples": 0,
+        "lock_waiters_peak": 0,
+        "locked_transactions_peak": 0,
+        "locked_transaction_age_upper_ms": 0,
+        "lock_wait_age_upper_ms": 0,
+        "monitor_errors": 0
+      }
+    },
+    "duration_seconds": 18.390269346,
+    "historical_assets": 100000,
+    "historical_polls": {
+      "count": 1000,
+      "http": {
+        "200": 1000
+      },
+      "states": {
+        "Active": 1000
+      },
+      "p50_ms": 562.905914,
+      "p95_ms": 661.371331,
+      "p99_ms": 674.010366,
+      "max_ms": 700.967152,
+      "peak_in_flight": 988
+    },
+    "initial_state_rows": 300004,
+    "lists": {
+      "count": 1000,
+      "http": {
+        "200": 1000
+      },
+      "p50_ms": 6938.106345,
+      "p95_ms": 7040.312617,
+      "p99_ms": 7045.37837,
+      "max_ms": 7047.719512,
+      "peak_in_flight": 1000
+    },
+    "main_pool_end_in_use": 0,
+    "main_pool_limit": 30,
+    "main_pool_wait_count": 66320,
+    "main_pool_wait_ms": 2805830.525603,
+    "mysql_version": "5.7.43-log",
+    "phase_completed": "finished",
+    "polls": {
+      "count": 3000,
+      "http": {
+        "200": 3000
+      },
+      "states": {
+        "Processing": 3000
+      },
+      "p50_ms": 452.199092,
+      "p95_ms": 513.970195,
+      "p99_ms": 521.655012,
+      "max_ms": 527.871225,
+      "peak_in_flight": 1000
+    },
+    "ready": {
+      "count": 39,
+      "http": {
+        "200": 39
+      },
+      "p50_ms": 0.637652,
+      "p95_ms": 186.634319,
+      "p99_ms": 219.576185,
+      "max_ms": 219.576185,
+      "peak_in_flight": 1
+    },
+    "recovery_ms": 0.000592,
+    "rounds": 3,
+    "sample_interval_ms": 100,
+    "seed_seconds": 21.805950284,
+    "single_list": {
+      "count": 1,
+      "http": {
+        "200": 1
+      },
+      "p50_ms": 6699.753962,
+      "p95_ms": 6699.753962,
+      "p99_ms": 6699.753962,
+      "max_ms": 6699.753962,
+      "peak_in_flight": 1
+    },
+    "sql_trace": {
+      "count": 74468,
+      "errors": {},
+      "lock_queries": 2000,
+      "max_lock_query_ms": 6.222114,
+      "max_ms": 786.915934,
+      "slow_over_100ms": 6273
+    },
+    "status": {
+      "count": 7,
+      "http": {
+        "200": 7
+      },
+      "p50_ms": 0.355227,
+      "p95_ms": 75.071837,
+      "p99_ms": 75.071837,
+      "max_ms": 75.071837,
+      "peak_in_flight": 1
+    },
+    "upstream": "mock",
+    "upstream_delay_ms": 1,
+    "upstream_requests": {
+      "CreateAsset": 1000,
+      "GetAsset": 4000,
+      "ListAssets": 3019
+    }
+  },
+  "timeline_summary": {
+    "create": {
+      "longest_full_sample_span_ms": 500
+    },
+    "historical_poll": {
+      "longest_full_sample_span_ms": 535
+    },
+    "list_1000": {
+      "longest_full_sample_span_ms": 221
+    },
+    "new_asset_poll": {
+      "longest_full_sample_span_ms": 896
+    },
+    "single_list": {
+      "longest_full_sample_span_ms": 0
+    },
+    "overall": {
+      "longest_full_sample_span_ms": 1034
+    }
+  },
+  "cleanup": {
+    "containers": [
+      {
+        "name": "/apimeter-asset-100k-opt1-20261026",
+        "exit_code": 0,
+        "oom_killed": false,
+        "memory_limit_bytes": 2147483648,
+        "nano_cpus": 4000000000
+      },
+      {
+        "name": "/apimeter-asset-100k-opt2-20261026",
+        "exit_code": 0,
+        "oom_killed": false,
+        "memory_limit_bytes": 2147483648,
+        "nano_cpus": 4000000000
+      },
+      {
+        "name": "/apimeter-asset-model-opt-20261026",
+        "exit_code": 0,
+        "oom_killed": false,
+        "memory_limit_bytes": 2147483648,
+        "nano_cpus": 4000000000
+      }
+    ],
+    "test_schema_count": 85,
+    "remaining_test_schemas": 0,
+    "removed_test_containers": 3,
+    "credentials_file_removed": true
+  },
+  "verification": {
+    "sqlite_controller_model_inflight_regressions": "passed",
+    "mysql57_asset_model_regressions": "passed",
+    "focused_race_tests": "passed",
+    "full_model_race_run": "Two existing 1000-item single-transaction setup fixtures exceeded the unchanged 3-second transaction deadline under race instrumentation; no data race reported. Non-race suites and focused race suite passed.",
+    "postgresql_runtime_tested": false
+  },
+  "limitations": [
+    "Exact totals still require traversing owned resources and upstream pages. Single list takes 6.70 seconds in this fixture.",
+    "Only overlapping lists with identical user, channel/account, request parameters and credentials share a scan; results are not cached. This is not a 1000-distinct-users/filters benchmark.",
+    "Historical poll burst scheduled 1000 requests, observed peak in-flight 988. Creation, new-asset polling and list bursts observed 1000.",
+    "100 ms sampling cannot exclude shorter lock waits. MySQL transaction age has one-second precision and is an upper bound rather than exact lock hold time.",
+    "HTTP client, mock and gateway share the 4 CPU / 2 GiB container; results are not a production latency guarantee."
+  ]
+}
