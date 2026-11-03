@@ -55,7 +55,7 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 			input[key] = gjson.ParseBytes(value)
 		}
 	}
-	aliases := map[string]string{"Name": "name", "Description": "description", "URL": "url", "AssetType": "asset_type", "GroupId": "group_id", "GroupType": "group_type", "Filter": "filter", "Id": "id", "BytedToken": "byted_token", "CallbackURL": "callback_url"}
+	aliases := map[string]string{"Name": "name", "Description": "description", "desc": "description", "URL": "url", "AssetType": "asset_type", "GroupId": "group_id", "GroupType": "group_type", "Filter": "filter", "Id": "id", "BytedToken": "byted_token", "CallbackURL": "callback_url"}
 	values := map[string]json.RawMessage{}
 	for key, value := range input {
 		if assetProjectField(key) || key == "model" {
@@ -179,8 +179,8 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 	if callback, err := readString("callback_url"); err != nil || callback != "" {
 		return fmt.Errorf("YH callback relay is not supported; use polling")
 	}
-	if description, err := readString("description"); err != nil || (description != "" && resource.ID != "liveness_session_create") {
-		return fmt.Errorf("YH does not support Description for this operation")
+	if _, err := readString("description"); err != nil {
+		return err
 	}
 	if _, ok := values["callback_secret"]; ok {
 		return fmt.Errorf("YH upload callbacks are not supported; use polling")
@@ -192,6 +192,7 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 			return fmt.Errorf("use H5 authentication to create a LivenessFace group")
 		}
 		copyField("name")
+		copyField("description")
 	case "asset_groups_update", "asset_groups_delete":
 		if err := setID("id", s.id); err != nil {
 			return err
@@ -201,6 +202,7 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 				return fmt.Errorf("YH does not support updating a real-person group")
 			}
 			copyField("name")
+			copyField("description")
 		} else if s.groupType == "LivenessFace" {
 			s.path = "/v1/assets/real-person/groups/delete"
 		}
@@ -228,12 +230,12 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 		}
 		urls := gjson.ParseBytes(values["urls"])
 		if urls.Exists() {
-			if !urls.IsArray() || len(urls.Array()) == 0 || len(urls.Array()) > 50 {
-				return fmt.Errorf("urls must contain 1 to 50 URLs")
+			if !urls.IsArray() {
+				return fmt.Errorf("urls must be an array")
 			}
 			for _, url := range urls.Array() {
-				if url.Type != gjson.String || strings.TrimSpace(url.String()) == "" {
-					return fmt.Errorf("urls must contain nonempty strings")
+				if url.Type != gjson.String {
+					return fmt.Errorf("urls must contain strings")
 				}
 			}
 			if _, exists := values["url"]; exists {
@@ -242,15 +244,13 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 			s.binding.UploadBatch = true
 			copyField("urls")
 		} else {
-			value, err := readString("url")
-			if err != nil || value == "" {
-				return fmt.Errorf("url is required")
+			if _, err := readString("url"); err != nil {
+				return err
 			}
 			copyField("url")
 		}
-		mode, err := readString("upload_mode")
-		if err != nil || (mode != "" && mode != "sync" && mode != "async") || (s.binding.UploadBatch && mode == "sync") {
-			return fmt.Errorf("invalid upload_mode")
+		if _, err := readString("upload_mode"); err != nil {
+			return err
 		}
 		if err := setID("group_id", a.groupID); err != nil {
 			return err
@@ -346,8 +346,8 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 	}
 	if raw, ok := body["asset_type"]; ok {
 		v := gjson.ParseBytes(raw)
-		if v.Type != gjson.String || (v.String() != "Image" && v.String() != "Video" && v.String() != "Audio") {
-			return fmt.Errorf("AssetType must be Image, Video or Audio")
+		if v.Type != gjson.String {
+			return fmt.Errorf("AssetType must be a string")
 		}
 	}
 	raw, err := common.Marshal(body)

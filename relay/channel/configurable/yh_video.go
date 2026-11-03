@@ -125,11 +125,6 @@ func buildYHVideoRequest(c *gin.Context, body []byte, info *relaycommon.RelayInf
 			if err != nil {
 				return nil, err
 			}
-			for _, name := range []string{"duration", "ratio", "generate_audio"} {
-				if _, exists := fields[name]; exists {
-					return nil, fmt.Errorf("draft upgrade cannot specify %s", name)
-				}
-			}
 		}
 	}
 	// Existing content text remains authoritative. When media-only content is

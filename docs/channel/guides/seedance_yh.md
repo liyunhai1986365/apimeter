@@ -29,7 +29,7 @@
 
 实测创建接受 `seed=0`、显式 `false`、`execution_expires_after` 等扩展参数，但部分字段没有回显，不能据此保证上游实际执行对应语义。特别是 2.5 请求 `return_last_frame=true` 后，原始上游成功响应仅含 `content.video_url`，没有 `last_frame_url`。[绕过网关直接新建任务](../reports/live/yh_last_frame_direct_20261104.md)也复现此结果，属于当前 YH 普通版链路的交付限制。文档明确承诺末帧的专业版是另一组模型及端点，本次未调用。
 
-草稿必须是当前用户经网关创建、记录 `draft=true` 且已成功的 YH 任务；升级固定原渠道和 Key，支持将网关 ID 转为上游 ID。升级请求中的 `duration/ratio/generate_audio` 会明确拒绝，未提供时不自动注入。草稿和正片各自建任务、结算。
+草稿必须是当前用户经网关创建、记录 `draft=true` 且已成功的 YH 任务；升级固定原渠道和 Key，支持将网关 ID 转为上游 ID。升级请求中的 `duration/ratio/generate_audio` 按客户端原值透传，未提供时不自动注入；上游文档要求省略这些字段，冲突由上游校验并按普通错误返回。草稿和正片各自建任务、结算。
 
 任务列表契约依据仓库依赖 `volcengine-go-sdk v1.2.52` 的 `ListContentGenerationTasks`：返回 `{total, items}`；支持 `page_num`（默认 1）、`page_size`（默认 10，最多 100），以及 `filter.status/model/service_tier/task_ids`。多个任务 ID 使用重复的 `filter.task_ids`，最多 100 个。筛选采用本地已保存状态和字段，数据由现有后台轮询更新，列表本身不触发上游详情查询。仅返回当前用户的 YH 任务，并遵守 Token 模型和指定渠道限制。按本地创建顺序倒序分页；使用 200 条一批的数据库读取和 10 秒请求上限，大任务量筛选仍会扫描当前用户的 YH 任务记录。
 
@@ -47,7 +47,11 @@
 | CreateVisualValidateSession | 返回 H5Link、本地 BytedToken；不支持非空 CallbackURL |
 | GetVisualValidateResult | 查询并原子登记认证产生的真人组 |
 
-普通分组与真人分组列表合并后按本地归属过滤、去重、重新分页，不认领陌生资源。YH 素材列表的 `total_count` 可能仅表示当前页条数，网关扫描到短页／空页或全部归属素材，再计算过滤后的总数，避免超过 100 个素材时截断。ListAssets 支持 Name 和单个 GroupIds 筛选；ListAssetGroups 支持 Name 和 GroupType（AIGC/LivenessFace）。不支持的筛选和更新字段返回明确错误。Description 仅用于创建认证会话，其余操作不支持非空值。
+普通分组与真人分组列表合并后按本地归属过滤、去重、重新分页，不认领陌生资源。YH 素材列表的 `total_count` 可能仅表示当前页条数，网关扫描到短页／空页或全部归属素材，再计算过滤后的总数，避免超过 100 个素材时截断。ListAssets 支持 Name 和单个 GroupIds 筛选；ListAssetGroups 支持 Name 和 GroupType（AIGC/LivenessFace）。不支持的筛选和更新字段返回明确错误。
+
+普通素材组创建、更新接受 `Description`、`description` 或 `desc`，统一透传为上游 `description`；仍校验字符串类型和重复字段。直连 `/v1/assets/groups` 实测三种非空写法均创建成功，但列表没有返回描述字段，不能据此确认上游保存了描述；更新透传已覆盖本地回归，是否保存仍由上游决定。创建认证会话的描述继续映射为 `artist_desc`。
+
+`AssetType` 的业务取值交给上游校验，网关仅要求字符串。资源归属、ID 转换、字段白名单、本地分页和筛选仍由网关校验；无法映射的参数不会静默忽略。视频共用的时长边界和全能参考模式组合校验继续保留。
 
 分组 ID 在 Action 和网关扩展中均使用字符串，如 `"128"`，出站转换为整数。真人 `group-*` 别名关联已登记的整数 ID；上传使用整数 ID，真人素材和组的删除使用上游专用路径。`Pending` 归一为 `Processing`，审核 `Failed` 和 `FaceMismatch` 保留。
 
@@ -75,7 +79,7 @@ Content-Type: application/json
 {"group_id":"128","urls":["https://example.com/a.png","https://example.com/b.png"],"asset_type":"Image"}
 ```
 
-- 单条使用 `url`，支持 `upload_mode: sync/async`；批量使用 `urls`，1～50 条，不能指定同步模式。
+- 单条使用 `url`，批量使用 `urls` 字符串数组，两者不能同时提供。URL 是否为空、是否有效、批量数量和 `upload_mode` 取值交给上游校验；文档支持单条 `sync/async`、批量 1～50 条且仅异步，网关不保证额外取值能被上游接受。
 - 返回 `{Id, Status, Items}`；通过 `GET /v1/yh/assets/uploads/{Id}` 轮询，同步上传也返回该统一结构。
 - 批次/旧任务是独立上传句柄，不能直接作为 `asset://` 或 GetAsset 的素材 ID。轮询后从 `Items[].Id` 取得真实素材 ID，再通过普通素材接口操作和引用。保留成功条目与逐项失败，不因部分失败丢弃已完成的素材。
 - 批次查询固定原渠道和分组归属；分组删除后拒绝继续查询。新出现的真实素材 ID 与上传句柄在一个短事务中登记，避免查询与删除竞态恢复已撤销资源。

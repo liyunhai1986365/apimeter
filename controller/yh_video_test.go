@@ -29,7 +29,13 @@ func TestYHVideoGatewayLifecycle(t *testing.T) {
 			require.Equal(t, "/v1/video/generations", r.URL.Path)
 			body, _ := io.ReadAll(r.Body)
 			submitted.Store(body)
-			_, _ = fmt.Fprintf(w, `{"task_id":"cgt-yh-%d","status":"SUBMITTED"}`, creates.Add(1))
+			count := creates.Add(1)
+			if gjson.GetBytes(body, "metadata.content.0.draft_task.id").Exists() && gjson.GetBytes(body, "metadata.duration").Exists() {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(`{"error":{"code":"InvalidParameter","message":"upstream rejected draft options"}}`))
+				return
+			}
+			_, _ = fmt.Fprintf(w, `{"task_id":"cgt-yh-%d","status":"SUBMITTED"}`, count)
 			return
 		}
 		queries.Add(1)
@@ -116,4 +122,16 @@ func TestYHVideoGatewayLifecycle(t *testing.T) {
 	for _, field := range []string{"prompt", "metadata.duration", "metadata.ratio", "metadata.generate_audio"} {
 		require.False(t, gjson.GetBytes(wire, field).Exists(), field)
 	}
+	// Preserve explicit options and let the provider enforce draft upgrade rules.
+	upgrade = fmt.Sprintf(`{"model":%q,"content":[{"type":"draft_task","draft_task":{"id":%q}}],"duration":5,"ratio":"16:9","generate_audio":false}`, tgxRegressionModel, task.TaskID)
+	before = creates.Load()
+	w = seedanceCall(r, http.MethodPost, "/api/v3/contents/generations/tasks", upgrade, 1)
+	require.Equal(t, http.StatusBadRequest, w.Code, w.Body.String())
+	require.Contains(t, w.Body.String(), "upstream rejected draft options")
+	require.Equal(t, before+1, creates.Load())
+	wire = submitted.Load().([]byte)
+	require.Equal(t, "cgt-yh-1", gjson.GetBytes(wire, "metadata.content.0.draft_task.id").String())
+	require.Equal(t, "5", gjson.GetBytes(wire, "metadata.duration").Raw)
+	require.Equal(t, "16:9", gjson.GetBytes(wire, "metadata.ratio").String())
+	require.Equal(t, "false", gjson.GetBytes(wire, "metadata.generate_audio").Raw)
 }

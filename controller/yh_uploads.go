@@ -35,7 +35,7 @@ func (s yhAssetRequest) normalizeUpload(ctx context.Context, body []byte) ([]byt
 	items := []gjson.Result{data}
 	if s.binding.UploadBatch {
 		list := data.Get("items")
-		if !list.IsArray() || len(list.Array()) > 50 {
+		if !list.IsArray() {
 			return nil, fmt.Errorf("invalid YH upload items")
 		}
 		items = list.Array()

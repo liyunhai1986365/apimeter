@@ -14,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -35,6 +36,146 @@ func yhAssetTestRouter(t *testing.T, base string) *gin.Engine {
 
 func yhAction(r http.Handler, action, body string, user int) *httptest.ResponseRecorder {
 	return seedanceCall(r, "POST", "/?Action="+action+"&Version=2024-01-01", body, user)
+}
+
+func TestYHGroupDescriptionPassthrough(t *testing.T) {
+	for _, tc := range []struct{ field, value string }{
+		{"Description", "素材组描述"},
+		{"description", "group description"},
+		{"desc", "short description alias"},
+		{"Description", ""},
+	} {
+		t.Run(tc.field+"/"+tc.value, func(t *testing.T) {
+			router := yhAssetTestRouter(t, "https://yh-description-test.invalid/v1")
+			client := service.GetHttpClient()
+			oldTransport := client.Transport
+			t.Cleanup(func() { client.Transport = oldTransport })
+			calls := 0
+			client.Transport = draftChannelTestTransport(func(req *http.Request) (*http.Response, error) {
+				calls++
+				require.Equal(t, http.MethodPost, req.Method)
+				body, err := io.ReadAll(req.Body)
+				require.NoError(t, err)
+				want := map[string]any{"name": "group", "description": tc.value}
+				switch calls {
+				case 1:
+					require.Equal(t, "/v1/assets/groups", req.URL.Path)
+				case 2:
+					require.Equal(t, "/v1/assets/groups/update", req.URL.Path)
+					want["id"] = 42
+				default:
+					t.Fatalf("unexpected upstream call %d", calls)
+				}
+				encoded, err := common.Marshal(want)
+				require.NoError(t, err)
+				require.JSONEq(t, string(encoded), string(body))
+				return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{"code":"success","data":{"group_id":42}}`)), Request: req}, nil
+			})
+			created := yhAction(router, "CreateAssetGroup", fmt.Sprintf(`{"Name":"group","GroupType":"AIGC",%q:%q}`, tc.field, tc.value), 1)
+			require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+			require.Equal(t, "42", gjson.GetBytes(created.Body.Bytes(), "Result.Id").String())
+			updated := yhAction(router, "UpdateAssetGroup", fmt.Sprintf(`{"Id":"42","Name":"group",%q:%q}`, tc.field, tc.value), 1)
+			require.Equal(t, http.StatusOK, updated.Code, updated.Body.String())
+			require.Equal(t, 2, calls)
+			for _, payload := range []string{`{"Name":"group","Description":123}`, `{"Name":"group","Description":"one","desc":"two"}`} {
+				denied := yhAction(router, "CreateAssetGroup", payload, 1)
+				require.Equal(t, http.StatusBadRequest, denied.Code, denied.Body.String())
+				require.Equal(t, 2, calls, "invalid or ambiguous descriptions must not reach upstream")
+			}
+		})
+	}
+}
+
+func TestYHAssetBusinessValidationUsesUpstream(t *testing.T) {
+	router := yhAssetTestRouter(t, "https://yh-validation-test.invalid/v1")
+	client := service.GetHttpClient()
+	oldTransport := client.Transport
+	t.Cleanup(func() { client.Transport = oldTransport })
+	var wantPath, wantBody string
+	calls := 0
+	client.Transport = draftChannelTestTransport(func(req *http.Request) (*http.Response, error) {
+		calls++
+		status, response := http.StatusOK, `{"code":"success","data":{"group_id":42}}`
+		if req.URL.Path != "/v1/assets/groups" {
+			require.Equal(t, wantPath, req.URL.Path)
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.JSONEq(t, wantBody, string(body))
+			status, response = http.StatusUnprocessableEntity, `{"code":"InvalidParameter","message":"provider validation failed"}`
+		}
+		return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(response)), Request: req}, nil
+	})
+	created := yhAction(router, "CreateAssetGroup", `{"Name":"owned"}`, 1)
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	manyURLs, err := common.Marshal(strings.Fields(strings.Repeat("https://example.com/a.png ", 51)))
+	require.NoError(t, err)
+	for _, tc := range []struct{ name, path, body, upstreamPath, upstreamBody string }{
+		{"asset_type", "/?Action=CreateAsset&Version=2024-01-01", `{"GroupId":"42","URL":"https://example.com/a.png","AssetType":"FutureMedia"}`, "/v1/assets/async", `{"group_id":42,"url":"https://example.com/a.png","asset_type":"FutureMedia"}`},
+		{"upload_mode", "/v1/yh/assets/uploads", `{"group_id":"42","url":"https://example.com/a.png","upload_mode":"future_mode"}`, "/v1/assets", `{"group_id":42,"url":"https://example.com/a.png","upload_mode":"future_mode"}`},
+		{"batch_sync", "/v1/yh/assets/uploads", `{"group_id":"42","urls":["https://example.com/a.png"],"upload_mode":"sync"}`, "/v1/assets", `{"group_id":42,"urls":["https://example.com/a.png"],"upload_mode":"sync"}`},
+		{"missing_url", "/v1/yh/assets/uploads", `{"group_id":"42"}`, "/v1/assets", `{"group_id":42}`},
+		{"empty_url", "/v1/yh/assets/uploads", `{"group_id":"42","url":""}`, "/v1/assets", `{"group_id":42,"url":""}`},
+		{"empty_batch", "/v1/yh/assets/uploads", `{"group_id":"42","urls":[]}`, "/v1/assets", `{"group_id":42,"urls":[]}`},
+		{"empty_batch_url", "/v1/yh/assets/uploads", `{"group_id":"42","urls":[""]}`, "/v1/assets", `{"group_id":42,"urls":[""]}`},
+		{"large_batch", "/v1/yh/assets/uploads", `{"group_id":"42","urls":` + string(manyURLs) + `}`, "/v1/assets", `{"group_id":42,"urls":` + string(manyURLs) + `}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wantPath, wantBody = tc.upstreamPath, tc.upstreamBody
+			before := calls
+			response := seedanceCall(router, http.MethodPost, tc.path, tc.body, 1)
+			require.Equal(t, http.StatusUnprocessableEntity, response.Code, response.Body.String())
+			require.Contains(t, response.Body.String(), "provider validation failed")
+			require.Equal(t, before+1, calls, "provider business rules must be evaluated upstream")
+		})
+	}
+}
+
+func TestYHUploadAcceptsUpstreamBatchSize(t *testing.T) {
+	router := yhAssetTestRouter(t, "https://yh-batch-test.invalid/v1")
+	client := service.GetHttpClient()
+	oldTransport := client.Transport
+	t.Cleanup(func() { client.Transport = oldTransport })
+	client.Transport = draftChannelTestTransport(func(req *http.Request) (*http.Response, error) {
+		response := []byte(`{"code":"success","data":{"group_id":42}}`)
+		if req.URL.Path != "/v1/assets/groups" {
+			require.Contains(t, []string{"/v1/assets", "/v1/assets/batch/get"}, req.URL.Path)
+			items := make([]map[string]any, 51)
+			for i := range items {
+				items[i] = map[string]any{"id": "task-batch", "status": "Processing"}
+				if req.URL.Path == "/v1/assets/batch/get" {
+					items[i] = map[string]any{"id": fmt.Sprintf("asset-batch-%d", i), "status": "Active", "group_id": 42}
+				}
+			}
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			if req.URL.Path == "/v1/assets" {
+				require.Len(t, gjson.GetBytes(body, "urls").Array(), 51)
+			} else {
+				require.JSONEq(t, `{"batch_id":"task-batch"}`, string(body))
+			}
+			response, err = common.Marshal(map[string]any{"code": "success", "data": map[string]any{"batch_id": "task-batch", "items": items}})
+			require.NoError(t, err)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(string(response))), Request: req}, nil
+	})
+	created := yhAction(router, "CreateAssetGroup", `{"Name":"owned"}`, 1)
+	require.Equal(t, http.StatusOK, created.Code, created.Body.String())
+	body, err := common.Marshal(map[string]any{"group_id": "42", "urls": strings.Fields(strings.Repeat("https://example.com/a.png ", 51))})
+	require.NoError(t, err)
+	upload := seedanceCall(router, http.MethodPost, "/v1/yh/assets/uploads", string(body), 1)
+	require.Equal(t, http.StatusOK, upload.Code, upload.Body.String())
+	require.Equal(t, "Processing", gjson.GetBytes(upload.Body.Bytes(), "Status").String())
+	require.Len(t, gjson.GetBytes(upload.Body.Bytes(), "Items").Array(), 51)
+	poll := seedanceCall(router, http.MethodGet, "/v1/yh/assets/uploads/task-batch", "", 1)
+	require.Equal(t, http.StatusOK, poll.Code, poll.Body.String())
+	require.Equal(t, "Active", gjson.GetBytes(poll.Body.Bytes(), "Status").String())
+	require.Len(t, gjson.GetBytes(poll.Body.Bytes(), "Items").Array(), 51)
+	owned, err := model.FindAssetBindings(1, "asset", "asset-batch-50")
+	require.NoError(t, err)
+	require.Len(t, owned, 1)
+	foreign, err := model.FindAssetBindings(2, "asset", "asset-batch-50")
+	require.NoError(t, err)
+	require.Empty(t, foreign)
 }
 
 func TestYHOfficialAssetLifecycle(t *testing.T) {
