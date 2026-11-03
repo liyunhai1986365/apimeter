@@ -59,6 +59,15 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		if effort := request.GetEfforts(); effort != "" {
 			info.SetReasoningEffort(effort)
 		}
+	} else {
+		// AWS/Vertex select the model through the request URL even when the body
+		// is passed through. Normalize only that name; leave thinking untouched.
+		if baseModel, effort, ok := reasoning.TrimEffortSuffix(request.Model); ok && effort != "" && reasoning.ClaudeSupportsAdaptiveThinking(baseModel) {
+			info.UpstreamModelName = baseModel
+		} else if model_setting.GetClaudeSettings().ThinkingAdapterEnabled &&
+			!model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) {
+			info.UpstreamModelName = strings.TrimSuffix(request.Model, "-thinking")
+		}
 	}
 
 	if info.ChannelSetting.SystemPrompt != "" {

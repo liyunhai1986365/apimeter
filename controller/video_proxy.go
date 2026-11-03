@@ -38,7 +38,12 @@ func VideoProxy(c *gin.Context) {
 	}
 
 	userID := c.GetInt("id")
-	task, exists, err := model.GetByTaskIDOrUpstreamID(userID, taskID)
+	// Gateway IDs take precedence on the content route and use the task_id
+	// index. Only native IDs need the more expensive private_data lookup.
+	task, exists, err := model.GetByTaskId(userID, taskID)
+	if err == nil && !exists {
+		task, exists, err = model.GetByTaskIDOrUpstreamID(userID, taskID)
+	}
 	if err != nil {
 		logger.LogError(c.Request.Context(), fmt.Sprintf("Failed to query task %s: %s", taskID, err.Error()))
 		videoProxyError(c, http.StatusInternalServerError, "server_error", "Failed to query task")
