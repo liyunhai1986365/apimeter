@@ -26,6 +26,7 @@ const yhAssetContextKey = "yh_asset_request"
 type yhAssetRequest struct {
 	method, path, operation, id, name, groupType string
 	filter                                       gjson.Result
+	groupIDs                                     map[string]bool
 	binding                                      model.AssetBinding
 	session                                      model.AssetBinding
 }
@@ -162,8 +163,8 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 		"assets_content":          "id",
 		"assets_update":           "id name",
 		"assets_delete":           "id",
-		"assets_list":             "filter name group_id PageNumber PageSize MaxResults NextToken page_number page_size max_results next_token",
-		"asset_groups_list":       "filter PageNumber PageSize MaxResults NextToken page_number page_size max_results next_token",
+		"assets_list":             "filter name group_id PageNumber PageSize MaxResults NextToken page page_number page_size max_results next_token",
+		"asset_groups_list":       "filter PageNumber PageSize MaxResults NextToken page page_number page_size max_results next_token",
 		"liveness_session_create": "description callback_url",
 		"liveness_group_exchange": "byted_token",
 	}
@@ -292,6 +293,9 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 				return fmt.Errorf("Filter must be an object")
 			}
 			for key := range s.filter.Map() {
+				if resource.ID == "assets_list" && (key == "Statuses" || key == "AssetIds" || key == "Ids") {
+					continue
+				}
 				if key != "Name" && key != "GroupIds" && key != "GroupType" {
 					return fmt.Errorf("YH does not support Filter.%s", key)
 				}
@@ -300,25 +304,52 @@ func prepareYHAssetRequest(c *gin.Context, ch *model.Channel, resource *configur
 				if v.Type != gjson.String {
 					return fmt.Errorf("Filter.Name must be a string")
 				}
+				if _, exists := values["name"]; exists && s.name != v.String() {
+					return fmt.Errorf("Name/name and Filter.Name must match when provided together")
+				}
 				body["name"] = json.RawMessage(v.Raw)
 			}
 			if kind := s.filter.Get("GroupType"); kind.Exists() {
 				if resource.ID != "asset_groups_list" || kind.Type != gjson.String || (kind.String() != "AIGC" && kind.String() != "LivenessFace") {
 					return fmt.Errorf("Filter.GroupType only supports AIGC or LivenessFace on group lists")
 				}
+				if kind.String() == "LivenessFace" {
+					s.path = "/v1/assets/real-person/groups"
+				}
 			}
 			if groups := s.filter.Get("GroupIds"); groups.Exists() {
-				if !groups.IsArray() || len(groups.Array()) != 1 || resource.ID != "assets_list" {
-					return fmt.Errorf("Filter.GroupIds must contain one group ID")
+				if !groups.IsArray() {
+					return fmt.Errorf("Filter.GroupIds must be an array")
 				}
-				if err := setID("group_id", a.groupID); err != nil {
-					return err
+				ids := groups.Array()
+				if resource.ID == "asset_groups_list" {
+					// YH lists all groups. Apply the requested IDs locally before
+					// ownership filtering and pagination, including authorized aliases.
+					s.groupIDs = make(map[string]bool, len(ids))
+					for _, id := range ids {
+						s.groupIDs[id.String()] = true
+					}
+					for _, binding := range a.bindings {
+						if binding.Kind == "group" && s.groupIDs[binding.ID] && binding.CanonicalID != "" {
+							s.groupIDs[binding.CanonicalID] = true
+						}
+					}
 				}
 			}
 		}
-		if a.groupID != "" && resource.ID == "assets_list" {
-			if err := setID("group_id", a.groupID); err != nil {
+		if resource.ID == "assets_list" {
+			groupID, err := readString("group_id")
+			if err != nil {
 				return err
+			}
+			a.list.yhFilter, err = newYHAssetListFilter(a, s.filter, groupID)
+			if err != nil {
+				return err
+			}
+			if groupID := a.list.yhFilter.upstreamGroupID(); groupID != "" {
+				if err := setID("group_id", groupID); err != nil {
+					return err
+				}
 			}
 		}
 	case "liveness_session_create":
@@ -457,7 +488,7 @@ func (t *yhAssetTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 	var resp *http.Response
 	var body []byte
 	var err error
-	if s.operation == "liveness_group_exchange" {
+	if s.operation == "liveness_group_exchange" || (s.operation == "asset_groups_list" && s.filter.Get("GroupType").String() == "LivenessFace") {
 		resp, body, err = readYHGroups(t.client, req)
 	} else {
 		resp, body, err = readYHResponse(t.client, req)
@@ -495,7 +526,8 @@ func (t *yhAssetTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 		if err != nil {
 			return nil, err
 		}
-		if s.operation == "asset_groups_list" {
+		// Only a list without a group type needs both upstream services.
+		if s.operation == "asset_groups_list" && s.filter.Get("GroupType").String() == "" {
 			other := req.Clone(req.Context())
 			other.URL.Path = strings.TrimSuffix(req.URL.Path, "/groups") + "/real-person/groups"
 			other.URL.RawPath = ""
@@ -521,6 +553,9 @@ func (t *yhAssetTransport) RoundTrip(req *http.Request) (*http.Response, error) 
 					result = row
 					break
 				}
+				continue
+			}
+			if len(s.groupIDs) > 0 && !s.groupIDs[id] {
 				continue
 			}
 			if name := s.filter.Get("Name").String(); name != "" && !strings.Contains(fmt.Sprint(row["Name"]), name) {

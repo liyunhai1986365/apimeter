@@ -31,6 +31,8 @@ type assetListPagination struct {
 	upstreamCursor     bool
 	cursorPrefix       string
 	owned              map[string]string // handle -> canonical resource ID
+	ownedGroups        map[string]string // canonical ID -> group, for YH list rows that omit it
+	yhFilter           *yhAssetListFilter
 	ownedCount         int
 	filteredTotal      *int              // Matched upstream resources, after ownership/filtering.
 	proofs             map[string]string // canonical ID -> stored handle for final authorization
@@ -107,6 +109,9 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 func loadAssetListOwnership(ctx context.Context, a *assetAccessRequest, userID int) error {
 	p := a.list
 	p.owned, p.proofs, p.pageProofs = map[string]string{}, map[string]string{}, map[string]string{}
+	if p.yhFilter != nil && p.yhFilter.filtersGroups() {
+		p.ownedGroups = map[string]string{}
+	}
 	canonicalIDs := map[string]bool{}
 	err := model.WalkAssetBindingsContext(ctx, a.channel.Id, userID, a.scope, a.op.kind, func(bindings []model.AssetBinding) error {
 		for _, binding := range bindings {
@@ -118,9 +123,17 @@ func loadAssetListOwnership(ctx context.Context, a *assetAccessRequest, userID i
 				if canonical == "" {
 					continue
 				}
+				// YH applies ID filters locally. Only matching owned IDs can
+				// appear in the result, so finding them all completes the scan.
+				if p.yhFilter != nil && !p.yhFilter.matchesID(canonical) {
+					continue
+				}
 				canonicalIDs[canonical] = true
 				p.owned[canonical] = canonical
 				p.proofs[canonical] = binding.ID
+				if p.ownedGroups != nil && binding.GroupID != "" {
+					p.ownedGroups[canonical] = binding.GroupID
+				}
 				if binding.ID != "" {
 					p.owned[binding.ID] = canonical
 				}
@@ -224,6 +237,7 @@ func scanAssetListResponse(c *gin.Context, client *http.Client, ch *model.Channe
 	var owned []json.RawMessage
 	seenPages := map[[sha256.Size]byte]bool{}
 	seenIDs := map[string]bool{}
+	matched := 0
 	var scanned int64
 	for page := 1; ; page++ {
 		if err := ctx.Err(); err != nil {
@@ -239,7 +253,11 @@ func scanAssetListResponse(c *gin.Context, client *http.Client, ch *model.Channe
 				continue
 			}
 			seenIDs[canonical] = true
-			if len(seenIDs) > p.offset && len(seenIDs) <= p.offset+p.size {
+			if p.yhFilter != nil && !p.yhFilter.matches(row, canonical, p.ownedGroups[canonical]) {
+				continue
+			}
+			matched++
+			if matched > p.offset && matched <= p.offset+p.size {
 				owned = append(owned, json.RawMessage(row.raw))
 				p.pageProofs[p.proofs[canonical]] = canonical
 			}
@@ -300,7 +318,7 @@ func scanAssetListResponse(c *gin.Context, client *http.Client, ch *model.Channe
 			return nextResp, body, nil
 		}
 	}
-	total := len(seenIDs)
+	total := matched
 	end := min(p.offset+p.size, total)
 	p.filteredTotal = common.GetPointer(total)
 	pageItems := append([]json.RawMessage{}, owned...)

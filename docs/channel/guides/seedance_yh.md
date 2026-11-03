@@ -47,7 +47,15 @@
 | CreateVisualValidateSession | 返回 H5Link、本地 BytedToken；不支持非空 CallbackURL |
 | GetVisualValidateResult | 查询并原子登记认证产生的真人组 |
 
-普通分组与真人分组列表合并后按本地归属过滤、去重、重新分页，不认领陌生资源。YH 素材列表的 `total_count` 可能仅表示当前页条数，网关扫描到短页／空页或全部归属素材，再计算过滤后的总数，避免超过 100 个素材时截断。ListAssets 支持 Name 和单个 GroupIds 筛选；ListAssetGroups 支持 Name 和 GroupType（AIGC/LivenessFace）。不支持的筛选和更新字段返回明确错误。
+未指定 `Filter.GroupType` 时，普通分组与真人分组列表合并后按本地归属过滤、去重、重新分页，不认领陌生资源。指定 `AIGC` 或 `LivenessFace` 时只查询对应接口，另一类分组接口故障不会影响本次查询；实际需要的接口失败仍按正常错误返回。YH 素材列表的 `total_count` 可能仅表示当前页条数，网关扫描到短页／空页或全部归属素材，再计算过滤后的总数，避免超过 100 个素材时截断。
+
+REST 素材及素材组列表接受 `page` 或 `page_number` 搭配 `page_size`，与 `PageNumber/PageSize` 共用本地分页逻辑，页码从 1 开始。
+
+`ListAssets` 支持 `Filter.Name`、`Filter.GroupIds`、`Filter.Statuses`、`Filter.AssetIds` 和 `Filter.Ids`。数组字段接受字符串数组，空数组表示不限制该条件；数组内任一值匹配即可，不同字段取交集（同时传 `Ids` 与 `AssetIds` 也取交集）。组 ID 可以有多个，组和素材 ID 必须属于当前用户的同一渠道账号，支持已登记的别名。状态按网关返回值匹配，上游 `Pending` 对应 `Processing`。名称和单组条件交给上游，多组、状态与素材 ID 条件在网关扫描时应用；上游省略组 ID 时复用本地归属记录，不逐条查询数据库。`PageNumber/PageSize`、`MaxResults/NextToken` 和 `TotalCount` 均基于筛选、归属校验和去重后的结果。顶层 `GroupId/group_id` 与 `Filter.GroupIds` 同时提供时取交集。
+
+指定 `Ids/AssetIds` 时，找到 ID 条件内所有归属素材即可结束扫描，无需继续查询无关页面；仍有指定 ID 未出现时继续翻页，必要页面查询失败仍正常报错。顶层 `Name/name` 与 `Filter.Name` 同时提供时必须相同，不同则返回 400，避免静默覆盖名称条件。
+
+`ListAssetGroups` 支持 `Filter.Name`、`Filter.GroupType`（AIGC/LivenessFace）和 `Filter.GroupIds`（字符串数组，可含多个同渠道、当前用户拥有的组 ID 或真人组别名，空数组不限制组 ID）。组列表筛选在本地分页前执行，`TotalCount` 为筛选后当前用户可见的组数。不支持的筛选和更新字段返回明确错误。
 
 普通素材组创建、更新接受 `Description`、`description` 或 `desc`，统一透传为上游 `description`；仍校验字符串类型和重复字段。直连 `/v1/assets/groups` 实测三种非空写法均创建成功，但列表没有返回描述字段，不能据此确认上游保存了描述；更新透传已覆盖本地回归，是否保存仍由上游决定。创建认证会话的描述继续映射为 `artist_desc`。
 

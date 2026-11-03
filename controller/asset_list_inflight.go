@@ -120,6 +120,7 @@ func filterAssetListResponse(c *gin.Context, client *http.Client, ch *model.Chan
 		fmt.Sprintf("%p", model.DB.Statement.ConnPool), userID, ch.Id, a.scope, a.project, a.op.kind,
 		resource.ID, req.Method, req.URL.String(), req.Header, string(requestBody), ch.GetSetting().Proxy,
 		p.page, p.size, p.offset, p.cursorMode, p.upstreamCursor,
+		p.yhFilter,
 		firstPage,
 	})
 	if err != nil {

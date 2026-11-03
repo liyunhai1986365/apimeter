@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
@@ -285,6 +287,235 @@ func TestYHOfficialAssetLifecycle(t *testing.T) {
 	check("DeleteAsset", `{"Id":"asset-owned"}`)
 	require.Equal(t, 404, yhAction(r, "GetAsset", `{"Id":"asset-owned"}`, 1).Code)
 	check("DeleteAssetGroup", `{"Id":"42"}`)
+}
+
+func TestYHGroupListFilter(t *testing.T) {
+	router := yhAssetTestRouter(t, "https://yh-group-filter-test.invalid/v1")
+	for _, id := range []string{"5525", "5526", "5527", "5528"} {
+		seedAssetOwnershipForTest(t, 20, 1, "group", id)
+	}
+	seedAssetOwnershipForTest(t, 20, 2, "group", "999")
+	ch, err := model.GetChannelById(20, true)
+	require.NoError(t, err)
+	profile, ok := configurable.AssetProfile(ch.GetSetting().Protocol)
+	require.True(t, ok)
+	scope, err := assetAccountScope(ch, profile)
+	require.NoError(t, err)
+	human := model.AssetBinding{ChannelID: 20, UserID: 1, Backend: profile.ID, Scope: scope,
+		Kind: "group", CanonicalID: "128", GroupType: "LivenessFace", Project: "default"}
+	for _, id := range []string{"128", "group-human"} {
+		require.NoError(t, model.SaveAssetBinding(human, id))
+	}
+	client := service.GetHttpClient()
+	oldTransport := client.Transport
+	t.Cleanup(func() { client.Transport = oldTransport })
+	calls := 0
+	client.Transport = draftChannelTestTransport(func(req *http.Request) (*http.Response, error) {
+		calls++
+		require.Equal(t, http.MethodGet, req.Method)
+		require.Empty(t, req.URL.Query().Get("group_id"), "group-list filtering happens locally")
+		response := ""
+		switch req.URL.Path {
+		case "/v1/assets/groups":
+			response = `{"code":"success","data":[{"id":999,"name":"foreign"},{"id":5527,"name":"other"},{"id":5525,"name":"match-a"},{"id":5526,"name":"match-b"},{"id":998,"name":"unowned"}]}`
+		case "/v1/assets/real-person/groups":
+			response = `{"code":"success","data":{"items":[{"id":128,"group_id":"group-human","artist_name":"match-human"}]}}`
+		default:
+			t.Fatalf("unexpected upstream request %s", req.URL.Path)
+		}
+		return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(response)), Request: req}, nil
+	})
+	for _, tc := range []struct {
+		name, body string
+		ids        []string
+		total      int
+	}{
+		{"reported_request", `{"Filter":{"GroupType":"AIGC","GroupIds":["5525"]},"PageNumber":1,"PageSize":100}`, []string{"5525"}, 1},
+		{"multiple_ids", `{"Filter":{"GroupIds":["5525","5526"]}}`, []string{"5525", "5526"}, 2},
+		{"pagination_after_filter", `{"Filter":{"GroupIds":["5525","5526"]},"PageNumber":2,"PageSize":1}`, []string{"5526"}, 2},
+		{"name_intersection", `{"Filter":{"GroupIds":["5525","5526"],"Name":"match-b"}}`, []string{"5526"}, 1},
+		{"type_intersection", `{"Filter":{"GroupIds":["5525","128"],"GroupType":"AIGC"}}`, []string{"5525"}, 1},
+		{"type_mismatch", `{"Filter":{"GroupIds":["5525"],"GroupType":"LivenessFace"}}`, nil, 0},
+		{"missing_upstream_group", `{"Filter":{"GroupIds":["5528"]}}`, nil, 0},
+		{"human_alias", `{"Filter":{"GroupIds":["group-human"],"GroupType":"LivenessFace"}}`, []string{"128"}, 1},
+		{"alias_deduplication", `{"Filter":{"GroupIds":["group-human","128","128"]}}`, []string{"128"}, 1},
+		{"no_id_filter", `{}`, []string{"5527", "5525", "5526", "128"}, 4},
+		{"empty_id_filter", `{"Filter":{"GroupIds":[]}}`, []string{"5527", "5525", "5526", "128"}, 4},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := yhAction(router, "ListAssetGroups", tc.body, 1)
+			require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+			var ids []string
+			for _, item := range gjson.GetBytes(w.Body.Bytes(), "Result.Items").Array() {
+				ids = append(ids, item.Get("Id").String())
+			}
+			require.Equal(t, tc.ids, ids)
+			require.EqualValues(t, tc.total, gjson.GetBytes(w.Body.Bytes(), "Result.TotalCount").Int())
+			require.NotContains(t, w.Body.String(), "foreign")
+			require.NotContains(t, w.Body.String(), "unowned")
+		})
+	}
+	for _, tc := range []struct {
+		name, action, body string
+		user, status       int
+	}{
+		{"foreign_group", "ListAssetGroups", `{"Filter":{"GroupIds":["999"]}}`, 1, 404},
+		{"mixed_ownership", "ListAssetGroups", `{"Filter":{"GroupIds":["5525","999"]}}`, 1, 404},
+		{"other_user", "ListAssetGroups", `{"Filter":{"GroupIds":["5525"]}}`, 2, 404},
+		{"invalid_group_id_type", "ListAssetGroups", `{"Filter":{"GroupIds":[5525]}}`, 1, 400},
+		{"invalid_filter_type", "ListAssetGroups", `{"Filter":{"GroupIds":"5525"}}`, 1, 400},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			before := calls
+			w := yhAction(router, tc.action, tc.body, tc.user)
+			require.Equal(t, tc.status, w.Code, w.Body.String())
+			require.Equal(t, before, calls, "rejected filters must not reach upstream")
+		})
+	}
+}
+
+func TestYHListPageAlias(t *testing.T) {
+	router := yhAssetTestRouter(t, "https://yh-page-alias-test.invalid/v1")
+	router.POST("/v1/assets/list", middleware.ConfigurableResource("", ""), middleware.TokenAuth(), RelayConfigurableResource)
+	for _, id := range []string{"42", "43"} {
+		seedAssetOwnershipForTest(t, 20, 1, "group", id)
+	}
+	for _, id := range []string{"asset-first", "asset-second"} {
+		seedAssetListAliases(t, id)
+	}
+	client := service.GetHttpClient()
+	oldTransport := client.Transport
+	t.Cleanup(func() { client.Transport = oldTransport })
+	calls := 0
+	client.Transport = draftChannelTestTransport(func(req *http.Request) (*http.Response, error) {
+		calls++
+		response := ""
+		switch req.URL.Path {
+		case "/v1/assets/list":
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			require.JSONEq(t, `{"page_number":1,"page_size":100}`, string(body), "client pagination must be applied after ownership filtering")
+			response = `{"code":"success","data":{"items":[{"id":"foreign","status":"Active"},{"id":"asset-first","status":"Active"},{"id":"asset-second","status":"Active"}],"total_count":3}}`
+		case "/v1/assets/groups":
+			response = `{"code":"success","data":[{"id":999,"name":"foreign"},{"id":42,"name":"first"},{"id":43,"name":"second"}]}`
+		case "/v1/assets/real-person/groups":
+			response = `{"code":"success","data":[]}`
+		default:
+			t.Fatalf("unexpected upstream request %s", req.URL.Path)
+		}
+		return yhHTTPResponse(req, http.StatusOK, []byte(response), nil), nil
+	})
+	for _, tc := range []struct{ method, path, body, id string }{
+		{"GET", "/api/assets?page=2&page_size=1", "", "asset-second"},
+		{"GET", "/v1/assets?page=2&page_size=1", "", "asset-second"},
+		{"GET", "/api/asset-groups?page=2&page_size=1", "", "43"},
+		{"GET", "/v1/asset-groups?page=2&page_size=1", "", "43"},
+		{"POST", "/v1/assets/list", `{"page":2,"page_size":1}`, "asset-second"},
+		{"POST", "/?Action=ListAssetGroups&Version=2024-01-01", `{"page":2,"page_size":1}`, "43"},
+	} {
+		t.Run(tc.method+tc.path, func(t *testing.T) {
+			response := seedanceCall(router, tc.method, tc.path, tc.body, 1)
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			path, items, err := assetListItems(response.Body.Bytes())
+			require.NoError(t, err)
+			require.Len(t, items.Array(), 1)
+			require.Equal(t, tc.id, items.Array()[0].Get("Id").String())
+			totalPath := strings.TrimSuffix(path, "Items") + "TotalCount"
+			require.EqualValues(t, 2, gjson.GetBytes(response.Body.Bytes(), totalPath).Int())
+		})
+	}
+	for _, path := range []string{"/v1/assets", "/v1/asset-groups"} {
+		for _, page := range []string{"0", "-1", "1.5", "invalid"} {
+			before := calls
+			response := seedanceCall(router, http.MethodGet, path+"?page="+page, "", 1)
+			require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+			require.Equal(t, before, calls, "invalid pagination must fail before contacting upstream")
+		}
+	}
+}
+
+func TestYHGroupListTypeIsolation(t *testing.T) {
+	for i, tc := range []struct {
+		name, groupType                         string
+		aigcStatus, humanStatus, responseStatus int
+		aigcCalls, humanCalls                   int
+		ids                                     []string
+	}{
+		{"aigc_ignores_human_failure", "AIGC", 200, 503, 200, 1, 0, []string{"42", "43"}},
+		{"human_ignores_aigc_failure", "LivenessFace", 503, 200, 200, 0, 1, []string{"128"}},
+		{"aigc_failure_propagates", "AIGC", 503, 200, 503, 1, 0, nil},
+		{"human_failure_propagates", "LivenessFace", 200, 503, 503, 0, 1, nil},
+		{"all_groups", "", 200, 200, 200, 1, 1, []string{"42", "43", "128"}},
+		{"all_groups_human_failure", "", 200, 503, 503, 1, 1, nil},
+		{"all_groups_aigc_failure", "", 503, 200, 503, 1, 0, nil},
+	} {
+		for _, official := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s/official=%t", tc.name, official), func(t *testing.T) {
+				router := yhAssetTestRouter(t, fmt.Sprintf("https://yh-type-%d-%t.invalid/v1", i, official))
+				for _, id := range []string{"42", "43"} {
+					seedAssetOwnershipForTest(t, 20, 1, "group", id)
+				}
+				ch, err := model.GetChannelById(20, true)
+				require.NoError(t, err)
+				profile, _ := configurable.AssetProfile(ch.GetSetting().Protocol)
+				scope, err := assetAccountScope(ch, profile)
+				require.NoError(t, err)
+				require.NoError(t, model.SaveAssetBinding(model.AssetBinding{ChannelID: 20, UserID: 1, Backend: profile.ID, Scope: scope,
+					Kind: "group", CanonicalID: "128", GroupType: "LivenessFace", Project: "default"}, "128"))
+				client := service.GetHttpClient()
+				oldTransport := client.Transport
+				t.Cleanup(func() { client.Transport = oldTransport })
+				aigcCalls, humanCalls := 0, 0
+				client.Transport = draftChannelTestTransport(func(req *http.Request) (*http.Response, error) {
+					require.Equal(t, http.MethodGet, req.Method)
+					status, response := 200, ""
+					switch req.URL.Path {
+					case "/v1/assets/groups":
+						aigcCalls++
+						status = tc.aigcStatus
+						response = `{"code":"success","data":[{"id":42,"name":"first"},{"id":43,"name":"second"},{"id":999,"name":"foreign"}]}`
+					case "/v1/assets/real-person/groups":
+						humanCalls++
+						status = tc.humanStatus
+						response = `{"code":"success","data":{"items":[{"id":128,"artist_name":"human"},{"id":998,"artist_name":"foreign"}]}}`
+					default:
+						t.Fatalf("unexpected upstream request %s", req.URL.Path)
+					}
+					if status >= 400 {
+						response = `{"code":"Unavailable","message":"selected group service unavailable"}`
+					}
+					return yhHTTPResponse(req, status, []byte(response), nil), nil
+				})
+				filter := `{}`
+				if tc.groupType != "" {
+					filter = fmt.Sprintf(`{"GroupType":%q}`, tc.groupType)
+				}
+				var response *httptest.ResponseRecorder
+				if official {
+					response = yhAction(router, "ListAssetGroups", `{"Filter":`+filter+`}`, 1)
+				} else {
+					response = seedanceCall(router, http.MethodGet, "/v1/asset-groups?Filter="+url.QueryEscape(filter), "", 1)
+				}
+				require.Equal(t, tc.responseStatus, response.Code, response.Body.String())
+				require.Equal(t, tc.aigcCalls, aigcCalls)
+				require.Equal(t, tc.humanCalls, humanCalls)
+				if response.Code == http.StatusOK {
+					path, items, err := assetListItems(response.Body.Bytes())
+					require.NoError(t, err)
+					var ids []string
+					for _, item := range items.Array() {
+						ids = append(ids, item.Get("Id").String())
+						if tc.groupType != "" {
+							require.Equal(t, tc.groupType, item.Get("GroupType").String())
+						}
+					}
+					require.Equal(t, tc.ids, ids)
+					totalPath := strings.TrimSuffix(path, "Items") + "TotalCount"
+					require.EqualValues(t, len(tc.ids), gjson.GetBytes(response.Body.Bytes(), totalPath).Int())
+				}
+			})
+		}
+	}
 }
 
 func TestYHAssetListWithPageLocalTotal(t *testing.T) {
