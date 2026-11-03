@@ -60,6 +60,11 @@ func lockYHDraftVideoChannel(c *gin.Context, info *relaycommon.RelayInfo, body [
 		}
 		return model.ErrAssetNotOwned
 	}
+	// Only YH submissions persist this draft marker. Other providers can reuse
+	// their native draft IDs after the original local channel has been removed.
+	if !selectedYH && !task.PrivateData.SeedanceDraft {
+		return nil
+	}
 	ch, err := assetChannelForRequest(c, task.ChannelId)
 	if err != nil {
 		return err
