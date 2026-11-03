@@ -1,0 +1,1153 @@
+{
+  "date": "2026-10-27",
+  "commit": "d422a3638dec30fa3b04172c90ba40f972c140d5",
+  "database": "apimeter_smoke",
+  "mysql_version": "5.7.43",
+  "database_initial_users_channels_assets": 0,
+  "historical_100k_database_reused": false,
+  "channels": [
+    {
+      "name": "morerouter",
+      "channel_id": 2,
+      "group": "live27_morerouter",
+      "users": 10
+    },
+    {
+      "name": "sctgx",
+      "channel_id": 3,
+      "group": "live27_sctgx",
+      "users": 10
+    }
+  ],
+  "builds": {
+    "apimeter": "dd4bf1f641f99720c07bcc168d5a46f8ba0ee937083d9e8164ec40be202d1ff1",
+    "apimeter-observed": "2b34cfbe1e02c1149b550e76ac71f0e347c33818d8d49fcd3264f19d6b2f8c37",
+    "main-observed.go": "6bd22dfe30d926c9980044132131818563a68e401dec4639fb666c19ecd602f3"
+  },
+  "stages": {
+    "asset_create_initial": {
+      "morerouter": {
+        "requests": 100,
+        "http": {
+          "403": 8,
+          "200": 92
+        },
+        "p50_seconds": 1.8966902560205199,
+        "p95_seconds": 2.0859722839668393,
+        "max_seconds": 3.042626278998796,
+        "wall_seconds": 3.076507329940796,
+        "peak_inflight": 100
+      },
+      "sctgx": {
+        "requests": 100,
+        "http": {
+          "200": 100
+        },
+        "p50_seconds": 1.9833960349787958,
+        "p95_seconds": 2.4138829450239427,
+        "max_seconds": 2.84961472597206,
+        "wall_seconds": 2.9197943210601807,
+        "peak_inflight": 100
+      }
+    },
+    "asset_poll": {
+      "morerouter": {
+        "requests": 184,
+        "http": {
+          "200": 184
+        },
+        "p50_seconds": 0.27941158349858597,
+        "p95_seconds": 0.41008335596416146,
+        "max_seconds": 0.4764610350248404,
+        "wall_seconds": 11.0392324924469,
+        "peak_inflight": 92
+      },
+      "sctgx": {
+        "requests": 200,
+        "http": {
+          "200": 197,
+          "429": 3
+        },
+        "p50_seconds": 0.10261283547151834,
+        "p95_seconds": 0.18009306298336014,
+        "max_seconds": 0.21844596602022648,
+        "wall_seconds": 10.790495157241821,
+        "peak_inflight": 96
+      }
+    },
+    "asset_preflight": {
+      "morerouter": {
+        "requests": 2,
+        "http": {
+          "200": 2
+        },
+        "p50_seconds": 0.9867389650025871,
+        "p95_seconds": 1.912066878983751,
+        "max_seconds": 1.912066878983751,
+        "wall_seconds": 37.96919775009155,
+        "peak_inflight": 1
+      },
+      "sctgx": {
+        "requests": 2,
+        "http": {
+          "200": 2
+        },
+        "p50_seconds": 0.6824326810310595,
+        "p95_seconds": 1.3214989710249938,
+        "max_seconds": 1.3214989710249938,
+        "wall_seconds": 36.10043907165527,
+        "peak_inflight": 1
+      }
+    },
+    "group_create": {
+      "morerouter": {
+        "requests": 10,
+        "http": {
+          "200": 10
+        },
+        "p50_seconds": 0.3393885590194259,
+        "p95_seconds": 0.3744222319801338,
+        "max_seconds": 0.3744222319801338,
+        "wall_seconds": 0.3802788257598877,
+        "peak_inflight": 10
+      },
+      "sctgx": {
+        "requests": 10,
+        "http": {
+          "200": 10
+        },
+        "p50_seconds": 1.470728127489565,
+        "p95_seconds": 2.3764339189510792,
+        "max_seconds": 2.3764339189510792,
+        "wall_seconds": 2.384917736053467,
+        "peak_inflight": 10
+      }
+    },
+    "isolation": {
+      "morerouter": {
+        "requests": 1,
+        "http": {
+          "404": 1
+        },
+        "p50_seconds": 0.0022020500036887825,
+        "p95_seconds": 0.0022020500036887825,
+        "max_seconds": 0.0022020500036887825,
+        "wall_seconds": 0.0022020339965820312,
+        "peak_inflight": 1
+      },
+      "sctgx": {
+        "requests": 1,
+        "http": {
+          "404": 1
+        },
+        "p50_seconds": 0.001927601988427341,
+        "p95_seconds": 0.001927601988427341,
+        "max_seconds": 0.001927601988427341,
+        "wall_seconds": 0.0019276142120361328,
+        "peak_inflight": 1
+      }
+    },
+    "official_action_retry": {
+      "morerouter": {},
+      "sctgx": {
+        "requests": 3,
+        "http": {
+          "200": 3
+        },
+        "p50_seconds": 0.08396948501467705,
+        "p95_seconds": 0.09448423096910119,
+        "max_seconds": 0.09448423096910119,
+        "wall_seconds": 0.25063228607177734,
+        "peak_inflight": 1
+      }
+    },
+    "video_poll": {
+      "morerouter": {
+        "requests": 19,
+        "http": {
+          "200": 19
+        },
+        "p50_seconds": 0.05171880900161341,
+        "p95_seconds": 0.061512642016168684,
+        "max_seconds": 0.061512642016168684,
+        "wall_seconds": 165.65667295455933,
+        "peak_inflight": 2
+      },
+      "sctgx": {
+        "requests": 18,
+        "http": {
+          "200": 18
+        },
+        "p50_seconds": 0.04070508203585632,
+        "p95_seconds": 0.0530723090050742,
+        "max_seconds": 0.0530723090050742,
+        "wall_seconds": 150.60539507865906,
+        "peak_inflight": 2
+      }
+    },
+    "video_submit": {
+      "morerouter": {
+        "requests": 2,
+        "http": {
+          "200": 2
+        },
+        "p50_seconds": 0.06138180152629502,
+        "p95_seconds": 0.06170062301680446,
+        "max_seconds": 0.06170062301680446,
+        "wall_seconds": 0.062067270278930664,
+        "peak_inflight": 2
+      },
+      "sctgx": {
+        "requests": 2,
+        "http": {
+          "200": 2
+        },
+        "p50_seconds": 0.8249771819682792,
+        "p95_seconds": 1.0442450899863616,
+        "max_seconds": 1.0442450899863616,
+        "wall_seconds": 1.0442450046539307,
+        "peak_inflight": 2
+      }
+    },
+    "recovery_group_verify": {
+      "morerouter": {
+        "requests": 8,
+        "http": {
+          "200": 8
+        },
+        "p50_seconds": 0.08595263957977295,
+        "p95_seconds": 0.35282468795776367,
+        "max_seconds": 0.35282468795776367,
+        "wall_seconds": 0.3562133312225342,
+        "peak_inflight": 8
+      }
+    },
+    "recovery_create_retry": {
+      "morerouter": {
+        "requests": 8,
+        "http": {
+          "200": 8
+        },
+        "p50_seconds": 0.5667588710784912,
+        "p95_seconds": 0.9629843235015869,
+        "max_seconds": 0.9629843235015869,
+        "wall_seconds": 1.0894172191619873,
+        "peak_inflight": 8
+      }
+    },
+    "recovery_poll_100": {
+      "morerouter": {
+        "requests": 200,
+        "http": {
+          "200": 200
+        },
+        "p50_seconds": 0.32200121879577637,
+        "p95_seconds": 0.4253358840942383,
+        "max_seconds": 0.5045499801635742,
+        "wall_seconds": 11.03958773612976,
+        "peak_inflight": 100
+      }
+    },
+    "official_action_query": {
+      "morerouter": {
+        "requests": 100,
+        "http": {
+          "200": 100
+        },
+        "p50_seconds": 2.0497145652770996,
+        "p95_seconds": 2.136112689971924,
+        "max_seconds": 2.1644763946533203,
+        "wall_seconds": 2.1911063194274902,
+        "peak_inflight": 100
+      },
+      "sctgx": {
+        "requests": 100,
+        "http": {
+          "200": 97,
+          "429": 3
+        },
+        "p50_seconds": 1.0276647806167603,
+        "p95_seconds": 1.2712647914886475,
+        "max_seconds": 1.460066795349121,
+        "wall_seconds": 1.4898154735565186,
+        "peak_inflight": 100
+      }
+    }
+  },
+  "metrics": {
+    "pool_max_open": 30,
+    "pool_sample_ms": 100,
+    "pool_peak_inuse": 30,
+    "pool_full_samples": [
+      {
+        "at": "2026-10-26T18:04:29.825513686Z",
+        "phase": "asset_create_initial",
+        "previous": "2026-10-26T18:04:29.726209629Z",
+        "next": "2026-10-26T18:04:29.92561146Z"
+      }
+    ],
+    "wait_count": 902,
+    "wait_seconds_sum": 1.201014978,
+    "mean_wait_ms": 1.3315021929046562,
+    "sql_count": 16074,
+    "sql_max_ms": 16.436775,
+    "sql_error_count": 0,
+    "for_update_queries": 416,
+    "for_update_max_ms": 4.974889,
+    "lock_sample_ms": 200,
+    "lock_peak_waiters": 0,
+    "max_observed_trx_age_seconds": 0,
+    "lock_monitor_errors": 0,
+    "readiness": {
+      "requests": 375,
+      "http": {
+        "200": 375
+      },
+      "p50_seconds": 0.0028267379966564476,
+      "p95_seconds": 0.007995855004992336,
+      "max_seconds": 0.010288860998116434,
+      "wall_seconds": 528.2555437088013,
+      "peak_inflight": 1
+    }
+  },
+  "users": [
+    {
+      "channel": "morerouter",
+      "user_id": 3,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 4,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 5,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 6,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 7,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 8,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 9,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 10,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 11,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "morerouter",
+      "user_id": 12,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 13,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 14,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 15,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 16,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 17,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 18,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 19,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 20,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 21,
+      "created": 10,
+      "active": 10
+    },
+    {
+      "channel": "sctgx",
+      "user_id": 22,
+      "created": 10,
+      "active": 10
+    }
+  ],
+  "videos": [
+    {
+      "channel": "morerouter",
+      "model": "doubao-seedance-2-0-260128",
+      "user_id": 3,
+      "reference_count": 1,
+      "id": "cgt-20261026180440-x9fa1",
+      "create_response": {
+        "id": "cgt-20261026180440-x9fa1"
+      },
+      "query_response_id": "cgt-20261026180440-x9fa1",
+      "identity": {
+        "id": "1",
+        "task_id": "task_hpM1l6SgtptI4iELOLicOz4gHZslRihK",
+        "channel_id": "2",
+        "user_id": "3",
+        "provider_lookup_id": "cgt-20261026180440-x9fa1",
+        "official_task_id": "NULL"
+      },
+      "upstream_fetch_paths": [
+        "/api/v3/contents/generations/tasks/cgt-20261026180440-x9fa1"
+      ],
+      "status": "succeeded",
+      "submit_seconds": 0.06170062301680446,
+      "completed_seconds": 166.70608615875244,
+      "download_seconds": 0.28607308596838266,
+      "file": {
+        "file": "video-0.mp4",
+        "bytes": 499852,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      },
+      "usage": {
+        "completion_tokens": 38800,
+        "total_tokens": 38800
+      },
+      "download_url_contains_task_id": false
+    },
+    {
+      "channel": "morerouter",
+      "model": "doubao-seedance-2-5-260628",
+      "user_id": 4,
+      "reference_count": 3,
+      "id": "cgt-20261026180440-xv10e",
+      "create_response": {
+        "id": "cgt-20261026180440-xv10e"
+      },
+      "query_response_id": "cgt-20261026180440-xv10e",
+      "identity": {
+        "id": "2",
+        "task_id": "task_BHMM1dSwNmiH3IOLuXUBCG6rPb8fEbVz",
+        "channel_id": "2",
+        "user_id": "4",
+        "provider_lookup_id": "cgt-20261026180440-xv10e",
+        "official_task_id": "NULL"
+      },
+      "upstream_fetch_paths": [
+        "/api/v3/contents/generations/tasks/cgt-20261026180440-xv10e"
+      ],
+      "status": "succeeded",
+      "submit_seconds": 0.061062980035785586,
+      "completed_seconds": 91.420086145401,
+      "download_seconds": 0.14175923203583807,
+      "file": {
+        "file": "video-1.mp4",
+        "bytes": 1784329,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      },
+      "usage": {
+        "completion_tokens": 38800,
+        "total_tokens": 38800
+      },
+      "download_url_contains_task_id": false
+    },
+    {
+      "channel": "sctgx",
+      "model": "doubao-seedance-2-0-260128",
+      "user_id": 13,
+      "reference_count": 2,
+      "id": "cgt-20261027020440-9mwlr",
+      "create_response": {
+        "id": "cgt-20261027020440-9mwlr",
+        "upstream_task_id": "cgt-20261027020440-9mwlr"
+      },
+      "query_response_id": "cgt-20261027020440-9mwlr",
+      "identity": {
+        "id": "3",
+        "task_id": "task_7aeiFGbO0SpV8mmkQ5NW9LzdsB99TaAw",
+        "channel_id": "3",
+        "user_id": "13",
+        "provider_lookup_id": "task_BWS9nvlqjSwbn6B70GKH7kfQwdhsanDO",
+        "official_task_id": "cgt-20261027020440-9mwlr"
+      },
+      "upstream_fetch_paths": [
+        "/doubao/api/v3/contents/generations/tasks/task_BWS9nvlqjSwbn6B70GKH7kfQwdhsanDO"
+      ],
+      "status": "succeeded",
+      "submit_seconds": 0.6057092739501968,
+      "completed_seconds": 151.6536898612976,
+      "download_seconds": 0.10917026497190818,
+      "file": {
+        "file": "video-2.mp4",
+        "bytes": 720492,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      },
+      "usage": {
+        "completion_tokens": 38800,
+        "total_tokens": 38800
+      },
+      "download_url_contains_task_id": false
+    },
+    {
+      "channel": "sctgx",
+      "model": "doubao-seedance-2-5-260628",
+      "user_id": 14,
+      "reference_count": 3,
+      "id": "cgt-20261027020440-1oxj7",
+      "create_response": {
+        "id": "cgt-20261027020440-1oxj7",
+        "upstream_task_id": "cgt-20261027020440-1oxj7"
+      },
+      "query_response_id": "cgt-20261027020440-1oxj7",
+      "identity": {
+        "id": "4",
+        "task_id": "task_N2ExG7Nb9dlxLdDmnGd1B4QH14zh0zQm",
+        "channel_id": "3",
+        "user_id": "14",
+        "provider_lookup_id": "task_vbfSFlQJpFzVugCSmC1f84lwIdCP3gXy",
+        "official_task_id": "cgt-20261027020440-1oxj7"
+      },
+      "upstream_fetch_paths": [
+        "/doubao/api/v3/contents/generations/tasks/task_vbfSFlQJpFzVugCSmC1f84lwIdCP3gXy"
+      ],
+      "status": "succeeded",
+      "submit_seconds": 1.0442450899863616,
+      "completed_seconds": 91.4302327632904,
+      "download_seconds": 0.1296495869755745,
+      "file": {
+        "file": "video-3.mp4",
+        "bytes": 1610819,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      },
+      "usage": {
+        "completion_tokens": 38800,
+        "total_tokens": 38800
+      },
+      "download_url_contains_task_id": true
+    }
+  ],
+  "validation": {
+    "lists": [
+      {
+        "channel": "morerouter",
+        "user_id": 3,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.19384336471557617
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 4,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.23000526428222656
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 5,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.22911739349365234
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 6,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.11911797523498535
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 7,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.12123656272888184
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 8,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.18947601318359375
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 9,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.11863970756530762
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 10,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.11718344688415527
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 11,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.21956825256347656
+      },
+      {
+        "channel": "morerouter",
+        "user_id": 12,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items",
+          "PageNumber",
+          "PageSize",
+          "TotalCount"
+        ],
+        "seconds": 0.18129873275756836
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 13,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.3980011940002441
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 14,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.4259188175201416
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 15,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.42724609375
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 16,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.4077959060668945
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 17,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.4070913791656494
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 18,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.40358567237854
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 19,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.3946962356567383
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 20,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.420893669128418
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 21,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.4136638641357422
+      },
+      {
+        "channel": "sctgx",
+        "user_id": 22,
+        "http": 200,
+        "count": 10,
+        "exact_own_10": true,
+        "result_keys": [
+          "Items"
+        ],
+        "seconds": 1.419602870941162
+      }
+    ],
+    "repeat_video_queries": [
+      {
+        "round": 0,
+        "channel": "morerouter",
+        "model": "doubao-seedance-2-0-260128",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.0336604118347168
+      },
+      {
+        "round": 0,
+        "channel": "morerouter",
+        "model": "doubao-seedance-2-5-260628",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.031847476959228516
+      },
+      {
+        "round": 0,
+        "channel": "sctgx",
+        "model": "doubao-seedance-2-0-260128",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.035065650939941406
+      },
+      {
+        "round": 0,
+        "channel": "sctgx",
+        "model": "doubao-seedance-2-5-260628",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.03400397300720215
+      },
+      {
+        "round": 1,
+        "channel": "morerouter",
+        "model": "doubao-seedance-2-0-260128",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.02899765968322754
+      },
+      {
+        "round": 1,
+        "channel": "morerouter",
+        "model": "doubao-seedance-2-5-260628",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.030597925186157227
+      },
+      {
+        "round": 1,
+        "channel": "sctgx",
+        "model": "doubao-seedance-2-0-260128",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.03335714340209961
+      },
+      {
+        "round": 1,
+        "channel": "sctgx",
+        "model": "doubao-seedance-2-5-260628",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.032210588455200195
+      },
+      {
+        "round": 2,
+        "channel": "morerouter",
+        "model": "doubao-seedance-2-0-260128",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.033538103103637695
+      },
+      {
+        "round": 2,
+        "channel": "morerouter",
+        "model": "doubao-seedance-2-5-260628",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.034436941146850586
+      },
+      {
+        "round": 2,
+        "channel": "sctgx",
+        "model": "doubao-seedance-2-0-260128",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.03709840774536133
+      },
+      {
+        "round": 2,
+        "channel": "sctgx",
+        "model": "doubao-seedance-2-5-260628",
+        "http": 200,
+        "status": "succeeded",
+        "seconds": 0.03697490692138672
+      }
+    ],
+    "files": [
+      {
+        "file": "video-0.mp4",
+        "bytes": 499852,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      },
+      {
+        "file": "video-1.mp4",
+        "bytes": 1784329,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      },
+      {
+        "file": "video-2.mp4",
+        "bytes": 720492,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      },
+      {
+        "file": "video-3.mp4",
+        "bytes": 1610819,
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 4.042,
+        "width": 640.0,
+        "height": 640.0
+      }
+    ]
+  },
+  "idempotence": {
+    "users": true,
+    "tokens": true,
+    "logs": true,
+    "tasks": true
+  },
+  "billing_logs": [
+    {
+      "user_id": "3",
+      "channel_id": "2",
+      "token_id": "2",
+      "type": "2",
+      "model_name": "doubao-seedance-2-0-260128",
+      "n": "1",
+      "quota": "500"
+    },
+    {
+      "user_id": "4",
+      "channel_id": "2",
+      "token_id": "3",
+      "type": "2",
+      "model_name": "doubao-seedance-2-5-260628",
+      "n": "1",
+      "quota": "500"
+    },
+    {
+      "user_id": "13",
+      "channel_id": "3",
+      "token_id": "12",
+      "type": "2",
+      "model_name": "doubao-seedance-2-0-260128",
+      "n": "1",
+      "quota": "500"
+    },
+    {
+      "user_id": "14",
+      "channel_id": "3",
+      "token_id": "13",
+      "type": "2",
+      "model_name": "doubao-seedance-2-5-260628",
+      "n": "1",
+      "quota": "500"
+    }
+  ],
+  "official_retry": [
+    {
+      "seq": 1027,
+      "phase": "official_action_retry",
+      "channel": "sctgx",
+      "user_id": 13,
+      "kind": "official_retry",
+      "status": 200,
+      "seconds": 0.09448423096910119,
+      "start": 1793038358.1333532,
+      "error": "",
+      "state": "Active",
+      "id_matches": true,
+      "official_envelope": true
+    },
+    {
+      "seq": 1028,
+      "phase": "official_action_retry",
+      "channel": "sctgx",
+      "user_id": 13,
+      "kind": "official_retry",
+      "status": 200,
+      "seconds": 0.08396948501467705,
+      "start": 1793038358.22855,
+      "error": "",
+      "state": "Active",
+      "id_matches": true,
+      "official_envelope": true
+    },
+    {
+      "seq": 1029,
+      "phase": "official_action_retry",
+      "channel": "sctgx",
+      "user_id": 19,
+      "kind": "official_retry",
+      "status": 200,
+      "seconds": 0.07126450800569728,
+      "start": 1793038358.312721,
+      "error": "",
+      "state": "Active",
+      "id_matches": true,
+      "official_envelope": true
+    }
+  ],
+  "upstream_http": [
+    {
+      "host": "api.sctgx.cn",
+      "status": 200,
+      "count": 445
+    },
+    {
+      "host": "api.sctgx.cn",
+      "status": 429,
+      "count": 6
+    },
+    {
+      "host": "morerouter.cn",
+      "status": 200,
+      "count": 641
+    },
+    {
+      "host": "morerouter.cn",
+      "status": 403,
+      "count": 8
+    }
+  ],
+  "resource_policy": {
+    "assets": 200,
+    "groups": 20,
+    "videos": 4,
+    "cleaned": false,
+    "gateway_stopped": true
+  },
+  "limitations": [
+    "素材创建使用 REST，官方 Action 仅补测 GetAsset 查询。",
+    "无 10 万历史素材背景；本轮复用已有完整 MySQL 测试库。",
+    "池满载按 100ms 采样、行锁按 200ms 采样；不能排除采样间隔内短暂等待，也不是逐事务持锁时间测量。",
+    "MoreRouter 403 已确认来自上游，未定位供应商内部原因。",
+    "视频验证仅检查下载及 MP4 容器元数据，未逐帧解码。"
+  ]
+}

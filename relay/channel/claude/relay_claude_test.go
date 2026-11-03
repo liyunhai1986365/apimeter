@@ -433,3 +433,19 @@ func mustMarshalRawMessage(t *testing.T, value any) json.RawMessage {
 	require.NoError(t, err)
 	return data
 }
+
+func TestLegacyClaudeConverterAdaptiveEffort(t *testing.T) {
+	for _, model := range []string{"claude-opus-5-5", "claude-opus-5-5-thinking", "claude-opus-5-5-high", "claude-opus-4-7-high"} {
+		t.Run(model, func(t *testing.T) {
+			request := dto.GeneralOpenAIRequest{
+				Model: model, MaxTokens: common.GetPointer[uint](8192), ReasoningEffort: "low",
+				Reasoning: json.RawMessage(`{"max_tokens":6000}`), Messages: []dto.Message{{Role: "user", Content: "hello"}},
+			}
+			got, err := RequestOpenAI2ClaudeMessage(nil, request)
+			require.NoError(t, err)
+			require.Equal(t, "adaptive", got.Thinking.Type)
+			require.Nil(t, got.Thinking.BudgetTokens)
+			require.JSONEq(t, `{"effort":"low"}`, string(got.OutputConfig))
+		})
+	}
+}

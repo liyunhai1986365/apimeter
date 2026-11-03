@@ -2,7 +2,6 @@ package oaichat
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -123,40 +122,25 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 	}
 
 	if baseModel, effortLevel, ok := reasoning.TrimEffortSuffix(textRequest.Model); ok && effortLevel != "" &&
-		(strings.HasPrefix(textRequest.Model, "claude-opus-4-6") ||
-			strings.HasPrefix(textRequest.Model, "claude-opus-4-7") ||
-			strings.HasPrefix(textRequest.Model, "claude-opus-4-8")) {
+		reasoning.ClaudeSupportsAdaptiveThinking(baseModel) {
 		claudeRequest.Model = baseModel
-		claudeRequest.Thinking = &dto.Thinking{
-			Type: "adaptive",
+		if err := reasoning.SetClaudeAdaptiveThinking(&claudeRequest, effortLevel); err != nil {
+			return nil, err
 		}
-		claudeRequest.OutputConfig = json.RawMessage(fmt.Sprintf(`{"effort":"%s"}`, effortLevel))
-		if strings.HasPrefix(baseModel, "claude-opus-4-7") ||
-			strings.HasPrefix(baseModel, "claude-opus-4-8") {
-			claudeRequest.Thinking.Display = "summarized"
-			claudeRequest.Temperature = nil
-			claudeRequest.TopP = nil
-			claudeRequest.TopK = nil
-		} else {
+		if !reasoning.ClaudeRequiresAdaptiveThinking(baseModel) {
 			claudeRequest.TopP = nil
 			claudeRequest.Temperature = kitutil.GetPointer[float64](1.0)
 		}
-	} else if opts.Claude.ThinkingAdapterEnabled &&
-		strings.HasSuffix(textRequest.Model, "-thinking") {
-
+	} else if opts.Claude.ThinkingAdapterEnabled && strings.HasSuffix(textRequest.Model, "-thinking") {
 		trimmedModel := strings.TrimSuffix(textRequest.Model, "-thinking")
-		if strings.HasPrefix(trimmedModel, "claude-opus-4-7") ||
-			strings.HasPrefix(trimmedModel, "claude-opus-4-8") {
-			claudeRequest.Thinking = &dto.Thinking{Type: "adaptive", Display: "summarized"}
-			claudeRequest.OutputConfig = json.RawMessage(`{"effort":"high"}`)
-			claudeRequest.Temperature = nil
-			claudeRequest.TopP = nil
-			claudeRequest.TopK = nil
+		if reasoning.ClaudeRequiresAdaptiveThinking(trimmedModel) {
+			if err := reasoning.SetClaudeAdaptiveThinking(&claudeRequest, ""); err != nil {
+				return nil, err
+			}
 		} else {
 			if claudeRequest.MaxTokens == nil || *claudeRequest.MaxTokens < 1280 {
 				claudeRequest.MaxTokens = kitutil.GetPointer[uint](1280)
 			}
-
 			claudeRequest.Thinking = &dto.Thinking{
 				Type:         "enabled",
 				BudgetTokens: kitutil.GetPointer[int](int(float64(*claudeRequest.MaxTokens) * opts.Claude.ThinkingAdapterBudgetTokensPercentage)),
@@ -169,38 +153,16 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 		}
 	}
 
-	if textRequest.ReasoningEffort != "" {
-		switch textRequest.ReasoningEffort {
-		case "low":
-			claudeRequest.Thinking = &dto.Thinking{
-				Type:         "enabled",
-				BudgetTokens: kitutil.GetPointer[int](1280),
-			}
-		case "medium":
-			claudeRequest.Thinking = &dto.Thinking{
-				Type:         "enabled",
-				BudgetTokens: kitutil.GetPointer[int](2048),
-			}
-		case "high":
-			claudeRequest.Thinking = &dto.Thinking{
-				Type:         "enabled",
-				BudgetTokens: kitutil.GetPointer[int](4096),
-			}
-		}
+	if err := reasoning.ApplyClaudeReasoningEffort(&claudeRequest, textRequest.ReasoningEffort); err != nil {
+		return nil, err
 	}
-
 	if textRequest.Reasoning != nil {
-		var reasoningConfig openRouterRequestReasoning
-		if err := kitutil.Unmarshal(textRequest.Reasoning, &reasoningConfig); err != nil {
+		var config openRouterRequestReasoning
+		if err := kitutil.Unmarshal(textRequest.Reasoning, &config); err != nil {
 			return nil, err
 		}
-
-		budgetTokens := reasoningConfig.MaxTokens
-		if budgetTokens > 0 {
-			claudeRequest.Thinking = &dto.Thinking{
-				Type:         "enabled",
-				BudgetTokens: &budgetTokens,
-			}
+		if err := reasoning.ApplyClaudeThinkingBudget(&claudeRequest, config.MaxTokens); err != nil {
+			return nil, err
 		}
 	}
 

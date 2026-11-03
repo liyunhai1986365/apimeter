@@ -1,0 +1,1102 @@
+{
+  "date": "2026-11-03",
+  "base_url": "https://www.yhapiplatform.com/v1",
+  "scope": "Direct upstream HTTP probe; gateway adapter not implemented or exercised",
+  "generated_videos": 0,
+  "human_verification_completed": false,
+  "api_requests": 40,
+  "http_counts": {
+    "200": 31,
+    "206": 1,
+    "500": 1,
+    "404": 7
+  },
+  "cleanup": {
+    "test_groups_deleted": true,
+    "baseline_group_count": 100,
+    "final_group_count": 100,
+    "verified_batch_asset_http_statuses": [
+      404,
+      404
+    ]
+  },
+  "not_verified": [
+    "gateway integration",
+    "actual face verification and real group creation",
+    "H5 CallbackURL behavior",
+    "new async endpoint webhook delivery",
+    "cross-token group transfer",
+    "video generation, 1080p, video billing and HTTP 402"
+  ],
+  "records": [
+    {
+      "label": "groups_baseline",
+      "method": "GET",
+      "path": "/assets/groups",
+      "http": 200,
+      "request": null,
+      "response_summary": {
+        "root_keys": [
+          "code",
+          "data"
+        ],
+        "data_kind": "list",
+        "item_count": 100,
+        "item_keys": [
+          "id",
+          "name",
+          "group_name",
+          "is_default",
+          "asset_count",
+          "token_id"
+        ]
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "real_groups_baseline",
+      "method": "GET",
+      "path": "/assets/real-person/groups",
+      "http": 200,
+      "request": null,
+      "response_summary": {
+        "root_keys": [
+          "code",
+          "data"
+        ],
+        "data_kind": "dict",
+        "item_count": 0,
+        "item_keys": []
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "group_create",
+      "method": "POST",
+      "path": "/assets/groups",
+      "http": 200,
+      "request": {
+        "name": "codex_yh_11031415_fd3bcd"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "group_name": "user-<redacted>-token-<redacted>-codex_yh_11031415_fd3bcd",
+          "group_id": 5510
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "group_find_created",
+      "method": "GET",
+      "path": "/assets/groups",
+      "http": 200,
+      "request": null,
+      "response_summary": {
+        "root_keys": [
+          "code",
+          "data"
+        ],
+        "data_kind": "list",
+        "item_count": 101,
+        "item_keys": [
+          "id",
+          "name",
+          "group_name",
+          "is_default",
+          "asset_count",
+          "token_id"
+        ]
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_async_create",
+      "method": "POST",
+      "path": "/assets/async",
+      "http": 200,
+      "request": {
+        "url": "<url redacted>",
+        "group_id": 5510,
+        "asset_type": "Image",
+        "name": "codex_yh_11031415_fd3bcd_image"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "group_id": 5510,
+          "id": "asset-20261103222626-5znq6",
+          "status": "Pending"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_poll",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 200,
+      "request": {
+        "id": "asset-20261103222626-5znq6"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "asset-20261103222626-5znq6",
+          "name": "codex_yh_11031415_fd3bcd_image",
+          "url": "",
+          "asset_url": "asset://asset-20261103222626-5znq6",
+          "asset_type": "Image",
+          "status": "Processing",
+          "create_time": "2026-11-03 22:26:30"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_poll",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 200,
+      "request": {
+        "id": "asset-20261103222626-5znq6"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "asset-20261103222626-5znq6",
+          "name": "codex_yh_11031415_fd3bcd_image",
+          "url": "<url redacted>",
+          "asset_url": "asset://asset-20261103222626-5znq6",
+          "asset_type": "Image",
+          "status": "Active",
+          "create_time": "2026-11-03 22:26:30"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_update",
+      "method": "POST",
+      "path": "/assets/update",
+      "http": 200,
+      "request": {
+        "id": "asset-20261103222626-5znq6",
+        "name": "codex_yh_11031415_fd3bcd_renamed"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "asset-20261103222626-5znq6"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_get_updated",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 200,
+      "request": {
+        "id": "asset-20261103222626-5znq6"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "asset-20261103222626-5znq6",
+          "name": "codex_yh_11031415_fd3bcd_renamed",
+          "url": "<url redacted>",
+          "asset_url": "asset://asset-20261103222626-5znq6",
+          "asset_type": "Image",
+          "status": "Active",
+          "create_time": "2026-11-03 22:26:30"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_list_test_group",
+      "method": "POST",
+      "path": "/assets/list",
+      "http": 200,
+      "request": {
+        "page_number": 1,
+        "page_size": 10,
+        "group_id": 5510
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "items": [
+            {
+              "id": "asset-20261103222626-5znq6",
+              "name": "codex_yh_11031415_fd3bcd_renamed",
+              "url": "<url redacted>",
+              "asset_url": "asset://asset-20261103222626-5znq6",
+              "asset_type": "Image",
+              "status": "Active",
+              "create_time": "2026-11-03 22:26:30"
+            }
+          ],
+          "total_count": 1,
+          "page_number": 1,
+          "page_size": 10
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_content_range",
+      "method": "GET",
+      "path": "/assets/asset-20261103222626-5znq6/content",
+      "http": 206,
+      "request": null,
+      "response": {
+        "non_json": true,
+        "content_type": "image/jpeg",
+        "size": 64
+      },
+      "headers": {
+        "Content-Type": "image/jpeg",
+        "content-range": "bytes 0-63/82429",
+        "accept-ranges": "bytes"
+      }
+    },
+    {
+      "label": "h5_create",
+      "method": "POST",
+      "path": "/assets/real-person/auth/link",
+      "http": 500,
+      "request": {
+        "artist_name": "codex_yh_11031415_fd3bcd",
+        "artist_desc": "API integration test; no human verification completed"
+      },
+      "response": {
+        "code": "error",
+        "message": "artist_name 最多支持 32 个字符。为保证火山侧 group 名称不超长，请缩短艺人名后重试"
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_batch_create",
+      "method": "POST",
+      "path": "/assets",
+      "http": 200,
+      "request": {
+        "group_id": 5510,
+        "asset_type": "Image",
+        "name": "codex_yh_11031415_fd3bcd_batch",
+        "urls": [
+          "<url redacted>",
+          "<url redacted>"
+        ]
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103142701-2f8b34a9",
+          "items": [
+            {
+              "source_url": "<url redacted>",
+              "status": "Processing"
+            },
+            {
+              "source_url": "<url redacted>",
+              "status": "Processing"
+            }
+          ],
+          "status": "Processing",
+          "task_id": "task-20261103142701-2f8b34a9",
+          "total": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103142701-2f8b34a9"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103142701-2f8b34a9",
+          "items": [
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:27:02",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:27:02",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103142701-2f8b34a9"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103142701-2f8b34a9",
+          "items": [
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:27:02",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:27:02",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103142701-2f8b34a9"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103142701-2f8b34a9",
+          "items": [
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:27:02",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:27:02",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103142701-2f8b34a9"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103142701-2f8b34a9",
+          "items": [
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Failed",
+              "create_time": "2026-11-03 22:27:02",
+              "error": "素材处理失败",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Failed",
+              "create_time": "2026-11-03 22:27:02",
+              "error": "素材处理失败",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103142701-2f8b34a9"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103142701-2f8b34a9",
+          "items": [
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Failed",
+              "create_time": "2026-11-03 22:27:02",
+              "error": "素材处理失败",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Failed",
+              "create_time": "2026-11-03 22:27:02",
+              "error": "素材处理失败",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_missing",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 404,
+      "request": {
+        "id": "asset-codex-missing-codex_yh_11031415_fd3bcd"
+      },
+      "response": {
+        "code": "error",
+        "message": "素材不存在"
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_missing",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 404,
+      "request": {
+        "batch_id": "task-codex-missing-codex_yh_11031415_fd3bcd"
+      },
+      "response": {
+        "code": "error",
+        "message": "批次不存在或无权访问"
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "video_missing_no_generation",
+      "method": "GET",
+      "path": "/video/generations/cgt-codex-missing-codex_yh_11031415_fd3bcd",
+      "http": 404,
+      "request": null,
+      "response": {
+        "error": {
+          "code": "NotFound",
+          "type": "Not Found",
+          "message": "The request failed because the task was not found.",
+          "param": "task_id"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "h5_create_short_name",
+      "method": "POST",
+      "path": "/assets/real-person/auth/link",
+      "http": 200,
+      "request": {
+        "artist_name": "yh2fbe8e"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "h5_url": "<redacted>",
+          "tip": "请让授权方在 120 秒内打开并完成认证，链接使用后失效"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "real_groups_after_session",
+      "method": "GET",
+      "path": "/assets/real-person/groups",
+      "http": 200,
+      "request": null,
+      "response_summary": {
+        "root_keys": [
+          "code",
+          "data"
+        ],
+        "data_kind": "dict",
+        "item_count": 0,
+        "item_keys": []
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "group_update",
+      "method": "POST",
+      "path": "/assets/groups/update",
+      "http": 200,
+      "request": {
+        "id": 5510,
+        "name": "codex_yh_11031415_fd3bcd_group"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "group_name": "user-<redacted>-token-<redacted>-codex_yh_11031415_fd3bcd_group",
+          "id": 5510
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "groups_after_update",
+      "method": "GET",
+      "path": "/assets/groups",
+      "http": 200,
+      "request": null,
+      "response_summary": {
+        "root_keys": [
+          "code",
+          "data"
+        ],
+        "data_kind": "list",
+        "item_count": 101,
+        "item_keys": [
+          "id",
+          "name",
+          "group_name",
+          "is_default",
+          "asset_count",
+          "token_id"
+        ]
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_legacy_async_create",
+      "method": "POST",
+      "path": "/assets",
+      "http": 200,
+      "request": {
+        "group_id": 5510,
+        "asset_type": "Image",
+        "name": "yh-test-image",
+        "url": "<url redacted>",
+        "upload_mode": "async"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "task-20261103143137-4c074f80",
+          "status": "Processing"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_poll",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 200,
+      "request": {
+        "id": "task-20261103143137-4c074f80"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "task-20261103143137-4c074f80",
+          "name": "yh-test-image",
+          "url": "<url redacted>",
+          "asset_url": "asset://task-20261103143137-4c074f80",
+          "asset_type": "Image",
+          "status": "Processing",
+          "create_time": "2026-11-03 22:31:38"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_poll",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 200,
+      "request": {
+        "id": "task-20261103143137-4c074f80"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "asset-20261103222704-dscp7",
+          "name": "yh-test-image",
+          "url": "<url redacted>",
+          "asset_url": "asset://asset-20261103222704-dscp7",
+          "asset_type": "Image",
+          "status": "Active",
+          "create_time": "2026-11-03 22:31:38"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103142701-2f8b34a9"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103142701-2f8b34a9",
+          "items": [
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Failed",
+              "create_time": "2026-11-03 22:27:02",
+              "error": "素材处理失败",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103142701-2f8b34a9",
+              "name": "codex_yh_11031415_fd3bcd_batch",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103142701-2f8b34a9",
+              "asset_type": "Image",
+              "status": "Failed",
+              "create_time": "2026-11-03 22:27:02",
+              "error": "素材处理失败",
+              "batch_id": "task-20261103142701-2f8b34a9",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_batch_valid_create",
+      "method": "POST",
+      "path": "/assets",
+      "http": 200,
+      "request": {
+        "group_id": 5510,
+        "asset_type": "Image",
+        "name": "yh-batch-valid",
+        "urls": [
+          "<url redacted>",
+          "<url redacted>"
+        ]
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103143340-dba65a4b",
+          "items": [
+            {
+              "source_url": "<url redacted>",
+              "status": "Processing"
+            },
+            {
+              "source_url": "<url redacted>",
+              "status": "Processing"
+            }
+          ],
+          "status": "Processing",
+          "task_id": "task-20261103143340-dba65a4b",
+          "total": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103143340-dba65a4b"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103143340-dba65a4b",
+          "items": [
+            {
+              "id": "task-20261103143340-dba65a4b",
+              "name": "yh-batch-valid",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103143340-dba65a4b",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:33:41",
+              "batch_id": "task-20261103143340-dba65a4b",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103143340-dba65a4b",
+              "name": "yh-batch-valid",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103143340-dba65a4b",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:33:41",
+              "batch_id": "task-20261103143340-dba65a4b",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103143340-dba65a4b"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103143340-dba65a4b",
+          "items": [
+            {
+              "id": "task-20261103143340-dba65a4b",
+              "name": "yh-batch-valid",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103143340-dba65a4b",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:33:41",
+              "batch_id": "task-20261103143340-dba65a4b",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "task-20261103143340-dba65a4b",
+              "name": "yh-batch-valid",
+              "url": "<url redacted>",
+              "asset_url": "asset://task-20261103143340-dba65a4b",
+              "asset_type": "Image",
+              "status": "Processing",
+              "create_time": "2026-11-03 22:33:41",
+              "batch_id": "task-20261103143340-dba65a4b",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_poll",
+      "method": "POST",
+      "path": "/assets/batch/get",
+      "http": 200,
+      "request": {
+        "batch_id": "task-20261103143340-dba65a4b"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "batch_id": "task-20261103143340-dba65a4b",
+          "items": [
+            {
+              "id": "asset-20261103222704-dscp7",
+              "name": "yh-batch-valid",
+              "url": "<url redacted>",
+              "asset_url": "asset://asset-20261103222704-dscp7",
+              "asset_type": "Image",
+              "status": "Active",
+              "create_time": "2026-11-03 22:33:41",
+              "batch_id": "task-20261103143340-dba65a4b",
+              "source_url": "<url redacted>"
+            },
+            {
+              "id": "asset-20261103223343-w77mz",
+              "name": "yh-batch-valid",
+              "url": "<url redacted>",
+              "asset_url": "asset://asset-20261103223343-w77mz",
+              "asset_type": "Image",
+              "status": "Active",
+              "create_time": "2026-11-03 22:33:41",
+              "batch_id": "task-20261103143340-dba65a4b",
+              "source_url": "<url redacted>"
+            }
+          ],
+          "total_count": 2
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_delete",
+      "method": "POST",
+      "path": "/assets/delete",
+      "http": 200,
+      "request": {
+        "id": "asset-20261103222626-5znq6"
+      },
+      "response": {
+        "code": "success",
+        "data": {
+          "id": "asset-20261103222626-5znq6"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_get_after_delete",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 404,
+      "request": {
+        "id": "asset-20261103222626-5znq6"
+      },
+      "response": {
+        "code": "error",
+        "message": "素材不存在"
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "asset_delete",
+      "method": "POST",
+      "path": "/assets/delete",
+      "http": 404,
+      "request": {
+        "id": "task-20261103143137-4c074f80"
+      },
+      "response": {
+        "error": {
+          "message": "素材不存在"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "group_delete",
+      "method": "POST",
+      "path": "/assets/groups/delete",
+      "http": 200,
+      "request": {
+        "id": 5510
+      },
+      "response": {
+        "code": "success"
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "groups_after_cleanup",
+      "method": "GET",
+      "path": "/assets/groups",
+      "http": 200,
+      "request": null,
+      "response_summary": {
+        "root_keys": [
+          "code",
+          "data"
+        ],
+        "data_kind": "list",
+        "item_count": 100,
+        "item_keys": [
+          "id",
+          "name",
+          "group_name",
+          "is_default",
+          "asset_count",
+          "token_id"
+        ]
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_asset_get_after_group_delete",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 404,
+      "request": {
+        "id": "asset-20261103222704-dscp7"
+      },
+      "response": {
+        "error": {
+          "message": "素材不存在"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    },
+    {
+      "label": "batch_asset_get_after_group_delete",
+      "method": "POST",
+      "path": "/assets/get",
+      "http": 404,
+      "request": {
+        "id": "asset-20261103223343-w77mz"
+      },
+      "response": {
+        "error": {
+          "message": "素材不存在"
+        }
+      },
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8"
+      }
+    }
+  ]
+}
