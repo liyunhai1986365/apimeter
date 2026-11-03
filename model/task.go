@@ -113,6 +113,7 @@ func (m Properties) Value() (driver.Value, error) {
 }
 
 type TaskPrivateData struct {
+	SeedanceDraft  bool   `json:"seedance_draft,omitempty"`
 	OfficialTaskID string `json:"official_task_id,omitempty"` // 火山原始 ID；中转供应商查询仍使用 UpstreamTaskID
 
 	Key            string `json:"key,omitempty"`

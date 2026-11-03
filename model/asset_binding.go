@@ -36,16 +36,21 @@ var assetDeletions singleflight.Group
 // enforces one owner per upstream handle, including concurrent registrations.
 // StateValue holds the owner, allowing portable queries without JSON SQL.
 type AssetBinding struct {
-	ChannelID   int    `json:"channel_id"`
-	UserID      int    `json:"user_id"`
-	Backend     string `json:"backend"`
-	Scope       string `json:"scope"`
-	Kind        string `json:"kind"`
-	ID          string `json:"id,omitempty"`
-	CanonicalID string `json:"canonical_id,omitempty"`
-	Project     string `json:"project,omitempty"`
-	GroupID     string `json:"group_id,omitempty"`
-	ExpiresAt   int64  `json:"expires_at,omitempty"`
+	ChannelID        int    `json:"channel_id"`
+	UserID           int    `json:"user_id"`
+	Backend          string `json:"backend"`
+	Scope            string `json:"scope"`
+	Kind             string `json:"kind"`
+	ID               string `json:"id,omitempty"`
+	CanonicalID      string `json:"canonical_id,omitempty"`
+	Project          string `json:"project,omitempty"`
+	GroupID          string `json:"group_id,omitempty"`
+	ExpiresAt        int64  `json:"expires_at,omitempty"`
+	UploadBatch      bool   `json:"upload_batch,omitempty"`
+	GroupType        string `json:"group_type,omitempty"`
+	SessionName      string `json:"session_name,omitempty"`
+	SessionGroupID   string `json:"session_group_id,omitempty"`
+	SessionCreatedAt int64  `json:"session_created_at,omitempty"`
 }
 
 func assetBindingKey(id string) string { return fmt.Sprintf("%x", sha256.Sum256([]byte(id))) }
@@ -322,13 +327,32 @@ func saveAssetBinding(tx *gorm.DB, binding AssetBinding, lifecycle *assetBinding
 	if stored.Status != ConfigurableResourceStateStatusActive {
 		return ErrAssetRevoked
 	}
-	// Do not extend a session's expiry on a repeated query/registration.
-	if binding.Kind == "session" {
-		return nil
-	}
 	var existing AssetBinding
 	if err := common.UnmarshalJsonStr(stored.Metadata, &existing); err != nil {
 		return err
+	}
+	if binding.Kind == "session" {
+		// Session completion and its group registrations share this transaction.
+		// Never extend expiry or replace an already established association.
+		if binding.SessionGroupID == "" {
+			return nil
+		}
+		if existing.ExpiresAt <= now || existing.SessionName != binding.SessionName ||
+			(existing.SessionGroupID != "" && existing.SessionGroupID != binding.SessionGroupID) {
+			return ErrAssetNotOwned
+		}
+		existing.SessionGroupID = binding.SessionGroupID
+		metadata, err = common.Marshal(existing)
+		if err != nil {
+			return err
+		}
+		return tx.Model(stored).Updates(map[string]any{"metadata": string(metadata), "updated_at": now}).Error
+	}
+	if existing.GroupType != "" && binding.GroupType != "" && existing.GroupType != binding.GroupType {
+		return ErrAssetNotOwned
+	}
+	if existing.GroupType == "" {
+		existing.GroupType = binding.GroupType
 	}
 	if (existing.Project != "" && binding.Project != "" && existing.Project != binding.Project) ||
 		(existing.GroupID != "" && binding.GroupID != "" && existing.GroupID != binding.GroupID) {
@@ -384,7 +408,7 @@ func registerAssetBindings(db *gorm.DB, bindings []AssetBinding, legacy bool) er
 		if binding.UserID <= 0 || binding.ChannelID <= 0 || binding.Scope == "" || binding.ID == "" {
 			return fmt.Errorf("invalid asset binding")
 		}
-		if binding.Kind != "asset" && binding.Kind != "group" && binding.Kind != "task" && (legacy || binding.Kind != "session") {
+		if binding.Kind != "asset" && binding.Kind != "group" && binding.Kind != "task" && (legacy || (binding.Kind != "session" && binding.Kind != "batch")) {
 			return fmt.Errorf("unsupported asset kind")
 		}
 		if seen[binding] {

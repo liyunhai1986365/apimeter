@@ -85,6 +85,9 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 	if tooDeep {
 		return fmt.Errorf("asset reference nesting exceeds 128 levels")
 	}
+	if err := lockYHDraftVideoChannel(c, info, body); err != nil {
+		return err
+	}
 	if len(ids) == 0 {
 		return nil
 	}
@@ -222,8 +225,25 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 			matches++
 			candidate, candidateGroup = ch, channelGroup
 			candidateProject = binding.Project
-			if profile.ID == "seedance-tgxmaas" {
+			if profile.ID == "seedance-tgxmaas" || configurable.IsYHProfile(profile.ID) {
 				canonicalID = binding.CanonicalID
+			}
+			if configurable.IsYHProfile(profile.ID) {
+				if configurable.YHURL(assetBaseURL(ch), "/v1/") != configurable.YHURL(ch.GetBaseURL(), "/v1/") {
+					return fmt.Errorf("YH video and asset references require the same upstream endpoint")
+				}
+				if ch.ChannelInfo.IsMultiKey {
+					return fmt.Errorf("YH video asset references require a single upstream key")
+				}
+				if cfg := assetLibrary(ch); cfg != nil && cfg.AuthMode == "api_key" {
+					credentials, err := ch.GetAssetCredentials()
+					if err != nil {
+						return err
+					}
+					if credentials.APIKey != ch.Key {
+						return fmt.Errorf("YH video and asset references require the same API key")
+					}
+				}
 			}
 		}
 		if matches != 1 {

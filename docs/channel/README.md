@@ -6,7 +6,7 @@
 
 - 配置渠道：先看 [可配置协议 Profile](guides/configurable_protocol_profile.md)，再选择 [独立素材库后端](guides/seedance_asset_backends.md)。
 - 调用图片、视频接口：先看 [通用生成接口](guides/generic_media_generation.md)；Seedance 编辑、延长和多模态参考见 [全模态参考任务](guides/seedance_omni_reference.md)。
-- 查最近一次真实上游测试：看 [2026-10-27 双渠道素材与视频实测](reports/live/dual_channel_assets_video_live_20261027.md)。
+- 查最近一次真实上游测试：看 [2026-11-04 YH 素材 300 并发及视频测试](reports/live/yh_assets_video_300_20261104.md)，包含限流恢复、分页修复和两个真实视频；其他入口见 [YH 非生成接口测试](reports/live/yh_non_generation_mysql_20261104.md)。
 - 查大存量并发测试：看 [2026-10-27 列表修复复测](reports/load/assets_mock_100k_100users_1000_fixed_20261027.md)，并对照同场景的 [修复前报告](reports/load/assets_mock_100k_100users_1000_20261027.md)。
 
 ## 目录约定
@@ -31,6 +31,7 @@
 | [渠道独立素材库](guides/seedance_asset_backends.md) | 素材后端选择、凭据、Action 入口和归属隔离 |
 | [方舟兼容素材库](guides/ark_compatible_assets.md) | 自定义方舟兼容后端及 MoreRouter 配置 |
 | [Seedance 全模态参考任务](guides/seedance_omni_reference.md) | 视频编辑、延长、参考媒体和原生／通用请求 |
+| [YH Seedance 接入](guides/seedance_yh.md) | 官方视频、素材 Action、H5、批量上传与下载，附当前验收边界 |
 | [TgxMaas 协议档案](guides/seedance_tgxmaas_profile.md) | 视频、素材、项目、分页和原始 ID 兼容 |
 | [有你有剧接入](guides/youniyouju_assets.md) | 视频与素材配置、Token 鉴权及接口边界 |
 | [Hanxingtu 素材库](guides/hanxingtu_assets.md) | 七项素材操作、权限及引用素材生成视频 |
@@ -44,7 +45,7 @@
 | [统一素材管理设计](design/seedance_unified_asset_design.md) | 2026-09-28 | 暂定方案，包含统一 ID、跨渠道同步和素材准备流程 |
 | [多渠道共享素材库问题](design/asset_shared_library_issue.md) | 2026-10-08 | 当时记录的能力限制、候选方案和验收范围 |
 | [方舟兼容素材库配置方案](design/ark_compatible_asset_config_plan.md) | 2026-10-26 | 完整设计方向；首版可用配置见 [使用说明](guides/ark_compatible_assets.md) |
-| [YH Seedance 渠道接入规划](design/seedance_yh_integration_plan.md) | 2026-11-03 | 方案阶段：官方视频协议、素材 Action、真人 H5 认证与供应商扩展映射 |
+| [YH Seedance 渠道接入规划](design/seedance_yh_integration_plan.md) | 2026-11-03 | 设计及实施状态：核心已实现，Webhook 中继与跨 Token 转移待续 |
 
 ## 审查与修复记录
 
@@ -68,6 +69,10 @@
 
 | 日期 | 报告 | 配套数据 |
 | --- | --- | --- |
+| 2026-11-04 | [YH 2.5 末帧直连验证](reports/live/yh_last_frame_direct_20261104.md)：直接新建一个任务，成功响应仍无末帧地址 | [JSON](reports/live/yh_last_frame_direct_20261104.json) |
+| 2026-11-04 | [YH 素材 300 并发及视频实测](reports/live/yh_assets_video_300_20261104.md)：300 并发查询、创建限流恢复、分页修复，2.0／2.5 各一个视频，含末帧交付限制 | [JSON](reports/live/yh_assets_video_300_20261104.json) |
+| 2026-11-04 | [YH 非生成接口测试](reports/live/yh_non_generation_mysql_20261104.md)：180 次请求、三种媒体素材、上传、权限、H5 与视频只读入口，含未验收项 | [JSON](reports/live/yh_non_generation_mysql_20261104.json) |
+| 2026-11-04 | [YH 素材 300 并发与 MySQL 实测](reports/live/yh_assets_300_mysql_20261104.md)：编译后完整网关，300 个素材全部 Active | [JSON](reports/live/yh_assets_300_mysql_20261104.json) |
 | 2026-11-03 | [YH 素材库与 H5 接口探测](reports/live/yh_assets_probe_20261103.md)：供应商直连，未生成视频 | [JSON](reports/live/yh_assets_probe_20261103.json) |
 | 2026-10-27 | [双渠道素材并发与视频实测](reports/live/dual_channel_assets_video_live_20261027.md)：20 用户、200 素材、4 个视频 | [JSON](reports/live/dual_channel_assets_video_live_20261027.json) |
 | 2026-10-26 | [MoreRouter 素材接口与 200 并发实测](reports/live/morerouter_assets_live_200_20261026.md) | [JSON](reports/live/morerouter_assets_live_200_20261026.json) |
@@ -92,6 +97,7 @@
 
 | 日期 | 报告／说明 | 配套数据 |
 | --- | --- | --- |
+| 2026-11-03 | [YH 集成与本地回归](reports/load/yh_integration_20261103.md) | 视频、H5 并发、批量上传、归属及 Range 验证；未生成真实视频 |
 | 2026-10-27 | 100 用户、10 万素材、1000 并发：[列表失败诊断](reports/load/assets_mock_100k_100users_1000_20261027.md) → [修复复测](reports/load/assets_mock_100k_100users_1000_fixed_20261027.md) | [修复前](reports/load/assets_mock_100k_100users_1000_20261027.json)、[修复后](reports/load/assets_mock_100k_100users_1000_fixed_20261027.json) |
 | 2026-10-26 | 10 万素材、1000 并发：[优化前](reports/load/assets_mock_100k_1000_20261026.md) → [优化后](reports/load/assets_mock_100k_1000_optimized_20261026.md) | [优化前](reports/load/assets_mock_100k_1000_20261026.json)、[优化后](reports/load/assets_mock_100k_1000_optimized_20261026.json) |
 | 2026-10-11 | [1000 个素材创建与轮询](reports/load/asset_load_1000_20261011.md) | [JSON](reports/load/asset_load_1000_20261011.json) |

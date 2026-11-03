@@ -44,7 +44,7 @@ func assetIdentityRefs(refs map[string]AssetBinding, binding AssetBinding) {
 	if binding.Kind == "group" && binding.ID != "" {
 		add("group", binding.ID)
 	}
-	if assetBindingKind(binding.Kind) == "asset" && binding.GroupID != "" {
+	if (assetBindingKind(binding.Kind) == "asset" || binding.Kind == "batch") && binding.GroupID != "" {
 		add("group", binding.GroupID)
 	}
 }
@@ -155,7 +155,7 @@ func loadAssetBindingHistory(db *gorm.DB, refs map[string]AssetBinding) (assetBi
 							continue
 						}
 						node.revoked = node.revoked || state.Status != ConfigurableResourceStateStatusActive
-						if assetBindingKind(binding.Kind) == "asset" && binding.GroupID != "" {
+						if (assetBindingKind(binding.Kind) == "asset" || binding.Kind == "batch") && binding.GroupID != "" {
 							node.parents[binding.GroupID] = true
 						}
 						if binding.Kind == "group" && assetCanonicalID(binding) != node.ref.ID {

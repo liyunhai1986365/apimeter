@@ -43,13 +43,14 @@ type assetAccessRequest struct {
 // specified here; provider transport/response mappings stay in the profiles.
 func assetResourceOperation(id string) (assetOperation, bool) {
 	operations := map[string]assetOperation{
+		"yh_uploads_create": {"batch", "create"}, "yh_uploads_get": {"batch", "get"},
 		"asset_groups_create": {"group", "create"}, "asset_groups_list": {"group", "list"},
 		"asset_groups_get": {"group", "get"}, "asset_group_detail": {"group", "get"},
 		"asset_groups_update": {"group", "update"}, "asset_groups_delete": {"group", "delete"},
 		"assets_create": {"asset", "create"}, "assets_upload": {"asset", "create"},
 		"material_assets": {"asset", "create"}, "max_assets_create": {"asset", "create"},
 		"assets_list": {"asset", "list"}, "material_assets_list": {"asset", "list"},
-		"assets_get": {"asset", "get"}, "asset_detail": {"asset", "get"},
+		"assets_content": {"asset", "get"}, "assets_get": {"asset", "get"}, "asset_detail": {"asset", "get"},
 		"asset_query": {"asset", "get"}, "material_asset_detail": {"asset", "get"}, "max_assets_get": {"asset", "get"},
 		"assets_update": {"asset", "update"}, "assets_delete": {"asset", "delete"},
 		"asset_delete": {"asset", "delete"}, "material_asset_delete": {"asset", "delete"},
@@ -299,7 +300,11 @@ func resolveAssetAccountScope(ctx context.Context, ch *model.Channel, profile *c
 	if auth == "channel_key" && ch.ChannelInfo.IsMultiKey {
 		return "", fmt.Errorf("asset libraries require dedicated credentials for multi-key channels")
 	}
-	endpoint := profile.ID + "\x00" + strings.TrimRight(assetBaseURL(ch), "/") + "\x00" + auth
+	base := strings.TrimRight(assetBaseURL(ch), "/")
+	if configurable.IsYHProfile(profile.ID) {
+		base = strings.TrimSuffix(base, "/v1")
+	}
+	endpoint := profile.ID + "\x00" + base + "\x00" + auth
 	if profile.ID == configurable.ArkCompatibleAssetBackend {
 		endpoint += "\x00" + configurable.ArkCompatibleAssetEndpoint(assetLibrary(ch), "")
 	}
@@ -630,6 +635,12 @@ func rememberAssetResponse(c *gin.Context, resource *configurable.ResourceConfig
 	}
 	ids := assetResponseStrings(body, fields...)
 	binding := model.AssetBinding{ChannelID: a.channel.Id, UserID: common.GetContextKeyInt(c, constant.ContextKeyUserId), Backend: a.profile.ID, Scope: a.scope, Kind: kind, Project: a.project, GroupID: a.groupID}
+	if configurable.IsYHProfile(a.profile.ID) {
+		binding.GroupType = gjson.GetBytes(body, "GroupType").String()
+		if binding.GroupType == "" {
+			binding.GroupType = gjson.GetBytes(body, "Result.GroupType").String()
+		}
+	}
 	if kind == "session" {
 		binding.ExpiresAt = common.GetTimestamp() + 30*60
 	}

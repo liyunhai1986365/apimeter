@@ -44,6 +44,7 @@ func SetVideoRouter(router *gin.Engine) {
 		videoV1Router.GET("/videos/:task_id", middleware.DistributeVideoTaskFetch(), controller.RelayTaskFetch)
 	}
 
+	router.GET("/api/v3/contents/generations/tasks", middleware.RouteTag("relay"), middleware.TokenAuth(), controller.ListYHVideoTasks)
 	registerConfigurableNativeRoutes(router)
 
 	klingV2Router := router.Group("/kling/v2")

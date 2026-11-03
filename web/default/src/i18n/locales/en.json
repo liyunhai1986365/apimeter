@@ -7019,6 +7019,8 @@
     "Use separate API key": "Use separate API key",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.",
     "ProjectName is required for this asset library": "ProjectName is required for this asset library",
-    "Hanxingtu assets (7 operations, Token)": "Hanxingtu assets (7 operations, Token)"
+    "Hanxingtu assets (7 operations, Token)": "Hanxingtu assets (7 operations, Token)",
+    "YH assets (Token and H5)": "YH assets (Token and H5)",
+    "Use the same YH API key for video generation and its referenced assets.": "Use the same YH API key for video generation and its referenced assets."
   }
 }

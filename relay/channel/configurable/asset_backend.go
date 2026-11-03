@@ -7,6 +7,9 @@ const YouniyoujuAssetBackend = "youniyouju"
 const YouniyoujuAssetPath = "/api/volcengine_asset"
 const HanxingtuAssetBackend = "hanxingtu"
 const ArkCompatibleAssetBackend = "ark-compatible"
+const YHAssetBackend = "yh"
+
+func IsYHProfile(id string) bool { return id == "seedance-yh" || id == YHAssetBackend }
 
 // Action backends carry resource IDs in JSON and preserve provider IDs directly.
 // Authentication remains a separate, backend-specific setting.
@@ -16,6 +19,7 @@ func IsAssetActionBackend(backend string) bool {
 
 // Asset backends reuse existing resource contracts without changing video routes.
 var AssetBackendProfiles = map[string]string{
+	YHAssetBackend:          "seedance-yh",
 	HanxingtuAssetBackend:   "hanxingtu",
 	"tgxmaas":               "seedance-tgxmaas",
 	"task":                  "seedance2-ark-task-assets",

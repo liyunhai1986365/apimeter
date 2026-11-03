@@ -1,0 +1,2087 @@
+{
+  "date": "2026-11-04",
+  "gateway_contract": "ByteDance Seedance/Ark compatible",
+  "base_commit": "98dab3fcd",
+  "uncommitted_workspace": true,
+  "environment": {
+    "mysql": "5.7.43-log",
+    "sql_max_open_connections": 30,
+    "redis_enabled": false,
+    "memory_cache_enabled": false,
+    "automatic_channel_tests": false,
+    "gateway_port": 19106,
+    "initial_binary_sha256": "7f0e569c2274243fff8bc920cd1176f84dab3f8ddb604d5d1f770fdfc6d2372f",
+    "fixed_binary_sha256": "237e78cf3909ce22aba36f0107f60576ab475448fb7a09e6341da886b9e63f0c"
+  },
+  "scope": {
+    "assets": 300,
+    "create_concurrency": 300,
+    "poll_concurrency": 300,
+    "video_creates": 2,
+    "video_seconds": 5,
+    "asset_counts_per_video": [
+      1,
+      3
+    ]
+  },
+  "asset_upload": {
+    "initial": {
+      "created_at": "2026-11-04 01:04:23 +0800",
+      "concurrency": 300,
+      "poll_concurrency": 300,
+      "accepted_requests": 201,
+      "unique_create_ids": 201,
+      "unique_returned_ids": 201,
+      "request_states": {
+        "Active": 201,
+        "create_failed": 99
+      },
+      "unique_states": {
+        "Active": 201
+      },
+      "poll_rounds": 3,
+      "metrics": {
+        "create": {
+          "requests": 300,
+          "http": {
+            "500": 99,
+            "200": 201
+          },
+          "errors": {
+            "{\"Code\": \"upstream_error\", \"Message\": \"上游返回错误: {\\\"code\\\":429,\\\"message\\\":\\\"当前IP请求频率超限\\\"}\"}": 99
+          },
+          "peak_in_flight": 300,
+          "p50_seconds": 12.41185474395752,
+          "p95_seconds": 13.135578632354736,
+          "p99_seconds": 13.213796615600586,
+          "max_seconds": 13.32613754272461,
+          "wall_seconds": 13.373251914978027
+        },
+        "poll": {
+          "requests": 603,
+          "http": {
+            "200": 603
+          },
+          "errors": {},
+          "peak_in_flight": 201,
+          "p50_seconds": 3.87335467338562,
+          "p95_seconds": 5.7057483196258545,
+          "p99_seconds": 5.797321081161499,
+          "max_seconds": 5.9772772789001465,
+          "wall_seconds": 27.521599054336548
+        },
+        "health": {
+          "requests": 41,
+          "http": {
+            "200": 41
+          },
+          "errors": {},
+          "peak_in_flight": 1,
+          "p50_seconds": 0.0021371841430664062,
+          "p95_seconds": 0.00436854362487793,
+          "p99_seconds": 0.007688283920288086,
+          "max_seconds": 0.007688283920288086,
+          "wall_seconds": 40.11335372924805
+        }
+      },
+      "mysql_monitor": {
+        "samples": 60,
+        "errors": 0,
+        "lock_wait_peak": 0,
+        "db_connections_peak": 30,
+        "transaction_age_seconds_peak": 0
+      },
+      "sources": [
+        "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/fruits.jpg",
+        "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/baboon.jpg",
+        "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/butterfly.jpg"
+      ],
+      "video_generation_requests": 0,
+      "create_to_terminal_max_seconds": 40.962530851364136
+    },
+    "recovery": {
+      "requests": 99,
+      "http": {
+        "200": 99
+      },
+      "errors": {},
+      "peak_in_flight": 30,
+      "p50_seconds": 4.275468111038208,
+      "p95_seconds": 5.593253135681152,
+      "p99_seconds": 5.774594783782959,
+      "max_seconds": 5.774594783782959,
+      "wall_seconds": 17.409215927124023
+    },
+    "reconciliation": {
+      "returned_count": 201,
+      "known_count": 201,
+      "ids_match": true
+    },
+    "final_unique_assets": 300,
+    "final_states": {
+      "Active": 300
+    },
+    "poll_300": {
+      "requests": 600,
+      "http": {
+        "200": 600
+      },
+      "errors": {},
+      "p50_seconds": 1.0901575088500977,
+      "p95_seconds": 6.441621780395508,
+      "p99_seconds": 6.757231950759888,
+      "max_seconds": 6.951473712921143,
+      "wall_seconds": 16.851139545440674,
+      "peak_in_flight": 300,
+      "rounds": 2
+    },
+    "health": {
+      "requests": 76,
+      "http": {
+        "200": 76
+      },
+      "errors": {},
+      "peak_in_flight": 1,
+      "p50_seconds": 0.0020949840545654297,
+      "p95_seconds": 0.006141185760498047,
+      "p99_seconds": 0.007688283920288086,
+      "max_seconds": 0.007688283920288086,
+      "wall_seconds": 537.6354556083679
+    },
+    "mysql_monitor": {
+      "samples": 111,
+      "errors": 0,
+      "lock_wait_peak": 0,
+      "db_connections_peak": 30,
+      "transaction_age_seconds_peak": 0
+    }
+  },
+  "pagination": {
+    "upstream_observed_pages": [
+      {
+        "page": 1,
+        "http": 200,
+        "keys": [
+          "items",
+          "total_count",
+          "page_number",
+          "page_size"
+        ],
+        "count": 100,
+        "total_count": 100
+      },
+      {
+        "page": 2,
+        "http": 200,
+        "keys": [
+          "items",
+          "total_count",
+          "page_number",
+          "page_size"
+        ],
+        "count": 100,
+        "total_count": 100
+      },
+      {
+        "page": 3,
+        "http": 200,
+        "keys": [
+          "items",
+          "total_count",
+          "page_number",
+          "page_size"
+        ],
+        "count": 1,
+        "total_count": 1
+      }
+    ],
+    "fixed_gateway_validation": {
+      "pages": [
+        {
+          "page": 1,
+          "http": 200,
+          "returned": 100,
+          "total": 300,
+          "seconds": 1.80320405960083
+        },
+        {
+          "page": 2,
+          "http": 200,
+          "returned": 100,
+          "total": 300,
+          "seconds": 1.616048812866211
+        },
+        {
+          "page": 3,
+          "http": 200,
+          "returned": 100,
+          "total": 300,
+          "seconds": 1.620143175125122
+        },
+        {
+          "page": 4,
+          "http": 200,
+          "returned": 0,
+          "total": 300,
+          "seconds": 1.5896835327148438
+        }
+      ],
+      "unique_ids": 300,
+      "matches_created": true
+    },
+    "regression_test": "TestYHAssetListWithPageLocalTotal",
+    "targeted_tests": "go test ./controller -run Test(YH|AssetList) -count=1",
+    "tests_passed": true
+  },
+  "videos": [
+    {
+      "slot": "seedance_2_0_one_asset",
+      "case": "seedance_2_0_one_asset",
+      "asset_indices": [
+        0
+      ],
+      "asset_ids": [
+        "asset-20261104010336-2bgp6"
+      ],
+      "model": "doubao-seedance-2-0-260128",
+      "request": {
+        "model": "doubao-seedance-2-0-260128",
+        "content": [
+          {
+            "type": "text",
+            "text": "保持参考图片中水果的构图，镜头缓慢推进，柔和的自然光轻微变化，画面真实自然，不添加文字。"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "asset://asset-20261104010336-2bgp6"
+            },
+            "role": "first_frame"
+          }
+        ],
+        "duration": 5,
+        "ratio": "adaptive",
+        "generate_audio": false,
+        "resolution": "720p",
+        "seed": 0,
+        "watermark": false,
+        "camera_fixed": false,
+        "return_last_frame": false
+      },
+      "state": "succeeded",
+      "attempts": [
+        {
+          "kind": "submit",
+          "method": "POST",
+          "path": "/api/v3/contents/generations/tasks",
+          "http": 200,
+          "started_at": 1793726047.7427711,
+          "seconds": 12.93803882598877,
+          "error": "",
+          "request": {
+            "model": "doubao-seedance-2-0-260128",
+            "content": [
+              {
+                "type": "text",
+                "text": "保持参考图片中水果的构图，镜头缓慢推进，柔和的自然光轻微变化，画面真实自然，不添加文字。"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "asset://asset-20261104010336-2bgp6"
+                },
+                "role": "first_frame"
+              }
+            ],
+            "duration": 5,
+            "ratio": "adaptive",
+            "generate_audio": false,
+            "resolution": "720p",
+            "seed": 0,
+            "watermark": false,
+            "camera_fixed": false,
+            "return_last_frame": false
+          },
+          "response": {
+            "id": "cgt-20261104011404-odcst"
+          }
+        }
+      ],
+      "id": "cgt-20261104011404-odcst",
+      "last_query": {
+        "kind": "poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20261104011404-odcst",
+        "http": 200,
+        "started_at": 1793726424.406866,
+        "seconds": 0.5663824081420898,
+        "error": "",
+        "request": null,
+        "response": {
+          "content": {
+            "video_url": "<url>"
+          },
+          "created_at": 1793726060,
+          "duration": 5,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "cgt-20261104011404-odcst",
+          "model": "doubao-seedance-2-0-260128",
+          "ratio": "1:1",
+          "resolution": "720p",
+          "status": "succeeded",
+          "updated_at": 1793726413,
+          "usage": {
+            "total_tokens": 114345,
+            "completion_tokens": 114345
+          }
+        }
+      },
+      "result": {
+        "content": {
+          "video_url": "<url>"
+        },
+        "created_at": 1793726060,
+        "duration": 5,
+        "framespersecond": 24,
+        "generate_audio": false,
+        "id": "cgt-20261104011404-odcst",
+        "model": "doubao-seedance-2-0-260128",
+        "ratio": "1:1",
+        "resolution": "720p",
+        "status": "succeeded",
+        "updated_at": 1793726413,
+        "usage": {
+          "total_tokens": 114345,
+          "completion_tokens": 114345
+        }
+      },
+      "terminal_at": 1793726424.9736793,
+      "download": {
+        "bytes": 1826236,
+        "sha256": "0d03037d438549d944d1446020a15592e9ce0271b4d306011e021d88a9d33cd2",
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 5.042,
+        "width": 960.0,
+        "height": 960.0,
+        "slot": "seedance_2_0_one_asset",
+        "http": 200,
+        "content_type": "video/mp4",
+        "seconds": 4.998647451400757,
+        "file": "seedance_2_0_one_asset.mp4",
+        "duration_matches": true
+      }
+    },
+    {
+      "slot": "seedance_2_5_three_assets",
+      "case": "seedance_2_5_three_assets",
+      "asset_indices": [
+        0,
+        1,
+        2
+      ],
+      "asset_ids": [
+        "asset-20261104010336-2bgp6",
+        "asset-20261104010336-d99pn",
+        "asset-20261104011152-622xb"
+      ],
+      "model": "doubao-seedance-2-5-260628",
+      "request": {
+        "model": "doubao-seedance-2-5-260628",
+        "content": [
+          {
+            "type": "text",
+            "text": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "asset://asset-20261104010336-2bgp6"
+            },
+            "role": "reference_image"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "asset://asset-20261104010336-d99pn"
+            },
+            "role": "reference_image"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "asset://asset-20261104011152-622xb"
+            },
+            "role": "reference_image"
+          }
+        ],
+        "duration": 5,
+        "ratio": "adaptive",
+        "generate_audio": false,
+        "resolution": "1080p",
+        "seed": 0,
+        "watermark": false,
+        "return_last_frame": true,
+        "execution_expires_after": 3600,
+        "service_tier": "default",
+        "draft": false,
+        "output_format": "mp4"
+      },
+      "state": "succeeded",
+      "attempts": [
+        {
+          "kind": "submit",
+          "method": "POST",
+          "path": "/api/v3/contents/generations/tasks",
+          "http": 200,
+          "started_at": 1793726060.6813078,
+          "seconds": 6.398846864700317,
+          "error": "",
+          "request": {
+            "model": "doubao-seedance-2-5-260628",
+            "content": [
+              {
+                "type": "text",
+                "text": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "asset://asset-20261104010336-2bgp6"
+                },
+                "role": "reference_image"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "asset://asset-20261104010336-d99pn"
+                },
+                "role": "reference_image"
+              },
+              {
+                "type": "image_url",
+                "image_url": {
+                  "url": "asset://asset-20261104011152-622xb"
+                },
+                "role": "reference_image"
+              }
+            ],
+            "duration": 5,
+            "ratio": "adaptive",
+            "generate_audio": false,
+            "resolution": "1080p",
+            "seed": 0,
+            "watermark": false,
+            "return_last_frame": true,
+            "execution_expires_after": 3600,
+            "service_tier": "default",
+            "draft": false,
+            "output_format": "mp4"
+          },
+          "response": {
+            "id": "cgt-20261104011410-hhzkc"
+          }
+        }
+      ],
+      "id": "cgt-20261104011410-hhzkc",
+      "last_query": {
+        "kind": "poll",
+        "method": "GET",
+        "path": "/api/v3/contents/generations/tasks/cgt-20261104011410-hhzkc",
+        "http": 200,
+        "started_at": 1793726176.375649,
+        "seconds": 0.4629065990447998,
+        "error": "",
+        "request": null,
+        "response": {
+          "content": {
+            "video_url": "<url>"
+          },
+          "created_at": 1793726067,
+          "duration": 5,
+          "framespersecond": 24,
+          "generate_audio": false,
+          "id": "cgt-20261104011410-hhzkc",
+          "model": "doubao-seedance-2-5-260628",
+          "ratio": "16:9",
+          "resolution": "1080p",
+          "status": "succeeded",
+          "updated_at": 1793726175,
+          "usage": {
+            "total_tokens": 257277,
+            "completion_tokens": 257277
+          }
+        }
+      },
+      "result": {
+        "content": {
+          "video_url": "<url>"
+        },
+        "created_at": 1793726067,
+        "duration": 5,
+        "framespersecond": 24,
+        "generate_audio": false,
+        "id": "cgt-20261104011410-hhzkc",
+        "model": "doubao-seedance-2-5-260628",
+        "ratio": "16:9",
+        "resolution": "1080p",
+        "status": "succeeded",
+        "updated_at": 1793726175,
+        "usage": {
+          "total_tokens": 257277,
+          "completion_tokens": 257277
+        }
+      },
+      "terminal_at": 1793726176.8387673,
+      "download": {
+        "slot": "seedance_2_5_three_assets",
+        "http": 200,
+        "content_type": "video/mp4",
+        "seconds": 2.985201597213745,
+        "bytes": 6663254,
+        "sha256": "4baf09c73fa2ab112a6d24bfa007850350f133c131ca4ab193cc3ae43fcbf2a5",
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 5.042,
+        "width": 1920.0,
+        "height": 1080.0,
+        "file": "seedance_2_5_three_assets.mp4",
+        "duration_matches": true
+      }
+    }
+  ],
+  "upstream_video_response_shape": [
+    {
+      "task_id": "task_uTooJVNU5V7RpcGXFC98q2wP0LIXRNnL",
+      "status": "SUCCESS",
+      "quota": "500",
+      "upstream_result_fields": [
+        "model",
+        "ratio",
+        "usage",
+        "content",
+        "duration",
+        "resolution",
+        "generate_audio",
+        "framespersecond"
+      ],
+      "upstream_content_fields": [
+        "video_url"
+      ],
+      "upstream_resolution": "720p",
+      "upstream_seed_present": false,
+      "upstream_last_frame_present": false
+    },
+    {
+      "task_id": "task_5O6fYlhAoKY4cKgPMVmMaB7ANqqvixIM",
+      "status": "SUCCESS",
+      "quota": "500",
+      "upstream_result_fields": [
+        "model",
+        "ratio",
+        "usage",
+        "content",
+        "duration",
+        "resolution",
+        "generate_audio",
+        "framespersecond"
+      ],
+      "upstream_content_fields": [
+        "video_url"
+      ],
+      "upstream_resolution": "1080p",
+      "upstream_seed_present": false,
+      "upstream_last_frame_present": false
+    }
+  ],
+  "video_request_metrics": {
+    "list": {
+      "requests": 1,
+      "http": {
+        "200": 1
+      },
+      "errors": {},
+      "p50_seconds": 0.0028047561645507812,
+      "p95_seconds": 0.0028047561645507812,
+      "p99_seconds": 0.0028047561645507812,
+      "max_seconds": 0.0028047561645507812,
+      "wall_seconds": 0.0028047561645507812
+    },
+    "poll": {
+      "requests": 32,
+      "http": {
+        "200": 32
+      },
+      "errors": {},
+      "p50_seconds": 0.4806487560272217,
+      "p95_seconds": 0.6680824756622314,
+      "p99_seconds": 0.69260573387146,
+      "max_seconds": 0.69260573387146,
+      "wall_seconds": 357.8919219970703
+    },
+    "repeat_terminal_query": {
+      "requests": 6,
+      "http": {
+        "200": 6
+      },
+      "errors": {},
+      "p50_seconds": 0.4723320007324219,
+      "p95_seconds": 2.46911358833313,
+      "p99_seconds": 2.46911358833313,
+      "max_seconds": 2.46911358833313,
+      "wall_seconds": 3.4228739738464355
+    },
+    "submit": {
+      "requests": 2,
+      "http": {
+        "200": 2
+      },
+      "errors": {},
+      "p50_seconds": 6.398846864700317,
+      "p95_seconds": 12.93803882598877,
+      "p99_seconds": 12.93803882598877,
+      "max_seconds": 12.93803882598877,
+      "wall_seconds": 19.33738350868225
+    }
+  },
+  "video_validation": {
+    "before_repeat_queries": {
+      "users": [
+        {
+          "id": "1",
+          "quota": "99999000",
+          "used_quota": "1000",
+          "request_count": "2"
+        }
+      ],
+      "tokens": [
+        {
+          "id": "1",
+          "user_id": "1",
+          "used_quota": "1000"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "task_uTooJVNU5V7RpcGXFC98q2wP0LIXRNnL",
+          "status": "SUCCESS",
+          "quota": "500"
+        },
+        {
+          "task_id": "task_5O6fYlhAoKY4cKgPMVmMaB7ANqqvixIM",
+          "status": "SUCCESS",
+          "quota": "500"
+        }
+      ],
+      "log_types": [
+        {
+          "type": "2",
+          "count": "2",
+          "quota": "1000"
+        },
+        {
+          "type": "3",
+          "count": "2",
+          "quota": "0"
+        },
+        {
+          "type": "7",
+          "count": "1",
+          "quota": "0"
+        }
+      ]
+    },
+    "repeat_queries": [
+      {
+        "round": 0,
+        "slot": "seedance_2_0_one_asset",
+        "http": 200,
+        "status": "succeeded",
+        "id_matches": true
+      },
+      {
+        "round": 0,
+        "slot": "seedance_2_5_three_assets",
+        "http": 200,
+        "status": "succeeded",
+        "id_matches": true
+      },
+      {
+        "round": 1,
+        "slot": "seedance_2_0_one_asset",
+        "http": 200,
+        "status": "succeeded",
+        "id_matches": true
+      },
+      {
+        "round": 1,
+        "slot": "seedance_2_5_three_assets",
+        "http": 200,
+        "status": "succeeded",
+        "id_matches": true
+      },
+      {
+        "round": 2,
+        "slot": "seedance_2_0_one_asset",
+        "http": 200,
+        "status": "succeeded",
+        "id_matches": true
+      },
+      {
+        "round": 2,
+        "slot": "seedance_2_5_three_assets",
+        "http": 200,
+        "status": "succeeded",
+        "id_matches": true
+      }
+    ],
+    "downloads": [
+      {
+        "bytes": 1826236,
+        "sha256": "0d03037d438549d944d1446020a15592e9ce0271b4d306011e021d88a9d33cd2",
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 5.042,
+        "width": 960.0,
+        "height": 960.0,
+        "slot": "seedance_2_0_one_asset",
+        "http": 200,
+        "content_type": "video/mp4",
+        "seconds": 4.998647451400757,
+        "file": "seedance_2_0_one_asset.mp4",
+        "duration_matches": true
+      },
+      {
+        "slot": "seedance_2_5_three_assets",
+        "http": 200,
+        "content_type": "video/mp4",
+        "seconds": 2.985201597213745,
+        "bytes": 6663254,
+        "sha256": "4baf09c73fa2ab112a6d24bfa007850350f133c131ca4ab193cc3ae43fcbf2a5",
+        "top_boxes": [
+          "ftyp",
+          "uuid",
+          "free",
+          "mdat",
+          "moov"
+        ],
+        "duration_seconds": 5.042,
+        "width": 1920.0,
+        "height": 1080.0,
+        "file": "seedance_2_5_three_assets.mp4",
+        "duration_matches": true
+      }
+    ],
+    "after_repeat_queries": {
+      "users": [
+        {
+          "id": "1",
+          "quota": "99999000",
+          "used_quota": "1000",
+          "request_count": "2"
+        }
+      ],
+      "tokens": [
+        {
+          "id": "1",
+          "user_id": "1",
+          "used_quota": "1000"
+        }
+      ],
+      "tasks": [
+        {
+          "task_id": "task_uTooJVNU5V7RpcGXFC98q2wP0LIXRNnL",
+          "status": "SUCCESS",
+          "quota": "500"
+        },
+        {
+          "task_id": "task_5O6fYlhAoKY4cKgPMVmMaB7ANqqvixIM",
+          "status": "SUCCESS",
+          "quota": "500"
+        }
+      ],
+      "log_types": [
+        {
+          "type": "2",
+          "count": "2",
+          "quota": "1000"
+        },
+        {
+          "type": "3",
+          "count": "2",
+          "quota": "0"
+        },
+        {
+          "type": "7",
+          "count": "1",
+          "quota": "0"
+        }
+      ]
+    },
+    "listing": {
+      "http": 200,
+      "total": 2,
+      "ids_match": true
+    },
+    "quota_unchanged_on_repeated_queries": true
+  },
+  "cleanup": {
+    "upstream": {
+      "group_id": "5520",
+      "method": "DeleteAssetGroup cascade",
+      "group_delete_http": 200,
+      "gateway_group_after_delete_http": 404,
+      "gateway_asset_checks": [
+        {
+          "index": 0,
+          "http": 404
+        },
+        {
+          "index": 1,
+          "http": 404
+        },
+        {
+          "index": 2,
+          "http": 404
+        },
+        {
+          "index": 3,
+          "http": 404
+        },
+        {
+          "index": 4,
+          "http": 404
+        },
+        {
+          "index": 5,
+          "http": 404
+        },
+        {
+          "index": 6,
+          "http": 404
+        },
+        {
+          "index": 7,
+          "http": 404
+        },
+        {
+          "index": 8,
+          "http": 404
+        },
+        {
+          "index": 9,
+          "http": 404
+        },
+        {
+          "index": 10,
+          "http": 404
+        },
+        {
+          "index": 11,
+          "http": 404
+        },
+        {
+          "index": 12,
+          "http": 404
+        },
+        {
+          "index": 13,
+          "http": 404
+        },
+        {
+          "index": 14,
+          "http": 404
+        },
+        {
+          "index": 15,
+          "http": 404
+        },
+        {
+          "index": 16,
+          "http": 404
+        },
+        {
+          "index": 17,
+          "http": 404
+        },
+        {
+          "index": 18,
+          "http": 404
+        },
+        {
+          "index": 19,
+          "http": 404
+        },
+        {
+          "index": 20,
+          "http": 404
+        },
+        {
+          "index": 21,
+          "http": 404
+        },
+        {
+          "index": 22,
+          "http": 404
+        },
+        {
+          "index": 23,
+          "http": 404
+        },
+        {
+          "index": 24,
+          "http": 404
+        },
+        {
+          "index": 25,
+          "http": 404
+        },
+        {
+          "index": 26,
+          "http": 404
+        },
+        {
+          "index": 27,
+          "http": 404
+        },
+        {
+          "index": 28,
+          "http": 404
+        },
+        {
+          "index": 29,
+          "http": 404
+        },
+        {
+          "index": 30,
+          "http": 404
+        },
+        {
+          "index": 31,
+          "http": 404
+        },
+        {
+          "index": 32,
+          "http": 404
+        },
+        {
+          "index": 33,
+          "http": 404
+        },
+        {
+          "index": 34,
+          "http": 404
+        },
+        {
+          "index": 35,
+          "http": 404
+        },
+        {
+          "index": 36,
+          "http": 404
+        },
+        {
+          "index": 37,
+          "http": 404
+        },
+        {
+          "index": 38,
+          "http": 404
+        },
+        {
+          "index": 39,
+          "http": 404
+        },
+        {
+          "index": 40,
+          "http": 404
+        },
+        {
+          "index": 41,
+          "http": 404
+        },
+        {
+          "index": 42,
+          "http": 404
+        },
+        {
+          "index": 43,
+          "http": 404
+        },
+        {
+          "index": 44,
+          "http": 404
+        },
+        {
+          "index": 45,
+          "http": 404
+        },
+        {
+          "index": 46,
+          "http": 404
+        },
+        {
+          "index": 47,
+          "http": 404
+        },
+        {
+          "index": 48,
+          "http": 404
+        },
+        {
+          "index": 49,
+          "http": 404
+        },
+        {
+          "index": 50,
+          "http": 404
+        },
+        {
+          "index": 51,
+          "http": 404
+        },
+        {
+          "index": 52,
+          "http": 404
+        },
+        {
+          "index": 53,
+          "http": 404
+        },
+        {
+          "index": 54,
+          "http": 404
+        },
+        {
+          "index": 55,
+          "http": 404
+        },
+        {
+          "index": 56,
+          "http": 404
+        },
+        {
+          "index": 57,
+          "http": 404
+        },
+        {
+          "index": 58,
+          "http": 404
+        },
+        {
+          "index": 59,
+          "http": 404
+        },
+        {
+          "index": 60,
+          "http": 404
+        },
+        {
+          "index": 61,
+          "http": 404
+        },
+        {
+          "index": 62,
+          "http": 404
+        },
+        {
+          "index": 63,
+          "http": 404
+        },
+        {
+          "index": 64,
+          "http": 404
+        },
+        {
+          "index": 65,
+          "http": 404
+        },
+        {
+          "index": 66,
+          "http": 404
+        },
+        {
+          "index": 67,
+          "http": 404
+        },
+        {
+          "index": 68,
+          "http": 404
+        },
+        {
+          "index": 69,
+          "http": 404
+        },
+        {
+          "index": 70,
+          "http": 404
+        },
+        {
+          "index": 71,
+          "http": 404
+        },
+        {
+          "index": 72,
+          "http": 404
+        },
+        {
+          "index": 73,
+          "http": 404
+        },
+        {
+          "index": 74,
+          "http": 404
+        },
+        {
+          "index": 75,
+          "http": 404
+        },
+        {
+          "index": 76,
+          "http": 404
+        },
+        {
+          "index": 77,
+          "http": 404
+        },
+        {
+          "index": 78,
+          "http": 404
+        },
+        {
+          "index": 79,
+          "http": 404
+        },
+        {
+          "index": 80,
+          "http": 404
+        },
+        {
+          "index": 81,
+          "http": 404
+        },
+        {
+          "index": 82,
+          "http": 404
+        },
+        {
+          "index": 83,
+          "http": 404
+        },
+        {
+          "index": 84,
+          "http": 404
+        },
+        {
+          "index": 85,
+          "http": 404
+        },
+        {
+          "index": 86,
+          "http": 404
+        },
+        {
+          "index": 87,
+          "http": 404
+        },
+        {
+          "index": 88,
+          "http": 404
+        },
+        {
+          "index": 89,
+          "http": 404
+        },
+        {
+          "index": 90,
+          "http": 404
+        },
+        {
+          "index": 91,
+          "http": 404
+        },
+        {
+          "index": 92,
+          "http": 404
+        },
+        {
+          "index": 93,
+          "http": 404
+        },
+        {
+          "index": 94,
+          "http": 404
+        },
+        {
+          "index": 95,
+          "http": 404
+        },
+        {
+          "index": 96,
+          "http": 404
+        },
+        {
+          "index": 97,
+          "http": 404
+        },
+        {
+          "index": 98,
+          "http": 404
+        },
+        {
+          "index": 99,
+          "http": 404
+        },
+        {
+          "index": 100,
+          "http": 404
+        },
+        {
+          "index": 101,
+          "http": 404
+        },
+        {
+          "index": 102,
+          "http": 404
+        },
+        {
+          "index": 103,
+          "http": 404
+        },
+        {
+          "index": 104,
+          "http": 404
+        },
+        {
+          "index": 105,
+          "http": 404
+        },
+        {
+          "index": 106,
+          "http": 404
+        },
+        {
+          "index": 107,
+          "http": 404
+        },
+        {
+          "index": 108,
+          "http": 404
+        },
+        {
+          "index": 109,
+          "http": 404
+        },
+        {
+          "index": 110,
+          "http": 404
+        },
+        {
+          "index": 111,
+          "http": 404
+        },
+        {
+          "index": 112,
+          "http": 404
+        },
+        {
+          "index": 113,
+          "http": 404
+        },
+        {
+          "index": 114,
+          "http": 404
+        },
+        {
+          "index": 115,
+          "http": 404
+        },
+        {
+          "index": 116,
+          "http": 404
+        },
+        {
+          "index": 117,
+          "http": 404
+        },
+        {
+          "index": 118,
+          "http": 404
+        },
+        {
+          "index": 119,
+          "http": 404
+        },
+        {
+          "index": 120,
+          "http": 404
+        },
+        {
+          "index": 121,
+          "http": 404
+        },
+        {
+          "index": 122,
+          "http": 404
+        },
+        {
+          "index": 123,
+          "http": 404
+        },
+        {
+          "index": 124,
+          "http": 404
+        },
+        {
+          "index": 125,
+          "http": 404
+        },
+        {
+          "index": 126,
+          "http": 404
+        },
+        {
+          "index": 127,
+          "http": 404
+        },
+        {
+          "index": 128,
+          "http": 404
+        },
+        {
+          "index": 129,
+          "http": 404
+        },
+        {
+          "index": 130,
+          "http": 404
+        },
+        {
+          "index": 131,
+          "http": 404
+        },
+        {
+          "index": 132,
+          "http": 404
+        },
+        {
+          "index": 133,
+          "http": 404
+        },
+        {
+          "index": 134,
+          "http": 404
+        },
+        {
+          "index": 135,
+          "http": 404
+        },
+        {
+          "index": 136,
+          "http": 404
+        },
+        {
+          "index": 137,
+          "http": 404
+        },
+        {
+          "index": 138,
+          "http": 404
+        },
+        {
+          "index": 139,
+          "http": 404
+        },
+        {
+          "index": 140,
+          "http": 404
+        },
+        {
+          "index": 141,
+          "http": 404
+        },
+        {
+          "index": 142,
+          "http": 404
+        },
+        {
+          "index": 143,
+          "http": 404
+        },
+        {
+          "index": 144,
+          "http": 404
+        },
+        {
+          "index": 145,
+          "http": 404
+        },
+        {
+          "index": 146,
+          "http": 404
+        },
+        {
+          "index": 147,
+          "http": 404
+        },
+        {
+          "index": 148,
+          "http": 404
+        },
+        {
+          "index": 149,
+          "http": 404
+        },
+        {
+          "index": 150,
+          "http": 404
+        },
+        {
+          "index": 151,
+          "http": 404
+        },
+        {
+          "index": 152,
+          "http": 404
+        },
+        {
+          "index": 153,
+          "http": 404
+        },
+        {
+          "index": 154,
+          "http": 404
+        },
+        {
+          "index": 155,
+          "http": 404
+        },
+        {
+          "index": 156,
+          "http": 404
+        },
+        {
+          "index": 157,
+          "http": 404
+        },
+        {
+          "index": 158,
+          "http": 404
+        },
+        {
+          "index": 159,
+          "http": 404
+        },
+        {
+          "index": 160,
+          "http": 404
+        },
+        {
+          "index": 161,
+          "http": 404
+        },
+        {
+          "index": 162,
+          "http": 404
+        },
+        {
+          "index": 163,
+          "http": 404
+        },
+        {
+          "index": 164,
+          "http": 404
+        },
+        {
+          "index": 165,
+          "http": 404
+        },
+        {
+          "index": 166,
+          "http": 404
+        },
+        {
+          "index": 167,
+          "http": 404
+        },
+        {
+          "index": 168,
+          "http": 404
+        },
+        {
+          "index": 169,
+          "http": 404
+        },
+        {
+          "index": 170,
+          "http": 404
+        },
+        {
+          "index": 171,
+          "http": 404
+        },
+        {
+          "index": 172,
+          "http": 404
+        },
+        {
+          "index": 173,
+          "http": 404
+        },
+        {
+          "index": 174,
+          "http": 404
+        },
+        {
+          "index": 175,
+          "http": 404
+        },
+        {
+          "index": 176,
+          "http": 404
+        },
+        {
+          "index": 177,
+          "http": 404
+        },
+        {
+          "index": 178,
+          "http": 404
+        },
+        {
+          "index": 179,
+          "http": 404
+        },
+        {
+          "index": 180,
+          "http": 404
+        },
+        {
+          "index": 181,
+          "http": 404
+        },
+        {
+          "index": 182,
+          "http": 404
+        },
+        {
+          "index": 183,
+          "http": 404
+        },
+        {
+          "index": 184,
+          "http": 404
+        },
+        {
+          "index": 185,
+          "http": 404
+        },
+        {
+          "index": 186,
+          "http": 404
+        },
+        {
+          "index": 187,
+          "http": 404
+        },
+        {
+          "index": 188,
+          "http": 404
+        },
+        {
+          "index": 189,
+          "http": 404
+        },
+        {
+          "index": 190,
+          "http": 404
+        },
+        {
+          "index": 191,
+          "http": 404
+        },
+        {
+          "index": 192,
+          "http": 404
+        },
+        {
+          "index": 193,
+          "http": 404
+        },
+        {
+          "index": 194,
+          "http": 404
+        },
+        {
+          "index": 195,
+          "http": 404
+        },
+        {
+          "index": 196,
+          "http": 404
+        },
+        {
+          "index": 197,
+          "http": 404
+        },
+        {
+          "index": 198,
+          "http": 404
+        },
+        {
+          "index": 199,
+          "http": 404
+        },
+        {
+          "index": 200,
+          "http": 404
+        },
+        {
+          "index": 201,
+          "http": 404
+        },
+        {
+          "index": 202,
+          "http": 404
+        },
+        {
+          "index": 203,
+          "http": 404
+        },
+        {
+          "index": 204,
+          "http": 404
+        },
+        {
+          "index": 205,
+          "http": 404
+        },
+        {
+          "index": 206,
+          "http": 404
+        },
+        {
+          "index": 207,
+          "http": 404
+        },
+        {
+          "index": 208,
+          "http": 404
+        },
+        {
+          "index": 209,
+          "http": 404
+        },
+        {
+          "index": 210,
+          "http": 404
+        },
+        {
+          "index": 211,
+          "http": 404
+        },
+        {
+          "index": 212,
+          "http": 404
+        },
+        {
+          "index": 213,
+          "http": 404
+        },
+        {
+          "index": 214,
+          "http": 404
+        },
+        {
+          "index": 215,
+          "http": 404
+        },
+        {
+          "index": 216,
+          "http": 404
+        },
+        {
+          "index": 217,
+          "http": 404
+        },
+        {
+          "index": 218,
+          "http": 404
+        },
+        {
+          "index": 219,
+          "http": 404
+        },
+        {
+          "index": 220,
+          "http": 404
+        },
+        {
+          "index": 221,
+          "http": 404
+        },
+        {
+          "index": 222,
+          "http": 404
+        },
+        {
+          "index": 223,
+          "http": 404
+        },
+        {
+          "index": 224,
+          "http": 404
+        },
+        {
+          "index": 225,
+          "http": 404
+        },
+        {
+          "index": 226,
+          "http": 404
+        },
+        {
+          "index": 227,
+          "http": 404
+        },
+        {
+          "index": 228,
+          "http": 404
+        },
+        {
+          "index": 229,
+          "http": 404
+        },
+        {
+          "index": 230,
+          "http": 404
+        },
+        {
+          "index": 231,
+          "http": 404
+        },
+        {
+          "index": 232,
+          "http": 404
+        },
+        {
+          "index": 233,
+          "http": 404
+        },
+        {
+          "index": 234,
+          "http": 404
+        },
+        {
+          "index": 235,
+          "http": 404
+        },
+        {
+          "index": 236,
+          "http": 404
+        },
+        {
+          "index": 237,
+          "http": 404
+        },
+        {
+          "index": 238,
+          "http": 404
+        },
+        {
+          "index": 239,
+          "http": 404
+        },
+        {
+          "index": 240,
+          "http": 404
+        },
+        {
+          "index": 241,
+          "http": 404
+        },
+        {
+          "index": 242,
+          "http": 404
+        },
+        {
+          "index": 243,
+          "http": 404
+        },
+        {
+          "index": 244,
+          "http": 404
+        },
+        {
+          "index": 245,
+          "http": 404
+        },
+        {
+          "index": 246,
+          "http": 404
+        },
+        {
+          "index": 247,
+          "http": 404
+        },
+        {
+          "index": 248,
+          "http": 404
+        },
+        {
+          "index": 249,
+          "http": 404
+        },
+        {
+          "index": 250,
+          "http": 404
+        },
+        {
+          "index": 251,
+          "http": 404
+        },
+        {
+          "index": 252,
+          "http": 404
+        },
+        {
+          "index": 253,
+          "http": 404
+        },
+        {
+          "index": 254,
+          "http": 404
+        },
+        {
+          "index": 255,
+          "http": 404
+        },
+        {
+          "index": 256,
+          "http": 404
+        },
+        {
+          "index": 257,
+          "http": 404
+        },
+        {
+          "index": 258,
+          "http": 404
+        },
+        {
+          "index": 259,
+          "http": 404
+        },
+        {
+          "index": 260,
+          "http": 404
+        },
+        {
+          "index": 261,
+          "http": 404
+        },
+        {
+          "index": 262,
+          "http": 404
+        },
+        {
+          "index": 263,
+          "http": 404
+        },
+        {
+          "index": 264,
+          "http": 404
+        },
+        {
+          "index": 265,
+          "http": 404
+        },
+        {
+          "index": 266,
+          "http": 404
+        },
+        {
+          "index": 267,
+          "http": 404
+        },
+        {
+          "index": 268,
+          "http": 404
+        },
+        {
+          "index": 269,
+          "http": 404
+        },
+        {
+          "index": 270,
+          "http": 404
+        },
+        {
+          "index": 271,
+          "http": 404
+        },
+        {
+          "index": 272,
+          "http": 404
+        },
+        {
+          "index": 273,
+          "http": 404
+        },
+        {
+          "index": 274,
+          "http": 404
+        },
+        {
+          "index": 275,
+          "http": 404
+        },
+        {
+          "index": 276,
+          "http": 404
+        },
+        {
+          "index": 277,
+          "http": 404
+        },
+        {
+          "index": 278,
+          "http": 404
+        },
+        {
+          "index": 279,
+          "http": 404
+        },
+        {
+          "index": 280,
+          "http": 404
+        },
+        {
+          "index": 281,
+          "http": 404
+        },
+        {
+          "index": 282,
+          "http": 404
+        },
+        {
+          "index": 283,
+          "http": 404
+        },
+        {
+          "index": 284,
+          "http": 404
+        },
+        {
+          "index": 285,
+          "http": 404
+        },
+        {
+          "index": 286,
+          "http": 404
+        },
+        {
+          "index": 287,
+          "http": 404
+        },
+        {
+          "index": 288,
+          "http": 404
+        },
+        {
+          "index": 289,
+          "http": 404
+        },
+        {
+          "index": 290,
+          "http": 404
+        },
+        {
+          "index": 291,
+          "http": 404
+        },
+        {
+          "index": 292,
+          "http": 404
+        },
+        {
+          "index": 293,
+          "http": 404
+        },
+        {
+          "index": 294,
+          "http": 404
+        },
+        {
+          "index": 295,
+          "http": 404
+        },
+        {
+          "index": 296,
+          "http": 404
+        },
+        {
+          "index": 297,
+          "http": 404
+        },
+        {
+          "index": 298,
+          "http": 404
+        },
+        {
+          "index": 299,
+          "http": 404
+        }
+      ],
+      "gateway_asset_http": {
+        "404": 300
+      },
+      "upstream_asset_deleted_samples": [
+        {
+          "sample_index": 0,
+          "http": 404
+        },
+        {
+          "sample_index": 1,
+          "http": 404
+        },
+        {
+          "sample_index": 2,
+          "http": 404
+        },
+        {
+          "sample_index": 299,
+          "http": 404
+        }
+      ]
+    },
+    "local": {
+      "container_removed": true,
+      "isolated_database_removed": true,
+      "test_db_user_removed": true,
+      "private_credentials_removed": true
+    }
+  },
+  "limits": [
+    "Live video coverage is two exact requests; omitted prompt, draft upgrade, editing, extension and H5 success are not validated.",
+    "An accepted request does not prove every non-echoed option is honored upstream.",
+    "Local nominal price is test configuration, not the YH charge; supplier wallet debits were not audited.",
+    "No observed database lock waits in sampling does not exclude short waits between samples."
+  ]
+}

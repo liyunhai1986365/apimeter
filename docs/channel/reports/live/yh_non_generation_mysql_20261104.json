@@ -1,0 +1,5973 @@
+{
+  "requests": 180,
+  "http": {
+    "400": 22,
+    "200": 90,
+    "409": 28,
+    "404": 33,
+    "500": 1,
+    "206": 3,
+    "401": 3
+  },
+  "failures": [
+    {
+      "label": "asset_create_bad_url",
+      "method": "POST",
+      "path": "/?Action=CreateAsset&Version=2024-01-01",
+      "http": 500,
+      "expected_http": [
+        200
+      ],
+      "seconds": 24.0358,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "526"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Error": {
+            "Code": "upstream_error",
+            "Message": "[InvalidParameter.DownloadFailed] [Failed to download media from the provided URL. Please check if the link is accessible.] tos: request error:  Message=fetch object return status code: 403, RequestID=6ec107ea0d5f4cc76aea0d5f-bc943f1-1xOHU7-FO-cb-tos-3az-front-azd-5, EC= (RequestId: 202611040035427B53FDDE31F99199DC87)"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635565524796268268d9d6Rcs1hajA",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_nondefault_project_rejected",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0025,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269277013018268d9d6bwx0G212",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_download_unsatisfiable",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 200,
+      "expected_http": [
+        416
+      ],
+      "seconds": 0.8948,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 82429,
+        "sha256": "9c031d80a1c52da5eca790db896baffec6a7e52bf786cdb7bbfca5c7f880e6a1"
+      }
+    },
+    {
+      "label": "video_missing_official",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0016,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "video_missing_generic",
+      "method": "GET",
+      "path": "/v1/video/generations/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0014,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "video_missing_openai",
+      "method": "GET",
+      "path": "/v1/videos/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0011,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "asset_download_if_range_mismatch",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 206,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4946,
+      "passed": false,
+      "error": "",
+      "assertion_error": "response assertion failed",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "64",
+        "Content-Range": "bytes 0-63/82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 64,
+        "sha256": "91cf84e07a3307999f6cac899b85b80cb111b9e8afb6d4b13a618759c831d8e5"
+      }
+    }
+  ],
+  "stages": [
+    "other_user",
+    "h5",
+    "groups",
+    "assets",
+    "uploads",
+    "video_reads",
+    "aliases"
+  ],
+  "asset_states": {
+    "image": "Active",
+    "image2": "Active",
+    "video": "Active",
+    "audio": "Active",
+    "rest_image": "Active"
+  },
+  "upload_states": {
+    "sync": "Active",
+    "async": "Active",
+    "batch": "Active",
+    "batch_mixed": "Failed"
+  },
+  "all_test_groups_deleted": true,
+  "video_generation_requests": 0,
+  "checks": [
+    {
+      "label": "h5_callback_rejected",
+      "method": "POST",
+      "path": "/?Action=CreateVisualValidateSession&Version=2024-01-01",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0051,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "276"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateVisualValidateSession",
+          "Error": {
+            "Code": "asset_request_failed",
+            "Message": "YH callback relay is not supported; use polling"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031633517321065778268d9d6DDFpsKdf",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_create",
+      "method": "POST",
+      "path": "/?Action=CreateVisualValidateSession&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 5.6539,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "1159"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateVisualValidateSession",
+          "Region": "cn-beijing",
+          "RequestId": "202611031633517375341248268d9d6cb2mXrTd",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "BytedToken": "<redacted>",
+          "H5Link": "<redacted>"
+        }
+      }
+    },
+    {
+      "label": "h5_result_pending",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        409
+      ],
+      "seconds": 2.3242,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031633573917475578268d9d6XE2LW6j0",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_result_other",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0026,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "271"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031633597162399068268d9d6l8X0dwca",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_result_missing",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0022,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "271"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031633597191478168268d9d6P0BDA2EK",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 5.9068,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031634579472628108268d9d6TALtzdxy",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "groups_initial_empty",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 7.5452,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "230"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031634585255999568268d9d6TWPm3Hgt",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 0
+        }
+      }
+    },
+    {
+      "label": "group_create_a",
+      "method": "POST",
+      "path": "/?Action=CreateAssetGroup&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.2842,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "224"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635060703966828268d9d6L5N9yYjj",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupType": "AIGC",
+          "Id": "5517",
+          "Name": "f23706a"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.7316,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635068543923838268d9d6gwLQJt8p",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "group_create_b",
+      "method": "POST",
+      "path": "/?Action=CreateAssetGroup&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.8272,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "224"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635093548203348268d9d6Fo7HIMwX",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupType": "AIGC",
+          "Id": "5518",
+          "Name": "f23709b"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.6792,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635125868044158268d9d6DQHV117o",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "group_get",
+      "method": "POST",
+      "path": "/?Action=GetAssetGroup&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 2.2076,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "236"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635131825660128268d9d65xNxIsJx",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetCount": 0,
+          "GroupType": "AIGC",
+          "Id": "5517",
+          "Name": "f23706a"
+        }
+      }
+    },
+    {
+      "label": "group_update",
+      "method": "POST",
+      "path": "/?Action=UpdateAssetGroup&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5242,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "225"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "UpdateAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635153902088578268d9d6p5by259S",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupType": "AIGC",
+          "Id": "5517",
+          "Name": "f23706ar"
+        }
+      }
+    },
+    {
+      "label": "group_get_renamed",
+      "method": "POST",
+      "path": "/?Action=GetAssetGroup&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 2.1521,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "237"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635159146666088268d9d6zQDnLxJP",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetCount": 0,
+          "GroupType": "AIGC",
+          "Id": "5517",
+          "Name": "f23706ar"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.7515,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635182671451688268d9d6R0QMhuHM",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "groups_list_all",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.8506,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "360"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635180710388558268d9d6jsw7DSX9",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetCount": 0,
+              "GroupType": "AIGC",
+              "Id": "5518",
+              "Name": "f23709b"
+            },
+            {
+              "AssetCount": 0,
+              "GroupType": "AIGC",
+              "Id": "5517",
+              "Name": "f23706ar"
+            }
+          ],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 2
+        }
+      }
+    },
+    {
+      "label": "groups_filter_name",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.8745,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "295"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635229196711008268d9d6CJiJGnwZ",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetCount": 0,
+              "GroupType": "AIGC",
+              "Id": "5517",
+              "Name": "f23706ar"
+            }
+          ],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 1
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 3.1299,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635240195980368268d9d6z0CKRRPs",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "groups_filter_aigc",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.7279,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "360"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635267945613868268d9d6Y0ruwi4W",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetCount": 0,
+              "GroupType": "AIGC",
+              "Id": "5518",
+              "Name": "f23709b"
+            },
+            {
+              "AssetCount": 0,
+              "GroupType": "AIGC",
+              "Id": "5517",
+              "Name": "f23706ar"
+            }
+          ],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 2
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.6659,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635301505414368268d9d6xc8pirYQ",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "groups_filter_human",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.6258,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "230"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635315228603628268d9d6ctpT4D33",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 0
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.9443,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635358166598778268d9d6xvzJTiGW",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "groups_page1",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.8966,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "293"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635361494021828268d9d6m7nG2g1d",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetCount": 0,
+              "GroupType": "AIGC",
+              "Id": "5518",
+              "Name": "f23709b"
+            }
+          ],
+          "PageNumber": 1,
+          "PageSize": 1,
+          "TotalCount": 2
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.6475,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635417599174758268d9d6pi1VZck8",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "groups_page2",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.3571,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "294"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635410457615818268d9d6KKZD39tP",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetCount": 0,
+              "GroupType": "AIGC",
+              "Id": "5517",
+              "Name": "f23706ar"
+            }
+          ],
+          "PageNumber": 2,
+          "PageSize": 1,
+          "TotalCount": 2
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.4117,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635474077932718268d9d6sxRFvfAa",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "groups_other_user_empty",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.4313,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "230"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635454044934438268d9d6lv5bePbI",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 0
+        }
+      }
+    },
+    {
+      "label": "other_GetAssetGroup",
+      "method": "POST",
+      "path": "/?Action=GetAssetGroup&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0028,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "261"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAssetGroup",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635498353295538268d9d64rHUR6dJ",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "other_UpdateAssetGroup",
+      "method": "POST",
+      "path": "/?Action=UpdateAssetGroup&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0021,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "264"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "UpdateAssetGroup",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635498381328708268d9d6AYWGv3Xu",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "other_DeleteAssetGroup",
+      "method": "POST",
+      "path": "/?Action=DeleteAssetGroup&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0022,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "264"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "DeleteAssetGroup",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635498404991428268d9d6YN5o067v",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "group_human_direct_rejected",
+      "method": "POST",
+      "path": "/?Action=CreateAssetGroup&Version=2024-01-01",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0022,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "270"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAssetGroup",
+          "Error": {
+            "Code": "asset_request_failed",
+            "Message": "use H5 authentication to create a LivenessFace group"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635498427965388268d9d6yJEtYlEc",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "group_description_rejected",
+      "method": "POST",
+      "path": "/?Action=UpdateAssetGroup&Version=2024-01-01",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0031,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "268"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "UpdateAssetGroup",
+          "Error": {
+            "Code": "asset_request_failed",
+            "Message": "YH does not support Description for this operation"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635498451817278268d9d6CqKElG6u",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_create_image",
+      "method": "POST",
+      "path": "/?Action=CreateAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.4626,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "263"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635498486491198268d9d6fc1rZdai",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003535-d5mvj",
+          "Status": "Processing"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.2836,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635528200082398268d9d6qi1Nv9Dr",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_create_image2",
+      "method": "POST",
+      "path": "/?Action=CreateAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.2404,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "263"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031635533117719818268d9d61wF5ZFC3",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003538-68m6r",
+          "Status": "Processing"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 3.1672,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635581049794848268d9d6wb90nYuf",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.6891,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636042742772378268d9d6iJKbbk9V",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.7273,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636099631548898268d9d6wDwm5gIF",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 3.0877,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636156880718338268d9d6UN5XWxXs",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_create_bad_url",
+      "method": "POST",
+      "path": "/?Action=CreateAsset&Version=2024-01-01",
+      "http": 500,
+      "expected_http": [
+        200
+      ],
+      "seconds": 24.0358,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "526"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Error": {
+            "Code": "upstream_error",
+            "Message": "[InvalidParameter.DownloadFailed] [Failed to download media from the provided URL. Please check if the link is accessible.] tos: request error:  Message=fetch object return status code: 403, RequestID=6ec107ea0d5f4cc76aea0d5f-bc943f1-1xOHU7-FO-cb-tos-3az-front-azd-5, EC= (RequestId: 202611040035427B53FDDE31F99199DC87)"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031635565524796268268d9d6Rcs1hajA",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.6524,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636217769139148268d9d6NcBBugnZ",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.5032,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636274301252958268d9d67R85lpsT",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.9032,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636329334577758268d9d6zkw0dQd0",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.8608,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636388379232108268d9d6w0Ff9b1w",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_create_video",
+      "method": "POST",
+      "path": "/?Action=CreateAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 23.7927,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "263"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031636205891160928268d9d6c4Qea0Fb",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003620-h8p92",
+          "Status": "Processing"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 1.9762,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636446983193228268d9d6MPPkpVGR",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.8997,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636496749558588268d9d6ViTB6oo2",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.7918,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031636555752523198268d9d6EuV6Pdez",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_create_audio",
+      "method": "POST",
+      "path": "/?Action=CreateAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 19.5591,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "263"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031636443818328698268d9d6g6A39rRc",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003644-gzj27",
+          "Status": "Processing"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.6382,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637013675245528268d9d6708IFotK",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_poll_image",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.8137,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637039413172328268d9d60j2ObrPE",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003535-d5mvj",
+          "Name": "yf-image",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 3.3345,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637070061782828268d9d6C19QxCcA",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_poll_image2",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.871,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "378"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637087556909148268d9d6WrdAGzTq",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003538-68m6r",
+          "Name": "yf-image2",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "asset_poll_video",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.5652,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637126272026828268d9d6lHCQ7xQ8",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Video",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003620-h8p92",
+          "Name": "yf-video",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 4.1314,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637133419590078268d9d6NbYx6lIi",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_poll_audio",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.1633,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637171923733798268d9d6YovwyrS1",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Audio",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003644-gzj27",
+          "Name": "yf-audio",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "asset_terminal_image",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5131,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637203559089328268d9d6qEDpcpwS",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003535-d5mvj",
+          "Name": "yf-image",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "asset_terminal_image2",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5138,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "378"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637208697762518268d9d6EAKj81aJ",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003538-68m6r",
+          "Name": "yf-image2",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "asset_terminal_video",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5208,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637213834394828268d9d6bHia1ziU",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Video",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003620-h8p92",
+          "Name": "yf-video",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "asset_terminal_audio",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5179,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637219045887218268d9d6QKFui4VH",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Audio",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003644-gzj27",
+          "Name": "yf-audio",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "asset_update",
+      "method": "POST",
+      "path": "/?Action=UpdateAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5235,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "241"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "UpdateAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637224233589108268d9d69aX9vNx3",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003535-d5mvj"
+        }
+      }
+    },
+    {
+      "label": "h5_live_poll",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        200,
+        409
+      ],
+      "seconds": 2.7272,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637204740145588268d9d6mLtrfwB3",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_get_renamed",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5219,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "379"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637229469171148268d9d60aA29t10",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261104003535-d5mvj",
+          "Name": "yf-renamed",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "assets_list_group",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5181,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "928"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637234703948138268d9d66CEcYMZs",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetType": "Audio",
+              "Id": "asset-20261104003644-gzj27",
+              "Name": "yf-audio",
+              "Status": "Active",
+              "URL": "<url>"
+            },
+            {
+              "AssetType": "Video",
+              "Id": "asset-20261104003620-h8p92",
+              "Name": "yf-video",
+              "Status": "Active",
+              "URL": "<url>"
+            },
+            {
+              "AssetType": "Image",
+              "Id": "asset-20261104003538-68m6r",
+              "Name": "yf-image2",
+              "Status": "Active",
+              "URL": "<url>"
+            },
+            {
+              "AssetType": "Image",
+              "Id": "asset-20261104003535-d5mvj",
+              "Name": "yf-renamed",
+              "Status": "Active",
+              "URL": "<url>"
+            }
+          ],
+          "PageNumber": 1,
+          "PageSize": 100,
+          "TotalCount": 4
+        }
+      }
+    },
+    {
+      "label": "assets_filter_name",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5529,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "401"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637239882556368268d9d6GqgEJdpU",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetType": "Image",
+              "Id": "asset-20261104003535-d5mvj",
+              "Name": "yf-renamed",
+              "Status": "Active",
+              "URL": "<url>"
+            }
+          ],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 1
+        }
+      }
+    },
+    {
+      "label": "assets_page1",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5308,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "398"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637245414760008268d9d6WojdC4wY",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetType": "Audio",
+              "Id": "asset-20261104003644-gzj27",
+              "Name": "yf-audio",
+              "Status": "Active",
+              "URL": "<url>"
+            }
+          ],
+          "PageNumber": 1,
+          "PageSize": 1,
+          "TotalCount": 4
+        }
+      }
+    },
+    {
+      "label": "assets_page2",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.529,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "398"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637250725450448268d9d6iqacCh1W",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetType": "Video",
+              "Id": "asset-20261104003620-h8p92",
+              "Name": "yf-video",
+              "Status": "Active",
+              "URL": "<url>"
+            }
+          ],
+          "PageNumber": 2,
+          "PageSize": 1,
+          "TotalCount": 4
+        }
+      }
+    },
+    {
+      "label": "assets_other_empty",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 1.3143,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "225"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202611031637256017638978268d9d6587F2Ynd",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 0
+        }
+      }
+    },
+    {
+      "label": "other_GetAsset",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0021,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269162878298268d9d6mNxt9OZp",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "other_UpdateAsset",
+      "method": "POST",
+      "path": "/?Action=UpdateAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0024,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "259"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "UpdateAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269184831878268d9d6Cytz38Oz",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "other_DeleteAsset",
+      "method": "POST",
+      "path": "/?Action=DeleteAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0018,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "259"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "DeleteAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269211027158268d9d6RH42a5jg",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "other_CreateAsset",
+      "method": "POST",
+      "path": "/?Action=CreateAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0018,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "259"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "CreateAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269231155498268d9d6WuqwTMtF",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_url_update_rejected",
+      "method": "POST",
+      "path": "/?Action=UpdateAsset&Version=2024-01-01",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0024,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "252"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "UpdateAsset",
+          "Error": {
+            "Code": "asset_request_failed",
+            "Message": "YH does not support asset parameter url"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269250984198268d9d64QhUD6u5",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_nondefault_project_rejected",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0025,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269277013018268d9d6bwx0G212",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_missing",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0024,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031637269302999338268d9d67eSIp405",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_download_full",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 1.1483,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 82429,
+        "sha256": "9c031d80a1c52da5eca790db896baffec6a7e52bf786cdb7bbfca5c7f880e6a1"
+      }
+    },
+    {
+      "label": "asset_download_range",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 206,
+      "expected_http": [
+        206
+      ],
+      "seconds": 0.5733,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "64",
+        "Content-Range": "bytes 0-63/82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 64,
+        "sha256": "91cf84e07a3307999f6cac899b85b80cb111b9e8afb6d4b13a618759c831d8e5"
+      }
+    },
+    {
+      "label": "asset_download_unsatisfiable",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 200,
+      "expected_http": [
+        416
+      ],
+      "seconds": 0.8948,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 82429,
+        "sha256": "9c031d80a1c52da5eca790db896baffec6a7e52bf786cdb7bbfca5c7f880e6a1"
+      }
+    },
+    {
+      "label": "asset_download_other",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0026,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "asset_download_no_auth",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 401,
+      "expected_http": [
+        401
+      ],
+      "seconds": 0.0009,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "124"
+      },
+      "response": {
+        "error": {
+          "code": "",
+          "message": "Invalid token (request id: 202611031637295526643378268d9d6nVrGb8mu)",
+          "type": "new_api_error"
+        }
+      }
+    },
+    {
+      "label": "upload_create_sync",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 8.5093,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "117"
+      },
+      "response": {
+        "Id": "asset-20261103222704-dscp7",
+        "Items": [
+          {
+            "Id": "asset-20261103222704-dscp7",
+            "Status": "Active"
+          }
+        ],
+        "Status": "Active"
+      }
+    },
+    {
+      "label": "upload_create_async",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 2.7786,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "93"
+      },
+      "response": {
+        "Id": "task-20261103163807-029dd31a",
+        "Items": [
+          {
+            "Status": "Processing"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_create_batch",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 1.9369,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "285"
+      },
+      "response": {
+        "Id": "task-20261103163809-65948c90",
+        "Items": [
+          {
+            "SourceURL": "<url>",
+            "Status": "Processing"
+          },
+          {
+            "SourceURL": "<url>",
+            "Status": "Processing"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_create_batch_mixed",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 2.3102,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "310"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "SourceURL": "<url>",
+            "Status": "Processing"
+          },
+          {
+            "SourceURL": "<url>",
+            "Status": "Processing"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_async",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163807-029dd31a",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4982,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "240"
+      },
+      "response": {
+        "Id": "task-20261103163807-029dd31a",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-async",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Active"
+      }
+    },
+    {
+      "label": "upload_poll_batch",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163809-65948c90",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.503,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "583"
+      },
+      "response": {
+        "Id": "task-20261103163809-65948c90",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103222704-dscp7",
+            "Name": "yf-batch",
+            "SourceURL": "<url>",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-batch",
+            "SourceURL": "<url>",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Active"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5033,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "568"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5158,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "568"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5094,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "568"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5177,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "568"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5135,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "568"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5084,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "568"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5412,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "568"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Processing",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "upload_poll_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5176,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "614"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Error": "素材处理失败",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Failed",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Error": "素材处理失败",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Failed",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Failed"
+      }
+    },
+    {
+      "label": "upload_terminal_sync",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/asset-20261103222704-dscp7",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5314,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "237"
+      },
+      "response": {
+        "Id": "asset-20261103222704-dscp7",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103222704-dscp7",
+            "Name": "yf-sync",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Active"
+      }
+    },
+    {
+      "label": "upload_other_sync",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/asset-20261103222704-dscp7",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0126,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "upload_item_get_sync",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5215,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "376"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031638549327329768268d9d6zhAt88zh",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261103222704-dscp7",
+          "Name": "yf-sync",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "upload_terminal_async",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163807-029dd31a",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5128,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "240"
+      },
+      "response": {
+        "Id": "task-20261103163807-029dd31a",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-async",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Active"
+      }
+    },
+    {
+      "label": "upload_other_async",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163807-029dd31a",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.003,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "upload_handle_not_asset_async",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0041,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031638559706324208268d9d6bWsdBc1Z",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "upload_item_get_async",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5099,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031638559749889658268d9d6oLPqRCFg",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261103223343-w77mz",
+          "Name": "yf-async",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "upload_terminal_batch",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163809-65948c90",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5074,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "583"
+      },
+      "response": {
+        "Id": "task-20261103163809-65948c90",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103222704-dscp7",
+            "Name": "yf-batch",
+            "SourceURL": "<url>",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-batch",
+            "SourceURL": "<url>",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Active"
+      }
+    },
+    {
+      "label": "upload_other_batch",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163809-65948c90",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0025,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "upload_handle_not_asset_batch",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0028,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031638569955261528268d9d6ngnUtSBO",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "upload_item_get_batch",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5068,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "376"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031638569984083068268d9d6KBTSnugQ",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261103222704-dscp7",
+          "Name": "yf-sync",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "upload_item_get_batch",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5135,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "377"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031638575067752658268d9d6a48eQZMk",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "AssetType": "Image",
+          "GroupId": "5517",
+          "GroupType": "AIGC",
+          "Id": "asset-20261103223343-w77mz",
+          "Name": "yf-async",
+          "Status": "Active",
+          "URL": "<url>"
+        }
+      }
+    },
+    {
+      "label": "upload_terminal_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5201,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "614"
+      },
+      "response": {
+        "Id": "task-20261103163811-4bb0413f",
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Error": "素材处理失败",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Failed",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Error": "素材处理失败",
+            "Name": "yf-batch_mixed",
+            "SourceURL": "<url>",
+            "Status": "Failed",
+            "URL": "<url>"
+          }
+        ],
+        "Status": "Failed"
+      }
+    },
+    {
+      "label": "upload_other_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0049,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "upload_handle_not_asset_batch_mixed",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0034,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031638585464396308268d9d6WrjQwvpJ",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "upload_reject_empty_urls",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0033,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "42"
+      },
+      "response": {
+        "error": "urls must contain 1 to 50 URLs"
+      }
+    },
+    {
+      "label": "upload_reject_both_url_forms",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0027,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "38"
+      },
+      "response": {
+        "error": "specify either url or urls"
+      }
+    },
+    {
+      "label": "upload_reject_batch_sync",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0029,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "31"
+      },
+      "response": {
+        "error": "invalid upload_mode"
+      }
+    },
+    {
+      "label": "upload_reject_callback",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0027,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "59"
+      },
+      "response": {
+        "error": "YH callback relay is not supported; use polling"
+      }
+    },
+    {
+      "label": "upload_reject_callback_secret",
+      "method": "POST",
+      "path": "/v1/yh/assets/uploads",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0026,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "62"
+      },
+      "response": {
+        "error": "YH upload callbacks are not supported; use polling"
+      }
+    },
+    {
+      "label": "upload_missing",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-yh-missing",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0014,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "video_list_empty",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.0016,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "22"
+      },
+      "response": {
+        "items": [],
+        "total": 0
+      }
+    },
+    {
+      "label": "video_list_filter",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks?filter.status=succeeded&filter.model=doubao-seedance-2-5-260628&page_num=1&page_size=100",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.0015,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "22"
+      },
+      "response": {
+        "items": [],
+        "total": 0
+      }
+    },
+    {
+      "label": "video_list_reject_bad_status",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks?filter.status=unknown",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.001,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "76"
+      },
+      "response": {
+        "error": {
+          "message": "invalid filter.status",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "label": "video_list_reject_page_zero",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks?page_num=0",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.001,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "71"
+      },
+      "response": {
+        "error": {
+          "message": "invalid page_num",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "label": "video_list_reject_too_many",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks?page_size=101",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0011,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "103"
+      },
+      "response": {
+        "error": {
+          "message": "page_size and task ID filters are limited to 100",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "label": "video_list_reject_unsupported",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks?sort=desc",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.001,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "message": "unsupported or repeated query parameter: sort",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "label": "video_missing_official",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0016,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "video_missing_generic",
+      "method": "GET",
+      "path": "/v1/video/generations/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0014,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "video_missing_openai",
+      "method": "GET",
+      "path": "/v1/videos/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0011,
+      "passed": false,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "video_missing_download",
+      "method": "GET",
+      "path": "/v1/videos/cgt-yh-missing-20261104/content",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0012,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "69"
+      },
+      "response": {
+        "error": {
+          "message": "Task not found",
+          "type": "invalid_request_error"
+        }
+      }
+    },
+    {
+      "label": "video_list_no_auth",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks",
+      "http": 401,
+      "expected_http": [
+        401
+      ],
+      "seconds": 0.0007,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "124"
+      },
+      "response": {
+        "error": {
+          "code": "",
+          "message": "Invalid token (request id: 202611031638585796513818268d9d6sdqHfoSL)",
+          "type": "new_api_error"
+        }
+      }
+    },
+    {
+      "label": "video_download_no_auth",
+      "method": "GET",
+      "path": "/v1/videos/cgt-yh-missing-20261104/content",
+      "http": 401,
+      "expected_http": [
+        401
+      ],
+      "seconds": 0.0006,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "124"
+      },
+      "response": {
+        "error": {
+          "code": "",
+          "message": "Invalid token (request id: 202611031638585804431338268d9d6E4sBq1kW)",
+          "type": "new_api_error"
+        }
+      }
+    },
+    {
+      "label": "alias_group_get_/v1/private-avatar/groups/5517",
+      "method": "GET",
+      "path": "/v1/private-avatar/groups/5517",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 1.8554,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "66"
+      },
+      "response": {
+        "AssetCount": 10,
+        "GroupType": "AIGC",
+        "Id": "5517",
+        "Name": "f23706ar"
+      }
+    },
+    {
+      "label": "alias_group_get_/api/asset-groups/5517",
+      "method": "GET",
+      "path": "/api/asset-groups/5517",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 1.0961,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "66"
+      },
+      "response": {
+        "AssetCount": 10,
+        "GroupType": "AIGC",
+        "Id": "5517",
+        "Name": "f23706ar"
+      }
+    },
+    {
+      "label": "alias_group_get_/v1/asset-groups/5517",
+      "method": "GET",
+      "path": "/v1/asset-groups/5517",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 2.0801,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "66"
+      },
+      "response": {
+        "AssetCount": 10,
+        "GroupType": "AIGC",
+        "Id": "5517",
+        "Name": "f23706ar"
+      }
+    },
+    {
+      "label": "alias_asset_get_/v1/private-avatar/assets/asset-20261104003535-d5mvj",
+      "method": "GET",
+      "path": "/v1/private-avatar/assets/asset-20261104003535-d5mvj",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4971,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "212"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5517",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104003535-d5mvj",
+        "Name": "yf-renamed",
+        "Status": "Active",
+        "URL": "<url>"
+      }
+    },
+    {
+      "label": "alias_asset_get_/api/assets/asset-20261104003535-d5mvj",
+      "method": "GET",
+      "path": "/api/assets/asset-20261104003535-d5mvj",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5085,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "178"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5517",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104003535-d5mvj",
+        "Name": "yf-renamed",
+        "Status": "Active",
+        "URL": "<url>"
+      }
+    },
+    {
+      "label": "alias_asset_get_/v1/assets/asset-20261104003535-d5mvj",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4951,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "212"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5517",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104003535-d5mvj",
+        "Name": "yf-renamed",
+        "Status": "Active",
+        "URL": "<url>"
+      }
+    },
+    {
+      "label": "alias_asset_get_/v1/assets/get?id=asset-20261104003535-d5mvj",
+      "method": "GET",
+      "path": "/v1/assets/get?id=asset-20261104003535-d5mvj",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5092,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "212"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5517",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104003535-d5mvj",
+        "Name": "yf-renamed",
+        "Status": "Active",
+        "URL": "<url>"
+      }
+    },
+    {
+      "label": "alias_asset_get_post",
+      "method": "POST",
+      "path": "/v1/assets/get",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4922,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "212"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5517",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104003535-d5mvj",
+        "Name": "yf-renamed",
+        "Status": "Active",
+        "URL": "<url>"
+      }
+    },
+    {
+      "label": "alias_group_list_/v1/asset-groups",
+      "method": "GET",
+      "path": "/v1/asset-groups",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 5.1501,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "158"
+      },
+      "response": {
+        "Items": [
+          {
+            "AssetCount": 0,
+            "GroupType": "AIGC",
+            "Id": "5518",
+            "Name": "f23709b"
+          },
+          {
+            "AssetCount": 10,
+            "GroupType": "AIGC",
+            "Id": "5517",
+            "Name": "f23706ar"
+          }
+        ],
+        "TotalCount": 2
+      }
+    },
+    {
+      "label": "alias_group_list_/api/asset-groups",
+      "method": "GET",
+      "path": "/api/asset-groups",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 5.1278,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "158"
+      },
+      "response": {
+        "Items": [
+          {
+            "AssetCount": 0,
+            "GroupType": "AIGC",
+            "Id": "5518",
+            "Name": "f23709b"
+          },
+          {
+            "AssetCount": 10,
+            "GroupType": "AIGC",
+            "Id": "5517",
+            "Name": "f23706ar"
+          }
+        ],
+        "TotalCount": 2
+      }
+    },
+    {
+      "label": "alias_group_list_/v1/private-avatar/groups/list",
+      "method": "POST",
+      "path": "/v1/private-avatar/groups/list",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.8239,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "158"
+      },
+      "response": {
+        "Items": [
+          {
+            "AssetCount": 0,
+            "GroupType": "AIGC",
+            "Id": "5518",
+            "Name": "f23709b"
+          },
+          {
+            "AssetCount": 10,
+            "GroupType": "AIGC",
+            "Id": "5517",
+            "Name": "f23706ar"
+          }
+        ],
+        "TotalCount": 2
+      }
+    },
+    {
+      "label": "alias_asset_list_/v1/assets?group_id=5517",
+      "method": "GET",
+      "path": "/v1/assets?group_id=5517",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5319,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "1079"
+      },
+      "response": {
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103222704-dscp7",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Audio",
+            "Id": "asset-20261104003644-gzj27",
+            "Name": "yf-audio",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Video",
+            "Id": "asset-20261104003620-h8p92",
+            "Name": "yf-video",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003538-68m6r",
+            "Name": "yf-image2",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003535-d5mvj",
+            "Name": "yf-renamed",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "TotalCount": 6
+      }
+    },
+    {
+      "label": "alias_asset_list_/api/assets?group_id=5517",
+      "method": "GET",
+      "path": "/api/assets?group_id=5517",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5182,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "293"
+      },
+      "response": {
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103222704-dscp7",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Audio",
+            "Id": "asset-20261104003644-gzj27",
+            "Name": "yf-audio",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Video",
+            "Id": "asset-20261104003620-h8p92",
+            "Name": "yf-video",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003538-68m6r",
+            "Name": "yf-image2",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003535-d5mvj",
+            "Name": "yf-renamed",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "TotalCount": 6
+      }
+    },
+    {
+      "label": "alias_asset_list_/v1/assets/list",
+      "method": "POST",
+      "path": "/v1/assets/list",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5346,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "1079"
+      },
+      "response": {
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103222704-dscp7",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Audio",
+            "Id": "asset-20261104003644-gzj27",
+            "Name": "yf-audio",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Video",
+            "Id": "asset-20261104003620-h8p92",
+            "Name": "yf-video",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003538-68m6r",
+            "Name": "yf-image2",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003535-d5mvj",
+            "Name": "yf-renamed",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "TotalCount": 6
+      }
+    },
+    {
+      "label": "alias_asset_list_/v1/private-avatar/assets/list",
+      "method": "POST",
+      "path": "/v1/private-avatar/assets/list",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5046,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "1079"
+      },
+      "response": {
+        "Items": [
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103223343-w77mz",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261103222704-dscp7",
+            "Name": "yf-batch",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Audio",
+            "Id": "asset-20261104003644-gzj27",
+            "Name": "yf-audio",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Video",
+            "Id": "asset-20261104003620-h8p92",
+            "Name": "yf-video",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003538-68m6r",
+            "Name": "yf-image2",
+            "Status": "Active",
+            "URL": "<url>"
+          },
+          {
+            "AssetType": "Image",
+            "Id": "asset-20261104003535-d5mvj",
+            "Name": "yf-renamed",
+            "Status": "Active",
+            "URL": "<url>"
+          }
+        ],
+        "TotalCount": 6
+      }
+    },
+    {
+      "label": "asset_nondefault_project_recheck",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0076,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031641152080783898268d9d60MxKt7tG",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_download_out_of_bounds_upstream_behavior",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.5094,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 82429,
+        "sha256": "9c031d80a1c52da5eca790db896baffec6a7e52bf786cdb7bbfca5c7f880e6a1"
+      }
+    },
+    {
+      "label": "asset_download_if_range_match",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 206,
+      "expected_http": [
+        206
+      ],
+      "seconds": 0.4799,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "64",
+        "Content-Range": "bytes 0-63/82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 64,
+        "sha256": "91cf84e07a3307999f6cac899b85b80cb111b9e8afb6d4b13a618759c831d8e5"
+      }
+    },
+    {
+      "label": "asset_download_if_range_mismatch",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003535-d5mvj/content",
+      "http": 206,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4946,
+      "passed": false,
+      "error": "",
+      "assertion_error": "response assertion failed",
+      "headers": {
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "private, no-store",
+        "Content-Length": "64",
+        "Content-Range": "bytes 0-63/82429",
+        "Content-Type": "image/jpeg",
+        "Etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\"",
+        "Last-Modified": "Tue, 03 Nov 2026 16:36:52 GMT",
+        "X-Content-Type-Options": "nosniff"
+      },
+      "response": {
+        "bytes": 64,
+        "sha256": "91cf84e07a3307999f6cac899b85b80cb111b9e8afb6d4b13a618759c831d8e5"
+      }
+    },
+    {
+      "label": "assets_cursor_page1",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4439,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "460"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202611031641197002476498268d9d6ScPGiU1E",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetType": "Image",
+              "Id": "asset-20261103223343-w77mz",
+              "Name": "yf-batch",
+              "Status": "Active",
+              "URL": "<url>"
+            }
+          ],
+          "NextToken": "<redacted>",
+          "TotalCount": 6
+        }
+      }
+    },
+    {
+      "label": "assets_cursor_page2",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.481,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "460"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Region": "cn-beijing",
+          "RequestId": "202611031641201442402558268d9d6ceWpN4HP",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [
+            {
+              "AssetType": "Image",
+              "Id": "asset-20261103222704-dscp7",
+              "Name": "yf-batch",
+              "Status": "Active",
+              "URL": "<url>"
+            }
+          ],
+          "NextToken": "<redacted>",
+          "TotalCount": 6
+        }
+      }
+    },
+    {
+      "label": "assets_cursor_other_user",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0027,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "289"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Error": {
+            "Code": "invalid_asset_request",
+            "Message": "asset pagination token does not belong to this user/account; restart listing"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031641206253406608268d9d6GOrEjUG7",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "group_transfer_unsupported",
+      "method": "POST",
+      "path": "/?Action=TransferAssetGroup&Version=2024-01-01",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0012,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "277"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "TransferAssetGroup",
+          "Error": {
+            "Code": "asset_request_failed",
+            "Message": "unsupported asset Action or Version (expected 2024-01-01)"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031641206282759378268d9d6aQcNIwQw",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "assets_unsupported_filter",
+      "method": "POST",
+      "path": "/?Action=ListAssets&Version=2024-01-01",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0017,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "245"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssets",
+          "Error": {
+            "Code": "asset_request_failed",
+            "Message": "YH does not support Filter.Status"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031641206295387668268d9d6JD7FB1Zi",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "h5_alias_pending",
+      "method": "POST",
+      "path": "/v1/real-avatar/groups/from-token",
+      "http": 409,
+      "expected_http": [
+        409
+      ],
+      "seconds": 2.3463,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Retry-After": "2",
+        "Content-Length": "117"
+      },
+      "response": {
+        "error": {
+          "code": "ValidationPending",
+          "message": "authentication has not produced a visible group; query again later"
+        }
+      }
+    },
+    {
+      "label": "h5_after_failed_auth_still_pending",
+      "method": "POST",
+      "path": "/?Action=GetVisualValidateResult&Version=2024-01-01",
+      "http": 409,
+      "expected_http": [
+        409
+      ],
+      "seconds": 0.0029,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Retry-After": "2",
+        "Content-Length": "288"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetVisualValidateResult",
+          "Error": {
+            "Code": "ValidationPending",
+            "Message": "authentication has not produced a visible group; query again later"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031641229780302448268d9d6cfHP1jZd",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "rest_group_create",
+      "method": "POST",
+      "path": "/v1/asset-groups",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 5.3228,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "49"
+      },
+      "response": {
+        "GroupType": "AIGC",
+        "Id": "5519",
+        "Name": "r724185"
+      }
+    },
+    {
+      "label": "rest_group_update",
+      "method": "PATCH",
+      "path": "/v1/asset-groups/5519",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4484,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "50"
+      },
+      "response": {
+        "GroupType": "AIGC",
+        "Id": "5519",
+        "Name": "r724185r"
+      }
+    },
+    {
+      "label": "rest_asset_async_create",
+      "method": "POST",
+      "path": "/v1/assets/async",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 5.1033,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "93"
+      },
+      "response": {
+        "GroupId": "5519",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104004257-vfw9j",
+        "Status": "Processing"
+      }
+    },
+    {
+      "label": "rest_asset_get",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104004257-vfw9j",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 3.9266,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "142"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5519",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104004257-vfw9j",
+        "Name": "rest-image",
+        "Status": "Processing",
+        "URL": ""
+      }
+    },
+    {
+      "label": "rest_asset_get",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104004257-vfw9j",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 4.5604,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "212"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5519",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104004257-vfw9j",
+        "Name": "rest-image",
+        "Status": "Active",
+        "URL": "<url>"
+      }
+    },
+    {
+      "label": "rest_asset_update",
+      "method": "PATCH",
+      "path": "/v1/assets/asset-20261104004257-vfw9j",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.454,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "71"
+      },
+      "response": {
+        "GroupId": "5519",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104004257-vfw9j"
+      }
+    },
+    {
+      "label": "rest_asset_get_updated",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104004257-vfw9j",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4425,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "214"
+      },
+      "response": {
+        "AssetType": "Image",
+        "GroupId": "5519",
+        "GroupType": "AIGC",
+        "Id": "asset-20261104004257-vfw9j",
+        "Name": "rest-renamed",
+        "Status": "Active",
+        "URL": "<url>"
+      }
+    },
+    {
+      "label": "rest_asset_delete",
+      "method": "DELETE",
+      "path": "/v1/assets/asset-20261104004257-vfw9j",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.4732,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "2"
+      },
+      "response": {}
+    },
+    {
+      "label": "rest_asset_get_deleted",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104004257-vfw9j",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0034,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "rest_group_delete",
+      "method": "DELETE",
+      "path": "/v1/asset-groups/5519",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.8021,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json",
+        "Content-Length": "2"
+      },
+      "response": {}
+    },
+    {
+      "label": "rest_group_get_deleted",
+      "method": "GET",
+      "path": "/v1/asset-groups/5519",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0023,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "video_missing_recheck_official",
+      "method": "GET",
+      "path": "/api/v3/contents/generations/tasks/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0016,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "video_missing_recheck_generic",
+      "method": "GET",
+      "path": "/v1/video/generations/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0013,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "video_missing_recheck_openai",
+      "method": "GET",
+      "path": "/v1/videos/cgt-yh-missing-20261104",
+      "http": 400,
+      "expected_http": [
+        400
+      ],
+      "seconds": 0.0012,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Cache-Control": "no-store",
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "64"
+      },
+      "response": {
+        "code": "task_not_exist",
+        "message": "task_not_exist",
+        "data": null
+      }
+    },
+    {
+      "label": "asset_delete",
+      "method": "POST",
+      "path": "/?Action=DeleteAsset&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 2.2891,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "172"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "DeleteAsset",
+          "Region": "cn-beijing",
+          "RequestId": "202611031646265891390318268d9d6uMI1Uits",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {}
+      }
+    },
+    {
+      "label": "asset_get_deleted",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0027,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031646288780050778268d9d6Tz0bzlyf",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_content_deleted",
+      "method": "GET",
+      "path": "/v1/assets/asset-20261104003538-68m6r/content",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.002,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "group_delete",
+      "method": "POST",
+      "path": "/?Action=DeleteAssetGroup&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5156,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "177"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "DeleteAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "202611031646288829510898268d9d63fB69bmk",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {}
+      }
+    },
+    {
+      "label": "group_get_deleted",
+      "method": "POST",
+      "path": "/?Action=GetAssetGroup&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0022,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "261"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAssetGroup",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031646293989925748268d9d6Kx06dsuI",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "group_delete",
+      "method": "POST",
+      "path": "/?Action=DeleteAssetGroup&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 0.5027,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "177"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "DeleteAssetGroup",
+          "Region": "cn-beijing",
+          "RequestId": "202611031646294013545728268d9d6s63q08Bq",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {}
+      }
+    },
+    {
+      "label": "group_get_deleted",
+      "method": "POST",
+      "path": "/?Action=GetAssetGroup&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0021,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "261"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAssetGroup",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031646299042976828268d9d6iZt6Asv3",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "asset_group_cascade_deleted",
+      "method": "POST",
+      "path": "/?Action=GetAsset&Version=2024-01-01",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.002,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "256"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "GetAsset",
+          "Error": {
+            "Code": "asset_not_found",
+            "Message": "asset resource is unknown or not owned by this user"
+          },
+          "Region": "cn-beijing",
+          "RequestId": "202611031646299065236708268d9d6D4Hr6Cgl",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        }
+      }
+    },
+    {
+      "label": "upload_group_deleted_sync",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/asset-20261103222704-dscp7",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0019,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "upload_group_deleted_async",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163807-029dd31a",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0019,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "upload_group_deleted_batch",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163809-65948c90",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0019,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "upload_group_deleted_batch_mixed",
+      "method": "GET",
+      "path": "/v1/yh/assets/uploads/task-20261103163811-4bb0413f",
+      "http": 404,
+      "expected_http": [
+        404
+      ],
+      "seconds": 0.0024,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "100"
+      },
+      "response": {
+        "error": {
+          "code": "asset_not_found",
+          "message": "asset resource is unknown or not owned by this user"
+        }
+      }
+    },
+    {
+      "label": "groups_final_empty",
+      "method": "POST",
+      "path": "/?Action=ListAssetGroups&Version=2024-01-01",
+      "http": 200,
+      "expected_http": [
+        200
+      ],
+      "seconds": 5.6238,
+      "passed": true,
+      "error": "",
+      "assertion_error": "",
+      "headers": {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Length": "230"
+      },
+      "response": {
+        "ResponseMetadata": {
+          "Action": "ListAssetGroups",
+          "Region": "cn-beijing",
+          "RequestId": "202611031646299172687328268d9d6EbDYCfGC",
+          "Service": "ark",
+          "Version": "2024-01-01"
+        },
+        "Result": {
+          "Items": [],
+          "PageNumber": 1,
+          "PageSize": 20,
+          "TotalCount": 0
+        }
+      }
+    }
+  ],
+  "build": {
+    "base_commit": "98dab3fcd",
+    "includes_uncommitted_yh_changes": true,
+    "version": "yh-load300-20261104",
+    "go_version": "go1.25.1",
+    "sha256": "8a822ccaa2cca09b0f125f4a66f54470d4ab71329a09009ffc539ead2f83787a",
+    "same_binary_as_300_concurrency": true
+  },
+  "environment": {
+    "mysql": "5.7.43-log",
+    "isolated_database": true,
+    "gateway_users": 2,
+    "channels": 1,
+    "max_open_connections": 30,
+    "redis": false,
+    "automatic_channel_testing": false,
+    "upstream": "https://www.yhapiplatform.com/v1"
+  },
+  "raw_assertions": {
+    "passed": 173,
+    "failed": 7,
+    "note": "Original assertions retained unchanged. Classifications below explain mismatched initial assumptions and upstream download limitations; this is not an all-pass claim."
+  },
+  "observations": [
+    {
+      "labels": [
+        "asset_create_bad_url"
+      ],
+      "classification": "upstream_invalid_source_error",
+      "detail": "Deliberately invalid URL is synchronously rejected with HTTP 500 InvalidParameter.DownloadFailed, not accepted as an asynchronous task."
+    },
+    {
+      "labels": [
+        "asset_nondefault_project_rejected"
+      ],
+      "classification": "gateway_scope_rejection",
+      "detail": "Wrong project is rejected by ownership lookup with 404 before backend parameter validation; 404 recheck passed."
+    },
+    {
+      "labels": [
+        "video_missing_official",
+        "video_missing_generic",
+        "video_missing_openai"
+      ],
+      "classification": "existing_gateway_error_contract",
+      "detail": "All three task-query routes use 400 task_not_exist for absent local tasks; rechecks passed. No successful video query was tested."
+    },
+    {
+      "labels": [
+        "asset_download_unsatisfiable"
+      ],
+      "classification": "upstream_range_fallback",
+      "detail": "Supplier and gateway both return full-body HTTP 200 for an out-of-bounds byte range. Same payload hash verified."
+    },
+    {
+      "labels": [
+        "asset_download_if_range_mismatch"
+      ],
+      "classification": "upstream_if_range_limitation",
+      "detail": "Supplier and gateway both return 206 despite mismatched If-Range. Conditional resume semantics are not satisfied; no local correction was added."
+    }
+  ],
+  "range_upstream_comparison": [
+    {
+      "case": "valid",
+      "upstream_http": 206,
+      "bytes": 64,
+      "sha256": "91cf84e07a3307999f6cac899b85b80cb111b9e8afb6d4b13a618759c831d8e5",
+      "headers": {
+        "Content-Type": "image/jpeg",
+        "Content-Length": "64"
+      }
+    },
+    {
+      "case": "out_of_bounds",
+      "upstream_http": 200,
+      "bytes": 82429,
+      "sha256": "9c031d80a1c52da5eca790db896baffec6a7e52bf786cdb7bbfca5c7f880e6a1",
+      "headers": {
+        "Content-Type": "image/jpeg",
+        "Content-Length": "82429"
+      }
+    }
+  ],
+  "if_range_upstream_comparison": {
+    "case": "if_range_mismatch",
+    "upstream_http": 206,
+    "bytes": 64,
+    "sha256": "91cf84e07a3307999f6cac899b85b80cb111b9e8afb6d4b13a618759c831d8e5",
+    "headers": {
+      "Content-Length": "64",
+      "content-range": "bytes 0-63/82429",
+      "etag": "\"6FEA5ACA5C69AAC4E76AB4FE82617795\""
+    }
+  },
+  "h5_manual_result": {
+    "user_reported": "authentication failed",
+    "user_declined_retry": true,
+    "gateway_result_http": 409,
+    "success_path_verified": false,
+    "supplier_failure_detail_api_available": false
+  },
+  "h5_storage": {
+    "session_count": 1,
+    "raw_h5_token_stored": false,
+    "h5_link_stored": false
+  },
+  "upstream_cleanup": {
+    "test_groups": 3,
+    "all_groups_deleted": true,
+    "deleted_samples": [
+      {
+        "label": "image",
+        "http": 404
+      },
+      {
+        "label": "video",
+        "http": 404
+      },
+      {
+        "label": "audio",
+        "http": 404
+      }
+    ]
+  },
+  "local_cleanup": {
+    "container_removed": true,
+    "isolated_database_removed": true,
+    "test_db_user_removed": true,
+    "private_credentials_removed": true
+  },
+  "database": {
+    "mysql": [
+      {
+        "version": "5.7.43-log"
+      }
+    ],
+    "tasks": [
+      {
+        "count": "0"
+      }
+    ],
+    "users": [
+      {
+        "id": "1",
+        "quota": "100000000",
+        "used_quota": "0",
+        "request_count": "0"
+      },
+      {
+        "id": "2",
+        "quota": "0",
+        "used_quota": "0",
+        "request_count": "0"
+      }
+    ],
+    "tokens": [
+      {
+        "id": "1",
+        "user_id": "1",
+        "used_quota": "0"
+      },
+      {
+        "id": "2",
+        "user_id": "2",
+        "used_quota": "0"
+      }
+    ],
+    "bindings": [
+      {
+        "profile_id": "asset-access-lock-v1",
+        "resource_id": "handle",
+        "status": "active",
+        "count": "27"
+      },
+      {
+        "profile_id": "asset-access-lock-v1",
+        "resource_id": "handle",
+        "status": "invalid",
+        "count": "2"
+      },
+      {
+        "profile_id": "asset-access-v1",
+        "resource_id": "asset",
+        "status": "active",
+        "count": "7"
+      },
+      {
+        "profile_id": "asset-access-v1",
+        "resource_id": "batch",
+        "status": "active",
+        "count": "4"
+      },
+      {
+        "profile_id": "asset-access-v1",
+        "resource_id": "group",
+        "status": "active",
+        "count": "3"
+      },
+      {
+        "profile_id": "asset-access-v1",
+        "resource_id": "session",
+        "status": "active",
+        "count": "1"
+      },
+      {
+        "profile_id": "asset-library-scope-v1",
+        "resource_id": "scope",
+        "status": "active",
+        "count": "1"
+      },
+      {
+        "profile_id": "yh-liveness-name-v1",
+        "resource_id": "name",
+        "status": "active",
+        "count": "1"
+      }
+    ],
+    "locks": [
+      {
+        "count": "0"
+      }
+    ]
+  },
+  "application_log_checks": {
+    "deadlock": 0,
+    "lock_timeout": 0,
+    "panic": 0,
+    "slow_sql": 0,
+    "fatal": 0
+  },
+  "unverified": [
+    "Successful H5 association and real-person upload/deletion: user authentication failed and user declined retry.",
+    "Successful video result query/download and nonempty task list: no existing gateway-owned YH video tasks; generation excluded.",
+    "Webhook relay and group transfer remain unsupported; rejection paths tested."
+  ]
+}

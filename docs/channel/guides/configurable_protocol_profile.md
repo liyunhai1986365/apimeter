@@ -756,6 +756,8 @@ cd web/default && bun run typecheck
 
 ## TgxMaas 素材库档案与禁止资源重放
 
+`seedance-yh` 接入 YH 的 Seedance 视频、素材及 H5 认证；配置、下载、批量扩展和验收边界见 [YH 接入指南](seedance_yh.md)。
+
 `seedance-tgxmaas` 接入 TgxMaas 视频和 12 项素材库/真人认证接口，配置步骤及账号隔离边界见 [TgxMaas 档案说明](seedance_tgxmaas_profile.md)。
 
 资源可设置 `disable_replay: true`，用于禁止请求失败后跨渠道重放。默认 false，原有档案行为不变。适用于供应商账号绑定的素材 ID、分组 ID 和认证会话等资源；该开关不提供跨多次请求的资源渠道绑定，仍需固定渠道或单独维护归属映射。

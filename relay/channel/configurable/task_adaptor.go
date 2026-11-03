@@ -108,6 +108,9 @@ func (a *TaskAdaptor) BuildRequestURL(info *relaycommon.RelayInfo) (string, erro
 	if strings.TrimSpace(a.selectedSubmitPath) != "" {
 		path = a.selectedSubmitPath
 	}
+	if profile.ID == "seedance-yh" {
+		return YHURL(a.baseURL, path), nil
+	}
 	return joinURL(a.baseURL, path), nil
 }
 
@@ -141,8 +144,14 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		}
 		// The access layer also resolves aliases for an independent TgxMaas
 		// asset backend paired with a different video profile.
-		if profile.ID == "seedance-tgxmaas" || (info != nil && info.TaskRelayInfo != nil && len(info.AssetAliases) > 0) {
+		if profile.ID != "seedance-yh" && (profile.ID == "seedance-tgxmaas" || (info != nil && info.TaskRelayInfo != nil && len(info.AssetAliases) > 0)) {
 			body, err = resolveTgxMaasVideoAssets(body, info)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if profile.ID == "seedance-yh" {
+			body, err = buildYHVideoRequest(c, body, info, gjson.GetBytes(body, "prompt").String())
 			if err != nil {
 				return nil, err
 			}
@@ -161,8 +170,18 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 	if err != nil {
 		return nil, err
 	}
-	if profile.ID == "seedance-tgxmaas" || (info != nil && info.TaskRelayInfo != nil && len(info.AssetAliases) > 0) {
+	if profile.ID != "seedance-yh" && (profile.ID == "seedance-tgxmaas" || (info != nil && info.TaskRelayInfo != nil && len(info.AssetAliases) > 0)) {
 		data, err = resolveTgxMaasVideoAssets(data, info)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if profile.ID == "seedance-yh" {
+		data, err = mergeYHVideoMetadata(c, req, data)
+		if err != nil {
+			return nil, err
+		}
+		data, err = buildYHVideoRequest(c, data, info, req.Prompt)
 		if err != nil {
 			return nil, err
 		}
@@ -328,6 +347,9 @@ func (a *TaskAdaptor) FetchTask(baseUrl, key string, body map[string]any, proxy 
 		}
 	}
 	url := joinURL(baseUrl, strings.ReplaceAll(path, "{task_id}", taskID))
+	if profile.ID == "seedance-yh" {
+		url = YHURL(baseUrl, strings.ReplaceAll(path, "{task_id}", taskID))
+	}
 	method := strings.ToUpper(strings.TrimSpace(fetch.Method))
 	if method == "" {
 		method = http.MethodGet
@@ -370,6 +392,9 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	}
 	resp := a.fetchResponseConfig()
 	result := ParseConfiguredTaskInfo(resp, respBody)
+	if profile.ID == "seedance-yh" && result.Status != model.TaskStatusFailure {
+		result.Reason = ""
+	}
 	if relaycommon.IsSeedanceVideoProfile(profile.ID) {
 		result.TaskID = firstJSONString(respBody, configuredTaskIDPath(resp, respBody))
 		result.Status = mapStatus(resp.StatusMap, firstJSONString(respBody, configuredTaskStatusPath(resp, respBody)))
@@ -656,6 +681,9 @@ func (a *TaskAdaptor) ConvertToNativeFetchResponse(originTask *model.Task, upstr
 	profile, err := a.requireProfile()
 	if err != nil {
 		return nil, err
+	}
+	if profile.ID == "seedance-yh" {
+		return BuildYHVideoTaskResponse(originTask, upstream)
 	}
 	if isVolcengineVideoTaskFetchEndpoint(profile.videoNative().Fetch.Path) {
 		return buildVolcengineVideoTaskResponse(originTask, upstream, configuredTaskStatusPath(a.fetchResponseConfig(), upstream))

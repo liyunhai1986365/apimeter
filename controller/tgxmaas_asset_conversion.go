@@ -77,6 +77,9 @@ func validAssetHandle(id string) bool {
 // Normalize Action and TgxMaas asset contracts after selecting the backend;
 // shared generic routes retain the contracts of other providers.
 func prepareTgxMaasAssetRequest(c *gin.Context, ch *model.Channel, profile *configurable.Profile, resource *configurable.ResourceConfig) error {
+	if configurable.IsYHProfile(profile.ID) {
+		return prepareYHAssetRequest(c, ch, resource)
+	}
 	if profile.ID == configurable.HanxingtuAssetBackend {
 		return prepareHanxingtuAssetRequest(c, resource)
 	}

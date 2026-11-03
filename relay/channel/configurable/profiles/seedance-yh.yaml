@@ -1,0 +1,447 @@
+# YH REST API. Native callers use the official Seedance/Ark contracts.
+id: seedance-yh
+name: Seedance YH Video and Assets
+media_type: video
+accepted_modes:
+- openai.video.generations
+upstream_modes:
+- volcengine.seedance.video
+video:
+  native:
+    submit:
+      method: POST
+      path: /api/v3/contents/generations/tasks
+      response_format: volcengine_video_task_create
+      passthrough: true
+      request:
+        fields:
+        - to: model
+          from: body.model
+        - to: omni_reference_task_type
+          from: body.omni_reference_task_type
+          omit_null: true
+        - to: metadata.content
+          from: body.content
+          omit_empty: true
+        - to: prompt
+          from: body.content.#(type=="text").text
+        - to: size
+          from: body.resolution
+          omit_empty: true
+        - to: duration
+          from: body.duration
+          transform: to_int
+          omit_empty: true
+        - to: images
+          from: body.content.#(type=="image_url")#.image_url.url
+          omit_empty: true
+        - to: metadata.video_url
+          from: body.content.#(type=="video_url").video_url.url
+          omit_empty: true
+        - to: metadata.audio_url
+          from: body.content.#(type=="audio_url").audio_url.url
+          omit_empty: true
+        - to: metadata.ratio
+          from: body.ratio
+          fallback_from: body.aspect_ratio
+          omit_empty: true
+        - to: metadata.watermark
+          from: body.watermark
+          omit_empty: true
+        - to: metadata.generate_audio
+          from: body.generate_audio
+          omit_empty: true
+        - to: metadata.return_last_frame
+          from: body.return_last_frame
+          omit_empty: true
+      response:
+        passthrough: false
+    fetch:
+      method: GET
+      path: /api/v3/contents/generations/tasks/{task_id}
+      response_format: volcengine_video_task
+      response:
+        passthrough: false
+  billing:
+    ratios:
+    - key: seconds
+      from: request.seconds
+      fallback_from: request.duration
+      transform: seedance_billing_duration
+      default: 4
+    - key: size
+      value: 1
+  submit:
+    method: POST
+    path: /v1/video/generations
+    body:
+      fields:
+      - to: model
+        from: upstream_model
+      - to: omni_reference_task_type
+        from: request.omni_reference_task_type
+        fallback_from: request.metadata.omni_reference_task_type
+        omit_null: true
+      - to: content
+        from: request.metadata.content
+        omit_empty: true
+      - to: content
+        from: request.prompt
+        transform: seedance_text_content
+        append: true
+        omit_empty: true
+        conditions:
+        - field: request.metadata.content
+          non_empty: false
+      - to: content
+        from: request.images
+        transform: seedance_image_content
+        append: true
+        omit_empty: true
+        conditions:
+        - field: request.metadata.content
+          non_empty: false
+      - to: content
+        from: request.metadata.video_url
+        transform: seedance_video_content
+        append: true
+        omit_empty: true
+        conditions:
+        - field: request.metadata.content
+          non_empty: false
+      - to: content
+        from: request.metadata.audio_url
+        transform: seedance_audio_content
+        append: true
+        omit_empty: true
+        conditions:
+        - field: request.metadata.content
+          non_empty: false
+      - to: resolution
+        from: request.size
+        fallback_from: request.metadata.resolution
+        omit_empty: true
+      - to: ratio
+        from: request.metadata.ratio
+        fallback_from: request.metadata.aspect_ratio
+        omit_empty: true
+      - to: duration
+        from: request.seconds
+        fallback_from: request.duration
+        transform: to_int
+        omit_empty: true
+      - to: generate_audio
+        from: request.metadata.generate_audio
+        omit_null: true
+      - to: watermark
+        from: request.metadata.watermark
+        omit_null: true
+      - to: return_last_frame
+        from: request.metadata.return_last_frame
+        omit_null: true
+      - to: seed
+        from: request.metadata.seed
+        omit_null: true
+      - to: camera_fixed
+        from: request.metadata.camera_fixed
+        omit_null: true
+      - to: draft
+        from: request.metadata.draft
+        omit_null: true
+      - to: service_tier
+        from: request.metadata.service_tier
+        omit_null: true
+      - to: execution_expires_after
+        from: request.metadata.execution_expires_after
+        omit_null: true
+      - to: priority
+        from: request.metadata.priority
+        omit_null: true
+      - to: safety_identifier
+        from: request.metadata.safety_identifier
+        omit_null: true
+      - to: callback_url
+        from: request.metadata.callback_url
+        omit_null: true
+      - to: bitrate_mode
+        from: request.metadata.bitrate_mode
+        omit_null: true
+      - to: output_format
+        from: request.metadata.output_format
+        omit_null: true
+      - to: tools
+        from: request.metadata.tools
+        omit_null: true
+      - to: frames
+        from: request.metadata.frames
+        omit_null: true
+    response:
+      task_id_path: task_id
+      status_path: status
+  fetch:
+    method: GET
+    path: /v1/video/generations/{task_id}
+    response:
+      task_id_path: data.task_id
+      status_path: data.status
+      progress_path: data.progress
+      result_url_path: data.data.content.video_url
+      total_tokens_path: data.data.usage.total_tokens
+      completion_tokens_path: data.data.usage.completion_tokens
+      reason_path: data.fail_reason
+      status_map:
+        NOT_START: QUEUED
+        SUBMITTED: SUBMITTED
+        QUEUED: QUEUED
+        IN_PROGRESS: IN_PROGRESS
+        SUCCESS: SUCCESS
+        FAILURE: FAILURE
+    openai_response:
+      fields:
+      - to: metadata.usage.completion_tokens
+        from: usage.completion_tokens
+        omit_empty: true
+      - to: metadata.usage.total_tokens
+        from: usage.total_tokens
+        omit_empty: true
+resources:
+- id: asset_groups_create
+  asset_library: true
+  name: Create Asset Group
+  disable_replay: true
+  public:
+    method: POST
+    path: /v1/private-avatar/groups
+  aliases:
+  - method: POST
+    path: /api/asset-groups
+  - method: POST
+    path: /v1/asset-groups
+  upstream:
+    method: POST
+    path: /v1/assets/groups
+  response:
+    passthrough: true
+- id: asset_groups_list
+  asset_library: true
+  name: List Asset Groups
+  disable_replay: true
+  public:
+    method: POST
+    path: /v1/private-avatar/groups/list
+  aliases:
+  - method: GET
+    path: /api/asset-groups
+  - method: GET
+    path: /v1/asset-groups
+  upstream:
+    method: GET
+    path: /v1/assets/groups
+  response:
+    passthrough: true
+- id: asset_groups_get
+  asset_library: true
+  name: Get Asset Group
+  disable_replay: true
+  public:
+    method: GET
+    path: /v1/private-avatar/groups/{group_id}
+  aliases:
+  - method: GET
+    path: /api/asset-groups/{group_id}
+  - method: GET
+    path: /v1/asset-groups/{group_id}
+  upstream:
+    method: GET
+    path: /v1/assets/groups
+  response:
+    passthrough: true
+- id: asset_groups_update
+  asset_library: true
+  name: Update Asset Group
+  disable_replay: true
+  public:
+    method: PATCH
+    path: /v1/private-avatar/groups/{group_id}
+  aliases:
+  - method: PATCH
+    path: /api/asset-groups/{group_id}
+  - method: PATCH
+    path: /v1/asset-groups/{group_id}
+  upstream:
+    method: POST
+    path: /v1/assets/groups/update
+  response:
+    passthrough: true
+- id: asset_groups_delete
+  asset_library: true
+  name: Delete Asset Group
+  disable_replay: true
+  public:
+    method: DELETE
+    path: /v1/private-avatar/groups/{group_id}
+  aliases:
+  - method: DELETE
+    path: /api/asset-groups/{group_id}
+  - method: DELETE
+    path: /v1/asset-groups/{group_id}
+  upstream:
+    method: POST
+    path: /v1/assets/groups/delete
+  response:
+    passthrough: true
+- id: assets_create
+  asset_library: true
+  name: Create Asset
+  disable_replay: true
+  public:
+    method: POST
+    path: /v1/private-avatar/assets
+  aliases:
+  - method: POST
+    path: /api/assets
+  - method: POST
+    path: /api/assets/upload
+  - method: POST
+    path: /v1/assets
+  - method: POST
+    path: /v1/assets/async
+  upstream:
+    method: POST
+    path: /v1/assets/async
+  response:
+    passthrough: true
+- id: assets_list
+  asset_library: true
+  name: List Assets
+  disable_replay: true
+  public:
+    method: POST
+    path: /v1/private-avatar/assets/list
+  aliases:
+  - method: GET
+    path: /api/assets
+  - method: GET
+    path: /v1/assets
+  - method: POST
+    path: /v1/assets/list
+  upstream:
+    method: POST
+    path: /v1/assets/list
+  response:
+    passthrough: true
+- id: assets_get
+  asset_library: true
+  name: Get Asset
+  disable_replay: true
+  public:
+    method: GET
+    path: /v1/private-avatar/assets/{asset_id}
+  aliases:
+  - method: GET
+    path: /api/assets/{id}
+  - method: GET
+    path: /v1/assets/{id}
+  - method: POST
+    path: /v1/assets/get
+  - method: GET
+    path: /v1/assets/get
+  upstream:
+    method: POST
+    path: /v1/assets/get
+  response:
+    passthrough: true
+- id: assets_update
+  asset_library: true
+  name: Update Asset
+  disable_replay: true
+  public:
+    method: PATCH
+    path: /v1/private-avatar/assets/{asset_id}
+  aliases:
+  - method: PATCH
+    path: /api/assets/{id}
+  - method: PATCH
+    path: /v1/assets/{id}
+  upstream:
+    method: POST
+    path: /v1/assets/update
+  response:
+    passthrough: true
+- id: assets_delete
+  asset_library: true
+  name: Delete Asset
+  disable_replay: true
+  public:
+    method: DELETE
+    path: /v1/private-avatar/assets/{asset_id}
+  aliases:
+  - method: DELETE
+    path: /api/assets/{id}
+  - method: DELETE
+    path: /v1/assets/{id}
+  upstream:
+    method: POST
+    path: /v1/assets/delete
+  response:
+    passthrough: true
+- id: liveness_session_create
+  asset_library: true
+  name: Create Liveness Session
+  disable_replay: true
+  public:
+    method: POST
+    path: /v1/real-avatar/auth/session
+  upstream:
+    method: POST
+    path: /v1/assets/real-person/auth/link
+  response:
+    passthrough: true
+- id: liveness_group_exchange
+  asset_library: true
+  name: Exchange Liveness Group
+  disable_replay: true
+  public:
+    method: POST
+    path: /v1/real-avatar/groups/from-token
+  upstream:
+    method: GET
+    path: /v1/assets/real-person/groups
+  response:
+    passthrough: true
+- id: assets_content
+  asset_library: true
+  name: Download Asset Content
+  disable_replay: true
+  public:
+    method: GET
+    path: /v1/assets/{id}/content
+  upstream:
+    method: GET
+    path: /v1/assets/{id}/content
+  response:
+    passthrough: true
+- id: yh_uploads_create
+  asset_library: true
+  name: YH Legacy and Batch Upload
+  disable_replay: true
+  public:
+    method: POST
+    path: /v1/yh/assets/uploads
+  upstream:
+    method: POST
+    path: /v1/assets
+  response:
+    passthrough: true
+- id: yh_uploads_get
+  asset_library: true
+  name: Query YH Upload
+  disable_replay: true
+  public:
+    method: GET
+    path: /v1/yh/assets/uploads/{id}
+  upstream:
+    method: POST
+    path: /v1/assets/get
+  response:
+    passthrough: true

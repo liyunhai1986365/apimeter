@@ -7019,6 +7019,8 @@
     "Use separate API key": "Utiliser une clé API distincte",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "Lors de la modification, laissez les identifiants vides pour conserver ceux enregistrés. Pour les remplacer, renseignez AK et SK.",
     "ProjectName is required for this asset library": "ProjectName est requis pour cette bibliothèque de ressources",
-    "Hanxingtu assets (7 operations, Token)": "Ressources Hanxingtu (7 opérations, Token)"
+    "Hanxingtu assets (7 operations, Token)": "Ressources Hanxingtu (7 opérations, Token)",
+    "YH assets (Token and H5)": "Bibliothèque YH (Token et H5)",
+    "Use the same YH API key for video generation and its referenced assets.": "Utilisez la même clé API YH pour générer des vidéos et gérer les ressources référencées."
   }
 }

@@ -7019,6 +7019,8 @@
     "Use separate API key": "使用独立 API Key",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "编辑时密钥留空会保留已保存的凭据。更换官方凭据时需同时填写 AK 和 SK。",
     "ProjectName is required for this asset library": "此素材库必须填写 ProjectName",
-    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材库（7 项操作，Token）"
+    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材库（7 项操作，Token）",
+    "YH assets (Token and H5)": "YH 素材库（Token 与 H5 认证）",
+    "Use the same YH API key for video generation and its referenced assets.": "视频生成及其引用的素材须使用同一个 YH API Key。"
   }
 }

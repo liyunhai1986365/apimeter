@@ -293,12 +293,27 @@ func assetBindingsCurrent(db *gorm.DB, bindings []AssetBinding) (bool, error) {
 		if stored.Status != ConfigurableResourceStateStatusActive {
 			return false, ErrAssetRevoked
 		}
-		if binding.Kind == "session" {
-			continue // A repeated registration must never extend a session's expiry.
-		}
 		var existing AssetBinding
 		if err := common.UnmarshalJsonStr(stored.Metadata, &existing); err != nil {
 			return false, err
+		}
+		if binding.Kind == "session" {
+			if binding.SessionGroupID != "" {
+				if existing.ExpiresAt <= common.GetTimestamp() || existing.SessionName != binding.SessionName ||
+					(existing.SessionGroupID != "" && existing.SessionGroupID != binding.SessionGroupID) {
+					return false, ErrAssetNotOwned
+				}
+				if existing.SessionGroupID == "" {
+					return false, nil
+				}
+			}
+			continue
+		}
+		if existing.GroupType != "" && binding.GroupType != "" && existing.GroupType != binding.GroupType {
+			return false, ErrAssetNotOwned
+		}
+		if existing.GroupType == "" && binding.GroupType != "" {
+			return false, nil
 		}
 		if (existing.Project != "" && binding.Project != "" && existing.Project != binding.Project) ||
 			(existing.GroupID != "" && binding.GroupID != "" && existing.GroupID != binding.GroupID) {

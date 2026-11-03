@@ -24,6 +24,7 @@ const backends = [
   ['volcengine-assets', 'Volcengine official assets (12 operations)'],
   ['ark-compatible', 'Ark-compatible assets (custom)'],
   ['youniyouju', 'Youniyouju assets (12 operations, Token)'],
+  ['yh', 'YH assets (Token and H5)'],
   ['hanxingtu', 'Hanxingtu assets (7 operations, Token)'],
   ['tgxmaas', 'TgxMaas assets (12 operations)'],
   ['task', 'Unified task assets (upload and query)'],
@@ -144,10 +145,18 @@ export function AssetLibraryFields(props: {
                 'Asset library settings are independent of video generation. Available operations depend on the selected provider.'
               )}
             </FieldDescription>
-            {['youniyouju', 'hanxingtu'].includes(backend) && (
+            {['youniyouju', 'hanxingtu', 'yh'].includes(backend) && (
               <FieldDescription>
                 {t(
                   'Use the platform Token and root Base URL. The asset API path is added automatically. Leave Base URL empty to use the channel address.'
+                )}
+              </FieldDescription>
+            )}
+            {(backend === 'yh' ||
+              (backend === 'inherit' && profile === 'seedance-yh')) && (
+              <FieldDescription>
+                {t(
+                  'Use the same YH API key for video generation and its referenced assets.'
                 )}
               </FieldDescription>
             )}

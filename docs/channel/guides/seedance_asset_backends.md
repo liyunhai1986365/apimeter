@@ -6,7 +6,7 @@
 
 默认主题：添加/编辑「可配置协议」渠道，在 Protocol Profile 下选择「素材库类型」。视频协议与素材协议独立。例如视频使用 `seedance2-ark-task-assets`，素材库选择「火山官方素材库」。
 
-共有 13 个选项：11 种具体素材后端，加上“跟随视频协议”和“不启用”。下表表示当前代码声明的协议能力，不等同于每个供应商账号均已实测或获授权。
+共有 14 个选项：12 种具体素材后端，加上“跟随视频协议”和“不启用”。下表表示当前代码声明的协议能力，不等同于每个供应商账号均已实测或获授权。
 
 | 类型 | backend 值 | 已支持操作 | 上游路径 | 鉴权 |
 | --- | --- | --- | --- | --- |
@@ -14,6 +14,7 @@
 | 火山官方素材库 | `volcengine-assets` | 素材 5 项、分组 5 项、真人认证 2 项 | `POST /?Action=…&Version=2024-01-01` | 独立 AK/SK |
 | 方舟兼容素材库（自定义） | `ark-compatible` | 素材 5 项、分组 5 项 | 自定义路径，`POST` JSON，查询参数包含 Action 和 Version | Token |
 | 有你有剧 | `youniyouju` | 素材 5 项、分组 5 项、真人认证 2 项 | `POST /api/volcengine_asset?Action=…&Version=2024-01-01` | Token |
+| YH | `yh` | 素材与分组各 5 项、真人认证 2 项，带参数限制 | `/v1/assets/*`，本地 H5 会话关联 | Token |
 | Hanxingtu | `hanxingtu` | 素材创建、查询、列表、删除；分组创建、列表、删除（共 7 项） | `POST /v1/asset/<Action>` | Token |
 | TgxMaas | `tgxmaas` | 素材 5 项、分组 5 项、真人认证 2 项 | `/v1/private-avatar/*`、`/v1/real-avatar/*` | Token |
 | 统一任务式 | `task` | 上传、查询 | `POST /v1/task/submit`；模型 `doubao-asset`，`input.action` 为 `upload` 或 `query` | Token |
@@ -39,6 +40,8 @@
 Hanxingtu 后端使用根 Base URL 和 Bearer Key，支持文档中的 7 项操作、顶层 `Items` 响应和游标分页。素材项目固定为 `default`，不继承视频项目。配置、限制及 Mock 范围见 [Hanxingtu 接入](hanxingtu_assets.md)。
 
 方舟兼容自定义后端支持路径、版本、固定查询参数和上游分页配置，项目由上游管理；MoreRouter 配置及限制见 [方舟兼容素材库](ark_compatible_assets.md)。
+
+YH 配置、H5 会话与扩展限制见 [YH 接入](seedance_yh.md)。YH 的 CallbackURL 暂不支持，引用素材生成视频要求同一端点、同一 Key。
 
 第三方素材地址留空时复用视频渠道 Base URL，也可单独指定。鉴权可复用渠道 Key 或使用独立 API Key。多 Key 视频渠道使用独立素材凭据，避免素材操作被轮询到另一个账号。
 

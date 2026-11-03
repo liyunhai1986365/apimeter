@@ -105,6 +105,10 @@ func legacyAssetDetailResource(c *gin.Context, profile *configurable.Profile, re
 // Only a detail response can claim a historical handle. Never claim everything
 // returned by a shared account's list endpoint, or fall through other suppliers.
 func claimLegacyAsset(c *gin.Context, ch *model.Channel, profile *configurable.Profile, preferred *configurable.ResourceConfig, ref assetReference, project string) (model.AssetBinding, error) {
+	// YH's account-wide lists and integer IDs cannot prove gateway ownership.
+	if configurable.IsYHProfile(profile.ID) {
+		return model.AssetBinding{}, model.ErrAssetNotOwned
+	}
 	var empty model.AssetBinding
 	resource := legacyAssetDetailResource(c, profile, ref, preferred)
 	if resource == nil {

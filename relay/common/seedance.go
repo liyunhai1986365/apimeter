@@ -16,7 +16,7 @@ import (
 func IsSeedanceVideoProfile(id string) bool {
 	switch id {
 	case "doubao-seedance-2", "doubao-seedance-2-api-assets", "seedance2-modelsell",
-		"seedance2-ark-task-assets", "seedance-tgxmaas", "seedance2-service-inference", "doubao-seedance-max-service-inference":
+		"seedance2-ark-task-assets", "seedance-tgxmaas", "seedance-yh", "seedance2-service-inference", "doubao-seedance-max-service-inference":
 		return true
 	}
 	return false
@@ -58,7 +58,7 @@ func HasSeedanceInput(req TaskSubmitReq) bool {
 // Inference/Max, and saved gateway envelopes. Never copy arbitrary upstream
 // metadata: it can contain provider IDs, request inputs, or private fields.
 func SeedanceVideoMetadata(data []byte) map[string]any {
-	roots := []string{"", "task.", "task.metadata.", "data.", "data.data.task.", "data.data.task.metadata."}
+	roots := []string{"", "task.", "task.metadata.", "data.", "data.data.", "data.data.task.", "data.data.task.metadata."}
 	metadata := map[string]any{}
 	first := func(paths ...string) (any, bool) {
 		for _, root := range roots {

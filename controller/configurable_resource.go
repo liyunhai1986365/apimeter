@@ -85,6 +85,13 @@ func relayConfigurableResourceAttempt(c *gin.Context, channelModel *model.Channe
 	if client == nil {
 		client = http.DefaultClient
 	}
+	if configurable.IsYHProfile(profile.ID) && resource.ID == "assets_content" {
+		relayYHAssetContent(c, channelModel, resource, client)
+		return nil
+	}
+	if configurable.IsYHProfile(profile.ID) {
+		client = newYHAssetClient(c, client)
+	}
 	preResults, err := executeConfigurableResourcePreRequests(c, client, channelModel, resource)
 	if err != nil {
 		if resource.AssetLibrary {
@@ -701,6 +708,11 @@ func buildConfigurableResourceRequestWithPreResults(c *gin.Context, channelModel
 		upstreamPath = replacePathParams(resource.Public.Path, c)
 	}
 	requestURL := strings.TrimRight(configurableResourceBaseURL(channelModel, resource), "/") + "/" + strings.TrimLeft(upstreamPath, "/")
+	if raw, ok := c.Get(yhAssetContextKey); ok {
+		state := raw.(*yhAssetRequest)
+		method, upstreamPath = state.method, state.path
+		requestURL = configurable.YHURL(configurableResourceBaseURL(channelModel, resource), upstreamPath)
+	}
 
 	var bodyReader io.Reader
 	if method != http.MethodGet && method != http.MethodHead {

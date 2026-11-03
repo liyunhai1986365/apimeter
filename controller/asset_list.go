@@ -77,6 +77,9 @@ func newAssetListPagination(c *gin.Context, a *assetAccessRequest) (*assetListPa
 	cursor := value("NextToken", "next_token")
 	p.cursorMode = cursor != "" || value("MaxResults", "max_results") != ""
 	p.upstreamCursor = p.cursorMode && a.resource.Upstream.Method != http.MethodGet
+	if a.profile != nil && configurable.IsYHProfile(a.profile.ID) {
+		p.upstreamCursor = false
+	}
 	if a.profile != nil && a.profile.ID == configurable.ArkCompatibleAssetBackend {
 		p.upstreamCursor = configurable.ArkCompatibleAssetConfig(assetLibrary(a.channel)).Pagination == "cursor"
 	}
@@ -170,8 +173,12 @@ func rewriteAssetListRequest(c *gin.Context, resource *configurable.ResourceConf
 			body["NextToken"], _ = common.Marshal(cursor)
 		}
 	} else {
-		body["PageNumber"] = json.RawMessage(strconv.Itoa(page))
-		body["PageSize"] = json.RawMessage(strconv.Itoa(assetListBatchSize))
+		pageKey, sizeKey := "PageNumber", "PageSize"
+		if a := raw.(*assetAccessRequest); a.profile != nil && configurable.IsYHProfile(a.profile.ID) {
+			pageKey, sizeKey = "page_number", "page_size"
+		}
+		body[pageKey] = json.RawMessage(strconv.Itoa(page))
+		body[sizeKey] = json.RawMessage(strconv.Itoa(assetListBatchSize))
 	}
 	data, err := common.Marshal(body)
 	if err != nil {
@@ -202,6 +209,8 @@ func scanAssetListResponse(c *gin.Context, client *http.Client, ch *model.Channe
 		return resp, body, nil
 	}
 	p := raw.(*assetAccessRequest).list
+	a := raw.(*assetAccessRequest)
+	yhAssetPages := a.profile != nil && configurable.IsYHProfile(a.profile.ID) && resource.ID == "assets_list"
 	// Limit elapsed work, not account size. A user's matching resource may be
 	// beyond page 100; cancellation and a scan deadline still bound the request.
 	ctx := c.Request.Context()
@@ -245,6 +254,10 @@ func scanAssetListResponse(c *gin.Context, client *http.Client, ch *model.Channe
 		done := len(seenIDs) == p.ownedCount
 		if p.upstreamCursor {
 			done = done || next == ""
+		} else if yhAssetPages {
+			// YH can report the current page's length as total_count. Scan
+			// through a short/empty page instead of truncating at that value.
+			done = done || len(rows) < assetListBatchSize
 		} else {
 			done = done || len(rows) == 0
 			total := gjson.Result{}

@@ -25,7 +25,7 @@ func assetDefaultProject(ch *model.Channel, profile *configurable.Profile) strin
 	if profile != nil && profile.ID == configurable.ArkCompatibleAssetBackend {
 		return ""
 	}
-	if profile != nil && profile.ID == configurable.HanxingtuAssetBackend {
+	if profile != nil && (profile.ID == configurable.HanxingtuAssetBackend || configurable.IsYHProfile(profile.ID)) {
 		return "default"
 	}
 	if protocol := ch.GetSetting().Protocol; protocol != nil {

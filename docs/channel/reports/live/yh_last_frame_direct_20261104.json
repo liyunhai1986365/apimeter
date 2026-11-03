@@ -1,0 +1,547 @@
+{
+  "date": "2026-11-04",
+  "base_url": "https://www.yhapiplatform.com/v1",
+  "bypassed_local_gateway": true,
+  "existing_task_query": {
+    "id": "cgt-20261104011410-hhzkc",
+    "http": 200,
+    "response": {
+      "code": "success",
+      "data": {
+        "task_id": "cgt-20261104011410-hhzkc",
+        "status": "SUCCESS",
+        "progress": "100%",
+        "data": {
+          "model": "doubao-seedance-2.5",
+          "ratio": "16:9",
+          "duration": 5,
+          "resolution": "1080p",
+          "generate_audio": false,
+          "framespersecond": 24,
+          "content": {
+            "video_url": "<url>"
+          },
+          "usage": {
+            "total_tokens": 257277,
+            "completion_tokens": 257277
+          }
+        }
+      }
+    },
+    "inspection": {
+      "status": "SUCCESS",
+      "content_keys": [
+        "video_url"
+      ],
+      "frame_fields": [
+        {
+          "path": "data.data.framespersecond",
+          "value": 24
+        }
+      ],
+      "resolution": "1080p",
+      "duration": 5
+    }
+  },
+  "new_direct_task": {
+    "state": "SUCCESS",
+    "request": {
+      "model": "doubao-seedance-2-5-260628",
+      "prompt": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。",
+      "metadata": {
+        "content": [
+          {
+            "type": "text",
+            "text": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/fruits.jpg"
+            },
+            "role": "reference_image"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/baboon.jpg"
+            },
+            "role": "reference_image"
+          },
+          {
+            "type": "image_url",
+            "image_url": {
+              "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/butterfly.jpg"
+            },
+            "role": "reference_image"
+          }
+        ],
+        "duration": 5,
+        "ratio": "adaptive",
+        "generate_audio": false,
+        "resolution": "1080p",
+        "seed": 0,
+        "watermark": false,
+        "return_last_frame": true,
+        "execution_expires_after": 3600,
+        "service_tier": "default",
+        "draft": false,
+        "output_format": "mp4"
+      }
+    },
+    "id": "cgt-20261104012948-z1ifs",
+    "submit": {
+      "kind": "direct_submit",
+      "method": "POST",
+      "path": "/video/generations",
+      "http": 200,
+      "started_at": 1793727004.661869,
+      "seconds": 4.294368028640747,
+      "request": {
+        "model": "doubao-seedance-2-5-260628",
+        "prompt": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。",
+        "metadata": {
+          "content": [
+            {
+              "type": "text",
+              "text": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/fruits.jpg"
+              },
+              "role": "reference_image"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/baboon.jpg"
+              },
+              "role": "reference_image"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/butterfly.jpg"
+              },
+              "role": "reference_image"
+            }
+          ],
+          "duration": 5,
+          "ratio": "adaptive",
+          "generate_audio": false,
+          "resolution": "1080p",
+          "seed": 0,
+          "watermark": false,
+          "return_last_frame": true,
+          "execution_expires_after": 3600,
+          "service_tier": "default",
+          "draft": false,
+          "output_format": "mp4"
+        }
+      },
+      "response": {
+        "task_id": "cgt-20261104012948-z1ifs"
+      }
+    },
+    "last_query": {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727146.363853,
+      "seconds": 0.385699987411499,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "SUCCESS",
+          "progress": "100%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": "16:9",
+            "duration": 5,
+            "resolution": "1080p",
+            "generate_audio": false,
+            "framespersecond": 24,
+            "content": {
+              "video_url": "<url>"
+            },
+            "usage": {
+              "total_tokens": 257277,
+              "completion_tokens": 257277
+            }
+          }
+        }
+      }
+    },
+    "inspection": {
+      "status": "SUCCESS",
+      "content_keys": [
+        "video_url"
+      ],
+      "frame_fields": [
+        {
+          "path": "data.data.framespersecond",
+          "value": 24
+        }
+      ],
+      "resolution": "1080p",
+      "duration": 5
+    },
+    "terminal_at": 1793727146.7500288
+  },
+  "requests": [
+    {
+      "kind": "existing_task_query",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104011410-hhzkc",
+      "http": 200,
+      "started_at": 1793726901.6821802,
+      "seconds": 0.48272132873535156,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104011410-hhzkc",
+          "status": "SUCCESS",
+          "progress": "100%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": "16:9",
+            "duration": 5,
+            "resolution": "1080p",
+            "generate_audio": false,
+            "framespersecond": 24,
+            "content": {
+              "video_url": "<url>"
+            },
+            "usage": {
+              "total_tokens": 257277,
+              "completion_tokens": 257277
+            }
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_submit",
+      "method": "POST",
+      "path": "/video/generations",
+      "http": 200,
+      "started_at": 1793727004.661869,
+      "seconds": 4.294368028640747,
+      "request": {
+        "model": "doubao-seedance-2-5-260628",
+        "prompt": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。",
+        "metadata": {
+          "content": [
+            {
+              "type": "text",
+              "text": "结合三张参考图片创作自然生态场景：狒狒坐在水果旁，蝴蝶缓慢飞过，保持参考主体的外观，镜头缓慢移动，光线柔和，画面真实自然，不添加文字。"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/fruits.jpg"
+              },
+              "role": "reference_image"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/baboon.jpg"
+              },
+              "role": "reference_image"
+            },
+            {
+              "type": "image_url",
+              "image_url": {
+                "url": "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/butterfly.jpg"
+              },
+              "role": "reference_image"
+            }
+          ],
+          "duration": 5,
+          "ratio": "adaptive",
+          "generate_audio": false,
+          "resolution": "1080p",
+          "seed": 0,
+          "watermark": false,
+          "return_last_frame": true,
+          "execution_expires_after": 3600,
+          "service_tier": "default",
+          "draft": false,
+          "output_format": "mp4"
+        }
+      },
+      "response": {
+        "task_id": "cgt-20261104012948-z1ifs"
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727008.9575465,
+      "seconds": 0.11899733543395996,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "QUEUED",
+          "progress": "0%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": null,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727024.0750792,
+      "seconds": 0.25792837142944336,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727039.3333552,
+      "seconds": 0.24311161041259766,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727054.577137,
+      "seconds": 0.3175241947174072,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727069.8915462,
+      "seconds": 0.3470602035522461,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727085.2391822,
+      "seconds": 0.29528355598449707,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727100.5313091,
+      "seconds": 0.3094980716705322,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727115.841464,
+      "seconds": 0.27591824531555176,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727131.1186926,
+      "seconds": 0.2446002960205078,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "IN_PROGRESS",
+          "progress": "50%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": null,
+            "duration": null,
+            "resolution": null,
+            "generate_audio": false,
+            "framespersecond": null
+          }
+        }
+      }
+    },
+    {
+      "kind": "direct_poll",
+      "method": "GET",
+      "path": "/video/generations/cgt-20261104012948-z1ifs",
+      "http": 200,
+      "started_at": 1793727146.363853,
+      "seconds": 0.385699987411499,
+      "request": null,
+      "response": {
+        "code": "success",
+        "data": {
+          "task_id": "cgt-20261104012948-z1ifs",
+          "status": "SUCCESS",
+          "progress": "100%",
+          "data": {
+            "model": "doubao-seedance-2.5",
+            "ratio": "16:9",
+            "duration": 5,
+            "resolution": "1080p",
+            "generate_audio": false,
+            "framespersecond": 24,
+            "content": {
+              "video_url": "<url>"
+            },
+            "usage": {
+              "total_tokens": 257277,
+              "completion_tokens": 257277
+            }
+          }
+        }
+      }
+    }
+  ],
+  "notes": [
+    "One additional direct upstream generation, separate from the earlier two gateway tasks.",
+    "Same model, prompt, metadata and three source images; deleted asset IDs replaced with the original public image URLs.",
+    "Professional Edition is a separate documented endpoint/model family and was not invoked."
+  ]
+}

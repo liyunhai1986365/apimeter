@@ -52,7 +52,7 @@ func assetOwnLifecycleKeys(binding AssetBinding) []string {
 
 func assetLifecycleKeys(binding AssetBinding) []string {
 	keys := assetOwnLifecycleKeys(binding)
-	if assetBindingKind(binding.Kind) == "asset" && binding.GroupID != "" {
+	if (assetBindingKind(binding.Kind) == "asset" || binding.Kind == "batch") && binding.GroupID != "" {
 		keys = append(keys, assetLifecycleKey(binding, "group", binding.GroupID))
 	}
 	return keys
@@ -80,7 +80,7 @@ func (plan assetBindingLockPlan) include(binding AssetBinding, locked map[string
 		keys = append(keys, assetBindingLockKey(binding.Kind, assetBindingKey(binding.ID)))
 	}
 	missing := plan.includeKeys(keys, locked)
-	if assetBindingKind(binding.Kind) == "asset" && binding.GroupID != "" {
+	if (assetBindingKind(binding.Kind) == "asset" || binding.Kind == "batch") && binding.GroupID != "" {
 		key := assetLifecycleKey(binding, "group", binding.GroupID)
 		// Different children may register concurrently. Only deletion or a
 		// write to the group itself needs to exclude other group readers.
@@ -227,7 +227,7 @@ func (l *assetBindingLifecycle) validateIdentity(key string, visiting map[string
 func (l *assetBindingLifecycle) validate(binding AssetBinding) error {
 	assetIdentityRefs(l.refs, binding)
 	own := assetLifecycleKey(binding, binding.Kind, assetCanonicalID(binding))
-	if node := l.history[own]; node != nil && assetBindingKind(binding.Kind) == "asset" && binding.GroupID != "" {
+	if node := l.history[own]; node != nil && (assetBindingKind(binding.Kind) == "asset" || binding.Kind == "batch") && binding.GroupID != "" {
 		node.parents[binding.GroupID] = true
 	}
 	if binding.Kind == "group" && binding.ID != "" && binding.ID != assetCanonicalID(binding) {

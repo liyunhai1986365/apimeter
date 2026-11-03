@@ -1,0 +1,199 @@
+{
+  "created_at": "2026-11-04 00:21:18 +0800",
+  "concurrency": 300,
+  "accepted_requests": 300,
+  "unique_create_ids": 300,
+  "unique_returned_ids": 300,
+  "request_states": {
+    "Active": 300
+  },
+  "unique_states": {
+    "Active": 300
+  },
+  "poll_rounds": 2,
+  "metrics": {
+    "create": {
+      "requests": 300,
+      "http": {
+        "200": 300
+      },
+      "errors": {},
+      "peak_in_flight": 300,
+      "p50_seconds": 7.569031000137329,
+      "p95_seconds": 7.934425115585327,
+      "p99_seconds": 8.035500288009644,
+      "max_seconds": 8.32241177558899,
+      "wall_seconds": 8.52426528930664
+    },
+    "poll": {
+      "requests": 304,
+      "http": {
+        "200": 304
+      },
+      "errors": {},
+      "peak_in_flight": 60,
+      "p50_seconds": 4.586899280548096,
+      "p95_seconds": 5.547803163528442,
+      "p99_seconds": 5.8667073249816895,
+      "max_seconds": 6.140571117401123,
+      "wall_seconds": 30.75271701812744
+    },
+    "health": {
+      "requests": 40,
+      "http": {
+        "200": 40
+      },
+      "errors": {},
+      "peak_in_flight": 1,
+      "p50_seconds": 0.001993894577026367,
+      "p95_seconds": 0.007615327835083008,
+      "p99_seconds": 0.01247096061706543,
+      "max_seconds": 0.01247096061706543,
+      "wall_seconds": 39.131667613983154
+    }
+  },
+  "mysql_monitor": {
+    "samples": 58,
+    "errors": 0,
+    "lock_wait_peak": 0,
+    "db_connections_peak": 30,
+    "transaction_age_seconds_peak": 0
+  },
+  "sources": [
+    "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/fruits.jpg",
+    "https://cdn.jsdelivr.net/gh/opencv/opencv@4.x/samples/data/baboon.jpg"
+  ],
+  "video_generation_requests": 0,
+  "create_to_terminal_max_seconds": 39.3222451210022,
+  "build": {
+    "base_commit": "98dab3fcd",
+    "includes_uncommitted_yh_changes": true,
+    "go_version": "go1.25.1",
+    "target": "linux/amd64",
+    "cgo_enabled": false,
+    "version": "yh-load300-20261104",
+    "frontend_build": "npm run build: passed",
+    "sha256": "8a822ccaa2cca09b0f125f4a66f54470d4ab71329a09009ffc539ead2f83787a"
+  },
+  "environment": {
+    "mysql": "5.7.43-log",
+    "pool_max_open": 30,
+    "pool_max_idle": 30,
+    "redis_enabled": false,
+    "memory_cache_enabled": false,
+    "global_api_web_rate_limits_enabled": false,
+    "automatic_channel_tests_enabled": false,
+    "users": 1,
+    "tokens": 1,
+    "channels": 1,
+    "groups": 1,
+    "upstream": "https://www.yhapiplatform.com/v1"
+  },
+  "database_before_cleanup": {
+    "mysql": [
+      {
+        "version": "5.7.43-log"
+      }
+    ],
+    "tasks": [
+      {
+        "count": "0"
+      }
+    ],
+    "users": [
+      {
+        "id": "1",
+        "quota": "100000000",
+        "used_quota": "0",
+        "request_count": "0"
+      }
+    ],
+    "tokens": [
+      {
+        "id": "1",
+        "user_id": "1",
+        "used_quota": "0"
+      }
+    ],
+    "bindings": [
+      {
+        "profile_id": "asset-access-lock-v1",
+        "resource_id": "handle",
+        "status": "active",
+        "count": "602"
+      },
+      {
+        "profile_id": "asset-access-v1",
+        "resource_id": "asset",
+        "status": "active",
+        "count": "300"
+      },
+      {
+        "profile_id": "asset-access-v1",
+        "resource_id": "group",
+        "status": "active",
+        "count": "1"
+      },
+      {
+        "profile_id": "asset-library-scope-v1",
+        "resource_id": "scope",
+        "status": "active",
+        "count": "1"
+      }
+    ],
+    "locks": [
+      {
+        "count": "0"
+      }
+    ]
+  },
+  "consistency": {
+    "binding_count": 300,
+    "states": {
+      "active": 300
+    },
+    "all_owner_matches": true,
+    "all_group_matches": true,
+    "ids_match_requests": true,
+    "all_response_ids_unchanged": true,
+    "video_task_count": 0
+  },
+  "application_log_checks": {
+    "deadlock": 0,
+    "lock_timeout": 0,
+    "panic": 0,
+    "slow_sql": 0,
+    "fatal": 0
+  },
+  "upstream_cleanup": {
+    "group_delete_http": 200,
+    "gateway_get_after_delete_http": 404,
+    "upstream_asset_deleted_samples": [
+      {
+        "sample_index": 0,
+        "http": 404
+      },
+      {
+        "sample_index": 1,
+        "http": 404
+      },
+      {
+        "sample_index": 299,
+        "http": 404
+      }
+    ]
+  },
+  "local_cleanup": {
+    "container_removed": true,
+    "isolated_database_removed": true,
+    "test_db_user_removed": true,
+    "private_credentials_removed": true
+  },
+  "limits": [
+    "One gateway user and one group; two public source images used 150 times each.",
+    "300 simultaneous creates; polling concurrency capped at 60.",
+    "Latency includes upstream processing and network.",
+    "Lock waits sampled, not a complete transaction trace.",
+    "No real video generation, H5 completion or video/audio assets."
+  ]
+}

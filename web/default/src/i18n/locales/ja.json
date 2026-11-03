@@ -7019,6 +7019,8 @@
     "Use separate API key": "個別の API キーを使用",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "編集時に認証情報を空欄にすると保存済みの値を保持します。公式認証情報を変更する場合は AK と SK の両方を入力してください。",
     "ProjectName is required for this asset library": "この素材ライブラリには ProjectName が必要です",
-    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材ライブラリ（7 操作、Token）"
+    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材ライブラリ（7 操作、Token）",
+    "YH assets (Token and H5)": "YH 素材ライブラリ（Token・H5 認証）",
+    "Use the same YH API key for video generation and its referenced assets.": "動画生成と参照する素材には、同じ YH API キーを使用してください。"
   }
 }
