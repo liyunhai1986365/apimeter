@@ -1039,9 +1039,11 @@ func RelayTask(c *gin.Context) {
 		task.PrivateData.UpstreamTaskID = result.UpstreamTaskID
 		// A failed YH attempt can leave its marker in the shared retry context.
 		// Only persist it when the final successful channel also uses YH.
-		task.PrivateData.SeedanceDraft = relayInfo.ChannelType == constant.ChannelTypeConfigurable &&
-			relayInfo.ChannelSetting.Protocol != nil && relayInfo.ChannelSetting.Protocol.ProfileID == "seedance-yh" &&
-			c.GetBool("yh_video_draft")
+		if relayInfo.ChannelType == constant.ChannelTypeConfigurable &&
+			relayInfo.ChannelSetting.Protocol != nil && relayInfo.ChannelSetting.Protocol.ProfileID == "seedance-yh" {
+			task.PrivateData.SeedanceDraft = c.GetBool("yh_video_draft")
+			task.PrivateData.YHServiceTier = c.GetString("yh_video_service_tier")
+		}
 		pending, nativeResponse := c.Get(configurable.NativeTaskSubmitResponseKey)
 		seedance := relayInfo.ChannelType == constant.ChannelTypeVolcEngine || relayInfo.ChannelType == constant.ChannelTypeDoubaoVideo ||
 			(relayInfo.ChannelType == constant.ChannelTypeConfigurable && relayInfo.ChannelSetting.Protocol != nil && relaycommon.IsSeedanceVideoProfile(relayInfo.ChannelSetting.Protocol.ProfileID))

@@ -804,6 +804,9 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 				return result
 			}
 			return nativeBody
+		} else if protectSeedance {
+			c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("invalid upstream query response"), "upstream_query_failed", http.StatusBadGateway))
+			return nil
 		}
 	}
 	if task.ImageAvailability(common.GetTimestamp()).ImageStatus != "" {

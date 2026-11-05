@@ -95,7 +95,7 @@ func TestAssetUserIsolationSharesCRUDWithAnotherToken(t *testing.T) {
 	}
 }
 
-func TestAssetUserIsolationVideoIgnoresAssetTokenGroups(t *testing.T) {
+func TestAssetUserIsolationVideoPreservesTokenGroup(t *testing.T) {
 	for _, policy := range []string{"fixed", "auto", "ordered", "smart"} {
 		t.Run(policy, func(t *testing.T) {
 			preserveSmartRetryTestConfiguration(t)
@@ -147,14 +147,29 @@ func TestAssetUserIsolationVideoIgnoresAssetTokenGroups(t *testing.T) {
 			denied := seedanceCall(r, "POST", "/api/v3/contents/generations/tasks", payload, 2)
 			require.Equal(t, http.StatusNotFound, denied.Code, denied.Body.String())
 			require.Zero(t, assetCalls.Load())
+			var before, after model.User
+			require.NoError(t, model.DB.First(&before, 1).Error)
 			got := seedanceCall(r, "POST", "/api/v3/contents/generations/tasks", payload, 3)
+			require.Equal(t, http.StatusNotFound, got.Code, got.Body.String())
+			require.Zero(t, assetCalls.Load(), "shared ownership cannot move a video request into another billing group")
+			require.NoError(t, model.DB.First(&after, 1).Error)
+			require.Equal(t, before.Quota, after.Quota)
+			var count int64
+			require.NoError(t, model.DB.Model(&model.Task{}).Where("channel_id = ?", 20).Count(&count).Error)
+			require.Zero(t, count)
+			// Same-user tokens can still reuse assets when the original channel
+			// supports the concrete group authorized for this video request.
+			require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", 20).Update("group", "backup,primary").Error)
+			require.NoError(t, model.DB.Create(&model.Ability{ChannelId: 20, Group: "primary", Model: tgxRegressionModel, Enabled: true, Priority: common.GetPointer(int64(1))}).Error)
+			got = seedanceCall(r, "POST", "/api/v3/contents/generations/tasks", payload, 3)
 			require.Equal(t, http.StatusOK, got.Code, got.Body.String())
 			require.EqualValues(t, 1, assetCalls.Load())
 			var task model.Task
 			require.NoError(t, model.DB.Where("channel_id = ?", 20).First(&task).Error)
 			require.Equal(t, 1, task.UserId)
 			require.Equal(t, 3, task.TokenId)
-			require.Equal(t, float64(2), task.PrivateData.BillingContext.GroupRatio, "bill the actual asset channel's group")
+			require.Equal(t, "primary", task.Group)
+			require.Equal(t, float64(1), task.PrivateData.BillingContext.GroupRatio, "asset ownership must preserve the authorized billing group")
 
 			require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 3).Update("model_limits", "unrelated-model").Error)
 			denied = seedanceCall(r, "POST", "/api/v3/contents/generations/tasks", payload, 3)

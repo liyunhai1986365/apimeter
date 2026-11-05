@@ -89,6 +89,9 @@ func (a *TaskAdaptor) ValidateRequestAndSetAction(c *gin.Context, info *relaycom
 	if a.profile != nil && relaycommon.IsSeedanceVideoProfile(a.profile.ID) {
 		validate = relaycommon.ValidateSeedanceTaskRequest
 	}
+	if a.profile != nil && IsYHProfile(a.profile.ID) {
+		validate = validateYHVideoTaskRequest
+	}
 	taskErr := validate(c, info, constant.TaskActionGenerate)
 	if taskErr != nil {
 		return taskErr
@@ -389,6 +392,11 @@ func (a *TaskAdaptor) ParseTaskResult(respBody []byte) (*relaycommon.TaskInfo, e
 	profile, err := a.requireProfile()
 	if err != nil {
 		return nil, err
+	}
+	if IsYHProfile(profile.ID) {
+		if err := validateYHVideoTaskResult(respBody); err != nil {
+			return nil, err
+		}
 	}
 	resp := a.fetchResponseConfig()
 	result := ParseConfiguredTaskInfo(resp, respBody)

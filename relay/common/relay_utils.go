@@ -302,16 +302,22 @@ func isKnownTaskField(field string) bool {
 }
 
 func ValidateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {
-	return validateBasicTaskRequest(c, info, action, false)
+	return validateBasicTaskRequest(c, info, action, false, nil)
 }
 
 // ValidateSeedanceTaskRequest accepts native content and media-only requests
 // without relaxing the prompt requirement for other video providers.
 func ValidateSeedanceTaskRequest(c *gin.Context, info *RelayInfo, action string) *dto.TaskError {
-	return validateBasicTaskRequest(c, info, action, true)
+	return validateBasicTaskRequest(c, info, action, true, nil)
 }
 
-func validateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string, seedance bool) *dto.TaskError {
+// Provider-specific normalization runs before validation and billing see the
+// request, without changing metadata semantics for other providers.
+func ValidateSeedanceTaskRequestWithNormalizer(c *gin.Context, info *RelayInfo, action string, normalize func(*TaskSubmitReq) error) *dto.TaskError {
+	return validateBasicTaskRequest(c, info, action, true, normalize)
+}
+
+func validateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string, seedance bool, normalize func(*TaskSubmitReq) error) *dto.TaskError {
 	var err error
 	contentType := c.GetHeader("Content-Type")
 	var req TaskSubmitReq
@@ -324,6 +330,11 @@ func validateBasicTaskRequest(c *gin.Context, info *RelayInfo, action string, se
 	// 为了metadata字段的兼容性，统一UnmarshalBodyReusable
 	if err := common.UnmarshalBodyReusable(c, &req); err != nil {
 		return createTaskError(err, "invalid_request", http.StatusBadRequest, true)
+	}
+	if normalize != nil {
+		if err := normalize(&req); err != nil {
+			return createTaskError(err, "invalid_request", http.StatusBadRequest, true)
+		}
 	}
 
 	if !seedance || !HasSeedanceInput(req) {

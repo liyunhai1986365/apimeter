@@ -46,6 +46,8 @@
 | [多渠道共享素材库问题](design/asset_shared_library_issue.md) | 2026-10-08 | 当时记录的能力限制、候选方案和验收范围 |
 | [方舟兼容素材库配置方案](design/ark_compatible_asset_config_plan.md) | 2026-10-26 | 完整设计方向；首版可用配置见 [使用说明](guides/ark_compatible_assets.md) |
 | [YH Seedance 渠道接入规划](design/seedance_yh_integration_plan.md) | 2026-11-03 | 设计及实施状态：核心已实现，Webhook 中继与跨 Token 转移待续 |
+| [用户自有供应商任务错误退款](design/user_owned_task_billing_issue.md) | 2026-11-05 | 已复现的公共视频任务计费问题，按用户要求暂不处理；含触发条件和影响边界 |
+| [OpenAI 图片参数适配方案](design/openai_image_parameter_adaptation_20261105.md) | 2026-11-05 | 规划：正常转发补齐新增参数，区分请求适配、无保存响应及后续存储／计费工作 |
 
 ## 审查与修复记录
 

@@ -128,7 +128,7 @@ func TestYHDraftRetryToOfficialAfterChannelReplacement(t *testing.T) {
 		}
 		return &http.Response{StatusCode: status, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(payload)), Request: req}, nil
 	})
-	body := `{"model":"` + tgxRegressionModel + `","draft":true,"content":[{"type":"text","text":"a scene"}]}`
+	body := `{"model":"` + tgxRegressionModel + `","draft":true,"service_tier":"flex","content":[{"type":"text","text":"a scene"}]}`
 	out := seedanceCall(router, http.MethodPost, "/api/v3/contents/generations/tasks", body, 1)
 	require.Equal(t, http.StatusOK, out.Code, out.Body.String())
 	require.Equal(t, []string{"/v1/video/generations", "/api/v3/contents/generations/tasks"}, calls)
@@ -137,6 +137,7 @@ func TestYHDraftRetryToOfficialAfterChannelReplacement(t *testing.T) {
 	require.True(t, exists)
 	require.Equal(t, 21, saved.ChannelId)
 	require.False(t, saved.PrivateData.SeedanceDraft, "official retry must not inherit a YH-specific marker")
+	require.Empty(t, saved.PrivateData.YHServiceTier, "official retry must not inherit YH task metadata")
 	// The upstream account still owns the completed draft after replacing its
 	// local official channel. Reusing it must reach that replacement channel.
 	require.NoError(t, model.DB.Model(saved).Update("status", model.TaskStatusSuccess).Error)

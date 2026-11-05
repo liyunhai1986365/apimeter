@@ -30,7 +30,11 @@ func TestYHVideoContentUsesOwnedTaskAndStoredKey(t *testing.T) {
 	old := *setting
 	setting.EnableSSRFProtection = false
 	t.Cleanup(func() { *setting = old })
-	require.NoError(t, model.DB.Create(&model.Task{TaskID: "task_gateway", UserId: 1, ChannelId: 20, Status: model.TaskStatusSuccess, PrivateData: model.TaskPrivateData{Key: "original-task-key", UpstreamTaskID: "cgt-owned"}}).Error)
+	require.NoError(t, model.DB.Create(&model.Task{TaskID: "task_gateway", UserId: 1, ChannelId: 20, Status: model.TaskStatusSuccess, Properties: model.Properties{OriginModelName: tgxRegressionModel}, PrivateData: model.TaskPrivateData{Key: "original-task-key", UpstreamTaskID: "cgt-owned"}}).Error)
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Updates(map[string]any{"model_limits_enabled": true, "model_limits": "unrelated-model"}).Error)
+	require.Equal(t, http.StatusForbidden, seedanceCall(r, "GET", "/v1/videos/cgt-owned/content", "", 1).Code)
+	require.Zero(t, calls.Load(), "denied content requests must not reach upstream")
+	require.NoError(t, model.DB.Model(&model.Token{}).Where("id = ?", 1).Update("model_limits", tgxRegressionModel).Error)
 	for _, id := range []string{"task_gateway", "cgt-owned"} {
 		req := httptest.NewRequest("GET", "/v1/videos/"+id+"/content", nil)
 		req.Header.Set("Authorization", "Bearer seedancetest1")

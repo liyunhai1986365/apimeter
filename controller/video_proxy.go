@@ -15,6 +15,7 @@ import (
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relay/channel/configurable"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 
 	"github.com/gin-gonic/gin"
@@ -52,6 +53,24 @@ func VideoProxy(c *gin.Context) {
 	if !exists || task == nil {
 		videoProxyError(c, http.StatusNotFound, "invalid_request_error", "Task not found")
 		return
+	}
+	// Content routes also accept dashboard sessions. Apply token restrictions
+	// only when present, before accessing any stored or upstream content.
+	if common.GetContextKeyBool(c, constant.ContextKeyTokenModelLimitEnabled) {
+		raw, _ := common.GetContextKey(c, constant.ContextKeyTokenModelLimit)
+		limits, _ := raw.(map[string]bool)
+		name := task.Properties.OriginModelName
+		if _, allowed := limits[ratio_setting.FormatMatchingModelName(name)]; name == "" || !allowed {
+			videoProxyError(c, http.StatusForbidden, "permission_error", "Token cannot access this task's model")
+			return
+		}
+	}
+	if raw, restricted := common.GetContextKey(c, constant.ContextKeyTokenSpecificChannelId); restricted {
+		channelID, err := parseSpecificChannelID(raw)
+		if err != nil || channelID != task.ChannelId {
+			videoProxyError(c, http.StatusForbidden, "permission_error", "Token cannot access this task's channel")
+			return
+		}
 	}
 	view, viewErr := task.ImageRetentionView(common.GetTimestamp())
 	if viewErr != nil {

@@ -113,10 +113,13 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 	protocolFilter := service.BuildProtocolChannelFilter(&service.RetryParam{Ctx: c, ModelName: info.OriginModelName})
 	// Video authentication already ran in Distribute. Asset access only adds
 	// user ownership; the original channel still needs an enabled video model.
-	// Prefer the selected billing group when that channel also serves it.
+	// Preserve the concrete billing group authorized by the distributor.
 	preferredGroup := common.GetContextKeyString(c, constant.ContextKeyAutoGroup)
 	if preferredGroup == "" {
 		preferredGroup = common.GetContextKeyString(c, constant.ContextKeyUsingGroup)
+	}
+	if preferredGroup == "" || preferredGroup == service.AutoGroupName {
+		return model.ErrAssetNotOwned
 	}
 	// Resolve known handles first, regardless of media order. A legacy handle
 	// in the same request must be verified on that original channel.
@@ -156,7 +159,8 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 					}
 				}
 			}
-			if ch.Status != common.ChannelStatusEnabled || (protocolFilter != nil && !protocolFilter(ch)) {
+			if ch.Status != common.ChannelStatusEnabled || (protocolFilter != nil && !protocolFilter(ch)) ||
+				!configurableResourceChannelAbilityEnabled(ch, preferredGroup, info.OriginModelName) {
 				return model.ErrAssetNotOwned
 			}
 			profile, ok := configurable.AssetProfile(ch.GetSetting().Protocol)
@@ -211,19 +215,11 @@ func lockAssetVideoChannel(c *gin.Context, info *relaycommon.RelayInfo) error {
 			if binding.Project != "" && ((requestedProject != "" && requestedProject != binding.Project) || (project != "" && project != binding.Project)) {
 				continue
 			}
-			channelGroup := ""
-			for _, group := range ch.GetGroups() {
-				if configurableResourceChannelAbilityEnabled(ch, group, info.OriginModelName) {
-					if channelGroup == "" || group == preferredGroup {
-						channelGroup = group
-					}
-				}
-			}
-			if channelGroup == "" {
+			if !configurableResourceChannelAbilityEnabled(ch, preferredGroup, info.OriginModelName) {
 				continue
 			}
 			matches++
-			candidate, candidateGroup = ch, channelGroup
+			candidate, candidateGroup = ch, preferredGroup
 			candidateProject = binding.Project
 			if profile.ID == "seedance-tgxmaas" || configurable.IsYHProfile(profile.ID) {
 				canonicalID = binding.CanonicalID

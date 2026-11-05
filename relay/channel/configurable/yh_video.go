@@ -3,9 +3,11 @@ package configurable
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/dto"
 	"github.com/QuantumNous/new-api/model"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/gin-gonic/gin"
@@ -22,30 +24,75 @@ func YHURL(base, path string) string {
 	return base + "/" + strings.TrimLeft(path, "/")
 }
 
+// Decode raw fields with the same case-insensitive matching as TaskSubmitReq.
+// RawMessage also distinguishes missing fields from explicit zero/null values.
+type yhVideoRequestFields struct {
+	Duration json.RawMessage `json:"duration"`
+	Seconds  json.RawMessage `json:"seconds"`
+	Metadata json.RawMessage `json:"metadata"`
+}
+
+func (r yhVideoRequestFields) hasTopLevelDuration() bool {
+	return len(r.Duration) > 0 || len(r.Seconds) > 0
+}
+
+func parseYHVideoDuration(raw []byte) (int, error) {
+	if gjson.ParseBytes(raw).Type == gjson.String {
+		var text string
+		if err := common.Unmarshal(raw, &text); err != nil {
+			return 0, err
+		}
+		return strconv.Atoi(text)
+	}
+	var duration int
+	err := common.Unmarshal(raw, &duration)
+	return duration, err
+}
+
+func validateYHVideoTaskRequest(c *gin.Context, info *relaycommon.RelayInfo, action string) *dto.TaskError {
+	return relaycommon.ValidateSeedanceTaskRequestWithNormalizer(c, info, action, func(req *relaycommon.TaskSubmitReq) error {
+		var original yhVideoRequestFields
+		if err := common.UnmarshalBodyReusable(c, &original); err != nil {
+			return err
+		}
+		// Match outbound precedence, including explicitly empty/null top-level
+		// fields. Never add a default duration to draft upgrade requests.
+		if original.hasTopLevelDuration() || req.Metadata["duration"] == nil {
+			return nil
+		}
+		raw, err := common.Marshal(req.Metadata["duration"])
+		if err != nil {
+			return fmt.Errorf("metadata.duration must be an integer")
+		}
+		duration, err := parseYHVideoDuration(raw)
+		if err != nil {
+			return fmt.Errorf("metadata.duration must be an integer")
+		}
+		req.Duration = duration
+		return nil
+	})
+}
+
 // Restore raw metadata after mapping to retain numeric precision and extensions,
 // while keeping the shared mapping's precedence for known generic fields.
 func mergeYHVideoMetadata(c *gin.Context, req relaycommon.TaskSubmitReq, body []byte) ([]byte, error) {
-	var original map[string]json.RawMessage
+	var original yhVideoRequestFields
 	if err := common.UnmarshalBodyReusable(c, &original); err != nil {
 		return nil, err
 	}
-	raw, exists := original["metadata"]
-	if !exists {
-		return body, nil
-	}
+	raw := original.Metadata
 	if gjson.ParseBytes(raw).Type == gjson.String {
 		var encoded string
 		if err := common.Unmarshal(raw, &encoded); err != nil {
 			return nil, err
 		}
-		if strings.TrimSpace(encoded) == "" {
-			return body, nil
-		}
-		raw = []byte(encoded)
+		raw = []byte(strings.TrimSpace(encoded))
 	}
 	var metadata, mapped map[string]json.RawMessage
-	if err := common.Unmarshal(raw, &metadata); err != nil {
-		return nil, err
+	if len(raw) > 0 {
+		if err := common.Unmarshal(raw, &metadata); err != nil {
+			return nil, err
+		}
 	}
 	if err := common.Unmarshal(body, &mapped); err != nil {
 		return nil, err
@@ -60,11 +107,18 @@ func mergeYHVideoMetadata(c *gin.Context, req relaycommon.TaskSubmitReq, body []
 				continue
 			}
 		case "duration":
-			if len(original["duration"]) > 0 || len(original["seconds"]) > 0 {
+			if original.hasTopLevelDuration() {
 				continue
 			}
 		}
 		mapped[key] = value
+	}
+	// The shared DTO omits duration=0 on marshal. Restore only an explicitly
+	// supplied integer zero; seconds still wins and null/absent stay omitted.
+	if req.Duration == 0 && strings.TrimSpace(req.Seconds) == "" && len(original.Duration) > 0 && gjson.ParseBytes(original.Duration).Type != gjson.Null {
+		if duration, err := parseYHVideoDuration(original.Duration); err == nil && duration == 0 {
+			mapped["duration"] = json.RawMessage("0")
+		}
 	}
 	return common.Marshal(mapped)
 }
@@ -137,8 +191,13 @@ func buildYHVideoRequest(c *gin.Context, body []byte, info *relaycommon.RelayInf
 		content = append(content, text)
 		texts = append(texts, fallbackPrompt)
 	}
-	// Store only the draft flag, never the complete request or media URLs.
+	// Store only task attributes needed locally, never the request or media URLs.
 	c.Set("yh_video_draft", gjson.GetBytes(body, "draft").Type == gjson.True)
+	tier := gjson.GetBytes(body, "service_tier")
+	c.Set("yh_video_service_tier", "")
+	if tier.Type == gjson.String {
+		c.Set("yh_video_service_tier", tier.String())
+	}
 	var err error
 	fields["content"], err = common.Marshal(content)
 	if err != nil {
@@ -158,7 +217,47 @@ func buildYHVideoRequest(c *gin.Context, body []byte, info *relaycommon.RelayInf
 	return common.Marshal(result)
 }
 
+// Reject malformed provider results before any foreground/background poll can
+// persist a terminal state and settle its billing.
+func validateYHVideoTaskResult(body []byte) error {
+	if data := gjson.GetBytes(body, "data.data"); data.Exists() && data.Type != gjson.Null && !data.IsObject() {
+		return fmt.Errorf("invalid YH task result")
+	}
+	return nil
+}
+
+// Listing must use persisted state: Data can still contain the create response
+// after a running poll or a local timeout. Only reuse compatible result data.
+func BuildYHVideoTaskListResponse(task *model.Task) ([]byte, error) {
+	if task == nil {
+		return nil, fmt.Errorf("task is required")
+	}
+	response, err := BuildYHVideoTaskResponse(task, task.Data)
+	status := gjson.GetBytes(response, "status").String()
+	matches := status == volcengineVideoTaskStatus("", task.Status)
+	// Legacy flat responses can carry a more specific terminal failure state.
+	if task.Status == model.TaskStatusFailure && (status == "cancelled" || status == "expired") {
+		matches = true
+	}
+	if err != nil || !matches {
+		// Also tolerate malformed payloads saved before result validation.
+		return BuildYHVideoTaskResponse(task, nil)
+	}
+	return response, nil
+}
+
 func BuildYHVideoTaskResponse(task *model.Task, body []byte) ([]byte, error) {
+	response, err := buildYHVideoTaskResponse(task, body)
+	if err != nil {
+		return nil, err
+	}
+	if task.PrivateData.YHServiceTier != "" && !gjson.GetBytes(response, "service_tier").Exists() {
+		return sjson.SetBytes(response, "service_tier", task.PrivateData.YHServiceTier)
+	}
+	return response, nil
+}
+
+func buildYHVideoTaskResponse(task *model.Task, body []byte) ([]byte, error) {
 	if task == nil {
 		return nil, fmt.Errorf("task is required")
 	}

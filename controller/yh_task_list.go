@@ -83,7 +83,7 @@ func ListYHVideoTasks(c *gin.Context) {
 				return nil
 			}
 		}
-		body, err := configurable.BuildYHVideoTaskResponse(task, task.Data)
+		body, err := configurable.BuildYHVideoTaskListResponse(task)
 		if err != nil {
 			return fmt.Errorf("invalid stored video task: %w", err)
 		}
