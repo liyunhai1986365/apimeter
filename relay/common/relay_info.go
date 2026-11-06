@@ -1096,6 +1096,16 @@ func FailTaskInfo(reason string) *TaskInfo {
 	}
 }
 
+// AllowImageSafetyIdentifier applies the single-field policy used by image
+// adaptors that serialize ImageRequest, including existing passthrough exemptions.
+func (info *RelayInfo) AllowImageSafetyIdentifier() bool {
+	if model_setting.GetGlobalSettings().PassThroughRequestEnabled {
+		return true
+	}
+	return info != nil && info.ChannelMeta != nil &&
+		(info.ChannelSetting.PassThroughBodyEnabled || info.ChannelOtherSettings.AllowSafetyIdentifier)
+}
+
 // RemoveDisabledFields 从请求 JSON 数据中移除渠道设置中禁用的字段
 // service_tier: 服务层级字段，可能导致额外计费（OpenAI、Claude、Responses API 支持）
 // inference_geo: Claude 数据驻留推理区域字段（仅 Claude 支持，默认过滤）

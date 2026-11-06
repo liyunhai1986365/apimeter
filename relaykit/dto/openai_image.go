@@ -28,6 +28,12 @@ type ImageRequest struct {
 	OutputFormat      json.RawMessage `json:"output_format,omitempty"`
 	OutputCompression json.RawMessage `json:"output_compression,omitempty"`
 	PartialImages     json.RawMessage `json:"partial_images,omitempty"`
+	Complexity        *string         `json:"complexity,omitempty"`
+	FrameCount        *int            `json:"frame_count,omitempty"`
+	FrameDurationMS   *int            `json:"frame_duration_ms,omitempty"`
+	SafetyIdentifier  *string         `json:"safety_identifier,omitempty"`
+	SVG               json.RawMessage `json:"svg,omitempty"`
+	Markup            json.RawMessage `json:"markup,omitempty"`
 	// Stream            bool            `json:"stream,omitempty"`
 	Images                           json.RawMessage `json:"images,omitempty"`
 	Mask                             json.RawMessage `json:"mask,omitempty"`
@@ -44,6 +50,9 @@ type ImageRequest struct {
 	Image            json.RawMessage `json:"image,omitempty"`
 	// 用匿名参数接收额外参数
 	Extra map[string]json.RawMessage `json:"-"`
+	// ExplicitNullFields preserves the legacy Extra semantics of promoted scalars
+	// for Replicate. It must not affect ordinary JSON serialization or Extra merges.
+	ExplicitNullFields map[string]bool `json:"-"`
 }
 
 func (i *ImageRequest) UnmarshalJSON(data []byte) error {
@@ -63,6 +72,14 @@ func (i *ImageRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	*i = ImageRequest(known)
+	for _, key := range []string{"complexity", "frame_count", "frame_duration_ms", "safety_identifier"} {
+		if strings.TrimSpace(string(rawMap[key])) == "null" {
+			if i.ExplicitNullFields == nil {
+				i.ExplicitNullFields = make(map[string]bool)
+			}
+			i.ExplicitNullFields[key] = true
+		}
+	}
 
 	// 提取多余字段
 	i.Extra = make(map[string]json.RawMessage)

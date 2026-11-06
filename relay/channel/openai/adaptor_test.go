@@ -8,13 +8,56 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/dto"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
+	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestOpenAIImageSafetyIdentifierChannelPolicy(t *testing.T) {
+	global := model_setting.GetGlobalSettings()
+	original := global.PassThroughRequestEnabled
+	t.Cleanup(func() { global.PassThroughRequestEnabled = original })
+	for _, tc := range []struct {
+		name                             string
+		allowed, channelPass, globalPass bool
+	}{
+		{name: "filtered"},
+		{name: "explicitly allowed", allowed: true},
+		{name: "existing channel passthrough", channelPass: true},
+		{name: "existing global passthrough", globalPass: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			global.PassThroughRequestEnabled = tc.globalPass
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", nil)
+			c.Request.Header.Set("Content-Type", "application/json")
+			info := &relaycommon.RelayInfo{
+				RelayMode: relayconstant.RelayModeImagesEdits,
+				ChannelMeta: &relaycommon.ChannelMeta{
+					ChannelSetting:       dto.ChannelSettings{PassThroughBodyEnabled: tc.channelPass},
+					ChannelOtherSettings: dto.ChannelOtherSettings{AllowSafetyIdentifier: tc.allowed},
+				},
+			}
+			request := dto.ImageRequest{Model: "m", Prompt: "edit", SafetyIdentifier: common.GetPointer(""), Image: []byte(`"data:image/png;base64,YWJj"`)}
+			converted, err := (&Adaptor{}).ConvertImageRequest(c, info, request)
+			require.NoError(t, err)
+			form, err := multipart.NewReader(converted.(*bytes.Buffer), multipartBoundary(t, c.GetHeader("Content-Type"))).ReadForm(1 << 20)
+			require.NoError(t, err)
+			defer form.RemoveAll()
+			if tc.allowed || tc.channelPass || tc.globalPass {
+				require.Equal(t, []string{""}, form.Value["safety_identifier"])
+			} else {
+				require.NotContains(t, form.Value, "safety_identifier")
+			}
+			require.NotNil(t, request.SafetyIdentifier)
+		})
+	}
+}
 
 func TestOpenAIImageRequestKeepsStandardEndpointAndBearerAuthorization(t *testing.T) {
 	info := &relaycommon.RelayInfo{

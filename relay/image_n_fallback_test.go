@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -294,8 +295,15 @@ func TestImageHelperFallsBackFromRejectedBatchToSingleSubmissions(t *testing.T) 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requestNumber := int(requestCount.Add(1))
 		var requestBody map[string]any
-		require.NoError(t, common.DecodeJson(r.Body, &requestBody))
+		wire, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+		require.NoError(t, common.Unmarshal(wire, &requestBody))
 		require.Equal(t, "gpt-image-2-count", requestBody["model"])
+		require.Equal(t, "high", requestBody["complexity"])
+		require.Equal(t, float64(0), requestBody["frame_count"])
+		require.Equal(t, float64(100), requestBody["frame_duration_ms"])
+		require.Equal(t, "9007199254740993", gjson.GetBytes(wire, "svg.extension").Raw)
+		require.NotContains(t, requestBody, "safety_identifier")
 		n := int(requestBody["n"].(float64))
 		w.Header().Set("Content-Type", "application/json")
 		if n > 1 {
@@ -319,6 +327,9 @@ func TestImageHelperFallsBackFromRejectedBatchToSingleSubmissions(t *testing.T) 
 		N:              &n,
 		Size:           "1024x1024",
 		ResponseFormat: "b64_json",
+		Complexity:     common.GetPointer("high"), FrameCount: common.GetPointer(0), FrameDurationMS: common.GetPointer(100),
+		SafetyIdentifier: common.GetPointer("filtered-user"), SVG: []byte(`{"extension":9007199254740993}`),
+		Extra: map[string]json.RawMessage{"vendor_extension": []byte(`true`)},
 	}
 	info := &relaycommon.RelayInfo{
 		UserId:           1,

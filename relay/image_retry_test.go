@@ -73,7 +73,18 @@ func TestImageHelperRetriesWithOriginalRequestFormat(t *testing.T) {
 		{name: "multipart edits fallback to passthrough", model: "gpt-image-2.5-flare", multipart: true, retryPassthrough: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			request := &dto.ImageRequest{Model: tt.model, Prompt: "edit the image", N: common.GetPointer(uint(1))}
+			request := &dto.ImageRequest{
+				Model: tt.model, Prompt: "edit the image", N: common.GetPointer(uint(1)),
+				Complexity: common.GetPointer(""), FrameCount: common.GetPointer(0), FrameDurationMS: common.GetPointer(100),
+				SafetyIdentifier: common.GetPointer("user-hash"), Stream: common.GetPointer(false),
+				Background: []byte(`""`), Moderation: []byte(`"low"`), OutputFormat: []byte(`"png"`),
+				OutputCompression: []byte(`0`), PartialImages: []byte(`0`), User: []byte(`" user "`),
+			}
+			expectedFields := map[string]string{
+				"complexity": "", "frame_count": "0", "frame_duration_ms": "100", "stream": "false",
+				"background": "", "moderation": "low", "output_format": "png",
+				"output_compression": "0", "partial_images": "0", "user": " user ",
+			}
 			var body []byte
 			contentType := "application/json; charset=utf-8"
 			if tt.multipart {
@@ -81,6 +92,11 @@ func TestImageHelperRetriesWithOriginalRequestFormat(t *testing.T) {
 				writer := multipart.NewWriter(&source)
 				require.NoError(t, writer.WriteField("model", request.Model))
 				require.NoError(t, writer.WriteField("prompt", request.Prompt))
+				for key, value := range expectedFields {
+					require.NoError(t, writer.WriteField(key, value))
+				}
+				require.NoError(t, writer.WriteField("safety_identifier", *request.SafetyIdentifier))
+				require.NoError(t, writer.WriteField("vendor_field", "preserve-native-form"))
 				file, err := writer.CreateFormFile("image", "input.png")
 				require.NoError(t, err)
 				_, err = file.Write([]byte("fake image"))
@@ -132,6 +148,7 @@ func TestImageHelperRetriesWithOriginalRequestFormat(t *testing.T) {
 			info := &relaycommon.RelayInfo{Request: request, OriginModelName: tt.model, RelayMode: mode, RequestURLPath: path}
 
 			for attempt := 0; attempt < 2; attempt++ {
+				common.SetContextKey(c, constant.ContextKeyChannelOtherSetting, dto.ChannelOtherSettings{AllowSafetyIdentifier: attempt == 1})
 				passthrough := attempt == 1 && tt.retryPassthrough
 				convert := !passthrough
 				common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{
@@ -167,6 +184,17 @@ func TestImageHelperRetriesWithOriginalRequestFormat(t *testing.T) {
 					require.NoError(t, err)
 					require.Equal(t, []string{tt.model}, form.Value["model"])
 					require.Equal(t, []string{request.Prompt}, form.Value["prompt"])
+					for key, value := range expectedFields {
+						require.Equal(t, []string{value}, form.Value[key], key)
+					}
+					if attempt == 0 {
+						require.NotContains(t, form.Value, "safety_identifier")
+					} else {
+						require.Equal(t, []string{"user-hash"}, form.Value["safety_identifier"])
+					}
+					if tt.multipart {
+						require.Equal(t, []string{"preserve-native-form"}, form.Value["vendor_field"])
+					}
 					require.Len(t, form.File["image"], 1)
 					file, err := form.File["image"][0].Open()
 					require.NoError(t, err)
@@ -180,6 +208,7 @@ func TestImageHelperRetriesWithOriginalRequestFormat(t *testing.T) {
 				require.Equal(t, originalHeaders, c.Request.Header)
 				require.Equal(t, mode, info.RelayMode)
 				require.Equal(t, path, info.RequestURLPath)
+				require.Equal(t, "user-hash", *request.SafetyIdentifier)
 			}
 		})
 	}

@@ -1,6 +1,6 @@
 # OpenAI 图片接口参数适配方案
 
-日期：2026-11-05。状态：**规划，尚未实施**。
+日期：2026-11-05。状态：**请求参数阶段已实现；无保存响应兼容待续**。
 
 ## 目标与范围
 
@@ -22,7 +22,7 @@
 
 在 [relaykit/dto/openai_image.go](../../../relaykit/dto/openai_image.go) 的 `ImageRequest` 中增加字段，沿用现有正常序列化路径：
 
-| 参数 | 端点 | 建议 Go 类型 | 处理方式 |
+| 参数 | 端点 | Go 类型 | 处理方式 |
 | --- | --- | --- | --- |
 | `complexity` | 创建、编辑 | `*string` | 原值转发，不限定本地枚举 |
 | `frame_count` | 创建、编辑 | `*int` | 原值转发，不在本地添加帧数默认值 |
@@ -31,13 +31,15 @@
 | `svg` | 创建 | `json.RawMessage` | 保留 `model`、`reasoning.effort` 及对象中的扩展字段 |
 | `markup` | 编辑 | `json.RawMessage` | 保留 `image_url`／`file_id` 引用对象 |
 
-可选标量使用指针和 `omitempty`：省略不发送，显式零值、空字符串不被吞掉。可选标量的 `null` 与省略均采用文档的默认语义；对象使用原始 JSON 保留显式 `null` 和嵌套内容。已有 `stream:false`、`partial_images:0`、`output_compression:0` 继续完整保留。
+可选标量使用指针和 `omitempty`：省略不发送，显式零值、空字符串不被吞掉。OpenAI 转发中，可选标量的 `null` 与省略均采用文档的默认语义；对象使用原始 JSON 保留显式 `null` 和嵌套内容。Replicate 保留这四个新增标量原先作为扩展参数时的行为：显式 `null` 仍写入 `input` 并覆盖 `extra_fields` 同名默认值；内部空值标记不参与其他渠道的 JSON 序列化或扩展字段合并。已有 `stream:false`、`partial_images:0`、`output_compression:0` 继续完整保留。
 
 宿主代码中的 JSON 操作使用 `common.*`；`relaykit` 内沿用现有的 `kitutil` 包封装，不直接新增 `encoding/json` 的编解码调用，也不引入反向依赖。引用 `json.RawMessage` 类型不受此限制。
 
 范围、枚举、模型权限及参数组合由上游校验，例如 GIF 的帧数／压缩／流式组合、SVG 作者模型、`markup` 与 `mask` 的互斥。本地只保留已有的请求结构解析及必要的协议转换错误处理。
 
 `safety_identifier` 使用已有 `allow_safety_identifier` 渠道设置：允许时转发，禁用时遵循字段过滤策略。只处理图片适配中的该字段，不为此把整个聊天／Responses 字段过滤器套到图片请求上，也不改变现有聊天或 Responses 的策略。这是既有单字段设置，不是请求体原样透传模式。
+
+已有全局／渠道原样透传配置继续沿用其放行字段的语义，包括因图片格式策略进入强制转换的请求；本次不启用或新增这些配置。普通适配仍默认过滤 `safety_identifier`，管理员的 JSON 参数覆盖按既有顺序在转换之后执行。
 
 ## 二、按请求格式接入
 
@@ -74,7 +76,9 @@
 - 每次重试从原请求构建本次渠道的请求，不能因上一渠道转换、删除字段或修改 multipart 头而污染下一次请求。
 - 新模型名称无需独立渠道类型或硬编码枚举。渠道模型、模型映射和价格由现有配置承载。
 
-本期预计主要修改 `relaykit/dto/openai_image.go`、`relay/channel/openai/adaptor.go`、`relay/imageconv/request.go` 及相关测试。没有新增数据库结构或前端配置项。
+实现涉及 `relaykit/dto/openai_image.go`、OpenAI／Volcengine／智谱 V4 图片适配器及 `relay/imageconv/request.go`。这三个适配器复用 `relay/common/relay_info.go` 的安全标识放行判断，避免共享 DTO 新增字段后绕过渠道禁用设置。另有两处关联兼容修复：`relay/channel/replicate/adaptor.go` 继续将从 `Extra` 迁出的六个字段写入原有 `input`；`relay/image_n_fallback.go` 合并扩展字段时改为保留原始 JSON，避免嵌套大整数在拆分请求中失真。没有新增数据库结构或前端配置项。
+
+参数覆盖和删除的验收针对正常 JSON 出站路径。原生 multipart 和旧格式 JSON 转 multipart 沿用原有覆盖能力，本期不扩展通用表单参数覆盖机制。
 
 ## 四、后续无保存响应兼容
 
@@ -113,4 +117,14 @@
 
 优先运行 `dto`、`relay/channel/openai`、`relay/helper`、`relay` 的相关测试，以及 `relaykit` 和被共享字段影响的适配器检查。具体命令按实际修改范围选择；通过后不无目的地重复全量测试。模拟验收不产生真实上游生图费用，真实供应商验收另列结果。
 
-本次仅记录方案和更新文档索引，没有实施上述业务改动。
+## 七、请求阶段实施与验证记录
+
+已补齐六个字段及旧格式转表单遗漏的标量；保留官方 JSON 引用结构和原生 multipart 的其他字段。模拟上游验收覆盖解析、深拷贝、模型映射、JSON 参数覆盖、实际 HTTP 请求、上游错误、同／跨渠道重试、批量拆分、本地异步任务及普通计费结果。
+
+新增用例包含显式零值／空字符串／`null`、16 张 URL 引用、data URL、已有文件 ID、对象遮罩与 markup、SVG 嵌套大整数，以及安全标识的渠道策略。四类原生 SSE 事件同时检查元数据、图片内容和 usage 保持完整。GIF／SVG 请求测试使用普通 PNG 模拟回包，仅证明请求参数保留，不代表真实上游功能或 SVG 回包已验收。
+
+Review 后补齐 Volcengine／智谱 V4 的安全标识过滤，覆盖禁用、明确放行、原样透传、缺少渠道元数据及原始请求不被修改。旧格式 JSON 转 multipart 时，新增转发的可选标量跳过 JSON `null`，继续保留字符串 `"null"`、空字符串、空格、零值与 `false`，并通过实际出站表单解析验证。
+
+回归范围：主模块 `dto`、`relay/helper`、`relay/common`、`relay`，OpenAI、Replicate、可配置图片、Gemini、Volcengine 适配器的测试；`relay/imageconv`、xAI、SiliconFlow 编译检查；独立 `relaykit` 模块的全部测试。测试使用本地模拟上游，不产生真实供应商生图费用。
+
+无保存 SVG 响应、独立 `svg_usage` 计费和其他第五节所列边界仍按原规划保留。

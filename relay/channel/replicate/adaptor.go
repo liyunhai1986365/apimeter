@@ -145,6 +145,32 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		}
 	}
 
+	// These fields used to arrive through Extra. Keep forwarding them as
+	// Replicate input now that the shared image DTO names them explicitly.
+	for key, value := range map[string]*string{
+		"complexity": request.Complexity, "safety_identifier": request.SafetyIdentifier,
+	} {
+		if value != nil {
+			inputPayload[key] = *value
+		} else if request.ExplicitNullFields[key] {
+			inputPayload[key] = nil
+		}
+	}
+	for key, value := range map[string]*int{
+		"frame_count": request.FrameCount, "frame_duration_ms": request.FrameDurationMS,
+	} {
+		if value != nil {
+			inputPayload[key] = *value
+		} else if request.ExplicitNullFields[key] {
+			inputPayload[key] = nil
+		}
+	}
+	for key, raw := range map[string]json.RawMessage{"svg": request.SVG, "markup": request.Markup} {
+		if len(raw) > 0 {
+			inputPayload[key] = raw
+		}
+	}
+
 	for key, raw := range request.Extra {
 		if strings.EqualFold(key, "input") {
 			var extraInput map[string]any

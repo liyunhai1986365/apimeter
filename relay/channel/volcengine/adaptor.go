@@ -106,6 +106,9 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 }
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
+	if !info.AllowImageSafetyIdentifier() {
+		request.SafetyIdentifier = nil
+	}
 	if size := SeedreamSizeFromRequest(request); size != "" {
 		request.Size = size
 	}

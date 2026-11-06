@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -335,7 +336,8 @@ func buildSplitImageRequestBody(c *gin.Context, info *relaycommon.RelayInfo, ada
 		return nil, nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 	}
 	if _, ok := convertedRequest.(dto.ImageRequest); ok && len(request.Extra) > 0 {
-		var payload map[string]any
+		// Keep nested parameters exact when adding provider-specific fields.
+		var payload map[string]json.RawMessage
 		if err := common.Unmarshal(jsonData, &payload); err != nil {
 			return nil, nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
@@ -345,10 +347,10 @@ func buildSplitImageRequestBody(c *gin.Context, info *relaycommon.RelayInfo, ada
 			}
 			var value any
 			if err := common.Unmarshal(raw, &value); err == nil {
-				payload[key] = value
+				payload[key] = raw
 			}
 		}
-		payload["n"] = 1
+		payload["n"] = json.RawMessage("1")
 		jsonData, err = common.Marshal(payload)
 		if err != nil {
 			return nil, nil, types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())

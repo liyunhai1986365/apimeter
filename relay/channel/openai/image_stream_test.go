@@ -49,8 +49,8 @@ func TestOpenAIImageStreamForwardsGenerationAndEditEvents(t *testing.T) {
 			c, recorder, info := newOpenAIImageStreamTest(t, tt.mode)
 			// Detection must also work for custom model aliases via Content-Type.
 			info.IsStream = false
-			partial := imageEvent(tt.prefix+".partial_image", `"partial_image_index":0,"b64_json":"preview"`)
-			completed := imageEvent(tt.prefix+".completed", `"b64_json":"final","size":"1024x1024","usage":{"input_tokens":12,"output_tokens":100,"total_tokens":112,"input_tokens_details":{"text_tokens":10,"image_tokens":2},"output_tokens_details":{"image_tokens":100}}`)
+			partial := imageEvent(tt.prefix+".partial_image", `"partial_image_index":0,"b64_json":"preview","background":"transparent","created_at":1700000000,"output_format":"webp","quality":"xhigh","size":"1536x864"`)
+			completed := imageEvent(tt.prefix+".completed", `"b64_json":"final","size":"1536x864","background":"transparent","created_at":1700000001,"output_format":"webp","quality":"xhigh","safety_identifier":"user-hash","usage":{"input_tokens":12,"output_tokens":100,"total_tokens":112,"input_tokens_details":{"text_tokens":10,"image_tokens":2},"output_tokens_details":{"image_tokens":100}}`)
 			resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"text/event-stream; charset=utf-8"}}, Body: io.NopCloser(strings.NewReader(partial + completed))}
 			usage, apiErr := (&Adaptor{}).DoResponse(c, resp, info)
 			require.Nil(t, apiErr)

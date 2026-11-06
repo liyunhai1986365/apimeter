@@ -47,6 +47,32 @@ func TestImageAdaptorBuildsApixoTextToImagePayloadFromProfile(t *testing.T) {
 	require.False(t, gjson.GetBytes(data, "input.image_urls").Exists())
 }
 
+func TestImageProfileSourceKeepsPromotedParameters(t *testing.T) {
+	var request dto.ImageRequest
+	require.NoError(t, common.Unmarshal([]byte(`{
+		"model":"image-model","prompt":"draw","complexity":"","frame_count":0,
+		"frame_duration_ms":100,"safety_identifier":"user-hash",
+		"svg":{"model":"author"},"markup":{"file_id":"file-markup"},"vendor_option":true
+	}`), &request))
+	source, err := imageRequestSource(nil, nil, request)
+	require.NoError(t, err)
+	require.Equal(t, "", source["complexity"])
+	require.Equal(t, float64(0), source["frame_count"])
+	require.Equal(t, float64(100), source["frame_duration_ms"])
+	require.Equal(t, "user-hash", source["safety_identifier"])
+	require.Equal(t, map[string]any{"model": "author"}, source["svg"])
+	require.Equal(t, map[string]any{"file_id": "file-markup"}, source["markup"])
+	require.Equal(t, true, source["vendor_option"])
+}
+
+func TestImageProfileSourceOmitsPromotedScalarNullMetadata(t *testing.T) {
+	var request dto.ImageRequest
+	require.NoError(t, common.Unmarshal([]byte(`{"model":"image-model","prompt":"draw","complexity":null,"frame_count":null,"frame_duration_ms":null,"safety_identifier":null,"vendor_option":true}`), &request))
+	source, err := imageRequestSource(nil, nil, request)
+	require.NoError(t, err)
+	require.Equal(t, map[string]any{"model": "image-model", "prompt": "draw", "vendor_option": true, "image_urls": []string{}}, source)
+}
+
 func TestImageAdaptorBuildsApixoImageEditPayloadFromMultipart(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")

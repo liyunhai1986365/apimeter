@@ -441,8 +441,13 @@ func (a *Adaptor) ConvertAudioRequest(c *gin.Context, info *relaycommon.RelayInf
 
 func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.ImageRequest) (any, error) {
 	settings := dto.ChannelSettings{}
+	allowSafetyIdentifier := info.AllowImageSafetyIdentifier()
 	if info != nil && info.ChannelMeta != nil {
 		settings = info.ChannelSetting
+	}
+	// Filter the attempt's copy, preserving the original for channel retries.
+	if !allowSafetyIdentifier {
+		request.SafetyIdentifier = nil
 	}
 	deleteResponseFormat := imageResponseFormatDeletedByParamOverride(info)
 	if responseFormat := openAIImageResponseFormatForUpstream(info, request.ResponseFormat); responseFormat != "" {
@@ -486,6 +491,9 @@ func (a *Adaptor) ConvertImageRequest(c *gin.Context, info *relaycommon.RelayInf
 		if mf != nil {
 			for key, values := range mf.Value {
 				if key == "model" || (key == "response_format" && (deleteResponseFormat || request.ResponseFormat != "")) {
+					continue
+				}
+				if key == "safety_identifier" && !allowSafetyIdentifier {
 					continue
 				}
 				for _, value := range values {

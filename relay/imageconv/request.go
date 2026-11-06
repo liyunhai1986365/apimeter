@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/textproto"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -195,6 +196,47 @@ func BuildOpenAIJSONEditMultipart(c *gin.Context, request dto.ImageRequest) (*by
 	}
 	if err := writeRawFormField(writer, "input_fidelity", request.InputFidelity); err != nil {
 		return nil, err
+	}
+	// Preserve presence and explicit zero/false values for optional scalars.
+	for key, raw := range map[string]json.RawMessage{
+		"background": request.Background, "moderation": request.Moderation,
+		"output_format": request.OutputFormat, "output_compression": request.OutputCompression,
+		"partial_images": request.PartialImages, "user": request.User,
+	} {
+		if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+			continue
+		}
+		value := string(raw)
+		var text string
+		if err := common.Unmarshal(raw, &text); err == nil {
+			value = text
+		}
+		if err := writer.WriteField(key, value); err != nil {
+			return nil, err
+		}
+	}
+	for key, value := range map[string]*string{
+		"complexity": request.Complexity, "safety_identifier": request.SafetyIdentifier,
+	} {
+		if value != nil {
+			if err := writer.WriteField(key, *value); err != nil {
+				return nil, err
+			}
+		}
+	}
+	for key, value := range map[string]*int{
+		"frame_count": request.FrameCount, "frame_duration_ms": request.FrameDurationMS,
+	} {
+		if value != nil {
+			if err := writer.WriteField(key, strconv.Itoa(*value)); err != nil {
+				return nil, err
+			}
+		}
+	}
+	if request.Stream != nil {
+		if err := writer.WriteField("stream", strconv.FormatBool(*request.Stream)); err != nil {
+			return nil, err
+		}
 	}
 
 	fieldName := "image"
