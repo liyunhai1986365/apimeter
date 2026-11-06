@@ -7021,6 +7021,10 @@
     "ProjectName is required for this asset library": "この素材ライブラリには ProjectName が必要です",
     "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材ライブラリ（7 操作、Token）",
     "YH assets (Token and H5)": "YH 素材ライブラリ（Token・H5 認証）",
-    "Use the same YH API key for video generation and its referenced assets.": "動画生成と参照する素材には、同じ YH API キーを使用してください。"
+    "Use the same YH API key for video generation and its referenced assets.": "動画生成と参照する素材には、同じ YH API キーを使用してください。",
+    "Display embedded page": "ページを埋め込み表示",
+    "Embed the full external URL within this site. HTTPS sites require an HTTPS target that allows embedding.": "完全な外部 URL をこのサイトに埋め込みます。HTTPS サイトでは、埋め込みを許可する HTTPS の URL が必要です。",
+    "This HTTPS site cannot embed an HTTP page. Configure an HTTPS URL.": "この HTTPS サイトに HTTP ページを埋め込むことはできません。HTTPS の URL を設定してください。",
+    "Unable to embed this page": "このページを埋め込めません"
   }
 }

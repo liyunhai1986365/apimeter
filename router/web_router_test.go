@@ -520,6 +520,22 @@ func TestResolveSEOPageRemovesCanonicalFromPrivatePath(t *testing.T) {
 	require.Empty(t, page.Canonical)
 }
 
+func TestServeFrontendPageSupportsEmbeddedExternalLinks(t *testing.T) {
+	assets := ThemeAssets{
+		DefaultIndexPage: []byte(`<head><!--seo-meta-start--><title>New API</title><!--seo-meta-end--></head><body><div id="root"></div></body>`),
+		ClassicIndexPage: []byte(`<head><!--seo-meta-start--><title>New API</title><!--seo-meta-end--></head><body><div id="root"></div></body>`),
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/external/news", nil)
+	serveFrontendPage(c, assets)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "noindex, nofollow", recorder.Header().Get("X-Robots-Tag"))
+	require.Contains(t, recorder.Body.String(), `<div id="root"></div>`)
+	require.NotContains(t, recorder.Body.String(), `rel="canonical"`)
+}
+
 func TestServeFrontendPageKeepsEachRequestOrigin(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	assets := ThemeAssets{

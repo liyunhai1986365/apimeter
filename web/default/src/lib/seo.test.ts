@@ -11,6 +11,13 @@ const t = ((key: string, options?: Record<string, string>) =>
   )) as TFunction
 
 describe('SEO helpers', () => {
+  test('keeps embedded third-party pages out of search results', () => {
+    const descriptor = resolveSEODescriptor('/external/news', 'ModelSell', t)
+    assert.equal(descriptor.title, 'ModelSell')
+    assert.equal(descriptor.robots, 'noindex, nofollow')
+    assert.equal(descriptor.canonicalPath, undefined)
+  })
+
   test('uses the domestic model description for mainland presentation', () => {
     const descriptor = resolveSEODescriptor('/unknown', 'ModelSell', t, true)
 

@@ -7021,6 +7021,10 @@
     "ProjectName is required for this asset library": "Kho tư liệu này yêu cầu ProjectName",
     "Hanxingtu assets (7 operations, Token)": "Thư viện tài nguyên Hanxingtu (7 thao tác, Token)",
     "YH assets (Token and H5)": "Thư viện tư liệu YH (Token và H5)",
-    "Use the same YH API key for video generation and its referenced assets.": "Dùng cùng một API key YH để tạo video và quản lý tư liệu được tham chiếu."
+    "Use the same YH API key for video generation and its referenced assets.": "Dùng cùng một API key YH để tạo video và quản lý tư liệu được tham chiếu.",
+    "Display embedded page": "Hiển thị trang nhúng",
+    "Embed the full external URL within this site. HTTPS sites require an HTTPS target that allows embedding.": "Nhúng URL bên ngoài đầy đủ vào trang web này. Trang web HTTPS cần URL đích HTTPS cho phép nhúng.",
+    "This HTTPS site cannot embed an HTTP page. Configure an HTTPS URL.": "Trang web HTTPS này không thể nhúng trang HTTP. Hãy cấu hình URL HTTPS.",
+    "Unable to embed this page": "Không thể nhúng trang này"
   }
 }

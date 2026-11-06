@@ -28,6 +28,7 @@ import {
   isExternalHeaderNavHref,
   isHeaderNavBuiltInModule,
   mergeHeaderNavOrder,
+  normalizeHeaderNavEmbedUrl,
   normalizeOpenMosaicBaseUrl,
   serializeHeaderNavModules,
   withAICreationBaseUrl,
@@ -212,6 +213,15 @@ export function HeaderNavigationSection({
   }
 
   const onSubmit = async () => {
+    if (
+      navConfig.customLinks.some(
+        (link) => link.embed && !normalizeHeaderNavEmbedUrl(link.href)
+      )
+    ) {
+      toast.error(t('Provide a valid URL starting with http:// or https://'))
+      return
+    }
+
     if (
       navConfig.aiCreation.enabled &&
       !normalizeOpenMosaicBaseUrl(navConfig.aiCreation.baseUrl)
@@ -423,8 +433,27 @@ export function HeaderNavigationSection({
                   </div>
                   <div className='flex items-center gap-2'>
                     <Switch
-                      checked={link.newWindow}
-                      disabled={!link.external}
+                      id={`${id}-embed`}
+                      checked={link.embed ?? false}
+                      disabled={
+                        !link.embed && !normalizeHeaderNavEmbedUrl(link.href)
+                      }
+                      onCheckedChange={(checked) =>
+                        setCustomLink(customId, (current) => ({
+                          ...current,
+                          embed: checked,
+                          newWindow: checked ? false : current.newWindow,
+                        }))
+                      }
+                    />
+                    <Label htmlFor={`${id}-embed`}>
+                      {t('Display embedded page')}
+                    </Label>
+                  </div>
+                  <div className='flex items-center gap-2'>
+                    <Switch
+                      checked={!link.embed && link.newWindow}
+                      disabled={!link.external || link.embed}
                       onCheckedChange={(checked) =>
                         setCustomLink(customId, (current) => ({
                           ...current,
@@ -450,6 +479,11 @@ export function HeaderNavigationSection({
                       {t('Require login')}
                     </span>
                   </div>
+                  <p className='text-muted-foreground text-sm md:col-span-2'>
+                    {t(
+                      'Embed the full external URL within this site. HTTPS sites require an HTTPS target that allows embedding.'
+                    )}
+                  </p>
                 </div>
 
                 <div className='flex items-center gap-2 md:justify-end'>

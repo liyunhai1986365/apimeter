@@ -978,7 +978,7 @@ func isKnownFrontendPath(path string) bool {
 		return true
 	}
 	for _, prefix := range []string{
-		"/billing/", "/chat/", "/console/chat/", "/dashboard/", "/errors/",
+		"/billing/", "/chat/", "/console/chat/", "/dashboard/", "/errors/", "/external/",
 		"/models/", "/oauth/", "/system-settings/", "/usage-logs/",
 	} {
 		if strings.HasPrefix(path, prefix) && strings.TrimPrefix(path, prefix) != "" {

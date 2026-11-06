@@ -5377,6 +5377,10 @@
     "Use separate API key": "使用獨立 API Key",
     "Leave credentials empty to keep saved credentials when editing. Enter both AK and SK to replace official credentials.": "編輯時密鑰留空會保留已儲存的憑據。更換官方憑據時需同時填寫 AK 和 SK。",
     "ProjectName is required for this asset library": "此素材庫必須填寫 ProjectName",
-    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材庫（7 項操作，Token）"
+    "Hanxingtu assets (7 operations, Token)": "Hanxingtu 素材庫（7 項操作，Token）",
+    "Display embedded page": "內嵌顯示",
+    "Embed the full external URL within this site. HTTPS sites require an HTTPS target that allows embedding.": "在本站內嵌完整的外部網址。HTTPS 網站需要使用允許內嵌的 HTTPS 目標網址。",
+    "This HTTPS site cannot embed an HTTP page. Configure an HTTPS URL.": "目前的 HTTPS 網站無法內嵌 HTTP 頁面，請設定 HTTPS 網址。",
+    "Unable to embed this page": "無法內嵌此頁面"
   }
 }

@@ -44,6 +44,7 @@ export type HeaderNavCustomLink = {
   external: boolean
   newWindow: boolean
   requireAuth?: boolean
+  embed?: boolean
 }
 
 export type HeaderNavItem = {
@@ -340,6 +341,38 @@ export function isExternalHeaderNavHref(href: string): boolean {
   return /^https?:\/\//i.test(href) || isDocsDocumentRoute(href)
 }
 
+export function normalizeHeaderNavEmbedUrl(raw: unknown): string {
+  if (typeof raw !== 'string' || !raw.trim()) return ''
+  try {
+    const url = new URL(raw.trim())
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') return ''
+    if (url.username || url.password) return ''
+    return url.href
+  } catch {
+    return ''
+  }
+}
+
+export function getEmbeddedHeaderNavLink(
+  modules: HeaderNavModules,
+  id: string,
+  currentOrigin?: string
+): HeaderNavCustomLink | undefined {
+  const link = modules.customLinks.find((item) => item.id === id)
+  if (!link?.enabled || !link.embed) return undefined
+  const href = normalizeHeaderNavEmbedUrl(link.href)
+  if (!href) return undefined
+  const url = new URL(href)
+  if (
+    currentOrigin &&
+    url.host === new URL(currentOrigin).host &&
+    (url.pathname === '/external' || url.pathname.startsWith('/external/'))
+  ) {
+    return undefined
+  }
+  return { ...link, href }
+}
+
 function parseCustomLinks(raw: unknown): HeaderNavCustomLink[] {
   if (!Array.isArray(raw)) return []
 
@@ -366,6 +399,7 @@ function parseCustomLinks(raw: unknown): HeaderNavCustomLink[] {
       external,
       newWindow: parseHeaderNavBoolean(record.newWindow, external),
       requireAuth: parseHeaderNavBoolean(record.requireAuth, false),
+      embed: parseHeaderNavBoolean(record.embed, false),
     })
     return acc
   }, [])
@@ -595,13 +629,18 @@ export function getOrderedHeaderNavItems(
       const customId = id as `custom:${string}`
       const customLink = customLinkMap.get(customId)
       if (customLink?.enabled) {
+        if (customLink.embed && !normalizeHeaderNavEmbedUrl(customLink.href)) {
+          return acc
+        }
         acc.push({
           id: `custom:${customLink.id}`,
           titleKey: customLink.title,
-          href: customLink.href,
+          href: customLink.embed
+            ? `/external/${encodeURIComponent(customLink.id)}`
+            : customLink.href,
           enabled: customLink.enabled,
-          external: customLink.external,
-          newWindow: customLink.newWindow,
+          external: customLink.embed ? false : customLink.external,
+          newWindow: customLink.embed ? false : customLink.newWindow,
           requireAuth: customLink.requireAuth ?? false,
           custom: true,
         })

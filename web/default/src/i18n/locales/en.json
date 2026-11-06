@@ -7021,6 +7021,10 @@
     "ProjectName is required for this asset library": "ProjectName is required for this asset library",
     "Hanxingtu assets (7 operations, Token)": "Hanxingtu assets (7 operations, Token)",
     "YH assets (Token and H5)": "YH assets (Token and H5)",
-    "Use the same YH API key for video generation and its referenced assets.": "Use the same YH API key for video generation and its referenced assets."
+    "Use the same YH API key for video generation and its referenced assets.": "Use the same YH API key for video generation and its referenced assets.",
+    "Display embedded page": "Display embedded page",
+    "Embed the full external URL within this site. HTTPS sites require an HTTPS target that allows embedding.": "Embed the full external URL within this site. HTTPS sites require an HTTPS target that allows embedding.",
+    "This HTTPS site cannot embed an HTTP page. Configure an HTTPS URL.": "This HTTPS site cannot embed an HTTP page. Configure an HTTPS URL.",
+    "Unable to embed this page": "Unable to embed this page"
   }
 }
