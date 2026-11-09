@@ -16,6 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { WebhookFormat } from '@/lib/webhook-format'
+
 export type SystemOption = {
   key: string
   value: string
@@ -394,6 +396,7 @@ export type OperationsSettings = {
   'monitor_setting.channel_auto_enable_cooldown_minutes': number
   'webhook_setting.enabled': boolean
   'webhook_setting.url': string
+  'webhook_setting.format': WebhookFormat | ''
   'webhook_setting.secret': string
   'webhook_setting.interval_minutes': number
   'webhook_setting.suppress_minutes': number

@@ -25,6 +25,7 @@ import { Plus, Send, Trash2 } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { parseHttpStatusCodeRules } from '@/lib/http-status-code-rules'
+import { resolveWebhookFormat, type WebhookFormat } from '@/lib/webhook-format'
 import { Button } from '@/components/ui/button'
 import {
   Card,
@@ -53,6 +54,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
+import { WebhookFormatField } from '@/components/webhook-format-field'
 import { sendGlobalWebhookTest } from '../api'
 import { SettingsSection } from '../components/settings-section'
 import { useResetForm } from '../hooks/use-reset-form'
@@ -195,6 +197,7 @@ const monitoringSchema = z
     webhook_setting: z.object({
       enabled: z.boolean(),
       url: z.string(),
+      format: z.enum(['generic', 'wecom']),
       secret: z.string(),
       interval_minutes: z.coerce
         .number()
@@ -307,6 +310,7 @@ type MonitoringSettingsSectionProps = {
     'monitor_setting.channel_auto_enable_cooldown_minutes': number
     'webhook_setting.enabled': boolean
     'webhook_setting.url': string
+    'webhook_setting.format': WebhookFormat | ''
     'webhook_setting.secret': string
     'webhook_setting.interval_minutes': number
     'webhook_setting.suppress_minutes': number
@@ -460,6 +464,7 @@ type NormalizedMonitoringValues = {
   'monitor_setting.channel_auto_enable_cooldown_minutes': number
   'webhook_setting.enabled': boolean
   'webhook_setting.url': string
+  'webhook_setting.format': WebhookFormat | ''
   'webhook_setting.secret': string
   'webhook_setting.interval_minutes': number
   'webhook_setting.suppress_minutes': number
@@ -513,6 +518,10 @@ const buildFormDefaults = (
   webhook_setting: {
     enabled: defaults['webhook_setting.enabled'],
     url: defaults['webhook_setting.url'] ?? '',
+    format: resolveWebhookFormat(
+      defaults['webhook_setting.format'],
+      defaults['webhook_setting.url']
+    ),
     secret: defaults['webhook_setting.secret'] ?? '',
     interval_minutes: defaults['webhook_setting.interval_minutes'],
     suppress_minutes: defaults['webhook_setting.suppress_minutes'],
@@ -575,6 +584,7 @@ const normalizeDefaults = (
     defaults['monitor_setting.channel_auto_enable_cooldown_minutes'],
   'webhook_setting.enabled': defaults['webhook_setting.enabled'],
   'webhook_setting.url': (defaults['webhook_setting.url'] ?? '').trim(),
+  'webhook_setting.format': defaults['webhook_setting.format'] ?? '',
   'webhook_setting.secret': defaults['webhook_setting.secret'] ?? '',
   'webhook_setting.interval_minutes':
     defaults['webhook_setting.interval_minutes'],
@@ -639,6 +649,7 @@ const normalizeFormValues = (
     values.monitor_setting.channel_auto_enable_cooldown_minutes,
   'webhook_setting.enabled': values.webhook_setting.enabled,
   'webhook_setting.url': values.webhook_setting.url.trim(),
+  'webhook_setting.format': values.webhook_setting.format,
   'webhook_setting.secret': values.webhook_setting.secret,
   'webhook_setting.interval_minutes': values.webhook_setting.interval_minutes,
   'webhook_setting.suppress_minutes': values.webhook_setting.suppress_minutes,
@@ -705,6 +716,7 @@ export function MonitoringSettingsSection({
     'monitor_setting.channel_auto_disable_rules'
   ) as AutoDisableRuleForm[]
   const globalWebhookEnabled = form.watch('webhook_setting.enabled')
+  const globalWebhookFormat = form.watch('webhook_setting.format')
   const modelErrorCheckEnabled = form.watch(
     'webhook_setting.model_error_check_enabled'
   )
@@ -1460,6 +1472,19 @@ export function MonitoringSettingsSection({
               )}
             />
 
+            <FormField
+              control={form.control}
+              name='webhook_setting.format'
+              render={({ field, fieldState }) => (
+                <WebhookFormatField
+                  value={field.value}
+                  onValueChange={field.onChange}
+                  disabled={!globalWebhookEnabled}
+                  invalid={fieldState.invalid}
+                />
+              )}
+            />
+
             <div className='grid gap-6 md:grid-cols-2'>
               <FormField
                 control={form.control}
@@ -1469,14 +1494,22 @@ export function MonitoringSettingsSection({
                     <FormLabel>{t('Webhook URL')}</FormLabel>
                     <FormControl>
                       <Input
-                        placeholder='https://example.com/webhook'
+                        placeholder={
+                          globalWebhookFormat === 'wecom'
+                            ? 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...'
+                            : 'https://example.com/webhook'
+                        }
                         disabled={!globalWebhookEnabled}
                         value={field.value}
                         onChange={(event) => field.onChange(event.target.value)}
                       />
                     </FormControl>
                     <FormDescription>
-                      {t('The system sends JSON alert payloads to this URL')}
+                      {globalWebhookFormat === 'wecom'
+                        ? t(
+                            'Send Markdown to a WeCom group robot. No webhook secret is required.'
+                          )
+                        : t('The system sends JSON alert payloads to this URL')}
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
@@ -1493,7 +1526,10 @@ export function MonitoringSettingsSection({
                       <Input
                         type='password'
                         autoComplete='new-password'
-                        disabled={!globalWebhookEnabled}
+                        disabled={
+                          !globalWebhookEnabled ||
+                          globalWebhookFormat === 'wecom'
+                        }
                         value={field.value}
                         onChange={(event) => field.onChange(event.target.value)}
                       />

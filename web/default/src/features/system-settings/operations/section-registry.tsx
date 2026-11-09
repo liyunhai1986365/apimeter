@@ -81,6 +81,7 @@ const OPERATIONS_SECTIONS = [
             settings['monitor_setting.channel_auto_enable_cooldown_minutes'],
           'webhook_setting.enabled': settings['webhook_setting.enabled'],
           'webhook_setting.url': settings['webhook_setting.url'],
+          'webhook_setting.format': settings['webhook_setting.format'],
           'webhook_setting.secret': settings['webhook_setting.secret'],
           'webhook_setting.interval_minutes':
             settings['webhook_setting.interval_minutes'],

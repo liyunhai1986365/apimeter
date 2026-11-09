@@ -21,12 +21,14 @@ import { Bell, Loader2, Mail, Server, Webhook } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { ROLE } from '@/lib/roles'
+import { resolveWebhookFormat } from '@/lib/webhook-format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Switch } from '@/components/ui/switch'
 import { PasswordInput } from '@/components/password-input'
+import { WebhookFormatField } from '@/components/webhook-format-field'
 import { updateUserSettings } from '../../api'
 import {
   DEFAULT_QUOTA_WARNING_THRESHOLD,
@@ -60,6 +62,7 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
     quota_warning_threshold: DEFAULT_QUOTA_WARNING_THRESHOLD,
     notification_email: '',
     webhook_url: '',
+    webhook_format: 'generic',
     webhook_secret: '',
     bark_url: '',
     gotify_url: '',
@@ -87,6 +90,10 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
           parsed.quota_warning_threshold ?? DEFAULT_QUOTA_WARNING_THRESHOLD,
         notification_email: parsed.notification_email ?? '',
         webhook_url: parsed.webhook_url ?? '',
+        webhook_format: resolveWebhookFormat(
+          parsed.webhook_format,
+          parsed.webhook_url
+        ),
         webhook_secret: parsed.webhook_secret ?? '',
         bark_url: parsed.bark_url ?? '',
         gotify_url: parsed.gotify_url ?? '',
@@ -207,6 +214,10 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
       {/* Webhook Settings */}
       {settings.notify_type === 'webhook' && (
         <>
+          <WebhookFormatField
+            value={settings.webhook_format ?? 'generic'}
+            onValueChange={(value) => updateField('webhook_format', value)}
+          />
           <div className='space-y-1.5'>
             <Label htmlFor='webhookUrl'>{t('Webhook URL')}</Label>
             <Input
@@ -215,13 +226,18 @@ export function NotificationTab({ profile, onUpdate }: NotificationTabProps) {
               className='h-9'
               value={settings.webhook_url}
               onChange={(e) => updateField('webhook_url', e.target.value)}
-              placeholder={t('https://example.com/webhook')}
+              placeholder={
+                settings.webhook_format === 'wecom'
+                  ? 'https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=...'
+                  : 'https://example.com/webhook'
+              }
             />
           </div>
           <div className='space-y-1.5'>
             <Label htmlFor='webhookSecret'>{t('Webhook Secret')}</Label>
             <PasswordInput
               id='webhookSecret'
+              disabled={settings.webhook_format === 'wecom'}
               value={settings.webhook_secret}
               onChange={(e) => updateField('webhook_secret', e.target.value)}
               placeholder={t('Enter secret key')}

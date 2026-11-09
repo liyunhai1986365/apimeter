@@ -5,6 +5,7 @@ import "github.com/QuantumNous/new-api/setting/config"
 type WebhookSetting struct {
 	Enabled                  bool    `json:"enabled"`
 	URL                      string  `json:"url"`
+	Format                   string  `json:"format"` // 空值保留旧配置的地址识别行为
 	Secret                   string  `json:"secret"`
 	IntervalMinutes          int     `json:"interval_minutes"`
 	SuppressMinutes          int     `json:"suppress_minutes"`

@@ -19,10 +19,11 @@ For commercial licensing, please contact support@quantumnous.com
 // ============================================================================
 // Profile Type Definitions
 // ============================================================================
-
 /**
  * Generic API response
  */
+import type { WebhookFormat } from '@/lib/webhook-format'
+
 export interface ApiResponse<T = unknown> {
   success: boolean
   message?: string
@@ -127,6 +128,7 @@ export interface UserSettings {
   quota_warning_threshold?: number
   /** Webhook URL */
   webhook_url?: string
+  webhook_format?: WebhookFormat
   /** Webhook secret */
   webhook_secret?: string
   /** Notification email */
@@ -169,6 +171,7 @@ export interface UpdateUserSettingsRequest {
   notify_type?: string
   quota_warning_threshold?: number
   webhook_url?: string
+  webhook_format?: WebhookFormat
   webhook_secret?: string
   notification_email?: string
   bark_url?: string

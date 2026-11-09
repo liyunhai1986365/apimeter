@@ -48,7 +48,7 @@ func TestMarshalGlobalWebhookRequestBodyUsesWeComMarkdownFormat(t *testing.T) {
 		{Type: "channel_auto_disabled", ChannelID: 3, ChannelName: "openai-c", ModelName: "gpt-test", ErrorRequests: 3, TotalRequests: 5, ErrorRate: 60, Message: "upstream timeout"},
 	}, 1700000000)
 
-	body, err := marshalGlobalWebhookRequestBody("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6", payload)
+	body, err := marshalGlobalWebhookRequestBody("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6", payload, "")
 	require.NoError(t, err)
 
 	var got struct {
@@ -81,7 +81,7 @@ func TestMarshalWeComWebhookPayloadIncludesLatestErrorTestEvent(t *testing.T) {
 		},
 	}, 1700000100)
 
-	body, err := marshalGlobalWebhookRequestBody("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6", payload)
+	body, err := marshalGlobalWebhookRequestBody("https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6", payload, "")
 	require.NoError(t, err)
 
 	var got struct {
@@ -144,7 +144,7 @@ func TestSendGlobalWebhookPayloadPostsStructuredJSONWithSignature(t *testing.T) 
 	defer server.Close()
 
 	payload := NewGlobalWebhookPayload("New API 监控告警", []GlobalWebhookEvent{{Type: "model_error", ChannelID: 1}}, 1700000000)
-	require.NoError(t, SendGlobalWebhookPayload(server.URL, secret, payload))
+	require.NoError(t, SendGlobalWebhookPayload(server.URL, secret, payload, ""))
 
 	payloadBytes, err := common.Marshal(payload)
 	require.NoError(t, err)
@@ -339,7 +339,7 @@ func TestSendGlobalWebhookPayloadPostsWeComMarkdownPayload(t *testing.T) {
 	}
 
 	payload := NewGlobalWebhookPayload("New API 监控告警", []GlobalWebhookEvent{{Type: "channel_test_failed", ChannelID: 1, ChannelName: "openai-a", ModelName: "gpt-test", Message: "timeout"}}, 1700000000)
-	err = SendGlobalWebhookPayload("http://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6", "", payload)
+	err = SendGlobalWebhookPayload("http://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=693a91f6", "", payload, "")
 	require.NoError(t, err)
 	require.Equal(t, "markdown", receivedPayload.MsgType)
 	require.Contains(t, receivedPayload.Markdown.Content, "渠道测试失败")

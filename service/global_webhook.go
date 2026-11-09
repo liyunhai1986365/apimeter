@@ -4,18 +4,15 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 )
-
-const weComMarkdownMaxBytes = 4096
 
 type GlobalWebhookPayload struct {
 	Type      string                 `json:"type"`
@@ -112,19 +109,23 @@ func SendGlobalWebhookChannelOperationRecord(record model.ChannelOperationRecord
 		"node_name": common.NodeName,
 		"version":   common.Version,
 	}
-	return SendGlobalWebhookPayload(setting.URL, setting.Secret, payload)
+	return SendGlobalWebhookPayload(setting.URL, setting.Secret, payload, setting.Format)
 }
 
-func SendGlobalWebhookPayload(webhookURL string, secret string, payload GlobalWebhookPayload) error {
+func SendGlobalWebhookPayload(webhookURL string, secret string, payload GlobalWebhookPayload, format string) error {
 	webhookURL = strings.TrimSpace(webhookURL)
 	if webhookURL == "" {
 		return fmt.Errorf("webhook url is empty")
 	}
-	payloadBytes, err := marshalGlobalWebhookRequestBody(webhookURL, payload)
+	format, err := resolveWebhookFormat(webhookURL, format)
+	if err != nil {
+		return err
+	}
+	payloadBytes, err := marshalGlobalWebhookRequestBody(webhookURL, payload, format)
 	if err != nil {
 		return fmt.Errorf("failed to marshal global webhook payload: %v", err)
 	}
-	isWeComWebhook := isWeComWebhookURL(webhookURL)
+	isWeComWebhook := format == dto.WebhookFormatWeCom
 
 	if system_setting.EnableWorker() {
 		workerReq := &WorkerRequest{
@@ -136,7 +137,7 @@ func SendGlobalWebhookPayload(webhookURL string, secret string, payload GlobalWe
 			},
 			Body: payloadBytes,
 		}
-		if secret != "" {
+		if secret != "" && !isWeComWebhook {
 			signature := generateSignature(secret, payloadBytes)
 			workerReq.Headers["X-Webhook-Signature"] = signature
 			workerReq.Headers["Authorization"] = "Bearer " + secret
@@ -164,7 +165,7 @@ func SendGlobalWebhookPayload(webhookURL string, secret string, payload GlobalWe
 		return fmt.Errorf("failed to create global webhook request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	if secret != "" {
+	if secret != "" && !isWeComWebhook {
 		req.Header.Set("X-Webhook-Signature", generateSignature(secret, payloadBytes))
 	}
 	client := GetHttpClient()
@@ -185,34 +186,19 @@ func SendGlobalWebhookPayload(webhookURL string, secret string, payload GlobalWe
 	return nil
 }
 
-func marshalGlobalWebhookRequestBody(webhookURL string, payload GlobalWebhookPayload) ([]byte, error) {
-	if isWeComWebhookURL(webhookURL) {
+func marshalGlobalWebhookRequestBody(webhookURL string, payload GlobalWebhookPayload, format string) ([]byte, error) {
+	format, err := resolveWebhookFormat(webhookURL, format)
+	if err != nil {
+		return nil, err
+	}
+	if format == dto.WebhookFormatWeCom {
 		return marshalWeComWebhookPayload(payload)
 	}
 	return common.Marshal(payload)
 }
 
-func isWeComWebhookURL(webhookURL string) bool {
-	parsed, err := url.Parse(strings.TrimSpace(webhookURL))
-	if err != nil {
-		return false
-	}
-	return strings.EqualFold(parsed.Hostname(), "qyapi.weixin.qq.com") &&
-		parsed.Path == "/cgi-bin/webhook/send" &&
-		strings.TrimSpace(parsed.Query().Get("key")) != ""
-}
-
-type weComMarkdownPayload struct {
-	MsgType  string `json:"msgtype"`
-	Markdown struct {
-		Content string `json:"content"`
-	} `json:"markdown"`
-}
-
 func marshalWeComWebhookPayload(payload GlobalWebhookPayload) ([]byte, error) {
-	weComPayload := weComMarkdownPayload{MsgType: "markdown"}
-	weComPayload.Markdown.Content = buildWeComMarkdownContent(payload)
-	return common.Marshal(weComPayload)
+	return marshalWeComMarkdown(buildWeComMarkdownContent(payload))
 }
 
 func buildWeComMarkdownContent(payload GlobalWebhookPayload) string {
@@ -293,39 +279,9 @@ func truncateSingleLine(value string, maxRunes int) string {
 	return string(runes[:maxRunes]) + "..."
 }
 
-func truncateUTF8ByBytes(value string, maxBytes int) string {
-	if maxBytes <= 0 || len(value) <= maxBytes {
-		return value
-	}
-	suffix := "\n...（内容已截断）"
-	limit := maxBytes - len(suffix)
-	if limit <= 0 {
-		return ""
-	}
-	truncated := value[:limit]
-	for !utf8.ValidString(truncated) && len(truncated) > 0 {
-		truncated = truncated[:len(truncated)-1]
-	}
-	return truncated + suffix
-}
-
 func nonEmpty(value string, fallback string) string {
 	if strings.TrimSpace(value) == "" {
 		return fallback
 	}
 	return strings.TrimSpace(value)
-}
-
-func validateWeComWebhookResponse(resp *http.Response) error {
-	var result struct {
-		ErrCode int    `json:"errcode"`
-		ErrMsg  string `json:"errmsg"`
-	}
-	if err := common.DecodeJson(resp.Body, &result); err != nil {
-		return fmt.Errorf("failed to decode wecom webhook response: %v", err)
-	}
-	if result.ErrCode != 0 {
-		return fmt.Errorf("wecom webhook request failed: errcode=%d errmsg=%s", result.ErrCode, result.ErrMsg)
-	}
-	return nil
 }

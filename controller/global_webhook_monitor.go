@@ -81,7 +81,7 @@ func runGlobalWebhookMonitorTaskOnce() {
 		common.SysLog("global webhook monitor notification skipped by suppress window")
 		return
 	}
-	if err := service.SendGlobalWebhookPayload(setting.URL, setting.Secret, payload); err != nil {
+	if err := service.SendGlobalWebhookPayload(setting.URL, setting.Secret, payload, setting.Format); err != nil {
 		common.SysLog(fmt.Sprintf("failed to send global webhook monitor payload: %v", err))
 		return
 	}
@@ -302,7 +302,7 @@ func SendGlobalWebhookTest(c *gin.Context) {
 		common.ApiErrorMsg(c, err.Error())
 		return
 	}
-	if err := service.SendGlobalWebhookPayload(setting.URL, setting.Secret, payload); err != nil {
+	if err := service.SendGlobalWebhookPayload(setting.URL, setting.Secret, payload, setting.Format); err != nil {
 		common.ApiErrorMsg(c, err.Error())
 		return
 	}

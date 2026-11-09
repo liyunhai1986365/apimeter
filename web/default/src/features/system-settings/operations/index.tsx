@@ -53,6 +53,7 @@ const defaultOperationsSettings: OperationsSettings = {
   'monitor_setting.channel_auto_enable_cooldown_minutes': 1,
   'webhook_setting.enabled': false,
   'webhook_setting.url': '',
+  'webhook_setting.format': '',
   'webhook_setting.secret': '',
   'webhook_setting.interval_minutes': 30,
   'webhook_setting.suppress_minutes': 30,

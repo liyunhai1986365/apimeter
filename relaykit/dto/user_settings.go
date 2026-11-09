@@ -6,6 +6,7 @@ type UserSetting struct {
 	NotifyType                       string                  `json:"notify_type,omitempty"`                          // QuotaWarningType 额度预警类型
 	QuotaWarningThreshold            float64                 `json:"quota_warning_threshold,omitempty"`              // QuotaWarningThreshold 额度预警阈值
 	WebhookUrl                       string                  `json:"webhook_url,omitempty"`                          // WebhookUrl webhook地址
+	WebhookFormat                    string                  `json:"webhook_format,omitempty"`                       // Webhook 消息格式，空值兼容旧配置
 	WebhookSecret                    string                  `json:"webhook_secret,omitempty"`                       // WebhookSecret webhook密钥
 	NotificationEmail                string                  `json:"notification_email,omitempty"`                   // NotificationEmail 通知邮箱地址
 	QuotaNotifyState                 map[string]int          `json:"quota_notify_state,omitempty"`                   // 已发送的额度预警档位
@@ -77,6 +78,15 @@ var (
 	NotifyTypeBark    = "bark"    // Bark 推送
 	NotifyTypeGotify  = "gotify"  // Gotify 推送
 )
+
+const (
+	WebhookFormatGeneric = "generic"
+	WebhookFormatWeCom   = "wecom"
+)
+
+func IsValidWebhookFormat(format string) bool {
+	return format == "" || format == WebhookFormatGeneric || format == WebhookFormatWeCom
+}
 
 func (setting UserSetting) RecordIpLogEnabled() bool {
 	return setting.RecordIpLog == nil || *setting.RecordIpLog

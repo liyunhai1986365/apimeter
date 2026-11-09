@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -31,11 +32,16 @@ func generateSignature(secret string, payload []byte) string {
 }
 
 // SendWebhookNotify 发送 webhook 通知
-func SendWebhookNotify(webhookURL string, secret string, data dto.Notify) error {
+func SendWebhookNotify(webhookURL string, secret string, data dto.Notify, format string) error {
+	webhookURL = strings.TrimSpace(webhookURL)
+	format, err := resolveWebhookFormat(webhookURL, format)
+	if err != nil {
+		return err
+	}
 	// 处理占位符
 	content := data.Content
 	for _, value := range data.Values {
-		content = fmt.Sprintf(content, value)
+		content = strings.Replace(content, dto.ContentValueParam, fmt.Sprint(value), 1)
 	}
 
 	// 构建 webhook 负载
@@ -48,7 +54,7 @@ func SendWebhookNotify(webhookURL string, secret string, data dto.Notify) error 
 	}
 
 	// 序列化负载
-	payloadBytes, err := common.Marshal(payload)
+	payloadBytes, err := marshalUserWebhookRequestBody(webhookURL, payload, format)
 	if err != nil {
 		return fmt.Errorf("failed to marshal webhook payload: %v", err)
 	}
@@ -70,7 +76,7 @@ func SendWebhookNotify(webhookURL string, secret string, data dto.Notify) error 
 		}
 
 		// 如果有secret，添加签名到headers
-		if secret != "" {
+		if secret != "" && format == dto.WebhookFormatGeneric {
 			signature := generateSignature(secret, payloadBytes)
 			workerReq.Headers["X-Webhook-Signature"] = signature
 			workerReq.Headers["Authorization"] = "Bearer " + secret
@@ -101,7 +107,7 @@ func SendWebhookNotify(webhookURL string, secret string, data dto.Notify) error 
 		req.Header.Set("Content-Type", "application/json")
 
 		// 如果有 secret，生成签名
-		if secret != "" {
+		if secret != "" && format == dto.WebhookFormatGeneric {
 			signature := generateSignature(secret, payloadBytes)
 			req.Header.Set("X-Webhook-Signature", signature)
 		}
@@ -120,5 +126,20 @@ func SendWebhookNotify(webhookURL string, secret string, data dto.Notify) error 
 		}
 	}
 
+	if format == dto.WebhookFormatWeCom {
+		return validateWeComWebhookResponse(resp)
+	}
 	return nil
+}
+
+func marshalUserWebhookRequestBody(webhookURL string, payload WebhookPayload, format string) ([]byte, error) {
+	format, err := resolveWebhookFormat(webhookURL, format)
+	if err != nil {
+		return nil, err
+	}
+	if format == dto.WebhookFormatGeneric {
+		return common.Marshal(payload)
+	}
+	content := "## " + truncateSingleLine(payload.Title, 200) + "\n\n" + weComNotificationMarkdown(payload.Content)
+	return marshalWeComMarkdown(content)
 }

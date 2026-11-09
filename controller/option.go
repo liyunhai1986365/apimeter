@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/console_setting"
@@ -155,6 +156,11 @@ func UpdateOption(c *gin.Context) {
 		option.Value = fmt.Sprintf("%v", option.Value)
 	}
 	switch option.Key {
+	case "webhook_setting.format":
+		if !dto.IsValidWebhookFormat(option.Value.(string)) {
+			common.ApiErrorI18n(c, i18n.MsgInvalidParams)
+			return
+		}
 	case "QuotaForInviter", "QuotaForInvitee", "AffiliateTopUpRewardRatio", "AffiliateTopUpRewardLimit", "AffiliateConsumeRewardRatio":
 		if isPositiveOptionValue(option.Value.(string)) && !operation_setting.IsPaymentComplianceConfirmed() {
 			common.ApiErrorI18n(c, i18n.MsgPaymentComplianceRequired)
