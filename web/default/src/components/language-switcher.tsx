@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
+import { changeInterfaceLanguage } from '@/i18n/config'
 import {
   INTERFACE_LANGUAGE_OPTIONS,
   normalizeInterfaceLanguage,
@@ -24,6 +25,7 @@ import {
 } from '@/i18n/languages'
 import { Languages, Check } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { api } from '@/lib/api'
 import { cn } from '@/lib/utils'
@@ -31,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
@@ -38,47 +41,61 @@ import {
 export function LanguageSwitcher() {
   const { i18n, t } = useTranslation()
   const user = useAuthStore((s) => s.auth.user)
+  const [loading, setLoading] = useState(false)
   const currentLanguage = normalizeInterfaceLanguage(i18n.language)
 
   const handleChangeLanguage = useCallback(
     async (code: string) => {
-      await i18n.changeLanguage(code)
-      replaceCurrentUrlLanguage(code)
-      if (user) {
-        try {
-          await api.put('/api/user/self', { language: code })
-        } catch {
-          // Best-effort persistence; don't block the UI on failure
+      if (loading || code === currentLanguage) return
+      setLoading(true)
+      try {
+        if (!(await changeInterfaceLanguage(code))) return
+        replaceCurrentUrlLanguage(code)
+        if (user) {
+          try {
+            await api.put('/api/user/self', { language: code })
+          } catch {
+            // Best-effort persistence; don't block the UI on failure
+          }
         }
+      } catch {
+        toast.error(t('error', { ns: 'bootstrap' }))
+      } finally {
+        setLoading(false)
       }
     },
-    [i18n, user]
+    [currentLanguage, loading, t, user]
   )
 
   return (
     <DropdownMenu modal={false}>
       <DropdownMenuTrigger
+        disabled={loading}
+        aria-busy={loading}
         render={<Button variant='ghost' size='icon' className='h-9 w-9' />}
       >
         <Languages className='size-[1.2rem]' />
         <span className='sr-only'>{t('Change language')}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align='end'>
-        {INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
-          <DropdownMenuItem
-            key={lang.code}
-            onClick={() => handleChangeLanguage(lang.code)}
-          >
-            {lang.label}
-            <Check
-              size={14}
-              className={cn(
-                'ms-auto',
-                currentLanguage !== lang.code && 'hidden'
-              )}
-            />
-          </DropdownMenuItem>
-        ))}
+        <DropdownMenuGroup>
+          {INTERFACE_LANGUAGE_OPTIONS.map((lang) => (
+            <DropdownMenuItem
+              key={lang.code}
+              disabled={loading}
+              onClick={() => handleChangeLanguage(lang.code)}
+            >
+              {lang.label}
+              <Check
+                size={14}
+                className={cn(
+                  'ms-auto',
+                  currentLanguage !== lang.code && 'hidden'
+                )}
+              />
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   )

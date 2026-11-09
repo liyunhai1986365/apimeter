@@ -35,6 +35,7 @@ import { applyFaviconToDom } from '@/lib/dom-utils'
 import { applyGoogleAnalytics } from '@/lib/google-analytics'
 import { handleServerError } from '@/lib/handle-server-error'
 import { readCachedStatus, writeCachedStatus } from '@/lib/status-cache'
+import { LanguageReady } from '@/components/language-ready'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
@@ -158,15 +159,17 @@ rootElement.querySelector('[data-seo-shell="true"]')?.remove()
 const root = ReactDOM.createRoot(rootElement)
 root.render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <FontProvider>
-          <DirectionProvider>
-            <RouterProvider router={router} />
-          </DirectionProvider>
-        </FontProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <LanguageReady>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <FontProvider>
+            <DirectionProvider>
+              <RouterProvider router={router} />
+            </DirectionProvider>
+          </FontProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </LanguageReady>
   </StrictMode>
 )
 delete document.documentElement.dataset.seoClient

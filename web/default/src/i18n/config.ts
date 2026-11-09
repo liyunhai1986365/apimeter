@@ -19,27 +19,25 @@ For commercial licensing, please contact support@quantumnous.com
 import i18n from 'i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { initReactI18next } from 'react-i18next'
+import { bootstrapResources } from './bootstrap'
 import {
   convertDetectedLanguage,
   getInterfaceLanguageFromSearch,
 } from './languages'
-import en from './locales/en.json'
-import fr from './locales/fr.json'
-import ja from './locales/ja.json'
-import ru from './locales/ru.json'
-import vi from './locales/vi.json'
-import zhTW from './locales/zh-TW.json'
-import zhCN from './locales/zh.json'
+import { createLanguageLoader, type LanguageImports } from './resource-loader'
 
-export const resources = {
-  en,
-  zhCN,
-  fr,
-  ru,
-  ja,
-  vi,
-  zhTW,
-} as const
+// Explicit imports let the bundler emit an independently cached chunk per locale.
+const languageImports = {
+  en: () => import(/* webpackChunkName: "locale-en" */ './locales/en.json'),
+  zhCN: () =>
+    import(/* webpackChunkName: "locale-zh-CN" */ './locales/zh.json'),
+  fr: () => import(/* webpackChunkName: "locale-fr" */ './locales/fr.json'),
+  ru: () => import(/* webpackChunkName: "locale-ru" */ './locales/ru.json'),
+  ja: () => import(/* webpackChunkName: "locale-ja" */ './locales/ja.json'),
+  vi: () => import(/* webpackChunkName: "locale-vi" */ './locales/vi.json'),
+  zhTW: () =>
+    import(/* webpackChunkName: "locale-zh-TW" */ './locales/zh-TW.json'),
+} satisfies LanguageImports
 
 const languageDetector = new LanguageDetector()
 
@@ -51,11 +49,14 @@ languageDetector.addDetector({
   },
 })
 
-i18n
+const initialization = i18n
   .use(languageDetector)
   .use(initReactI18next)
   .init({
-    resources,
+    resources: bootstrapResources,
+    ns: ['translation', 'bootstrap'],
+    defaultNS: 'translation',
+    initAsync: false,
     fallbackLng: 'en',
     supportedLngs: ['en', 'zhCN', 'fr', 'ru', 'ja', 'vi', 'zhTW'],
     load: 'currentOnly',
@@ -73,5 +74,25 @@ i18n
       convertDetectedLanguage,
     },
   })
+
+export const changeInterfaceLanguage = createLanguageLoader(
+  i18n,
+  languageImports
+).change
+
+let ready: Promise<void> | undefined
+
+export function initializeInterfaceLanguage(): Promise<void> {
+  if (!ready) {
+    ready = initialization
+      .then(() => changeInterfaceLanguage(i18n.language))
+      .then(() => undefined)
+      .catch((error: unknown) => {
+        ready = undefined
+        throw error
+      })
+  }
+  return ready
+}
 
 export default i18n

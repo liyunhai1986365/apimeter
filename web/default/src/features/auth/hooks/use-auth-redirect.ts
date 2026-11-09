@@ -17,8 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useNavigate } from '@tanstack/react-router'
+import { changeInterfaceLanguage } from '@/i18n/config'
 import { getInterfaceLanguageFromSearch } from '@/i18n/languages'
 import i18n from 'i18next'
+import { toast } from 'sonner'
 import { useAuthStore } from '@/stores/auth-store'
 import { getSelf } from '@/lib/api'
 import type { User } from '@/features/users/types'
@@ -83,7 +85,12 @@ export function useAuthRedirect(allowedExternalRedirect?: string) {
             ? undefined
             : getInterfaceLanguageFromSearch(window.location.search)
         if (!urlLanguage && savedLang && savedLang !== i18n.language) {
-          i18n.changeLanguage(savedLang)
+          try {
+            await changeInterfaceLanguage(savedLang)
+          } catch {
+            // Login can continue in the current language; the selector can retry.
+            toast.error(i18n.t('error', { ns: 'bootstrap' }))
+          }
         }
       }
     } catch (error) {

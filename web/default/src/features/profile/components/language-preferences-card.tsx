@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useEffect, useMemo, useState } from 'react'
+import { changeInterfaceLanguage } from '@/i18n/config'
 import {
   INTERFACE_LANGUAGE_OPTIONS,
   normalizeInterfaceLanguage,
@@ -61,17 +62,20 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
   }, [savedLanguage])
 
   const handleLanguageChange = async (language: string | null) => {
-    if (!language) return
+    if (!language || saving) return
     const nextLanguage = normalizeInterfaceLanguage(language)
     if (nextLanguage === currentLanguage) return
 
     const previousLanguage = currentLanguage
-    setCurrentLanguage(nextLanguage)
+    const previousInterfaceLanguage = normalizeInterfaceLanguage(i18n.language)
+    let changed = false
     setSaving(true)
-    await i18n.changeLanguage(nextLanguage)
-    replaceCurrentUrlLanguage(nextLanguage)
 
     try {
+      changed = await changeInterfaceLanguage(nextLanguage)
+      if (!changed) return
+      setCurrentLanguage(nextLanguage)
+      replaceCurrentUrlLanguage(nextLanguage)
       const response = await updateUserLanguage(nextLanguage)
       if (!response.success) {
         throw new Error(response.message || t('Failed to update settings'))
@@ -95,9 +99,15 @@ export function LanguagePreferencesCard(props: LanguagePreferencesCardProps) {
       toast.success(t('Language preference saved'))
     } catch (_error) {
       setCurrentLanguage(previousLanguage)
-      await i18n.changeLanguage(previousLanguage)
-      replaceCurrentUrlLanguage(previousLanguage)
-      toast.error(t('Failed to update settings'))
+      if (changed) {
+        if (i18n.language === nextLanguage) {
+          await changeInterfaceLanguage(previousInterfaceLanguage)
+          replaceCurrentUrlLanguage(previousInterfaceLanguage)
+        }
+        toast.error(t('Failed to update settings'))
+      } else {
+        toast.error(t('error', { ns: 'bootstrap' }))
+      }
     } finally {
       setSaving(false)
     }
