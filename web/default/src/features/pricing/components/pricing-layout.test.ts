@@ -43,7 +43,7 @@ describe('pricing layout offsets', () => {
       getPropertyValue() {
         return ''
       },
-    } as CSSStyleDeclaration
+    } as unknown as CSSStyleDeclaration
 
     assert.equal(getPublicTopChromeHeight(styles), 64)
   })

@@ -19,14 +19,16 @@ For commercial licensing, please contact support@quantumnous.com
 /**
  * Billing expression parsing utilities.
  *
- * Mirrors the parser used by the classic frontend so that the dynamic
- * pricing breakdown UI can be rendered from the same backend expressions.
- *
- * The grammar is intentionally narrow: we only support the shapes that the
- * server emits (tiered pricing + request-rule conditional multipliers), so
- * the regular expressions are exact rather than tolerant of arbitrary
- * expression syntax.
+ * Only complete, recognized prices may become a structured price table.
+ * Other valid backend expressions are displayed verbatim by callers.
  */
+import {
+  splitExprVersion,
+  splitTopLevel,
+  splitTopLevelProduct,
+  splitTopLevelTernary,
+  unwrapOuterParens,
+} from './expr-syntax'
 
 // ---------------------------------------------------------------------------
 // Variable registry
@@ -181,20 +183,25 @@ export const BILLING_CACHE_VAR_MAP = BILLING_EXTRA_VARS.map((v) => ({
   exprVar: v.key,
 }))
 
+const PRICE_NUMBER_PATTERN = '-?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?'
+
 const BILLING_VAR_REGEX = new RegExp(
-  `\\b(${BILLING_PRICING_VARS.filter((v) => !v.unit || v.unit === 'tokens')
+  `^(${BILLING_PRICING_VARS.filter((v) => !v.unit || v.unit === 'tokens')
     .map((v) => v.key)
-    .join('|')})\\s*\\*\\s*([\\d.eE+-]+)`,
-  'g'
+    .join('|')})\\s*\\*\\s*(${PRICE_NUMBER_PATTERN})$`
 )
 
-const PARAM_DURATION_PRICE_REGEX =
-  /param\("parameters\.duration"\)\s*\*\s*([\d.eE+-]+)\s*\*\s*1000000/g
+const PARAM_DURATION_PRICE_REGEX = new RegExp(
+  `^param\\("parameters\\.duration"\\)\\s*\\*\\s*(${PRICE_NUMBER_PATTERN})\\s*\\*\\s*1000000$`
+)
 
-const CONSTANT_REQUEST_PRICE_REGEX =
-  /^(?:\(?\s*)?([\d.eE+-]+)\s*\*\s*1000000(?:\s*\)?)?$/
+const CONSTANT_REQUEST_PRICE_REGEX = new RegExp(
+  `^(${PRICE_NUMBER_PATTERN})\\s*\\*\\s*1000000$`
+)
 
-const QUOTA_SCALED_REQUEST_PRICE_REGEX = /^\s*([\d.eE+-]+)(?:\s*(?:\+|$))/
+const QUOTA_SCALED_REQUEST_PRICE_REGEX = new RegExp(
+  `^(${PRICE_NUMBER_PATTERN})$`
+)
 
 // ---------------------------------------------------------------------------
 // Request rule constants
@@ -240,6 +247,8 @@ export type ParamHeaderCondition = {
   path: string
   mode: string
   value: string
+  /** Preserve explicitly quoted numeric/boolean strings from saved formulas. */
+  valueType?: 'string'
 }
 
 export type TimeCondition = {
@@ -252,7 +261,15 @@ export type TimeCondition = {
   rangeEnd: string
 }
 
-export type RequestCondition = TimeCondition | ParamHeaderCondition
+export type ExpressionCondition = {
+  source: 'expression'
+  expression: string
+}
+
+export type RequestCondition =
+  | TimeCondition
+  | ParamHeaderCondition
+  | ExpressionCondition
 
 export type RequestRuleGroup = {
   conditions: RequestCondition[]
@@ -260,14 +277,14 @@ export type RequestRuleGroup = {
 }
 
 export type TierCondition = {
-  var: 'p' | 'c' | 'len'
+  var: string
   op: '<' | '<=' | '>' | '>='
   value: number
 }
 
 export type ParsedTier = {
   label: string
-  conditions: TierCondition[]
+  conditions: (TierCondition | ExpressionCondition)[]
   [field: string]: unknown
 }
 
@@ -275,37 +292,29 @@ export type ParsedTier = {
 // Tier parser
 // ---------------------------------------------------------------------------
 
-function stripExprVersion(exprStr: string): { version: number; body: string } {
-  if (!exprStr) return { version: 1, body: '' }
-  const m = exprStr.match(/^v(\d+):([\s\S]*)$/)
-  if (m) return { version: Number(m[1]), body: m[2] }
-  return { version: 1, body: exprStr }
+function parsePriceTerm(value: string): { key: string; price: number } | null {
+  const term = unwrapOuterParens(value)
+  const token = term.match(BILLING_VAR_REGEX)
+  if (token) return { key: token[1], price: Number(token[2]) }
+  const duration = term.match(PARAM_DURATION_PRICE_REGEX)
+  if (duration) return { key: 'duration', price: Number(duration[1]) }
+  const request = term.match(CONSTANT_REQUEST_PRICE_REGEX)
+  if (request) return { key: 'request', price: Number(request[1]) }
+  const constant = term.match(QUOTA_SCALED_REQUEST_PRICE_REGEX)
+  if (constant) return { key: 'request', price: Number(constant[1]) / 1000000 }
+  return null
 }
 
-function parseTierBody(bodyStr: string): Record<string, number> {
-  const coeffs: Record<string, number> = {}
-  const re = new RegExp(BILLING_VAR_REGEX.source, 'g')
-  let m
-  while ((m = re.exec(bodyStr)) !== null) {
-    if (!(m[1] in coeffs)) coeffs[m[1]] = Number(m[2])
-  }
-  const durationRe = new RegExp(PARAM_DURATION_PRICE_REGEX.source, 'g')
-  while ((m = durationRe.exec(bodyStr)) !== null) {
-    if (!('duration' in coeffs)) coeffs.duration = Number(m[1])
-  }
-  const requestPriceMatch = bodyStr.trim().match(CONSTANT_REQUEST_PRICE_REGEX)
-  if (requestPriceMatch && !('request' in coeffs)) {
-    coeffs.request = Number(requestPriceMatch[1])
-  }
-  const quotaScaledRequestPriceMatch = bodyStr
-    .trim()
-    .match(QUOTA_SCALED_REQUEST_PRICE_REGEX)
-  if (quotaScaledRequestPriceMatch && !('request' in coeffs)) {
-    coeffs.request = Number(quotaScaledRequestPriceMatch[1]) / 1000000
-  }
+function parseTierBody(bodyStr: string): Record<string, number> | null {
   const tier: Record<string, number> = {}
-  for (const [varName, field] of Object.entries(BILLING_VAR_KEY_TO_FIELD)) {
-    tier[field] = coeffs[varName] || 0
+  for (const part of splitTopLevel(unwrapOuterParens(bodyStr), '+')) {
+    const term = parsePriceTerm(part)
+    if (!term || !Number.isFinite(term.price) || term.price < 0) return null
+    const field = BILLING_VAR_KEY_TO_FIELD[term.key]
+    // A duplicate or unrecognized term must never be silently discarded.
+    if (Object.hasOwn(tier, field)) return null
+    // Missing prices stay absent; explicit zero is a configured free price.
+    tier[field] = term.price
   }
   return tier
 }
@@ -314,6 +323,7 @@ type TierCall = {
   label: string
   body: string
   start: number
+  end: number
 }
 
 function findTierCalls(expr: string): TierCall[] {
@@ -400,6 +410,7 @@ function findTierCalls(expr: string): TierCall[] {
       label,
       body: expr.slice(bodyStart, index).trim(),
       start,
+      end: index + 1,
     })
     searchIndex = index + 1
   }
@@ -407,45 +418,48 @@ function findTierCalls(expr: string): TierCall[] {
   return calls
 }
 
-function parseTierConditionsBefore(
-  expr: string,
-  tierStart: number,
-  condGroup: string
-): TierCondition[] {
-  const before = expr.slice(0, tierStart)
-  const match = before.match(new RegExp(`${condGroup}\\s*\\?\\s*$`))
-  const condStr = match?.[1] || ''
-  const conditions: TierCondition[] = []
-  if (!condStr) return conditions
-
-  for (const cp of condStr.split(/\s*&&\s*/)) {
-    const cm = cp.trim().match(/^(p|c|len)\s*(<|<=|>|>=)\s*([\d.eE+]+)$/)
-    if (cm) {
-      conditions.push({
-        var: cm[1] as TierCondition['var'],
-        op: cm[2] as TierCondition['op'],
-        value: Number(cm[3]),
-      })
-    }
-  }
-  return conditions
-}
-
 export function parseTiersFromExpr(exprStr: string): ParsedTier[] {
   if (!exprStr) return []
   try {
-    const { body } = stripExprVersion(exprStr)
-    const condGroup =
-      `((?:(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)` +
-      `(?:\\s*&&\\s*(?:p|c|len)\\s*(?:<|<=|>|>=)\\s*[\\d.eE+]+)*)`
+    const { prefix, body } = splitExprVersion(exprStr.trim())
+    if (prefix && prefix !== 'v1:') return []
     const tiers: ParsedTier[] = []
-    for (const call of findTierCalls(body)) {
-      const tier = parseTierBody(call.body) as ParsedTier
-      tier.label = call.label
-      tier.conditions = parseTierConditionsBefore(body, call.start, condGroup)
-      tiers.push(tier)
+    const collect = (
+      value: string,
+      conditions: ParsedTier['conditions']
+    ): boolean => {
+      const text = unwrapOuterParens(value)
+      const conditional = splitTopLevelTernary(text)
+      if (conditional) {
+        const condition: ExpressionCondition = {
+          source: 'expression',
+          expression: conditional.condition,
+        }
+        return (
+          collect(conditional.whenTrue, [...conditions, condition]) &&
+          collect(conditional.whenFalse, [
+            ...conditions,
+            { source: 'expression', expression: `!(${conditional.condition})` },
+          ])
+        )
+      }
+      // Only expose tiers when the complete outer expression is understood.
+      if (!/^tier\(/.test(text)) return false
+      const calls = findTierCalls(text)
+      if (
+        calls.length !== 1 ||
+        calls[0].start !== 0 ||
+        calls[0].end !== text.length
+      )
+        return false
+      const call = calls[0]
+      const prices = parseTierBody(call.body)
+      if (!prices) return false
+      tiers.push({ ...prices, label: call.label, conditions })
+      return true
     }
-    return tiers
+    const split = splitBillingExprAndRequestRules(body)
+    return collect(split.billingExpr, []) ? tiers : []
   } catch {
     return []
   }
@@ -463,42 +477,6 @@ export function normalizeTierLabel(label: string | undefined): string {
 // ---------------------------------------------------------------------------
 // Request rule parser
 // ---------------------------------------------------------------------------
-
-function splitTopLevelMultiply(expr: string): string[] {
-  const parts: string[] = []
-  let start = 0
-  let depth = 0
-  for (let index = 0; index < expr.length; index += 1) {
-    const char = expr[index]
-    if (char === '(') depth += 1
-    if (char === ')') depth -= 1
-    if (depth === 0 && expr.slice(index, index + 3) === ' * ') {
-      parts.push(expr.slice(start, index).trim())
-      start = index + 3
-      index += 2
-    }
-  }
-  parts.push(expr.slice(start).trim())
-  return parts.filter(Boolean)
-}
-
-function splitTopLevelAnd(expr: string): string[] {
-  const parts: string[] = []
-  let start = 0
-  let depth = 0
-  for (let i = 0; i < expr.length; i += 1) {
-    const c = expr[i]
-    if (c === '(') depth += 1
-    if (c === ')') depth -= 1
-    if (depth === 0 && expr.slice(i, i + 4) === ' && ') {
-      parts.push(expr.slice(start, i).trim())
-      start = i + 4
-      i += 3
-    }
-  }
-  parts.push(expr.slice(start).trim())
-  return parts.filter(Boolean)
-}
 
 function parseExprLiteral(raw: string): string | null {
   const text = raw.trim()
@@ -562,9 +540,7 @@ function tryParseTimeCondition(expr: string): RequestCondition | null {
   return null
 }
 
-export function tryParseRequestCondition(
-  expr: string
-): RequestCondition | null {
+function parseSimpleRequestCondition(expr: string): RequestCondition | null {
   const tc = tryParseTimeCondition(expr)
   if (tc) return tc
 
@@ -635,28 +611,47 @@ export function tryParseRequestCondition(
       path: JSON.parse(m[2]) as string,
       mode: MATCH_EQ,
       value: String(parsedValue),
+      ...(m[3].trim().startsWith('"') &&
+      (NUMERIC_LITERAL_REGEX.test(String(parsedValue)) ||
+        ['true', 'false'].includes(String(parsedValue)))
+        ? { valueType: 'string' as const }
+        : {}),
     }
   }
 
   return null
 }
 
-function tryParseRuleGroupFactor(part: string): RequestRuleGroup | null {
-  const m = part.match(/^\((.+) \? ([\d.eE+-]+) : 1\)$/s)
-  if (!m) return null
-
-  const conditionStr = m[1]
-  const multiplier = m[2]
-
-  const andParts = splitTopLevelAnd(conditionStr)
-  const conditions: RequestCondition[] = []
-  for (const ap of andParts) {
-    const cond = tryParseRequestCondition(ap.trim())
-    if (!cond) return null
-    conditions.push(cond)
+/** Complex boolean conditions stay intact so OR never becomes stacked discounts. */
+export function tryParseRequestCondition(
+  value: string
+): RequestCondition | null {
+  const expr = unwrapOuterParens(value)
+  const simple = parseSimpleRequestCondition(expr)
+  if (simple) return simple
+  for (const operator of ['||', '&&']) {
+    const parts = splitTopLevel(expr, operator)
+    if (
+      parts.length > 1 &&
+      parts.every((part) => tryParseRequestCondition(part))
+    ) {
+      return { source: 'expression', expression: expr }
+    }
   }
-  if (conditions.length === 0) return null
-  return { conditions, multiplier }
+  return null
+}
+
+function tryParseRuleGroupFactor(part: string): RequestRuleGroup | null {
+  const ternary = splitTopLevelTernary(part)
+  if (
+    !ternary ||
+    ternary.whenFalse !== '1' ||
+    !NUMERIC_LITERAL_REGEX.test(ternary.whenTrue)
+  )
+    return null
+  const condition = tryParseRequestCondition(ternary.condition)
+  if (!condition) return null
+  return { conditions: [condition], multiplier: ternary.whenTrue }
 }
 
 export function tryParseRequestRuleExpr(
@@ -665,7 +660,7 @@ export function tryParseRequestRuleExpr(
   const trimmed = (expr || '').trim()
   if (!trimmed) return []
 
-  const parts = splitTopLevelMultiply(trimmed)
+  const parts = splitTopLevel(trimmed, '*')
   const groups: RequestRuleGroup[] = []
   for (const part of parts) {
     const group = tryParseRuleGroupFactor(part)
@@ -679,33 +674,17 @@ export function tryParseRequestRuleExpr(
 // Combine / split billing expr and request rules
 // ---------------------------------------------------------------------------
 
-function hasFullOuterParens(expr: string): boolean {
-  if (!expr.startsWith('(') || !expr.endsWith(')')) return false
-  let depth = 0
-  for (let i = 0; i < expr.length; i += 1) {
-    if (expr[i] === '(') depth += 1
-    if (expr[i] === ')') depth -= 1
-    if (depth === 0 && i < expr.length - 1) return false
-  }
-  return depth === 0
-}
-
-function unwrapOuterParens(expr: string): string {
-  let current = (expr || '').trim()
-  while (hasFullOuterParens(current)) {
-    current = current.slice(1, -1).trim()
-  }
-  return current
-}
-
 export function splitBillingExprAndRequestRules(expr: string): {
   billingExpr: string
   requestRuleExpr: string
 } {
   const trimmed = (expr || '').trim()
   if (!trimmed) return { billingExpr: '', requestRuleExpr: '' }
+  const { prefix, body } = splitExprVersion(trimmed)
+  if (prefix && prefix !== 'v1:')
+    return { billingExpr: trimmed, requestRuleExpr: '' }
 
-  const parts = splitTopLevelMultiply(trimmed)
+  const parts = splitTopLevelProduct(body)
   if (parts.length <= 1) return { billingExpr: trimmed, requestRuleExpr: '' }
 
   const ruleParts: string[] = []
@@ -725,7 +704,7 @@ export function splitBillingExprAndRequestRules(expr: string): {
   }
 
   return {
-    billingExpr: unwrapOuterParens(baseParts[0]),
+    billingExpr: prefix + unwrapOuterParens(baseParts[0]),
     requestRuleExpr: ruleParts.join(' * '),
   }
 }
@@ -738,7 +717,8 @@ export function combineBillingExpr(
   const rules = (requestRuleExpr || '').trim()
   if (!base) return ''
   if (!rules) return base
-  return `(${base}) * ${rules}`
+  const { prefix, body } = splitExprVersion(base)
+  return `${prefix}(${body}) * ${rules}`
 }
 
 // ---------------------------------------------------------------------------
@@ -810,6 +790,9 @@ function isTimeFunc(value: unknown): value is TimeFunc {
 export function normalizeCondition(
   cond: Partial<RequestCondition> | null | undefined
 ): RequestCondition {
+  if (cond?.source === 'expression') {
+    return { source: 'expression', expression: cond.expression || '' }
+  }
   const source =
     cond?.source === 'time'
       ? 'time'
@@ -846,6 +829,7 @@ export function normalizeCondition(
   return {
     source,
     path: phCond?.path || '',
+    ...(phCond?.valueType ? { valueType: phCond.valueType } : {}),
     mode,
     value: phCond?.value == null ? '' : String(phCond.value),
   }
@@ -888,6 +872,7 @@ function buildTimeConditionExpr(cond: TimeCondition): string {
 }
 
 export function buildRequestConditionExpr(cond: RequestCondition): string {
+  if (cond.source === 'expression') return cond.expression.trim()
   if (cond.source === 'time') return buildTimeConditionExpr(cond)
   const normalized = normalizeCondition(cond) as ParamHeaderCondition
   const path = normalized.path.trim()
@@ -923,7 +908,7 @@ export function buildRequestConditionExpr(cond: RequestCondition): string {
     }
     case MATCH_EQ:
     default:
-      return `${sourceExpr} == ${buildExprLiteral(normalized.mode, normalized.value)}`
+      return `${sourceExpr} == ${normalized.valueType === 'string' ? JSON.stringify(normalized.value) : buildExprLiteral(normalized.mode, normalized.value)}`
   }
 }
 
@@ -938,7 +923,7 @@ function buildRuleGroupFactor(group: RequestRuleGroup): string {
   const combined =
     condExprs.length === 1
       ? condExprs[0]
-      : condExprs.map((e) => (e.includes(' || ') ? `(${e})` : e)).join(' && ')
+      : condExprs.map((e) => `(${e})`).join(' && ')
   return `(${combined} ? ${multiplier} : 1)`
 }
 

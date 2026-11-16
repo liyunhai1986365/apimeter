@@ -29,6 +29,49 @@ function tokenModel(overrides: Partial<PricingModel> = {}): PricingModel {
 }
 
 describe('buildModelCardPriceDisplay', () => {
+  test('shows raw complex formulas without advertising incomplete unit prices', () => {
+    for (const billingExpr of [
+      'tier("base", response("cost") * 1000000)',
+      'tier("base", max(p * 2, 1000) + c * 4)',
+      'tier("base", 45000 + (param("search") == true ? 14000 : 0))',
+    ]) {
+      const display = buildModelCardPriceDisplay(
+        tokenModel({ billing_mode: 'tiered_expr', billing_expr: billingExpr })
+      )
+      assert.equal(display.kind, 'special')
+      assert.equal(display.rawExpression, billingExpr)
+      assert.equal(display.isFree, false)
+      assert.deepEqual(display.entries, [])
+    }
+  })
+
+  test('shows explicit free cache prices without adding unconfigured categories', () => {
+    const display = buildModelCardPriceDisplay(
+      tokenModel({
+        billing_mode: 'tiered_expr',
+        billing_expr:
+          'tier("base", p * 2 + c * 3 + cr * 0 + cc * 0 + cc1h * 0)',
+      }),
+      { includeCacheWritePrices: true }
+    )
+    assert.equal(display.kind, 'dynamic')
+    assert.equal(display.rawExpression, undefined)
+    assert.deepEqual(
+      display.entries.map((entry) => [
+        entry.key,
+        entry.original,
+        entry.current,
+      ]),
+      [
+        ['p', '$2', '$1'],
+        ['c', '$3', '$1.5'],
+        ['cr', '$0', '$0'],
+        ['cc', '$0', '$0'],
+        ['cc1h', '$0', '$0'],
+      ]
+    )
+  })
+
   test('prefers current-user model group ratios and preserves free pricing', () => {
     const ratios = buildEffectiveModelGroupRatios(
       tokenModel({

@@ -5,6 +5,7 @@ import {
   buildCacheBillingRows,
   formatSensitiveQuota,
   formatSignedLogQuota,
+  getTieredBillingSummary,
   isTaskPreConsumeLog,
 } from './format'
 
@@ -146,6 +147,56 @@ describe('isTaskPreConsumeLog', () => {
         })
       ),
       false
+    )
+  })
+})
+
+describe('getTieredBillingSummary', () => {
+  test('includes a free cache price when the request consumed cached tokens', () => {
+    const summary = getTieredBillingSummary({
+      billing_mode: 'tiered_expr',
+      expr_b64: Buffer.from('tier("base", p * 2 + c * 3 + cr * 0)').toString(
+        'base64'
+      ),
+      matched_tier: 'base',
+      cache_tokens: 200,
+    })
+    assert.ok(summary)
+    assert.deepEqual(
+      summary.priceEntries.map((entry) => [entry.field, entry.price]),
+      [
+        ['inputPrice', 2],
+        ['outputPrice', 3],
+        ['cacheReadPrice', 0],
+      ]
+    )
+  })
+
+  test('does not infer log unit prices from a complex formula', () => {
+    for (const expression of [
+      'tier("base", max(p * 2, 1000) + c * 4)',
+      'tier("base", response("cost") * 1000000)',
+    ]) {
+      assert.equal(
+        getTieredBillingSummary({
+          billing_mode: 'tiered_expr',
+          expr_b64: Buffer.from(expression).toString('base64'),
+          matched_tier: 'base',
+        }),
+        null
+      )
+    }
+  })
+
+  test('continues hiding cache prices when no cache tokens were consumed', () => {
+    const summary = getTieredBillingSummary({
+      billing_mode: 'tiered_expr',
+      expr_b64: Buffer.from('tier("base", p * 2 + cr * 0)').toString('base64'),
+      matched_tier: 'base',
+    })
+    assert.deepEqual(
+      summary?.priceEntries.map((entry) => entry.field),
+      ['inputPrice']
     )
   })
 })

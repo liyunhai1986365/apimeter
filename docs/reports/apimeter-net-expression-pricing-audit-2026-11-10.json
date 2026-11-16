@@ -1,0 +1,4949 @@
+{
+  "source": "https://api.apimeter.net/api/pricing",
+  "fetchedAtUTC": "2026-11-10T03:43:20.363902+00:00",
+  "sourceSHA256": "e9ca4c1bb2fad1cb7e5fe7e2d89c9d6b25b77a984105241845bfb7e2ad7d3ea4",
+  "liveVersion": "v1.0.24-43c4044e8",
+  "localCommit": "43c4044e8",
+  "liveInitialScripts": [
+    "/static/js/vendor-ui-primitives.11e6567945.js",
+    "/static/js/vendor-tanstack.067f3f7ea6.js",
+    "/static/js/lib-react.5332daabae.js",
+    "/static/js/6032.288ed25d8c.js",
+    "/static/js/index.83a81980db.js"
+  ],
+  "summary": {
+    "publicModels": 113,
+    "expressionModels": 30,
+    "uniqueExpressions": 26,
+    "visualUnsupported": 6,
+    "visualSupported": 24,
+    "rewrittenModels": 4,
+    "displayTierMissing": 0,
+    "displayConditionMissing": 16
+  },
+  "method": {
+    "frontend": "Execute current repository parsers/generators on publicly returned expressions.",
+    "backend": "Actual local Go billingexpr compiler/runtime; no billed remote execution.",
+    "clockRewriteCheck": "Replace literal Shanghai hour/weekday helper calls in temporary expression copies with fixed integers to cover 7 days x 24 whole hours x 3 token vectors.",
+    "scope": "Publicly visible pricing rows only; no authenticated admin access or production writes.",
+    "backendCosts": "Raw expression outputs, before /1000000, QuotaPerUnit and group multipliers."
+  },
+  "backendTokenVectors": [
+    {
+      "P": 50,
+      "C": 20,
+      "Len": 50,
+      "CR": 10
+    },
+    {
+      "P": 200,
+      "C": 80,
+      "Len": 200,
+      "CR": 40
+    },
+    {
+      "P": 50,
+      "C": 80,
+      "Len": 50,
+      "CR": 10
+    }
+  ],
+  "models": [
+    {
+      "model": "doubao-seedance-2-0-260128",
+      "aliases": [],
+      "expr": "param(\"resolution\") == \"4k\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"4k_video_input\", p * 0 + c * 2.4) : param(\"resolution\") == \"4k\" ? tier(\"4k_no_video_input\", p * 0 + c * 3.9) : param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 4.56) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 7.5) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 4.12) : tier(\"480_720p_no_video_input\", p * 0 + c * 6.77)",
+      "split": {
+        "billingExpr": "param(\"resolution\") == \"4k\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"4k_video_input\", p * 0 + c * 2.4) : param(\"resolution\") == \"4k\" ? tier(\"4k_no_video_input\", p * 0 + c * 3.9) : param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 4.56) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 7.5) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 4.12) : tier(\"480_720p_no_video_input\", p * 0 + c * 6.77)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "4k_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 2.4,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "4k"
+              },
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "4k_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 3.9,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "4k"
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "1080p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 4.56,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              },
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "1080p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 7.5,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 4.12,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 6.77,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"resolution\") == \"4k\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"4k_video_input\", p * 0 + c * 2.4) : param(\"resolution\") == \"4k\" ? tier(\"4k_no_video_input\", p * 0 + c * 3.9) : param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 4.56) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 7.5) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 4.12) : tier(\"480_720p_no_video_input\", p * 0 + c * 6.77)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 2.4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "4k_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 3.9,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "4k_no_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 4.56,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 7.5,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_no_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 4.12,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 6.77,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "doubao-seedance-2-0-260128",
+      "backendOriginal": {
+        "id": "doubao-seedance-2-0-260128",
+        "costs": [
+          135.39999999999998,
+          541.5999999999999,
+          541.5999999999999
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 135.39999999999998
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 541.5999999999999
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 541.5999999999999
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "doubao-seedance-2-0-260128:regenerated",
+        "costs": [
+          135.39999999999998,
+          541.5999999999999,
+          541.5999999999999
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 135.39999999999998
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 541.5999999999999
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 541.5999999999999
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-5.5",
+      "aliases": [],
+      "expr": "len <= 272000 ? tier(\"standard\", p * 5 + c * 30 + cr * 0.5) : tier(\"long_context\", p * 10 + c * 45 + cr * 1)",
+      "split": {
+        "billingExpr": "len <= 272000 ? tier(\"standard\", p * 5 + c * 30 + cr * 0.5) : tier(\"long_context\", p * 10 + c * 45 + cr * 1)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "standard",
+            "input_unit_cost": 5,
+            "output_unit_cost": 30,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 272000
+              }
+            ],
+            "cache_read_unit_cost": 0.5,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "long_context",
+            "input_unit_cost": 10,
+            "output_unit_cost": 45,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 1,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 272000 ? tier(\"standard\", p * 5 + c * 30 + cr * 0.5) : tier(\"long_context\", p * 10 + c * 45 + cr * 1)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 5,
+          "outputPrice": 30,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.5,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "standard",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 272000
+            }
+          ]
+        },
+        {
+          "inputPrice": 10,
+          "outputPrice": 45,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 1,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "long_context",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-5.5",
+      "backendOriginal": {
+        "id": "gpt-5.5",
+        "costs": [
+          855,
+          3420,
+          2655
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 855
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 3420
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 2655
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-5.5:regenerated",
+        "costs": [
+          855,
+          3420,
+          2655
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 855
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 3420
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 2655
+          }
+        ]
+      }
+    },
+    {
+      "model": "MiniMax-M3",
+      "aliases": [],
+      "expr": "len <= 512000 ? tier(\"standard\", p * 0.3 + c * 2.1 + cr * 0.06) : tier(\"long_context\", p * 0.6 + c * 2.4 + cr * 0.12)",
+      "split": {
+        "billingExpr": "len <= 512000 ? tier(\"standard\", p * 0.3 + c * 2.1 + cr * 0.06) : tier(\"long_context\", p * 0.6 + c * 2.4 + cr * 0.12)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "standard",
+            "input_unit_cost": 0.3,
+            "output_unit_cost": 2.1,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 512000
+              }
+            ],
+            "cache_read_unit_cost": 0.06,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "long_context",
+            "input_unit_cost": 0.6,
+            "output_unit_cost": 2.4,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.12,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 512000 ? tier(\"standard\", p * 0.3 + c * 2.1 + cr * 0.06) : tier(\"long_context\", p * 0.6 + c * 2.4 + cr * 0.12)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0.3,
+          "outputPrice": 2.1,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.06,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "standard",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 512000
+            }
+          ]
+        },
+        {
+          "inputPrice": 0.6,
+          "outputPrice": 2.4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.12,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "long_context",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "MiniMax-M3",
+      "backendOriginal": {
+        "id": "MiniMax-M3",
+        "costs": [
+          57.6,
+          230.4,
+          183.6
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 57.6
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 230.4
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 183.6
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "MiniMax-M3:regenerated",
+        "costs": [
+          57.6,
+          230.4,
+          183.6
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 57.6
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 230.4
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 183.6
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-fable-5-1",
+      "aliases": [],
+      "expr": "tier(\"base\", p * 10 + c * 50 + cr * 0.25 + cc * 12.5 + cc1h * 20)",
+      "split": {
+        "billingExpr": "tier(\"base\", p * 10 + c * 50 + cr * 0.25 + cc * 12.5 + cc1h * 20)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "base",
+            "input_unit_cost": 10,
+            "output_unit_cost": 50,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.25,
+            "cache_create_unit_cost": 12.5,
+            "cache_create_1h_unit_cost": 20,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "tier(\"base\", p * 10 + c * 50 + cr * 0.25 + cc * 12.5 + cc1h * 20)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 10,
+          "outputPrice": 50,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.25,
+          "cacheCreatePrice": 12.5,
+          "cacheCreate1hPrice": 20,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "claude-fable-5-1",
+      "backendOriginal": {
+        "id": "claude-fable-5-1",
+        "costs": [
+          1502.5,
+          6010,
+          4502.5
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cc": true,
+          "cc1h": true,
+          "cr": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 1502.5
+          },
+          {
+            "matched_tier": "base",
+            "cost": 6010
+          },
+          {
+            "matched_tier": "base",
+            "cost": 4502.5
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "claude-fable-5-1:regenerated",
+        "costs": [
+          1502.5,
+          6010,
+          4502.5
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cc": true,
+          "cc1h": true,
+          "cr": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 1502.5
+          },
+          {
+            "matched_tier": "base",
+            "cost": 6010
+          },
+          {
+            "matched_tier": "base",
+            "cost": 4502.5
+          }
+        ]
+      }
+    },
+    {
+      "model": "claude-haiku-5-5",
+      "aliases": [],
+      "expr": "len <= 100000 ? tier(\"standard\", p * 0.1 + c * 0.5 + cr * 0.01 + cc * 0.125 + cc1h * 0.2) : tier(\"long_context\", p * 0.5 + c * 2.5 + cr * 0.05 + cc * 0.625 + cc1h * 1)",
+      "split": {
+        "billingExpr": "len <= 100000 ? tier(\"standard\", p * 0.1 + c * 0.5 + cr * 0.01 + cc * 0.125 + cc1h * 0.2) : tier(\"long_context\", p * 0.5 + c * 2.5 + cr * 0.05 + cc * 0.625 + cc1h * 1)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "standard",
+            "input_unit_cost": 0.1,
+            "output_unit_cost": 0.5,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 100000
+              }
+            ],
+            "cache_read_unit_cost": 0.01,
+            "cache_create_unit_cost": 0.125,
+            "cache_create_1h_unit_cost": 0.2,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "long_context",
+            "input_unit_cost": 0.5,
+            "output_unit_cost": 2.5,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.05,
+            "cache_create_unit_cost": 0.625,
+            "cache_create_1h_unit_cost": 1,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 100000 ? tier(\"standard\", p * 0.1 + c * 0.5 + cr * 0.01 + cc * 0.125 + cc1h * 0.2) : tier(\"long_context\", p * 0.5 + c * 2.5 + cr * 0.05 + cc * 0.625 + cc1h * 1)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0.1,
+          "outputPrice": 0.5,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.01,
+          "cacheCreatePrice": 0.125,
+          "cacheCreate1hPrice": 0.2,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "standard",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 100000
+            }
+          ]
+        },
+        {
+          "inputPrice": 0.5,
+          "outputPrice": 2.5,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.05,
+          "cacheCreatePrice": 0.625,
+          "cacheCreate1hPrice": 1,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "long_context",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "claude-haiku-5-5",
+      "backendOriginal": {
+        "id": "claude-haiku-5-5",
+        "costs": [
+          15.1,
+          60.4,
+          45.1
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cc": true,
+          "cc1h": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 15.1
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 60.4
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 45.1
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "claude-haiku-5-5:regenerated",
+        "costs": [
+          15.1,
+          60.4,
+          45.1
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cc": true,
+          "cc1h": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 15.1
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 60.4
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 45.1
+          }
+        ]
+      }
+    },
+    {
+      "model": "deepseek-v4-1-flash-260910",
+      "aliases": [],
+      "expr": "tier(\"base\", p * 0.03 + c * 1.2 + cr * 0.006) * (\n  (\n    weekday(\"Asia/Shanghai\") == 0 ||\n    weekday(\"Asia/Shanghai\") == 6 ||\n    hour(\"Asia/Shanghai\") < 9 ||\n    (hour(\"Asia/Shanghai\") >= 12 && hour(\"Asia/Shanghai\") < 14) ||\n    hour(\"Asia/Shanghai\") >= 18\n  ) ? 0.5 : 1\n)",
+      "split": {
+        "billingExpr": "tier(\"base\", p * 0.03 + c * 1.2 + cr * 0.006) * (\n  (\n    weekday(\"Asia/Shanghai\") == 0 ||\n    weekday(\"Asia/Shanghai\") == 6 ||\n    hour(\"Asia/Shanghai\") < 9 ||\n    (hour(\"Asia/Shanghai\") >= 12 && hour(\"Asia/Shanghai\") < 14) ||\n    hour(\"Asia/Shanghai\") >= 18\n  ) ? 0.5 : 1\n)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": false,
+      "visualConfig": null,
+      "ruleGroups": [],
+      "regenerated": "",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0.03,
+          "outputPrice": 1.2,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.006,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "deepseek-v4-1-flash-260910",
+      "backendOriginal": {
+        "id": "deepseek-v4-1-flash-260910",
+        "costs": [
+          25.56,
+          102.24,
+          97.56
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true,
+          "weekday": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "weekday(\"Asia/Shanghai\") == 0 || weekday(\"Asia/Shanghai\") == 6 || hour(\"Asia/Shanghai\") < 9 || (hour(\"Asia/Shanghai\") >= 12 && hour(\"Asia/Shanghai\") < 14) || hour(\"Asia/Shanghai\") >= 18",
+                "multiplier": 0.5,
+                "matched": false
+              }
+            ],
+            "cost": 25.56
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "weekday(\"Asia/Shanghai\") == 0 || weekday(\"Asia/Shanghai\") == 6 || hour(\"Asia/Shanghai\") < 9 || (hour(\"Asia/Shanghai\") >= 12 && hour(\"Asia/Shanghai\") < 14) || hour(\"Asia/Shanghai\") >= 18",
+                "multiplier": 0.5,
+                "matched": false
+              }
+            ],
+            "cost": 102.24
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "weekday(\"Asia/Shanghai\") == 0 || weekday(\"Asia/Shanghai\") == 6 || hour(\"Asia/Shanghai\") < 9 || (hour(\"Asia/Shanghai\") >= 12 && hour(\"Asia/Shanghai\") < 14) || hour(\"Asia/Shanghai\") >= 18",
+                "multiplier": 0.5,
+                "matched": false
+              }
+            ],
+            "cost": 97.56
+          }
+        ]
+      },
+      "backendRegenerated": null
+    },
+    {
+      "model": "deepseek-v4-flash",
+      "aliases": [],
+      "expr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 0.43795620437956206 + c * 1.3138686131386863 + cr * 0.014598540145985403) : tier(\"off_peak\", p * 0.21897810218978103 + c * 0.65693430656934315 + cr * 0.0072992700729927014)",
+      "split": {
+        "billingExpr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 0.43795620437956206 + c * 1.3138686131386863 + cr * 0.014598540145985403) : tier(\"off_peak\", p * 0.21897810218978103 + c * 0.65693430656934315 + cr * 0.0072992700729927014)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": false,
+      "visualConfig": null,
+      "ruleGroups": [],
+      "regenerated": "",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0.43795620437956206,
+          "outputPrice": 1.3138686131386863,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.014598540145985403,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.21897810218978103,
+          "outputPrice": 0.6569343065693432,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.007299270072992701,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "off_peak",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "deepseek-v4-flash",
+      "backendOriginal": {
+        "id": "deepseek-v4-flash",
+        "costs": [
+          48.321167883211686,
+          193.28467153284674,
+          127.15328467153286
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak",
+            "cost": 48.321167883211686
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 193.28467153284674
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 127.15328467153286
+          }
+        ]
+      },
+      "backendRegenerated": null
+    },
+    {
+      "model": "deepseek-v4-flash-0731",
+      "aliases": [],
+      "expr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 0.43795620437956206 + c * 1.3138686131386863 + cr * 0.014598540145985403) : tier(\"off_peak\", p * 0.21897810218978103 + c * 0.65693430656934315 + cr * 0.0072992700729927014)",
+      "split": {
+        "billingExpr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 0.43795620437956206 + c * 1.3138686131386863 + cr * 0.014598540145985403) : tier(\"off_peak\", p * 0.21897810218978103 + c * 0.65693430656934315 + cr * 0.0072992700729927014)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": false,
+      "visualConfig": null,
+      "ruleGroups": [],
+      "regenerated": "",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0.43795620437956206,
+          "outputPrice": 1.3138686131386863,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.014598540145985403,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.21897810218978103,
+          "outputPrice": 0.6569343065693432,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.007299270072992701,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "off_peak",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "deepseek-v4-flash",
+      "backendOriginal": {
+        "id": "deepseek-v4-flash",
+        "costs": [
+          48.321167883211686,
+          193.28467153284674,
+          127.15328467153286
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak",
+            "cost": 48.321167883211686
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 193.28467153284674
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 127.15328467153286
+          }
+        ]
+      },
+      "backendRegenerated": null
+    },
+    {
+      "model": "deepseek-v4-pro",
+      "aliases": [],
+      "expr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 1.3138686131386863 + c * 3.9416058394160585 + cr * 0.043795620437956206) : tier(\"off_peak\", p * 0.65693430656934315 + c * 1.9708029197080292 + cr * 0.021897810218978103)",
+      "split": {
+        "billingExpr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 1.3138686131386863 + c * 3.9416058394160585 + cr * 0.043795620437956206) : tier(\"off_peak\", p * 0.65693430656934315 + c * 1.9708029197080292 + cr * 0.021897810218978103)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": false,
+      "visualConfig": null,
+      "ruleGroups": [],
+      "regenerated": "",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 1.3138686131386863,
+          "outputPrice": 3.9416058394160585,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.043795620437956206,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.6569343065693432,
+          "outputPrice": 1.9708029197080292,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.021897810218978103,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "off_peak",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "deepseek-v4-pro",
+      "backendOriginal": {
+        "id": "deepseek-v4-pro",
+        "costs": [
+          144.96350364963504,
+          579.8540145985402,
+          381.4598540145986
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak",
+            "cost": 144.96350364963504
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 579.8540145985402
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 381.4598540145986
+          }
+        ]
+      },
+      "backendRegenerated": null
+    },
+    {
+      "model": "deepseek-v4-pro-0813",
+      "aliases": [],
+      "expr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 1.3138686131386863 + c * 3.9416058394160585 + cr * 0.043795620437956206) : tier(\"off_peak\", p * 0.65693430656934315 + c * 1.9708029197080292 + cr * 0.021897810218978103)",
+      "split": {
+        "billingExpr": "((hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12) || (hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18)) ? tier(\"peak\", p * 1.3138686131386863 + c * 3.9416058394160585 + cr * 0.043795620437956206) : tier(\"off_peak\", p * 0.65693430656934315 + c * 1.9708029197080292 + cr * 0.021897810218978103)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": false,
+      "visualConfig": null,
+      "ruleGroups": [],
+      "regenerated": "",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 1.3138686131386863,
+          "outputPrice": 3.9416058394160585,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.043795620437956206,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.6569343065693432,
+          "outputPrice": 1.9708029197080292,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.021897810218978103,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "off_peak",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "deepseek-v4-pro",
+      "backendOriginal": {
+        "id": "deepseek-v4-pro",
+        "costs": [
+          144.96350364963504,
+          579.8540145985402,
+          381.4598540145986
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak",
+            "cost": 144.96350364963504
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 579.8540145985402
+          },
+          {
+            "matched_tier": "peak",
+            "cost": 381.4598540145986
+          }
+        ]
+      },
+      "backendRegenerated": null
+    },
+    {
+      "model": "deepseek-v4.1-flash",
+      "aliases": [],
+      "expr": "weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12 ? tier(\"peak_morning\", p * 0.3 + c * 1.2 + cr * 0.006) : weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18 ? tier(\"peak_afternoon\", p * 0.3 + c * 1.2 + cr * 0.006) : tier(\"off_peak\", p * 0.15 + c * 0.6 + cr * 0.003)",
+      "split": {
+        "billingExpr": "weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12 ? tier(\"peak_morning\", p * 0.3 + c * 1.2 + cr * 0.006) : weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18 ? tier(\"peak_afternoon\", p * 0.3 + c * 1.2 + cr * 0.006) : tier(\"off_peak\", p * 0.15 + c * 0.6 + cr * 0.003)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "peak_morning",
+            "input_unit_cost": 0.3,
+            "output_unit_cost": 1.2,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "1",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "6",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "9",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "12",
+                "rangeStart": "",
+                "rangeEnd": ""
+              }
+            ],
+            "cache_read_unit_cost": 0.006,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "peak_afternoon",
+            "input_unit_cost": 0.3,
+            "output_unit_cost": 1.2,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "1",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "6",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "14",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "18",
+                "rangeStart": "",
+                "rangeEnd": ""
+              }
+            ],
+            "cache_read_unit_cost": 0.006,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "off_peak",
+            "input_unit_cost": 0.15,
+            "output_unit_cost": 0.6,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.003,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12 ? tier(\"peak_morning\", p * 0.3 + c * 1.2 + cr * 0.006) : weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18 ? tier(\"peak_afternoon\", p * 0.3 + c * 1.2 + cr * 0.006) : tier(\"off_peak\", p * 0.15 + c * 0.6 + cr * 0.003)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0.3,
+          "outputPrice": 1.2,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.006,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak_morning",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.3,
+          "outputPrice": 1.2,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.006,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak_afternoon",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.15,
+          "outputPrice": 0.6,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.003,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "off_peak",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "deepseek-v4.1-flash",
+      "backendOriginal": {
+        "id": "deepseek-v4.1-flash",
+        "costs": [
+          39.06,
+          156.24,
+          111.06
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true,
+          "weekday": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak_morning",
+            "cost": 39.06
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 156.24
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 111.06
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "deepseek-v4.1-flash:regenerated",
+        "costs": [
+          39.06,
+          156.24,
+          111.06
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true,
+          "weekday": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak_morning",
+            "cost": 39.06
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 156.24
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 111.06
+          }
+        ]
+      }
+    },
+    {
+      "model": "deepseek-v4.1-flash-1017",
+      "aliases": [],
+      "expr": "weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12 \n    ? tier(\"peak_morning\", cr * 0.006 + p * 0.3 + c * 1.2) \n    : ( \n      weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18 \n        ? tier(\"peak_afternoon\", cr * 0.006 + p * 0.3 + c * 1.2) \n        : tier(\"off_peak\", cr * 0.003 + p * 0.15 + c * 0.6) \n    )",
+      "split": {
+        "billingExpr": "weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12 \n    ? tier(\"peak_morning\", cr * 0.006 + p * 0.3 + c * 1.2) \n    : ( \n      weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18 \n        ? tier(\"peak_afternoon\", cr * 0.006 + p * 0.3 + c * 1.2) \n        : tier(\"off_peak\", cr * 0.003 + p * 0.15 + c * 0.6) \n    )",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "peak_morning",
+            "input_unit_cost": 0.3,
+            "output_unit_cost": 1.2,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "1",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "6",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "9",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "12",
+                "rangeStart": "",
+                "rangeEnd": ""
+              }
+            ],
+            "cache_read_unit_cost": 0.006,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "peak_afternoon",
+            "input_unit_cost": 0.3,
+            "output_unit_cost": 1.2,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "1",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "weekday",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "6",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "gte",
+                "value": "14",
+                "rangeStart": "",
+                "rangeEnd": ""
+              },
+              {
+                "source": "time",
+                "timeFunc": "hour",
+                "timezone": "Asia/Shanghai",
+                "mode": "lt",
+                "value": "18",
+                "rangeStart": "",
+                "rangeEnd": ""
+              }
+            ],
+            "cache_read_unit_cost": 0.006,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "off_peak",
+            "input_unit_cost": 0.15,
+            "output_unit_cost": 0.6,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.003,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 9 && hour(\"Asia/Shanghai\") < 12 ? tier(\"peak_morning\", p * 0.3 + c * 1.2 + cr * 0.006) : weekday(\"Asia/Shanghai\") >= 1 && weekday(\"Asia/Shanghai\") < 6 && hour(\"Asia/Shanghai\") >= 14 && hour(\"Asia/Shanghai\") < 18 ? tier(\"peak_afternoon\", p * 0.3 + c * 1.2 + cr * 0.006) : tier(\"off_peak\", p * 0.15 + c * 0.6 + cr * 0.003)",
+      "expressionChanged": true,
+      "displayTiers": [
+        {
+          "inputPrice": 0.3,
+          "outputPrice": 1.2,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.006,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak_morning",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.3,
+          "outputPrice": 1.2,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.006,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "peak_afternoon",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0.15,
+          "outputPrice": 0.6,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.003,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "off_peak",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "deepseek-v4.1-flash-1017",
+      "backendOriginal": {
+        "id": "deepseek-v4.1-flash-1017",
+        "costs": [
+          39.06,
+          156.24,
+          111.06
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true,
+          "weekday": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak_morning",
+            "cost": 39.06
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 156.24
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 111.06
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "deepseek-v4.1-flash-1017:regenerated",
+        "costs": [
+          39.06,
+          156.24,
+          111.06
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "hour": true,
+          "p": true,
+          "tier": true,
+          "weekday": true
+        },
+        "traces": [
+          {
+            "matched_tier": "peak_morning",
+            "cost": 39.06
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 156.24
+          },
+          {
+            "matched_tier": "peak_morning",
+            "cost": 111.06
+          }
+        ]
+      }
+    },
+    {
+      "model": "doubao-seedance-2-0-fast-260128",
+      "aliases": [],
+      "expr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input_output\", p * 0 + c * 3.24) : tier(\"480_720p_no_video_input_output\", p * 0 + c * 5.45)",
+      "split": {
+        "billingExpr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input_output\", p * 0 + c * 3.24) : tier(\"480_720p_no_video_input_output\", p * 0 + c * 5.45)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "480_720p_video_input_output",
+            "input_unit_cost": 0,
+            "output_unit_cost": 3.24,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input_output",
+            "input_unit_cost": 0,
+            "output_unit_cost": 5.45,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input_output\", p * 0 + c * 3.24) : tier(\"480_720p_no_video_input_output\", p * 0 + c * 5.45)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 3.24,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input_output",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 5.45,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input_output",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "doubao-seedance-2-0-fast-260128",
+      "backendOriginal": {
+        "id": "doubao-seedance-2-0-fast-260128",
+        "costs": [
+          109,
+          436,
+          436
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 109
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 436
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 436
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "doubao-seedance-2-0-fast-260128:regenerated",
+        "costs": [
+          109,
+          436,
+          436
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 109
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 436
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 436
+          }
+        ]
+      }
+    },
+    {
+      "model": "doubao-seedance-2-0-mini-260615",
+      "aliases": [],
+      "expr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 2.1) : tier(\"480_720p_no_video_input\", p * 0 + c * 3.4)",
+      "split": {
+        "billingExpr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 2.1) : tier(\"480_720p_no_video_input\", p * 0 + c * 3.4)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "480_720p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 2.1,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 3.4,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 2.1) : tier(\"480_720p_no_video_input\", p * 0 + c * 3.4)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 2.1,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 3.4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "doubao-seedance-2-0-mini-260615",
+      "backendOriginal": {
+        "id": "doubao-seedance-2-0-mini-260615",
+        "costs": [
+          68,
+          272,
+          272
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 68
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 272
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 272
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "doubao-seedance-2-0-mini-260615:regenerated",
+        "costs": [
+          68,
+          272,
+          272
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 68
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 272
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 272
+          }
+        ]
+      }
+    },
+    {
+      "model": "doubao-seedance-2-5-260628",
+      "aliases": [],
+      "expr": "param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 6.77) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 11.33) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 6.18) : tier(\"480_720p_no_video_input\", p * 0 + c * 10.3)",
+      "split": {
+        "billingExpr": "param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 6.77) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 11.33) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 6.18) : tier(\"480_720p_no_video_input\", p * 0 + c * 10.3)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "1080p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 6.77,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              },
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "1080p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 11.33,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 6.18,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 10.3,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 6.77) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 11.33) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 6.18) : tier(\"480_720p_no_video_input\", p * 0 + c * 10.3)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 6.77,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 11.33,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_no_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 6.18,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 10.3,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "doubao-seedance-2-5-260628",
+      "backendOriginal": {
+        "id": "doubao-seedance-2-5-260628",
+        "costs": [
+          206,
+          824,
+          824
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 206
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 824
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 824
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "doubao-seedance-2-5-260628:regenerated",
+        "costs": [
+          206,
+          824,
+          824
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 206
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 824
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 824
+          }
+        ]
+      }
+    },
+    {
+      "model": "doubao-seedream-4-5-251128",
+      "aliases": [],
+      "expr": "tier(\"image_hd\",20000)",
+      "split": {
+        "billingExpr": "tier(\"image_hd\",20000)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "image_hd",
+            "input_unit_cost": 0,
+            "output_unit_cost": 0,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0.02
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "tier(\"image_hd\", 20000 + p * 0 + c * 0)",
+      "expressionChanged": true,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.02,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "image_hd",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "doubao-seedream-4-5-251128",
+      "backendOriginal": {
+        "id": "doubao-seedream-4-5-251128",
+        "costs": [
+          20000,
+          20000,
+          20000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "image_hd",
+            "cost": 20000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 20000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 20000
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "doubao-seedream-4-5-251128:regenerated",
+        "costs": [
+          20000,
+          20000,
+          20000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "image_hd",
+            "cost": 20000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 20000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 20000
+          }
+        ]
+      }
+    },
+    {
+      "model": "doubao-seedream-5-0-260128",
+      "aliases": [],
+      "expr": "tier(\"image_hd\",25000)",
+      "split": {
+        "billingExpr": "tier(\"image_hd\",25000)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "image_hd",
+            "input_unit_cost": 0,
+            "output_unit_cost": 0,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0.025
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "tier(\"image_hd\", 25000 + p * 0 + c * 0)",
+      "expressionChanged": true,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.025,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "image_hd",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "doubao-seedream-5-0-260128",
+      "backendOriginal": {
+        "id": "doubao-seedream-5-0-260128",
+        "costs": [
+          25000,
+          25000,
+          25000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "image_hd",
+            "cost": 25000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 25000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 25000
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "doubao-seedream-5-0-260128:regenerated",
+        "costs": [
+          25000,
+          25000,
+          25000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "image_hd",
+            "cost": 25000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 25000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 25000
+          }
+        ]
+      }
+    },
+    {
+      "model": "doubao-seedream-5-0-pro-260628",
+      "aliases": [],
+      "expr": "img <= 2360000\n?\ntier(\"image_normal\",43000)\n:\ntier(\"image_hd\",86000)",
+      "split": {
+        "billingExpr": "img <= 2360000\n?\ntier(\"image_normal\",43000)\n:\ntier(\"image_hd\",86000)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": false,
+      "visualConfig": null,
+      "ruleGroups": [],
+      "regenerated": "",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.043,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "image_normal",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.086,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "image_hd",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "doubao-seedream-5-0-pro-260628",
+      "backendOriginal": {
+        "id": "doubao-seedream-5-0-pro-260628",
+        "costs": [
+          43000,
+          43000,
+          43000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "img": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "image_normal",
+            "cost": 43000
+          },
+          {
+            "matched_tier": "image_normal",
+            "cost": 43000
+          },
+          {
+            "matched_tier": "image_normal",
+            "cost": 43000
+          }
+        ]
+      },
+      "backendRegenerated": null
+    },
+    {
+      "model": "dreamina-seedance-2-0-260128",
+      "aliases": [],
+      "expr": "param(\"resolution\") == \"4k\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"4k_video_input\", p * 0 + c * 2.4) : param(\"resolution\") == \"4k\" ? tier(\"4k_no_video_input\", p * 0 + c * 4) : param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 4.7) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 7.7) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 4.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 7)",
+      "split": {
+        "billingExpr": "param(\"resolution\") == \"4k\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"4k_video_input\", p * 0 + c * 2.4) : param(\"resolution\") == \"4k\" ? tier(\"4k_no_video_input\", p * 0 + c * 4) : param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 4.7) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 7.7) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 4.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 7)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "4k_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 2.4,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "4k"
+              },
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "4k_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 4,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "4k"
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "1080p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 4.7,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              },
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "1080p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 7.7,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 4.3,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 7,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"resolution\") == \"4k\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"4k_video_input\", p * 0 + c * 2.4) : param(\"resolution\") == \"4k\" ? tier(\"4k_no_video_input\", p * 0 + c * 4) : param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 4.7) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 7.7) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 4.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 7)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 2.4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "4k_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "4k_no_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 4.7,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 7.7,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_no_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 4.3,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 7,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "dreamina-seedance-2-0-260128",
+      "backendOriginal": {
+        "id": "dreamina-seedance-2-0-260128",
+        "costs": [
+          140,
+          560,
+          560
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 140
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 560
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 560
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "dreamina-seedance-2-0-260128:regenerated",
+        "costs": [
+          140,
+          560,
+          560
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 140
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 560
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 560
+          }
+        ]
+      }
+    },
+    {
+      "model": "dreamina-seedance-2-0-fast-260128",
+      "aliases": [],
+      "expr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input_output\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input_output\", p * 0 + c * 5.6)",
+      "split": {
+        "billingExpr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input_output\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input_output\", p * 0 + c * 5.6)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "480_720p_video_input_output",
+            "input_unit_cost": 0,
+            "output_unit_cost": 3.3,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input_output",
+            "input_unit_cost": 0,
+            "output_unit_cost": 5.6,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input_output\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input_output\", p * 0 + c * 5.6)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 3.3,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input_output",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 5.6,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input_output",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "dreamina-seedance-2-0-fast-260128",
+      "backendOriginal": {
+        "id": "dreamina-seedance-2-0-fast-260128",
+        "costs": [
+          112,
+          448,
+          448
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 112
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 448
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 448
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "dreamina-seedance-2-0-fast-260128:regenerated",
+        "costs": [
+          112,
+          448,
+          448
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 112
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 448
+          },
+          {
+            "matched_tier": "480_720p_no_video_input_output",
+            "cost": 448
+          }
+        ]
+      }
+    },
+    {
+      "model": "dreamina-seedance-2-0-mini-260615",
+      "aliases": [],
+      "expr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 2.1) : tier(\"480_720p_no_video_input\", p * 0 + c * 3.5)",
+      "split": {
+        "billingExpr": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 2.1) : tier(\"480_720p_no_video_input\", p * 0 + c * 3.5)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "480_720p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 2.1,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 3.5,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 2.1) : tier(\"480_720p_no_video_input\", p * 0 + c * 3.5)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 2.1,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 3.5,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "dreamina-seedance-2-0-mini-260615",
+      "backendOriginal": {
+        "id": "dreamina-seedance-2-0-mini-260615",
+        "costs": [
+          70,
+          280,
+          280
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 70
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 280
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 280
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "dreamina-seedance-2-0-mini-260615:regenerated",
+        "costs": [
+          70,
+          280,
+          280
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 70
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 280
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 280
+          }
+        ]
+      }
+    },
+    {
+      "model": "dreamina-seedance-2-5-260628",
+      "aliases": [],
+      "expr": "param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 7) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 11.7) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 6.4) : tier(\"480_720p_no_video_input\", p * 0 + c * 10.7)",
+      "split": {
+        "billingExpr": "param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 7) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 11.7) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 6.4) : tier(\"480_720p_no_video_input\", p * 0 + c * 10.7)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "1080p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 7,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              },
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "1080p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 11.7,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "resolution",
+                "mode": "eq",
+                "value": "1080p"
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 6.4,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "content.#(type==\"video_url\").video_url.url",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 10.7,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "param(\"resolution\") == \"1080p\" && param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"1080p_video_input\", p * 0 + c * 7) : param(\"resolution\") == \"1080p\" ? tier(\"1080p_no_video_input\", p * 0 + c * 11.7) : param(\"content.#(type==\\\"video_url\\\").video_url.url\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 6.4) : tier(\"480_720p_no_video_input\", p * 0 + c * 10.7)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 7,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 11.7,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "1080p_no_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 6.4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 10.7,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": true,
+      "backendRepresentative": "dreamina-seedance-2-5-260628",
+      "backendOriginal": {
+        "id": "dreamina-seedance-2-5-260628",
+        "costs": [
+          214,
+          856,
+          856
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 214
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 856
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 856
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "dreamina-seedance-2-5-260628:regenerated",
+        "costs": [
+          214,
+          856,
+          856
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 214
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 856
+          },
+          {
+            "matched_tier": "480_720p_no_video_input",
+            "cost": 856
+          }
+        ]
+      }
+    },
+    {
+      "model": "gemini-3.1-pro-preview",
+      "aliases": [],
+      "expr": "len < 200000 ? tier(\"base\", p * 2 + c * 12 + cr * 0.2 + cc * 0.38 + ai * 2) : tier(\"tier_2\", p * 4 + c * 18 + cr * 0.4 + cc * 0.38 + ai * 4)",
+      "split": {
+        "billingExpr": "len < 200000 ? tier(\"base\", p * 2 + c * 12 + cr * 0.2 + cc * 0.38 + ai * 2) : tier(\"tier_2\", p * 4 + c * 18 + cr * 0.4 + cc * 0.38 + ai * 4)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "base",
+            "input_unit_cost": 2,
+            "output_unit_cost": 12,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<",
+                "value": 200000
+              }
+            ],
+            "cache_read_unit_cost": 0.2,
+            "cache_create_unit_cost": 0.38,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 2,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "tier_2",
+            "input_unit_cost": 4,
+            "output_unit_cost": 18,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.4,
+            "cache_create_unit_cost": 0.38,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 4,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len < 200000 ? tier(\"base\", p * 2 + c * 12 + cr * 0.2 + cc * 0.38 + ai * 2) : tier(\"tier_2\", p * 4 + c * 18 + cr * 0.4 + cc * 0.38 + ai * 4)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 12,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.2,
+          "cacheCreatePrice": 0.38,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 2,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<",
+              "value": 200000
+            }
+          ]
+        },
+        {
+          "inputPrice": 4,
+          "outputPrice": 18,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.4,
+          "cacheCreatePrice": 0.38,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 4,
+          "audioOutputPrice": 0,
+          "label": "tier_2",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gemini-3.1-pro-preview",
+      "backendOriginal": {
+        "id": "gemini-3.1-pro-preview",
+        "costs": [
+          342,
+          1368,
+          1062
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "ai": true,
+          "c": true,
+          "cc": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 342
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1368
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1062
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gemini-3.1-pro-preview:regenerated",
+        "costs": [
+          342,
+          1368,
+          1062
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "ai": true,
+          "c": true,
+          "cc": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 342
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1368
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1062
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-5.4",
+      "aliases": [],
+      "expr": "len <= 272000 ? tier(\"standard\", p * 2.5 + c * 15 + cr * 0.25) : tier(\"long_context\", p * 5 + c * 22.5 + cr * 0.5)",
+      "split": {
+        "billingExpr": "len <= 272000 ? tier(\"standard\", p * 2.5 + c * 15 + cr * 0.25) : tier(\"long_context\", p * 5 + c * 22.5 + cr * 0.5)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "standard",
+            "input_unit_cost": 2.5,
+            "output_unit_cost": 15,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 272000
+              }
+            ],
+            "cache_read_unit_cost": 0.25,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "long_context",
+            "input_unit_cost": 5,
+            "output_unit_cost": 22.5,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.5,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 272000 ? tier(\"standard\", p * 2.5 + c * 15 + cr * 0.25) : tier(\"long_context\", p * 5 + c * 22.5 + cr * 0.5)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 2.5,
+          "outputPrice": 15,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.25,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "standard",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 272000
+            }
+          ]
+        },
+        {
+          "inputPrice": 5,
+          "outputPrice": 22.5,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.5,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "long_context",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-5.4",
+      "backendOriginal": {
+        "id": "gpt-5.4",
+        "costs": [
+          427.5,
+          1710,
+          1327.5
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 427.5
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1710
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1327.5
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-5.4:regenerated",
+        "costs": [
+          427.5,
+          1710,
+          1327.5
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 427.5
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1710
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1327.5
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-5.4-pro",
+      "aliases": [],
+      "expr": "len <= 272000 ? tier(\"base\", p * 30 + c * 180) : tier(\"tier_2\", p * 60 + c * 270)",
+      "split": {
+        "billingExpr": "len <= 272000 ? tier(\"base\", p * 30 + c * 180) : tier(\"tier_2\", p * 60 + c * 270)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "base",
+            "input_unit_cost": 30,
+            "output_unit_cost": 180,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 272000
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "tier_2",
+            "input_unit_cost": 60,
+            "output_unit_cost": 270,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 272000 ? tier(\"base\", p * 30 + c * 180) : tier(\"tier_2\", p * 60 + c * 270)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 30,
+          "outputPrice": 180,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 272000
+            }
+          ]
+        },
+        {
+          "inputPrice": 60,
+          "outputPrice": 270,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "tier_2",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-5.4-pro",
+      "backendOriginal": {
+        "id": "gpt-5.4-pro",
+        "costs": [
+          5100,
+          20400,
+          15900
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 5100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 20400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 15900
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-5.4-pro:regenerated",
+        "costs": [
+          5100,
+          20400,
+          15900
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 5100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 20400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 15900
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-5.5-pro",
+      "aliases": [],
+      "expr": "len <= 272000 ? tier(\"base\", p * 30 + c * 180) : tier(\"tier_2\", p * 60 + c * 270)",
+      "split": {
+        "billingExpr": "len <= 272000 ? tier(\"base\", p * 30 + c * 180) : tier(\"tier_2\", p * 60 + c * 270)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "base",
+            "input_unit_cost": 30,
+            "output_unit_cost": 180,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 272000
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "tier_2",
+            "input_unit_cost": 60,
+            "output_unit_cost": 270,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 272000 ? tier(\"base\", p * 30 + c * 180) : tier(\"tier_2\", p * 60 + c * 270)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 30,
+          "outputPrice": 180,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 272000
+            }
+          ]
+        },
+        {
+          "inputPrice": 60,
+          "outputPrice": 270,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "tier_2",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-5.4-pro",
+      "backendOriginal": {
+        "id": "gpt-5.4-pro",
+        "costs": [
+          5100,
+          20400,
+          15900
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 5100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 20400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 15900
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-5.4-pro:regenerated",
+        "costs": [
+          5100,
+          20400,
+          15900
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 5100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 20400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 15900
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-5.6-luna",
+      "aliases": [],
+      "expr": "len <= 272000 ? tier(\"standard\", p * 1 + c * 6 + cr * 0.1) : tier(\"long_context\", p * 2 + c * 9 + cr * 0.2)",
+      "split": {
+        "billingExpr": "len <= 272000 ? tier(\"standard\", p * 1 + c * 6 + cr * 0.1) : tier(\"long_context\", p * 2 + c * 9 + cr * 0.2)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "standard",
+            "input_unit_cost": 1,
+            "output_unit_cost": 6,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 272000
+              }
+            ],
+            "cache_read_unit_cost": 0.1,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "long_context",
+            "input_unit_cost": 2,
+            "output_unit_cost": 9,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.2,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 272000 ? tier(\"standard\", p * 1 + c * 6 + cr * 0.1) : tier(\"long_context\", p * 2 + c * 9 + cr * 0.2)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 1,
+          "outputPrice": 6,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.1,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "standard",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 272000
+            }
+          ]
+        },
+        {
+          "inputPrice": 2,
+          "outputPrice": 9,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.2,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "long_context",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-5.6-luna",
+      "backendOriginal": {
+        "id": "gpt-5.6-luna",
+        "costs": [
+          171,
+          684,
+          531
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 171
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 684
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 531
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-5.6-luna:regenerated",
+        "costs": [
+          171,
+          684,
+          531
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 171
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 684
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 531
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-5.6-sol",
+      "aliases": [],
+      "expr": "len <= 272000 ? tier(\"standard\", p * 5 + c * 30 + cr * 0.48) : tier(\"long_context\", p * 10 + c * 45 + cr * 1)",
+      "split": {
+        "billingExpr": "len <= 272000 ? tier(\"standard\", p * 5 + c * 30 + cr * 0.48) : tier(\"long_context\", p * 10 + c * 45 + cr * 1)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "standard",
+            "input_unit_cost": 5,
+            "output_unit_cost": 30,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 272000
+              }
+            ],
+            "cache_read_unit_cost": 0.48,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "long_context",
+            "input_unit_cost": 10,
+            "output_unit_cost": 45,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 1,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 272000 ? tier(\"standard\", p * 5 + c * 30 + cr * 0.48) : tier(\"long_context\", p * 10 + c * 45 + cr * 1)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 5,
+          "outputPrice": 30,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.48,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "standard",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 272000
+            }
+          ]
+        },
+        {
+          "inputPrice": 10,
+          "outputPrice": 45,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 1,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "long_context",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-5.6-sol",
+      "backendOriginal": {
+        "id": "gpt-5.6-sol",
+        "costs": [
+          854.8,
+          3419.2,
+          2654.8
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 854.8
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 3419.2
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 2654.8
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-5.6-sol:regenerated",
+        "costs": [
+          854.8,
+          3419.2,
+          2654.8
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 854.8
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 3419.2
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 2654.8
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-5.6-terra",
+      "aliases": [],
+      "expr": "len <= 272000 ? tier(\"standard\", p * 2.5 + c * 15 + cr * 0.25) : tier(\"long_context\", p * 5 + c * 22.5 + cr * 0.5)",
+      "split": {
+        "billingExpr": "len <= 272000 ? tier(\"standard\", p * 2.5 + c * 15 + cr * 0.25) : tier(\"long_context\", p * 5 + c * 22.5 + cr * 0.5)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "standard",
+            "input_unit_cost": 2.5,
+            "output_unit_cost": 15,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "token",
+                "var": "len",
+                "op": "<=",
+                "value": 272000
+              }
+            ],
+            "cache_read_unit_cost": 0.25,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "long_context",
+            "input_unit_cost": 5,
+            "output_unit_cost": 22.5,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0.5,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "len <= 272000 ? tier(\"standard\", p * 2.5 + c * 15 + cr * 0.25) : tier(\"long_context\", p * 5 + c * 22.5 + cr * 0.5)",
+      "expressionChanged": false,
+      "displayTiers": [
+        {
+          "inputPrice": 2.5,
+          "outputPrice": 15,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.25,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "standard",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<=",
+              "value": 272000
+            }
+          ]
+        },
+        {
+          "inputPrice": 5,
+          "outputPrice": 22.5,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0.5,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "long_context",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-5.4",
+      "backendOriginal": {
+        "id": "gpt-5.4",
+        "costs": [
+          427.5,
+          1710,
+          1327.5
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 427.5
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1710
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1327.5
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-5.4:regenerated",
+        "costs": [
+          427.5,
+          1710,
+          1327.5
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "standard",
+            "cost": 427.5
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1710
+          },
+          {
+            "matched_tier": "standard",
+            "cost": 1327.5
+          }
+        ]
+      }
+    },
+    {
+      "model": "gpt-image-2-count",
+      "aliases": [],
+      "expr": "tier(\"image_hd\",10000)",
+      "split": {
+        "billingExpr": "tier(\"image_hd\",10000)",
+        "requestRuleExpr": ""
+      },
+      "visualSupported": true,
+      "visualConfig": {
+        "tiers": [
+          {
+            "label": "image_hd",
+            "input_unit_cost": 0,
+            "output_unit_cost": 0,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0.01
+          }
+        ]
+      },
+      "ruleGroups": [],
+      "regenerated": "tier(\"image_hd\", 10000 + p * 0 + c * 0)",
+      "expressionChanged": true,
+      "displayTiers": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.01,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "image_hd",
+          "conditions": []
+        }
+      ],
+      "displayConditionMissing": false,
+      "backendRepresentative": "gpt-image-2-count",
+      "backendOriginal": {
+        "id": "gpt-image-2-count",
+        "costs": [
+          10000,
+          10000,
+          10000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "image_hd",
+            "cost": 10000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 10000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 10000
+          }
+        ]
+      },
+      "backendRegenerated": {
+        "id": "gpt-image-2-count:regenerated",
+        "costs": [
+          10000,
+          10000,
+          10000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "image_hd",
+            "cost": 10000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 10000
+          },
+          {
+            "matched_tier": "image_hd",
+            "cost": 10000
+          }
+        ]
+      }
+    }
+  ],
+  "rewriteChecks": [
+    {
+      "model": "deepseek-v4.1-flash-1017",
+      "comparisons": 504,
+      "max_abs_diff": 0,
+      "matched_tier_diffs": 0,
+      "errors": []
+    },
+    {
+      "model": "doubao-seedream-4-5-251128",
+      "comparisons": 3,
+      "max_abs_diff": 0,
+      "matched_tier_diffs": 0,
+      "errors": []
+    },
+    {
+      "model": "doubao-seedream-5-0-260128",
+      "comparisons": 3,
+      "max_abs_diff": 0,
+      "matched_tier_diffs": 0,
+      "errors": []
+    },
+    {
+      "model": "gpt-image-2-count",
+      "comparisons": 3,
+      "max_abs_diff": 0,
+      "matched_tier_diffs": 0,
+      "errors": []
+    }
+  ]
+}

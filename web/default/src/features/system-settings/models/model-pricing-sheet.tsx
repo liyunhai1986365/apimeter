@@ -293,7 +293,7 @@ function buildPreviewRows(
   promptPrice: string,
   lanePrices: Record<LaneKey, string>,
   laneEnabled: Record<LaneKey, boolean>,
-  t: (key: string) => string
+  t: (key: string, options?: Record<string, unknown>) => string
 ): PreviewRow[] {
   if (mode === 'tiered_expr') {
     const effectiveExpr = combineBillingExpr(billingExpr, requestRuleExpr)

@@ -944,6 +944,53 @@ func TestBuildTieredTokenParams_Len_Claude(t *testing.T) {
 	}
 }
 
+func TestBuildTieredTokenParams_ClaudeUnsplitCacheWrites(t *testing.T) {
+	expr := `tier("base", p * 3 + c * 15 + cr * 0.3 + cc * 3.75 + cc1h * 6)`
+	for _, tc := range []struct {
+		name             string
+		split5m, split1h int
+		wantCC, wantCC1h float64
+	}{
+		{"total without split", 0, 0, 10000, 0},
+		{"split missing part of total", 0, 4000, 6000, 4000},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usage := &dto.Usage{
+				PromptTokens:                100,
+				CompletionTokens:            50,
+				UsageSemantic:               "anthropic",
+				PromptTokensDetails:         dto.InputTokenDetails{CachedCreationTokens: 10000},
+				ClaudeCacheCreation5mTokens: tc.split5m,
+				ClaudeCacheCreation1hTokens: tc.split1h,
+			}
+			params := BuildTieredTokenParams(usage, true, billingexpr.UsedVars(expr))
+			assert.Equal(t, tc.wantCC, params.CC)
+			assert.Equal(t, tc.wantCC1h, params.CC1h)
+			assert.Equal(t, float64(100+10000), params.Len, "len counts every cache write")
+		})
+	}
+}
+
+func TestTryTieredSettleClaudeUnsplitCacheWritesSelectLongContext(t *testing.T) {
+	expr := `len <= 100000 ? tier("standard", p * 0.1 + c * 0.5 + cr * 0.01 + cc * 0.125 + cc1h * 0.2) : tier("long_context", p * 0.5 + c * 2.5 + cr * 0.05 + cc * 0.625 + cc1h * 1)`
+	usage := effectiveBillingUsage(&dto.Usage{
+		BillingUsage: dto.NewClaudeMessagesBillingUsage(&dto.ClaudeUsage{
+			InputTokens:              90000,
+			OutputTokens:             1000,
+			CacheCreationInputTokens: 20000,
+		}),
+	})
+	params := BuildTieredTokenParams(usage, usage.UsageSemantic == dto.BillingUsageSemanticAnthropic, billingexpr.UsedVars(expr))
+	info := &relaycommon.RelayInfo{TieredBillingSnapshot: makeSnapshot(expr, 1, 0, 0)}
+
+	ok, quota, result := TryTieredSettle(info, params)
+	require.True(t, ok)
+	require.NotNil(t, result)
+	assert.Equal(t, "long_context", result.MatchedTier)
+	// (90000*0.5 + 1000*2.5 + 20000*0.625) / 1M * 500K = 30000.
+	assert.Equal(t, 30000, quota)
+}
+
 func TestBuildTieredTokenParams_Len_TierCondition(t *testing.T) {
 	// Test that len-based tier conditions work correctly when p is reduced by cache
 	usage := &dto.Usage{

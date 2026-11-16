@@ -53,6 +53,58 @@ function makeLog(overrides: Partial<UsageLog> = {}): UsageLog {
 }
 
 describe('buildBillingDetail', () => {
+  test('keeps consumed free cache tokens out of paid input and shows their zero-cost line', () => {
+    const result = buildBillingDetail(
+      makeLog({
+        prompt_tokens: 1000,
+        completion_tokens: 100,
+        cache_read_tokens: 200,
+      }),
+      {
+        billing_mode: 'tiered_expr',
+        expr_b64: Buffer.from('tier("base", p * 2 + c * 3 + cr * 0)').toString(
+          'base64'
+        ),
+        matched_tier: 'base',
+        cache_tokens: 200,
+        group_ratio: 1,
+      },
+      0.0019
+    )
+    assert.deepEqual(
+      result.lines.map((line) => [
+        line.labelKey,
+        line.quantity,
+        line.unitPriceUSD,
+      ]),
+      [
+        ['Input', 800, 2],
+        ['Output', 100, 3],
+        ['Cache Read', 200, 0],
+      ]
+    )
+    assert.equal(result.lines[2].finalAmountUSD, 0)
+    assert.equal(result.finalAmountUSD, 0.0019)
+    assert.equal(result.rawExpression, undefined)
+  })
+
+  test('shows the original formula when a detailed unit-price breakdown cannot be produced', () => {
+    const expression = 'tier("base", max(p * 2, 1000) + c * 4)'
+    const result = buildBillingDetail(
+      makeLog({ prompt_tokens: 100, completion_tokens: 100 }),
+      {
+        billing_mode: 'tiered_expr',
+        expr_b64: Buffer.from(expression).toString('base64'),
+        matched_tier: 'base',
+        group_ratio: 1,
+      },
+      0.0014
+    )
+    assert.equal(result.rawExpression, expression)
+    assert.equal(result.finalAmountUSD, 0.0014)
+    assert.ok(result.lines.every((line) => line.amountOnly))
+  })
+
   test('expands the reference token example in the requested order', () => {
     const log = makeLog({
       prompt_tokens: 7048,

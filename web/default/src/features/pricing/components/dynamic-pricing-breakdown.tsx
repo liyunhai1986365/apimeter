@@ -46,7 +46,6 @@ import {
   type ParsedTier,
   type RequestCondition,
   type RequestRuleGroup,
-  type TierCondition,
 } from '../lib/billing-expr'
 import {
   getDynamicPriceEntries,
@@ -140,11 +139,12 @@ function DynamicCacheWriteBreakdown(props: {
 }
 
 function formatConditionSummary(
-  conditions: TierCondition[],
+  conditions: ParsedTier['conditions'],
   t: (key: string) => string
 ): string {
   return conditions
     .map((c) => {
+      if ('source' in c) return `(${c.expression})`
       const varLabel = t(VAR_LABELS[c.var] || c.var)
       const hint = formatTokenHint(c.value)
       return `${varLabel} ${OP_LABELS[c.op] || c.op} ${hint || c.value}`
@@ -157,6 +157,7 @@ function describeCondition(
   cond: RequestCondition,
   t: (key: string) => string
 ): string {
+  if (cond.source === 'expression') return cond.expression
   if (cond.source === SOURCE_TIME) {
     const fn = t(TIME_FUNC_LABELS[cond.timeFunc] || cond.timeFunc)
     const tz = cond.timezone || 'UTC'
@@ -261,21 +262,19 @@ export function DynamicPricingBreakdown({
     )
   }
 
-  const visiblePriceFields = BILLING_PRICING_VARS.filter((v) => {
-    if (!hasTiers) return false
-    if (hideCacheColumns && v.group === 'cache') return false
-    return tiers.some(
-      (tier) => Number(tier[v.field as string as keyof ParsedTier] || 0) > 0
-    )
-  })
+  const visibleEntries = new Map<string, DynamicPriceEntry>()
+  for (const tier of tiers) {
+    for (const entry of getDynamicPriceEntries(tier, { tokenUnit: 'M' })) {
+      if (hideCacheColumns && entry.variable.group === 'cache') continue
+      visibleEntries.set(entry.field, entry)
+    }
+  }
   const { regularEntries: visibleRegularFields, cacheWriteEntries } =
     splitDynamicPriceEntriesForDisplay(
-      getDynamicPriceEntries(
-        Object.fromEntries(
-          visiblePriceFields.map((v) => [v.field as string, 1])
-        ) as ParsedTier,
-        { tokenUnit: 'M' }
-      )
+      BILLING_PRICING_VARS.flatMap((variable) => {
+        const entry = visibleEntries.get(variable.field || '')
+        return entry ? [entry] : []
+      })
     )
 
   return (

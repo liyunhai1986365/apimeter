@@ -408,7 +408,7 @@ export function getTieredBillingSummary(
     if (v.group === 'cache' && !cacheTokensPresent) continue
     const raw = tier[v.field as keyof ParsedTier]
     const price = Number(raw)
-    if (Number.isFinite(price) && price > 0) {
+    if (Number.isFinite(price) && price >= 0) {
       priceEntries.push({
         field: v.field,
         shortLabel: v.shortLabel,

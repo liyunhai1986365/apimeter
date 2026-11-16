@@ -125,8 +125,8 @@ const rootElement = document.getElementById('root')!
     try {
       const s = readCachedStatus()
       if (s) {
-        if (s?.system_name) apply(s.system_name)
-        if (s?.logo) applyFaviconToDom(s.logo)
+        if (typeof s.system_name === 'string') apply(s.system_name)
+        if (typeof s.logo === 'string') applyFaviconToDom(s.logo)
         if (s?.customer_service_script) {
           applyCustomerServiceScript(s.customer_service_script as string)
         }

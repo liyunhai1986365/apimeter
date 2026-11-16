@@ -207,7 +207,7 @@ export function getDynamicPriceEntries(
   return BILLING_PRICING_VARS.flatMap((variable) => {
     if (!variable.field) return []
     const value = Number(tier[variable.field])
-    if (!Number.isFinite(value) || value <= 0) return []
+    if (!Number.isFinite(value) || value < 0) return []
 
     return [
       {
@@ -221,7 +221,7 @@ export function getDynamicPriceEntries(
             ? formatDynamicSecondPrice(value, options)
             : variable.unit === 'request'
               ? formatDynamicRequestPrice(value, options)
-            : formatDynamicUnitPrice(value, options),
+              : formatDynamicUnitPrice(value, options),
         variable,
       },
     ]

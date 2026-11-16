@@ -1,0 +1,4235 @@
+{
+  "date": "2026-11-10",
+  "commit": "43c4044e8",
+  "scope": "web/default and Go billingexpr; diagnostic only",
+  "notes": [
+    "Costs are raw expression outputs before quota conversion and group multiplier.",
+    "Go vectors pass TokenParams directly; cache auto-exclusion is verified separately below.",
+    "Local preview uses p=50,c=20, all extra token inputs zero, and its built-in empty request helpers.",
+    "Component lifecycle evidence runs extracted source with a hook/effect state simulator, not a browser or React renderer.",
+    "User supplied the exact video-pricing expression after the initial audit; no production request data was used."
+  ],
+  "backend_vectors": [
+    {
+      "P": 50,
+      "C": 20,
+      "Len": 50,
+      "CR": 10
+    },
+    {
+      "P": 200,
+      "C": 80,
+      "Len": 200,
+      "CR": 40
+    },
+    {
+      "P": 50,
+      "C": 80,
+      "Len": 50,
+      "CR": 10
+    }
+  ],
+  "backend_request": {
+    "headers": {
+      "code": "123"
+    },
+    "body": {
+      "service_tier": "fast",
+      "n": 3,
+      "code": "123",
+      "size": "2048x2048",
+      "parameters": {
+        "duration": 3
+      },
+      "duration": 3
+    },
+    "responseBody": {
+      "usage": {
+        "count": 3
+      }
+    }
+  },
+  "cases": [
+    {
+      "id": "canonical",
+      "expr": "tier(\"base\", p * 2 + c * 4)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 2 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "canonical",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "canonical:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "no_tier",
+      "expr": "p * 2 + c * 4",
+      "visual": false,
+      "regenerated": "",
+      "display": [],
+      "split": {
+        "billingExpr": "p * 2 + c * 4",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "",
+        "error": null
+      },
+      "backend_original": {
+        "id": "no_tier",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true
+        },
+        "traces": [
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "reverse_multiply",
+      "expr": "tier(\"base\", 2 * p + 4 * c)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", 2 * p + 4 * c)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "reverse_multiply",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "inner_space",
+      "expr": "tier( \"base\", p * 2 + c * 4)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 2 + c * 4)",
+      "display": [],
+      "split": {
+        "billingExpr": "tier( \"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "inner_space",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "inner_space:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "function_space",
+      "expr": "tier (\"base\", p * 2 + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [],
+      "split": {
+        "billingExpr": "tier (\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "function_space",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "single_quotes",
+      "expr": "tier('base', p * 2 + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [],
+      "split": {
+        "billingExpr": "tier('base', p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "single_quotes",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "v1",
+      "expr": "v1:tier(\"base\", p * 2 + c * 4)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 2 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "v1:tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "",
+        "error": "Unexpected token ':'"
+      },
+      "backend_original": {
+        "id": "v1",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "v1:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "v2",
+      "expr": "v2:tier(\"base\", p * 2 + c * 4)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 2 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "v2:tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "",
+        "error": "Unexpected token ':'"
+      },
+      "backend_original": {
+        "id": "v2",
+        "costs": [
+          0,
+          0,
+          0
+        ],
+        "errors": [
+          "expr compile error: unexpected token Operator(\":\") (1:3)\n | v2:tier(\"base\", p * 2 + c * 4)\n | ..^",
+          "expr compile error: unexpected token Operator(\":\") (1:3)\n | v2:tier(\"base\", p * 2 + c * 4)\n | ..^",
+          "expr compile error: unexpected token Operator(\":\") (1:3)\n | v2:tier(\"base\", p * 2 + c * 4)\n | ..^"
+        ],
+        "vars": null,
+        "traces": [
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "v2:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "math",
+      "expr": "tier(\"base\", max(p * 2, 1000) + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", max(p * 2, 1000) + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 1080,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "math",
+        "costs": [
+          1080,
+          1320,
+          1320
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "max": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 1080
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1320
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1320
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "divide",
+      "expr": "tier(\"base\", p / 2 + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p / 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 105,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "divide",
+        "costs": [
+          105,
+          420,
+          345
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 105
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          },
+          {
+            "matched_tier": "base",
+            "cost": 345
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "power",
+      "expr": "tier(\"base\", p ^ 2)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p ^ 2)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 48,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "power",
+        "costs": [
+          2500,
+          40000,
+          2500
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 2500
+          },
+          {
+            "matched_tier": "base",
+            "cost": 40000
+          },
+          {
+            "matched_tier": "base",
+            "cost": 2500
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "let",
+      "expr": "let rate = 2; tier(\"base\", p * rate + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "let rate = 2; tier(\"base\", p * rate + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "",
+        "error": "Unexpected strict mode reserved word"
+      },
+      "backend_original": {
+        "id": "let",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "rate": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "word_and",
+      "expr": "len < 100 and c < 100 ? tier(\"low\", p * 1) : tier(\"base\", p * 2 + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 1,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "low",
+          "conditions": [
+            {
+              "var": "c",
+              "op": "<",
+              "value": 100
+            }
+          ]
+        },
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "len < 100 and c < 100 ? tier(\"low\", p * 1) : tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "",
+        "error": "Unexpected identifier 'and'"
+      },
+      "backend_original": {
+        "id": "word_and",
+        "costs": [
+          50,
+          720,
+          50
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "low",
+            "cost": 50
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "low",
+            "cost": 50
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "pixels",
+      "expr": "pixels(param(\"size\")) > 2000000 ? tier(\"big\", 600000) : tier(\"small\", 300000)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.6,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "big",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.3,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "small",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "pixels(param(\"size\")) > 2000000 ? tier(\"big\", 600000) : tier(\"small\", 300000)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 300000,
+        "matchedTier": "small",
+        "error": null
+      },
+      "backend_original": {
+        "id": "pixels",
+        "costs": [
+          600000,
+          600000,
+          600000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "param": true,
+          "pixels": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "big",
+            "cost": 600000
+          },
+          {
+            "matched_tier": "big",
+            "cost": 600000
+          },
+          {
+            "matched_tier": "big",
+            "cost": 600000
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "response",
+      "expr": "response(\"usage.count\") > 2 ? tier(\"big\", 600000) : tier(\"small\", 300000)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.6,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "big",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.3,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "small",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "response(\"usage.count\") > 2 ? tier(\"big\", 600000) : tier(\"small\", 300000)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 300000,
+        "matchedTier": "small",
+        "error": null
+      },
+      "backend_original": {
+        "id": "response",
+        "costs": [
+          600000,
+          600000,
+          600000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "response": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "big",
+            "cost": 600000
+          },
+          {
+            "matched_tier": "big",
+            "cost": 600000
+          },
+          {
+            "matched_tier": "big",
+            "cost": 600000
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "duration",
+      "expr": "tier(\"base\", param(\"parameters.duration\") * 0.1 * 1000000)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 0 + c * 0 + param(\"parameters.duration\") * 0.1 * 1000000)",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0.1,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", param(\"parameters.duration\") * 0.1 * 1000000)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "duration",
+        "costs": [
+          300000.00000000006,
+          300000.00000000006,
+          300000.00000000006
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "duration:regenerated",
+        "costs": [
+          300000.00000000006,
+          300000.00000000006,
+          300000.00000000006
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          }
+        ]
+      }
+    },
+    {
+      "id": "duration_other",
+      "expr": "tier(\"base\", param(\"duration\") * 0.1 * 1000000)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", param(\"duration\") * 0.1 * 1000000)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "duration_other",
+        "costs": [
+          300000.00000000006,
+          300000.00000000006,
+          300000.00000000006
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300000.00000000006
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "fixed_only",
+      "expr": "0.1 * 1000000",
+      "visual": false,
+      "regenerated": "",
+      "display": [],
+      "split": {
+        "billingExpr": "0.1 * 1000000",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 100000,
+        "matchedTier": "",
+        "error": null
+      },
+      "backend_original": {
+        "id": "fixed_only",
+        "costs": [
+          100000,
+          100000,
+          100000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {},
+        "traces": [
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "fixed_tier",
+      "expr": "tier(\"base\", 0.1 * 1000000)",
+      "visual": true,
+      "regenerated": "tier(\"base\", 100000 + p * 0 + c * 0)",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.1,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", 0.1 * 1000000)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 100000,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "fixed_tier",
+        "costs": [
+          100000,
+          100000,
+          100000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 100000
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100000
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100000
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "fixed_tier:regenerated",
+        "costs": [
+          100000,
+          100000,
+          100000
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 100000
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100000
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100000
+          }
+        ]
+      }
+    },
+    {
+      "id": "fixed_mix",
+      "expr": "tier(\"base\", 0.1 * 1000000 + p * 2)",
+      "visual": true,
+      "regenerated": "tier(\"base\", 100000 + p * 2 + c * 0)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", 0.1 * 1000000 + p * 2)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 100100,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "fixed_mix",
+        "costs": [
+          100100,
+          100400,
+          100100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 100100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100100
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "fixed_mix:regenerated",
+        "costs": [
+          100100,
+          100400,
+          100100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 100100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 100100
+          }
+        ]
+      }
+    },
+    {
+      "id": "duplicate",
+      "expr": "tier(\"base\", p * 2 + p * 3 + c * 4)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 3 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p * 2 + p * 3 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 330,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "duplicate",
+        "costs": [
+          330,
+          1320,
+          570
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 330
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1320
+          },
+          {
+            "matched_tier": "base",
+            "cost": 570
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "duplicate:regenerated",
+        "costs": [
+          230,
+          920,
+          470
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 230
+          },
+          {
+            "matched_tier": "base",
+            "cost": 920
+          },
+          {
+            "matched_tier": "base",
+            "cost": 470
+          }
+        ]
+      }
+    },
+    {
+      "id": "duplicate_fixed",
+      "expr": "tier(\"base\", 100000 + 200000 + p * 2)",
+      "visual": true,
+      "regenerated": "tier(\"base\", 200000 + p * 2 + c * 0)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0.1,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", 100000 + 200000 + p * 2)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 300100,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "duplicate_fixed",
+        "costs": [
+          300100,
+          300400,
+          300100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 300100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 300100
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "duplicate_fixed:regenerated",
+        "costs": [
+          200100,
+          200400,
+          200100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 200100
+          },
+          {
+            "matched_tier": "base",
+            "cost": 200400
+          },
+          {
+            "matched_tier": "base",
+            "cost": 200100
+          }
+        ]
+      }
+    },
+    {
+      "id": "zero_cache",
+      "expr": "tier(\"base\", p * 2 + c * 4 + cr * 0)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 2 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p * 2 + c * 4 + cr * 0)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "zero_cache",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "cr": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "zero_cache:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "zero_true",
+      "expr": "len < 100 ? 0 : tier(\"base\", p * 2 + c * 4)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 2 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "len < 100 ? 0 : tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "",
+        "error": null
+      },
+      "backend_original": {
+        "id": "zero_true",
+        "costs": [
+          0,
+          720,
+          0
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "zero_true:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "zero_false",
+      "expr": "len < 100 ? tier(\"base\", p * 2 + c * 4) : 0",
+      "visual": true,
+      "regenerated": "len < 100 ? tier(\"base\", p * 2 + c * 4) : p * 0 + c * 0",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": [
+            {
+              "var": "len",
+              "op": "<",
+              "value": 100
+            }
+          ]
+        }
+      ],
+      "split": {
+        "billingExpr": "len < 100 ? tier(\"base\", p * 2 + c * 4) : 0",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "zero_false",
+        "costs": [
+          180,
+          0,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "zero_false:regenerated",
+        "costs": [
+          180,
+          0,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "multiply_in_tier",
+      "expr": "tier(\"base\", p * 2 * 3 + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p * 2 * 3 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 380,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "multiply_in_tier",
+        "costs": [
+          380,
+          1520,
+          620
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 380
+          },
+          {
+            "matched_tier": "base",
+            "cost": 1520
+          },
+          {
+            "matched_tier": "base",
+            "cost": 620
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "rule_canonical",
+      "expr": "(tier(\"base\", p * 2 + c * 4)) * (param(\"service_tier\") == \"fast\" ? 2 : 1)",
+      "visual": true,
+      "regenerated": "(tier(\"base\", p * 2 + c * 4)) * (param(\"service_tier\") == \"fast\" ? 2 : 1)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": "(param(\"service_tier\") == \"fast\" ? 2 : 1)"
+      },
+      "groups": [
+        {
+          "conditions": [
+            {
+              "source": "param",
+              "path": "service_tier",
+              "mode": "eq",
+              "value": "fast"
+            }
+          ],
+          "multiplier": "2"
+        }
+      ],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "rule_canonical",
+        "costs": [
+          360,
+          1440,
+          840
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "rule_canonical:regenerated",
+        "costs": [
+          360,
+          1440,
+          840
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "rule_compact",
+      "expr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "rule_compact",
+        "costs": [
+          360,
+          1440,
+          840
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "rule_decimal_fallback",
+      "expr": "(tier(\"base\", p * 2 + c * 4)) * (param(\"service_tier\") == \"fast\" ? 2 : 1.0)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "(tier(\"base\", p * 2 + c * 4)) * (param(\"service_tier\") == \"fast\" ? 2 : 1.0)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "rule_decimal_fallback",
+        "costs": [
+          360,
+          1440,
+          840
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") == \"fast\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "rule_numeric_guard",
+      "expr": "(tier(\"base\", p * 2 + c * 4)) * (param(\"n\") != nil && param(\"n\") > 2 ? 2 : 1)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "(tier(\"base\", p * 2 + c * 4)) * (param(\"n\") != nil && param(\"n\") > 2 ? 2 : 1)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "rule_numeric_guard",
+        "costs": [
+          360,
+          1440,
+          840
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"n\") != nil && param(\"n\") > 2",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"n\") != nil && param(\"n\") > 2",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"n\") != nil && param(\"n\") > 2",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "rule_contains_guard",
+      "expr": "(tier(\"base\", p * 2 + c * 4)) * (param(\"service_tier\") != nil && has(param(\"service_tier\"), \"fast\") ? 2 : 1)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "(tier(\"base\", p * 2 + c * 4)) * (param(\"service_tier\") != nil && has(param(\"service_tier\"), \"fast\") ? 2 : 1)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "rule_contains_guard",
+        "costs": [
+          360,
+          1440,
+          840
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "has": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") != nil && has(param(\"service_tier\"), \"fast\")",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") != nil && has(param(\"service_tier\"), \"fast\")",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "param(\"service_tier\") != nil && has(param(\"service_tier\"), \"fast\")",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": null
+    },
+    {
+      "id": "condition_numeric_guard",
+      "expr": "param(\"n\") != nil && param(\"n\") > 2 ? tier(\"high\", p * 5) : tier(\"base\", p * 2 + c * 4)",
+      "visual": true,
+      "regenerated": "param(\"n\") != nil && param(\"n\") > 2 ? tier(\"high\", p * 5 + c * 0) : tier(\"base\", p * 2 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 5,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "high",
+          "conditions": []
+        },
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "param(\"n\") != nil && param(\"n\") > 2 ? tier(\"high\", p * 5) : tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "condition_numeric_guard",
+        "costs": [
+          250,
+          1000,
+          250
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "high",
+            "cost": 250
+          },
+          {
+            "matched_tier": "high",
+            "cost": 1000
+          },
+          {
+            "matched_tier": "high",
+            "cost": 250
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "condition_numeric_guard:regenerated",
+        "costs": [
+          250,
+          1000,
+          250
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "high",
+            "cost": 250
+          },
+          {
+            "matched_tier": "high",
+            "cost": 1000
+          },
+          {
+            "matched_tier": "high",
+            "cost": 250
+          }
+        ]
+      }
+    },
+    {
+      "id": "condition_string_number",
+      "expr": "param(\"code\") == \"123\" ? tier(\"high\", p * 5) : tier(\"base\", p * 2 + c * 4)",
+      "visual": true,
+      "regenerated": "param(\"code\") == 123 ? tier(\"high\", p * 5 + c * 0) : tier(\"base\", p * 2 + c * 4)",
+      "display": [
+        {
+          "inputPrice": 5,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "high",
+          "conditions": []
+        },
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "param(\"code\") == \"123\" ? tier(\"high\", p * 5) : tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "condition_string_number",
+        "costs": [
+          250,
+          1000,
+          250
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "high",
+            "cost": 250
+          },
+          {
+            "matched_tier": "high",
+            "cost": 1000
+          },
+          {
+            "matched_tier": "high",
+            "cost": 250
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "condition_string_number:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "rule_header_number",
+      "expr": "(tier(\"base\", p * 2 + c * 4)) * (header(\"code\") == \"123\" ? 2 : 1)",
+      "visual": true,
+      "regenerated": "(tier(\"base\", p * 2 + c * 4)) * (header(\"code\") == 123 ? 2 : 1)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": "(header(\"code\") == \"123\" ? 2 : 1)"
+      },
+      "groups": [
+        {
+          "conditions": [
+            {
+              "source": "header",
+              "path": "code",
+              "mode": "eq",
+              "value": "123"
+            }
+          ],
+          "multiplier": "2"
+        }
+      ],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "rule_header_number",
+        "costs": [
+          360,
+          1440,
+          840
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "header": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "header(\"code\") == \"123\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "header(\"code\") == \"123\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "header(\"code\") == \"123\"",
+                "multiplier": 2,
+                "matched": true
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "rule_header_number:regenerated",
+        "costs": [
+          180,
+          720,
+          420
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "header": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "header(\"code\") == 123",
+                "multiplier": 2,
+                "matched": false
+              }
+            ],
+            "cost": 180
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "header(\"code\") == 123",
+                "multiplier": 2,
+                "matched": false
+              }
+            ],
+            "cost": 720
+          },
+          {
+            "matched_tier": "base",
+            "request_rules": [
+              {
+                "cond": "header(\"code\") == 123",
+                "multiplier": 2,
+                "matched": false
+              }
+            ],
+            "cost": 420
+          }
+        ]
+      }
+    },
+    {
+      "id": "scientific",
+      "expr": "tier(\"base\", p * 1e-3 + c * 1e+3)",
+      "visual": true,
+      "regenerated": "tier(\"base\", p * 0.001 + c * 1000)",
+      "display": [
+        {
+          "inputPrice": 0.001,
+          "outputPrice": 1000,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "tier(\"base\", p * 1e-3 + c * 1e+3)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 20000.05,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "scientific",
+        "costs": [
+          20000.05,
+          80000.2,
+          80000.05
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 20000.05
+          },
+          {
+            "matched_tier": "base",
+            "cost": 80000.2
+          },
+          {
+            "matched_tier": "base",
+            "cost": 80000.05
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "scientific:regenerated",
+        "costs": [
+          20000.05,
+          80000.2,
+          80000.05
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "base",
+            "cost": 20000.05
+          },
+          {
+            "matched_tier": "base",
+            "cost": 80000.2
+          },
+          {
+            "matched_tier": "base",
+            "cost": 80000.05
+          }
+        ]
+      }
+    },
+    {
+      "id": "nested",
+      "expr": "len < 100 ? (c < 50 ? tier(\"a\", p * 1) : tier(\"b\", p * 2)) : tier(\"c\", p * 3)",
+      "visual": true,
+      "regenerated": "len < 100 && c < 50 ? tier(\"a\", p * 1 + c * 0) : len < 100 ? tier(\"b\", p * 2 + c * 0) : tier(\"c\", p * 3 + c * 0)",
+      "display": [
+        {
+          "inputPrice": 1,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "a",
+          "conditions": [
+            {
+              "var": "c",
+              "op": "<",
+              "value": 50
+            }
+          ]
+        },
+        {
+          "inputPrice": 2,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "b",
+          "conditions": []
+        },
+        {
+          "inputPrice": 3,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "c",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "len < 100 ? (c < 50 ? tier(\"a\", p * 1) : tier(\"b\", p * 2)) : tier(\"c\", p * 3)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 50,
+        "matchedTier": "a",
+        "error": null
+      },
+      "backend_original": {
+        "id": "nested",
+        "costs": [
+          50,
+          600,
+          100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "a",
+            "cost": 50
+          },
+          {
+            "matched_tier": "c",
+            "cost": 600
+          },
+          {
+            "matched_tier": "b",
+            "cost": 100
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "nested:regenerated",
+        "costs": [
+          50,
+          600,
+          100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "a",
+            "cost": 50
+          },
+          {
+            "matched_tier": "c",
+            "cost": 600
+          },
+          {
+            "matched_tier": "b",
+            "cost": 100
+          }
+        ]
+      }
+    },
+    {
+      "id": "nested_zero",
+      "expr": "len < 100 ? (c < 50 ? 0 : tier(\"b\", p * 2)) : tier(\"c\", p * 3)",
+      "visual": true,
+      "regenerated": "len < 100 ? tier(\"b\", p * 2 + c * 0) : tier(\"c\", p * 3 + c * 0)",
+      "display": [
+        {
+          "inputPrice": 2,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "b",
+          "conditions": []
+        },
+        {
+          "inputPrice": 3,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "c",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "len < 100 ? (c < 50 ? 0 : tier(\"b\", p * 2)) : tier(\"c\", p * 3)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 0,
+        "matchedTier": "",
+        "error": null
+      },
+      "backend_original": {
+        "id": "nested_zero",
+        "costs": [
+          0,
+          600,
+          100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "",
+            "cost": 0
+          },
+          {
+            "matched_tier": "c",
+            "cost": 600
+          },
+          {
+            "matched_tier": "b",
+            "cost": 100
+          }
+        ]
+      },
+      "backend_regenerated": {
+        "id": "nested_zero:regenerated",
+        "costs": [
+          100,
+          600,
+          100
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "len": true,
+          "p": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "b",
+            "cost": 100
+          },
+          {
+            "matched_tier": "c",
+            "cost": 600
+          },
+          {
+            "matched_tier": "b",
+            "cost": 100
+          }
+        ]
+      }
+    },
+    {
+      "id": "membership",
+      "expr": "param(\"service_tier\") in [\"fast\", \"priority\"] ? tier(\"fast\", p * 4) : tier(\"base\", p * 2 + c * 4)",
+      "visual": false,
+      "regenerated": "",
+      "display": [
+        {
+          "inputPrice": 4,
+          "outputPrice": 0,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "fast",
+          "conditions": []
+        },
+        {
+          "inputPrice": 2,
+          "outputPrice": 4,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "base",
+          "conditions": []
+        }
+      ],
+      "split": {
+        "billingExpr": "param(\"service_tier\") in [\"fast\", \"priority\"] ? tier(\"fast\", p * 4) : tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": ""
+      },
+      "groups": [],
+      "local": {
+        "cost": 180,
+        "matchedTier": "base",
+        "error": null
+      },
+      "backend_original": {
+        "id": "membership",
+        "costs": [
+          200,
+          800,
+          200
+        ],
+        "errors": [
+          "",
+          "",
+          ""
+        ],
+        "vars": {
+          "c": true,
+          "p": true,
+          "param": true,
+          "tier": true
+        },
+        "traces": [
+          {
+            "matched_tier": "fast",
+            "cost": 200
+          },
+          {
+            "matched_tier": "fast",
+            "cost": 800
+          },
+          {
+            "matched_tier": "fast",
+            "cost": 200
+          }
+        ]
+      },
+      "backend_regenerated": null
+    }
+  ],
+  "rule_builder_roundtrip": {
+    "guarded": "(param(\"n\") != nil && param(\"n\") > 2 ? 2 : 1)",
+    "reparsed": null
+  },
+  "editor_lifecycle": [
+    {
+      "id": "canonical",
+      "expr": "tier(\"base\", p * 2 + c * 4)",
+      "renders": [
+        {
+          "currentExpr": "tier(\"base\", p * 2 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"base\", p * 2 + c * 4)",
+          "effectiveExpr": "tier(\"base\", p * 2 + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"base\", p * 2 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"base\", p * 2 + c * 4)",
+          "effectiveExpr": "tier(\"base\", p * 2 + c * 4)"
+        }
+      ],
+      "writes": [],
+      "final": {
+        "billingExpr": "tier(\"base\", p * 2 + c * 4)",
+        "requestRuleExpr": "",
+        "mode": "visual",
+        "rawExpr": "tier(\"base\", p * 2 + c * 4)"
+      }
+    },
+    {
+      "id": "unsupported",
+      "expr": "p * 2 + c * 4",
+      "renders": [
+        {
+          "currentExpr": "p * 2 + c * 4",
+          "mode": "visual",
+          "rawExpr": "p * 2 + c * 4",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "p * 2 + c * 4",
+          "effectiveExpr": "p * 2 + c * 4"
+        },
+        {
+          "currentExpr": "p * 2 + c * 4",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        }
+      ],
+      "writes": [
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        },
+        {
+          "field": "billingExpr",
+          "value": "p * 2 + c * 4"
+        },
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        }
+      ],
+      "final": {
+        "billingExpr": "p * 0 + c * 0",
+        "requestRuleExpr": "",
+        "mode": "raw",
+        "rawExpr": "p * 0 + c * 0"
+      }
+    },
+    {
+      "id": "math",
+      "expr": "tier(\"base\", max(p * 2, 1000) + c * 4)",
+      "renders": [
+        {
+          "currentExpr": "tier(\"base\", max(p * 2, 1000) + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"base\", max(p * 2, 1000) + c * 4)",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "tier(\"base\", max(p * 2, 1000) + c * 4)",
+          "effectiveExpr": "tier(\"base\", max(p * 2, 1000) + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"base\", max(p * 2, 1000) + c * 4)",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        }
+      ],
+      "writes": [
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        },
+        {
+          "field": "billingExpr",
+          "value": "tier(\"base\", max(p * 2, 1000) + c * 4)"
+        },
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        }
+      ],
+      "final": {
+        "billingExpr": "p * 0 + c * 0",
+        "requestRuleExpr": "",
+        "mode": "raw",
+        "rawExpr": "p * 0 + c * 0"
+      }
+    },
+    {
+      "id": "duplicate",
+      "expr": "tier(\"base\", p * 2 + p * 3 + c * 4)",
+      "renders": [
+        {
+          "currentExpr": "tier(\"base\", p * 2 + p * 3 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"base\", p * 2 + p * 3 + c * 4)",
+          "effectiveExpr": "tier(\"base\", p * 3 + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"base\", p * 3 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"base\", p * 2 + p * 3 + c * 4)",
+          "effectiveExpr": "tier(\"base\", p * 3 + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"base\", p * 3 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"base\", p * 3 + c * 4)",
+          "effectiveExpr": "tier(\"base\", p * 3 + c * 4)"
+        }
+      ],
+      "writes": [
+        {
+          "field": "billingExpr",
+          "value": "tier(\"base\", p * 3 + c * 4)"
+        }
+      ],
+      "final": {
+        "billingExpr": "tier(\"base\", p * 3 + c * 4)",
+        "requestRuleExpr": "",
+        "mode": "visual",
+        "rawExpr": "tier(\"base\", p * 3 + c * 4)"
+      }
+    },
+    {
+      "id": "compact_rule",
+      "expr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)",
+      "renders": [
+        {
+          "currentExpr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)",
+          "mode": "visual",
+          "rawExpr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)",
+          "effectiveExpr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)"
+        },
+        {
+          "currentExpr": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        }
+      ],
+      "writes": [
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        },
+        {
+          "field": "billingExpr",
+          "value": "(tier(\"base\", p * 2 + c * 4))*(param(\"service_tier\")==\"fast\"?2:1)"
+        },
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        }
+      ],
+      "final": {
+        "billingExpr": "p * 0 + c * 0",
+        "requestRuleExpr": "",
+        "mode": "raw",
+        "rawExpr": "p * 0 + c * 0"
+      }
+    }
+  ],
+  "editor_model_switch": {
+    "switching": {
+      "expr": "tier(\"A\", p * 2 + c * 4)",
+      "renders": [
+        {
+          "currentExpr": "tier(\"A\", p * 2 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"A\", p * 2 + c * 4)",
+          "effectiveExpr": "tier(\"A\", p * 2 + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"A\", p * 2 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"A\", p * 2 + c * 4)",
+          "effectiveExpr": "tier(\"A\", p * 2 + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"B\", p * 9 + c * 18)",
+          "mode": "visual",
+          "rawExpr": "tier(\"A\", p * 2 + c * 4)",
+          "effectiveExpr": "tier(\"A\", p * 2 + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"A\", p * 2 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"B\", p * 9 + c * 18)",
+          "effectiveExpr": "tier(\"B\", p * 9 + c * 18)"
+        },
+        {
+          "currentExpr": "tier(\"B\", p * 9 + c * 18)",
+          "mode": "visual",
+          "rawExpr": "tier(\"A\", p * 2 + c * 4)",
+          "effectiveExpr": "tier(\"A\", p * 2 + c * 4)"
+        },
+        {
+          "currentExpr": "tier(\"A\", p * 2 + c * 4)",
+          "mode": "visual",
+          "rawExpr": "tier(\"A\", p * 2 + c * 4)",
+          "effectiveExpr": "tier(\"A\", p * 2 + c * 4)"
+        }
+      ],
+      "writes": [
+        {
+          "field": "billingExpr",
+          "value": "tier(\"A\", p * 2 + c * 4)"
+        },
+        {
+          "field": "billingExpr",
+          "value": "tier(\"B\", p * 9 + c * 18)"
+        },
+        {
+          "field": "billingExpr",
+          "value": "tier(\"A\", p * 2 + c * 4)"
+        }
+      ],
+      "final": {
+        "billingExpr": "tier(\"A\", p * 2 + c * 4)",
+        "requestRuleExpr": "",
+        "mode": "visual",
+        "rawExpr": "tier(\"A\", p * 2 + c * 4)"
+      }
+    },
+    "delayed": {
+      "expr": "",
+      "renders": [
+        {
+          "currentExpr": "",
+          "mode": "visual",
+          "rawExpr": "",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "visual",
+          "rawExpr": "",
+          "effectiveExpr": "tier(\"base\", p * 0 + c * 0)"
+        },
+        {
+          "currentExpr": "tier(\"base\", p * 0 + c * 0)",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "tier(\"paid\", p * 9 + c * 18)",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        },
+        {
+          "currentExpr": "p * 0 + c * 0",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0",
+          "effectiveExpr": "p * 0 + c * 0"
+        }
+      ],
+      "writes": [
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        },
+        {
+          "field": "billingExpr",
+          "value": "tier(\"base\", p * 0 + c * 0)"
+        },
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        },
+        {
+          "field": "billingExpr",
+          "value": "p * 0 + c * 0"
+        }
+      ],
+      "final": {
+        "billingExpr": "p * 0 + c * 0",
+        "requestRuleExpr": "",
+        "mode": "raw",
+        "rawExpr": "p * 0 + c * 0"
+      }
+    }
+  },
+  "zero_cache_normalization": {
+    "method": "Execute extracted current service.BuildTieredTokenParams source and actual billingexpr compiler/runtime",
+    "usage": {
+      "prompt_tokens": 1000,
+      "cached_tokens": 400,
+      "completion_tokens": 0,
+      "isClaudeUsageSemantic": false
+    },
+    "before": {
+      "expr": "tier(\"base\", p * 2 + c * 4 + cr * 0)",
+      "cr_referenced": true,
+      "normalized_p": 600,
+      "cost": 1200
+    },
+    "after": {
+      "expr": "tier(\"base\", p * 2 + c * 4)",
+      "cr_referenced": false,
+      "normalized_p": 1000,
+      "cost": 2000
+    }
+  },
+  "verification": {
+    "original_expression_count": 38,
+    "original_and_generated_count": 57,
+    "backend_evaluation_count": 171,
+    "backend_package_tests": "passed",
+    "existing_frontend_tests": {
+      "method": "TypeScript transpile to temporary ESM files, explicit module import under Node, node:test registrations executed",
+      "passed": 18,
+      "failed": 0
+    }
+  },
+  "user_expression_case": {
+    "frontend": {
+      "expr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", c * 3.3) : tier(\"480_720p_no_video_input\", c * 5.6)",
+      "path": "[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\"video_url\").video_url.url,#(>\"\")]|#(>\"\")",
+      "split": {
+        "billingExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", c * 3.3) : tier(\"480_720p_no_video_input\", c * 5.6)",
+        "requestRuleExpr": ""
+      },
+      "condition": {
+        "source": "param",
+        "path": "[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\"video_url\").video_url.url,#(>\"\")]|#(>\"\")",
+        "mode": "exists",
+        "value": ""
+      },
+      "config": {
+        "tiers": [
+          {
+            "label": "480_720p_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 3.3,
+            "cache_mode": "generic",
+            "conditions": [
+              {
+                "source": "param",
+                "path": "[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\"video_url\").video_url.url,#(>\"\")]|#(>\"\")",
+                "mode": "exists",
+                "value": ""
+              }
+            ],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          },
+          {
+            "label": "480_720p_no_video_input",
+            "input_unit_cost": 0,
+            "output_unit_cost": 5.6,
+            "cache_mode": "generic",
+            "conditions": [],
+            "cache_read_unit_cost": 0,
+            "cache_create_unit_cost": 0,
+            "cache_create_1h_unit_cost": 0,
+            "image_unit_cost": 0,
+            "image_output_unit_cost": 0,
+            "audio_input_unit_cost": 0,
+            "audio_output_unit_cost": 0,
+            "per_second_unit_cost": 0,
+            "per_request_unit_cost": 0
+          }
+        ]
+      },
+      "regenerated": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)",
+      "display": [
+        {
+          "inputPrice": 0,
+          "outputPrice": 3.3,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_video_input",
+          "conditions": []
+        },
+        {
+          "inputPrice": 0,
+          "outputPrice": 5.6,
+          "perSecondPrice": 0,
+          "perRequestPrice": 0,
+          "cacheReadPrice": 0,
+          "cacheCreatePrice": 0,
+          "cacheCreate1hPrice": 0,
+          "imagePrice": 0,
+          "imageOutputPrice": 0,
+          "audioInputPrice": 0,
+          "audioOutputPrice": 0,
+          "label": "480_720p_no_video_input",
+          "conditions": []
+        }
+      ],
+      "initial": {
+        "expr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", c * 3.3) : tier(\"480_720p_no_video_input\", c * 5.6)",
+        "renders": [
+          {
+            "currentExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", c * 3.3) : tier(\"480_720p_no_video_input\", c * 5.6)",
+            "mode": "visual",
+            "rawExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", c * 3.3) : tier(\"480_720p_no_video_input\", c * 5.6)",
+            "effectiveExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)"
+          },
+          {
+            "currentExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)",
+            "mode": "visual",
+            "rawExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", c * 3.3) : tier(\"480_720p_no_video_input\", c * 5.6)",
+            "effectiveExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)"
+          },
+          {
+            "currentExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)",
+            "mode": "visual",
+            "rawExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)",
+            "effectiveExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)"
+          }
+        ],
+        "writes": [
+          {
+            "field": "billingExpr",
+            "value": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)"
+          }
+        ],
+        "final": {
+          "billingExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)",
+          "requestRuleExpr": "",
+          "mode": "visual",
+          "rawExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", p * 0 + c * 3.3) : tier(\"480_720p_no_video_input\", p * 0 + c * 5.6)"
+        }
+      },
+      "delayed": {
+        "expr": "",
+        "renders": [
+          {
+            "currentExpr": "",
+            "mode": "visual",
+            "rawExpr": "",
+            "effectiveExpr": "p * 0 + c * 0"
+          },
+          {
+            "currentExpr": "p * 0 + c * 0",
+            "mode": "visual",
+            "rawExpr": "",
+            "effectiveExpr": "tier(\"base\", p * 0 + c * 0)"
+          },
+          {
+            "currentExpr": "tier(\"base\", p * 0 + c * 0)",
+            "mode": "raw",
+            "rawExpr": "p * 0 + c * 0",
+            "effectiveExpr": "p * 0 + c * 0"
+          },
+          {
+            "currentExpr": "p * 0 + c * 0",
+            "mode": "raw",
+            "rawExpr": "p * 0 + c * 0",
+            "effectiveExpr": "p * 0 + c * 0"
+          },
+          {
+            "currentExpr": "param(\"[content,metadata.content,[metadata.video_url]|@flatten]|#(#>0)|[#(type==\\\"video_url\\\").video_url.url,#(>\\\"\\\")]|#(>\\\"\\\")\") != nil ? tier(\"480_720p_video_input\", c * 3.3) : tier(\"480_720p_no_video_input\", c * 5.6)",
+            "mode": "raw",
+            "rawExpr": "p * 0 + c * 0",
+            "effectiveExpr": "p * 0 + c * 0"
+          },
+          {
+            "currentExpr": "p * 0 + c * 0",
+            "mode": "raw",
+            "rawExpr": "p * 0 + c * 0",
+            "effectiveExpr": "p * 0 + c * 0"
+          },
+          {
+            "currentExpr": "p * 0 + c * 0",
+            "mode": "raw",
+            "rawExpr": "p * 0 + c * 0",
+            "effectiveExpr": "p * 0 + c * 0"
+          }
+        ],
+        "writes": [
+          {
+            "field": "billingExpr",
+            "value": "p * 0 + c * 0"
+          },
+          {
+            "field": "billingExpr",
+            "value": "tier(\"base\", p * 0 + c * 0)"
+          },
+          {
+            "field": "billingExpr",
+            "value": "p * 0 + c * 0"
+          },
+          {
+            "field": "billingExpr",
+            "value": "p * 0 + c * 0"
+          }
+        ],
+        "final": {
+          "billingExpr": "p * 0 + c * 0",
+          "requestRuleExpr": "",
+          "mode": "raw",
+          "rawExpr": "p * 0 + c * 0"
+        }
+      }
+    },
+    "backend": [
+      {
+        "name": "empty",
+        "body": "{}",
+        "path_exists": false,
+        "path_raw": "",
+        "cost": 5600000,
+        "tier": "480_720p_no_video_input",
+        "error": "",
+        "regenerated_cost": 5600000,
+        "regenerated_tier": "480_720p_no_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "content_video",
+        "body": "{\"content\":[{\"type\":\"video_url\",\"video_url\":{\"url\":\"https://example.invalid/video.mp4\"}}]}",
+        "path_exists": true,
+        "path_raw": "\"https://example.invalid/video.mp4\"",
+        "cost": 3300000,
+        "tier": "480_720p_video_input",
+        "error": "",
+        "regenerated_cost": 3300000,
+        "regenerated_tier": "480_720p_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "metadata_content_video",
+        "body": "{\"metadata\":{\"content\":[{\"type\":\"video_url\",\"video_url\":{\"url\":\"https://example.invalid/video.mp4\"}}]}}",
+        "path_exists": true,
+        "path_raw": "\"https://example.invalid/video.mp4\"",
+        "cost": 3300000,
+        "tier": "480_720p_video_input",
+        "error": "",
+        "regenerated_cost": 3300000,
+        "regenerated_tier": "480_720p_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "metadata_video_string",
+        "body": "{\"metadata\":{\"video_url\":\"https://example.invalid/video.mp4\"}}",
+        "path_exists": true,
+        "path_raw": "\"https://example.invalid/video.mp4\"",
+        "cost": 3300000,
+        "tier": "480_720p_video_input",
+        "error": "",
+        "regenerated_cost": 3300000,
+        "regenerated_tier": "480_720p_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "text_only",
+        "body": "{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}]}",
+        "path_exists": false,
+        "path_raw": "",
+        "cost": 5600000,
+        "tier": "480_720p_no_video_input",
+        "error": "",
+        "regenerated_cost": 5600000,
+        "regenerated_tier": "480_720p_no_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "empty_video_url",
+        "body": "{\"content\":[{\"type\":\"video_url\",\"video_url\":{\"url\":\"\"}}]}",
+        "path_exists": false,
+        "path_raw": "",
+        "cost": 5600000,
+        "tier": "480_720p_no_video_input",
+        "error": "",
+        "regenerated_cost": 5600000,
+        "regenerated_tier": "480_720p_no_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "empty_metadata_video",
+        "body": "{\"metadata\":{\"video_url\":\"\"}}",
+        "path_exists": false,
+        "path_raw": "",
+        "cost": 5600000,
+        "tier": "480_720p_no_video_input",
+        "error": "",
+        "regenerated_cost": 5600000,
+        "regenerated_tier": "480_720p_no_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "metadata_video_object",
+        "body": "{\"metadata\":{\"video_url\":{\"url\":\"https://example.invalid/video.mp4\"}}}",
+        "path_exists": false,
+        "path_raw": "",
+        "cost": 5600000,
+        "tier": "480_720p_no_video_input",
+        "error": "",
+        "regenerated_cost": 5600000,
+        "regenerated_tier": "480_720p_no_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "text_and_metadata_video",
+        "body": "{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}],\"metadata\":{\"video_url\":\"https://example.invalid/video.mp4\"}}",
+        "path_exists": false,
+        "path_raw": "",
+        "cost": 5600000,
+        "tier": "480_720p_no_video_input",
+        "error": "",
+        "regenerated_cost": 5600000,
+        "regenerated_tier": "480_720p_no_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "text_and_metadata_content_video",
+        "body": "{\"content\":[{\"type\":\"text\",\"text\":\"hello\"}],\"metadata\":{\"content\":[{\"type\":\"video_url\",\"video_url\":{\"url\":\"https://example.invalid/video.mp4\"}}]}}",
+        "path_exists": false,
+        "path_raw": "",
+        "cost": 5600000,
+        "tier": "480_720p_no_video_input",
+        "error": "",
+        "regenerated_cost": 5600000,
+        "regenerated_tier": "480_720p_no_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "empty_content_and_metadata_video",
+        "body": "{\"content\":[],\"metadata\":{\"video_url\":\"https://example.invalid/video.mp4\"}}",
+        "path_exists": true,
+        "path_raw": "\"https://example.invalid/video.mp4\"",
+        "cost": 3300000,
+        "tier": "480_720p_video_input",
+        "error": "",
+        "regenerated_cost": 3300000,
+        "regenerated_tier": "480_720p_video_input",
+        "regenerated_error": ""
+      },
+      {
+        "name": "content_plain_string",
+        "body": "{\"content\":[\"not-a-video-url\"]}",
+        "path_exists": true,
+        "path_raw": "\"not-a-video-url\"",
+        "cost": 3300000,
+        "tier": "480_720p_video_input",
+        "error": "",
+        "regenerated_cost": 3300000,
+        "regenerated_tier": "480_720p_video_input",
+        "regenerated_error": ""
+      }
+    ],
+    "token_params": {
+      "C": 1000000
+    },
+    "backend_evaluation_count": 24,
+    "note": "Lifecycle checks are simulations of extracted source, not a React browser render."
+  },
+  "precision_save_reopen": {
+    "frontend": [
+      {
+        "coefficient": "3.333",
+        "expression": "tier(\"base\", c * 3.333)",
+        "rawEditorBeforeSave": "tier(\"base\", p * 0 + c * 3.333)",
+        "serializedExpression": "tier(\"base\", p * 0 + c * 3.333)",
+        "reopenedExpression": "tier(\"base\", p * 0 + c * 3.333)",
+        "reopenedCoefficient": 3.333,
+        "textOnlyModelSync": "tier(\"base\", c * 3.333)"
+      },
+      {
+        "coefficient": "3.3333",
+        "expression": "tier(\"base\", c * 3.3333)",
+        "rawEditorBeforeSave": "tier(\"base\", p * 0 + c * 3.3333)",
+        "serializedExpression": "tier(\"base\", p * 0 + c * 3.3333)",
+        "reopenedExpression": "tier(\"base\", p * 0 + c * 3.3333)",
+        "reopenedCoefficient": 3.3333,
+        "textOnlyModelSync": "tier(\"base\", c * 3.3333)"
+      },
+      {
+        "coefficient": "3.3338",
+        "expression": "tier(\"base\", c * 3.3338)",
+        "rawEditorBeforeSave": "tier(\"base\", p * 0 + c * 3.3338)",
+        "serializedExpression": "tier(\"base\", p * 0 + c * 3.3338)",
+        "reopenedExpression": "tier(\"base\", p * 0 + c * 3.3338)",
+        "reopenedCoefficient": 3.3338,
+        "textOnlyModelSync": "tier(\"base\", c * 3.3338)"
+      },
+      {
+        "coefficient": "3.300",
+        "expression": "tier(\"base\", c * 3.300)",
+        "rawEditorBeforeSave": "tier(\"base\", p * 0 + c * 3.3)",
+        "serializedExpression": "tier(\"base\", p * 0 + c * 3.3)",
+        "reopenedExpression": "tier(\"base\", p * 0 + c * 3.3)",
+        "reopenedCoefficient": 3.3,
+        "textOnlyModelSync": "tier(\"base\", c * 3.300)"
+      },
+      {
+        "coefficient": "0.001",
+        "expression": "tier(\"base\", c * 0.001)",
+        "rawEditorBeforeSave": "tier(\"base\", p * 0 + c * 0.001)",
+        "serializedExpression": "tier(\"base\", p * 0 + c * 0.001)",
+        "reopenedExpression": "tier(\"base\", p * 0 + c * 0.001)",
+        "reopenedCoefficient": 0.001,
+        "textOnlyModelSync": "tier(\"base\", c * 0.001)"
+      },
+      {
+        "coefficient": "0.0004",
+        "expression": "tier(\"base\", c * 0.0004)",
+        "rawEditorBeforeSave": "tier(\"base\", p * 0 + c * 0.0004)",
+        "serializedExpression": "tier(\"base\", p * 0 + c * 0.0004)",
+        "reopenedExpression": "tier(\"base\", p * 0 + c * 0.0004)",
+        "reopenedCoefficient": 0.0004,
+        "textOnlyModelSync": "tier(\"base\", c * 0.0004)"
+      },
+      {
+        "coefficient": "3.3330000000000000001",
+        "expression": "tier(\"base\", c * 3.3330000000000000001)",
+        "rawEditorBeforeSave": "tier(\"base\", p * 0 + c * 3.333)",
+        "serializedExpression": "tier(\"base\", p * 0 + c * 3.333)",
+        "reopenedExpression": "tier(\"base\", p * 0 + c * 3.333)",
+        "reopenedCoefficient": 3.333,
+        "textOnlyModelSync": "tier(\"base\", c * 3.3330000000000000001)"
+      },
+      {
+        "fixedExpression": "tier(\"base\", 0.123 * 1000000 + c * 3.333)",
+        "regenerated": "tier(\"base\", 123000 + p * 0 + c * 3.333)"
+      }
+    ],
+    "backend_config": {
+      "expression_count": 7,
+      "byte_for_byte_preserved": true,
+      "method": "Actual config.UpdateConfigFromMap followed by config.ConfigToMap on a local BillingSetting instance; no HTTP or DB writes"
+    },
+    "user_report": "Formula changes after saving and reopening; exact before/after numbers not yet supplied.",
+    "limitation": "Frontend component flow uses extracted source with simulated Hooks/effects and JSON serialization; not a browser or database integration test."
+  }
+}

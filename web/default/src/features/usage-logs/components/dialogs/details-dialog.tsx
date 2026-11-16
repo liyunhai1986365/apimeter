@@ -272,6 +272,17 @@ function BillingBreakdown(props: {
           )}
         </div>
 
+        {detail.rawExpression && (
+          <div className='flex min-w-0 flex-col gap-1'>
+            <div className='text-muted-foreground text-xs'>
+              {t('Raw expression')}
+            </div>
+            <code className='bg-muted/30 block max-h-40 overflow-auto rounded-md border p-2 font-mono text-xs break-all whitespace-pre-wrap'>
+              {detail.rawExpression}
+            </code>
+          </div>
+        )}
+
         <Accordion className='bg-background/70 rounded-md border px-3'>
           <AccordionItem value='billing-process' className='border-0'>
             <AccordionTrigger className='cursor-pointer py-2.5 hover:no-underline'>

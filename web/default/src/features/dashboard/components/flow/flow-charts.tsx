@@ -70,7 +70,6 @@ import {
   getFlowStages,
 } from '@/features/dashboard/lib'
 import {
-  compactFlowSelectionLabel,
   flowDisplayState,
   requireSuccessfulFlowRows,
 } from '@/features/dashboard/lib/flow-selection'
@@ -336,7 +335,7 @@ export function FlowCharts(props: FlowChartsProps) {
     isLoading,
   } = useQuery({
     queryKey: ['dashboard', 'flow', flowQueryParams, flowRole],
-    queryFn: () => getFlowQuotaData(flowQueryParams, isAdmin),
+    queryFn: () => getFlowQuotaData(flowQueryParams),
     select: (res) =>
       requireSuccessfulFlowRows(res, t('Please try again later.')),
     staleTime: 60_000,
@@ -648,11 +647,6 @@ export function FlowCharts(props: FlowChartsProps) {
                 selected={selectedUsers}
                 onChange={setSelectedUsers}
                 placeholder={t('All users')}
-                emptyText={t('No users')}
-                maxVisibleChips={2}
-                renderSelectedSummary={(values) =>
-                  compactFlowSelectionLabel(values.length)
-                }
               />
             </div>
           )}

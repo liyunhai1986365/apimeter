@@ -18,7 +18,7 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import type { UsageLog } from '../data/schema'
 import type { LogOtherData, ToolSurchargeLogItem } from '../types'
-import { getTieredBillingSummary } from './format'
+import { decodeBillingExprB64, getTieredBillingSummary } from './format'
 
 export type BillingDetailMode = 'per-token' | 'per-call' | 'dynamic'
 
@@ -47,6 +47,7 @@ export interface BillingDetail {
   originalAmountUSD: number
   finalAmountUSD: number
   matchedTier?: string
+  rawExpression?: string
   lines: BillingDetailLine[]
 }
 
@@ -58,6 +59,7 @@ interface AddUsageLineOptions {
   quantityUnitKey?: string
   unitPriceUSD: number
   factors?: BillingDetailFactor[]
+  showZeroPrice?: boolean
 }
 
 const MILLION = 1_000_000 as const
@@ -106,7 +108,8 @@ function createLine(
   const quantity = finitePositive(options.quantity)
   const unitPriceUSD = finitePositive(options.unitPriceUSD)
   const divisor = options.divisor ?? MILLION
-  if (quantity === 0 || unitPriceUSD === 0) return null
+  if (quantity === 0 || (unitPriceUSD === 0 && !options.showZeroPrice))
+    return null
 
   const factors = options.factors || []
   const factor = factors.reduce((product, item) => product * item.value, 1)
@@ -385,9 +388,18 @@ function buildDynamicLines(
   log: UsageLog,
   other: LogOtherData,
   discount: number
-): { lines: BillingDetailLine[]; matchedTier?: string } {
+): {
+  lines: BillingDetailLine[]
+  matchedTier?: string
+  rawExpression?: string
+} {
   const summary = getTieredBillingSummary(other)
-  if (!summary) return { lines: [], matchedTier: other.matched_tier }
+  if (!summary)
+    return {
+      lines: [],
+      matchedTier: other.matched_tier,
+      rawExpression: decodeBillingExprB64(other.expr_b64) || undefined,
+    }
 
   const lines: BillingDetailLine[] = []
   const factors = requestRuleFactors(other)
@@ -416,6 +428,7 @@ function buildDynamicLines(
         lines,
         {
           key: 'dynamic-request',
+          showZeroPrice: true,
           labelKey: 'Per request',
           quantity: 1,
           divisor: 1,
@@ -433,6 +446,7 @@ function buildDynamicLines(
       lines,
       {
         key: `dynamic-${entry.field}`,
+        showZeroPrice: true,
         labelKey: token.labelKey || entry.shortLabel,
         quantity: token.quantity,
         unitPriceUSD: entry.price,
@@ -546,11 +560,13 @@ export function buildBillingDetail(
 
   let lines: BillingDetailLine[] = []
   let matchedTier = other.matched_tier
+  let rawExpression: string | undefined
 
   if (mode === 'dynamic') {
     const dynamic = buildDynamicLines(log, other, discount)
     lines = dynamic.lines
     matchedTier = dynamic.matchedTier
+    rawExpression = dynamic.rawExpression
   } else if (mode === 'per-call') {
     pushLine(
       lines,
@@ -601,6 +617,7 @@ export function buildBillingDetail(
       discount > 0 ? actualAmountUSD / discount : knownOriginalAmountUSD,
     finalAmountUSD: actualAmountUSD,
     matchedTier,
+    rawExpression,
     lines,
   }
 }

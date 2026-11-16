@@ -23,6 +23,12 @@ import {
   tryParseRequestCondition,
   type RequestCondition,
 } from './billing-expr'
+import {
+  splitExprVersion,
+  splitTopLevel,
+  splitTopLevelTernary,
+  unwrapOuterParens,
+} from './expr-syntax'
 
 export const CACHE_MODE_TIMED = 'timed'
 export const CACHE_MODE_GENERIC = 'generic'
@@ -30,7 +36,7 @@ export type CacheMode = typeof CACHE_MODE_TIMED | typeof CACHE_MODE_GENERIC
 
 export type TokenTierCondition = {
   source: 'token'
-  var: 'p' | 'c' | 'len'
+  var: 'p' | 'c' | 'len' | 'cr' | 'cc' | 'cc1h' | 'img' | 'img_o' | 'ai' | 'ao'
   op: '<' | '<=' | '>' | '>='
   value: number | string
 }
@@ -43,6 +49,8 @@ export type VisualTier = {
   input_unit_cost: number
   output_unit_cost: number
   cache_mode: CacheMode
+  priceTerms?: { field: string; value: number; expression: string }[]
+  priceEnabled?: Record<string, boolean>
   cache_read_unit_cost?: number
   cache_create_unit_cost?: number
   cache_create_1h_unit_cost?: number
@@ -59,12 +67,56 @@ export type VisualConfig = {
   tiers: VisualTier[]
 }
 
+/** Presence is independent of price: an explicit zero opts into free pricing. */
+export function isVisualPriceEnabled(
+  tier: Partial<VisualTier>,
+  field: string
+): boolean {
+  const enabled = tier.priceEnabled?.[field]
+  if (enabled !== undefined) return enabled
+  if (tier.priceTerms?.some((term) => term.field === field)) return true
+  if (Number(tier[field])) return true
+  return (
+    !tier.priceTerms &&
+    (field === 'input_unit_cost' || field === 'output_unit_cost')
+  )
+}
+
+export function setVisualTierPriceEnabled(
+  tier: VisualTier,
+  field: string,
+  enabled: boolean
+): VisualTier {
+  return {
+    ...tier,
+    priceEnabled: { ...tier.priceEnabled, [field]: enabled },
+  }
+}
+
+export function setVisualTierPrice(
+  tier: VisualTier,
+  field: string,
+  value: number
+): VisualTier {
+  return { ...setVisualTierPriceEnabled(tier, field, true), [field]: value }
+}
+
+export function setVisualTierCacheMode(
+  tier: VisualTier,
+  mode: CacheMode
+): VisualTier {
+  const next = { ...tier, cache_mode: mode }
+  return mode === CACHE_MODE_GENERIC
+    ? setVisualTierPriceEnabled(next, 'cache_create_1h_unit_cost', false)
+    : next
+}
+
 export function getTierCacheMode(
   tier: Partial<VisualTier> | null | undefined
 ): CacheMode {
   if (tier?.cache_mode === CACHE_MODE_TIMED) return CACHE_MODE_TIMED
   if (tier?.cache_mode === CACHE_MODE_GENERIC) return CACHE_MODE_GENERIC
-  return Number(tier?.cache_create_1h_unit_cost) > 0
+  return tier && isVisualPriceEnabled(tier, 'cache_create_1h_unit_cost')
     ? CACHE_MODE_TIMED
     : CACHE_MODE_GENERIC
 }
@@ -103,7 +155,19 @@ function normalizeTierCondition(
     return {
       source: 'token',
       var:
-        tokenCondition.var === 'p' || tokenCondition.var === 'c'
+        tokenCondition.var &&
+        [
+          'p',
+          'c',
+          'len',
+          'cr',
+          'cc',
+          'cc1h',
+          'img',
+          'img_o',
+          'ai',
+          'ao',
+        ].includes(tokenCondition.var)
           ? tokenCondition.var
           : 'len',
       op:
@@ -167,38 +231,36 @@ function buildConditionStr(conditions: TierConditionInput[]): string {
     })
     .filter(Boolean)
     .map((condition) =>
-      condition.includes(' || ') ? `(${condition})` : condition
+      splitTopLevel(condition, '||').length > 1 ? `(${condition})` : condition
     )
     .join(' && ')
 }
 
 function buildTierBodyExpr(tier: VisualTier): string {
+  const fields = [
+    { key: 'request', field: 'per_request_unit_cost' },
+    { key: 'p', field: 'input_unit_cost' },
+    { key: 'c', field: 'output_unit_cost' },
+    { key: 'duration', field: 'per_second_unit_cost' },
+    ...BILLING_EXTRA_VARS.filter(
+      (v) => v.key !== 'request' && v.key !== 'duration'
+    ).map((v) => ({ key: v.key, field: v.tierField! })),
+  ]
   const parts: string[] = []
-  const perRequestPrice = Number(tier.per_request_unit_cost) || 0
-  const perSecondPrice = Number(tier.per_second_unit_cost) || 0
-  const ic = Number(tier.input_unit_cost) || 0
-  const oc = Number(tier.output_unit_cost) || 0
-  if (perRequestPrice !== 0) {
-    parts.push(String(perRequestPrice * 1000000))
-  }
-  parts.push(`p * ${ic}`)
-  parts.push(`c * ${oc}`)
-  if (perSecondPrice !== 0) {
-    parts.push(`param("parameters.duration") * ${perSecondPrice} * 1000000`)
-  }
-  for (const variable of BILLING_EXTRA_VARS) {
-    if (
-      variable.key === 'duration' ||
-      variable.key === 'request' ||
-      !variable.tierField
-    ) {
+  for (const { key, field } of fields) {
+    if (!isVisualPriceEnabled(tier, field)) continue
+    const value = Number(tier[field]) || 0
+    const original = tier.priceTerms?.find((term) => term.field === field)
+    if (original && value === original.value) {
+      parts.push(original.expression)
       continue
     }
-    const value =
-      Number((tier as Record<string, unknown>)[variable.tierField]) || 0
-    if (value !== 0) parts.push(`${variable.key} * ${value}`)
+    if (key === 'request') parts.push(`${value} * 1000000`)
+    else if (key === 'duration')
+      parts.push(`param("parameters.duration") * ${value} * 1000000`)
+    else parts.push(`${key} * ${value}`)
   }
-  return parts.join(' + ')
+  return parts.join(' + ') || '0'
 }
 
 export function generateExprFromVisualConfig(
@@ -227,134 +289,15 @@ export function generateExprFromVisualConfig(
     const body = `tier(${JSON.stringify(label)}, ${buildTierBodyExpr(tier)})`
     const cond = buildConditionStr(tier.conditions)
 
-    if (i < tiers.length - 1 && cond) {
+    if (cond) {
       parts.push(`${cond} ? ${body}`)
     } else {
       parts.push(body)
     }
   }
+  if (buildConditionStr(tiers[tiers.length - 1].conditions))
+    parts.push('p * 0 + c * 0')
   return parts.join(' : ')
-}
-
-function hasFullOuterParens(value: string): boolean {
-  const text = value.trim()
-  if (!text.startsWith('(') || !text.endsWith(')')) return false
-  let depth = 0
-  let inString = false
-  let escaped = false
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index]
-    if (escaped) {
-      escaped = false
-      continue
-    }
-    if (char === '\\') {
-      escaped = true
-      continue
-    }
-    if (char === '"') {
-      inString = !inString
-      continue
-    }
-    if (inString) continue
-    if (char === '(') depth += 1
-    if (char === ')') depth -= 1
-    if (depth === 0 && index < text.length - 1) return false
-  }
-  return depth === 0
-}
-
-function unwrapOuterParens(value: string): string {
-  let text = value.trim()
-  while (hasFullOuterParens(text)) text = text.slice(1, -1).trim()
-  return text
-}
-
-function splitTopLevel(value: string, operator: string): string[] {
-  const parts: string[] = []
-  let start = 0
-  let depth = 0
-  let inString = false
-  let escaped = false
-  for (let index = 0; index < value.length; index += 1) {
-    const char = value[index]
-    if (escaped) {
-      escaped = false
-      continue
-    }
-    if (char === '\\') {
-      escaped = true
-      continue
-    }
-    if (char === '"') {
-      inString = !inString
-      continue
-    }
-    if (inString) continue
-    if (char === '(') depth += 1
-    if (char === ')') depth -= 1
-    const isExponentSign =
-      operator === '+' && (value[index - 1] === 'e' || value[index - 1] === 'E')
-    if (
-      depth === 0 &&
-      !isExponentSign &&
-      value.slice(index, index + operator.length) === operator
-    ) {
-      parts.push(value.slice(start, index).trim())
-      start = index + operator.length
-      index += operator.length - 1
-    }
-  }
-  parts.push(value.slice(start).trim())
-  return parts.filter(Boolean)
-}
-
-function splitTopLevelTernary(
-  value: string
-): { condition: string; whenTrue: string; whenFalse: string } | null {
-  const text = unwrapOuterParens(value)
-  let depth = 0
-  let inString = false
-  let escaped = false
-  let questionIndex = -1
-  let nestedQuestions = 0
-
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index]
-    if (escaped) {
-      escaped = false
-      continue
-    }
-    if (char === '\\') {
-      escaped = true
-      continue
-    }
-    if (char === '"') {
-      inString = !inString
-      continue
-    }
-    if (inString) continue
-    if (char === '(') depth += 1
-    if (char === ')') depth -= 1
-    if (depth !== 0) continue
-    if (char === '?') {
-      if (questionIndex === -1) questionIndex = index
-      else nestedQuestions += 1
-      continue
-    }
-    if (char === ':' && questionIndex !== -1) {
-      if (nestedQuestions > 0) {
-        nestedQuestions -= 1
-        continue
-      }
-      return {
-        condition: text.slice(0, questionIndex).trim(),
-        whenTrue: text.slice(questionIndex + 1, index).trim(),
-        whenFalse: text.slice(index + 1).trim(),
-      }
-    }
-  }
-  return null
 }
 
 const TOKEN_FIELD_BY_VAR: Record<string, keyof VisualTier> = {
@@ -373,6 +316,17 @@ const NUMBER_PATTERN = '-?(?:\\d+\\.?\\d*|\\.\\d+)(?:[eE][+-]?\\d+)?'
 
 function parseTierBody(body: string): Partial<VisualTier> | null {
   const tier = normalizeVisualTier()
+  tier.priceTerms = []
+  const addTerm = (field: string, value: number, expression: string) => {
+    if (
+      !Number.isFinite(value) ||
+      tier.priceTerms!.some((term) => term.field === field)
+    )
+      return false
+    tier[field] = value
+    tier.priceTerms!.push({ field, value, expression })
+    return true
+  }
   for (const part of splitTopLevel(unwrapOuterParens(body), '+')) {
     let match = part.match(
       new RegExp(
@@ -380,7 +334,10 @@ function parseTierBody(body: string): Partial<VisualTier> | null {
       )
     )
     if (match) {
-      tier[TOKEN_FIELD_BY_VAR[match[1]]] = Number(match[2])
+      if (
+        !addTerm(String(TOKEN_FIELD_BY_VAR[match[1]]), Number(match[2]), part)
+      )
+        return null
       continue
     }
 
@@ -390,23 +347,28 @@ function parseTierBody(body: string): Partial<VisualTier> | null {
       )
     )
     if (match) {
-      tier.per_second_unit_cost = Number(match[1])
+      if (!addTerm('per_second_unit_cost', Number(match[1]), part)) return null
       continue
     }
 
     match = part.match(new RegExp(`^(${NUMBER_PATTERN})\\s*\\*\\s*1000000$`))
     if (match) {
-      tier.per_request_unit_cost = Number(match[1])
+      if (!addTerm('per_request_unit_cost', Number(match[1]), part)) return null
       continue
     }
 
     match = part.match(new RegExp(`^(${NUMBER_PATTERN})$`))
     if (match) {
-      tier.per_request_unit_cost = Number(match[1]) / 1000000
+      if (!addTerm('per_request_unit_cost', Number(match[1]) / 1000000, part))
+        return null
       continue
     }
     return null
   }
+  tier.priceTerms.sort((a, b) => a.field.localeCompare(b.field))
+  tier.cache_mode = isVisualPriceEnabled(tier, 'cache_create_1h_unit_cost')
+    ? CACHE_MODE_TIMED
+    : CACHE_MODE_GENERIC
   return tier
 }
 
@@ -423,11 +385,18 @@ function parseTierCall(value: string): Partial<VisualTier> | null {
 }
 
 function parseTierConditions(value: string): TierConditionInput[] | null {
-  const parts = splitTopLevel(unwrapOuterParens(value), '&&')
+  const expr = unwrapOuterParens(value)
+  if (splitTopLevel(expr, '||').length > 1) {
+    const condition = tryParseRequestCondition(expr)
+    return condition ? [condition] : null
+  }
+  const parts = splitTopLevel(expr, '&&')
   const conditions: TierConditionInput[] = []
   for (let index = 0; index < parts.length; index += 1) {
     const tokenMatch = unwrapOuterParens(parts[index]).match(
-      new RegExp(`^(p|c|len)\\s*(<=|>=|<|>)\\s*(${NUMBER_PATTERN})$`)
+      new RegExp(
+        `^(p|c|len|cr|cc|cc1h|img|img_o|ai|ao)\\s*(<=|>=|<|>)\\s*(${NUMBER_PATTERN})$`
+      )
     )
     if (tokenMatch) {
       conditions.push({
@@ -443,11 +412,12 @@ function parseTierConditions(value: string): TierConditionInput[] | null {
       index + 1 < parts.length
         ? `${unwrapOuterParens(parts[index])} && ${unwrapOuterParens(parts[index + 1])}`
         : ''
+    const paired = combined ? tryParseRequestCondition(combined) : null
+    const guarded = paired && paired.source !== 'expression' ? paired : null
     const requestCondition =
-      (combined && tryParseRequestCondition(combined)) ||
-      tryParseRequestCondition(unwrapOuterParens(parts[index]))
+      guarded || tryParseRequestCondition(unwrapOuterParens(parts[index]))
     if (!requestCondition) return null
-    if (combined && tryParseRequestCondition(combined)) index += 1
+    if (guarded) index += 1
     conditions.push(requestCondition)
   }
   return conditions
@@ -456,8 +426,26 @@ function parseTierConditions(value: string): TierConditionInput[] | null {
 function isZeroCostExpr(value: string): boolean {
   const parsed = parseTierBody(value)
   if (!parsed) return false
+  // Dropping an opt-in variable even from a free fallback changes normalization
+  // in every branch. Only plain zero and base p/c zero terms may be omitted.
+  if (
+    parsed.priceTerms?.some(
+      (term) =>
+        ![
+          'input_unit_cost',
+          'output_unit_cost',
+          'per_request_unit_cost',
+        ].includes(term.field)
+    )
+  )
+    return false
   return Object.entries(parsed).every(([key, fieldValue]) => {
-    if (key === 'label' || key === 'conditions' || key === 'cache_mode') {
+    if (
+      key === 'label' ||
+      key === 'conditions' ||
+      key === 'cache_mode' ||
+      key === 'priceTerms'
+    ) {
       return true
     }
     return Number(fieldValue) === 0
@@ -467,7 +455,8 @@ function isZeroCostExpr(value: string): boolean {
 function collectVisualTiers(
   value: string,
   inheritedConditions: TierConditionInput[],
-  tiers: VisualTier[]
+  tiers: VisualTier[],
+  allowZeroFallback = false
 ): boolean {
   const tier = parseTierCall(value)
   if (tier) {
@@ -478,7 +467,12 @@ function collectVisualTiers(
   }
 
   const conditional = splitTopLevelTernary(value)
-  if (!conditional) return isZeroCostExpr(unwrapOuterParens(value))
+  if (!conditional)
+    return (
+      allowZeroFallback &&
+      inheritedConditions.length === 0 &&
+      isZeroCostExpr(unwrapOuterParens(value))
+    )
   const conditions = parseTierConditions(conditional.condition)
   if (!conditions || conditions.length === 0) return false
   return (
@@ -486,7 +480,8 @@ function collectVisualTiers(
       conditional.whenTrue,
       [...inheritedConditions, ...conditions],
       tiers
-    ) && collectVisualTiers(conditional.whenFalse, inheritedConditions, tiers)
+    ) &&
+    collectVisualTiers(conditional.whenFalse, inheritedConditions, tiers, true)
   )
 }
 
@@ -495,9 +490,8 @@ export function tryParseVisualConfig(
 ): VisualConfig | null {
   if (!exprStr) return null
   try {
-    let body = exprStr
-    const versionMatch = body.match(/^v\d+:([\s\S]*)$/)
-    if (versionMatch) body = versionMatch[1]
+    const { prefix, body } = splitExprVersion(exprStr.trim())
+    if (prefix && prefix !== 'v1:') return null
     const tiers: VisualTier[] = []
     if (!collectVisualTiers(body, [], tiers)) return null
     if (tiers.length === 0) return null
@@ -580,6 +574,9 @@ export function evalExprLocally(
     if (!exprStr || !exprStr.trim()) {
       return { cost: 0, matchedTier: '', error: null }
     }
+    const { prefix, body } = splitExprVersion(exprStr.trim())
+    if (prefix && prefix !== 'v1:')
+      throw new Error(`Unsupported expression version: ${prefix}`)
     let matchedTier = ''
     const tierFn = (name: string, value: number) => {
       matchedTier = name
@@ -620,7 +617,7 @@ export function evalExprLocally(
     }
     const fn = new Function(
       ...Object.keys(env),
-      `"use strict"; return (${exprStr});`
+      `"use strict"; return (${body});`
     )
     const cost = Number(fn(...Object.values(env))) || 0
     return { cost, matchedTier, error: null }

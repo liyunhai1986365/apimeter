@@ -236,6 +236,12 @@ export interface DashboardFlowNode {
   kind: FlowNodeKind
   value: number
   requests: number
+  quota: number
+  tokens: number
+  color: string
+  colorKey: string
+  highlighted?: boolean
+  dimmed?: boolean
 }
 
 export interface DashboardFlowLink {
@@ -243,6 +249,18 @@ export interface DashboardFlowLink {
   target: string
   value: number
   requests: number
+  quota: number
+  tokens: number
+  sourceLabel: string
+  targetLabel: string
+  color: string
+  colorKey: string
+  linkColor: string
+  linkAlpha: number
+  hoverColor: string
+  share: number
+  highlighted?: boolean
+  dimmed?: boolean
 }
 
 export interface DashboardFlowData {
@@ -259,9 +277,29 @@ export interface FlowUserFilterOption {
 }
 
 export interface FlowNodeFilterOption {
-  value: FlowNodeFilter
+  value: string
+  color: string
   label: string
   valueLabel: string
   valueRaw: number
   kind: FlowNodeKind
+}
+
+export type DashboardFlowGraph = DashboardFlowData
+
+export interface FlowSummary {
+  quota: number
+  tokens: number
+  requests: number
+}
+
+export interface FlowFilterOptions {
+  users: FlowUserFilterOption[]
+  nodes: FlowNodeFilterOption[]
+}
+
+export interface ProcessedFlowData {
+  summary: FlowSummary
+  flow: DashboardFlowGraph
+  filterOptions: FlowFilterOptions
 }

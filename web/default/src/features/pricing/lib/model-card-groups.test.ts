@@ -9,7 +9,6 @@ import {
 function model(input: Partial<PricingModel> & { model_name: string }): PricingModel {
   return {
     id: 0,
-    model_name: input.model_name,
     quota_type: 0,
     model_ratio: 1,
     completion_ratio: 1,

@@ -1,0 +1,2058 @@
+{
+  "date": "2026-11-10",
+  "commit": "43c4044e8",
+  "scope": "Local backend billing audit; no production balance mutations or paid requests",
+  "quota_per_unit": 500000,
+  "database": "SQLite in-memory; Redis reserve tests use local miniredis",
+  "settlement_cases": [
+    {
+      "Name": "TestBackendChainAudit/openai_four_decimal_refund",
+      "ExpectedQuota": 78980,
+      "ActualQuota": 78980,
+      "PreConsumed": 100000,
+      "WalletDebit": 78980,
+      "TokenDebit": 78980,
+      "TokenUsed": 78980,
+      "UserUsed": 78980,
+      "ChannelUsed": 78980,
+      "RequestCount": 1,
+      "InputTokens": 1000000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 800000,
+        "C": 100000,
+        "Len": 1000000,
+        "CR": 200000,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.15796",
+      "actual_usd": "0.15796",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/openai_four_decimal_supplement",
+      "ExpectedQuota": 78980,
+      "ActualQuota": 78980,
+      "PreConsumed": 1000,
+      "WalletDebit": 78980,
+      "TokenDebit": 78980,
+      "TokenUsed": 78980,
+      "UserUsed": 78980,
+      "ChannelUsed": 78980,
+      "RequestCount": 1,
+      "InputTokens": 1000000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 800000,
+        "C": 100000,
+        "Len": 1000000,
+        "CR": 200000,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.15796",
+      "actual_usd": "0.15796",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/openai_group_rounding",
+      "ExpectedQuota": 29223,
+      "ActualQuota": 29223,
+      "PreConsumed": 100000,
+      "WalletDebit": 29223,
+      "TokenDebit": 29223,
+      "TokenUsed": 29223,
+      "UserUsed": 29223,
+      "ChannelUsed": 29223,
+      "RequestCount": 1,
+      "InputTokens": 1000000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 800000,
+        "C": 100000,
+        "Len": 1000000,
+        "CR": 200000,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.058446",
+      "actual_usd": "0.058446",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/openai_free_group",
+      "ExpectedQuota": 0,
+      "ActualQuota": 0,
+      "PreConsumed": 100000,
+      "WalletDebit": 0,
+      "TokenDebit": 0,
+      "TokenUsed": 0,
+      "UserUsed": 0,
+      "ChannelUsed": 0,
+      "RequestCount": 1,
+      "InputTokens": 1000000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 800000,
+        "C": 100000,
+        "Len": 1000000,
+        "CR": 200000,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0",
+      "actual_usd": "0",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/openai_no_separate_cache",
+      "ExpectedQuota": 5250,
+      "ActualQuota": 5250,
+      "PreConsumed": 10000,
+      "WalletDebit": 5250,
+      "TokenDebit": 5250,
+      "TokenUsed": 5250,
+      "UserUsed": 5250,
+      "ChannelUsed": 5250,
+      "RequestCount": 1,
+      "InputTokens": 1000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 1000,
+        "C": 500,
+        "Len": 1000,
+        "CR": 200,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.0105",
+      "actual_usd": "0.0105",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/claude_explicit_cache_split",
+      "ExpectedQuota": 58425,
+      "ActualQuota": 58425,
+      "PreConsumed": 100000,
+      "WalletDebit": 58425,
+      "TokenDebit": 58425,
+      "TokenUsed": 58425,
+      "UserUsed": 58425,
+      "ChannelUsed": 58425,
+      "RequestCount": 1,
+      "InputTokens": 8000,
+      "CacheWriteTokens": 4000,
+      "Params": {
+        "P": 8000,
+        "C": 5000,
+        "Len": 14000,
+        "CR": 2000,
+        "CC": 3000,
+        "CC1h": 1000,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.11685",
+      "actual_usd": "0.11685",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/claude_split_long_context",
+      "ExpectedQuota": 30000,
+      "ActualQuota": 30000,
+      "PreConsumed": 100000,
+      "WalletDebit": 30000,
+      "TokenDebit": 30000,
+      "TokenUsed": 30000,
+      "UserUsed": 30000,
+      "ChannelUsed": 30000,
+      "RequestCount": 1,
+      "InputTokens": 90000,
+      "CacheWriteTokens": 20000,
+      "Params": {
+        "P": 90000,
+        "C": 1000,
+        "Len": 110000,
+        "CR": 0,
+        "CC": 20000,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "long_context",
+      "expected_usd": "0.06",
+      "actual_usd": "0.06",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/claude_missing_split_long_context",
+      "ExpectedQuota": 30000,
+      "ActualQuota": 4750,
+      "PreConsumed": 100000,
+      "WalletDebit": 4750,
+      "TokenDebit": 4750,
+      "TokenUsed": 4750,
+      "UserUsed": 4750,
+      "ChannelUsed": 4750,
+      "RequestCount": 1,
+      "InputTokens": 90000,
+      "CacheWriteTokens": 20000,
+      "Params": {
+        "P": 90000,
+        "C": 1000,
+        "Len": 90000,
+        "CR": 0,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "standard",
+      "expected_usd": "0.06",
+      "actual_usd": "0.0095",
+      "difference_quota": -25250,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/claude_missing_split_flat",
+      "ExpectedQuota": 10875,
+      "ActualQuota": 5250,
+      "PreConsumed": 100000,
+      "WalletDebit": 5250,
+      "TokenDebit": 5250,
+      "TokenUsed": 5250,
+      "UserUsed": 5250,
+      "ChannelUsed": 5250,
+      "RequestCount": 1,
+      "InputTokens": 1000,
+      "CacheWriteTokens": 3000,
+      "Params": {
+        "P": 1000,
+        "C": 500,
+        "Len": 1000,
+        "CR": 0,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.02175",
+      "actual_usd": "0.0105",
+      "difference_quota": -5625,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/claude_fable_live_missing_split",
+      "ExpectedQuota": 36250,
+      "ActualQuota": 17500,
+      "PreConsumed": 100000,
+      "WalletDebit": 17500,
+      "TokenDebit": 17500,
+      "TokenUsed": 17500,
+      "UserUsed": 17500,
+      "ChannelUsed": 17500,
+      "RequestCount": 1,
+      "InputTokens": 1000,
+      "CacheWriteTokens": 3000,
+      "Params": {
+        "P": 1000,
+        "C": 500,
+        "Len": 1000,
+        "CR": 0,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.0725",
+      "actual_usd": "0.035",
+      "difference_quota": -18750,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/claude_no_separate_cache",
+      "ExpectedQuota": 5250,
+      "ActualQuota": 4950,
+      "PreConsumed": 10000,
+      "WalletDebit": 4950,
+      "TokenDebit": 4950,
+      "TokenUsed": 4950,
+      "UserUsed": 4950,
+      "ChannelUsed": 4950,
+      "RequestCount": 1,
+      "InputTokens": 800,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 800,
+        "C": 500,
+        "Len": 1000,
+        "CR": 200,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "base",
+      "expected_usd": "0.0105",
+      "actual_usd": "0.0099",
+      "difference_quota": -300,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/realtime_text_fallback",
+      "ExpectedQuota": 3500,
+      "ActualQuota": 3500,
+      "PreConsumed": 100000,
+      "WalletDebit": 3500,
+      "TokenDebit": 3500,
+      "TokenUsed": 3500,
+      "UserUsed": 3500,
+      "ChannelUsed": 3500,
+      "RequestCount": 1,
+      "InputTokens": 1000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 0,
+        "C": 0,
+        "Len": 0,
+        "CR": 0,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "",
+      "expected_usd": "0.007",
+      "actual_usd": "0.007",
+      "difference_quota": 0,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/realtime_audio_separate",
+      "ExpectedQuota": 16700,
+      "ActualQuota": 3500,
+      "PreConsumed": 100000,
+      "WalletDebit": 3500,
+      "TokenDebit": 3500,
+      "TokenUsed": 3500,
+      "UserUsed": 3500,
+      "ChannelUsed": 3500,
+      "RequestCount": 1,
+      "InputTokens": 1000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 0,
+        "C": 0,
+        "Len": 0,
+        "CR": 0,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "",
+      "expected_usd": "0.0334",
+      "actual_usd": "0.007",
+      "difference_quota": -13200,
+      "accounting_matches_logged_charge": true
+    },
+    {
+      "Name": "TestBackendChainAudit/realtime_audio_only",
+      "ExpectedQuota": 16000,
+      "ActualQuota": 0,
+      "PreConsumed": 100000,
+      "WalletDebit": 0,
+      "TokenDebit": 0,
+      "TokenUsed": 0,
+      "UserUsed": 0,
+      "ChannelUsed": 0,
+      "RequestCount": 1,
+      "InputTokens": 1000,
+      "CacheWriteTokens": 0,
+      "Params": {
+        "P": 0,
+        "C": 0,
+        "Len": 0,
+        "CR": 0,
+        "CC": 0,
+        "CC1h": 0,
+        "Img": 0,
+        "ImgO": 0,
+        "AI": 0,
+        "AO": 0
+      },
+      "MatchedTier": "",
+      "expected_usd": "0.032",
+      "actual_usd": "0",
+      "difference_quota": -16000,
+      "accounting_matches_logged_charge": true
+    }
+  ],
+  "realtime_streaming_cases": [
+    {
+      "channel_used": 100,
+      "chunks": 1,
+      "expected_quota": 100,
+      "initial_preconsume": 1000,
+      "log_quota": 100,
+      "mode": "tiered_expr",
+      "name": "TestBackendRealtimeStreamingAudit/tiered_expr_chunks_1",
+      "session_preconsume_after_chunks": 1000,
+      "token_debit": 200,
+      "token_used": 200,
+      "user_used": 100,
+      "wallet_debit": 200
+    },
+    {
+      "channel_used": 200,
+      "chunks": 2,
+      "expected_quota": 200,
+      "initial_preconsume": 1000,
+      "log_quota": 200,
+      "mode": "tiered_expr",
+      "name": "TestBackendRealtimeStreamingAudit/tiered_expr_chunks_2",
+      "session_preconsume_after_chunks": 1000,
+      "token_debit": 400,
+      "token_used": 400,
+      "user_used": 200,
+      "wallet_debit": 400
+    },
+    {
+      "channel_used": 100,
+      "chunks": 1,
+      "expected_quota": 100,
+      "initial_preconsume": 1000,
+      "log_quota": 100,
+      "mode": "ratio",
+      "name": "TestBackendRealtimeStreamingAudit/ratio_chunks_1",
+      "session_preconsume_after_chunks": 1000,
+      "token_debit": 200,
+      "token_used": 200,
+      "user_used": 100,
+      "wallet_debit": 200
+    },
+    {
+      "channel_used": 200,
+      "chunks": 2,
+      "expected_quota": 200,
+      "initial_preconsume": 1000,
+      "log_quota": 200,
+      "mode": "ratio",
+      "name": "TestBackendRealtimeStreamingAudit/ratio_chunks_2",
+      "session_preconsume_after_chunks": 1000,
+      "token_debit": 400,
+      "token_used": 400,
+      "user_used": 200,
+      "wallet_debit": 400
+    }
+  ],
+  "independent_decimal_checks": {
+    "openai_four_decimal_refund": {
+      "raw_decimal": "157960.0000",
+      "quota": 78980
+    },
+    "claude_missing_split_long_context": {
+      "raw_decimal": "60000.000",
+      "quota": 30000
+    },
+    "claude_fable_live_missing_split": {
+      "raw_decimal": "72500.0",
+      "quota": 36250
+    },
+    "claude_no_separate_cache": {
+      "raw_decimal": "10500",
+      "quota": 5250
+    },
+    "realtime_audio_separate": {
+      "raw_decimal": "33400",
+      "quota": 16700
+    },
+    "realtime_audio_only": {
+      "raw_decimal": "32000",
+      "quota": 16000
+    }
+  },
+  "test_results": {
+    "backend-chain-tests": [
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/openai_four_decimal_refund",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/openai_four_decimal_supplement",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/openai_group_rounding",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/openai_free_group",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/openai_no_separate_cache",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/claude_explicit_cache_split",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/claude_split_long_context",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/claude_missing_split_long_context",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/claude_missing_split_flat",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/claude_fable_live_missing_split",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/claude_no_separate_cache",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/realtime_text_fallback",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/realtime_audio_separate",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit/realtime_audio_only",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendChainAudit",
+        "Action": "fail"
+      }
+    ],
+    "backend-funding-tests": [
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/wallet_0",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/wallet_500",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/wallet_1000",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/wallet_2000",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/subscription_0",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/subscription_500",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/subscription_1000",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit/subscription_2000",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendFundingLifecycleAudit",
+        "Action": "pass"
+      }
+    ],
+    "backend-existing-tests": [
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestClaude_StandardTier",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestClaude_LongContextTier",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestClaude_BoundaryExact",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_Basic",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_SameTier",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_WithCache",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_WithCacheCrossTier",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_BasicSettlement",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_WithGroupRatio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_ZeroTokens",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_RoundingEdge",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_RoundingEdgeDown",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuotaWithRequest_ProbeAffectsQuota",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuota_BoundaryTierCrossing",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+        "Test": "TestComputeTieredQuotaClampsOversizedResult",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/channel/claude",
+        "Test": "TestHandleClaudeResponseDataCountsToolUse",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperTieredUsesPreloadedRequestInput",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperTieredCanPriceSeedanceRequestShape",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperTieredUsesSeedancePerSecondBaseForOpenAIVideoGenerations",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperTieredUsesSeedancePerSecondBaseForV1Video",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperTieredKeepsEstimatedPreConsumeForNonSeedanceTask",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperBillingRatioMatrix/system_user_uses_system_group_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperBillingRatioMatrix/system_user_group_override_uses_overridden_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperBillingRatioMatrix/agent_user_uses_agent_configured_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperBillingRatioMatrix/agent_user_group_override_uses_agent_override_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperBillingRatioMatrix",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperUsesModelSpecificGroupRatio/group_model_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperUsesModelSpecificGroupRatio/user_group_model_override",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relay/helper",
+        "Test": "TestModelPriceHelperUsesModelSpecificGroupRatio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreWssConsumeQuotaUsesAgentConfiguredRatioAndSnapshot",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreWssConsumeQuotaBillingRatioMatrix/system_user_uses_system_group_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreWssConsumeQuotaBillingRatioMatrix/system_user_group_override_uses_overridden_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreWssConsumeQuotaBillingRatioMatrix/agent_user_uses_agent_configured_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreWssConsumeQuotaBillingRatioMatrix/agent_user_group_override_uses_agent_override_ratio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreWssConsumeQuotaBillingRatioMatrix",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPostWssConsumeQuotaRecordsAgentProfitLedger/system_user_records_consume_log_without_agent_ledger",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPostWssConsumeQuotaRecordsAgentProfitLedger/system_user_group_override_records_overridden_consume_log_without_agent_ledger",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPostWssConsumeQuotaRecordsAgentProfitLedger/agent_user_records_consume_log_and_profit_ledger",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPostWssConsumeQuotaRecordsAgentProfitLedger/agent_user_group_override_records_consume_log_and_higher_profit_ledger",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPostWssConsumeQuotaRecordsAgentProfitLedger",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreConsumeBillingRejectsSaturatedQuotaBeforeDeduction",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreConsumeBillingRejectsNegativeQuotaBeforeDeduction",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestNewBillingSessionSubscriptionKeyUsesBoundSubscriptionOnly",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestNewBillingSessionUserOwnedProviderDoesNotConsumeWalletOrTokenQuota",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestNewBillingSessionSystemTokenUsesWalletEvenWhenSubscriptionFirst",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPreConsumeTokenQuotaConsumesSubscriptionKeyBalance",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRefundTaskQuota_Wallet",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRefundTaskQuotaReversesAgentProfit",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRefundTaskQuota_Subscription",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRefundTaskQuota_ZeroQuota",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRefundTaskQuota_NoToken",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRefundTaskQuota_FundingFailureKeepsAccountingAndPendingMarker",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRefundTaskQuota_TieredExprIncludesPricingSnapshot",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRecalculate_PositiveDelta",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRecalculateTaskQuotaByTokensUsesFrozenBillingGroupRatio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRecalculate_NegativeDelta",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRecalculate_ZeroDelta",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRecalculate_ActualQuotaZero",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettleImageTaskUsageKeepsUserOwnedProviderFree",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettleImageTaskUsageUsesFinalResponseForTieredBilling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettleImageTaskUsageAdjustsSubscriptionAgainstPreConsume",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestRecalculate_Subscription_NegativeDelta",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCASGuardedRefund_Win",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCASGuardedRefund_Lose",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCASGuardedSettle_Win",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettle_PerCallBilling_SkipsAdaptorAdjust",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettle_PerCallBilling_SkipsTotalTokens",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettle_NonPerCall_AdaptorAdjustWorks",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettle_TieredExprTaskUsesFrozenRequestInputAndCompletionTokens",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestSettle_ModelsellWrappedSeedanceUsageRefundsPreConsumeDelta",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryUnifiedForClaudeSemantic",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummarySaturatesOversizedQuota",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestComposeTieredTextQuotaSaturatesSurchargeOverflow",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryUsesSplitClaudeCacheCreationRatios",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryUsesAnthropicUsageSemanticFromUpstreamUsage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryUsesClaudeBillingUsageBeforeTopLevelUsage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryUsesGeminiBillingUsageBeforeTopLevelUsage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryUsesOpenAIBillingUsageBeforeTopLevelUsage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryUsesOpenAIResponsesInputTokenDetails",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestUsageFromOpenAIBillingUsageNormalizesCacheDetailsWithoutOverwritingCanonicalValues",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestUsageFromOpenAIBillingUsageFallsBackToPromptCacheHitTokens",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryHandlesLegacyClaudeDerivedOpenAIUsage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryBillsOpenAICacheWriteTokens/uncached_remainder_stays_positive",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryBillsOpenAICacheWriteTokens/uncached_remainder_clamps_to_zero",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryBillsOpenAICacheWriteTokens",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummarySeparatesOpenRouterCacheReadFromPromptBilling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummarySeparatesOpenRouterCacheCreationFromPromptBilling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestCalculateTextQuotaSummaryKeepsPrePRClaudeOpenRouterBilling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestComposeTieredTextQuotaKeepsToolCallSurcharges",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestComposeTieredTextQuotaFallbackKeepsToolCallSurcharges",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestComposeTieredTextQuotaErrorFallbackUsesPreConsumedQuota",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestModelBillingOriginalQuotaUsesGroupRatioForRatioBilling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestModelBillingOriginalQuotaUsesTieredBeforeGroupWithToolSurcharge",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestModelBillingInputTokensExcludesCacheForOpenAIUsage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestModelBillingInputTokensKeepsClaudeSemanticInput",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestNormalizedLogInputTokensUsesProviderUsageSemantics",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettleUsesFrozenRequestInput",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettleFallsBackToFrozenPreConsumeOnExprError",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_PreConsumeMatchesPostConsume",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_PostConsumeOverPreConsume",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_PostConsumeUnderPreConsume",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_ExactBoundary",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_BoundaryPlusOne",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_ZeroTokens",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_HugeTokens",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_CacheTokensAffectSettlement",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_RequestProbeInfluencesBilling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_ResponseProbeInfluencesImageSizeBilling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_NoRequestInput_FallsBackToDefault",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPrepareTieredBillingForSelectedGroupUpdatesReservation",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPrepareTieredBillingForSelectedGroupStartsBillingAfterFreeGroup",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPrepareTieredBillingForSelectedGroupPaidToFreeKeepsFreeModelFalse",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestPrepareTieredBillingForSelectedGroupTopUpArrearsAllowsNegativeBalance",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBillingSessionReserveWalletTopUpDecrementsBalance",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettleUsesFinalGroupAfterRetry/more_expensive_final_group",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettleUsesFinalGroupAfterRetry/free_final_group",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettleUsesFinalGroupAfterRetry",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_GroupRatioScaling",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_GroupRatioZero",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_RatioMode_NilSnapshot",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_RatioMode_WrongBillingMode",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_RatioMode_EmptyBillingMode",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestTryTieredSettle_ErrorFallbackToEstimatedQuotaAfterGroup",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_GPT_WithCache",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_GPT_WithNativeCacheWrite",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_GPT_NoCacheVar",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_GPT_WithImage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_Claude_WithCache",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_GPT_AudioOutput",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_GPT_AudioOutputNoVar",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_ParityWithRatio",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_ParityWithRatio_Image",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_Len_GPT",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_Len_Claude",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBuildTieredTokenParams_Len_TierCondition",
+        "Action": "pass"
+      }
+    ],
+    "backend-converter-tests": [
+      {
+        "Package": "github.com/QuantumNous/new-api/relaykit/relayconvert",
+        "Test": "TestConvertResponseProviderToOAIChatUsage",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relaykit/relayconvert",
+        "Test": "TestConvertResponsePreservesBillingUsageAcrossChatResponsesBridge",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relaykit/relayconvert",
+        "Test": "TestConvertResponseUsesBillingUsageWhenRestoringNativeTargets",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/relaykit/relayconvert",
+        "Test": "TestResponseUsageMatrixChatAndResponsesDetails",
+        "Action": "pass"
+      }
+    ],
+    "backend-reserve-tests": [
+      {
+        "Package": "github.com/QuantumNous/new-api/model",
+        "Test": "TestTryReserveQuotaWithoutRedis",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/model",
+        "Test": "TestRedisBatchReserveNeverFallsBackToStaleDatabaseBalance",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/model",
+        "Test": "TestReserveFallsBackToDatabaseWhenRedisIsUnavailable",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/model",
+        "Test": "TestSynchronousReserveCompensatesCacheWhenPersistenceFails",
+        "Action": "pass"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/model",
+        "Test": "TestTokenCacheInitPreservesLiveQuotaAndFenceBlocksStaleSnapshot",
+        "Action": "pass"
+      }
+    ],
+    "backend-realtime-streaming-tests": [
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendRealtimeStreamingAudit/tiered_expr_chunks_1",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendRealtimeStreamingAudit/tiered_expr_chunks_2",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendRealtimeStreamingAudit/ratio_chunks_1",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendRealtimeStreamingAudit/ratio_chunks_2",
+        "Action": "fail"
+      },
+      {
+        "Package": "github.com/QuantumNous/new-api/service",
+        "Test": "TestBackendRealtimeStreamingAudit",
+        "Action": "fail"
+      }
+    ]
+  },
+  "reproduction_test_source": "package service\n\nimport (\n\t\"net/http/httptest\"\n\t\"os\"\n\t\"testing\"\n\t\"time\"\n\n\t\"github.com/QuantumNous/new-api/common\"\n\t\"github.com/QuantumNous/new-api/model\"\n\t\"github.com/QuantumNous/new-api/pkg/billingexpr\"\n\trelaycommon \"github.com/QuantumNous/new-api/relay/common\"\n\t\"github.com/QuantumNous/new-api/relaykit/dto\"\n\t\"github.com/gin-gonic/gin\"\n\t\"github.com/stretchr/testify/require\"\n)\n\nconst auditInitial = 10000000\n\ntype backendAuditResult struct {\n\tName             string\n\tExpectedQuota    int\n\tActualQuota      int\n\tPreConsumed      int\n\tWalletDebit      int\n\tTokenDebit       int\n\tTokenUsed        int\n\tUserUsed         int\n\tChannelUsed      int\n\tRequestCount     int\n\tInputTokens      int\n\tCacheWriteTokens int\n\tParams           billingexpr.TokenParams\n\tMatchedTier      string\n}\n\nfunc auditSetup(t *testing.T, expr string, group float64, pre int) (*gin.Context, *relaycommon.RelayInfo) {\n\tt.Helper()\n\ttruncate(t)\n\tgin.SetMode(gin.TestMode)\n\tseedUser(t, 98101, auditInitial)\n\tseedToken(t, 98102, 98101, \"local-audit-token\", auditInitial)\n\tseedChannel(t, 98103)\n\tc, _ := gin.CreateTestContext(httptest.NewRecorder())\n\tc.Request = httptest.NewRequest(\"POST\", \"/v1/chat/completions\", nil)\n\tc.Set(common.RequestIdKey, t.Name())\n\tc.Set(\"token_name\", \"local-audit-token\")\n\tinfo := &relaycommon.RelayInfo{\n\t\tUserId: 98101, TokenId: 98102, TokenKey: \"local-audit-token\", UserQuota: auditInitial,\n\t\tChannelMeta:     &relaycommon.ChannelMeta{ChannelId: 98103, UpstreamModelName: \"local-billing-audit\"},\n\t\tOriginModelName: \"local-billing-audit\", RequestId: t.Name(),\n\t\tUserGroup: \"default\", UsingGroup: \"default\", ForcePreConsume: true,\n\t\tStartTime: time.Now(), FirstResponseTime: time.Now(), TieredBillingSnapshot: makeSnapshot(expr, group, 0, 0),\n\t}\n\tinfo.TieredBillingSnapshot.EstimatedQuotaAfterGroup = pre\n\tinfo.PriceData.ModelRatio = 1\n\tinfo.PriceData.CompletionRatio = 1\n\tinfo.PriceData.GroupRatioInfo.GroupRatio = group\n\trequire.Nil(t, PreConsumeBilling(c, pre, info))\n\tvar user model.User\n\tvar token model.Token\n\trequire.NoError(t, model.DB.First(&user, 98101).Error)\n\trequire.NoError(t, model.DB.First(&token, 98102).Error)\n\trequire.Equal(t, auditInitial-pre, user.Quota, \"wallet pre-consume\")\n\trequire.Equal(t, auditInitial-pre, token.RemainQuota, \"token pre-consume\")\n\treturn c, info\n}\n\nfunc auditRead(t *testing.T, expected, pre int) backendAuditResult {\n\tt.Helper()\n\tvar user model.User\n\tvar token model.Token\n\tvar channel model.Channel\n\tvar logs []model.Log\n\trequire.NoError(t, model.DB.First(&user, 98101).Error)\n\trequire.NoError(t, model.DB.First(&token, 98102).Error)\n\trequire.NoError(t, model.DB.First(&channel, 98103).Error)\n\trequire.NoError(t, model.DB.Where(\"user_id = ? AND type = ?\", 98101, model.LogTypeConsume).Find(&logs).Error)\n\trequire.Len(t, logs, 1)\n\tlog := logs[0]\n\tr := backendAuditResult{Name: t.Name(), ExpectedQuota: expected, ActualQuota: log.Quota, PreConsumed: pre,\n\t\tWalletDebit: auditInitial - user.Quota, TokenDebit: auditInitial - token.RemainQuota, TokenUsed: token.UsedQuota,\n\t\tUserUsed: user.UsedQuota, ChannelUsed: int(channel.UsedQuota), RequestCount: user.RequestCount,\n\t\tInputTokens: log.InputTokens, CacheWriteTokens: log.CacheWriteTokens}\n\trequire.Equal(t, r.ActualQuota, r.WalletDebit, \"log vs wallet\")\n\trequire.Equal(t, r.ActualQuota, r.TokenDebit, \"log vs token\")\n\trequire.Equal(t, r.ActualQuota, r.TokenUsed, \"log vs token used\")\n\trequire.Equal(t, r.ActualQuota, r.UserUsed, \"log vs user used\")\n\trequire.Equal(t, r.ActualQuota, r.ChannelUsed, \"log vs channel used\")\n\trequire.Equal(t, 1, r.RequestCount)\n\treturn r\n}\n\nfunc auditOpenAI(p, c, cr int) *dto.Usage {\n\tu := &dto.Usage{PromptTokens: p, CompletionTokens: c, TotalTokens: p + c}\n\tu.PromptTokensDetails.CachedTokens = cr\n\tu.BillingUsage = dto.NewOpenAIChatBillingUsage(u)\n\treturn u\n}\n\nfunc auditClaude(p, c, cr, cc5m, cc1h int, split bool) *dto.Usage {\n\traw := &dto.ClaudeUsage{InputTokens: p, OutputTokens: c, CacheReadInputTokens: cr, CacheCreationInputTokens: cc5m + cc1h}\n\tif split {\n\t\traw.CacheCreation = &dto.ClaudeCacheCreationUsage{Ephemeral5mInputTokens: cc5m, Ephemeral1hInputTokens: cc1h}\n\t}\n\treturn &dto.Usage{PromptTokens: p, CompletionTokens: c, TotalTokens: p + c, UsageSemantic: \"anthropic\", BillingUsage: dto.NewClaudeMessagesBillingUsage(raw)}\n}\n\nfunc TestBackendChainAudit(t *testing.T) {\n\tvar results []backendAuditResult\n\tdefer func() {\n\t\tout, err := common.Marshal(results)\n\t\trequire.NoError(t, err)\n\t\trequire.NoError(t, os.WriteFile(\"/tmp/apimeter-expr-audit-20261110/backend-chain-results.json\", out, 0600))\n\t}()\n\tfour := `tier(\"base\", p*0.1234+c*0.5678+cr*0.0123)`\n\tflat := `tier(\"base\", p*3+c*15)`\n\tcache := `tier(\"base\", p*3+c*15+cr*0.3+cc*3.75+cc1h*6)`\n\thaiku := `len <= 100000 ? tier(\"standard\", p*0.1+c*0.5+cr*0.01+cc*0.125+cc1h*0.2) : tier(\"long_context\", p*0.5+c*2.5+cr*0.05+cc*0.625+cc1h*1)`\n\tcases := []struct {\n\t\tname, expr    string\n\t\tusage         *dto.Usage\n\t\tgroup         float64\n\t\tpre, expected int\n\t}{\n\t\t{\"openai_four_decimal_refund\", four, auditOpenAI(1000000, 100000, 200000), 1, 100000, 78980},\n\t\t{\"openai_four_decimal_supplement\", four, auditOpenAI(1000000, 100000, 200000), 1, 1000, 78980},\n\t\t{\"openai_group_rounding\", four, auditOpenAI(1000000, 100000, 200000), 0.37, 100000, 29223},\n\t\t{\"openai_free_group\", four, auditOpenAI(1000000, 100000, 200000), 0, 100000, 0},\n\t\t{\"openai_no_separate_cache\", flat, auditOpenAI(1000, 500, 200), 1, 10000, 5250},\n\t\t{\"claude_explicit_cache_split\", cache, auditClaude(8000, 5000, 2000, 3000, 1000, true), 1, 100000, 58425},\n\t\t{\"claude_split_long_context\", haiku, auditClaude(90000, 1000, 0, 20000, 0, true), 1, 100000, 30000},\n\t\t{\"claude_missing_split_long_context\", haiku, auditClaude(90000, 1000, 0, 20000, 0, false), 1, 100000, 30000},\n\t\t{\"claude_missing_split_flat\", cache, auditClaude(1000, 500, 0, 3000, 0, false), 1, 100000, 10875},\n\t\t{\"claude_fable_live_missing_split\", `tier(\"base\", p*10+c*50+cr*0.25+cc*12.5+cc1h*20)`, auditClaude(1000, 500, 0, 3000, 0, false), 1, 100000, 36250},\n\t\t{\"claude_no_separate_cache\", flat, auditClaude(800, 500, 200, 0, 0, true), 1, 10000, 5250},\n\t}\n\tfor _, tc := range cases {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tc, info := auditSetup(t, tc.expr, tc.group, tc.pre)\n\t\t\tparams := BuildTieredTokenParams(effectiveBillingUsage(tc.usage), tc.usage.UsageSemantic == \"anthropic\", billingexpr.UsedVars(tc.expr))\n\t\t\t_, _, tr := TryTieredSettle(info, params)\n\t\t\trequire.NotNil(t, tr)\n\t\t\tPostTextConsumeQuota(c, info, tc.usage, nil)\n\t\t\tr := auditRead(t, tc.expected, tc.pre)\n\t\t\tr.Params = params\n\t\t\tr.MatchedTier = tr.MatchedTier\n\t\t\tresults = append(results, r)\n\t\t\t// Repeating settlement must not adjust balances a second time.\n\t\t\trequire.NoError(t, SettleBilling(c, info, r.ActualQuota))\n\t\t\trequire.Equal(t, r.WalletDebit, auditRead(t, tc.expected, tc.pre).WalletDebit)\n\t\t\trequire.Equal(t, tc.expected, r.ActualQuota, \"independently calculated expected charge\")\n\t\t})\n\t}\n\tfor _, tc := range []struct {\n\t\tname, expr string\n\t\texpected   int\n\t}{\n\t\t{\"realtime_text_fallback\", `tier(\"base\", p*2+c*10)`, 3500},\n\t\t{\"realtime_audio_separate\", `tier(\"base\", p*2+c*10+ai*20+ao*40)`, 16700},\n\t\t{\"realtime_audio_only\", `tier(\"base\", ai*20+ao*40)`, 16000},\n\t} {\n\t\tt.Run(tc.name, func(t *testing.T) {\n\t\t\tc, info := auditSetup(t, tc.expr, 1, 100000)\n\t\t\tu := &dto.RealtimeUsage{InputTokens: 1000, OutputTokens: 500, TotalTokens: 1500}\n\t\t\tu.InputTokenDetails.TextTokens = 200\n\t\t\tu.InputTokenDetails.AudioTokens = 800\n\t\t\tu.OutputTokenDetails.TextTokens = 100\n\t\t\tu.OutputTokenDetails.AudioTokens = 400\n\t\t\tPostWssConsumeQuota(c, info, info.OriginModelName, u, \"\")\n\t\t\tr := auditRead(t, tc.expected, 100000)\n\t\t\tresults = append(results, r)\n\t\t\trequire.Equal(t, tc.expected, r.ActualQuota, \"independently calculated expected charge\")\n\t\t})\n\t}\n}\n\nfunc TestBackendFundingLifecycleAudit(t *testing.T) {\n\tfor _, source := range []string{\"wallet\", \"subscription\"} {\n\t\tfor _, actual := range []int{0, 500, 1000, 2000} {\n\t\t\tt.Run(source+\"_\"+common.GetJsonString(actual), func(t *testing.T) {\n\t\t\t\tc, info := auditSetup(t, `tier(\"base\", p)`, 1, 1000)\n\t\t\t\tsession := info.Billing.(*BillingSession)\n\t\t\t\tif source == \"subscription\" {\n\t\t\t\t\t// Revert the setup wallet reservation before creating a subscription session.\n\t\t\t\t\trequire.NoError(t, session.Settle(0))\n\t\t\t\t\trequire.NoError(t, model.DB.Create(&model.SubscriptionPlan{Id: 98105, Title: \"Audit plan\", DurationUnit: model.SubscriptionDurationMonth, DurationValue: 1, TotalAmount: auditInitial, Enabled: true}).Error)\n\t\t\t\t\tseedSubscription(t, 98104, 98101, auditInitial, 0)\n\t\t\t\t\trequire.NoError(t, model.DB.Model(&model.UserSubscription{}).Where(\"id = ?\", 98104).Update(\"plan_id\", 98105).Error)\n\t\t\t\t\tinfo.TokenUserSubscriptionId = 98104\n\t\t\t\t\tinfo.BillingSource = BillingSourceSubscription\n\t\t\t\t\trequire.NoError(t, model.DB.Model(&model.Token{}).Where(\"id = ?\", 98102).Updates(map[string]any{\"billing_source\": BillingSourceSubscription, \"user_subscription_id\": 98104}).Error)\n\t\t\t\t\tif apiErr := PreConsumeBilling(c, 1000, info); apiErr != nil {\n\t\t\t\t\t\tt.Fatal(apiErr.Error())\n\t\t\t\t\t}\n\t\t\t\t\tsession = info.Billing.(*BillingSession)\n\t\t\t\t}\n\t\t\t\trequire.NoError(t, session.Settle(actual))\n\t\t\t\trequire.NoError(t, session.Settle(actual))\n\t\t\t\tsession.Refund(c) // A completed settlement must not be refunded.\n\t\t\t\tvar user model.User\n\t\t\t\tvar token model.Token\n\t\t\t\trequire.NoError(t, model.DB.First(&user, 98101).Error)\n\t\t\t\trequire.NoError(t, model.DB.First(&token, 98102).Error)\n\t\t\t\trequire.Equal(t, actual, auditInitial-token.RemainQuota)\n\t\t\t\trequire.Equal(t, actual, token.UsedQuota)\n\t\t\t\tif source == \"wallet\" {\n\t\t\t\t\trequire.Equal(t, actual, auditInitial-user.Quota)\n\t\t\t\t} else {\n\t\t\t\t\tvar sub model.UserSubscription\n\t\t\t\t\trequire.NoError(t, model.DB.First(&sub, 98104).Error)\n\t\t\t\t\trequire.Equal(t, int64(actual), sub.AmountUsed)\n\t\t\t\t\trequire.Equal(t, auditInitial, user.Quota)\n\t\t\t\t}\n\t\t\t})\n\t\t}\n\t}\n}\n\nfunc TestBackendRealtimeStreamingAudit(t *testing.T) {\n\tvar results []map[string]any\n\tdefer func() {\n\t\tout, err := common.Marshal(results)\n\t\trequire.NoError(t, err)\n\t\trequire.NoError(t, os.WriteFile(\"/tmp/apimeter-expr-audit-20261110/backend-realtime-streaming-results.json\", out, 0600))\n\t}()\n\tfor _, mode := range []string{\"tiered_expr\", \"ratio\"} {\n\t\tfor _, chunks := range []int{1, 2} {\n\t\t\tt.Run(mode+\"_chunks_\"+common.GetJsonString(chunks), func(t *testing.T) {\n\t\t\t\tsetupRealtimeBillingRatioSettings(t)\n\t\t\t\tc, info := auditSetup(t, `tier(\"base\", p*2)`, 1, 1000)\n\t\t\t\tinfo.OriginModelName = \"realtime-agent-test\"\n\t\t\t\tif mode == \"ratio\" {\n\t\t\t\t\tinfo.TieredBillingSnapshot = nil\n\t\t\t\t}\n\t\t\t\tchunk := &dto.RealtimeUsage{InputTokens: 100, TotalTokens: 100}\n\t\t\t\tchunk.InputTokenDetails.TextTokens = 100\n\t\t\t\tfor i := 0; i < chunks; i++ {\n\t\t\t\t\trequire.NoError(t, PreWssConsumeQuota(c, info, chunk))\n\t\t\t\t}\n\t\t\t\ttotal := &dto.RealtimeUsage{InputTokens: 100 * chunks, TotalTokens: 100 * chunks}\n\t\t\t\ttotal.InputTokenDetails.TextTokens = 100 * chunks\n\t\t\t\tPostWssConsumeQuota(c, info, info.OriginModelName, total, \"\")\n\t\t\t\tvar user model.User\n\t\t\t\tvar token model.Token\n\t\t\t\tvar log model.Log\n\t\t\t\tvar channel model.Channel\n\t\t\t\trequire.NoError(t, model.DB.First(&user, 98101).Error)\n\t\t\t\trequire.NoError(t, model.DB.First(&token, 98102).Error)\n\t\t\t\trequire.NoError(t, model.DB.First(&channel, 98103).Error)\n\t\t\t\trequire.NoError(t, model.DB.Where(\"user_id = ? AND type = ?\", 98101, model.LogTypeConsume).First(&log).Error)\n\t\t\t\tresults = append(results, map[string]any{\"name\": t.Name(), \"mode\": mode, \"chunks\": chunks, \"initial_preconsume\": 1000, \"session_preconsume_after_chunks\": info.Billing.GetPreConsumedQuota(), \"expected_quota\": 100 * chunks, \"log_quota\": log.Quota, \"wallet_debit\": auditInitial - user.Quota, \"token_debit\": auditInitial - token.RemainQuota, \"token_used\": token.UsedQuota, \"user_used\": user.UsedQuota, \"channel_used\": channel.UsedQuota})\n\t\t\t\trequire.Equal(t, 100*chunks, log.Quota)\n\t\t\t\trequire.Equal(t, log.Quota, auditInitial-user.Quota, \"streaming charges must be reconciled at final settlement\")\n\t\t\t})\n\t\t}\n\t}\n}\n",
+  "overlay": {
+    "Replace": {
+      "/nmyk/apimeter/service/backend_chain_audit_test.go": "/tmp/apimeter-expr-audit-20261110/backend_chain_audit_test.go"
+    }
+  },
+  "reproduction_command": "GOCACHE=/tmp/apimeter-go-audit-cache go test -mod=readonly -overlay=/tmp/apimeter-expr-audit-20261110/backend-overlay.json ./service -run '^TestBackend(Chain|FundingLifecycle|RealtimeStreaming)Audit$' -count=1 -v",
+  "limitations": [
+    "No production request-level reconciliation",
+    "No MySQL/PostgreSQL integration run",
+    "No crash/fault recovery or asynchronous refund validation",
+    "Final-only realtime examples isolate missing audio parameters; streaming billing is tested separately"
+  ],
+  "upstream_fix_verification": {
+    "checked_on": "2026-11-10",
+    "repository": "QuantumNous/new-api",
+    "head": "bd6bb53019fb7e21804b31ab7365c9b2097f4b6c",
+    "fix_commit": "94cc3ff0906db37703d5ce2bc6a479209b7b9b23",
+    "fix_url": "https://github.com/QuantumNous/new-api/commit/94cc3ff0906db37703d5ce2bc6a479209b7b9b23",
+    "fix_date": "2026-10-22T08:23:18Z",
+    "release_containing_fix": "v1.0.0-rc.49",
+    "release_url": "https://github.com/QuantumNous/new-api/releases/tag/v1.0.0-rc.49",
+    "method": "Temporary Go overlay of the independent official cache normalization patch; no backend source changes",
+    "scenario_results": [
+      {
+        "Name": "TestBackendChainAudit/claude_explicit_cache_split",
+        "ExpectedQuota": 58425,
+        "ActualQuota": 58425,
+        "PreConsumed": 100000,
+        "WalletDebit": 58425,
+        "TokenDebit": 58425,
+        "TokenUsed": 58425,
+        "UserUsed": 58425,
+        "ChannelUsed": 58425,
+        "RequestCount": 1,
+        "InputTokens": 8000,
+        "CacheWriteTokens": 4000,
+        "Params": {
+          "P": 8000,
+          "C": 5000,
+          "Len": 14000,
+          "CR": 2000,
+          "CC": 3000,
+          "CC1h": 1000,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "base"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_split_long_context",
+        "ExpectedQuota": 30000,
+        "ActualQuota": 30000,
+        "PreConsumed": 100000,
+        "WalletDebit": 30000,
+        "TokenDebit": 30000,
+        "TokenUsed": 30000,
+        "UserUsed": 30000,
+        "ChannelUsed": 30000,
+        "RequestCount": 1,
+        "InputTokens": 90000,
+        "CacheWriteTokens": 20000,
+        "Params": {
+          "P": 90000,
+          "C": 1000,
+          "Len": 110000,
+          "CR": 0,
+          "CC": 20000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "long_context"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_missing_split_long_context",
+        "ExpectedQuota": 30000,
+        "ActualQuota": 30000,
+        "PreConsumed": 100000,
+        "WalletDebit": 30000,
+        "TokenDebit": 30000,
+        "TokenUsed": 30000,
+        "UserUsed": 30000,
+        "ChannelUsed": 30000,
+        "RequestCount": 1,
+        "InputTokens": 90000,
+        "CacheWriteTokens": 20000,
+        "Params": {
+          "P": 90000,
+          "C": 1000,
+          "Len": 110000,
+          "CR": 0,
+          "CC": 20000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "long_context"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_missing_split_flat",
+        "ExpectedQuota": 10875,
+        "ActualQuota": 10875,
+        "PreConsumed": 100000,
+        "WalletDebit": 10875,
+        "TokenDebit": 10875,
+        "TokenUsed": 10875,
+        "UserUsed": 10875,
+        "ChannelUsed": 10875,
+        "RequestCount": 1,
+        "InputTokens": 1000,
+        "CacheWriteTokens": 3000,
+        "Params": {
+          "P": 1000,
+          "C": 500,
+          "Len": 4000,
+          "CR": 0,
+          "CC": 3000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "base"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_fable_live_missing_split",
+        "ExpectedQuota": 36250,
+        "ActualQuota": 36250,
+        "PreConsumed": 100000,
+        "WalletDebit": 36250,
+        "TokenDebit": 36250,
+        "TokenUsed": 36250,
+        "UserUsed": 36250,
+        "ChannelUsed": 36250,
+        "RequestCount": 1,
+        "InputTokens": 1000,
+        "CacheWriteTokens": 3000,
+        "Params": {
+          "P": 1000,
+          "C": 500,
+          "Len": 4000,
+          "CR": 0,
+          "CC": 3000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "base"
+      }
+    ],
+    "passed_tests": [
+      "TestBackendChainAudit/claude_explicit_cache_split",
+      "TestBackendChainAudit/claude_split_long_context",
+      "TestBackendChainAudit/claude_missing_split_long_context",
+      "TestBackendChainAudit/claude_missing_split_flat",
+      "TestBackendChainAudit/claude_fable_live_missing_split",
+      "TestBackendChainAudit",
+      "TestBuildTieredTokenParams_ClaudeUnsplitCacheWrites/total_without_split",
+      "TestBuildTieredTokenParams_ClaudeUnsplitCacheWrites/split_missing_part_of_total",
+      "TestBuildTieredTokenParams_ClaudeUnsplitCacheWrites"
+    ],
+    "followup_commit": "e9d4d6353ce2c11df753d751ba1ad778e2433a88"
+  },
+  "local_fix_implementation": {
+    "implemented_on": "2026-11-16",
+    "status": "Implemented locally and verified; not committed or deployed",
+    "fixed_issue": 2,
+    "upstream_commit": "94cc3ff0906db37703d5ce2bc6a479209b7b9b23",
+    "files": [
+      "service/tiered_settle.go",
+      "service/tiered_settle_test.go"
+    ],
+    "behavior": "Preserve known Claude 5m/1h cache creation counts and assign any unlabelled remainder of the total to 5m; include all cache creation tokens in len.",
+    "method": "Tests run against the modified repository source. Go overlay injects only the restored historical audit test file, not replacement business code. Settlement uses SQLite in memory.",
+    "unit_test_summary": {
+      "top_level_passed": 50,
+      "subtests_passed": 4
+    },
+    "test_results": {
+      "expression_and_settlement": [
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_Basic",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_SameTier",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_WithCache",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_WithCacheCrossTier",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_BasicSettlement",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_WithGroupRatio",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_ZeroTokens",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_RoundingEdge",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_RoundingEdgeDown",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuotaWithRequest_ProbeAffectsQuota",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuota_BoundaryTierCrossing",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Test": "TestComputeTieredQuotaClampsOversizedResult",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/pkg/billingexpr",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettleUsesFrozenRequestInput",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettleFallsBackToFrozenPreConsumeOnExprError",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_PreConsumeMatchesPostConsume",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_PostConsumeOverPreConsume",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_PostConsumeUnderPreConsume",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_ExactBoundary",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_BoundaryPlusOne",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_ZeroTokens",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_HugeTokens",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_CacheTokensAffectSettlement",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_RequestProbeInfluencesBilling",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_ResponseProbeInfluencesImageSizeBilling",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_NoRequestInput_FallsBackToDefault",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestPrepareTieredBillingForSelectedGroupUpdatesReservation",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestPrepareTieredBillingForSelectedGroupStartsBillingAfterFreeGroup",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestPrepareTieredBillingForSelectedGroupPaidToFreeKeepsFreeModelFalse",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestPrepareTieredBillingForSelectedGroupTopUpArrearsAllowsNegativeBalance",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettleUsesFinalGroupAfterRetry/more_expensive_final_group",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettleUsesFinalGroupAfterRetry/free_final_group",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettleUsesFinalGroupAfterRetry",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_GroupRatioScaling",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_GroupRatioZero",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_RatioMode_NilSnapshot",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_RatioMode_WrongBillingMode",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_RatioMode_EmptyBillingMode",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettle_ErrorFallbackToEstimatedQuotaAfterGroup",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_GPT_WithCache",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_GPT_WithNativeCacheWrite",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_GPT_NoCacheVar",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_GPT_WithImage",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_Claude_WithCache",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_GPT_AudioOutput",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_GPT_AudioOutputNoVar",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_ParityWithRatio",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_ParityWithRatio_Image",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_Len_GPT",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_Len_Claude",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_ClaudeUnsplitCacheWrites/total_without_split",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_ClaudeUnsplitCacheWrites/split_missing_part_of_total",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_ClaudeUnsplitCacheWrites",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestTryTieredSettleClaudeUnsplitCacheWritesSelectLongContext",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBuildTieredTokenParams_Len_TierCondition",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Action": "pass"
+        }
+      ],
+      "sqlite_settlement": [
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBackendChainAudit/claude_explicit_cache_split",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBackendChainAudit/claude_split_long_context",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBackendChainAudit/claude_missing_split_long_context",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBackendChainAudit/claude_missing_split_flat",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBackendChainAudit/claude_fable_live_missing_split",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Test": "TestBackendChainAudit",
+          "Action": "pass"
+        },
+        {
+          "Package": "github.com/QuantumNous/new-api/service",
+          "Action": "pass"
+        }
+      ]
+    },
+    "scenario_results": [
+      {
+        "Name": "TestBackendChainAudit/claude_explicit_cache_split",
+        "ExpectedQuota": 58425,
+        "ActualQuota": 58425,
+        "PreConsumed": 100000,
+        "WalletDebit": 58425,
+        "TokenDebit": 58425,
+        "TokenUsed": 58425,
+        "UserUsed": 58425,
+        "ChannelUsed": 58425,
+        "RequestCount": 1,
+        "InputTokens": 8000,
+        "CacheWriteTokens": 4000,
+        "Params": {
+          "P": 8000,
+          "C": 5000,
+          "Len": 14000,
+          "CR": 2000,
+          "CC": 3000,
+          "CC1h": 1000,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "base"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_split_long_context",
+        "ExpectedQuota": 30000,
+        "ActualQuota": 30000,
+        "PreConsumed": 100000,
+        "WalletDebit": 30000,
+        "TokenDebit": 30000,
+        "TokenUsed": 30000,
+        "UserUsed": 30000,
+        "ChannelUsed": 30000,
+        "RequestCount": 1,
+        "InputTokens": 90000,
+        "CacheWriteTokens": 20000,
+        "Params": {
+          "P": 90000,
+          "C": 1000,
+          "Len": 110000,
+          "CR": 0,
+          "CC": 20000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "long_context"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_missing_split_long_context",
+        "ExpectedQuota": 30000,
+        "ActualQuota": 30000,
+        "PreConsumed": 100000,
+        "WalletDebit": 30000,
+        "TokenDebit": 30000,
+        "TokenUsed": 30000,
+        "UserUsed": 30000,
+        "ChannelUsed": 30000,
+        "RequestCount": 1,
+        "InputTokens": 90000,
+        "CacheWriteTokens": 20000,
+        "Params": {
+          "P": 90000,
+          "C": 1000,
+          "Len": 110000,
+          "CR": 0,
+          "CC": 20000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "long_context"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_missing_split_flat",
+        "ExpectedQuota": 10875,
+        "ActualQuota": 10875,
+        "PreConsumed": 100000,
+        "WalletDebit": 10875,
+        "TokenDebit": 10875,
+        "TokenUsed": 10875,
+        "UserUsed": 10875,
+        "ChannelUsed": 10875,
+        "RequestCount": 1,
+        "InputTokens": 1000,
+        "CacheWriteTokens": 3000,
+        "Params": {
+          "P": 1000,
+          "C": 500,
+          "Len": 4000,
+          "CR": 0,
+          "CC": 3000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "base"
+      },
+      {
+        "Name": "TestBackendChainAudit/claude_fable_live_missing_split",
+        "ExpectedQuota": 36250,
+        "ActualQuota": 36250,
+        "PreConsumed": 100000,
+        "WalletDebit": 36250,
+        "TokenDebit": 36250,
+        "TokenUsed": 36250,
+        "UserUsed": 36250,
+        "ChannelUsed": 36250,
+        "RequestCount": 1,
+        "InputTokens": 1000,
+        "CacheWriteTokens": 3000,
+        "Params": {
+          "P": 1000,
+          "C": 500,
+          "Len": 4000,
+          "CR": 0,
+          "CC": 3000,
+          "CC1h": 0,
+          "Img": 0,
+          "ImgO": 0,
+          "AI": 0,
+          "AO": 0
+        },
+        "MatchedTier": "base"
+      }
+    ],
+    "unit_test_command": "GOCACHE=/tmp/apimeter-go-audit-cache go test -mod=readonly ./pkg/billingexpr ./service -run 'Test(BuildTieredTokenParams|TryTieredSettle|PrepareTieredBillingForSelectedGroup|ComputeTieredQuota|RunExpr|UsedVars)' -count=1 -json",
+    "settlement_test_command": "GOCACHE=/tmp/apimeter-go-audit-cache go test -mod=readonly -overlay=/tmp/apimeter-claude-fix-20261116/overlay.json ./service -run '^TestBackendChainAudit/claude_(missing_split_.*|fable_live_missing_split|split_long_context|explicit_cache_split)$' -count=1 -json",
+    "remaining_issues_out_of_scope": [
+      1,
+      3,
+      4
+    ],
+    "production_balances_modified": false
+  }
+}
