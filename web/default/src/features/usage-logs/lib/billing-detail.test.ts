@@ -53,6 +53,146 @@ function makeLog(overrides: Partial<UsageLog> = {}): UsageLog {
 }
 
 describe('buildBillingDetail', () => {
+  test('uses settled Claude cache counts when upstream TTL details are partial', () => {
+    const result = buildBillingDetail(
+      makeLog({ cache_write_tokens: 500 }),
+      {
+        billing_mode: 'tiered_expr',
+        expr_b64: Buffer.from('tier("base", cc * 3 + cc1h * 6)').toString(
+          'base64'
+        ),
+        matched_tier: 'base',
+        usage_semantic: 'anthropic',
+        group_ratio: 1,
+        cache_creation_tokens: 1000,
+        cache_creation_tokens_5m: 200,
+        cache_creation_tokens_1h: 300,
+        tiered_token_params: { cc: 700, cc1h: 300 },
+      },
+      0.0039
+    )
+    assert.deepEqual(
+      result.lines.map((line) => [line.labelKey, line.quantity]),
+      [
+        ['Cache Write (5m)', 700],
+        ['Cache Write (1h)', 300],
+      ]
+    )
+    assert.ok(Math.abs(result.lines[0].finalAmountUSD - 0.0021) < 1e-12)
+    assert.ok(Math.abs(result.lines[1].finalAmountUSD - 0.0018) < 1e-12)
+    assert.ok(result.lines.every((line) => line.key !== 'other'))
+  })
+
+  test('keeps historical partial-TTL logs on their original quantities', () => {
+    const result = buildBillingDetail(
+      makeLog({ cache_write_tokens: 500 }),
+      {
+        billing_mode: 'tiered_expr',
+        expr_b64: Buffer.from('tier("base", cc * 3 + cc1h * 6)').toString(
+          'base64'
+        ),
+        matched_tier: 'base',
+        usage_semantic: 'anthropic',
+        group_ratio: 1,
+        cache_creation_tokens: 1000,
+        cache_creation_tokens_5m: 200,
+        cache_creation_tokens_1h: 300,
+      },
+      0.0024
+    )
+    assert.deepEqual(
+      result.lines.map((line) => line.quantity),
+      [200, 300]
+    )
+    assert.ok(result.lines.every((line) => line.key !== 'other'))
+  })
+
+  test('shows normalized cache writes even if no raw cache counters were logged', () => {
+    const result = buildBillingDetail(
+      makeLog(),
+      {
+        billing_mode: 'tiered_expr',
+        expr_b64: Buffer.from('tier("base", cc * 3)').toString('base64'),
+        matched_tier: 'base',
+        usage_semantic: 'anthropic',
+        tiered_token_params: { cc: 1000, cc1h: 0 },
+      },
+      0.003
+    )
+    assert.equal(result.lines.length, 1)
+    assert.equal(result.lines[0].labelKey, 'Cache Write (5m)')
+    assert.equal(result.lines[0].quantity, 1000)
+  })
+
+  test('does not normalize settled input twice and respects settled zero output', () => {
+    const result = buildBillingDetail(
+      makeLog({
+        prompt_tokens: 1000,
+        completion_tokens: 100,
+        cache_read_tokens: 200,
+      }),
+      {
+        billing_mode: 'tiered_expr',
+        expr_b64: Buffer.from('tier("base", p * 2 + c * 3 + cr * 0)').toString(
+          'base64'
+        ),
+        matched_tier: 'base',
+        cache_tokens: 200,
+        tiered_token_params: { p: 800, c: 0, cr: 200 },
+      },
+      0.0016
+    )
+    assert.deepEqual(
+      result.lines.map((line) => [line.labelKey, line.quantity]),
+      [
+        ['Input', 800],
+        ['Cache Read', 200],
+      ]
+    )
+    assert.equal(result.lines[1].finalAmountUSD, 0)
+    assert.ok(result.lines.every((line) => line.key !== 'other'))
+  })
+
+  test('uses settlement normalization across branches with different price fields', () => {
+    const result = buildBillingDetail(
+      makeLog({ prompt_tokens: 1000, cache_read_tokens: 200 }),
+      {
+        billing_mode: 'tiered_expr',
+        expr_b64: Buffer.from(
+          'len < 500 ? tier("small", p * 2 + cr * 0) : tier("large", p * 3)'
+        ).toString('base64'),
+        matched_tier: 'large',
+        cache_tokens: 200,
+        tiered_token_params: { p: 800, len: 1000, cr: 200 },
+      },
+      0.0024
+    )
+    assert.equal(result.lines.length, 1)
+    assert.equal(result.lines[0].quantity, 800)
+    assert.equal(result.lines[0].labelKey, 'Input')
+  })
+
+  test('falls back for missing or invalid snapshot fields in legacy-shaped logs', () => {
+    for (const settled of [undefined, -1, NaN, Infinity]) {
+      const result = buildBillingDetail(
+        makeLog({ prompt_tokens: 1000, completion_tokens: 100 }),
+        {
+          billing_mode: 'tiered_expr',
+          expr_b64: Buffer.from('tier("base", p * 2 + c * 3)').toString(
+            'base64'
+          ),
+          matched_tier: 'base',
+          tiered_token_params: { p: settled },
+        },
+        0.0023
+      )
+      assert.deepEqual(
+        result.lines.map((line) => line.quantity),
+        [1000, 100]
+      )
+    }
+  })
+
   test('keeps consumed free cache tokens out of paid input and shows their zero-cost line', () => {
     const result = buildBillingDetail(
       makeLog({

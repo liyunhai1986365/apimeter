@@ -404,4 +404,8 @@ func InjectTieredBillingSnapshotInfo(other map[string]interface{}, snap *billing
 	if result != nil && len(result.RequestRules) > 0 {
 		other["request_rules"] = result.RequestRules
 	}
+	if result != nil && result.TokenParams != nil {
+		// Keep upstream usage intact; expose the exact normalized settlement inputs separately.
+		other["tiered_token_params"] = *result.TokenParams
+	}
 }

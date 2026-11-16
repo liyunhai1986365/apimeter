@@ -21,6 +21,14 @@ For commercial licensing, please contact support@quantumnous.com
  */
 import type { UsageLog } from './data/schema'
 
+/** Actual expression inputs recorded at settlement; absent from older logs. */
+export type BillingTokenParams = Partial<
+  Record<
+    'p' | 'c' | 'len' | 'cr' | 'cc' | 'cc1h' | 'img' | 'img_o' | 'ai' | 'ao',
+    number
+  >
+>
+
 // ============================================================================
 // Log Category Types
 // ============================================================================
@@ -191,6 +199,7 @@ export interface LogOtherData {
   billing_mode?: string
   expr_b64?: string
   matched_tier?: string
+  tiered_token_params?: BillingTokenParams
   reasoning_effort?: string
   image?: boolean
   image_ratio?: number

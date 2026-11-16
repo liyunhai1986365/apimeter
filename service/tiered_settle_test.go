@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/pkg/billingexpr"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
@@ -989,6 +990,71 @@ func TestTryTieredSettleClaudeUnsplitCacheWritesSelectLongContext(t *testing.T) 
 	assert.Equal(t, "long_context", result.MatchedTier)
 	// (90000*0.5 + 1000*2.5 + 20000*0.625) / 1M * 500K = 30000.
 	assert.Equal(t, 30000, quota)
+}
+
+func TestTieredSettlementLogPreservesNormalizedCacheUsage(t *testing.T) {
+	expr := `tier("base", cc * 3 + cc1h * 6)`
+	for _, tc := range []struct {
+		name          string
+		fiveMin, hour int
+		wantCC        float64
+		wantQuota     int
+	}{
+		{"no TTL details", 0, 0, 1000, 1500},
+		{"partial TTL details", 200, 300, 700, 1950},
+		{"complete TTL details", 200, 800, 200, 2700},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			usage := &dto.Usage{
+				UsageSemantic:               "anthropic",
+				PromptTokensDetails:         dto.InputTokenDetails{CachedCreationTokens: 1000},
+				ClaudeCacheCreation5mTokens: tc.fiveMin,
+				ClaudeCacheCreation1hTokens: tc.hour,
+			}
+			info := &relaycommon.RelayInfo{TieredBillingSnapshot: makeSnapshot(expr, 1, 0, 0)}
+			params := BuildTieredTokenParams(usage, true, billingexpr.UsedVars(expr))
+			ok, quota, result := TryTieredSettle(info, params)
+			require.True(t, ok)
+			require.NotNil(t, result)
+			assert.Equal(t, tc.wantQuota, quota)
+			other := map[string]interface{}{
+				"cache_creation_tokens":    1000,
+				"cache_creation_tokens_5m": tc.fiveMin,
+				"cache_creation_tokens_1h": tc.hour,
+			}
+			InjectTieredBillingInfo(other, info, result)
+			encoded, err := common.Marshal(other)
+			require.NoError(t, err)
+			var decoded map[string]interface{}
+			require.NoError(t, common.Unmarshal(encoded, &decoded))
+			saved, ok := decoded["tiered_token_params"].(map[string]interface{})
+			require.True(t, ok)
+			assert.Equal(t, map[string]interface{}{
+				"p": float64(0), "c": float64(0), "len": float64(1000),
+				"cr": float64(0), "cc": tc.wantCC, "cc1h": float64(tc.hour),
+				"img": float64(0), "img_o": float64(0), "ai": float64(0), "ao": float64(0),
+			}, saved, "record exact expression inputs, including explicit zeros")
+			assert.Equal(t, float64(tc.fiveMin), decoded["cache_creation_tokens_5m"])
+			assert.Equal(t, tc.fiveMin, usage.ClaudeCacheCreation5mTokens, "raw usage remains intact")
+		})
+	}
+}
+
+func TestTieredSettlementLogOmitsTokenParamsWithoutSuccessfulSettlement(t *testing.T) {
+	info := makeRelayInfo(flatExpr, 1, 100, 50)
+	for _, result := range []*billingexpr.TieredResult{nil, {MatchedTier: "legacy"}} {
+		other := map[string]interface{}{}
+		InjectTieredBillingInfo(other, info, result)
+		assert.NotContains(t, other, "tiered_token_params")
+	}
+	info.TieredBillingSnapshot.ExprString = "invalid +-+ syntax"
+	info.TieredBillingSnapshot.ExprHash = billingexpr.ExprHashString(info.TieredBillingSnapshot.ExprString)
+	ok, _, result := TryTieredSettle(info, billingexpr.TokenParams{P: 100})
+	require.True(t, ok)
+	require.Nil(t, result)
+	other := map[string]interface{}{}
+	InjectTieredBillingInfo(other, info, result)
+	assert.NotContains(t, other, "tiered_token_params")
 }
 
 func TestBuildTieredTokenParams_Len_TierCondition(t *testing.T) {

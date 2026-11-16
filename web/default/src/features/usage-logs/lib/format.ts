@@ -382,7 +382,12 @@ export function hasAnyCacheTokens(
   other: LogOtherData | null | undefined
 ): boolean {
   if (!other) return false
+  const settled =
+    other.billing_mode === 'tiered_expr' ? other.tiered_token_params : undefined
   return (
+    (settled?.cr || 0) > 0 ||
+    (settled?.cc || 0) > 0 ||
+    (settled?.cc1h || 0) > 0 ||
     (other.cache_tokens || 0) > 0 ||
     (other.cache_creation_tokens || 0) > 0 ||
     (other.cache_creation_tokens_5m || 0) > 0 ||

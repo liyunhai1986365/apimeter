@@ -17,7 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import type { UsageLog } from '../data/schema'
-import type { LogOtherData, ToolSurchargeLogItem } from '../types'
+import type {
+  BillingTokenParams,
+  LogOtherData,
+  ToolSurchargeLogItem,
+} from '../types'
 import { decodeBillingExprB64, getTieredBillingSummary } from './format'
 
 export type BillingDetailMode = 'per-token' | 'per-call' | 'dynamic'
@@ -325,6 +329,21 @@ function buildPerTokenLines(
   return lines
 }
 
+const DYNAMIC_TOKEN_FIELDS: Record<
+  string,
+  { key: keyof BillingTokenParams; labelKey: string }
+> = {
+  inputPrice: { key: 'p', labelKey: 'Input' },
+  outputPrice: { key: 'c', labelKey: 'Output' },
+  cacheReadPrice: { key: 'cr', labelKey: 'Cache Read' },
+  cacheCreatePrice: { key: 'cc', labelKey: 'Cache Write' },
+  cacheCreate1hPrice: { key: 'cc1h', labelKey: 'Cache Write (1h)' },
+  imagePrice: { key: 'img', labelKey: 'Image input' },
+  imageOutputPrice: { key: 'img_o', labelKey: 'Image Tokens' },
+  audioInputPrice: { key: 'ai', labelKey: 'Audio input' },
+  audioOutputPrice: { key: 'ao', labelKey: 'Audio output' },
+}
+
 function dynamicTokenCount(
   field: string,
   log: UsageLog,
@@ -334,6 +353,18 @@ function dynamicTokenCount(
   const cache = cacheCounts(log, other)
   const media = mediaCounts(other)
   const isClaude = other.claude === true || other.usage_semantic === 'anthropic'
+
+  const dimension = DYNAMIC_TOKEN_FIELDS[field]
+  const settled = dimension && other.tiered_token_params?.[dimension.key]
+  if (typeof settled === 'number' && Number.isFinite(settled) && settled >= 0) {
+    return {
+      quantity: settled,
+      labelKey:
+        field === 'cacheCreatePrice' && isClaude
+          ? 'Cache Write (5m)'
+          : dimension.labelKey,
+    }
+  }
 
   if (field === 'inputPrice') {
     let input = finitePositive(log.prompt_tokens)
