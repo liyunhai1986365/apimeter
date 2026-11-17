@@ -10,6 +10,18 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// GPT Image 2.6 fields must survive serialization, including an explicit zero duration.
+func TestImageRequestPreserveGPTImage26Fields(t *testing.T) {
+	raw := []byte(`{"model":"gpt-image-2.6-flare","prompt":"p","complexity":"low","markup":{"image_url":"https://example.com/markup.png"},"svg":{"model":"m"},"frame_count":2,"frame_duration_ms":0}`)
+
+	var req ImageRequest
+	require.NoError(t, kitutil.Unmarshal(raw, &req))
+
+	encoded, err := kitutil.Marshal(req)
+	require.NoError(t, err)
+	assert.JSONEq(t, string(raw), string(encoded))
+}
+
 func TestGeneralOpenAIRequestPreserveExplicitZeroValues(t *testing.T) {
 	raw := []byte(`{
 		"model":"gpt-4.1",

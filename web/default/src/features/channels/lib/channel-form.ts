@@ -221,6 +221,9 @@ export const channelFormSchema = z
     image_async_wait_timeout_seconds: z.number().min(0).optional(),
     // Type-specific settings (stored in settings JSON)
     is_enterprise_account: z.boolean().optional(), // OpenRouter specific
+    vertex_project_id: z.string().optional(),
+    vertex_api_version: z.enum(['v1', 'v1beta1']).optional(),
+    tool_loss_policy: z.enum(['allow', 'safe', 'strict']).optional(),
     vertex_key_type: z.enum(['json', 'api_key']).optional(), // Vertex AI specific
     aws_key_type: z.enum(['ak_sk', 'api_key']).optional(), // AWS specific
     azure_responses_version: z.string().optional(), // Azure specific
@@ -348,6 +351,9 @@ export const CHANNEL_FORM_DEFAULT_VALUES: ChannelFormValues = {
   image_async_wait_timeout_seconds: undefined,
   // Type-specific settings
   is_enterprise_account: false,
+  vertex_project_id: '',
+  vertex_api_version: 'v1',
+  tool_loss_policy: 'allow',
   vertex_key_type: 'json',
   aws_key_type: 'ak_sk',
   azure_responses_version: '',
@@ -486,6 +492,9 @@ export function transformChannelToFormDefaults(
   }
 
   // Parse type-specific settings from settings field
+  let vertexProjectId = ''
+  let vertexApiVersion: 'v1' | 'v1beta1' = 'v1'
+  let toolLossPolicy: 'allow' | 'safe' | 'strict' = 'allow'
   let vertexKeyType: 'json' | 'api_key' = 'json'
   let azureResponsesVersion = ''
   let isEnterpriseAccount = false
@@ -504,6 +513,9 @@ export function transformChannelToFormDefaults(
   if (channel.settings) {
     try {
       const parsed = JSON.parse(channel.settings)
+      vertexProjectId = parsed.vertex_project_id || ''
+      vertexApiVersion = parsed.vertex_api_version || 'v1'
+      toolLossPolicy = parsed.tool_loss_policy || 'allow'
       vertexKeyType = parsed.vertex_key_type || 'json'
       azureResponsesVersion = parsed.azure_responses_version || ''
       isEnterpriseAccount = parsed.openrouter_enterprise === true
@@ -562,6 +574,9 @@ export function transformChannelToFormDefaults(
     ...extraSettings,
     // Type-specific settings
     is_enterprise_account: isEnterpriseAccount,
+    vertex_project_id: vertexProjectId,
+    vertex_api_version: vertexApiVersion,
+    tool_loss_policy: toolLossPolicy,
     vertex_key_type: vertexKeyType,
     azure_responses_version: azureResponsesVersion,
     aws_key_type: awsKeyType,
@@ -677,9 +692,17 @@ function buildSettingsJSON(formData: ChannelFormValues): string {
   // Add vertex_key_type for Vertex AI channels (type 41)
   if (formData.type === 41) {
     settingsObj.vertex_key_type = formData.vertex_key_type || 'json'
+    settingsObj.vertex_project_id = formData.vertex_project_id?.trim() || ''
+    settingsObj.vertex_api_version = formData.vertex_api_version || 'v1'
   } else if ('vertex_key_type' in settingsObj) {
     delete settingsObj.vertex_key_type
   }
+
+  if (formData.type !== 41) {
+    delete settingsObj.vertex_project_id
+    delete settingsObj.vertex_api_version
+  }
+  settingsObj.tool_loss_policy = formData.tool_loss_policy || 'allow'
 
   // Add azure_responses_version for Azure channels (type 3)
   if (formData.type === 3 && formData.azure_responses_version) {

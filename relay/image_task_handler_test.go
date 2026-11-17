@@ -51,6 +51,10 @@ func (s *imageAsyncBillingStub) GetPreConsumedQuota() int { return s.quota }
 
 func (s *imageAsyncBillingStub) Reserve(int) error { return nil }
 
+func (s *imageAsyncBillingStub) ReserveWithCommit(_ int, commit func(int) error) error {
+	return commit(s.quota)
+}
+
 func setupImageTaskTestDB(t *testing.T) {
 	t.Helper()
 

@@ -24,6 +24,10 @@ func getImageToken(c *gin.Context, fileMeta *types.FileMeta, model string, strea
 		return 0, fmt.Errorf("image_url_is_nil")
 	}
 
+	if strings.HasPrefix(strings.ToLower(model), "gemini-") {
+		return getGeminiImageToken(c, fileMeta, model, stream)
+	}
+
 	// Defaults for 4o/4.1/4.5 family unless overridden below
 	baseTokens := 85
 	tileTokens := 170
@@ -254,9 +258,9 @@ func EstimateRequestToken(c *gin.Context, meta *types.TokenCountMeta, info *rela
 		if file.Source == nil {
 			continue
 		}
-		// Known images on these models use a fixed estimate below. Fetching
-		// their URLs cannot improve that estimate and can reject valid relays
-		// when the image host is reachable only by the upstream provider.
+		// Skip eager type detection for known non-OpenAI images. Their model
+		// estimator below either uses a fixed estimate or handles dimension
+		// lookup with a fallback for images reachable only by the upstream.
 		if file.FileType == types.FileTypeImage && !common.IsOpenAITextModel(model) {
 			continue
 		}
@@ -280,7 +284,7 @@ func EstimateRequestToken(c *gin.Context, meta *types.TokenCountMeta, info *rela
 	for i, file := range meta.Files {
 		switch file.FileType {
 		case types.FileTypeImage:
-			if common.IsOpenAITextModel(model) {
+			if common.IsOpenAITextModel(model) || strings.HasPrefix(strings.ToLower(model), "gemini-") {
 				token, err := getImageToken(c, file, model, info.IsStream)
 				if err != nil {
 					return 0, fmt.Errorf("error counting image token, media index[%d], identifier[%s], err: %v", i, file.GetIdentifier(), err)

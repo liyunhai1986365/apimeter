@@ -447,7 +447,10 @@ func CalcOpenRouterCacheCreateTokens(usage dto.Usage, priceData types.PriceData)
 }
 
 func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent string) {
+	postAudioConsumeQuota(ctx, relayInfo, usage, extraContent, true)
+}
 
+func postAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent string, recordSuccess bool) {
 	var tieredUsedVars map[string]bool
 	if snap := relayInfo.TieredBillingSnapshot; snap != nil {
 		tieredUsedVars = billingexpr.UsedVars(snap.ExprString)
@@ -561,7 +564,9 @@ func PostAudioConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, u
 			logger.LogError(ctx, "error settling agent ledger: "+err.Error())
 		}
 	}
-	perfmetrics.RecordRelaySample(relayInfo, true, int64(usage.CompletionTokens))
+	if recordSuccess {
+		perfmetrics.RecordRelaySample(relayInfo, true, int64(usage.CompletionTokens))
+	}
 }
 
 func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {

@@ -53,16 +53,14 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 
 	if !model_setting.GetGlobalSettings().PassThroughRequestEnabled && !info.ChannelSetting.PassThroughBodyEnabled {
 		if err := adaptClaudeThinking(request, info.OriginModelName); err != nil {
-			return types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+			return types.NewError(service.ConversionRequestError(err), types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
 		}
 		info.UpstreamModelName = request.Model
-		if effort := request.GetEfforts(); effort != "" {
-			info.SetReasoningEffort(effort)
-		}
+		info.SetReasoningEffort(reasoning.ClaudeEffectiveEffort(request, request.Model))
 	} else {
 		// AWS/Vertex select the model through the request URL even when the body
 		// is passed through. Normalize only that name; leave thinking untouched.
-		if baseModel, effort, ok := reasoning.TrimEffortSuffix(request.Model); ok && effort != "" && reasoning.ClaudeSupportsAdaptiveThinking(baseModel) {
+		if baseModel, effort, ok := reasoning.TrimClaudeEffortSuffix(request.Model); ok && effort != "" && reasoning.IsKnownClaudeModel(baseModel) {
 			info.UpstreamModelName = baseModel
 		} else if model_setting.GetClaudeSettings().ThinkingAdapterEnabled &&
 			!model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) {
@@ -191,12 +189,12 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 // converts. Raw body passthrough and subsequent explicit channel overrides keep
 // their existing precedence.
 func adaptClaudeThinking(request *dto.ClaudeRequest, originModel string) error {
-	if baseModel, effort, ok := reasoning.TrimEffortSuffix(request.Model); ok && effort != "" && reasoning.ClaudeSupportsAdaptiveThinking(baseModel) {
+	if baseModel, effort, ok := reasoning.TrimClaudeEffortSuffix(request.Model); ok && effort != "" && reasoning.IsKnownClaudeModel(baseModel) {
 		request.Model = baseModel
-		if err := reasoning.SetClaudeAdaptiveThinking(request, effort); err != nil {
+		if err := reasoning.ApplyClaudeReasoningEffort(request, effort); err != nil {
 			return err
 		}
-		if !reasoning.ClaudeRequiresAdaptiveThinking(baseModel) {
+		if effort != "none" && !reasoning.ClaudeRequiresAdaptiveThinking(baseModel) {
 			request.Temperature = common.GetPointer[float64](1.0)
 		}
 	} else if model_setting.GetClaudeSettings().ThinkingAdapterEnabled && strings.HasSuffix(request.Model, "-thinking") {

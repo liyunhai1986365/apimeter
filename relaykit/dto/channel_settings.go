@@ -172,6 +172,10 @@ const (
 )
 
 type ChannelOtherSettings struct {
+	VertexProjectID  string `json:"vertex_project_id,omitempty"`
+	VertexAPIVersion string `json:"vertex_api_version,omitempty"`
+	ToolLossPolicy   string `json:"tool_loss_policy,omitempty"`
+
 	AzureResponsesVersion                 string                `json:"azure_responses_version,omitempty"`
 	VertexKeyType                         VertexKeyType         `json:"vertex_key_type,omitempty"` // "json" or "api_key"
 	OpenRouterEnterprise                  *bool                 `json:"openrouter_enterprise,omitempty"`

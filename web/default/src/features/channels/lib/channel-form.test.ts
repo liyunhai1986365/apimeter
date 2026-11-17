@@ -485,3 +485,45 @@ describe('independent asset library configuration', () => {
     }
   })
 })
+
+describe('Google channel settings', () => {
+  test('round-trips Vertex project, API version and loss policy', () => {
+    const formData: ChannelFormValues = {
+      ...CHANNEL_FORM_DEFAULT_VALUES,
+      name: 'vertex',
+      type: 41,
+      key: 'test-key',
+      models: 'gemini-3-pro-preview',
+      vertex_key_type: 'api_key',
+      vertex_project_id: ' project ',
+      vertex_api_version: 'v1beta1',
+      tool_loss_policy: 'safe',
+    }
+    const payload = transformFormDataToCreatePayload(formData).channel
+    const settings = JSON.parse(payload.settings!)
+    assert.equal(settings.vertex_project_id, 'project')
+    assert.equal(settings.vertex_api_version, 'v1beta1')
+    assert.equal(settings.tool_loss_policy, 'safe')
+    const defaults = transformChannelToFormDefaults({
+      ...payload,
+      id: 123,
+      channel_info: {
+        is_multi_key: false,
+        multi_key_size: 1,
+        multi_key_polling_index: 0,
+        multi_key_mode: 'random',
+      },
+    } as Channel)
+    assert.equal(defaults.vertex_project_id, 'project')
+    assert.equal(defaults.vertex_api_version, 'v1beta1')
+    assert.equal(defaults.tool_loss_policy, 'safe')
+    const update = transformFormDataToUpdatePayload(
+      { ...defaults, type: 24 },
+      123
+    )
+    const switched = JSON.parse(update.settings!)
+    assert.equal(switched.vertex_project_id, undefined)
+    assert.equal(switched.vertex_api_version, undefined)
+    assert.equal(switched.tool_loss_policy, 'safe')
+  })
+})

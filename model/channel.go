@@ -1183,6 +1183,16 @@ func (channel *Channel) ValidateSettings() error {
 			return err
 		}
 	}
+	switch channelOtherSettings.ToolLossPolicy {
+	case "", "allow", "safe", "strict":
+	default:
+		return fmt.Errorf("tool_loss_policy must be allow, safe, or strict")
+	}
+	switch channelOtherSettings.VertexAPIVersion {
+	case "", "v1", "v1beta1":
+	default:
+		return fmt.Errorf("vertex_api_version must be v1 or v1beta1")
+	}
 	if channel.Type == constant.ChannelTypeAdvancedCustom && channelOtherSettings.AdvancedCustom == nil {
 		return fmt.Errorf("advanced_custom is required")
 	}

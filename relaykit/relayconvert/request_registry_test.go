@@ -192,7 +192,7 @@ func TestConvertRequestViaExecutesExplicitPath(t *testing.T) {
 	assert.Equal(t, []types.RelayFormat{types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses}, info.ConversionChain)
 }
 
-func TestConvertRequestResponsesToGeminiAppliesResponsesPreprocess(t *testing.T) {
+func TestConvertRequestResponsesToGeminiPreservesCustomToolHistory(t *testing.T) {
 	info := &convmeta.Values{
 		ConversionChain:     []types.RelayFormat{types.RelayFormatOpenAIResponses},
 		ChannelMetaAttached: true,
@@ -232,11 +232,19 @@ func TestConvertRequestResponsesToGeminiAppliesResponsesPreprocess(t *testing.T)
 	require.NoError(t, err)
 	geminiReq, ok := result.Value.(*dto.GeminiChatRequest)
 	require.True(t, ok)
-	assert.Empty(t, geminiReq.GetTools())
-	require.Len(t, geminiReq.Contents, 1)
-	assert.Equal(t, "user", geminiReq.Contents[0].Role)
-	require.Len(t, geminiReq.Contents[0].Parts, 1)
+
+	require.Len(t, geminiReq.GetTools(), 1)
+	require.True(t, info.ResponsesTools.IsCustomTool("apply_patch"))
+	require.Len(t, geminiReq.Contents, 3)
 	assert.Equal(t, "next turn", geminiReq.Contents[0].Parts[0].Text)
+	call := geminiReq.Contents[1].Parts[0].FunctionCall
+	require.NotNil(t, call)
+	assert.Equal(t, "call_custom", call.ID)
+	assert.Equal(t, map[string]any{"input": "patch body"}, call.Arguments)
+	require.Len(t, geminiReq.Contents[2].Parts, 2)
+	assert.Equal(t, "apply_patch", geminiReq.Contents[2].Parts[0].FunctionResponse.Name)
+	assert.JSONEq(t, `"call_custom"`, string(geminiReq.Contents[2].Parts[0].FunctionResponse.ID))
+
 	assert.Equal(t, ConverterOpenAIResponsesToGemini, result.Converter)
 	assert.Equal(t, RequestConverterQualityFair, result.Quality)
 	assert.Equal(t, []RequestStep{

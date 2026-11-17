@@ -21,4 +21,10 @@ type BillingSettler interface {
 
 	// Reserve 将预扣额度补到目标值；若目标值不高于当前预扣额度则不做任何事。
 	Reserve(targetQuota int) error
+
+	// ReserveWithCommit publishes the actual reservation through commit. If
+	// commit fails, roll back only this call's increase, keeping the previous
+	// reservation available for its existing settlement/refund owner.
+	// commit must not call back into the billing session.
+	ReserveWithCommit(targetQuota int, commit func(reservedQuota int) error) error
 }

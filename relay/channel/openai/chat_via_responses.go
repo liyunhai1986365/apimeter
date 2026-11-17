@@ -60,6 +60,13 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 		chatResp.Usage = *usage
 	}
 
+	if info.IsStream && info.RelayFormat == types.RelayFormatClaude {
+		if err := writeClaudeResponsesJSONStream(c, info, &responsesResp, chatResp, usage); err != nil {
+			return nil, err
+		}
+		return usage, nil
+	}
+
 	responseValue := any(chatResp)
 	if info.RelayFormat != types.RelayFormatOpenAI {
 		targetResult, err := relayconvert.ConvertResponse(c, info, info.RelayFormat, chatResp)
@@ -75,6 +82,78 @@ func OaiResponsesToChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 	return usage, nil
+}
+
+// A Responses upstream may return JSON even when the client requested a
+// stream. Keep Claude's SSE contract, including any preparation pings, while
+// retaining the JSON path's usage calculation for settlement.
+func writeClaudeResponsesJSONStream(c *gin.Context, info *relaycommon.RelayInfo, response *dto.OpenAIResponsesResponse, chatResponse *dto.OpenAITextResponse, usage *dto.Usage) *types.NewAPIError {
+	state, err := relayconvert.NewResponseStreamState(types.RelayFormatOpenAIResponses, types.RelayFormatClaude, relayconvert.ResponseStreamOptions{
+		ID: chatResponse.Id, Model: chatResponse.Model, Created: int64(response.CreatedAt),
+	})
+	if err != nil {
+		return types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
+	}
+
+	// The JSON converter collects every output message. Supplying its complete
+	// text first also prevents terminal-event recovery from stopping at the
+	// first message in a response containing several output messages.
+	var events []dto.ResponsesStreamResponse
+	if len(chatResponse.Choices) > 0 {
+		message := chatResponse.Choices[0].Message
+		if message.ReasoningContent != nil && *message.ReasoningContent != "" {
+			events = append(events, dto.ResponsesStreamResponse{Type: "response.reasoning_text.delta", Delta: *message.ReasoningContent})
+		}
+		if text := message.StringContent(); text != "" {
+			events = append(events, dto.ResponsesStreamResponse{Type: "response.output_text.delta", Delta: text})
+		}
+	}
+	terminalType := "response.completed"
+	var status string
+	_ = common.Unmarshal(response.Status, &status)
+	if strings.TrimSpace(status) == "incomplete" {
+		terminalType = "response.incomplete"
+	}
+	events = append(events, dto.ResponsesStreamResponse{Type: terminalType, Response: response})
+
+	var results []relayconvert.ResponseResult
+	for i := range events {
+		converted, err := relayconvert.ConvertStreamResponseChunk(c, info, state, &events[i])
+		if err != nil {
+			return types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+		results = append(results, converted...)
+	}
+	state.SetUsage(usage)
+	info.EnsureClaudeConvertInfo().Usage = usage
+	finalResults, err := relayconvert.FinalizeStreamResponse(c, info, state)
+	if err != nil {
+		return types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+	}
+	results = append(results, finalResults...)
+
+	claudeEvents := make([]dto.ClaudeResponse, 0, len(results))
+	for _, result := range results {
+		switch value := result.Value.(type) {
+		case dto.ClaudeResponse:
+			claudeEvents = append(claudeEvents, value)
+		case *dto.ClaudeResponse:
+			if value != nil {
+				claudeEvents = append(claudeEvents, *value)
+			}
+		default:
+			return types.NewOpenAIError(fmt.Errorf("expected Claude stream response, got %T", result.Value), types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
+		}
+	}
+	helper.StopStreamKeepAlive(c)
+	helper.SetEventStreamHeaders(c)
+	info.SetFirstResponseTime()
+	for _, event := range claudeEvents {
+		if err := helper.ClaudeData(c, event); err != nil {
+			return types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
+		}
+	}
+	return nil
 }
 
 func OaiResponsesToChatBufferedStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

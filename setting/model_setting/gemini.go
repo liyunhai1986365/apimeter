@@ -2,9 +2,11 @@ package model_setting
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/setting/config"
+	"github.com/QuantumNous/new-api/setting/reasoning"
 )
 
 const defaultGeminiSafetySetting = "OFF"
@@ -114,4 +116,23 @@ func IsGeminiModelSupportImagine(model string) bool {
 		}
 	}
 	return false
+}
+
+// GeminiRequestModelName is shared by URL construction and capability checks.
+func GeminiRequestModelName(origin, upstream string) string {
+	if !GetGeminiSettings().ThinkingAdapterEnabled || ShouldPreserveThinkingSuffix(origin) || ShouldPreserveThinkingSuffix(upstream) {
+		return upstream
+	}
+	if index := strings.LastIndex(upstream, "-thinking-"); index >= 0 {
+		return upstream[:index]
+	}
+	for _, suffix := range []string{"-thinking", "-nothinking"} {
+		if strings.HasSuffix(upstream, suffix) {
+			return strings.TrimSuffix(upstream, suffix)
+		}
+	}
+	if base, _, ok := reasoning.TrimEffortSuffix(upstream); ok {
+		return base
+	}
+	return upstream
 }

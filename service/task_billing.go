@@ -17,6 +17,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 )
 
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
@@ -361,20 +362,55 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 // SettleImageTaskUsage recalculates a completed image task from the frozen
 // submission-time pricing snapshot and adjusts the pre-consumed quota.
 func SettleImageTaskUsage(ctx context.Context, task *model.Task, usage *dto.Usage, responseBody []byte) {
-	if task == nil || usage == nil || !imageTaskUsageHasTokens(usage) {
+	if task == nil {
 		return
 	}
-	usage = normalizeImageTaskUsage(usage)
 	bc := task.PrivateData.BillingContext
 	if bc == nil {
 		return
 	}
+	// Fixed image prices can settle from delivered images alone. Token and
+	// expression pricing still require usage before replacing the reservation.
+	if !bc.PerCallBilling && !imageTaskUsageHasTokens(usage) {
+		return
+	}
+	usage = normalizeImageTaskUsage(usage)
+	if usage == nil {
+		usage = &dto.Usage{}
+	}
 	if task.PrivateData.BillingSource == BillingSourceUserOwnedProvider {
-		settleImageTaskActualQuota(ctx, task, 0, normalizeImageTaskUsage(usage), nil)
+		settleImageTaskActualQuota(ctx, task, 0, usage, nil)
 		return
 	}
 	if bc.PerCallBilling {
-		settleImageTaskActualQuota(ctx, task, task.Quota, normalizeImageTaskUsage(usage), nil)
+		actualQuota := task.Quota
+		// Both local workers and polled image tasks store a normalized result.
+		// Count delivered images, not the requested/reserved sampleCount. Keep
+		// the old fallback for legacy task results without an image list.
+		var result dto.ImageTaskResponse
+		if common.Unmarshal(task.Data, &result) == nil {
+			count := 0
+			for _, image := range result.Data.Images {
+				if strings.TrimSpace(image.URL) != "" || strings.TrimSpace(image.B64Json) != "" {
+					count++
+				}
+			}
+			if count > 0 {
+				info := imageTaskSettlementRelayInfo(task, responseBody)
+				// Clone before changing n; the frozen request and other pricing
+				// dimensions must survive unchanged for logs and expressions.
+				info.PriceData.OtherRatios = info.PriceData.CloneOtherRatios()
+				info.PriceData.AddOtherRatio("n", float64(count))
+				// Fixed image prices depend on delivered count, not on a token
+				// breakdown. Text settlement treats total-only usage as empty.
+				quota := decimal.NewFromFloat(bc.ModelPrice).
+					Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
+					Mul(decimal.NewFromFloat(bc.GroupRatio))
+				actualQuota = common.QuotaFromDecimal(info.PriceData.ApplyOtherRatiosToDecimal(quota))
+				bc.OtherRatios = info.PriceData.CloneOtherRatios()
+			}
+		}
+		settleImageTaskActualQuota(ctx, task, actualQuota, usage, nil)
 		return
 	}
 	relayInfo := imageTaskSettlementRelayInfo(task, responseBody)
@@ -494,7 +530,7 @@ func settleImageTaskActualQuota(ctx context.Context, task *model.Task, actualQuo
 		taskAdjustTokenQuota(ctx, task, quotaDelta)
 	}
 	task.Quota = actualQuota
-	if err := model.DB.Model(task).Update("quota", actualQuota).Error; err != nil {
+	if err := model.DB.Model(task).Updates(map[string]any{"quota": actualQuota, "private_data": task.PrivateData}).Error; err != nil {
 		logger.LogWarn(ctx, fmt.Sprintf("更新图片任务实际扣费失败 task %s: %s", task.TaskID, err.Error()))
 	}
 	model.UpdateUserUsedQuotaAndRequestCount(task.UserId, actualQuota)

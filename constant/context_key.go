@@ -79,6 +79,8 @@ const (
 	// ContextKeyLanguage stores the user's language preference for i18n
 	ContextKeyLanguage ContextKey = "language"
 	ContextKeyIsStream ContextKey = "is_stream"
+	// A stream can fail after a keepalive committed HTTP 200.
+	ContextKeyRelayFailed ContextKey = "relay_failed"
 
 	ContextKeyAgentContext ContextKey = "agent_context"
 

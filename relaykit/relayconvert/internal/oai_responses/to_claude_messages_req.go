@@ -63,11 +63,11 @@ func OpenAIResponsesRequestToClaudeMessages(c context.Context, info convmeta.Met
 	if toolChoice != nil || RawJSONPresent(req.ParallelToolCalls) {
 		claudeRequest.ToolChoice = sharedclaude.MapOpenAIToolChoice(toolChoice, ParallelToolCalls(req.ParallelToolCalls))
 	}
-	if baseModel, effort, ok := reasoning.TrimEffortSuffix(req.Model); ok && reasoning.ClaudeSupportsAdaptiveThinking(baseModel) {
+	if baseModel, effort, ok := reasoning.TrimClaudeEffortSuffix(req.Model); ok && reasoning.IsKnownClaudeModel(baseModel) {
 		if !convmeta.OptionsOf(info).ShouldPreserveThinkingSuffix(req.Model) {
 			claudeRequest.Model = baseModel
 		}
-		if err := reasoning.SetClaudeAdaptiveThinking(claudeRequest, effort); err != nil {
+		if err := reasoning.ApplyClaudeReasoningEffort(claudeRequest, effort); err != nil {
 			return nil, err
 		}
 	} else if opts := convmeta.OptionsOf(info); opts.Claude.ThinkingAdapterEnabled &&
@@ -143,6 +143,9 @@ func OpenAIResponsesRequestToClaudeMessages(c context.Context, info convmeta.Met
 	// required field.
 	if claudeRequest.MaxTokens == nil {
 		return nil, sharedclaude.ErrMissingMaxTokens
+	}
+	if err := reasoning.NormalizeClaudeThinking(claudeRequest); err != nil {
+		return nil, err
 	}
 	return claudeRequest, nil
 }

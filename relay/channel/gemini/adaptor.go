@@ -7,15 +7,15 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
-	"github.com/QuantumNous/new-api/setting/reasoning"
-
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -24,6 +24,9 @@ type Adaptor struct {
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
+	if err := relayconvert.ApplyGeminiThinkingConfig(request, info); err != nil {
+		return nil, service.ConversionRequestError(err)
+	}
 	if len(request.Contents) > 0 {
 		for i, content := range request.Contents {
 			if i == 0 {
@@ -44,10 +47,11 @@ func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayIn
 }
 
 func (a *Adaptor) ConvertClaudeRequest(c *gin.Context, info *relaycommon.RelayInfo, req *dto.ClaudeRequest) (any, error) {
-	result, err := relayconvert.ConvertRequest(c, info, types.RelayFormatGemini, req)
+	result, err := service.ConvertRequest(c, info, types.RelayFormatGemini, req)
 	if err != nil {
 		return nil, err
 	}
+	logGeminiConversionDiagnostics(result)
 	geminiRequest, ok := result.Value.(*dto.GeminiChatRequest)
 	if !ok {
 		return nil, fmt.Errorf("expected Gemini generateContent request, got %T", result.Value)
@@ -132,20 +136,7 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 
-	if model_setting.GetGeminiSettings().ThinkingAdapterEnabled &&
-		!model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) {
-		// 新增逻辑：处理 -thinking-<budget> 格式
-		if strings.Contains(info.UpstreamModelName, "-thinking-") {
-			parts := strings.Split(info.UpstreamModelName, "-thinking-")
-			info.UpstreamModelName = parts[0]
-		} else if strings.HasSuffix(info.UpstreamModelName, "-thinking") { // 旧的适配
-			info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
-		} else if strings.HasSuffix(info.UpstreamModelName, "-nothinking") {
-			info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-nothinking")
-		} else if baseModel, level, ok := reasoning.TrimEffortSuffix(info.UpstreamModelName); ok && level != "" {
-			info.UpstreamModelName = baseModel
-		}
-	}
+	info.UpstreamModelName = model_setting.GeminiRequestModelName(info.OriginModelName, info.UpstreamModelName)
 
 	version := model_setting.GetGeminiVersionSetting(info.UpstreamModelName)
 
@@ -185,10 +176,11 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
-	result, err := relayconvert.ConvertRequest(c, info, types.RelayFormatGemini, request)
+	result, err := service.ConvertRequest(c, info, types.RelayFormatGemini, request)
 	if err != nil {
 		return nil, err
 	}
+	logGeminiConversionDiagnostics(result)
 	return result.Value, nil
 }
 
@@ -201,6 +193,14 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 		return nil, errors.New("input is required")
 	}
 
+	// Reject every non-string item rather than silently dropping part of a batch.
+	if items, ok := request.Input.([]any); ok {
+		for _, item := range items {
+			if _, ok := item.(string); !ok {
+				return nil, types.NewErrorWithStatusCode(errors.New("gemini embedding conversion accepts only plain text input"), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+			}
+		}
+	}
 	inputs := request.ParseInput()
 	if len(inputs) == 0 {
 		return nil, errors.New("input is empty")
@@ -241,10 +241,11 @@ func (a *Adaptor) ConvertEmbeddingRequest(c *gin.Context, info *relaycommon.Rela
 }
 
 func (a *Adaptor) ConvertOpenAIResponsesRequest(c *gin.Context, info *relaycommon.RelayInfo, request dto.OpenAIResponsesRequest) (any, error) {
-	result, err := relayconvert.ConvertRequest(c, info, types.RelayFormatGemini, &request)
+	result, err := service.ConvertRequest(c, info, types.RelayFormatGemini, &request)
 	if err != nil {
 		return nil, err
 	}
+	logGeminiConversionDiagnostics(result)
 	geminiRequest, ok := result.Value.(*dto.GeminiChatRequest)
 	if !ok {
 		return nil, fmt.Errorf("expected Gemini generateContent request, got %T", result.Value)
@@ -304,4 +305,36 @@ func (a *Adaptor) GetModelList() []string {
 
 func (a *Adaptor) GetChannelName() string {
 	return ChannelName
+}
+
+func logGeminiConversionDiagnostics(result *relayconvert.RequestResult) {
+	if result == nil {
+		return
+	}
+	for _, d := range result.Diagnostics {
+		common.SysLog(fmt.Sprintf("Gemini conversion %s at %s: %s", d.Code, d.Path, d.Message))
+	}
+}
+
+// Imagen uses sampleCount; only recognize the Imagen request shape.
+func (a *Adaptor) OutboundImageCount(body []byte) (*uint, error) {
+	var request struct {
+		Instances  any `json:"instances"`
+		Parameters struct {
+			SampleCount *uint `json:"sampleCount"`
+		} `json:"parameters"`
+	}
+	if err := common.Unmarshal(body, &request); err != nil {
+		return nil, err
+	}
+	if request.Instances == nil {
+		return nil, nil
+	}
+	if request.Parameters.SampleCount == nil {
+		return common.GetPointer(uint(4)), nil
+	}
+	if *request.Parameters.SampleCount == 0 {
+		return nil, errors.New("Imagen sampleCount must be positive")
+	}
+	return request.Parameters.SampleCount, nil
 }

@@ -6,6 +6,7 @@ import (
 	"mime"
 	"net/http"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
@@ -53,7 +54,7 @@ type GeneralOpenAIRequest struct {
 	ResponseFormat      *ResponseFormat   `json:"response_format,omitempty"`
 	EncodingFormat      json.RawMessage   `json:"encoding_format,omitempty"`
 	Seed                *float64          `json:"seed,omitempty"`
-	ParallelTooCalls    *bool             `json:"parallel_tool_calls,omitempty"`
+	ParallelToolCalls    *bool             `json:"parallel_tool_calls,omitempty"`
 	Tools               []ToolCallRequest `json:"tools,omitempty"`
 	ToolChoice          any               `json:"tool_choice,omitempty"`
 	FunctionCall        json.RawMessage   `json:"function_call,omitempty"`
@@ -260,10 +261,43 @@ type ToolCallRequest struct {
 }
 
 type FunctionRequest struct {
-	Description string `json:"description,omitempty"`
-	Name        string `json:"name"`
-	Parameters  any    `json:"parameters,omitempty"`
-	Arguments   string `json:"arguments,omitempty"`
+	Strict        *bool           `json:"strict,omitempty"`
+	Description   string          `json:"description,omitempty"`
+	Name          string          `json:"name"`
+	Parameters    any             `json:"parameters,omitempty"`
+	RawParameters json.RawMessage `json:"-"`
+	Arguments     string          `json:"arguments,omitempty"`
+}
+
+// UnmarshalJSON retains the schema bytes for Gemini's JSON Schema dialect,
+// while keeping the decoded Parameters contract used by other providers.
+func (f *FunctionRequest) UnmarshalJSON(data []byte) error {
+	type plain FunctionRequest
+	var decoded plain
+	if err := kitutil.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	var raw struct {
+		Parameters json.RawMessage `json:"parameters"`
+	}
+	if err := kitutil.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	decoded.RawParameters = raw.Parameters
+	*f = FunctionRequest(decoded)
+	return nil
+}
+
+func (f FunctionRequest) MarshalJSON() ([]byte, error) {
+	type plain FunctionRequest
+	out := plain(f)
+	if len(f.RawParameters) > 0 {
+		var original any
+		if kitutil.Unmarshal(f.RawParameters, &original) == nil && reflect.DeepEqual(original, f.Parameters) {
+			out.Parameters = f.RawParameters
+		}
+	}
+	return kitutil.Marshal(out)
 }
 
 type StreamOptions struct {
@@ -301,6 +335,7 @@ func (r *GeneralOpenAIRequest) ParseInput() []string {
 }
 
 type Message struct {
+	Annotations      json.RawMessage `json:"annotations,omitempty"`
 	Role             string          `json:"role"`
 	Content          any             `json:"content"`
 	Name             *string         `json:"name,omitempty"`

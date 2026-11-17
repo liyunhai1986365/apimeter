@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
 )
 
@@ -32,6 +33,9 @@ const (
 )
 
 func ChatCompletionsResponseToResponsesResponse(resp *dto.OpenAITextResponse, id string) (*dto.OpenAIResponsesResponse, *dto.Usage, error) {
+	return ChatCompletionsResponseToResponsesResponseWithTools(resp, id, nil)
+}
+func ChatCompletionsResponseToResponsesResponseWithTools(resp *dto.OpenAITextResponse, id string, tools *convmeta.ResponsesToolState) (*dto.OpenAIResponsesResponse, *dto.Usage, error) {
 	if resp == nil {
 		return nil, nil, errors.New("response is nil")
 	}
@@ -67,7 +71,7 @@ func ChatCompletionsResponseToResponsesResponse(resp *dto.OpenAITextResponse, id
 				{
 					Type:        "output_text",
 					Text:        text,
-					Annotations: []interface{}{},
+					Annotations: chatAnnotationsToResponses(choice.Message.Annotations),
 				},
 			},
 		})
@@ -91,6 +95,14 @@ func ChatCompletionsResponseToResponsesResponse(resp *dto.OpenAITextResponse, id
 		if err != nil {
 			return nil, nil, err
 		}
+
+		if tools.IsCustomTool(toolCall.Function.Name) {
+			input := customToolInputFromArguments(toolCall.Function.Arguments)
+			toolOutput.Type = "custom_tool_call"
+			toolOutput.Arguments = nil
+			toolOutput.Input = &input
+		}
+		toolOutput.Namespace, toolOutput.Name = tools.ResponsesToolName(toolOutput.Name)
 		out.Output = append(out.Output, toolOutput)
 	}
 
@@ -229,4 +241,47 @@ func responsesStreamEvent(eventType string, payload dto.ResponsesStreamResponse)
 
 func intPtr(v int) *int {
 	return &v
+}
+
+func customToolInputFromArguments(arguments string) string {
+	var value map[string]any
+	if err := kitutil.UnmarshalJsonStr(arguments, &value); err != nil {
+		return arguments
+	}
+	input, ok := value[convmeta.CustomToolInputArgument]
+	if !ok {
+		return arguments
+	}
+	if text, ok := input.(string); ok {
+		return text
+	}
+	raw, err := kitutil.Marshal(input)
+	if err != nil {
+		return arguments
+	}
+	return string(raw)
+}
+
+func chatAnnotationsToResponses(raw []byte) []any {
+	annotations := []any{}
+	var items []map[string]any
+	if kitutil.Unmarshal(raw, &items) != nil {
+		return annotations
+	}
+	for _, item := range items {
+		if item["type"] == "url_citation" {
+			if citation, ok := item["url_citation"].(map[string]any); ok {
+				citation["type"] = "url_citation"
+				annotations = append(annotations, citation)
+				continue
+			}
+		}
+		annotations = append(annotations, item)
+	}
+	return annotations
+}
+
+func WebSearchOutput(queries []string, id string) dto.ResponsesOutput {
+	action, _ := kitutil.Marshal(map[string]any{"type": "search", "queries": queries})
+	return dto.ResponsesOutput{Type: "web_search_call", ID: id, Status: "completed", Action: action}
 }

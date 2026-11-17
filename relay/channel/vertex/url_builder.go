@@ -32,6 +32,13 @@ func appendVertexAPIVersion(baseURL, version string) string {
 	if strings.HasSuffix(baseURL, "/"+version) {
 		return baseURL
 	}
+	// Existing proxy URLs may already end in a Vertex API version. Keep
+	// the proxy's path prefix when the channel selects a different version.
+	for _, knownVersion := range []string{DefaultAPIVersion, OpenSourceAPIVersion} {
+		if strings.HasSuffix(baseURL, "/"+knownVersion) {
+			return strings.TrimSuffix(baseURL, "/"+knownVersion) + "/" + version
+		}
+	}
 	return baseURL + "/" + version
 }
 
@@ -47,17 +54,18 @@ func BuildAPIBaseURL(baseURL, version, projectID, region string) string {
 	}
 
 	region = normalizeVertexRegion(region)
+	host := region + "-aiplatform.googleapis.com"
+	switch region {
+	case "global":
+		host = "aiplatform.googleapis.com"
+	case "us", "eu":
+		// The US and EU multi-regions are served from their own hostnames.
+		host = "aiplatform." + region + ".rep.googleapis.com"
+	}
 	if strings.TrimSpace(projectID) == "" {
-		if region == "global" {
-			return fmt.Sprintf("https://aiplatform.googleapis.com/%s", version)
-		}
-		return fmt.Sprintf("https://%s-aiplatform.googleapis.com/%s", region, version)
+		return fmt.Sprintf("https://%s/%s", host, version)
 	}
-
-	if region == "global" {
-		return fmt.Sprintf("https://aiplatform.googleapis.com/%s/projects/%s/locations/global", version, projectID)
-	}
-	return fmt.Sprintf("https://%s-aiplatform.googleapis.com/%s/projects/%s/locations/%s", region, version, projectID, region)
+	return fmt.Sprintf("https://%s/%s/projects/%s/locations/%s", host, version, projectID, region)
 }
 
 func BuildPublisherModelURL(baseURL, version, projectID, region, publisher, modelName, action string) string {

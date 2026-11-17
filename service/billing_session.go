@@ -157,7 +157,54 @@ func (s *BillingSession) GetPreConsumedQuota() int {
 func (s *BillingSession) Reserve(targetQuota int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.reserveLocked(targetQuota)
+}
 
+// ReserveWithCommit hands an increased reservation to a persisted task. A
+// timeout may win the task CAS while Reserve is running; in that case the
+// timeout owns the old reservation and we must undo only the new difference.
+func (s *BillingSession) ReserveWithCommit(targetQuota int, commit func(int) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if commit == nil {
+		return errors.New("reservation commit is required")
+	}
+	if s.settled || s.refunded || s.fundingSettled {
+		return errors.New("billing session is already closed")
+	}
+	previousQuota := s.preConsumedQuota
+	if err := s.reserveLocked(targetQuota); err != nil {
+		return err
+	}
+	if err := commit(s.preConsumedQuota); err != nil {
+		delta := s.preConsumedQuota - previousQuota
+		if delta <= 0 {
+			return err
+		}
+		fundingErr := s.rollbackFundingReserve(delta)
+		if fundingErr == nil {
+			s.preConsumedQuota -= delta
+			s.extraReserved -= delta
+		}
+		var tokenErr error
+		if !s.relayInfo.IsPlayground {
+			tokenErr = model.IncreaseTokenQuota(s.relayInfo.TokenId, s.relayInfo.TokenKey, delta)
+		}
+		if tokenErr == nil {
+			s.tokenConsumed -= delta
+		}
+		s.syncRelayInfo()
+		if fundingErr != nil || tokenErr != nil {
+			rollbackErr := fmt.Errorf("rolling back unpublished reservation (userId=%d, tokenId=%d, delta=%d): %w", s.relayInfo.UserId, s.relayInfo.TokenId, delta, errors.Join(fundingErr, tokenErr))
+			common.SysLog(rollbackErr.Error())
+			return errors.Join(err, rollbackErr)
+		}
+		return err
+	}
+	return nil
+}
+
+func (s *BillingSession) reserveLocked(targetQuota int) error {
 	if s.settled || s.refunded || s.trusted || targetQuota <= s.preConsumedQuota {
 		return nil
 	}
@@ -174,7 +221,9 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 		return err
 	}
 	if err := s.reserveToken(delta); err != nil {
-		s.rollbackFundingReserve(delta)
+		if rollbackErr := s.rollbackFundingReserve(delta); rollbackErr != nil {
+			common.SysLog("error rolling back funding reserve: " + rollbackErr.Error())
+		}
 		return err
 	}
 
@@ -281,19 +330,17 @@ func (s *BillingSession) reserveFunding(delta int) error {
 	}
 }
 
-func (s *BillingSession) rollbackFundingReserve(delta int) {
+func (s *BillingSession) rollbackFundingReserve(delta int) error {
 	switch funding := s.funding.(type) {
 	case *WalletFunding:
 		if err := model.IncreaseUserQuota(funding.userId, delta, false); err != nil {
-			common.SysLog("error rolling back wallet funding reserve: " + err.Error())
-		} else {
-			funding.consumed -= delta
+			return err
 		}
+		funding.consumed -= delta
 	case *SubscriptionFunding:
-		if err := model.PostConsumeUserSubscriptionDelta(funding.subscriptionId, -int64(delta)); err != nil {
-			common.SysLog("error rolling back subscription funding reserve: " + err.Error())
-		}
+		return model.PostConsumeUserSubscriptionDelta(funding.subscriptionId, -int64(delta))
 	}
+	return nil
 }
 
 func (s *BillingSession) reserveToken(delta int) error {

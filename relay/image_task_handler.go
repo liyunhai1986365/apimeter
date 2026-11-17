@@ -344,6 +344,40 @@ func imageAsyncPreConsumedQuota(info *relaycommon.RelayInfo) int {
 	return info.PriceData.QuotaToPreConsume
 }
 
+// A local task is inserted before the worker applies channel overrides. Save
+// any extra reservation before submitting upstream so completion and polling
+// refunds use the amount actually deducted, including after a task reload.
+func syncLocalImageAsyncReservation(c *gin.Context, info *relaycommon.RelayInfo, reservedQuota int) error {
+	if !isLocalImageAsyncWorker(c) {
+		return nil
+	}
+	value, _ := c.Get(localImageAsyncTaskKey)
+	task, ok := value.(*model.Task)
+	if !ok || task == nil {
+		return fmt.Errorf("missing local image task for reservation")
+	}
+	// Do not mutate the worker's snapshot unless the CAS succeeds. On failure
+	// the billing session rolls back the increase to match the original task.
+	updated := *task
+	updated.Quota = reservedQuota
+	updated.PrivateData.BillingSource = info.BillingSource
+	updated.PrivateData.SubscriptionId = info.SubscriptionId
+	if bc := task.PrivateData.BillingContext; bc != nil {
+		billingContext := *bc
+		billingContext.OtherRatios = info.PriceData.CloneOtherRatios()
+		updated.PrivateData.BillingContext = &billingContext
+	}
+	won, err := updated.UpdateWithStatus(model.TaskStatusInProgress)
+	if err == nil && !won {
+		err = fmt.Errorf("local image task changed before reservation was saved")
+	}
+	if err != nil {
+		return err
+	}
+	*task = updated
+	return nil
+}
+
 func createLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, requestBody []byte) (*model.Task, []byte, *types.NewAPIError) {
 	task, apiErr := insertLocalImageAsyncTask(info, requestBody)
 	if apiErr != nil {

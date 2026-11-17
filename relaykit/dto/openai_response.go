@@ -111,6 +111,7 @@ type ChatCompletionsStreamResponseChoice struct {
 }
 
 type ChatCompletionsStreamResponseChoiceDelta struct {
+	Annotations      json.RawMessage    `json:"annotations,omitempty"`
 	Content          *string            `json:"content,omitempty"`
 	ReasoningContent *string            `json:"reasoning_content,omitempty"`
 	Reasoning        *string            `json:"reasoning,omitempty"`
@@ -427,6 +428,9 @@ type IncompleteDetails struct {
 }
 
 type ResponsesOutput struct {
+	Namespace string                   `json:"namespace,omitempty"`
+	Action    json.RawMessage          `json:"action,omitempty"`
+	Input     *string                  `json:"input,omitempty"`
 	Type      string                   `json:"type"`
 	ID        string                   `json:"id"`
 	Status    string                   `json:"status"`
@@ -486,10 +490,13 @@ const (
 
 // ResponsesStreamResponse 用于处理 /v1/responses 流式响应
 type ResponsesStreamResponse struct {
-	Type     string                   `json:"type"`
-	Response *OpenAIResponsesResponse `json:"response,omitempty"`
-	Delta    string                   `json:"delta,omitempty"`
-	Item     *ResponsesOutput         `json:"item,omitempty"`
+	Input           *string                  `json:"input,omitempty"`
+	Annotation      any                      `json:"annotation,omitempty"`
+	AnnotationIndex *int                     `json:"annotation_index,omitempty"`
+	Type            string                   `json:"type"`
+	Response        *OpenAIResponsesResponse `json:"response,omitempty"`
+	Delta           string                   `json:"delta,omitempty"`
+	Item            *ResponsesOutput         `json:"item,omitempty"`
 	// - response.function_call_arguments.delta
 	// - response.function_call_arguments.done
 	OutputIndex  *int                           `json:"output_index,omitempty"`

@@ -13,7 +13,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -39,6 +38,10 @@ func GeminiTextGenerationHandler(c *gin.Context, info *relaycommon.RelayInfo, re
 		common.SetContextKey(c, constant.ContextKeyAdminRejectReason, fmt.Sprintf("gemini_block_reason=%s", *geminiResponse.PromptFeedback.BlockReason))
 	}
 
+	var grounding geminiGroundingCounter
+	grounding.observe(&geminiResponse)
+	grounding.commit(info)
+
 	// 计算使用量（优先上游 UsageMetadata，缺失时本地估算并保留 Gemini 计费语义）
 	usage := buildUsageFromGeminiResponse(c, info, &geminiResponse)
 
@@ -57,7 +60,7 @@ func NativeGeminiEmbeddingHandler(c *gin.Context, resp *http.Response, info *rel
 
 	logger.LogDebug(c, "Gemini native embedding response body: %s", responseBody)
 
-	usage := service.ResponseText2Usage(c, "", info.UpstreamModelName, info.GetEstimatePromptTokens())
+	var metadata *dto.GeminiEmbeddingUsageMetadata
 
 	if info.IsGeminiBatchEmbedding {
 		var geminiResponse dto.GeminiBatchEmbeddingResponse
@@ -65,13 +68,17 @@ func NativeGeminiEmbeddingHandler(c *gin.Context, resp *http.Response, info *rel
 		if err != nil {
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
+		metadata = geminiResponse.UsageMetadata
 	} else {
 		var geminiResponse dto.GeminiEmbeddingResponse
 		err = common.Unmarshal(responseBody, &geminiResponse)
 		if err != nil {
 			return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponseBody, http.StatusInternalServerError)
 		}
+		metadata = geminiResponse.UsageMetadata
 	}
+
+	usage := buildGeminiEmbeddingUsage(c, info, metadata)
 
 	service.IOCopyBytesGracefully(c, resp, responseBody)
 

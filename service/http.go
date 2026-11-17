@@ -45,6 +45,11 @@ func IOCopyBytesGracefully(c *gin.Context, src *http.Response, data []byte) {
 	if c.Writer == nil {
 		return
 	}
+	// A streaming client can receive a buffered JSON fallback. Join request
+	// pings before changing headers, just as the stream scanner does.
+	if writer, ok := c.Writer.(interface{ StopStreamKeepAlive() }); ok {
+		writer.StopStreamKeepAlive()
+	}
 
 	body := io.NopCloser(bytes.NewBuffer(data))
 

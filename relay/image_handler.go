@@ -33,6 +33,15 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 	if !ok {
 		return types.NewErrorWithStatusCode(fmt.Errorf("invalid request type, expected dto.ImageRequest, got %T", info.Request), types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 	}
+	// Reset a previous channel's quantity override before retrying another channel.
+	if info.OutboundImageCount != nil && info.PriceData.UsePrice {
+		n := uint(1)
+		if imageReq.N != nil && *imageReq.N > 0 {
+			n = *imageReq.N
+		}
+		info.PriceData.AddOtherRatio("n", float64(n))
+	}
+	info.OutboundImageCount = nil
 	// Response handling can change IsStream. Each channel attempt must start
 	// with the original client intent, including after a JSON upstream error.
 	info.IsStream = imageReq.IsStream(c.Request)
@@ -93,6 +102,15 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 			return types.NewErrorWithStatusCode(err, types.ErrorCodeReadRequestBodyFailed, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
 		}
 		requestBody = common.NewReplayableBodyReader(storage)
+		if _, ok := adaptor.(outboundImageCounter); ok {
+			raw, readErr := storage.Bytes()
+			if readErr != nil {
+				return types.NewError(readErr, types.ErrorCodeReadRequestBodyFailed)
+			}
+			if apiErr := prepareOutboundImageCount(c, info, request, adaptor, raw); apiErr != nil {
+				return apiErr
+			}
+		}
 	} else {
 		convertedRequest, err := adaptor.ConvertImageRequest(c, info, *request)
 		if err != nil {
@@ -117,6 +135,9 @@ func ImageHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *type
 				}
 			}
 
+			if apiErr := prepareOutboundImageCount(c, info, request, adaptor, jsonData); apiErr != nil {
+				return apiErr
+			}
 			logger.LogDebug(c, "image request body: %s", jsonData)
 			body, closer, err := relaycommon.NewOutboundJSONBody(jsonData)
 			if err != nil {

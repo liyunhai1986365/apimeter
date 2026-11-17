@@ -347,6 +347,13 @@ func (*recordingBillingSettler) Refund(*gin.Context) {}
 
 func (*recordingBillingSettler) NeedsRefund() bool { return false }
 
+func (s *recordingBillingSettler) ReserveWithCommit(targetQuota int, commit func(int) error) error {
+	if err := s.Reserve(targetQuota); err != nil {
+		return err
+	}
+	return commit(s.preConsumedQuota)
+}
+
 func (s *recordingBillingSettler) GetPreConsumedQuota() int {
 	return s.preConsumedQuota
 }

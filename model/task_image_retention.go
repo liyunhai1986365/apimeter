@@ -152,9 +152,11 @@ func (t *Task) updateWithImageVersion(query *gorm.DB) (bool, error) {
 	if err := updated.prepareImageRetention(common.GetTimestamp(), false); err != nil {
 		return false, err
 	}
-	// Image writes advance the revision even when the execution status stays
-	// SUCCESS. Leave unrelated tasks' no-op update semantics unchanged.
-	if updated.ImageBase64State == TaskImagePresent || updated.ImageBase64State == TaskImageCleared {
+	// Async image reservations change while the task remains IN_PROGRESS.
+	// Advance their revision even before any result exists: stale timeout
+	// snapshots must not overwrite a newer reservation. This also makes a
+	// same-value reservation write a real update on MySQL (changed rows).
+	if updated.PrivateData.AsyncImage || updated.ImageBase64State == TaskImagePresent || updated.ImageBase64State == TaskImageCleared {
 		updated.ImageBase64Version++
 	}
 	// Do not use Model(t): GORM assigns update fields into that pointer even

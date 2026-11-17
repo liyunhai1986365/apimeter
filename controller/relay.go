@@ -103,12 +103,19 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 
 	defer func() {
 		if newAPIError != nil {
+			common.SetContextKey(c, constant.ContextKeyRelayFailed, true)
 			service.MarkRetryRouteFinal(c, false, "failed")
 			recordRelayErrorLog(c, nil, newAPIError)
 			logger.LogError(c, fmt.Sprintf("relay error: %s", newAPIError.Error()))
 			newAPIError.SetMessage(common.MessageWithRequestId(newAPIError.Error(), requestId))
 			if relayFormat != types.RelayFormatOpenAIRealtime && c.Writer != nil && c.Writer.Written() {
+				if strings.HasPrefix(c.Writer.Header().Get("Content-Type"), "text/event-stream") {
+					writeRelayStreamError(c, relayFormat, newAPIError)
+				}
 				return
+			}
+			if relayFormat != types.RelayFormatOpenAIRealtime {
+				c.Header("Content-Type", "application/json; charset=utf-8")
 			}
 			switch relayFormat {
 			case types.RelayFormatOpenAIRealtime:
@@ -158,6 +165,11 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 	}
 	if relayInfo.IsAsyncImageRequest && relayInfo.RelayMode == relayconstant.RelayModeImagesGenerations {
 		relayInfo.ForcePreConsume = true
+	}
+	generalSettings := operation_setting.GetGeneralSetting()
+	if relayFormat == types.RelayFormatClaude && relayInfo.IsStream && generalSettings.PingIntervalEnabled {
+		stopKeepAlive := helper.StartStreamKeepAlive(c, time.Duration(generalSettings.PingIntervalSeconds)*time.Second)
+		defer stopKeepAlive()
 	}
 
 	needSensitiveCheck := setting.ShouldCheckPromptSensitive()
@@ -281,6 +293,7 @@ func Relay(c *gin.Context, relayFormat types.RelayFormat) {
 				return
 			}
 
+			service.SettleInterruptedStream(c, relayInfo, newAPIError)
 			newAPIError = service.NormalizeViolationFeeError(newAPIError)
 			relayInfo.LastError = newAPIError
 			service.MarkSmartRetryChannelFailure(c, channel, retryParam.ModelName, false)
@@ -322,6 +335,20 @@ func recordRelayAttemptFailure(c *gin.Context, info *relaycommon.RelayInfo) {
 		snapshot.UsingGroup = group
 	}
 	perfmetrics.RecordRelaySample(&snapshot, false, 0)
+}
+
+func writeRelayStreamError(c *gin.Context, format types.RelayFormat, apiError *types.NewAPIError) {
+	// The HTTP status is already committed; preserve the error in the stream
+	// and in the outcome consumed by successful-request rate limiting.
+	helper.StopStreamKeepAlive(c)
+	common.SetContextKey(c, constant.ContextKeyRelayFailed, true)
+	helper.ExtendWriteDeadline(c)
+	if format == types.RelayFormatClaude {
+		_ = helper.ClaudeData(c, dto.ClaudeResponse{Type: "error", Error: apiError.ToClaudeError()})
+		return
+	}
+	_ = helper.ObjectData(c, gin.H{"error": apiError.ToOpenAIError()})
+	helper.Done(c)
 }
 
 func relayErrorAfterChannelSelectionFailure(info *relaycommon.RelayInfo, channelErr *types.NewAPIError) *types.NewAPIError {
@@ -410,7 +437,7 @@ func canTryFallbackModel(c *gin.Context, err *types.NewAPIError) bool {
 	if err == nil || !relayRetrySafetyAllows(c, err) || !service.SmartRetryBudgetAvailable(c) {
 		return false
 	}
-	if c.Writer != nil && c.Writer.Written() {
+	if helper.ResponseStarted(c) {
 		return false
 	}
 	if _, ok := c.Get("specific_channel_id"); ok {
@@ -522,7 +549,7 @@ func relayRetrySafetyAllows(c *gin.Context, err *types.NewAPIError) bool {
 	if c == nil {
 		return true
 	}
-	if c.Writer != nil && c.Writer.Written() {
+	if helper.ResponseStarted(c) {
 		return false
 	}
 	if c.Request != nil && c.Request.Context().Err() != nil {

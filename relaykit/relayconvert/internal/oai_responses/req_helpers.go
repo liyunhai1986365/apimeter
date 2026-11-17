@@ -1,6 +1,7 @@
 package oairesponses
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -101,26 +102,31 @@ func responsesRequestFunctionDeclarations(raw []byte) ([]dto.FunctionRequest, er
 		return nil, nil
 	}
 
-	var tools []map[string]any
+	var tools []json.RawMessage
 	if err := kitutil.Unmarshal(raw, &tools); err != nil {
 		return nil, fmt.Errorf("invalid tools: %w", err)
 	}
-
 	functions := make([]dto.FunctionRequest, 0, len(tools))
-	for _, tool := range tools {
-		if strings.TrimSpace(kitutil.Interface2String(tool["type"])) != "function" {
+	for _, rawTool := range tools {
+		var header struct {
+			Type string `json:"type"`
+		}
+		if err := kitutil.Unmarshal(rawTool, &header); err != nil {
+			return nil, err
+		}
+		if header.Type != "function" {
 			continue
 		}
-		name := strings.TrimSpace(kitutil.Interface2String(tool["name"]))
-		if name == "" {
-			continue
+		var function dto.FunctionRequest
+		if err := kitutil.Unmarshal(rawTool, &function); err != nil {
+			return nil, err
 		}
-		functions = append(functions, dto.FunctionRequest{
-			Name:        name,
-			Description: kitutil.Interface2String(tool["description"]),
-			Parameters:  tool["parameters"],
-		})
+		function.Name = strings.TrimSpace(function.Name)
+		if function.Name != "" {
+			functions = append(functions, function)
+		}
 	}
+
 	return functions, nil
 }
 

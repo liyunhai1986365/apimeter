@@ -44,6 +44,13 @@ func seedHardcodedToolPrices(prices map[string]float64) {
 	prices["web_search_preview"] = defaultWebSearchPreviewToolPrice
 	prices["file_search"] = defaultFileSearchToolPrice
 	prices["google_search"] = defaultGoogleSearchToolPrice
+	// Gemini 3+ prices each unique query. Older models price a grounded prompt.
+	prices["google_search_grounded_prompt"] = 0
+	for _, prefix := range []string{"gemini-2.5*", "gemini-2.0*", "gemini-1.5*"} {
+		prices["google_search:"+prefix] = 0
+		prices["google_search_grounded_prompt:"+prefix] = 35
+	}
+
 	prices["image_generation"] = defaultImageGenerationToolPrice
 	prices["web_search_preview:gpt-4o*"] = defaultSearchPreviewModelPrice
 	prices["web_search_preview:gpt-4.1*"] = defaultSearchPreviewModelPrice
@@ -75,9 +82,14 @@ type prefixEntry struct {
 	price  float64
 }
 
-type toolPriceIndex struct {
+type toolPriceLookup struct {
 	defaults map[string]float64
 	prefixes map[string][]prefixEntry
+}
+
+type toolPriceIndex struct {
+	toolPriceLookup
+	operator toolPriceLookup
 }
 
 var currentIndex atomic.Pointer[toolPriceIndex]
@@ -156,25 +168,26 @@ func RebuildToolPriceIndex() {
 		merged[k] = v
 	}
 
-	idx := &toolPriceIndex{
-		defaults: make(map[string]float64),
-		prefixes: make(map[string][]prefixEntry),
-	}
+	currentIndex.Store(&toolPriceIndex{
+		toolPriceLookup: buildToolPriceLookup(merged),
+		operator:        buildToolPriceLookup(toolPriceSetting.Prices),
+	})
+}
 
-	for key, price := range merged {
-		colonIdx := strings.IndexByte(key, ':')
-		if colonIdx < 0 {
+func buildToolPriceLookup(prices map[string]float64) toolPriceLookup {
+	idx := toolPriceLookup{defaults: make(map[string]float64), prefixes: make(map[string][]prefixEntry)}
+	for key, price := range prices {
+		if !isValidToolPrice(price) {
+			continue
+		}
+		toolName, modelPart, scoped := strings.Cut(key, ":")
+		if !scoped {
 			idx.defaults[key] = price
 			continue
 		}
-		toolName := key[:colonIdx]
-		modelPart := key[colonIdx+1:]
-		prefix := strings.TrimSuffix(modelPart, "*")
-		idx.prefixes[toolName] = append(idx.prefixes[toolName], prefixEntry{prefix: prefix, price: price})
+		idx.prefixes[toolName] = append(idx.prefixes[toolName], prefixEntry{prefix: strings.TrimSuffix(modelPart, "*"), price: price})
 	}
-
-	for tool := range idx.prefixes {
-		entries := idx.prefixes[tool]
+	for tool, entries := range idx.prefixes {
 		sort.Slice(entries, func(i, j int) bool {
 			if len(entries[i].prefix) == len(entries[j].prefix) {
 				return entries[i].prefix < entries[j].prefix
@@ -183,34 +196,53 @@ func RebuildToolPriceIndex() {
 		})
 		idx.prefixes[tool] = entries
 	}
-
-	currentIndex.Store(idx)
+	return idx
 }
 
-// GetToolPriceForModel returns the price ($/1K calls) for a tool given a model name.
-// Lookup: longest prefix match → tool default → 0.
-func GetToolPriceForModel(toolName, modelName string) float64 {
-	idx := currentIndex.Load()
-	if idx == nil {
-		RebuildToolPriceIndex()
-		idx = currentIndex.Load()
-		if idx == nil {
-			return 0
-		}
-	}
-
-	if entries, ok := idx.prefixes[toolName]; ok && modelName != "" {
-		for _, e := range entries {
-			if strings.HasPrefix(modelName, e.prefix) {
-				return e.price
+func (idx toolPriceLookup) lookup(toolName, modelName string) (float64, bool) {
+	if modelName != "" {
+		for _, entry := range idx.prefixes[toolName] {
+			if strings.HasPrefix(modelName, entry.prefix) {
+				return entry.price, true
 			}
 		}
 	}
+	price, ok := idx.defaults[toolName]
+	return price, ok
+}
 
-	if p, ok := idx.defaults[toolName]; ok {
-		return p
+// GetToolPriceForModel returns $/1K calls: longest prefix, then tool default.
+func GetToolPriceForModel(toolName, modelName string) float64 {
+	price, _ := loadToolPriceIndex().lookup(toolName, modelName)
+	return price
+}
+
+// GetGoogleSearchPrices returns per-query and per-grounded-request prices from
+// one immutable snapshot. An existing google_search override keeps its old
+// per-request unit until an explicit grounded-prompt rule matches this model.
+// Numeric zero is an override, so upgrades cannot re-enable disabled charges.
+func GetGoogleSearchPrices(modelName string) (queryPrice, groundedPrice float64) {
+	idx := loadToolPriceIndex()
+	queryPrice, querySet := idx.operator.lookup("google_search", modelName)
+	groundedPrice, groundedSet := idx.operator.lookup("google_search_grounded_prompt", modelName)
+	if querySet && !groundedSet {
+		return 0, queryPrice
 	}
-	return 0
+	if !querySet {
+		queryPrice, _ = idx.lookup("google_search", modelName)
+	}
+	if !groundedSet {
+		groundedPrice, _ = idx.lookup("google_search_grounded_prompt", modelName)
+	}
+	return queryPrice, groundedPrice
+}
+
+func loadToolPriceIndex() *toolPriceIndex {
+	if idx := currentIndex.Load(); idx != nil {
+		return idx
+	}
+	RebuildToolPriceIndex()
+	return currentIndex.Load()
 }
 
 // GetToolPrice is a convenience wrapper when no model name is needed.

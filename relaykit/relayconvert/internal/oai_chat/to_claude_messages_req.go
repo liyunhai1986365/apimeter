@@ -107,8 +107,8 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 		claudeRequest.Stream = kitutil.GetPointer(true)
 	}
 
-	if textRequest.ToolChoice != nil || textRequest.ParallelTooCalls != nil {
-		claudeToolChoice := sharedclaude.MapOpenAIToolChoice(textRequest.ToolChoice, textRequest.ParallelTooCalls)
+	if textRequest.ToolChoice != nil || textRequest.ParallelToolCalls != nil {
+		claudeToolChoice := sharedclaude.MapOpenAIToolChoice(textRequest.ToolChoice, textRequest.ParallelToolCalls)
 		if claudeToolChoice != nil {
 			claudeRequest.ToolChoice = claudeToolChoice
 		}
@@ -121,13 +121,15 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 		}
 	}
 
-	if baseModel, effortLevel, ok := reasoning.TrimEffortSuffix(textRequest.Model); ok && effortLevel != "" &&
-		reasoning.ClaudeSupportsAdaptiveThinking(baseModel) {
-		claudeRequest.Model = baseModel
-		if err := reasoning.SetClaudeAdaptiveThinking(&claudeRequest, effortLevel); err != nil {
+	if baseModel, effortLevel, ok := reasoning.TrimClaudeEffortSuffix(textRequest.Model); ok && effortLevel != "" &&
+		reasoning.IsKnownClaudeModel(baseModel) {
+		if !opts.ShouldPreserveThinkingSuffix(textRequest.Model) {
+			claudeRequest.Model = baseModel
+		}
+		if err := reasoning.ApplyClaudeReasoningEffort(&claudeRequest, effortLevel); err != nil {
 			return nil, err
 		}
-		if !reasoning.ClaudeRequiresAdaptiveThinking(baseModel) {
+		if effortLevel != "none" && !reasoning.ClaudeRequiresAdaptiveThinking(baseModel) {
 			claudeRequest.TopP = nil
 			claudeRequest.Temperature = kitutil.GetPointer[float64](1.0)
 		}
@@ -183,6 +185,7 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 	lastMessage := dto.Message{
 		Role: "tool",
 	}
+	lastMessageHasPlaceholder := false
 	for i, message := range textRequest.Messages {
 		if message.Role == "" {
 			textRequest.Messages[i].Role = "user"
@@ -199,15 +202,31 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 		}
 		if lastMessage.Role == message.Role && lastMessage.Role != "tool" {
 			if lastMessage.IsStringContent() && message.IsStringContent() {
-				fmtMessage.SetStringContent(strings.Trim(fmt.Sprintf("%s %s", lastMessage.StringContent(), message.StringContent()), "\""))
+				previousToolCalls := lastMessage.ParseToolCalls()
+				currentToolCalls := fmtMessage.ParseToolCalls()
+				if len(previousToolCalls) > 0 || len(currentToolCalls) > 0 {
+					texts := make([]string, 0, 2)
+					if previousText := lastMessage.StringContent(); previousText != "" && !(lastMessageHasPlaceholder && len(previousToolCalls) > 0) {
+						texts = append(texts, previousText)
+					}
+					if currentText := message.StringContent(); currentText != "" {
+						texts = append(texts, currentText)
+					}
+					fmtMessage.SetStringContent(strings.Join(texts, " "))
+					fmtMessage.SetToolCalls(append(previousToolCalls, currentToolCalls...))
+				} else {
+					fmtMessage.SetStringContent(strings.Trim(fmt.Sprintf("%s %s", lastMessage.StringContent(), message.StringContent()), "\""))
+				}
 				formatMessages = formatMessages[:len(formatMessages)-1]
 			}
 		}
-		if fmtMessage.Content == nil || (fmtMessage.IsStringContent() && fmtMessage.StringContent() == "") {
+		hasPlaceholder := fmtMessage.Content == nil || (fmtMessage.IsStringContent() && fmtMessage.StringContent() == "")
+		if hasPlaceholder {
 			fmtMessage.SetStringContent("...")
 		}
 		formatMessages = append(formatMessages, fmtMessage)
 		lastMessage = fmtMessage
+		lastMessageHasPlaceholder = hasPlaceholder
 	}
 
 	claudeMessages := make([]dto.ClaudeMessage, 0)
@@ -370,6 +389,9 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 	// floor) has had its chance to satisfy the required field.
 	if claudeRequest.MaxTokens == nil {
 		return nil, sharedclaude.ErrMissingMaxTokens
+	}
+	if err := reasoning.NormalizeClaudeThinking(&claudeRequest); err != nil {
+		return nil, err
 	}
 	return &claudeRequest, nil
 }

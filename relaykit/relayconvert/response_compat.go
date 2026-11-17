@@ -139,3 +139,9 @@ func FinalizeResponsesToChatStream(state *ResponsesToChatStreamState) []dto.Chat
 func NewResponsesBufferedAccumulator() *ResponsesBufferedAccumulator {
 	return oairesponses.NewResponsesBufferedAccumulator()
 }
+
+// NewGeminiToChatStreamState retains tool argument and grounding state across
+// provider frames for the host's Chat and Responses transports.
+func NewGeminiToChatStreamState(id string, created int64) *geminichat.GeminiToChatStreamState {
+	return geminichat.NewGeminiToChatStreamState(id, created)
+}

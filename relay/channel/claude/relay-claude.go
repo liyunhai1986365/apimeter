@@ -21,6 +21,7 @@ import (
 	"github.com/QuantumNous/new-api/setting/model_setting"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -139,8 +140,8 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 	}
 
 	// 处理 tool_choice 和 parallel_tool_calls
-	if textRequest.ToolChoice != nil || textRequest.ParallelTooCalls != nil {
-		claudeToolChoice := mapToolChoice(textRequest.ToolChoice, textRequest.ParallelTooCalls)
+	if textRequest.ToolChoice != nil || textRequest.ParallelToolCalls != nil {
+		claudeToolChoice := mapToolChoice(textRequest.ToolChoice, textRequest.ParallelToolCalls)
 		if claudeToolChoice != nil {
 			claudeRequest.ToolChoice = claudeToolChoice
 		}
@@ -151,13 +152,15 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 		claudeRequest.MaxTokens = &defaultMaxTokens
 	}
 
-	if baseModel, effortLevel, ok := reasoning.TrimEffortSuffix(textRequest.Model); ok && effortLevel != "" &&
-		reasoning.ClaudeSupportsAdaptiveThinking(baseModel) {
-		claudeRequest.Model = baseModel
-		if err := reasoning.SetClaudeAdaptiveThinking(&claudeRequest, effortLevel); err != nil {
+	if baseModel, effortLevel, ok := reasoning.TrimClaudeEffortSuffix(textRequest.Model); ok && effortLevel != "" &&
+		reasoning.IsKnownClaudeModel(baseModel) {
+		if !model_setting.ShouldPreserveThinkingSuffix(textRequest.Model) {
+			claudeRequest.Model = baseModel
+		}
+		if err := reasoning.ApplyClaudeReasoningEffort(&claudeRequest, effortLevel); err != nil {
 			return nil, err
 		}
-		if !reasoning.ClaudeRequiresAdaptiveThinking(baseModel) {
+		if effortLevel != "none" && !reasoning.ClaudeRequiresAdaptiveThinking(baseModel) {
 			claudeRequest.TopP = nil
 			claudeRequest.Temperature = common.GetPointer[float64](1.0)
 		}
@@ -213,6 +216,7 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 	lastMessage := dto.Message{
 		Role: "tool",
 	}
+	lastMessageHasPlaceholder := false
 	for i, message := range textRequest.Messages {
 		if message.Role == "" {
 			textRequest.Messages[i].Role = "user"
@@ -229,16 +233,32 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 		}
 		if lastMessage.Role == message.Role && lastMessage.Role != "tool" {
 			if lastMessage.IsStringContent() && message.IsStringContent() {
-				fmtMessage.SetStringContent(strings.Trim(fmt.Sprintf("%s %s", lastMessage.StringContent(), message.StringContent()), "\""))
+				previousToolCalls := lastMessage.ParseToolCalls()
+				currentToolCalls := fmtMessage.ParseToolCalls()
+				if len(previousToolCalls) > 0 || len(currentToolCalls) > 0 {
+					texts := make([]string, 0, 2)
+					if previousText := lastMessage.StringContent(); previousText != "" && !(lastMessageHasPlaceholder && len(previousToolCalls) > 0) {
+						texts = append(texts, previousText)
+					}
+					if currentText := message.StringContent(); currentText != "" {
+						texts = append(texts, currentText)
+					}
+					fmtMessage.SetStringContent(strings.Join(texts, " "))
+					fmtMessage.SetToolCalls(append(previousToolCalls, currentToolCalls...))
+				} else {
+					fmtMessage.SetStringContent(strings.Trim(fmt.Sprintf("%s %s", lastMessage.StringContent(), message.StringContent()), "\""))
+				}
 				// delete last message
 				formatMessages = formatMessages[:len(formatMessages)-1]
 			}
 		}
-		if fmtMessage.Content == nil || (fmtMessage.IsStringContent() && fmtMessage.StringContent() == "") {
+		hasPlaceholder := fmtMessage.Content == nil || (fmtMessage.IsStringContent() && fmtMessage.StringContent() == "")
+		if hasPlaceholder {
 			fmtMessage.SetStringContent("...")
 		}
 		formatMessages = append(formatMessages, fmtMessage)
 		lastMessage = fmtMessage
+		lastMessageHasPlaceholder = hasPlaceholder
 	}
 
 	claudeMessages := make([]dto.ClaudeMessage, 0)
@@ -401,6 +421,9 @@ func RequestOpenAI2ClaudeMessage(c *gin.Context, textRequest dto.GeneralOpenAIRe
 
 	claudeRequest.Prompt = ""
 	claudeRequest.Messages = claudeMessages
+	if err := reasoning.NormalizeClaudeThinking(&claudeRequest); err != nil {
+		return nil, err
+	}
 	return &claudeRequest, nil
 }
 
@@ -623,6 +646,15 @@ func HandleStreamResponseData(c *gin.Context, info *relaycommon.RelayInfo, claud
 	if claudeResponse.Delta != nil && claudeResponse.Delta.StopReason != nil {
 		maybeMarkClaudeRefusal(c, *claudeResponse.Delta.StopReason)
 	}
+	// message_start output usage is provisional. A final explicit zero must
+	// replace it, while an omitted output_tokens keeps the previous snapshot.
+	if claudeResponse.Type == "message_delta" && claudeResponse.Usage != nil &&
+		gjson.Get(data, "usage.output_tokens").Type == gjson.Number {
+		if claudeInfo.Usage == nil {
+			claudeInfo.Usage = &dto.Usage{}
+		}
+		claudeInfo.Usage.CompletionTokens = claudeResponse.Usage.OutputTokens
+	}
 	if info.RelayFormat == types.RelayFormatClaude {
 		formatClaudeResponseInfo(info, &claudeResponse, nil, claudeInfo)
 
@@ -675,20 +707,23 @@ func countClaudeStreamBillableTools(c *gin.Context, info *relaycommon.RelayInfo,
 }
 
 func HandleStreamFinalResponse(c *gin.Context, info *relaycommon.RelayInfo, claudeInfo *ClaudeResponseInfo) {
-	if claudeInfo.Usage.PromptTokens == 0 {
-		//上游出错
-	}
-	if claudeInfo.Usage.CompletionTokens == 0 || !claudeInfo.Done {
+	// Claude input_tokens excludes cache reads/writes. Fully cached input is
+	// counted already; a completed refusal without output also keeps its zeros.
+	hasOutput := claudeInfo.ResponseText.Len() > 0 || claudeInfo.Usage.CompletionTokens > 0
+	missingInputUsage := buildOpenAIStyleUsageFromClaudeUsage(claudeInfo.Usage).PromptTokens == 0 &&
+		(!claudeInfo.Done || hasOutput)
+	missingOutputUsage := claudeInfo.Usage.CompletionTokens == 0 && claudeInfo.ResponseText.Len() > 0
+	if missingInputUsage || missingOutputUsage || (!claudeInfo.Done && claudeInfo.ResponseText.Len() > 0) {
 		if common.DebugEnabled {
 			common.SysLog("claude response usage is not complete, maybe upstream error")
 		}
 		// 只补缺失字段，不整份覆盖——保留 message_start 已拿到的 cache 字段
 		fallback := service.ResponseText2Usage(c, claudeInfo.ResponseText.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
-		if claudeInfo.Usage.CompletionTokens == 0 ||
+		if missingOutputUsage ||
 			(!claudeInfo.Done && fallback.CompletionTokens > claudeInfo.Usage.CompletionTokens) {
 			claudeInfo.Usage.CompletionTokens = fallback.CompletionTokens
 		}
-		if claudeInfo.Usage.PromptTokens == 0 {
+		if missingInputUsage {
 			claudeInfo.Usage.PromptTokens = fallback.PromptTokens
 		}
 		claudeInfo.Usage.TotalTokens = claudeInfo.Usage.PromptTokens + claudeInfo.Usage.CompletionTokens

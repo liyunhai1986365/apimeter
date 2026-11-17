@@ -1,12 +1,15 @@
 package convmeta
 
+import "github.com/QuantumNous/new-api/relaykit/types"
+
 // Options is the per-request snapshot of host configuration that converters
 // consult. The host fills it from its settings system when constructing the
 // Meta (see relaycommon.RelayInfo.ConvOptions); relaykit users fill it
 // directly. Zero value = every adaptation disabled, no defaults applied.
 type Options struct {
-	Claude ClaudeOptions
-	Gemini GeminiOptions
+	ToolLossPolicy types.ConversionLossPolicy
+	Claude         ClaudeOptions
+	Gemini         GeminiOptions
 
 	// OpenRouterDialect marks the upstream as OpenRouter's OpenAI-compatible
 	// surface, which accepts extra fields (reasoning config, cache_control on
@@ -39,6 +42,8 @@ type ClaudeOptions struct {
 }
 
 type GeminiOptions struct {
+	// SupportsJSONSchema distinguishes Gemini v1 from v1beta and Vertex.
+	SupportsJSONSchema func(modelName string) bool
 	// ThinkingAdapterEnabled maps -thinking/-nothinking/effort suffixes to
 	// Gemini thinkingConfig.
 	ThinkingAdapterEnabled bool
@@ -76,4 +81,15 @@ func (o *GeminiOptions) SafetySettingFor(category string) string {
 
 func (o *Options) ShouldPreserveThinkingSuffix(modelName string) bool {
 	return o != nil && o.PreserveThinkingSuffix != nil && o.PreserveThinkingSuffix(modelName)
+}
+
+func (o *GeminiOptions) SupportsJSONSchemaModel(modelName string) bool {
+	return o != nil && o.SupportsJSONSchema != nil && o.SupportsJSONSchema(modelName)
+}
+
+func (o *Options) EffectiveToolLossPolicy() types.ConversionLossPolicy {
+	if o == nil || o.ToolLossPolicy == "" {
+		return types.ConversionLossPolicyAllow
+	}
+	return o.ToolLossPolicy
 }

@@ -19,7 +19,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	hosttypes "github.com/QuantumNous/new-api/types"
-
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/tidwall/gjson"
@@ -170,6 +169,8 @@ type RelayInfo struct {
 	PriceData hosttypes.PriceData
 	// BillingImageCount is the observed image quantity for image settlement.
 	BillingImageCount *int
+	// OutboundImageCount is the quantity sent on the current image attempt.
+	OutboundImageCount *uint
 	// ImageDataNormalizer applies the relay's format/storage policy to completed
 	// stream images. Context and relay state are explicit so cloned attempts do
 	// not retain the original request's context or billing state.
@@ -207,7 +208,8 @@ type RelayInfo struct {
 	StreamStatus *StreamStatus
 
 	// convOptions caches the converter settings snapshot (see ConvOptions).
-	convOptions *convmeta.Options
+	convOptions    *convmeta.Options
+	responsesTools *convmeta.ResponsesToolState
 
 	ThinkingContentInfo
 	TokenCountMeta
@@ -274,6 +276,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	// Channel identity feeds the converter options snapshot (e.g.
 	// OpenRouterDialect); drop the cache so a cross-channel retry rebuilds it.
 	info.convOptions = nil
+	info.responsesTools = nil
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled {
 		info.ReasoningEffort = ""
 	} else {
@@ -926,6 +929,14 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 			DefaultMaxTokens:                      claudeSettings.GetDefaultMaxTokens,
 		},
 		Gemini: convmeta.GeminiOptions{
+			SupportsJSONSchema: func(modelName string) bool {
+				origin := ""
+				if info != nil {
+					origin = info.OriginModelName
+				}
+				requestModel := model_setting.GeminiRequestModelName(origin, modelName)
+				return (info != nil && info.GetChannelType() == constant.ChannelTypeVertexAi) || model_setting.GetGeminiVersionSetting(requestModel) != "v1"
+			},
 			ThinkingAdapterEnabled:                geminiSettings.ThinkingAdapterEnabled,
 			ThinkingAdapterBudgetTokensPercentage: geminiSettings.ThinkingAdapterBudgetTokensPercentage,
 			FunctionCallThoughtSignatureEnabled:   geminiSettings.FunctionCallThoughtSignatureEnabled,
@@ -936,6 +947,9 @@ func (info *RelayInfo) ConvOptions() *convmeta.Options {
 		PreserveThinkingSuffix: model_setting.ShouldPreserveThinkingSuffix,
 	}
 	if info != nil {
+		if info.ChannelMeta != nil {
+			options.ToolLossPolicy = types.ConversionLossPolicy(info.ChannelOtherSettings.ToolLossPolicy)
+		}
 		info.convOptions = options
 	}
 	return options
@@ -1256,4 +1270,16 @@ func (info *RelayInfo) BeginAttempt() {
 	info.AttemptSampleRecorded = false
 	info.FirstResponseTime = info.AttemptStartTime.Add(-time.Second)
 	info.isFirstResponse = true
+}
+
+func (info *RelayInfo) ResponsesToolState() *convmeta.ResponsesToolState {
+	if info == nil {
+		return nil
+	}
+	return info.responsesTools
+}
+func (info *RelayInfo) SetResponsesToolState(s *convmeta.ResponsesToolState) {
+	if info != nil {
+		info.responsesTools = s
+	}
 }

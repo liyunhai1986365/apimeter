@@ -119,8 +119,9 @@ type ClaudeMessageSource struct {
 }
 
 type ClaudeMessage struct {
-	Role    string `json:"role"`
-	Content any    `json:"content"`
+	Role         string          `json:"role"`
+	Content      any             `json:"content"`
+	OutputConfig json.RawMessage `json:"output_config,omitempty"`
 }
 
 func (c *ClaudeMessage) IsStringContent() bool {
@@ -488,6 +489,50 @@ type Thinking struct {
 	// the visible summary that was default on Opus 4.6; "omitted" (default on
 	// 4.7) suppresses it. Pass-through field from upstream Anthropic API.
 	Display string `json:"display,omitempty"`
+	// BlockBinding carries preserved-thinking controls from the client.
+	BlockBinding json.RawMessage `json:"block_binding,omitempty"`
+	// Keep unknown thinking fields across parsing, copying, and forwarding.
+	Extra map[string]json.RawMessage `json:"-"`
+}
+
+func (c *Thinking) UnmarshalJSON(data []byte) error {
+	type thinkingFields Thinking
+	var fields thinkingFields
+	if err := kitutil.Unmarshal(data, &fields); err != nil {
+		return err
+	}
+	var all map[string]json.RawMessage
+	if err := kitutil.Unmarshal(data, &all); err != nil {
+		return err
+	}
+	for _, known := range []string{"type", "budget_tokens", "display", "block_binding"} {
+		delete(all, known)
+	}
+	*c = Thinking(fields)
+	if len(all) > 0 {
+		c.Extra = all
+	}
+	return nil
+}
+
+func (c Thinking) MarshalJSON() ([]byte, error) {
+	type thinkingFields Thinking
+	data, err := kitutil.Marshal(thinkingFields(c))
+	if err != nil || len(c.Extra) == 0 {
+		return data, err
+	}
+	merged := make(map[string]json.RawMessage, len(c.Extra)+4)
+	for key, value := range c.Extra {
+		switch key {
+		case "type", "budget_tokens", "display", "block_binding":
+			continue
+		}
+		merged[key] = value
+	}
+	if err := kitutil.Unmarshal(data, &merged); err != nil {
+		return nil, err
+	}
+	return kitutil.Marshal(merged)
 }
 
 func (c *Thinking) GetBudgetTokens() int {

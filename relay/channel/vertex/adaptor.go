@@ -18,8 +18,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
-	"github.com/QuantumNous/new-api/setting/reasoning"
-
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
 )
@@ -55,15 +53,15 @@ type Adaptor struct {
 }
 
 func (a *Adaptor) ConvertGeminiRequest(c *gin.Context, info *relaycommon.RelayInfo, request *dto.GeminiChatRequest) (any, error) {
-	// Vertex AI does not support functionResponse.id; keep it stripped here for consistency.
+	// Vertex does not expose Gemini function call/response identity fields.
 	if model_setting.GetGeminiSettings().RemoveFunctionResponseIdEnabled {
-		removeFunctionResponseID(request)
+		removeFunctionCallIDs(request)
 	}
 	geminiAdaptor := gemini.Adaptor{}
 	return geminiAdaptor.ConvertGeminiRequest(c, info, request)
 }
 
-func removeFunctionResponseID(request *dto.GeminiChatRequest) {
+func removeFunctionCallIDs(request *dto.GeminiChatRequest) {
 	if request == nil {
 		return
 	}
@@ -75,10 +73,10 @@ func removeFunctionResponseID(request *dto.GeminiChatRequest) {
 			}
 			for j := range request.Contents[i].Parts {
 				part := &request.Contents[i].Parts[j]
-				if part.FunctionResponse == nil {
-					continue
+				if part.FunctionCall != nil {
+					part.FunctionCall.ID = ""
 				}
-				if len(part.FunctionResponse.ID) > 0 {
+				if part.FunctionResponse != nil && len(part.FunctionResponse.ID) > 0 {
 					part.FunctionResponse.ID = nil
 				}
 			}
@@ -87,7 +85,7 @@ func removeFunctionResponseID(request *dto.GeminiChatRequest) {
 
 	if len(request.Requests) > 0 {
 		for i := range request.Requests {
-			removeFunctionResponseID(&request.Requests[i])
+			removeFunctionCallIDs(&request.Requests[i])
 		}
 	}
 }
@@ -126,6 +124,10 @@ func (a *Adaptor) Init(info *relaycommon.RelayInfo) {
 
 func (a *Adaptor) getRequestUrl(info *relaycommon.RelayInfo, modelName, suffix string) (string, error) {
 	region := GetModelRegion(info.ApiVersion, info.OriginModelName)
+	googleAPIVersion := DefaultAPIVersion
+	if info.ChannelOtherSettings.VertexAPIVersion != "" {
+		googleAPIVersion = info.ChannelOtherSettings.VertexAPIVersion
+	}
 	if info.ChannelOtherSettings.VertexKeyType != dto.VertexKeyTypeAPIKey {
 		adc := &Credentials{}
 		if err := common.Unmarshal([]byte(info.ApiKey), adc); err != nil {
@@ -134,7 +136,7 @@ func (a *Adaptor) getRequestUrl(info *relaycommon.RelayInfo, modelName, suffix s
 		a.AccountCredentials = *adc
 
 		if a.RequestMode == RequestModeGemini {
-			return BuildGoogleModelURL(info.ChannelBaseUrl, DefaultAPIVersion, adc.ProjectID, region, modelName, suffix), nil
+			return BuildGoogleModelURL(info.ChannelBaseUrl, googleAPIVersion, adc.ProjectID, region, modelName, suffix), nil
 		} else if a.RequestMode == RequestModeClaude {
 			return BuildAnthropicModelURL(info.ChannelBaseUrl, DefaultAPIVersion, adc.ProjectID, region, modelName, suffix), nil
 		} else if a.RequestMode == RequestModeOpenSource {
@@ -147,17 +149,20 @@ func (a *Adaptor) getRequestUrl(info *relaycommon.RelayInfo, modelName, suffix s
 		} else {
 			keyPrefix = "?"
 		}
+		// An API key carries no project. Without a configured project ID the URL
+		// keeps the express-mode form, which has no region in its path.
+		projectID := strings.TrimSpace(info.ChannelOtherSettings.VertexProjectID)
 		if a.RequestMode == RequestModeGemini {
 			return fmt.Sprintf(
 				"%s%skey=%s",
-				BuildGoogleModelURL(info.ChannelBaseUrl, DefaultAPIVersion, "", region, modelName, suffix),
+				BuildGoogleModelURL(info.ChannelBaseUrl, googleAPIVersion, projectID, region, modelName, suffix),
 				keyPrefix,
 				info.ApiKey,
 			), nil
 		} else if a.RequestMode == RequestModeClaude {
 			return fmt.Sprintf(
 				"%s%skey=%s",
-				BuildAnthropicModelURL(info.ChannelBaseUrl, DefaultAPIVersion, "", region, modelName, suffix),
+				BuildAnthropicModelURL(info.ChannelBaseUrl, DefaultAPIVersion, projectID, region, modelName, suffix),
 				keyPrefix,
 				info.ApiKey,
 			), nil
@@ -169,20 +174,7 @@ func (a *Adaptor) getRequestUrl(info *relaycommon.RelayInfo, modelName, suffix s
 func (a *Adaptor) GetRequestURL(info *relaycommon.RelayInfo) (string, error) {
 	suffix := ""
 	if a.RequestMode == RequestModeGemini {
-		if model_setting.GetGeminiSettings().ThinkingAdapterEnabled &&
-			!model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) {
-			// 新增逻辑：处理 -thinking-<budget> 格式
-			if strings.Contains(info.UpstreamModelName, "-thinking-") {
-				parts := strings.Split(info.UpstreamModelName, "-thinking-")
-				info.UpstreamModelName = parts[0]
-			} else if strings.HasSuffix(info.UpstreamModelName, "-thinking") { // 旧的适配
-				info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
-			} else if strings.HasSuffix(info.UpstreamModelName, "-nothinking") {
-				info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-nothinking")
-			} else if baseModel, level, ok := reasoning.TrimEffortSuffix(info.UpstreamModelName); ok && level != "" {
-				info.UpstreamModelName = baseModel
-			}
-		}
+		info.UpstreamModelName = model_setting.GeminiRequestModelName(info.OriginModelName, info.UpstreamModelName)
 
 		// Image responses are handled by Gemini's JSON image adaptor.
 		if info.IsStream && info.RelayMode != constant.RelayModeImagesGenerations && info.RelayMode != constant.RelayModeImagesEdits {
@@ -310,6 +302,9 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		if !ok {
 			return nil, fmt.Errorf("expected Gemini generateContent request, got %T", result.Value)
 		}
+		if model_setting.GetGeminiSettings().RemoveFunctionResponseIdEnabled {
+			removeFunctionCallIDs(geminiRequest)
+		}
 		c.Set("request_model", request.Model)
 		return geminiRequest, nil
 	} else if a.RequestMode == RequestModeOpenSource {
@@ -393,4 +388,9 @@ func (a *Adaptor) GetModelList() []string {
 
 func (a *Adaptor) GetChannelName() string {
 	return ChannelName
+}
+
+func (a *Adaptor) OutboundImageCount(body []byte) (*uint, error) {
+	adaptor := gemini.Adaptor{}
+	return adaptor.OutboundImageCount(body)
 }

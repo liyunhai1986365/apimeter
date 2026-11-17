@@ -19,7 +19,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	agentservice "github.com/QuantumNous/new-api/service/agent"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
 )
@@ -69,11 +68,15 @@ type textQuotaSummary struct {
 }
 
 // hasBillableUsage reports whether this request should incur any charge.
-// A request can carry zero tokens yet still be billable via a tool-call
+// Claude reports cache reads and writes separately from ordinary tokens.
+// A request can carry zero ordinary tokens yet still be billable via cache or a tool-call
 // surcharge (e.g. /v1/alpha/search returns no usage but bills one web_search
 // call), so token count alone is not sufficient to decide.
 func (s *textQuotaSummary) hasBillableUsage() bool {
-	return s.TotalTokens > 0 || !s.ToolCallSurchargeQuota.IsZero()
+	return s.TotalTokens > 0 ||
+		(s.IsClaudeUsageSemantic && (s.CacheTokens > 0 || s.CacheCreationTokens > 0 ||
+			s.CacheCreationTokens5m > 0 || s.CacheCreationTokens1h > 0)) ||
+		!s.ToolCallSurchargeQuota.IsZero()
 }
 
 func cacheWriteTokensTotal(summary textQuotaSummary) int {
@@ -101,10 +104,13 @@ func isLegacyClaudeDerivedOpenAIUsage(relayInfo *relaycommon.RelayInfo, usage *d
 }
 
 func collectToolSurchargeItem(items []ToolSurchargeItem, name string, count int, modelName string) []ToolSurchargeItem {
+	return collectToolSurchargeAtPrice(items, name, count, operation_setting.GetToolPriceForModel(name, modelName))
+}
+
+func collectToolSurchargeAtPrice(items []ToolSurchargeItem, name string, count int, price float64) []ToolSurchargeItem {
 	if count <= 0 {
 		return items
 	}
-	price := operation_setting.GetToolPriceForModel(name, modelName)
 	if price <= 0 || math.IsNaN(price) || math.IsInf(price, 0) {
 		return items
 	}
@@ -152,8 +158,18 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 	var items []ToolSurchargeItem
 
 	if relayInfo.ResponsesUsageInfo != nil {
+		queryPrice, groundedPrice := operation_setting.GetGoogleSearchPrices(summary.ModelName)
+		geminiSearch := relayInfo.ResponsesUsageInfo.BuiltInTools[relaycommon.GoogleSearchGroundedPromptTool] != nil
 		for name, tool := range relayInfo.ResponsesUsageInfo.BuiltInTools {
 			if tool == nil {
+				continue
+			}
+			if geminiSearch && name == dto.BuildInToolGoogleSearch {
+				items = collectToolSurchargeAtPrice(items, name, tool.CallCount, queryPrice)
+				continue
+			}
+			if geminiSearch && name == relaycommon.GoogleSearchGroundedPromptTool {
+				items = collectToolSurchargeAtPrice(items, name, tool.CallCount, groundedPrice)
 				continue
 			}
 			items = collectToolSurchargeItem(items, name, tool.CallCount, summary.ModelName)
@@ -170,10 +186,6 @@ func calculateTextToolCallSurcharge(ctx *gin.Context, relayInfo *relaycommon.Rel
 		ctx.GetInt("claude_web_search_requests"),
 		summary.ModelName,
 	)
-
-	if ctx.GetBool("gemini_google_search_call") {
-		items = collectToolSurchargeItem(items, dto.BuildInToolGoogleSearch, 1, summary.ModelName)
-	}
 
 	summary.ToolSurchargeItems = mergeToolSurchargeItems(items)
 	var surcharge decimal.Decimal
@@ -455,6 +467,12 @@ func usageSemanticFromUsage(relayInfo *relaycommon.RelayInfo, usage *dto.Usage) 
 }
 
 func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string) {
+	postTextConsumeQuota(ctx, relayInfo, usage, extraContent, true)
+}
+
+// Failed streams still incur usage, but their attempt outcome is recorded by
+// the controller. Settlement must not claim that the response succeeded.
+func postTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, usage *dto.Usage, extraContent []string, recordSuccess bool) {
 	originUsage := usage
 	billingUsage := effectiveBillingUsage(usage)
 	if usage == nil {
@@ -505,7 +523,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 
 	agentservice.UpdateBillingSnapshotQuota(relayInfo.AgentBillingSnapshot, summary.Quota)
 
-	if summary.TotalTokens == 0 {
+	if !summary.hasBillableUsage() {
 		extraContent = append(extraContent, "上游没有返回计费信息，无法扣费（可能是上游超时）")
 		logger.LogError(ctx, fmt.Sprintf("total tokens is 0, cannot consume quota, userId %d, channelId %d, tokenId %d, model %s， pre-consumed quota %d", relayInfo.UserId, relayInfo.ChannelId, relayInfo.TokenId, summary.ModelName, relayInfo.FinalPreConsumedQuota))
 	} else {
@@ -589,7 +607,7 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 	appendChannelCostInfo(other, relayInfo, summary.Quota)
 
 	logID := model.RecordConsumeLog(ctx, relayInfo.UserId, model.RecordConsumeLogParams{
-		Force:            relayInfo.AgentBillingSnapshot != nil && summary.TotalTokens > 0,
+		Force:            relayInfo.AgentBillingSnapshot != nil && summary.hasBillableUsage(),
 		ChannelId:        relayInfo.ChannelId,
 		PromptTokens:     summary.PromptTokens,
 		InputTokens:      normalizedLogInputTokens(relayInfo, originUsage, summary),
@@ -606,10 +624,12 @@ func PostTextConsumeQuota(ctx *gin.Context, relayInfo *relaycommon.RelayInfo, us
 		Group:            relayInfo.UsingGroup,
 		Other:            other,
 	})
-	if relayInfo.AgentBillingSnapshot != nil && summary.TotalTokens > 0 {
+	if relayInfo.AgentBillingSnapshot != nil && summary.hasBillableUsage() {
 		if err := agentservice.SettleConsume(relayInfo.AgentBillingSnapshot, relayInfo.UserId, logID, summary.Quota); err != nil {
 			logger.LogError(ctx, "error settling agent ledger: "+err.Error())
 		}
 	}
-	perfmetrics.RecordRelaySample(relayInfo, true, int64(summary.CompletionTokens))
+	if recordSuccess {
+		perfmetrics.RecordRelaySample(relayInfo, true, int64(summary.CompletionTokens))
+	}
 }

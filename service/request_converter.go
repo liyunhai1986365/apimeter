@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
+	"net/http"
 
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
@@ -24,15 +27,18 @@ func init() {
 }
 
 func ConvertRequest(c *gin.Context, info *relaycommon.RelayInfo, target types.RelayFormat, request any) (*relayconvert.RequestResult, error) {
-	return relayconvert.ConvertRequest(c, info, target, request)
+	result, err := relayconvert.ConvertRequest(c, info, target, request)
+	return result, ConversionRequestError(err)
 }
 
 func ConvertRequestByID(c *gin.Context, info *relaycommon.RelayInfo, converter string, request any) (*relayconvert.RequestResult, error) {
-	return relayconvert.ConvertRequestByID(c, info, converter, request)
+	result, err := relayconvert.ConvertRequestByID(c, info, converter, request)
+	return result, ConversionRequestError(err)
 }
 
 func ConvertRequestVia(c *gin.Context, info *relaycommon.RelayInfo, request any, path ...types.RelayFormat) (*relayconvert.RequestResult, error) {
-	return relayconvert.ConvertRequestVia(c, info, request, path...)
+	result, err := relayconvert.ConvertRequestVia(c, info, request, path...)
+	return result, ConversionRequestError(err)
 }
 
 func ClaudeToOpenAIRequest(claudeRequest dto.ClaudeRequest, info *relaycommon.RelayInfo) (*dto.GeneralOpenAIRequest, error) {
@@ -57,4 +63,15 @@ func GeminiToOpenAIRequest(geminiRequest *dto.GeminiChatRequest, info *relaycomm
 		return nil, fmt.Errorf("expected OpenAI chat completions request, got %T", result.Value)
 	}
 	return openAIRequest, nil
+}
+
+func ConversionRequestError(err error) error {
+	if err == nil {
+		return nil
+	}
+	var loss *types.ConversionLossError
+	if errors.As(err, &loss) || reasoning.IsClientError(err) {
+		return types.NewErrorWithStatusCode(err, types.ErrorCodeInvalidRequest, http.StatusBadRequest, types.ErrOptionWithSkipRetry())
+	}
+	return err
 }

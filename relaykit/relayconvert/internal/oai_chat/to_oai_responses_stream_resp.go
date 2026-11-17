@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 )
 
 type ChatToResponsesStreamEvent struct {
@@ -15,10 +16,13 @@ type ChatToResponsesStreamEvent struct {
 }
 
 type ChatToResponsesStreamState struct {
-	ID      string
-	Model   string
-	Created int64
-	Usage   *dto.Usage
+	Tools       *convmeta.ResponsesToolState
+	annotations []any
+	hosted      []dto.ResponsesOutput
+	ID          string
+	Model       string
+	Created     int64
+	Usage       *dto.Usage
 
 	status            string
 	incompleteDetails *dto.IncompleteDetails
@@ -38,6 +42,7 @@ type ChatToResponsesStreamState struct {
 }
 
 type chatToResponsesStreamTool struct {
+	Custom      bool
 	ChatIndex   int
 	OutputIndex int
 	ID          string
@@ -95,6 +100,16 @@ func ChatCompletionsStreamChunkToResponsesEvents(chunk *dto.ChatCompletionsStrea
 		}
 		if choice.Delta.GetContentString() != "" {
 			events = append(events, state.appendTextDelta(choice.Delta.GetContentString())...)
+		}
+
+		for _, annotation := range chatAnnotationsToResponses(choice.Delta.Annotations) {
+			index := len(state.annotations)
+			state.annotations = append(state.annotations, annotation)
+			if state.textStarted {
+				events = append(events, responsesStreamEvent("response.output_text.annotation.added", dto.ResponsesStreamResponse{
+					OutputIndex: intPtr(state.textOutputIndex), ContentIndex: intPtr(0), ItemID: state.messageID(), AnnotationIndex: intPtr(index), Annotation: annotation,
+				}))
+			}
 		}
 		for _, toolCall := range choice.Delta.ToolCalls {
 			toolEvents, err := state.appendToolCallDelta(toolCall)
@@ -208,19 +223,11 @@ func (s *ChatToResponsesStreamState) appendToolCallDelta(toolCall dto.ToolCallRe
 		if tool.ID == "" {
 			tool.ID = fmt.Sprintf("%s_call_%d", s.ID, chatIndex)
 		}
+
+		tool.Custom = s.Tools.IsCustomTool(tool.Name)
 		s.toolsByIndex[chatIndex] = tool
 		events = append(events, responsesStreamEvent(responsesEventOutputItemAdded, dto.ResponsesStreamResponse{
-			Type:        responsesEventOutputItemAdded,
-			OutputIndex: intPtr(tool.OutputIndex),
-			ItemID:      tool.ID,
-			Item: &dto.ResponsesOutput{
-				Type:      responsesOutputTypeFunctionCall,
-				ID:        tool.ID,
-				Status:    "in_progress",
-				CallId:    tool.ID,
-				Name:      tool.Name,
-				Arguments: []byte(`""`),
-			},
+			OutputIndex: intPtr(tool.OutputIndex), ItemID: tool.ID, Item: s.toolOutput(tool, "in_progress"),
 		}))
 	}
 	if strings.TrimSpace(toolCall.ID) != "" {
@@ -231,12 +238,14 @@ func (s *ChatToResponsesStreamState) appendToolCallDelta(toolCall dto.ToolCallRe
 	}
 	if toolCall.Function.Arguments != "" {
 		tool.Arguments.WriteString(toolCall.Function.Arguments)
-		events = append(events, responsesStreamEvent(responsesEventFunctionArgsDelta, dto.ResponsesStreamResponse{
-			Type:        responsesEventFunctionArgsDelta,
-			OutputIndex: intPtr(tool.OutputIndex),
-			ItemID:      tool.ID,
-			Delta:       toolCall.Function.Arguments,
-		}))
+		if !tool.Custom {
+			events = append(events, responsesStreamEvent(responsesEventFunctionArgsDelta, dto.ResponsesStreamResponse{
+				Type:        responsesEventFunctionArgsDelta,
+				OutputIndex: intPtr(tool.OutputIndex),
+				ItemID:      tool.ID,
+				Delta:       toolCall.Function.Arguments,
+			}))
+		}
 	}
 	return events, nil
 }
@@ -281,11 +290,20 @@ func (s *ChatToResponsesStreamState) doneDeltaEvents() []ChatToResponsesStreamEv
 			continue
 		}
 		tool.Done = true
-		events = append(events, responsesStreamEvent(responsesEventFunctionArgsDone, dto.ResponsesStreamResponse{
-			Type:        responsesEventFunctionArgsDone,
-			OutputIndex: intPtr(tool.OutputIndex),
-			ItemID:      tool.ID,
-		}))
+
+		if tool.Custom {
+			input := customToolInputFromArguments(tool.Arguments.String())
+			if input != "" {
+				events = append(events, responsesStreamEvent("response.custom_tool_call_input.delta", dto.ResponsesStreamResponse{OutputIndex: intPtr(tool.OutputIndex), ItemID: tool.ID, Delta: input}))
+			}
+			events = append(events, responsesStreamEvent("response.custom_tool_call_input.done", dto.ResponsesStreamResponse{OutputIndex: intPtr(tool.OutputIndex), ItemID: tool.ID, Input: &input}))
+		} else {
+			events = append(events, responsesStreamEvent(responsesEventFunctionArgsDone, dto.ResponsesStreamResponse{
+				Type:        responsesEventFunctionArgsDone,
+				OutputIndex: intPtr(tool.OutputIndex),
+				ItemID:      tool.ID,
+			}))
+		}
 		events = append(events, responsesStreamEvent(responsesEventOutputItemDone, dto.ResponsesStreamResponse{
 			Type:        responsesEventOutputItemDone,
 			OutputIndex: intPtr(tool.OutputIndex),
@@ -311,6 +329,8 @@ func (s *ChatToResponsesStreamState) finalResponse() *dto.OpenAIResponsesRespons
 			output = append(output, *s.messageOutput(status))
 		case "reasoning":
 			output = append(output, *s.reasoningOutput(status))
+		case "hosted":
+			output = append(output, s.hosted[ref.ToolIndex])
 		case "tool":
 			if tool := s.toolsByIndex[ref.ToolIndex]; tool != nil {
 				output = append(output, *s.toolOutput(tool, status))
@@ -385,7 +405,7 @@ func (s *ChatToResponsesStreamState) messageOutput(status string) *dto.Responses
 			{
 				Type:        "output_text",
 				Text:        s.text.String(),
-				Annotations: []interface{}{},
+				Annotations: append([]any{}, s.annotations...),
 			},
 		},
 	}
@@ -406,12 +426,41 @@ func (s *ChatToResponsesStreamState) reasoningOutput(status string) *dto.Respons
 }
 
 func (s *ChatToResponsesStreamState) toolOutput(tool *chatToResponsesStreamTool, status string) *dto.ResponsesOutput {
+	namespace, name := s.Tools.ResponsesToolName(tool.Name)
+	if tool.Custom {
+		input := customToolInputFromArguments(tool.Arguments.String())
+		return &dto.ResponsesOutput{Type: "custom_tool_call", ID: tool.ID, Status: status, CallId: tool.ID, Name: name, Namespace: namespace, Input: &input}
+	}
+
 	return &dto.ResponsesOutput{
 		Type:      responsesOutputTypeFunctionCall,
 		ID:        tool.ID,
 		Status:    status,
 		CallId:    tool.ID,
-		Name:      tool.Name,
+		Name:      name,
+		Namespace: namespace,
 		Arguments: chatArgumentsRawMessage(tool.Arguments.String()),
 	}
+}
+
+// Emit one complete search item after Gemini's late grounding metadata arrives.
+func (s *ChatToResponsesStreamState) AddWebSearch(queries []string) []ChatToResponsesStreamEvent {
+	if s == nil || s.finalized || len(queries) == 0 {
+		return nil
+	}
+	events := make([]ChatToResponsesStreamEvent, 0, 5)
+	if !s.sentCreated {
+		s.sentCreated = true
+		events = append(events, responsesStreamEvent(responsesEventCreated, dto.ResponsesStreamResponse{Response: s.createdResponse()}))
+	}
+	item := WebSearchOutput(queries, fmt.Sprintf("ws_%s_%d", s.ID, len(s.hosted)))
+	index := s.nextIndex("hosted", len(s.hosted))
+	s.hosted = append(s.hosted, item)
+	pending := item
+	pending.Status = "in_progress"
+	events = append(events, responsesStreamEvent(responsesEventOutputItemAdded, dto.ResponsesStreamResponse{OutputIndex: intPtr(index), Item: &pending}))
+	for _, event := range []string{"response.web_search_call.in_progress", "response.web_search_call.searching", "response.web_search_call.completed"} {
+		events = append(events, responsesStreamEvent(event, dto.ResponsesStreamResponse{OutputIndex: intPtr(index), ItemID: item.ID}))
+	}
+	return append(events, responsesStreamEvent(responsesEventOutputItemDone, dto.ResponsesStreamResponse{OutputIndex: intPtr(index), Item: &item}))
 }

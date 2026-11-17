@@ -72,6 +72,7 @@ const (
 // Values is a plain-struct Meta implementation for tests and non-RelayInfo
 // hosts (the relaykit-native entry point).
 type Values struct {
+	ResponsesTools       *ResponsesToolState
 	OriginModelName      string
 	UpstreamModelName    string
 	ChannelMetaAttached  bool

@@ -234,6 +234,7 @@ function readAdvancedSettingsPreference(): boolean {
 
 function hasAdvancedSettingsValues(values: ChannelFormValues): boolean {
   return Boolean(
+    (values.tool_loss_policy && values.tool_loss_policy !== 'allow') ||
     values.model_mapping?.trim() ||
     values.param_override?.trim() ||
     values.header_override?.trim() ||
@@ -1615,6 +1616,56 @@ export function ChannelMutateDrawer({
                                   'API Key mode (does not support batch creation)'
                                 )}
                           </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    {form.watch('vertex_key_type') === 'api_key' && (
+                      <FormField
+                        control={form.control}
+                        name='vertex_project_id'
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>{t('Vertex AI Project ID')}</FormLabel>
+                            <FormControl>
+                              <Input {...field} value={field.value || ''} />
+                            </FormControl>
+                            <FormDescription>
+                              {t(
+                                'Leave empty to use Vertex express mode with an API key.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    )}
+                    <FormField
+                      control={form.control}
+                      name='vertex_api_version'
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>{t('Vertex AI API Version')}</FormLabel>
+                          <Select
+                            value={field.value || 'v1'}
+                            onValueChange={field.onChange}
+                            items={[
+                              { value: 'v1', label: 'v1' },
+                              { value: 'v1beta1', label: 'v1beta1' },
+                            ]}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent alignItemWithTrigger={false}>
+                              <SelectGroup>
+                                <SelectItem value='v1'>v1</SelectItem>
+                                <SelectItem value='v1beta1'>v1beta1</SelectItem>
+                              </SelectGroup>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -3470,6 +3521,63 @@ export function ChannelMutateDrawer({
                           )}
                         />
                       )}
+
+                      <FormField
+                        control={form.control}
+                        name='tool_loss_policy'
+                        render={({ field }) => (
+                          <FormItem className='px-4 py-3'>
+                            <FormLabel>
+                              {t('Tool conversion loss policy')}
+                            </FormLabel>
+                            <Select
+                              value={field.value || 'allow'}
+                              onValueChange={field.onChange}
+                              items={[
+                                {
+                                  value: 'allow',
+                                  label: t('Allow conversion losses'),
+                                },
+                                {
+                                  value: 'safe',
+                                  label: t('Reject tool behavior changes'),
+                                },
+                                {
+                                  value: 'strict',
+                                  label: t(
+                                    'Reject all detected conversion losses'
+                                  ),
+                                },
+                              ]}
+                            >
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent alignItemWithTrigger={false}>
+                                <SelectGroup>
+                                  <SelectItem value='allow'>
+                                    {t('Allow conversion losses')}
+                                  </SelectItem>
+                                  <SelectItem value='safe'>
+                                    {t('Reject tool behavior changes')}
+                                  </SelectItem>
+                                  <SelectItem value='strict'>
+                                    {t('Reject all detected conversion losses')}
+                                  </SelectItem>
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                            <FormDescription>
+                              {t(
+                                'Controls detected conversion losses. Requests sent unchanged are not checked.'
+                              )}
+                            </FormDescription>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
 
                       <FormField
                         control={form.control}

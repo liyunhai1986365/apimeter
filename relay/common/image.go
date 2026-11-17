@@ -40,6 +40,9 @@ func (info *RelayInfo) SetImageBillingResponse(body []byte) {
 }
 
 func (info *RelayInfo) RequestedImageCount() int {
+	if info.OutboundImageCount != nil && *info.OutboundImageCount > 0 {
+		return int(*info.OutboundImageCount)
+	}
 	if request, ok := info.Request.(*dto.ImageRequest); ok && request.N != nil && *request.N > 0 {
 		return int(*request.N)
 	}

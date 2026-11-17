@@ -11,11 +11,14 @@ import (
 	"github.com/QuantumNous/new-api/setting/operation_setting"
 )
 
+const GoogleSearchGroundedPromptTool = "google_search_grounded_prompt"
+
 var reservedBillableToolNames = map[string]struct{}{
 	dto.BuildInToolWebSearchPreview: {},
 	dto.BuildInToolWebSearch:        {},
 	dto.BuildInToolFileSearch:       {},
 	dto.BuildInToolGoogleSearch:     {},
+	GoogleSearchGroundedPromptTool:  {},
 	dto.BuildInToolImageGeneration:  {},
 }
 
@@ -191,4 +194,18 @@ func IsNonBillableResponsesStatus(status []byte) bool {
 	default:
 		return false
 	}
+}
+
+// SetBillableToolCount records a response-wide count after stream deduplication.
+func (info *RelayInfo) SetBillableToolCount(name string, count int) {
+	if info == nil || name == "" || count < 0 {
+		return
+	}
+	if info.ResponsesUsageInfo == nil {
+		info.ResponsesUsageInfo = &ResponsesUsageInfo{}
+	}
+	if info.ResponsesUsageInfo.BuiltInTools == nil {
+		info.ResponsesUsageInfo.BuiltInTools = make(map[string]*BuildInToolInfo)
+	}
+	info.ResponsesUsageInfo.BuiltInTools[name] = &BuildInToolInfo{ToolName: name, CallCount: count}
 }

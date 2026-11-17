@@ -1,20 +1,25 @@
 package oaichat
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"math"
 	"strings"
 
-	"context"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert/internal/convdiag"
 	relaymedia "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/media"
 	sharedgemini "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/gemini"
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/QuantumNous/new-api/relaykit/types"
 )
 
 func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto.GeneralOpenAIRequest, info convmeta.Meta) (*dto.GeminiChatRequest, error) {
 	opts := convmeta.OptionsOf(info)
+	toolChoice, _ := textRequest.ToolChoice.(string)
+	toolsDisabled := toolChoice == "none"
 	geminiRequest := dto.GeminiChatRequest{
 		Contents: make([]dto.GeminiChatContent, 0, len(textRequest.Messages)),
 		GenerationConfig: dto.GeminiChatGenerationConfig{
@@ -22,13 +27,18 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 		},
 	}
 
-	if textRequest.TopP != nil && *textRequest.TopP > 0 {
+	if textRequest.TopP != nil {
 		geminiRequest.GenerationConfig.TopP = kitutil.GetPointer(*textRequest.TopP)
 	}
-	if maxTokens := textRequest.GetMaxTokens(); maxTokens > 0 {
-		geminiRequest.GenerationConfig.MaxOutputTokens = kitutil.GetPointer(maxTokens)
+	if textRequest.MaxCompletionTokens != nil {
+		geminiRequest.GenerationConfig.MaxOutputTokens = kitutil.GetPointer(*textRequest.MaxCompletionTokens)
+	} else if textRequest.MaxTokens != nil {
+		geminiRequest.GenerationConfig.MaxOutputTokens = kitutil.GetPointer(*textRequest.MaxTokens)
 	}
-	if textRequest.Seed != nil && *textRequest.Seed != 0 {
+	if textRequest.TopK != nil {
+		geminiRequest.GenerationConfig.TopK = kitutil.GetPointer(float64(*textRequest.TopK))
+	}
+	if textRequest.Seed != nil {
 		geminiRequest.GenerationConfig.Seed = kitutil.GetPointer(int64(*textRequest.Seed))
 	}
 
@@ -50,7 +60,6 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 		geminiRequest.GenerationConfig.StopSequences = stopSequences
 	}
 
-	adaptorWithExtraBody := false
 	if len(textRequest.ExtraBody) > 0 {
 		var extraBody map[string]interface{}
 		if err := kitutil.Unmarshal(textRequest.ExtraBody, &extraBody); err != nil {
@@ -58,8 +67,7 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 		}
 
 		if googleBody, ok := extraBody["google"].(map[string]interface{}); ok {
-			if !strings.HasSuffix(upstreamModelName, "-nothinking") {
-				adaptorWithExtraBody = true
+			{
 				if _, hasErrorParam := googleBody["thinkingConfig"]; hasErrorParam {
 					return nil, errors.New("extra_body.google.thinkingConfig is not supported, use extra_body.google.thinking_config instead")
 				}
@@ -74,9 +82,11 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 					if thinkingBudget, exists := thinkingConfig["thinking_budget"]; exists {
 						switch v := thinkingBudget.(type) {
 						case float64:
+							if math.Trunc(v) != v || v > float64(math.MaxInt32) || v < float64(math.MinInt32) {
+								return nil, errors.New("thinking_budget must be a 32-bit integer")
+							}
 							budgetInt := int(v)
 							tempThinkingConfig.ThinkingBudget = kitutil.GetPointer(budgetInt)
-							tempThinkingConfig.IncludeThoughts = budgetInt > 0
 							hasThinkingConfig = true
 						default:
 							return nil, errors.New("extra_body.google.thinking_config.thinking_budget must be an integer")
@@ -85,7 +95,7 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 
 					if includeThoughts, exists := thinkingConfig["include_thoughts"]; exists {
 						if v, ok := includeThoughts.(bool); ok {
-							tempThinkingConfig.IncludeThoughts = v
+							tempThinkingConfig.IncludeThoughts = kitutil.GetPointer(v)
 							hasThinkingConfig = true
 						} else {
 							return nil, errors.New("extra_body.google.thinking_config.include_thoughts must be a boolean")
@@ -147,8 +157,8 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 		}
 	}
 
-	if !adaptorWithExtraBody {
-		sharedgemini.ApplyThinkingConfig(&geminiRequest, info, textRequest)
+	if err := sharedgemini.ApplyThinkingConfig(c, &geminiRequest, info, textRequest); err != nil {
+		return nil, err
 	}
 
 	var safetySettings []dto.GeminiChatSafetySettings
@@ -167,32 +177,35 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 	}
 
 	if textRequest.Tools != nil {
-		functions := make([]dto.FunctionRequest, 0, len(textRequest.Tools))
+		declarationContext := c
+		if toolsDisabled {
+			// Keep declarations for tool history without diagnosing execution
+			// constraints that cannot apply when function calling is disabled.
+			declarationContext = nil
+		}
+		functions := make([]map[string]any, 0, len(textRequest.Tools))
 		googleSearch := false
 		codeExecution := false
 		urlContext := false
 		for _, tool := range textRequest.Tools {
+			// NONE only disables functions in Gemini; omit hosted tools too.
 			if tool.Function.Name == "googleSearch" {
-				googleSearch = true
+				googleSearch = !toolsDisabled
 				continue
 			}
 			if tool.Function.Name == "codeExecution" {
-				codeExecution = true
+				codeExecution = !toolsDisabled
 				continue
 			}
 			if tool.Function.Name == "urlContext" {
-				urlContext = true
+				urlContext = !toolsDisabled
 				continue
 			}
-			if tool.Function.Parameters != nil {
-				if params, ok := tool.Function.Parameters.(map[string]interface{}); ok {
-					if props, hasProps := params["properties"].(map[string]interface{}); hasProps && len(props) == 0 {
-						tool.Function.Parameters = nil
-					}
-				}
-			}
-			tool.Function.Parameters = sharedgemini.CleanFunctionParameters(tool.Function.Parameters)
-			functions = append(functions, tool.Function)
+			functions = append(functions, sharedgemini.FunctionDeclaration(declarationContext, tool.Function, opts.Gemini.SupportsJSONSchemaModel(upstreamModelName)))
+		}
+		// Parallel function calling is irrelevant without callable functions.
+		if !toolsDisabled && len(functions) > 0 && textRequest.ParallelToolCalls != nil && !*textRequest.ParallelToolCalls {
+			convdiag.Add(c, types.ConversionDiagnostic{Code: "unsupported_parallel_tool_control", Path: "parallel_tool_calls", Message: "Gemini cannot enforce parallel_tool_calls=false", Severity: types.ConversionDiagnosticError})
 		}
 		geminiTools := geminiRequest.GetTools()
 		if codeExecution {
@@ -217,7 +230,7 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 		}
 		geminiRequest.SetTools(geminiTools)
 
-		if textRequest.ToolChoice != nil {
+		if textRequest.ToolChoice != nil && (!toolsDisabled || len(functions) > 0) {
 			geminiRequest.ToolConfig = sharedgemini.OpenAIToolChoiceToConfig(textRequest.ToolChoice)
 		}
 	}
@@ -226,11 +239,7 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 		geminiRequest.GenerationConfig.ResponseMimeType = "application/json"
 
 		if len(textRequest.ResponseFormat.JsonSchema) > 0 {
-			var jsonSchema dto.FormatJsonSchema
-			if err := kitutil.Unmarshal(textRequest.ResponseFormat.JsonSchema, &jsonSchema); err == nil {
-				cleanedSchema := sharedgemini.RemoveAdditionalProperties(jsonSchema.Schema, 0)
-				geminiRequest.GenerationConfig.ResponseSchema = cleanedSchema
-			}
+			sharedgemini.ApplyResponseSchema(c, &geminiRequest.GenerationConfig, textRequest.ResponseFormat.JsonSchema, "response_format.json_schema", opts.Gemini.SupportsJSONSchemaModel(upstreamModelName))
 		}
 	}
 
@@ -271,6 +280,9 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 				Response: contentMap,
 			}
 
+			if message.ToolCallId != "" {
+				functionResp.ID, _ = kitutil.Marshal(message.ToolCallId)
+			}
 			*parts = append(*parts, dto.GeminiPart{
 				FunctionResponse: functionResp,
 			})
@@ -293,6 +305,7 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 				}
 				toolCall := dto.GeminiPart{
 					FunctionCall: &dto.FunctionCall{
+						ID:           call.ID,
 						FunctionName: call.Function.Name,
 						Arguments:    args,
 					},
@@ -371,7 +384,7 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 					return nil, fmt.Errorf("get file data from '%s' failed: %w", source.GetIdentifier(), err)
 				}
 
-				if _, ok := sharedgemini.SupportedMimeTypes[strings.ToLower(mimeType)]; !ok {
+				if !sharedgemini.IsSupportedMimeType(mimeType) {
 					return nil, fmt.Errorf("mime type is not supported by Gemini: '%s', url: '%s', supported types are: %v", mimeType, source.GetIdentifier(), sharedgemini.SupportedMimeTypesList())
 				}
 

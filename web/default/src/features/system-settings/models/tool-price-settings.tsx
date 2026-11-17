@@ -33,19 +33,9 @@ import {
 } from '@/components/ui/table'
 import { Textarea } from '@/components/ui/textarea'
 import { useUpdateOption } from '../hooks/use-update-option'
+import { DEFAULT_PRICES, parseInitialPrices } from './tool-price-config'
 
 const OPTION_KEY = 'tool_price_setting.prices'
-
-const DEFAULT_PRICES: Record<string, number> = {
-  web_search: 10.0,
-  web_search_preview: 10.0,
-  'web_search_preview:gpt-4o*': 25.0,
-  'web_search_preview:gpt-4.1*': 25.0,
-  'web_search_preview:gpt-4o-mini*': 25.0,
-  'web_search_preview:gpt-4.1-mini*': 25.0,
-  file_search: 2.5,
-  google_search: 14.0,
-}
 
 type ToolPriceRow = {
   id: number
@@ -69,26 +59,6 @@ function objectToRows(prices: Record<string, number>): ToolPriceRow[] {
     key,
     price: Number(price) || 0,
   }))
-}
-
-function parseInitialPrices(
-  rawValue: string | undefined
-): Record<string, number> {
-  if (!rawValue) return { ...DEFAULT_PRICES }
-  try {
-    const parsed = JSON.parse(rawValue) as unknown
-    if (
-      parsed &&
-      typeof parsed === 'object' &&
-      !Array.isArray(parsed) &&
-      Object.keys(parsed as object).length > 0
-    ) {
-      return parsed as Record<string, number>
-    }
-  } catch {
-    // fall through to defaults
-  }
-  return { ...DEFAULT_PRICES }
 }
 
 type ToolPriceSettingsProps = {
@@ -217,6 +187,11 @@ export const ToolPriceSettings = memo(function ToolPriceSettings({
               web_search_preview:gpt-4o*
             </code>{' '}
             {t('overrides for matching model prefix.')}
+          </div>
+          <div>
+            {t(
+              'Google Search defaults: Gemini 3+ per query, older models per grounded request. Existing google_search overrides stay per request until a matching google_search_grounded_prompt rule is configured (0 switches to per-query pricing).'
+            )}
           </div>
         </AlertDescription>
       </Alert>

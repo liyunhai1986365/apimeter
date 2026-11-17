@@ -78,6 +78,9 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 	if resp == nil || dataHandler == nil {
 		return
 	}
+	// Join request preparation pings before touching headers. From this point
+	// the scanner serializes every ping and callback with its write mutex.
+	StopStreamKeepAlive(c)
 
 	// Preserve status accumulated by upstream adapters (for example, a parse
 	// warning recorded before scanning) while ensuring a status is available.

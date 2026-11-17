@@ -13,6 +13,7 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
 	"github.com/gin-gonic/gin"
@@ -33,12 +34,12 @@ func TestAdaptNativeClaudeThinking(t *testing.T) {
 		wantBudget                      int
 	}{
 		{name: "omitted", model: "claude-opus-5-5"},
-		{name: "legacy enabled", model: "claude-opus-5-5", thinking: &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(4096)}, wantType: "adaptive", wantEffort: "high"},
+		{name: "legacy enabled", model: "claude-opus-5-5", thinking: &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(4096)}, wantType: "adaptive", wantEffort: "medium"},
 		{name: "preserve config", model: "claude-opus-5-5", thinking: &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(8192)}, config: json.RawMessage(`{"effort":"low","format":{"type":"json_schema","schema":{"type":"object","properties":{"n":{"const":9007199254740993}}}}}`), wantType: "adaptive", wantEffort: "low"},
 		{name: "adaptive budget removed", model: "claude-opus-5-5", thinking: &dto.Thinking{Type: "adaptive", BudgetTokens: common.GetPointer(0), Display: "omitted"}, config: json.RawMessage(`{"effort":"medium"}`), wantType: "adaptive", wantEffort: "medium"},
-		{name: "disabled uses omission", model: "claude-opus-5-5", thinking: &dto.Thinking{Type: "disabled"}},
-		{name: "thinking suffix", model: "claude-opus-5-5-thinking", wantType: "adaptive", wantEffort: "high", wantModel: "claude-opus-5-5"},
-		{name: "thinking suffix with explicit budget", model: "claude-opus-5-5-thinking", thinking: &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(8192)}, wantType: "adaptive", wantEffort: "high", wantModel: "claude-opus-5-5"},
+		{name: "disabled uses lowest effort", model: "claude-opus-5-5", thinking: &dto.Thinking{Type: "disabled"}, wantType: "adaptive", wantEffort: "low"},
+		{name: "thinking suffix", model: "claude-opus-5-5-thinking", wantType: "adaptive", wantEffort: "medium", wantModel: "claude-opus-5-5"},
+		{name: "thinking suffix with explicit budget", model: "claude-opus-5-5-thinking", thinking: &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(8192)}, wantType: "adaptive", wantEffort: "medium", wantModel: "claude-opus-5-5"},
 		{name: "effort suffix", model: "claude-opus-5-5-high", config: json.RawMessage(`{"format":{"type":"json_schema","schema":{"type":"object"}}}`), wantType: "adaptive", wantEffort: "high", wantModel: "claude-opus-5-5"},
 		{name: "legacy model unchanged", model: "claude-sonnet-4-5", thinking: &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(4096)}, wantType: "enabled", wantBudget: 4096},
 		{name: "opus 4.6 manual unchanged", model: "claude-opus-4-6", thinking: &dto.Thinking{Type: "enabled", BudgetTokens: common.GetPointer(4096)}, wantType: "enabled", wantBudget: 4096},
@@ -72,8 +73,11 @@ func TestAdaptNativeClaudeThinking(t *testing.T) {
 			if tc.thinking != nil && tc.thinking.Display != "" {
 				require.Equal(t, tc.thinking.Display, req.Thinking.Display)
 			}
-			// No evidence that Opus 5.5 shares 4.7's sampling restriction.
-			require.Equal(t, 0.0, *req.Temperature)
+			if strings.HasPrefix(tc.model, "claude-opus-5-5") {
+				require.Nil(t, req.Temperature)
+			} else {
+				require.Equal(t, 0.0, *req.Temperature)
+			}
 		})
 	}
 }
@@ -81,6 +85,32 @@ func TestAdaptNativeClaudeThinking(t *testing.T) {
 func TestAdaptNativeClaudeThinkingRejectsInvalidOutputConfig(t *testing.T) {
 	req := &dto.ClaudeRequest{Model: "claude-opus-5-5", Thinking: &dto.Thinking{Type: "enabled"}, OutputConfig: json.RawMessage(`[]`)}
 	require.ErrorContains(t, adaptClaudeThinking(req, req.Model), "output_config")
+}
+
+func TestClaudeHelperInvalidEffortReturnsBadRequest(t *testing.T) {
+	global := model_setting.GetGlobalSettings()
+	oldPassThrough := global.PassThroughRequestEnabled
+	global.PassThroughRequestEnabled = false
+	t.Cleanup(func() { global.PassThroughRequestEnabled = oldPassThrough })
+	for _, model := range []string{"claude-opus-5-5", "claude-sonnet-4-6"} {
+		t.Run(model, func(t *testing.T) {
+			c, _ := gin.CreateTestContext(httptest.NewRecorder())
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+			common.SetContextKey(c, constant.ContextKeyChannelType, constant.ChannelTypeAnthropic)
+			common.SetContextKey(c, constant.ContextKeyChannelSetting, dto.ChannelSettings{})
+			request := &dto.ClaudeRequest{
+				Model: model, MaxTokens: common.GetPointer[uint](4096),
+				OutputConfig: json.RawMessage(`{"effort":"typo"}`),
+				Messages:     []dto.ClaudeMessage{{Role: "user", Content: "hello"}},
+			}
+			info := &relaycommon.RelayInfo{OriginModelName: model, Request: request}
+			apiErr := ClaudeHelper(c, info)
+			require.ErrorContains(t, apiErr, "unsupported reasoning effort")
+			require.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+			require.Equal(t, types.ErrorCodeInvalidRequest, apiErr.GetErrorCode())
+			require.True(t, types.IsSkipRetryError(apiErr))
+		})
+	}
 }
 
 type claudePassthroughTransport func(*http.Request) (*http.Response, error)

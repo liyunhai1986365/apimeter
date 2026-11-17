@@ -2,6 +2,7 @@ package relayconvert
 
 import (
 	"context"
+
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	claudemessages "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/claude_messages"
@@ -20,15 +21,15 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 }
 
 func GeminiGenerateContentRequestToOpenAIChat(geminiRequest *dto.GeminiChatRequest, info convmeta.Meta) (*dto.GeneralOpenAIRequest, error) {
-	return geminichat.GeminiGenerateContentRequestToOpenAIChat(geminiRequest, info)
+	return geminichat.GeminiGenerateContentRequestToOpenAIChat(context.Background(), geminiRequest, info)
 }
 
 func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto.GeneralOpenAIRequest, info convmeta.Meta) (*dto.GeminiChatRequest, error) {
 	return oaichat.OpenAIChatRequestToGeminiGenerateContent(c, textRequest, info)
 }
 
-func ApplyGeminiThinkingConfig(geminiRequest *dto.GeminiChatRequest, info convmeta.Meta, oaiRequest ...dto.GeneralOpenAIRequest) {
-	sharedgemini.ApplyThinkingConfig(geminiRequest, info, oaiRequest...)
+func ApplyGeminiThinkingConfig(geminiRequest *dto.GeminiChatRequest, info convmeta.Meta, oaiRequest ...dto.GeneralOpenAIRequest) error {
+	return sharedgemini.ApplyThinkingConfig(context.Background(), geminiRequest, info, oaiRequest...)
 }
 
 func ChatCompletionsRequestToResponsesRequest(req *dto.GeneralOpenAIRequest) (*dto.OpenAIResponsesRequest, error) {
