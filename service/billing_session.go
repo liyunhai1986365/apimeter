@@ -15,6 +15,7 @@ import (
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 // ---------------------------------------------------------------------------
@@ -160,10 +161,10 @@ func (s *BillingSession) Reserve(targetQuota int) error {
 	return s.reserveLocked(targetQuota)
 }
 
-// ReserveWithCommit hands an increased reservation to a persisted task. A
-// timeout may win the task CAS while Reserve is running; in that case the
-// timeout owns the old reservation and we must undo only the new difference.
-func (s *BillingSession) ReserveWithCommit(targetQuota int, commit func(int) error) error {
+// ReserveWithCommit is the local async image handoff. The task CAS and extra
+// account debits share a transaction, so a failed handoff never creates an
+// unpublished debit requiring a second, potentially failing, refund write.
+func (s *BillingSession) ReserveWithCommit(targetQuota int, commit func(*gorm.DB, int) error) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if commit == nil {
@@ -172,35 +173,43 @@ func (s *BillingSession) ReserveWithCommit(targetQuota int, commit func(int) err
 	if s.settled || s.refunded || s.fundingSettled {
 		return errors.New("billing session is already closed")
 	}
-	previousQuota := s.preConsumedQuota
-	if err := s.reserveLocked(targetQuota); err != nil {
+	reserved := max(targetQuota, s.preConsumedQuota)
+	if s.trusted || s.funding.Source() == BillingSourceUserOwnedProvider {
+		reserved = s.preConsumedQuota
+	}
+	delta := reserved - s.preConsumedQuota
+	accounts := model.ImageTaskQuotaReservation{
+		UserID: s.relayInfo.UserId, TokenID: s.relayInfo.TokenId, TokenKey: s.relayInfo.TokenKey,
+		SkipToken: s.relayInfo.IsPlayground, TokenUnlimited: s.relayInfo.TokenUnlimited,
+	}
+	switch funding := s.funding.(type) {
+	case *WalletFunding:
+		accounts.UserID = funding.userId
+	case *SubscriptionFunding:
+		accounts.SubscriptionID = funding.subscriptionId
+	case *UserOwnedProviderFunding:
+	default:
+		return fmt.Errorf("unsupported funding source: %s", s.funding.Source())
+	}
+	if err := model.ReserveImageTaskQuota(accounts, delta, func(tx *gorm.DB) error {
+		return commit(tx, reserved)
+	}); err != nil {
+		if errors.Is(err, model.ErrImageTaskSubscriptionReservation) {
+			return types.NewErrorWithStatusCode(err, types.ErrorCodeInsufficientUserQuota, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
+		if errors.Is(err, model.ErrImageTaskTokenReservation) {
+			return types.NewErrorWithStatusCode(err, types.ErrorCodePreConsumeTokenQuotaFailed, http.StatusForbidden, types.ErrOptionWithSkipRetry(), types.ErrOptionWithNoRecordErrorLog())
+		}
 		return err
 	}
-	if err := commit(s.preConsumedQuota); err != nil {
-		delta := s.preConsumedQuota - previousQuota
-		if delta <= 0 {
-			return err
-		}
-		fundingErr := s.rollbackFundingReserve(delta)
-		if fundingErr == nil {
-			s.preConsumedQuota -= delta
-			s.extraReserved -= delta
-		}
-		var tokenErr error
-		if !s.relayInfo.IsPlayground {
-			tokenErr = model.IncreaseTokenQuota(s.relayInfo.TokenId, s.relayInfo.TokenKey, delta)
-		}
-		if tokenErr == nil {
-			s.tokenConsumed -= delta
-		}
-		s.syncRelayInfo()
-		if fundingErr != nil || tokenErr != nil {
-			rollbackErr := fmt.Errorf("rolling back unpublished reservation (userId=%d, tokenId=%d, delta=%d): %w", s.relayInfo.UserId, s.relayInfo.TokenId, delta, errors.Join(fundingErr, tokenErr))
-			common.SysLog(rollbackErr.Error())
-			return errors.Join(err, rollbackErr)
-		}
-		return err
+	// Publish in-memory state only after the transaction commits.
+	if funding, ok := s.funding.(*WalletFunding); ok {
+		funding.consumed += delta
 	}
+	s.preConsumedQuota = reserved
+	s.tokenConsumed += delta
+	s.extraReserved += delta
+	s.syncRelayInfo()
 	return nil
 }
 

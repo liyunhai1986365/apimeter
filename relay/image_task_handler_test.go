@@ -23,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/require"
@@ -51,12 +52,20 @@ func (s *imageAsyncBillingStub) GetPreConsumedQuota() int { return s.quota }
 
 func (s *imageAsyncBillingStub) Reserve(int) error { return nil }
 
-func (s *imageAsyncBillingStub) ReserveWithCommit(_ int, commit func(int) error) error {
-	return commit(s.quota)
+func (s *imageAsyncBillingStub) ReserveWithCommit(_ int, commit func(*gorm.DB, int) error) error {
+	return model.DB.Transaction(func(tx *gorm.DB) error { return commit(tx, s.quota) })
+}
+
+func waitForImageTaskTestWorkers(t *testing.T) {
+	t.Helper()
+	// Refunds may enqueue further cache updates after the DB balance already
+	// matches the assertion. Wait for those workers before restoring globals.
+	require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond, "image task background workers did not finish")
 }
 
 func setupImageTaskTestDB(t *testing.T) {
 	t.Helper()
+	waitForImageTaskTestWorkers(t)
 
 	originalDB := model.DB
 	originalLogDB := model.LOG_DB
@@ -77,6 +86,7 @@ func setupImageTaskTestDB(t *testing.T) {
 	common.LogConsumeEnabled = false
 
 	t.Cleanup(func() {
+		waitForImageTaskTestWorkers(t)
 		model.DB = originalDB
 		model.LOG_DB = originalLogDB
 		common.UsingSQLite = originalSQLite

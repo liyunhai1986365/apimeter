@@ -24,6 +24,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type imageResponseCapture struct {
@@ -347,17 +348,14 @@ func imageAsyncPreConsumedQuota(info *relaycommon.RelayInfo) int {
 // A local task is inserted before the worker applies channel overrides. Save
 // any extra reservation before submitting upstream so completion and polling
 // refunds use the amount actually deducted, including after a task reload.
-func syncLocalImageAsyncReservation(c *gin.Context, info *relaycommon.RelayInfo, reservedQuota int) error {
-	if !isLocalImageAsyncWorker(c) {
-		return nil
-	}
+func syncLocalImageAsyncReservation(c *gin.Context, info *relaycommon.RelayInfo, tx *gorm.DB, reservedQuota int) (func(), error) {
 	value, _ := c.Get(localImageAsyncTaskKey)
 	task, ok := value.(*model.Task)
 	if !ok || task == nil {
-		return fmt.Errorf("missing local image task for reservation")
+		return nil, fmt.Errorf("missing local image task for reservation")
 	}
-	// Do not mutate the worker's snapshot unless the CAS succeeds. On failure
-	// the billing session rolls back the increase to match the original task.
+	// Even a successful CAS can be rolled back by a subsequent account write.
+	// Publish the worker snapshot only after the entire transaction commits.
 	updated := *task
 	updated.Quota = reservedQuota
 	updated.PrivateData.BillingSource = info.BillingSource
@@ -367,15 +365,14 @@ func syncLocalImageAsyncReservation(c *gin.Context, info *relaycommon.RelayInfo,
 		billingContext.OtherRatios = info.PriceData.CloneOtherRatios()
 		updated.PrivateData.BillingContext = &billingContext
 	}
-	won, err := updated.UpdateWithStatus(model.TaskStatusInProgress)
+	won, err := updated.UpdateWithStatusTx(tx, model.TaskStatusInProgress)
 	if err == nil && !won {
 		err = fmt.Errorf("local image task changed before reservation was saved")
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	*task = updated
-	return nil
+	return func() { *task = updated }, nil
 }
 
 func createLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, requestBody []byte) (*model.Task, []byte, *types.NewAPIError) {

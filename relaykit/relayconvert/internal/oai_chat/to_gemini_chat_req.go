@@ -13,6 +13,7 @@ import (
 	relaymedia "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/media"
 	sharedgemini "github.com/QuantumNous/new-api/relaykit/relayconvert/internal/shared/gemini"
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
 	"github.com/QuantumNous/new-api/relaykit/types"
 )
 
@@ -83,13 +84,13 @@ func OpenAIChatRequestToGeminiGenerateContent(c context.Context, textRequest dto
 						switch v := thinkingBudget.(type) {
 						case float64:
 							if math.Trunc(v) != v || v > float64(math.MaxInt32) || v < float64(math.MinInt32) {
-								return nil, errors.New("thinking_budget must be a 32-bit integer")
+								return nil, reasoning.AsClientError(errors.New("thinking_budget must be a 32-bit integer"))
 							}
 							budgetInt := int(v)
 							tempThinkingConfig.ThinkingBudget = kitutil.GetPointer(budgetInt)
 							hasThinkingConfig = true
 						default:
-							return nil, errors.New("extra_body.google.thinking_config.thinking_budget must be an integer")
+							return nil, reasoning.AsClientError(errors.New("extra_body.google.thinking_config.thinking_budget must be an integer"))
 						}
 					}
 

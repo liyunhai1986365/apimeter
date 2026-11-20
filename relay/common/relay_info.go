@@ -280,7 +280,7 @@ func (info *RelayInfo) InitChannelMeta(c *gin.Context) {
 	if model_setting.GetGlobalSettings().PassThroughRequestEnabled || channelMeta.ChannelSetting.PassThroughBodyEnabled {
 		info.ReasoningEffort = ""
 	} else {
-		info.ReasoningEffort = reasoningEffortFromRequest(info.Request)
+		info.ReasoningEffort = ReasoningEffortFromRequest(info.Request)
 	}
 
 	// reset some fields based on channel meta
@@ -506,7 +506,8 @@ func GenRelayInfoOpenAI(c *gin.Context, request dto.Request) *RelayInfo {
 	return info
 }
 
-func reasoningEffortFromRequest(request dto.Request) string {
+// ReasoningEffortFromRequest reads effort from the request's protocol fields.
+func ReasoningEffortFromRequest(request dto.Request) string {
 	var effort string
 	switch req := request.(type) {
 	case *dto.GeneralOpenAIRequest:
@@ -566,7 +567,7 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 	if reqId == "" {
 		reqId = common.NewRequestId()
 	}
-	reasoningEffort := reasoningEffortFromRequest(request)
+	reasoningEffort := ReasoningEffortFromRequest(request)
 	info := &RelayInfo{
 		Request:         request,
 		ReasoningEffort: reasoningEffort,

@@ -1,6 +1,9 @@
 package common
 
-import "github.com/gin-gonic/gin"
+import (
+	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
+)
 
 // BillingSettler 抽象计费会话的生命周期操作。
 // 由 service.BillingSession 实现，存储在 RelayInfo 上以避免循环引用。
@@ -22,9 +25,8 @@ type BillingSettler interface {
 	// Reserve 将预扣额度补到目标值；若目标值不高于当前预扣额度则不做任何事。
 	Reserve(targetQuota int) error
 
-	// ReserveWithCommit publishes the actual reservation through commit. If
-	// commit fails, roll back only this call's increase, keeping the previous
-	// reservation available for its existing settlement/refund owner.
-	// commit must not call back into the billing session.
-	ReserveWithCommit(targetQuota int, commit func(reservedQuota int) error) error
+	// ReserveWithCommit atomically publishes a local image task's reservation
+	// and debits its accounts. commit must use tx and only mutate a staged task
+	// copy; callers publish that copy after this method succeeds.
+	ReserveWithCommit(targetQuota int, commit func(tx *gorm.DB, reservedQuota int) error) error
 }

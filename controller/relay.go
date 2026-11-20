@@ -342,6 +342,9 @@ func writeRelayStreamError(c *gin.Context, format types.RelayFormat, apiError *t
 	// and in the outcome consumed by successful-request rate limiting.
 	helper.StopStreamKeepAlive(c)
 	common.SetContextKey(c, constant.ContextKeyRelayFailed, true)
+	if common.GetContextKeyBool(c, constant.ContextKeyRelayStreamErrorSent) {
+		return
+	}
 	helper.ExtendWriteDeadline(c)
 	if format == types.RelayFormatClaude {
 		_ = helper.ClaudeData(c, dto.ClaudeResponse{Type: "error", Error: apiError.ToClaudeError()})

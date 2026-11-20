@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -39,23 +38,6 @@ func withHeaderNavModules(t *testing.T, raw string) {
 
 func performHeaderNavRequest(t *testing.T, handler gin.HandlerFunc, authenticated bool) *httptest.ResponseRecorder {
 	t.Helper()
-	if authenticated {
-		originalDB := model.DB
-		originalRedisEnabled := common.RedisEnabled
-		common.RedisEnabled = false
-		db, err := gorm.Open(sqlite.Open(fmt.Sprintf("file:header-nav-%s?mode=memory&cache=shared", t.Name())), &gorm.Config{})
-		require.NoError(t, err)
-		require.NoError(t, db.AutoMigrate(&model.User{}))
-		model.DB = db
-		require.NoError(t, db.Create(&model.User{
-			Id: 1, Username: "tester", Password: "hashed", Role: common.RoleCommonUser,
-			Status: common.UserStatusEnabled, Group: "default", AffCode: "hnav",
-		}).Error)
-		t.Cleanup(func() {
-			model.DB = originalDB
-			common.RedisEnabled = originalRedisEnabled
-		})
-	}
 
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -68,13 +50,16 @@ func performHeaderNavRequest(t *testing.T, handler gin.HandlerFunc, authenticate
 		previousDB, previousRedis := model.DB, common.RedisEnabled
 		db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 		require.NoError(t, err)
-		require.NoError(t, db.AutoMigrate(&model.User{}))
-		model.DB = db
-		common.RedisEnabled = false
+		sqlDB, err := db.DB()
+		require.NoError(t, err)
 		t.Cleanup(func() {
 			model.DB = previousDB
 			common.RedisEnabled = previousRedis
+			require.NoError(t, sqlDB.Close())
 		})
+		require.NoError(t, db.AutoMigrate(&model.User{}))
+		model.DB = db
+		common.RedisEnabled = false
 		accessToken = "header-nav-pat"
 		user := model.User{
 			Username:    "tester",

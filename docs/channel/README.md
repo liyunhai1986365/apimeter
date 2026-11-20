@@ -48,11 +48,14 @@
 | [YH Seedance 渠道接入规划](design/seedance_yh_integration_plan.md) | 2026-11-03 | 设计及实施状态：核心已实现，Webhook 中继与跨 Token 转移待续 |
 | [用户自有供应商任务错误退款](design/user_owned_task_billing_issue.md) | 2026-11-05 | 已复现的公共视频任务计费问题，按用户要求暂不处理；含触发条件和影响边界 |
 | [OpenAI 图片参数适配方案](design/openai_image_parameter_adaptation_20261105.md) | 2026-11-05 | 请求参数兼容已实现，含回归范围；无保存 SVG 响应及存储／计费工作待续 |
+| [素材资产并发优化待办](design/asset_concurrency_optimization_20261120.md) | 2026-11-20 | 暂缓实施；记录创建超时、查询排队、MySQL＋Redis 复测及后续验收边界 |
 
 ## 审查与修复记录
 
 | 文档 | 日期 | 主题 |
 | --- | --- | --- |
+| [修复后整体回归](../reports/full_regression_2026-11-20.md) | 2026-11-20 | Go 全量竞态检测、前端测试与构建；素材准备超时、实时计费测试夹具竞争及 classic 资源缺口 |
+| [素材并发之外的问题复核](../reports/other_issues_review_2026-11-20.md) | 2026-11-20 | 公共日志竞态、旧 classic 资源及测试问题复现，附模型适配和计费回归结果 |
 | [Seedance 最后一轮代码审查](reviews/seedance_final_code_review.md) | 2026-09-15 | 通用入口、任务保护、权限和后续复审 |
 | [独立能力与官方接口核对](reviews/seedance_independent_capability_audit_20260916.md) | 2026-09-16 | 字段、素材契约、限流及实测能力边界 |
 | [素材库修复与验证](reviews/seedance_asset_bugfix_review_20260917.md) | 2026-09-17 | 独立素材服务、凭据并发更新和敏感配置权限 |
@@ -99,6 +102,7 @@
 
 | 日期 | 报告／说明 | 配套数据 |
 | --- | --- | --- |
+| 2026-11-20 | [本地完整服务 Mock 验收](reports/load/local_production_mock_20261120.md) | [JSON](reports/load/local_production_mock_20261120.json)；242 项通过，MySQL＋Redis、800 次并发批次请求，附新增渠道缓存延迟 |
 | 2026-11-03 | [YH 集成与本地回归](reports/load/yh_integration_20261103.md) | 视频、H5 并发、批量上传、归属及 Range 验证；未生成真实视频 |
 | 2026-10-27 | 100 用户、10 万素材、1000 并发：[列表失败诊断](reports/load/assets_mock_100k_100users_1000_20261027.md) → [修复复测](reports/load/assets_mock_100k_100users_1000_fixed_20261027.md) | [修复前](reports/load/assets_mock_100k_100users_1000_20261027.json)、[修复后](reports/load/assets_mock_100k_100users_1000_fixed_20261027.json) |
 | 2026-10-26 | 10 万素材、1000 并发：[优化前](reports/load/assets_mock_100k_1000_20261026.md) → [优化后](reports/load/assets_mock_100k_1000_optimized_20261026.md) | [优化前](reports/load/assets_mock_100k_1000_20261026.json)、[优化后](reports/load/assets_mock_100k_1000_optimized_20261026.json) |

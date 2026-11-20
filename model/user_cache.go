@@ -75,13 +75,6 @@ func InvalidateUserCache(userId int) error {
 	return invalidateUserCache(userId)
 }
 
-func populateUserCache(user User) error {
-	if !common.RedisEnabled {
-		return nil
-	}
-	return writeUserCache(user.ToBaseUser(), true)
-}
-
 // updateUserCache refreshes non-quota user cache fields.
 // Quota is maintained by atomic quota delta paths and must not be overwritten
 // by stale user snapshots from profile/settings updates.
@@ -89,7 +82,7 @@ func updateUserCache(user User) error {
 	if !common.RedisEnabled {
 		return nil
 	}
-	return writeUserCache(user.ToBaseUser(), false)
+	return writeUserMetadataCache(user.ToBaseUser())
 }
 
 // GetUserCache gets complete user cache from hash
@@ -103,6 +96,11 @@ func GetUserCache(userId int) (*UserBase, error) {
 	// Redis misses and read failures both fall back to the shared database. A
 	// version fence newer than the database is the one exception: allowing that
 	// snapshot would re-authorize a user while a restrictive update is pending.
+	var epoch string
+	var epochErr error
+	if common.RedisEnabled {
+		epoch, epochErr = quotaCacheHydrationEpoch(getUserCacheKey(userId))
+	}
 	user, err := GetUserById(userId, false)
 	if err != nil {
 		return nil, err
@@ -113,7 +111,11 @@ func GetUserCache(userId int) (*UserBase, error) {
 		if floorErr == nil && floor > user.AuthVersion {
 			return nil, ErrUserAuthCachePending
 		}
-		if err := populateUserCache(*user); err != nil {
+		var cacheErr error
+		if epochErr == nil {
+			cacheErr = writeUserCacheAtEpoch(user.ToBaseUser(), true, epoch)
+		}
+		if err := cacheErr; err != nil {
 			if errors.Is(err, ErrUserAuthCachePending) {
 				return nil, err
 			}

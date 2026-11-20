@@ -28,6 +28,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/common_handler"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relay/imageconv"
+	kitreasoning "github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/model_setting"
@@ -246,6 +247,9 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 	if request == nil {
 		return nil, errors.New("request is nil")
 	}
+	if err := applyGPT62ChatCompatibility(info, request); err != nil {
+		return nil, service.ConversionRequestError(err)
+	}
 	if info.ChannelType != constant.ChannelTypeOpenAI && info.ChannelType != constant.ChannelTypeAzure {
 		request.StreamOptions = nil
 	}
@@ -253,51 +257,34 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 		if len(request.Usage) == 0 {
 			request.Usage = json.RawMessage(`{"include":true}`)
 		}
-		// 适配 OpenRouter 的 thinking 后缀
-		if !model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) &&
-			strings.HasSuffix(info.UpstreamModelName, "-thinking") {
+		thinkingAlias := !model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) &&
+			!model_setting.ShouldPreserveThinkingSuffix(info.UpstreamModelName) &&
+			strings.HasSuffix(info.UpstreamModelName, "-thinking")
+		if thinkingAlias {
 			info.UpstreamModelName = strings.TrimSuffix(info.UpstreamModelName, "-thinking")
 			request.Model = info.UpstreamModelName
-			if len(request.Reasoning) == 0 {
-				reasoning := map[string]any{
-					"enabled": true,
-				}
-				if request.ReasoningEffort != "" && request.ReasoningEffort != "none" {
-					reasoning["effort"] = request.ReasoningEffort
-				}
-				marshal, err := common.Marshal(reasoning)
-				if err != nil {
-					return nil, fmt.Errorf("error marshalling reasoning: %w", err)
-				}
-				request.Reasoning = marshal
-			}
-			// 清空多余的ReasoningEffort
-			request.ReasoningEffort = ""
-		} else {
-			if len(request.Reasoning) == 0 {
-				// 适配 OpenAI 的 ReasoningEffort 格式
-				if request.ReasoningEffort != "" {
-					reasoning := map[string]any{
-						"enabled": true,
-					}
-					if request.ReasoningEffort != "none" {
-						reasoning["effort"] = request.ReasoningEffort
-						marshal, err := common.Marshal(reasoning)
-						if err != nil {
-							return nil, fmt.Errorf("error marshalling reasoning: %w", err)
-						}
-						request.Reasoning = marshal
-					}
-				}
-			}
-			request.ReasoningEffort = ""
 		}
+		if len(request.Reasoning) == 0 && (thinkingAlias || request.ReasoningEffort != "") {
+			// An existing nested object wins over the top-level field. Without
+			// one, a bare -thinking alias enables thinking even against none;
+			// an ordinary explicit none must reach OpenRouter as enabled=false.
+			reasoning := map[string]any{"enabled": thinkingAlias || request.ReasoningEffort != "none"}
+			if request.ReasoningEffort != "" && request.ReasoningEffort != "none" {
+				reasoning["effort"] = request.ReasoningEffort
+			}
+			marshal, err := common.Marshal(reasoning)
+			if err != nil {
+				return nil, fmt.Errorf("error marshalling reasoning: %w", err)
+			}
+			request.Reasoning = marshal
+		}
+		request.ReasoningEffort = ""
 
 		// https://docs.anthropic.com/en/api/openai-sdk#extended-thinking-support
 		// 没有做排除3.5Haiku等，要出问题再加吧，最佳兼容性（不是
 		if request.THINKING != nil && strings.HasPrefix(info.UpstreamModelName, "anthropic") {
 			var thinking dto.Thinking // Claude标准Thinking格式
-			if err := json.Unmarshal(request.THINKING, &thinking); err != nil {
+			if err := common.Unmarshal(request.THINKING, &thinking); err != nil {
 				return nil, fmt.Errorf("error Unmarshal thinking: %w", err)
 			}
 
@@ -351,7 +338,9 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			request.Model = originModel
 		}
 
-		info.SetReasoningEffort(request.ReasoningEffort)
+		if info.ChannelType != constant.ChannelTypeOpenRouter {
+			info.SetReasoningEffort(request.ReasoningEffort)
+		}
 
 		// o系列模型developer适配（o1-mini除外）
 		if !strings.HasPrefix(info.UpstreamModelName, "o1-mini") && !strings.HasPrefix(info.UpstreamModelName, "o1-preview") {
@@ -361,8 +350,60 @@ func (a *Adaptor) ConvertOpenAIRequest(c *gin.Context, info *relaycommon.RelayIn
 			}
 		}
 	}
+	if info.ChannelType == constant.ChannelTypeOpenRouter {
+		// Record only the controls that will be sent, after legacy thinking and
+		// model suffix handling have finished replacing the request fields.
+		info.SetReasoningEffort(openRouterReasoningEffort(request))
+	}
 
 	return request, nil
+}
+
+func openRouterReasoningEffort(request *dto.GeneralOpenAIRequest) string {
+	if len(request.Reasoning) == 0 {
+		return strings.TrimSpace(request.ReasoningEffort)
+	}
+	intent, err := openRouterReasoningIntent(request.Reasoning)
+	if err != nil {
+		// Logging must neither reject a previously pass-through value nor keep
+		// the top-level effort that the nested object replaced.
+		return ""
+	}
+	if intent.BudgetTokens != nil {
+		// Use the existing accounting convention for exact budgets, including
+		// conflicting controls, without normalizing the provider's raw JSON.
+		return string(kitreasoning.EffortFromBudget(*intent.BudgetTokens))
+	}
+	return string(kitreasoning.EffectiveEffort(intent))
+}
+
+// Read known strength fields without rewriting the original JSON. Exclude is
+// also type-checked because GPT-6.2 suffix merging uses this parser to validate
+// an existing reasoning object before replacing its strength.
+func openRouterReasoningIntent(raw []byte) (kitreasoning.Intent, error) {
+	var config struct {
+		Enabled   *bool  `json:"enabled"`
+		Effort    string `json:"effort"`
+		MaxTokens *int   `json:"max_tokens"`
+		Exclude   *bool  `json:"exclude"`
+	}
+	if err := common.Unmarshal(raw, &config); err != nil {
+		return kitreasoning.Intent{}, fmt.Errorf("invalid reasoning config: %w", err)
+	}
+	intent := kitreasoning.Intent{
+		Effort: kitreasoning.Effort(config.Effort), BudgetTokens: config.MaxTokens,
+		Source: kitreasoning.SourceExplicit, BudgetSource: kitreasoning.SourceExplicit,
+	}
+	if config.Enabled != nil {
+		intent.Mode = kitreasoning.ModeEnabled
+		if !*config.Enabled {
+			intent.Mode = kitreasoning.ModeDisabled
+			if config.Effort == "" {
+				intent.Effort = kitreasoning.EffortNone
+			}
+		}
+	}
+	return intent, nil
 }
 
 func (a *Adaptor) ConvertRerankRequest(c *gin.Context, relayMode int, request dto.RerankRequest) (any, error) {

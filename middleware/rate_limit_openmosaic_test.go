@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -11,15 +12,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var openMosaicRateLimitTestUsers atomic.Int64
+
 func TestOpenMosaicEmbeddedAuthorizeRateLimitIsScopedPerUser(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	previousRedisEnabled := common.RedisEnabled
 	common.RedisEnabled = false
-	inMemoryRateLimiter = common.InMemoryRateLimiter{}
 	t.Cleanup(func() {
 		common.RedisEnabled = previousRedisEnabled
-		inMemoryRateLimiter = common.InMemoryRateLimiter{}
 	})
+	// Keep the limiter used by its cleanup goroutine alive. Unique users isolate
+	// repeated test runs without replacing its store, mutex or expiration state.
+	userID := 620000 + int(openMosaicRateLimitTestUsers.Add(2))
 
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
@@ -39,8 +43,8 @@ func TestOpenMosaicEmbeddedAuthorizeRateLimitIsScopedPerUser(t *testing.T) {
 	}
 
 	for range openMosaicEmbeddedAuthorizeRateLimitNum {
-		require.Equal(t, http.StatusNoContent, request(7))
+		require.Equal(t, http.StatusNoContent, request(userID))
 	}
-	require.Equal(t, http.StatusTooManyRequests, request(7))
-	require.Equal(t, http.StatusNoContent, request(8))
+	require.Equal(t, http.StatusTooManyRequests, request(userID))
+	require.Equal(t, http.StatusNoContent, request(userID+1))
 }

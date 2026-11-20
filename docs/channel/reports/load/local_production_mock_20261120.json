@@ -1,0 +1,1795 @@
+{
+  "binary": "/tmp/apimeter-full-regression-20261120/new-api",
+  "binary_sha256": "99a96463881b3f5ccf72b1be71dabff07504bfe363e022b0f873ca800562779a",
+  "schema": "apimeter_prodmock_20261120_8f1c",
+  "redis_db": 14,
+  "mysql_max_open": 100,
+  "redis_pool": 10,
+  "update_task": false,
+  "passed": 242,
+  "failed": 0,
+  "error": null,
+  "loads": [
+    {
+      "name": "image-repeat-success",
+      "requests": 20,
+      "workers": 10,
+      "peak_client_inflight": 10,
+      "statuses": {
+        "200": 20
+      },
+      "p50_ms": 6.7,
+      "p95_ms": 15.11,
+      "p99_ms": 15.11,
+      "max_ms": 15.32
+    },
+    {
+      "name": "image-repeat-failure",
+      "requests": 20,
+      "workers": 10,
+      "peak_client_inflight": 10,
+      "statuses": {
+        "200": 20
+      },
+      "p50_ms": 5.46,
+      "p95_ms": 10.82,
+      "p99_ms": 10.82,
+      "max_ms": 11.26
+    },
+    {
+      "name": "video-repeat-success",
+      "requests": 10,
+      "workers": 5,
+      "peak_client_inflight": 5,
+      "statuses": {
+        "200": 10
+      },
+      "p50_ms": 6.01,
+      "p95_ms": 9.58,
+      "p99_ms": 9.58,
+      "max_ms": 9.61
+    },
+    {
+      "name": "video-repeat-failed",
+      "requests": 10,
+      "workers": 5,
+      "peak_client_inflight": 5,
+      "statuses": {
+        "200": 10
+      },
+      "p50_ms": 5.55,
+      "p95_ms": 8.65,
+      "p99_ms": 8.65,
+      "max_ms": 9.38
+    },
+    {
+      "name": "video-repeat-expired",
+      "requests": 10,
+      "workers": 5,
+      "peak_client_inflight": 5,
+      "statuses": {
+        "200": 10
+      },
+      "p50_ms": 4.5,
+      "p95_ms": 8.2,
+      "p99_ms": 8.2,
+      "max_ms": 11.32
+    },
+    {
+      "name": "video-repeat-cancelled",
+      "requests": 10,
+      "workers": 5,
+      "peak_client_inflight": 5,
+      "statuses": {
+        "200": 10
+      },
+      "p50_ms": 5.57,
+      "p95_ms": 7.83,
+      "p99_ms": 7.83,
+      "max_ms": 9.64
+    },
+    {
+      "name": "asset-create-100",
+      "requests": 100,
+      "workers": 100,
+      "peak_client_inflight": 100,
+      "statuses": {
+        "200": 100
+      },
+      "p50_ms": 159.52,
+      "p95_ms": 230.72,
+      "p99_ms": 249.94,
+      "max_ms": 251.81
+    },
+    {
+      "name": "asset-poll-500",
+      "requests": 500,
+      "workers": 100,
+      "peak_client_inflight": 100,
+      "statuses": {
+        "200": 500
+      },
+      "p50_ms": 130.38,
+      "p95_ms": 145.33,
+      "p99_ms": 169.4,
+      "max_ms": 207.82
+    },
+    {
+      "name": "chat-100",
+      "requests": 100,
+      "workers": 100,
+      "peak_client_inflight": 99,
+      "statuses": {
+        "200": 100
+      },
+      "p50_ms": 99.55,
+      "p95_ms": 155.85,
+      "p99_ms": 165.68,
+      "max_ms": 171.51
+    },
+    {
+      "name": "image-20",
+      "requests": 20,
+      "workers": 20,
+      "peak_client_inflight": 20,
+      "statuses": {
+        "200": 20
+      },
+      "p50_ms": 143.13,
+      "p95_ms": 148.48,
+      "p99_ms": 148.48,
+      "max_ms": 151.03
+    }
+  ],
+  "http_requests": 992,
+  "http_statuses": {
+    "200": 909,
+    "503": 59,
+    "401": 4,
+    "429": 3,
+    "403": 1,
+    "400": 10,
+    "500": 1,
+    "502": 2,
+    "404": 3
+  },
+  "elapsed_seconds": 72.18,
+  "baseline": "9a3096198e5f99c6ff07c8f56ce3aa32d22fd9fd + existing uncommitted changes",
+  "groups": [
+    {
+      "name": "启动、配置与清理",
+      "passed": 49,
+      "failed": 0,
+      "check_names": [
+        "runtime:redis_empty_isolation",
+        "runtime:mysql_isolated_schema",
+        "runtime:readiness:1",
+        "setup:status",
+        "setup:fresh_setup",
+        "setup:bootstrap_admin",
+        "setup:admin_login",
+        "setup:create_mockuser",
+        "setup:create_mockother",
+        "setup:user_login",
+        "setup:other_login",
+        "setup:user_profile",
+        "setup:other_profile",
+        "setup:quota_2",
+        "setup:quota_3",
+        "setup:relay_token",
+        "setup:other_token",
+        "setup:option:ModelRatio",
+        "setup:option:CompletionRatio",
+        "setup:option:GroupRatio",
+        "setup:option:ModelPrice",
+        "setup:option:RetryTimes",
+        "setup:option:LogConsumeEnabled",
+        "setup:channel:mock-openai",
+        "setup:channel:mock-openrouter",
+        "setup:channel:mock-claude",
+        "setup:channel:mock-gemini",
+        "setup:channel:mock-assets",
+        "setup:channel:doubao-seedance-2-5-260628-mock-success",
+        "setup:channel:doubao-seedance-2-5-260628-mock-failed",
+        "setup:channel:doubao-seedance-2-5-260628-mock-expired",
+        "setup:channel:doubao-seedance-2-5-260628-mock-cancelled",
+        "setup:channel:doubao-seedance-2-5-260628-mock-create429",
+        "setup:channel:doubao-seedance-2-5-260628-mock-query429",
+        "setup:channel:doubao-seedance-2-5-260628-mock-query500",
+        "setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid",
+        "setup:channel:doubao-seedance-2-5-260628-mock-querywrongid",
+        "runtime:mysql57",
+        "setup:option:general_setting.ping_interval_enabled",
+        "setup:option:general_setting.ping_interval_seconds",
+        "setup:option:general_setting.ping_interval_enabled",
+        "setup:revocable_token",
+        "setup:revoke_token",
+        "runtime:graceful_shutdown:1",
+        "runtime:readiness:2",
+        "runtime:only_local_channels",
+        "runtime:graceful_shutdown:2",
+        "cleanup:mysql_schema_removed",
+        "cleanup:redis_db14_empty"
+      ]
+    },
+    {
+      "name": "路由、模型映射与推理参数",
+      "passed": 8,
+      "failed": 0,
+      "check_names": [
+        "routing:new_channel_eventual_visibility",
+        "routing:models",
+        "mapping:alias_to_upstream",
+        "parameters:explicit_zero_preserved",
+        "compat:gpt62",
+        "compat:gpt62_upstream",
+        "compat:openrouter",
+        "compat:openrouter_nested_reasoning"
+      ]
+    },
+    {
+      "name": "OpenAI 兼容对话与流式输出",
+      "passed": 14,
+      "failed": 0,
+      "check_names": [
+        "chat:mock-chat",
+        "chat:content:mock-chat",
+        "chat:claude-sonnet-4-5",
+        "chat:content:claude-sonnet-4-5",
+        "chat:gemini-2.5-flash",
+        "chat:content:gemini-2.5-flash",
+        "chat:tools",
+        "chat:tool_call_preserved",
+        "stream:chat:mock-chat",
+        "stream:chat_terminal:mock-chat",
+        "stream:chat:claude-sonnet-4-5",
+        "stream:chat_terminal:claude-sonnet-4-5",
+        "stream:chat:gemini-2.5-flash",
+        "stream:chat_terminal:gemini-2.5-flash"
+      ]
+    },
+    {
+      "name": "Claude 原生、工具、思考与保活",
+      "passed": 10,
+      "failed": 0,
+      "check_names": [
+        "claude:native:False",
+        "claude:native_contract:False",
+        "claude:native:True",
+        "claude:native_contract:True",
+        "claude:adaptive",
+        "claude:adaptive_fields_exact",
+        "claude:adjacent_tools",
+        "claude:adjacent_tools_preserved",
+        "claude:slow_stream",
+        "claude:keepalive_before_content"
+      ]
+    },
+    {
+      "name": "Gemini 原生、Responses 与异常流",
+      "passed": 11,
+      "failed": 0,
+      "check_names": [
+        "gemini:native",
+        "gemini:native_content",
+        "gemini:responses:False",
+        "gemini:responses_contract:False",
+        "gemini:responses:True",
+        "gemini:responses_contract:True",
+        "gemini:broken_responses_http",
+        "gemini:broken_responses_terminal",
+        "gemini:broken_stream_no_retry",
+        "gemini:broken_stream_usage_billed",
+        "gemini:broken_stream_single_log"
+      ]
+    },
+    {
+      "name": "鉴权、上游错误与出站认证",
+      "passed": 11,
+      "failed": 0,
+      "check_names": [
+        "auth:missing:/v1/models",
+        "auth:missing:/v1/chat/completions",
+        "auth:invalid_token",
+        "auth:invalid_not_forwarded",
+        "upstream:http429",
+        "upstream:http429_not_retried",
+        "auth:ordinary_user_admin_denied",
+        "auth:revocable_token_primed",
+        "auth:revoked_token_denied",
+        "auth:revoked_token_not_forwarded",
+        "upstream:credentials"
+      ]
+    },
+    {
+      "name": "image2.6 参数传输",
+      "passed": 6,
+      "failed": 0,
+      "check_names": [
+        "image26:request:gif",
+        "image26:outbound:gif",
+        "image26:request:svg",
+        "image26:outbound:svg",
+        "image26:request:zero",
+        "image26:outbound:zero"
+      ]
+    },
+    {
+      "name": "图片同步、异步、退款与持久化",
+      "passed": 24,
+      "failed": 0,
+      "check_names": [
+        "image:sync",
+        "image:sync_pixels",
+        "image:sync_charged",
+        "image:async_submit:success",
+        "image:async_id_no_usage:success",
+        "image:reservation_before_completion:success",
+        "image:async_terminal:success",
+        "image:cross_user_denied:success",
+        "image:denied_not_forwarded:success",
+        "image:async_download_pixels",
+        "image:async_charged",
+        "image:repeat_no_double_charge:success",
+        "image:task_persisted:success",
+        "image:billing_log_count:success",
+        "image:async_submit:failure",
+        "image:async_id_no_usage:failure",
+        "image:reservation_before_completion:failure",
+        "image:async_terminal:failure",
+        "image:cross_user_denied:failure",
+        "image:denied_not_forwarded:failure",
+        "image:async_failure_refund",
+        "image:repeat_no_double_charge:failure",
+        "image:task_persisted:failure",
+        "image:billing_log_count:failure"
+      ]
+    },
+    {
+      "name": "Seedance 视频九类场景",
+      "passed": 68,
+      "failed": 0,
+      "check_names": [
+        "video:create:success",
+        "video:official_id:success",
+        "video:zero_values:success",
+        "video:cross_user:success",
+        "video:denied_not_forwarded:success",
+        "video:query:success",
+        "video:terminal:success",
+        "video:extended_usage",
+        "video:charged",
+        "video:repeat_no_double_charge:success",
+        "video:create:failed",
+        "video:official_id:failed",
+        "video:zero_values:failed",
+        "video:cross_user:failed",
+        "video:denied_not_forwarded:failed",
+        "video:query:failed",
+        "video:terminal:failed",
+        "video:terminal_refund:failed",
+        "video:repeat_no_double_charge:failed",
+        "video:create:expired",
+        "video:official_id:expired",
+        "video:zero_values:expired",
+        "video:cross_user:expired",
+        "video:denied_not_forwarded:expired",
+        "video:query:expired",
+        "video:terminal:expired",
+        "video:terminal_refund:expired",
+        "video:repeat_no_double_charge:expired",
+        "video:create:cancelled",
+        "video:official_id:cancelled",
+        "video:zero_values:cancelled",
+        "video:cross_user:cancelled",
+        "video:denied_not_forwarded:cancelled",
+        "video:query:cancelled",
+        "video:terminal:cancelled",
+        "video:terminal_refund:cancelled",
+        "video:repeat_no_double_charge:cancelled",
+        "video:create:create429",
+        "video:create429_refund",
+        "video:create:query429",
+        "video:official_id:query429",
+        "video:zero_values:query429",
+        "video:cross_user:query429",
+        "video:denied_not_forwarded:query429",
+        "video:query:query429",
+        "video:retry_after",
+        "video:invalid_query_not_finalized:query429",
+        "video:create:query500",
+        "video:official_id:query500",
+        "video:zero_values:query500",
+        "video:cross_user:query500",
+        "video:denied_not_forwarded:query500",
+        "video:query:query500",
+        "video:invalid_query_not_finalized:query500",
+        "video:create:queryinvalid",
+        "video:official_id:queryinvalid",
+        "video:zero_values:queryinvalid",
+        "video:cross_user:queryinvalid",
+        "video:denied_not_forwarded:queryinvalid",
+        "video:query:queryinvalid",
+        "video:invalid_query_not_finalized:queryinvalid",
+        "video:create:querywrongid",
+        "video:official_id:querywrongid",
+        "video:zero_values:querywrongid",
+        "video:cross_user:querywrongid",
+        "video:denied_not_forwarded:querywrongid",
+        "video:query:querywrongid",
+        "video:invalid_query_not_finalized:querywrongid"
+      ]
+    },
+    {
+      "name": "素材归属、查询、列表与删除",
+      "passed": 14,
+      "failed": 0,
+      "check_names": [
+        "asset:create",
+        "asset:create_id",
+        "asset:cross_user:/api/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+        "asset:denied_not_forwarded:/api/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+        "asset:query:/api/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+        "asset:cross_user:/v1/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+        "asset:denied_not_forwarded:/v1/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+        "asset:query:/v1/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+        "asset:list",
+        "asset:100_unique_ids",
+        "asset:poll_identity_and_status",
+        "asset:delete",
+        "asset:deleted_denied",
+        "asset:deleted_not_forwarded"
+      ]
+    },
+    {
+      "name": "账务与 Redis 一致性",
+      "passed": 10,
+      "failed": 0,
+      "check_names": [
+        "billing:chat_charged:mock-chat",
+        "billing:chat_charged:claude-sonnet-4-5",
+        "billing:chat_charged:gemini-2.5-flash",
+        "billing:http429_refunded",
+        "billing:chat100_exact",
+        "billing:chat100_log_count",
+        "billing:image20_charged",
+        "redis:user_cache_populated",
+        "redis:user_quota_matches_mysql",
+        "billing:limited_token_consistent"
+      ]
+    },
+    {
+      "name": "并发请求及响应内容",
+      "passed": 12,
+      "failed": 0,
+      "check_names": [
+        "load:image-repeat-success",
+        "load:image-repeat-failure",
+        "load:video-repeat-success",
+        "load:video-repeat-failed",
+        "load:video-repeat-expired",
+        "load:video-repeat-cancelled",
+        "load:asset-create-100",
+        "load:asset-poll-500",
+        "load:chat-100",
+        "load:chat_content_usage",
+        "load:image-20",
+        "load:image_content"
+      ]
+    },
+    {
+      "name": "进程重启恢复",
+      "passed": 5,
+      "failed": 0,
+      "check_names": [
+        "restart:token_valid",
+        "restart:persisted_image",
+        "restart:persisted_video",
+        "restart:persisted_asset",
+        "restart:no_double_billing"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "name": "runtime:redis_empty_isolation",
+      "passed": true
+    },
+    {
+      "name": "runtime:mysql_isolated_schema",
+      "passed": true
+    },
+    {
+      "name": "runtime:readiness:1",
+      "passed": true,
+      "checks": {
+        "database": "ok",
+        "log_database": "ok",
+        "redis": "ok"
+      }
+    },
+    {
+      "name": "setup:status",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:fresh_setup",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:bootstrap_admin",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:admin_login",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:create_mockuser",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:create_mockother",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:user_login",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:other_login",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:user_profile",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:other_profile",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:quota_2",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:quota_3",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:relay_token",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:other_token",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:option:ModelRatio",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:option:CompletionRatio",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:option:GroupRatio",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:option:ModelPrice",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:option:RetryTimes",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:option:LogConsumeEnabled",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:mock-openai",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:mock-openrouter",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:mock-claude",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:mock-gemini",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:mock-assets",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-success",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-failed",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-expired",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-cancelled",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-create429",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-query429",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-query500",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:channel:doubao-seedance-2-5-260628-mock-querywrongid",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "routing:new_channel_eventual_visibility",
+      "passed": true,
+      "seconds": 59.32,
+      "statuses": {
+        "503": 59,
+        "200": 1
+      }
+    },
+    {
+      "name": "runtime:mysql57",
+      "passed": true,
+      "metadata": [
+        {
+          "version": "5.7.44"
+        }
+      ]
+    },
+    {
+      "name": "routing:models",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "chat:mock-chat",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "chat:content:mock-chat",
+      "passed": true
+    },
+    {
+      "name": "mapping:alias_to_upstream",
+      "passed": true
+    },
+    {
+      "name": "parameters:explicit_zero_preserved",
+      "passed": true
+    },
+    {
+      "name": "billing:chat_charged:mock-chat",
+      "passed": true
+    },
+    {
+      "name": "chat:claude-sonnet-4-5",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "chat:content:claude-sonnet-4-5",
+      "passed": true
+    },
+    {
+      "name": "billing:chat_charged:claude-sonnet-4-5",
+      "passed": true
+    },
+    {
+      "name": "chat:gemini-2.5-flash",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "chat:content:gemini-2.5-flash",
+      "passed": true
+    },
+    {
+      "name": "billing:chat_charged:gemini-2.5-flash",
+      "passed": true
+    },
+    {
+      "name": "chat:tools",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "chat:tool_call_preserved",
+      "passed": true
+    },
+    {
+      "name": "compat:gpt62",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "compat:gpt62_upstream",
+      "passed": true
+    },
+    {
+      "name": "compat:openrouter",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "compat:openrouter_nested_reasoning",
+      "passed": true
+    },
+    {
+      "name": "stream:chat:mock-chat",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "stream:chat_terminal:mock-chat",
+      "passed": true
+    },
+    {
+      "name": "stream:chat:claude-sonnet-4-5",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "stream:chat_terminal:claude-sonnet-4-5",
+      "passed": true
+    },
+    {
+      "name": "stream:chat:gemini-2.5-flash",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "stream:chat_terminal:gemini-2.5-flash",
+      "passed": true
+    },
+    {
+      "name": "claude:native:False",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "claude:native_contract:False",
+      "passed": true
+    },
+    {
+      "name": "claude:native:True",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "claude:native_contract:True",
+      "passed": true
+    },
+    {
+      "name": "gemini:native",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "gemini:native_content",
+      "passed": true
+    },
+    {
+      "name": "gemini:responses:False",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "gemini:responses_contract:False",
+      "passed": true
+    },
+    {
+      "name": "gemini:responses:True",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "gemini:responses_contract:True",
+      "passed": true
+    },
+    {
+      "name": "gemini:broken_responses_http",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "gemini:broken_responses_terminal",
+      "passed": true
+    },
+    {
+      "name": "gemini:broken_stream_no_retry",
+      "passed": true
+    },
+    {
+      "name": "gemini:broken_stream_usage_billed",
+      "passed": true,
+      "expected": 49997688,
+      "actual": 49997688
+    },
+    {
+      "name": "gemini:broken_stream_single_log",
+      "passed": true
+    },
+    {
+      "name": "auth:missing:/v1/models",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "auth:missing:/v1/chat/completions",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "auth:invalid_token",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "auth:invalid_not_forwarded",
+      "passed": true
+    },
+    {
+      "name": "upstream:http429",
+      "passed": true,
+      "status": 429
+    },
+    {
+      "name": "billing:http429_refunded",
+      "passed": true,
+      "expected": 49997688,
+      "actual": 49997688
+    },
+    {
+      "name": "upstream:http429_not_retried",
+      "passed": true
+    },
+    {
+      "name": "auth:ordinary_user_admin_denied",
+      "passed": true,
+      "status": 403
+    },
+    {
+      "name": "claude:adaptive",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "claude:adaptive_fields_exact",
+      "passed": true
+    },
+    {
+      "name": "claude:adjacent_tools",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "claude:adjacent_tools_preserved",
+      "passed": true
+    },
+    {
+      "name": "setup:option:general_setting.ping_interval_enabled",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "setup:option:general_setting.ping_interval_seconds",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "claude:slow_stream",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "claude:keepalive_before_content",
+      "passed": true
+    },
+    {
+      "name": "setup:option:general_setting.ping_interval_enabled",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "image26:request:gif",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "image26:outbound:gif",
+      "passed": true
+    },
+    {
+      "name": "image26:request:svg",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "image26:outbound:svg",
+      "passed": true
+    },
+    {
+      "name": "image26:request:zero",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "image26:outbound:zero",
+      "passed": true
+    },
+    {
+      "name": "image:sync",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "image:sync_pixels",
+      "passed": true
+    },
+    {
+      "name": "image:sync_charged",
+      "passed": true
+    },
+    {
+      "name": "image:async_submit:success",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "image:async_id_no_usage:success",
+      "passed": true
+    },
+    {
+      "name": "image:reservation_before_completion:success",
+      "passed": true,
+      "before": 49996634,
+      "after_submit": 49995369
+    },
+    {
+      "name": "image:async_terminal:success",
+      "passed": true
+    },
+    {
+      "name": "image:cross_user_denied:success",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "image:denied_not_forwarded:success",
+      "passed": true
+    },
+    {
+      "name": "image:async_download_pixels",
+      "passed": true,
+      "status": 200,
+      "bytes": 68
+    },
+    {
+      "name": "image:async_charged",
+      "passed": true
+    },
+    {
+      "name": "load:image-repeat-success",
+      "passed": true,
+      "metrics": {
+        "name": "image-repeat-success",
+        "requests": 20,
+        "workers": 10,
+        "peak_client_inflight": 10,
+        "statuses": {
+          "200": 20
+        },
+        "p50_ms": 6.7,
+        "p95_ms": 15.11,
+        "p99_ms": 15.11,
+        "max_ms": 15.32
+      }
+    },
+    {
+      "name": "image:repeat_no_double_charge:success",
+      "passed": true,
+      "expected": 49996514,
+      "actual": 49996514
+    },
+    {
+      "name": "image:task_persisted:success",
+      "passed": true
+    },
+    {
+      "name": "image:billing_log_count:success",
+      "passed": true,
+      "count": 1
+    },
+    {
+      "name": "image:async_submit:failure",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "image:async_id_no_usage:failure",
+      "passed": true
+    },
+    {
+      "name": "image:reservation_before_completion:failure",
+      "passed": true,
+      "before": 49996514,
+      "after_submit": 49995249
+    },
+    {
+      "name": "image:async_terminal:failure",
+      "passed": true
+    },
+    {
+      "name": "image:cross_user_denied:failure",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "image:denied_not_forwarded:failure",
+      "passed": true
+    },
+    {
+      "name": "image:async_failure_refund",
+      "passed": true,
+      "expected": 49996514,
+      "actual": 49996514
+    },
+    {
+      "name": "load:image-repeat-failure",
+      "passed": true,
+      "metrics": {
+        "name": "image-repeat-failure",
+        "requests": 20,
+        "workers": 10,
+        "peak_client_inflight": 10,
+        "statuses": {
+          "200": 20
+        },
+        "p50_ms": 5.46,
+        "p95_ms": 10.82,
+        "p99_ms": 10.82,
+        "max_ms": 11.26
+      }
+    },
+    {
+      "name": "image:repeat_no_double_charge:failure",
+      "passed": true,
+      "expected": 49996514,
+      "actual": 49996514
+    },
+    {
+      "name": "image:task_persisted:failure",
+      "passed": true
+    },
+    {
+      "name": "image:billing_log_count:failure",
+      "passed": true,
+      "count": 0
+    },
+    {
+      "name": "video:create:success",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:success",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:success",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:success",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:success",
+      "passed": true
+    },
+    {
+      "name": "video:query:success",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:terminal:success",
+      "passed": true
+    },
+    {
+      "name": "video:extended_usage",
+      "passed": true
+    },
+    {
+      "name": "video:charged",
+      "passed": true
+    },
+    {
+      "name": "load:video-repeat-success",
+      "passed": true,
+      "metrics": {
+        "name": "video-repeat-success",
+        "requests": 10,
+        "workers": 5,
+        "peak_client_inflight": 5,
+        "statuses": {
+          "200": 10
+        },
+        "p50_ms": 6.01,
+        "p95_ms": 9.58,
+        "p99_ms": 9.58,
+        "max_ms": 9.61
+      }
+    },
+    {
+      "name": "video:repeat_no_double_charge:success",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "video:create:failed",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:failed",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:failed",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:failed",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:failed",
+      "passed": true
+    },
+    {
+      "name": "video:query:failed",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:terminal:failed",
+      "passed": true
+    },
+    {
+      "name": "video:terminal_refund:failed",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "load:video-repeat-failed",
+      "passed": true,
+      "metrics": {
+        "name": "video-repeat-failed",
+        "requests": 10,
+        "workers": 5,
+        "peak_client_inflight": 5,
+        "statuses": {
+          "200": 10
+        },
+        "p50_ms": 5.55,
+        "p95_ms": 8.65,
+        "p99_ms": 8.65,
+        "max_ms": 9.38
+      }
+    },
+    {
+      "name": "video:repeat_no_double_charge:failed",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "video:create:expired",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:expired",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:expired",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:expired",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:expired",
+      "passed": true
+    },
+    {
+      "name": "video:query:expired",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:terminal:expired",
+      "passed": true
+    },
+    {
+      "name": "video:terminal_refund:expired",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "load:video-repeat-expired",
+      "passed": true,
+      "metrics": {
+        "name": "video-repeat-expired",
+        "requests": 10,
+        "workers": 5,
+        "peak_client_inflight": 5,
+        "statuses": {
+          "200": 10
+        },
+        "p50_ms": 4.5,
+        "p95_ms": 8.2,
+        "p99_ms": 8.2,
+        "max_ms": 11.32
+      }
+    },
+    {
+      "name": "video:repeat_no_double_charge:expired",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "video:create:cancelled",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:cancelled",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:cancelled",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:cancelled",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:cancelled",
+      "passed": true
+    },
+    {
+      "name": "video:query:cancelled",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:terminal:cancelled",
+      "passed": true
+    },
+    {
+      "name": "video:terminal_refund:cancelled",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "load:video-repeat-cancelled",
+      "passed": true,
+      "metrics": {
+        "name": "video-repeat-cancelled",
+        "requests": 10,
+        "workers": 5,
+        "peak_client_inflight": 5,
+        "statuses": {
+          "200": 10
+        },
+        "p50_ms": 5.57,
+        "p95_ms": 7.83,
+        "p99_ms": 7.83,
+        "max_ms": 9.64
+      }
+    },
+    {
+      "name": "video:repeat_no_double_charge:cancelled",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "video:create:create429",
+      "passed": true,
+      "status": 429
+    },
+    {
+      "name": "video:create429_refund",
+      "passed": true,
+      "expected": 49996014,
+      "actual": 49996014
+    },
+    {
+      "name": "video:create:query429",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:query429",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:query429",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:query429",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:query429",
+      "passed": true
+    },
+    {
+      "name": "video:query:query429",
+      "passed": true,
+      "status": 429
+    },
+    {
+      "name": "video:retry_after",
+      "passed": true
+    },
+    {
+      "name": "video:invalid_query_not_finalized:query429",
+      "passed": true
+    },
+    {
+      "name": "video:create:query500",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:query500",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:query500",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:query500",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:query500",
+      "passed": true
+    },
+    {
+      "name": "video:query:query500",
+      "passed": true,
+      "status": 500
+    },
+    {
+      "name": "video:invalid_query_not_finalized:query500",
+      "passed": true
+    },
+    {
+      "name": "video:create:queryinvalid",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:queryinvalid",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:queryinvalid",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:queryinvalid",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:queryinvalid",
+      "passed": true
+    },
+    {
+      "name": "video:query:queryinvalid",
+      "passed": true,
+      "status": 502
+    },
+    {
+      "name": "video:invalid_query_not_finalized:queryinvalid",
+      "passed": true
+    },
+    {
+      "name": "video:create:querywrongid",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "video:official_id:querywrongid",
+      "passed": true
+    },
+    {
+      "name": "video:zero_values:querywrongid",
+      "passed": true
+    },
+    {
+      "name": "video:cross_user:querywrongid",
+      "passed": true,
+      "status": 400
+    },
+    {
+      "name": "video:denied_not_forwarded:querywrongid",
+      "passed": true
+    },
+    {
+      "name": "video:query:querywrongid",
+      "passed": true,
+      "status": 502
+    },
+    {
+      "name": "video:invalid_query_not_finalized:querywrongid",
+      "passed": true
+    },
+    {
+      "name": "asset:create",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "asset:create_id",
+      "passed": true
+    },
+    {
+      "name": "asset:cross_user:/api/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+      "passed": true,
+      "status": 404
+    },
+    {
+      "name": "asset:denied_not_forwarded:/api/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+      "passed": true
+    },
+    {
+      "name": "asset:query:/api/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "asset:cross_user:/v1/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+      "passed": true,
+      "status": 404
+    },
+    {
+      "name": "asset:denied_not_forwarded:/v1/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+      "passed": true
+    },
+    {
+      "name": "asset:query:/v1/assets/asset-637bb88fe197449c8c9e595f5944d6c0",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "asset:list",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "load:asset-create-100",
+      "passed": true,
+      "metrics": {
+        "name": "asset-create-100",
+        "requests": 100,
+        "workers": 100,
+        "peak_client_inflight": 100,
+        "statuses": {
+          "200": 100
+        },
+        "p50_ms": 159.52,
+        "p95_ms": 230.72,
+        "p99_ms": 249.94,
+        "max_ms": 251.81
+      }
+    },
+    {
+      "name": "asset:100_unique_ids",
+      "passed": true
+    },
+    {
+      "name": "load:asset-poll-500",
+      "passed": true,
+      "metrics": {
+        "name": "asset-poll-500",
+        "requests": 500,
+        "workers": 100,
+        "peak_client_inflight": 100,
+        "statuses": {
+          "200": 500
+        },
+        "p50_ms": 130.38,
+        "p95_ms": 145.33,
+        "p99_ms": 169.4,
+        "max_ms": 207.82
+      }
+    },
+    {
+      "name": "asset:poll_identity_and_status",
+      "passed": true
+    },
+    {
+      "name": "asset:delete",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "asset:deleted_denied",
+      "passed": true,
+      "status": 404
+    },
+    {
+      "name": "asset:deleted_not_forwarded",
+      "passed": true
+    },
+    {
+      "name": "load:chat-100",
+      "passed": true,
+      "metrics": {
+        "name": "chat-100",
+        "requests": 100,
+        "workers": 100,
+        "peak_client_inflight": 99,
+        "statuses": {
+          "200": 100
+        },
+        "p50_ms": 99.55,
+        "p95_ms": 155.85,
+        "p99_ms": 165.68,
+        "max_ms": 171.51
+      }
+    },
+    {
+      "name": "load:chat_content_usage",
+      "passed": true
+    },
+    {
+      "name": "billing:chat100_exact",
+      "passed": true,
+      "expected": 49982014,
+      "actual": 49982014
+    },
+    {
+      "name": "billing:chat100_log_count",
+      "passed": true,
+      "count": 100
+    },
+    {
+      "name": "load:image-20",
+      "passed": true,
+      "metrics": {
+        "name": "image-20",
+        "requests": 20,
+        "workers": 20,
+        "peak_client_inflight": 20,
+        "statuses": {
+          "200": 20
+        },
+        "p50_ms": 143.13,
+        "p95_ms": 148.48,
+        "p99_ms": 148.48,
+        "max_ms": 151.03
+      }
+    },
+    {
+      "name": "load:image_content",
+      "passed": true
+    },
+    {
+      "name": "billing:image20_charged",
+      "passed": true
+    },
+    {
+      "name": "redis:user_cache_populated",
+      "passed": true
+    },
+    {
+      "name": "redis:user_quota_matches_mysql",
+      "passed": true,
+      "mysql": [
+        {
+          "id": 2,
+          "quota": 49979614,
+          "used_quota": 20386
+        }
+      ],
+      "redis_quota": "49979614"
+    },
+    {
+      "name": "billing:limited_token_consistent",
+      "passed": true
+    },
+    {
+      "name": "setup:revocable_token",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "auth:revocable_token_primed",
+      "passed": true
+    },
+    {
+      "name": "setup:revoke_token",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "auth:revoked_token_denied",
+      "passed": true,
+      "status": 401
+    },
+    {
+      "name": "auth:revoked_token_not_forwarded",
+      "passed": true
+    },
+    {
+      "name": "runtime:graceful_shutdown:1",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "runtime:readiness:2",
+      "passed": true,
+      "checks": {
+        "database": "ok",
+        "log_database": "ok",
+        "redis": "ok"
+      }
+    },
+    {
+      "name": "restart:token_valid",
+      "passed": true
+    },
+    {
+      "name": "restart:persisted_image",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "restart:persisted_video",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "restart:persisted_asset",
+      "passed": true,
+      "status": 200
+    },
+    {
+      "name": "restart:no_double_billing",
+      "passed": true,
+      "expected": 49979614,
+      "actual": 49979614
+    },
+    {
+      "name": "runtime:only_local_channels",
+      "passed": true
+    },
+    {
+      "name": "upstream:credentials",
+      "passed": true
+    },
+    {
+      "name": "runtime:graceful_shutdown:2",
+      "passed": true,
+      "exit_code": 0
+    },
+    {
+      "name": "cleanup:mysql_schema_removed",
+      "passed": true
+    },
+    {
+      "name": "cleanup:redis_db14_empty",
+      "passed": true,
+      "removed_keys": 30
+    }
+  ],
+  "phases": [
+    {
+      "pid": 393268,
+      "port": 40969,
+      "started": 1795156615.7851233,
+      "ready_seconds": 1.415,
+      "exit_code": 0
+    },
+    {
+      "pid": 395266,
+      "port": 50941,
+      "started": 1795156684.6264956,
+      "ready_seconds": 0.605,
+      "exit_code": 0
+    }
+  ],
+  "limitations": [
+    "Local compiled non-race executable; no real-provider calls",
+    "Background video task updater disabled; terminal polling driven by HTTP",
+    "Global rate limits disabled and retry count zero",
+    "No SQL pool wait/lock profiling in this run",
+    "Mock returns PNG; GIF/SVG checks validate request fields only",
+    "No complete frontend/browser regression in this run"
+  ]
+}

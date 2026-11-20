@@ -37,18 +37,27 @@ func getUserAuthVersionKey(userId int) string {
 // fence, while still allowing an automatically rolled-back transaction to
 // recover without an operator repairing Redis.
 func userAuthFenceTTLSeconds() int {
-	cacheTTL := userCacheTTLSeconds()
-	extra := cacheTTL
+	return userCacheTTLSeconds() + userAuthFenceGraceSeconds()
+}
+
+func userAuthFenceGraceSeconds() int {
+	extra := userCacheTTLSeconds()
 	if extra < 60 {
 		extra = 60
 	}
-	return cacheTTL + extra
+	return extra
 }
 
-func writeUserCache(user *UserBase, includeQuota bool) error {
+func writeUserMetadataCache(user *UserBase) error {
 	if user == nil || user.Id <= 0 || !common.RedisEnabled {
 		return nil
 	}
+	return writeUserCacheAtEpoch(user, false, "")
+}
+
+// epoch must be captured before the database query that produced user whenever
+// includeQuota is true. Metadata-only writes never replace the cached balance.
+func writeUserCacheAtEpoch(user *UserBase, includeQuota bool, epoch string) error {
 	user.CacheSchema = userCacheSchemaVersion
 	if user.AuthVersion <= 0 {
 		return fmt.Errorf("invalid user auth version")
@@ -65,6 +74,9 @@ local committed = tonumber(redis.call('GET', KEYS[3]) or '0')
 local current = tonumber(redis.call('HGET', KEYS[1], 'AuthVersion') or '0')
 if pending > incoming or committed > incoming or current > incoming then
   return 0
+end
+if ARGV[10] == '1' and redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
+` + quotaCacheHydrationGuardScript + `
 end
 if committed < incoming then
   redis.call('SET', KEYS[3], ARGV[1])
@@ -85,9 +97,10 @@ end
 redis.call('EXPIRE', KEYS[1], ARGV[12])
 return 1`
 	result, err := common.RDB.Eval(context.Background(), script,
-		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id)},
+		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id),
+			quotaCacheEpochKey(getUserCacheKey(user.Id)), quotaCachePendingKey(getUserCacheKey(user.Id))},
 		user.AuthVersion, user.Id, user.Group, user.Email, user.Status, user.Role,
-		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl,
+		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl, epoch,
 	).Int()
 	if err != nil {
 		return err
@@ -136,15 +149,20 @@ func SetUserAuthVersionFence(userId int, authVersion int64) error {
 	const script = `
 local current = tonumber(redis.call('GET', KEYS[1]) or '0')
 local incoming = tonumber(ARGV[1])
+local ttl = math.max(tonumber(ARGV[2]), redis.call('PTTL', KEYS[2]) + tonumber(ARGV[3]))
+ttl = math.max(ttl, redis.call('PTTL', KEYS[1]))
 if current < incoming then
-  redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[2])
-elseif current == incoming then
-  redis.call('EXPIRE', KEYS[1], ARGV[2])
-elseif redis.call('TTL', KEYS[1]) < 0 then
-  redis.call('EXPIRE', KEYS[1], ARGV[2])
+  redis.call('SET', KEYS[1], ARGV[1], 'PX', ttl)
+elseif current == incoming or redis.call('PTTL', KEYS[1]) < ttl then
+  redis.call('PEXPIRE', KEYS[1], ttl)
 end
 return 1`
-	return common.RDB.Eval(context.Background(), script, []string{getUserAuthFenceKey(userId)}, authVersion, userAuthFenceTTLSeconds()).Err()
+	// An image reservation may already have extended the hash beyond its
+	// configured TTL. Observe its actual lifetime in the same atomic script,
+	// and never shorten a fence previously extended by another reservation.
+	return common.RDB.Eval(context.Background(), script,
+		[]string{getUserAuthFenceKey(userId), getUserCacheKey(userId)},
+		authVersion, int64(userAuthFenceTTLSeconds())*1000, int64(userAuthFenceGraceSeconds())*1000).Err()
 }
 
 // publishCommittedUserAuthVersion records the durable lower bound used to

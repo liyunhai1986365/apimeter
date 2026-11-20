@@ -119,15 +119,22 @@ describe('header navigation modules', () => {
     ).toBe('/ai-creation')
   })
 
-  it('includes Agent Access after Home by default', () => {
+  it('includes Partner and Agent Access after Home by default', () => {
     const modules = parseHeaderNavModules('')
     const items = getOrderedHeaderNavItems(modules)
 
-    expect(items.map((item) => item.id).slice(0, 3)).toEqual([
+    expect(items.map((item) => item.id).slice(0, 4)).toEqual([
       'home',
+      'partner',
       'agentAccess',
       'console',
     ])
+    expect(items.find((item) => item.id === 'partner')).toMatchObject({
+      titleKey: 'Partner Program',
+      href: '/partner',
+      external: false,
+      newWindow: false,
+    })
     expect(items.find((item) => item.id === 'agentAccess')).toMatchObject({
       titleKey: 'Agent Access',
       href: '/docs/apps',
@@ -204,6 +211,7 @@ describe('header navigation modules', () => {
 
     expect(items.map((item) => item.id)).toEqual([
       'home',
+      'partner',
       'agentAccess',
       'console',
       'subscription',
@@ -218,6 +226,7 @@ describe('header navigation modules', () => {
         agentAccess: true,
       },
       order: ['home', 'custom:status', 'agentAccess', 'docs'],
+      partner: false,
       customLinks: [
         {
           id: 'status',

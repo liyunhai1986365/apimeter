@@ -211,7 +211,20 @@ func TestYHListUsesLocalTimeoutAndPreservesCompletedResults(t *testing.T) {
 	require.Equal(t, http.StatusOK, listed.Code, listed.Body.String())
 	require.EqualValues(t, 1, gjson.GetBytes(listed.Body.Bytes(), "total").Int())
 	for _, field := range []string{"content", "usage", "seed", "duration", "service_tier"} {
-		require.Equal(t, gjson.Get(result, field).Raw, gjson.GetBytes(listed.Body.Bytes(), "items.0."+field).Raw, field)
+		expected := gjson.Get(result, field)
+		actual := gjson.GetBytes(listed.Body.Bytes(), "items.0."+field)
+		if expected.IsObject() {
+			// MySQL may reorder these flat objects. Compare exact scalar values
+			// without decoding numbers through float64 (the fixture exceeds 2^53).
+			require.True(t, actual.IsObject(), field)
+			actualFields := actual.Map()
+			require.Len(t, actualFields, len(expected.Map()), field)
+			for key, value := range expected.Map() {
+				require.Equal(t, value.Raw, actualFields[key].Raw, field+"."+key)
+			}
+			continue
+		}
+		require.Equal(t, expected.Raw, actual.Raw, field)
 	}
 }
 

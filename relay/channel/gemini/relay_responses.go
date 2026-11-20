@@ -87,15 +87,17 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 	responseID := helper.GetResponseID(c)
 	created := common.GetTimestamp()
 	state, err := relayconvert.NewResponseStreamState(types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses, relayconvert.ResponseStreamOptions{
-		ID:      responseID,
-		Model:   info.UpstreamModelName,
-		Created: created,
+		ID:                responseID,
+		Model:             info.UpstreamModelName,
+		Created:           created,
+		DeferChoiceFinish: true,
 	})
 	if err != nil {
 		return nil, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusInternalServerError)
 	}
 	geminiState := relayconvert.NewGeminiToChatStreamState(responseID, created)
 	var streamErr *types.NewAPIError
+	downstreamFailed := false
 
 	sendEvent := func(event relayconvert.ChatToResponsesStreamEvent) bool {
 		data, err := common.Marshal(event.Payload)
@@ -103,9 +105,49 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 			streamErr = types.NewOpenAIError(err, types.ErrorCodeJsonMarshalFailed, http.StatusInternalServerError)
 			return false
 		}
-		helper.ResponseChunkData(c, dto.ResponsesStreamResponse{Type: event.Type}, string(data))
+		if err := c.Request.Context().Err(); err != nil {
+			streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
+			return false
+		}
+		helper.ExtendWriteDeadline(c)
+		// Write directly so a failed terminal event is not marked as delivered:
+		// CustomEvent rendering currently discards response-writer errors.
+		_, err = fmt.Fprintf(c.Writer, "event: %s\ndata: %s\n\n", event.Type, data)
+		if err == nil {
+			err = helper.FlushWriter(c)
+		}
+		if err != nil {
+			downstreamFailed = true
+			streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
+			return false
+		}
 		return true
 	}
+	defer func() {
+		if resultErr == nil {
+			return
+		}
+		common.SetContextKey(c, constant.ContextKeyRelayFailed, true)
+		if downstreamFailed || c.Request.Context().Err() != nil {
+			return
+		}
+		state.SetUsage(resultUsage)
+		results, handled := state.FailResponsesStream("server_error", resultErr.ToOpenAIError().Message)
+		if !handled {
+			return
+		}
+		for _, result := range results {
+			event, ok := result.Value.(relayconvert.ChatToResponsesStreamEvent)
+			if !ok || !sendEvent(event) {
+				return
+			}
+			if event.Type == "response.failed" {
+				// Keep the non-nil error for settlement and failure accounting;
+				// the controller must not append a second terminal error.
+				common.SetContextKey(c, constant.ContextKeyRelayStreamErrorSent, true)
+			}
+		}
+	}()
 	sendChunk := func(chunk *dto.ChatCompletionsStreamResponse) bool {
 		results, err := relayconvert.ConvertStreamResponseChunk(c, info, state, chunk)
 		if err != nil {
@@ -126,8 +168,6 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 	}
 
 	usage, streamAPIError := geminiStreamHandler(c, info, resp, func(data string, geminiResponse *dto.GeminiChatResponse) bool {
-
-		state.ObserveGeminiSearch(geminiResponse)
 		chunks, err := geminiState.ConvertChunk(geminiResponse, info.UpstreamModelName, nil)
 		if err != nil {
 			streamErr = types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
@@ -139,11 +179,14 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 			}
 		}
 		return true
-	})
+	}, state.ObserveGeminiSearch)
 	if streamAPIError != nil {
 		return usage, streamAPIError
 	}
 	if streamErr != nil {
+		return usage, streamErr
+	}
+	if streamErr := geminiStreamFinalizationError(info); streamErr != nil {
 		return usage, streamErr
 	}
 

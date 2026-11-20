@@ -21,25 +21,26 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
-// Interleave the timeout after the real funding/token reservation, immediately
-// before its task CAS. No sleeps or scheduler timing are needed to hit the race.
+// Interleave the timeout immediately before the atomic reservation handoff.
+// No sleeps or scheduler timing are needed to exercise either CAS winner.
 type imageReservationInterleave struct {
 	relaycommon.BillingSettler
-	beforeCommit func()
-	commitErr    error
+	beforeReserve func()
+	commitErr     error
 }
 
-func (s *imageReservationInterleave) ReserveWithCommit(quota int, commit func(int) error) error {
-	return s.BillingSettler.ReserveWithCommit(quota, func(actual int) error {
-		if s.beforeCommit != nil {
-			s.beforeCommit()
-		}
+func (s *imageReservationInterleave) ReserveWithCommit(quota int, commit func(*gorm.DB, int) error) error {
+	if s.beforeReserve != nil {
+		s.beforeReserve()
+	}
+	return s.BillingSettler.ReserveWithCommit(quota, func(tx *gorm.DB, actual int) error {
 		if s.commitErr != nil {
 			return s.commitErr
 		}
-		return commit(actual)
+		return commit(tx, actual)
 	})
 }
 
@@ -88,7 +89,7 @@ func setupImageReservationRace(t *testing.T, subscription bool) (*gin.Context, *
 
 func TestImagenLocalAsyncReservationTimeoutRace(t *testing.T) {
 	for _, subscription := range []bool{false, true} {
-		for _, order := range []string{"reservation_first", "timeout_before_reserve", "timeout_during_reserve", "timeout_refund_after_rollback", "save_error"} {
+		for _, order := range []string{"reservation_first", "timeout_before_reserve", "timeout_refund_after_handoff_rejected", "save_error"} {
 			t.Run(fmt.Sprintf("subscription=%v/%s", subscription, order), func(t *testing.T) {
 				c, info, task := setupImageReservationRace(t, subscription)
 				var timeoutSnapshot model.Task
@@ -107,8 +108,8 @@ func TestImagenLocalAsyncReservationTimeoutRace(t *testing.T) {
 				switch order {
 				case "timeout_before_reserve":
 					timeout(true)
-				case "timeout_during_reserve", "timeout_refund_after_rollback":
-					info.Billing = &imageReservationInterleave{BillingSettler: info.Billing, beforeCommit: func() { timeout(order == "timeout_during_reserve") }}
+				case "timeout_refund_after_handoff_rejected":
+					info.Billing = &imageReservationInterleave{BillingSettler: info.Billing, beforeReserve: func() { timeout(false) }}
 				case "save_error":
 					info.Billing = &imageReservationInterleave{BillingSettler: info.Billing, commitErr: errors.New("task database unavailable")}
 				}
@@ -129,14 +130,14 @@ func TestImagenLocalAsyncReservationTimeoutRace(t *testing.T) {
 				} else {
 					require.NotNil(t, apiErr)
 					require.True(t, kittypes.IsSkipRetryError(apiErr))
-					require.Equal(t, 10000, info.Billing.GetPreConsumedQuota(), "only undo the unpublished increase")
+					require.Equal(t, 10000, info.Billing.GetPreConsumedQuota(), "failed handoff leaves the initial reservation unchanged")
 					require.Equal(t, 10000, info.FinalPreConsumedQuota)
 					require.Equal(t, 10000, task.Quota, "failed save must not mutate the worker snapshot")
 					require.Equal(t, float64(1), task.PrivateData.BillingContext.OtherRatios["n"])
 					if subscription {
 						require.EqualValues(t, 10000, info.SubscriptionPreConsumed)
 					}
-					if order == "timeout_refund_after_rollback" {
+					if order == "timeout_refund_after_handoff_rejected" {
 						require.True(t, service.RefundTaskQuota(context.Background(), &timeoutSnapshot, "timeout"))
 					}
 				}

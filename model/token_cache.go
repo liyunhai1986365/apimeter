@@ -53,15 +53,13 @@ func invalidateTokenCacheForMutation(key string) error {
 // pre-consume decrements Redis first, so a snapshot must never overwrite any
 // field of a live hash.
 // 返回值：0=被 fence 拦截，1=完成初始化，2=哈希已存在，仅刷新 TTL。
-func cacheInitToken(token Token) (int, error) {
-	if !common.RedisEnabled {
-		return 0, nil
-	}
+// epoch must be captured before the database query that produced token.
+func cacheInitTokenAtEpoch(token Token, epoch string) (int, error) {
 	allowIps := ""
 	if token.AllowIps != nil {
 		allowIps = *token.AllowIps
 	}
-	const script = `
+	const script = quotaCacheHydrationGuardScript + `
 if redis.call('EXISTS', KEYS[2]) == 1 then
   return 0
 end
@@ -80,13 +78,14 @@ return 1`
 
 	return common.RDB.Eval(context.Background(), script, []string{
 		getTokenCacheKey(token.Key), getTokenCacheFenceKey(token.Key),
+		quotaCacheEpochKey(getTokenCacheKey(token.Key)), quotaCachePendingKey(getTokenCacheKey(token.Key)),
 	},
 		token.Id, token.UserId, token.Status, token.Name,
 		token.CreatedTime, token.AccessedTime, token.ExpiredTime,
 		strconv.FormatBool(token.UnlimitedQuota), strconv.FormatBool(token.ModelLimitsEnabled),
 		token.ModelLimits, allowIps, token.Group, strconv.FormatBool(token.CrossGroupRetry),
 		token.AutoGroups, token.RemainQuota, token.UsedQuota,
-		tokenCacheTTLSeconds(),
+		tokenCacheTTLSeconds(), epoch,
 	).Int()
 }
 

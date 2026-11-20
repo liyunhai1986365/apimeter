@@ -20,6 +20,7 @@ import (
 	"github.com/QuantumNous/new-api/relay/channel"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relay/helper"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -313,6 +314,21 @@ func TestRelayStreamErrorAfterKeepAlive(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRelayStreamErrorPreservesProtocolFailureEvent(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	helper.SetEventStreamHeaders(c)
+	failure := `{"type":"response.failed","response":{"status":"failed","error":{"code":"server_error","message":"unexpected EOF"}}}`
+	require.NoError(t, helper.ResponseChunkData(c, dto.ResponsesStreamResponse{Type: "response.failed"}, failure))
+	common.SetContextKey(c, constant.ContextKeyRelayStreamErrorSent, true)
+	before := recorder.Body.String()
+	apiError := types.NewErrorWithStatusCode(io.ErrUnexpectedEOF, types.ErrorCodeBadResponse, http.StatusBadGateway)
+	writeRelayStreamError(c, types.RelayFormatOpenAIResponses, apiError)
+	require.Equal(t, before, recorder.Body.String(), "do not append a second error or Chat [DONE] to a failed Responses stream")
+	require.True(t, common.GetContextKeyBool(c, constant.ContextKeyRelayFailed), "a protocol failure must still count as a failed request")
 }
 
 func TestStreamKeepAliveCancellation(t *testing.T) {

@@ -7,12 +7,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	perfmetrics "github.com/QuantumNous/new-api/pkg/perf_metrics"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	relayconstant "github.com/QuantumNous/new-api/relay/constant"
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/setting/operation_setting"
 	hosttypes "github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -69,28 +72,121 @@ func TestInterruptedStreamSettlesWalletAndTokenExactlyOnce(t *testing.T) {
 	}
 }
 
+func TestInterruptedSearchOnlyStreamSettlesExactlyOnce(t *testing.T) {
+	previousCountToken := constant.CountToken
+	constant.CountToken = false
+	t.Cleanup(func() { constant.CountToken = previousCountToken })
+	for _, protocol := range []types.RelayFormat{types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses} {
+		for _, tc := range []struct {
+			model string
+			quota int
+		}{
+			{"gemini-3-flash-preview", 7000}, // $14 per 1,000 queries
+			{"gemini-2.5-pro", 17500},        // $35 per 1,000 grounded prompts
+		} {
+			for _, tiered := range []bool{false, true} {
+				t.Run(fmt.Sprintf("%s/%s/tiered=%v", protocol, tc.model, tiered), func(t *testing.T) {
+					truncate(t)
+					seedUser(t, 9191, 100000)
+					seedToken(t, 9192, 9191, "stream-search-only", 100000)
+					seedChannel(t, 9193)
+					ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+					ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
+					info := &relaycommon.RelayInfo{
+						UserId: 9191, TokenId: 9192, TokenKey: "stream-search-only", ForcePreConsume: true,
+						OriginModelName: tc.model, RelayFormat: protocol, FinalRequestRelayFormat: types.RelayFormatGemini,
+						StartTime: time.Now(), ChannelMeta: &relaycommon.ChannelMeta{ChannelId: 9193},
+						PriceData: hosttypes.PriceData{ModelRatio: 1, CompletionRatio: 2, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}},
+					}
+					if protocol == types.RelayFormatOpenAIResponses {
+						info.RelayMode = relayconstant.RelayModeResponses
+					}
+					if tiered {
+						info.TieredBillingSnapshot = makeSnapshot(`p * 4 + c * 10`, 1, 0, 0)
+					}
+					estimate, err := EstimateRequestToken(ctx, &types.TokenCountMeta{CombineText: "Find today's weather"}, info)
+					require.NoError(t, err)
+					require.Zero(t, estimate)
+					info.SetEstimatePromptTokens(estimate)
+					require.Nil(t, PreConsumeBilling(ctx, 1000, info))
+					info.SetBillableToolCount(dto.BuildInToolGoogleSearch, 1)
+					info.SetBillableToolCount(relaycommon.GoogleSearchGroundedPromptTool, 1)
+					// Only a streaming marker can authorize interrupted settlement.
+					SettleInterruptedStream(ctx, info, types.NewOpenAIError(errors.New("upstream rejected"), types.ErrorCodeBadResponse, 502))
+					require.True(t, info.Billing.NeedsRefund())
+					apiErr := relaycommon.WithStreamUsage(types.NewOpenAIError(errors.New("stream interrupted"), types.ErrorCodeBadResponse, 502), &dto.Usage{})
+					SettleInterruptedStream(ctx, info, apiErr)
+					SettleInterruptedStream(ctx, info, apiErr)
+					require.False(t, info.Billing.NeedsRefund())
+					require.False(t, info.AttemptSampleRecorded)
+					info.Billing.Refund(ctx)
+					require.Equal(t, 100000-tc.quota, getUserQuota(t, 9191))
+					require.Equal(t, 100000-tc.quota, getTokenRemainQuota(t, 9192))
+					used, requests := getUserUsageAccounting(t, 9191)
+					require.Equal(t, tc.quota, used)
+					require.Equal(t, 1, requests)
+					require.EqualValues(t, tc.quota, getChannelUsedQuota(t, 9193))
+					var logs []model.Log
+					require.NoError(t, model.DB.Where("user_id = ? AND type = ?", 9191, model.LogTypeConsume).Find(&logs).Error)
+					require.Len(t, logs, 1)
+					require.Equal(t, tc.quota, logs[0].Quota)
+					require.Zero(t, logs[0].PromptTokens)
+					require.Zero(t, logs[0].CompletionTokens)
+					var other map[string]interface{}
+					require.NoError(t, common.UnmarshalJsonStr(logs[0].Other, &other))
+					require.Len(t, other["tool_surcharges"], 1)
+				})
+			}
+		}
+	}
+}
+
 func TestInterruptedStreamWithoutUsageKeepsRefund(t *testing.T) {
-	truncate(t)
-	seedUser(t, 9171, 100000)
-	seedToken(t, 9172, 9171, "stream-refund-test", 100000)
-	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
-	ctx.Request = httptest.NewRequest("POST", "/v1/chat/completions", nil)
-	info := &relaycommon.RelayInfo{UserId: 9171, TokenId: 9172, TokenKey: "stream-refund-test", ForcePreConsume: true}
-	require.Nil(t, PreConsumeBilling(ctx, 1000, info))
-	upstreamErr := types.NewOpenAIError(errors.New("upstream rejected"), types.ErrorCodeBadResponse, 502)
-	SettleInterruptedStream(ctx, info, upstreamErr)
-	zeroUsageErr := relaycommon.WithStreamUsage(types.NewOpenAIError(errors.New("stream interrupted"), types.ErrorCodeBadResponse, 502), &dto.Usage{})
-	SettleInterruptedStream(ctx, info, zeroUsageErr)
-	require.True(t, info.Billing.(*BillingSession).NeedsRefund())
-	info.Billing.Refund(ctx)
-	require.Eventually(t, func() bool {
-		var user model.User
-		var token model.Token
-		return model.DB.First(&user, 9171).Error == nil && model.DB.First(&token, 9172).Error == nil && user.Quota == 100000 && token.RemainQuota == 100000
-	}, time.Second, time.Millisecond)
-	var count int64
-	require.NoError(t, model.DB.Model(&model.Log{}).Where("user_id = ? AND type = ?", 9171, model.LogTypeConsume).Count(&count).Error)
-	require.Zero(t, count)
+	const freeTool = "stream-refund-free-tool"
+	operation_setting.SetToolPriceForTest(freeTool, 0)
+	t.Cleanup(func() { operation_setting.DeleteToolPriceForTest(freeTool) })
+	for _, scenario := range []string{"text", "audio", "nil usage", "fixed price", "free tool", "unused tool"} {
+		t.Run(scenario, func(t *testing.T) {
+			truncate(t)
+			seedUser(t, 9171, 100000)
+			seedToken(t, 9172, 9171, "stream-refund-test", 100000)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest("POST", "/v1/responses", nil)
+			info := &relaycommon.RelayInfo{
+				UserId: 9171, TokenId: 9172, TokenKey: "stream-refund-test", ForcePreConsume: true,
+				OriginModelName: "gemini-3-flash-preview", RelayMode: relayconstant.RelayModeResponses,
+				ChannelMeta: &relaycommon.ChannelMeta{}, StartTime: time.Now(),
+				PriceData: hosttypes.PriceData{ModelRatio: 1, GroupRatioInfo: hosttypes.GroupRatioInfo{GroupRatio: 1}},
+			}
+			usage := &dto.Usage{}
+			switch scenario {
+			case "audio":
+				info.OriginModelName = "gpt-4o-audio-preview"
+			case "nil usage":
+				usage = nil
+			case "fixed price":
+				info.PriceData.UsePrice, info.PriceData.ModelPrice = true, 1
+			case "free tool":
+				info.SetBillableToolCount(freeTool, 1)
+			case "unused tool":
+				info.SetBillableToolCount(dto.BuildInToolGoogleSearch, 0)
+			}
+			require.Nil(t, PreConsumeBilling(ctx, 1000, info))
+			upstreamErr := types.NewOpenAIError(errors.New("upstream rejected"), types.ErrorCodeBadResponse, 502)
+			SettleInterruptedStream(ctx, info, upstreamErr)
+			zeroUsageErr := relaycommon.WithStreamUsage(types.NewOpenAIError(errors.New("stream interrupted"), types.ErrorCodeBadResponse, 502), usage)
+			SettleInterruptedStream(ctx, info, zeroUsageErr)
+			SettleInterruptedStream(ctx, info, zeroUsageErr)
+			require.True(t, info.Billing.NeedsRefund())
+			info.Billing.Refund(ctx)
+			require.Eventually(t, func() bool {
+				return getUserQuota(t, 9171) == 100000 && getTokenRemainQuota(t, 9172) == 100000
+			}, time.Second, time.Millisecond)
+			var count int64
+			require.NoError(t, model.DB.Model(&model.Log{}).Where("user_id = ? AND type = ?", 9171, model.LogTypeConsume).Count(&count).Error)
+			require.Zero(t, count)
+		})
+	}
 }
 
 func TestStreamSettlementPreservesPerformanceOutcome(t *testing.T) {

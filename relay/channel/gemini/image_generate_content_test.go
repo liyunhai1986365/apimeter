@@ -16,7 +16,6 @@ import (
 )
 
 func TestConvertImageRequestToGeminiGenerateContent(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
 	info := &relaycommon.RelayInfo{
@@ -46,7 +45,6 @@ func TestConvertImageRequestToGeminiGenerateContent(t *testing.T) {
 }
 
 func TestConvertImageRequestToGeminiGenerateContentWithReference(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
 	info := &relaycommon.RelayInfo{
@@ -95,7 +93,6 @@ func TestConvertImageRequestConvertsArbitraryConfiguredImageModel(t *testing.T) 
 }
 
 func TestGeminiGenerateContentImageHandlerConvertsInlineData(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	info := &relaycommon.RelayInfo{
@@ -137,7 +134,6 @@ func TestGeminiGenerateContentImageHandlerConvertsInlineData(t *testing.T) {
 }
 
 func TestGeminiGenerateContentImageHandlerRejectsTextOnlyResponse(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	info := &relaycommon.RelayInfo{
@@ -159,7 +155,6 @@ func TestGeminiGenerateContentImageHandlerRejectsTextOnlyResponse(t *testing.T) 
 }
 
 func TestGeminiAdaptorDoResponseUsesGenerateContentImageHandler(t *testing.T) {
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	info := &relaycommon.RelayInfo{

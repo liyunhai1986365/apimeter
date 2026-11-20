@@ -74,6 +74,9 @@ type ResponseStreamOptions struct {
 	Model        string
 	Created      int64
 	IncludeUsage bool
+	// DeferChoiceFinish keeps Responses items open for metadata arriving
+	// after a choice's finish reason, while retaining each choice's status.
+	DeferChoiceFinish bool
 }
 
 type ResponseStreamState struct {
@@ -415,6 +418,25 @@ func (s *ResponseStreamState) SetUsage(usage *dto.Usage) {
 	}
 }
 
+// FailResponsesStream emits a terminal failure for an OpenAI Responses target.
+// Other targets leave error serialization to their host handler.
+func (s *ResponseStreamState) FailResponsesStream(code, message string) ([]ResponseResult, bool) {
+	if s == nil || s.To != types.RelayFormatOpenAIResponses {
+		return nil, false
+	}
+	for _, state := range s.stepStates {
+		if streamState, ok := state.(*ChatToResponsesStreamState); ok {
+			// Search metadata describes work already performed upstream, even
+			// when the surrounding response fails before normal finalization.
+			events := streamState.AddWebSearch(s.searchQueries)
+			s.searchQueries = nil
+			events = append(events, streamState.Fail(code, message)...)
+			return responseStreamResults(s, streamValuesFromAny(events), s.Usage()), true
+		}
+	}
+	return nil, false
+}
+
 func (s *ResponseStreamState) UsageText() string {
 	if s == nil {
 		return ""
@@ -533,6 +555,11 @@ func newResponseStreamStateFromSpec(from types.RelayFormat, target types.RelayFo
 	steps, err := expandResponseConverterSteps(spec)
 	if err != nil {
 		return nil, err
+	}
+	if from == types.RelayFormatGemini && target == types.RelayFormatOpenAIResponses {
+		// Gemini may report grounding after a candidate's finish reason.
+		// Configure the downstream converter to keep that candidate open.
+		options.DeferChoiceFinish = true
 	}
 	stepStates := make([]any, len(steps))
 	resultSteps := make([]ResponseStep, 0, len(steps))
@@ -842,6 +869,7 @@ func newOAIChatToOAIResponsesStreamState(options ResponseStreamOptions) any {
 		id = fmt.Sprintf("resp_%s", kitutil.GetUUID())
 	}
 	state := NewChatToResponsesStreamState(id, strings.TrimSpace(options.Model))
+	state.DeferChoiceFinish = options.DeferChoiceFinish
 	if options.Created != 0 {
 		state.Created = options.Created
 	}

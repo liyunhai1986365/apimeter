@@ -47,7 +47,10 @@ func TestImagenLocalAsyncReservationAndSettlement(t *testing.T) {
 			common.LogConsumeEnabled = true
 			oldBatch := common.BatchUpdateEnabled
 			common.BatchUpdateEnabled = false
-			t.Cleanup(func() { common.BatchUpdateEnabled = oldBatch })
+			t.Cleanup(func() {
+				waitForImageTaskTestWorkers(t)
+				common.BatchUpdateEnabled = oldBatch
+			})
 			require.NoError(t, model.DB.AutoMigrate(&model.User{}, &model.Token{}, &model.Log{}))
 			require.NoError(t, model.DB.Create(&model.User{Id: 701, Username: "async-imagen", Quota: tc.balance, Status: common.UserStatusEnabled}).Error)
 			require.NoError(t, model.DB.Create(&model.Token{Id: 702, UserId: 701, Name: "token", Key: "async-imagen-token", Status: common.TokenStatusEnabled, RemainQuota: tc.balance}).Error)
@@ -74,7 +77,10 @@ func TestImagenLocalAsyncReservationAndSettlement(t *testing.T) {
 			service.InitHttpClient()
 			client := service.GetHttpClient()
 			oldTransport := client.Transport
-			t.Cleanup(func() { client.Transport = oldTransport })
+			t.Cleanup(func() {
+				waitForImageTaskTestWorkers(t)
+				client.Transport = oldTransport
+			})
 			calls := 0
 			client.Transport = imageReservationTransport(func(req *http.Request) (*http.Response, error) {
 				calls++

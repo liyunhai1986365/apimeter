@@ -174,7 +174,7 @@ func handleFinalStream(c *gin.Context, info *relaycommon.RelayInfo, resp *dto.Ch
 	return nil
 }
 
-func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response, callback func(data string, geminiResponse *dto.GeminiChatResponse) bool) (*dto.Usage, *types.NewAPIError) {
+func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response, callback func(data string, geminiResponse *dto.GeminiChatResponse) bool, observers ...func(*dto.GeminiChatResponse)) (*dto.Usage, *types.NewAPIError) {
 	var usage = &dto.Usage{}
 	var imageCount int
 	var hasBillableUsageMetadata bool
@@ -182,10 +182,21 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	var grounding geminiGroundingCounter
 	defer grounding.commit(info)
 	responseText := strings.Builder{}
+	callbackStopped := false
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
+		if !callbackStopped && sr.Context().Err() != nil {
+			callbackStopped = true
+			sr.StopReading(sr.Context().Err())
+		}
 		var geminiResponse dto.GeminiChatResponse
 		if err := common.UnmarshalJsonStr(data, &geminiResponse); err != nil {
+			if callbackStopped {
+				// A malformed buffered frame must not hide later usage after
+				// the output callback has already failed.
+				sr.Error(fmt.Errorf("unmarshal: %w", err))
+				return
+			}
 			sr.Stop(fmt.Errorf("unmarshal: %w", err))
 			return
 		}
@@ -195,6 +206,13 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 
 		grounding.observe(&geminiResponse)
+		// Pure observers collect metadata even after output has stopped. They
+		// must not convert chunks or perform I/O while buffered frames drain.
+		for _, observe := range observers {
+			if observe != nil {
+				observe(&geminiResponse)
+			}
+		}
 
 		// 统计图片数量
 		for _, candidate := range geminiResponse.Candidates {
@@ -216,10 +234,20 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			hasBillableUsageMetadata = true
 		}
 
-		if !callback(data, &geminiResponse) {
-			sr.Stop(fmt.Errorf("gemini callback stopped"))
+		if !callbackStopped && !callback(data, &geminiResponse) {
+			callbackStopped = true
+			// Stop generating upstream tokens, but retain authoritative usage
+			// already present in the scanner buffer or callback queue.
+			sr.StopReading(fmt.Errorf("gemini callback stopped"))
 		}
-	})
+		if !callbackStopped && sr.Context().Err() != nil {
+			// EOF can win the status race while the final callback is still
+			// blocked. Record a timeout/cancellation that happened during it so
+			// finalization cannot mistake that EOF for a successful response.
+			callbackStopped = true
+			sr.StopReading(sr.Context().Err())
+		}
+	}, helper.StreamScannerOptions{DrainBufferedOnCancel: true})
 
 	if !hasBillableUsageMetadata {
 		if info.ReceivedResponseCount > 0 {
@@ -276,6 +304,9 @@ func GeminiChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *
 	if conversionErr != nil {
 		return usage, types.NewOpenAIError(conversionErr, types.ErrorCodeBadResponse, http.StatusBadGateway)
 	}
+	if streamErr := geminiStreamFinalizationError(info); streamErr != nil {
+		return usage, streamErr
+	}
 	chunks, err := state.Finalize(model)
 	if err != nil {
 		return usage, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
@@ -292,6 +323,23 @@ func GeminiChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *
 		common.SysLog("send final response failed: " + handleErr.Error())
 	}
 	return usage, nil
+}
+
+// Normal EOF and [DONE] may need a synthesized terminal chunk for compatible
+// upstreams. A recorded read/parse failure must not be turned into a normal stop.
+func geminiStreamFinalizationError(info *relaycommon.RelayInfo) *types.NewAPIError {
+	if info == nil || info.StreamStatus == nil {
+		return nil
+	}
+	status := info.StreamStatus
+	if status.IsNormalEnd() && status.EndError == nil && !status.HasErrors() {
+		return nil
+	}
+	err := status.EndError
+	if err == nil {
+		err = fmt.Errorf("Gemini stream ended unexpectedly: %s", status.Summary())
+	}
+	return types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
 }
 
 func GeminiChatHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (*dto.Usage, *types.NewAPIError) {

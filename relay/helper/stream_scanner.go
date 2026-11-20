@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -46,6 +47,30 @@ func NewStreamScanner(reader io.Reader) *bufio.Scanner {
 	return scanner
 }
 
+// A stopped reader still lets bufio.Scanner consume bytes it already holds,
+// but never starts another upstream read. Close interrupts an in-flight read.
+type stoppableStreamReader struct {
+	body    io.ReadCloser
+	stopped atomic.Bool
+	once    sync.Once
+}
+
+func (r *stoppableStreamReader) Read(p []byte) (int, error) {
+	if r.stopped.Load() {
+		return 0, io.EOF
+	}
+	return r.body.Read(p)
+}
+
+func (r *stoppableStreamReader) stop() {
+	r.once.Do(func() {
+		r.stopped.Store(true)
+		if r.body != nil {
+			_ = r.body.Close()
+		}
+	})
+}
+
 func copyCodexSSEHeaders(c *gin.Context, resp *http.Response) {
 	if c == nil || c.Writer == nil || resp == nil {
 		return
@@ -73,11 +98,19 @@ func ExtendWriteDeadline(c *gin.Context) {
 	_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(streamWriteTimeout))
 }
 
-func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, dataHandler func(data string, sr *StreamResult)) {
+type StreamScannerOptions struct {
+	// DrainBufferedOnCancel preserves already-read accounting frames when the
+	// request is cancelled or times out. Callbacks must honor sr.Context() and
+	// avoid downstream I/O or other work once it is cancelled.
+	DrainBufferedOnCancel bool
+}
+
+func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon.RelayInfo, dataHandler func(data string, sr *StreamResult), options ...StreamScannerOptions) {
 
 	if resp == nil || dataHandler == nil {
 		return
 	}
+	drainBufferedOnCancel := len(options) > 0 && options[0].DrainBufferedOnCancel
 	// Join request preparation pings before touching headers. From this point
 	// the scanner serializes every ping and callback with its write mutex.
 	StopStreamKeepAlive(c)
@@ -94,7 +127,8 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 
 	var (
 		stopChan    = make(chan bool, 3) // 增加缓冲区避免阻塞
-		scanner     = NewStreamScanner(resp.Body)
+		reader      = &stoppableStreamReader{body: resp.Body}
+		scanner     = NewStreamScanner(reader)
 		ticker      = time.NewTicker(streamingTimeout)
 		pingTicker  *time.Ticker
 		writeMutex  sync.Mutex     // Mutex to protect concurrent writes
@@ -130,9 +164,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 		cleanupOnce.Do(func() {
 			cancel()
 			stop()
-			if resp.Body != nil {
-				_ = resp.Body.Close()
-			}
+			reader.stop()
 
 			ticker.Stop()
 			if pingTicker != nil {
@@ -216,6 +248,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			wg.Done()
 		}()
 		sr := newStreamResult(ctx, info.StreamStatus)
+		sr.stopReading = reader.stop
 		for data := range dataChan {
 			// Preserve buffered usage/accounting events on cancellation. Blocking
 			// callback I/O uses sr.Context() and stops without discarding usage here.
@@ -246,13 +279,44 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 			wg.Done()
 		}()
 
+		enqueue := func(data string) bool {
+			select {
+			case dataChan <- data:
+				return true
+			case <-handlerDone:
+				return false
+			case <-ctx.Done():
+			case <-stopChan:
+			}
+			if !drainBufferedOnCancel {
+				return false
+			}
+			reader.stop()
+			// The handler still drains accounting frames after cancellation, but
+			// a fatal Stop/Done must release a scanner blocked on a full queue.
+			select {
+			case dataChan <- data:
+				return true
+			case <-handlerDone:
+				return false
+			}
+		}
+
 		for scanner.Scan() {
 			// 检查是否需要停止
 			select {
+			case <-handlerDone:
+				return
 			case <-stopChan:
-				return
+				if !drainBufferedOnCancel {
+					return
+				}
+				reader.stop()
 			case <-ctx.Done():
-				return
+				if !drainBufferedOnCancel {
+					return
+				}
+				reader.stop()
 			default:
 			}
 
@@ -275,11 +339,7 @@ func StreamScannerHandler(c *gin.Context, resp *http.Response, info *relaycommon
 				info.SetFirstResponseTime()
 				info.ReceivedResponseCount++
 
-				select {
-				case dataChan <- data:
-				case <-ctx.Done():
-					return
-				case <-stopChan:
+				if !enqueue(data) {
 					return
 				}
 			} else {

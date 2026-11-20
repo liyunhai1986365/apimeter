@@ -111,3 +111,59 @@ func TestGeminiReasoningValidationReturnsBadRequest(t *testing.T) {
 		})
 	}
 }
+
+func TestGeminiThinkingBudgetValidation(t *testing.T) {
+	settings := model_setting.GetGeminiSettings()
+	oldThinkingAdapter := settings.ThinkingAdapterEnabled
+	settings.ThinkingAdapterEnabled = true
+	t.Cleanup(func() { settings.ThinkingAdapterEnabled = oldThinkingAdapter })
+
+	for _, tc := range []struct {
+		name, budget string
+		wantError    bool
+		wantBudget   int
+	}{
+		{name: "fraction", budget: "1.5", wantError: true},
+		{name: "overflow", budget: "2147483648", wantError: true},
+		{name: "underflow", budget: "-2147483649", wantError: true},
+		{name: "string", budget: `"512"`, wantError: true},
+		{name: "boolean", budget: "true", wantError: true},
+		{name: "null", budget: "null", wantError: true},
+		{name: "object", budget: "{}", wantError: true},
+		{name: "array", budget: "[]", wantError: true},
+		{name: "disabled", budget: "0", wantBudget: 0},
+		{name: "dynamic", budget: "-1", wantBudget: -1},
+		{name: "explicit budget", budget: "1024", wantBudget: 1024},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+			info := &relaycommon.RelayInfo{
+				OriginModelName: "gemini-2.5-flash",
+				RelayFormat:     types.RelayFormatOpenAI,
+				ChannelMeta: &relaycommon.ChannelMeta{
+					ChannelType: constant.ChannelTypeGemini, UpstreamModelName: "gemini-2.5-flash",
+				},
+			}
+			body := `{"model":"gemini-2.5-flash","messages":[{"role":"user","content":"hello"}],"extra_body":{"google":{"thinking_config":{"thinking_budget":` + tc.budget + `}}}}`
+			var request dto.GeneralOpenAIRequest
+			require.NoError(t, common.UnmarshalJsonStr(body, &request))
+			converted, err := (&Adaptor{}).ConvertOpenAIRequest(ctx, info, &request)
+			if tc.wantError {
+				require.ErrorContains(t, err, "thinking_budget")
+				require.Nil(t, converted)
+				// Verify the same error wrapping used by the entry handler.
+				wrapped := types.NewError(err, types.ErrorCodeConvertRequestFailed, types.ErrOptionWithSkipRetry())
+				require.Equal(t, http.StatusBadRequest, wrapped.StatusCode)
+				require.Equal(t, types.ErrorCodeInvalidRequest, wrapped.GetErrorCode())
+				require.True(t, types.IsSkipRetryError(wrapped))
+				return
+			}
+			require.NoError(t, err)
+			config := converted.(*dto.GeminiChatRequest).GenerationConfig.ThinkingConfig
+			require.NotNil(t, config)
+			require.NotNil(t, config.ThinkingBudget)
+			require.Equal(t, tc.wantBudget, *config.ThinkingBudget)
+		})
+	}
+}

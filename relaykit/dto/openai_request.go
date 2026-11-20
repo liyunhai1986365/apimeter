@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"time"
 
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
 	"github.com/QuantumNous/new-api/relaykit/types"
@@ -54,7 +55,7 @@ type GeneralOpenAIRequest struct {
 	ResponseFormat      *ResponseFormat   `json:"response_format,omitempty"`
 	EncodingFormat      json.RawMessage   `json:"encoding_format,omitempty"`
 	Seed                *float64          `json:"seed,omitempty"`
-	ParallelToolCalls    *bool             `json:"parallel_tool_calls,omitempty"`
+	ParallelToolCalls   *bool             `json:"parallel_tool_calls,omitempty"`
 	Tools               []ToolCallRequest `json:"tools,omitempty"`
 	ToolChoice          any               `json:"tool_choice,omitempty"`
 	FunctionCall        json.RawMessage   `json:"function_call,omitempty"`
@@ -232,6 +233,23 @@ func IsOpenAIGPT5Model(modelName string) bool {
 	return strings.HasPrefix(modelName, "gpt-5")
 }
 
+// IsOpenAIGPT62Model follows the upstream capability rule for named GPT-6.2
+// models and dated snapshots. Other variants and future families keep their
+// existing compatibility behavior.
+func IsOpenAIGPT62Model(modelName string) bool {
+	for _, base := range []string{"gpt-6.2-astra", "gpt-6.2-sol"} {
+		if modelName == base {
+			return true
+		}
+		if snapshot, ok := strings.CutPrefix(modelName, base+"-"); ok {
+			if _, err := time.Parse(time.DateOnly, snapshot); err == nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func IsQwenThinkingBudgetModel(modelName string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(modelName))
 	return strings.HasPrefix(normalized, "qwen") ||
@@ -245,7 +263,7 @@ func (r *GeneralOpenAIRequest) GetSystemRoleName() string {
 		if !strings.HasPrefix(r.Model, "o1-mini") && !strings.HasPrefix(r.Model, "o1-preview") {
 			return "developer"
 		}
-	} else if IsOpenAIGPT5Model(r.Model) {
+	} else if IsOpenAIGPT5Model(r.Model) || IsOpenAIGPT62Model(r.Model) {
 		return "developer"
 	}
 	return "system"

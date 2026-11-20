@@ -8,7 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 )
 
-// StreamUsageError carries usage already incurred before a stream failed.
+// StreamUsageError carries the usage snapshot from an interrupted stream.
 // The controller settles it before error handling/refunds, independently of
 // the client protocol or any intermediate request/response conversion.
 type StreamUsageError struct {
@@ -25,12 +25,13 @@ func (e *StreamUsageError) SettleOnce(settle func(*dto.Usage)) {
 
 // WithStreamUsage is only called for failures after upstream streaming began.
 // Ordinary request/upstream rejection errors keep their existing refund policy.
+// Keep zero-token snapshots: settlement also considers cache and tool charges.
 func WithStreamUsage(apiErr *types.NewAPIError, usage *dto.Usage) *types.NewAPIError {
 	if apiErr == nil {
 		return nil
 	}
 	types.ErrOptionWithSkipRetry()(apiErr)
-	if !hasStreamUsage(usage) {
+	if usage == nil {
 		return apiErr
 	}
 	var existing *StreamUsageError
@@ -43,18 +44,4 @@ func WithStreamUsage(apiErr *types.NewAPIError, usage *dto.Usage) *types.NewAPIE
 	}
 	apiErr.Err = &StreamUsageError{cause: cause, usage: usage}
 	return apiErr
-}
-
-func hasStreamUsage(usage *dto.Usage) bool {
-	if usage == nil {
-		return false
-	}
-	if usage.TotalTokens > 0 || usage.PromptTokens > 0 || usage.CompletionTokens > 0 ||
-		usage.PromptTokensDetails.CachedTokens > 0 || usage.PromptTokensDetails.CacheCreationTokensTotal() > 0 ||
-		usage.ClaudeCacheCreation5mTokens > 0 || usage.ClaudeCacheCreation1hTokens > 0 {
-		return true
-	}
-	// A converted response may expose no ordinary tokens while its canonical
-	// Anthropic snapshot still contains billable cache reads or writes.
-	return usage.BillingUsage != nil && dto.HasClaudeUsageTokens(usage.BillingUsage.ClaudeUsage)
 }

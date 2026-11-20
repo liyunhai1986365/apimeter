@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync/atomic"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -15,15 +16,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+var streamRateLimitTestUsers atomic.Int64
+
 func TestModelRateLimitDoesNotCountFailedHTTP200Streams(t *testing.T) {
 	_, redisClient := useRateLimitMiniRedis(t)
 	for _, useRedis := range []bool{false, true} {
 		for _, failed := range []bool{false, true} {
 			t.Run(fmt.Sprintf("redis=%t/failed=%t", useRedis, failed), func(t *testing.T) {
-				userID := 610001
-				if failed {
-					userID++
-				}
+				userID := 610000 + int(streamRateLimitTestUsers.Add(1))
 				router := gin.New()
 				router.Use(func(c *gin.Context) { c.Set("id", userID) })
 				if useRedis {

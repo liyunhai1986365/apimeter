@@ -26,8 +26,10 @@ const (
 
 const maxLogCount = 1000000
 
-var logCount int
+// setupLogLock protects the count and the reservation for a pending rotation.
+// File I/O runs outside this lock so logging can continue during setup.
 var setupLogLock sync.Mutex
+var logCount int
 var setupLogWorking bool
 var currentLogPath string
 var currentLogPathMu sync.RWMutex
@@ -40,18 +42,24 @@ func GetCurrentLogPath() string {
 }
 
 func SetupLogger() {
+	setupLogLock.Lock()
+	if setupLogWorking {
+		setupLogLock.Unlock()
+		return
+	}
+	setupLogWorking = true
+	setupLogLock.Unlock()
+	setupLogger()
+}
+
+// setupLogger runs only after the caller reserves setupLogWorking.
+func setupLogger() {
 	defer func() {
+		setupLogLock.Lock()
 		setupLogWorking = false
+		setupLogLock.Unlock()
 	}()
 	if *common.LogDir != "" {
-		ok := setupLogLock.TryLock()
-		if !ok {
-			log.Println("setup log is already working")
-			return
-		}
-		defer func() {
-			setupLogLock.Unlock()
-		}()
 		logPath := filepath.Join(*common.LogDir, fmt.Sprintf("oneapi-%s.log", time.Now().Format("20060102150405")))
 		fd, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
@@ -109,15 +117,16 @@ func logHelper(ctx context.Context, level string, msg string) {
 	}
 	_, _ = fmt.Fprintf(writer, "[%s] %v | %s | %s \n", level, now.Format("2006/01/02 - 15:04:05"), id, msg)
 	common.LogWriterMu.RUnlock()
-	// TODO (deferred 2026-11-04): protect logCount and setupLogWorking together;
-	// concurrent logging races on the counter and rotation state.
+	setupLogLock.Lock()
 	logCount++
-	if logCount > maxLogCount && !setupLogWorking {
+	rotate := logCount > maxLogCount && !setupLogWorking
+	if rotate {
 		logCount = 0
 		setupLogWorking = true
-		gopool.Go(func() {
-			SetupLogger()
-		})
+	}
+	setupLogLock.Unlock()
+	if rotate {
+		gopool.Go(setupLogger)
 	}
 }
 

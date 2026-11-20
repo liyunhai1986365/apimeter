@@ -34,6 +34,8 @@ func TestGoogleFailedStreamsCarryUsageForSettlement(t *testing.T) {
 				info.IsStream = true
 				if protocol == "claude" {
 					info.RelayFormat = types.RelayFormatClaude
+				} else if protocol == "responses" {
+					info.RelayFormat = types.RelayFormatOpenAIResponses
 				}
 				payload := `{"candidates":[{"content":{"parts":[{"text":"hello"}]}}],"usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":20}}`
 				if failure == "partial" {
@@ -52,10 +54,9 @@ func TestGoogleFailedStreamsCarryUsageForSettlement(t *testing.T) {
 				} else {
 					usage, apiErr = GeminiChatStreamHandler(ctx, info, resp)
 				}
-				if failure == "disconnect" && protocol != "chat" {
-					// Legacy Responses/Claude writers swallow write errors, but still
-					// return usage for the ordinary successful settlement path.
-					require.Nil(t, apiErr)
+				if failure == "disconnect" && protocol == "claude" && apiErr == nil {
+					// The legacy Claude writer may swallow cancellation after [DONE].
+					// Its ordinary settlement still receives the accumulated usage.
 					require.Equal(t, 100, usage.PromptTokens)
 					require.Equal(t, 20, usage.CompletionTokens)
 					return

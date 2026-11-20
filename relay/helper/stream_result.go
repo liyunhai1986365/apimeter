@@ -10,9 +10,10 @@ import (
 // to record soft errors, signal fatal stops, or mark normal completion.
 // StreamScannerHandler checks IsStopped() after each callback invocation.
 type StreamResult struct {
-	ctx     context.Context
-	status  *relaycommon.StreamStatus
-	stopped bool
+	ctx         context.Context
+	status      *relaycommon.StreamStatus
+	stopped     bool
+	stopReading func()
 }
 
 func newStreamResult(ctx context.Context, status *relaycommon.StreamStatus) *StreamResult {
@@ -39,6 +40,19 @@ func (r *StreamResult) Stop(err error) {
 	}
 	r.status.SetEndReason(relaycommon.StreamEndReasonHandlerStop, err)
 	r.stopped = true
+}
+
+// StopReading closes the upstream body while allowing already buffered frames
+// to drain. The caller must stop downstream I/O and only collect accounting
+// data on subsequent invocations. Unlike Stop, this does not discard the queue.
+func (r *StreamResult) StopReading(err error) {
+	if err != nil {
+		r.status.RecordError(err.Error())
+	}
+	r.status.SetEndReason(relaycommon.StreamEndReasonHandlerStop, err)
+	if r.stopReading != nil {
+		r.stopReading()
+	}
 }
 
 // Done signals that the handler has finished processing normally

@@ -16,6 +16,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // Claude Sonnet-style tiered expression: standard vs long-context
@@ -347,11 +348,11 @@ func (*recordingBillingSettler) Refund(*gin.Context) {}
 
 func (*recordingBillingSettler) NeedsRefund() bool { return false }
 
-func (s *recordingBillingSettler) ReserveWithCommit(targetQuota int, commit func(int) error) error {
+func (s *recordingBillingSettler) ReserveWithCommit(targetQuota int, commit func(*gorm.DB, int) error) error {
 	if err := s.Reserve(targetQuota); err != nil {
 		return err
 	}
-	return commit(s.preConsumedQuota)
+	return model.DB.Transaction(func(tx *gorm.DB) error { return commit(tx, s.preConsumedQuota) })
 }
 
 func (s *recordingBillingSettler) GetPreConsumedQuota() int {

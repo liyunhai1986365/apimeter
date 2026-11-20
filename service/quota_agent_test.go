@@ -21,8 +21,7 @@ func resetQuotaAgentTables(t *testing.T) {
 	t.Helper()
 
 	gin.SetMode(gin.TestMode)
-	common.RedisEnabled = false
-	common.BatchUpdateEnabled = false
+	// Redis and batch mode are initialized once in TestMain.
 
 	t.Cleanup(func() {
 		model.DB.Exec("DELETE FROM agent_ledgers")

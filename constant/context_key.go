@@ -81,6 +81,8 @@ const (
 	ContextKeyIsStream ContextKey = "is_stream"
 	// A stream can fail after a keepalive committed HTTP 200.
 	ContextKeyRelayFailed ContextKey = "relay_failed"
+	// A protocol handler already sent its terminal failure event.
+	ContextKeyRelayStreamErrorSent ContextKey = "relay_stream_error_sent"
 
 	ContextKeyAgentContext ContextKey = "agent_context"
 

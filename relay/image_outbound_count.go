@@ -11,6 +11,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 )
 
 type outboundImageCounter interface {
@@ -50,16 +51,20 @@ func prepareOutboundImageCount(c *gin.Context, info *relaycommon.RelayInfo, requ
 	}
 	info.PriceData.QuotaToPreConsume = quota
 	if isLocalImageAsyncWorker(c) {
-		// A local task already owns its initial pre-consumption. Publish any
-		// increase with CAS; if a timeout wins, refund only the unpublished delta.
+		// A local task already owns its initial pre-consumption. Publish the
+		// increase and its task CAS in the same transaction.
 		if info.Billing == nil {
 			return types.NewError(fmt.Errorf("missing local image billing session"), types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 		}
-		if err := info.Billing.ReserveWithCommit(quota, func(reservedQuota int) error {
-			return syncLocalImageAsyncReservation(c, info, reservedQuota)
+		var publish func()
+		if err := info.Billing.ReserveWithCommit(quota, func(tx *gorm.DB, reservedQuota int) error {
+			var err error
+			publish, err = syncLocalImageAsyncReservation(c, info, tx, reservedQuota)
+			return err
 		}); err != nil {
 			return types.NewError(err, types.ErrorCodeUpdateDataError, types.ErrOptionWithSkipRetry())
 		}
+		publish()
 		info.FinalPreConsumedQuota = info.Billing.GetPreConsumedQuota()
 		return nil
 	}

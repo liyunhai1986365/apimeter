@@ -16,29 +16,49 @@ type ChatToResponsesStreamEvent struct {
 }
 
 type ChatToResponsesStreamState struct {
-	Tools       *convmeta.ResponsesToolState
-	annotations []any
-	hosted      []dto.ResponsesOutput
-	ID          string
-	Model       string
-	Created     int64
-	Usage       *dto.Usage
+	*chatToResponsesStreamChoice
+	Tools   *convmeta.ResponsesToolState
+	hosted  []dto.ResponsesOutput
+	ID      string
+	Model   string
+	Created int64
+	Usage   *dto.Usage
+	// DeferChoiceFinish keeps each choice's items open for trailing metadata.
+	// Configure before the first chunk; ordinary Chat streams close immediately.
+	DeferChoiceFinish bool
 
 	status            string
 	incompleteDetails *dto.IncompleteDetails
 	sentCreated       bool
-	textOutputIndex   int
-	textStarted       bool
-	textDone          bool
-	reasoningIndex    int
-	reasoningStarted  bool
-	reasoningDone     bool
 	finalized         bool
 	nextOutputIndex   int
-	toolsByIndex      map[int]*chatToResponsesStreamTool
+	nextTextID        int
+	nextReasoningID   int
 	outputOrder       []chatToResponsesOutputRef
-	text              strings.Builder
-	reasoning         strings.Builder
+	choices           map[int]*chatToResponsesStreamChoice
+	choiceOrder       []*chatToResponsesStreamChoice
+}
+
+// Keep builders behind a pointer: switching choices must never copy a live
+// strings.Builder, and late annotations must return to the original choice.
+type chatToResponsesStreamChoice struct {
+	annotations      []any
+	finishedStatus   string
+	textOutputIndex  int
+	textStarted      bool
+	textDone         bool
+	textSegment      int
+	textID           int
+	closedMessages   []dto.ResponsesOutput
+	reasoningIndex   int
+	reasoningStarted bool
+	reasoningDone    bool
+	reasoningSegment int
+	reasoningID      int
+	closedReasonings []dto.ResponsesOutput
+	toolsByIndex     map[int]*chatToResponsesStreamTool
+	text             strings.Builder
+	reasoning        strings.Builder
 }
 
 type chatToResponsesStreamTool struct {
@@ -48,21 +68,29 @@ type chatToResponsesStreamTool struct {
 	ID          string
 	Name        string
 	Arguments   strings.Builder
-	Done        bool
+	DoneStatus  string
 }
 
 type chatToResponsesOutputRef struct {
 	Kind      string
 	ToolIndex int
+	Segment   int
+	Choice    *chatToResponsesStreamChoice
 }
 
 func NewChatToResponsesStreamState(id string, model string) *ChatToResponsesStreamState {
 	return &ChatToResponsesStreamState{
-		ID:              id,
-		Model:           model,
-		Created:         time.Now().Unix(),
-		Usage:           &dto.Usage{},
-		status:          "completed",
+		chatToResponsesStreamChoice: newChatToResponsesStreamChoice(),
+		ID:                          id,
+		Model:                       model,
+		Created:                     time.Now().Unix(),
+		Usage:                       &dto.Usage{},
+		status:                      "completed",
+	}
+}
+
+func newChatToResponsesStreamChoice() *chatToResponsesStreamChoice {
+	return &chatToResponsesStreamChoice{
 		textOutputIndex: -1,
 		reasoningIndex:  -1,
 		toolsByIndex:    make(map[int]*chatToResponsesStreamTool),
@@ -70,7 +98,7 @@ func NewChatToResponsesStreamState(id string, model string) *ChatToResponsesStre
 }
 
 func ChatCompletionsStreamChunkToResponsesEvents(chunk *dto.ChatCompletionsStreamResponse, state *ChatToResponsesStreamState) ([]ChatToResponsesStreamEvent, error) {
-	if chunk == nil || state == nil {
+	if chunk == nil || state == nil || state.finalized {
 		return nil, nil
 	}
 	if state.ID == "" {
@@ -86,15 +114,17 @@ func ChatCompletionsStreamChunkToResponsesEvents(chunk *dto.ChatCompletionsStrea
 		state.Usage = UsageFromChatUsage(chunk.Usage)
 	}
 
-	events := make([]ChatToResponsesStreamEvent, 0)
-	if !state.sentCreated {
-		state.sentCreated = true
-		events = append(events, responsesStreamEvent(responsesEventCreated, dto.ResponsesStreamResponse{
-			Type:     responsesEventCreated,
-			Response: state.createdResponse(),
-		}))
-	}
+	events := state.ensureCreated()
 	for _, choice := range chunk.Choices {
+		if state.DeferChoiceFinish {
+			state.selectChoice(choice.Index)
+			if state.finishedStatus != "" && (choice.Delta.GetReasoningContent() != "" || choice.Delta.GetContentString() != "" || len(choice.Delta.ToolCalls) > 0) {
+				// Actual new output starts another segment. Annotation-only
+				// chunks still belong to the finished, but not yet closed, one.
+				events = append(events, state.doneChoiceEvents()...)
+				state.finishedStatus = ""
+			}
+		}
 		if choice.Delta.GetReasoningContent() != "" {
 			events = append(events, state.appendReasoningDelta(choice.Delta.GetReasoningContent())...)
 		}
@@ -103,13 +133,12 @@ func ChatCompletionsStreamChunkToResponsesEvents(chunk *dto.ChatCompletionsStrea
 		}
 
 		for _, annotation := range chatAnnotationsToResponses(choice.Delta.Annotations) {
+			events = append(events, state.startText()...)
 			index := len(state.annotations)
 			state.annotations = append(state.annotations, annotation)
-			if state.textStarted {
-				events = append(events, responsesStreamEvent("response.output_text.annotation.added", dto.ResponsesStreamResponse{
-					OutputIndex: intPtr(state.textOutputIndex), ContentIndex: intPtr(0), ItemID: state.messageID(), AnnotationIndex: intPtr(index), Annotation: annotation,
-				}))
-			}
+			events = append(events, responsesStreamEvent("response.output_text.annotation.added", dto.ResponsesStreamResponse{
+				OutputIndex: intPtr(state.textOutputIndex), ContentIndex: intPtr(0), ItemID: state.messageID(), AnnotationIndex: intPtr(index), Annotation: annotation,
+			}))
 		}
 		for _, toolCall := range choice.Delta.ToolCalls {
 			toolEvents, err := state.appendToolCallDelta(toolCall)
@@ -120,10 +149,64 @@ func ChatCompletionsStreamChunkToResponsesEvents(chunk *dto.ChatCompletionsStrea
 		}
 		if choice.FinishReason != nil && strings.TrimSpace(*choice.FinishReason) != "" {
 			state.applyFinishReason(*choice.FinishReason)
-			events = append(events, state.doneDeltaEvents()...)
+			if state.DeferChoiceFinish {
+				state.finishedStatus = state.outputStatus()
+			} else {
+				events = append(events, state.doneChoiceEvents()...)
+			}
 		}
 	}
 	return events, nil
+}
+
+func (s *ChatToResponsesStreamState) selectChoice(index int) {
+	if s.choices == nil {
+		s.choices = make(map[int]*chatToResponsesStreamChoice)
+	}
+	choice := s.choices[index]
+	if choice == nil {
+		choice = newChatToResponsesStreamChoice()
+		s.choices[index] = choice
+		s.choiceOrder = append(s.choiceOrder, choice)
+	}
+	s.chatToResponsesStreamChoice = choice
+}
+
+func (s *ChatToResponsesStreamState) ensureCreated() []ChatToResponsesStreamEvent {
+	if s.sentCreated {
+		return nil
+	}
+	s.sentCreated = true
+	return []ChatToResponsesStreamEvent{responsesStreamEvent(responsesEventCreated, dto.ResponsesStreamResponse{
+		Type:     responsesEventCreated,
+		Response: s.createdResponse(),
+	})}
+}
+
+// Fail terminates the response without claiming that partial output completed.
+// The failure snapshot retains the content and usage accumulated so far.
+func (s *ChatToResponsesStreamState) Fail(code, message string) []ChatToResponsesStreamEvent {
+	if s == nil || s.finalized {
+		return nil
+	}
+	if code = strings.TrimSpace(code); code == "" {
+		code = "server_error"
+	}
+	if message = strings.TrimSpace(message); message == "" {
+		message = "upstream response stream failed"
+	}
+	s.status = "failed"
+	s.incompleteDetails = nil
+	events := s.ensureCreated()
+	events = append(events, s.doneDeltaEvents()...)
+	s.finalized = true
+	response := s.finalResponse()
+	response.Error = map[string]any{"code": code, "message": message}
+	events = append(events, responsesStreamEvent("response.failed", dto.ResponsesStreamResponse{
+		Type:     "response.failed",
+		Response: response,
+	}))
+	return events
 }
 
 func FinalizeChatCompletionsStreamToResponses(state *ChatToResponsesStreamState) []ChatToResponsesStreamEvent {
@@ -148,26 +231,22 @@ func (s *ChatToResponsesStreamState) UsageText() string {
 	if s == nil {
 		return ""
 	}
-	return s.text.String()
+	var text strings.Builder
+	for _, ref := range s.outputOrder {
+		if ref.Kind != "message" {
+			continue
+		}
+		if ref.Segment < len(ref.Choice.closedMessages) {
+			text.WriteString(ref.Choice.closedMessages[ref.Segment].Content[0].Text)
+		} else {
+			text.WriteString(ref.Choice.text.String())
+		}
+	}
+	return text.String()
 }
 
 func (s *ChatToResponsesStreamState) appendTextDelta(delta string) []ChatToResponsesStreamEvent {
-	events := make([]ChatToResponsesStreamEvent, 0, 2)
-	if !s.textStarted {
-		s.textStarted = true
-		s.textOutputIndex = s.nextIndex("message", -1)
-		events = append(events, responsesStreamEvent(responsesEventOutputItemAdded, dto.ResponsesStreamResponse{
-			Type:        responsesEventOutputItemAdded,
-			OutputIndex: intPtr(s.textOutputIndex),
-			Item: &dto.ResponsesOutput{
-				Type:    responsesOutputTypeMessage,
-				ID:      s.messageID(),
-				Status:  "in_progress",
-				Role:    "assistant",
-				Content: []dto.ResponsesOutputContent{},
-			},
-		}))
-	}
+	events := s.startText()
 	s.text.WriteString(delta)
 	events = append(events, responsesStreamEvent(responsesEventOutputTextDelta, dto.ResponsesStreamResponse{
 		Type:         responsesEventOutputTextDelta,
@@ -179,11 +258,47 @@ func (s *ChatToResponsesStreamState) appendTextDelta(delta string) []ChatToRespo
 	return events
 }
 
+func (s *ChatToResponsesStreamState) startText() []ChatToResponsesStreamEvent {
+	if s.textDone {
+		s.textSegment++
+		s.textStarted = false
+		s.textDone = false
+		s.text.Reset()
+		s.annotations = nil
+	}
+	if !s.textStarted {
+		s.textStarted = true
+		s.textID = s.nextTextID
+		s.nextTextID++
+		s.textOutputIndex = s.nextIndex(chatToResponsesOutputRef{Kind: "message", Segment: s.textSegment})
+		return []ChatToResponsesStreamEvent{responsesStreamEvent(responsesEventOutputItemAdded, dto.ResponsesStreamResponse{
+			Type:        responsesEventOutputItemAdded,
+			OutputIndex: intPtr(s.textOutputIndex),
+			Item: &dto.ResponsesOutput{
+				Type:    responsesOutputTypeMessage,
+				ID:      s.messageID(),
+				Status:  "in_progress",
+				Role:    "assistant",
+				Content: []dto.ResponsesOutputContent{},
+			},
+		})}
+	}
+	return nil
+}
+
 func (s *ChatToResponsesStreamState) appendReasoningDelta(delta string) []ChatToResponsesStreamEvent {
 	events := make([]ChatToResponsesStreamEvent, 0, 2)
+	if s.reasoningDone {
+		s.reasoningSegment++
+		s.reasoningStarted = false
+		s.reasoningDone = false
+		s.reasoning.Reset()
+	}
 	if !s.reasoningStarted {
 		s.reasoningStarted = true
-		s.reasoningIndex = s.nextIndex("reasoning", -1)
+		s.chatToResponsesStreamChoice.reasoningID = s.nextReasoningID
+		s.nextReasoningID++
+		s.reasoningIndex = s.nextIndex(chatToResponsesOutputRef{Kind: "reasoning", Segment: s.reasoningSegment})
 		events = append(events, responsesStreamEvent(responsesEventOutputItemAdded, dto.ResponsesStreamResponse{
 			Type:        responsesEventOutputItemAdded,
 			OutputIndex: intPtr(s.reasoningIndex),
@@ -216,12 +331,16 @@ func (s *ChatToResponsesStreamState) appendToolCallDelta(toolCall dto.ToolCallRe
 	if tool == nil {
 		tool = &chatToResponsesStreamTool{
 			ChatIndex:   chatIndex,
-			OutputIndex: s.nextIndex("tool", chatIndex),
+			OutputIndex: s.nextIndex(chatToResponsesOutputRef{Kind: "tool", ToolIndex: chatIndex}),
 			ID:          strings.TrimSpace(toolCall.ID),
 			Name:        strings.TrimSpace(toolCall.Function.Name),
 		}
 		if tool.ID == "" {
-			tool.ID = fmt.Sprintf("%s_call_%d", s.ID, chatIndex)
+			idIndex := chatIndex
+			if s.DeferChoiceFinish {
+				idIndex = tool.OutputIndex
+			}
+			tool.ID = fmt.Sprintf("%s_call_%d", s.ID, idIndex)
 		}
 
 		tool.Custom = s.Tools.IsCustomTool(tool.Name)
@@ -251,10 +370,31 @@ func (s *ChatToResponsesStreamState) appendToolCallDelta(toolCall dto.ToolCallRe
 }
 
 func (s *ChatToResponsesStreamState) doneDeltaEvents() []ChatToResponsesStreamEvent {
+	if !s.DeferChoiceFinish {
+		return s.doneChoiceEvents()
+	}
+	active := s.chatToResponsesStreamChoice
+	var events []ChatToResponsesStreamEvent
+	for _, choice := range s.choiceOrder {
+		s.chatToResponsesStreamChoice = choice
+		events = append(events, s.doneChoiceEvents()...)
+	}
+	s.chatToResponsesStreamChoice = active
+	return events
+}
+
+func (s *ChatToResponsesStreamState) doneChoiceEvents() []ChatToResponsesStreamEvent {
 	events := make([]ChatToResponsesStreamEvent, 0)
 	status := s.outputStatus()
+	if s.finishedStatus != "" {
+		// A failed tail must not change the upstream finish of another
+		// choice whose item.done was deferred only for late metadata.
+		status = s.finishedStatus
+	}
 	if s.textStarted && !s.textDone {
 		s.textDone = true
+		message := s.messageOutput(status)
+		s.closedMessages = append(s.closedMessages, *message)
 		events = append(events, responsesStreamEvent("response.output_text.done", dto.ResponsesStreamResponse{
 			Type:         "response.output_text.done",
 			OutputIndex:  intPtr(s.textOutputIndex),
@@ -264,11 +404,13 @@ func (s *ChatToResponsesStreamState) doneDeltaEvents() []ChatToResponsesStreamEv
 		events = append(events, responsesStreamEvent(responsesEventOutputItemDone, dto.ResponsesStreamResponse{
 			Type:        responsesEventOutputItemDone,
 			OutputIndex: intPtr(s.textOutputIndex),
-			Item:        s.messageOutput(status),
+			Item:        message,
 		}))
 	}
 	if s.reasoningStarted && !s.reasoningDone {
 		s.reasoningDone = true
+		reasoning := s.reasoningOutput(status)
+		s.closedReasonings = append(s.closedReasonings, *reasoning)
 		events = append(events, responsesStreamEvent(responsesEventReasoningSummaryDone, dto.ResponsesStreamResponse{
 			Type:         responsesEventReasoningSummaryDone,
 			OutputIndex:  intPtr(s.reasoningIndex),
@@ -282,14 +424,14 @@ func (s *ChatToResponsesStreamState) doneDeltaEvents() []ChatToResponsesStreamEv
 		events = append(events, responsesStreamEvent(responsesEventOutputItemDone, dto.ResponsesStreamResponse{
 			Type:        responsesEventOutputItemDone,
 			OutputIndex: intPtr(s.reasoningIndex),
-			Item:        s.reasoningOutput(status),
+			Item:        reasoning,
 		}))
 	}
 	for _, tool := range s.sortedTools() {
-		if tool.Done {
+		if tool.DoneStatus != "" {
 			continue
 		}
-		tool.Done = true
+		tool.DoneStatus = status
 
 		if tool.Custom {
 			input := customToolInputFromArguments(tool.Arguments.String())
@@ -322,18 +464,19 @@ func (s *ChatToResponsesStreamState) applyFinishReason(finishReason string) {
 
 func (s *ChatToResponsesStreamState) finalResponse() *dto.OpenAIResponsesResponse {
 	output := make([]dto.ResponsesOutput, 0, len(s.outputOrder))
-	status := s.outputStatus()
+	// Text and reasoning were snapshotted by doneDeltaEvents. Keep their
+	// emitted content and status even if later segments or a failure follow.
 	for _, ref := range s.outputOrder {
 		switch ref.Kind {
 		case "message":
-			output = append(output, *s.messageOutput(status))
+			output = append(output, ref.Choice.closedMessages[ref.Segment])
 		case "reasoning":
-			output = append(output, *s.reasoningOutput(status))
+			output = append(output, ref.Choice.closedReasonings[ref.Segment])
 		case "hosted":
 			output = append(output, s.hosted[ref.ToolIndex])
 		case "tool":
-			if tool := s.toolsByIndex[ref.ToolIndex]; tool != nil {
-				output = append(output, *s.toolOutput(tool, status))
+			if tool := ref.Choice.toolsByIndex[ref.ToolIndex]; tool != nil {
+				output = append(output, *s.toolOutput(tool, tool.DoneStatus))
 			}
 		}
 	}
@@ -360,10 +503,11 @@ func (s *ChatToResponsesStreamState) createdResponse() *dto.OpenAIResponsesRespo
 	}
 }
 
-func (s *ChatToResponsesStreamState) nextIndex(kind string, toolIndex int) int {
+func (s *ChatToResponsesStreamState) nextIndex(ref chatToResponsesOutputRef) int {
 	index := s.nextOutputIndex
 	s.nextOutputIndex++
-	s.outputOrder = append(s.outputOrder, chatToResponsesOutputRef{Kind: kind, ToolIndex: toolIndex})
+	ref.Choice = s.chatToResponsesStreamChoice
+	s.outputOrder = append(s.outputOrder, ref)
 	return index
 }
 
@@ -381,18 +525,18 @@ func (s *ChatToResponsesStreamState) sortedTools() []*chatToResponsesStreamTool 
 }
 
 func (s *ChatToResponsesStreamState) outputStatus() string {
-	if s.status == "incomplete" {
+	if s.status == "incomplete" || s.status == "failed" {
 		return "incomplete"
 	}
 	return "completed"
 }
 
 func (s *ChatToResponsesStreamState) messageID() string {
-	return fmt.Sprintf("%s_msg_0", s.ID)
+	return fmt.Sprintf("%s_msg_%d", s.ID, s.textID)
 }
 
 func (s *ChatToResponsesStreamState) reasoningID() string {
-	return fmt.Sprintf("%s_reasoning_0", s.ID)
+	return fmt.Sprintf("%s_reasoning_%d", s.ID, s.chatToResponsesStreamChoice.reasoningID)
 }
 
 func (s *ChatToResponsesStreamState) messageOutput(status string) *dto.ResponsesOutput {
@@ -448,13 +592,9 @@ func (s *ChatToResponsesStreamState) AddWebSearch(queries []string) []ChatToResp
 	if s == nil || s.finalized || len(queries) == 0 {
 		return nil
 	}
-	events := make([]ChatToResponsesStreamEvent, 0, 5)
-	if !s.sentCreated {
-		s.sentCreated = true
-		events = append(events, responsesStreamEvent(responsesEventCreated, dto.ResponsesStreamResponse{Response: s.createdResponse()}))
-	}
+	events := s.ensureCreated()
 	item := WebSearchOutput(queries, fmt.Sprintf("ws_%s_%d", s.ID, len(s.hosted)))
-	index := s.nextIndex("hosted", len(s.hosted))
+	index := s.nextIndex(chatToResponsesOutputRef{Kind: "hosted", ToolIndex: len(s.hosted)})
 	s.hosted = append(s.hosted, item)
 	pending := item
 	pending.Status = "in_progress"
