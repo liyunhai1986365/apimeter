@@ -362,13 +362,12 @@ func responsesToolOutputToGemini(c context.Context, value any, mediaInParts bool
 			labels = append(labels, label)
 		}
 		source := ContentPartToFileSource(part)
-		if source == nil {
-			continue
-		}
 		// The documented MIME list for multimodal function responses has no
 		// audio or video, and Gemini 3 ignores audio sent there.
 		reason := fmt.Sprintf("Gemini function responses cannot carry %s content", kind)
-		if !mediaInParts || kind == "image" || kind == "file" {
+		if source == nil {
+			reason = fmt.Sprintf("the %s has no loadable media source", kind)
+		} else if !mediaInParts || kind == "image" || kind == "file" {
 			base64Data, mimeType, err := relaymedia.ResolveBase64Data(c, source, "formatting Responses tool output for Gemini")
 			topLevelType, _, _ := strings.Cut(strings.ToLower(mimeType), "/")
 			switch {

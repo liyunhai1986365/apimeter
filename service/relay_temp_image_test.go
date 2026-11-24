@@ -16,6 +16,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+type storageTestTransport func(*http.Request) (*http.Response, error)
+
+func (f storageTestTransport) RoundTrip(r *http.Request) (*http.Response, error) { return f(r) }
+
+func mockUserStorage(t *testing.T, handler http.Handler) string {
+	t.Helper()
+	old := userEgressClient
+	userEgressClient = &http.Client{Transport: storageTestTransport(func(req *http.Request) (*http.Response, error) {
+		require.Contains(t, req.URL.Host, "storage.example.invalid")
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, req)
+		return w.Result(), nil
+	})}
+	t.Cleanup(func() { userEgressClient = old })
+	return "https://storage.example.invalid"
+}
+
 func TestSaveTemporaryImageUploadsToOSSAndReturnsSignedURL(t *testing.T) {
 	var uploadedPath string
 	var uploadedBody string
@@ -180,7 +197,7 @@ func TestSaveTemporaryImageBase64UsesUserOSSWhenConfigured(t *testing.T) {
 	var uploadedPath string
 	var uploadedBody string
 	var uploadedAuthorization string
-	userOSSServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	endpoint := mockUserStorage(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPut, r.Method)
 		uploadedPath = r.URL.Path
 		uploadedAuthorization = r.Header.Get("Authorization")
@@ -189,7 +206,6 @@ func TestSaveTemporaryImageBase64UsesUserOSSWhenConfigured(t *testing.T) {
 		uploadedBody = string(body)
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer userOSSServer.Close()
 
 	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
 	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
@@ -200,7 +216,7 @@ func TestSaveTemporaryImageBase64UsesUserOSSWhenConfigured(t *testing.T) {
 		ImageStorage: dto.UserImageStorageSetting{
 			Enabled:         true,
 			Type:            dto.UserImageStorageTypeAliyunOSS,
-			Endpoint:        userOSSServer.URL,
+			Endpoint:        endpoint,
 			Bucket:          "user-bucket",
 			AccessKeyID:     "user-access-key",
 			AccessKeySecret: "user-access-secret",
@@ -213,7 +229,7 @@ func TestSaveTemporaryImageBase64UsesUserOSSWhenConfigured(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "fake-png", uploadedBody)
-	require.True(t, strings.HasPrefix(uploadedPath, "/user-bucket/user-prefix/"), uploadedPath)
+	require.True(t, strings.HasPrefix(uploadedPath, "/user-prefix/"), uploadedPath)
 	require.True(t, strings.HasPrefix(uploadedAuthorization, "OSS user-access-key:"), uploadedAuthorization)
 	require.True(t, strings.HasPrefix(imageURL, "https://user-cdn.example.com/user-prefix/"), imageURL)
 	require.NotContains(t, imageURL, "site.example.com")
@@ -222,14 +238,9 @@ func TestSaveTemporaryImageBase64UsesUserOSSWhenConfigured(t *testing.T) {
 func TestSaveTemporaryImageBase64UsesUserOSSAccelerateEndpoint(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	normalOSSServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Fatal("normal OSS endpoint should not receive upload when accelerate endpoint is configured")
-	}))
-	defer normalOSSServer.Close()
-
 	var uploadedPath string
 	var uploadedBody string
-	accelerateOSSServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	endpoint := mockUserStorage(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPut, r.Method)
 		uploadedPath = r.URL.Path
 		body, err := io.ReadAll(r.Body)
@@ -237,15 +248,14 @@ func TestSaveTemporaryImageBase64UsesUserOSSAccelerateEndpoint(t *testing.T) {
 		uploadedBody = string(body)
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer accelerateOSSServer.Close()
 
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	common.SetContextKey(c, constant.ContextKeyUserSetting, dto.UserSetting{
 		ImageStorage: dto.UserImageStorageSetting{
 			Enabled:            true,
 			Type:               dto.UserImageStorageTypeAliyunOSS,
-			Endpoint:           normalOSSServer.URL,
-			AccelerateEndpoint: accelerateOSSServer.URL,
+			Endpoint:           "https://ordinary.example.invalid",
+			AccelerateEndpoint: endpoint,
 			Bucket:             "user-bucket",
 			AccessKeyID:        "user-access-key",
 			AccessKeySecret:    "user-access-secret",
@@ -258,7 +268,7 @@ func TestSaveTemporaryImageBase64UsesUserOSSAccelerateEndpoint(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, "fake-png", uploadedBody)
-	require.True(t, strings.HasPrefix(uploadedPath, "/user-bucket/user-prefix/"), uploadedPath)
+	require.True(t, strings.HasPrefix(uploadedPath, "/user-prefix/"), uploadedPath)
 	require.True(t, strings.HasPrefix(imageURL, "https://user-cdn.example.com/user-prefix/"), imageURL)
 }
 
@@ -282,7 +292,7 @@ func TestSaveTemporaryImageBase64UsesUserR2WhenConfigured(t *testing.T) {
 	var uploadedPath string
 	var uploadedBody string
 	var uploadedAuthorization string
-	userR2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	endpoint := mockUserStorage(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPut, r.Method)
 		uploadedPath = r.URL.Path
 		uploadedAuthorization = r.Header.Get("Authorization")
@@ -291,7 +301,6 @@ func TestSaveTemporaryImageBase64UsesUserR2WhenConfigured(t *testing.T) {
 		uploadedBody = string(body)
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer userR2Server.Close()
 
 	t.Setenv("API_TEMP_IMAGE_STORAGE", "local")
 	t.Setenv("API_TEMP_IMAGE_DIR", t.TempDir())
@@ -302,7 +311,7 @@ func TestSaveTemporaryImageBase64UsesUserR2WhenConfigured(t *testing.T) {
 		ImageStorage: dto.UserImageStorageSetting{
 			Enabled:         true,
 			Type:            dto.UserImageStorageTypeCloudflareR2,
-			Endpoint:        userR2Server.URL,
+			Endpoint:        endpoint,
 			Bucket:          "user-r2-bucket",
 			AccessKeyID:     "user-r2-access-key",
 			AccessKeySecret: "user-r2-access-secret",
@@ -350,7 +359,7 @@ func TestTestUserImageStorageUploadsTestTextFile(t *testing.T) {
 	var uploadedPath string
 	var uploadedBody string
 	var uploadedContentType string
-	ossServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	endpoint := mockUserStorage(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, http.MethodPut, r.Method)
 		uploadedPath = r.URL.Path
 		uploadedContentType = r.Header.Get("Content-Type")
@@ -359,12 +368,11 @@ func TestTestUserImageStorageUploadsTestTextFile(t *testing.T) {
 		uploadedBody = string(body)
 		w.WriteHeader(http.StatusOK)
 	}))
-	defer ossServer.Close()
 
 	publicURL, err := TestUserImageStorage(dto.UserImageStorageSetting{
 		Enabled:         true,
 		Type:            dto.UserImageStorageTypeAliyunOSS,
-		Endpoint:        ossServer.URL,
+		Endpoint:        endpoint,
 		Bucket:          "test-bucket",
 		AccessKeyID:     "access-key",
 		AccessKeySecret: "access-secret",
@@ -375,7 +383,7 @@ func TestTestUserImageStorageUploadsTestTextFile(t *testing.T) {
 
 	require.Equal(t, "test", uploadedBody)
 	require.Equal(t, "text/plain; charset=utf-8", uploadedContentType)
-	require.True(t, strings.HasPrefix(uploadedPath, "/test-bucket/user-prefix/"), uploadedPath)
+	require.True(t, strings.HasPrefix(uploadedPath, "/user-prefix/"), uploadedPath)
 	require.True(t, strings.HasSuffix(uploadedPath, "/test.txt"), uploadedPath)
 	require.True(t, strings.HasPrefix(publicURL, "https://cdn.example.com/user-prefix/"), publicURL)
 	require.True(t, strings.HasSuffix(publicURL, "/test.txt"), publicURL)

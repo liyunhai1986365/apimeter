@@ -483,7 +483,8 @@ function parseExprLiteral(raw: string): string | null {
   if (text === 'true' || text === 'false') return text
   if (NUMERIC_LITERAL_REGEX.test(text)) return text
   try {
-    return JSON.parse(text) as string
+    const value: unknown = JSON.parse(text)
+    return typeof value === 'string' ? value : null
   } catch {
     return null
   }
@@ -610,10 +611,9 @@ function parseSimpleRequestCondition(expr: string): RequestCondition | null {
       source: m[1] as 'param' | 'header',
       path: JSON.parse(m[2]) as string,
       mode: MATCH_EQ,
-      value: String(parsedValue),
+      value: parsedValue,
       ...(m[3].trim().startsWith('"') &&
-      (NUMERIC_LITERAL_REGEX.test(String(parsedValue)) ||
-        ['true', 'false'].includes(String(parsedValue)))
+      buildExprLiteral(MATCH_EQ, parsedValue) !== JSON.stringify(parsedValue)
         ? { valueType: 'string' as const }
         : {}),
     }
@@ -627,8 +627,14 @@ export function tryParseRequestCondition(
   value: string
 ): RequestCondition | null {
   const expr = unwrapOuterParens(value)
-  const simple = parseSimpleRequestCondition(expr)
-  if (simple) return simple
+  try {
+    const simple = parseSimpleRequestCondition(expr)
+    if (simple) return simple
+  } catch (error) {
+    // Expr permits escapes such as \x2d that JSON cannot decode losslessly.
+    if (error instanceof SyntaxError) return null
+    throw error
+  }
   for (const operator of ['||', '&&']) {
     const parts = splitTopLevel(expr, operator)
     if (
@@ -840,8 +846,8 @@ export function normalizeCondition(
 // ---------------------------------------------------------------------------
 
 function buildExprLiteral(mode: string, value: string): string {
+  if (mode === MATCH_CONTAINS) return JSON.stringify(value)
   const text = String(value || '').trim()
-  if (mode === MATCH_CONTAINS) return JSON.stringify(text)
   if (text === 'true' || text === 'false') return text
   if (NUMERIC_LITERAL_REGEX.test(text)) return text
   return JSON.stringify(text)

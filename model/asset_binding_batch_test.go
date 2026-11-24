@@ -13,6 +13,17 @@ import (
 	"gorm.io/gorm"
 )
 
+// These tests exercise revocation of an existing library. Populate it in small
+// transactions so race instrumentation does not exhaust the production deadline
+// before the operation under test. Keep the full dataset and revocation batches.
+func seedAssetRevocationBindings(t *testing.T, bindings []AssetBinding) {
+	t.Helper()
+	const seedBatchSize = 100
+	for start := 0; start < len(bindings); start += seedBatchSize {
+		require.NoError(t, SaveAssetBindings(bindings[start:min(start+seedBatchSize, len(bindings))]))
+	}
+}
+
 func TestAssetBindingLargeGroupRevocationBatches(t *testing.T) {
 	observer := setupAssetBindingConcurrencyTest(t)
 	group := AssetBinding{ChannelID: 91, UserID: 44, Scope: "account", Kind: "group", ID: "group", CanonicalID: "group"}
@@ -25,7 +36,7 @@ func TestAssetBindingLargeGroupRevocationBatches(t *testing.T) {
 	}
 	unrelated := group
 	unrelated.Kind, unrelated.ID, unrelated.CanonicalID = "asset", "unrelated", "unrelated"
-	require.NoError(t, SaveAssetBindings(append(bindings, unrelated)))
+	seedAssetRevocationBindings(t, append(bindings, unrelated))
 	observer.selects.Store(0)
 	observer.updates.Store(0)
 	observer.inserts.Store(0)
@@ -70,7 +81,7 @@ func TestAssetBindingConcurrentBulkRevocationAndPolling(t *testing.T) {
 		}
 		polls = append(polls, poll)
 	}
-	require.NoError(t, SaveAssetBindings(bindings))
+	seedAssetRevocationBindings(t, bindings)
 	observer.deadlocks.Store(0)
 	runConcurrentAssetWrites(t, 8, 12, func(worker, round int) error {
 		if worker < 2 && round == 3 {
@@ -202,7 +213,7 @@ func TestAssetBindingBulkRevocationDoesNotLockUnrelatedRowsMySQL(t *testing.T) {
 			bindings = append(bindings, asset) // Interleave target and unrelated PKs.
 		}
 	}
-	require.NoError(t, SaveAssetBindings(bindings))
+	seedAssetRevocationBindings(t, bindings)
 	var mutexRows []ConfigurableResourceState
 	require.NoError(t, DB.Where("profile_id = ?", assetBindingLockProfile).Order("id").Limit(assetBindingBatchSize).Find(&mutexRows).Error)
 	ids := make([]int, len(mutexRows))

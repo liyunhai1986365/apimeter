@@ -150,6 +150,10 @@ export function splitTopLevelTernary(
     if (char === ')' || char === ']' || char === '}') depth -= 1
     if (depth !== 0) continue
     if (char === '?') {
+      if (text[index + 1] === '.' || text[index + 1] === '?') {
+        index += 1
+        continue
+      }
       if (questionIndex === -1) questionIndex = index
       else nestedQuestions += 1
       continue

@@ -180,6 +180,9 @@ func CacheGetRandomSatisfiedChannel(param *RetryParam) (*model.Channel, string, 
 
 	policyGroups := ResolveTokenGroupChain(param.Ctx, param.TokenGroup)
 	hasRoutingStrategyPolicy := IsRoutingStrategyTokenPolicy(param.Ctx)
+	if len(policyGroups) == 0 && !hasRoutingStrategyPolicy && model.IsUserOwnedProviderGroup(channelGroup) {
+		policyGroups = []string{channelGroup}
+	}
 	if len(policyGroups) > 0 || hasRoutingStrategyPolicy {
 		startGroupIndex := 0
 		agentPolicyGroupNames := map[string]string{}

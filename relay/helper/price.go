@@ -2,6 +2,7 @@ package helper
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
@@ -17,6 +18,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 
 	"github.com/gin-gonic/gin"
+	"github.com/shopspring/decimal"
 )
 
 func modelPriceNotConfiguredError(modelName string, userId int) error {
@@ -89,6 +91,7 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	}
 
 	var preConsumedQuota int
+	var fixedQuotaPerUnit float64
 	var modelRatio float64
 	var completionRatio float64
 	var cacheRatio float64
@@ -136,7 +139,8 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 			modelPrice = modelPrice * meta.ImagePriceRatio
 		}
 		var clamp *common.QuotaClamp
-		preConsumedQuota, clamp = common.QuotaFromFloatChecked(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		fixedQuotaPerUnit = common.QuotaPerUnit
+		preConsumedQuota, clamp = common.QuotaFromFloatChecked(modelPrice * fixedQuotaPerUnit * groupRatioInfo.GroupRatio)
 		if clamp != nil {
 			return types.PriceData{}, preConsumeQuotaRangeError(info.OriginModelName, clamp)
 		}
@@ -178,10 +182,11 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 		QuotaToPreConsume:    preConsumedQuota,
 	}
 	if usePrice {
+		priceData.FixedQuotaPerUnit = &fixedQuotaPerUnit
 		for name, ratio := range meta.BillingRatios {
 			priceData.AddOtherRatio(name, ratio)
 		}
-		quotaToPreConsume := priceData.ApplyOtherRatiosToFloat(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		quotaToPreConsume := priceData.ApplyOtherRatiosToFloat(modelPrice * fixedQuotaPerUnit * groupRatioInfo.GroupRatio)
 		quota, err := common.QuotaFromFloatStrict(quotaToPreConsume)
 		if err != nil {
 			return types.PriceData{}, err
@@ -195,6 +200,21 @@ func ModelPriceHelper(c *gin.Context, info *relaycommon.RelayInfo, promptTokens 
 	info.PriceData = priceData
 	captureAgentQuotaSnapshot(info.AgentBillingSnapshot, preConsumedQuota)
 	return priceData, nil
+}
+
+// Fixed-price tasks truncate the final charge. Multiply the configured decimals
+// first so an exact integer cannot land just below the truncation boundary.
+func fixedTaskQuota(modelPrice, groupRatio float64) (int, *common.QuotaClamp) {
+	unit := common.QuotaPerUnit
+	for _, factor := range [...]float64{modelPrice, unit, groupRatio} {
+		if math.IsNaN(factor) || math.IsInf(factor, 0) {
+			return common.QuotaFromFloatChecked(modelPrice * unit * groupRatio)
+		}
+	}
+	quota := decimal.NewFromFloat(modelPrice).
+		Mul(decimal.NewFromFloat(unit)).
+		Mul(decimal.NewFromFloat(groupRatio))
+	return common.QuotaFromFloatChecked(quota.Truncate(0).InexactFloat64())
 }
 
 // ModelPriceHelperPerCall 按次/按量计费的 PriceHelper (MJ、Task)
@@ -229,7 +249,7 @@ func ModelPriceHelperPerCall(c *gin.Context, info *relaycommon.RelayInfo) (types
 
 	if usePrice {
 		var clamp *common.QuotaClamp
-		quota, clamp = common.QuotaFromFloatChecked(modelPrice * common.QuotaPerUnit * groupRatioInfo.GroupRatio)
+		quota, clamp = fixedTaskQuota(modelPrice, groupRatioInfo.GroupRatio)
 		if clamp != nil {
 			return types.PriceData{}, preConsumeQuotaRangeError(info.OriginModelName, clamp)
 		}

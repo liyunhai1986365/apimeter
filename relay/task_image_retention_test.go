@@ -15,8 +15,9 @@ func TestExpiredImageTaskFetchSkipsUpstreamAndKeepsUsage(t *testing.T) {
 	setupImageTaskTestDB(t)
 	// An invalid channel proves this path never looks up an upstream or R2.
 	task := model.Task{TaskID: "expired-image-api", UserId: 77, ChannelId: 987654, Status: model.TaskStatusSuccess,
-		FinishTime: common.GetTimestamp() - 90000,
-		Data:       []byte(`{"id":"upstream-id","state":"succeeded","progress":100,"usage":{"tokens":9007199254740993},"data":{"images":[{"b64_json":"PRIVATE_IMAGE"}]}}`)}
+		PrivateData: model.TaskPrivateData{AsyncImage: true},
+		FinishTime:  common.GetTimestamp() - 90000,
+		Data:        []byte(`{"id":"upstream-id","state":"succeeded","progress":100,"usage":{"tokens":9007199254740993},"data":{"images":[{"b64_json":"PRIVATE_IMAGE"}]}}`)}
 	require.NoError(t, model.DB.Create(&task).Error)
 	r := gin.New()
 	r.GET("/v1/tasks/:id", func(c *gin.Context) {

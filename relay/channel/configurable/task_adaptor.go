@@ -670,7 +670,7 @@ func profileForTask(task *model.Task) *Profile {
 	if task == nil || task.ChannelId <= 0 {
 		return nil
 	}
-	channelModel, err := model.CacheGetChannel(task.ChannelId)
+	channelModel, err := model.RequirePlatformChannel(model.CacheGetChannel(task.ChannelId))
 	if err != nil || channelModel == nil || channelModel.Type != constant.ChannelTypeConfigurable {
 		return nil
 	}

@@ -348,6 +348,30 @@ describe('parseTiersFromExpr', () => {
     )
   })
 
+  test('preserves tiers and conditions with null coalescing and optional chaining', () => {
+    const fast = 'param("fast") ?? false'
+    const priority = 'param("meta")?.priority == "high"'
+    const tiers = parseTiersFromExpr(
+      `${fast} ? ${priority} ? tier("priority", p * 3) : tier("fast", p * 2) : tier("normal", p * 1)`
+    )
+    const condition = (expression: string) => ({
+      source: 'expression',
+      expression,
+    })
+    assert.deepEqual(
+      tiers.map(({ label, inputPrice, conditions }) => [
+        label,
+        inputPrice,
+        conditions,
+      ]),
+      [
+        ['priority', 3, [condition(fast), condition(priority)]],
+        ['fast', 2, [condition(fast), condition(`!(${priority})`)]],
+        ['normal', 1, [condition(`!(${fast})`)]],
+      ]
+    )
+  })
+
   test('keeps conditional add-ons in the raw expression instead of showing only the base price', () => {
     const tiers = parseTiersFromExpr(`param("resolution") == "0.5k"
       ? tier("0.5k", 45000 + (param("enable_web_search") == true ? 14000 : 0) + (param("enable_image_search") == true ? 14000 : 0))
@@ -677,6 +701,7 @@ describe('saved expression compatibility and preservation', () => {
       'param("tags") != nil && has(param("tags"), "vip")',
       'param("code") == "123"',
       'header("Flag") == "true"',
+      'param("code") == " vip "',
       'param("a( && ) * b") != nil',
     ]) {
       const rule = `(${condition} ? 0.5 : 1)`
@@ -691,6 +716,22 @@ describe('saved expression compatibility and preservation', () => {
       generateExprFromVisualConfig(tryParseVisualConfig(expr)),
       /== "123"/
     )
+  })
+
+  test('keeps array and object comparisons in the raw billing expression', () => {
+    for (const literal of ['["express"]', '{"speed":"express"}']) {
+      const condition = `param("options") == ${literal}`
+      const tiered = `${condition} ? tier("express", p * 2) : tier("normal", p * 1)`
+      const rule = `(${condition} ? 2 : 1)`
+      const multiplied = combineBillingExpr('tier("base", p * 1)', rule)
+      for (const expr of [tiered, multiplied]) {
+        const state = createPricingEditorState('model', expr, '')
+        assert.equal(state.mode, 'raw')
+        assert.equal(switchPricingEditorMode(state, 'visual').rawExpr, expr)
+        assert.equal(switchPricingEditorMode(state, 'visual').mode, 'raw')
+      }
+      assert.equal(tryParseRequestRuleExpr(rule), null)
+    }
   })
 
   test('shows image and nested request conditions in the pricing breakdown', () => {
@@ -731,6 +772,39 @@ test('does not promote a multiplier from one ternary branch to the whole price',
 })
 
 describe('billing formula preservation regressions', () => {
+  test('retains exact substring boundaries when rebuilding request rules', () => {
+    for (const condition of [
+      'has(header("X-Tags"), " pro ")',
+      'param("tags") != nil && has(param("tags"), " pro ")',
+    ]) {
+      const rule = `(${condition} ? 2 : 1)`
+      const groups = tryParseRequestRuleExpr(rule)
+      assert.ok(groups)
+      assert.equal(buildRequestRuleExpr(groups), rule)
+    }
+  })
+
+  test('preserves valid Expr-only string escapes in raw mode', () => {
+    for (const condition of [
+      String.raw`header("X\x2dTags") == "pro"`,
+      String.raw`has(header("X-Tags"), "\x20pro\x20")`,
+    ]) {
+      const rule = `(${condition} ? 2 : 1)`
+      const expr = `(tier("base", p * 1)) * ${rule}`
+      assert.equal(tryParseRequestRuleExpr(rule), null)
+      const { billingExpr, requestRuleExpr } =
+        splitBillingExprAndRequestRules(expr)
+      const state = createPricingEditorState(
+        'test',
+        billingExpr,
+        requestRuleExpr
+      )
+      assert.equal(state.mode, 'raw')
+      assert.deepEqual(switchPricingEditorMode(state, 'visual'), state)
+      assert.equal(state.rawExpr, expr)
+    }
+  })
+
   const discount = '(hour("UTC") >= 0 ? 0.5 : 1)'
 
   test('keeps multipliers on their original summand, with or without whitespace', () => {

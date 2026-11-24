@@ -275,6 +275,18 @@ func UsedVars(exprStr string) map[string]bool {
 	return nil
 }
 
+// UsesTokenVariables reports whether evaluation needs any upstream token count.
+// The numeric inputs in the v1 compile environment are exactly the token dimensions;
+// request probes and other functions must not require a usage report.
+func UsesTokenVariables(used map[string]bool) bool {
+	for name := range used {
+		if _, ok := compileEnvPrototypeV1[name].(float64); ok {
+			return true
+		}
+	}
+	return false
+}
+
 // InvalidateCache clears the compiled-expression cache.
 // Called when billing rules are updated.
 func InvalidateCache() {

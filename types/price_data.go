@@ -31,6 +31,7 @@ const (
 type PriceData struct {
 	FreeModel            bool
 	ModelPrice           float64
+	FixedQuotaPerUnit    *float64
 	ModelRatio           float64
 	CompletionRatio      float64
 	CacheRatio           float64

@@ -26,6 +26,7 @@ const (
 type TokenImageSettings = dto.TokenImageSettings
 
 type Token struct {
+	ImageQuotaPending  int                `json:"-" gorm:"-"`
 	Id                 int                `json:"id"`
 	UserId             int                `json:"user_id" gorm:"index"`
 	WorkspaceId        int                `json:"workspace_id" gorm:"index;default:0"`
@@ -397,7 +398,17 @@ func GetTokenByKey(key string, fromDB bool) (token *Token, err error) {
 	var epoch string
 	var epochErr error
 	if common.RedisEnabled {
-		epoch, epochErr = quotaCacheHydrationEpoch(getTokenCacheKey(key))
+		cacheKey := getTokenCacheKey(key)
+		epoch, epochErr = quotaCacheEpoch(cacheKey, "")
+		if epochErr == nil && epoch == "" {
+			// Only known tokens need an epoch. Capture it before reading
+			// the balance below so a concurrent debit cannot be overwritten.
+			var id int
+			if err := DB.Model(&Token{}).Select("id").Where(commonKeyCol+" = ?", key).Take(&id).Error; err != nil {
+				return nil, err
+			}
+			epoch, epochErr = quotaCacheHydrationEpoch(cacheKey)
+		}
 	}
 	token = &Token{}
 	if err = DB.Where(commonKeyCol+" = ?", key).First(token).Error; err != nil {

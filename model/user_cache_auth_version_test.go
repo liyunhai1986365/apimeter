@@ -2,6 +2,7 @@ package model
 
 import (
 	"errors"
+	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -30,6 +31,95 @@ func useUserCacheMiniRedis(t *testing.T) *miniredis.Miniredis {
 		common.SyncFrequency = oldSyncFrequency
 	})
 	return server
+}
+
+func TestUserCachePreservesSubaccountMetadata(t *testing.T) {
+	useUserCacheMiniRedis(t)
+	user := &UserBase{Id: 4203, ParentUserId: 42, MustChangePassword: true, AuthVersion: 1, Quota: 100}
+	require.NoError(t, writeUserCache(user, true))
+	cached, err := cacheGetUserBase(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, user.ParentUserId, cached.ParentUserId)
+	assert.True(t, cached.MustChangePassword)
+
+	// A password change refreshes metadata without undoing quota reservations.
+	require.NoError(t, common.RDB.HSet(t.Context(), getUserCacheKey(user.Id), "Quota", 70).Err())
+	user.MustChangePassword = false
+	user.AuthVersion++
+	require.NoError(t, writeUserMetadataCache(user))
+	cached, err = cacheGetUserBase(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, user.ParentUserId, cached.ParentUserId)
+	assert.False(t, cached.MustChangePassword)
+	assert.Equal(t, 70, cached.Quota)
+	assert.Equal(t, user.AuthVersion, cached.AuthVersion)
+}
+
+func TestUserCacheRepairsOldSubaccountSchemaWithoutResettingQuota(t *testing.T) {
+	truncateTables(t)
+	useUserCacheMiniRedis(t)
+	user := User{Username: "old-subaccount-cache", Password: "password", Group: "default",
+		Role: common.RoleCommonUser, Status: common.UserStatusEnabled, AuthVersion: 1,
+		ParentUserId: 42, MustChangePassword: true, Quota: 100}
+	require.NoError(t, DB.Create(&user).Error)
+	require.NoError(t, populateUserCache(user))
+	key := getUserCacheKey(user.Id)
+	require.NoError(t, common.RDB.HDel(t.Context(), key, "ParentUserId", "MustChangePassword", "SubaccountAuthVersion").Err())
+	require.NoError(t, common.RDB.HSet(t.Context(), key, "CacheSchema", 2, "Quota", 70).Err())
+
+	// Profile/group updates must not mark an incomplete hash as current.
+	require.NoError(t, updateUserCacheFieldAtVersion(user.Id, "Group", "default", user.AuthVersion))
+	_, err := cacheGetUserBase(user.Id)
+	require.ErrorContains(t, err, "schema is stale")
+	cached, err := GetUserCache(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, 70, cached.Quota)
+	assert.Equal(t, user.ParentUserId, cached.ParentUserId)
+	assert.True(t, cached.MustChangePassword)
+	cached, err = cacheGetUserBase(user.Id)
+	require.NoError(t, err)
+	assert.Equal(t, user.ParentUserId, cached.ParentUserId)
+	assert.True(t, cached.MustChangePassword)
+	assert.Equal(t, 70, cached.Quota)
+}
+
+func TestCreditBeforeFirstUserCacheUpgrade(t *testing.T) {
+	for _, schema := range []int{2, 3} {
+		t.Run("v"+strconv.Itoa(schema), func(t *testing.T) { testCreditBeforeFirstUserCacheUpgrade(t, schema) })
+	}
+}
+
+func testCreditBeforeFirstUserCacheUpgrade(t *testing.T, schema int) {
+	truncateTables(t)
+	resetBatchUpdateTestState(t)
+	useUserCacheMiniRedis(t)
+	common.BatchUpdateEnabled = true
+	previousUnit := common.QuotaPerUnit
+	common.QuotaPerUnit = 25
+	t.Cleanup(func() { common.QuotaPerUnit = previousUnit })
+	user := createReserveTestUser(t, 100)
+	require.NoError(t, populateUserCache(user))
+	key := getUserCacheKey(user.Id)
+	require.NoError(t, common.RDB.HSet(t.Context(), key, "CacheSchema", schema).Err())
+	require.NoError(t, common.RDB.HDel(t.Context(), key, "ParentUserId", "MustChangePassword", "SubaccountAuthVersion").Err())
+
+	ok, err := TryReserveUserQuota(user.Id, 30)
+	require.NoError(t, err)
+	require.True(t, ok)
+	require.Equal(t, strconv.Itoa(schema), common.RDB.HGet(t.Context(), key, "CacheSchema").Val())
+	order := createEpayTestOrder(t, user.Id, "EPAYV2CREDIT", PaymentProviderEpay, common.TopUpStatusPending)
+	done, err := RechargeEpay(order.TradeNo, "alipay", "127.0.0.1")
+	require.NoError(t, err)
+	require.False(t, done)
+	require.Equal(t, 150, getUserQuotaFromDB(t, user.Id), "the 30 debit is still queued")
+
+	cached, err := GetUserCache(user.Id)
+	require.NoError(t, err)
+	require.Equal(t, userCacheSchemaVersion, cached.CacheSchema)
+	require.Equal(t, cached.AuthVersion, cached.SubaccountAuthVersion)
+	require.Equal(t, 120, cached.Quota, "first upgraded read includes both the credit and the queued debit")
+	batchUpdate()
+	require.Equal(t, cached.Quota, getUserQuotaFromDB(t, user.Id))
 }
 
 func TestUserAuthFenceRollbackExpiresAndRecovers(t *testing.T) {

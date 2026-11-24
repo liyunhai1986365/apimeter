@@ -612,18 +612,19 @@ export function useChannelsColumns(): ColumnDef<Channel>[] {
       minSize: 200,
     },
 
-    // Ownership scope column (hidden by default, used by toolbar filters)
+    // Ownership scope column, also used by toolbar filters.
     {
       accessorKey: 'scope',
       meta: { label: t('Ownership'), mobileHidden: true },
       header: t('Ownership'),
       cell: ({ row }) => {
+        if (isTagAggregateRow(row.original)) return null
         const scope = row.getValue('scope') as string
         return (
           <StatusBadge
             label={
               scope === 'user_owned'
-                ? t('User-owned channels')
+                ? `${t('User-owned channels')}${row.original.owner_user_id ? ` #${row.original.owner_user_id}` : ''}`
                 : t('Platform channels')
             }
             variant={scope === 'user_owned' ? 'warning' : 'neutral'}

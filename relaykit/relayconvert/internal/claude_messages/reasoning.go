@@ -3,14 +3,11 @@ package claudemessages
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
-	"github.com/QuantumNous/new-api/relaykit/relayconvert/internal/convdiag"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
-	"github.com/QuantumNous/new-api/relaykit/types"
 )
 
 type openRouterRequestReasoning struct {
@@ -57,7 +54,7 @@ func applyClaudeChatReasoning(ctx context.Context, request dto.ClaudeRequest, in
 	} else {
 		explicit := request.Thinking != nil || request.GetEfforts() != ""
 		var err error
-		effort, err = claudeEffortForOpenAI(ctx, out.Model, effort, explicit)
+		effort, err = reasoning.EffortForOpenAITarget(ctx, out.Model, effort, "thinking", explicit)
 		if err != nil {
 			return err
 		}
@@ -67,84 +64,4 @@ func applyClaudeChatReasoning(ctx context.Context, request dto.ClaudeRequest, in
 		info.SetReasoningEffort(effort)
 	}
 	return nil
-}
-
-// Keep the capability check bounded to established model IDs and their dated
-// snapshots. Private deployments and later model families retain their effort.
-func openAIEffortRange(model string) (lowest, highest string) {
-	model = strings.TrimPrefix(strings.ToLower(strings.TrimSpace(model)), "openai/")
-	matches := func(family string) bool {
-		if model == family {
-			return true
-		}
-		suffix := strings.TrimPrefix(model, family+"-")
-		if suffix == model || len(suffix) != 10 || suffix[4] != '-' || suffix[7] != '-' {
-			return false
-		}
-		for index, digit := range suffix {
-			if index != 4 && index != 7 && (digit < '0' || digit > '9') {
-				return false
-			}
-		}
-		return true
-	}
-	switch {
-	case matches("o1"), matches("o3"), matches("o3-mini"), matches("o4-mini"):
-		return "low", "high"
-	case matches("gpt-5"), matches("gpt-5-mini"), matches("gpt-5-nano"):
-		return "minimal", "high"
-	case matches("gpt-5.1"):
-		return "none", "high"
-	case matches("gpt-5.2"):
-		return "none", "xhigh"
-	}
-	return "", ""
-}
-
-func knownOpenAIReasoningTarget(model string) bool {
-	lowest, _ := openAIEffortRange(model)
-	return lowest != "" || reasoning.IsKnownNonReasoningOpenAIModel(model)
-}
-
-func claudeEffortForOpenAI(ctx context.Context, model, effort string, explicit bool) (string, error) {
-	if effort == "" {
-		return "", nil
-	}
-	if reasoning.IsKnownNonReasoningOpenAIModel(model) {
-		if explicit && effort != "none" {
-			convdiag.Add(ctx, types.ConversionDiagnostic{
-				Code: "openai_reasoning_unsupported", Path: "thinking",
-				Message:  fmt.Sprintf("target model %q does not support reasoning_effort; the requested thinking strength was omitted", model),
-				Severity: types.ConversionDiagnosticWarning,
-			})
-		}
-		return "", nil
-	}
-	lowest, highest := openAIEffortRange(model)
-	if lowest == "" {
-		return effort, nil
-	}
-	parsed, err := reasoning.ParseEffort(effort)
-	if err != nil {
-		return "", reasoning.AsClientError(err)
-	}
-	adjusted := string(parsed)
-	switch parsed {
-	case reasoning.EffortNone:
-		adjusted = lowest
-	case reasoning.EffortMinimal:
-		if lowest != "minimal" {
-			adjusted = "low"
-		}
-	case reasoning.EffortXHigh, reasoning.EffortMax:
-		adjusted = highest
-	}
-	if adjusted != string(parsed) {
-		convdiag.Add(ctx, types.ConversionDiagnostic{
-			Code: "openai_reasoning_effort_adjusted", Path: "thinking",
-			Message:  fmt.Sprintf("target model %q does not support reasoning effort %q; using %q", model, parsed, adjusted),
-			Severity: types.ConversionDiagnosticWarning,
-		})
-	}
-	return adjusted, nil
 }

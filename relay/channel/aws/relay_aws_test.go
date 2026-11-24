@@ -98,7 +98,6 @@ func TestConvertAwsBedrockRequestBody_MergesExistingSystemPrompt(t *testing.T) {
 func TestConvertAwsBedrockRequestBody_ConvertsOnlyURLMediaSources(t *testing.T) {
 	t.Parallel()
 
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
@@ -128,7 +127,6 @@ func TestConvertAwsBedrockRequestBody_ConvertsOnlyURLMediaSources(t *testing.T) 
 func TestDoAwsClientRequest_AppliesRuntimeHeaderOverrideToAnthropicBeta(t *testing.T) {
 	t.Parallel()
 
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
@@ -169,7 +167,6 @@ func TestDoAwsClientRequest_AppliesRuntimeHeaderOverrideToAnthropicBeta(t *testi
 func TestDoAwsClientRequest_UsesConditionalBedrockConversionWhenEnabled(t *testing.T) {
 	t.Parallel()
 
-	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()
 	ctx, _ := gin.CreateTestContext(recorder)
 	ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)

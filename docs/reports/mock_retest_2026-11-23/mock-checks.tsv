@@ -1,0 +1,1357 @@
+round	check	passed	details
+retest_round_1	runtime:redis_empty_isolation	True	"{""db"": 14}"
+retest_round_1	runtime:mysql_isolated_schema	True	"{""schema"": ""apimeter_acceptance_20261123_retest_round_1""}"
+retest_round_1	runtime:readiness:1	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+retest_round_1	setup:status	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:fresh_setup	True	"{""status"": 200, ""message"": null}"
+retest_round_1	setup:bootstrap_admin	True	"{""status"": 200, ""message"": ""系统初始化成功""}"
+retest_round_1	setup:admin_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:create_mockuser	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:create_mockother	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:user_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:other_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:user_profile	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:other_profile	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:quota_2	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:quota_3	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:relay_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:other_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:option:RetryTimes	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:option:LogConsumeEnabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:mock-openai	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:mock-additional-relay	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:mock-openrouter	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:mock-claude	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:mock-gemini	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:mock-assets	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-success	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-failed	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-expired	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-create429	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-query429	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-query500	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	routing:new_channel_eventual_visibility	True	"{""seconds"": 59.17, ""statuses"": {""503"": 59, ""200"": 1}}"
+retest_round_1	runtime:mysql57	True	"{""metadata"": [{""version"": ""5.7.44""}]}"
+retest_round_1	routing:models	True	"{""status"": 200}"
+retest_round_1	embedding:/v1/embeddings	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	embedding:values:/v1/embeddings	True	{}
+retest_round_1	embedding:billing:/v1/embeddings	True	"{""expected"": 49999780, ""actual"": 49999780}"
+retest_round_1	embedding:/v1/engines/mock-embedding/embeddings	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	embedding:values:/v1/engines/mock-embedding/embeddings	True	{}
+retest_round_1	embedding:billing:/v1/engines/mock-embedding/embeddings	True	"{""expected"": 49999680, ""actual"": 49999680}"
+retest_round_1	embedding:legacy_path_model	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	embedding:path_model_forwarded	True	{}
+retest_round_1	embedding:path_model_billing	True	"{""expected"": 49999580, ""actual"": 49999580}"
+retest_round_1	rerank:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	rerank:ranking	True	{}
+retest_round_1	rerank:false_preserved	True	{}
+retest_round_1	completions:status:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	completions:content:False	True	{}
+retest_round_1	completions:billing:False	True	"{""expected"": 49999360, ""actual"": 49999360}"
+retest_round_1	responses:native:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	responses:native_content:False	True	{}
+retest_round_1	responses:native_billing:False	True	"{""expected"": 49999240, ""actual"": 49999240}"
+retest_round_1	completions:status:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	completions:content:True	True	{}
+retest_round_1	completions:billing:True	True	"{""expected"": 49999120, ""actual"": 49999120}"
+retest_round_1	responses:native:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	responses:native_content:True	True	{}
+retest_round_1	responses:native_billing:True	True	"{""expected"": 49999000, ""actual"": 49999000}"
+retest_round_1	responses:compact	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	responses:compact_content	True	{}
+retest_round_1	responses:compact_false	True	{}
+retest_round_1	responses:compact_billing	True	"{""expected"": 49998880, ""actual"": 49998880}"
+retest_round_1	moderations:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	moderations:content	True	{}
+retest_round_1	speech:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	speech:bytes	True	{}
+retest_round_1	audio:contract:/v1/audio/transcriptions	True	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_1	audio:file_preserved:/v1/audio/transcriptions	True	{}
+retest_round_1	audio:contract:/v1/audio/translations	True	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_1	audio:file_preserved:/v1/audio/translations	True	{}
+retest_round_1	image:edits_contract	True	"{""status"": 200, ""body"": ""{\""created\"": 1795402645, \""data\"": [{\""b64_json\"": \""iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\""}], \""usage\"": {\""input_tokens\"": 100, \""output_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_1	image:edits_bytes	True	{}
+retest_round_1	gemini:invalid_budget:1.5	True	"{""status"": 400, ""excerpt"": null}"
+retest_round_1	gemini:invalid_budget_not_forwarded:1.5	True	{}
+retest_round_1	gemini:invalid_budget:2147483648	True	"{""status"": 400, ""excerpt"": null}"
+retest_round_1	gemini:invalid_budget_not_forwarded:2147483648	True	{}
+retest_round_1	not_implemented:/v1/images/variations	True	"{""status"": 501}"
+retest_round_1	not_implemented:/v1/files	True	"{""status"": 501}"
+retest_round_1	not_implemented:/v1/fine-tunes	True	"{""status"": 501}"
+retest_round_1	metadata:/v1/model-metadata	True	"{""status"": 200}"
+retest_round_1	metadata:/v1/models/mock-chat	True	"{""status"": 200}"
+retest_round_1	metadata:/v1beta/models	True	"{""status"": 200}"
+retest_round_1	metadata:/v1beta/openai/models	True	"{""status"": 200}"
+retest_round_1	metadata:/dashboard/billing/subscription	True	"{""status"": 200}"
+retest_round_1	metadata:/dashboard/billing/usage	True	"{""status"": 200}"
+retest_round_1	metadata:/v1/dashboard/billing/subscription	True	"{""status"": 200}"
+retest_round_1	metadata:/v1/dashboard/billing/usage	True	"{""status"": 200}"
+retest_round_1	metadata:/api/usage/token/	True	"{""status"": 200}"
+retest_round_1	read:admin:/api/user/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/user/search?keyword=mock	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/user/2fa/stats	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/user/topup	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/channel/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/channel/search?keyword=mock	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/channel/filter-options	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/channel/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/channel/models	True	"{""status"": 200, ""message"": null}"
+retest_round_1	read:admin:/api/channel/models_enabled	True	"{""status"": 200, ""message"": null}"
+retest_round_1	read:admin:/api/channel/protocol_profiles	True	"{""status"": 200, ""message"": null}"
+retest_round_1	read:admin:/api/channel/ops	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/channel/operation_records	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/option/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/option/channel_affinity_cache	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/option/routing-strategies	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/option/crypto-payment	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/performance/stats	True	"{""status"": 200, ""message"": null}"
+retest_round_1	read:admin:/api/performance/logs	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/group/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/prefill_group/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/models/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/models/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/models/missing	True	"{""status"": 200, ""message"": null}"
+retest_round_1	read:admin:/api/models/monitor	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/vendors/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/vendors/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/custom-oauth-provider/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/redemption/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/redemption/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/agents/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/agents/domains	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/agents/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/affiliate/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/log/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/log/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/log/model_profit_stats	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	contract-disabled:admin:/api/log/search	True	"{""status"": 200, ""message"": ""该接口已废弃""}"
+retest_round_1	read:admin:/api/log/channel_affinity_usage_cache?rule_name=local&key_fp=fixture	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/retry-route/events	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/retry-route/events/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/retry-route/events/stat/rules	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/task/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/mj/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/data/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/data/dimensions	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/data/users	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/subscription/admin/plans	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/system/tasks/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/system/tasks/current?type=log_cleanup	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/system/info/instances	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/authz/catalog	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/newapi_suppliers/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/newapi_suppliers/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/billing/admin/monthly-statements	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:admin:/api/ratio_sync/channels	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/self/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/self/providers	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/models	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/sessions	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/passkey	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/2fa/status	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/aff/invites	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/aff/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/topup/info	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/topup/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/user/oauth/bindings	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	contract-disabled:user:/api/user/checkin	True	"{""status"": 200, ""message"": ""签到功能未启用""}"
+retest_round_1	read:user:/api/token/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/token/search?keyword=local	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/token/auto-groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/token/filter-options	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/workspaces	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/workspaces/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/workspace-subaccounts	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/workspace-subaccounts/	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/log/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/log/self/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	contract-disabled:user:/api/log/self/search	True	"{""status"": 200, ""message"": ""该接口已废弃""}"
+retest_round_1	read:user:/api/task/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/mj/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/data/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/data/self/dimensions	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/data/self/tokens	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/models	True	"{""status"": 200, ""message"": null}"
+retest_round_1	read:user:/api/dashboard/flow	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/subscription/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/billing/breakdowns	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	read:user:/api/billing/monthly-statements	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:workspace_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:workspace_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:workspace_list	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	workspace:updated_value	True	{}
+retest_round_1	workspace:cross_user_denied	True	{}
+retest_round_1	setup:workspace_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:workspace_list_after_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	workspace:deleted	True	{}
+retest_round_1	setup:vendor_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:vendor_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:vendor_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:vendor_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	vendor:updated	True	{}
+retest_round_1	setup:model_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:model_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:model_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:model_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	model:updated	True	{}
+retest_round_1	setup:model_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:vendor_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel:mock-crud-only	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	channel:updated	True	{}
+retest_round_1	setup:channel_disable	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:channel_read_disabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	channel:disabled	True	{}
+retest_round_1	setup:channel_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:token_create_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:token_read_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:token_update_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:token_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	token:updated	True	{}
+retest_round_1	token:other_user_read_denied	True	{}
+retest_round_1	setup:token_delete_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_workspace	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_get	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	subaccount:mysql_metadata	True	"{""row"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}}"
+retest_round_1	subaccount:redis_metadata	True	"{""db"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}, ""cache"": {""Id"": ""4"", ""ParentUserId"": ""2"", ""MustChangePassword"": ""1"", ""CacheSchema"": ""3"", ""AuthVersion"": ""1""}}"
+retest_round_1	subaccount:must_change_password_enforced	True	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+retest_round_1	subaccount:cannot_create_workspace	True	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+retest_round_1	setup:subaccount_change_password	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_login_new_password	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	subaccount:password_change_persisted	True	"{""row"": {""must_change_password"": 0, ""parent_user_id"": 2}, ""cache_flag"": ""0""}"
+retest_round_1	setup:subaccount_workspaces	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	subaccount:assigned_workspace_scope	True	"{""workspaces"": [{""id"": 4, ""user_id"": 2, ""access_users"": [], ""name"": ""subaccount fixture"", ""description"": ""isolated"", ""is_default"": false, ""status"": 1, ""quota_reset_enabled"": false, ""quota_reset_period"": """", ""quota_reset_amount"": 0, ""quota_reset_last_applied_at"": 0, ""quota_reset_next_at"": 0, ""created_time"": 1795402646, ""updated_time"": 1795402646, ""DeletedAt"": null, ""token_count"": 0}]}"
+retest_round_1	subaccount:creation_denied_after_password_change	True	"{""status"": 403, ""body"": {""message"": ""workspace accounts cannot access this feature"", ""success"": false}}"
+retest_round_1	setup:subaccount_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_workspaces_set	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_disable	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	subaccount:disabled_session_denied	True	{}
+retest_round_1	setup:subaccount_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:subaccount_workspace_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	chat:mock-chat	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	chat:content:mock-chat	True	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+retest_round_1	mapping:alias_to_upstream	True	{}
+retest_round_1	parameters:explicit_zero_preserved	True	"{""body"": {""model"": ""gpt-4o"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""stream"": false, ""max_tokens"": 128, ""temperature"": 0, ""top_p"": 0}}"
+retest_round_1	billing:chat_charged:mock-chat	True	{}
+retest_round_1	chat:claude-sonnet-4-5	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	chat:content:claude-sonnet-4-5	True	"{""usage"": {""prompt_tokens"": 115, ""completion_tokens"": 20, ""total_tokens"": 135, ""prompt_tokens_details"": {""cached_tokens"": 5, ""audio_tokens"": 0, ""cache_write_tokens"": 10}}}"
+retest_round_1	billing:chat_charged:claude-sonnet-4-5	True	{}
+retest_round_1	chat:gemini-2.5-flash	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	chat:content:gemini-2.5-flash	True	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+retest_round_1	billing:chat_charged:gemini-2.5-flash	True	{}
+retest_round_1	chat:tools	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	chat:tool_call_preserved	True	{}
+retest_round_1	compat:gpt62	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	compat:gpt62_upstream	True	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""developer"", ""content"": ""rules""}, {""role"": ""user"", ""content"": ""hello""}], ""max_completion_tokens"": 128, ""reasoning_effort"": ""high""}}"
+retest_round_1	compat:openrouter	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	compat:openrouter_nested_reasoning	True	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""usage"": {""include"": true}, ""reasoning"": {""enabled"": false, ""exclude"": false, ""opaque"": {""integer"": 9007199254740993}}}}"
+retest_round_1	stream:chat:mock-chat	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	stream:chat_terminal:mock-chat	True	{}
+retest_round_1	stream:chat:claude-sonnet-4-5	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	stream:chat_terminal:claude-sonnet-4-5	True	{}
+retest_round_1	stream:chat:gemini-2.5-flash	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	stream:chat_terminal:gemini-2.5-flash	True	{}
+retest_round_1	claude:native:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	claude:native_contract:False	True	{}
+retest_round_1	claude:native:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	claude:native_contract:True	True	{}
+retest_round_1	gemini:native	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	gemini:native_content	True	{}
+retest_round_1	gemini:responses:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	gemini:responses_contract:False	True	{}
+retest_round_1	gemini:responses:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	gemini:responses_contract:True	True	{}
+retest_round_1	gemini:broken_responses_http	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	gemini:broken_responses_terminal	True	{}
+retest_round_1	gemini:broken_stream_no_retry	True	{}
+retest_round_1	gemini:broken_stream_usage_billed	True	"{""expected"": 49996301, ""actual"": 49996301}"
+retest_round_1	gemini:broken_stream_single_log	True	"{""logs"": [{""completion_tokens"": 20, ""id"": 77, ""model_name"": ""gemini-2.5-flash"", ""other"": ""{\""admin_info\"":{\""usage_billing_path\"":\""billing-usage-gemini\"",\""use_channel\"":[\""5\""]},\""billing_mode\"":\""ratio\"",\""billing_source\"":\""wallet\"",\""cache_ratio\"":1,\""cache_tokens\"":0,\""channel_ratio\"":1,\""completion_ratio\"":1,\""cost_base_quota\"":120,\""cost_quota\"":120,\""frt\"":6,\""group_ratio\"":1,\""group_ratio_source\"":\""group\"",\""model_price\"":-1,\""model_ratio\"":1,\""pricing_group\"":\""default\"",\""pricing_model\"":\""gemini-2.5-flash\"",\""pricing_user_group\"":\""default\"",\""profit_quota\"":0,\""profit_rate\"":0,\""request_conversion\"":[\""OpenAI Responses\"",\""Google Gemini\""],\""request_path\"":\""/v1/responses\"",\""stream_status\"":{\""end_reason\"":\""eof\"",\""error_count\"":1,\""errors\"":[\""unmarshal: invalid character 'i' looking for beginning of object key string\""],\""status\"":\""error\""},\""user_group_ratio\"":-1}"", ""prompt_tokens"": 100, ""quota"": 120}]}"
+retest_round_1	auth:missing:/v1/models	True	"{""status"": 401}"
+retest_round_1	auth:missing:/v1/chat/completions	True	"{""status"": 401}"
+retest_round_1	auth:invalid_token	True	"{""status"": 401, ""excerpt"": null}"
+retest_round_1	auth:invalid_not_forwarded	True	{}
+retest_round_1	upstream:http429	True	"{""status"": 429, ""excerpt"": null}"
+retest_round_1	billing:http429_refunded	True	"{""expected"": 49996301, ""actual"": 49996301}"
+retest_round_1	upstream:http429_not_retried	True	{}
+retest_round_1	auth:ordinary_user_admin_denied	True	"{""status"": 403}"
+retest_round_1	claude:adaptive	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	claude:adaptive_fields_exact	True	"{""body"": {""model"": ""claude-opus-5-5"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""max_tokens"": 128, ""output_config"": {""effort"": ""medium""}, ""thinking"": {""block_binding"": {""prefix_mismatch_behavior"": ""drop_block""}, ""display"": ""summarized"", ""future_field"": {""id"": 9007199254740993}, ""type"": ""adaptive""}}}"
+retest_round_1	claude:adjacent_tools	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	claude:adjacent_tools_preserved	True	"{""body"": {""model"": ""claude-sonnet-4-5"", ""messages"": [{""role"": ""user"", ""content"": ""look up a and b""}, {""role"": ""assistant"", ""content"": [{""type"": ""text"", ""text"": ""...""}, {""type"": ""tool_use"", ""id"": ""a"", ""name"": ""lookup"", ""input"": {}}, {""type"": ""tool_use"", ""id"": ""b"", ""name"": ""lookup"", ""input"": {}}]}, {""role"": ""user"", ""content"": [{""type"": ""tool_result"", ""content"": ""result a"", ""tool_use_id"": ""a""}, {""type"": ""tool_result"", ""content"": ""result b"", ""tool_use_id"": ""b""}]}], ""max_tokens"": 1024}}"
+retest_round_1	setup:option:general_setting.ping_interval_enabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	setup:option:general_setting.ping_interval_seconds	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	claude:slow_stream	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	claude:keepalive_before_content	True	{}
+retest_round_1	setup:option:general_setting.ping_interval_enabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	image26:request:gif	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	image26:outbound:gif	True	"{""body"": {""complexity"": ""low"", ""frame_count"": 16, ""frame_duration_ms"": 100, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""gif"", ""prompt"": ""draw"", ""quality"": ""max"", ""size"": ""1536x864""}}"
+retest_round_1	image26:request:svg	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	image26:outbound:svg	True	"{""body"": {""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""svg"", ""prompt"": ""draw"", ""svg"": {""model"": ""author-model"", ""reasoning"": {""effort"": ""high""}, ""extension"": 9007199254740993}}}"
+retest_round_1	image26:request:zero	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	image26:outbound:zero	True	"{""body"": {""complexity"": """", ""frame_count"": 0, ""frame_duration_ms"": 0, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_compression"": 0, ""partial_images"": 0, ""prompt"": ""draw"", ""stream"": false}}"
+retest_round_1	image:sync	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	image:sync_pixels	True	{}
+retest_round_1	image:sync_charged	True	{}
+retest_round_1	image:async_submit:success	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	image:async_id_no_usage:success	True	{}
+retest_round_1	image:reservation_before_completion:success	True	"{""before"": 49995247, ""after_submit"": 49993982}"
+retest_round_1	image:async_terminal:success	True	"{""body"": {""action"": ""generate"", ""create_time"": 1795402650, ""data"": {""images"": [{""url"": ""/api/relay-temp-images/c753b5ec-5ed3-44fd-9574-30577cfbaa3d.png""}]}, ""id"": ""task_DVB8fvzF8CCZ4bXXQq0yi2Yy2bhZykbH"", ""image_expires_at"": 1795489050, ""image_status"": ""available"", ""progress"": 100, ""state"": ""succeeded"", ""update_time"": 1795402650, ""usage"": {""prompt_tokens"": 0, ""completion_tokens"": 0, ""total_tokens"": 120, ""prompt_tokens_details"": {""cached_tokens"": 0, ""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0}, ""completion_tokens_details"": {""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0, ""reasoning_tokens"": 0}, ""input_tokens"": 100, ""output_tokens"": 20, ""input_tokens_details"": null, ""claude_cache_creation_5_m_tokens"": 0, ""claude_cache_creation_1_h_tokens"": 0}}}"
+retest_round_1	image:cross_user_denied:success	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	image:denied_not_forwarded:success	True	{}
+retest_round_1	image:async_download_pixels	True	"{""status"": 200, ""bytes"": 68}"
+retest_round_1	image:async_charged	True	{}
+retest_round_1	load:image-repeat-success	True	"{""metrics"": {""name"": ""image-repeat-success"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 5.54, ""p95_ms"": 11.43, ""p99_ms"": 11.43, ""max_ms"": 11.55}}"
+retest_round_1	image:repeat_no_double_charge:success	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_1	image:task_persisted:success	True	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 120, ""status"": ""SUCCESS""}]}"
+retest_round_1	image:billing_log_count:success	True	"{""count"": 1}"
+retest_round_1	image:async_submit:failure	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	image:async_id_no_usage:failure	True	{}
+retest_round_1	image:reservation_before_completion:failure	True	"{""before"": 49995127, ""after_submit"": 49993862}"
+retest_round_1	image:async_terminal:failure	True	"{""body"": {""action"": ""generate"", ""create_time"": 1795402650, ""data"": {""images"": null}, ""error"": {""code"": ""mock_rate_limit"", ""message"": ""local mock rejected request""}, ""id"": ""task_Zw1Cid4rwkagoRQzsxZU306dGafn5Mk4"", ""progress"": 100, ""state"": ""failed"", ""update_time"": 1795402651}}"
+retest_round_1	image:cross_user_denied:failure	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	image:denied_not_forwarded:failure	True	{}
+retest_round_1	image:async_failure_refund	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_1	load:image-repeat-failure	True	"{""metrics"": {""name"": ""image-repeat-failure"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 8.94, ""p95_ms"": 13.64, ""p99_ms"": 13.64, ""max_ms"": 15.53}}"
+retest_round_1	image:repeat_no_double_charge:failure	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_1	image:task_persisted:failure	True	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 1265, ""status"": ""FAILURE""}]}"
+retest_round_1	image:billing_log_count:failure	True	"{""count"": 0}"
+retest_round_1	video:create:success	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:success	True	{}
+retest_round_1	video:zero_values:success	True	{}
+retest_round_1	video:cross_user:success	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:success	True	{}
+retest_round_1	video:query:success	True	"{""status"": 200, ""body"": {""id"": ""cgt-d1bfe37840614682ab13125cb3f243a5"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795402651, ""updated_at"": 1795402651, ""error"": null, ""seed"": 0, ""output_format"": ""mp4"", ""tools"": [{""type"": ""web_search""}], ""execution_expires_after"": 3600, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36007/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}, ""tool_usage"": {""web_search"": 0}}, ""mock_extension"": {""preserve"": true}}}"
+retest_round_1	video:terminal:success	True	{}
+retest_round_1	video:extended_usage	True	{}
+retest_round_1	video:charged	True	{}
+retest_round_1	load:video-repeat-success	True	"{""metrics"": {""name"": ""video-repeat-success"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 7.27, ""p95_ms"": 10.78, ""p99_ms"": 10.78, ""max_ms"": 12.73}}"
+retest_round_1	video:repeat_no_double_charge:success	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	video:create:failed	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:failed	True	{}
+retest_round_1	video:zero_values:failed	True	{}
+retest_round_1	video:cross_user:failed	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:failed	True	{}
+retest_round_1	video:query:failed	True	"{""status"": 200, ""body"": {""id"": ""cgt-dc8657185ca54265ae3af7fb1a479a3d"", ""model"": ""doubao-seedance-2-5-260628-mock-failed"", ""status"": ""failed"", ""created_at"": 1795402651, ""updated_at"": 1795402651, ""error"": {""code"": ""MockGenerationFailed"", ""message"": ""Mock task failed""}}}"
+retest_round_1	video:terminal:failed	True	{}
+retest_round_1	video:terminal_refund:failed	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	load:video-repeat-failed	True	"{""metrics"": {""name"": ""video-repeat-failed"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 7.68, ""p95_ms"": 10.82, ""p99_ms"": 10.82, ""max_ms"": 11.99}}"
+retest_round_1	video:repeat_no_double_charge:failed	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	video:create:expired	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:expired	True	{}
+retest_round_1	video:zero_values:expired	True	{}
+retest_round_1	video:cross_user:expired	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:expired	True	{}
+retest_round_1	video:query:expired	True	"{""status"": 200, ""body"": {""id"": ""cgt-35fa39ca06ad433794ede43e8d158827"", ""model"": ""doubao-seedance-2-5-260628-mock-expired"", ""status"": ""expired"", ""created_at"": 1795402652, ""updated_at"": 1795402652, ""error"": {""code"": ""TaskExpired"", ""message"": ""Mock task expired""}}}"
+retest_round_1	video:terminal:expired	True	{}
+retest_round_1	video:terminal_refund:expired	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	load:video-repeat-expired	True	"{""metrics"": {""name"": ""video-repeat-expired"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.72, ""p95_ms"": 9.77, ""p99_ms"": 9.77, ""max_ms"": 11.75}}"
+retest_round_1	video:repeat_no_double_charge:expired	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	video:create:cancelled	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:cancelled	True	{}
+retest_round_1	video:zero_values:cancelled	True	{}
+retest_round_1	video:cross_user:cancelled	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:cancelled	True	{}
+retest_round_1	video:query:cancelled	True	"{""status"": 200, ""body"": {""id"": ""cgt-fcb6829ca2954d88b5eead558e652e38"", ""model"": ""doubao-seedance-2-5-260628-mock-cancelled"", ""status"": ""cancelled"", ""created_at"": 1795402652, ""updated_at"": 1795402652, ""error"": {""code"": ""TaskCancelled"", ""message"": ""Mock task cancelled""}}}"
+retest_round_1	video:terminal:cancelled	True	{}
+retest_round_1	video:terminal_refund:cancelled	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	load:video-repeat-cancelled	True	"{""metrics"": {""name"": ""video-repeat-cancelled"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.0, ""p95_ms"": 8.01, ""p99_ms"": 8.01, ""max_ms"": 8.81}}"
+retest_round_1	video:repeat_no_double_charge:cancelled	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	video:create:create429	True	"{""status"": 429, ""excerpt"": null}"
+retest_round_1	video:create429_refund	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_1	video:create:query429	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:query429	True	{}
+retest_round_1	video:zero_values:query429	True	{}
+retest_round_1	video:cross_user:query429	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:query429	True	{}
+retest_round_1	video:query:query429	True	"{""status"": 429, ""body"": {""error"": {""code"": ""TooManyRequests"", ""message"": ""Mock query rate limit""}}}"
+retest_round_1	video:retry_after	True	{}
+retest_round_1	video:invalid_query_not_finalized:query429	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_1	video:create:query500	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:query500	True	{}
+retest_round_1	video:zero_values:query500	True	{}
+retest_round_1	video:cross_user:query500	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:query500	True	{}
+retest_round_1	video:query:query500	True	"{""status"": 500, ""body"": {""error"": {""code"": ""InternalError"", ""message"": ""Mock upstream failure""}}}"
+retest_round_1	video:invalid_query_not_finalized:query500	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_1	video:create:queryinvalid	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:queryinvalid	True	{}
+retest_round_1	video:zero_values:queryinvalid	True	{}
+retest_round_1	video:cross_user:queryinvalid	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:queryinvalid	True	{}
+retest_round_1	video:query:queryinvalid	True	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream response is missing a task ID"", ""data"": null}}"
+retest_round_1	video:invalid_query_not_finalized:queryinvalid	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_1	video:create:querywrongid	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	video:official_id:querywrongid	True	{}
+retest_round_1	video:zero_values:querywrongid	True	{}
+retest_round_1	video:cross_user:querywrongid	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_1	video:denied_not_forwarded:querywrongid	True	{}
+retest_round_1	video:query:querywrongid	True	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream returned a different task ID"", ""data"": null}}"
+retest_round_1	video:invalid_query_not_finalized:querywrongid	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_1	asset:create	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_1	asset:create_id	True	{}
+retest_round_1	asset:cross_user:/api/assets/asset-033b6565608d403abc3ec58f80d0a4b6	True	"{""status"": 404}"
+retest_round_1	asset:denied_not_forwarded:/api/assets/asset-033b6565608d403abc3ec58f80d0a4b6	True	{}
+retest_round_1	asset:query:/api/assets/asset-033b6565608d403abc3ec58f80d0a4b6	True	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-033b6565608d403abc3ec58f80d0a4b6"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+retest_round_1	asset:cross_user:/v1/assets/asset-033b6565608d403abc3ec58f80d0a4b6	True	"{""status"": 404}"
+retest_round_1	asset:denied_not_forwarded:/v1/assets/asset-033b6565608d403abc3ec58f80d0a4b6	True	{}
+retest_round_1	asset:query:/v1/assets/asset-033b6565608d403abc3ec58f80d0a4b6	True	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-033b6565608d403abc3ec58f80d0a4b6"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+retest_round_1	asset:list	True	"{""status"": 200, ""body"": {""Result"": {""Items"": [{""Id"": ""asset-033b6565608d403abc3ec58f80d0a4b6"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}], ""TotalCount"": 1, ""PageNumber"": 1, ""PageSize"": 20}}}"
+retest_round_1	load:asset-create-100	True	"{""metrics"": {""name"": ""asset-create-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 170.31, ""p95_ms"": 211.55, ""p99_ms"": 233.86, ""max_ms"": 239.72}}"
+retest_round_1	asset:100_unique_ids	True	{}
+retest_round_1	load:asset-poll-500	True	"{""metrics"": {""name"": ""asset-poll-500"", ""requests"": 500, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 500}, ""p50_ms"": 137.54, ""p95_ms"": 152.01, ""p99_ms"": 170.54, ""max_ms"": 197.6}}"
+retest_round_1	asset:poll_identity_and_status	True	{}
+retest_round_1	asset:delete	True	"{""status"": 200}"
+retest_round_1	asset:deleted_denied	True	"{""status"": 404}"
+retest_round_1	asset:deleted_not_forwarded	True	{}
+retest_round_1	load:chat-100	True	"{""metrics"": {""name"": ""chat-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 107.32, ""p95_ms"": 157.3, ""p99_ms"": 180.59, ""max_ms"": 184.92}}"
+retest_round_1	load:chat_content_usage	True	{}
+retest_round_1	billing:chat100_exact	True	"{""expected"": 49980627, ""actual"": 49980627}"
+retest_round_1	billing:chat100_log_count	True	"{""count"": 100}"
+retest_round_1	load:image-20	True	"{""metrics"": {""name"": ""image-20"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 137.77, ""p95_ms"": 142.16, ""p99_ms"": 142.16, ""max_ms"": 145.6}}"
+retest_round_1	load:image_content	True	{}
+retest_round_1	billing:image20_charged	True	{}
+retest_round_1	redis:user_cache_populated	True	{}
+retest_round_1	redis:user_quota_matches_mysql	True	"{""mysql"": [{""id"": 2, ""quota"": 49978227, ""used_quota"": 21773}], ""redis_quota"": ""49978227""}"
+retest_round_1	billing:limited_token_consistent	True	"{""row"": {""id"": 1, ""remain_quota"": 478227, ""used_quota"": 21773}}"
+retest_round_1	setup:revocable_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	auth:revocable_token_primed	True	{}
+retest_round_1	setup:revoke_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	auth:revoked_token_denied	True	"{""status"": 401, ""excerpt"": null}"
+retest_round_1	auth:revoked_token_not_forwarded	True	{}
+retest_round_1	runtime:graceful_shutdown:1	True	"{""exit_code"": 0}"
+retest_round_1	runtime:readiness:2	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+retest_round_1	restart:token_valid	True	{}
+retest_round_1	restart:persisted_image	True	"{""status"": 200}"
+retest_round_1	restart:persisted_video	True	"{""status"": 200}"
+retest_round_1	restart:persisted_asset	True	"{""status"": 200}"
+retest_round_1	restart:no_double_billing	True	"{""expected"": 49978227, ""actual"": 49978227}"
+retest_round_1	gates:protected_routes_deny_anonymous	True	"{""total"": 604, ""failures"": []}"
+retest_round_1	gates:no_unexpected_server_error	True	"{""failures"": []}"
+retest_round_1	gates:all_routes_accounted	True	"{""total"": 662, ""exercised"": 660, ""server_errors"": []}"
+retest_round_1	setup:option:theme.frontend	True	"{""status"": 200, ""message"": """"}"
+retest_round_1	web:homepage:default	True	{}
+retest_round_1	web:all_assets:default	True	"{""total"": 307, ""failures"": []}"
+retest_round_1	web:classic_disabled_contract	True	{}
+retest_round_1	runtime:only_local_channels	True	{}
+retest_round_1	upstream:credentials	True	"{""failed_paths"": []}"
+retest_round_1	runtime:graceful_shutdown:2	True	"{""exit_code"": 0}"
+retest_round_1	cleanup:mysql_schema_removed	True	{}
+retest_round_1	cleanup:redis_db14_empty	True	"{""removed_keys"": 43}"
+retest_round_2	runtime:redis_empty_isolation	True	"{""db"": 14}"
+retest_round_2	runtime:mysql_isolated_schema	True	"{""schema"": ""apimeter_acceptance_20261123_retest_round_2""}"
+retest_round_2	runtime:readiness:1	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+retest_round_2	setup:status	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:fresh_setup	True	"{""status"": 200, ""message"": null}"
+retest_round_2	setup:bootstrap_admin	True	"{""status"": 200, ""message"": ""系统初始化成功""}"
+retest_round_2	setup:admin_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:create_mockuser	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:create_mockother	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:user_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:other_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:user_profile	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:other_profile	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:quota_2	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:quota_3	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:relay_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:other_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:option:RetryTimes	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:option:LogConsumeEnabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:mock-openai	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:mock-additional-relay	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:mock-openrouter	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:mock-claude	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:mock-gemini	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:mock-assets	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-success	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-failed	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-expired	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-create429	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-query429	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-query500	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	routing:new_channel_eventual_visibility	True	"{""seconds"": 60.26, ""statuses"": {""503"": 60, ""200"": 1}}"
+retest_round_2	runtime:mysql57	True	"{""metadata"": [{""version"": ""5.7.44""}]}"
+retest_round_2	routing:models	True	"{""status"": 200}"
+retest_round_2	embedding:/v1/embeddings	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	embedding:values:/v1/embeddings	True	{}
+retest_round_2	embedding:billing:/v1/embeddings	True	"{""expected"": 49999780, ""actual"": 49999780}"
+retest_round_2	embedding:/v1/engines/mock-embedding/embeddings	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	embedding:values:/v1/engines/mock-embedding/embeddings	True	{}
+retest_round_2	embedding:billing:/v1/engines/mock-embedding/embeddings	True	"{""expected"": 49999680, ""actual"": 49999680}"
+retest_round_2	embedding:legacy_path_model	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	embedding:path_model_forwarded	True	{}
+retest_round_2	embedding:path_model_billing	True	"{""expected"": 49999580, ""actual"": 49999580}"
+retest_round_2	rerank:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	rerank:ranking	True	{}
+retest_round_2	rerank:false_preserved	True	{}
+retest_round_2	completions:status:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	completions:content:False	True	{}
+retest_round_2	completions:billing:False	True	"{""expected"": 49999360, ""actual"": 49999360}"
+retest_round_2	responses:native:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	responses:native_content:False	True	{}
+retest_round_2	responses:native_billing:False	True	"{""expected"": 49999240, ""actual"": 49999240}"
+retest_round_2	completions:status:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	completions:content:True	True	{}
+retest_round_2	completions:billing:True	True	"{""expected"": 49999120, ""actual"": 49999120}"
+retest_round_2	responses:native:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	responses:native_content:True	True	{}
+retest_round_2	responses:native_billing:True	True	"{""expected"": 49999000, ""actual"": 49999000}"
+retest_round_2	responses:compact	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	responses:compact_content	True	{}
+retest_round_2	responses:compact_false	True	{}
+retest_round_2	responses:compact_billing	True	"{""expected"": 49998880, ""actual"": 49998880}"
+retest_round_2	moderations:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	moderations:content	True	{}
+retest_round_2	speech:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	speech:bytes	True	{}
+retest_round_2	audio:contract:/v1/audio/transcriptions	True	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_2	audio:file_preserved:/v1/audio/transcriptions	True	{}
+retest_round_2	audio:contract:/v1/audio/translations	True	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_2	audio:file_preserved:/v1/audio/translations	True	{}
+retest_round_2	image:edits_contract	True	"{""status"": 200, ""body"": ""{\""created\"": 1795402721, \""data\"": [{\""b64_json\"": \""iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\""}], \""usage\"": {\""input_tokens\"": 100, \""output_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_2	image:edits_bytes	True	{}
+retest_round_2	gemini:invalid_budget:1.5	True	"{""status"": 400, ""excerpt"": null}"
+retest_round_2	gemini:invalid_budget_not_forwarded:1.5	True	{}
+retest_round_2	gemini:invalid_budget:2147483648	True	"{""status"": 400, ""excerpt"": null}"
+retest_round_2	gemini:invalid_budget_not_forwarded:2147483648	True	{}
+retest_round_2	not_implemented:/v1/images/variations	True	"{""status"": 501}"
+retest_round_2	not_implemented:/v1/files	True	"{""status"": 501}"
+retest_round_2	not_implemented:/v1/fine-tunes	True	"{""status"": 501}"
+retest_round_2	metadata:/v1/model-metadata	True	"{""status"": 200}"
+retest_round_2	metadata:/v1/models/mock-chat	True	"{""status"": 200}"
+retest_round_2	metadata:/v1beta/models	True	"{""status"": 200}"
+retest_round_2	metadata:/v1beta/openai/models	True	"{""status"": 200}"
+retest_round_2	metadata:/dashboard/billing/subscription	True	"{""status"": 200}"
+retest_round_2	metadata:/dashboard/billing/usage	True	"{""status"": 200}"
+retest_round_2	metadata:/v1/dashboard/billing/subscription	True	"{""status"": 200}"
+retest_round_2	metadata:/v1/dashboard/billing/usage	True	"{""status"": 200}"
+retest_round_2	metadata:/api/usage/token/	True	"{""status"": 200}"
+retest_round_2	read:admin:/api/user/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/user/search?keyword=mock	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/user/2fa/stats	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/user/topup	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/channel/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/channel/search?keyword=mock	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/channel/filter-options	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/channel/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/channel/models	True	"{""status"": 200, ""message"": null}"
+retest_round_2	read:admin:/api/channel/models_enabled	True	"{""status"": 200, ""message"": null}"
+retest_round_2	read:admin:/api/channel/protocol_profiles	True	"{""status"": 200, ""message"": null}"
+retest_round_2	read:admin:/api/channel/ops	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/channel/operation_records	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/option/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/option/channel_affinity_cache	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/option/routing-strategies	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/option/crypto-payment	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/performance/stats	True	"{""status"": 200, ""message"": null}"
+retest_round_2	read:admin:/api/performance/logs	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/group/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/prefill_group/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/models/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/models/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/models/missing	True	"{""status"": 200, ""message"": null}"
+retest_round_2	read:admin:/api/models/monitor	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/vendors/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/vendors/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/custom-oauth-provider/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/redemption/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/redemption/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/agents/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/agents/domains	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/agents/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/affiliate/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/log/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/log/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/log/model_profit_stats	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	contract-disabled:admin:/api/log/search	True	"{""status"": 200, ""message"": ""该接口已废弃""}"
+retest_round_2	read:admin:/api/log/channel_affinity_usage_cache?rule_name=local&key_fp=fixture	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/retry-route/events	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/retry-route/events/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/retry-route/events/stat/rules	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/task/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/mj/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/data/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/data/dimensions	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/data/users	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/subscription/admin/plans	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/system/tasks/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/system/tasks/current?type=log_cleanup	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/system/info/instances	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/authz/catalog	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/newapi_suppliers/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/newapi_suppliers/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/billing/admin/monthly-statements	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:admin:/api/ratio_sync/channels	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/self/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/self/providers	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/models	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/sessions	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/passkey	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/2fa/status	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/aff/invites	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/aff/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/topup/info	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/topup/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/user/oauth/bindings	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	contract-disabled:user:/api/user/checkin	True	"{""status"": 200, ""message"": ""签到功能未启用""}"
+retest_round_2	read:user:/api/token/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/token/search?keyword=local	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/token/auto-groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/token/filter-options	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/workspaces	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/workspaces/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/workspace-subaccounts	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/workspace-subaccounts/	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/log/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/log/self/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	contract-disabled:user:/api/log/self/search	True	"{""status"": 200, ""message"": ""该接口已废弃""}"
+retest_round_2	read:user:/api/task/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/mj/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/data/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/data/self/dimensions	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/data/self/tokens	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/models	True	"{""status"": 200, ""message"": null}"
+retest_round_2	read:user:/api/dashboard/flow	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/subscription/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/billing/breakdowns	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	read:user:/api/billing/monthly-statements	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:workspace_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:workspace_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:workspace_list	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	workspace:updated_value	True	{}
+retest_round_2	workspace:cross_user_denied	True	{}
+retest_round_2	setup:workspace_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:workspace_list_after_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	workspace:deleted	True	{}
+retest_round_2	setup:vendor_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:vendor_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:vendor_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:vendor_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	vendor:updated	True	{}
+retest_round_2	setup:model_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:model_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:model_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:model_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	model:updated	True	{}
+retest_round_2	setup:model_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:vendor_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel:mock-crud-only	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	channel:updated	True	{}
+retest_round_2	setup:channel_disable	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:channel_read_disabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	channel:disabled	True	{}
+retest_round_2	setup:channel_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:token_create_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:token_read_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:token_update_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:token_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	token:updated	True	{}
+retest_round_2	token:other_user_read_denied	True	{}
+retest_round_2	setup:token_delete_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_workspace	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_get	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	subaccount:mysql_metadata	True	"{""row"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}}"
+retest_round_2	subaccount:redis_metadata	True	"{""db"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}, ""cache"": {""Id"": ""4"", ""ParentUserId"": ""2"", ""MustChangePassword"": ""1"", ""CacheSchema"": ""3"", ""AuthVersion"": ""1""}}"
+retest_round_2	subaccount:must_change_password_enforced	True	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+retest_round_2	subaccount:cannot_create_workspace	True	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+retest_round_2	setup:subaccount_change_password	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_login_new_password	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	subaccount:password_change_persisted	True	"{""row"": {""must_change_password"": 0, ""parent_user_id"": 2}, ""cache_flag"": ""0""}"
+retest_round_2	setup:subaccount_workspaces	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	subaccount:assigned_workspace_scope	True	"{""workspaces"": [{""id"": 4, ""user_id"": 2, ""access_users"": [], ""name"": ""subaccount fixture"", ""description"": ""isolated"", ""is_default"": false, ""status"": 1, ""quota_reset_enabled"": false, ""quota_reset_period"": """", ""quota_reset_amount"": 0, ""quota_reset_last_applied_at"": 0, ""quota_reset_next_at"": 0, ""created_time"": 1795402721, ""updated_time"": 1795402721, ""DeletedAt"": null, ""token_count"": 0}]}"
+retest_round_2	subaccount:creation_denied_after_password_change	True	"{""status"": 403, ""body"": {""message"": ""workspace accounts cannot access this feature"", ""success"": false}}"
+retest_round_2	setup:subaccount_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_workspaces_set	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_disable	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	subaccount:disabled_session_denied	True	{}
+retest_round_2	setup:subaccount_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:subaccount_workspace_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	chat:mock-chat	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	chat:content:mock-chat	True	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+retest_round_2	mapping:alias_to_upstream	True	{}
+retest_round_2	parameters:explicit_zero_preserved	True	"{""body"": {""model"": ""gpt-4o"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""stream"": false, ""max_tokens"": 128, ""temperature"": 0, ""top_p"": 0}}"
+retest_round_2	billing:chat_charged:mock-chat	True	{}
+retest_round_2	chat:claude-sonnet-4-5	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	chat:content:claude-sonnet-4-5	True	"{""usage"": {""prompt_tokens"": 115, ""completion_tokens"": 20, ""total_tokens"": 135, ""prompt_tokens_details"": {""cached_tokens"": 5, ""audio_tokens"": 0, ""cache_write_tokens"": 10}}}"
+retest_round_2	billing:chat_charged:claude-sonnet-4-5	True	{}
+retest_round_2	chat:gemini-2.5-flash	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	chat:content:gemini-2.5-flash	True	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+retest_round_2	billing:chat_charged:gemini-2.5-flash	True	{}
+retest_round_2	chat:tools	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	chat:tool_call_preserved	True	{}
+retest_round_2	compat:gpt62	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	compat:gpt62_upstream	True	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""developer"", ""content"": ""rules""}, {""role"": ""user"", ""content"": ""hello""}], ""max_completion_tokens"": 128, ""reasoning_effort"": ""high""}}"
+retest_round_2	compat:openrouter	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	compat:openrouter_nested_reasoning	True	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""usage"": {""include"": true}, ""reasoning"": {""enabled"": false, ""exclude"": false, ""opaque"": {""integer"": 9007199254740993}}}}"
+retest_round_2	stream:chat:mock-chat	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	stream:chat_terminal:mock-chat	True	{}
+retest_round_2	stream:chat:claude-sonnet-4-5	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	stream:chat_terminal:claude-sonnet-4-5	True	{}
+retest_round_2	stream:chat:gemini-2.5-flash	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	stream:chat_terminal:gemini-2.5-flash	True	{}
+retest_round_2	claude:native:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	claude:native_contract:False	True	{}
+retest_round_2	claude:native:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	claude:native_contract:True	True	{}
+retest_round_2	gemini:native	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	gemini:native_content	True	{}
+retest_round_2	gemini:responses:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	gemini:responses_contract:False	True	{}
+retest_round_2	gemini:responses:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	gemini:responses_contract:True	True	{}
+retest_round_2	gemini:broken_responses_http	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	gemini:broken_responses_terminal	True	{}
+retest_round_2	gemini:broken_stream_no_retry	True	{}
+retest_round_2	gemini:broken_stream_usage_billed	True	"{""expected"": 49996301, ""actual"": 49996301}"
+retest_round_2	gemini:broken_stream_single_log	True	"{""logs"": [{""completion_tokens"": 20, ""id"": 77, ""model_name"": ""gemini-2.5-flash"", ""other"": ""{\""admin_info\"":{\""usage_billing_path\"":\""billing-usage-gemini\"",\""use_channel\"":[\""5\""]},\""billing_mode\"":\""ratio\"",\""billing_source\"":\""wallet\"",\""cache_ratio\"":1,\""cache_tokens\"":0,\""channel_ratio\"":1,\""completion_ratio\"":1,\""cost_base_quota\"":120,\""cost_quota\"":120,\""frt\"":5,\""group_ratio\"":1,\""group_ratio_source\"":\""group\"",\""model_price\"":-1,\""model_ratio\"":1,\""pricing_group\"":\""default\"",\""pricing_model\"":\""gemini-2.5-flash\"",\""pricing_user_group\"":\""default\"",\""profit_quota\"":0,\""profit_rate\"":0,\""request_conversion\"":[\""OpenAI Responses\"",\""Google Gemini\""],\""request_path\"":\""/v1/responses\"",\""stream_status\"":{\""end_error\"":\""unmarshal: invalid character 'i' looking for beginning of object key string\"",\""end_reason\"":\""handler_stop\"",\""error_count\"":1,\""errors\"":[\""unmarshal: invalid character 'i' looking for beginning of object key string\""],\""status\"":\""error\""},\""user_group_ratio\"":-1}"", ""prompt_tokens"": 100, ""quota"": 120}]}"
+retest_round_2	auth:missing:/v1/models	True	"{""status"": 401}"
+retest_round_2	auth:missing:/v1/chat/completions	True	"{""status"": 401}"
+retest_round_2	auth:invalid_token	True	"{""status"": 401, ""excerpt"": null}"
+retest_round_2	auth:invalid_not_forwarded	True	{}
+retest_round_2	upstream:http429	True	"{""status"": 429, ""excerpt"": null}"
+retest_round_2	billing:http429_refunded	True	"{""expected"": 49996301, ""actual"": 49996301}"
+retest_round_2	upstream:http429_not_retried	True	{}
+retest_round_2	auth:ordinary_user_admin_denied	True	"{""status"": 403}"
+retest_round_2	claude:adaptive	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	claude:adaptive_fields_exact	True	"{""body"": {""model"": ""claude-opus-5-5"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""max_tokens"": 128, ""output_config"": {""effort"": ""medium""}, ""thinking"": {""block_binding"": {""prefix_mismatch_behavior"": ""drop_block""}, ""display"": ""summarized"", ""future_field"": {""id"": 9007199254740993}, ""type"": ""adaptive""}}}"
+retest_round_2	claude:adjacent_tools	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	claude:adjacent_tools_preserved	True	"{""body"": {""model"": ""claude-sonnet-4-5"", ""messages"": [{""role"": ""user"", ""content"": ""look up a and b""}, {""role"": ""assistant"", ""content"": [{""type"": ""text"", ""text"": ""...""}, {""type"": ""tool_use"", ""id"": ""a"", ""name"": ""lookup"", ""input"": {}}, {""type"": ""tool_use"", ""id"": ""b"", ""name"": ""lookup"", ""input"": {}}]}, {""role"": ""user"", ""content"": [{""type"": ""tool_result"", ""content"": ""result a"", ""tool_use_id"": ""a""}, {""type"": ""tool_result"", ""content"": ""result b"", ""tool_use_id"": ""b""}]}], ""max_tokens"": 1024}}"
+retest_round_2	setup:option:general_setting.ping_interval_enabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	setup:option:general_setting.ping_interval_seconds	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	claude:slow_stream	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	claude:keepalive_before_content	True	{}
+retest_round_2	setup:option:general_setting.ping_interval_enabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	image26:request:gif	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	image26:outbound:gif	True	"{""body"": {""complexity"": ""low"", ""frame_count"": 16, ""frame_duration_ms"": 100, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""gif"", ""prompt"": ""draw"", ""quality"": ""max"", ""size"": ""1536x864""}}"
+retest_round_2	image26:request:svg	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	image26:outbound:svg	True	"{""body"": {""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""svg"", ""prompt"": ""draw"", ""svg"": {""model"": ""author-model"", ""reasoning"": {""effort"": ""high""}, ""extension"": 9007199254740993}}}"
+retest_round_2	image26:request:zero	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	image26:outbound:zero	True	"{""body"": {""complexity"": """", ""frame_count"": 0, ""frame_duration_ms"": 0, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_compression"": 0, ""partial_images"": 0, ""prompt"": ""draw"", ""stream"": false}}"
+retest_round_2	image:sync	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	image:sync_pixels	True	{}
+retest_round_2	image:sync_charged	True	{}
+retest_round_2	image:async_submit:success	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	image:async_id_no_usage:success	True	{}
+retest_round_2	image:reservation_before_completion:success	True	"{""before"": 49995247, ""after_submit"": 49993982}"
+retest_round_2	image:async_terminal:success	True	"{""body"": {""action"": ""generate"", ""create_time"": 1795402726, ""data"": {""images"": [{""url"": ""/api/relay-temp-images/e3de3df7-539c-4654-912b-b7a7e757329d.png""}]}, ""id"": ""task_ExRq6cO6BSmbZINEMYPX93u4YNR7DgqD"", ""image_expires_at"": 1795489126, ""image_status"": ""available"", ""progress"": 100, ""state"": ""succeeded"", ""update_time"": 1795402726, ""usage"": {""prompt_tokens"": 0, ""completion_tokens"": 0, ""total_tokens"": 120, ""prompt_tokens_details"": {""cached_tokens"": 0, ""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0}, ""completion_tokens_details"": {""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0, ""reasoning_tokens"": 0}, ""input_tokens"": 100, ""output_tokens"": 20, ""input_tokens_details"": null, ""claude_cache_creation_5_m_tokens"": 0, ""claude_cache_creation_1_h_tokens"": 0}}}"
+retest_round_2	image:cross_user_denied:success	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	image:denied_not_forwarded:success	True	{}
+retest_round_2	image:async_download_pixels	True	"{""status"": 200, ""bytes"": 68}"
+retest_round_2	image:async_charged	True	{}
+retest_round_2	load:image-repeat-success	True	"{""metrics"": {""name"": ""image-repeat-success"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 5.22, ""p95_ms"": 11.42, ""p99_ms"": 11.42, ""max_ms"": 12.39}}"
+retest_round_2	image:repeat_no_double_charge:success	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_2	image:task_persisted:success	True	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 120, ""status"": ""SUCCESS""}]}"
+retest_round_2	image:billing_log_count:success	True	"{""count"": 1}"
+retest_round_2	image:async_submit:failure	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	image:async_id_no_usage:failure	True	{}
+retest_round_2	image:reservation_before_completion:failure	True	"{""before"": 49995127, ""after_submit"": 49993862}"
+retest_round_2	image:async_terminal:failure	True	"{""body"": {""action"": ""generate"", ""create_time"": 1795402726, ""data"": {""images"": null}, ""error"": {""code"": ""mock_rate_limit"", ""message"": ""local mock rejected request""}, ""id"": ""task_jlrtWQ25ynybmDyznuycMGhL5xDzD1Ft"", ""progress"": 100, ""state"": ""failed"", ""update_time"": 1795402727}}"
+retest_round_2	image:cross_user_denied:failure	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	image:denied_not_forwarded:failure	True	{}
+retest_round_2	image:async_failure_refund	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_2	load:image-repeat-failure	True	"{""metrics"": {""name"": ""image-repeat-failure"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.73, ""p95_ms"": 14.77, ""p99_ms"": 14.77, ""max_ms"": 15.37}}"
+retest_round_2	image:repeat_no_double_charge:failure	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_2	image:task_persisted:failure	True	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 1265, ""status"": ""FAILURE""}]}"
+retest_round_2	image:billing_log_count:failure	True	"{""count"": 0}"
+retest_round_2	video:create:success	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:success	True	{}
+retest_round_2	video:zero_values:success	True	{}
+retest_round_2	video:cross_user:success	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:success	True	{}
+retest_round_2	video:query:success	True	"{""status"": 200, ""body"": {""id"": ""cgt-32825cf8abda4d96ac94c1b79a95243e"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795402727, ""updated_at"": 1795402727, ""error"": null, ""seed"": 0, ""output_format"": ""mp4"", ""tools"": [{""type"": ""web_search""}], ""execution_expires_after"": 3600, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:33071/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}, ""tool_usage"": {""web_search"": 0}}, ""mock_extension"": {""preserve"": true}}}"
+retest_round_2	video:terminal:success	True	{}
+retest_round_2	video:extended_usage	True	{}
+retest_round_2	video:charged	True	{}
+retest_round_2	load:video-repeat-success	True	"{""metrics"": {""name"": ""video-repeat-success"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.36, ""p95_ms"": 8.41, ""p99_ms"": 8.41, ""max_ms"": 8.54}}"
+retest_round_2	video:repeat_no_double_charge:success	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	video:create:failed	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:failed	True	{}
+retest_round_2	video:zero_values:failed	True	{}
+retest_round_2	video:cross_user:failed	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:failed	True	{}
+retest_round_2	video:query:failed	True	"{""status"": 200, ""body"": {""id"": ""cgt-e8f51de0f9f941ef8fabe35905e7927c"", ""model"": ""doubao-seedance-2-5-260628-mock-failed"", ""status"": ""failed"", ""created_at"": 1795402727, ""updated_at"": 1795402727, ""error"": {""code"": ""MockGenerationFailed"", ""message"": ""Mock task failed""}}}"
+retest_round_2	video:terminal:failed	True	{}
+retest_round_2	video:terminal_refund:failed	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	load:video-repeat-failed	True	"{""metrics"": {""name"": ""video-repeat-failed"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.15, ""p95_ms"": 7.79, ""p99_ms"": 7.79, ""max_ms"": 9.51}}"
+retest_round_2	video:repeat_no_double_charge:failed	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	video:create:expired	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:expired	True	{}
+retest_round_2	video:zero_values:expired	True	{}
+retest_round_2	video:cross_user:expired	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:expired	True	{}
+retest_round_2	video:query:expired	True	"{""status"": 200, ""body"": {""id"": ""cgt-2eb89e20e3a64d02890f504c3eb62a3d"", ""model"": ""doubao-seedance-2-5-260628-mock-expired"", ""status"": ""expired"", ""created_at"": 1795402727, ""updated_at"": 1795402727, ""error"": {""code"": ""TaskExpired"", ""message"": ""Mock task expired""}}}"
+retest_round_2	video:terminal:expired	True	{}
+retest_round_2	video:terminal_refund:expired	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	load:video-repeat-expired	True	"{""metrics"": {""name"": ""video-repeat-expired"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.8, ""p95_ms"": 7.78, ""p99_ms"": 7.78, ""max_ms"": 10.18}}"
+retest_round_2	video:repeat_no_double_charge:expired	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	video:create:cancelled	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:cancelled	True	{}
+retest_round_2	video:zero_values:cancelled	True	{}
+retest_round_2	video:cross_user:cancelled	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:cancelled	True	{}
+retest_round_2	video:query:cancelled	True	"{""status"": 200, ""body"": {""id"": ""cgt-a1ccefbb642e47faa171cf97c2154502"", ""model"": ""doubao-seedance-2-5-260628-mock-cancelled"", ""status"": ""cancelled"", ""created_at"": 1795402727, ""updated_at"": 1795402727, ""error"": {""code"": ""TaskCancelled"", ""message"": ""Mock task cancelled""}}}"
+retest_round_2	video:terminal:cancelled	True	{}
+retest_round_2	video:terminal_refund:cancelled	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	load:video-repeat-cancelled	True	"{""metrics"": {""name"": ""video-repeat-cancelled"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 6.04, ""p95_ms"": 8.92, ""p99_ms"": 8.92, ""max_ms"": 8.97}}"
+retest_round_2	video:repeat_no_double_charge:cancelled	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	video:create:create429	True	"{""status"": 429, ""excerpt"": null}"
+retest_round_2	video:create429_refund	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_2	video:create:query429	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:query429	True	{}
+retest_round_2	video:zero_values:query429	True	{}
+retest_round_2	video:cross_user:query429	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:query429	True	{}
+retest_round_2	video:query:query429	True	"{""status"": 429, ""body"": {""error"": {""code"": ""TooManyRequests"", ""message"": ""Mock query rate limit""}}}"
+retest_round_2	video:retry_after	True	{}
+retest_round_2	video:invalid_query_not_finalized:query429	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_2	video:create:query500	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:query500	True	{}
+retest_round_2	video:zero_values:query500	True	{}
+retest_round_2	video:cross_user:query500	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:query500	True	{}
+retest_round_2	video:query:query500	True	"{""status"": 500, ""body"": {""error"": {""code"": ""InternalError"", ""message"": ""Mock upstream failure""}}}"
+retest_round_2	video:invalid_query_not_finalized:query500	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_2	video:create:queryinvalid	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:queryinvalid	True	{}
+retest_round_2	video:zero_values:queryinvalid	True	{}
+retest_round_2	video:cross_user:queryinvalid	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:queryinvalid	True	{}
+retest_round_2	video:query:queryinvalid	True	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream response is missing a task ID"", ""data"": null}}"
+retest_round_2	video:invalid_query_not_finalized:queryinvalid	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_2	video:create:querywrongid	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	video:official_id:querywrongid	True	{}
+retest_round_2	video:zero_values:querywrongid	True	{}
+retest_round_2	video:cross_user:querywrongid	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_2	video:denied_not_forwarded:querywrongid	True	{}
+retest_round_2	video:query:querywrongid	True	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream returned a different task ID"", ""data"": null}}"
+retest_round_2	video:invalid_query_not_finalized:querywrongid	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_2	asset:create	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_2	asset:create_id	True	{}
+retest_round_2	asset:cross_user:/api/assets/asset-c8b3e37781f84c0fa27d6eb841e09811	True	"{""status"": 404}"
+retest_round_2	asset:denied_not_forwarded:/api/assets/asset-c8b3e37781f84c0fa27d6eb841e09811	True	{}
+retest_round_2	asset:query:/api/assets/asset-c8b3e37781f84c0fa27d6eb841e09811	True	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-c8b3e37781f84c0fa27d6eb841e09811"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+retest_round_2	asset:cross_user:/v1/assets/asset-c8b3e37781f84c0fa27d6eb841e09811	True	"{""status"": 404}"
+retest_round_2	asset:denied_not_forwarded:/v1/assets/asset-c8b3e37781f84c0fa27d6eb841e09811	True	{}
+retest_round_2	asset:query:/v1/assets/asset-c8b3e37781f84c0fa27d6eb841e09811	True	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-c8b3e37781f84c0fa27d6eb841e09811"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+retest_round_2	asset:list	True	"{""status"": 200, ""body"": {""Result"": {""Items"": [{""Id"": ""asset-c8b3e37781f84c0fa27d6eb841e09811"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}], ""TotalCount"": 1, ""PageNumber"": 1, ""PageSize"": 20}}}"
+retest_round_2	load:asset-create-100	True	"{""metrics"": {""name"": ""asset-create-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 170.74, ""p95_ms"": 226.38, ""p99_ms"": 232.08, ""max_ms"": 239.51}}"
+retest_round_2	asset:100_unique_ids	True	{}
+retest_round_2	load:asset-poll-500	True	"{""metrics"": {""name"": ""asset-poll-500"", ""requests"": 500, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 500}, ""p50_ms"": 137.32, ""p95_ms"": 144.57, ""p99_ms"": 179.2, ""max_ms"": 198.66}}"
+retest_round_2	asset:poll_identity_and_status	True	{}
+retest_round_2	asset:delete	True	"{""status"": 200}"
+retest_round_2	asset:deleted_denied	True	"{""status"": 404}"
+retest_round_2	asset:deleted_not_forwarded	True	{}
+retest_round_2	load:chat-100	True	"{""metrics"": {""name"": ""chat-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 103.82, ""p95_ms"": 145.45, ""p99_ms"": 154.53, ""max_ms"": 171.58}}"
+retest_round_2	load:chat_content_usage	True	{}
+retest_round_2	billing:chat100_exact	True	"{""expected"": 49980627, ""actual"": 49980627}"
+retest_round_2	billing:chat100_log_count	True	"{""count"": 100}"
+retest_round_2	load:image-20	True	"{""metrics"": {""name"": ""image-20"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 139.21, ""p95_ms"": 143.59, ""p99_ms"": 143.59, ""max_ms"": 145.71}}"
+retest_round_2	load:image_content	True	{}
+retest_round_2	billing:image20_charged	True	{}
+retest_round_2	redis:user_cache_populated	True	{}
+retest_round_2	redis:user_quota_matches_mysql	True	"{""mysql"": [{""id"": 2, ""quota"": 49978227, ""used_quota"": 21773}], ""redis_quota"": ""49978227""}"
+retest_round_2	billing:limited_token_consistent	True	"{""row"": {""id"": 1, ""remain_quota"": 478227, ""used_quota"": 21773}}"
+retest_round_2	setup:revocable_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	auth:revocable_token_primed	True	{}
+retest_round_2	setup:revoke_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	auth:revoked_token_denied	True	"{""status"": 401, ""excerpt"": null}"
+retest_round_2	auth:revoked_token_not_forwarded	True	{}
+retest_round_2	runtime:graceful_shutdown:1	True	"{""exit_code"": 0}"
+retest_round_2	runtime:readiness:2	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+retest_round_2	restart:token_valid	True	{}
+retest_round_2	restart:persisted_image	True	"{""status"": 200}"
+retest_round_2	restart:persisted_video	True	"{""status"": 200}"
+retest_round_2	restart:persisted_asset	True	"{""status"": 200}"
+retest_round_2	restart:no_double_billing	True	"{""expected"": 49978227, ""actual"": 49978227}"
+retest_round_2	gates:protected_routes_deny_anonymous	True	"{""total"": 604, ""failures"": []}"
+retest_round_2	gates:no_unexpected_server_error	True	"{""failures"": []}"
+retest_round_2	gates:all_routes_accounted	True	"{""total"": 662, ""exercised"": 660, ""server_errors"": []}"
+retest_round_2	setup:option:theme.frontend	True	"{""status"": 200, ""message"": """"}"
+retest_round_2	web:homepage:default	True	{}
+retest_round_2	web:all_assets:default	True	"{""total"": 307, ""failures"": []}"
+retest_round_2	web:classic_disabled_contract	True	{}
+retest_round_2	runtime:only_local_channels	True	{}
+retest_round_2	upstream:credentials	True	"{""failed_paths"": []}"
+retest_round_2	runtime:graceful_shutdown:2	True	"{""exit_code"": 0}"
+retest_round_2	cleanup:mysql_schema_removed	True	{}
+retest_round_2	cleanup:redis_db14_empty	True	"{""removed_keys"": 43}"
+retest_round_3	runtime:redis_empty_isolation	True	"{""db"": 14}"
+retest_round_3	runtime:mysql_isolated_schema	True	"{""schema"": ""apimeter_acceptance_20261123_retest_round_3""}"
+retest_round_3	runtime:readiness:1	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+retest_round_3	setup:status	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:fresh_setup	True	"{""status"": 200, ""message"": null}"
+retest_round_3	setup:bootstrap_admin	True	"{""status"": 200, ""message"": ""系统初始化成功""}"
+retest_round_3	setup:admin_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:create_mockuser	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:create_mockother	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:user_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:other_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:user_profile	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:other_profile	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:quota_2	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:quota_3	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:relay_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:other_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:option:RetryTimes	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:option:LogConsumeEnabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:mock-openai	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:mock-additional-relay	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:mock-openrouter	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:mock-claude	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:mock-gemini	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:mock-assets	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-success	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-failed	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-expired	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-create429	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-query429	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-query500	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	routing:new_channel_eventual_visibility	True	"{""seconds"": 60.26, ""statuses"": {""503"": 60, ""200"": 1}}"
+retest_round_3	runtime:mysql57	True	"{""metadata"": [{""version"": ""5.7.44""}]}"
+retest_round_3	routing:models	True	"{""status"": 200}"
+retest_round_3	embedding:/v1/embeddings	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	embedding:values:/v1/embeddings	True	{}
+retest_round_3	embedding:billing:/v1/embeddings	True	"{""expected"": 49999780, ""actual"": 49999780}"
+retest_round_3	embedding:/v1/engines/mock-embedding/embeddings	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	embedding:values:/v1/engines/mock-embedding/embeddings	True	{}
+retest_round_3	embedding:billing:/v1/engines/mock-embedding/embeddings	True	"{""expected"": 49999680, ""actual"": 49999680}"
+retest_round_3	embedding:legacy_path_model	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	embedding:path_model_forwarded	True	{}
+retest_round_3	embedding:path_model_billing	True	"{""expected"": 49999580, ""actual"": 49999580}"
+retest_round_3	rerank:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	rerank:ranking	True	{}
+retest_round_3	rerank:false_preserved	True	{}
+retest_round_3	completions:status:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	completions:content:False	True	{}
+retest_round_3	completions:billing:False	True	"{""expected"": 49999360, ""actual"": 49999360}"
+retest_round_3	responses:native:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	responses:native_content:False	True	{}
+retest_round_3	responses:native_billing:False	True	"{""expected"": 49999240, ""actual"": 49999240}"
+retest_round_3	completions:status:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	completions:content:True	True	{}
+retest_round_3	completions:billing:True	True	"{""expected"": 49999120, ""actual"": 49999120}"
+retest_round_3	responses:native:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	responses:native_content:True	True	{}
+retest_round_3	responses:native_billing:True	True	"{""expected"": 49999000, ""actual"": 49999000}"
+retest_round_3	responses:compact	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	responses:compact_content	True	{}
+retest_round_3	responses:compact_false	True	{}
+retest_round_3	responses:compact_billing	True	"{""expected"": 49998880, ""actual"": 49998880}"
+retest_round_3	moderations:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	moderations:content	True	{}
+retest_round_3	speech:status	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	speech:bytes	True	{}
+retest_round_3	audio:contract:/v1/audio/transcriptions	True	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_3	audio:file_preserved:/v1/audio/transcriptions	True	{}
+retest_round_3	audio:contract:/v1/audio/translations	True	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_3	audio:file_preserved:/v1/audio/translations	True	{}
+retest_round_3	image:edits_contract	True	"{""status"": 200, ""body"": ""{\""created\"": 1795402796, \""data\"": [{\""b64_json\"": \""iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\""}], \""usage\"": {\""input_tokens\"": 100, \""output_tokens\"": 20, \""total_tokens\"": 120}}""}"
+retest_round_3	image:edits_bytes	True	{}
+retest_round_3	gemini:invalid_budget:1.5	True	"{""status"": 400, ""excerpt"": null}"
+retest_round_3	gemini:invalid_budget_not_forwarded:1.5	True	{}
+retest_round_3	gemini:invalid_budget:2147483648	True	"{""status"": 400, ""excerpt"": null}"
+retest_round_3	gemini:invalid_budget_not_forwarded:2147483648	True	{}
+retest_round_3	not_implemented:/v1/images/variations	True	"{""status"": 501}"
+retest_round_3	not_implemented:/v1/files	True	"{""status"": 501}"
+retest_round_3	not_implemented:/v1/fine-tunes	True	"{""status"": 501}"
+retest_round_3	metadata:/v1/model-metadata	True	"{""status"": 200}"
+retest_round_3	metadata:/v1/models/mock-chat	True	"{""status"": 200}"
+retest_round_3	metadata:/v1beta/models	True	"{""status"": 200}"
+retest_round_3	metadata:/v1beta/openai/models	True	"{""status"": 200}"
+retest_round_3	metadata:/dashboard/billing/subscription	True	"{""status"": 200}"
+retest_round_3	metadata:/dashboard/billing/usage	True	"{""status"": 200}"
+retest_round_3	metadata:/v1/dashboard/billing/subscription	True	"{""status"": 200}"
+retest_round_3	metadata:/v1/dashboard/billing/usage	True	"{""status"": 200}"
+retest_round_3	metadata:/api/usage/token/	True	"{""status"": 200}"
+retest_round_3	read:admin:/api/user/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/user/search?keyword=mock	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/user/2fa/stats	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/user/topup	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/channel/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/channel/search?keyword=mock	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/channel/filter-options	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/channel/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/channel/models	True	"{""status"": 200, ""message"": null}"
+retest_round_3	read:admin:/api/channel/models_enabled	True	"{""status"": 200, ""message"": null}"
+retest_round_3	read:admin:/api/channel/protocol_profiles	True	"{""status"": 200, ""message"": null}"
+retest_round_3	read:admin:/api/channel/ops	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/channel/operation_records	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/option/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/option/channel_affinity_cache	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/option/routing-strategies	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/option/crypto-payment	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/performance/stats	True	"{""status"": 200, ""message"": null}"
+retest_round_3	read:admin:/api/performance/logs	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/group/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/prefill_group/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/models/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/models/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/models/missing	True	"{""status"": 200, ""message"": null}"
+retest_round_3	read:admin:/api/models/monitor	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/vendors/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/vendors/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/custom-oauth-provider/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/redemption/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/redemption/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/agents/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/agents/domains	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/agents/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/affiliate/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/log/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/log/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/log/model_profit_stats	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	contract-disabled:admin:/api/log/search	True	"{""status"": 200, ""message"": ""该接口已废弃""}"
+retest_round_3	read:admin:/api/log/channel_affinity_usage_cache?rule_name=local&key_fp=fixture	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/retry-route/events	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/retry-route/events/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/retry-route/events/stat/rules	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/task/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/mj/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/data/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/data/dimensions	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/data/users	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/subscription/admin/plans	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/system/tasks/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/system/tasks/current?type=log_cleanup	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/system/info/instances	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/authz/catalog	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/newapi_suppliers/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/newapi_suppliers/search	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/billing/admin/monthly-statements	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:admin:/api/ratio_sync/channels	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/self/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/self/providers	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/models	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/sessions	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/passkey	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/2fa/status	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/aff/invites	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/aff/withdrawals	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/topup/info	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/topup/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/user/oauth/bindings	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	contract-disabled:user:/api/user/checkin	True	"{""status"": 200, ""message"": ""签到功能未启用""}"
+retest_round_3	read:user:/api/token/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/token/search?keyword=local	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/token/auto-groups	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/token/filter-options	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/workspaces	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/workspaces/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/workspace-subaccounts	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/workspace-subaccounts/	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/log/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/log/self/stat	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	contract-disabled:user:/api/log/self/search	True	"{""status"": 200, ""message"": ""该接口已废弃""}"
+retest_round_3	read:user:/api/task/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/mj/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/data/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/data/self/dimensions	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/data/self/tokens	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/models	True	"{""status"": 200, ""message"": null}"
+retest_round_3	read:user:/api/dashboard/flow	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/subscription/self	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/billing/breakdowns	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	read:user:/api/billing/monthly-statements	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:workspace_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:workspace_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:workspace_list	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	workspace:updated_value	True	{}
+retest_round_3	workspace:cross_user_denied	True	{}
+retest_round_3	setup:workspace_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:workspace_list_after_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	workspace:deleted	True	{}
+retest_round_3	setup:vendor_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:vendor_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:vendor_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:vendor_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	vendor:updated	True	{}
+retest_round_3	setup:model_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:model_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:model_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:model_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	model:updated	True	{}
+retest_round_3	setup:model_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:vendor_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel:mock-crud-only	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel_read	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	channel:updated	True	{}
+retest_round_3	setup:channel_disable	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:channel_read_disabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	channel:disabled	True	{}
+retest_round_3	setup:channel_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:token_create_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:token_read_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:token_update_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:token_read_updated	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	token:updated	True	{}
+retest_round_3	token:other_user_read_denied	True	{}
+retest_round_3	setup:token_delete_crud	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_workspace	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_create	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_get	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_login	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	subaccount:mysql_metadata	True	"{""row"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}}"
+retest_round_3	subaccount:redis_metadata	True	"{""db"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}, ""cache"": {""Id"": ""4"", ""ParentUserId"": ""2"", ""MustChangePassword"": ""1"", ""CacheSchema"": ""3"", ""AuthVersion"": ""1""}}"
+retest_round_3	subaccount:must_change_password_enforced	True	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+retest_round_3	subaccount:cannot_create_workspace	True	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+retest_round_3	setup:subaccount_change_password	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_login_new_password	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	subaccount:password_change_persisted	True	"{""row"": {""must_change_password"": 0, ""parent_user_id"": 2}, ""cache_flag"": ""0""}"
+retest_round_3	setup:subaccount_workspaces	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	subaccount:assigned_workspace_scope	True	"{""workspaces"": [{""id"": 4, ""user_id"": 2, ""access_users"": [], ""name"": ""subaccount fixture"", ""description"": ""isolated"", ""is_default"": false, ""status"": 1, ""quota_reset_enabled"": false, ""quota_reset_period"": """", ""quota_reset_amount"": 0, ""quota_reset_last_applied_at"": 0, ""quota_reset_next_at"": 0, ""created_time"": 1795402796, ""updated_time"": 1795402796, ""DeletedAt"": null, ""token_count"": 0}]}"
+retest_round_3	subaccount:creation_denied_after_password_change	True	"{""status"": 403, ""body"": {""message"": ""workspace accounts cannot access this feature"", ""success"": false}}"
+retest_round_3	setup:subaccount_update	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_workspaces_set	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_disable	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	subaccount:disabled_session_denied	True	{}
+retest_round_3	setup:subaccount_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:subaccount_workspace_delete	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	chat:mock-chat	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	chat:content:mock-chat	True	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+retest_round_3	mapping:alias_to_upstream	True	{}
+retest_round_3	parameters:explicit_zero_preserved	True	"{""body"": {""model"": ""gpt-4o"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""stream"": false, ""max_tokens"": 128, ""temperature"": 0, ""top_p"": 0}}"
+retest_round_3	billing:chat_charged:mock-chat	True	{}
+retest_round_3	chat:claude-sonnet-4-5	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	chat:content:claude-sonnet-4-5	True	"{""usage"": {""prompt_tokens"": 115, ""completion_tokens"": 20, ""total_tokens"": 135, ""prompt_tokens_details"": {""cached_tokens"": 5, ""audio_tokens"": 0, ""cache_write_tokens"": 10}}}"
+retest_round_3	billing:chat_charged:claude-sonnet-4-5	True	{}
+retest_round_3	chat:gemini-2.5-flash	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	chat:content:gemini-2.5-flash	True	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+retest_round_3	billing:chat_charged:gemini-2.5-flash	True	{}
+retest_round_3	chat:tools	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	chat:tool_call_preserved	True	{}
+retest_round_3	compat:gpt62	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	compat:gpt62_upstream	True	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""developer"", ""content"": ""rules""}, {""role"": ""user"", ""content"": ""hello""}], ""max_completion_tokens"": 128, ""reasoning_effort"": ""high""}}"
+retest_round_3	compat:openrouter	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	compat:openrouter_nested_reasoning	True	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""usage"": {""include"": true}, ""reasoning"": {""enabled"": false, ""exclude"": false, ""opaque"": {""integer"": 9007199254740993}}}}"
+retest_round_3	stream:chat:mock-chat	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	stream:chat_terminal:mock-chat	True	{}
+retest_round_3	stream:chat:claude-sonnet-4-5	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	stream:chat_terminal:claude-sonnet-4-5	True	{}
+retest_round_3	stream:chat:gemini-2.5-flash	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	stream:chat_terminal:gemini-2.5-flash	True	{}
+retest_round_3	claude:native:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	claude:native_contract:False	True	{}
+retest_round_3	claude:native:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	claude:native_contract:True	True	{}
+retest_round_3	gemini:native	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	gemini:native_content	True	{}
+retest_round_3	gemini:responses:False	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	gemini:responses_contract:False	True	{}
+retest_round_3	gemini:responses:True	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	gemini:responses_contract:True	True	{}
+retest_round_3	gemini:broken_responses_http	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	gemini:broken_responses_terminal	True	{}
+retest_round_3	gemini:broken_stream_no_retry	True	{}
+retest_round_3	gemini:broken_stream_usage_billed	True	"{""expected"": 49996301, ""actual"": 49996301}"
+retest_round_3	gemini:broken_stream_single_log	True	"{""logs"": [{""completion_tokens"": 20, ""id"": 77, ""model_name"": ""gemini-2.5-flash"", ""other"": ""{\""admin_info\"":{\""usage_billing_path\"":\""billing-usage-gemini\"",\""use_channel\"":[\""5\""]},\""billing_mode\"":\""ratio\"",\""billing_source\"":\""wallet\"",\""cache_ratio\"":1,\""cache_tokens\"":0,\""channel_ratio\"":1,\""completion_ratio\"":1,\""cost_base_quota\"":120,\""cost_quota\"":120,\""frt\"":5,\""group_ratio\"":1,\""group_ratio_source\"":\""group\"",\""model_price\"":-1,\""model_ratio\"":1,\""pricing_group\"":\""default\"",\""pricing_model\"":\""gemini-2.5-flash\"",\""pricing_user_group\"":\""default\"",\""profit_quota\"":0,\""profit_rate\"":0,\""request_conversion\"":[\""OpenAI Responses\"",\""Google Gemini\""],\""request_path\"":\""/v1/responses\"",\""stream_status\"":{\""end_error\"":\""unmarshal: invalid character 'i' looking for beginning of object key string\"",\""end_reason\"":\""handler_stop\"",\""error_count\"":1,\""errors\"":[\""unmarshal: invalid character 'i' looking for beginning of object key string\""],\""status\"":\""error\""},\""user_group_ratio\"":-1}"", ""prompt_tokens"": 100, ""quota"": 120}]}"
+retest_round_3	auth:missing:/v1/models	True	"{""status"": 401}"
+retest_round_3	auth:missing:/v1/chat/completions	True	"{""status"": 401}"
+retest_round_3	auth:invalid_token	True	"{""status"": 401, ""excerpt"": null}"
+retest_round_3	auth:invalid_not_forwarded	True	{}
+retest_round_3	upstream:http429	True	"{""status"": 429, ""excerpt"": null}"
+retest_round_3	billing:http429_refunded	True	"{""expected"": 49996301, ""actual"": 49996301}"
+retest_round_3	upstream:http429_not_retried	True	{}
+retest_round_3	auth:ordinary_user_admin_denied	True	"{""status"": 403}"
+retest_round_3	claude:adaptive	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	claude:adaptive_fields_exact	True	"{""body"": {""model"": ""claude-opus-5-5"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""max_tokens"": 128, ""output_config"": {""effort"": ""medium""}, ""thinking"": {""block_binding"": {""prefix_mismatch_behavior"": ""drop_block""}, ""display"": ""summarized"", ""future_field"": {""id"": 9007199254740993}, ""type"": ""adaptive""}}}"
+retest_round_3	claude:adjacent_tools	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	claude:adjacent_tools_preserved	True	"{""body"": {""model"": ""claude-sonnet-4-5"", ""messages"": [{""role"": ""user"", ""content"": ""look up a and b""}, {""role"": ""assistant"", ""content"": [{""type"": ""text"", ""text"": ""...""}, {""type"": ""tool_use"", ""id"": ""a"", ""name"": ""lookup"", ""input"": {}}, {""type"": ""tool_use"", ""id"": ""b"", ""name"": ""lookup"", ""input"": {}}]}, {""role"": ""user"", ""content"": [{""type"": ""tool_result"", ""content"": ""result a"", ""tool_use_id"": ""a""}, {""type"": ""tool_result"", ""content"": ""result b"", ""tool_use_id"": ""b""}]}], ""max_tokens"": 1024}}"
+retest_round_3	setup:option:general_setting.ping_interval_enabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	setup:option:general_setting.ping_interval_seconds	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	claude:slow_stream	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	claude:keepalive_before_content	True	{}
+retest_round_3	setup:option:general_setting.ping_interval_enabled	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	image26:request:gif	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	image26:outbound:gif	True	"{""body"": {""complexity"": ""low"", ""frame_count"": 16, ""frame_duration_ms"": 100, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""gif"", ""prompt"": ""draw"", ""quality"": ""max"", ""size"": ""1536x864""}}"
+retest_round_3	image26:request:svg	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	image26:outbound:svg	True	"{""body"": {""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""svg"", ""prompt"": ""draw"", ""svg"": {""model"": ""author-model"", ""reasoning"": {""effort"": ""high""}, ""extension"": 9007199254740993}}}"
+retest_round_3	image26:request:zero	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	image26:outbound:zero	True	"{""body"": {""complexity"": """", ""frame_count"": 0, ""frame_duration_ms"": 0, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_compression"": 0, ""partial_images"": 0, ""prompt"": ""draw"", ""stream"": false}}"
+retest_round_3	image:sync	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	image:sync_pixels	True	{}
+retest_round_3	image:sync_charged	True	{}
+retest_round_3	image:async_submit:success	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	image:async_id_no_usage:success	True	{}
+retest_round_3	image:reservation_before_completion:success	True	"{""before"": 49995247, ""after_submit"": 49993982}"
+retest_round_3	image:async_terminal:success	True	"{""body"": {""action"": ""generate"", ""create_time"": 1795402801, ""data"": {""images"": [{""url"": ""/api/relay-temp-images/9f4fb26e-8171-4666-a5c0-a8ee3ab8ba9f.png""}]}, ""id"": ""task_7CkWSz38Mc9YzBtk2yxaURiYwX384LDN"", ""image_expires_at"": 1795489201, ""image_status"": ""available"", ""progress"": 100, ""state"": ""succeeded"", ""update_time"": 1795402801, ""usage"": {""prompt_tokens"": 0, ""completion_tokens"": 0, ""total_tokens"": 120, ""prompt_tokens_details"": {""cached_tokens"": 0, ""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0}, ""completion_tokens_details"": {""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0, ""reasoning_tokens"": 0}, ""input_tokens"": 100, ""output_tokens"": 20, ""input_tokens_details"": null, ""claude_cache_creation_5_m_tokens"": 0, ""claude_cache_creation_1_h_tokens"": 0}}}"
+retest_round_3	image:cross_user_denied:success	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	image:denied_not_forwarded:success	True	{}
+retest_round_3	image:async_download_pixels	True	"{""status"": 200, ""bytes"": 68}"
+retest_round_3	image:async_charged	True	{}
+retest_round_3	load:image-repeat-success	True	"{""metrics"": {""name"": ""image-repeat-success"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.01, ""p95_ms"": 13.38, ""p99_ms"": 13.38, ""max_ms"": 16.77}}"
+retest_round_3	image:repeat_no_double_charge:success	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_3	image:task_persisted:success	True	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 120, ""status"": ""SUCCESS""}]}"
+retest_round_3	image:billing_log_count:success	True	"{""count"": 1}"
+retest_round_3	image:async_submit:failure	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	image:async_id_no_usage:failure	True	{}
+retest_round_3	image:reservation_before_completion:failure	True	"{""before"": 49995127, ""after_submit"": 49993862}"
+retest_round_3	image:async_terminal:failure	True	"{""body"": {""action"": ""generate"", ""create_time"": 1795402801, ""data"": {""images"": null}, ""error"": {""code"": ""mock_rate_limit"", ""message"": ""local mock rejected request""}, ""id"": ""task_e93GuHdcaDITRct5qjv2QTmg8zzXmxeY"", ""progress"": 100, ""state"": ""failed"", ""update_time"": 1795402802}}"
+retest_round_3	image:cross_user_denied:failure	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	image:denied_not_forwarded:failure	True	{}
+retest_round_3	image:async_failure_refund	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_3	load:image-repeat-failure	True	"{""metrics"": {""name"": ""image-repeat-failure"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 4.7, ""p95_ms"": 12.09, ""p99_ms"": 12.09, ""max_ms"": 12.13}}"
+retest_round_3	image:repeat_no_double_charge:failure	True	"{""expected"": 49995127, ""actual"": 49995127}"
+retest_round_3	image:task_persisted:failure	True	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 1265, ""status"": ""FAILURE""}]}"
+retest_round_3	image:billing_log_count:failure	True	"{""count"": 0}"
+retest_round_3	video:create:success	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:success	True	{}
+retest_round_3	video:zero_values:success	True	{}
+retest_round_3	video:cross_user:success	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:success	True	{}
+retest_round_3	video:query:success	True	"{""status"": 200, ""body"": {""id"": ""cgt-9dd7b7616d774c84b73fc16d228ba288"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795402802, ""updated_at"": 1795402802, ""error"": null, ""seed"": 0, ""output_format"": ""mp4"", ""tools"": [{""type"": ""web_search""}], ""execution_expires_after"": 3600, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:37789/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}, ""tool_usage"": {""web_search"": 0}}, ""mock_extension"": {""preserve"": true}}}"
+retest_round_3	video:terminal:success	True	{}
+retest_round_3	video:extended_usage	True	{}
+retest_round_3	video:charged	True	{}
+retest_round_3	load:video-repeat-success	True	"{""metrics"": {""name"": ""video-repeat-success"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.29, ""p95_ms"": 8.37, ""p99_ms"": 8.37, ""max_ms"": 11.47}}"
+retest_round_3	video:repeat_no_double_charge:success	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	video:create:failed	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:failed	True	{}
+retest_round_3	video:zero_values:failed	True	{}
+retest_round_3	video:cross_user:failed	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:failed	True	{}
+retest_round_3	video:query:failed	True	"{""status"": 200, ""body"": {""id"": ""cgt-d7511e4d8e1a45e59505762ba96a0fc7"", ""model"": ""doubao-seedance-2-5-260628-mock-failed"", ""status"": ""failed"", ""created_at"": 1795402802, ""updated_at"": 1795402802, ""error"": {""code"": ""MockGenerationFailed"", ""message"": ""Mock task failed""}}}"
+retest_round_3	video:terminal:failed	True	{}
+retest_round_3	video:terminal_refund:failed	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	load:video-repeat-failed	True	"{""metrics"": {""name"": ""video-repeat-failed"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 4.75, ""p95_ms"": 8.02, ""p99_ms"": 8.02, ""max_ms"": 9.75}}"
+retest_round_3	video:repeat_no_double_charge:failed	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	video:create:expired	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:expired	True	{}
+retest_round_3	video:zero_values:expired	True	{}
+retest_round_3	video:cross_user:expired	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:expired	True	{}
+retest_round_3	video:query:expired	True	"{""status"": 200, ""body"": {""id"": ""cgt-7e8d5e133f9e4ac283635fe19209998c"", ""model"": ""doubao-seedance-2-5-260628-mock-expired"", ""status"": ""expired"", ""created_at"": 1795402802, ""updated_at"": 1795402802, ""error"": {""code"": ""TaskExpired"", ""message"": ""Mock task expired""}}}"
+retest_round_3	video:terminal:expired	True	{}
+retest_round_3	video:terminal_refund:expired	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	load:video-repeat-expired	True	"{""metrics"": {""name"": ""video-repeat-expired"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 4.8, ""p95_ms"": 9.17, ""p99_ms"": 9.17, ""max_ms"": 9.76}}"
+retest_round_3	video:repeat_no_double_charge:expired	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	video:create:cancelled	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:cancelled	True	{}
+retest_round_3	video:zero_values:cancelled	True	{}
+retest_round_3	video:cross_user:cancelled	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:cancelled	True	{}
+retest_round_3	video:query:cancelled	True	"{""status"": 200, ""body"": {""id"": ""cgt-db77ffdb18ce4d1bb2ad545ada5aff71"", ""model"": ""doubao-seedance-2-5-260628-mock-cancelled"", ""status"": ""cancelled"", ""created_at"": 1795402802, ""updated_at"": 1795402802, ""error"": {""code"": ""TaskCancelled"", ""message"": ""Mock task cancelled""}}}"
+retest_round_3	video:terminal:cancelled	True	{}
+retest_round_3	video:terminal_refund:cancelled	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	load:video-repeat-cancelled	True	"{""metrics"": {""name"": ""video-repeat-cancelled"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.85, ""p95_ms"": 8.8, ""p99_ms"": 8.8, ""max_ms"": 9.3}}"
+retest_round_3	video:repeat_no_double_charge:cancelled	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	video:create:create429	True	"{""status"": 429, ""excerpt"": null}"
+retest_round_3	video:create429_refund	True	"{""expected"": 49994627, ""actual"": 49994627}"
+retest_round_3	video:create:query429	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:query429	True	{}
+retest_round_3	video:zero_values:query429	True	{}
+retest_round_3	video:cross_user:query429	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:query429	True	{}
+retest_round_3	video:query:query429	True	"{""status"": 429, ""body"": {""error"": {""code"": ""TooManyRequests"", ""message"": ""Mock query rate limit""}}}"
+retest_round_3	video:retry_after	True	{}
+retest_round_3	video:invalid_query_not_finalized:query429	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_3	video:create:query500	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:query500	True	{}
+retest_round_3	video:zero_values:query500	True	{}
+retest_round_3	video:cross_user:query500	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:query500	True	{}
+retest_round_3	video:query:query500	True	"{""status"": 500, ""body"": {""error"": {""code"": ""InternalError"", ""message"": ""Mock upstream failure""}}}"
+retest_round_3	video:invalid_query_not_finalized:query500	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_3	video:create:queryinvalid	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:queryinvalid	True	{}
+retest_round_3	video:zero_values:queryinvalid	True	{}
+retest_round_3	video:cross_user:queryinvalid	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:queryinvalid	True	{}
+retest_round_3	video:query:queryinvalid	True	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream response is missing a task ID"", ""data"": null}}"
+retest_round_3	video:invalid_query_not_finalized:queryinvalid	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_3	video:create:querywrongid	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	video:official_id:querywrongid	True	{}
+retest_round_3	video:zero_values:querywrongid	True	{}
+retest_round_3	video:cross_user:querywrongid	True	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+retest_round_3	video:denied_not_forwarded:querywrongid	True	{}
+retest_round_3	video:query:querywrongid	True	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream returned a different task ID"", ""data"": null}}"
+retest_round_3	video:invalid_query_not_finalized:querywrongid	True	"{""rows"": [{""status"": ""NOT_START""}]}"
+retest_round_3	asset:create	True	"{""status"": 200, ""excerpt"": null}"
+retest_round_3	asset:create_id	True	{}
+retest_round_3	asset:cross_user:/api/assets/asset-b222f028273240298f21f76f2e9ee0d3	True	"{""status"": 404}"
+retest_round_3	asset:denied_not_forwarded:/api/assets/asset-b222f028273240298f21f76f2e9ee0d3	True	{}
+retest_round_3	asset:query:/api/assets/asset-b222f028273240298f21f76f2e9ee0d3	True	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-b222f028273240298f21f76f2e9ee0d3"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+retest_round_3	asset:cross_user:/v1/assets/asset-b222f028273240298f21f76f2e9ee0d3	True	"{""status"": 404}"
+retest_round_3	asset:denied_not_forwarded:/v1/assets/asset-b222f028273240298f21f76f2e9ee0d3	True	{}
+retest_round_3	asset:query:/v1/assets/asset-b222f028273240298f21f76f2e9ee0d3	True	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-b222f028273240298f21f76f2e9ee0d3"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+retest_round_3	asset:list	True	"{""status"": 200, ""body"": {""Result"": {""Items"": [{""Id"": ""asset-b222f028273240298f21f76f2e9ee0d3"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}], ""TotalCount"": 1, ""PageNumber"": 1, ""PageSize"": 20}}}"
+retest_round_3	load:asset-create-100	True	"{""metrics"": {""name"": ""asset-create-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 184.59, ""p95_ms"": 225.81, ""p99_ms"": 229.4, ""max_ms"": 236.99}}"
+retest_round_3	asset:100_unique_ids	True	{}
+retest_round_3	load:asset-poll-500	True	"{""metrics"": {""name"": ""asset-poll-500"", ""requests"": 500, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 500}, ""p50_ms"": 135.61, ""p95_ms"": 145.41, ""p99_ms"": 176.03, ""max_ms"": 186.32}}"
+retest_round_3	asset:poll_identity_and_status	True	{}
+retest_round_3	asset:delete	True	"{""status"": 200}"
+retest_round_3	asset:deleted_denied	True	"{""status"": 404}"
+retest_round_3	asset:deleted_not_forwarded	True	{}
+retest_round_3	load:chat-100	True	"{""metrics"": {""name"": ""chat-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 104.46, ""p95_ms"": 163.57, ""p99_ms"": 174.94, ""max_ms"": 176.99}}"
+retest_round_3	load:chat_content_usage	True	{}
+retest_round_3	billing:chat100_exact	True	"{""expected"": 49980627, ""actual"": 49980627}"
+retest_round_3	billing:chat100_log_count	True	"{""count"": 100}"
+retest_round_3	load:image-20	True	"{""metrics"": {""name"": ""image-20"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 139.48, ""p95_ms"": 147.06, ""p99_ms"": 147.06, ""max_ms"": 147.25}}"
+retest_round_3	load:image_content	True	{}
+retest_round_3	billing:image20_charged	True	{}
+retest_round_3	redis:user_cache_populated	True	{}
+retest_round_3	redis:user_quota_matches_mysql	True	"{""mysql"": [{""id"": 2, ""quota"": 49978227, ""used_quota"": 21773}], ""redis_quota"": ""49978227""}"
+retest_round_3	billing:limited_token_consistent	True	"{""row"": {""id"": 1, ""remain_quota"": 478227, ""used_quota"": 21773}}"
+retest_round_3	setup:revocable_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	auth:revocable_token_primed	True	{}
+retest_round_3	setup:revoke_token	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	auth:revoked_token_denied	True	"{""status"": 401, ""excerpt"": null}"
+retest_round_3	auth:revoked_token_not_forwarded	True	{}
+retest_round_3	runtime:graceful_shutdown:1	True	"{""exit_code"": 0}"
+retest_round_3	runtime:readiness:2	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+retest_round_3	restart:token_valid	True	{}
+retest_round_3	restart:persisted_image	True	"{""status"": 200}"
+retest_round_3	restart:persisted_video	True	"{""status"": 200}"
+retest_round_3	restart:persisted_asset	True	"{""status"": 200}"
+retest_round_3	restart:no_double_billing	True	"{""expected"": 49978227, ""actual"": 49978227}"
+retest_round_3	gates:protected_routes_deny_anonymous	True	"{""total"": 604, ""failures"": []}"
+retest_round_3	gates:no_unexpected_server_error	True	"{""failures"": []}"
+retest_round_3	gates:all_routes_accounted	True	"{""total"": 662, ""exercised"": 660, ""server_errors"": []}"
+retest_round_3	setup:option:theme.frontend	True	"{""status"": 200, ""message"": """"}"
+retest_round_3	web:homepage:default	True	{}
+retest_round_3	web:all_assets:default	True	"{""total"": 307, ""failures"": []}"
+retest_round_3	web:classic_disabled_contract	True	{}
+retest_round_3	runtime:only_local_channels	True	{}
+retest_round_3	upstream:credentials	True	"{""failed_paths"": []}"
+retest_round_3	runtime:graceful_shutdown:2	True	"{""exit_code"": 0}"
+retest_round_3	cleanup:mysql_schema_removed	True	{}
+retest_round_3	cleanup:redis_db14_empty	True	"{""removed_keys"": 46}"

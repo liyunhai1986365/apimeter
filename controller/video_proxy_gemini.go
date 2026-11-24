@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"strconv"
 	"strings"
 
@@ -18,7 +19,7 @@ func getGeminiVideoURL(channel *model.Channel, task *model.Task, apiKey string) 
 	}
 
 	if url := extractGeminiVideoURLFromTaskData(task); url != "" {
-		return ensureAPIKey(url, apiKey), nil
+		return url, nil
 	}
 
 	baseURL := constant.GetChannelBaseURL(channel.Type)
@@ -52,11 +53,11 @@ func getGeminiVideoURL(channel *model.Channel, task *model.Task, apiKey string) 
 
 	taskInfo, parseErr := adaptor.ParseTaskResult(body)
 	if parseErr == nil && taskInfo != nil && taskInfo.RemoteUrl != "" {
-		return ensureAPIKey(taskInfo.RemoteUrl, apiKey), nil
+		return taskInfo.RemoteUrl, nil
 	}
 
 	if url := extractGeminiVideoURLFromPayload(body); url != "" {
-		return ensureAPIKey(url, apiKey), nil
+		return url, nil
 	}
 
 	if parseErr != nil {
@@ -280,15 +281,11 @@ func buildVideoDataURL(mimeType string, encoding string, base64Data string) stri
 	return "data:" + mime + ";base64," + base64Data
 }
 
-func ensureAPIKey(uri, key string) string {
-	if key == "" || uri == "" {
-		return uri
+func sameVideoOrigin(baseURL, resultURL string) bool {
+	base, err := url.Parse(baseURL)
+	if err != nil || base.Hostname() == "" || base.User != nil || (base.Scheme != "https" && base.Scheme != "http") {
+		return false
 	}
-	if strings.Contains(uri, "key=") {
-		return uri
-	}
-	if strings.Contains(uri, "?") {
-		return fmt.Sprintf("%s&key=%s", uri, key)
-	}
-	return fmt.Sprintf("%s?key=%s", uri, key)
+	target, err := url.Parse(resultURL)
+	return err == nil && target.User == nil && target.Scheme == base.Scheme && strings.EqualFold(target.Host, base.Host)
 }

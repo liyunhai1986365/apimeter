@@ -83,6 +83,11 @@ func (o *Options) ShouldPreserveThinkingSuffix(modelName string) bool {
 	return o != nil && o.PreserveThinkingSuffix != nil && o.PreserveThinkingSuffix(modelName)
 }
 
+// ShouldPreserveMappedThinkingSuffix accepts a match on the upstream name or the client's alias.
+func (o *Options) ShouldPreserveMappedThinkingSuffix(info Meta, mapped string) bool {
+	return o.ShouldPreserveThinkingSuffix(mapped) || (info != nil && o.ShouldPreserveThinkingSuffix(info.GetOriginModelName()))
+}
+
 func (o *GeminiOptions) SupportsJSONSchemaModel(modelName string) bool {
 	return o != nil && o.SupportsJSONSchema != nil && o.SupportsJSONSchema(modelName)
 }

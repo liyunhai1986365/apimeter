@@ -282,7 +282,7 @@ func (channel *Channel) GetNextEnabledKeyMatching(accept func(string, int) bool)
 		}
 		return nil
 	}
-	if common.MemoryCacheEnabled {
+	if common.MemoryCacheEnabled && channel.Scope != ChannelScopeUserOwned {
 		channelSyncLock.Lock()
 		defer channelSyncLock.Unlock()
 		current := channelsIDM[channel.Id]
@@ -658,6 +658,12 @@ func (channel *Channel) update(original *Channel, updateKeyState bool) error {
 		var current Channel
 		if err := lockForUpdate(tx).First(&current, channel.Id).Error; err != nil {
 			return err
+		}
+		if current.Scope == ChannelScopeUserOwned &&
+			((channel.Group != "" && channel.Group != BuildUserOwnedProviderGroup(current.OwnerUserId, current.Id)) ||
+				(channel.Scope != "" && channel.Scope != current.Scope) ||
+				(channel.OwnerUserId != 0 && channel.OwnerUserId != current.OwnerUserId)) {
+			return ErrPlatformChannelRequired
 		}
 		if original != nil {
 			if (channel.Setting != nil || channel.AssetSecret != "" || channel.BaseURL != nil || channel.Type != 0) &&
@@ -1052,6 +1058,9 @@ func EditChannelByTag(tag string, newTag *string, modelMapping *string, models *
 		updateData.HeaderOverride = headerOverride
 	}
 
+	if updateData.Group != "" {
+		return updateSharedChannelGroups("tag = ?", tag, updateData)
+	}
 	err := DB.Model(&Channel{}).Where("tag = ?", tag).Updates(updateData).Error
 	if err != nil {
 		return err
@@ -1273,6 +1282,7 @@ func (channel *Channel) GetSetting() dto.ChannelSettings {
 			_ = channel.Save()    // 保存修改
 		}
 	}
+	setting.UserOwned = channel.Scope == ChannelScopeUserOwned
 	return setting
 }
 
@@ -1372,34 +1382,39 @@ func BatchSetChannelGroups(ids []int, groups string) error {
 	if len(ids) == 0 {
 		return nil
 	}
+	return updateSharedChannelGroups("id IN ?", ids, Channel{Group: groups})
+}
 
-	tx := DB.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-
-	err := tx.Model(&Channel{}).Where("id in (?)", ids).Update("group", groups).Error
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	var channels []*Channel
-	err = tx.Where("id in (?)", ids).Find(&channels).Error
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	for _, channel := range channels {
-		err = channel.UpdateAbilities(tx)
-		if err != nil {
-			tx.Rollback()
+// Freeze the target IDs so a tag change cannot change which rows are validated or rebuilt.
+func updateSharedChannelGroups(where string, arg any, updates Channel) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		var channels []Channel
+		if err := lockForUpdate(tx).Select("id", "scope").Where(where, arg).Order("id").Find(&channels).Error; err != nil {
 			return err
 		}
-	}
-
-	return tx.Commit().Error
+		ids := make([]int, 0, len(channels))
+		for _, ch := range channels {
+			if ch.Scope == ChannelScopeUserOwned {
+				return ErrPlatformChannelRequired
+			}
+			ids = append(ids, ch.Id)
+		}
+		if len(ids) == 0 {
+			return nil
+		}
+		if err := tx.Model(&Channel{}).Where("id IN ?", ids).Updates(updates).Error; err != nil {
+			return err
+		}
+		if err := tx.Omit("key").Where("id IN ?", ids).Find(&channels).Error; err != nil {
+			return err
+		}
+		for i := range channels {
+			if err := channels[i].UpdateAbilities(tx); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // CountAllChannels returns total channels in DB

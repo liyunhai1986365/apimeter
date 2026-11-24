@@ -2,7 +2,6 @@ package helper
 
 import (
 	"context"
-	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
@@ -188,9 +187,6 @@ func TestStreamKeepAliveJSONResponseHeaderHandoff(t *testing.T) {
 }
 
 func TestStreamScannerHandler_RequestKeepAliveHandoff(t *testing.T) {
-	previousTimeout := constant.StreamingTimeout
-	constant.StreamingTimeout = 30
-	t.Cleanup(func() { constant.StreamingTimeout = previousTimeout })
 	settings := operation_setting.GetGeneralSetting()
 	previousEnabled, previousInterval := settings.PingIntervalEnabled, settings.PingIntervalSeconds
 	settings.PingIntervalEnabled, settings.PingIntervalSeconds = true, 60

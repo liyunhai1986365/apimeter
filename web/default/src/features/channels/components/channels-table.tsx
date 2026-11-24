@@ -34,6 +34,7 @@ import { useDebounce, useMediaQuery } from '@/hooks'
 import { useTranslation } from 'react-i18next'
 import { getLobeIcon } from '@/lib/lobe-icon'
 import { normalizePagedData } from '@/lib/paged-response'
+import { useIsRoot } from '@/hooks/use-admin'
 import { useTableUrlState } from '@/hooks/use-table-url-state'
 import { Input } from '@/components/ui/input'
 import {
@@ -101,6 +102,7 @@ function isDisabledChannelRow(channel: Channel) {
 
 export function ChannelsTable() {
   const { t } = useTranslation()
+  const isRoot = useIsRoot()
   const { enableTagMode, idSort } = useChannels()
   const isMobile = useMediaQuery('(max-width: 640px)')
 
@@ -108,7 +110,7 @@ export function ChannelsTable() {
   const [sorting, setSorting] = useState<SortingState>([])
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     models: false,
-    scope: false,
+    scope: isRoot,
     tag: false,
   })
   const [rowSelection, setRowSelection] = useState({})
@@ -211,10 +213,9 @@ export function ChannelsTable() {
   const parsedRatioValue = ratioValue === '' ? undefined : Number(ratioValue)
   const hasValidRatioFilter =
     parsedRatioValue !== undefined && Number.isFinite(parsedRatioValue)
-  const activeScope =
-    scopeFilter.length > 0 && !scopeFilter.includes('platform')
-      ? (scopeFilter[0] as ChannelScopeFilter)
-      : undefined
+  const activeScope: ChannelScopeFilter =
+    (scopeFilter[0] as ChannelScopeFilter | undefined) ??
+    (isRoot ? 'all' : 'platform')
 
   const commitRatioFilters = (
     operator: ChannelRatioFilterOp,

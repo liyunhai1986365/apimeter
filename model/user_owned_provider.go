@@ -7,12 +7,54 @@ import (
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
+	"gorm.io/gorm"
 )
 
 const userOwnedProviderGroupPrefix = "user_owned"
 
+var ErrPlatformChannelRequired = errors.New("this operation is not supported for user-owned channels")
+
+// RequirePlatformChannel guards jobs and adapters that use operator-trusted
+// SDKs or transports. Management reads intentionally retain the original row.
+func RequirePlatformChannel(ch *Channel, err error) (*Channel, error) {
+	if err == nil && ch != nil && ch.Scope == ChannelScopeUserOwned {
+		return nil, ErrPlatformChannelRequired
+	}
+	return ch, err
+}
+
 func BuildUserOwnedProviderGroup(userID int, channelID int) string {
 	return fmt.Sprintf("%s:%d:%d", userOwnedProviderGroupPrefix, userID, channelID)
+}
+
+func InsertUserOwnedProvider(channel *Channel) error {
+	if channel.Id != 0 || channel.OwnerUserId <= 0 || channel.Scope != ChannelScopeUserOwned {
+		return errors.New("invalid personal channel")
+	}
+	channel.Group = ""
+	return DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Create(channel).Error; err != nil {
+			return err
+		}
+		channel.Group = BuildUserOwnedProviderGroup(channel.OwnerUserId, channel.Id)
+		if err := tx.Model(channel).Update("group", channel.Group).Error; err != nil {
+			return err
+		}
+		return channel.AddAbilities(tx)
+	})
+}
+
+func DeleteUserOwnedProvider(ownerID, channelID int) error {
+	return DB.Transaction(func(tx *gorm.DB) error {
+		deleted := tx.Where("id = ? AND owner_user_id = ? AND scope = ?", channelID, ownerID, ChannelScopeUserOwned).Delete(&Channel{})
+		if deleted.Error != nil {
+			return deleted.Error
+		}
+		if deleted.RowsAffected == 0 {
+			return gorm.ErrRecordNotFound
+		}
+		return tx.Where("channel_id = ?", channelID).Delete(&Ability{}).Error
+	})
 }
 
 func ParseUserOwnedProviderGroup(group string) (int, int, bool) {

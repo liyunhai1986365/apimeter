@@ -1,0 +1,113 @@
+suite	file	runner	status	passed	failed	seconds
+default native	scripts/normalize-paged-response.test.mjs	standalone_assert	pass	1	0	0.467
+default native	src/components/data-table/data-table-page.test.ts	node:test	pass	2	0	0.516
+default native	src/components/layout/components/public-header-layout.test.ts	node:test	pass	2	0	0.533
+default native	src/components/ui/dropdown-menu.test.tsx	node:test	pass	2	0	0.566
+default native	src/components/ui/markdown.test.tsx	node:test	pass	1	0	1.67
+default native	src/context/theme-provider.test.ts	node:test	pass	2	0	0.516
+default native	src/features/agents/api.test.ts	node:test	pass	21	0	0.666
+default native	src/features/agents/constants.test.ts	node:test	pass	1	0	0.415
+default native	src/features/agents/lib/domain-form.test.ts	node:test	pass	1	0	0.515
+default native	src/features/auth/lib/legal-consent-storage.test.ts	node:test	pass	5	0	0.365
+default native	src/features/channels/api.test.ts	node:test	pass	1	0	0.616
+default native	src/features/channels/lib/channel-form.test.ts	node:test	pass	16	0	0.517
+default native	src/features/channels/lib/retry-policy-templates.test.ts	node:test	pass	4	0	0.465
+default native	src/features/dashboard/lib/announcement-categories.test.ts	node:test	pass	3	0	0.415
+default native	src/features/dashboard/lib/charts.test.ts	node:test	pass	3	0	0.565
+default native	src/features/dashboard/section-registry.test.ts	node:test	pass	1	0	0.415
+default native	src/features/home/landing-data.test.ts	node:test	pass	1	0	0.565
+default native	src/features/invite-rewards/api.test.ts	node:test	pass	2	0	0.565
+default native	src/features/invite-rewards/withdrawal-account.test.ts	node:test	pass	2	0	0.415
+default native	src/features/keys/lib/api-key-group-filters.test.ts	node:test	pass	3	0	0.415
+default native	src/features/keys/lib/api-key-groups.test.ts	node:test	pass	21	0	0.365
+default native	src/features/keys/lib/api-key-onboarding-styles.test.ts	node:test	pass	1	0	0.265
+default native	src/features/keys/lib/api-key-quota.test.ts	node:test	pass	2	0	0.264
+default native	src/features/keys/lib/workspace-settings.test.ts	node:test	pass	4	0	0.265
+default native	src/features/model-monitor/model-removal.test.ts	node:test	pass	2	0	0.265
+default native	src/features/models/lib/endpoint-config.test.ts	node:test	pass	3	0	0.265
+default native	src/features/models/lib/endpoint-template.test.ts	node:test	pass	3	0	0.265
+default native	src/features/models/lib/model-pricing-sync.test.ts	node:test	pass	7	0	0.265
+default native	src/features/models/lib/sort-order-editor.test.ts	node:test	pass	2	0	0.265
+default native	src/features/newapi-suppliers/supplier-model-provider-filter.test.ts	node:test	pass	2	0	0.315
+default native	src/features/newapi-suppliers/supplier-model-test.test.ts	node:test	pass	2	0	0.315
+default native	src/features/playground/lib/model-options.test.ts	node:test	pass	2	0	0.265
+default native	src/features/pricing/api.test.ts	node:test	pass	1	0	0.415
+default native	src/features/pricing/components/dynamic-pricing-breakdown.test.tsx	node:test	pass	4	0	0.666
+default native	src/features/pricing/components/model-details-sticky-layout.test.ts	node:test	pass	2	0	0.315
+default native	src/features/pricing/components/pricing-layout.test.ts	node:test	pass	5	0	0.264
+default native	src/features/pricing/components/pricing-sidebar.test.ts	node:test	pass	2	0	0.265
+default native	src/features/pricing/components/pricing-table-events.test.ts	node:test	pass	1	0	0.264
+default native	src/features/pricing/lib/filters.test.ts	node:test	pass	7	0	0.315
+default native	src/features/pricing/lib/mock-stats.test.ts	node:test	pass	4	0	0.265
+default native	src/features/pricing/lib/model-card-groups.test.ts	node:test	pass	3	0	0.265
+default native	src/features/pricing/lib/model-card-price.test.ts	node:test	pass	15	0	0.366
+default native	src/features/pricing/lib/model-helpers.test.ts	node:test	pass	1	0	0.315
+default native	src/features/pricing/lib/performance-series.test.ts	node:test	pass	2	0	0.264
+default native	src/features/pricing/lib/price.test.ts	node:test	pass	2	0	0.315
+default native	src/features/pricing/lib/quotation-spreadsheet.test.ts	node:test	pass	3	0	0.565
+default native	src/features/pricing/lib/quotation.test.ts	node:test	pass	9	0	0.365
+default native	src/features/pricing/lib/tier-expr.test.ts	node:test	pass	41	0	0.415
+default native	src/features/pricing/lib/vendor-order.test.ts	node:test	pass	1	0	0.315
+default native	src/features/providers/lib/provider-directory.test.ts	node:test	pass	3	0	0.315
+default native	src/features/subscriptions/lib/payment-response.test.ts	node:test	pass	2	0	0.265
+default native	src/features/supplier-directory/lib/supplier-directory.test.ts	node:test	pass	6	0	0.264
+default native	src/features/supplier-directory/lib/user-owned-provider-form.test.ts	node:test	pass	6	0	0.265
+default native	src/features/system-settings/content/announcement-publication.test.ts	node:test	pass	3	0	0.315
+default native	src/features/system-settings/models/group-ratio-visual-editor.test.ts	node:test	pass	4	0	3.572
+default native	src/features/system-settings/models/model-specific-ratio-visual-editor.test.ts	node:test	pass	4	0	0.164
+default native	src/features/system-settings/models/tool-price-config.test.ts	node:test	pass	3	0	0.265
+default native	src/features/system-tasks/api/system-tasks-api.test.ts	node:test	pass	1	0	0.465
+default native	src/features/usage-logs/lib/billing-detail.test.ts	node:test	pass	13	0	0.365
+default native	src/features/usage-logs/lib/format.test.ts	node:test	pass	12	0	0.365
+default native	src/features/usage-logs/lib/log-content.test.ts	node:test	pass	4	0	0.365
+default native	src/features/usage-logs/lib/query-options.test.ts	node:test	pass	1	0	0.315
+default native	src/features/usage-logs/lib/task-display.test.ts	node:test	pass	21	0	0.365
+default native	src/features/usage-logs/lib/utils.test.ts	node:test	pass	4	0	0.415
+default native	src/features/wallet/api.test.ts	node:test	pass	4	0	0.415
+default native	src/features/wallet/lib/billing-history.test.ts	node:test	pass	1	0	0.315
+default native	src/features/wallet/lib/crypto-payment-progress.test.ts	node:test	pass	5	0	0.262
+default native	src/features/wallet/lib/format.test.ts	node:test	pass	4	0	0.312
+default native	src/features/wallet/lib/payment.test.ts	node:test	pass	3	0	0.315
+default native	src/hooks/use-sidebar-config.test.ts	node:test	pass	2	0	0.565
+default native	src/hooks/use-sidebar-data.test.ts	node:test	pass	8	0	3.634
+default native	src/hooks/use-system-config.test.ts	node:test	pass	3	0	0.524
+default native	src/i18n/languages.test.ts	node:test	pass	4	0	0.519
+default native	src/i18n/resource-loader.test.ts	node:test	pass	6	0	0.566
+default native	src/lib/agent-site-access.test.ts	node:test	pass	2	0	0.566
+default native	src/lib/api.test.ts	node:test	pass	3	0	0.816
+default native	src/lib/currency.test.ts	node:test	pass	3	0	0.516
+default native	src/lib/customer-service-script.test.ts	node:test	pass	12	0	0.415
+default native	src/lib/format.test.ts	node:test	pass	3	0	0.466
+default native	src/lib/google-analytics.test.ts	node:test	pass	7	0	0.365
+default native	src/lib/group-discount.test.ts	node:test	pass	9	0	0.366
+default native	src/lib/nav-embed.test.ts	node:test	pass	6	0	0.417
+default native	src/lib/openmosaic-language.test.ts	node:test	pass	2	0	0.516
+default native	src/lib/payment-window.test.ts	node:test	pass	5	0	0.568
+default native	src/lib/seo.test.ts	node:test	pass	11	0	0.465
+default native	src/lib/server-address.test.ts	node:test	pass	2	0	0.415
+default native	src/lib/site-branding.test.ts	node:test	pass	4	0	0.365
+default native	src/lib/status-cache.test.ts	node:test	pass	1	0	0.415
+default native	src/lib/theme-customization.test.ts	node:test	pass	3	0	0.416
+default native	src/lib/user-facing-group-terms.test.ts	node:test	pass	1	0	0.365
+default native	src/lib/webhook-format.test.ts	node:test	pass	2	0	0.416
+default native	src/lib/workspace-account.test.ts	node:test	pass	4	0	0.365
+default native	src/stores/system-config-store.test.ts	node:test	pass	2	0	0.315
+classic native	src/i18n/language.test.js	node:test	pass	3	0	0.516
+default vitest	tests/ai-creation-embed.test.ts :: AI Creation iframe route gets a short-lived same-origin ticket before loading OpenMosaic	vitest	passed	1	0	0.004026151000000027
+default vitest	tests/ai-creation-embed.test.ts :: AI Creation iframe route renders OpenMosaic as the authenticated page content	vitest	passed	1	0	0.0007577949999999873
+default vitest	tests/auth-redirect.test.ts :: resolveAuthRedirect allows the configured AI Creation route after login	vitest	passed	1	0	0.0019321649999999976
+default vitest	tests/auth-redirect.test.ts :: resolveAuthRedirect keeps normal internal redirects inside the application	vitest	passed	1	0	0.00027768499999999106
+default vitest	tests/auth-redirect.test.ts :: resolveAuthRedirect rejects unconfigured and protocol-relative external redirects	vitest	passed	1	0	0.00022054500000001553
+default vitest	tests/nav-modules.test.ts :: header navigation modules keeps AI Creation disabled until an OpenMosaic origin is configured	vitest	passed	1	0	0.004109466999999995
+default vitest	tests/nav-modules.test.ts :: header navigation modules builds the embedded AI Creation route for the configured OpenMosaic origin	vitest	passed	1	0	0.0011636710000000221
+default vitest	tests/nav-modules.test.ts :: header navigation modules hides AI Creation when the configured OpenMosaic origin is invalid	vitest	passed	1	0	0.0005009100000000331
+default vitest	tests/nav-modules.test.ts :: header navigation modules preserves the normalized AI Creation configuration when serialized	vitest	passed	1	0	0.0012554059999999936
+default vitest	tests/nav-modules.test.ts :: header navigation modules updates the OpenMosaic origin without changing the AI Creation switch	vitest	passed	1	0	0.00044904100000002246
+default vitest	tests/nav-modules.test.ts :: header navigation modules resolves the configured AI Creation URL directly from public status	vitest	passed	1	0	0.00029333999999994374
+default vitest	tests/nav-modules.test.ts :: header navigation modules includes Partner and Agent Access after Home by default	vitest	passed	1	0	0.001133985999999993
+default vitest	tests/nav-modules.test.ts :: header navigation modules can build Agent Access from the configured server address	vitest	passed	1	0	0.00043440599999996723
+default vitest	tests/nav-modules.test.ts :: header navigation modules treats same-origin docs links as document routes outside the SPA	vitest	passed	1	0	0.0008982970000000137
+default vitest	tests/nav-modules.test.ts :: header navigation modules forces configured same-origin docs custom links to leave the SPA	vitest	passed	1	0	0.0008975889999999822
+default vitest	tests/nav-modules.test.ts :: header navigation modules keeps legacy boolean settings while adding missing default modules	vitest	passed	1	0	0.0004933990000000108
+default vitest	tests/nav-modules.test.ts :: header navigation modules respects configured order and custom links	vitest	passed	1	0	0.0005648249999999848
+default vitest	tests/nav-modules.test.ts :: header navigation modules keeps legacy external links opening in a new window	vitest	passed	1	0	0.0002076979999999935

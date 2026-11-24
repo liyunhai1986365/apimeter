@@ -290,10 +290,8 @@ func ApplyResponseSchema(ctx context.Context, config *dto.GeminiChatGenerationCo
 // schemaMisfits lists what Gemini's typed Schema cannot hold of a JSON Schema
 // as written: keywords outside its fields, type arrays, non-string enum
 // values, tuple items, boolean schemas, and nesting deeper than
-// CleanFunctionParameters keeps. additionalProperties and $schema are not
-// misfits: agent tools and OpenAI strict schemas carry them on nearly every
-// object, and dropping them as before keeps those requests unchanged for
-// upstreams that do not pass the JSON Schema fields through.
+// CleanFunctionParameters keeps. The default additionalProperties:true
+// adds no constraint; false and a schema both restrict dictionary entries.
 func schemaMisfits(schema any) []string {
 	found := make(map[string]struct{})
 	collectSchemaMisfits(schema, 0, found)
@@ -319,7 +317,7 @@ func collectSchemaMisfits(schema any, depth int, found map[string]struct{}) {
 	}
 	for key, item := range value {
 		if _, allowed := geminiOpenAPISchemaAllowedFields[key]; !allowed {
-			if key != "additionalProperties" && key != "$schema" {
+			if key != "$schema" && (key != "additionalProperties" || item != true) {
 				found[key] = struct{}{}
 			}
 			continue

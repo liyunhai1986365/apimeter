@@ -64,7 +64,10 @@ func UpdateMidjourneyTaskBulk() {
 			if len(taskIds) == 0 {
 				continue
 			}
-			midjourneyChannel, err := model.CacheGetChannel(channelId)
+			midjourneyChannel, err := model.RequirePlatformChannel(model.CacheGetChannel(channelId))
+			if err == model.ErrPlatformChannelRequired {
+				continue
+			}
 			if err != nil {
 				logger.LogError(ctx, fmt.Sprintf("CacheGetChannel: %v", err))
 				err := model.MjBulkUpdate(taskIds, map[string]any{
@@ -369,7 +372,12 @@ func runMidjourneyTaskUpdateOnce(ctx context.Context, reportProgress func(proces
 
 		logger.LogInfo(ctx, fmt.Sprintf("渠道 #%d 未完成的任务有: %d", channelId, len(taskIds)))
 		
-		midjourneyChannel, err := model.CacheGetChannel(channelId)
+		midjourneyChannel, err := model.RequirePlatformChannel(model.CacheGetChannel(channelId))
+		if err == model.ErrPlatformChannelRequired {
+			processedChannels++
+			reportProgress(processedChannels, totalChannels)
+			continue
+		}
 		if err != nil {
 			logger.LogError(ctx, fmt.Sprintf("CacheGetChannel: %v", err))
 			err := model.MjBulkUpdate(taskIds, map[string]any{

@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -75,9 +76,13 @@ func TestImageStreamNormalizationCancellation(t *testing.T) {
 					system_setting.WorkerAllowHttpImageRequestEnabled = true
 				}
 				eof := end == "eof_success" || end == "eof_then_cancel" || end == "eof_then_timeout"
+				imageURL := imageServer.URL
+				if !cloud {
+					imageURL = siteImageFixtureURL(t, imageServer.URL)
+				}
 				upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.Header().Set("Content-Type", "text/event-stream")
-					image := fmt.Sprintf(`"url":%q`, imageServer.URL)
+					image := fmt.Sprintf(`"url":%q`, imageURL)
 					if cloud {
 						image = fmt.Sprintf(`"b64_json":%q`, imageTaskTestPNGBase64)
 					}
@@ -91,11 +96,14 @@ func TestImageStreamNormalizationCancellation(t *testing.T) {
 				request := &dto.ImageRequest{Model: "gpt-image-1", Prompt: "cat", Stream: common.GetPointer(true)}
 				c, recorder, info := newImageResponsePolicyTestContext(t, constant.ChannelTypeOpenAI, upstream.URL, request)
 				if cloud {
-					storageType := dto.UserImageStorageTypeAliyunOSS
-					if target == "r2" {
-						storageType = dto.UserImageStorageTypeCloudflareR2
-					}
-					info.UserSetting.ImageStorage = dto.UserImageStorageSetting{Enabled: true, Type: storageType, Endpoint: imageServer.URL, Bucket: "test-bucket", AccessKeyID: "test-key", AccessKeySecret: "test-secret", PublicBaseURL: "https://cdn.example.test"}
+					// Only operator-configured storage may point to this loopback fixture.
+					t.Setenv("API_TEMP_IMAGE_STORAGE", target)
+					prefix := "API_TEMP_IMAGE_" + strings.ToUpper(target) + "_"
+					t.Setenv(prefix+"ENDPOINT", imageServer.URL)
+					t.Setenv(prefix+"BUCKET", "test-bucket")
+					t.Setenv(prefix+"ACCESS_KEY_ID", "test-key")
+					t.Setenv(prefix+"ACCESS_KEY_SECRET", "test-secret")
+					t.Setenv(prefix+"PUBLIC_BASE_URL", "https://cdn.example.test")
 					info.TokenImageSettings = model.TokenImageSettings{Format: "url", Store: dto.TokenImageStoreForceStoreURLAndBase64}
 				}
 				if end == "idle_timeout" || end == "eof_then_timeout" {

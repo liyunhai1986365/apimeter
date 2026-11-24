@@ -3,6 +3,7 @@ package vertex
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -17,12 +18,12 @@ import (
 // clears the token cache before and after it.
 func stubAccessTokenFetch(t *testing.T, fetch func(Credentials, string) (string, time.Duration, error)) {
 	t.Helper()
-	accessTokens.Clear()
+	accessTokens.Purge()
 	original := fetchAccessToken
 	fetchAccessToken = fetch
 	t.Cleanup(func() {
 		fetchAccessToken = original
-		accessTokens.Clear()
+		accessTokens.Purge()
 	})
 }
 
@@ -51,16 +52,28 @@ func TestGetAccessTokenReusesTokenUntilNearExpiry(t *testing.T) {
 	assert.Equal(t, int32(1), calls.Load())
 
 	// A token inside the refresh margin is replaced.
-	value, ok := accessTokens.Load("7")
+	entry, ok := accessTokens.MustGet("7")
 	require.True(t, ok)
-	entry := value.(cachedAccessToken)
-	entry.expiresAt = time.Now().Add(-time.Second)
-	accessTokens.Store("7", entry)
+	accessTokens.SetWithTTL("7", entry, time.Nanosecond)
 
 	third, err := getAccessToken(a, info)
 	require.NoError(t, err)
 	assert.Equal(t, "token-2", third)
 	assert.Equal(t, int32(2), calls.Load())
+}
+
+func TestAccessTokenCacheReclaimsAbandonedSlots(t *testing.T) {
+	cache := newAccessTokenCache(10 * time.Millisecond)
+	t.Cleanup(cache.StopJanitor)
+	for i := range 1000 {
+		cache.SetWithTTL(strconv.Itoa(i), cachedAccessToken{token: "retired"}, 20*time.Millisecond)
+	}
+	cache.SetWithTTL("active", cachedAccessToken{token: "current"}, time.Hour)
+	// Len counts resident entries without reading or expiring any slot.
+	require.Eventually(t, func() bool { return cache.Len() == 1 }, time.Second, 5*time.Millisecond)
+	entry, ok := cache.MustGet("active")
+	require.True(t, ok)
+	require.Equal(t, "current", entry.token)
 }
 
 func TestGetAccessTokenSeparatesKeySlotsAndReplacedKeys(t *testing.T) {

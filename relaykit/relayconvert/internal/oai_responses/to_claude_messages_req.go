@@ -41,8 +41,9 @@ func OpenAIResponsesRequestToClaudeMessages(c context.Context, info convmeta.Met
 	if req.MaxOutputTokens != nil && *req.MaxOutputTokens > 0 {
 		claudeRequest.MaxTokens = kitutil.GetPointer(*req.MaxOutputTokens)
 	}
+	opts := convmeta.OptionsOf(info)
 	if claudeRequest.MaxTokens == nil || *claudeRequest.MaxTokens == 0 {
-		if defaultMaxTokens, configured := convmeta.OptionsOf(info).Claude.DefaultMaxTokensFor(req.Model); configured {
+		if defaultMaxTokens, configured := opts.Claude.DefaultMaxTokensFor(req.Model); configured {
 			value := uint(defaultMaxTokens)
 			claudeRequest.MaxTokens = &value
 		}
@@ -64,19 +65,15 @@ func OpenAIResponsesRequestToClaudeMessages(c context.Context, info convmeta.Met
 		claudeRequest.ToolChoice = sharedclaude.MapOpenAIToolChoice(toolChoice, ParallelToolCalls(req.ParallelToolCalls))
 	}
 	if baseModel, effort, ok := reasoning.TrimClaudeEffortSuffix(req.Model); ok && reasoning.IsKnownClaudeModel(baseModel) {
-		if !convmeta.OptionsOf(info).ShouldPreserveThinkingSuffix(req.Model) {
-			claudeRequest.Model = baseModel
-		}
+		claudeRequest.Model = baseModel
 		if err := reasoning.ApplyClaudeReasoningEffort(claudeRequest, effort); err != nil {
 			return nil, err
 		}
-	} else if opts := convmeta.OptionsOf(info); opts.Claude.ThinkingAdapterEnabled &&
+	} else if opts.Claude.ThinkingAdapterEnabled &&
 		strings.HasSuffix(req.Model, "-thinking") && reasoning.ClaudeRequiresAdaptiveThinking(req.Model) {
+		claudeRequest.Model = strings.TrimSuffix(req.Model, "-thinking")
 		if err := reasoning.SetClaudeAdaptiveThinking(claudeRequest, ""); err != nil {
 			return nil, err
-		}
-		if !opts.ShouldPreserveThinkingSuffix(req.Model) {
-			claudeRequest.Model = strings.TrimSuffix(req.Model, "-thinking")
 		}
 	}
 	if err := reasoning.ApplyClaudeReasoningEffort(claudeRequest, ReasoningEffort(req)); err != nil {
@@ -146,6 +143,9 @@ func OpenAIResponsesRequestToClaudeMessages(c context.Context, info convmeta.Met
 	}
 	if err := reasoning.NormalizeClaudeThinking(claudeRequest); err != nil {
 		return nil, err
+	}
+	if claudeRequest.Model != req.Model && opts.ShouldPreserveMappedThinkingSuffix(info, req.Model) {
+		claudeRequest.Model = req.Model
 	}
 	return claudeRequest, nil
 }

@@ -66,6 +66,10 @@ func normalizeChannelTestEndpoint(channel *model.Channel, endpointType string) s
 }
 
 func testChannel(channel *model.Channel, testModel string, endpointType string, isStream bool) testResult {
+	// Channel diagnostics use the operator's account and can run unattended.
+	if channel.Scope == model.ChannelScopeUserOwned {
+		return testResult{localErr: model.ErrPlatformChannelRequired}
+	}
 	tik := time.Now()
 	var unsupportedTestChannelTypes = []int{
 		constant.ChannelTypeMidjourney,
@@ -917,7 +921,7 @@ func testAllChannels(notify bool) error {
 		}()
 
 		for _, channel := range channels {
-			if channel.Status == common.ChannelStatusManuallyDisabled {
+			if channel.Scope == model.ChannelScopeUserOwned || channel.Status == common.ChannelStatusManuallyDisabled {
 				continue
 			}
 			isChannelEnabled := channel.Status == common.ChannelStatusEnabled
@@ -1162,6 +1166,9 @@ func tryEnableAutoOperationStandbyChannel(failedChannel *model.Channel, stat ser
 		return false, err
 	}
 	for _, candidate := range candidates {
+		if candidate.Scope == model.ChannelScopeUserOwned {
+			continue
+		}
 		result := testChannel(candidate, stat.ModelName, "", shouldUseStreamForAutomaticChannelTest(candidate))
 		if result.newAPIError != nil || result.localErr != nil {
 			reason := fmt.Sprintf("备用渠道测试失败，模型 %s 未自动启用", stat.ModelName)
@@ -1221,6 +1228,9 @@ func autoEnableOperationRecordChannels(options AutoEnableOperationRecordRunOptio
 
 	enabledCount := 0
 	for _, candidate := range candidates {
+		if candidate.Channel.Scope == model.ChannelScopeUserOwned {
+			continue
+		}
 		modelName := strings.TrimSpace(candidate.Record.ModelName)
 		result := autoEnableOperationRecordChannelTester(candidate.Channel, modelName)
 		if result.localErr != nil || result.newAPIError != nil {
@@ -1396,7 +1406,7 @@ func runChannelTestTask(ctx context.Context, mode string, notify bool, reportPro
 			}, ctx.Err()
 		}
 
-		if channel.Status == common.ChannelStatusManuallyDisabled {
+		if channel.Scope == model.ChannelScopeUserOwned || channel.Status == common.ChannelStatusManuallyDisabled {
 			processed++
 			reportProgress(processed, total)
 			continue

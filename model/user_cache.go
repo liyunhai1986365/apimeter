@@ -11,21 +11,25 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// The wallet format did not change. Old binaries require this exact version
+// to apply top-ups and debits while a rolling upgrade is in progress.
 const userCacheSchemaVersion = 2
 
 type UserBase struct {
-	Id                 int    `json:"id"`
-	Group              string `json:"group"`
-	Email              string `json:"email"`
-	Quota              int    `json:"quota"`
-	Status             int    `json:"status"`
-	Role               int    `json:"role"`
-	Username           string `json:"username"`
-	Setting            string `json:"setting"`
-	ParentUserId       int    `json:"parent_user_id"`
-	MustChangePassword bool   `json:"must_change_password"`
-	AuthVersion        int64  `json:"-"`
-	CacheSchema        int    `json:"-"`
+	Id                    int    `json:"id"`
+	Group                 string `json:"group"`
+	Email                 string `json:"email"`
+	Quota                 int    `json:"quota"`
+	Status                int    `json:"status"`
+	Role                  int    `json:"role"`
+	Username              string `json:"username"`
+	Setting               string `json:"setting"`
+	ParentUserId          int    `json:"parent_user_id"`
+	MustChangePassword    bool   `json:"must_change_password"`
+	AuthVersion           int64  `json:"-"`
+	CacheSchema           int    `json:"-"`
+	SubaccountAuthVersion int64  `json:"-"`
+	ImageQuotaPending     int    `json:"-"`
 }
 
 func (user *UserBase) WriteContext(c *gin.Context) {
@@ -106,23 +110,22 @@ func GetUserCache(userId int) (*UserBase, error) {
 		return nil, err
 	}
 
+	base := user.ToBaseUser()
 	if common.RedisEnabled {
 		floor, floorErr := getUserAuthVersionFloor(userId)
 		if floorErr == nil && floor > user.AuthVersion {
 			return nil, ErrUserAuthCachePending
 		}
-		var cacheErr error
 		if epochErr == nil {
-			cacheErr = writeUserCacheAtEpoch(user.ToBaseUser(), true, epoch)
-		}
-		if err := cacheErr; err != nil {
-			if errors.Is(err, ErrUserAuthCachePending) {
-				return nil, err
+			if cacheErr := writeUserCacheAtEpoch(base, true, epoch); cacheErr != nil {
+				if errors.Is(cacheErr, ErrUserAuthCachePending) {
+					return nil, cacheErr
+				}
+				common.SysLog("failed to synchronously populate user cache: " + cacheErr.Error())
 			}
-			common.SysLog("failed to synchronously populate user cache: " + err.Error())
 		}
 	}
-	return user.ToBaseUser(), nil
+	return base, nil
 }
 
 func cacheGetUserBase(userId int) (*UserBase, error) {
@@ -135,7 +138,15 @@ func cacheGetUserBase(userId int) (*UserBase, error) {
 	if err != nil {
 		return nil, err
 	}
-	if userCache.Id != userId || userCache.CacheSchema != userCacheSchemaVersion || userCache.AuthVersion <= 0 {
+	if userCache.ImageQuotaPending > 0 {
+		recoverImageQuota(getUserCacheKey(userId), "wallet")
+		userCache = UserBase{}
+		if err := common.RedisHGetObj(getUserCacheKey(userId), &userCache); err != nil {
+			return nil, err
+		}
+	}
+	if userCache.Id != userId || userCache.CacheSchema != userCacheSchemaVersion || userCache.AuthVersion <= 0 ||
+		userCache.SubaccountAuthVersion != userCache.AuthVersion {
 		return nil, fmt.Errorf("user cache schema is stale")
 	}
 	floor, err := getUserAuthVersionFloor(userId)

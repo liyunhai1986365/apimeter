@@ -34,6 +34,7 @@ const (
 )
 
 type tempImageStorageConfig struct {
+	userOwned             bool
 	Storage               string
 	LocalDir              string
 	LocalPublicBaseURL    string
@@ -256,7 +257,7 @@ func saveTemporaryImageToOSS(fileHeader *multipart.FileHeader, cfg tempImageStor
 	}, "\n")
 	req.Header.Set("Authorization", "OSS "+cfg.OSSAccessKeyID+":"+ossSignature(cfg.OSSAccessKeySecret, stringToSign))
 
-	resp, err := serviceHTTPClient().Do(req)
+	resp, err := cfg.httpClient().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("upload temp image to oss failed: %w", err)
 	}
@@ -296,7 +297,7 @@ func saveTemporaryImageBytesToOSS(ctx context.Context, data []byte, contentType,
 	}, "\n")
 	req.Header.Set("Authorization", "OSS "+cfg.OSSAccessKeyID+":"+ossSignature(cfg.OSSAccessKeySecret, stringToSign))
 
-	resp, err := serviceHTTPClient().Do(req)
+	resp, err := cfg.httpClient().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("upload temp image to oss failed: %w", err)
 	}
@@ -336,7 +337,7 @@ func saveTemporaryFileBytesToOSS(data []byte, contentType, filename string, cfg 
 	}, "\n")
 	req.Header.Set("Authorization", "OSS "+cfg.OSSAccessKeyID+":"+ossSignature(cfg.OSSAccessKeySecret, stringToSign))
 
-	resp, err := serviceHTTPClient().Do(req)
+	resp, err := cfg.httpClient().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("upload temp image to oss failed: %w", err)
 	}
@@ -411,7 +412,7 @@ func putReaderToR2(ctx context.Context, reader io.Reader, size int64, contentTyp
 	}
 	signR2Request(req, cfg, payloadHash)
 
-	resp, err := serviceHTTPClient().Do(req)
+	resp, err := cfg.httpClient().Do(req)
 	if err != nil {
 		return "", fmt.Errorf("upload temp image to r2 failed: %w", err)
 	}
@@ -504,6 +505,9 @@ func tempImageStorageConfigFromUserImageStorageWithOK(imageStorage dto.UserImage
 }
 
 func tempImageStorageConfigFromUserImageStorage(imageStorage dto.UserImageStorageSetting) (tempImageStorageConfig, error) {
+	if err := ValidateUserImageStorageEndpoints(imageStorage); err != nil {
+		return tempImageStorageConfig{}, err
+	}
 	if !imageStorage.IsReady() {
 		return tempImageStorageConfig{}, fmt.Errorf("user image storage config is incomplete")
 	}
@@ -513,6 +517,7 @@ func tempImageStorageConfigFromUserImageStorage(imageStorage dto.UserImageStorag
 	}
 	cfg := tempImageStorageConfig{
 		Storage:               storage,
+		userOwned:             true,
 		OSSEndpoint:           strings.TrimRight(strings.TrimSpace(imageStorage.Endpoint), "/"),
 		OSSAccelerateEndpoint: strings.TrimRight(strings.TrimSpace(imageStorage.AccelerateEndpoint), "/"),
 		OSSBucket:             strings.TrimSpace(imageStorage.Bucket),
@@ -539,6 +544,22 @@ func tempImageStorageConfigFromUserImageStorage(imageStorage dto.UserImageStorag
 		return cfg, err
 	}
 	return cfg, nil
+}
+
+func ValidateUserImageStorageEndpoints(storage dto.UserImageStorageSetting) error {
+	for _, raw := range []string{storage.Endpoint, storage.AccelerateEndpoint, storage.PublicBaseURL} {
+		if strings.TrimSpace(raw) == "" {
+			continue
+		}
+		u, err := parseOSSEndpoint(raw)
+		if err != nil {
+			return err
+		}
+		if err := ValidateUserEgressURL(u.String()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func hasR2EnvConfig() bool {
@@ -746,7 +767,10 @@ func signR2Request(req *http.Request, cfg tempImageStorageConfig, payloadHash st
 }
 
 func presignR2Request(req *http.Request, cfg tempImageStorageConfig, expires time.Duration) string {
-	now := time.Now().UTC()
+	return presignR2RequestAt(req, cfg, expires, time.Now().UTC())
+}
+
+func presignR2RequestAt(req *http.Request, cfg tempImageStorageConfig, expires time.Duration, now time.Time) string {
 	credentialScope := r2CredentialScope(cfg, now)
 	query := req.URL.Query()
 	query.Set("X-Amz-Algorithm", "AWS4-HMAC-SHA256")
@@ -896,13 +920,13 @@ func relayTempImageExt(filename string) string {
 }
 
 func ServeRelayTempImage(c *gin.Context) {
-	fileID := filepath.Base(strings.TrimSpace(c.Param("id")))
-	if fileID == "." || fileID == "/" || fileID == "" {
+	file, stat, err := openSiteImage(c.Param("id"))
+	if err != nil {
 		c.Status(http.StatusNotFound)
 		return
 	}
-	path := filepath.Join(relayTempImageDir(), fileID)
-	c.File(path)
+	defer file.Close()
+	http.ServeContent(c.Writer, c.Request, stat.Name(), stat.ModTime(), file)
 }
 
 func relayTempImageDir() string {
@@ -936,7 +960,12 @@ func relayTempImagePublicBaseURL(c *gin.Context) string {
 	return scheme + "://" + host
 }
 
-func serviceHTTPClient() *http.Client {
+func (cfg tempImageStorageConfig) httpClient() *http.Client {
+	if cfg.userOwned {
+		client := *userEgressClient
+		client.Timeout = 2 * time.Minute
+		return &client
+	}
 	client := GetHttpClient()
 	if client != nil {
 		return client

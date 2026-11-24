@@ -31,7 +31,9 @@ func (r *bufferedDrainReader) Close() error { r.closed.Store(true); return nil }
 
 func TestStreamScannerBufferedDrainPreservesTimeout(t *testing.T) {
 	c, resp, info := setupStreamTest(t, strings.NewReader(""))
+	previousTimeout := constant.StreamingTimeout
 	constant.StreamingTimeout = 1
+	t.Cleanup(func() { constant.StreamingTimeout = previousTimeout })
 	info.DisablePing = true
 	body := &bufferedDrainReader{reader: strings.NewReader(strings.Repeat("data: accounting\n\n", 30))}
 	resp.Body = body

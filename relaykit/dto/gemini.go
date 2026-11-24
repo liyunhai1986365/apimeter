@@ -180,22 +180,28 @@ func (r *GeminiChatRequest) SetModelName(modelName string) {
 	// GeminiChatRequest does not have a model field, so this method does nothing.
 }
 
+// ParseGeminiTools accepts either the tools array or the single-group shorthand.
+func ParseGeminiTools[T any](raw json.RawMessage) ([]T, error) {
+	if len(raw) == 0 {
+		return nil, nil
+	}
+	if kitutil.GetJsonType(raw) == "object" {
+		var group T
+		if err := kitutil.Unmarshal(raw, &group); err != nil {
+			return nil, err
+		}
+		return []T{group}, nil
+	}
+	var groups []T
+	err := kitutil.Unmarshal(raw, &groups)
+	return groups, err
+}
+
 func (r *GeminiChatRequest) GetTools() []GeminiChatTool {
-	var tools []GeminiChatTool
-	if strings.HasPrefix(string(r.Tools), "[") {
-		// is array
-		if err := kitutil.Unmarshal(r.Tools, &tools); err != nil {
-			kitutil.LogError("error_unmarshalling_tools: " + err.Error())
-			return nil
-		}
-	} else if strings.HasPrefix(string(r.Tools), "{") {
-		// is object
-		singleTool := GeminiChatTool{}
-		if err := kitutil.Unmarshal(r.Tools, &singleTool); err != nil {
-			kitutil.LogError("error_unmarshalling_single_tool: " + err.Error())
-			return nil
-		}
-		tools = []GeminiChatTool{singleTool}
+	tools, err := ParseGeminiTools[GeminiChatTool](r.Tools)
+	if err != nil {
+		kitutil.LogError("error_unmarshalling_tools: " + err.Error())
+		return nil
 	}
 	return tools
 }
@@ -543,7 +549,14 @@ type GeminiChatPromptFeedback struct {
 	BlockReason   *string                  `json:"blockReason,omitempty"`
 }
 
+type GeminiAPIError struct {
+	Code    int    `json:"code"`
+	Message string `json:"message"`
+	Status  string `json:"status,omitempty"`
+}
+
 type GeminiChatResponse struct {
+	Error            *GeminiAPIError           `json:"error,omitempty"`
 	Candidates       []GeminiChatCandidate     `json:"candidates"`
 	PromptFeedback   *GeminiChatPromptFeedback `json:"promptFeedback,omitempty"`
 	UsageMetadata    GeminiUsageMetadata       `json:"usageMetadata"`
@@ -558,6 +571,7 @@ type GeminiChatResponse struct {
 // is silently dropped during unmarshal.
 func (r *GeminiChatResponse) UnmarshalJSON(data []byte) error {
 	var aux struct {
+		Error          *GeminiAPIError           `json:"error,omitempty"`
 		Candidates     []GeminiChatCandidate     `json:"candidates"`
 		PromptFeedback *GeminiChatPromptFeedback `json:"promptFeedback,omitempty"`
 		UsageMetadata  *GeminiUsageMetadata      `json:"usageMetadata"`
@@ -565,6 +579,7 @@ func (r *GeminiChatResponse) UnmarshalJSON(data []byte) error {
 	if err := kitutil.Unmarshal(data, &aux); err != nil {
 		return err
 	}
+	r.Error = aux.Error
 	r.Candidates = aux.Candidates
 	r.PromptFeedback = aux.PromptFeedback
 	r.HasUsageMetadata = aux.UsageMetadata != nil

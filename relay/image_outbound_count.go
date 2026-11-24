@@ -45,7 +45,11 @@ func prepareOutboundImageCount(c *gin.Context, info *relaycommon.RelayInfo, requ
 	if info.PriceData.FreeModel {
 		return nil
 	}
-	quota, err := common.QuotaFromFloatStrict(info.PriceData.ApplyOtherRatiosToFloat(info.PriceData.ModelPrice * common.QuotaPerUnit * info.PriceData.GroupRatioInfo.GroupRatio))
+	unit := info.PriceData.FixedQuotaPerUnit
+	if unit == nil {
+		unit = &common.QuotaPerUnit
+	}
+	quota, err := common.QuotaFromFloatStrict(info.PriceData.ApplyOtherRatiosToFloat(info.PriceData.ModelPrice * (*unit) * info.PriceData.GroupRatioInfo.GroupRatio))
 	if err != nil {
 		return types.NewError(err, types.ErrorCodeModelPriceError, types.ErrOptionWithSkipRetry())
 	}

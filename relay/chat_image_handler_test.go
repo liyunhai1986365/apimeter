@@ -140,7 +140,7 @@ func TestMaybeWrapImageResponseConvertsURLToGeminiInlineData(t *testing.T) {
 		PreserveResponseMode: true,
 	}
 
-	wrapped, err := maybeWrapImageResponse(c, info, []byte(`{"data":[{"url":"`+imageServer.URL+`/out.png"}]}`), &dto.Usage{})
+	wrapped, err := maybeWrapImageResponse(c, info, []byte(`{"data":[{"url":"`+siteImageFixtureURL(t, imageServer.URL)+`"}]}`), &dto.Usage{})
 	require.Nil(t, err)
 	require.True(t, wrapped)
 
@@ -152,4 +152,16 @@ func TestMaybeWrapImageResponseConvertsURLToGeminiInlineData(t *testing.T) {
 	require.Equal(t, "image/png", response.Candidates[0].Content.Parts[0].InlineData.MimeType)
 	require.Equal(t, "ZmFrZS1wbmc=", response.Candidates[0].Content.Parts[0].InlineData.Data)
 	require.Empty(t, response.Candidates[0].Content.Parts[0].Text)
+}
+
+func siteImageFixtureURL(t *testing.T, origin string) string {
+	t.Helper()
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "oss")
+	t.Setenv("API_TEMP_IMAGE_OSS_ENDPOINT", origin)
+	t.Setenv("API_TEMP_IMAGE_OSS_BUCKET", "test-bucket")
+	t.Setenv("API_TEMP_IMAGE_OSS_ACCESS_KEY_ID", "test-key")
+	t.Setenv("API_TEMP_IMAGE_OSS_ACCESS_KEY_SECRET", "test-secret")
+	t.Setenv("API_TEMP_IMAGE_OSS_PREFIX", "images")
+	t.Setenv("API_TEMP_IMAGE_OSS_PUBLIC_BASE_URL", origin)
+	return origin + "/images/20261124/84276077-349c-4ef8-8840-2e14c033e015.png"
 }

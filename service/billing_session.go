@@ -86,8 +86,25 @@ func (s *BillingSession) Settle(actualQuota int) error {
 
 // Refund 退还所有预扣费，幂等安全，异步执行。
 func (s *BillingSession) Refund(c *gin.Context) {
+	s.refund(c, 0)
+}
+
+func (s *BillingSession) RefundImageTask(c *gin.Context, persistedQuota int) {
+	s.refund(c, persistedQuota)
+}
+
+func (s *BillingSession) refund(c *gin.Context, persistedQuota int) {
 	s.mu.Lock()
-	if s.settled || s.refunded || !s.needsRefundLocked() {
+	if s.refunded || s.settled || s.fundingSettled {
+		s.mu.Unlock()
+		return
+	}
+	// The failed task's CAS confirms this reservation even if the earlier
+	// COMMIT reply never reached the session. No second debit is needed.
+	if persistedQuota > s.preConsumedQuota {
+		s.recordImageReservationLocked(persistedQuota)
+	}
+	if !s.needsRefundLocked() {
 		s.mu.Unlock()
 		return
 	}
@@ -202,15 +219,21 @@ func (s *BillingSession) ReserveWithCommit(targetQuota int, commit func(*gorm.DB
 		}
 		return err
 	}
-	// Publish in-memory state only after the transaction commits.
-	if funding, ok := s.funding.(*WalletFunding); ok {
-		funding.consumed += delta
-	}
-	s.preConsumedQuota = reserved
-	s.tokenConsumed += delta
-	s.extraReserved += delta
-	s.syncRelayInfo()
+	s.recordImageReservationLocked(reserved)
 	return nil
+}
+
+func (s *BillingSession) recordImageReservationLocked(reserved int) {
+	delta := reserved - s.preConsumedQuota
+	if delta > 0 {
+		if funding, ok := s.funding.(*WalletFunding); ok {
+			funding.consumed += delta
+		}
+		s.preConsumedQuota = reserved
+		s.tokenConsumed += delta
+		s.extraReserved += delta
+	}
+	s.syncRelayInfo()
 }
 
 func (s *BillingSession) reserveLocked(targetQuota int) error {

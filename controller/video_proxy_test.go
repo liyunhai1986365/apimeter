@@ -15,6 +15,53 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestVideoRedirectDropsCredentialsAndPreservesRange(t *testing.T) {
+	cdn := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if req.Header.Get("Authorization") != "" || req.Header.Get("x-goog-api-key") != "" ||
+			req.Header.Get("Referer") != "" || req.Header.Get("Range") != "bytes=3-7" {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusPartialContent)
+	}))
+	defer cdn.Close()
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		http.Redirect(w, req, cdn.URL+"/file", http.StatusFound)
+	}))
+	defer origin.Close()
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("GET", "/content", nil)
+	c.Request.Header.Set("Range", "bytes=3-7")
+	req, err := http.NewRequest("GET", origin.URL+"/file?private=1", nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer channel-secret")
+	req.Header.Set("x-goog-api-key", "channel-secret")
+	resp, err := fetchVideoContent(c, req, origin.Client(), cdn.Client())
+	require.NoError(t, err)
+	resp.Body.Close()
+	require.Equal(t, http.StatusPartialContent, resp.StatusCode)
+}
+
+func TestGeminiVideoResultCredentialScope(t *testing.T) {
+	const base = "https://provider.example"
+	for _, tc := range []struct {
+		uri  string
+		auth bool
+	}{
+		{base + "/file", true}, {"https://cdn.example/file?signed=1", false},
+		{"https://provider.example:8443/file", false}, {"http://provider.example/file", false},
+	} {
+		task := &model.Task{}
+		var err error
+		task.Data, err = common.Marshal(map[string]string{"uri": tc.uri})
+		require.NoError(t, err)
+		result, err := getGeminiVideoURL(&model.Channel{}, task, "secret")
+		require.NoError(t, err)
+		require.Equal(t, tc.uri, result, "never append the channel key to a URL")
+		require.Equal(t, tc.auth, sameVideoOrigin(base, result))
+	}
+}
+
 func TestVideoProxyGatewayLookupAndNativeFallback(t *testing.T) {
 	r := tgxMaasResourceTestRouter(t, "https://example.test", "test-key", tgxRegressionModel)
 	r.GET("/v1/videos/:task_id/content", middleware.TokenAuth(), VideoProxy)

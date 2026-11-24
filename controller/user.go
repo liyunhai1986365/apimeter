@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -1110,7 +1109,10 @@ func UpdateSelf(c *gin.Context) {
 			return
 		}
 		if err := model.DB.Transaction(func(tx *gorm.DB) error {
-			return cleanUser.UpdateWithTx(tx, true)
+			if err := cleanUser.UpdateWithTx(tx, true); err != nil {
+				return err
+			}
+			return tx.Model(&cleanUser).Update("must_change_password", false).Error
 		}); err != nil {
 			common.ApiError(c, err)
 			return
@@ -1140,13 +1142,6 @@ func UpdateSelf(c *gin.Context) {
 		common.ApiError(c, err)
 		return
 	}
-	if updatePassword {
-		if err := model.MarkUserPasswordChanged(cleanUser.Id); err != nil {
-			common.ApiError(c, err)
-			return
-		}
-	}
-
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": ""})
 	return
 }
@@ -1789,7 +1784,7 @@ func UpdateUserSetting(c *gin.Context) {
 			return
 		}
 		// 验证URL格式
-		if _, err := url.ParseRequestURI(req.WebhookUrl); err != nil {
+		if err := service.ValidateSSRFProtectedFetchURL(req.WebhookUrl); err != nil {
 			common.ApiErrorI18n(c, i18n.MsgSettingWebhookInvalid)
 			return
 		}
@@ -1811,13 +1806,8 @@ func UpdateUserSetting(c *gin.Context) {
 			return
 		}
 		// 验证URL格式
-		if _, err := url.ParseRequestURI(req.BarkUrl); err != nil {
+		if err := service.ValidateSSRFProtectedFetchURL(req.BarkUrl); err != nil {
 			common.ApiErrorI18n(c, i18n.MsgSettingBarkUrlInvalid)
-			return
-		}
-		// 检查是否是HTTP或HTTPS
-		if !strings.HasPrefix(req.BarkUrl, "https://") && !strings.HasPrefix(req.BarkUrl, "http://") {
-			common.ApiErrorI18n(c, i18n.MsgSettingUrlMustHttp)
 			return
 		}
 	}
@@ -1833,13 +1823,8 @@ func UpdateUserSetting(c *gin.Context) {
 			return
 		}
 		// 验证URL格式
-		if _, err := url.ParseRequestURI(req.GotifyUrl); err != nil {
+		if err := service.ValidateSSRFProtectedFetchURL(req.GotifyUrl); err != nil {
 			common.ApiErrorI18n(c, i18n.MsgSettingGotifyUrlInvalid)
-			return
-		}
-		// 检查是否是HTTP或HTTPS
-		if !strings.HasPrefix(req.GotifyUrl, "https://") && !strings.HasPrefix(req.GotifyUrl, "http://") {
-			common.ApiErrorI18n(c, i18n.MsgSettingUrlMustHttp)
 			return
 		}
 	}
@@ -1869,6 +1854,12 @@ func UpdateUserSetting(c *gin.Context) {
 	}
 	if req.ImageStorage != nil {
 		imageStorage := *req.ImageStorage
+		if imageStorage.Enabled {
+			if err := service.ValidateUserImageStorageEndpoints(imageStorage); err != nil {
+				common.ApiError(c, err)
+				return
+			}
+		}
 		if strings.TrimSpace(imageStorage.AccessKeySecret) == "" {
 			imageStorage.AccessKeySecret = existingSettings.ImageStorage.AccessKeySecret
 		}
@@ -1921,6 +1912,10 @@ func UpdateUserSetting(c *gin.Context) {
 }
 
 func TestUserImageStorage(c *gin.Context) {
+	testUserImageStorage(c, service.TestUserImageStorage)
+}
+
+func testUserImageStorage(c *gin.Context, testStorage func(dto.UserImageStorageSetting) (string, error)) {
 	var req dto.UserImageStorageSetting
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.ApiErrorI18n(c, i18n.MsgInvalidParams)
@@ -1942,7 +1937,7 @@ func TestUserImageStorage(c *gin.Context) {
 		req.Type = dto.UserImageStorageTypeAliyunOSS
 	}
 
-	url, err := service.TestUserImageStorage(req)
+	url, err := testStorage(req)
 	if err != nil {
 		common.ApiError(c, err)
 		return

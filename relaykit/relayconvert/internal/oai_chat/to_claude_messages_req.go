@@ -91,6 +91,11 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 		StopSequences: nil,
 		Temperature:   textRequest.Temperature,
 	}
+	outputConfig, err := claudeOutputConfigForChatFormat(c, textRequest.ResponseFormat)
+	if err != nil {
+		return nil, err
+	}
+	claudeRequest.OutputConfig = outputConfig
 	if len(claudeTools) > 0 {
 		claudeRequest.Tools = claudeTools
 	}
@@ -123,9 +128,7 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 
 	if baseModel, effortLevel, ok := reasoning.TrimClaudeEffortSuffix(textRequest.Model); ok && effortLevel != "" &&
 		reasoning.IsKnownClaudeModel(baseModel) {
-		if !opts.ShouldPreserveThinkingSuffix(textRequest.Model) {
-			claudeRequest.Model = baseModel
-		}
+		claudeRequest.Model = baseModel
 		if err := reasoning.ApplyClaudeReasoningEffort(&claudeRequest, effortLevel); err != nil {
 			return nil, err
 		}
@@ -135,6 +138,7 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 		}
 	} else if opts.Claude.ThinkingAdapterEnabled && strings.HasSuffix(textRequest.Model, "-thinking") {
 		trimmedModel := strings.TrimSuffix(textRequest.Model, "-thinking")
+		claudeRequest.Model = trimmedModel
 		if reasoning.ClaudeRequiresAdaptiveThinking(trimmedModel) {
 			if err := reasoning.SetClaudeAdaptiveThinking(&claudeRequest, ""); err != nil {
 				return nil, err
@@ -149,9 +153,6 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 			}
 			claudeRequest.TopP = nil
 			claudeRequest.Temperature = kitutil.GetPointer[float64](1.0)
-		}
-		if !opts.ShouldPreserveThinkingSuffix(textRequest.Model) {
-			claudeRequest.Model = trimmedModel
 		}
 	}
 
@@ -392,6 +393,9 @@ func OpenAIChatRequestToClaudeMessages(c context.Context, info convmeta.Meta, te
 	}
 	if err := reasoning.NormalizeClaudeThinking(&claudeRequest); err != nil {
 		return nil, err
+	}
+	if claudeRequest.Model != textRequest.Model && opts.ShouldPreserveMappedThinkingSuffix(info, textRequest.Model) {
+		claudeRequest.Model = textRequest.Model
 	}
 	return &claudeRequest, nil
 }

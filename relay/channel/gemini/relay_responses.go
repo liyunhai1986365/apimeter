@@ -180,14 +180,11 @@ func GeminiResponsesStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, r
 		}
 		return true
 	}, state.ObserveGeminiSearch)
-	if streamAPIError != nil {
-		return usage, streamAPIError
-	}
 	if streamErr != nil {
 		return usage, streamErr
 	}
-	if streamErr := geminiStreamFinalizationError(info); streamErr != nil {
-		return usage, streamErr
+	if streamAPIError != nil {
+		return usage, streamAPIError
 	}
 
 	chunks, err := geminiState.Finalize(info.UpstreamModelName)

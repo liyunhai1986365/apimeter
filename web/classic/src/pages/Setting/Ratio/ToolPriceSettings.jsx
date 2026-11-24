@@ -31,21 +31,11 @@ import {
 import { IconCopy, IconDelete, IconPlus } from '@douyinfe/semi-icons';
 import { useTranslation } from 'react-i18next';
 import { API, copy, showError, showSuccess } from '../../../helpers';
+import { DEFAULT_PRICES, parseInitialPrices } from './tool-price-config';
 
 const { Text } = Typography;
 
 const OPTION_KEY = 'tool_price_setting.prices';
-
-const DEFAULT_PRICES = {
-  web_search: 10.0,
-  web_search_preview: 10.0,
-  'web_search_preview:gpt-4o*': 25.0,
-  'web_search_preview:gpt-4.1*': 25.0,
-  'web_search_preview:gpt-4o-mini*': 25.0,
-  'web_search_preview:gpt-4.1-mini*': 25.0,
-  file_search: 2.5,
-  google_search: 14.0,
-};
 
 function rowsToObject(rows) {
   const prices = {};
@@ -74,20 +64,7 @@ export default function ToolPriceSettings({ options }) {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    let prices = {};
-    try {
-      const raw = options?.[OPTION_KEY];
-      if (raw) {
-        prices = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      }
-    } catch {
-      prices = {};
-    }
-
-    if (!prices || Object.keys(prices).length === 0) {
-      prices = { ...DEFAULT_PRICES };
-    }
-
+    const prices = parseInitialPrices(options?.[OPTION_KEY]);
     setRows(objectToRows(prices));
     setJsonText(JSON.stringify(prices, null, 2));
   }, [options]);

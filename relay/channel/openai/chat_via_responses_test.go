@@ -10,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
+	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -85,6 +86,150 @@ func TestOaiResponsesToChatStreamHandlerConvertsSSEOrderAndUsage(t *testing.T) {
 		`"usage":{"prompt_tokens":2,"completion_tokens":3,"total_tokens":5`,
 		`data: [DONE]`,
 	)
+}
+
+func TestResponsesToChatRejectsUpstreamStreamError(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+
+	for _, event := range []struct{ name, data string }{
+		{"error", `{"type":"error","code":"bad_response","message":"upstream refused request","param":"model","sequence_number":0}`},
+		{"response.failed", `{"type":"response.failed","response":{"error":{"code":"bad_response","message":"upstream refused request","param":"model"}}}`},
+	} {
+		for _, target := range []string{"buffered", "chat", "claude"} {
+			t.Run(event.name+"/"+target, func(t *testing.T) {
+				body := ": PING\n\nevent: " + event.name + "\ndata: " + event.data + "\n\ndata: [DONE]\n\n"
+				c, recorder, resp, info := newResponsesChatTestContext(t, body, target != "buffered")
+				if target == "claude" {
+					info.RelayFormat = types.RelayFormatClaude
+				}
+				handler := OaiResponsesToChatStreamHandler
+				if target == "buffered" {
+					handler = OaiResponsesToChatBufferedStreamHandler
+				}
+				usage, failure := handler(c, info, resp)
+				require.Nil(t, usage)
+				require.NotNil(t, failure)
+				require.Equal(t, http.StatusBadGateway, failure.StatusCode)
+				converted := failure.ToOpenAIError()
+				require.Equal(t, "bad_response", converted.Code)
+				require.Equal(t, "upstream refused request", converted.Message)
+				require.Equal(t, "model", converted.Param)
+				require.Empty(t, recorder.Body.String())
+			})
+		}
+	}
+}
+
+func TestResponsesToChatSettlesReportedUsageOnStreamFailure(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	const snapshot = `{"input_tokens":100,"output_tokens":20,"total_tokens":120,"input_tokens_details":{"cached_tokens":30}}`
+	for _, tc := range []struct{ name, final string }{
+		{"failure snapshot", `{"type":"response.failed","response":{"usage":` + snapshot + `,"error":{"message":"upstream stopped"}}}`},
+		{"earlier snapshot", `{"type":"error","message":"upstream stopped"}`},
+	} {
+		for _, target := range []string{"buffered", "stream"} {
+			t.Run(tc.name+"/"+target, func(t *testing.T) {
+				body := "data: " + `{"type":"response.in_progress","response":{"usage":` + snapshot + `}}` + "\n\ndata: " +
+					`{"type":"response.output_text.delta","delta":"partial reply"}` + "\n\ndata: " + tc.final + "\n\n"
+				c, recorder, resp, info := newResponsesChatTestContext(t, body, target == "stream")
+				handler := OaiResponsesToChatBufferedStreamHandler
+				if info.IsStream {
+					handler = OaiResponsesToChatStreamHandler
+				}
+				usage, failure := handler(c, info, resp)
+				require.NotNil(t, failure)
+				require.NotNil(t, usage)
+				require.Equal(t, 120, usage.TotalTokens)
+				require.Equal(t, 30, usage.PromptTokensDetails.CachedTokens)
+				if info.IsStream {
+					require.Contains(t, recorder.Body.String(), "partial reply")
+					require.NotContains(t, recorder.Body.String(), "[DONE]")
+				} else {
+					require.Empty(t, recorder.Body.String())
+				}
+				var billable *relaycommon.StreamUsageError
+				require.ErrorAs(t, failure, &billable)
+				calls := 0
+				settle := func(snapshot *dto.Usage) {
+					calls++
+					require.Same(t, usage, snapshot)
+				}
+				billable.SettleOnce(settle)
+				billable.SettleOnce(settle)
+				require.Equal(t, 1, calls)
+			})
+		}
+	}
+}
+
+func TestResponsesJSONFailureUsesExplicitUsage(t *testing.T) {
+	for _, stream := range []bool{false, true} {
+		for _, status := range []string{"failed", "cancelled"} {
+			c, recorder, resp, info := newResponsesChatTestContext(t, `{"status":"`+status+`","usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120}}`, stream)
+			resp.Header.Set("Content-Type", "application/json")
+			if stream {
+				info.RelayFormat = types.RelayFormatClaude
+			}
+			usage, failure := OaiResponsesToChatHandler(c, info, resp)
+			require.NotNil(t, failure)
+			require.Equal(t, http.StatusBadGateway, failure.StatusCode)
+			require.Empty(t, recorder.Body.String())
+			require.NotNil(t, usage)
+			require.Equal(t, 120, usage.TotalTokens)
+			var marker *relaycommon.StreamUsageError
+			require.ErrorAs(t, failure, &marker)
+			calls := 0
+			settle := func(actual *dto.Usage) { calls++; require.Same(t, usage, actual) }
+			marker.SettleOnce(settle)
+			marker.SettleOnce(settle)
+			require.Equal(t, 1, calls)
+		}
+	}
+}
+
+func TestResponsesToChatRequiresUpstreamTerminal(t *testing.T) {
+	oldTimeout := constant.StreamingTimeout
+	constant.StreamingTimeout = 30
+	t.Cleanup(func() { constant.StreamingTimeout = oldTimeout })
+	for _, mode := range []string{"buffered", "stream"} {
+		for _, tc := range []struct{ name, terminal, finish string }{
+			{"eof", "", ""}, {"bare done", "data: [DONE]\n\n", ""},
+			{"completed", "data: " + `{"type":"response.completed","response":{"status":"completed"}}` + "\n\n", "stop"},
+			{"done alias", "data: " + `{"type":"response.done","response":{"status":"completed"}}` + "\n\n", "stop"},
+			{"incomplete", "data: " + `{"type":"response.incomplete"}` + "\n\n", "length"},
+		} {
+			t.Run(mode+"/"+tc.name, func(t *testing.T) {
+				body := "data: " + `{"type":"response.in_progress","response":{"usage":{"input_tokens":100,"output_tokens":20,"total_tokens":120}}}` + "\n\ndata: " + `{"type":"response.output_text.delta","delta":"partial reply"}` + "\n\n" + tc.terminal
+				c, recorder, resp, info := newResponsesChatTestContext(t, body, mode == "stream")
+				handler := OaiResponsesToChatBufferedStreamHandler
+				if info.IsStream {
+					handler = OaiResponsesToChatStreamHandler
+				}
+				usage, failure := handler(c, info, resp)
+				require.NotNil(t, usage)
+				require.Equal(t, 120, usage.TotalTokens)
+				got := recorder.Body.String()
+				if tc.finish != "" {
+					require.Nil(t, failure)
+					require.Contains(t, got, `"finish_reason":"`+tc.finish+`"`)
+					return
+				}
+				require.NotNil(t, failure)
+				require.Equal(t, http.StatusBadGateway, failure.StatusCode)
+				var marker *relaycommon.StreamUsageError
+				require.ErrorAs(t, failure, &marker)
+				require.NotContains(t, got, `"finish_reason":"stop"`)
+				require.NotContains(t, got, "[DONE]")
+				if mode == "buffered" {
+					require.Empty(t, got)
+				}
+			})
+		}
+	}
 }
 
 func TestOaiResponsesToChatStreamHandlerConvertsClaudeSSETerminalsAndUsage(t *testing.T) {

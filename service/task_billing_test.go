@@ -701,7 +701,8 @@ func TestRefundTaskQuotaReversesAgentProfit(t *testing.T) {
 	task := makeTask(userID, channelID, preConsumed, tokenID, BillingSourceWallet, 0)
 	task.PrivateData.BillingContext.AgentBillingSnapshot = snapshot
 
-	RefundTaskQuota(ctx, task, "agent task failed")
+	require.NoError(t, model.DB.Create(task).Error)
+	require.True(t, RefundTaskQuota(ctx, task, "agent task failed"))
 
 	var ledgers []model.AgentLedger
 	require.NoError(t, model.DB.Where("agent_id = ?", agentID).Order("id asc").Find(&ledgers).Error)
@@ -729,7 +730,8 @@ func TestRefundAsyncImageTaskDoesNotCreateAgentDebitBeforeUsageSettlement(t *tes
 		ChargedGroupRatio: 1.25,
 	}
 
-	RefundTaskQuota(ctx, task, "async image failed before usage")
+	require.NoError(t, model.DB.Create(task).Error)
+	require.True(t, RefundTaskQuota(ctx, task, "async image failed before usage"))
 
 	var count int64
 	require.NoError(t, model.DB.Model(&model.AgentLedger{}).Where("agent_id = ?", agentID).Count(&count).Error)
@@ -878,7 +880,8 @@ func TestRefundTaskQuota_TieredExprIncludesPricingSnapshot(t *testing.T) {
 		ExprVersion:               billingexpr.ExprVersion(expr),
 	}
 
-	RefundTaskQuota(ctx, task, "upstream failed")
+	require.NoError(t, model.DB.Create(task).Error)
+	require.True(t, RefundTaskQuota(ctx, task, "upstream failed"))
 
 	log := getLastLog(t)
 	require.NotNil(t, log)

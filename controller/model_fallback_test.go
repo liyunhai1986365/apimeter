@@ -3,7 +3,6 @@ package controller
 import (
 	"bytes"
 	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -169,14 +168,7 @@ func TestUserImageStorageSettingPersistsAndRedactsSecret(t *testing.T) {
 func TestTestUserImageStorageUsesSavedSecretWhenRequestOmitsIt(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	var uploadedBody string
-	ossServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		uploadedBody = string(body)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer ossServer.Close()
+	const endpoint = "https://storage.example.org"
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -195,7 +187,7 @@ func TestTestUserImageStorageUsesSavedSecretWhenRequestOmitsIt(t *testing.T) {
 		ImageStorage: dto.UserImageStorageSetting{
 			Enabled:         true,
 			Type:            dto.UserImageStorageTypeAliyunOSS,
-			Endpoint:        ossServer.URL,
+			Endpoint:        endpoint,
 			Bucket:          "bucket",
 			AccessKeyID:     "access-key",
 			AccessKeySecret: "saved-secret",
@@ -215,7 +207,7 @@ func TestTestUserImageStorageUsesSavedSecretWhenRequestOmitsIt(t *testing.T) {
 	body := []byte(`{
 		"enabled": true,
 		"type": "aliyun_oss",
-		"endpoint": "` + ossServer.URL + `",
+		"endpoint": "` + endpoint + `",
 		"bucket": "bucket",
 		"access_key_id": "access-key",
 		"object_prefix": "prefix"
@@ -226,26 +218,19 @@ func TestTestUserImageStorageUsesSavedSecretWhenRequestOmitsIt(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set("id", 1)
 
-	TestUserImageStorage(c)
+	testUserImageStorage(c, func(cfg dto.UserImageStorageSetting) (string, error) {
+		require.Equal(t, "saved-secret", cfg.AccessKeySecret)
+		require.Equal(t, endpoint, cfg.Endpoint)
+		return "fixture", nil
+	})
 
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), `"success":true`)
-	require.Equal(t, "test", uploadedBody)
 }
 
-func TestTestUserImageStorageSupportsCloudflareR2(t *testing.T) {
+func TestUserImageStorageRejectsPrivateR2(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	var uploadedBody string
-	var uploadedAuthorization string
-	r2Server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		uploadedAuthorization = r.Header.Get("Authorization")
-		body, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-		uploadedBody = string(body)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer r2Server.Close()
 
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -270,7 +255,7 @@ func TestTestUserImageStorageSupportsCloudflareR2(t *testing.T) {
 	body := []byte(`{
 		"enabled": true,
 		"type": "cloudflare_r2",
-		"endpoint": "` + r2Server.URL + `",
+		"endpoint": "https://127.0.0.1",
 		"bucket": "bucket",
 		"access_key_id": "access-key",
 		"access_key_secret": "secret",
@@ -285,7 +270,7 @@ func TestTestUserImageStorageSupportsCloudflareR2(t *testing.T) {
 	TestUserImageStorage(c)
 
 	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Contains(t, recorder.Body.String(), `"success":true`)
-	require.Equal(t, "test", uploadedBody)
-	require.Contains(t, uploadedAuthorization, "AWS4-HMAC-SHA256")
+	require.Contains(t, recorder.Body.String(), `"success":false`)
+	require.Contains(t, recorder.Body.String(), "public host")
+	require.NotContains(t, recorder.Body.String(), "127.0.0.1")
 }

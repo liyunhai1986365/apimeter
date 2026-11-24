@@ -501,6 +501,9 @@ func selectConfigurableResourceChannelForEndpoint(c *gin.Context, method, path s
 }
 
 func configurableResourceForChannelEndpoint(channelModel *model.Channel, method, path, group string) (*configurable.Profile, *configurable.ResourceConfig, bool) {
+	if channelModel != nil && channelModel.Scope == model.ChannelScopeUserOwned {
+		return nil, nil, false
+	}
 	if channelModel == nil || channelModel.Type != constant.ChannelTypeConfigurable || channelModel.Status != common.ChannelStatusEnabled {
 		return nil, nil, false
 	}
@@ -641,6 +644,9 @@ func configurableResourceCandidateGroups(c *gin.Context) []string {
 }
 
 func configurableResourceChannelMatches(channelModel *model.Channel, profileID, resourceID, group string) bool {
+	if channelModel != nil && channelModel.Scope == model.ChannelScopeUserOwned {
+		return false
+	}
 	if channelModel == nil || channelModel.Type != constant.ChannelTypeConfigurable || channelModel.Status != common.ChannelStatusEnabled {
 		return false
 	}

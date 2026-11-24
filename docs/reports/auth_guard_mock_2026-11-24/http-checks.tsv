@@ -1,0 +1,85 @@
+case	path	status	passed
+positive fixture login	/api/user/login	fixture	true
+initialized instance	/api/setup	200	true
+wrong password issues no credentials	/api/user/login	200	true
+no credential	/api/user/self	401	true
+no credential	/api/user/token	401	true
+no credential	/api/verify	401	true
+no credential	/api/user/2fa/setup	401	true
+no credential	/api/user/2fa/enable	401	true
+no credential	/api/user/2fa/disable	401	true
+no credential	/api/user/2fa/backup_codes	401	true
+no credential	/api/user/passkey/register/begin	401	true
+no credential	/api/user/passkey/register/finish	401	true
+no credential	/api/user/passkey/verify/begin	401	true
+no credential	/api/user/passkey/verify/finish	401	true
+no credential	/api/user/passkey	401	true
+no credential	/api/oauth/email/bind	401	true
+no credential	/api/oauth/wechat/bind	401	true
+no credential	/api/oauth/telegram/bind/start	401	true
+no credential	/api/token/1/key	401	true
+no credential	/api/token/batch/keys	401	true
+no credential	/api/subscription/self/1/key	401	true
+no credential	/api/user/topup	401	true
+no credential	/api/channel/1/key	401	true
+no credential	/api/redemption/	401	true
+no credential	/api/integrations/openmosaic/embedded-authorize	401	true
+no credential	/api/integrations/openmosaic/exchange	401	true
+no credential	/v1/models	401	true
+no credential	/v1/chat/completions	401	true
+no credential	/v1/responses	401	true
+no credential	/v1/messages	401	true
+no credential	/v1/embeddings	401	true
+no credential	/v1/videos/fixture	401	true
+no credential	/dashboard/billing/usage	401	true
+no credential	/api/log/token	401	true
+no credential	/api/usage/token/	401	true
+invalid proof	/api/user/login/2fa	200	true
+invalid proof	/api/user/reset	200	true
+invalid proof	/api/user/passkey/login/finish	200	true
+invalid proof	/api/captcha/verify	200	true
+invalid proof	/api/user/auth/refresh	401	true
+normal user insufficient proof	/api/user/topup	200	true
+normal user insufficient proof	/api/channel/1/key	403	true
+unconfigured payment callback	/api/stripe/webhook	403	true
+unconfigured payment callback	/api/creem/webhook	403	true
+unconfigured payment callback	/api/waffo/webhook	403	true
+unconfigured payment callback	/api/waffo-pancake/webhook/test	403	true
+invalid bearer	/v1/models	401	true
+invalid bearer	/api/user/self	401	true
+invalid bearer	/dashboard/billing/usage	401	true
+invalid bearer	/v1/chat/completions	401	true
+critical gate with full fixture window	/api/user/login	429	true
+critical gate with full fixture window	/api/user/register	429	true
+critical gate with full fixture window	/api/user/login/2fa	429	true
+critical gate with full fixture window	/api/user/reset	429	true
+critical gate with full fixture window	/api/reset_password	429	true
+critical gate with full fixture window	/api/user/passkey/login/begin	429	true
+critical gate with full fixture window	/api/user/passkey/login/finish	429	true
+critical gate with full fixture window	/api/user/auth/refresh	429	true
+critical gate with full fixture window	/api/user/auth/logout	429	true
+critical gate with full fixture window	/api/oauth/state	429	true
+critical gate with full fixture window	/api/oauth/github	429	true
+critical gate with full fixture window	/api/oauth/wechat	429	true
+critical gate with full fixture window	/api/oauth/telegram/login	429	true
+critical gate with full fixture window	/api/oauth/telegram/bind/fixture	429	true
+critical gate with full fixture window	/api/oauth/email/bind	429	true
+critical gate with full fixture window	/api/oauth/wechat/bind	429	true
+critical gate with full fixture window	/api/oauth/telegram/bind/start	429	true
+critical gate with full fixture window	/api/verify	429	true
+critical gate with full fixture window	/api/user/token	429	true
+critical gate with full fixture window	/api/user/topup	429	true
+critical gate with full fixture window	/api/token/1/key	429	true
+critical gate with full fixture window	/api/token/batch/keys	429	true
+critical gate with full fixture window	/api/subscription/self/1/key	429	true
+last admission	/api/user/login	200	true
+next denied	/api/user/login	429	true
+expiry restores legitimate login	/api/user/login	200	true
+dedicated gate	/api/captcha	429	true
+dedicated gate	/api/captcha/verify	429	true
+dedicated gate	/api/verification	429	true
+2FA first factor issues challenge only	/api/user/login	fixture	true
+2FA account lock persisted	/api/user/login/2fa	200	true
+locked account rejects its valid backup code	/api/user/login/2fa	200	true
+expired account lock permits valid backup	/api/user/login/2fa	200	true
+finished flow rejects reuse	/api/user/login/2fa	200	true

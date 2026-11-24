@@ -76,14 +76,17 @@ func parseStatusFilter(statusParam string) int {
 	}
 }
 
-func parseChannelScopeFilter(scopeParam string) string {
-	switch strings.ToLower(strings.TrimSpace(scopeParam)) {
+func channelScopeFilter(c *gin.Context) string {
+	switch strings.ToLower(strings.TrimSpace(c.Query("scope"))) {
+	case "":
+		if c.GetInt("role") == common.RoleRootUser {
+			return "all"
+		}
+		return model.ChannelScopePlatform
 	case "all":
 		return "all"
 	case model.ChannelScopeUserOwned:
 		return model.ChannelScopeUserOwned
-	case model.ChannelScopePlatform, "":
-		return model.ChannelScopePlatform
 	default:
 		return model.ChannelScopePlatform
 	}
@@ -154,7 +157,7 @@ func GetAllChannels(c *gin.Context) {
 	statusParam := c.Query("status")
 	// statusFilter: -1 all, 1 enabled, 0 disabled (include auto & manual)
 	statusFilter := parseStatusFilter(statusParam)
-	scopeFilter := parseChannelScopeFilter(c.Query("scope"))
+	scopeFilter := channelScopeFilter(c)
 	// type filter
 	typeStr := c.Query("type")
 	typeFilter := -1
@@ -372,7 +375,7 @@ func SearchChannels(c *gin.Context) {
 	modelKeyword := c.Query("model")
 	statusParam := c.Query("status")
 	statusFilter := parseStatusFilter(statusParam)
-	scopeFilter := parseChannelScopeFilter(c.Query("scope"))
+	scopeFilter := channelScopeFilter(c)
 	idSort, _ := strconv.ParseBool(c.Query("id_sort"))
 	sortOptions := model.NewChannelSortOptions(c.Query("sort_by"), c.Query("sort_order"), idSort)
 	enableTagMode, _ := strconv.ParseBool(c.Query("tag_mode"))
@@ -1436,7 +1439,7 @@ type fetchModelsRequest struct {
 func buildAdvancedCustomModelPreviewChannel(req fetchModelsRequest) (*model.Channel, error) {
 	var channel *model.Channel
 	if req.ChannelID > 0 {
-		savedChannel, err := model.GetChannelById(req.ChannelID, true)
+		savedChannel, err := model.RequirePlatformChannel(model.GetChannelById(req.ChannelID, true))
 		if err != nil {
 			return nil, err
 		}
@@ -2247,7 +2250,7 @@ func OllamaPullModel(c *gin.Context) {
 	}
 
 	// 获取渠道信息
-	channel, err := model.GetChannelById(req.ChannelID, true)
+	channel, err := model.RequirePlatformChannel(model.GetChannelById(req.ChannelID, true))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
@@ -2310,7 +2313,7 @@ func OllamaPullModelStream(c *gin.Context) {
 	}
 
 	// 获取渠道信息
-	channel, err := model.GetChannelById(req.ChannelID, true)
+	channel, err := model.RequirePlatformChannel(model.GetChannelById(req.ChannelID, true))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
@@ -2392,7 +2395,7 @@ func OllamaDeleteModel(c *gin.Context) {
 	}
 
 	// 获取渠道信息
-	channel, err := model.GetChannelById(req.ChannelID, true)
+	channel, err := model.RequirePlatformChannel(model.GetChannelById(req.ChannelID, true))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,
@@ -2442,7 +2445,7 @@ func OllamaVersion(c *gin.Context) {
 		return
 	}
 
-	channel, err := model.GetChannelById(id, true)
+	channel, err := model.RequirePlatformChannel(model.GetChannelById(id, true))
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{
 			"success": false,

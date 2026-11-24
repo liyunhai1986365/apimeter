@@ -175,6 +175,9 @@ func FetchUpstreamRatios(c *gin.Context) {
 			return
 		}
 		for _, ch := range dbChannels {
+			if ch.Scope == model.ChannelScopeUserOwned {
+				continue
+			}
 			if base := ch.GetBaseURL(); strings.HasPrefix(base, "http") {
 				upstreams = append(upstreams, dto.UpstreamDTO{
 					ID:       ch.Id,
@@ -996,6 +999,9 @@ func GetSyncableChannels(c *gin.Context) {
 
 	var syncableChannels []dto.SyncableChannel
 	for _, channel := range channels {
+		if channel.Scope == model.ChannelScopeUserOwned {
+			continue
+		}
 		if channel.GetBaseURL() != "" {
 			syncableChannels = append(syncableChannels, dto.SyncableChannel{
 				ID:      channel.Id,

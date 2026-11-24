@@ -130,6 +130,25 @@ func TestOaiResponsesJSONToClaudeStream(t *testing.T) {
 	}
 }
 
+func TestOaiResponsesJSONToClaudeStreamRejectsFailedResponse(t *testing.T) {
+	for _, tc := range []struct{ status, detail, want string }{
+		{"failed", `{"code":"server_error","message":"upstream failed"}`, "upstream failed"},
+		{"failed", "null", "upstream response failed"},
+		{"cancelled", "null", "upstream response cancelled"},
+	} {
+		t.Run(tc.want, func(t *testing.T) {
+			body := `{"model":"o3","status":"` + tc.status + `","error":` + tc.detail + `,"output":[]}`
+			c, recorder, resp, info := newResponsesChatTestContext(t, body, true)
+			info.RelayFormat = types.RelayFormatClaude
+			usage, apiErr := OaiResponsesToChatHandler(c, info, resp)
+			require.ErrorContains(t, apiErr, tc.want)
+			require.Equal(t, http.StatusBadGateway, apiErr.StatusCode)
+			require.Nil(t, usage)
+			require.Empty(t, recorder.Body.String(), "a failed response must not emit successful Claude events")
+		})
+	}
+}
+
 func TestOaiResponsesJSONToClaudeNonStreamAndUsageParity(t *testing.T) {
 	for _, upstreamUsage := range []bool{true, false} {
 		body := responsesJSONStreamFixture

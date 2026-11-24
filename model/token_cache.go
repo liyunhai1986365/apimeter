@@ -98,6 +98,13 @@ func cacheGetTokenByKey(key string) (*Token, error) {
 	if err := common.RedisHGetObj(getTokenCacheKey(key), &token); err != nil {
 		return nil, err
 	}
+	if token.ImageQuotaPending > 0 {
+		recoverImageQuota(getTokenCacheKey(key), "token")
+		token = Token{}
+		if err := common.RedisHGetObj(getTokenCacheKey(key), &token); err != nil {
+			return nil, err
+		}
+	}
 	if token.Id <= 0 {
 		return nil, fmt.Errorf("token cache is incomplete")
 	}

@@ -40,7 +40,7 @@ func parseCodexOAuthKey(raw string) (*CodexOAuthKey, error) {
 }
 
 func RefreshCodexChannelCredential(ctx context.Context, channelID int, opts CodexCredentialRefreshOptions) (*CodexOAuthKey, *model.Channel, error) {
-	ch, err := model.GetChannelById(channelID, true)
+	ch, err := model.RequirePlatformChannel(model.GetChannelById(channelID, true))
 	if err != nil {
 		return nil, nil, err
 	}

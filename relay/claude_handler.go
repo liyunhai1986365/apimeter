@@ -57,13 +57,12 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 		}
 		info.UpstreamModelName = request.Model
 		info.SetReasoningEffort(reasoning.ClaudeEffectiveEffort(request, request.Model))
-	} else {
+	} else if !preserveClaudeSuffix(info.OriginModelName, request.Model) {
 		// AWS/Vertex select the model through the request URL even when the body
 		// is passed through. Normalize only that name; leave thinking untouched.
 		if baseModel, effort, ok := reasoning.TrimClaudeEffortSuffix(request.Model); ok && effort != "" && reasoning.IsKnownClaudeModel(baseModel) {
 			info.UpstreamModelName = baseModel
-		} else if model_setting.GetClaudeSettings().ThinkingAdapterEnabled &&
-			!model_setting.ShouldPreserveThinkingSuffix(info.OriginModelName) {
+		} else if model_setting.GetClaudeSettings().ThinkingAdapterEnabled {
 			info.UpstreamModelName = strings.TrimSuffix(request.Model, "-thinking")
 		}
 	}
@@ -189,6 +188,12 @@ func ClaudeHelper(c *gin.Context, info *relaycommon.RelayInfo) (newAPIError *typ
 // converts. Raw body passthrough and subsequent explicit channel overrides keep
 // their existing precedence.
 func adaptClaudeThinking(request *dto.ClaudeRequest, originModel string) error {
+	// Apply the base model's capabilities, but retain the literal deployment
+	// name on the wire when the channel relies on its suffix.
+	wireModel := request.Model
+	if preserveClaudeSuffix(originModel, wireModel) {
+		defer func() { request.Model = wireModel }()
+	}
 	if baseModel, effort, ok := reasoning.TrimClaudeEffortSuffix(request.Model); ok && effort != "" && reasoning.IsKnownClaudeModel(baseModel) {
 		request.Model = baseModel
 		if err := reasoning.ApplyClaudeReasoningEffort(request, effort); err != nil {
@@ -215,9 +220,11 @@ func adaptClaudeThinking(request *dto.ClaudeRequest, originModel string) error {
 				request.Temperature = common.GetPointer[float64](1.0)
 			}
 		}
-		if !model_setting.ShouldPreserveThinkingSuffix(originModel) {
-			request.Model = baseModel
-		}
+		request.Model = baseModel
 	}
 	return reasoning.NormalizeClaudeThinking(request)
+}
+
+func preserveClaudeSuffix(origin, mapped string) bool {
+	return model_setting.ShouldPreserveThinkingSuffix(origin) || model_setting.ShouldPreserveThinkingSuffix(mapped)
 }

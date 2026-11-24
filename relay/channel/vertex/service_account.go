@@ -4,19 +4,18 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"fmt"
 	"net/url"
 	"strings"
-	"sync"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/samber/hot"
 	"golang.org/x/sync/singleflight"
-
-	"fmt"
-	"time"
 )
 
 type Credentials struct {
@@ -32,15 +31,16 @@ type Credentials struct {
 const accessTokenRefreshMargin = 5 * time.Minute
 
 type cachedAccessToken struct {
-	token     string
-	identity  string
-	expiresAt time.Time
+	token    string
+	identity string
+}
+
+func newAccessTokenCache(sweepInterval time.Duration) *hot.HotCache[string, cachedAccessToken] {
+	return hot.NewHotCache[string, cachedAccessToken](hot.LRU, 4096).WithTTL(sweepInterval).WithJanitor().Build()
 }
 
 var (
-	// accessTokens holds one entry per channel key slot (channel id, plus the
-	// key index on multi-key channels).
-	accessTokens       sync.Map
+	accessTokens       = newAccessTokenCache(time.Minute)
 	accessTokenFlights singleflight.Group
 	// fetchAccessToken is replaced in tests.
 	fetchAccessToken = requestAccessToken
@@ -68,11 +68,7 @@ func getAccessToken(a *Adaptor, info *relaycommon.RelayInfo) (string, error) {
 			return "", err
 		}
 		if lifetime > accessTokenRefreshMargin {
-			accessTokens.Store(cacheKey, cachedAccessToken{
-				token:     token,
-				identity:  identity,
-				expiresAt: time.Now().Add(lifetime - accessTokenRefreshMargin),
-			})
+			accessTokens.SetWithTTL(cacheKey, cachedAccessToken{token: token, identity: identity}, lifetime-accessTokenRefreshMargin)
 		}
 		return token, nil
 	})
@@ -83,12 +79,8 @@ func getAccessToken(a *Adaptor, info *relaycommon.RelayInfo) (string, error) {
 }
 
 func loadAccessToken(cacheKey, identity string) (string, bool) {
-	value, ok := accessTokens.Load(cacheKey)
-	if !ok {
-		return "", false
-	}
-	entry := value.(cachedAccessToken)
-	if entry.identity != identity || !time.Now().Before(entry.expiresAt) {
+	entry, ok := accessTokens.MustGet(cacheKey)
+	if !ok || entry.identity != identity {
 		return "", false
 	}
 	return entry.token, true

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -32,7 +33,10 @@ func updateVideoTaskAll(ctx context.Context, platform constant.TaskPlatform, cha
 	if len(taskIds) == 0 {
 		return nil
 	}
-	cacheGetChannel, err := model.CacheGetChannel(channelId)
+	cacheGetChannel, err := model.RequirePlatformChannel(model.CacheGetChannel(channelId))
+	if errors.Is(err, model.ErrPlatformChannelRequired) {
+		return err
+	}
 	if err != nil {
 		errUpdate := model.TaskBulkUpdate(taskIds, map[string]any{
 			"fail_reason": fmt.Sprintf("Failed to get channel info, channel ID: %d", channelId),
@@ -143,8 +147,6 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 	}
 
 	// 记录原本的状态，防止重复退款
-	shouldRefund := false
-	quota := task.Quota
 	preStatus := task.Status
 
 	task.Status = model.TaskStatus(taskResult.Status)
@@ -187,28 +189,18 @@ func updateVideoSingleTask(ctx context.Context, adaptor channel.TaskAdaptor, cha
 		task.FailReason = taskResult.Reason
 		logger.LogInfo(ctx, fmt.Sprintf("Task %s failed: %s", task.TaskID, task.FailReason))
 		taskResult.Progress = "100%"
-		if quota != 0 {
-			if preStatus != model.TaskStatusFailure {
-				shouldRefund = true
-			} else {
-				logger.LogWarn(ctx, fmt.Sprintf("Task %s already in failure status, skip refund", task.TaskID))
-			}
-		}
 	default:
 		return fmt.Errorf("unknown task status %s for task %s", taskResult.Status, taskId)
 	}
 	if taskResult.Progress != "" {
 		task.Progress = taskResult.Progress
 	}
+	if task.Status == model.TaskStatusFailure {
+		_, err := service.PersistPolledTask(ctx, task, preStatus)
+		return err
+	}
 	if err := task.Update(); err != nil {
 		common.SysLog("UpdateVideoTask task error: " + err.Error())
-		shouldRefund = false
-	}
-
-	if shouldRefund {
-		// 任务失败且之前状态不是失败才退还额度，防止重复退还。
-		// 统一退款入口同时处理钱包/订阅、令牌额度和代理收益冲减。
-		service.RefundTaskQuota(ctx, task, task.FailReason)
 	}
 
 	return nil
@@ -287,15 +279,12 @@ func updateSeedanceVideoTask(ctx context.Context, adaptor channel.TaskAdaptor, t
 	if task.Status == model.TaskStatusFailure {
 		task.FailReason = result.Reason
 	}
-	won, err := task.UpdateWithStatus(previous)
+	won, err := service.PersistPolledTask(ctx, task, previous)
 	if err != nil || !won {
 		return err
 	}
 	if task.Status == model.TaskStatusSuccess {
 		service.SettleTaskBillingOnComplete(ctx, adaptor, task, result)
-	}
-	if task.Status == model.TaskStatusFailure && task.Quota != 0 {
-		service.RefundTaskQuota(ctx, task, task.FailReason)
 	}
 	return nil
 }

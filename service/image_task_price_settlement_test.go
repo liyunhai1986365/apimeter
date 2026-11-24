@@ -18,10 +18,15 @@ func TestImageTaskPricePollingWithIncompleteUsage(t *testing.T) {
 		requested, reserved int
 		actual, delivered   int
 		group, quality      float64
+		fixedUnit           *float64
 		images              string
 	}{
 		{name: "single image", requested: 1, reserved: 10000, actual: 10000, delivered: 1, group: 1, quality: 1,
 			images: `[{"url":"https://example.invalid/image.png"}]`},
+		{name: "unit changed after submission", requested: 1, reserved: 5000, actual: 5000, delivered: 1, group: 1, quality: 1,
+			fixedUnit: common.GetPointer(250000.0), images: `[{"url":"https://example.invalid/image.png"}]`},
+		{name: "zero unit at submission", requested: 1, reserved: 0, actual: 0, delivered: 1, group: 1, quality: 1,
+			fixedUnit: common.GetPointer(0.0), images: `[{"url":"https://example.invalid/image.png"}]`},
 		{name: "partial result with frozen ratios", requested: 3, reserved: 90000, actual: 60000, delivered: 2, group: 2, quality: 1.5,
 			images: `[{"url":"https://example.invalid/image.png"},{"b64_json":"aW1hZ2U="},{"url":" "}]`},
 		{name: "legacy result without image list", requested: 3, reserved: 90000, actual: 90000, delivered: 3, group: 2, quality: 1.5,
@@ -54,6 +59,7 @@ func TestImageTaskPricePollingWithIncompleteUsage(t *testing.T) {
 					bc := task.PrivateData.BillingContext
 					bc.PerCallBilling = true
 					bc.ModelPrice = .02
+					bc.FixedQuotaPerUnit = tc.fixedUnit
 					bc.GroupRatio = tc.group
 					bc.OtherRatios = map[string]float64{"n": float64(tc.requested), "quality": tc.quality}
 					requestBody, err := common.Marshal(map[string]int{"n": tc.requested})
@@ -85,6 +91,7 @@ func TestImageTaskPricePollingWithIncompleteUsage(t *testing.T) {
 					var saved model.Task
 					require.NoError(t, model.DB.First(&saved, task.ID).Error)
 					require.Equal(t, tc.actual, saved.Quota)
+					require.EqualValues(t, tc.delivered, saved.PrivateData.BillingContext.OtherRatios["n"])
 					require.JSONEq(t, string(requestBody), string(saved.PrivateData.BillingContext.BillingRequestInput.Body))
 					log := getLastLog(t)
 					require.NotNil(t, log)
@@ -106,6 +113,38 @@ func TestImageTaskPricePollingWithIncompleteUsage(t *testing.T) {
 			}
 		}
 	}
+}
+
+func TestLateImageSettlementPreservesRetentionCleanup(t *testing.T) {
+	truncate(t)
+	seedUser(t, 941, 70000)
+	seedToken(t, 942, 941, "late-image", 70000)
+	seedChannel(t, 943)
+	task := makeTask(941, 943, 30000, 942, BillingSourceWallet, 0)
+	task.PrivateData.BillingContext.PerCallBilling = true
+	task.PrivateData.AsyncImage = true
+	require.NoError(t, model.DB.Create(task).Error)
+	task.Status = model.TaskStatusSuccess
+	task.PrivateData.ResultURL = "data:image/png;base64,QUJD"
+	task.Data = []byte(`{"data":{"images":[{"url":"data:image/png;base64,QUJD"}]}}`)
+	won, err := task.UpdateWithStatus(model.TaskStatusInProgress)
+	require.NoError(t, err)
+	require.True(t, won)
+	now := common.GetTimestamp() + model.TaskImageRetentionSeconds + 1
+	changed, _, _, err := model.MaintainTaskImage(t.Context(), task.ID, now)
+	require.NoError(t, err)
+	require.True(t, changed)
+
+	// The worker still holds the task as it was before retention ran.
+	SettleImageTaskUsage(t.Context(), task, nil, nil)
+	var saved model.Task
+	require.NoError(t, model.DB.First(&saved, task.ID).Error)
+	require.Equal(t, model.TaskImageCleared, saved.ImageBase64State)
+	require.Empty(t, saved.PrivateData.ResultURL)
+	require.NotContains(t, string(saved.Data), "QUJD")
+	require.Equal(t, 10000, saved.Quota)
+	require.Equal(t, 90000, getUserQuota(t, 941))
+	require.Equal(t, 90000, getTokenRemainQuota(t, 942))
 }
 
 func TestImageTaskPriceUsesDeliveredCountAndFrozenRatios(t *testing.T) {

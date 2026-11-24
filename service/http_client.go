@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +22,7 @@ import (
 
 var (
 	httpClient              *http.Client
-	ssrfProtectedHTTPClient *http.Client
+	ssrfProtectedHTTPClient = newProtectedFetchHTTPClient()
 	proxyClients            = proxyHTTPClientCache{
 		clients: make(map[string]*http.Client),
 		aliases: make(map[string]string),
@@ -52,6 +53,8 @@ func checkRedirect(req *http.Request, via []*http.Request) error {
 }
 
 func checkProtectedFetchRedirect(req *http.Request, via []*http.Request) error {
+	// The previous media URL may contain a signed query.
+	req.Header.Del("Referer")
 	urlStr := req.URL.String()
 	if err := ValidateSSRFProtectedFetchURL(urlStr); err != nil {
 		return fmt.Errorf("redirect to %s blocked: %v", urlStr, err)
@@ -62,13 +65,43 @@ func checkProtectedFetchRedirect(req *http.Request, via []*http.Request) error {
 	return nil
 }
 
+// WithoutRedirects keeps the connection pool but prevents an authenticated
+// request or an operator's network privileges from moving to another URL.
+func WithoutRedirects(client *http.Client) *http.Client {
+	c := *client
+	c.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &c
+}
+
 func validateURLWithCurrentFetchSetting(urlStr string, applyDomainIPFilter bool) error {
 	fetchSetting := system_setting.GetFetchSetting()
 	return common.ValidateURLWithFetchSetting(urlStr, fetchSetting.EnableSSRFProtection, fetchSetting.AllowPrivateIp, fetchSetting.DomainFilterMode, fetchSetting.IpFilterMode, fetchSetting.DomainList, fetchSetting.IpList, fetchSetting.AllowedPorts, applyDomainIPFilter && fetchSetting.ApplyIPFilterForDomain)
 }
 
 func ValidateSSRFProtectedFetchURL(urlStr string) error {
-	return validateURLWithCurrentFetchSetting(urlStr, true)
+	u, err := url.Parse(urlStr)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.User != nil || u.Hostname() == "" || strings.Contains(u.Host, "%") {
+		return fmt.Errorf("invalid public HTTP URL")
+	}
+	host := strings.ToLower(strings.TrimSuffix(u.Hostname(), "."))
+	if host == "localhost" || strings.HasSuffix(host, ".localhost") || (net.ParseIP(host) == nil && !strings.Contains(host, ".")) {
+		return fmt.Errorf("public destination required")
+	}
+	port := 80
+	if u.Scheme == "https" {
+		port = 443
+	}
+	if u.Port() != "" {
+		port, err = strconv.Atoi(u.Port())
+		if err != nil {
+			return err
+		}
+	}
+	protection, _, err := currentFetchProtection()
+	if err != nil {
+		return err
+	}
+	return protection.ValidateNetworkTarget(host, port)
 }
 
 func newRelayHTTPTransport() *http.Transport {
@@ -134,9 +167,6 @@ func GetHttpClient() *http.Client {
 // GetSSRFProtectedHTTPClient 返回带拨号时 SSRF 校验的客户端。
 // ssrfProtectedHTTPClient 由 InitHttpClient 在启动时初始化，运行期只读。
 func GetSSRFProtectedHTTPClient() *http.Client {
-	if fetchSetting := system_setting.GetFetchSetting(); fetchSetting != nil && !fetchSetting.EnableSSRFProtection {
-		return GetHttpClient()
-	}
 	return ssrfProtectedHTTPClient
 }
 
@@ -365,6 +395,12 @@ func GetHttpClientWithProxy(rawProxyURL string) (*http.Client, error) {
 // channel transport settings. Default auto + 1 shard shares the same client pool as
 // GetHttpClientWithProxy / GetHttpClient for the empty-proxy case.
 func GetHttpClientWithProxySettings(rawProxyURL string, settings dto.ChannelSettings) (*http.Client, error) {
+	if settings.UserOwned {
+		if strings.TrimSpace(rawProxyURL) != "" {
+			return nil, fmt.Errorf("custom proxies are not permitted for user-owned channels")
+		}
+		return userEgressClient, nil
+	}
 	policy := NormalizeHTTPTransportPolicy(settings)
 	trimmedProxyURL := strings.TrimSpace(rawProxyURL)
 

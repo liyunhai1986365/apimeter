@@ -495,6 +495,9 @@ type ResponsesStreamResponse struct {
 	AnnotationIndex *int                     `json:"annotation_index,omitempty"`
 	Type            string                   `json:"type"`
 	Response        *OpenAIResponsesResponse `json:"response,omitempty"`
+	Code            string                   `json:"code,omitempty"`
+	Message         string                   `json:"message,omitempty"`
+	Param           string                   `json:"param,omitempty"`
 	Delta           string                   `json:"delta,omitempty"`
 	Item            *ResponsesOutput         `json:"item,omitempty"`
 	// - response.function_call_arguments.delta
@@ -504,6 +507,31 @@ type ResponsesStreamResponse struct {
 	SummaryIndex *int                           `json:"summary_index,omitempty"`
 	ItemID       string                         `json:"item_id,omitempty"`
 	Part         *ResponsesReasoningSummaryPart `json:"part,omitempty"`
+}
+
+// StreamError reads standard top-level error events and nested Responses failures.
+func (r *ResponsesStreamResponse) StreamError() *types.OpenAIError {
+	switch r.Type {
+	case "error", "response.error", "response.failed":
+	default:
+		return nil
+	}
+	failure := &types.OpenAIError{Message: r.Message, Param: r.Param}
+	if r.Code != "" {
+		failure.Code = r.Code
+	}
+	if r.Response != nil {
+		if nested := r.Response.GetOpenAIError(); nested != nil {
+			failure = nested
+		}
+	}
+	if failure.Type == "" {
+		failure.Type = "upstream_error"
+	}
+	if failure.Message == "" {
+		failure.Message = "responses stream error: " + r.Type
+	}
+	return failure
 }
 
 // GetOpenAIError 从动态错误类型中提取OpenAIError结构

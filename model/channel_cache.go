@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/rand"
 	"sort"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -38,7 +37,8 @@ func InitChannelCache() {
 	newChannelId2channel := make(map[int]*Channel)
 	newChannel2advancedCustomConfig := make(map[int]*dto.AdvancedCustomConfig)
 	var channels []*Channel
-	if err := DB.Find(&channels).Error; err != nil {
+	// Personal providers are selected from their owner's current database row.
+	if err := DB.Where("scope IS NULL OR scope <> ?", ChannelScopeUserOwned).Find(&channels).Error; err != nil {
 		common.SysError("refresh channel cache: " + err.Error())
 		return
 	}
@@ -50,31 +50,37 @@ func InitChannelCache() {
 			}
 		}
 	}
-	var abilities []*Ability
-	if err := DB.Find(&abilities).Error; err != nil {
+	type route struct {
+		Group, Model string
+		ChannelId    int
+	}
+	var abilities []route
+	if err := sharedRoutingAbilities().Select("abilities." + commonGroupCol + ", abilities.model, abilities.channel_id").
+		Find(&abilities).Error; err != nil {
 		common.SysError("refresh channel abilities: " + err.Error())
 		return
 	}
-	groups := make(map[string]bool)
-	for _, ability := range abilities {
-		groups[ability.Group] = true
+	enabled := make(map[route]struct{}, len(abilities))
+	for _, a := range abilities {
+		enabled[a] = struct{}{}
 	}
 	newGroup2model2channels := make(map[string]map[string][]int)
-	for group := range groups {
-		newGroup2model2channels[group] = make(map[string][]int)
-	}
-	for _, channel := range channels {
-		if channel.Status != common.ChannelStatusEnabled {
-			continue // skip disabled channels
+	for _, ch := range channels {
+		if ch.Status != common.ChannelStatusEnabled {
+			continue
 		}
-		groups := strings.Split(channel.Group, ",")
-		for _, group := range groups {
-			models := strings.Split(channel.Models, ",")
+		models := ch.GetModels()
+		for _, group := range ch.GetGroups() {
 			for _, model := range models {
-				if _, ok := newGroup2model2channels[group][model]; !ok {
-					newGroup2model2channels[group][model] = make([]int, 0)
+				r := route{group, model, ch.Id}
+				if _, ok := enabled[r]; !ok {
+					continue
 				}
-				newGroup2model2channels[group][model] = append(newGroup2model2channels[group][model], channel.Id)
+				delete(enabled, r) // A duplicate in the channel declaration must not add weight.
+				if newGroup2model2channels[group] == nil {
+					newGroup2model2channels[group] = make(map[string][]int)
+				}
+				newGroup2model2channels[group][model] = append(newGroup2model2channels[group][model], ch.Id)
 			}
 		}
 	}
@@ -134,6 +140,11 @@ func GetRandomSatisfiedChannel(group string, model string, retry int) (*Channel,
 
 func GetRandomSatisfiedChannelWithFilter(group string, model string, retry int, filter ChannelFilter) (*Channel, error) {
 	// if memory cache is disabled, get channel directly from database
+	// Personal groups require an authenticated owner; callers use
+	// GetUserOwnedProviderChannelForGroup before entering shared routing.
+	if IsUserOwnedProviderGroup(group) {
+		return nil, nil
+	}
 	if !common.MemoryCacheEnabled {
 		if filter == nil {
 			return GetChannel(group, model, retry)
@@ -262,29 +273,22 @@ func CacheGetChannel(id int) (*Channel, error) {
 		return GetChannelById(id, true)
 	}
 	channelSyncLock.RLock()
-	defer channelSyncLock.RUnlock()
-
 	c, ok := channelsIDM[id]
-	if !ok {
-		return nil, fmt.Errorf("渠道# %d，已不存在", id)
+	channelSyncLock.RUnlock()
+	if ok {
+		return c, nil
 	}
-	return c, nil
+	var personal Channel
+	if err := DB.Where("id = ? AND scope = ?", id, ChannelScopeUserOwned).First(&personal).Error; err != nil {
+		return nil, err
+	}
+	return &personal, nil
 }
 
 func CacheGetChannelInfo(id int) (*ChannelInfo, error) {
-	if !common.MemoryCacheEnabled {
-		channel, err := GetChannelById(id, true)
-		if err != nil {
-			return nil, err
-		}
-		return &channel.ChannelInfo, nil
-	}
-	channelSyncLock.RLock()
-	defer channelSyncLock.RUnlock()
-
-	c, ok := channelsIDM[id]
-	if !ok {
-		return nil, fmt.Errorf("渠道# %d，已不存在", id)
+	c, err := CacheGetChannel(id)
+	if err != nil {
+		return nil, err
 	}
 	return &c.ChannelInfo, nil
 }
@@ -296,9 +300,11 @@ func CacheUpdateChannelStatus(id int, status int) {
 	channelSyncLock.Lock()
 	defer channelSyncLock.Unlock()
 	channelCacheGeneration.Add(1)
-	if channel, ok := channelsIDM[id]; ok {
-		channel.Status = status
+	channel, ok := channelsIDM[id]
+	if !ok {
+		return
 	}
+	channel.Status = status
 	if status != common.ChannelStatusEnabled {
 		// delete the channel from group2model2channels
 		for group, model2channels := range group2model2channels {
@@ -316,14 +322,10 @@ func CacheUpdateChannelStatus(id int, status int) {
 }
 
 func CacheUpdateChannel(channel *Channel) {
-	if !common.MemoryCacheEnabled {
+	if !common.MemoryCacheEnabled || channel == nil || channel.Scope == ChannelScopeUserOwned {
 		return
 	}
 	channelSyncLock.Lock()
-	if channel == nil {
-		channelSyncLock.Unlock()
-		return
-	}
 
 	channelCacheGeneration.Add(1)
 

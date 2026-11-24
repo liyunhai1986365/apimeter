@@ -156,7 +156,6 @@ export function buildUserOwnedProviderPayload(
           : undefined,
       other: form.other?.trim() || '',
       settings: buildProviderSettings(form),
-      status: 1,
       channel_ratio: 1,
       priority: 0,
       weight: 0,

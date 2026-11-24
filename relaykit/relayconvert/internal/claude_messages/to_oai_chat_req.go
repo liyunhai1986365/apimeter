@@ -8,6 +8,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/dto"
 	"github.com/QuantumNous/new-api/relaykit/relayconvert/convmeta"
 	kitutil "github.com/QuantumNous/new-api/relaykit/relayconvert/kitutil"
+	"github.com/QuantumNous/new-api/relaykit/relayconvert/reasoning"
 )
 
 const (
@@ -42,7 +43,7 @@ func ClaudeMessagesRequestToOpenAIChatWithContext(ctx context.Context, claudeReq
 	if err := applyClaudeChatReasoning(ctx, claudeRequest, info, &openAIRequest); err != nil {
 		return nil, err
 	}
-	if !isOpenRouter && info != nil && openAIRequest.ReasoningEffort == "" && !knownOpenAIReasoningTarget(openAIRequest.Model) {
+	if !isOpenRouter && info != nil && openAIRequest.ReasoningEffort == "" && !reasoning.IsKnownOpenAITarget(openAIRequest.Model) {
 		thinkingSuffix := "-thinking"
 		if strings.HasSuffix(info.GetOriginModelName(), thinkingSuffix) &&
 			!strings.HasSuffix(openAIRequest.Model, thinkingSuffix) {

@@ -38,7 +38,7 @@ func fetchCodexChannelWhamData(c *gin.Context, fetch codexWhamFetchFunc, logPref
 		return
 	}
 
-	ch, err := model.GetChannelById(channelId, true)
+	ch, err := model.RequirePlatformChannel(model.GetChannelById(channelId, true))
 	if err != nil {
 		common.ApiError(c, err)
 		return

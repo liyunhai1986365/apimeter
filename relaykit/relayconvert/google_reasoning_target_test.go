@@ -14,7 +14,7 @@ func TestGeminiReasoningRespectsOpenAITarget(t *testing.T) {
 		name, source, target string
 		config               *dto.GeminiThinkingConfig
 		wantEffort           string
-		wantLoss             bool
+		wantDiagnostic       string
 	}{
 		{name: "dynamic default", source: "gemini-2.5-flash", target: "gpt-4o"},
 		{name: "disabled default", source: "gemini-2.5-flash-lite", target: "gpt-4o-mini"},
@@ -22,12 +22,15 @@ func TestGeminiReasoningRespectsOpenAITarget(t *testing.T) {
 		{name: "minimal default", source: "gemini-3.1-flash-lite", target: "gpt-4o-2024-08-06"},
 		{name: "older GPT", source: "gemini-2.5-flash", target: "gpt-3.5-turbo"},
 		{name: "provider prefix", source: "gemini-2.5-flash", target: "openai/gpt-4o"},
-		{name: "explicit budget", source: "gemini-2.5-flash", target: "gpt-4o", config: &dto.GeminiThinkingConfig{ThinkingBudget: kitutil.GetPointer(8192)}, wantLoss: true},
-		{name: "explicit level", source: "gemini-3-flash-preview", target: "gpt-4o", config: &dto.GeminiThinkingConfig{ThinkingLevel: "high"}, wantLoss: true},
+		{name: "explicit budget", source: "gemini-2.5-flash", target: "gpt-4o", config: &dto.GeminiThinkingConfig{ThinkingBudget: kitutil.GetPointer(8192)}, wantDiagnostic: "openai_reasoning_unsupported"},
+		{name: "explicit level", source: "gemini-3-flash-preview", target: "gpt-4o", config: &dto.GeminiThinkingConfig{ThinkingLevel: "high"}, wantDiagnostic: "openai_reasoning_unsupported"},
 		{name: "explicit disable", source: "gemini-2.5-flash", target: "gpt-4o", config: &dto.GeminiThinkingConfig{ThinkingBudget: kitutil.GetPointer(0)}},
 		{name: "summary visibility only", source: "gemini-2.5-flash", target: "gpt-4o", config: &dto.GeminiThinkingConfig{IncludeThoughts: kitutil.GetPointer(false)}},
-		{name: "effort suffix", source: "gemini-3-flash-preview-high", target: "gpt-4o", wantLoss: true},
+		{name: "effort suffix", source: "gemini-3-flash-preview-high", target: "gpt-4o", wantDiagnostic: "openai_reasoning_unsupported"},
 		{name: "supported default", source: "gemini-2.5-flash", target: "o3", wantEffort: "high"},
+		{name: "disabled default on o3", source: "gemini-2.5-flash-lite", target: "o3", wantEffort: "low"},
+		{name: "o3 explicit disable", source: "gemini-2.5-flash", target: "o3", config: &dto.GeminiThinkingConfig{ThinkingBudget: kitutil.GetPointer(0)}, wantEffort: "low", wantDiagnostic: "openai_reasoning_effort_adjusted"},
+		{name: "minimal default on o3 snapshot", source: "gemini-3.1-flash-lite", target: "openai/o3-2025-04-16", wantEffort: "low"},
 		{name: "supported budget", source: "gemini-2.5-flash", target: "gpt-5.1", config: &dto.GeminiThinkingConfig{ThinkingBudget: kitutil.GetPointer(8192)}, wantEffort: "medium"},
 		{name: "supported explicit zero", source: "gemini-2.5-flash", target: "gpt-5.1", config: &dto.GeminiThinkingConfig{ThinkingBudget: kitutil.GetPointer(0)}, wantEffort: "none"},
 		{name: "compatible Gemini upstream", source: "gemini-2.5-flash", target: "gemini-2.5-flash", wantEffort: "high"},
@@ -47,16 +50,16 @@ func TestGeminiReasoningRespectsOpenAITarget(t *testing.T) {
 					before, err := kitutil.Marshal(req)
 					require.NoError(t, err)
 					result, err := ConvertRequest(nil, info, format, req)
-					if tc.wantLoss && policy == types.ConversionLossPolicyStrict {
+					if tc.wantDiagnostic != "" && policy == types.ConversionLossPolicyStrict {
 						var loss *types.ConversionLossError
 						require.ErrorAs(t, err, &loss)
-						require.Equal(t, "openai_reasoning_unsupported", loss.Diagnostics[0].Code)
+						require.Equal(t, tc.wantDiagnostic, loss.Diagnostics[0].Code)
 						return
 					}
 					require.NoError(t, err)
-					if tc.wantLoss {
+					if tc.wantDiagnostic != "" {
 						require.Len(t, result.Diagnostics, 1)
-						require.Equal(t, "openai_reasoning_unsupported", result.Diagnostics[0].Code)
+						require.Equal(t, tc.wantDiagnostic, result.Diagnostics[0].Code)
 					} else {
 						require.Empty(t, result.Diagnostics)
 					}

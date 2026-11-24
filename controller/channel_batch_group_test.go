@@ -127,6 +127,44 @@ func TestGetAllChannelsDefaultsToPlatformScopeAndAllowsOwnedScopeFilter(t *testi
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Contains(t, recorder.Body.String(), "platform-channel")
 	require.Contains(t, recorder.Body.String(), "owned-channel")
+
+	for _, handler := range []gin.HandlerFunc{GetAllChannels, SearchChannels} {
+		for _, scope := range []string{"", "platform", "user_owned"} {
+			rec := httptest.NewRecorder()
+			ctx, _ := gin.CreateTestContext(rec)
+			ctx.Set("role", common.RoleRootUser)
+			ctx.Request = httptest.NewRequest(http.MethodGet, "/api/channel?keyword=channel&scope="+scope, nil)
+			handler(ctx)
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Equal(t, scope != "user_owned", strings.Contains(rec.Body.String(), "platform-channel"))
+			require.Equal(t, scope != "platform", strings.Contains(rec.Body.String(), "owned-channel"))
+			require.NotContains(t, rec.Body.String(), "sk-owned")
+		}
+	}
+}
+
+func TestOwnerEditPreservesAdministratorChannelStatus(t *testing.T) {
+	setupChannelControllerBatchTestDB(t)
+	channel := &model.Channel{Id: 42, Type: 1, Key: "fixture", Name: "original", Models: "example", Scope: model.ChannelScopeUserOwned, OwnerUserId: 77, Group: model.BuildUserOwnedProviderGroup(77, 42), Status: common.ChannelStatusEnabled}
+	require.NoError(t, channel.Insert())
+	require.True(t, model.UpdateChannelStatus(channel.Id, "", common.ChannelStatusManuallyDisabled, "manual operation"))
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Set("id", 77)
+	c.Params = gin.Params{{Key: "id", Value: "42"}}
+	c.Request = httptest.NewRequest(http.MethodPut, "/", strings.NewReader(`{"channel":{"name":"edited","models":"example","status":1}}`))
+	UpdateUserOwnedProvider(c)
+	require.Contains(t, rec.Body.String(), `"success":true`)
+	stored, err := model.GetChannelById(42, true)
+	require.NoError(t, err)
+	require.Equal(t, "edited", stored.Name)
+	require.Equal(t, common.ChannelStatusManuallyDisabled, stored.Status)
+	_, err = model.GetUserOwnedProviderChannelForGroup(77, stored.Group, "example")
+	require.ErrorIs(t, err, gorm.ErrRecordNotFound)
+	require.True(t, model.UpdateChannelStatus(42, "", common.ChannelStatusEnabled, "manual operation"))
+	_, err = model.GetUserOwnedProviderChannelForGroup(77, stored.Group, "example")
+	require.NoError(t, err)
 }
 
 func TestGetChannelFilterOptionsReturnsOnlyIdAndName(t *testing.T) {

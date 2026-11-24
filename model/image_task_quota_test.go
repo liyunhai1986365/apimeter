@@ -135,8 +135,7 @@ func TestImageTaskQuotaReservationRollsBackAllWritesAndCache(t *testing.T) {
 			task := Task{TaskID: common.GetRandomString(16), Status: TaskStatusInProgress, Quota: 10}
 			require.NoError(t, task.Insert())
 			version := task.ImageBase64Version
-			require.NoError(t, DB.Exec("CREATE TRIGGER fail_image_reservation BEFORE UPDATE ON "+table+" BEGIN SELECT RAISE(ABORT, 'temporary write failure'); END").Error)
-			t.Cleanup(func() { require.NoError(t, DB.Exec("DROP TRIGGER fail_image_reservation").Error) })
+			failNextImageUpdate(t, table)
 			require.Error(t, reserveImageTaskTestDelta(&task, accounts, 20))
 			require.Equal(t, 10, task.Quota)
 			require.Equal(t, version, task.ImageBase64Version)

@@ -560,6 +560,15 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 	if channel == nil {
 		return types.NewError(errors.New("channel is nil"), types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
 	}
+	if channel.Scope == model.ChannelScopeUserOwned {
+		err := service.ValidateUserProvider(channel)
+		if err == nil && (c.Request == nil || c.Request.URL == nil || !personalRelayPath(c.Request.URL.Path)) {
+			err = errors.New("this endpoint is not supported for user-owned providers")
+		}
+		if err != nil {
+			return types.NewError(err, types.ErrorCodeGetChannelFailed, types.ErrOptionWithSkipRetry())
+		}
+	}
 	c.Set("relay_selected_channel", channel)
 	common.SetContextKey(c, constant.ContextKeyChannelId, channel.Id)
 	common.SetContextKey(c, constant.ContextKeyChannelName, channel.Name)
@@ -633,6 +642,17 @@ func setupContextForSelectedChannel(c *gin.Context, channel *model.Channel, mode
 		c.Set("bot_id", channel.Other)
 	}
 	return nil
+}
+
+func personalRelayPath(path string) bool {
+	switch path {
+	case "/v1/chat/completions", "/pg/chat/completions", "/v1/messages", "/v1/completions",
+		"/v1/embeddings", "/v1/responses", "/v1/responses/compact", "/v1/moderations":
+		return true
+	}
+	return (strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/v1/models/")) &&
+		(strings.HasSuffix(path, ":generateContent") || strings.HasSuffix(path, ":streamGenerateContent") ||
+			strings.HasSuffix(path, ":embedContent") || strings.HasSuffix(path, ":batchEmbedContents"))
 }
 
 // extractModelNameFromGeminiPath 从 Gemini API URL 路径中提取模型名

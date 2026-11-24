@@ -24,7 +24,6 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/operation_setting"
-	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,16 +33,11 @@ func TestRelayKeepAliveDuringImagePreparation(t *testing.T) {
 	settings := operation_setting.GetGeneralSetting()
 	previousEnabled, previousInterval := settings.PingIntervalEnabled, settings.PingIntervalSeconds
 	previousCount, previousMedia := constant.CountToken, constant.GetMediaToken
-	fetchSettings := system_setting.GetFetchSetting()
-	previousFetchSettings := *fetchSettings
-	fetchSettings.AllowPrivateIp = true
-	fetchSettings.AllowedPorts = []string{"1-65535"}
 	settings.PingIntervalEnabled, settings.PingIntervalSeconds = true, 1
 	constant.CountToken, constant.GetMediaToken = true, true
 	t.Cleanup(func() {
 		settings.PingIntervalEnabled, settings.PingIntervalSeconds = previousEnabled, previousInterval
 		constant.CountToken, constant.GetMediaToken = previousCount, previousMedia
-		*fetchSettings = previousFetchSettings
 	})
 	service.InitHttpClient()
 
@@ -56,6 +50,14 @@ func TestRelayKeepAliveDuringImagePreparation(t *testing.T) {
 		w.WriteHeader(http.StatusBadGateway)
 	}))
 	defer imageServer.Close()
+	t.Setenv("API_TEMP_IMAGE_STORAGE", "oss")
+	t.Setenv("API_TEMP_IMAGE_OSS_ENDPOINT", imageServer.URL)
+	t.Setenv("API_TEMP_IMAGE_OSS_BUCKET", "test-bucket")
+	t.Setenv("API_TEMP_IMAGE_OSS_ACCESS_KEY_ID", "test-key")
+	t.Setenv("API_TEMP_IMAGE_OSS_ACCESS_KEY_SECRET", "test-secret")
+	t.Setenv("API_TEMP_IMAGE_OSS_PREFIX", "images")
+	t.Setenv("API_TEMP_IMAGE_OSS_PUBLIC_BASE_URL", imageServer.URL)
+	imageURL := imageServer.URL + "/images/20261124/84276077-349c-4ef8-8840-2e14c033e015.png"
 	engine := gin.New()
 	engine.POST("/v1/messages", func(c *gin.Context) {
 		common.SetContextKey(c, constant.ContextKeyOriginalModel, "gpt-4o")
@@ -65,7 +67,7 @@ func TestRelayKeepAliveDuringImagePreparation(t *testing.T) {
 	defer gateway.Close()
 	defer releaseOnce.Do(func() { close(releaseImage) })
 
-	body := `{"model":"gpt-4o","max_tokens":16,"stream":true,"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url","url":"` + imageServer.URL + `"}}]}]}`
+	body := `{"model":"gpt-4o","max_tokens":16,"stream":true,"messages":[{"role":"user","content":[{"type":"image","source":{"type":"url","url":"` + imageURL + `"}}]}]}`
 	client := &http.Client{Timeout: 4 * time.Second}
 	response, err := client.Post(gateway.URL+"/v1/messages", "application/json", strings.NewReader(body))
 	require.NoError(t, err, "the gateway must send keepalive while its image download is blocked")
@@ -293,7 +295,7 @@ func TestRelayKeepAliveHonorsStreamSettings(t *testing.T) {
 }
 
 func TestRelayStreamErrorAfterKeepAlive(t *testing.T) {
-	for _, format := range []types.RelayFormat{types.RelayFormatClaude, types.RelayFormatOpenAI} {
+	for _, format := range []types.RelayFormat{types.RelayFormatClaude, types.RelayFormatOpenAI, types.RelayFormatGemini} {
 		t.Run(string(format), func(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(recorder)
@@ -307,9 +309,14 @@ func TestRelayStreamErrorAfterKeepAlive(t *testing.T) {
 			require.Equal(t, "text/event-stream", recorder.Header().Get("Content-Type"))
 			require.Contains(t, recorder.Body.String(), "upstream rejected input")
 			require.True(t, common.GetContextKeyBool(c, constant.ContextKeyRelayFailed), "stream errors must not consume the successful-request rate limit")
-			if format == types.RelayFormatClaude {
+			switch format {
+			case types.RelayFormatClaude:
 				require.Contains(t, recorder.Body.String(), "event: error\n")
-			} else {
+			case types.RelayFormatGemini:
+				_, data, ok := strings.Cut(recorder.Body.String(), "data: ")
+				require.True(t, ok)
+				require.JSONEq(t, `{"error":{"code":400,"message":"upstream rejected input"}}`, strings.TrimSpace(data))
+			default:
 				require.Contains(t, recorder.Body.String(), "data: [DONE]")
 			}
 		})
@@ -329,6 +336,25 @@ func TestRelayStreamErrorPreservesProtocolFailureEvent(t *testing.T) {
 	writeRelayStreamError(c, types.RelayFormatOpenAIResponses, apiError)
 	require.Equal(t, before, recorder.Body.String(), "do not append a second error or Chat [DONE] to a failed Responses stream")
 	require.True(t, common.GetContextKeyBool(c, constant.ContextKeyRelayFailed), "a protocol failure must still count as a failed request")
+}
+
+func TestResponsesStreamErrorAfterPreparationPing(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	stop := helper.StartStreamKeepAlive(c, time.Millisecond)
+	defer stop()
+	require.Eventually(t, c.Writer.Written, time.Second, time.Millisecond)
+	apiError := types.NewErrorWithStatusCode(io.ErrUnexpectedEOF, types.ErrorCodeBadResponse, http.StatusBadGateway)
+	writeRelayStreamError(c, types.RelayFormatOpenAIResponses, apiError)
+
+	wire := recorder.Body.String()
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.True(t, strings.HasPrefix(wire, ": PING\n\n"))
+	_, data, found := strings.Cut(wire, "event: error\ndata: ")
+	require.True(t, found)
+	require.JSONEq(t, `{"type":"error","code":"bad_response","message":"unexpected EOF","param":"","sequence_number":0}`, strings.TrimSpace(data))
+	require.True(t, common.GetContextKeyBool(c, constant.ContextKeyRelayFailed))
 }
 
 func TestStreamKeepAliveCancellation(t *testing.T) {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -12,7 +13,10 @@ import (
 	"golang.org/x/net/html"
 )
 
-const weComMarkdownMaxBytes = 4096
+const (
+	weComMarkdownMaxBytes = 4096
+	weComReceiptMaxBytes  = 16 << 10
+)
 
 func resolveWebhookFormat(webhookURL string, format string) (string, error) {
 	switch format {
@@ -130,12 +134,19 @@ func truncateUTF8ByBytes(value string, maxBytes int) string {
 }
 
 func validateWeComWebhookResponse(resp *http.Response) error {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, weComReceiptMaxBytes+1))
+	if err != nil {
+		return fmt.Errorf("failed to read wecom webhook response: %w", err)
+	}
+	if len(body) > weComReceiptMaxBytes {
+		return fmt.Errorf("wecom webhook response exceeds %d bytes", weComReceiptMaxBytes)
+	}
 	var result struct {
 		ErrCode *int   `json:"errcode"`
 		ErrMsg  string `json:"errmsg"`
 	}
-	if err := common.DecodeJson(resp.Body, &result); err != nil {
-		return fmt.Errorf("failed to decode wecom webhook response: %v", err)
+	if err := common.Unmarshal(body, &result); err != nil {
+		return fmt.Errorf("failed to decode wecom webhook response: %w", err)
 	}
 	if result.ErrCode == nil {
 		return fmt.Errorf("wecom webhook response missing errcode")

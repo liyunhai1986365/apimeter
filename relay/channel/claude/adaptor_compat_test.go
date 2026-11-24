@@ -8,10 +8,23 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/relaykit/dto"
+	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
+
+func TestClaudeChannelRejectsUnrepresentableOutputAsClientError(t *testing.T) {
+	info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{UpstreamModelName: "claude-sonnet-4-6",
+		ChannelOtherSettings: dto.ChannelOtherSettings{ToolLossPolicy: "strict"}}}
+	req := &dto.GeneralOpenAIRequest{Model: info.UpstreamModelName, MaxTokens: common.GetPointer(uint(64)),
+		ResponseFormat: &dto.ResponseFormat{Type: "json_object"}}
+	_, err := (&Adaptor{}).ConvertOpenAIRequest(nil, info, req)
+	var apiErr *types.NewAPIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.StatusCode)
+	require.True(t, types.IsSkipRetryError(apiErr))
+}
 
 func TestNativeClaudeFieldsSurviveCopyAndConversion(t *testing.T) {
 	const body = `{"model":"claude-opus-5-5","max_tokens":64,"output_config":{"effort":"medium"},"thinking":{"type":"adaptive","display":"summarized","block_binding":{"prefix_mismatch_behavior":"drop_block"},"future_field":{"id":9007199254740993}},"messages":[{"role":"user","content":"summary"},{"role":"system","content":[],"output_config":{"effort":"high"}},{"role":"assistant","content":"done"}]}`

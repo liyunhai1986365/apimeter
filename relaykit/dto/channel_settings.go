@@ -11,6 +11,7 @@ import (
 )
 
 type ChannelSettings struct {
+	UserOwned                                 bool                     `json:"-"` // runtime only, derived from the channel record
 	ForceFormat                               bool                     `json:"force_format,omitempty"`
 	ThinkingToContent                         bool                     `json:"thinking_to_content,omitempty"`
 	Proxy                                     string                   `json:"proxy"`

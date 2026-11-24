@@ -117,10 +117,12 @@ type TaskPrivateData struct {
 	YHServiceTier  string `json:"yh_service_tier,omitempty"`
 	OfficialTaskID string `json:"official_task_id,omitempty"` // 火山原始 ID；中转供应商查询仍使用 UpstreamTaskID
 
-	Key            string `json:"key,omitempty"`
-	UpstreamTaskID string `json:"upstream_task_id,omitempty"` // 上游真实 task ID
-	ResultURL      string `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
-	AsyncImage     bool   `json:"async_image,omitempty"`      // 是否为异步图片任务
+	Key                    string           `json:"key,omitempty"`
+	UpstreamTaskID         string           `json:"upstream_task_id,omitempty"` // 上游真实 task ID
+	ResultURL              string           `json:"result_url,omitempty"`       // 任务成功后的结果 URL（视频地址等）
+	AsyncImage             bool             `json:"async_image,omitempty"`      // 是否为异步图片任务
+	ImageQuotaReceipts     *[]string        `json:"image_quota_receipts,omitempty"`
+	PendingImageSettlement *ImageSettlement `json:"pending_image_settlement,omitempty"`
 	// 计费上下文：用于异步退款/差额结算（轮询阶段读取）
 	BillingSource  string              `json:"billing_source,omitempty"`  // "wallet" 或 "subscription"
 	SubscriptionId int                 `json:"subscription_id,omitempty"` // 订阅 ID，用于订阅退款
@@ -129,11 +131,22 @@ type TaskPrivateData struct {
 	BillingContext *TaskBillingContext `json:"billing_context,omitempty"` // 计费参数快照（用于轮询阶段重新计算）
 }
 
+// ImageSettlement holds a completed upstream result privately until its
+// account adjustments can commit. No upstream request is repeated on retry.
+type ImageSettlement struct {
+	Quota     int                       `json:"quota"`
+	Usage     *dto.Usage                `json:"usage,omitempty"`
+	Tiered    *billingexpr.TieredResult `json:"tiered,omitempty"`
+	Data      json.RawMessage           `json:"data,omitempty"`
+	ResultURL string                    `json:"result_url,omitempty"`
+}
+
 // TaskBillingContext 记录任务提交时的计费参数，以便轮询阶段可以重新计算额度。
 type TaskBillingContext struct {
 	DeferredCost          bool                         `json:"deferred_cost,omitempty"`           // 预扣阶段不确认渠道成本和收益
 	CostSettled           bool                         `json:"cost_settled,omitempty"`            // 已记录最终成本和收益，避免零差额重复入账
 	ModelPrice            float64                      `json:"model_price,omitempty"`             // 模型单价
+	FixedQuotaPerUnit     *float64                     `json:"fixed_quota_per_unit,omitempty"`    // 提交时固定单价对应的额度换算率
 	GroupRatio            float64                      `json:"group_ratio,omitempty"`             // 分组倍率
 	GroupRatioSource      types.GroupRatioSource       `json:"group_ratio_source,omitempty"`      // 分组倍率解析来源
 	UserGroup             string                       `json:"user_group,omitempty"`              // 提交任务时的用户分组

@@ -23,6 +23,7 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/tidwall/gjson"
+	"gorm.io/gorm"
 )
 
 // TaskPollingAdaptor 定义轮询所需的最小适配器接口，避免 service -> relay 的循环依赖
@@ -155,6 +156,11 @@ func sweepTimedOutTasks(ctx context.Context) {
 	timedOutCount := 0
 
 	for _, task := range tasks {
+		if task.PrivateData.PendingImageSettlement != nil {
+			// The upstream already delivered this task. Its result must be
+			// settled, never replaced by a timeout refund.
+			continue
+		}
 		isLegacy := task.SubmitTime > 0 && task.SubmitTime < model.TaskRefundLegacyCutoff
 
 		oldStatus := task.Status
@@ -170,7 +176,7 @@ func sweepTimedOutTasks(ctx context.Context) {
 			task.FailReason = reason
 		}
 
-		won, err := task.UpdateWithStatus(oldStatus)
+		won, err := PersistPolledTask(ctx, task, oldStatus)
 		if err != nil {
 			logger.LogError(ctx, fmt.Sprintf("sweepTimedOutTasks CAS update error for task %s: %v", task.TaskID, err))
 			continue
@@ -180,9 +186,6 @@ func sweepTimedOutTasks(ctx context.Context) {
 			continue
 		}
 		timedOutCount++
-		if !isLegacy && task.Quota != 0 {
-			RefundTaskQuota(ctx, task, reason)
-		}
 	}
 
 	if timedOutCount > 0 {
@@ -195,67 +198,7 @@ func TaskPollingLoop() {
 	for {
 		time.Sleep(time.Duration(15) * time.Second)
 		common.SysLog("任务进度轮询开始")
-		ctx := context.TODO()
-		allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
-		platformTask := make(map[constant.TaskPlatform][]*model.Task)
-		imageTaskChannelM := make(map[int][]string)
-		imageTaskM := make(map[string]*model.Task)
-		for _, t := range allTasks {
-			if isImageAsyncTask(t) {
-				upstreamID := strings.TrimSpace(t.PrivateData.UpstreamTaskID)
-				if upstreamID != "" {
-					imageTaskM[upstreamID] = t
-					imageTaskChannelM[t.ChannelId] = append(imageTaskChannelM[t.ChannelId], upstreamID)
-					continue
-				}
-				continue
-			}
-			platformTask[t.Platform] = append(platformTask[t.Platform], t)
-		}
-		for platform, tasks := range platformTask {
-			if len(tasks) == 0 {
-				continue
-			}
-			for _, tasks := range groupTasksForPolling(tasks) {
-				taskChannelM := make(map[int][]string)
-				taskM := make(map[string]*model.Task)
-				nullTaskIds := make([]int64, 0)
-				for _, task := range tasks {
-					upstreamID := task.GetUpstreamTaskID()
-					if upstreamID == "" {
-						// 统计失败的未完成任务
-						nullTaskIds = append(nullTaskIds, task.ID)
-						continue
-					}
-					for _, id := range splitTaskUpstreamIDs(upstreamID) {
-						taskM[id] = task
-						taskChannelM[task.ChannelId] = append(taskChannelM[task.ChannelId], id)
-					}
-				}
-				if len(nullTaskIds) > 0 {
-					err := model.TaskBulkUpdateByID(nullTaskIds, map[string]any{
-						"status":   "FAILURE",
-						"progress": "100%",
-					})
-					if err != nil {
-						logger.LogError(ctx, fmt.Sprintf("Fix null task_id task error: %v", err))
-					} else {
-						logger.LogInfo(ctx, fmt.Sprintf("Fix null task_id task success: %v", nullTaskIds))
-					}
-				}
-				if len(taskChannelM) == 0 {
-					continue
-				}
-
-				DispatchPlatformUpdate(platform, taskChannelM, taskM)
-			}
-		}
-		if len(imageTaskChannelM) > 0 {
-			if err := UpdateImageTasks(ctx, imageTaskChannelM, imageTaskM); err != nil {
-				common.SysLog(fmt.Sprintf("UpdateImageTasks fail: %s", err))
-			}
-		}
-		sweepTimedOutTasks(ctx)
+		RunTaskPollingOnce(context.Background(), nil)
 		common.SysLog("任务进度轮询完成")
 	}
 }
@@ -297,7 +240,8 @@ func UpdateSunoTasks(ctx context.Context, taskChannelM map[int][]string, taskM m
 	return nil
 }
 
-func isImageAsyncTask(task *model.Task) bool {
+// IsImageAsyncTask recognizes both tagged tasks and legacy OpenAI image tasks.
+func IsImageAsyncTask(task *model.Task) bool {
 	if task == nil {
 		return false
 	}
@@ -330,7 +274,10 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 	if len(taskIds) == 0 {
 		return nil
 	}
-	ch, err := model.CacheGetChannel(channelId)
+	ch, err := model.RequirePlatformChannel(model.CacheGetChannel(channelId))
+	if errors.Is(err, model.ErrPlatformChannelRequired) {
+		return err
+	}
 	if err != nil {
 		common.SysLog(fmt.Sprintf("CacheGetChannel: %v", err))
 		// Collect DB primary key IDs for bulk update (taskIds are upstream IDs, not task_id column values)
@@ -413,13 +360,11 @@ func updateSunoTasks(ctx context.Context, channelId int, taskIds []string, taskM
 		}
 
 		// 持久化走 CAS，防止重叠轮询/sweep/多实例/持久化失败重试导致重复退款或覆盖终态。
-		won, err := task.UpdateWithStatus(prevStatus)
+		won, err := PersistPolledTask(ctx, task, prevStatus)
 		if err != nil {
 			logger.LogError(ctx, fmt.Sprintf("UpdateSunoTask task %s error: %v", task.TaskID, err))
 		} else if !won {
 			logger.LogWarn(ctx, fmt.Sprintf("Task %s CAS lost or no-op update, skip billing", task.TaskID))
-		} else if isFailure && prevStatus != model.TaskStatusFailure && task.Quota != 0 {
-			RefundTaskQuota(ctx, task, task.FailReason)
 		}
 	}
 	return nil
@@ -609,21 +554,33 @@ func updateImageTasks(ctx context.Context, channelId int, taskIds []string, task
 	if len(taskIds) == 0 {
 		return nil
 	}
-	cacheGetChannel, err := model.CacheGetChannel(channelId)
+	cacheGetChannel, err := model.RequirePlatformChannel(model.CacheGetChannel(channelId))
+	if errors.Is(err, model.ErrPlatformChannelRequired) {
+		return err
+	}
 	if err != nil {
-		var failedIDs []int64
-		for _, upstreamID := range taskIds {
-			if t, ok := taskM[upstreamID]; ok {
-				failedIDs = append(failedIDs, t.ID)
-			}
+		lookupErr := err
+		if common.MemoryCacheEnabled {
+			// A newly created channel may not be in this node's cache yet.
+			_, lookupErr = model.GetChannelByIdContext(ctx, channelId, false)
 		}
-		errUpdate := model.TaskBulkUpdateByID(failedIDs, map[string]any{
-			"fail_reason": fmt.Sprintf("Failed to get channel info, channel ID: %d", channelId),
-			"status":      "FAILURE",
-			"progress":    "100%",
-		})
-		if errUpdate != nil {
-			common.SysLog(fmt.Sprintf("UpdateImageTask error: %v", errUpdate))
+		if errors.Is(lookupErr, gorm.ErrRecordNotFound) {
+			for _, id := range taskIds {
+				task := taskM[id]
+				if task == nil || task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure || task.PrivateData.PendingImageSettlement != nil {
+					continue
+				}
+				failed := *task
+				failed.Status, failed.Progress = model.TaskStatusFailure, "100%"
+				failed.FailReason = fmt.Sprintf("Image task channel %d no longer exists", channelId)
+				failed.FinishTime = common.GetTimestamp()
+				won, refundErr := refundTaskQuota(ctx, &failed, task.Status, failed.FailReason, false)
+				if refundErr != nil {
+					logger.LogError(ctx, fmt.Sprintf("fail image task %s: %v", id, refundErr))
+				} else if won {
+					*task = failed
+				}
+			}
 		}
 		return fmt.Errorf("CacheGetChannel failed: %w", err)
 	}
@@ -636,6 +593,10 @@ func updateImageTasks(ctx context.Context, channelId int, taskIds []string, task
 }
 
 func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string, taskM map[string]*model.Task) error {
+	if t := taskM[taskId]; t != nil && t.PrivateData.PendingImageSettlement != nil {
+		_, err := RetryImageSettlement(ctx, t)
+		return err
+	}
 	baseURL := constant.GetChannelBaseURL(ch.Type)
 	if ch.GetBaseURL() != "" {
 		baseURL = ch.GetBaseURL()
@@ -660,13 +621,30 @@ func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string
 	if statusCode < http.StatusOK || statusCode >= http.StatusMultipleChoices {
 		return fmt.Errorf("fetch image task status code: %d, body: %s", statusCode, string(body))
 	}
+	return ApplyFetchedImageTask(ctx, task, body)
+}
 
+// ApplyFetchedImageTask applies the same versioned transition for client and
+// background polls. The caller must reload after a competing transition.
+func ApplyFetchedImageTask(ctx context.Context, task *model.Task, body []byte) error {
+	if task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure {
+		return nil
+	}
+	if task.PrivateData.PendingImageSettlement != nil {
+		_, err := RetryImageSettlement(ctx, task)
+		return err
+	}
 	upstream, normalizedBody, err := normalizeImageTaskResponseBody(task, body)
 	if err != nil {
 		return fmt.Errorf("unmarshal image task response failed: %w", err)
 	}
 
 	newStatus, newProgress, failReason, resultURL := normalizeImageTaskResult(upstream)
+	original := task
+	if newStatus == model.TaskStatusFailure {
+		staged := *task
+		task = &staged
+	}
 	snap := task.Snapshot()
 	task.Status = newStatus
 	task.Progress = newProgress
@@ -687,7 +665,14 @@ func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string
 		return nil
 	}
 
-	won, err := task.UpdateWithStatus(snap.Status)
+	var won bool
+	if newStatus == model.TaskStatusSuccess && snap.Status != newStatus {
+		won, err = CompleteImageTask(ctx, task, snap.Status, upstream, body)
+	} else if newStatus == model.TaskStatusFailure {
+		won, err = refundTaskQuota(ctx, task, snap.Status, task.FailReason, false)
+	} else {
+		won, err = task.UpdateWithStatus(snap.Status)
+	}
 	if err != nil {
 		return fmt.Errorf("update image task failed: %w", err)
 	}
@@ -695,16 +680,7 @@ func updateImageSingleTask(ctx context.Context, ch *model.Channel, taskId string
 		logger.LogWarn(ctx, fmt.Sprintf("Image task %s already transitioned, skip billing", task.TaskID))
 		return nil
 	}
-	if snap.Status != task.Status {
-		switch task.Status {
-		case model.TaskStatusSuccess:
-			SettleImageTaskUsage(ctx, task, upstream.Usage, body)
-		case model.TaskStatusFailure:
-			if task.Quota != 0 {
-				RefundTaskQuota(ctx, task, task.FailReason)
-			}
-		}
-	}
+	*original = *task
 	return nil
 }
 
@@ -806,7 +782,10 @@ func updateVideoTasks(ctx context.Context, platform constant.TaskPlatform, chann
 	if len(taskIds) == 0 {
 		return nil
 	}
-	cacheGetChannel, err := model.CacheGetChannel(channelId)
+	cacheGetChannel, err := model.RequirePlatformChannel(model.CacheGetChannel(channelId))
+	if errors.Is(err, model.ErrPlatformChannelRequired) {
+		return err
+	}
 	if err != nil {
 		// Collect DB primary key IDs for bulk update (taskIds are upstream IDs, not task_id column values)
 		var failedIDs []int64
@@ -962,9 +941,7 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		}
 	}
 
-	shouldRefund := false
 	shouldSettle := false
-	quota := task.Quota
 
 	task.Status = model.TaskStatus(taskResult.Status)
 	switch taskResult.Status {
@@ -1003,9 +980,6 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 		task.FailReason = taskResult.Reason
 		logger.LogInfo(ctx, fmt.Sprintf("Task %s failed: %s", task.TaskID, task.FailReason))
 		taskResult.Progress = taskcommon.ProgressComplete
-		if quota != 0 {
-			shouldRefund = true
-		}
 	default:
 		return fmt.Errorf("unknown task status %s for task %s", taskResult.Status, task.TaskID)
 	}
@@ -1015,14 +989,11 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 
 	isDone := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
 	if isDone && snap.Status != task.Status {
-		won, err := task.UpdateWithStatus(snap.Status)
+		won, err := PersistPolledTask(ctx, task, snap.Status)
 		if err != nil {
-			logger.LogError(ctx, fmt.Sprintf("UpdateWithStatus failed for task %s: %s", task.TaskID, err.Error()))
-			shouldRefund = false
-			shouldSettle = false
+			return err
 		} else if !won {
 			logger.LogWarn(ctx, fmt.Sprintf("Task %s CAS lost or no-op update, skip billing", task.TaskID))
-			shouldRefund = false
 			shouldSettle = false
 		}
 	} else if !snap.Equal(task.Snapshot()) {
@@ -1036,9 +1007,6 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 
 	if shouldSettle {
 		settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
-	}
-	if shouldRefund {
-		RefundTaskQuota(ctx, task, task.FailReason)
 	}
 
 	return nil
@@ -1114,6 +1082,9 @@ func SettleTaskBillingOnComplete(ctx context.Context, adaptor TaskPollingAdaptor
 
 // RunTaskPollingOnce runs one iteration of async task polling with context and progress reporting
 func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, total int)) map[string]interface{} {
+	if reportProgress == nil {
+		reportProgress = func(int, int) {}
+	}
 	allTasks := model.GetAllUnFinishSyncTasks(constant.TaskQueryLimit)
 	totalTasks := len(allTasks)
 
@@ -1137,7 +1108,13 @@ func RunTaskPollingOnce(ctx context.Context, reportProgress func(processed, tota
 			}
 		}
 
-		if isImageAsyncTask(t) {
+		if t.PrivateData.PendingImageSettlement != nil {
+			if _, err := RetryImageSettlement(ctx, t); err != nil {
+				logger.LogError(ctx, fmt.Sprintf("retry image task settlement %s: %v", t.TaskID, err))
+			}
+			continue
+		}
+		if IsImageAsyncTask(t) {
 			upstreamID := strings.TrimSpace(t.PrivateData.UpstreamTaskID)
 			if upstreamID != "" {
 				imageTaskM[upstreamID] = t

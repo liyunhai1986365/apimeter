@@ -122,18 +122,19 @@ type User struct {
 
 func (user *User) ToBaseUser() *UserBase {
 	cache := &UserBase{
-		Id:                 user.Id,
-		Group:              user.Group,
-		Quota:              user.Quota,
-		Status:             user.Status,
-		Role:               user.Role,
-		Username:           user.Username,
-		Setting:            user.Setting,
-		Email:              user.Email,
-		ParentUserId:       user.ParentUserId,
-		MustChangePassword: user.MustChangePassword,
-		AuthVersion:        user.AuthVersion,
-		CacheSchema:        userCacheSchemaVersion,
+		Id:                    user.Id,
+		Group:                 user.Group,
+		Quota:                 user.Quota,
+		Status:                user.Status,
+		Role:                  user.Role,
+		Username:              user.Username,
+		Setting:               user.Setting,
+		Email:                 user.Email,
+		ParentUserId:          user.ParentUserId,
+		MustChangePassword:    user.MustChangePassword,
+		AuthVersion:           user.AuthVersion,
+		CacheSchema:           userCacheSchemaVersion,
+		SubaccountAuthVersion: user.AuthVersion,
 	}
 	return cache
 }
@@ -816,16 +817,6 @@ func (user *User) Update(updatePassword bool) error {
 		return err
 	}
 	return nil
-}
-
-func MarkUserPasswordChanged(userId int) error {
-	if userId <= 0 {
-		return errors.New("invalid user id")
-	}
-	if err := DB.Model(&User{}).Where("id = ?", userId).Update("must_change_password", false).Error; err != nil {
-		return err
-	}
-	return invalidateUserCache(userId)
 }
 
 func (user *User) UpdateWithTx(tx *gorm.DB, updatePassword bool) error {

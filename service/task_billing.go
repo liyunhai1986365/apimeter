@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/QuantumNous/new-api/types"
 	"github.com/gin-gonic/gin"
 	"github.com/shopspring/decimal"
+	"gorm.io/gorm"
 )
 
 // LogTaskConsumption 记录任务消费日志和统计信息（仅记录，不涉及实际扣费）。
@@ -232,48 +234,46 @@ func taskModelName(task *model.Task) string {
 // 当异步任务失败时，退还资金与令牌额度，并回减用户和渠道用量。
 // 返回资金来源是否已成功退还；失败时保留 quota，供显式重试或人工对账。
 func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool {
-	quota := task.Quota
-	if quota == 0 {
+	if task.Quota == 0 {
 		return true
 	}
-
-	// 1. 退还资金来源（钱包或订阅）
-	if err := taskAdjustFunding(task, -quota); err != nil {
-		logger.LogWarn(ctx, fmt.Sprintf("退还资金来源失败 task %s: %s", task.TaskID, err.Error()))
+	won, err := refundTaskQuota(ctx, task, task.Status, reason, true)
+	if err != nil {
+		logger.LogWarn(ctx, fmt.Sprintf("退还任务额度失败 task %s: %s", task.TaskID, err.Error()))
 		return false
 	}
+	return won
+}
 
-	// 2. 退还令牌额度
-	taskAdjustTokenQuota(ctx, task, -quota)
+// PersistPolledTask publishes a failure and releases its reservation in the
+// same transaction. A failed refund leaves the task eligible for the next poll.
+func PersistPolledTask(ctx context.Context, task *model.Task, from model.TaskStatus) (bool, error) {
+	if task.Status == model.TaskStatusFailure {
+		if from == model.TaskStatusSuccess || from == model.TaskStatusFailure {
+			return false, nil
+		}
+		if task.Quota != 0 {
+			return refundTaskQuota(ctx, task, from, task.FailReason, false)
+		}
+	}
+	return task.UpdateWithStatus(from)
+}
 
-	// 3. 回减预扣时累计的用户和渠道用量，请求次数保持不变
-	model.UpdateUserUsedQuota(task.UserId, -quota)
-	model.UpdateChannelUsedQuota(task.ChannelId, -quota)
+func refundTaskQuota(ctx context.Context, task *model.Task, from model.TaskStatus, reason string, previouslyPublished bool) (bool, error) {
+	quota := task.Quota
+	won, err := commitTaskQuota(task, from, 0, previouslyPublished)
+	if !won || err != nil || quota == 0 {
+		return won, err
+	}
+	// Native async images only reserve balances; their usage is recorded on delivery.
+	if !task.PrivateData.AsyncImage {
+		model.UpdateUserUsedQuota(task.UserId, -quota)
+		model.UpdateChannelUsedQuota(task.ChannelId, -quota)
+	}
 
-	// 4. 记录日志
-	other := taskBillingOther(task)
-	other["task_id"] = task.TaskID
-	other["reason"] = reason
-	other["refund_quota"] = quota
-	other["pre_consumed_quota"] = quota
-	other["actual_quota"] = 0
-	other["actual_total_tokens"] = 0
-	other["actual_completion_tokens"] = 0
-	appendTaskCostInfo(ctx, other, task, 0)
 	bc := task.PrivateData.BillingContext
 	settlesAgentRefund := !task.PrivateData.AsyncImage && bc != nil && bc.AgentBillingSnapshot != nil
-	logID := model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
-		Force:     settlesAgentRefund,
-		UserId:    task.UserId,
-		LogType:   model.LogTypeRefund,
-		Content:   "",
-		ChannelId: task.ChannelId,
-		ModelName: taskModelName(task),
-		Quota:     quota,
-		TokenId:   task.PrivateData.TokenId,
-		Group:     task.Group,
-		Other:     other,
-	})
+	logID := recordTaskRefundLog(ctx, task, quota, reason, settlesAgentRefund)
 	markTaskCostSettled(ctx, task, logID)
 	// Native async image submissions only reserve user quota at submit time; their
 	// agent profit is settled once actual usage arrives, so a failed submission
@@ -284,13 +284,23 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 		}
 	}
 
-	task.Quota = 0
-	if task.ID > 0 {
-		if err := task.UpdateQuota(); err != nil {
-			logger.LogError(ctx, fmt.Sprintf("退款成功但清除 task quota 失败 task %s: %s", task.TaskID, err.Error()))
-		}
-	}
-	return true
+	return true, nil
+}
+
+func recordTaskRefundLog(ctx context.Context, task *model.Task, quota int, reason string, force bool) int {
+	other := taskBillingOther(task)
+	other["task_id"] = task.TaskID
+	other["reason"] = reason
+	other["refund_quota"] = quota
+	other["pre_consumed_quota"] = quota
+	other["actual_quota"] = 0
+	other["actual_total_tokens"] = 0
+	other["actual_completion_tokens"] = 0
+	appendTaskCostInfo(ctx, other, task, 0)
+	return model.RecordTaskBillingLog(model.RecordTaskBillingLogParams{
+		Force: force, UserId: task.UserId, LogType: model.LogTypeRefund, ChannelId: task.ChannelId,
+		ModelName: taskModelName(task), Quota: quota, TokenId: task.PrivateData.TokenId, Group: task.Group, Other: other,
+	})
 }
 
 func taskTieredActualQuota(ctx context.Context, task *model.Task, taskResult *relaycommon.TaskInfo) (int, *billingexpr.TieredResult, bool) {
@@ -359,73 +369,171 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	recalculateTaskQuota(ctx, task, actualQuota, reason, nil)
 }
 
-// SettleImageTaskUsage recalculates a completed image task from the frozen
-// submission-time pricing snapshot and adjusts the pre-consumed quota.
+// CompleteImageTask publishes the delivered count with the result under the
+// task's version check. Only the winner settles; settlement never writes the
+// private snapshot back over a subsequent image-retention cleanup.
+func CompleteImageTask(ctx context.Context, task *model.Task, from model.TaskStatus, result dto.ImageTaskResponse, responseBody []byte) (bool, error) {
+	if from == model.TaskStatusSuccess || from == model.TaskStatusFailure {
+		return false, nil
+	}
+	if task.PrivateData.PendingImageSettlement != nil {
+		return RetryImageSettlement(ctx, task)
+	}
+	plan := imageSettlementPlan(task, result.Usage, responseBody, deliveredImageTaskQuota(task, result))
+	plan.Data, plan.ResultURL = task.Data, task.PrivateData.ResultURL
+	// A polling provider can be fetched again, but local workers only have
+	// the result in memory. Persist it privately before relinquishing it.
+	if task.PrivateData.UpstreamTaskID == "" || plan.Quota != task.Quota || taskIsSubscription(task) {
+		pending := *task
+		pending.Status, pending.Progress, pending.Data = from, "100%", nil
+		pending.PrivateData.ResultURL = ""
+		pending.PrivateData.PendingImageSettlement = plan
+		won, err := pending.UpdateWithStatus(from)
+		if err != nil || !won {
+			return won, err
+		}
+		*task = pending
+		return RetryImageSettlement(ctx, task)
+	}
+	return finishImageSettlement(ctx, task, from, plan)
+}
+
+func RetryImageSettlement(ctx context.Context, task *model.Task) (bool, error) {
+	plan := task.PrivateData.PendingImageSettlement
+	if plan == nil {
+		return false, nil
+	}
+	return finishImageSettlement(ctx, task, task.Status, plan)
+}
+
+func finishImageSettlement(ctx context.Context, task *model.Task, from model.TaskStatus, plan *model.ImageSettlement) (bool, error) {
+	updated := *task
+	updated.Status, updated.Progress, updated.Data = model.TaskStatusSuccess, "100%", plan.Data
+	updated.PrivateData.ResultURL = plan.ResultURL
+	updated.PrivateData.PendingImageSettlement = nil
+	won, err := publishImageSettlement(ctx, &updated, from, plan, false)
+	var reason, code string
+	switch {
+	case errors.Is(err, model.ErrImageTaskSubscriptionLimit):
+		reason, code = "insufficient subscription quota for the delivered images", "insufficient_subscription_quota"
+	case errors.Is(err, model.ErrImageTaskSubscriptionDeleted):
+		reason, code = "the subscription for this image task no longer exists", "subscription_deleted"
+	case errors.Is(err, model.ErrImageTaskWalletDeleted):
+		reason, code = "the wallet for this image task no longer exists", "wallet_deleted"
+	}
+	if code != "" {
+		updated = *task
+		updated.Status, updated.Progress, updated.FailReason = model.TaskStatusFailure, "100%", reason
+		updated.FinishTime = common.GetTimestamp()
+		updated.PrivateData.PendingImageSettlement, updated.PrivateData.ResultURL = nil, ""
+		updated.Data, err = common.Marshal(dto.ImageTaskResponse{
+			ID: task.TaskID, State: "failed", Progress: 100, Action: task.Action,
+			CreateTime: task.CreatedAt, UpdateTime: updated.FinishTime,
+			Error: map[string]any{"code": code, "message": reason},
+		})
+		if err != nil {
+			return false, err
+		}
+		won, err = publishImageSettlement(ctx, &updated, from, &model.ImageSettlement{Quota: 0}, false)
+		if won && err == nil && task.Quota > 0 {
+			recordTaskRefundLog(ctx, &updated, task.Quota, reason, false)
+		}
+	}
+	if won && err == nil {
+		*task = updated
+	}
+	return won, err
+}
+
+// SettleImageTaskUsage settles a previously published result. Keep the
+// original reservation for legacy fixed-price results with no image list.
 func SettleImageTaskUsage(ctx context.Context, task *model.Task, usage *dto.Usage, responseBody []byte) {
 	if task == nil {
 		return
 	}
+	fixedQuota := task.Quota
+	if bc := task.PrivateData.BillingContext; bc != nil && bc.PerCallBilling {
+		var result dto.ImageTaskResponse
+		if common.Unmarshal(task.Data, &result) == nil {
+			fixedQuota = deliveredImageTaskQuota(task, result)
+		}
+	}
+	plan := imageSettlementPlan(task, usage, responseBody, fixedQuota)
+	if _, err := publishImageSettlement(ctx, task, task.Status, plan, true); err != nil {
+		logger.LogError(ctx, fmt.Sprintf("settle published image task %s: %v", task.TaskID, err))
+	}
+}
+
+func deliveredImageTaskQuota(task *model.Task, result dto.ImageTaskResponse) int {
+	bc := task.PrivateData.BillingContext
+	if bc == nil || !bc.PerCallBilling || task.PrivateData.BillingSource == BillingSourceUserOwnedProvider {
+		return task.Quota
+	}
+	count := 0
+	for _, image := range result.Data.Images {
+		if strings.TrimSpace(image.URL) != "" || strings.TrimSpace(image.B64Json) != "" {
+			count++
+		}
+	}
+	if count == 0 {
+		return task.Quota
+	}
+	price := types.PriceData{OtherRatios: bc.OtherRatios}
+	price.OtherRatios = price.CloneOtherRatios()
+	price.AddOtherRatio("n", float64(count))
+	bc.OtherRatios = price.OtherRatios
+	unit := bc.FixedQuotaPerUnit
+	if unit == nil { // Tasks submitted before the unit was snapshotted.
+		unit = &common.QuotaPerUnit
+	}
+	quota := decimal.NewFromFloat(bc.ModelPrice).
+		Mul(decimal.NewFromFloat(*unit)).
+		Mul(decimal.NewFromFloat(bc.GroupRatio))
+	return common.QuotaFromDecimal(price.ApplyOtherRatiosToDecimal(quota))
+}
+
+func imageSettlementPlan(task *model.Task, usage *dto.Usage, responseBody []byte, fixedQuota int) *model.ImageSettlement {
+	plan := &model.ImageSettlement{Quota: task.Quota}
 	bc := task.PrivateData.BillingContext
 	if bc == nil {
-		return
+		return plan
 	}
-	// Fixed image prices can settle from delivered images alone. Token and
-	// expression pricing still require usage before replacing the reservation.
+	var tieredUsedVars map[string]bool
+	if snap := bc.TieredBillingSnapshot; snap != nil && snap.BillingMode == "tiered_expr" {
+		tieredUsedVars = billingexpr.UsedVars(snap.ExprString)
+	}
 	if !bc.PerCallBilling && !imageTaskUsageHasTokens(usage) {
-		return
+		// A size- or request-based expression can settle without a token report.
+		if tieredUsedVars == nil || billingexpr.UsesTokenVariables(tieredUsedVars) {
+			return plan
+		}
 	}
 	usage = normalizeImageTaskUsage(usage)
 	if usage == nil {
 		usage = &dto.Usage{}
 	}
+	plan.Usage = usage
 	if task.PrivateData.BillingSource == BillingSourceUserOwnedProvider {
-		settleImageTaskActualQuota(ctx, task, 0, usage, nil)
-		return
+		plan.Quota = 0
+		return plan
 	}
 	if bc.PerCallBilling {
-		actualQuota := task.Quota
-		// Both local workers and polled image tasks store a normalized result.
-		// Count delivered images, not the requested/reserved sampleCount. Keep
-		// the old fallback for legacy task results without an image list.
-		var result dto.ImageTaskResponse
-		if common.Unmarshal(task.Data, &result) == nil {
-			count := 0
-			for _, image := range result.Data.Images {
-				if strings.TrimSpace(image.URL) != "" || strings.TrimSpace(image.B64Json) != "" {
-					count++
-				}
-			}
-			if count > 0 {
-				info := imageTaskSettlementRelayInfo(task, responseBody)
-				// Clone before changing n; the frozen request and other pricing
-				// dimensions must survive unchanged for logs and expressions.
-				info.PriceData.OtherRatios = info.PriceData.CloneOtherRatios()
-				info.PriceData.AddOtherRatio("n", float64(count))
-				// Fixed image prices depend on delivered count, not on a token
-				// breakdown. Text settlement treats total-only usage as empty.
-				quota := decimal.NewFromFloat(bc.ModelPrice).
-					Mul(decimal.NewFromFloat(common.QuotaPerUnit)).
-					Mul(decimal.NewFromFloat(bc.GroupRatio))
-				actualQuota = common.QuotaFromDecimal(info.PriceData.ApplyOtherRatiosToDecimal(quota))
-				bc.OtherRatios = info.PriceData.CloneOtherRatios()
-			}
-		}
-		settleImageTaskActualQuota(ctx, task, actualQuota, usage, nil)
-		return
+		plan.Quota = fixedQuota
+		return plan
 	}
 	relayInfo := imageTaskSettlementRelayInfo(task, responseBody)
 	ginContext := &gin.Context{}
 	summary := calculateTextQuotaSummary(ginContext, relayInfo, usage)
-	tieredUsedVars := map[string]bool(nil)
-	if relayInfo.TieredBillingSnapshot != nil {
-		tieredUsedVars = billingexpr.UsedVars(relayInfo.TieredBillingSnapshot.ExprString)
-	}
 	var tieredResult *billingexpr.TieredResult
 	if ok, quota, result := TryTieredSettle(relayInfo, BuildTieredTokenParams(usage, usage.UsageSemantic == "anthropic", tieredUsedVars)); ok {
 		summary.Quota = composeTieredTextQuota(relayInfo, summary, quota, result)
 		tieredResult = result
 	}
-	settleImageTaskActualQuota(ctx, task, summary.Quota, usage, tieredResult)
+	if summary.Quota < 0 {
+		return &model.ImageSettlement{Quota: task.Quota}
+	}
+	plan.Quota, plan.Tiered = summary.Quota, tieredResult
+	return plan
 }
 
 func normalizeImageTaskUsage(usage *dto.Usage) *dto.Usage {
@@ -516,23 +624,73 @@ func cloneTaskBillingHeaders(source map[string]string) map[string]string {
 	return clone
 }
 
-func settleImageTaskActualQuota(ctx context.Context, task *model.Task, actualQuota int, usage *dto.Usage, tieredResult *billingexpr.TieredResult) {
-	if actualQuota < 0 {
-		return
+func publishImageSettlement(ctx context.Context, task *model.Task, from model.TaskStatus, plan *model.ImageSettlement, previouslyPublished bool) (bool, error) {
+	before := task.Quota
+	won, err := commitTaskQuota(task, from, plan.Quota, previouslyPublished)
+	if won && err == nil && plan.Usage != nil {
+		recordImageSettlement(ctx, task, before, plan)
 	}
-	preConsumedQuota := task.Quota
-	quotaDelta := actualQuota - preConsumedQuota
-	if quotaDelta != 0 {
-		if err := taskAdjustFunding(task, quotaDelta); err != nil {
-			logger.LogError(ctx, fmt.Sprintf("图片任务差额结算资金调整失败 task %s: %s", task.TaskID, err.Error()))
-			return
+	return won, err
+}
+
+// Commit the task revision, funding adjustment and token adjustment together.
+func commitTaskQuota(task *model.Task, from model.TaskStatus, finalQuota int, previouslyPublished bool) (bool, error) {
+	before := task.Quota
+	delta := finalQuota - before
+	accounts := model.ImageTaskQuotaReservation{
+		UserID: task.UserId, TokenID: task.PrivateData.TokenId, SkipToken: true,
+		RefundUndelivered: task.PrivateData.AsyncImage && task.Status == model.TaskStatusFailure && finalQuota == 0,
+	}
+	if taskIsSubscription(task) {
+		accounts.SubscriptionID = task.PrivateData.SubscriptionId
+	} else {
+		accounts.WalletReserved = before > 0 && !previouslyPublished
+	}
+	if delta != 0 && accounts.TokenID > 0 {
+		token, err := model.GetTokenById(accounts.TokenID)
+		if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+			return false, err
 		}
-		taskAdjustTokenQuota(ctx, task, quotaDelta)
+		if err == nil {
+			accounts.TokenKey, accounts.SkipToken = token.Key, false
+		}
 	}
-	task.Quota = actualQuota
-	if err := model.DB.Model(task).Updates(map[string]any{"quota": actualQuota, "private_data": task.PrivateData}).Error; err != nil {
-		logger.LogWarn(ctx, fmt.Sprintf("更新图片任务实际扣费失败 task %s: %s", task.TaskID, err.Error()))
+	staged := *task
+	lost := errors.New("image settlement already processed")
+	err := model.SettleImageTaskQuota(accounts, delta, func(tx *gorm.DB) error {
+		if previouslyPublished {
+			// Preserve the current result and its retention metadata.
+			var current model.Task
+			if err := tx.First(&current, task.ID).Error; err != nil {
+				return err
+			}
+			if current.Quota != before || current.Status != from || current.ImageQuotaSettled() {
+				return lost
+			}
+			if src, dst := task.PrivateData.BillingContext, current.PrivateData.BillingContext; src != nil && dst != nil && src.PerCallBilling {
+				dst.OtherRatios = src.OtherRatios
+			}
+			staged = current
+		}
+		staged.Quota = finalQuota
+		won, err := staged.UpdateWithStatusTx(tx, from)
+		if !won && err == nil {
+			return lost
+		}
+		return err
+	})
+	if errors.Is(err, lost) {
+		return false, nil
 	}
+	if err != nil {
+		return false, err
+	}
+	*task = staged
+	return true, nil
+}
+
+func recordImageSettlement(ctx context.Context, task *model.Task, preConsumedQuota int, plan *model.ImageSettlement) {
+	actualQuota, usage, tieredResult := plan.Quota, plan.Usage, plan.Tiered
 	model.UpdateUserUsedQuotaAndRequestCount(task.UserId, actualQuota)
 	model.UpdateChannelUsedQuota(task.ChannelId, actualQuota)
 	other := taskBillingOther(task)

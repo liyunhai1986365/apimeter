@@ -1,6 +1,7 @@
 package helper
 
 import (
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,6 +17,31 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
+
+func TestFixedTaskQuota(t *testing.T) {
+	for _, tc := range []struct {
+		price, groupRatio float64
+		want              int
+		clampKind         string
+	}{
+		{0.0007, 0.7, 245, ""},
+		{0.0027, 0.7, 945, ""},
+		{0.0017, 0.65, 552, ""}, // 552.5 is truncated.
+		{0.0007, 0, 0, ""},
+		{1e20, 1, common.MaxQuota, common.QuotaClampOverflow},
+		{math.Inf(1), 1, common.MaxQuota, common.QuotaClampOverflow},
+		{0, math.Inf(1), 0, common.QuotaClampNaN},
+	} {
+		got, clamp := fixedTaskQuota(tc.price, tc.groupRatio)
+		require.Equal(t, tc.want, got, "price=%g group=%g", tc.price, tc.groupRatio)
+		if tc.clampKind == "" {
+			require.Nil(t, clamp)
+		} else {
+			require.NotNil(t, clamp)
+			require.Equal(t, tc.clampKind, clamp.Kind)
+		}
+	}
+}
 
 func TestModelPriceHelperTieredUsesPreloadedRequestInput(t *testing.T) {
 	gin.SetMode(gin.TestMode)

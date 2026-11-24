@@ -1,0 +1,1141 @@
+round	check	passed	details
+round_1	runtime:redis_empty_isolation	True	"{""db"": 14}"
+round_1	runtime:mysql_isolated_schema	True	"{""schema"": ""apimeter_acceptance_20261123_round_1""}"
+round_1	runtime:readiness:1	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+round_1	setup:status	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:fresh_setup	True	"{""status"": 200, ""message"": null}"
+round_1	setup:bootstrap_admin	True	"{""status"": 200, ""message"": ""系统初始化成功""}"
+round_1	setup:admin_login	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:create_mockuser	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:create_mockother	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:user_login	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:other_login	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:user_profile	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:other_profile	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:quota_2	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:quota_3	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:relay_token	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:other_token	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:RetryTimes	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:LogConsumeEnabled	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:mock-openai	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:mock-additional-relay	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:mock-openrouter	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:mock-claude	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:mock-gemini	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:mock-assets	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-success	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-failed	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-expired	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-create429	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-query429	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-query500	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	True	"{""status"": 200, ""message"": """"}"
+round_1	routing:new_channel_eventual_visibility	True	"{""seconds"": 59.26, ""statuses"": {""503"": 59, ""200"": 1}}"
+round_1	runtime:mysql57	True	"{""metadata"": [{""version"": ""5.7.44""}]}"
+round_1	routing:models	True	"{""status"": 200}"
+round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_1	exact-http:baseline/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/mock-chat/openai/json	True	{}
+round_1	exact:baseline/chat/mock-chat/openai/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/mock-chat/openai/stream	True	{}
+round_1	exact:baseline/chat/mock-chat/openai/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/claude-sonnet-4-5/openai/json	True	{}
+round_1	exact:baseline/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_1	exact:baseline/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/claude-opus-5-5/openai/json	True	{}
+round_1	exact:baseline/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 138, ""formula"": ""round((100 + 20 × 1 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 138, ""mysql_user_used_delta"": 138, ""mysql_token_debit"": 138, ""mysql_token_used_delta"": 138, ""ledger_net"": 138}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/claude-opus-5-5/openai/stream	True	{}
+round_1	exact:baseline/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 138, ""formula"": ""round((100 + 20 × 1 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 138, ""mysql_user_used_delta"": 138, ""mysql_token_debit"": 138, ""mysql_token_used_delta"": 138, ""ledger_net"": 138}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/gemini-2.5-flash/openai/json	True	{}
+round_1	exact:baseline/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/gemini-2.5-flash/openai/stream	True	{}
+round_1	exact:baseline/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/claude-sonnet-4-5/native/json	True	{}
+round_1	exact:baseline/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/claude-sonnet-4-5/native/stream	True	{}
+round_1	exact:baseline/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/gemini-2.5-flash/native/json	True	{}
+round_1	exact:baseline/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/chat/gemini-2.5-flash/native/stream	True	{}
+round_1	exact:baseline/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/image/gpt-image-2/sync/n=1	True	{}
+round_1	exact:baseline/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/image/gpt-image-2/sync/n=3	True	{}
+round_1	exact:baseline/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/image/image-alias/sync/n=1	True	{}
+round_1	exact:baseline/image/image-alias/sync/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:baseline/image/image-alias/sync/n=3	True	{}
+round_1	exact:baseline/image/image-alias/sync/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_1	exact-content:baseline/image/gpt-image-2/edit/n=1	True	{}
+round_1	exact:baseline/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:baseline/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:baseline/image/gpt-image-2/async/n=1	True	{}
+round_1	exact-task-terminal:baseline/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_1	exact:baseline/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:baseline/image/gpt-image-2/async/n=1	True	"{""expected"": 120, ""rows"": [{""quota"": 120, ""status"": ""SUCCESS""}]}"
+round_1	load:exact-image-repeat	True	"{""metrics"": {""name"": ""exact-image-repeat"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.03, ""p95_ms"": 11.26, ""p99_ms"": 11.26, ""max_ms"": 11.69}}"
+round_1	exact:baseline/image/gpt-image-2/async/n=1/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	exact-http:baseline/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:baseline/image/gpt-image-2/async/n=3	True	{}
+round_1	exact-task-terminal:baseline/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_1	exact:baseline/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:baseline/image/gpt-image-2/async/n=3	True	"{""expected"": 120, ""rows"": [{""quota"": 120, ""status"": ""SUCCESS""}]}"
+round_1	exact-http:baseline/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:baseline/video/success	True	{}
+round_1	exact-task-terminal:baseline/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-7b19aad6d22345e68f901720100b54f5"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406893, ""updated_at"": 1795406893, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36411/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_1	exact:baseline/video/success	True	"{""expected_quota"": 500, ""formula"": ""truncate(.001 × 500000 × 1)"", ""actual"": {""mysql_user_debit"": 500, ""mysql_user_used_delta"": 500, ""mysql_token_debit"": 500, ""mysql_token_used_delta"": 500, ""ledger_net"": 500}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:baseline/video/success	True	"{""expected"": 500, ""rows"": [{""quota"": 500, ""status"": ""SUCCESS""}]}"
+round_1	load:exact-video-repeat-baseline	True	"{""metrics"": {""name"": ""exact-video-repeat-baseline"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.16, ""p95_ms"": 1009.14, ""p99_ms"": 1009.14, ""max_ms"": 1018.82}}"
+round_1	exact:baseline/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	load:exact-concurrent-mock-chat	True	"{""metrics"": {""name"": ""exact-concurrent-mock-chat"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 99, ""statuses"": {""200"": 100}, ""p50_ms"": 105.96, ""p95_ms"": 147.54, ""p99_ms"": 161.43, ""max_ms"": 162.56}}"
+round_1	exact-concurrent-success:mock-chat	True	{}
+round_1	exact:baseline/concurrent/mock-chat	True	"{""expected_quota"": 12000, ""formula"": ""100 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 12000, ""mysql_user_used_delta"": 12000, ""mysql_token_debit"": 12000, ""mysql_token_used_delta"": 12000, ""ledger_net"": 12000}, ""redis_matches_mysql"": true, ""log_count"": 100, ""expected_log_count"": 100, ""logs_valid"": true}"
+round_1	load:exact-concurrent-claude-sonnet-4-5	True	"{""metrics"": {""name"": ""exact-concurrent-claude-sonnet-4-5"", ""requests"": 50, ""workers"": 50, ""peak_client_inflight"": 50, ""statuses"": {""200"": 50}, ""p50_ms"": 46.84, ""p95_ms"": 69.43, ""p99_ms"": 77.88, ""max_ms"": 83.13}}"
+round_1	exact-concurrent-success:claude-sonnet-4-5	True	{}
+round_1	exact:baseline/concurrent/claude-sonnet-4-5	True	"{""expected_quota"": 10900, ""formula"": ""50 × (round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 10900, ""mysql_user_used_delta"": 10900, ""mysql_token_debit"": 10900, ""mysql_token_used_delta"": 10900, ""ledger_net"": 10900}, ""redis_matches_mysql"": true, ""log_count"": 50, ""expected_log_count"": 50, ""logs_valid"": true}"
+round_1	load:exact-concurrent-gemini-2.5-flash	True	"{""metrics"": {""name"": ""exact-concurrent-gemini-2.5-flash"", ""requests"": 50, ""workers"": 50, ""peak_client_inflight"": 50, ""statuses"": {""200"": 50}, ""p50_ms"": 49.88, ""p95_ms"": 77.42, ""p99_ms"": 82.86, ""max_ms"": 87.82}}"
+round_1	exact-concurrent-success:gemini-2.5-flash	True	{}
+round_1	exact:baseline/concurrent/gemini-2.5-flash	True	"{""expected_quota"": 6000, ""formula"": ""50 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 6000, ""mysql_user_used_delta"": 6000, ""mysql_token_debit"": 6000, ""mysql_token_used_delta"": 6000, ""ledger_net"": 6000}, ""redis_matches_mysql"": true, ""log_count"": 50, ""expected_log_count"": 50, ""logs_valid"": true}"
+round_1	load:exact-concurrent-gpt-image-2	True	"{""metrics"": {""name"": ""exact-concurrent-gpt-image-2"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 140.59, ""p95_ms"": 153.22, ""p99_ms"": 153.22, ""max_ms"": 153.77}}"
+round_1	exact-concurrent-success:gpt-image-2	True	{}
+round_1	exact:baseline/concurrent/gpt-image-2	True	"{""expected_quota"": 2400, ""formula"": ""20 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 2400, ""mysql_user_used_delta"": 2400, ""mysql_token_debit"": 2400, ""mysql_token_used_delta"": 2400, ""ledger_net"": 2400}, ""redis_matches_mysql"": true, ""log_count"": 20, ""expected_log_count"": 20, ""logs_valid"": true}"
+round_1	load:exact-video-concurrent-create	True	"{""metrics"": {""name"": ""exact-video-concurrent-create"", ""requests"": 10, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 10}, ""p50_ms"": 48.18, ""p95_ms"": 52.83, ""p99_ms"": 52.83, ""max_ms"": 53.79}}"
+round_1	exact-video-concurrent-created	True	{}
+round_1	load:exact-video-concurrent-fetch	True	"{""metrics"": {""name"": ""exact-video-concurrent-fetch"", ""requests"": 10, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 10}, ""p50_ms"": 13.6, ""p95_ms"": 18.1, ""p99_ms"": 18.1, ""max_ms"": 19.9}}"
+round_1	exact:baseline/concurrent/video	True	"{""expected_quota"": 5000, ""formula"": ""10 × (truncate(.001 × 500000 × 1))"", ""actual"": {""mysql_user_debit"": 5000, ""mysql_user_used_delta"": 5000, ""mysql_token_debit"": 5000, ""mysql_token_used_delta"": 5000, ""ledger_net"": 5000}, ""redis_matches_mysql"": true, ""log_count"": 10, ""expected_log_count"": 10, ""logs_valid"": true}"
+round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_1	exact-http:fractional/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/mock-chat/openai/json	True	{}
+round_1	exact:fractional/chat/mock-chat/openai/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/mock-chat/openai/stream	True	{}
+round_1	exact:fractional/chat/mock-chat/openai/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/claude-sonnet-4-5/openai/json	True	{}
+round_1	exact:fractional/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_1	exact:fractional/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/claude-opus-5-5/openai/json	True	{}
+round_1	exact:fractional/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 178, ""formula"": ""round((100 + 20 × 2.3 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 178, ""mysql_user_used_delta"": 178, ""mysql_token_debit"": 178, ""mysql_token_used_delta"": 178, ""ledger_net"": 178}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/claude-opus-5-5/openai/stream	True	{}
+round_1	exact:fractional/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 178, ""formula"": ""round((100 + 20 × 2.3 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 178, ""mysql_user_used_delta"": 178, ""mysql_token_debit"": 178, ""mysql_token_used_delta"": 178, ""ledger_net"": 178}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/gemini-2.5-flash/openai/json	True	{}
+round_1	exact:fractional/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/gemini-2.5-flash/openai/stream	True	{}
+round_1	exact:fractional/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/claude-sonnet-4-5/native/json	True	{}
+round_1	exact:fractional/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/claude-sonnet-4-5/native/stream	True	{}
+round_1	exact:fractional/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/gemini-2.5-flash/native/json	True	{}
+round_1	exact:fractional/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/chat/gemini-2.5-flash/native/stream	True	{}
+round_1	exact:fractional/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/image/gpt-image-2/sync/n=1	True	{}
+round_1	exact:fractional/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/image/gpt-image-2/sync/n=3	True	{}
+round_1	exact:fractional/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/image/image-alias/sync/n=1	True	{}
+round_1	exact:fractional/image/image-alias/sync/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:fractional/image/image-alias/sync/n=3	True	{}
+round_1	exact:fractional/image/image-alias/sync/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_1	exact-content:fractional/image/gpt-image-2/edit/n=1	True	{}
+round_1	exact:fractional/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:fractional/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:fractional/image/gpt-image-2/async/n=1	True	{}
+round_1	exact-task-terminal:fractional/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_1	exact:fractional/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:fractional/image/gpt-image-2/async/n=1	True	"{""expected"": 161, ""rows"": [{""quota"": 161, ""status"": ""SUCCESS""}]}"
+round_1	exact-http:fractional/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:fractional/image/gpt-image-2/async/n=3	True	{}
+round_1	exact-task-terminal:fractional/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_1	exact:fractional/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:fractional/image/gpt-image-2/async/n=3	True	"{""expected"": 161, ""rows"": [{""quota"": 161, ""status"": ""SUCCESS""}]}"
+round_1	exact-http:fractional/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:fractional/video/success	True	{}
+round_1	exact-task-terminal:fractional/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-67efc2fec7ad4453b0c248adecfc2e86"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406899, ""updated_at"": 1795406899, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36411/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_1	exact:fractional/video/success	True	"{""expected_quota"": 552, ""formula"": ""truncate(.0017 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 552, ""mysql_user_used_delta"": 552, ""mysql_token_debit"": 552, ""mysql_token_used_delta"": 552, ""ledger_net"": 552}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:fractional/video/success	True	"{""expected"": 552, ""rows"": [{""quota"": 552, ""status"": ""SUCCESS""}]}"
+round_1	load:exact-video-repeat-fractional	True	"{""metrics"": {""name"": ""exact-video-repeat-fractional"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 10.45, ""p95_ms"": 1014.73, ""p99_ms"": 1014.73, ""max_ms"": 1032.92}}"
+round_1	exact:fractional/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_1	exact-http:per_call/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:per_call/image/gpt-image-2/sync/n=1	True	{}
+round_1	exact:per_call/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:per_call/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:per_call/image/gpt-image-2/sync/n=3	True	{}
+round_1	exact:per_call/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:per_call/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:per_call/image/image-alias/sync/n=1	True	{}
+round_1	exact:per_call/image/image-alias/sync/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:per_call/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:per_call/image/image-alias/sync/n=3	True	{}
+round_1	exact:per_call/image/image-alias/sync/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:per_call/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_1	exact-content:per_call/image/gpt-image-2/edit/n=1	True	{}
+round_1	exact:per_call/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:per_call/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:per_call/image/gpt-image-2/async/n=1	True	{}
+round_1	exact-task-terminal:per_call/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_1	exact:per_call/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:per_call/image/gpt-image-2/async/n=1	True	"{""expected"": 878, ""rows"": [{""quota"": 878, ""status"": ""SUCCESS""}]}"
+round_1	exact-http:per_call/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:per_call/image/gpt-image-2/async/n=3	True	{}
+round_1	exact-task-terminal:per_call/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_1	exact:per_call/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:per_call/image/gpt-image-2/async/n=3	True	"{""expected"": 2633, ""rows"": [{""quota"": 2633, ""status"": ""SUCCESS""}]}"
+round_1	exact-http:per_call/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:per_call/video/success	True	{}
+round_1	exact-task-terminal:per_call/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-3f78c53ba49e4aa09d6e237f776bb922"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406903, ""updated_at"": 1795406903, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36411/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_1	exact:per_call/video/success	True	"{""expected_quota"": 552, ""formula"": ""truncate(.0017 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 552, ""mysql_user_used_delta"": 552, ""mysql_token_debit"": 552, ""mysql_token_used_delta"": 552, ""ledger_net"": 552}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:per_call/video/success	True	"{""expected"": 552, ""rows"": [{""quota"": 552, ""status"": ""SUCCESS""}]}"
+round_1	load:exact-video-repeat-per_call	True	"{""metrics"": {""name"": ""exact-video-repeat-per_call"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 8.61, ""p95_ms"": 1009.98, ""p99_ms"": 1009.98, ""max_ms"": 1014.73}}"
+round_1	exact:per_call/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_1	exact-http:tiered/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/mock-chat/openai/json	True	{}
+round_1	exact:tiered/chat/mock-chat/openai/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/mock-chat/openai/stream	True	{}
+round_1	exact:tiered/chat/mock-chat/openai/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/claude-sonnet-4-5/openai/json	True	{}
+round_1	exact:tiered/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_1	exact:tiered/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/claude-opus-5-5/openai/json	True	{}
+round_1	exact:tiered/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/claude-opus-5-5/openai/stream	True	{}
+round_1	exact:tiered/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/gemini-2.5-flash/openai/json	True	{}
+round_1	exact:tiered/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/gemini-2.5-flash/openai/stream	True	{}
+round_1	exact:tiered/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/claude-sonnet-4-5/native/json	True	{}
+round_1	exact:tiered/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/claude-sonnet-4-5/native/stream	True	{}
+round_1	exact:tiered/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/gemini-2.5-flash/native/json	True	{}
+round_1	exact:tiered/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/chat/gemini-2.5-flash/native/stream	True	{}
+round_1	exact:tiered/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/image/gpt-image-2/sync/n=1	True	{}
+round_1	exact:tiered/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/image/gpt-image-2/sync/n=3	True	{}
+round_1	exact:tiered/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/image/image-alias/sync/n=1	True	{}
+round_1	exact:tiered/image/image-alias/sync/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-content:tiered/image/image-alias/sync/n=3	True	{}
+round_1	exact:tiered/image/image-alias/sync/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_1	exact-content:tiered/image/gpt-image-2/edit/n=1	True	{}
+round_1	exact:tiered/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-http:tiered/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:tiered/image/gpt-image-2/async/n=1	True	{}
+round_1	exact-task-terminal:tiered/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_1	exact:tiered/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:tiered/image/gpt-image-2/async/n=1	True	"{""expected"": 117, ""rows"": [{""quota"": 117, ""status"": ""SUCCESS""}]}"
+round_1	exact-http:tiered/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:tiered/image/gpt-image-2/async/n=3	True	{}
+round_1	exact-task-terminal:tiered/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_1	exact:tiered/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:tiered/image/gpt-image-2/async/n=3	True	"{""expected"": 117, ""rows"": [{""quota"": 117, ""status"": ""SUCCESS""}]}"
+round_1	exact-http:tiered/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:tiered/video/success	True	{}
+round_1	exact-task-terminal:tiered/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-1e36993782c945c088494a8f5c976d79"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406907, ""updated_at"": 1795406907, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36411/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_1	exact:tiered/video/success	True	"{""expected_quota"": 260, ""formula"": ""round((0 × 2 + 100 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 260, ""mysql_user_used_delta"": 260, ""mysql_token_debit"": 260, ""mysql_token_used_delta"": 260, ""ledger_net"": 260}, ""redis_matches_mysql"": true, ""log_count"": 2, ""expected_log_count"": null, ""logs_valid"": true}"
+round_1	exact-task-quota:tiered/video/success	True	"{""expected"": 260, ""rows"": [{""quota"": 260, ""status"": ""SUCCESS""}]}"
+round_1	load:exact-video-repeat-tiered	True	"{""metrics"": {""name"": ""exact-video-repeat-tiered"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 11.33, ""p95_ms"": 1026.97, ""p99_ms"": 1026.97, ""max_ms"": 1030.18}}"
+round_1	exact:tiered/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_1	exact-http:integer_boundary_350x07/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:integer_boundary_350x07/video/success	True	{}
+round_1	exact-task-terminal:integer_boundary_350x07/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-94b766d2bdb440c6bd9ad725096d25fe"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406908, ""updated_at"": 1795406908, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36411/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_1	exact:integer_boundary_350x07/video/success	False	"{""expected_quota"": 245, ""formula"": ""truncate(.0007 × 500000 × 0.7)"", ""actual"": {""mysql_user_debit"": 244, ""mysql_user_used_delta"": 244, ""mysql_token_debit"": 244, ""mysql_token_used_delta"": 244, ""ledger_net"": 244}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:integer_boundary_350x07/video/success	False	"{""expected"": 245, ""rows"": [{""quota"": 244, ""status"": ""SUCCESS""}]}"
+round_1	load:exact-video-repeat-integer_boundary_350x07	True	"{""metrics"": {""name"": ""exact-video-repeat-integer_boundary_350x07"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 10.16, ""p95_ms"": 1029.93, ""p99_ms"": 1029.93, ""max_ms"": 1044.33}}"
+round_1	exact:integer_boundary_350x07/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_1	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_1	exact-http:integer_boundary_1350x07/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_1	exact-task-created:integer_boundary_1350x07/video/success	True	{}
+round_1	exact-task-terminal:integer_boundary_1350x07/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-4612758eb36d4f72bc15429a316a9c1f"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406915, ""updated_at"": 1795406915, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36411/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_1	exact:integer_boundary_1350x07/video/success	False	"{""expected_quota"": 945, ""formula"": ""truncate(.0027 × 500000 × 0.7)"", ""actual"": {""mysql_user_debit"": 944, ""mysql_user_used_delta"": 944, ""mysql_token_debit"": 944, ""mysql_token_used_delta"": 944, ""ledger_net"": 944}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_1	exact-task-quota:integer_boundary_1350x07/video/success	False	"{""expected"": 945, ""rows"": [{""quota"": 944, ""status"": ""SUCCESS""}]}"
+round_1	load:exact-video-repeat-integer_boundary_1350x07	True	"{""metrics"": {""name"": ""exact-video-repeat-integer_boundary_1350x07"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 10.13, ""p95_ms"": 1025.3, ""p99_ms"": 1025.3, ""max_ms"": 1027.59}}"
+round_1	exact:integer_boundary_1350x07/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	runtime:graceful_shutdown:1	True	"{""exit_code"": 0}"
+round_1	runtime:readiness:2	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_diiNJXV9ss99DZd57zqJfzygNr1h1Fd7"", ""status"": 200}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_k3FvIkdZCl4IaoOIsYlwLqFcDYGACpq4"", ""status"": 200}"
+round_1	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-7b19aad6d22345e68f901720100b54f5"", ""status"": 200}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_xjvmGZj8tv06d5qR80S26NVrl7TcKUZB"", ""status"": 200}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_I42oTqPsFtBbgk2kMGSRNp6zs1ccrVDX"", ""status"": 200}"
+round_1	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-67efc2fec7ad4453b0c248adecfc2e86"", ""status"": 200}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_kUU32ZzOS74h0lvFh0QF0Jhtk2BXDrcx"", ""status"": 200}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_69BjbLqcJlHwYNucEiRolD1Yjm6ePbEK"", ""status"": 200}"
+round_1	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-3f78c53ba49e4aa09d6e237f776bb922"", ""status"": 200}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_2mj5kPy9MtAb0LTE92BQ4voOCftk4nOu"", ""status"": 200}"
+round_1	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_nzy5rHmzrtQMMgBvs3zAAMsKBXTWhLt4"", ""status"": 200}"
+round_1	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-1e36993782c945c088494a8f5c976d79"", ""status"": 200}"
+round_1	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-94b766d2bdb440c6bd9ad725096d25fe"", ""status"": 200}"
+round_1	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-4612758eb36d4f72bc15429a316a9c1f"", ""status"": 200}"
+round_1	exact:restart/all_completed_tasks	True	"{""expected_quota"": 0, ""formula"": ""restart and query completed tasks from all profiles: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_1	exact-all-accounting-cases	False	"{""cases"": 83, ""failures"": [""integer_boundary_350x07/video/success"", ""integer_boundary_1350x07/video/success""]}"
+round_1	runtime:only_local_channels	True	{}
+round_1	upstream:credentials	True	"{""failed_paths"": []}"
+round_1	runtime:graceful_shutdown:2	True	"{""exit_code"": 0}"
+round_1	cleanup:mysql_schema_removed	True	{}
+round_1	cleanup:redis_db14_empty	True	"{""removed_keys"": 14}"
+round_2	runtime:redis_empty_isolation	True	"{""db"": 14}"
+round_2	runtime:mysql_isolated_schema	True	"{""schema"": ""apimeter_acceptance_20261123_round_2""}"
+round_2	runtime:readiness:1	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+round_2	setup:status	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:fresh_setup	True	"{""status"": 200, ""message"": null}"
+round_2	setup:bootstrap_admin	True	"{""status"": 200, ""message"": ""系统初始化成功""}"
+round_2	setup:admin_login	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:create_mockuser	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:create_mockother	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:user_login	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:other_login	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:user_profile	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:other_profile	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:quota_2	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:quota_3	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:relay_token	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:other_token	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:RetryTimes	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:LogConsumeEnabled	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:mock-openai	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:mock-additional-relay	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:mock-openrouter	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:mock-claude	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:mock-gemini	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:mock-assets	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-success	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-failed	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-expired	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-create429	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-query429	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-query500	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	True	"{""status"": 200, ""message"": """"}"
+round_2	routing:new_channel_eventual_visibility	True	"{""seconds"": 59.23, ""statuses"": {""503"": 59, ""200"": 1}}"
+round_2	runtime:mysql57	True	"{""metadata"": [{""version"": ""5.7.44""}]}"
+round_2	routing:models	True	"{""status"": 200}"
+round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_2	exact-http:baseline/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/mock-chat/openai/json	True	{}
+round_2	exact:baseline/chat/mock-chat/openai/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/mock-chat/openai/stream	True	{}
+round_2	exact:baseline/chat/mock-chat/openai/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/claude-sonnet-4-5/openai/json	True	{}
+round_2	exact:baseline/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_2	exact:baseline/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/claude-opus-5-5/openai/json	True	{}
+round_2	exact:baseline/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 138, ""formula"": ""round((100 + 20 × 1 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 138, ""mysql_user_used_delta"": 138, ""mysql_token_debit"": 138, ""mysql_token_used_delta"": 138, ""ledger_net"": 138}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/claude-opus-5-5/openai/stream	True	{}
+round_2	exact:baseline/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 138, ""formula"": ""round((100 + 20 × 1 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 138, ""mysql_user_used_delta"": 138, ""mysql_token_debit"": 138, ""mysql_token_used_delta"": 138, ""ledger_net"": 138}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/gemini-2.5-flash/openai/json	True	{}
+round_2	exact:baseline/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/gemini-2.5-flash/openai/stream	True	{}
+round_2	exact:baseline/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/claude-sonnet-4-5/native/json	True	{}
+round_2	exact:baseline/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/claude-sonnet-4-5/native/stream	True	{}
+round_2	exact:baseline/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/gemini-2.5-flash/native/json	True	{}
+round_2	exact:baseline/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/chat/gemini-2.5-flash/native/stream	True	{}
+round_2	exact:baseline/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/image/gpt-image-2/sync/n=1	True	{}
+round_2	exact:baseline/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/image/gpt-image-2/sync/n=3	True	{}
+round_2	exact:baseline/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/image/image-alias/sync/n=1	True	{}
+round_2	exact:baseline/image/image-alias/sync/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:baseline/image/image-alias/sync/n=3	True	{}
+round_2	exact:baseline/image/image-alias/sync/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_2	exact-content:baseline/image/gpt-image-2/edit/n=1	True	{}
+round_2	exact:baseline/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:baseline/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:baseline/image/gpt-image-2/async/n=1	True	{}
+round_2	exact-task-terminal:baseline/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_2	exact:baseline/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:baseline/image/gpt-image-2/async/n=1	True	"{""expected"": 120, ""rows"": [{""quota"": 120, ""status"": ""SUCCESS""}]}"
+round_2	load:exact-image-repeat	True	"{""metrics"": {""name"": ""exact-image-repeat"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 8.02, ""p95_ms"": 17.91, ""p99_ms"": 17.91, ""max_ms"": 18.01}}"
+round_2	exact:baseline/image/gpt-image-2/async/n=1/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	exact-http:baseline/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:baseline/image/gpt-image-2/async/n=3	True	{}
+round_2	exact-task-terminal:baseline/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_2	exact:baseline/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:baseline/image/gpt-image-2/async/n=3	True	"{""expected"": 120, ""rows"": [{""quota"": 120, ""status"": ""SUCCESS""}]}"
+round_2	exact-http:baseline/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:baseline/video/success	True	{}
+round_2	exact-task-terminal:baseline/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-d5cde7841e5f493dbb491f3b6949d935"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406990, ""updated_at"": 1795406990, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36765/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_2	exact:baseline/video/success	True	"{""expected_quota"": 500, ""formula"": ""truncate(.001 × 500000 × 1)"", ""actual"": {""mysql_user_debit"": 500, ""mysql_user_used_delta"": 500, ""mysql_token_debit"": 500, ""mysql_token_used_delta"": 500, ""ledger_net"": 500}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:baseline/video/success	True	"{""expected"": 500, ""rows"": [{""quota"": 500, ""status"": ""SUCCESS""}]}"
+round_2	load:exact-video-repeat-baseline	True	"{""metrics"": {""name"": ""exact-video-repeat-baseline"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.98, ""p95_ms"": 1037.35, ""p99_ms"": 1037.35, ""max_ms"": 1044.44}}"
+round_2	exact:baseline/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	load:exact-concurrent-mock-chat	True	"{""metrics"": {""name"": ""exact-concurrent-mock-chat"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 95.28, ""p95_ms"": 161.26, ""p99_ms"": 168.74, ""max_ms"": 177.02}}"
+round_2	exact-concurrent-success:mock-chat	True	{}
+round_2	exact:baseline/concurrent/mock-chat	True	"{""expected_quota"": 12000, ""formula"": ""100 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 12000, ""mysql_user_used_delta"": 12000, ""mysql_token_debit"": 12000, ""mysql_token_used_delta"": 12000, ""ledger_net"": 12000}, ""redis_matches_mysql"": true, ""log_count"": 100, ""expected_log_count"": 100, ""logs_valid"": true}"
+round_2	load:exact-concurrent-claude-sonnet-4-5	True	"{""metrics"": {""name"": ""exact-concurrent-claude-sonnet-4-5"", ""requests"": 50, ""workers"": 50, ""peak_client_inflight"": 50, ""statuses"": {""200"": 50}, ""p50_ms"": 50.51, ""p95_ms"": 68.36, ""p99_ms"": 75.16, ""max_ms"": 80.7}}"
+round_2	exact-concurrent-success:claude-sonnet-4-5	True	{}
+round_2	exact:baseline/concurrent/claude-sonnet-4-5	True	"{""expected_quota"": 10900, ""formula"": ""50 × (round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 10900, ""mysql_user_used_delta"": 10900, ""mysql_token_debit"": 10900, ""mysql_token_used_delta"": 10900, ""ledger_net"": 10900}, ""redis_matches_mysql"": true, ""log_count"": 50, ""expected_log_count"": 50, ""logs_valid"": true}"
+round_2	load:exact-concurrent-gemini-2.5-flash	True	"{""metrics"": {""name"": ""exact-concurrent-gemini-2.5-flash"", ""requests"": 50, ""workers"": 50, ""peak_client_inflight"": 50, ""statuses"": {""200"": 50}, ""p50_ms"": 54.28, ""p95_ms"": 75.07, ""p99_ms"": 82.17, ""max_ms"": 84.16}}"
+round_2	exact-concurrent-success:gemini-2.5-flash	True	{}
+round_2	exact:baseline/concurrent/gemini-2.5-flash	True	"{""expected_quota"": 6000, ""formula"": ""50 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 6000, ""mysql_user_used_delta"": 6000, ""mysql_token_debit"": 6000, ""mysql_token_used_delta"": 6000, ""ledger_net"": 6000}, ""redis_matches_mysql"": true, ""log_count"": 50, ""expected_log_count"": 50, ""logs_valid"": true}"
+round_2	load:exact-concurrent-gpt-image-2	True	"{""metrics"": {""name"": ""exact-concurrent-gpt-image-2"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 152.55, ""p95_ms"": 157.14, ""p99_ms"": 157.14, ""max_ms"": 158.33}}"
+round_2	exact-concurrent-success:gpt-image-2	True	{}
+round_2	exact:baseline/concurrent/gpt-image-2	True	"{""expected_quota"": 2400, ""formula"": ""20 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 2400, ""mysql_user_used_delta"": 2400, ""mysql_token_debit"": 2400, ""mysql_token_used_delta"": 2400, ""ledger_net"": 2400}, ""redis_matches_mysql"": true, ""log_count"": 20, ""expected_log_count"": 20, ""logs_valid"": true}"
+round_2	load:exact-video-concurrent-create	True	"{""metrics"": {""name"": ""exact-video-concurrent-create"", ""requests"": 10, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 10}, ""p50_ms"": 27.39, ""p95_ms"": 29.54, ""p99_ms"": 29.54, ""max_ms"": 32.1}}"
+round_2	exact-video-concurrent-created	True	{}
+round_2	load:exact-video-concurrent-fetch	True	"{""metrics"": {""name"": ""exact-video-concurrent-fetch"", ""requests"": 10, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 10}, ""p50_ms"": 12.6, ""p95_ms"": 14.54, ""p99_ms"": 14.54, ""max_ms"": 1044.72}}"
+round_2	exact:baseline/concurrent/video	True	"{""expected_quota"": 5000, ""formula"": ""10 × (truncate(.001 × 500000 × 1))"", ""actual"": {""mysql_user_debit"": 5000, ""mysql_user_used_delta"": 5000, ""mysql_token_debit"": 5000, ""mysql_token_used_delta"": 5000, ""ledger_net"": 5000}, ""redis_matches_mysql"": true, ""log_count"": 10, ""expected_log_count"": 10, ""logs_valid"": true}"
+round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_2	exact-http:fractional/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/mock-chat/openai/json	True	{}
+round_2	exact:fractional/chat/mock-chat/openai/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/mock-chat/openai/stream	True	{}
+round_2	exact:fractional/chat/mock-chat/openai/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/claude-sonnet-4-5/openai/json	True	{}
+round_2	exact:fractional/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_2	exact:fractional/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/claude-opus-5-5/openai/json	True	{}
+round_2	exact:fractional/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 178, ""formula"": ""round((100 + 20 × 2.3 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 178, ""mysql_user_used_delta"": 178, ""mysql_token_debit"": 178, ""mysql_token_used_delta"": 178, ""ledger_net"": 178}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/claude-opus-5-5/openai/stream	True	{}
+round_2	exact:fractional/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 178, ""formula"": ""round((100 + 20 × 2.3 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 178, ""mysql_user_used_delta"": 178, ""mysql_token_debit"": 178, ""mysql_token_used_delta"": 178, ""ledger_net"": 178}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/gemini-2.5-flash/openai/json	True	{}
+round_2	exact:fractional/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/gemini-2.5-flash/openai/stream	True	{}
+round_2	exact:fractional/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/claude-sonnet-4-5/native/json	True	{}
+round_2	exact:fractional/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/claude-sonnet-4-5/native/stream	True	{}
+round_2	exact:fractional/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/gemini-2.5-flash/native/json	True	{}
+round_2	exact:fractional/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/chat/gemini-2.5-flash/native/stream	True	{}
+round_2	exact:fractional/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/image/gpt-image-2/sync/n=1	True	{}
+round_2	exact:fractional/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/image/gpt-image-2/sync/n=3	True	{}
+round_2	exact:fractional/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/image/image-alias/sync/n=1	True	{}
+round_2	exact:fractional/image/image-alias/sync/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:fractional/image/image-alias/sync/n=3	True	{}
+round_2	exact:fractional/image/image-alias/sync/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_2	exact-content:fractional/image/gpt-image-2/edit/n=1	True	{}
+round_2	exact:fractional/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:fractional/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:fractional/image/gpt-image-2/async/n=1	True	{}
+round_2	exact-task-terminal:fractional/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_2	exact:fractional/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:fractional/image/gpt-image-2/async/n=1	True	"{""expected"": 161, ""rows"": [{""quota"": 161, ""status"": ""SUCCESS""}]}"
+round_2	exact-http:fractional/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:fractional/image/gpt-image-2/async/n=3	True	{}
+round_2	exact-task-terminal:fractional/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_2	exact:fractional/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:fractional/image/gpt-image-2/async/n=3	True	"{""expected"": 161, ""rows"": [{""quota"": 161, ""status"": ""SUCCESS""}]}"
+round_2	exact-http:fractional/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:fractional/video/success	True	{}
+round_2	exact-task-terminal:fractional/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-1035428ec8424d7d8e00232cf31994a8"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795406997, ""updated_at"": 1795406997, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36765/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_2	exact:fractional/video/success	True	"{""expected_quota"": 552, ""formula"": ""truncate(.0017 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 552, ""mysql_user_used_delta"": 552, ""mysql_token_debit"": 552, ""mysql_token_used_delta"": 552, ""ledger_net"": 552}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:fractional/video/success	True	"{""expected"": 552, ""rows"": [{""quota"": 552, ""status"": ""SUCCESS""}]}"
+round_2	load:exact-video-repeat-fractional	True	"{""metrics"": {""name"": ""exact-video-repeat-fractional"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 10.42, ""p95_ms"": 1037.46, ""p99_ms"": 1037.46, ""max_ms"": 1038.33}}"
+round_2	exact:fractional/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_2	exact-http:per_call/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:per_call/image/gpt-image-2/sync/n=1	True	{}
+round_2	exact:per_call/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:per_call/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:per_call/image/gpt-image-2/sync/n=3	True	{}
+round_2	exact:per_call/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:per_call/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:per_call/image/image-alias/sync/n=1	True	{}
+round_2	exact:per_call/image/image-alias/sync/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:per_call/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:per_call/image/image-alias/sync/n=3	True	{}
+round_2	exact:per_call/image/image-alias/sync/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:per_call/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_2	exact-content:per_call/image/gpt-image-2/edit/n=1	True	{}
+round_2	exact:per_call/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:per_call/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:per_call/image/gpt-image-2/async/n=1	True	{}
+round_2	exact-task-terminal:per_call/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_2	exact:per_call/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:per_call/image/gpt-image-2/async/n=1	True	"{""expected"": 878, ""rows"": [{""quota"": 878, ""status"": ""SUCCESS""}]}"
+round_2	exact-http:per_call/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:per_call/image/gpt-image-2/async/n=3	True	{}
+round_2	exact-task-terminal:per_call/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_2	exact:per_call/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:per_call/image/gpt-image-2/async/n=3	True	"{""expected"": 2633, ""rows"": [{""quota"": 2633, ""status"": ""SUCCESS""}]}"
+round_2	exact-http:per_call/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:per_call/video/success	True	{}
+round_2	exact-task-terminal:per_call/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-b17553d30b6345a8afc6f880508a8ed2"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407001, ""updated_at"": 1795407001, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36765/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_2	exact:per_call/video/success	True	"{""expected_quota"": 552, ""formula"": ""truncate(.0017 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 552, ""mysql_user_used_delta"": 552, ""mysql_token_debit"": 552, ""mysql_token_used_delta"": 552, ""ledger_net"": 552}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:per_call/video/success	True	"{""expected"": 552, ""rows"": [{""quota"": 552, ""status"": ""SUCCESS""}]}"
+round_2	load:exact-video-repeat-per_call	True	"{""metrics"": {""name"": ""exact-video-repeat-per_call"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 10.62, ""p95_ms"": 1021.5, ""p99_ms"": 1021.5, ""max_ms"": 1023.14}}"
+round_2	exact:per_call/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_2	exact-http:tiered/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/mock-chat/openai/json	True	{}
+round_2	exact:tiered/chat/mock-chat/openai/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/mock-chat/openai/stream	True	{}
+round_2	exact:tiered/chat/mock-chat/openai/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/claude-sonnet-4-5/openai/json	True	{}
+round_2	exact:tiered/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_2	exact:tiered/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/claude-opus-5-5/openai/json	True	{}
+round_2	exact:tiered/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/claude-opus-5-5/openai/stream	True	{}
+round_2	exact:tiered/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/gemini-2.5-flash/openai/json	True	{}
+round_2	exact:tiered/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/gemini-2.5-flash/openai/stream	True	{}
+round_2	exact:tiered/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/claude-sonnet-4-5/native/json	True	{}
+round_2	exact:tiered/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/claude-sonnet-4-5/native/stream	True	{}
+round_2	exact:tiered/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/gemini-2.5-flash/native/json	True	{}
+round_2	exact:tiered/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/chat/gemini-2.5-flash/native/stream	True	{}
+round_2	exact:tiered/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/image/gpt-image-2/sync/n=1	True	{}
+round_2	exact:tiered/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/image/gpt-image-2/sync/n=3	True	{}
+round_2	exact:tiered/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/image/image-alias/sync/n=1	True	{}
+round_2	exact:tiered/image/image-alias/sync/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-content:tiered/image/image-alias/sync/n=3	True	{}
+round_2	exact:tiered/image/image-alias/sync/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_2	exact-content:tiered/image/gpt-image-2/edit/n=1	True	{}
+round_2	exact:tiered/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-http:tiered/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:tiered/image/gpt-image-2/async/n=1	True	{}
+round_2	exact-task-terminal:tiered/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_2	exact:tiered/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:tiered/image/gpt-image-2/async/n=1	True	"{""expected"": 117, ""rows"": [{""quota"": 117, ""status"": ""SUCCESS""}]}"
+round_2	exact-http:tiered/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:tiered/image/gpt-image-2/async/n=3	True	{}
+round_2	exact-task-terminal:tiered/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_2	exact:tiered/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:tiered/image/gpt-image-2/async/n=3	True	"{""expected"": 117, ""rows"": [{""quota"": 117, ""status"": ""SUCCESS""}]}"
+round_2	exact-http:tiered/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:tiered/video/success	True	{}
+round_2	exact-task-terminal:tiered/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-260cd252d5fc480899e9e73691644ddb"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407005, ""updated_at"": 1795407005, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36765/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_2	exact:tiered/video/success	True	"{""expected_quota"": 260, ""formula"": ""round((0 × 2 + 100 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 260, ""mysql_user_used_delta"": 260, ""mysql_token_debit"": 260, ""mysql_token_used_delta"": 260, ""ledger_net"": 260}, ""redis_matches_mysql"": true, ""log_count"": 2, ""expected_log_count"": null, ""logs_valid"": true}"
+round_2	exact-task-quota:tiered/video/success	True	"{""expected"": 260, ""rows"": [{""quota"": 260, ""status"": ""SUCCESS""}]}"
+round_2	load:exact-video-repeat-tiered	True	"{""metrics"": {""name"": ""exact-video-repeat-tiered"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 8.4, ""p95_ms"": 1035.65, ""p99_ms"": 1035.65, ""max_ms"": 1037.07}}"
+round_2	exact:tiered/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_2	exact-http:integer_boundary_350x07/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:integer_boundary_350x07/video/success	True	{}
+round_2	exact-task-terminal:integer_boundary_350x07/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-49bcdf94ab5e4894824833b43e48dbeb"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407006, ""updated_at"": 1795407006, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36765/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_2	exact:integer_boundary_350x07/video/success	False	"{""expected_quota"": 245, ""formula"": ""truncate(.0007 × 500000 × 0.7)"", ""actual"": {""mysql_user_debit"": 244, ""mysql_user_used_delta"": 244, ""mysql_token_debit"": 244, ""mysql_token_used_delta"": 244, ""ledger_net"": 244}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:integer_boundary_350x07/video/success	False	"{""expected"": 245, ""rows"": [{""quota"": 244, ""status"": ""SUCCESS""}]}"
+round_2	load:exact-video-repeat-integer_boundary_350x07	True	"{""metrics"": {""name"": ""exact-video-repeat-integer_boundary_350x07"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.06, ""p95_ms"": 1017.01, ""p99_ms"": 1017.01, ""max_ms"": 1018.27}}"
+round_2	exact:integer_boundary_350x07/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_2	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_2	exact-http:integer_boundary_1350x07/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_2	exact-task-created:integer_boundary_1350x07/video/success	True	{}
+round_2	exact-task-terminal:integer_boundary_1350x07/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-08b933c9f0cc42df985607c294ac7538"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407013, ""updated_at"": 1795407013, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:36765/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_2	exact:integer_boundary_1350x07/video/success	False	"{""expected_quota"": 945, ""formula"": ""truncate(.0027 × 500000 × 0.7)"", ""actual"": {""mysql_user_debit"": 944, ""mysql_user_used_delta"": 944, ""mysql_token_debit"": 944, ""mysql_token_used_delta"": 944, ""ledger_net"": 944}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_2	exact-task-quota:integer_boundary_1350x07/video/success	False	"{""expected"": 945, ""rows"": [{""quota"": 944, ""status"": ""SUCCESS""}]}"
+round_2	load:exact-video-repeat-integer_boundary_1350x07	True	"{""metrics"": {""name"": ""exact-video-repeat-integer_boundary_1350x07"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.06, ""p95_ms"": 1009.61, ""p99_ms"": 1009.61, ""max_ms"": 1012.88}}"
+round_2	exact:integer_boundary_1350x07/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	runtime:graceful_shutdown:1	True	"{""exit_code"": 0}"
+round_2	runtime:readiness:2	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_vd2gkPUUBxvtNvV2K11hy86YITTULN9C"", ""status"": 200}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_Y1cKiwYyyn4HT8vfbS7DlzZkeALHBCMn"", ""status"": 200}"
+round_2	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-d5cde7841e5f493dbb491f3b6949d935"", ""status"": 200}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_CnCy0358Lf3r5oKPWodziOEekybYQnoc"", ""status"": 200}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_ZVKWseRpVe6J9UM0FKaUI0BcMfkogLk9"", ""status"": 200}"
+round_2	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-1035428ec8424d7d8e00232cf31994a8"", ""status"": 200}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_Zqxe6prr2m33IxTnpU53qBf9uteCZ1HG"", ""status"": 200}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_Rl4Io6VQjReGiqrDeRURV7KgnSXvjJdw"", ""status"": 200}"
+round_2	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-b17553d30b6345a8afc6f880508a8ed2"", ""status"": 200}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_iTTZ8qX4iDlPB1G6kKSEJI0uwAl5uYGm"", ""status"": 200}"
+round_2	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_HWr1SRkjwaTDpEmXOiF8jA9CNc41kFRP"", ""status"": 200}"
+round_2	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-260cd252d5fc480899e9e73691644ddb"", ""status"": 200}"
+round_2	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-49bcdf94ab5e4894824833b43e48dbeb"", ""status"": 200}"
+round_2	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-08b933c9f0cc42df985607c294ac7538"", ""status"": 200}"
+round_2	exact:restart/all_completed_tasks	True	"{""expected_quota"": 0, ""formula"": ""restart and query completed tasks from all profiles: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_2	exact-all-accounting-cases	False	"{""cases"": 83, ""failures"": [""integer_boundary_350x07/video/success"", ""integer_boundary_1350x07/video/success""]}"
+round_2	runtime:only_local_channels	True	{}
+round_2	upstream:credentials	True	"{""failed_paths"": []}"
+round_2	runtime:graceful_shutdown:2	True	"{""exit_code"": 0}"
+round_2	cleanup:mysql_schema_removed	True	{}
+round_2	cleanup:redis_db14_empty	True	"{""removed_keys"": 14}"
+round_3	runtime:redis_empty_isolation	True	"{""db"": 14}"
+round_3	runtime:mysql_isolated_schema	True	"{""schema"": ""apimeter_acceptance_20261123_round_3""}"
+round_3	runtime:readiness:1	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+round_3	setup:status	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:fresh_setup	True	"{""status"": 200, ""message"": null}"
+round_3	setup:bootstrap_admin	True	"{""status"": 200, ""message"": ""系统初始化成功""}"
+round_3	setup:admin_login	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:create_mockuser	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:create_mockother	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:user_login	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:other_login	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:user_profile	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:other_profile	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:quota_2	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:quota_3	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:relay_token	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:other_token	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:RetryTimes	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:LogConsumeEnabled	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:mock-openai	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:mock-additional-relay	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:mock-openrouter	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:mock-claude	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:mock-gemini	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:mock-assets	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-success	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-failed	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-expired	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-create429	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-query429	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-query500	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	True	"{""status"": 200, ""message"": """"}"
+round_3	routing:new_channel_eventual_visibility	True	"{""seconds"": 59.28, ""statuses"": {""503"": 59, ""200"": 1}}"
+round_3	runtime:mysql57	True	"{""metadata"": [{""version"": ""5.7.44""}]}"
+round_3	routing:models	True	"{""status"": 200}"
+round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_3	exact-http:baseline/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/mock-chat/openai/json	True	{}
+round_3	exact:baseline/chat/mock-chat/openai/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/mock-chat/openai/stream	True	{}
+round_3	exact:baseline/chat/mock-chat/openai/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/claude-sonnet-4-5/openai/json	True	{}
+round_3	exact:baseline/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_3	exact:baseline/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/claude-opus-5-5/openai/json	True	{}
+round_3	exact:baseline/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 138, ""formula"": ""round((100 + 20 × 1 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 138, ""mysql_user_used_delta"": 138, ""mysql_token_debit"": 138, ""mysql_token_used_delta"": 138, ""ledger_net"": 138}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/claude-opus-5-5/openai/stream	True	{}
+round_3	exact:baseline/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 138, ""formula"": ""round((100 + 20 × 1 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 138, ""mysql_user_used_delta"": 138, ""mysql_token_debit"": 138, ""mysql_token_used_delta"": 138, ""ledger_net"": 138}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/gemini-2.5-flash/openai/json	True	{}
+round_3	exact:baseline/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/gemini-2.5-flash/openai/stream	True	{}
+round_3	exact:baseline/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/claude-sonnet-4-5/native/json	True	{}
+round_3	exact:baseline/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/claude-sonnet-4-5/native/stream	True	{}
+round_3	exact:baseline/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 218, ""formula"": ""round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 218, ""mysql_user_used_delta"": 218, ""mysql_token_debit"": 218, ""mysql_token_used_delta"": 218, ""ledger_net"": 218}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/gemini-2.5-flash/native/json	True	{}
+round_3	exact:baseline/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/chat/gemini-2.5-flash/native/stream	True	{}
+round_3	exact:baseline/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/image/gpt-image-2/sync/n=1	True	{}
+round_3	exact:baseline/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/image/gpt-image-2/sync/n=3	True	{}
+round_3	exact:baseline/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/image/image-alias/sync/n=1	True	{}
+round_3	exact:baseline/image/image-alias/sync/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:baseline/image/image-alias/sync/n=3	True	{}
+round_3	exact:baseline/image/image-alias/sync/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_3	exact-content:baseline/image/gpt-image-2/edit/n=1	True	{}
+round_3	exact:baseline/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:baseline/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:baseline/image/gpt-image-2/async/n=1	True	{}
+round_3	exact-task-terminal:baseline/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_3	exact:baseline/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:baseline/image/gpt-image-2/async/n=1	True	"{""expected"": 120, ""rows"": [{""quota"": 120, ""status"": ""SUCCESS""}]}"
+round_3	load:exact-image-repeat	True	"{""metrics"": {""name"": ""exact-image-repeat"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.66, ""p95_ms"": 11.94, ""p99_ms"": 11.94, ""max_ms"": 12.36}}"
+round_3	exact:baseline/image/gpt-image-2/async/n=1/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	exact-http:baseline/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:baseline/image/gpt-image-2/async/n=3	True	{}
+round_3	exact-task-terminal:baseline/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_3	exact:baseline/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 120, ""formula"": ""round((100 + 20 × 1) × 1 × 1)"", ""actual"": {""mysql_user_debit"": 120, ""mysql_user_used_delta"": 120, ""mysql_token_debit"": 120, ""mysql_token_used_delta"": 120, ""ledger_net"": 120}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:baseline/image/gpt-image-2/async/n=3	True	"{""expected"": 120, ""rows"": [{""quota"": 120, ""status"": ""SUCCESS""}]}"
+round_3	exact-http:baseline/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:baseline/video/success	True	{}
+round_3	exact-task-terminal:baseline/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-37654c6fee104531b590f5ee89f32549"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407089, ""updated_at"": 1795407089, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:35275/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_3	exact:baseline/video/success	True	"{""expected_quota"": 500, ""formula"": ""truncate(.001 × 500000 × 1)"", ""actual"": {""mysql_user_debit"": 500, ""mysql_user_used_delta"": 500, ""mysql_token_debit"": 500, ""mysql_token_used_delta"": 500, ""ledger_net"": 500}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:baseline/video/success	True	"{""expected"": 500, ""rows"": [{""quota"": 500, ""status"": ""SUCCESS""}]}"
+round_3	load:exact-video-repeat-baseline	True	"{""metrics"": {""name"": ""exact-video-repeat-baseline"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 12.9, ""p95_ms"": 1015.03, ""p99_ms"": 1015.03, ""max_ms"": 1027.49}}"
+round_3	exact:baseline/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	load:exact-concurrent-mock-chat	True	"{""metrics"": {""name"": ""exact-concurrent-mock-chat"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 90.03, ""p95_ms"": 149.63, ""p99_ms"": 153.87, ""max_ms"": 165.64}}"
+round_3	exact-concurrent-success:mock-chat	True	{}
+round_3	exact:baseline/concurrent/mock-chat	True	"{""expected_quota"": 12000, ""formula"": ""100 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 12000, ""mysql_user_used_delta"": 12000, ""mysql_token_debit"": 12000, ""mysql_token_used_delta"": 12000, ""ledger_net"": 12000}, ""redis_matches_mysql"": true, ""log_count"": 100, ""expected_log_count"": 100, ""logs_valid"": true}"
+round_3	load:exact-concurrent-claude-sonnet-4-5	True	"{""metrics"": {""name"": ""exact-concurrent-claude-sonnet-4-5"", ""requests"": 50, ""workers"": 50, ""peak_client_inflight"": 50, ""statuses"": {""200"": 50}, ""p50_ms"": 48.4, ""p95_ms"": 70.13, ""p99_ms"": 72.06, ""max_ms"": 73.09}}"
+round_3	exact-concurrent-success:claude-sonnet-4-5	True	{}
+round_3	exact:baseline/concurrent/claude-sonnet-4-5	True	"{""expected_quota"": 10900, ""formula"": ""50 × (round((100 + 20 × 5 + 5 × 1 + 10 × 1.25) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 10900, ""mysql_user_used_delta"": 10900, ""mysql_token_debit"": 10900, ""mysql_token_used_delta"": 10900, ""ledger_net"": 10900}, ""redis_matches_mysql"": true, ""log_count"": 50, ""expected_log_count"": 50, ""logs_valid"": true}"
+round_3	load:exact-concurrent-gemini-2.5-flash	True	"{""metrics"": {""name"": ""exact-concurrent-gemini-2.5-flash"", ""requests"": 50, ""workers"": 50, ""peak_client_inflight"": 50, ""statuses"": {""200"": 50}, ""p50_ms"": 51.05, ""p95_ms"": 74.98, ""p99_ms"": 77.38, ""max_ms"": 88.67}}"
+round_3	exact-concurrent-success:gemini-2.5-flash	True	{}
+round_3	exact:baseline/concurrent/gemini-2.5-flash	True	"{""expected_quota"": 6000, ""formula"": ""50 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 6000, ""mysql_user_used_delta"": 6000, ""mysql_token_debit"": 6000, ""mysql_token_used_delta"": 6000, ""ledger_net"": 6000}, ""redis_matches_mysql"": true, ""log_count"": 50, ""expected_log_count"": 50, ""logs_valid"": true}"
+round_3	load:exact-concurrent-gpt-image-2	True	"{""metrics"": {""name"": ""exact-concurrent-gpt-image-2"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 140.75, ""p95_ms"": 148.66, ""p99_ms"": 148.66, ""max_ms"": 149.67}}"
+round_3	exact-concurrent-success:gpt-image-2	True	{}
+round_3	exact:baseline/concurrent/gpt-image-2	True	"{""expected_quota"": 2400, ""formula"": ""20 × (round((100 + 20 × 1) × 1 × 1))"", ""actual"": {""mysql_user_debit"": 2400, ""mysql_user_used_delta"": 2400, ""mysql_token_debit"": 2400, ""mysql_token_used_delta"": 2400, ""ledger_net"": 2400}, ""redis_matches_mysql"": true, ""log_count"": 20, ""expected_log_count"": 20, ""logs_valid"": true}"
+round_3	load:exact-video-concurrent-create	True	"{""metrics"": {""name"": ""exact-video-concurrent-create"", ""requests"": 10, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 10}, ""p50_ms"": 29.44, ""p95_ms"": 31.64, ""p99_ms"": 31.64, ""max_ms"": 32.91}}"
+round_3	exact-video-concurrent-created	True	{}
+round_3	load:exact-video-concurrent-fetch	True	"{""metrics"": {""name"": ""exact-video-concurrent-fetch"", ""requests"": 10, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 10}, ""p50_ms"": 12.24, ""p95_ms"": 14.23, ""p99_ms"": 14.23, ""max_ms"": 215.3}}"
+round_3	exact:baseline/concurrent/video	True	"{""expected_quota"": 5000, ""formula"": ""10 × (truncate(.001 × 500000 × 1))"", ""actual"": {""mysql_user_debit"": 5000, ""mysql_user_used_delta"": 5000, ""mysql_token_debit"": 5000, ""mysql_token_used_delta"": 5000, ""ledger_net"": 5000}, ""redis_matches_mysql"": true, ""log_count"": 10, ""expected_log_count"": 10, ""logs_valid"": true}"
+round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_3	exact-http:fractional/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/mock-chat/openai/json	True	{}
+round_3	exact:fractional/chat/mock-chat/openai/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/mock-chat/openai/stream	True	{}
+round_3	exact:fractional/chat/mock-chat/openai/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/claude-sonnet-4-5/openai/json	True	{}
+round_3	exact:fractional/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_3	exact:fractional/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/claude-opus-5-5/openai/json	True	{}
+round_3	exact:fractional/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 178, ""formula"": ""round((100 + 20 × 2.3 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 178, ""mysql_user_used_delta"": 178, ""mysql_token_debit"": 178, ""mysql_token_used_delta"": 178, ""ledger_net"": 178}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/claude-opus-5-5/openai/stream	True	{}
+round_3	exact:fractional/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 178, ""formula"": ""round((100 + 20 × 2.3 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 178, ""mysql_user_used_delta"": 178, ""mysql_token_debit"": 178, ""mysql_token_used_delta"": 178, ""ledger_net"": 178}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/gemini-2.5-flash/openai/json	True	{}
+round_3	exact:fractional/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/gemini-2.5-flash/openai/stream	True	{}
+round_3	exact:fractional/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/claude-sonnet-4-5/native/json	True	{}
+round_3	exact:fractional/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/claude-sonnet-4-5/native/stream	True	{}
+round_3	exact:fractional/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 238, ""formula"": ""round((100 + 20 × 5 + 5 × .2 + 10 × 1.4) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 238, ""mysql_user_used_delta"": 238, ""mysql_token_debit"": 238, ""mysql_token_used_delta"": 238, ""ledger_net"": 238}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/gemini-2.5-flash/native/json	True	{}
+round_3	exact:fractional/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/chat/gemini-2.5-flash/native/stream	True	{}
+round_3	exact:fractional/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/image/gpt-image-2/sync/n=1	True	{}
+round_3	exact:fractional/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/image/gpt-image-2/sync/n=3	True	{}
+round_3	exact:fractional/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/image/image-alias/sync/n=1	True	{}
+round_3	exact:fractional/image/image-alias/sync/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:fractional/image/image-alias/sync/n=3	True	{}
+round_3	exact:fractional/image/image-alias/sync/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_3	exact-content:fractional/image/gpt-image-2/edit/n=1	True	{}
+round_3	exact:fractional/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:fractional/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:fractional/image/gpt-image-2/async/n=1	True	{}
+round_3	exact-task-terminal:fractional/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_3	exact:fractional/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:fractional/image/gpt-image-2/async/n=1	True	"{""expected"": 161, ""rows"": [{""quota"": 161, ""status"": ""SUCCESS""}]}"
+round_3	exact-http:fractional/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:fractional/image/gpt-image-2/async/n=3	True	{}
+round_3	exact-task-terminal:fractional/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_3	exact:fractional/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 161, ""formula"": ""round((100 + 20 × 2.3) × 1.7 × 0.65)"", ""actual"": {""mysql_user_debit"": 161, ""mysql_user_used_delta"": 161, ""mysql_token_debit"": 161, ""mysql_token_used_delta"": 161, ""ledger_net"": 161}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:fractional/image/gpt-image-2/async/n=3	True	"{""expected"": 161, ""rows"": [{""quota"": 161, ""status"": ""SUCCESS""}]}"
+round_3	exact-http:fractional/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:fractional/video/success	True	{}
+round_3	exact-task-terminal:fractional/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-071f9b8938b248e58b26e33e3cf4f2ed"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407095, ""updated_at"": 1795407095, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:35275/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_3	exact:fractional/video/success	True	"{""expected_quota"": 552, ""formula"": ""truncate(.0017 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 552, ""mysql_user_used_delta"": 552, ""mysql_token_debit"": 552, ""mysql_token_used_delta"": 552, ""ledger_net"": 552}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:fractional/video/success	True	"{""expected"": 552, ""rows"": [{""quota"": 552, ""status"": ""SUCCESS""}]}"
+round_3	load:exact-video-repeat-fractional	True	"{""metrics"": {""name"": ""exact-video-repeat-fractional"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 11.34, ""p95_ms"": 1010.28, ""p99_ms"": 1010.28, ""max_ms"": 1037.42}}"
+round_3	exact:fractional/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_3	exact-http:per_call/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:per_call/image/gpt-image-2/sync/n=1	True	{}
+round_3	exact:per_call/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:per_call/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:per_call/image/gpt-image-2/sync/n=3	True	{}
+round_3	exact:per_call/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:per_call/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:per_call/image/image-alias/sync/n=1	True	{}
+round_3	exact:per_call/image/image-alias/sync/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:per_call/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:per_call/image/image-alias/sync/n=3	True	{}
+round_3	exact:per_call/image/image-alias/sync/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:per_call/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_3	exact-content:per_call/image/gpt-image-2/edit/n=1	True	{}
+round_3	exact:per_call/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:per_call/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:per_call/image/gpt-image-2/async/n=1	True	{}
+round_3	exact-task-terminal:per_call/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_3	exact:per_call/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 878, ""formula"": ""round(.0027 × 500000 × 0.65 × 1)"", ""actual"": {""mysql_user_debit"": 878, ""mysql_user_used_delta"": 878, ""mysql_token_debit"": 878, ""mysql_token_used_delta"": 878, ""ledger_net"": 878}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:per_call/image/gpt-image-2/async/n=1	True	"{""expected"": 878, ""rows"": [{""quota"": 878, ""status"": ""SUCCESS""}]}"
+round_3	exact-http:per_call/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:per_call/image/gpt-image-2/async/n=3	True	{}
+round_3	exact-task-terminal:per_call/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_3	exact:per_call/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 2633, ""formula"": ""round(.0027 × 500000 × 0.65 × 3)"", ""actual"": {""mysql_user_debit"": 2633, ""mysql_user_used_delta"": 2633, ""mysql_token_debit"": 2633, ""mysql_token_used_delta"": 2633, ""ledger_net"": 2633}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:per_call/image/gpt-image-2/async/n=3	True	"{""expected"": 2633, ""rows"": [{""quota"": 2633, ""status"": ""SUCCESS""}]}"
+round_3	exact-http:per_call/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:per_call/video/success	True	{}
+round_3	exact-task-terminal:per_call/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-4ddf5832dd884e4894642d41ced2123e"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407098, ""updated_at"": 1795407098, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:35275/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_3	exact:per_call/video/success	True	"{""expected_quota"": 552, ""formula"": ""truncate(.0017 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 552, ""mysql_user_used_delta"": 552, ""mysql_token_debit"": 552, ""mysql_token_used_delta"": 552, ""ledger_net"": 552}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:per_call/video/success	True	"{""expected"": 552, ""rows"": [{""quota"": 552, ""status"": ""SUCCESS""}]}"
+round_3	load:exact-video-repeat-per_call	True	"{""metrics"": {""name"": ""exact-video-repeat-per_call"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.88, ""p95_ms"": 1035.54, ""p99_ms"": 1035.54, ""max_ms"": 1039.8}}"
+round_3	exact:per_call/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_3	exact-http:tiered/chat/mock-chat/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/mock-chat/openai/json	True	{}
+round_3	exact:tiered/chat/mock-chat/openai/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/mock-chat/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/mock-chat/openai/stream	True	{}
+round_3	exact:tiered/chat/mock-chat/openai/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/claude-sonnet-4-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/claude-sonnet-4-5/openai/json	True	{}
+round_3	exact:tiered/chat/claude-sonnet-4-5/openai/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/claude-sonnet-4-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/claude-sonnet-4-5/openai/stream	True	{}
+round_3	exact:tiered/chat/claude-sonnet-4-5/openai/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/claude-opus-5-5/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/claude-opus-5-5/openai/json	True	{}
+round_3	exact:tiered/chat/claude-opus-5-5/openai/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/claude-opus-5-5/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/claude-opus-5-5/openai/stream	True	{}
+round_3	exact:tiered/chat/claude-opus-5-5/openai/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/gemini-2.5-flash/openai/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/gemini-2.5-flash/openai/json	True	{}
+round_3	exact:tiered/chat/gemini-2.5-flash/openai/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/gemini-2.5-flash/openai/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/gemini-2.5-flash/openai/stream	True	{}
+round_3	exact:tiered/chat/gemini-2.5-flash/openai/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/claude-sonnet-4-5/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/claude-sonnet-4-5/native/json	True	{}
+round_3	exact:tiered/chat/claude-sonnet-4-5/native/json	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/claude-sonnet-4-5/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/claude-sonnet-4-5/native/stream	True	{}
+round_3	exact:tiered/chat/claude-sonnet-4-5/native/stream	True	"{""expected_quota"": 127, ""formula"": ""round((100 × 2 + 20 × 8 + 5 × 0.4 + 10 × 3) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 127, ""mysql_user_used_delta"": 127, ""mysql_token_debit"": 127, ""mysql_token_used_delta"": 127, ""ledger_net"": 127}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/gemini-2.5-flash/native/json	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/gemini-2.5-flash/native/json	True	{}
+round_3	exact:tiered/chat/gemini-2.5-flash/native/json	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/chat/gemini-2.5-flash/native/stream	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/chat/gemini-2.5-flash/native/stream	True	{}
+round_3	exact:tiered/chat/gemini-2.5-flash/native/stream	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/image/gpt-image-2/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/image/gpt-image-2/sync/n=1	True	{}
+round_3	exact:tiered/image/gpt-image-2/sync/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/image/gpt-image-2/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/image/gpt-image-2/sync/n=3	True	{}
+round_3	exact:tiered/image/gpt-image-2/sync/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/image/image-alias/sync/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/image/image-alias/sync/n=1	True	{}
+round_3	exact:tiered/image/image-alias/sync/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/image/image-alias/sync/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-content:tiered/image/image-alias/sync/n=3	True	{}
+round_3	exact:tiered/image/image-alias/sync/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/image/gpt-image-2/edit/n=1	True	"{""status"": 200}"
+round_3	exact-content:tiered/image/gpt-image-2/edit/n=1	True	{}
+round_3	exact:tiered/image/gpt-image-2/edit/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-http:tiered/image/gpt-image-2/async/n=1	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:tiered/image/gpt-image-2/async/n=1	True	{}
+round_3	exact-task-terminal:tiered/image/gpt-image-2/async/n=1	True	"{""state"": ""succeeded""}"
+round_3	exact:tiered/image/gpt-image-2/async/n=1	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:tiered/image/gpt-image-2/async/n=1	True	"{""expected"": 117, ""rows"": [{""quota"": 117, ""status"": ""SUCCESS""}]}"
+round_3	exact-http:tiered/image/gpt-image-2/async/n=3	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:tiered/image/gpt-image-2/async/n=3	True	{}
+round_3	exact-task-terminal:tiered/image/gpt-image-2/async/n=3	True	"{""state"": ""succeeded""}"
+round_3	exact:tiered/image/gpt-image-2/async/n=3	True	"{""expected_quota"": 117, ""formula"": ""round((100 × 2 + 20 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 117, ""mysql_user_used_delta"": 117, ""mysql_token_debit"": 117, ""mysql_token_used_delta"": 117, ""ledger_net"": 117}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:tiered/image/gpt-image-2/async/n=3	True	"{""expected"": 117, ""rows"": [{""quota"": 117, ""status"": ""SUCCESS""}]}"
+round_3	exact-http:tiered/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:tiered/video/success	True	{}
+round_3	exact-task-terminal:tiered/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-3f9f11ff74114dfaa7dd2948f9af4284"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407103, ""updated_at"": 1795407103, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:35275/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_3	exact:tiered/video/success	True	"{""expected_quota"": 260, ""formula"": ""round((0 × 2 + 100 × 8) ÷ 1000000 × 500000 × 0.65)"", ""actual"": {""mysql_user_debit"": 260, ""mysql_user_used_delta"": 260, ""mysql_token_debit"": 260, ""mysql_token_used_delta"": 260, ""ledger_net"": 260}, ""redis_matches_mysql"": true, ""log_count"": 2, ""expected_log_count"": null, ""logs_valid"": true}"
+round_3	exact-task-quota:tiered/video/success	True	"{""expected"": 260, ""rows"": [{""quota"": 260, ""status"": ""SUCCESS""}]}"
+round_3	load:exact-video-repeat-tiered	True	"{""metrics"": {""name"": ""exact-video-repeat-tiered"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.49, ""p95_ms"": 1011.64, ""p99_ms"": 1011.64, ""max_ms"": 1037.5}}"
+round_3	exact:tiered/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_3	exact-http:integer_boundary_350x07/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:integer_boundary_350x07/video/success	True	{}
+round_3	exact-task-terminal:integer_boundary_350x07/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-230ac5f56e5542238fc015037baf4eed"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407104, ""updated_at"": 1795407104, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:35275/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_3	exact:integer_boundary_350x07/video/success	False	"{""expected_quota"": 245, ""formula"": ""truncate(.0007 × 500000 × 0.7)"", ""actual"": {""mysql_user_debit"": 244, ""mysql_user_used_delta"": 244, ""mysql_token_debit"": 244, ""mysql_token_used_delta"": 244, ""ledger_net"": 244}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:integer_boundary_350x07/video/success	False	"{""expected"": 245, ""rows"": [{""quota"": 244, ""status"": ""SUCCESS""}]}"
+round_3	load:exact-video-repeat-integer_boundary_350x07	True	"{""metrics"": {""name"": ""exact-video-repeat-integer_boundary_350x07"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.52, ""p95_ms"": 1024.53, ""p99_ms"": 1024.53, ""max_ms"": 1025.5}}"
+round_3	exact:integer_boundary_350x07/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	setup:option:ModelRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CompletionRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:CreateCacheRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:GroupRatio	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:ModelPrice	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_expr	True	"{""status"": 200, ""message"": """"}"
+round_3	setup:option:billing_setting.billing_mode	True	"{""status"": 200, ""message"": """"}"
+round_3	exact-http:integer_boundary_1350x07/video/success	True	"{""status"": 200, ""excerpt"": null}"
+round_3	exact-task-created:integer_boundary_1350x07/video/success	True	{}
+round_3	exact-task-terminal:integer_boundary_1350x07/video/success	True	"{""status"": 200, ""body"": {""id"": ""cgt-744480cc97674496b289d684038bdeba"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795407111, ""updated_at"": 1795407111, ""error"": null, ""seed"": 0, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:35275/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}}, ""mock_extension"": {""preserve"": true}}}"
+round_3	exact:integer_boundary_1350x07/video/success	False	"{""expected_quota"": 945, ""formula"": ""truncate(.0027 × 500000 × 0.7)"", ""actual"": {""mysql_user_debit"": 944, ""mysql_user_used_delta"": 944, ""mysql_token_debit"": 944, ""mysql_token_used_delta"": 944, ""ledger_net"": 944}, ""redis_matches_mysql"": true, ""log_count"": 1, ""expected_log_count"": 1, ""logs_valid"": true}"
+round_3	exact-task-quota:integer_boundary_1350x07/video/success	False	"{""expected"": 945, ""rows"": [{""quota"": 944, ""status"": ""SUCCESS""}]}"
+round_3	load:exact-video-repeat-integer_boundary_1350x07	True	"{""metrics"": {""name"": ""exact-video-repeat-integer_boundary_1350x07"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 9.93, ""p95_ms"": 1035.69, ""p99_ms"": 1035.69, ""max_ms"": 1037.2}}"
+round_3	exact:integer_boundary_1350x07/video/success/repeat	True	"{""expected_quota"": 0, ""formula"": ""completed task queried 20 times: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	runtime:graceful_shutdown:1	True	"{""exit_code"": 0}"
+round_3	runtime:readiness:2	True	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_WeCP0xrs7NGeHQB4yXBY2JsdxUBKk6y8"", ""status"": 200}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_Y6jLnXSSmaXTa7rioqSXCAG9XTrLqpBW"", ""status"": 200}"
+round_3	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-37654c6fee104531b590f5ee89f32549"", ""status"": 200}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_w7rLnpBeY3de1EYmHowCrh40lMUYd8ep"", ""status"": 200}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_hsVYpyvSq0ty9SuqddMZ9RAr8XoHqauV"", ""status"": 200}"
+round_3	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-071f9b8938b248e58b26e33e3cf4f2ed"", ""status"": 200}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_RWjo1G4kITj1MQ1nW7c1lyRI0rIMeFzt"", ""status"": 200}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_aAP7cGPYLBW81z07gvjGrmaw78VU9jgU"", ""status"": 200}"
+round_3	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-4ddf5832dd884e4894642d41ced2123e"", ""status"": 200}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_MGLQHXxxZ7NRYu371g2ypEjUzy9HRLDR"", ""status"": 200}"
+round_3	exact-restart-query:image	True	"{""path"": ""/v1/tasks/task_erNqXsIJl0HIQyx7jBfn94PtUgsrJWqz"", ""status"": 200}"
+round_3	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-3f9f11ff74114dfaa7dd2948f9af4284"", ""status"": 200}"
+round_3	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-230ac5f56e5542238fc015037baf4eed"", ""status"": 200}"
+round_3	exact-restart-query:video	True	"{""path"": ""/api/v3/contents/generations/tasks/cgt-744480cc97674496b289d684038bdeba"", ""status"": 200}"
+round_3	exact:restart/all_completed_tasks	True	"{""expected_quota"": 0, ""formula"": ""restart and query completed tasks from all profiles: 0"", ""actual"": {""mysql_user_debit"": 0, ""mysql_user_used_delta"": 0, ""mysql_token_debit"": 0, ""mysql_token_used_delta"": 0, ""ledger_net"": 0}, ""redis_matches_mysql"": true, ""log_count"": 0, ""expected_log_count"": 0, ""logs_valid"": true}"
+round_3	exact-all-accounting-cases	False	"{""cases"": 83, ""failures"": [""integer_boundary_350x07/video/success"", ""integer_boundary_1350x07/video/success""]}"
+round_3	runtime:only_local_channels	True	{}
+round_3	upstream:credentials	True	"{""failed_paths"": []}"
+round_3	runtime:graceful_shutdown:2	True	"{""exit_code"": 0}"
+round_3	cleanup:mysql_schema_removed	True	{}
+round_3	cleanup:redis_db14_empty	True	"{""removed_keys"": 14}"

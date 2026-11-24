@@ -1,6 +1,7 @@
 package oairesponses
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -72,6 +73,9 @@ func ResponsesStreamEventToChatChunks(event *dto.ResponsesStreamResponse, state 
 	if event == nil || state == nil {
 		return nil, nil
 	}
+	if failure := event.StreamError(); failure != nil {
+		return nil, errors.New(failure.Message)
+	}
 
 	switch event.Type {
 	case responsesEventCreated:
@@ -104,8 +108,6 @@ func ResponsesStreamEventToChatChunks(event *dto.ResponsesStreamResponse, state 
 		chunks := state.terminalOutputChunks(response)
 		chunks = append(chunks, state.finalize(response)...)
 		return chunks, nil
-	case responsesEventFailed, responsesEventError:
-		return nil, fmt.Errorf("responses stream error: %s", event.Type)
 	default:
 		return nil, nil
 	}

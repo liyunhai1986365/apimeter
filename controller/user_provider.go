@@ -65,6 +65,10 @@ func CreateUserOwnedProvider(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
 	}
+	if err := service.ValidateUserProvider(req.Channel); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 
 	userID := c.GetInt("id")
 	channel := req.Channel
@@ -72,7 +76,6 @@ func CreateUserOwnedProvider(c *gin.Context) {
 	channel.CreatedTime = common.GetTimestamp()
 	channel.Scope = model.ChannelScopeUserOwned
 	channel.OwnerUserId = userID
-	channel.Group = "pending_user_owned_provider"
 	if channel.Status == 0 {
 		channel.Status = common.ChannelStatusEnabled
 	}
@@ -86,21 +89,10 @@ func CreateUserOwnedProvider(c *gin.Context) {
 		channel.ChannelInfo.MultiKeyMode = constant.MultiKeyModeRandom
 	}
 
-	if err := channel.Insert(); err != nil {
+	if err := model.InsertUserOwnedProvider(channel); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	channel.Group = model.BuildUserOwnedProviderGroup(userID, channel.Id)
-	if err := model.DB.Model(channel).Select("group", "scope", "owner_user_id").Updates(channel).Error; err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	if err := channel.UpdateAbilities(nil); err != nil {
-		common.ApiError(c, err)
-		return
-	}
-	model.InitChannelCache()
-	service.ResetProxyClientCache()
 	channel.Key = ""
 	clearChannelInfo(channel)
 	common.ApiSuccess(c, channel)
@@ -137,21 +129,45 @@ func UpdateUserOwnedProvider(c *gin.Context) {
 	channel.CreatedTime = origin.CreatedTime
 	channel.Scope = model.ChannelScopeUserOwned
 	channel.OwnerUserId = userID
-	channel.Group = origin.Group
-	channel.ChannelInfo = origin.ChannelInfo
-	if channel.Key == "" {
-		channel.Key = origin.Key
+	channel.Group = "" // The generated group is immutable; omit it from this partial update.
+	updateKeys := channel.Key != "" && channel.Key != origin.Key
+	if updateKeys {
+		channel.ChannelInfo = origin.ChannelInfo
+	} else {
+		channel.Key = ""
 	}
+	// Struct updates omit zero values. Never write status from an owner edit,
+	// including when an administrator disables the channel during this request.
+	channel.Status = 0
 	if err := validateChannel(channel, false); err != nil {
 		c.JSON(http.StatusOK, gin.H{"success": false, "message": err.Error()})
 		return
 	}
-	if err := channel.Update(); err != nil {
+	// Partial edits retain the stored network destination and type.
+	check := *channel
+	if check.Type == 0 {
+		check.Type = origin.Type
+	}
+	if check.BaseURL == nil {
+		check.BaseURL = origin.BaseURL
+	}
+	if check.Setting == nil {
+		check.Setting = origin.Setting
+	}
+	if check.HeaderOverride == nil {
+		check.HeaderOverride = origin.HeaderOverride
+	}
+	if check.ParamOverride == nil {
+		check.ParamOverride = origin.ParamOverride
+	}
+	if err := service.ValidateUserProvider(&check); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
-	service.ResetProxyClientCache()
+	if err := channel.UpdateWithSnapshot(origin, updateKeys); err != nil {
+		common.ApiError(c, err)
+		return
+	}
 	channel.Key = ""
 	clearChannelInfo(channel)
 	common.ApiSuccess(c, channel)
@@ -173,11 +189,9 @@ func DeleteUserOwnedProvider(c *gin.Context) {
 		c.JSON(http.StatusForbidden, gin.H{"success": false, "message": "无权访问该自有供应商"})
 		return
 	}
-	if err := channel.Delete(); err != nil {
+	if err := model.DeleteUserOwnedProvider(userID, id); err != nil {
 		common.ApiError(c, err)
 		return
 	}
-	model.InitChannelCache()
-	service.ResetProxyClientCache()
 	common.ApiSuccess(c, nil)
 }

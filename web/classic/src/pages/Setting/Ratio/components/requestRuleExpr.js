@@ -190,7 +190,11 @@ function parseExprLiteral(raw) {
   const text = raw.trim();
   if (text === 'true' || text === 'false') return text;
   if (NUMERIC_LITERAL_REGEX.test(text)) return text;
-  try { return JSON.parse(text); } catch { return null; }
+  try {
+    const value = JSON.parse(text);
+    return typeof value === 'string' && buildExprLiteral(MATCH_EQ, value) === JSON.stringify(value)
+      ? value : null;
+  } catch { return null; }
 }
 
 function buildExprLiteral(mode, value) {

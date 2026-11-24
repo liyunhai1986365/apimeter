@@ -800,6 +800,7 @@ func TestVideoGenerationsFetchRealtimeConfigurableFailurePersistsReasonAndRefund
 
 func setupRelayTaskTestDB(t *testing.T) {
 	t.Helper()
+	waitForRelayTaskTestWorkers(t)
 
 	originalDB := model.DB
 	originalLogDB := model.LOG_DB
@@ -818,6 +819,7 @@ func setupRelayTaskTestDB(t *testing.T) {
 	common.RedisEnabled = false
 
 	t.Cleanup(func() {
+		waitForRelayTaskTestWorkers(t)
 		model.DB = originalDB
 		model.LOG_DB = originalLogDB
 		common.UsingSQLite = originalSQLite

@@ -254,6 +254,7 @@ func insertImageAsyncTask(info *relaycommon.RelayInfo, upstreamTaskID string, re
 	}
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
 		ModelPrice:            info.PriceData.ModelPrice,
+		FixedQuotaPerUnit:     info.PriceData.FixedQuotaPerUnit,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
 		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,
 		UserGroup:             info.UserGroup,
@@ -302,6 +303,7 @@ func insertLocalImageAsyncTask(info *relaycommon.RelayInfo, requestBody []byte) 
 	}
 	task.PrivateData.BillingContext = &model.TaskBillingContext{
 		ModelPrice:            info.PriceData.ModelPrice,
+		FixedQuotaPerUnit:     info.PriceData.FixedQuotaPerUnit,
 		GroupRatio:            info.PriceData.GroupRatioInfo.GroupRatio,
 		GroupRatioSource:      info.PriceData.GroupRatioInfo.Source,
 		UserGroup:             info.UserGroup,
@@ -518,7 +520,7 @@ func finishLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, task
 		})
 		if won, err := task.UpdateWithStatus(snapshot.Status); err == nil && won {
 			if info != nil && info.Billing != nil {
-				info.Billing.Refund(c)
+				info.Billing.RefundImageTask(c, task.Quota)
 			} else if task.Quota != 0 {
 				service.RefundTaskQuota(context.Background(), task, task.FailReason)
 			}
@@ -538,8 +540,18 @@ func finishLocalImageAsyncTask(c *gin.Context, info *relaycommon.RelayInfo, task
 	if common.Unmarshal(taskBody, &taskResponse) == nil {
 		task.PrivateData.ResultURL = firstRelayImageURL(taskResponse.Data.Images)
 	}
-	if won, err := task.UpdateWithStatus(snapshot.Status); err == nil && won {
-		service.SettleImageTaskUsage(context.Background(), task, taskResponse.Usage, responseBody)
+	for attempt := 0; attempt < 3; attempt++ {
+		_, err = service.CompleteImageTask(context.Background(), task, snapshot.Status, taskResponse, responseBody)
+		if err == nil {
+			return
+		}
+		common.SysError(fmt.Sprintf("persist image task %s completion: %v", task.TaskID, err))
+		if task.PrivateData.PendingImageSettlement != nil {
+			return
+		} // Durable; the poller retries.
+		if attempt < 2 {
+			time.Sleep(time.Duration(attempt+1) * 100 * time.Millisecond)
+		}
 	}
 }
 
@@ -659,9 +671,7 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 	if strings.TrimSpace(key) == "" {
 		key = info.ChannelMeta.ApiKey
 	}
-	proxy := info.ChannelSetting.Proxy
-
-	body, err := waitImageTaskSucceeded(c, baseURL, key, upstreamTaskID, proxy, info.ChannelSetting)
+	body, err := waitImageTaskSucceeded(c, baseURL, key, upstreamTaskID, info.ChannelSetting)
 	if err != nil {
 		return nil, newImageSubmitUncertainError(err, types.ErrorCodeBadResponseBody, http.StatusBadGateway)
 	}
@@ -672,7 +682,7 @@ func waitImageAsyncSubmitResponse(c *gin.Context, info *relaycommon.RelayInfo, r
 	return output, nil
 }
 
-func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy string, settings ...dto.ChannelSettings) ([]byte, error) {
+func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID string, settings dto.ChannelSettings) ([]byte, error) {
 	waitSeconds := 2 * time.Second
 	maxStep := imageAsyncWaitMaxStep(c)
 	if maxStep <= 0 {
@@ -697,7 +707,7 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy 
 		if err := ctx.Err(); err != nil {
 			return nil, waitError(err)
 		}
-		body, statusCode, err := fetchImageTaskResultOnce(ctx, baseURL, key, upstreamTaskID, proxy, settings...)
+		body, statusCode, err := fetchImageTaskResultOnce(ctx, baseURL, key, upstreamTaskID, settings)
 		if err != nil {
 			return nil, waitError(err)
 		}
@@ -705,7 +715,7 @@ func waitImageTaskSucceeded(c *gin.Context, baseURL, key, upstreamTaskID, proxy 
 			return nil, fmt.Errorf("fetch image task status code: %d, body: %s", statusCode, string(body))
 		}
 
-		upstream, normalizedBody, err := normalizeImageTaskResponseForRelay(upstreamTaskID, body, configurableImageProfileFromSettingsSlice(settings...))
+		upstream, normalizedBody, err := normalizeImageTaskResponseForRelay(upstreamTaskID, body, configurableImageProfileFromSettings(settings))
 		if err != nil {
 			return nil, err
 		}
@@ -1120,8 +1130,8 @@ func stringFromImageMap(image map[string]any, keys ...string) string {
 	return ""
 }
 
-func fetchImageTaskResultOnce(ctx context.Context, baseURL, key, upstreamTaskID, proxy string, settings ...dto.ChannelSettings) ([]byte, int, error) {
-	profile := configurableImageProfileFromSettingsSlice(settings...)
+func fetchImageTaskResultOnce(ctx context.Context, baseURL, key, upstreamTaskID string, settings dto.ChannelSettings) ([]byte, int, error) {
+	profile := configurableImageProfileFromSettings(settings)
 	var req *http.Request
 	var err error
 	if profile != nil {
@@ -1132,12 +1142,9 @@ func fetchImageTaskResultOnce(ctx context.Context, baseURL, key, upstreamTaskID,
 	if err != nil {
 		return nil, 0, err
 	}
-	client, err := service.GetHttpClientWithProxy(proxy)
+	client, err := service.GetHttpClientWithProxySettings(settings.Proxy, settings)
 	if err != nil {
 		return nil, 0, err
-	}
-	if client == nil {
-		client = http.DefaultClient
 	}
 	resp, err := client.Do(req.WithContext(ctx))
 	if err != nil {
@@ -1211,10 +1218,19 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 	if err != nil {
 		return service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
 	}
-	if !exist {
+	if !exist || !service.IsImageAsyncTask(task) {
 		return service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
 	}
 	c.Header("Cache-Control", "no-store")
+	if task.PrivateData.PendingImageSettlement != nil {
+		_, err = service.RetryImageSettlement(c.Request.Context(), task)
+		return writeRefreshedImageTask(c, task, err)
+	}
+	billed := task.PrivateData.BillingContext != nil
+	if task.Status == model.TaskStatusFailure || billed && task.Status == model.TaskStatusSuccess ||
+		task.PrivateData.AsyncImage && strings.TrimSpace(task.PrivateData.UpstreamTaskID) == "" {
+		return writeStoredImageTask(c, task)
+	}
 	task, err = task.ImageRetentionView(common.GetTimestamp())
 	if err != nil {
 		return service.TaskErrorWrapperLocal(errors.New("invalid saved image result"), "invalid_task_result", http.StatusInternalServerError)
@@ -1223,17 +1239,6 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 		output, err := imageTaskResponseWithRetention(task, task.Data)
 		if err != nil {
 			return service.TaskErrorWrapperLocal(errors.New("invalid saved image result"), "invalid_task_result", http.StatusInternalServerError)
-		}
-		c.Data(http.StatusOK, "application/json", output)
-		return nil
-	}
-	if task.PrivateData.AsyncImage && strings.TrimSpace(task.PrivateData.UpstreamTaskID) == "" {
-		output, err := convertLocalImageTaskResponse(task)
-		if err == nil {
-			output, err = imageTaskResponseWithRetention(task, output)
-		}
-		if err != nil {
-			return service.TaskErrorWrapper(err, "convert_task_failed", http.StatusInternalServerError)
 		}
 		c.Data(http.StatusOK, "application/json", output)
 		return nil
@@ -1256,6 +1261,17 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 		c.Data(http.StatusOK, "application/json", output)
 		return nil
 	}
+	if billed {
+		if profile := configurableImageProfileForTask(task); profile != nil {
+			if normalized, ok, err := configurable.ImageTaskResponseBytesFromProfile(task.GetUpstreamTaskID(), profile, body); err != nil {
+				return service.TaskErrorWrapper(err, "convert_task_failed", http.StatusInternalServerError)
+			} else if ok {
+				body = normalized
+			}
+		}
+		err := service.ApplyFetchedImageTask(c.Request.Context(), task, body)
+		return writeRefreshedImageTask(c, task, err)
+	}
 	output, err := convertImageTaskResponse(task, body)
 	if err == nil {
 		output, err = imageTaskResponseWithRetention(task, output)
@@ -1270,22 +1286,97 @@ func ImageTaskFetch(c *gin.Context) *dto.TaskError {
 	return nil
 }
 
+func writeRefreshedImageTask(c *gin.Context, task *model.Task, updateErr error) *dto.TaskError {
+	fresh, exists, err := model.GetByTaskId(task.UserId, task.TaskID)
+	if err != nil {
+		return service.TaskErrorWrapper(err, "get_task_failed", http.StatusInternalServerError)
+	}
+	if !exists {
+		return service.TaskErrorWrapperLocal(errors.New("task_not_exist"), "task_not_exist", http.StatusBadRequest)
+	}
+	if updateErr != nil && fresh.PrivateData.PendingImageSettlement == nil && fresh.Status != model.TaskStatusSuccess {
+		return service.TaskErrorWrapper(updateErr, "update_task_failed", http.StatusInternalServerError)
+	}
+	return writeStoredImageTask(c, fresh)
+}
+
+func writeStoredImageTask(c *gin.Context, task *model.Task) *dto.TaskError {
+	output, err := storedImageTaskResponseBytes(task)
+	if err != nil {
+		return service.TaskErrorWrapper(err, "convert_task_failed", http.StatusInternalServerError)
+	}
+	c.Data(http.StatusOK, "application/json", output)
+	return nil
+}
+
+func storedImageTaskResponseBytes(task *model.Task) ([]byte, error) {
+	if task.Status == model.TaskStatusFailure {
+		// A timeout can finalize the row while Data still contains a running snapshot.
+		var saved struct {
+			State string         `json:"state"`
+			Error map[string]any `json:"error"`
+		}
+		_ = common.Unmarshal(task.Data, &saved)
+		status, _, _, _ := normalizeImageTaskResultForRelay(dto.ImageTaskResponse{State: saved.State})
+		if status != model.TaskStatusFailure {
+			saved.Error = nil
+		}
+		if task.FailReason != "" {
+			if saved.Error == nil {
+				saved.Error = make(map[string]any, 1)
+			}
+			saved.Error["message"] = task.FailReason
+		}
+		return imageTaskStateResponseBytes(task, dto.ImageTaskData{}, saved.Error)
+	}
+	view, err := task.ImageRetentionView(common.GetTimestamp())
+	if err != nil {
+		return nil, err
+	}
+	if view.PrivateData.PendingImageSettlement != nil {
+		view.Progress = "99%"
+		return imageTaskStateResponseBytes(view, dto.ImageTaskData{}, nil)
+	}
+	if view.ImageContentExpired(common.GetTimestamp()) {
+		return imageTaskResponseWithRetention(view, view.Data)
+	}
+	body, err := convertLocalImageTaskResponse(view)
+	if err != nil {
+		return nil, err
+	}
+	return imageTaskResponseWithRetention(view, body)
+}
+
 func convertLocalImageTaskResponse(task *model.Task) ([]byte, error) {
 	if task == nil {
 		return nil, fmt.Errorf("missing task")
 	}
 	if len(task.Data) > 0 {
 		var response dto.ImageTaskResponse
-		if err := common.Unmarshal(task.Data, &response); err == nil &&
-			response.ID == task.TaskID && strings.TrimSpace(response.State) != "" {
-			return imageTaskResponseWithURLImages(nil, task.Data)
+		if err := common.Unmarshal(task.Data, &response); err == nil {
+			if task.PrivateData.UpstreamTaskID != "" {
+				response.ID = task.TaskID
+				response.Usage = nil
+				response.State = common.GetStringIfEmpty(response.State, mapTaskStatusToSimple(task.Status))
+				response.CreateTime = firstNonZeroInt64(response.CreateTime, task.CreatedAt)
+				response.UpdateTime = firstNonZeroInt64(response.UpdateTime, task.UpdatedAt)
+				response.Action = common.GetStringIfEmpty(response.Action, task.Action)
+				body, err := common.Marshal(response)
+				if err != nil {
+					return nil, err
+				}
+				return imageTaskResponseWithURLImages(nil, body)
+			}
+			if response.ID == task.TaskID && strings.TrimSpace(response.State) != "" {
+				return imageTaskResponseWithURLImages(nil, task.Data)
+			}
 		}
 	}
 	return imageTaskStateResponseBytes(task, dto.ImageTaskData{}, nil)
 }
 
 func fetchImageTaskFromUpstream(task *model.Task) ([]byte, int, error) {
-	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	channelModel, err := model.RequirePlatformChannel(model.GetChannelById(task.ChannelId, true))
 	if err != nil {
 		return nil, 0, err
 	}
@@ -1417,13 +1508,6 @@ func buildConfigurableImageTaskFetchRequest(baseURL, key, upstreamTaskID string,
 	return req, nil
 }
 
-func configurableImageProfileFromSettingsSlice(settings ...dto.ChannelSettings) *configurable.Profile {
-	if len(settings) == 0 {
-		return nil
-	}
-	return configurableImageProfileFromSettings(settings[0])
-}
-
 func configurableImageProfileFromSettings(settings dto.ChannelSettings) *configurable.Profile {
 	if settings.Protocol == nil || strings.TrimSpace(settings.Protocol.ProfileID) == "" {
 		return nil
@@ -1504,7 +1588,7 @@ func configurableImageProfileForTask(task *model.Task) *configurable.Profile {
 	if task == nil || task.ChannelId <= 0 {
 		return nil
 	}
-	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	channelModel, err := model.RequirePlatformChannel(model.GetChannelById(task.ChannelId, true))
 	if err != nil {
 		return nil
 	}

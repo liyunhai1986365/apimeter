@@ -44,7 +44,7 @@ func assetChannelForRequest(c *gin.Context, id int) (*model.Channel, error) {
 	if channel := lookup.channels[id]; channel != nil {
 		return channel, nil
 	}
-	channel, err := model.GetChannelByIdContext(c.Request.Context(), id, true)
+	channel, err := model.RequirePlatformChannel(model.GetChannelByIdContext(c.Request.Context(), id, true))
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, model.ErrAssetNotOwned

@@ -90,23 +90,37 @@ end
 redis.call('HSET', KEYS[1],
   'Id', ARGV[2], 'Group', ARGV[3], 'Email', ARGV[4],
   'Status', ARGV[5], 'Role', ARGV[6], 'Username', ARGV[7],
-  'Setting', ARGV[8], 'AuthVersion', ARGV[1], 'CacheSchema', ARGV[9])
+  'Setting', ARGV[8], 'AuthVersion', ARGV[1], 'CacheSchema', ARGV[9],
+  'ParentUserId', ARGV[13], 'MustChangePassword', ARGV[14], 'SubaccountAuthVersion', ARGV[1])
 if ARGV[10] == '1' and redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
   redis.call('HSET', KEYS[1], 'Quota', ARGV[11])
 end
 redis.call('EXPIRE', KEYS[1], ARGV[12])
+if ARGV[10] == '1' then
+  return redis.call('HGET', KEYS[1], 'Quota')
+end
 return 1`
 	result, err := common.RDB.Eval(context.Background(), script,
 		[]string{getUserCacheKey(user.Id), getUserAuthFenceKey(user.Id), getUserAuthVersionKey(user.Id),
 			quotaCacheEpochKey(getUserCacheKey(user.Id)), quotaCachePendingKey(getUserCacheKey(user.Id))},
 		user.AuthVersion, user.Id, user.Group, user.Email, user.Status, user.Role,
-		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl, epoch,
-	).Int()
+		user.Username, user.Setting, user.CacheSchema, includeQuotaArg, user.Quota, ttl,
+		user.ParentUserId, user.MustChangePassword, epoch, // hydration guard reads the last argument
+	).Result()
 	if err != nil {
 		return err
 	}
-	if result == 0 {
+	if result == int64(0) {
 		return ErrUserAuthCachePending
+	}
+	// HGET returns the live balance as a string, distinct from the integer
+	// status codes used for metadata-only or guarded writes.
+	if live, ok := result.(string); ok {
+		quota, err := strconv.Atoi(live)
+		if err != nil {
+			return err
+		}
+		user.Quota = quota
 	}
 	return nil
 }
@@ -285,11 +299,12 @@ end
 if current ~= incoming then
   return 1
 end
-redis.call('HSET', KEYS[1], ARGV[2], ARGV[3], 'CacheSchema', ARGV[4])
+-- Only a complete metadata write can upgrade the cache schema.
+redis.call('HSET', KEYS[1], ARGV[2], ARGV[3])
 return 1`
 	result, err := common.RDB.Eval(context.Background(), script,
 		[]string{getUserCacheKey(userId), getUserAuthFenceKey(userId), getUserAuthVersionKey(userId)},
-		authVersion, field, value, userCacheSchemaVersion,
+		authVersion, field, value,
 	).Int()
 	if err != nil {
 		return err

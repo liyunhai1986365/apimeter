@@ -9,6 +9,13 @@ func IsChannelEnabledForGroupModel(group string, modelName string, channelID int
 	if group == "" || modelName == "" || channelID <= 0 {
 		return false
 	}
+	if owner, id, ok := ParseUserOwnedProviderGroup(group); ok {
+		if id != channelID {
+			return false
+		}
+		_, err := GetUserOwnedProviderChannelForGroup(owner, group, modelName)
+		return err == nil
+	}
 	if !common.MemoryCacheEnabled {
 		return isChannelEnabledForGroupModelDB(group, modelName, channelID)
 	}
@@ -43,20 +50,14 @@ func IsChannelEnabledForAnyGroupModel(groups []string, modelName string, channel
 }
 
 func isChannelEnabledForGroupModelDB(group string, modelName string, channelID int) bool {
-	var count int64
-	err := DB.Model(&Ability{}).
-		Where(commonGroupCol+" = ? and model = ? and channel_id = ? and enabled = ?", group, modelName, channelID, true).
-		Count(&count).Error
-	if err == nil && count > 0 {
-		return true
-	}
+	models := []string{modelName}
 	normalized := ratio_setting.FormatMatchingModelName(modelName)
-	if normalized == "" || normalized == modelName {
-		return false
+	if normalized != "" && normalized != modelName {
+		models = append(models, normalized)
 	}
-	count = 0
-	err = DB.Model(&Ability{}).
-		Where(commonGroupCol+" = ? and model = ? and channel_id = ? and enabled = ?", group, normalized, channelID, true).
+	var count int64
+	err := sharedRoutingAbilities().
+		Where("abilities."+commonGroupCol+" = ? AND abilities.model IN ? AND abilities.channel_id = ?", group, models, channelID).
 		Count(&count).Error
 	return err == nil && count > 0
 }

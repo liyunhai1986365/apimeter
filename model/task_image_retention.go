@@ -156,7 +156,8 @@ func (t *Task) updateWithImageVersion(query *gorm.DB) (bool, error) {
 	// Advance their revision even before any result exists: stale timeout
 	// snapshots must not overwrite a newer reservation. This also makes a
 	// same-value reservation write a real update on MySQL (changed rows).
-	if updated.PrivateData.AsyncImage || updated.ImageBase64State == TaskImagePresent || updated.ImageBase64State == TaskImageCleared {
+	if updated.PrivateData.AsyncImage || updated.PrivateData.ImageQuotaReceipts != nil ||
+		updated.ImageBase64State == TaskImagePresent || updated.ImageBase64State == TaskImageCleared {
 		updated.ImageBase64Version++
 	}
 	// Do not use Model(t): GORM assigns update fields into that pointer even

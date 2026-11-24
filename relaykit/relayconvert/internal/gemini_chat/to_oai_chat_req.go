@@ -74,24 +74,13 @@ func GeminiGenerateContentRequestToOpenAIChat(ctx context.Context, geminiRequest
 	}
 	explicitStrength := reasoningIntent.HasStrength()
 	reasoningIntent = reasoning.ResolveGeminiDefault(baseSourceModel, reasoningIntent)
-	effectiveEffort := reasoning.EffectiveEffort(reasoningIntent)
-	if reasoning.IsKnownNonReasoningOpenAIModel(modelName) {
-		// Source-family defaults are not target capabilities. Omitting an
-		// unsupported control also preserves an explicit request to disable
-		// thinking, since these target models do not reason in the first place.
-		if explicitStrength && effectiveEffort != "" && effectiveEffort != reasoning.EffortNone {
-			convdiag.Add(ctx, types.ConversionDiagnostic{
-				Code:     "openai_reasoning_unsupported",
-				Path:     "generationConfig.thinkingConfig",
-				Message:  fmt.Sprintf("target model %q does not support reasoning_effort; the requested thinking strength was omitted", modelName),
-				Severity: types.ConversionDiagnosticWarning,
-			})
-		}
-		effectiveEffort = ""
+	effectiveEffort, err := reasoning.EffortForOpenAITarget(ctx, modelName, string(reasoning.EffectiveEffort(reasoningIntent)), "generationConfig.thinkingConfig", explicitStrength)
+	if err != nil {
+		return nil, err
 	}
-	openaiRequest.ReasoningEffort = string(effectiveEffort)
+	openaiRequest.ReasoningEffort = effectiveEffort
 	if info != nil {
-		info.SetReasoningEffort(string(effectiveEffort))
+		info.SetReasoningEffort(effectiveEffort)
 	}
 
 	callHistory := newGeminiFunctionCallHistory(geminiRequest.Contents)
@@ -146,7 +135,7 @@ func GeminiGenerateContentRequestToOpenAIChat(ctx context.Context, geminiRequest
 					Role:       "tool",
 					ToolCallId: callHistory.match(part.FunctionResponse),
 				}
-				toolMessage.SetStringContent(jsonutil.ToJSONString(part.FunctionResponse.Response))
+				setGeminiToolResult(ctx, &toolMessage, part.FunctionResponse, contentIndex, partIndex)
 				messages = append(messages, toolMessage)
 			}
 		}
@@ -189,6 +178,11 @@ func GeminiGenerateContentRequestToOpenAIChat(ctx context.Context, geminiRequest
 	if geminiRequest.GenerationConfig.CandidateCount != nil {
 		openaiRequest.N = kitutil.GetPointer(*geminiRequest.GenerationConfig.CandidateCount)
 	}
+	format, err := geminiResponseFormat(ctx, &geminiRequest.GenerationConfig)
+	if err != nil {
+		return nil, err
+	}
+	openaiRequest.ResponseFormat = format
 
 	if err := convertGeminiToolsToChat(ctx, geminiRequest, openaiRequest); err != nil {
 		return nil, err
@@ -203,6 +197,77 @@ func GeminiGenerateContentRequestToOpenAIChat(ctx context.Context, geminiRequest
 	}
 
 	return openaiRequest, nil
+}
+
+func geminiResponseFormat(ctx context.Context, config *dto.GeminiChatGenerationConfig) (*dto.ResponseFormat, error) {
+	raw := config.ResponseJsonSchema
+	hasRaw := len(raw) != 0 && string(raw) != "null"
+	if hasRaw && config.ResponseSchema != nil {
+		return nil, reasoning.AsClientError(fmt.Errorf("generationConfig cannot specify both responseSchema and responseJsonSchema"))
+	}
+	switch mimeType := strings.ToLower(strings.TrimSpace(config.ResponseMimeType)); mimeType {
+	case "", "application/json":
+	case "text/plain":
+		if !hasRaw && config.ResponseSchema == nil {
+			return nil, nil
+		}
+		fallthrough
+	default:
+		convdiag.Add(ctx, types.ConversionDiagnostic{Code: "unsupported_response_format", Path: "generationConfig.responseMimeType", Message: fmt.Sprintf("Chat cannot preserve Gemini output format %q", mimeType), Severity: types.ConversionDiagnosticError})
+		return nil, nil
+	}
+	if !hasRaw && config.ResponseSchema == nil {
+		if config.ResponseMimeType != "" {
+			return &dto.ResponseFormat{Type: "json_object"}, nil
+		}
+		return nil, nil
+	}
+	var schema any = raw
+	if config.ResponseSchema != nil {
+		converted, dropped := sharedgemini.OpenAPISchemaToJSONSchema(config.ResponseSchema)
+		schema = converted
+		if len(dropped) != 0 {
+			convdiag.Add(ctx, types.ConversionDiagnostic{Code: "gemini_schema_keyword_dropped", Path: "generationConfig.responseSchema", Message: strings.Join(dropped, ", "), Severity: types.ConversionDiagnosticWarning})
+		}
+	}
+	encoded, err := kitutil.Marshal(dto.FormatJsonSchema{Name: "response", Schema: schema})
+	if err != nil {
+		return nil, err
+	}
+	return &dto.ResponseFormat{Type: "json_schema", JsonSchema: encoded}, nil
+}
+
+// Chat tool messages can contain text parts, but cannot carry an image or
+// document as the output of the same tool call.
+func setGeminiToolResult(ctx context.Context, message *dto.Message, response *dto.GeminiFunctionResponse, contentIndex, partIndex int) {
+	result := jsonutil.ToJSONString(response.Response)
+	message.SetStringContent(result)
+	if len(response.Parts) == 0 {
+		return
+	}
+	path := fmt.Sprintf("contents[%d].parts[%d].functionResponse.parts", contentIndex, partIndex)
+	omit := func(path string) {
+		convdiag.Add(ctx, types.ConversionDiagnostic{Code: "unsupported_media_type", Path: path,
+			Message: "Chat tool messages can only carry text; the attachment was omitted", Severity: types.ConversionDiagnosticError})
+	}
+	var parts []dto.GeminiPart
+	if err := kitutil.Unmarshal(response.Parts, &parts); err != nil {
+		omit(path)
+		return
+	}
+	var texts []dto.MediaContent
+	for i, part := range parts {
+		if inline := part.InlineData; inline != nil && relaymedia.IsTextMimeType(strings.ToLower(strings.TrimSpace(inline.MimeType))) {
+			if text, ok := relaymedia.DecodeText(inline.Data); ok {
+				texts = append(texts, dto.MediaContent{Type: dto.ContentTypeText, Text: text})
+				continue
+			}
+		}
+		omit(fmt.Sprintf("%s[%d]", path, i))
+	}
+	if len(texts) > 0 {
+		message.SetMediaContent(append([]dto.MediaContent{{Type: dto.ContentTypeText, Text: result}}, texts...))
+	}
 }
 
 // chatImageMediaTypes are the image formats Chat Completions accepts.

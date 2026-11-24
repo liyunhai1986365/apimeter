@@ -46,6 +46,8 @@ func (s *imageAsyncBillingStub) Settle(int) error {
 
 func (s *imageAsyncBillingStub) Refund(*gin.Context) { s.refundCalls++ }
 
+func (s *imageAsyncBillingStub) RefundImageTask(c *gin.Context, _ int) { s.Refund(c) }
+
 func (s *imageAsyncBillingStub) NeedsRefund() bool { return s.refundCalls == 0 }
 
 func (s *imageAsyncBillingStub) GetPreConsumedQuota() int { return s.quota }
@@ -56,16 +58,16 @@ func (s *imageAsyncBillingStub) ReserveWithCommit(_ int, commit func(*gorm.DB, i
 	return model.DB.Transaction(func(tx *gorm.DB) error { return commit(tx, s.quota) })
 }
 
-func waitForImageTaskTestWorkers(t *testing.T) {
+func waitForRelayTaskTestWorkers(t *testing.T) {
 	t.Helper()
 	// Refunds may enqueue further cache updates after the DB balance already
 	// matches the assertion. Wait for those workers before restoring globals.
-	require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond, "image task background workers did not finish")
+	require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond, "relay task background workers did not finish")
 }
 
 func setupImageTaskTestDB(t *testing.T) {
 	t.Helper()
-	waitForImageTaskTestWorkers(t)
+	waitForRelayTaskTestWorkers(t)
 
 	originalDB := model.DB
 	originalLogDB := model.LOG_DB
@@ -86,7 +88,7 @@ func setupImageTaskTestDB(t *testing.T) {
 	common.LogConsumeEnabled = false
 
 	t.Cleanup(func() {
-		waitForImageTaskTestWorkers(t)
+		waitForRelayTaskTestWorkers(t)
 		model.DB = originalDB
 		model.LOG_DB = originalLogDB
 		common.UsingSQLite = originalSQLite
@@ -172,7 +174,9 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 	setupImageTaskTestDB(t)
 	gin.SetMode(gin.TestMode)
 
+	var polls atomic.Int64
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		polls.Add(1)
 		require.Equal(t, "/v1/tasks/7154f43c-7765-4e77-d51e-0db4eee107b0", r.URL.Path)
 		require.Equal(t, "Bearer sk-upstream", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
@@ -193,6 +197,14 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 	}
 
 	router := gin.New()
+	info.ChannelSetting.UserOwned = true
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+	_, denied := waitImageAsyncSubmitResponse(c, info, []byte(`{"id":"7154f43c-7765-4e77-d51e-0db4eee107b0"}`))
+	require.NotNil(t, denied)
+	require.True(t, types.IsSkipRetryError(denied))
+	require.Zero(t, polls.Load())
+	info.ChannelSetting.UserOwned = false
 	router.POST("/v1/images/generations", func(c *gin.Context) {
 		body, apiErr := waitImageAsyncSubmitResponse(c, info, []byte(`{"id":"7154f43c-7765-4e77-d51e-0db4eee107b0"}`))
 		require.Nil(t, apiErr)
@@ -204,6 +216,7 @@ func TestWaitImageAsyncSubmitResponseConvertsSucceededTaskToOpenAIImageResponse(
 	router.ServeHTTP(recorder, request)
 
 	require.Equal(t, http.StatusOK, recorder.Code, recorder.Body.String())
+	require.EqualValues(t, 1, polls.Load())
 	require.JSONEq(t, `{
 		"created": 1779125744,
 		"data": [{"url":"https://cdn3.dmiapi.com/20260519/6a0b4e2e6925c.png?e=1779557807&token=abc","b64_json":"","revised_prompt":""}]
@@ -521,7 +534,7 @@ func TestNormalizeOpenAIImageResponseTokenURLConvertsBase64Alias(t *testing.T) {
 	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
 }
 
-func TestNormalizeOpenAIImageResponseTokenURLUsesRelayInfoUserStorage(t *testing.T) {
+func TestNormalizeOpenAIImageResponseTokenURLRejectsPrivateUserStorage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	var uploadedBody string
@@ -564,11 +577,10 @@ func TestNormalizeOpenAIImageResponseTokenURLUsesRelayInfoUserStorage(t *testing
 		"usage": {"total_tokens": 3}
 	}`))
 
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.Equal(t, "fake-image", uploadedBody)
-	require.True(t, strings.HasPrefix(gjsonGetString(t, body, "data.0.url"), "https://user-cdn.example.com/user-prefix/"))
-	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
+	require.ErrorContains(t, err, "public HTTPS")
+	require.False(t, changed)
+	require.Empty(t, body)
+	require.Empty(t, uploadedBody)
 }
 
 func TestNormalizeOpenAIImageResponseUserURLKeepsEndpointURLByDefault(t *testing.T) {
@@ -623,7 +635,7 @@ func TestNormalizeOpenAIImageResponseChannelURLKeepsEndpointURLWhenUserStorageDi
 	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
 }
 
-func TestNormalizeOpenAIImageResponseForceStoresEndpointURLInUserStorage(t *testing.T) {
+func TestNormalizeOpenAIImageResponseForceStoreRejectsPrivateUserStorage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	disableSSRFProtectionForImageTaskTest(t)
 
@@ -682,14 +694,12 @@ func TestNormalizeOpenAIImageResponseForceStoresEndpointURLInUserStorage(t *test
 		"created": 1779125744,
 		"data": [{"url":%q}],
 		"usage": {"total_tokens": 3}
-	}`, sourceImageServer.URL+"/image.png")))
+	}`, siteImageFixtureURL(t, sourceImageServer.URL))))
 
-	require.NoError(t, err)
-	require.True(t, changed)
-	require.NotEmpty(t, uploadedBody)
-	require.True(t, strings.HasPrefix(gjsonGetString(t, body, "data.0.url"), "https://user-cdn.example.com/user-prefix/"))
-	require.NotContains(t, gjsonGetString(t, body, "data.0.url"), sourceImageServer.URL)
-	require.Empty(t, gjsonGetString(t, body, "data.0.b64_json"))
+	require.ErrorContains(t, err, "public HTTPS")
+	require.False(t, changed)
+	require.Empty(t, body)
+	require.Empty(t, uploadedBody)
 }
 
 func disableSSRFProtectionForImageTaskTest(t *testing.T) {
@@ -1871,6 +1881,7 @@ func TestImageTaskFetchReturnsOpenAICompatibleTaskPayload(t *testing.T) {
 	require.NoError(t, model.DB.Create(&model.Task{
 		TaskID:     "7154f43c-7765-4e77-d51e-0db4eee107b0",
 		UserId:     7,
+		Properties: model.Properties{OriginModelName: "gpt-image-2"},
 		ChannelId:  11,
 		Action:     constant.TaskActionGenerate,
 		Status:     model.TaskStatusSubmitted,

@@ -27,7 +27,6 @@ describe('user owned provider form helpers', () => {
         other: '',
         settings:
           '{"allow_service_tier":false,"disable_store":false,"allow_safety_identifier":false,"allow_include_obfuscation":false,"allow_inference_geo":false}',
-        status: 1,
         channel_ratio: 1,
         priority: 0,
         weight: 0,
@@ -51,6 +50,7 @@ describe('user owned provider form helpers', () => {
 
     assert.equal(payload.channel.key, '')
     assert.equal(payload.channel.base_url, undefined)
+    assert.equal('status' in payload.channel, false)
   })
 
   test('maps provider rows to edit form without exposing key', () => {

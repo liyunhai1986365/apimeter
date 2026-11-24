@@ -455,6 +455,13 @@ func GenRelayInfoOpenAIAudio(c *gin.Context, request dto.Request) *RelayInfo {
 func GenRelayInfoEmbedding(c *gin.Context, request dto.Request) *RelayInfo {
 	info := genBaseRelayInfo(c, request)
 	info.RelayFormat = types.RelayFormatEmbedding
+	if c.FullPath() == "/v1/engines/:model/embeddings" {
+		// The legacy URL supplies a model to the request parser; upstream
+		// adaptors take the (possibly mapped) model from the request body.
+		upstream := *c.Request.URL
+		upstream.Path, upstream.RawPath = "/v1/embeddings", ""
+		info.RequestURLPath = upstream.RequestURI()
+	}
 	return info
 }
 
@@ -1267,6 +1274,13 @@ func RemoveGeminiDisabledFields(jsonData []byte) ([]byte, error) {
 // BeginAttempt keeps request timing intact for billing/logs while separating the
 // upstream latency and first-token timing used by routing performance metrics.
 func (info *RelayInfo) BeginAttempt() {
+	// A rejected stream may be retried before it produced output. Keep the
+	// previous attempt's terminal status out of the next stream's scanner.
+	if info.StreamStatus != nil && info.StreamStatus.EndReason != StreamEndReasonNone {
+		info.StreamStatus = nil
+		info.ReceivedResponseCount = 0
+		info.SendResponseCount = 0
+	}
 	info.AttemptStartTime = time.Now()
 	info.AttemptSampleRecorded = false
 	info.FirstResponseTime = info.AttemptStartTime.Add(-time.Second)

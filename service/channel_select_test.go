@@ -21,6 +21,27 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestDirectPersonalRouteRequiresOwner(t *testing.T) {
+	openChannelSelectTestDB(t)
+	p := model.Channel{Type: constant.ChannelTypeOpenAI, Models: "test", OwnerUserId: 77, Scope: model.ChannelScopeUserOwned}
+	require.NoError(t, model.InsertUserOwnedProvider(&p))
+	for _, owner := range []int{77, 78} {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+		common.SetContextKey(c, constant.ContextKeyUserId, owner)
+		param := &RetryParam{Ctx: c, TokenGroup: p.Group, ModelName: "test", Retry: common.GetPointer(0)}
+		ch, _, err := CacheGetRandomSatisfiedChannel(param)
+		if owner == p.OwnerUserId {
+			require.NoError(t, err)
+			require.NotNil(t, ch)
+			require.Equal(t, p.Id, ch.Id)
+			require.Equal(t, BillingSourceUserOwnedProvider, common.GetContextKeyString(c, constant.ContextKeyTokenBillingSource))
+		} else {
+			require.Nil(t, ch)
+		}
+	}
+}
+
 func openChannelSelectTestDB(t *testing.T) *gorm.DB {
 	t.Helper()
 

@@ -81,7 +81,7 @@ func TestIsImageAsyncTaskMatchesLegacyOpenAITaskID(t *testing.T) {
 			UpstreamTaskID: "7154f43c-7765-4e77-d51e-0db4eee107b0",
 		},
 	}
-	require.True(t, isImageAsyncTask(task))
+	require.True(t, IsImageAsyncTask(task))
 }
 
 func TestUpdateImageTasksUsesConfigurableImageFetcher(t *testing.T) {

@@ -108,6 +108,9 @@ import {
   type UserOwnedProviderRow,
 } from './lib/user-owned-provider-form'
 
+// These synchronous adapters use the personal channel's restricted transport.
+const PERSONAL_CHANNEL_TYPES = new Set([1, 3, 14, 20, 24])
+
 export function SupplierDirectory() {
   const { t } = useTranslation()
   const [selectedCategory, setSelectedCategory] = useState(
@@ -468,8 +471,16 @@ function UserOwnedProvidersSection(props: {
                   }))
                 }
               >
-                {CHANNEL_TYPE_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
+                {CHANNEL_TYPE_OPTIONS.filter(
+                  (option) =>
+                    PERSONAL_CHANNEL_TYPES.has(option.value) ||
+                    option.value === editingProvider?.type
+                ).map((option) => (
+                  <option
+                    key={option.value}
+                    value={option.value}
+                    disabled={!PERSONAL_CHANNEL_TYPES.has(option.value)}
+                  >
                     {t(option.label)}
                   </option>
                 ))}

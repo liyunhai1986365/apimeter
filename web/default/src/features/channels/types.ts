@@ -42,6 +42,8 @@ export const channelSchema = z.object({
   test_model: z.string().nullish(),
   status: z.number(), // 1: enabled, 0: manual disabled, 2: auto disabled
   name: z.string(),
+  scope: z.enum(['', 'platform', 'user_owned']).nullish(),
+  owner_user_id: z.number().nullish(),
   weight: z.number().nullish(),
   channel_ratio: z.number().default(1),
   created_time: z.number(),

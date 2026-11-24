@@ -74,7 +74,7 @@ func StartCodexOAuthForChannel(c *gin.Context) {
 
 func startCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 	if channelID > 0 {
-		ch, err := model.GetChannelById(channelID, false)
+		ch, err := model.RequirePlatformChannel(model.GetChannelById(channelID, false))
 		if err != nil {
 			common.ApiError(c, err)
 			return
@@ -147,7 +147,7 @@ func completeCodexOAuthWithChannelID(c *gin.Context, channelID int) {
 
 	channelProxy := ""
 	if channelID > 0 {
-		ch, err := model.GetChannelById(channelID, false)
+		ch, err := model.RequirePlatformChannel(model.GetChannelById(channelID, false))
 		if err != nil {
 			common.ApiError(c, err)
 			return

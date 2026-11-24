@@ -13,11 +13,12 @@ import (
 )
 
 func TestClaudeAdaptiveThinkingConversions(t *testing.T) {
+	const clientAlias = "public-alias"
 	for _, format := range []string{"chat", "responses"} {
 		for _, tc := range []struct {
 			name, model, effort, wantModel, wantType, wantEffort string
 			budget                                               int
-			preserveSuffix                                       bool
+			preservedModel                                       string
 			adapterDisabled                                      bool
 		}{
 			{name: "omitted", model: "claude-opus-5-5", wantModel: "claude-opus-5-5"},
@@ -29,9 +30,11 @@ func TestClaudeAdaptiveThinkingConversions(t *testing.T) {
 			{name: "explicit effort wins effort suffix", model: "claude-opus-5-5-high", effort: "low", wantModel: "claude-opus-5-5", wantType: "adaptive", wantEffort: "low"},
 			{name: "explicit effort wins none suffix", model: "claude-opus-5-5-none", effort: "high", wantModel: "claude-opus-5-5", wantType: "adaptive", wantEffort: "high"},
 			{name: "explicit none wins effort suffix", model: "claude-sonnet-5-5-max", effort: "none", wantModel: "claude-sonnet-5-5", wantType: "between_tools", wantEffort: "high"},
-			{name: "preserved suffix", model: "claude-opus-5-5-thinking", effort: "low", preserveSuffix: true, wantType: "adaptive", wantEffort: "low"},
-			{name: "preserved effort suffix", model: "claude-opus-5-5-high", preserveSuffix: true, wantType: "adaptive", wantEffort: "high"},
-			{name: "preserved none suffix", model: "claude-sonnet-5-5-none", preserveSuffix: true, wantType: "between_tools"},
+			{name: "preserved suffix", model: "claude-opus-5-5-thinking", effort: "low", preservedModel: "claude-opus-5-5-thinking", wantType: "adaptive", wantEffort: "low"},
+			{name: "preserved effort suffix", model: "claude-opus-5-5-high", preservedModel: "claude-opus-5-5-high", wantType: "adaptive", wantEffort: "high"},
+			{name: "preserved none suffix", model: "claude-sonnet-5-5-none", preservedModel: "claude-sonnet-5-5-none", wantType: "between_tools"},
+			{name: "original alias preserves manual effort suffix", model: "claude-sonnet-4-5-high", preservedModel: clientAlias, wantType: "enabled", budget: 4096},
+			{name: "original alias preserves thinking suffix", model: "claude-opus-5-5-thinking", preservedModel: clientAlias, wantType: "adaptive", wantEffort: "medium"},
 			{name: "dated family", model: "claude-opus-5-5-20261028", effort: "high", wantType: "adaptive", wantEffort: "high"},
 			{name: "opus 4.7", model: "claude-opus-4-7", effort: "high", wantType: "adaptive", wantEffort: "high"},
 			{name: "opus 4.8", model: "claude-opus-4-8", effort: "medium", wantType: "adaptive", wantEffort: "medium"},
@@ -64,9 +67,9 @@ func TestClaudeAdaptiveThinkingConversions(t *testing.T) {
 			{name: "family boundary", model: "claude-opus-5-50", effort: "medium", wantType: "enabled", budget: 2048},
 		} {
 			t.Run(format+"/"+tc.name, func(t *testing.T) {
-				meta := &convmeta.Values{Options: &convmeta.Options{
+				meta := &convmeta.Values{OriginModelName: clientAlias, UpstreamModelName: tc.model, Options: &convmeta.Options{
 					Claude:                 convmeta.ClaudeOptions{ThinkingAdapterEnabled: !tc.adapterDisabled, ThinkingAdapterBudgetTokensPercentage: 0.8},
-					PreserveThinkingSuffix: func(string) bool { return tc.preserveSuffix },
+					PreserveThinkingSuffix: func(model string) bool { return model == tc.preservedModel },
 				}}
 				var got *dto.ClaudeRequest
 				var err error

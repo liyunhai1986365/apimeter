@@ -29,6 +29,75 @@ type interruptedGeminiReader struct{}
 
 func (interruptedGeminiReader) Read([]byte) (int, error) { return 0, io.ErrUnexpectedEOF }
 
+func TestGeminiStreamFailureAcrossFormats(t *testing.T) {
+	const failureFrame = "data: " + `{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"quota reached","details":[{"reason":"upstream limit"}]}}` + "\n\n"
+	for _, format := range []types.RelayFormat{types.RelayFormatGemini, types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses} {
+		for _, kind := range []string{"reject", "metadata_then_reject", "partial_then_reject", "read_error", "success"} {
+			t.Run(string(format)+"/"+kind, func(t *testing.T) {
+				c, w, info := googleTestContext(t)
+				info.RelayFormat, info.DisablePing, info.IsStream = format, true, true
+				var body io.Reader
+				switch kind {
+				case "reject":
+					body = strings.NewReader(failureFrame)
+				case "metadata_then_reject":
+					body = strings.NewReader("data: " + `{"modelVersion":"gemini-test","responseId":"attempt-1"}` + "\n\n" + failureFrame)
+				case "partial_then_reject":
+					body = strings.NewReader(partialGeminiTextStream + failureFrame)
+				case "read_error":
+					body = io.MultiReader(strings.NewReader(partialGeminiTextStream), interruptedGeminiReader{})
+				case "success":
+					body = strings.NewReader(partialGeminiTextStream + "data: [DONE]\n\n")
+				}
+				r := &http.Response{Body: io.NopCloser(body)}
+				var usage *dto.Usage
+				var apiErr *types.NewAPIError
+				switch format {
+				case types.RelayFormatGemini:
+					usage, apiErr = GeminiTextGenerationStreamHandler(c, info, r)
+				case types.RelayFormatOpenAI:
+					usage, apiErr = GeminiChatStreamHandler(c, info, r)
+				case types.RelayFormatOpenAIResponses:
+					usage, apiErr = GeminiResponsesStreamHandler(c, info, r)
+				}
+				if kind == "success" {
+					require.Nil(t, apiErr)
+					require.Equal(t, 100, usage.PromptTokens)
+					require.Equal(t, 20, usage.CompletionTokens)
+					return
+				}
+				require.NotNil(t, apiErr)
+				require.NotContains(t, w.Body.String(), "response.completed")
+				require.NotContains(t, w.Body.String(), "[DONE]")
+				if kind != "read_error" {
+					require.Equal(t, 429, apiErr.StatusCode)
+					require.Contains(t, apiErr.Error(), "quota reached")
+					if format == types.RelayFormatGemini {
+						require.Contains(t, w.Body.String(), "upstream limit")
+						require.True(t, common.GetContextKeyBool(c, constant.ContextKeyRelayStreamErrorSent))
+					}
+				}
+				var marker *relaycommon.StreamUsageError
+				if kind == "reject" || kind == "metadata_then_reject" {
+					require.Nil(t, usage)
+					require.False(t, errors.As(apiErr, &marker))
+					return
+				}
+				require.ErrorAs(t, apiErr, &marker)
+				count := 0
+				for i := 0; i < 2; i++ {
+					marker.SettleOnce(func(u *dto.Usage) {
+						require.Equal(t, 100, u.PromptTokens)
+						require.Equal(t, 20, u.CompletionTokens)
+						count++
+					})
+				}
+				require.Equal(t, 1, count)
+			})
+		}
+	}
+}
+
 func TestGoogleSearchOnlyInterruptedStreamPreservesSettlement(t *testing.T) {
 	for _, format := range []types.RelayFormat{types.RelayFormatOpenAI, types.RelayFormatOpenAIResponses} {
 		t.Run(string(format), func(t *testing.T) {

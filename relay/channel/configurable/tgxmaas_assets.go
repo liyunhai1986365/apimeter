@@ -57,7 +57,7 @@ func resolveTgxMaasVideoAssets(body []byte, info *relaycommon.RelayInfo) ([]byte
 	}
 	project := gjson.GetBytes(body, "ProjectName").String()
 	if p := info.ChannelSetting.Protocol; !authorized && p != nil && p.AssetLibrary != nil && p.AssetLibrary.Backend == "tgxmaas" {
-		ch, err := model.GetChannelById(info.ChannelId, true)
+		ch, err := model.RequirePlatformChannel(model.GetChannelById(info.ChannelId, true))
 		if err != nil {
 			return nil, err
 		}

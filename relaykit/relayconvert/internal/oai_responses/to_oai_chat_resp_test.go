@@ -359,8 +359,10 @@ func TestFinalizeResponsesToChatStreamFlushesPendingDeltaOnlyArguments(t *testin
 }
 
 func TestResponsesStreamEventToChatChunksFailedEventReturnsError(t *testing.T) {
-	_, err := ResponsesStreamEventToChatChunks(&dto.ResponsesStreamResponse{Type: responsesEventFailed}, newTestResponsesStreamState())
-	require.Error(t, err)
+	for _, eventType := range []string{"error", "response.failed", "response.error"} {
+		_, err := ResponsesStreamEventToChatChunks(&dto.ResponsesStreamResponse{Type: eventType}, newTestResponsesStreamState())
+		require.ErrorContains(t, err, eventType)
+	}
 }
 
 func TestResponsesBufferedAccumulatorSupplementsEmptyTerminalOutput(t *testing.T) {

@@ -32,11 +32,11 @@ func mockWebhookDelivery(t *testing.T, worker bool, status int, response string,
 	t.Helper()
 	fetchSetting := system_setting.GetFetchSetting()
 	originalSSRF := fetchSetting.EnableSSRFProtection
-	originalClient := httpClient
+	originalClient, originalProtectedClient := httpClient, ssrfProtectedHTTPClient
 	originalWorkerURL, originalWorkerKey := system_setting.WorkerUrl, system_setting.WorkerValidKey
 	t.Cleanup(func() {
 		fetchSetting.EnableSSRFProtection = originalSSRF
-		httpClient = originalClient
+		httpClient, ssrfProtectedHTTPClient = originalClient, originalProtectedClient
 		system_setting.WorkerUrl, system_setting.WorkerValidKey = originalWorkerURL, originalWorkerKey
 	})
 	fetchSetting.EnableSSRFProtection = false
@@ -45,31 +45,35 @@ func mockWebhookDelivery(t *testing.T, worker bool, status int, response string,
 		system_setting.WorkerUrl = "https://worker.example.com"
 		system_setting.WorkerValidKey = "worker-test-key"
 	}
-	httpClient = &http.Client{Transport: webhookTestTransport(func(req *http.Request) (*http.Response, error) {
-		require.Equal(t, http.MethodPost, req.Method)
-		require.Equal(t, "application/json", req.Header.Get("Content-Type"))
-		body, err := io.ReadAll(req.Body)
-		require.NoError(t, err)
-		targetURL := req.URL.String()
-		headers := map[string]string{"X-Webhook-Signature": req.Header.Get("X-Webhook-Signature")}
-		if worker {
-			require.Equal(t, "https://worker.example.com/", targetURL)
-			var envelope WorkerRequest
-			require.NoError(t, common.Unmarshal(body, &envelope))
-			require.Equal(t, "worker-test-key", envelope.Key)
-			require.Equal(t, http.MethodPost, envelope.Method)
-			require.Equal(t, "application/json", envelope.Headers["Content-Type"])
-			targetURL, headers, body = envelope.URL, envelope.Headers, envelope.Body
-		}
-		if inspect != nil {
-			inspect(targetURL, headers, body)
-		}
-		return &http.Response{
-			StatusCode: status,
-			Body:       io.NopCloser(strings.NewReader(response)),
-			Header:     make(http.Header),
-		}, nil
-	})}
+	mockClient := func(viaWorker bool) *http.Client {
+		return &http.Client{Transport: webhookTestTransport(func(req *http.Request) (*http.Response, error) {
+			require.Equal(t, http.MethodPost, req.Method)
+			require.Equal(t, "application/json", req.Header.Get("Content-Type"))
+			body, err := io.ReadAll(req.Body)
+			require.NoError(t, err)
+			targetURL := req.URL.String()
+			headers := map[string]string{"X-Webhook-Signature": req.Header.Get("X-Webhook-Signature")}
+			if viaWorker {
+				require.Equal(t, "https://worker.example.com/", targetURL)
+				var envelope WorkerRequest
+				require.NoError(t, common.Unmarshal(body, &envelope))
+				require.Equal(t, "worker-test-key", envelope.Key)
+				require.Equal(t, http.MethodPost, envelope.Method)
+				require.Equal(t, "application/json", envelope.Headers["Content-Type"])
+				targetURL, headers, body = envelope.URL, envelope.Headers, envelope.Body
+			}
+			if inspect != nil {
+				inspect(targetURL, headers, body)
+			}
+			return &http.Response{
+				StatusCode: status,
+				Body:       io.NopCloser(strings.NewReader(response)),
+				Header:     make(http.Header),
+			}, nil
+		})}
+	}
+	httpClient = mockClient(worker)
+	ssrfProtectedHTTPClient = mockClient(false)
 }
 
 func TestSendWebhookNotifyUsesWeComMarkdown(t *testing.T) {
@@ -91,6 +95,30 @@ func TestSendWebhookNotifyUsesWeComMarkdown(t *testing.T) {
 			), "")
 			require.NoError(t, err)
 			require.True(t, delivered)
+		})
+	}
+}
+
+func TestWeComWebhookReceiptSizeLimit(t *testing.T) {
+	const ok = `{"errcode":0}`
+	atLimit := ok + strings.Repeat(" ", weComReceiptMaxBytes-len(ok))
+	for _, tc := range []struct {
+		name  string
+		extra int
+	}{
+		{"at_limit", 0},
+		{"one_over", 1},
+		{"stops_reading", 32},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := strings.NewReader(atLimit + strings.Repeat(" ", tc.extra))
+			err := validateWeComWebhookResponse(&http.Response{Body: io.NopCloser(body), ContentLength: -1})
+			if tc.extra == 0 {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, "wecom webhook response exceeds")
+			require.Equal(t, tc.extra-1, body.Len())
 		})
 	}
 }

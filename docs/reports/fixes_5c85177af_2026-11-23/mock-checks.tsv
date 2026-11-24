@@ -1,0 +1,1357 @@
+round	check	status	details
+fix-round-2	runtime:redis_empty_isolation	pass	"{""db"": 14}"
+fix-round-2	runtime:mysql_isolated_schema	pass	"{""schema"": ""apimeter_acceptance_20261123_fix_round_2""}"
+fix-round-2	runtime:readiness:1	pass	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+fix-round-2	setup:status	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:fresh_setup	pass	"{""status"": 200, ""message"": null}"
+fix-round-2	setup:bootstrap_admin	pass	"{""status"": 200, ""message"": ""系统初始化成功""}"
+fix-round-2	setup:admin_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:create_mockuser	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:create_mockother	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:user_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:other_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:user_profile	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:other_profile	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:quota_2	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:quota_3	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:relay_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:other_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:option:ModelRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:option:CompletionRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:option:GroupRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:option:ModelPrice	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:option:RetryTimes	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:option:LogConsumeEnabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:mock-openai	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:mock-additional-relay	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:mock-openrouter	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:mock-claude	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:mock-gemini	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:mock-assets	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-success	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-failed	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-expired	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-create429	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-query429	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-query500	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	routing:new_channel_eventual_visibility	pass	"{""seconds"": 59.19, ""statuses"": {""503"": 59, ""200"": 1}}"
+fix-round-2	runtime:mysql57	pass	"{""metadata"": [{""version"": ""5.7.44""}]}"
+fix-round-2	routing:models	pass	"{""status"": 200}"
+fix-round-2	embedding:/v1/embeddings	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	embedding:values:/v1/embeddings	pass	{}
+fix-round-2	embedding:billing:/v1/embeddings	pass	"{""expected"": 49999780, ""actual"": 49999780}"
+fix-round-2	embedding:/v1/engines/mock-embedding/embeddings	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	embedding:values:/v1/engines/mock-embedding/embeddings	pass	{}
+fix-round-2	embedding:billing:/v1/engines/mock-embedding/embeddings	pass	"{""expected"": 49999680, ""actual"": 49999680}"
+fix-round-2	embedding:legacy_path_model	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	embedding:path_model_forwarded	pass	{}
+fix-round-2	embedding:path_model_billing	pass	"{""expected"": 49999580, ""actual"": 49999580}"
+fix-round-2	rerank:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	rerank:ranking	pass	{}
+fix-round-2	rerank:false_preserved	pass	{}
+fix-round-2	completions:status:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	completions:content:False	pass	{}
+fix-round-2	completions:billing:False	pass	"{""expected"": 49999360, ""actual"": 49999360}"
+fix-round-2	responses:native:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	responses:native_content:False	pass	{}
+fix-round-2	responses:native_billing:False	pass	"{""expected"": 49999240, ""actual"": 49999240}"
+fix-round-2	completions:status:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	completions:content:True	pass	{}
+fix-round-2	completions:billing:True	pass	"{""expected"": 49999120, ""actual"": 49999120}"
+fix-round-2	responses:native:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	responses:native_content:True	pass	{}
+fix-round-2	responses:native_billing:True	pass	"{""expected"": 49999000, ""actual"": 49999000}"
+fix-round-2	responses:compact	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	responses:compact_content	pass	{}
+fix-round-2	responses:compact_false	pass	{}
+fix-round-2	responses:compact_billing	pass	"{""expected"": 49998880, ""actual"": 49998880}"
+fix-round-2	moderations:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	moderations:content	pass	{}
+fix-round-2	speech:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	speech:bytes	pass	{}
+fix-round-2	audio:contract:/v1/audio/transcriptions	pass	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-2	audio:file_preserved:/v1/audio/transcriptions	pass	{}
+fix-round-2	audio:contract:/v1/audio/translations	pass	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-2	audio:file_preserved:/v1/audio/translations	pass	{}
+fix-round-2	image:edits_contract	pass	"{""status"": 200, ""body"": ""{\""created\"": 1795400939, \""data\"": [{\""b64_json\"": \""iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\""}], \""usage\"": {\""input_tokens\"": 100, \""output_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-2	image:edits_bytes	pass	{}
+fix-round-2	gemini:invalid_budget:1.5	pass	"{""status"": 400, ""excerpt"": null}"
+fix-round-2	gemini:invalid_budget_not_forwarded:1.5	pass	{}
+fix-round-2	gemini:invalid_budget:2147483648	pass	"{""status"": 400, ""excerpt"": null}"
+fix-round-2	gemini:invalid_budget_not_forwarded:2147483648	pass	{}
+fix-round-2	not_implemented:/v1/images/variations	pass	"{""status"": 501}"
+fix-round-2	not_implemented:/v1/files	pass	"{""status"": 501}"
+fix-round-2	not_implemented:/v1/fine-tunes	pass	"{""status"": 501}"
+fix-round-2	metadata:/v1/model-metadata	pass	"{""status"": 200}"
+fix-round-2	metadata:/v1/models/mock-chat	pass	"{""status"": 200}"
+fix-round-2	metadata:/v1beta/models	pass	"{""status"": 200}"
+fix-round-2	metadata:/v1beta/openai/models	pass	"{""status"": 200}"
+fix-round-2	metadata:/dashboard/billing/subscription	pass	"{""status"": 200}"
+fix-round-2	metadata:/dashboard/billing/usage	pass	"{""status"": 200}"
+fix-round-2	metadata:/v1/dashboard/billing/subscription	pass	"{""status"": 200}"
+fix-round-2	metadata:/v1/dashboard/billing/usage	pass	"{""status"": 200}"
+fix-round-2	metadata:/api/usage/token/	pass	"{""status"": 200}"
+fix-round-2	read:admin:/api/user/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/user/search?keyword=mock	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/user/2fa/stats	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/user/topup	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/channel/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/channel/search?keyword=mock	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/channel/filter-options	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/channel/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/channel/models	pass	"{""status"": 200, ""message"": null}"
+fix-round-2	read:admin:/api/channel/models_enabled	pass	"{""status"": 200, ""message"": null}"
+fix-round-2	read:admin:/api/channel/protocol_profiles	pass	"{""status"": 200, ""message"": null}"
+fix-round-2	read:admin:/api/channel/ops	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/channel/operation_records	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/option/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/option/channel_affinity_cache	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/option/routing-strategies	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/option/crypto-payment	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/performance/stats	pass	"{""status"": 200, ""message"": null}"
+fix-round-2	read:admin:/api/performance/logs	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/group/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/prefill_group/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/models/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/models/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/models/missing	pass	"{""status"": 200, ""message"": null}"
+fix-round-2	read:admin:/api/models/monitor	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/vendors/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/vendors/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/custom-oauth-provider/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/redemption/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/redemption/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/agents/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/agents/domains	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/agents/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/affiliate/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/log/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/log/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/log/model_profit_stats	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	contract-disabled:admin:/api/log/search	pass	"{""status"": 200, ""message"": ""该接口已废弃""}"
+fix-round-2	read:admin:/api/log/channel_affinity_usage_cache?rule_name=local&key_fp=fixture	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/retry-route/events	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/retry-route/events/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/retry-route/events/stat/rules	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/task/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/mj/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/data/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/data/dimensions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/data/users	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/subscription/admin/plans	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/system/tasks/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/system/tasks/current?type=log_cleanup	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/system/info/instances	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/authz/catalog	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/newapi_suppliers/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/newapi_suppliers/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/billing/admin/monthly-statements	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:admin:/api/ratio_sync/channels	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/self/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/self/providers	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/models	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/sessions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/passkey	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/2fa/status	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/aff/invites	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/aff/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/topup/info	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/topup/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/user/oauth/bindings	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	contract-disabled:user:/api/user/checkin	pass	"{""status"": 200, ""message"": ""签到功能未启用""}"
+fix-round-2	read:user:/api/token/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/token/search?keyword=local	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/token/auto-groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/token/filter-options	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/workspaces	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/workspaces/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/workspace-subaccounts	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/workspace-subaccounts/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/log/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/log/self/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	contract-disabled:user:/api/log/self/search	pass	"{""status"": 200, ""message"": ""该接口已废弃""}"
+fix-round-2	read:user:/api/task/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/mj/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/data/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/data/self/dimensions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/data/self/tokens	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/models	pass	"{""status"": 200, ""message"": null}"
+fix-round-2	read:user:/api/dashboard/flow	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/subscription/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/billing/breakdowns	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	read:user:/api/billing/monthly-statements	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:workspace_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:workspace_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:workspace_list	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	workspace:updated_value	pass	{}
+fix-round-2	workspace:cross_user_denied	pass	{}
+fix-round-2	setup:workspace_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:workspace_list_after_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	workspace:deleted	pass	{}
+fix-round-2	setup:vendor_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:vendor_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:vendor_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:vendor_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	vendor:updated	pass	{}
+fix-round-2	setup:model_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:model_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:model_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:model_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	model:updated	pass	{}
+fix-round-2	setup:model_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:vendor_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel:mock-crud-only	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	channel:updated	pass	{}
+fix-round-2	setup:channel_disable	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:channel_read_disabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	channel:disabled	pass	{}
+fix-round-2	setup:channel_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:token_create_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:token_read_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:token_update_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:token_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	token:updated	pass	{}
+fix-round-2	token:other_user_read_denied	pass	{}
+fix-round-2	setup:token_delete_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_workspace	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_get	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	subaccount:mysql_metadata	pass	"{""row"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}}"
+fix-round-2	subaccount:redis_metadata	pass	"{""db"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}, ""cache"": {""Id"": ""4"", ""ParentUserId"": ""2"", ""MustChangePassword"": ""1"", ""CacheSchema"": ""3"", ""AuthVersion"": ""1""}}"
+fix-round-2	subaccount:must_change_password_enforced	pass	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+fix-round-2	subaccount:cannot_create_workspace	pass	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+fix-round-2	setup:subaccount_change_password	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_login_new_password	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	subaccount:password_change_persisted	pass	"{""row"": {""must_change_password"": 0, ""parent_user_id"": 2}, ""cache_flag"": ""0""}"
+fix-round-2	setup:subaccount_workspaces	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	subaccount:assigned_workspace_scope	pass	"{""workspaces"": [{""id"": 4, ""user_id"": 2, ""access_users"": [], ""name"": ""subaccount fixture"", ""description"": ""isolated"", ""is_default"": false, ""status"": 1, ""quota_reset_enabled"": false, ""quota_reset_period"": """", ""quota_reset_amount"": 0, ""quota_reset_last_applied_at"": 0, ""quota_reset_next_at"": 0, ""created_time"": 1795400939, ""updated_time"": 1795400939, ""DeletedAt"": null, ""token_count"": 0}]}"
+fix-round-2	subaccount:creation_denied_after_password_change	pass	"{""status"": 403, ""body"": {""message"": ""workspace accounts cannot access this feature"", ""success"": false}}"
+fix-round-2	setup:subaccount_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_workspaces_set	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_disable	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	subaccount:disabled_session_denied	pass	{}
+fix-round-2	setup:subaccount_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:subaccount_workspace_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	chat:mock-chat	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	chat:content:mock-chat	pass	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+fix-round-2	mapping:alias_to_upstream	pass	{}
+fix-round-2	parameters:explicit_zero_preserved	pass	"{""body"": {""model"": ""gpt-4o"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""stream"": false, ""max_tokens"": 128, ""temperature"": 0, ""top_p"": 0}}"
+fix-round-2	billing:chat_charged:mock-chat	pass	{}
+fix-round-2	chat:claude-sonnet-4-5	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	chat:content:claude-sonnet-4-5	pass	"{""usage"": {""prompt_tokens"": 115, ""completion_tokens"": 20, ""total_tokens"": 135, ""prompt_tokens_details"": {""cached_tokens"": 5, ""audio_tokens"": 0, ""cache_write_tokens"": 10}}}"
+fix-round-2	billing:chat_charged:claude-sonnet-4-5	pass	{}
+fix-round-2	chat:gemini-2.5-flash	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	chat:content:gemini-2.5-flash	pass	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+fix-round-2	billing:chat_charged:gemini-2.5-flash	pass	{}
+fix-round-2	chat:tools	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	chat:tool_call_preserved	pass	{}
+fix-round-2	compat:gpt62	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	compat:gpt62_upstream	pass	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""developer"", ""content"": ""rules""}, {""role"": ""user"", ""content"": ""hello""}], ""max_completion_tokens"": 128, ""reasoning_effort"": ""high""}}"
+fix-round-2	compat:openrouter	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	compat:openrouter_nested_reasoning	pass	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""usage"": {""include"": true}, ""reasoning"": {""enabled"": false, ""exclude"": false, ""opaque"": {""integer"": 9007199254740993}}}}"
+fix-round-2	stream:chat:mock-chat	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	stream:chat_terminal:mock-chat	pass	{}
+fix-round-2	stream:chat:claude-sonnet-4-5	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	stream:chat_terminal:claude-sonnet-4-5	pass	{}
+fix-round-2	stream:chat:gemini-2.5-flash	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	stream:chat_terminal:gemini-2.5-flash	pass	{}
+fix-round-2	claude:native:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	claude:native_contract:False	pass	{}
+fix-round-2	claude:native:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	claude:native_contract:True	pass	{}
+fix-round-2	gemini:native	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	gemini:native_content	pass	{}
+fix-round-2	gemini:responses:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	gemini:responses_contract:False	pass	{}
+fix-round-2	gemini:responses:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	gemini:responses_contract:True	pass	{}
+fix-round-2	gemini:broken_responses_http	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	gemini:broken_responses_terminal	pass	{}
+fix-round-2	gemini:broken_stream_no_retry	pass	{}
+fix-round-2	gemini:broken_stream_usage_billed	pass	"{""expected"": 49996301, ""actual"": 49996301}"
+fix-round-2	gemini:broken_stream_single_log	pass	"{""logs"": [{""completion_tokens"": 20, ""id"": 77, ""model_name"": ""gemini-2.5-flash"", ""other"": ""{\""admin_info\"":{\""usage_billing_path\"":\""billing-usage-gemini\"",\""use_channel\"":[\""5\""]},\""billing_mode\"":\""ratio\"",\""billing_source\"":\""wallet\"",\""cache_ratio\"":1,\""cache_tokens\"":0,\""channel_ratio\"":1,\""completion_ratio\"":1,\""cost_base_quota\"":120,\""cost_quota\"":120,\""frt\"":5,\""group_ratio\"":1,\""group_ratio_source\"":\""group\"",\""model_price\"":-1,\""model_ratio\"":1,\""pricing_group\"":\""default\"",\""pricing_model\"":\""gemini-2.5-flash\"",\""pricing_user_group\"":\""default\"",\""profit_quota\"":0,\""profit_rate\"":0,\""request_conversion\"":[\""OpenAI Responses\"",\""Google Gemini\""],\""request_path\"":\""/v1/responses\"",\""stream_status\"":{\""end_reason\"":\""eof\"",\""error_count\"":1,\""errors\"":[\""unmarshal: invalid character 'i' looking for beginning of object key string\""],\""status\"":\""error\""},\""user_group_ratio\"":-1}"", ""prompt_tokens"": 100, ""quota"": 120}]}"
+fix-round-2	auth:missing:/v1/models	pass	"{""status"": 401}"
+fix-round-2	auth:missing:/v1/chat/completions	pass	"{""status"": 401}"
+fix-round-2	auth:invalid_token	pass	"{""status"": 401, ""excerpt"": null}"
+fix-round-2	auth:invalid_not_forwarded	pass	{}
+fix-round-2	upstream:http429	pass	"{""status"": 429, ""excerpt"": null}"
+fix-round-2	billing:http429_refunded	pass	"{""expected"": 49996301, ""actual"": 49996301}"
+fix-round-2	upstream:http429_not_retried	pass	{}
+fix-round-2	auth:ordinary_user_admin_denied	pass	"{""status"": 403}"
+fix-round-2	claude:adaptive	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	claude:adaptive_fields_exact	pass	"{""body"": {""model"": ""claude-opus-5-5"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""max_tokens"": 128, ""output_config"": {""effort"": ""medium""}, ""thinking"": {""block_binding"": {""prefix_mismatch_behavior"": ""drop_block""}, ""display"": ""summarized"", ""future_field"": {""id"": 9007199254740993}, ""type"": ""adaptive""}}}"
+fix-round-2	claude:adjacent_tools	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	claude:adjacent_tools_preserved	pass	"{""body"": {""model"": ""claude-sonnet-4-5"", ""messages"": [{""role"": ""user"", ""content"": ""look up a and b""}, {""role"": ""assistant"", ""content"": [{""type"": ""text"", ""text"": ""...""}, {""type"": ""tool_use"", ""id"": ""a"", ""name"": ""lookup"", ""input"": {}}, {""type"": ""tool_use"", ""id"": ""b"", ""name"": ""lookup"", ""input"": {}}]}, {""role"": ""user"", ""content"": [{""type"": ""tool_result"", ""content"": ""result a"", ""tool_use_id"": ""a""}, {""type"": ""tool_result"", ""content"": ""result b"", ""tool_use_id"": ""b""}]}], ""max_tokens"": 1024}}"
+fix-round-2	setup:option:general_setting.ping_interval_enabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	setup:option:general_setting.ping_interval_seconds	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	claude:slow_stream	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	claude:keepalive_before_content	pass	{}
+fix-round-2	setup:option:general_setting.ping_interval_enabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	image26:request:gif	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	image26:outbound:gif	pass	"{""body"": {""complexity"": ""low"", ""frame_count"": 16, ""frame_duration_ms"": 100, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""gif"", ""prompt"": ""draw"", ""quality"": ""max"", ""size"": ""1536x864""}}"
+fix-round-2	image26:request:svg	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	image26:outbound:svg	pass	"{""body"": {""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""svg"", ""prompt"": ""draw"", ""svg"": {""model"": ""author-model"", ""reasoning"": {""effort"": ""high""}, ""extension"": 9007199254740993}}}"
+fix-round-2	image26:request:zero	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	image26:outbound:zero	pass	"{""body"": {""complexity"": """", ""frame_count"": 0, ""frame_duration_ms"": 0, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_compression"": 0, ""partial_images"": 0, ""prompt"": ""draw"", ""stream"": false}}"
+fix-round-2	image:sync	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	image:sync_pixels	pass	{}
+fix-round-2	image:sync_charged	pass	{}
+fix-round-2	image:async_submit:success	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	image:async_id_no_usage:success	pass	{}
+fix-round-2	image:reservation_before_completion:success	pass	"{""before"": 49995247, ""after_submit"": 49993982}"
+fix-round-2	image:async_terminal:success	pass	"{""body"": {""action"": ""generate"", ""create_time"": 1795400944, ""data"": {""images"": [{""url"": ""/api/relay-temp-images/b2a249ef-839b-49a6-84ba-dc1615fd1c76.png""}]}, ""id"": ""task_6KLi6cWbkdY5Axxn8mDC8b47yl1lqElR"", ""image_expires_at"": 1795487344, ""image_status"": ""available"", ""progress"": 100, ""state"": ""succeeded"", ""update_time"": 1795400944, ""usage"": {""prompt_tokens"": 0, ""completion_tokens"": 0, ""total_tokens"": 120, ""prompt_tokens_details"": {""cached_tokens"": 0, ""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0}, ""completion_tokens_details"": {""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0, ""reasoning_tokens"": 0}, ""input_tokens"": 100, ""output_tokens"": 20, ""input_tokens_details"": null, ""claude_cache_creation_5_m_tokens"": 0, ""claude_cache_creation_1_h_tokens"": 0}}}"
+fix-round-2	image:cross_user_denied:success	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	image:denied_not_forwarded:success	pass	{}
+fix-round-2	image:async_download_pixels	pass	"{""status"": 200, ""bytes"": 68}"
+fix-round-2	image:async_charged	pass	{}
+fix-round-2	load:image-repeat-success	pass	"{""metrics"": {""name"": ""image-repeat-success"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 5.96, ""p95_ms"": 13.3, ""p99_ms"": 13.3, ""max_ms"": 22.33}}"
+fix-round-2	image:repeat_no_double_charge:success	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-2	image:task_persisted:success	pass	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 120, ""status"": ""SUCCESS""}]}"
+fix-round-2	image:billing_log_count:success	pass	"{""count"": 1}"
+fix-round-2	image:async_submit:failure	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	image:async_id_no_usage:failure	pass	{}
+fix-round-2	image:reservation_before_completion:failure	pass	"{""before"": 49995127, ""after_submit"": 49993862}"
+fix-round-2	image:async_terminal:failure	pass	"{""body"": {""action"": ""generate"", ""create_time"": 1795400944, ""data"": {""images"": null}, ""error"": {""code"": ""mock_rate_limit"", ""message"": ""local mock rejected request""}, ""id"": ""task_oga97YFjBD3jtIftPbkAnuvVrRMtYrkN"", ""progress"": 100, ""state"": ""failed"", ""update_time"": 1795400945}}"
+fix-round-2	image:cross_user_denied:failure	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	image:denied_not_forwarded:failure	pass	{}
+fix-round-2	image:async_failure_refund	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-2	load:image-repeat-failure	pass	"{""metrics"": {""name"": ""image-repeat-failure"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 7.05, ""p95_ms"": 11.74, ""p99_ms"": 11.74, ""max_ms"": 12.65}}"
+fix-round-2	image:repeat_no_double_charge:failure	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-2	image:task_persisted:failure	pass	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 1265, ""status"": ""FAILURE""}]}"
+fix-round-2	image:billing_log_count:failure	pass	"{""count"": 0}"
+fix-round-2	video:create:success	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:success	pass	{}
+fix-round-2	video:zero_values:success	pass	{}
+fix-round-2	video:cross_user:success	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:success	pass	{}
+fix-round-2	video:query:success	pass	"{""status"": 200, ""body"": {""id"": ""cgt-9904ce367c7e48008342738e9d060935"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795400945, ""updated_at"": 1795400945, ""error"": null, ""seed"": 0, ""output_format"": ""mp4"", ""tools"": [{""type"": ""web_search""}], ""execution_expires_after"": 3600, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:41165/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}, ""tool_usage"": {""web_search"": 0}}, ""mock_extension"": {""preserve"": true}}}"
+fix-round-2	video:terminal:success	pass	{}
+fix-round-2	video:extended_usage	pass	{}
+fix-round-2	video:charged	pass	{}
+fix-round-2	load:video-repeat-success	pass	"{""metrics"": {""name"": ""video-repeat-success"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 6.4, ""p95_ms"": 8.85, ""p99_ms"": 8.85, ""max_ms"": 10.36}}"
+fix-round-2	video:repeat_no_double_charge:success	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	video:create:failed	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:failed	pass	{}
+fix-round-2	video:zero_values:failed	pass	{}
+fix-round-2	video:cross_user:failed	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:failed	pass	{}
+fix-round-2	video:query:failed	pass	"{""status"": 200, ""body"": {""id"": ""cgt-cfb4986d390b41dd8a20029006fb868c"", ""model"": ""doubao-seedance-2-5-260628-mock-failed"", ""status"": ""failed"", ""created_at"": 1795400945, ""updated_at"": 1795400945, ""error"": {""code"": ""MockGenerationFailed"", ""message"": ""Mock task failed""}}}"
+fix-round-2	video:terminal:failed	pass	{}
+fix-round-2	video:terminal_refund:failed	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	load:video-repeat-failed	pass	"{""metrics"": {""name"": ""video-repeat-failed"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.15, ""p95_ms"": 7.81, ""p99_ms"": 7.81, ""max_ms"": 9.56}}"
+fix-round-2	video:repeat_no_double_charge:failed	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	video:create:expired	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:expired	pass	{}
+fix-round-2	video:zero_values:expired	pass	{}
+fix-round-2	video:cross_user:expired	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:expired	pass	{}
+fix-round-2	video:query:expired	pass	"{""status"": 200, ""body"": {""id"": ""cgt-6ff0b64d85dc47d78c178fb73af81380"", ""model"": ""doubao-seedance-2-5-260628-mock-expired"", ""status"": ""expired"", ""created_at"": 1795400945, ""updated_at"": 1795400945, ""error"": {""code"": ""TaskExpired"", ""message"": ""Mock task expired""}}}"
+fix-round-2	video:terminal:expired	pass	{}
+fix-round-2	video:terminal_refund:expired	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	load:video-repeat-expired	pass	"{""metrics"": {""name"": ""video-repeat-expired"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 7.22, ""p95_ms"": 9.98, ""p99_ms"": 9.98, ""max_ms"": 13.91}}"
+fix-round-2	video:repeat_no_double_charge:expired	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	video:create:cancelled	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:cancelled	pass	{}
+fix-round-2	video:zero_values:cancelled	pass	{}
+fix-round-2	video:cross_user:cancelled	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:cancelled	pass	{}
+fix-round-2	video:query:cancelled	pass	"{""status"": 200, ""body"": {""id"": ""cgt-130686bfbbc843ca9f533e8aff899c8d"", ""model"": ""doubao-seedance-2-5-260628-mock-cancelled"", ""status"": ""cancelled"", ""created_at"": 1795400945, ""updated_at"": 1795400945, ""error"": {""code"": ""TaskCancelled"", ""message"": ""Mock task cancelled""}}}"
+fix-round-2	video:terminal:cancelled	pass	{}
+fix-round-2	video:terminal_refund:cancelled	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	load:video-repeat-cancelled	pass	"{""metrics"": {""name"": ""video-repeat-cancelled"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 6.63, ""p95_ms"": 10.64, ""p99_ms"": 10.64, ""max_ms"": 11.1}}"
+fix-round-2	video:repeat_no_double_charge:cancelled	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	video:create:create429	pass	"{""status"": 429, ""excerpt"": null}"
+fix-round-2	video:create429_refund	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-2	video:create:query429	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:query429	pass	{}
+fix-round-2	video:zero_values:query429	pass	{}
+fix-round-2	video:cross_user:query429	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:query429	pass	{}
+fix-round-2	video:query:query429	pass	"{""status"": 429, ""body"": {""error"": {""code"": ""TooManyRequests"", ""message"": ""Mock query rate limit""}}}"
+fix-round-2	video:retry_after	pass	{}
+fix-round-2	video:invalid_query_not_finalized:query429	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-2	video:create:query500	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:query500	pass	{}
+fix-round-2	video:zero_values:query500	pass	{}
+fix-round-2	video:cross_user:query500	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:query500	pass	{}
+fix-round-2	video:query:query500	pass	"{""status"": 500, ""body"": {""error"": {""code"": ""InternalError"", ""message"": ""Mock upstream failure""}}}"
+fix-round-2	video:invalid_query_not_finalized:query500	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-2	video:create:queryinvalid	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:queryinvalid	pass	{}
+fix-round-2	video:zero_values:queryinvalid	pass	{}
+fix-round-2	video:cross_user:queryinvalid	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:queryinvalid	pass	{}
+fix-round-2	video:query:queryinvalid	pass	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream response is missing a task ID"", ""data"": null}}"
+fix-round-2	video:invalid_query_not_finalized:queryinvalid	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-2	video:create:querywrongid	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	video:official_id:querywrongid	pass	{}
+fix-round-2	video:zero_values:querywrongid	pass	{}
+fix-round-2	video:cross_user:querywrongid	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-2	video:denied_not_forwarded:querywrongid	pass	{}
+fix-round-2	video:query:querywrongid	pass	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream returned a different task ID"", ""data"": null}}"
+fix-round-2	video:invalid_query_not_finalized:querywrongid	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-2	asset:create	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-2	asset:create_id	pass	{}
+fix-round-2	asset:cross_user:/api/assets/asset-f21c0895e76043d1930a3b7be4e36604	pass	"{""status"": 404}"
+fix-round-2	asset:denied_not_forwarded:/api/assets/asset-f21c0895e76043d1930a3b7be4e36604	pass	{}
+fix-round-2	asset:query:/api/assets/asset-f21c0895e76043d1930a3b7be4e36604	pass	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-f21c0895e76043d1930a3b7be4e36604"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+fix-round-2	asset:cross_user:/v1/assets/asset-f21c0895e76043d1930a3b7be4e36604	pass	"{""status"": 404}"
+fix-round-2	asset:denied_not_forwarded:/v1/assets/asset-f21c0895e76043d1930a3b7be4e36604	pass	{}
+fix-round-2	asset:query:/v1/assets/asset-f21c0895e76043d1930a3b7be4e36604	pass	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-f21c0895e76043d1930a3b7be4e36604"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+fix-round-2	asset:list	pass	"{""status"": 200, ""body"": {""Result"": {""Items"": [{""Id"": ""asset-f21c0895e76043d1930a3b7be4e36604"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}], ""TotalCount"": 1, ""PageNumber"": 1, ""PageSize"": 20}}}"
+fix-round-2	load:asset-create-100	pass	"{""metrics"": {""name"": ""asset-create-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 319.98, ""p95_ms"": 356.12, ""p99_ms"": 359.29, ""max_ms"": 363.11}}"
+fix-round-2	asset:100_unique_ids	pass	{}
+fix-round-2	load:asset-poll-500	pass	"{""metrics"": {""name"": ""asset-poll-500"", ""requests"": 500, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 500}, ""p50_ms"": 145.5, ""p95_ms"": 155.63, ""p99_ms"": 193.4, ""max_ms"": 203.13}}"
+fix-round-2	asset:poll_identity_and_status	pass	{}
+fix-round-2	asset:delete	pass	"{""status"": 200}"
+fix-round-2	asset:deleted_denied	pass	"{""status"": 404}"
+fix-round-2	asset:deleted_not_forwarded	pass	{}
+fix-round-2	load:chat-100	pass	"{""metrics"": {""name"": ""chat-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 104.29, ""p95_ms"": 158.14, ""p99_ms"": 168.09, ""max_ms"": 170.5}}"
+fix-round-2	load:chat_content_usage	pass	{}
+fix-round-2	billing:chat100_exact	pass	"{""expected"": 49980627, ""actual"": 49980627}"
+fix-round-2	billing:chat100_log_count	pass	"{""count"": 100}"
+fix-round-2	load:image-20	pass	"{""metrics"": {""name"": ""image-20"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 148.99, ""p95_ms"": 155.65, ""p99_ms"": 155.65, ""max_ms"": 161.25}}"
+fix-round-2	load:image_content	pass	{}
+fix-round-2	billing:image20_charged	pass	{}
+fix-round-2	redis:user_cache_populated	pass	{}
+fix-round-2	redis:user_quota_matches_mysql	pass	"{""mysql"": [{""id"": 2, ""quota"": 49978227, ""used_quota"": 21773}], ""redis_quota"": ""49978227""}"
+fix-round-2	billing:limited_token_consistent	pass	"{""row"": {""id"": 1, ""remain_quota"": 478227, ""used_quota"": 21773}}"
+fix-round-2	setup:revocable_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	auth:revocable_token_primed	pass	{}
+fix-round-2	setup:revoke_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	auth:revoked_token_denied	pass	"{""status"": 401, ""excerpt"": null}"
+fix-round-2	auth:revoked_token_not_forwarded	pass	{}
+fix-round-2	runtime:graceful_shutdown:1	pass	"{""exit_code"": 0}"
+fix-round-2	runtime:readiness:2	pass	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+fix-round-2	restart:token_valid	pass	{}
+fix-round-2	restart:persisted_image	pass	"{""status"": 200}"
+fix-round-2	restart:persisted_video	pass	"{""status"": 200}"
+fix-round-2	restart:persisted_asset	pass	"{""status"": 200}"
+fix-round-2	restart:no_double_billing	pass	"{""expected"": 49978227, ""actual"": 49978227}"
+fix-round-2	gates:protected_routes_deny_anonymous	pass	"{""total"": 604, ""failures"": []}"
+fix-round-2	gates:no_unexpected_server_error	pass	"{""failures"": []}"
+fix-round-2	gates:all_routes_accounted	pass	"{""total"": 662, ""exercised"": 660, ""server_errors"": []}"
+fix-round-2	setup:option:theme.frontend	pass	"{""status"": 200, ""message"": """"}"
+fix-round-2	web:homepage:default	pass	{}
+fix-round-2	web:all_assets:default	pass	"{""total"": 307, ""failures"": []}"
+fix-round-2	web:classic_disabled_contract	pass	{}
+fix-round-2	runtime:only_local_channels	pass	{}
+fix-round-2	upstream:credentials	pass	"{""failed_paths"": []}"
+fix-round-2	runtime:graceful_shutdown:2	pass	"{""exit_code"": 0}"
+fix-round-2	cleanup:mysql_schema_removed	pass	{}
+fix-round-2	cleanup:redis_db14_empty	pass	"{""removed_keys"": 43}"
+fix-round-3	runtime:redis_empty_isolation	pass	"{""db"": 14}"
+fix-round-3	runtime:mysql_isolated_schema	pass	"{""schema"": ""apimeter_acceptance_20261123_fix_round_3""}"
+fix-round-3	runtime:readiness:1	pass	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+fix-round-3	setup:status	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:fresh_setup	pass	"{""status"": 200, ""message"": null}"
+fix-round-3	setup:bootstrap_admin	pass	"{""status"": 200, ""message"": ""系统初始化成功""}"
+fix-round-3	setup:admin_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:create_mockuser	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:create_mockother	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:user_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:other_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:user_profile	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:other_profile	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:quota_2	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:quota_3	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:relay_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:other_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:option:ModelRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:option:CompletionRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:option:GroupRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:option:ModelPrice	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:option:RetryTimes	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:option:LogConsumeEnabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:mock-openai	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:mock-additional-relay	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:mock-openrouter	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:mock-claude	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:mock-gemini	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:mock-assets	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-success	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-failed	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-expired	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-create429	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-query429	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-query500	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	routing:new_channel_eventual_visibility	pass	"{""seconds"": 59.18, ""statuses"": {""503"": 59, ""200"": 1}}"
+fix-round-3	runtime:mysql57	pass	"{""metadata"": [{""version"": ""5.7.44""}]}"
+fix-round-3	routing:models	pass	"{""status"": 200}"
+fix-round-3	embedding:/v1/embeddings	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	embedding:values:/v1/embeddings	pass	{}
+fix-round-3	embedding:billing:/v1/embeddings	pass	"{""expected"": 49999780, ""actual"": 49999780}"
+fix-round-3	embedding:/v1/engines/mock-embedding/embeddings	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	embedding:values:/v1/engines/mock-embedding/embeddings	pass	{}
+fix-round-3	embedding:billing:/v1/engines/mock-embedding/embeddings	pass	"{""expected"": 49999680, ""actual"": 49999680}"
+fix-round-3	embedding:legacy_path_model	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	embedding:path_model_forwarded	pass	{}
+fix-round-3	embedding:path_model_billing	pass	"{""expected"": 49999580, ""actual"": 49999580}"
+fix-round-3	rerank:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	rerank:ranking	pass	{}
+fix-round-3	rerank:false_preserved	pass	{}
+fix-round-3	completions:status:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	completions:content:False	pass	{}
+fix-round-3	completions:billing:False	pass	"{""expected"": 49999360, ""actual"": 49999360}"
+fix-round-3	responses:native:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	responses:native_content:False	pass	{}
+fix-round-3	responses:native_billing:False	pass	"{""expected"": 49999240, ""actual"": 49999240}"
+fix-round-3	completions:status:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	completions:content:True	pass	{}
+fix-round-3	completions:billing:True	pass	"{""expected"": 49999120, ""actual"": 49999120}"
+fix-round-3	responses:native:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	responses:native_content:True	pass	{}
+fix-round-3	responses:native_billing:True	pass	"{""expected"": 49999000, ""actual"": 49999000}"
+fix-round-3	responses:compact	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	responses:compact_content	pass	{}
+fix-round-3	responses:compact_false	pass	{}
+fix-round-3	responses:compact_billing	pass	"{""expected"": 49998880, ""actual"": 49998880}"
+fix-round-3	moderations:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	moderations:content	pass	{}
+fix-round-3	speech:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	speech:bytes	pass	{}
+fix-round-3	audio:contract:/v1/audio/transcriptions	pass	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-3	audio:file_preserved:/v1/audio/transcriptions	pass	{}
+fix-round-3	audio:contract:/v1/audio/translations	pass	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-3	audio:file_preserved:/v1/audio/translations	pass	{}
+fix-round-3	image:edits_contract	pass	"{""status"": 200, ""body"": ""{\""created\"": 1795401016, \""data\"": [{\""b64_json\"": \""iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\""}], \""usage\"": {\""input_tokens\"": 100, \""output_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-3	image:edits_bytes	pass	{}
+fix-round-3	gemini:invalid_budget:1.5	pass	"{""status"": 400, ""excerpt"": null}"
+fix-round-3	gemini:invalid_budget_not_forwarded:1.5	pass	{}
+fix-round-3	gemini:invalid_budget:2147483648	pass	"{""status"": 400, ""excerpt"": null}"
+fix-round-3	gemini:invalid_budget_not_forwarded:2147483648	pass	{}
+fix-round-3	not_implemented:/v1/images/variations	pass	"{""status"": 501}"
+fix-round-3	not_implemented:/v1/files	pass	"{""status"": 501}"
+fix-round-3	not_implemented:/v1/fine-tunes	pass	"{""status"": 501}"
+fix-round-3	metadata:/v1/model-metadata	pass	"{""status"": 200}"
+fix-round-3	metadata:/v1/models/mock-chat	pass	"{""status"": 200}"
+fix-round-3	metadata:/v1beta/models	pass	"{""status"": 200}"
+fix-round-3	metadata:/v1beta/openai/models	pass	"{""status"": 200}"
+fix-round-3	metadata:/dashboard/billing/subscription	pass	"{""status"": 200}"
+fix-round-3	metadata:/dashboard/billing/usage	pass	"{""status"": 200}"
+fix-round-3	metadata:/v1/dashboard/billing/subscription	pass	"{""status"": 200}"
+fix-round-3	metadata:/v1/dashboard/billing/usage	pass	"{""status"": 200}"
+fix-round-3	metadata:/api/usage/token/	pass	"{""status"": 200}"
+fix-round-3	read:admin:/api/user/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/user/search?keyword=mock	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/user/2fa/stats	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/user/topup	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/channel/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/channel/search?keyword=mock	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/channel/filter-options	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/channel/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/channel/models	pass	"{""status"": 200, ""message"": null}"
+fix-round-3	read:admin:/api/channel/models_enabled	pass	"{""status"": 200, ""message"": null}"
+fix-round-3	read:admin:/api/channel/protocol_profiles	pass	"{""status"": 200, ""message"": null}"
+fix-round-3	read:admin:/api/channel/ops	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/channel/operation_records	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/option/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/option/channel_affinity_cache	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/option/routing-strategies	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/option/crypto-payment	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/performance/stats	pass	"{""status"": 200, ""message"": null}"
+fix-round-3	read:admin:/api/performance/logs	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/group/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/prefill_group/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/models/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/models/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/models/missing	pass	"{""status"": 200, ""message"": null}"
+fix-round-3	read:admin:/api/models/monitor	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/vendors/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/vendors/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/custom-oauth-provider/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/redemption/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/redemption/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/agents/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/agents/domains	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/agents/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/affiliate/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/log/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/log/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/log/model_profit_stats	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	contract-disabled:admin:/api/log/search	pass	"{""status"": 200, ""message"": ""该接口已废弃""}"
+fix-round-3	read:admin:/api/log/channel_affinity_usage_cache?rule_name=local&key_fp=fixture	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/retry-route/events	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/retry-route/events/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/retry-route/events/stat/rules	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/task/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/mj/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/data/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/data/dimensions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/data/users	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/subscription/admin/plans	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/system/tasks/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/system/tasks/current?type=log_cleanup	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/system/info/instances	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/authz/catalog	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/newapi_suppliers/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/newapi_suppliers/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/billing/admin/monthly-statements	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:admin:/api/ratio_sync/channels	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/self/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/self/providers	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/models	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/sessions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/passkey	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/2fa/status	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/aff/invites	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/aff/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/topup/info	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/topup/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/user/oauth/bindings	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	contract-disabled:user:/api/user/checkin	pass	"{""status"": 200, ""message"": ""签到功能未启用""}"
+fix-round-3	read:user:/api/token/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/token/search?keyword=local	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/token/auto-groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/token/filter-options	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/workspaces	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/workspaces/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/workspace-subaccounts	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/workspace-subaccounts/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/log/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/log/self/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	contract-disabled:user:/api/log/self/search	pass	"{""status"": 200, ""message"": ""该接口已废弃""}"
+fix-round-3	read:user:/api/task/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/mj/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/data/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/data/self/dimensions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/data/self/tokens	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/models	pass	"{""status"": 200, ""message"": null}"
+fix-round-3	read:user:/api/dashboard/flow	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/subscription/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/billing/breakdowns	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	read:user:/api/billing/monthly-statements	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:workspace_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:workspace_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:workspace_list	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	workspace:updated_value	pass	{}
+fix-round-3	workspace:cross_user_denied	pass	{}
+fix-round-3	setup:workspace_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:workspace_list_after_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	workspace:deleted	pass	{}
+fix-round-3	setup:vendor_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:vendor_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:vendor_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:vendor_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	vendor:updated	pass	{}
+fix-round-3	setup:model_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:model_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:model_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:model_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	model:updated	pass	{}
+fix-round-3	setup:model_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:vendor_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel:mock-crud-only	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	channel:updated	pass	{}
+fix-round-3	setup:channel_disable	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:channel_read_disabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	channel:disabled	pass	{}
+fix-round-3	setup:channel_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:token_create_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:token_read_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:token_update_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:token_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	token:updated	pass	{}
+fix-round-3	token:other_user_read_denied	pass	{}
+fix-round-3	setup:token_delete_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_workspace	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_get	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	subaccount:mysql_metadata	pass	"{""row"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}}"
+fix-round-3	subaccount:redis_metadata	pass	"{""db"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}, ""cache"": {""Id"": ""4"", ""ParentUserId"": ""2"", ""MustChangePassword"": ""1"", ""CacheSchema"": ""3"", ""AuthVersion"": ""1""}}"
+fix-round-3	subaccount:must_change_password_enforced	pass	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+fix-round-3	subaccount:cannot_create_workspace	pass	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+fix-round-3	setup:subaccount_change_password	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_login_new_password	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	subaccount:password_change_persisted	pass	"{""row"": {""must_change_password"": 0, ""parent_user_id"": 2}, ""cache_flag"": ""0""}"
+fix-round-3	setup:subaccount_workspaces	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	subaccount:assigned_workspace_scope	pass	"{""workspaces"": [{""id"": 4, ""user_id"": 2, ""access_users"": [], ""name"": ""subaccount fixture"", ""description"": ""isolated"", ""is_default"": false, ""status"": 1, ""quota_reset_enabled"": false, ""quota_reset_period"": """", ""quota_reset_amount"": 0, ""quota_reset_last_applied_at"": 0, ""quota_reset_next_at"": 0, ""created_time"": 1795401016, ""updated_time"": 1795401016, ""DeletedAt"": null, ""token_count"": 0}]}"
+fix-round-3	subaccount:creation_denied_after_password_change	pass	"{""status"": 403, ""body"": {""message"": ""workspace accounts cannot access this feature"", ""success"": false}}"
+fix-round-3	setup:subaccount_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_workspaces_set	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_disable	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	subaccount:disabled_session_denied	pass	{}
+fix-round-3	setup:subaccount_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:subaccount_workspace_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	chat:mock-chat	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	chat:content:mock-chat	pass	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+fix-round-3	mapping:alias_to_upstream	pass	{}
+fix-round-3	parameters:explicit_zero_preserved	pass	"{""body"": {""model"": ""gpt-4o"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""stream"": false, ""max_tokens"": 128, ""temperature"": 0, ""top_p"": 0}}"
+fix-round-3	billing:chat_charged:mock-chat	pass	{}
+fix-round-3	chat:claude-sonnet-4-5	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	chat:content:claude-sonnet-4-5	pass	"{""usage"": {""prompt_tokens"": 115, ""completion_tokens"": 20, ""total_tokens"": 135, ""prompt_tokens_details"": {""cached_tokens"": 5, ""audio_tokens"": 0, ""cache_write_tokens"": 10}}}"
+fix-round-3	billing:chat_charged:claude-sonnet-4-5	pass	{}
+fix-round-3	chat:gemini-2.5-flash	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	chat:content:gemini-2.5-flash	pass	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+fix-round-3	billing:chat_charged:gemini-2.5-flash	pass	{}
+fix-round-3	chat:tools	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	chat:tool_call_preserved	pass	{}
+fix-round-3	compat:gpt62	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	compat:gpt62_upstream	pass	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""developer"", ""content"": ""rules""}, {""role"": ""user"", ""content"": ""hello""}], ""max_completion_tokens"": 128, ""reasoning_effort"": ""high""}}"
+fix-round-3	compat:openrouter	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	compat:openrouter_nested_reasoning	pass	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""usage"": {""include"": true}, ""reasoning"": {""enabled"": false, ""exclude"": false, ""opaque"": {""integer"": 9007199254740993}}}}"
+fix-round-3	stream:chat:mock-chat	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	stream:chat_terminal:mock-chat	pass	{}
+fix-round-3	stream:chat:claude-sonnet-4-5	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	stream:chat_terminal:claude-sonnet-4-5	pass	{}
+fix-round-3	stream:chat:gemini-2.5-flash	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	stream:chat_terminal:gemini-2.5-flash	pass	{}
+fix-round-3	claude:native:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	claude:native_contract:False	pass	{}
+fix-round-3	claude:native:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	claude:native_contract:True	pass	{}
+fix-round-3	gemini:native	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	gemini:native_content	pass	{}
+fix-round-3	gemini:responses:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	gemini:responses_contract:False	pass	{}
+fix-round-3	gemini:responses:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	gemini:responses_contract:True	pass	{}
+fix-round-3	gemini:broken_responses_http	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	gemini:broken_responses_terminal	pass	{}
+fix-round-3	gemini:broken_stream_no_retry	pass	{}
+fix-round-3	gemini:broken_stream_usage_billed	pass	"{""expected"": 49996301, ""actual"": 49996301}"
+fix-round-3	gemini:broken_stream_single_log	pass	"{""logs"": [{""completion_tokens"": 20, ""id"": 77, ""model_name"": ""gemini-2.5-flash"", ""other"": ""{\""admin_info\"":{\""usage_billing_path\"":\""billing-usage-gemini\"",\""use_channel\"":[\""5\""]},\""billing_mode\"":\""ratio\"",\""billing_source\"":\""wallet\"",\""cache_ratio\"":1,\""cache_tokens\"":0,\""channel_ratio\"":1,\""completion_ratio\"":1,\""cost_base_quota\"":120,\""cost_quota\"":120,\""frt\"":6,\""group_ratio\"":1,\""group_ratio_source\"":\""group\"",\""model_price\"":-1,\""model_ratio\"":1,\""pricing_group\"":\""default\"",\""pricing_model\"":\""gemini-2.5-flash\"",\""pricing_user_group\"":\""default\"",\""profit_quota\"":0,\""profit_rate\"":0,\""request_conversion\"":[\""OpenAI Responses\"",\""Google Gemini\""],\""request_path\"":\""/v1/responses\"",\""stream_status\"":{\""end_error\"":\""unmarshal: invalid character 'i' looking for beginning of object key string\"",\""end_reason\"":\""handler_stop\"",\""error_count\"":1,\""errors\"":[\""unmarshal: invalid character 'i' looking for beginning of object key string\""],\""status\"":\""error\""},\""user_group_ratio\"":-1}"", ""prompt_tokens"": 100, ""quota"": 120}]}"
+fix-round-3	auth:missing:/v1/models	pass	"{""status"": 401}"
+fix-round-3	auth:missing:/v1/chat/completions	pass	"{""status"": 401}"
+fix-round-3	auth:invalid_token	pass	"{""status"": 401, ""excerpt"": null}"
+fix-round-3	auth:invalid_not_forwarded	pass	{}
+fix-round-3	upstream:http429	pass	"{""status"": 429, ""excerpt"": null}"
+fix-round-3	billing:http429_refunded	pass	"{""expected"": 49996301, ""actual"": 49996301}"
+fix-round-3	upstream:http429_not_retried	pass	{}
+fix-round-3	auth:ordinary_user_admin_denied	pass	"{""status"": 403}"
+fix-round-3	claude:adaptive	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	claude:adaptive_fields_exact	pass	"{""body"": {""model"": ""claude-opus-5-5"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""max_tokens"": 128, ""output_config"": {""effort"": ""medium""}, ""thinking"": {""block_binding"": {""prefix_mismatch_behavior"": ""drop_block""}, ""display"": ""summarized"", ""future_field"": {""id"": 9007199254740993}, ""type"": ""adaptive""}}}"
+fix-round-3	claude:adjacent_tools	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	claude:adjacent_tools_preserved	pass	"{""body"": {""model"": ""claude-sonnet-4-5"", ""messages"": [{""role"": ""user"", ""content"": ""look up a and b""}, {""role"": ""assistant"", ""content"": [{""type"": ""text"", ""text"": ""...""}, {""type"": ""tool_use"", ""id"": ""a"", ""name"": ""lookup"", ""input"": {}}, {""type"": ""tool_use"", ""id"": ""b"", ""name"": ""lookup"", ""input"": {}}]}, {""role"": ""user"", ""content"": [{""type"": ""tool_result"", ""content"": ""result a"", ""tool_use_id"": ""a""}, {""type"": ""tool_result"", ""content"": ""result b"", ""tool_use_id"": ""b""}]}], ""max_tokens"": 1024}}"
+fix-round-3	setup:option:general_setting.ping_interval_enabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	setup:option:general_setting.ping_interval_seconds	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	claude:slow_stream	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	claude:keepalive_before_content	pass	{}
+fix-round-3	setup:option:general_setting.ping_interval_enabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	image26:request:gif	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	image26:outbound:gif	pass	"{""body"": {""complexity"": ""low"", ""frame_count"": 16, ""frame_duration_ms"": 100, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""gif"", ""prompt"": ""draw"", ""quality"": ""max"", ""size"": ""1536x864""}}"
+fix-round-3	image26:request:svg	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	image26:outbound:svg	pass	"{""body"": {""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""svg"", ""prompt"": ""draw"", ""svg"": {""model"": ""author-model"", ""reasoning"": {""effort"": ""high""}, ""extension"": 9007199254740993}}}"
+fix-round-3	image26:request:zero	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	image26:outbound:zero	pass	"{""body"": {""complexity"": """", ""frame_count"": 0, ""frame_duration_ms"": 0, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_compression"": 0, ""partial_images"": 0, ""prompt"": ""draw"", ""stream"": false}}"
+fix-round-3	image:sync	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	image:sync_pixels	pass	{}
+fix-round-3	image:sync_charged	pass	{}
+fix-round-3	image:async_submit:success	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	image:async_id_no_usage:success	pass	{}
+fix-round-3	image:reservation_before_completion:success	pass	"{""before"": 49995247, ""after_submit"": 49993982}"
+fix-round-3	image:async_terminal:success	pass	"{""body"": {""action"": ""generate"", ""create_time"": 1795401021, ""data"": {""images"": [{""url"": ""/api/relay-temp-images/307a5289-332a-4767-8c69-5b49bad4814a.png""}]}, ""id"": ""task_HiROQ1LBGF1L8nUw9LFyVKo6vOZWmRRY"", ""image_expires_at"": 1795487421, ""image_status"": ""available"", ""progress"": 100, ""state"": ""succeeded"", ""update_time"": 1795401021, ""usage"": {""prompt_tokens"": 0, ""completion_tokens"": 0, ""total_tokens"": 120, ""prompt_tokens_details"": {""cached_tokens"": 0, ""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0}, ""completion_tokens_details"": {""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0, ""reasoning_tokens"": 0}, ""input_tokens"": 100, ""output_tokens"": 20, ""input_tokens_details"": null, ""claude_cache_creation_5_m_tokens"": 0, ""claude_cache_creation_1_h_tokens"": 0}}}"
+fix-round-3	image:cross_user_denied:success	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	image:denied_not_forwarded:success	pass	{}
+fix-round-3	image:async_download_pixels	pass	"{""status"": 200, ""bytes"": 68}"
+fix-round-3	image:async_charged	pass	{}
+fix-round-3	load:image-repeat-success	pass	"{""metrics"": {""name"": ""image-repeat-success"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.06, ""p95_ms"": 13.95, ""p99_ms"": 13.95, ""max_ms"": 16.74}}"
+fix-round-3	image:repeat_no_double_charge:success	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-3	image:task_persisted:success	pass	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 120, ""status"": ""SUCCESS""}]}"
+fix-round-3	image:billing_log_count:success	pass	"{""count"": 1}"
+fix-round-3	image:async_submit:failure	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	image:async_id_no_usage:failure	pass	{}
+fix-round-3	image:reservation_before_completion:failure	pass	"{""before"": 49995127, ""after_submit"": 49993862}"
+fix-round-3	image:async_terminal:failure	pass	"{""body"": {""action"": ""generate"", ""create_time"": 1795401021, ""data"": {""images"": null}, ""error"": {""code"": ""mock_rate_limit"", ""message"": ""local mock rejected request""}, ""id"": ""task_QozYaWSJQ6AloU41nhuJHS5qb0L4t6Sl"", ""progress"": 100, ""state"": ""failed"", ""update_time"": 1795401022}}"
+fix-round-3	image:cross_user_denied:failure	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	image:denied_not_forwarded:failure	pass	{}
+fix-round-3	image:async_failure_refund	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-3	load:image-repeat-failure	pass	"{""metrics"": {""name"": ""image-repeat-failure"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.09, ""p95_ms"": 12.59, ""p99_ms"": 12.59, ""max_ms"": 12.73}}"
+fix-round-3	image:repeat_no_double_charge:failure	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-3	image:task_persisted:failure	pass	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 1265, ""status"": ""FAILURE""}]}"
+fix-round-3	image:billing_log_count:failure	pass	"{""count"": 0}"
+fix-round-3	video:create:success	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:success	pass	{}
+fix-round-3	video:zero_values:success	pass	{}
+fix-round-3	video:cross_user:success	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:success	pass	{}
+fix-round-3	video:query:success	pass	"{""status"": 200, ""body"": {""id"": ""cgt-3b9b68d731084fffaa648634722eaca6"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795401022, ""updated_at"": 1795401022, ""error"": null, ""seed"": 0, ""output_format"": ""mp4"", ""tools"": [{""type"": ""web_search""}], ""execution_expires_after"": 3600, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:42361/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}, ""tool_usage"": {""web_search"": 0}}, ""mock_extension"": {""preserve"": true}}}"
+fix-round-3	video:terminal:success	pass	{}
+fix-round-3	video:extended_usage	pass	{}
+fix-round-3	video:charged	pass	{}
+fix-round-3	load:video-repeat-success	pass	"{""metrics"": {""name"": ""video-repeat-success"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.95, ""p95_ms"": 10.63, ""p99_ms"": 10.63, ""max_ms"": 11.72}}"
+fix-round-3	video:repeat_no_double_charge:success	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	video:create:failed	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:failed	pass	{}
+fix-round-3	video:zero_values:failed	pass	{}
+fix-round-3	video:cross_user:failed	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:failed	pass	{}
+fix-round-3	video:query:failed	pass	"{""status"": 200, ""body"": {""id"": ""cgt-d037eef4addc44cdacd4a47f8e277c69"", ""model"": ""doubao-seedance-2-5-260628-mock-failed"", ""status"": ""failed"", ""created_at"": 1795401022, ""updated_at"": 1795401022, ""error"": {""code"": ""MockGenerationFailed"", ""message"": ""Mock task failed""}}}"
+fix-round-3	video:terminal:failed	pass	{}
+fix-round-3	video:terminal_refund:failed	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	load:video-repeat-failed	pass	"{""metrics"": {""name"": ""video-repeat-failed"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.54, ""p95_ms"": 9.44, ""p99_ms"": 9.44, ""max_ms"": 10.53}}"
+fix-round-3	video:repeat_no_double_charge:failed	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	video:create:expired	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:expired	pass	{}
+fix-round-3	video:zero_values:expired	pass	{}
+fix-round-3	video:cross_user:expired	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:expired	pass	{}
+fix-round-3	video:query:expired	pass	"{""status"": 200, ""body"": {""id"": ""cgt-eab0f5d4b3794c25abb3c095d6510379"", ""model"": ""doubao-seedance-2-5-260628-mock-expired"", ""status"": ""expired"", ""created_at"": 1795401022, ""updated_at"": 1795401022, ""error"": {""code"": ""TaskExpired"", ""message"": ""Mock task expired""}}}"
+fix-round-3	video:terminal:expired	pass	{}
+fix-round-3	video:terminal_refund:expired	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	load:video-repeat-expired	pass	"{""metrics"": {""name"": ""video-repeat-expired"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.42, ""p95_ms"": 8.02, ""p99_ms"": 8.02, ""max_ms"": 8.54}}"
+fix-round-3	video:repeat_no_double_charge:expired	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	video:create:cancelled	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:cancelled	pass	{}
+fix-round-3	video:zero_values:cancelled	pass	{}
+fix-round-3	video:cross_user:cancelled	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:cancelled	pass	{}
+fix-round-3	video:query:cancelled	pass	"{""status"": 200, ""body"": {""id"": ""cgt-fc0beb6d340b4815aa619981af6a05fa"", ""model"": ""doubao-seedance-2-5-260628-mock-cancelled"", ""status"": ""cancelled"", ""created_at"": 1795401022, ""updated_at"": 1795401022, ""error"": {""code"": ""TaskCancelled"", ""message"": ""Mock task cancelled""}}}"
+fix-round-3	video:terminal:cancelled	pass	{}
+fix-round-3	video:terminal_refund:cancelled	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	load:video-repeat-cancelled	pass	"{""metrics"": {""name"": ""video-repeat-cancelled"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.5, ""p95_ms"": 8.78, ""p99_ms"": 8.78, ""max_ms"": 9.6}}"
+fix-round-3	video:repeat_no_double_charge:cancelled	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	video:create:create429	pass	"{""status"": 429, ""excerpt"": null}"
+fix-round-3	video:create429_refund	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-3	video:create:query429	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:query429	pass	{}
+fix-round-3	video:zero_values:query429	pass	{}
+fix-round-3	video:cross_user:query429	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:query429	pass	{}
+fix-round-3	video:query:query429	pass	"{""status"": 429, ""body"": {""error"": {""code"": ""TooManyRequests"", ""message"": ""Mock query rate limit""}}}"
+fix-round-3	video:retry_after	pass	{}
+fix-round-3	video:invalid_query_not_finalized:query429	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-3	video:create:query500	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:query500	pass	{}
+fix-round-3	video:zero_values:query500	pass	{}
+fix-round-3	video:cross_user:query500	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:query500	pass	{}
+fix-round-3	video:query:query500	pass	"{""status"": 500, ""body"": {""error"": {""code"": ""InternalError"", ""message"": ""Mock upstream failure""}}}"
+fix-round-3	video:invalid_query_not_finalized:query500	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-3	video:create:queryinvalid	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:queryinvalid	pass	{}
+fix-round-3	video:zero_values:queryinvalid	pass	{}
+fix-round-3	video:cross_user:queryinvalid	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:queryinvalid	pass	{}
+fix-round-3	video:query:queryinvalid	pass	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream response is missing a task ID"", ""data"": null}}"
+fix-round-3	video:invalid_query_not_finalized:queryinvalid	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-3	video:create:querywrongid	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	video:official_id:querywrongid	pass	{}
+fix-round-3	video:zero_values:querywrongid	pass	{}
+fix-round-3	video:cross_user:querywrongid	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-3	video:denied_not_forwarded:querywrongid	pass	{}
+fix-round-3	video:query:querywrongid	pass	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream returned a different task ID"", ""data"": null}}"
+fix-round-3	video:invalid_query_not_finalized:querywrongid	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-3	asset:create	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-3	asset:create_id	pass	{}
+fix-round-3	asset:cross_user:/api/assets/asset-dd017a52c7d54405b6ebd35c7c8ff139	pass	"{""status"": 404}"
+fix-round-3	asset:denied_not_forwarded:/api/assets/asset-dd017a52c7d54405b6ebd35c7c8ff139	pass	{}
+fix-round-3	asset:query:/api/assets/asset-dd017a52c7d54405b6ebd35c7c8ff139	pass	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-dd017a52c7d54405b6ebd35c7c8ff139"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+fix-round-3	asset:cross_user:/v1/assets/asset-dd017a52c7d54405b6ebd35c7c8ff139	pass	"{""status"": 404}"
+fix-round-3	asset:denied_not_forwarded:/v1/assets/asset-dd017a52c7d54405b6ebd35c7c8ff139	pass	{}
+fix-round-3	asset:query:/v1/assets/asset-dd017a52c7d54405b6ebd35c7c8ff139	pass	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-dd017a52c7d54405b6ebd35c7c8ff139"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+fix-round-3	asset:list	pass	"{""status"": 200, ""body"": {""Result"": {""Items"": [{""Id"": ""asset-dd017a52c7d54405b6ebd35c7c8ff139"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}], ""TotalCount"": 1, ""PageNumber"": 1, ""PageSize"": 20}}}"
+fix-round-3	load:asset-create-100	pass	"{""metrics"": {""name"": ""asset-create-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 193.92, ""p95_ms"": 234.32, ""p99_ms"": 253.22, ""max_ms"": 255.57}}"
+fix-round-3	asset:100_unique_ids	pass	{}
+fix-round-3	load:asset-poll-500	pass	"{""metrics"": {""name"": ""asset-poll-500"", ""requests"": 500, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 500}, ""p50_ms"": 140.84, ""p95_ms"": 150.42, ""p99_ms"": 190.09, ""max_ms"": 218.24}}"
+fix-round-3	asset:poll_identity_and_status	pass	{}
+fix-round-3	asset:delete	pass	"{""status"": 200}"
+fix-round-3	asset:deleted_denied	pass	"{""status"": 404}"
+fix-round-3	asset:deleted_not_forwarded	pass	{}
+fix-round-3	load:chat-100	pass	"{""metrics"": {""name"": ""chat-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 98, ""statuses"": {""200"": 100}, ""p50_ms"": 101.05, ""p95_ms"": 148.4, ""p99_ms"": 178.36, ""max_ms"": 179.75}}"
+fix-round-3	load:chat_content_usage	pass	{}
+fix-round-3	billing:chat100_exact	pass	"{""expected"": 49980627, ""actual"": 49980627}"
+fix-round-3	billing:chat100_log_count	pass	"{""count"": 100}"
+fix-round-3	load:image-20	pass	"{""metrics"": {""name"": ""image-20"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 139.02, ""p95_ms"": 147.88, ""p99_ms"": 147.88, ""max_ms"": 148.28}}"
+fix-round-3	load:image_content	pass	{}
+fix-round-3	billing:image20_charged	pass	{}
+fix-round-3	redis:user_cache_populated	pass	{}
+fix-round-3	redis:user_quota_matches_mysql	pass	"{""mysql"": [{""id"": 2, ""quota"": 49978227, ""used_quota"": 21773}], ""redis_quota"": ""49978227""}"
+fix-round-3	billing:limited_token_consistent	pass	"{""row"": {""id"": 1, ""remain_quota"": 478227, ""used_quota"": 21773}}"
+fix-round-3	setup:revocable_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	auth:revocable_token_primed	pass	{}
+fix-round-3	setup:revoke_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	auth:revoked_token_denied	pass	"{""status"": 401, ""excerpt"": null}"
+fix-round-3	auth:revoked_token_not_forwarded	pass	{}
+fix-round-3	runtime:graceful_shutdown:1	pass	"{""exit_code"": 0}"
+fix-round-3	runtime:readiness:2	pass	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+fix-round-3	restart:token_valid	pass	{}
+fix-round-3	restart:persisted_image	pass	"{""status"": 200}"
+fix-round-3	restart:persisted_video	pass	"{""status"": 200}"
+fix-round-3	restart:persisted_asset	pass	"{""status"": 200}"
+fix-round-3	restart:no_double_billing	pass	"{""expected"": 49978227, ""actual"": 49978227}"
+fix-round-3	gates:protected_routes_deny_anonymous	pass	"{""total"": 604, ""failures"": []}"
+fix-round-3	gates:no_unexpected_server_error	pass	"{""failures"": []}"
+fix-round-3	gates:all_routes_accounted	pass	"{""total"": 662, ""exercised"": 660, ""server_errors"": []}"
+fix-round-3	setup:option:theme.frontend	pass	"{""status"": 200, ""message"": """"}"
+fix-round-3	web:homepage:default	pass	{}
+fix-round-3	web:all_assets:default	pass	"{""total"": 307, ""failures"": []}"
+fix-round-3	web:classic_disabled_contract	pass	{}
+fix-round-3	runtime:only_local_channels	pass	{}
+fix-round-3	upstream:credentials	pass	"{""failed_paths"": []}"
+fix-round-3	runtime:graceful_shutdown:2	pass	"{""exit_code"": 0}"
+fix-round-3	cleanup:mysql_schema_removed	pass	{}
+fix-round-3	cleanup:redis_db14_empty	pass	"{""removed_keys"": 43}"
+fix-round-4	runtime:redis_empty_isolation	pass	"{""db"": 14}"
+fix-round-4	runtime:mysql_isolated_schema	pass	"{""schema"": ""apimeter_acceptance_20261123_fix_round_4""}"
+fix-round-4	runtime:readiness:1	pass	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+fix-round-4	setup:status	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:fresh_setup	pass	"{""status"": 200, ""message"": null}"
+fix-round-4	setup:bootstrap_admin	pass	"{""status"": 200, ""message"": ""系统初始化成功""}"
+fix-round-4	setup:admin_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:create_mockuser	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:create_mockother	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:user_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:other_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:user_profile	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:other_profile	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:quota_2	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:quota_3	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:relay_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:other_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:option:ModelRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:option:CompletionRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:option:GroupRatio	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:option:ModelPrice	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:option:RetryTimes	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:option:LogConsumeEnabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:mock-openai	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:mock-additional-relay	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:mock-openrouter	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:mock-claude	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:mock-gemini	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:mock-assets	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-success	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-failed	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-expired	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-cancelled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-create429	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-query429	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-query500	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-queryinvalid	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:doubao-seedance-2-5-260628-mock-querywrongid	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	routing:new_channel_eventual_visibility	pass	"{""seconds"": 59.25, ""statuses"": {""503"": 59, ""200"": 1}}"
+fix-round-4	runtime:mysql57	pass	"{""metadata"": [{""version"": ""5.7.44""}]}"
+fix-round-4	routing:models	pass	"{""status"": 200}"
+fix-round-4	embedding:/v1/embeddings	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	embedding:values:/v1/embeddings	pass	{}
+fix-round-4	embedding:billing:/v1/embeddings	pass	"{""expected"": 49999780, ""actual"": 49999780}"
+fix-round-4	embedding:/v1/engines/mock-embedding/embeddings	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	embedding:values:/v1/engines/mock-embedding/embeddings	pass	{}
+fix-round-4	embedding:billing:/v1/engines/mock-embedding/embeddings	pass	"{""expected"": 49999680, ""actual"": 49999680}"
+fix-round-4	embedding:legacy_path_model	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	embedding:path_model_forwarded	pass	{}
+fix-round-4	embedding:path_model_billing	pass	"{""expected"": 49999580, ""actual"": 49999580}"
+fix-round-4	rerank:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	rerank:ranking	pass	{}
+fix-round-4	rerank:false_preserved	pass	{}
+fix-round-4	completions:status:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	completions:content:False	pass	{}
+fix-round-4	completions:billing:False	pass	"{""expected"": 49999360, ""actual"": 49999360}"
+fix-round-4	responses:native:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	responses:native_content:False	pass	{}
+fix-round-4	responses:native_billing:False	pass	"{""expected"": 49999240, ""actual"": 49999240}"
+fix-round-4	completions:status:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	completions:content:True	pass	{}
+fix-round-4	completions:billing:True	pass	"{""expected"": 49999120, ""actual"": 49999120}"
+fix-round-4	responses:native:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	responses:native_content:True	pass	{}
+fix-round-4	responses:native_billing:True	pass	"{""expected"": 49999000, ""actual"": 49999000}"
+fix-round-4	responses:compact	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	responses:compact_content	pass	{}
+fix-round-4	responses:compact_false	pass	{}
+fix-round-4	responses:compact_billing	pass	"{""expected"": 49998880, ""actual"": 49998880}"
+fix-round-4	moderations:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	moderations:content	pass	{}
+fix-round-4	speech:status	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	speech:bytes	pass	{}
+fix-round-4	audio:contract:/v1/audio/transcriptions	pass	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-4	audio:file_preserved:/v1/audio/transcriptions	pass	{}
+fix-round-4	audio:contract:/v1/audio/translations	pass	"{""status"": 200, ""body"": ""{\""text\"": \""mock audio transcript\"", \""usage\"": {\""prompt_tokens\"": 100, \""completion_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-4	audio:file_preserved:/v1/audio/translations	pass	{}
+fix-round-4	image:edits_contract	pass	"{""status"": 200, ""body"": ""{\""created\"": 1795401092, \""data\"": [{\""b64_json\"": \""iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=\""}], \""usage\"": {\""input_tokens\"": 100, \""output_tokens\"": 20, \""total_tokens\"": 120}}""}"
+fix-round-4	image:edits_bytes	pass	{}
+fix-round-4	gemini:invalid_budget:1.5	pass	"{""status"": 400, ""excerpt"": null}"
+fix-round-4	gemini:invalid_budget_not_forwarded:1.5	pass	{}
+fix-round-4	gemini:invalid_budget:2147483648	pass	"{""status"": 400, ""excerpt"": null}"
+fix-round-4	gemini:invalid_budget_not_forwarded:2147483648	pass	{}
+fix-round-4	not_implemented:/v1/images/variations	pass	"{""status"": 501}"
+fix-round-4	not_implemented:/v1/files	pass	"{""status"": 501}"
+fix-round-4	not_implemented:/v1/fine-tunes	pass	"{""status"": 501}"
+fix-round-4	metadata:/v1/model-metadata	pass	"{""status"": 200}"
+fix-round-4	metadata:/v1/models/mock-chat	pass	"{""status"": 200}"
+fix-round-4	metadata:/v1beta/models	pass	"{""status"": 200}"
+fix-round-4	metadata:/v1beta/openai/models	pass	"{""status"": 200}"
+fix-round-4	metadata:/dashboard/billing/subscription	pass	"{""status"": 200}"
+fix-round-4	metadata:/dashboard/billing/usage	pass	"{""status"": 200}"
+fix-round-4	metadata:/v1/dashboard/billing/subscription	pass	"{""status"": 200}"
+fix-round-4	metadata:/v1/dashboard/billing/usage	pass	"{""status"": 200}"
+fix-round-4	metadata:/api/usage/token/	pass	"{""status"": 200}"
+fix-round-4	read:admin:/api/user/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/user/search?keyword=mock	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/user/2fa/stats	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/user/topup	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/channel/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/channel/search?keyword=mock	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/channel/filter-options	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/channel/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/channel/models	pass	"{""status"": 200, ""message"": null}"
+fix-round-4	read:admin:/api/channel/models_enabled	pass	"{""status"": 200, ""message"": null}"
+fix-round-4	read:admin:/api/channel/protocol_profiles	pass	"{""status"": 200, ""message"": null}"
+fix-round-4	read:admin:/api/channel/ops	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/channel/operation_records	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/option/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/option/channel_affinity_cache	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/option/routing-strategies	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/option/crypto-payment	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/performance/stats	pass	"{""status"": 200, ""message"": null}"
+fix-round-4	read:admin:/api/performance/logs	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/group/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/prefill_group/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/models/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/models/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/models/missing	pass	"{""status"": 200, ""message"": null}"
+fix-round-4	read:admin:/api/models/monitor	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/vendors/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/vendors/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/custom-oauth-provider/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/redemption/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/redemption/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/agents/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/agents/domains	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/agents/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/affiliate/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/log/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/log/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/log/model_profit_stats	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	contract-disabled:admin:/api/log/search	pass	"{""status"": 200, ""message"": ""该接口已废弃""}"
+fix-round-4	read:admin:/api/log/channel_affinity_usage_cache?rule_name=local&key_fp=fixture	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/retry-route/events	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/retry-route/events/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/retry-route/events/stat/rules	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/task/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/mj/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/data/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/data/dimensions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/data/users	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/subscription/admin/plans	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/system/tasks/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/system/tasks/current?type=log_cleanup	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/system/info/instances	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/authz/catalog	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/newapi_suppliers/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/newapi_suppliers/search	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/billing/admin/monthly-statements	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:admin:/api/ratio_sync/channels	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/self/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/self/providers	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/models	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/sessions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/passkey	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/2fa/status	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/aff/invites	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/aff/withdrawals	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/topup/info	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/topup/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/user/oauth/bindings	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	contract-disabled:user:/api/user/checkin	pass	"{""status"": 200, ""message"": ""签到功能未启用""}"
+fix-round-4	read:user:/api/token/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/token/search?keyword=local	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/token/auto-groups	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/token/filter-options	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/workspaces	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/workspaces/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/workspace-subaccounts	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/workspace-subaccounts/	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/log/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/log/self/stat	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	contract-disabled:user:/api/log/self/search	pass	"{""status"": 200, ""message"": ""该接口已废弃""}"
+fix-round-4	read:user:/api/task/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/mj/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/data/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/data/self/dimensions	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/data/self/tokens	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/models	pass	"{""status"": 200, ""message"": null}"
+fix-round-4	read:user:/api/dashboard/flow	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/subscription/self	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/billing/breakdowns	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	read:user:/api/billing/monthly-statements	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:workspace_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:workspace_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:workspace_list	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	workspace:updated_value	pass	{}
+fix-round-4	workspace:cross_user_denied	pass	{}
+fix-round-4	setup:workspace_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:workspace_list_after_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	workspace:deleted	pass	{}
+fix-round-4	setup:vendor_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:vendor_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:vendor_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:vendor_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	vendor:updated	pass	{}
+fix-round-4	setup:model_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:model_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:model_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:model_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	model:updated	pass	{}
+fix-round-4	setup:model_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:vendor_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel:mock-crud-only	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel_read	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	channel:updated	pass	{}
+fix-round-4	setup:channel_disable	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:channel_read_disabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	channel:disabled	pass	{}
+fix-round-4	setup:channel_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:token_create_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:token_read_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:token_update_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:token_read_updated	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	token:updated	pass	{}
+fix-round-4	token:other_user_read_denied	pass	{}
+fix-round-4	setup:token_delete_crud	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_workspace	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_create	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_get	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_login	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	subaccount:mysql_metadata	pass	"{""row"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}}"
+fix-round-4	subaccount:redis_metadata	pass	"{""db"": {""id"": 4, ""must_change_password"": 1, ""parent_user_id"": 2}, ""cache"": {""Id"": ""4"", ""ParentUserId"": ""2"", ""MustChangePassword"": ""1"", ""CacheSchema"": ""3"", ""AuthVersion"": ""1""}}"
+fix-round-4	subaccount:must_change_password_enforced	pass	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+fix-round-4	subaccount:cannot_create_workspace	pass	"{""status"": 403, ""body"": {""message"": ""password change required"", ""success"": false}}"
+fix-round-4	setup:subaccount_change_password	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_login_new_password	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	subaccount:password_change_persisted	pass	"{""row"": {""must_change_password"": 0, ""parent_user_id"": 2}, ""cache_flag"": ""0""}"
+fix-round-4	setup:subaccount_workspaces	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	subaccount:assigned_workspace_scope	pass	"{""workspaces"": [{""id"": 4, ""user_id"": 2, ""access_users"": [], ""name"": ""subaccount fixture"", ""description"": ""isolated"", ""is_default"": false, ""status"": 1, ""quota_reset_enabled"": false, ""quota_reset_period"": """", ""quota_reset_amount"": 0, ""quota_reset_last_applied_at"": 0, ""quota_reset_next_at"": 0, ""created_time"": 1795401092, ""updated_time"": 1795401092, ""DeletedAt"": null, ""token_count"": 0}]}"
+fix-round-4	subaccount:creation_denied_after_password_change	pass	"{""status"": 403, ""body"": {""message"": ""workspace accounts cannot access this feature"", ""success"": false}}"
+fix-round-4	setup:subaccount_update	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_workspaces_set	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_disable	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	subaccount:disabled_session_denied	pass	{}
+fix-round-4	setup:subaccount_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:subaccount_workspace_delete	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	chat:mock-chat	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	chat:content:mock-chat	pass	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+fix-round-4	mapping:alias_to_upstream	pass	{}
+fix-round-4	parameters:explicit_zero_preserved	pass	"{""body"": {""model"": ""gpt-4o"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""stream"": false, ""max_tokens"": 128, ""temperature"": 0, ""top_p"": 0}}"
+fix-round-4	billing:chat_charged:mock-chat	pass	{}
+fix-round-4	chat:claude-sonnet-4-5	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	chat:content:claude-sonnet-4-5	pass	"{""usage"": {""prompt_tokens"": 115, ""completion_tokens"": 20, ""total_tokens"": 135, ""prompt_tokens_details"": {""cached_tokens"": 5, ""audio_tokens"": 0, ""cache_write_tokens"": 10}}}"
+fix-round-4	billing:chat_charged:claude-sonnet-4-5	pass	{}
+fix-round-4	chat:gemini-2.5-flash	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	chat:content:gemini-2.5-flash	pass	"{""usage"": {""prompt_tokens"": 100, ""completion_tokens"": 20, ""total_tokens"": 120}}"
+fix-round-4	billing:chat_charged:gemini-2.5-flash	pass	{}
+fix-round-4	chat:tools	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	chat:tool_call_preserved	pass	{}
+fix-round-4	compat:gpt62	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	compat:gpt62_upstream	pass	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""developer"", ""content"": ""rules""}, {""role"": ""user"", ""content"": ""hello""}], ""max_completion_tokens"": 128, ""reasoning_effort"": ""high""}}"
+fix-round-4	compat:openrouter	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	compat:openrouter_nested_reasoning	pass	"{""body"": {""model"": ""gpt-6.2-sol"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""usage"": {""include"": true}, ""reasoning"": {""enabled"": false, ""exclude"": false, ""opaque"": {""integer"": 9007199254740993}}}}"
+fix-round-4	stream:chat:mock-chat	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	stream:chat_terminal:mock-chat	pass	{}
+fix-round-4	stream:chat:claude-sonnet-4-5	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	stream:chat_terminal:claude-sonnet-4-5	pass	{}
+fix-round-4	stream:chat:gemini-2.5-flash	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	stream:chat_terminal:gemini-2.5-flash	pass	{}
+fix-round-4	claude:native:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	claude:native_contract:False	pass	{}
+fix-round-4	claude:native:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	claude:native_contract:True	pass	{}
+fix-round-4	gemini:native	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	gemini:native_content	pass	{}
+fix-round-4	gemini:responses:False	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	gemini:responses_contract:False	pass	{}
+fix-round-4	gemini:responses:True	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	gemini:responses_contract:True	pass	{}
+fix-round-4	gemini:broken_responses_http	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	gemini:broken_responses_terminal	pass	{}
+fix-round-4	gemini:broken_stream_no_retry	pass	{}
+fix-round-4	gemini:broken_stream_usage_billed	pass	"{""expected"": 49996301, ""actual"": 49996301}"
+fix-round-4	gemini:broken_stream_single_log	pass	"{""logs"": [{""completion_tokens"": 20, ""id"": 77, ""model_name"": ""gemini-2.5-flash"", ""other"": ""{\""admin_info\"":{\""usage_billing_path\"":\""billing-usage-gemini\"",\""use_channel\"":[\""5\""]},\""billing_mode\"":\""ratio\"",\""billing_source\"":\""wallet\"",\""cache_ratio\"":1,\""cache_tokens\"":0,\""channel_ratio\"":1,\""completion_ratio\"":1,\""cost_base_quota\"":120,\""cost_quota\"":120,\""frt\"":7,\""group_ratio\"":1,\""group_ratio_source\"":\""group\"",\""model_price\"":-1,\""model_ratio\"":1,\""pricing_group\"":\""default\"",\""pricing_model\"":\""gemini-2.5-flash\"",\""pricing_user_group\"":\""default\"",\""profit_quota\"":0,\""profit_rate\"":0,\""request_conversion\"":[\""OpenAI Responses\"",\""Google Gemini\""],\""request_path\"":\""/v1/responses\"",\""stream_status\"":{\""end_error\"":\""unmarshal: invalid character 'i' looking for beginning of object key string\"",\""end_reason\"":\""handler_stop\"",\""error_count\"":1,\""errors\"":[\""unmarshal: invalid character 'i' looking for beginning of object key string\""],\""status\"":\""error\""},\""user_group_ratio\"":-1}"", ""prompt_tokens"": 100, ""quota"": 120}]}"
+fix-round-4	auth:missing:/v1/models	pass	"{""status"": 401}"
+fix-round-4	auth:missing:/v1/chat/completions	pass	"{""status"": 401}"
+fix-round-4	auth:invalid_token	pass	"{""status"": 401, ""excerpt"": null}"
+fix-round-4	auth:invalid_not_forwarded	pass	{}
+fix-round-4	upstream:http429	pass	"{""status"": 429, ""excerpt"": null}"
+fix-round-4	billing:http429_refunded	pass	"{""expected"": 49996301, ""actual"": 49996301}"
+fix-round-4	upstream:http429_not_retried	pass	{}
+fix-round-4	auth:ordinary_user_admin_denied	pass	"{""status"": 403}"
+fix-round-4	claude:adaptive	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	claude:adaptive_fields_exact	pass	"{""body"": {""model"": ""claude-opus-5-5"", ""messages"": [{""role"": ""user"", ""content"": ""hello""}], ""max_tokens"": 128, ""output_config"": {""effort"": ""medium""}, ""thinking"": {""block_binding"": {""prefix_mismatch_behavior"": ""drop_block""}, ""display"": ""summarized"", ""future_field"": {""id"": 9007199254740993}, ""type"": ""adaptive""}}}"
+fix-round-4	claude:adjacent_tools	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	claude:adjacent_tools_preserved	pass	"{""body"": {""model"": ""claude-sonnet-4-5"", ""messages"": [{""role"": ""user"", ""content"": ""look up a and b""}, {""role"": ""assistant"", ""content"": [{""type"": ""text"", ""text"": ""...""}, {""type"": ""tool_use"", ""id"": ""a"", ""name"": ""lookup"", ""input"": {}}, {""type"": ""tool_use"", ""id"": ""b"", ""name"": ""lookup"", ""input"": {}}]}, {""role"": ""user"", ""content"": [{""type"": ""tool_result"", ""content"": ""result a"", ""tool_use_id"": ""a""}, {""type"": ""tool_result"", ""content"": ""result b"", ""tool_use_id"": ""b""}]}], ""max_tokens"": 1024}}"
+fix-round-4	setup:option:general_setting.ping_interval_enabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	setup:option:general_setting.ping_interval_seconds	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	claude:slow_stream	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	claude:keepalive_before_content	pass	{}
+fix-round-4	setup:option:general_setting.ping_interval_enabled	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	image26:request:gif	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	image26:outbound:gif	pass	"{""body"": {""complexity"": ""low"", ""frame_count"": 16, ""frame_duration_ms"": 100, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""gif"", ""prompt"": ""draw"", ""quality"": ""max"", ""size"": ""1536x864""}}"
+fix-round-4	image26:request:svg	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	image26:outbound:svg	pass	"{""body"": {""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_format"": ""svg"", ""prompt"": ""draw"", ""svg"": {""model"": ""author-model"", ""reasoning"": {""effort"": ""high""}, ""extension"": 9007199254740993}}}"
+fix-round-4	image26:request:zero	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	image26:outbound:zero	pass	"{""body"": {""complexity"": """", ""frame_count"": 0, ""frame_duration_ms"": 0, ""model"": ""gpt-image-2.6-sunburst"", ""n"": 1, ""output_compression"": 0, ""partial_images"": 0, ""prompt"": ""draw"", ""stream"": false}}"
+fix-round-4	image:sync	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	image:sync_pixels	pass	{}
+fix-round-4	image:sync_charged	pass	{}
+fix-round-4	image:async_submit:success	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	image:async_id_no_usage:success	pass	{}
+fix-round-4	image:reservation_before_completion:success	pass	"{""before"": 49995247, ""after_submit"": 49993982}"
+fix-round-4	image:async_terminal:success	pass	"{""body"": {""action"": ""generate"", ""create_time"": 1795401097, ""data"": {""images"": [{""url"": ""/api/relay-temp-images/79c5a57a-c098-46ce-9275-1bcc78970f71.png""}]}, ""id"": ""task_glkOVxBJe82EUWLXQitSrDaIynxcDzC3"", ""image_expires_at"": 1795487497, ""image_status"": ""available"", ""progress"": 100, ""state"": ""succeeded"", ""update_time"": 1795401097, ""usage"": {""prompt_tokens"": 0, ""completion_tokens"": 0, ""total_tokens"": 120, ""prompt_tokens_details"": {""cached_tokens"": 0, ""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0}, ""completion_tokens_details"": {""text_tokens"": 0, ""audio_tokens"": 0, ""image_tokens"": 0, ""reasoning_tokens"": 0}, ""input_tokens"": 100, ""output_tokens"": 20, ""input_tokens_details"": null, ""claude_cache_creation_5_m_tokens"": 0, ""claude_cache_creation_1_h_tokens"": 0}}}"
+fix-round-4	image:cross_user_denied:success	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	image:denied_not_forwarded:success	pass	{}
+fix-round-4	image:async_download_pixels	pass	"{""status"": 200, ""bytes"": 68}"
+fix-round-4	image:async_charged	pass	{}
+fix-round-4	load:image-repeat-success	pass	"{""metrics"": {""name"": ""image-repeat-success"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.8, ""p95_ms"": 13.88, ""p99_ms"": 13.88, ""max_ms"": 15.37}}"
+fix-round-4	image:repeat_no_double_charge:success	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-4	image:task_persisted:success	pass	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 120, ""status"": ""SUCCESS""}]}"
+fix-round-4	image:billing_log_count:success	pass	"{""count"": 1}"
+fix-round-4	image:async_submit:failure	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	image:async_id_no_usage:failure	pass	{}
+fix-round-4	image:reservation_before_completion:failure	pass	"{""before"": 49995127, ""after_submit"": 49993862}"
+fix-round-4	image:async_terminal:failure	pass	"{""body"": {""action"": ""generate"", ""create_time"": 1795401097, ""data"": {""images"": null}, ""error"": {""code"": ""mock_rate_limit"", ""message"": ""local mock rejected request""}, ""id"": ""task_Fhj5MTuZd18L04GCFVk0GAMY3z78VoNU"", ""progress"": 100, ""state"": ""failed"", ""update_time"": 1795401098}}"
+fix-round-4	image:cross_user_denied:failure	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	image:denied_not_forwarded:failure	pass	{}
+fix-round-4	image:async_failure_refund	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-4	load:image-repeat-failure	pass	"{""metrics"": {""name"": ""image-repeat-failure"", ""requests"": 20, ""workers"": 10, ""peak_client_inflight"": 10, ""statuses"": {""200"": 20}, ""p50_ms"": 6.3, ""p95_ms"": 13.55, ""p99_ms"": 13.55, ""max_ms"": 13.57}}"
+fix-round-4	image:repeat_no_double_charge:failure	pass	"{""expected"": 49995127, ""actual"": 49995127}"
+fix-round-4	image:task_persisted:failure	pass	"{""rows"": [{""private_data"": ""{\""token_id\"": 1, \""async_image\"": true, \""billing_source\"": \""wallet\"", \""billing_context\"": {\""user_group\"": \""default\"", \""audio_ratio\"": 1, \""cache_ratio\"": 1, \""group_ratio\"": 1, \""image_ratio\"": 1, \""model_price\"": -1, \""model_ratio\"": 1, \""completion_ratio\"": 1, \""origin_model_name\"": \""gpt-image-2\"", \""group_ratio_source\"": \""group\"", \""cache_creation_ratio\"": 1.25, \""audio_completion_ratio\"": 1, \""cache_creation_1h_ratio\"": 2, \""cache_creation_5m_ratio\"": 1.25}}"", ""quota"": 1265, ""status"": ""FAILURE""}]}"
+fix-round-4	image:billing_log_count:failure	pass	"{""count"": 0}"
+fix-round-4	video:create:success	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:success	pass	{}
+fix-round-4	video:zero_values:success	pass	{}
+fix-round-4	video:cross_user:success	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:success	pass	{}
+fix-round-4	video:query:success	pass	"{""status"": 200, ""body"": {""id"": ""cgt-54af00c0f1b64e5b959760989b4fc80e"", ""model"": ""doubao-seedance-2-5-260628-mock-success"", ""status"": ""succeeded"", ""created_at"": 1795401098, ""updated_at"": 1795401098, ""error"": null, ""seed"": 0, ""output_format"": ""mp4"", ""tools"": [{""type"": ""web_search""}], ""execution_expires_after"": 3600, ""duration"": 5, ""content"": {""video_url"": ""http://127.0.0.1:43487/media/video""}, ""usage"": {""completion_tokens"": 100, ""total_tokens"": 100, ""mock_token_details"": {""zero"": 0, ""nested"": {""value"": 7}}, ""tool_usage"": {""web_search"": 0}}, ""mock_extension"": {""preserve"": true}}}"
+fix-round-4	video:terminal:success	pass	{}
+fix-round-4	video:extended_usage	pass	{}
+fix-round-4	video:charged	pass	{}
+fix-round-4	load:video-repeat-success	pass	"{""metrics"": {""name"": ""video-repeat-success"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.65, ""p95_ms"": 9.69, ""p99_ms"": 9.69, ""max_ms"": 10.19}}"
+fix-round-4	video:repeat_no_double_charge:success	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	video:create:failed	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:failed	pass	{}
+fix-round-4	video:zero_values:failed	pass	{}
+fix-round-4	video:cross_user:failed	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:failed	pass	{}
+fix-round-4	video:query:failed	pass	"{""status"": 200, ""body"": {""id"": ""cgt-48304aeb19ad45e8a2e2681d04d55957"", ""model"": ""doubao-seedance-2-5-260628-mock-failed"", ""status"": ""failed"", ""created_at"": 1795401098, ""updated_at"": 1795401098, ""error"": {""code"": ""MockGenerationFailed"", ""message"": ""Mock task failed""}}}"
+fix-round-4	video:terminal:failed	pass	{}
+fix-round-4	video:terminal_refund:failed	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	load:video-repeat-failed	pass	"{""metrics"": {""name"": ""video-repeat-failed"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 5.55, ""p95_ms"": 8.18, ""p99_ms"": 8.18, ""max_ms"": 11.14}}"
+fix-round-4	video:repeat_no_double_charge:failed	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	video:create:expired	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:expired	pass	{}
+fix-round-4	video:zero_values:expired	pass	{}
+fix-round-4	video:cross_user:expired	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:expired	pass	{}
+fix-round-4	video:query:expired	pass	"{""status"": 200, ""body"": {""id"": ""cgt-34d4241fe6fc469e90ccea48cb15c562"", ""model"": ""doubao-seedance-2-5-260628-mock-expired"", ""status"": ""expired"", ""created_at"": 1795401098, ""updated_at"": 1795401098, ""error"": {""code"": ""TaskExpired"", ""message"": ""Mock task expired""}}}"
+fix-round-4	video:terminal:expired	pass	{}
+fix-round-4	video:terminal_refund:expired	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	load:video-repeat-expired	pass	"{""metrics"": {""name"": ""video-repeat-expired"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 6.03, ""p95_ms"": 8.79, ""p99_ms"": 8.79, ""max_ms"": 8.97}}"
+fix-round-4	video:repeat_no_double_charge:expired	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	video:create:cancelled	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:cancelled	pass	{}
+fix-round-4	video:zero_values:cancelled	pass	{}
+fix-round-4	video:cross_user:cancelled	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:cancelled	pass	{}
+fix-round-4	video:query:cancelled	pass	"{""status"": 200, ""body"": {""id"": ""cgt-748041cdf77947a3b0de9377825073bd"", ""model"": ""doubao-seedance-2-5-260628-mock-cancelled"", ""status"": ""cancelled"", ""created_at"": 1795401098, ""updated_at"": 1795401098, ""error"": {""code"": ""TaskCancelled"", ""message"": ""Mock task cancelled""}}}"
+fix-round-4	video:terminal:cancelled	pass	{}
+fix-round-4	video:terminal_refund:cancelled	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	load:video-repeat-cancelled	pass	"{""metrics"": {""name"": ""video-repeat-cancelled"", ""requests"": 10, ""workers"": 5, ""peak_client_inflight"": 5, ""statuses"": {""200"": 10}, ""p50_ms"": 7.19, ""p95_ms"": 9.29, ""p99_ms"": 9.29, ""max_ms"": 11.13}}"
+fix-round-4	video:repeat_no_double_charge:cancelled	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	video:create:create429	pass	"{""status"": 429, ""excerpt"": null}"
+fix-round-4	video:create429_refund	pass	"{""expected"": 49994627, ""actual"": 49994627}"
+fix-round-4	video:create:query429	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:query429	pass	{}
+fix-round-4	video:zero_values:query429	pass	{}
+fix-round-4	video:cross_user:query429	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:query429	pass	{}
+fix-round-4	video:query:query429	pass	"{""status"": 429, ""body"": {""error"": {""code"": ""TooManyRequests"", ""message"": ""Mock query rate limit""}}}"
+fix-round-4	video:retry_after	pass	{}
+fix-round-4	video:invalid_query_not_finalized:query429	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-4	video:create:query500	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:query500	pass	{}
+fix-round-4	video:zero_values:query500	pass	{}
+fix-round-4	video:cross_user:query500	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:query500	pass	{}
+fix-round-4	video:query:query500	pass	"{""status"": 500, ""body"": {""error"": {""code"": ""InternalError"", ""message"": ""Mock upstream failure""}}}"
+fix-round-4	video:invalid_query_not_finalized:query500	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-4	video:create:queryinvalid	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:queryinvalid	pass	{}
+fix-round-4	video:zero_values:queryinvalid	pass	{}
+fix-round-4	video:cross_user:queryinvalid	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:queryinvalid	pass	{}
+fix-round-4	video:query:queryinvalid	pass	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream response is missing a task ID"", ""data"": null}}"
+fix-round-4	video:invalid_query_not_finalized:queryinvalid	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-4	video:create:querywrongid	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	video:official_id:querywrongid	pass	{}
+fix-round-4	video:zero_values:querywrongid	pass	{}
+fix-round-4	video:cross_user:querywrongid	pass	"{""status"": 400, ""body"": {""code"": ""task_not_exist"", ""message"": ""task_not_exist"", ""data"": null}}"
+fix-round-4	video:denied_not_forwarded:querywrongid	pass	{}
+fix-round-4	video:query:querywrongid	pass	"{""status"": 502, ""body"": {""code"": ""upstream_query_failed"", ""message"": ""upstream returned a different task ID"", ""data"": null}}"
+fix-round-4	video:invalid_query_not_finalized:querywrongid	pass	"{""rows"": [{""status"": ""NOT_START""}]}"
+fix-round-4	asset:create	pass	"{""status"": 200, ""excerpt"": null}"
+fix-round-4	asset:create_id	pass	{}
+fix-round-4	asset:cross_user:/api/assets/asset-fc779e6d74c04380830a2d8f0a12278c	pass	"{""status"": 404}"
+fix-round-4	asset:denied_not_forwarded:/api/assets/asset-fc779e6d74c04380830a2d8f0a12278c	pass	{}
+fix-round-4	asset:query:/api/assets/asset-fc779e6d74c04380830a2d8f0a12278c	pass	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-fc779e6d74c04380830a2d8f0a12278c"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+fix-round-4	asset:cross_user:/v1/assets/asset-fc779e6d74c04380830a2d8f0a12278c	pass	"{""status"": 404}"
+fix-round-4	asset:denied_not_forwarded:/v1/assets/asset-fc779e6d74c04380830a2d8f0a12278c	pass	{}
+fix-round-4	asset:query:/v1/assets/asset-fc779e6d74c04380830a2d8f0a12278c	pass	"{""status"": 200, ""body"": {""Result"": {""Id"": ""asset-fc779e6d74c04380830a2d8f0a12278c"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}}}"
+fix-round-4	asset:list	pass	"{""status"": 200, ""body"": {""Result"": {""Items"": [{""Id"": ""asset-fc779e6d74c04380830a2d8f0a12278c"", ""GroupId"": null, ""ProjectName"": ""nmyk"", ""Status"": ""Active""}], ""TotalCount"": 1, ""PageNumber"": 1, ""PageSize"": 20}}}"
+fix-round-4	load:asset-create-100	pass	"{""metrics"": {""name"": ""asset-create-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 100}, ""p50_ms"": 234.89, ""p95_ms"": 268.01, ""p99_ms"": 279.52, ""max_ms"": 285.76}}"
+fix-round-4	asset:100_unique_ids	pass	{}
+fix-round-4	load:asset-poll-500	pass	"{""metrics"": {""name"": ""asset-poll-500"", ""requests"": 500, ""workers"": 100, ""peak_client_inflight"": 100, ""statuses"": {""200"": 500}, ""p50_ms"": 144.46, ""p95_ms"": 154.9, ""p99_ms"": 194.74, ""max_ms"": 223.49}}"
+fix-round-4	asset:poll_identity_and_status	pass	{}
+fix-round-4	asset:delete	pass	"{""status"": 200}"
+fix-round-4	asset:deleted_denied	pass	"{""status"": 404}"
+fix-round-4	asset:deleted_not_forwarded	pass	{}
+fix-round-4	load:chat-100	pass	"{""metrics"": {""name"": ""chat-100"", ""requests"": 100, ""workers"": 100, ""peak_client_inflight"": 99, ""statuses"": {""200"": 100}, ""p50_ms"": 107.27, ""p95_ms"": 153.69, ""p99_ms"": 164.21, ""max_ms"": 169.0}}"
+fix-round-4	load:chat_content_usage	pass	{}
+fix-round-4	billing:chat100_exact	pass	"{""expected"": 49980627, ""actual"": 49980627}"
+fix-round-4	billing:chat100_log_count	pass	"{""count"": 100}"
+fix-round-4	load:image-20	pass	"{""metrics"": {""name"": ""image-20"", ""requests"": 20, ""workers"": 20, ""peak_client_inflight"": 20, ""statuses"": {""200"": 20}, ""p50_ms"": 150.34, ""p95_ms"": 154.53, ""p99_ms"": 154.53, ""max_ms"": 155.46}}"
+fix-round-4	load:image_content	pass	{}
+fix-round-4	billing:image20_charged	pass	{}
+fix-round-4	redis:user_cache_populated	pass	{}
+fix-round-4	redis:user_quota_matches_mysql	pass	"{""mysql"": [{""id"": 2, ""quota"": 49978227, ""used_quota"": 21773}], ""redis_quota"": ""49978227""}"
+fix-round-4	billing:limited_token_consistent	pass	"{""row"": {""id"": 1, ""remain_quota"": 478227, ""used_quota"": 21773}}"
+fix-round-4	setup:revocable_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	auth:revocable_token_primed	pass	{}
+fix-round-4	setup:revoke_token	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	auth:revoked_token_denied	pass	"{""status"": 401, ""excerpt"": null}"
+fix-round-4	auth:revoked_token_not_forwarded	pass	{}
+fix-round-4	runtime:graceful_shutdown:1	pass	"{""exit_code"": 0}"
+fix-round-4	runtime:readiness:2	pass	"{""checks"": {""database"": ""ok"", ""log_database"": ""ok"", ""redis"": ""ok""}}"
+fix-round-4	restart:token_valid	pass	{}
+fix-round-4	restart:persisted_image	pass	"{""status"": 200}"
+fix-round-4	restart:persisted_video	pass	"{""status"": 200}"
+fix-round-4	restart:persisted_asset	pass	"{""status"": 200}"
+fix-round-4	restart:no_double_billing	pass	"{""expected"": 49978227, ""actual"": 49978227}"
+fix-round-4	gates:protected_routes_deny_anonymous	pass	"{""total"": 604, ""failures"": []}"
+fix-round-4	gates:no_unexpected_server_error	pass	"{""failures"": []}"
+fix-round-4	gates:all_routes_accounted	pass	"{""total"": 662, ""exercised"": 660, ""server_errors"": []}"
+fix-round-4	setup:option:theme.frontend	pass	"{""status"": 200, ""message"": """"}"
+fix-round-4	web:homepage:default	pass	{}
+fix-round-4	web:all_assets:default	pass	"{""total"": 307, ""failures"": []}"
+fix-round-4	web:classic_disabled_contract	pass	{}
+fix-round-4	runtime:only_local_channels	pass	{}
+fix-round-4	upstream:credentials	pass	"{""failed_paths"": []}"
+fix-round-4	runtime:graceful_shutdown:2	pass	"{""exit_code"": 0}"
+fix-round-4	cleanup:mysql_schema_removed	pass	{}
+fix-round-4	cleanup:redis_db14_empty	pass	"{""removed_keys"": 43}"

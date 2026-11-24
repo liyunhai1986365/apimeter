@@ -87,6 +87,20 @@ func TestAdaptNativeClaudeThinkingRejectsInvalidOutputConfig(t *testing.T) {
 	require.ErrorContains(t, adaptClaudeThinking(req, req.Model), "output_config")
 }
 
+func TestAdaptNativeClaudeThinkingPreservesDeploymentSuffix(t *testing.T) {
+	const model = "claude-sonnet-4-5-high"
+	global := model_setting.GetGlobalSettings()
+	original := global.ThinkingModelBlacklist
+	t.Cleanup(func() { global.ThinkingModelBlacklist = original })
+	for _, entry := range []string{"public-alias", model} {
+		global.ThinkingModelBlacklist = []string{entry}
+		req := &dto.ClaudeRequest{Model: model, MaxTokens: common.GetPointer[uint](8192)}
+		require.NoError(t, adaptClaudeThinking(req, "public-alias"))
+		require.Equal(t, model, req.Model)
+		require.Equal(t, 4096, req.Thinking.GetBudgetTokens())
+	}
+}
+
 func TestClaudeHelperInvalidEffortReturnsBadRequest(t *testing.T) {
 	global := model_setting.GetGlobalSettings()
 	oldPassThrough := global.PassThroughRequestEnabled
@@ -143,6 +157,7 @@ func TestClaudePassthroughPreservesBodyAndRoutesModel(t *testing.T) {
 				{name: "thinking", model: "claude-sonnet-4-5-20250929-thinking", want: "claude-sonnet-4-5-20250929"},
 				{name: "mapped", model: "public-model", mapped: "claude-opus-4-7-high", want: "claude-opus-4-7"},
 				{name: "preserved", model: "public-thinking", mapped: "claude-opus-4-7-thinking", want: "claude-opus-4-7-thinking", preserve: true},
+				{name: "preserved effort", model: "public-high", mapped: "claude-sonnet-4-5-high", want: "claude-sonnet-4-5-high", preserve: true},
 				{name: "disabled", model: "claude-opus-4-7-thinking", want: "claude-opus-4-7-thinking", disabled: true},
 			} {
 				t.Run(fmt.Sprintf("%s/global=%v/%s", provider.name, globalPass, tc.name), func(t *testing.T) {

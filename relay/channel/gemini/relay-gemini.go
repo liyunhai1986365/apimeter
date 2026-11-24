@@ -183,6 +183,9 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 	defer grounding.commit(info)
 	responseText := strings.Builder{}
 	callbackStopped := false
+	hasOutput := false
+	sawNonErrorFrame := false
+	var upstreamErr *types.NewAPIError
 
 	helper.StreamScannerHandler(c, resp, info, func(data string, sr *helper.StreamResult) {
 		if !callbackStopped && sr.Context().Err() != nil {
@@ -217,6 +220,11 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		// 统计图片数量
 		for _, candidate := range geminiResponse.Candidates {
 			for _, part := range candidate.Content.Parts {
+				if part.Text != "" || (part.InlineData != nil && part.InlineData.Data != "") ||
+					(part.FileData != nil && part.FileData.FileUri != "") || part.FunctionCall != nil ||
+					part.FunctionResponse != nil || part.ExecutableCode != nil || part.CodeExecutionResult != nil {
+					hasOutput = true
+				}
 				if part.InlineData != nil && part.InlineData.MimeType != "" {
 					imageCount++
 				}
@@ -234,6 +242,25 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 			hasBillableUsageMetadata = true
 		}
 
+		if failure := geminiResponse.Error; failure != nil {
+			code := failure.Code
+			if code < 400 || code > 599 {
+				code = http.StatusBadGateway
+			}
+			message := failure.Message
+			if message == "" {
+				message = http.StatusText(code)
+			}
+			upstreamErr = types.WithOpenAIError(types.OpenAIError{Message: message, Code: failure.Status}, code)
+			// Native clients can consume the original error, including provider
+			// details. Converted clients get their own protocol's terminal event.
+			if !callbackStopped && info.RelayFormat == types.RelayFormatGemini && callback(data, &geminiResponse) {
+				common.SetContextKey(c, constant.ContextKeyRelayStreamErrorSent, true)
+			}
+			sr.Stop(upstreamErr)
+			return
+		}
+		sawNonErrorFrame = true
 		if !callbackStopped && !callback(data, &geminiResponse) {
 			callbackStopped = true
 			// Stop generating upstream tokens, but retain authoritative usage
@@ -249,8 +276,11 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		}
 	}, helper.StreamScannerOptions{DrainBufferedOnCancel: true})
 
+	if upstreamErr != nil && !hasOutput && !hasBillableUsageMetadata && len(grounding.queries) == 0 {
+		return nil, upstreamErr // Pure upstream rejection, with no work to settle.
+	}
 	if !hasBillableUsageMetadata {
-		if info.ReceivedResponseCount > 0 {
+		if sawNonErrorFrame || hasOutput || len(grounding.queries) > 0 {
 			usage = service.ResponseText2Usage(c, responseText.String(), info.UpstreamModelName, info.GetEstimatePromptTokens())
 		} else {
 			usage = &dto.Usage{}
@@ -265,11 +295,18 @@ func geminiStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http
 		patchGeminiZeroCompletionUsage(c, info, usage, responseText.String(), imageCount)
 	}
 
-	return usage, nil
+	if upstreamErr != nil {
+		return usage, upstreamErr
+	}
+	return usage, geminiStreamFinalizationError(info)
 }
 
 func GeminiChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *http.Response) (resultUsage *dto.Usage, resultErr *types.NewAPIError) {
-	defer func() { resultErr = relaycommon.WithStreamUsage(resultErr, resultUsage) }()
+	defer func() {
+		if resultUsage != nil {
+			resultErr = relaycommon.WithStreamUsage(resultErr, resultUsage)
+		}
+	}()
 	id := helper.GetResponseID(c)
 	createAt := common.GetTimestamp()
 
@@ -277,18 +314,30 @@ func GeminiChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *
 	state := relayconvert.NewGeminiToChatStreamState(id, createAt)
 	var conversionErr error
 	started := false
+	start := func() error {
+		if started {
+			return nil
+		}
+		if err := handleStream(c, info, helper.GenerateStartEmptyResponse(id, createAt, model, nil)); err != nil {
+			return err
+		}
+		started = true
+		return nil
+	}
 	usage, apiErr := geminiStreamHandler(c, info, resp, func(data string, response *dto.GeminiChatResponse) bool {
+		// Gemini's leading metadata has no Chat counterpart. Don't commit
+		// the response before the channel returns a candidate or usage.
+		if !started && len(response.Candidates) == 0 && response.PromptFeedback == nil && !dto.HasGeminiUsageMetadataTokens(response.GetUsageMetadata()) {
+			return true
+		}
 		chunks, err := state.ConvertChunk(response, model, nil)
 		if err != nil {
 			conversionErr = err
 			return false
 		}
-		if !started {
-			if err := handleStream(c, info, helper.GenerateStartEmptyResponse(id, createAt, model, nil)); err != nil {
-				conversionErr = err
-				return false
-			}
-			started = true
+		if err := start(); err != nil {
+			conversionErr = err
+			return false
 		}
 		for _, chunk := range chunks {
 			if err := handleStream(c, info, chunk); err != nil {
@@ -298,17 +347,17 @@ func GeminiChatStreamHandler(c *gin.Context, info *relaycommon.RelayInfo, resp *
 		}
 		return true
 	})
-	if apiErr != nil {
-		return usage, apiErr
-	}
 	if conversionErr != nil {
 		return usage, types.NewOpenAIError(conversionErr, types.ErrorCodeBadResponse, http.StatusBadGateway)
 	}
-	if streamErr := geminiStreamFinalizationError(info); streamErr != nil {
-		return usage, streamErr
+	if apiErr != nil {
+		return usage, apiErr
 	}
 	chunks, err := state.Finalize(model)
 	if err != nil {
+		return usage, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
+	}
+	if err := start(); err != nil {
 		return usage, types.NewOpenAIError(err, types.ErrorCodeBadResponse, http.StatusBadGateway)
 	}
 	for _, chunk := range chunks {

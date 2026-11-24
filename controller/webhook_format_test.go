@@ -60,6 +60,37 @@ func TestWebhookFormatUserSettingsPersistAndPreserveChoice(t *testing.T) {
 
 func webhookFormatPointer(value string) *string { return &value }
 
+func TestPersonalNotificationSettingsRequirePublicDestination(t *testing.T) {
+	setupGlobalWebhookControllerTestDB(t)
+	require.NoError(t, model.DB.AutoMigrate(&model.User{}))
+	user := model.User{Username: "notification-target", Password: "x"}
+	require.NoError(t, model.DB.Create(&user).Error)
+	for _, tc := range []struct {
+		name    string
+		setting UpdateUserSettingRequest
+		want    bool
+	}{
+		{"private webhook", UpdateUserSettingRequest{QuotaWarningType: dto.NotifyTypeWebhook, WebhookUrl: "http://127.0.0.1/hook"}, false},
+		{"private bark", UpdateUserSettingRequest{QuotaWarningType: dto.NotifyTypeBark, BarkUrl: "http://localhost/{{title}}/{{content}}"}, false},
+		{"private gotify", UpdateUserSettingRequest{QuotaWarningType: dto.NotifyTypeGotify, GotifyUrl: "http://10.0.0.1", GotifyToken: "test"}, false},
+		{"public bark template", UpdateUserSettingRequest{QuotaWarningType: dto.NotifyTypeBark, BarkUrl: "https://example.org/notify/{{title}}/{{content}}"}, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body, err := common.Marshal(tc.setting)
+			require.NoError(t, err)
+			w := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(w)
+			c.Set("id", user.Id)
+			c.Request = httptest.NewRequest(http.MethodPut, "/api/user/setting", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+			UpdateUserSetting(c)
+			var result struct{ Success bool }
+			require.NoError(t, common.Unmarshal(w.Body.Bytes(), &result))
+			require.Equal(t, tc.want, result.Success, w.Body.String())
+		})
+	}
+}
+
 func TestWebhookFormatGlobalOptionPersistsAndValidatesChoice(t *testing.T) {
 	setupGlobalWebhookControllerTestDB(t)
 	require.NoError(t, model.DB.AutoMigrate(&model.Option{}))

@@ -48,7 +48,7 @@ func TestImagenLocalAsyncReservationAndSettlement(t *testing.T) {
 			oldBatch := common.BatchUpdateEnabled
 			common.BatchUpdateEnabled = false
 			t.Cleanup(func() {
-				waitForImageTaskTestWorkers(t)
+				waitForRelayTaskTestWorkers(t)
 				common.BatchUpdateEnabled = oldBatch
 			})
 			require.NoError(t, model.DB.AutoMigrate(&model.User{}, &model.Token{}, &model.Log{}))
@@ -72,13 +72,19 @@ func TestImagenLocalAsyncReservationAndSettlement(t *testing.T) {
 				PriceData:   types.PriceData{UsePrice: true, ModelPrice: .02, QuotaToPreConsume: tc.requested * 10000, GroupRatioInfo: types.GroupRatioInfo{GroupRatio: 1}, OtherRatios: map[string]float64{"n": float64(tc.requested)}},
 			}
 			require.Nil(t, service.PreConsumeBilling(ctx, tc.requested*10000, info))
+			if tc.name == "increased_all" {
+				// The submitted price is 10000 quota per image, even if
+				// today's unit and a channel override would yield more.
+				info.PriceData.ModelPrice = .04
+				info.PriceData.FixedQuotaPerUnit = common.GetPointer(250000.0)
+			}
 			task, apiErr := insertLocalImageAsyncTask(info, body)
 			require.Nil(t, apiErr)
 			service.InitHttpClient()
 			client := service.GetHttpClient()
 			oldTransport := client.Transport
 			t.Cleanup(func() {
-				waitForImageTaskTestWorkers(t)
+				waitForRelayTaskTestWorkers(t)
 				client.Transport = oldTransport
 			})
 			calls := 0

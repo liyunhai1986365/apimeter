@@ -64,24 +64,12 @@ func DoDownloadRequest(originUrl string, reason ...string) (resp *http.Response,
 }
 
 func DoDownloadRequestContext(ctx context.Context, originUrl string, reason ...string) (resp *http.Response, err error) {
-	if system_setting.EnableWorker() {
-		common.SysLog(fmt.Sprintf("downloading file from worker: %s, reason: %s", originUrl, strings.Join(reason, ", ")))
-		req := &WorkerRequest{
-			URL: originUrl,
-			Key: system_setting.WorkerValidKey,
-		}
-		return DoWorkerRequestContext(ctx, req)
-	} else {
-		// SSRF防护：验证请求URL（非Worker模式）
-		if err := ValidateSSRFProtectedFetchURL(originUrl); err != nil {
-			return nil, fmt.Errorf("request reject: %v", err)
-		}
-
-		common.SysLog(fmt.Sprintf("downloading from origin: %s, reason: %s", common.MaskSensitiveInfo(originUrl), strings.Join(reason, ", ")))
-		request, err := http.NewRequestWithContext(ctx, http.MethodGet, originUrl, nil)
-		if err != nil {
-			return nil, err
-		}
-		return GetSSRFProtectedHTTPClient().Do(request)
+	if resp, handled, err := downloadSiteImage(ctx, originUrl); handled {
+		return resp, err
 	}
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, originUrl, nil)
+	if err != nil {
+		return nil, err
+	}
+	return GetSSRFProtectedHTTPClient().Do(request)
 }

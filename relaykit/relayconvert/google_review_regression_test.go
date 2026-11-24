@@ -11,6 +11,95 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestGeminiFunctionReturnSchemaLoss(t *testing.T) {
+	for _, tc := range []struct {
+		name, field, config string
+		loss                bool
+	}{
+		{"openapi", `,"response":{"type":"OBJECT","properties":{"amount_cents":{"type":"INTEGER"}}}`, "", true},
+		{"json-schema", `,"responseJsonSchema":{"type":"integer"}`, "", true},
+		{"false-schema", `,"responseJsonSchema":false`, "", true},
+		{"null", `,"response":null`, "", false},
+		{"disabled", `,"responseJsonSchema":{"type":"integer"}`, `,"toolConfig":{"functionCallingConfig":{"mode":"NONE"}}`, false},
+		{"any tool required", `,"response":{"type":"INTEGER"}`, `,"toolConfig":{"functionCallingConfig":{"mode":"ANY"}}`, true},
+		{"auto", `,"response":{"type":"INTEGER"}`, `,"toolConfig":{"functionCallingConfig":{"mode":"AUTO"}}`, true},
+		{"only other tool allowed", `,"responseJsonSchema":{"type":"integer"}`, `,"toolConfig":{"functionCallingConfig":{"mode":"ANY","allowedFunctionNames":["other"]}}`, false},
+		{"selected tool has schema", `,"response":{"type":"INTEGER"}`, `,"toolConfig":{"functionCallingConfig":{"mode":"ANY","allowedFunctionNames":["get_balance"]}}`, true},
+	} {
+		for _, policy := range []types.ConversionLossPolicy{types.ConversionLossPolicyAllow, types.ConversionLossPolicySafe, types.ConversionLossPolicyStrict} {
+			t.Run(tc.name+"/"+string(policy), func(t *testing.T) {
+				var req dto.GeminiChatRequest
+				require.NoError(t, kitutil.UnmarshalJsonStr(`{"contents":[{"role":"user","parts":[{"text":"get balance"}]}],"tools":[{"functionDeclarations":[{"name":"other"},{"name":"get_balance","parametersJsonSchema":{"type":"object"}`+tc.field+`}]}]`+tc.config+`}`, &req))
+				info := googleInfo("gpt-4o")
+				info.Options.ToolLossPolicy = policy
+				result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, &req)
+				if tc.loss && policy != types.ConversionLossPolicyAllow {
+					var loss *types.ConversionLossError
+					require.ErrorAs(t, err, &loss)
+					require.Len(t, loss.Diagnostics, 1)
+					require.Equal(t, "tools[0].functionDeclarations[1]", loss.Diagnostics[0].Path)
+					require.Equal(t, "unsupported_function_response_schema", loss.Diagnostics[0].Code)
+					return
+				}
+				require.NoError(t, err)
+				require.Equal(t, tc.loss, len(result.Diagnostics) != 0)
+				out := result.Value.(*dto.GeneralOpenAIRequest)
+				if req.ToolConfig != nil && len(req.ToolConfig.FunctionCallingConfig.AllowedFunctionNames) == 1 {
+					require.Equal(t, map[string]any{"type": "function", "function": map[string]any{"name": req.ToolConfig.FunctionCallingConfig.AllowedFunctionNames[0]}}, out.ToolChoice)
+				}
+				require.Len(t, out.Tools, 2)
+				require.JSONEq(t, `{"type":"object"}`, string(out.Tools[1].Function.RawParameters))
+				require.Nil(t, out.ResponseFormat)
+			})
+		}
+	}
+}
+
+func TestGeminiAnyFunctionNameSetsToChat(t *testing.T) {
+	for _, tc := range []struct {
+		name, allowed string
+		loss          bool
+	}{
+		{"omitted", "", false},
+		{"all in different order", `,"allowedFunctionNames":["post","get","list"]`, false},
+		{"repeated full list", `,"allowedFunctionNames":["post","get","list","get"]`, false},
+		{"proper subset", `,"allowedFunctionNames":["get","post"]`, true},
+		{"repetition hides missing name", `,"allowedFunctionNames":["get","post","get"]`, true},
+		{"unknown name added", `,"allowedFunctionNames":["get","post","list","unknown"]`, true},
+	} {
+		for _, policy := range []types.ConversionLossPolicy{types.ConversionLossPolicyAllow, types.ConversionLossPolicySafe, types.ConversionLossPolicyStrict} {
+			t.Run(tc.name+"/"+string(policy), func(t *testing.T) {
+				var req dto.GeminiChatRequest
+				require.NoError(t, kitutil.UnmarshalJsonStr(`{"contents":[{"role":"user","parts":[{"text":"choose"}]}],"tools":[{"functionDeclarations":[{"name":"get"},{"name":"post"}]},{"functionDeclarations":[{"name":"list"}]}],"toolConfig":{"functionCallingConfig":{"mode":"ANY"`+tc.allowed+`}}}`, &req))
+				info := googleInfo("gpt-4o")
+				info.Options.ToolLossPolicy = policy
+				result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, &req)
+				if tc.loss && policy != types.ConversionLossPolicyAllow {
+					var loss *types.ConversionLossError
+					require.ErrorAs(t, err, &loss)
+					require.Len(t, loss.Diagnostics, 1)
+					require.Equal(t, "unsupported_tool_subset", loss.Diagnostics[0].Code)
+					return
+				}
+				require.NoError(t, err)
+				if tc.loss {
+					require.Len(t, result.Diagnostics, 1)
+					require.Equal(t, "unsupported_tool_subset", result.Diagnostics[0].Code)
+				} else {
+					require.Empty(t, result.Diagnostics)
+				}
+				chat := result.Value.(*dto.GeneralOpenAIRequest)
+				require.Equal(t, "required", chat.ToolChoice)
+				var names []string
+				for _, tool := range chat.Tools {
+					names = append(names, tool.Function.Name)
+				}
+				require.Equal(t, []string{"get", "post", "list"}, names)
+			})
+		}
+	}
+}
+
 func TestParallelToolCallsJSONAndConversionRoundTrip(t *testing.T) {
 	for _, value := range []string{"", "true", "false"} {
 		t.Run("value="+value, func(t *testing.T) {
@@ -311,6 +400,86 @@ func TestGoogleChatNonePreservesToolHistory(t *testing.T) {
 	require.JSONEq(t, `"call_1"`, string(result.ID))
 	require.Equal(t, call.FunctionName, result.Name)
 	require.Equal(t, map[string]any{"result": "ok"}, result.Response)
+}
+
+func TestGeminiToolsToChatDefaultsAndShorthand(t *testing.T) {
+	const group = `{"functionDeclarations":[{"name":"lookup","parameters":{"type":"OBJECT"}}]}`
+	for _, groups := range []string{group, "[" + group + "]"} {
+		for _, mode := range []string{"", "MODE_UNSPECIFIED", "AUTO", "unknown"} {
+			var req dto.GeminiChatRequest
+			config := `{}`
+			if mode != "" {
+				config = `{"mode":"` + mode + `"}`
+			}
+			require.NoError(t, kitutil.UnmarshalJsonStr(`{"tools":`+groups+`,"toolConfig":{"functionCallingConfig":`+config+`}}`, &req))
+			info := googleInfo("gpt-4o")
+			info.Options.ToolLossPolicy = types.ConversionLossPolicyStrict
+			result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, &req)
+			if mode == "unknown" {
+				var loss *types.ConversionLossError
+				require.ErrorAs(t, err, &loss)
+				require.Equal(t, "unsupported_tool_choice", loss.Diagnostics[0].Code)
+				continue
+			}
+			require.NoError(t, err)
+			require.Empty(t, result.Diagnostics)
+			chat := result.Value.(*dto.GeneralOpenAIRequest)
+			require.Len(t, chat.Tools, 1)
+			require.Equal(t, "lookup", chat.Tools[0].Function.Name)
+			require.JSONEq(t, `{"type":"object"}`, string(chat.Tools[0].Function.RawParameters))
+			if mode == "AUTO" {
+				require.Equal(t, "auto", chat.ToolChoice)
+			} else {
+				require.Nil(t, chat.ToolChoice)
+			}
+		}
+	}
+}
+
+func TestGeminiFunctionResponseAttachmentsToChat(t *testing.T) {
+	const text = `{"inlineData":{"mimeType":"text/plain","data":"aGVsbG8="}}`
+	const img = `{"inlineData":{"mimeType":"image/png","data":"aW1hZ2U="}}`
+	for _, tc := range []struct {
+		policy     types.ConversionLossPolicy
+		parts      string
+		losesImage bool
+	}{
+		{types.ConversionLossPolicyStrict, text, false},
+		{types.ConversionLossPolicyAllow, text + "," + img, true},
+		{types.ConversionLossPolicySafe, text + "," + img, true},
+		{types.ConversionLossPolicyStrict, text + "," + img, true},
+	} {
+		var req dto.GeminiChatRequest
+		require.NoError(t, kitutil.UnmarshalJsonStr(`{"contents":[{"role":"model","parts":[{"functionCall":{"id":"c1","name":"look","args":{}}}]},{"role":"user","parts":[{"functionResponse":{"id":"c1","name":"look","response":{"note":"read this"},"parts":[`+tc.parts+`]}}]}]}`, &req))
+		info := googleInfo("gpt-4o")
+		info.Options.ToolLossPolicy = tc.policy
+		result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, &req)
+		var diagnostic []types.ConversionDiagnostic
+		if tc.losesImage && tc.policy != types.ConversionLossPolicyAllow {
+			var loss *types.ConversionLossError
+			require.ErrorAs(t, err, &loss)
+			diagnostic = loss.Diagnostics
+		} else {
+			require.NoError(t, err)
+			out := result.Value.(*dto.GeneralOpenAIRequest)
+			require.Len(t, out.Messages, 2)
+			tool := out.Messages[1]
+			require.Equal(t, "c1", tool.ToolCallId)
+			require.Equal(t, "tool", tool.Role)
+			parts := tool.ParseContent()
+			require.Len(t, parts, 2)
+			require.JSONEq(t, `{"note":"read this"}`, parts[0].Text)
+			require.Equal(t, "hello", parts[1].Text)
+			diagnostic = result.Diagnostics
+		}
+		if tc.losesImage {
+			require.Len(t, diagnostic, 1)
+			require.Equal(t, "unsupported_media_type", diagnostic[0].Code)
+			require.Equal(t, "contents[1].parts[0].functionResponse.parts[1]", diagnostic[0].Path)
+		} else {
+			require.Empty(t, diagnostic)
+		}
+	}
 }
 
 func TestGoogleChatToolChoiceKeepsRelevantValidation(t *testing.T) {

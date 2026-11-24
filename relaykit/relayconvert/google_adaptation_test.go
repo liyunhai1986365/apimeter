@@ -88,6 +88,83 @@ func TestGoogleSchemasPreserveConstraintsAndPropertyOrder(t *testing.T) {
 	}
 }
 
+func TestGeminiDictionaryConstraintsBothRequestFormats(t *testing.T) {
+	const schema = `{"type":"object","properties":{"counts":{"type":"object","additionalProperties":{"type":"integer"}}}}`
+	for _, source := range []string{"chat", "responses"} {
+		t.Run(source, func(t *testing.T) {
+			var input any
+			if source == "chat" {
+				var req dto.GeneralOpenAIRequest
+				require.NoError(t, kitutil.UnmarshalJsonStr(`{"tools":[{"type":"function","function":{"name":"report","parameters":`+schema+`}}],"response_format":{"type":"json_schema","json_schema":{"name":"result","schema":`+schema+`}}}`, &req))
+				input = &req
+			} else {
+				var req dto.OpenAIResponsesRequest
+				require.NoError(t, kitutil.UnmarshalJsonStr(`{"tools":[{"type":"function","name":"report","parameters":`+schema+`}],"text":{"format":{"type":"json_schema","name":"result","schema":`+schema+`}}}`, &req))
+				req.Model = "gemini-2.5-flash"
+				input = &req
+			}
+			info := googleInfo("gemini-2.5-flash")
+			info.Options.ToolLossPolicy = types.ConversionLossPolicyStrict
+			info.Options.Gemini.SupportsJSONSchema = func(string) bool { return true }
+			result, err := ConvertRequest(nil, info, types.RelayFormatGemini, input)
+			require.NoError(t, err)
+			wire, err := kitutil.Marshal(result.Value)
+			require.NoError(t, err)
+			require.Contains(t, string(wire), `"parametersJsonSchema":`+schema)
+			require.Contains(t, string(wire), `"responseJsonSchema":`+schema)
+			info.Options.Gemini.SupportsJSONSchema = func(string) bool { return false }
+			_, err = ConvertRequest(nil, info, types.RelayFormatGemini, input)
+			require.ErrorContains(t, err, "additionalProperties")
+			info.Options.ToolLossPolicy = types.ConversionLossPolicyAllow
+			result, err = ConvertRequest(nil, info, types.RelayFormatGemini, input)
+			require.NoError(t, err)
+			require.Len(t, result.Diagnostics, 2, "one loss for the tool and one for structured output")
+		})
+	}
+}
+
+func TestGeminiStructuredOutputToChat(t *testing.T) {
+	info := googleInfo("gpt-4o")
+	info.OriginModelName = "gemini-2.0-flash"
+	info.Options.ToolLossPolicy = types.ConversionLossPolicyStrict
+	for _, tc := range []struct {
+		config, kind, schema string
+		rejected             bool
+	}{
+		{`{}`, "", "", false},
+		{`{"responseMimeType":"application/json"}`, "json_object", "", false},
+		{`{"responseMimeType":"application/json","responseSchema":{"type":"OBJECT","properties":{"n":{"type":"INTEGER","nullable":true}}}}`, "json_schema", `{"name":"response","schema":{"type":"object","properties":{"n":{"type":["integer","null"]}}}}`, false},
+		{`{"responseMimeType":"application/json","responseJsonSchema":{"const":9007199254740993}}`, "json_schema", `{"name":"response","schema":{"const":9007199254740993}}`, false},
+		{`{"responseSchema":{"type":"OBJECT","propertyOrdering":["n"]}}`, "", "", true},
+		{`{"responseSchema":{"type":"OBJECT"},"responseJsonSchema":{}}`, "", "", true},
+		{`{"responseMimeType":"text/x.enum"}`, "", "", true},
+	} {
+		t.Run(tc.config, func(t *testing.T) {
+			var req dto.GeminiChatRequest
+			require.NoError(t, kitutil.UnmarshalJsonStr(`{"generationConfig":`+tc.config+`}`, &req))
+			result, err := ConvertRequest(nil, info, types.RelayFormatOpenAI, &req)
+			if tc.rejected {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			format := result.Value.(*dto.GeneralOpenAIRequest).ResponseFormat
+			if tc.kind == "" {
+				require.Nil(t, format)
+				return
+			}
+			require.NotNil(t, format)
+			require.Equal(t, tc.kind, format.Type)
+			if tc.schema != "" {
+				require.JSONEq(t, tc.schema, string(format.JsonSchema))
+				if strings.Contains(tc.schema, "9007199254740993") {
+					require.Contains(t, string(format.JsonSchema), "9007199254740993")
+				}
+			}
+		})
+	}
+}
+
 func TestGoogleResponsesCustomToolsRoundTrip(t *testing.T) {
 	info := googleInfo("gemini-3-flash-preview")
 	var request dto.OpenAIResponsesRequest
@@ -139,6 +216,39 @@ func TestGoogleResponsesToolOutputMedia(t *testing.T) {
 		} else {
 			require.Len(t, parts, 2)
 			require.Equal(t, "aGVsbG8=", parts[1].InlineData.Data)
+		}
+	}
+}
+
+func TestGoogleResponsesToolOutputFileID(t *testing.T) {
+	for _, kind := range []string{"input_image", "input_file"} {
+		for _, policy := range []types.ConversionLossPolicy{types.ConversionLossPolicyAllow, types.ConversionLossPolicySafe, types.ConversionLossPolicyStrict} {
+			t.Run(kind+"/"+string(policy), func(t *testing.T) {
+				var req dto.OpenAIResponsesRequest
+				require.NoError(t, kitutil.UnmarshalJsonStr(`{"model":"gemini-3-flash-preview","input":[
+					{"type":"function_call","call_id":"c1","name":"see","arguments":"{}"},
+					{"type":"function_call_output","call_id":"c1","output":[{"type":"input_text","text":"look"},{"type":"`+kind+`","file_id":"file_private"}]}]}`, &req))
+				info := googleInfo(req.Model)
+				info.Options.ToolLossPolicy = policy
+				result, err := ConvertRequest(nil, info, types.RelayFormatGemini, &req)
+				var diagnostics []types.ConversionDiagnostic
+				if policy == types.ConversionLossPolicyAllow {
+					require.NoError(t, err)
+					parts := result.Value.(*dto.GeminiChatRequest).Contents[1].Parts
+					require.Len(t, parts, 1)
+					require.Equal(t, map[string]any{"content": "look"}, parts[0].FunctionResponse.Response)
+					require.Empty(t, parts[0].FunctionResponse.Parts)
+					diagnostics = result.Diagnostics
+				} else {
+					var loss *types.ConversionLossError
+					require.ErrorAs(t, err, &loss)
+					diagnostics = loss.Diagnostics
+				}
+				require.Len(t, diagnostics, 1)
+				require.Equal(t, "unsupported_media_type", diagnostics[0].Code)
+				require.Equal(t, types.ConversionDiagnosticError, diagnostics[0].Severity)
+				require.NotContains(t, diagnostics[0].Message, "file_private")
+			})
 		}
 	}
 }

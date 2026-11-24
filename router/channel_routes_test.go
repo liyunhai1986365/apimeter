@@ -5,11 +5,13 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service/authz"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
@@ -29,7 +31,7 @@ func openChannelRouteAuthTestDB(t *testing.T) *gorm.DB {
 	originRedisEnabled := common.RedisEnabled
 	db, err := gorm.Open(sqlite.Open("file:"+strings.ReplaceAll(t.Name(), "/", "_")+"?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Ability{}, &model.AuthzRole{}, &model.CasbinRule{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.Channel{}, &model.Ability{}, &model.AuthzRole{}, &model.CasbinRule{}, &model.Log{}))
 	model.DB = db
 	model.LOG_DB = db
 	common.UsingSQLite = true
@@ -39,6 +41,9 @@ func openChannelRouteAuthTestDB(t *testing.T) *gorm.DB {
 	model.InitColForTest()
 	require.NoError(t, authz.Init(db))
 	t.Cleanup(func() {
+		// Admin routes write audit logs asynchronously; finish them before
+		// replacing the database and Redis globals used by those workers.
+		require.Eventually(t, func() bool { return gopool.WorkerCount() == 0 }, 5*time.Second, time.Millisecond)
 		model.DB = originDB
 		model.LOG_DB = originLogDB
 		common.UsingSQLite = originUsingSQLite

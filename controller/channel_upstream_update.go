@@ -28,6 +28,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/samber/lo"
+	"gorm.io/gorm"
 )
 
 const (
@@ -42,6 +43,7 @@ const (
 
 var channelUpstreamModelUpdateSelectFields = []string{
 	"id",
+	"scope",
 	"name",
 	"type",
 	"key",
@@ -366,6 +368,9 @@ func getFetchModelsResponseBody(method string, requestURL string, channel *model
 }
 
 func fetchChannelUpstreamModelIDs(channel *model.Channel) ([]string, error) {
+	if channel.Scope == model.ChannelScopeUserOwned {
+		return nil, model.ErrPlatformChannelRequired
+	}
 	baseURL := constant.GetChannelBaseURL(channel.Type)
 	if channel.GetBaseURL() != "" {
 		baseURL = channel.GetBaseURL()
@@ -685,16 +690,7 @@ func runChannelUpstreamModelUpdateTaskOnce() {
 
 	lastID := 0
 	for {
-		var channels []*model.Channel
-		query := model.DB.
-			Select(channelUpstreamModelUpdateSelectFields).
-			Where("status = ?", common.ChannelStatusEnabled).
-			Order("id asc").
-			Limit(channelUpstreamModelUpdateTaskBatchSize)
-		if lastID > 0 {
-			query = query.Where("id > ?", lastID)
-		}
-		err := query.Find(&channels).Error
+		channels, err := findEnabledChannelsAfterID(lastID, channelUpstreamModelUpdateTaskBatchSize)
 		if err != nil {
 			common.SysLog(fmt.Sprintf("upstream model update task query failed: %v", err))
 			break
@@ -977,11 +973,15 @@ func collectPendingApplyUpstreamModelChanges(settings dto.ChannelOtherSettings) 
 	return normalizeModelNames(settings.UpstreamModelUpdateLastDetectedModels), normalizeModelNames(settings.UpstreamModelUpdateLastRemovedModels)
 }
 
+func enabledPlatformModelUpdateChannels() *gorm.DB {
+	return model.DB.Model(&model.Channel{}).Where("status = ?", common.ChannelStatusEnabled).
+		Where("(scope = ? OR scope = '' OR scope IS NULL)", model.ChannelScopePlatform)
+}
+
 func findEnabledChannelsAfterID(lastID int, batchSize int) ([]*model.Channel, error) {
 	var channels []*model.Channel
-	query := model.DB.
+	query := enabledPlatformModelUpdateChannels().
 		Select(channelUpstreamModelUpdateSelectFields).
-		Where("status = ?", common.ChannelStatusEnabled).
 		Order("id asc").
 		Limit(batchSize)
 	if lastID > 0 {
@@ -1168,9 +1168,7 @@ func runChannelUpstreamModelUpdateTask(ctx context.Context, manual bool, autoApp
 
 	// First pass: count total channels to check
 	var totalToCheck int64
-	model.DB.Model(&model.Channel{}).
-		Where("status = ?", common.ChannelStatusEnabled).
-		Count(&totalToCheck)
+	enabledPlatformModelUpdateChannels().Count(&totalToCheck)
 
 	lastID := 0
 	processed := 0
@@ -1178,26 +1176,17 @@ func runChannelUpstreamModelUpdateTask(ctx context.Context, manual bool, autoApp
 		// Check context cancellation
 		if ctx.Err() != nil {
 			return map[string]interface{}{
-				"checked_channels":        checkedChannels,
-				"changed_channels":        changedChannels,
-				"detected_add_models":     detectedAddModels,
-				"detected_remove_models":  detectedRemoveModels,
-				"failed_channels":         failedChannels,
-				"auto_added_models":       autoAddedModels,
-				"cancelled":               true,
+				"checked_channels":       checkedChannels,
+				"changed_channels":       changedChannels,
+				"detected_add_models":    detectedAddModels,
+				"detected_remove_models": detectedRemoveModels,
+				"failed_channels":        failedChannels,
+				"auto_added_models":      autoAddedModels,
+				"cancelled":              true,
 			}
 		}
 
-		var channels []*model.Channel
-		query := model.DB.
-			Select(channelUpstreamModelUpdateSelectFields).
-			Where("status = ?", common.ChannelStatusEnabled).
-			Order("id asc").
-			Limit(channelUpstreamModelUpdateTaskBatchSize)
-		if lastID > 0 {
-			query = query.Where("id > ?", lastID)
-		}
-		err := query.Find(&channels).Error
+		channels, err := findEnabledChannelsAfterID(lastID, channelUpstreamModelUpdateTaskBatchSize)
 		if err != nil {
 			common.SysLog(fmt.Sprintf("upstream model update task query failed: %v", err))
 			break

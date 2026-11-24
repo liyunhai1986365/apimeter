@@ -346,12 +346,24 @@ func writeRelayStreamError(c *gin.Context, format types.RelayFormat, apiError *t
 		return
 	}
 	helper.ExtendWriteDeadline(c)
-	if format == types.RelayFormatClaude {
+	switch format {
+	case types.RelayFormatGemini:
+		_ = helper.ObjectData(c, gin.H{"error": dto.GeminiAPIError{Code: apiError.StatusCode, Message: apiError.ToOpenAIError().Message}})
+	case types.RelayFormatClaude:
 		_ = helper.ClaudeData(c, dto.ClaudeResponse{Type: "error", Error: apiError.ToClaudeError()})
-		return
+	case types.RelayFormatOpenAIResponses:
+		err := apiError.ToOpenAIError()
+		event := gin.H{"type": "error", "code": apiError.GetErrorCode(), "message": err.Message, "param": err.Param}
+		if !helper.ResponseStarted(c) {
+			event["sequence_number"] = 0 // Preparation pings are SSE comments, not response events.
+		}
+		if data, marshalErr := common.Marshal(event); marshalErr == nil {
+			_ = helper.ResponseChunkData(c, dto.ResponsesStreamResponse{Type: "error"}, string(data))
+		}
+	default:
+		_ = helper.ObjectData(c, gin.H{"error": apiError.ToOpenAIError()})
+		helper.Done(c)
 	}
-	_ = helper.ObjectData(c, gin.H{"error": apiError.ToOpenAIError()})
-	helper.Done(c)
 }
 
 func relayErrorAfterChannelSelectionFailure(info *relaycommon.RelayInfo, channelErr *types.NewAPIError) *types.NewAPIError {

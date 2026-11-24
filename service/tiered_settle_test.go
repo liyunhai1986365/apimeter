@@ -346,6 +346,8 @@ func (*recordingBillingSettler) Settle(int) error { return nil }
 
 func (*recordingBillingSettler) Refund(*gin.Context) {}
 
+func (*recordingBillingSettler) RefundImageTask(*gin.Context, int) {}
+
 func (*recordingBillingSettler) NeedsRefund() bool { return false }
 
 func (s *recordingBillingSettler) ReserveWithCommit(targetQuota int, commit func(*gorm.DB, int) error) error {

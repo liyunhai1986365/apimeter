@@ -2,6 +2,7 @@ package relay
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -89,7 +90,7 @@ func ResolveOriginTask(c *gin.Context, info *relaycommon.RelayInfo) *dto.TaskErr
 	}
 
 	// 锁定到原始任务的渠道（重试时复用同一渠道，轮换 key）
-	ch, err := model.GetChannelById(originTask.ChannelId, true)
+	ch, err := model.RequirePlatformChannel(model.GetChannelById(originTask.ChannelId, true))
 	if err != nil {
 		return service.TaskErrorWrapperLocal(err, "channel_not_found", http.StatusBadRequest)
 	}
@@ -450,7 +451,7 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 	if service.IsVolcengineVideoTaskQueryRequest(c) {
 		return nil, service.TaskErrorWrapperLocal(fmt.Errorf("native task response unavailable"), "get_task_failed", http.StatusBadGateway)
 	}
-	if realtimeResp := tryRealtimeFetch(originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
+	if realtimeResp := tryRealtimeFetch(c.Request.Context(), originTask, isOpenAIVideoAPI); len(realtimeResp) > 0 {
 		respBody = realtimeResp
 		return
 	}
@@ -489,11 +490,11 @@ func videoFetchByIDRespBodyBuilder(c *gin.Context) (respBody []byte, taskResp *d
 // tryRealtimeFetch 尝试从上游实时拉取 Gemini/Vertex 任务状态。
 // 仅当渠道类型为 Gemini 或 Vertex 时触发；其他渠道或出错时返回 nil。
 // 当非 OpenAI Video API 时，还会构建自定义格式的响应体。
-func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
+func tryRealtimeFetch(ctx context.Context, task *model.Task, isOpenAIVideoAPI bool) []byte {
 	if view, err := task.ImageRetentionView(common.GetTimestamp()); err != nil || view.ImageContentExpired(common.GetTimestamp()) {
 		return nil
 	}
-	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	channelModel, err := model.RequirePlatformChannel(model.GetChannelById(task.ChannelId, true))
 	if err != nil {
 		return nil
 	}
@@ -529,6 +530,7 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 		return nil
 	}
 
+	before := *task
 	snap := task.Snapshot()
 
 	// 将上游最新状态更新到 task
@@ -553,7 +555,10 @@ func tryRealtimeFetch(task *model.Task, isOpenAIVideoAPI bool) []byte {
 	}
 
 	if !snap.Equal(task.Snapshot()) {
-		_, _ = task.UpdateWithStatus(snap.Status)
+		if won, err := service.PersistPolledTask(ctx, task, snap.Status); err != nil || !won {
+			*task = before
+			return nil
+		}
 	}
 
 	// OpenAI Video API 由调用者的 ConvertToOpenAIVideo 分支处理
@@ -600,7 +605,7 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		}
 		return nil
 	}
-	channelModel, err := model.GetChannelById(task.ChannelId, true)
+	channelModel, err := model.RequirePlatformChannel(model.GetChannelById(task.ChannelId, true))
 	if err != nil {
 		return nil
 	}
@@ -760,22 +765,17 @@ func tryConfigurableFetch(c *gin.Context, task *model.Task, returnNativeBody boo
 		if task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure {
 			task.Data = body
 		}
-		isDone := task.Status == model.TaskStatusSuccess || task.Status == model.TaskStatusFailure
 		changed := !snap.Equal(task.Snapshot())
 		reloadConcurrent := false
 		if changed {
-			won, updateErr := task.UpdateWithStatus(snap.Status)
+			won, updateErr := service.PersistPolledTask(c.Request.Context(), task, snap.Status)
 			if protectSeedance && updateErr != nil {
 				c.Set("seedance_native_fetch_error", service.TaskErrorWrapperLocal(fmt.Errorf("failed to persist task query result"), "task_persistence_failed", http.StatusInternalServerError))
 				return nil
 			}
 			reloadConcurrent = protectSeedance && !won
-			if updateErr == nil && won && isDone && snap.Status != task.Status {
-				if task.Status == model.TaskStatusSuccess {
-					service.SettleTaskBillingOnComplete(c.Request.Context(), adaptor, task, ti)
-				} else if task.Quota != 0 {
-					service.RefundTaskQuota(c.Request.Context(), task, task.FailReason)
-				}
+			if updateErr == nil && won && task.Status == model.TaskStatusSuccess && snap.Status != task.Status {
+				service.SettleTaskBillingOnComplete(c.Request.Context(), adaptor, task, ti)
 			}
 		}
 		// Even an unchanged upstream response can race a background transition.

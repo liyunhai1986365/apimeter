@@ -15,24 +15,36 @@ const (
 	cacheQuotaInsufficient cacheQuotaResult = iota
 	cacheQuotaOK
 	cacheQuotaMiss
+	quotaReservedInDB
+	cacheQuotaNeedsRecovery
 )
 
-const userQuotaReserveScript = `
+// Early schema 3 hashes added authentication metadata without changing
+// wallet fields. Preserve their pending debits until metadata is refreshed.
+const walletQuotaSchemaScript = `
+local function hasWalletQuotaSchema(key, current)
+  local schema = tonumber(redis.call('HGET', key, 'CacheSchema') or '0')
+  return schema == current or (current == 2 and schema == 3)
+end
+`
+
+const userQuotaReserveScript = walletQuotaSchemaScript + `
 if tonumber(redis.call('HGET', KEYS[1], 'Id') or '0') ~= tonumber(ARGV[2])
-  or tonumber(redis.call('HGET', KEYS[1], 'CacheSchema') or '0') ~= tonumber(ARGV[3])
+  or not hasWalletQuotaSchema(KEYS[1], tonumber(ARGV[3]))
   or redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
   return -1
 end
 local quota = tonumber(redis.call('HGET', KEYS[1], 'Quota'))
 if quota == nil or quota < tonumber(ARGV[1]) then
+  if redis.call('HEXISTS', KEYS[1], 'ImageQuotaPending') == 1 then return -2 end
   return 0
 end
 redis.call('HINCRBY', KEYS[1], 'Quota', -tonumber(ARGV[1]))
 return 1`
 
-const userQuotaDeltaScript = `
+const userQuotaDeltaScript = walletQuotaSchemaScript + `
 if tonumber(redis.call('HGET', KEYS[1], 'Id') or '0') ~= tonumber(ARGV[2])
-  or tonumber(redis.call('HGET', KEYS[1], 'CacheSchema') or '0') ~= tonumber(ARGV[3])
+  or not hasWalletQuotaSchema(KEYS[1], tonumber(ARGV[3]))
   or redis.call('HEXISTS', KEYS[1], 'Quota') == 0 then
   return -1
 end
@@ -47,6 +59,7 @@ if tonumber(redis.call('HGET', KEYS[1], 'Id') or '0') ~= tonumber(ARGV[2])
 end
 local remain = tonumber(redis.call('HGET', KEYS[1], 'RemainQuota'))
 if remain == nil or remain < tonumber(ARGV[1]) then
+  if redis.call('HEXISTS', KEYS[1], 'ImageQuotaPending') == 1 then return -2 end
   return 0
 end
 redis.call('HINCRBY', KEYS[1], 'RemainQuota', -tonumber(ARGV[1]))
@@ -74,6 +87,8 @@ func quotaResultFromLua(result int, err error) (cacheQuotaResult, error) {
 		return cacheQuotaOK, nil
 	case 0:
 		return cacheQuotaInsufficient, nil
+	case -2:
+		return cacheQuotaNeedsRecovery, nil
 	default:
 		return cacheQuotaMiss, nil
 	}
@@ -141,15 +156,15 @@ func persistTokenQuotaDelta(id int, delta int) error {
 	return nil
 }
 
-func reserveUserQuotaDB(id int, quota int) (bool, error) {
-	result := DB.Model(&User{}).
+func reserveUserQuotaDB(db *gorm.DB, id int, quota int) (bool, error) {
+	result := db.Model(&User{}).
 		Where("id = ? AND quota >= ?", id, quota).
 		Update("quota", gorm.Expr("quota - ?", quota))
 	return result.RowsAffected == 1, result.Error
 }
 
-func reserveTokenQuotaDB(id int, quota int) (bool, error) {
-	result := DB.Model(&Token{}).
+func reserveTokenQuotaDB(db *gorm.DB, id int, quota int) (bool, error) {
+	result := db.Model(&Token{}).
 		Where("id = ? AND remain_quota >= ?", id, quota).
 		Updates(map[string]interface{}{
 			"remain_quota":  gorm.Expr("remain_quota - ?", quota),
@@ -157,6 +172,29 @@ func reserveTokenQuotaDB(id int, quota int) (bool, error) {
 			"accessed_time": common.GetTimestamp(),
 		})
 	return result.RowsAffected == 1, result.Error
+}
+
+// A concurrent image reservation or token edit can prevent hydration on a
+// cache miss. Hold our own guard through the SQL write, so releasing the
+// other guard cannot let an older snapshot populate the hash. Re-check
+// after acquiring it: a live hash might already contain queued debits.
+func reserveColdQuota(cacheKey, kind string, id, quota int, tryCache func() (cacheQuotaResult, error),
+	reserveDB func(*gorm.DB, int, int) (bool, error)) (cacheQuotaResult, error) {
+	ctx, cancel := context.WithTimeout(DB.Statement.Context, imageQuotaTransactionTimeout)
+	defer cancel()
+	guard, err := beginImageQuotaCacheMutation(ctx, cacheKey, id, kind)
+	defer guard.finish(true) // This guard never creates a Redis debit marker.
+	if err != nil {
+		return cacheQuotaMiss, err
+	}
+	if result, err := tryCache(); err != nil || result != cacheQuotaMiss {
+		return result, err
+	}
+	ok, err := reserveDB(DB.WithContext(ctx), id, quota)
+	if err != nil || !ok {
+		return cacheQuotaInsufficient, err
+	}
+	return quotaReservedInDB, nil
 }
 
 // TryReserveUserQuota atomically checks and deducts a user's wallet quota.
@@ -170,23 +208,34 @@ func TryReserveUserQuota(id int, quota int) (bool, error) {
 		return true, nil
 	}
 	if !common.RedisEnabled {
-		return reserveUserQuotaDB(id, quota)
+		return reserveUserQuotaDB(DB, id, quota)
 	}
 
-	result, err := cacheTryReserveUserQuota(id, int64(quota))
+	tryCache := func() (cacheQuotaResult, error) { return cacheTryReserveUserQuota(id, int64(quota)) }
+	result, err := tryCache()
 	if err == nil && result == cacheQuotaMiss {
 		if _, hydrateErr := GetUserCache(id); hydrateErr == nil {
-			result, err = cacheTryReserveUserQuota(id, int64(quota))
+			result, err = tryCache()
 		}
 	}
-	if err != nil || result == cacheQuotaMiss {
-		if err != nil {
-			common.SysLog("user quota cache reserve unavailable, falling back to database: " + err.Error())
+	if err != nil {
+		common.SysLog("user quota cache reserve unavailable, falling back to database: " + err.Error())
+		return reserveUserQuotaDB(DB, id, quota)
+	}
+	if result == cacheQuotaMiss {
+		result, err = reserveColdQuota(getUserCacheKey(id), "wallet", id, quota, tryCache, reserveUserQuotaDB)
+		if err != nil || result == quotaReservedInDB {
+			return result == quotaReservedInDB, err
 		}
-		return reserveUserQuotaDB(id, quota)
 	}
 	if result == cacheQuotaInsufficient {
 		return false, nil
+	}
+	if result == cacheQuotaNeedsRecovery {
+		recoverImageQuota(getUserCacheKey(id), "wallet")
+		if result, err = tryCache(); err != nil || result != cacheQuotaOK {
+			return false, err
+		}
 	}
 	if err = persistUserQuotaDelta(id, -quota); err != nil {
 		compensated, compensateErr := cacheApplyUserQuotaDelta(id, int64(quota))
@@ -211,23 +260,34 @@ func TryReserveTokenQuota(id int, key string, quota int, unlimited bool) (bool, 
 		return true, DecreaseTokenQuota(id, key, quota)
 	}
 	if !common.RedisEnabled {
-		return reserveTokenQuotaDB(id, quota)
+		return reserveTokenQuotaDB(DB, id, quota)
 	}
 
-	result, err := cacheTryReserveTokenQuota(id, key, int64(quota))
+	tryCache := func() (cacheQuotaResult, error) { return cacheTryReserveTokenQuota(id, key, int64(quota)) }
+	result, err := tryCache()
 	if err == nil && result == cacheQuotaMiss {
 		if _, hydrateErr := GetTokenByKey(key, true); hydrateErr == nil {
-			result, err = cacheTryReserveTokenQuota(id, key, int64(quota))
+			result, err = tryCache()
 		}
 	}
-	if err != nil || result == cacheQuotaMiss {
-		if err != nil {
-			common.SysLog("token quota cache reserve unavailable, falling back to database: " + err.Error())
+	if err != nil {
+		common.SysLog("token quota cache reserve unavailable, falling back to database: " + err.Error())
+		return reserveTokenQuotaDB(DB, id, quota)
+	}
+	if result == cacheQuotaMiss {
+		result, err = reserveColdQuota(getTokenCacheKey(key), "token", id, quota, tryCache, reserveTokenQuotaDB)
+		if err != nil || result == quotaReservedInDB {
+			return result == quotaReservedInDB, err
 		}
-		return reserveTokenQuotaDB(id, quota)
 	}
 	if result == cacheQuotaInsufficient {
 		return false, nil
+	}
+	if result == cacheQuotaNeedsRecovery {
+		recoverImageQuota(getTokenCacheKey(key), "token")
+		if result, err = tryCache(); err != nil || result != cacheQuotaOK {
+			return false, err
+		}
 	}
 	if err = persistTokenQuotaDelta(id, -quota); err != nil {
 		compensated, compensateErr := cacheApplyTokenQuotaDelta(id, key, int64(quota))

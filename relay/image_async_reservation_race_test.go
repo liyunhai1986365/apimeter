@@ -2,6 +2,7 @@ package relay
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http/httptest"
@@ -18,11 +19,118 @@ import (
 	kittypes "github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/types"
+	"github.com/alicebob/miniredis/v2"
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+// The client sees the same error whether the database committed or rolled back.
+// Execute the real transaction outcome so the subsequent task reload is authoritative.
+type imageCommitReplyLoss struct {
+	*sql.DB
+	committed bool
+}
+
+func (p *imageCommitReplyLoss) BeginTx(ctx context.Context, opts *sql.TxOptions) (gorm.ConnPool, error) {
+	tx, err := p.DB.BeginTx(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return &imageUnconfirmedTx{Tx: tx, committed: p.committed}, nil
+}
+
+type imageUnconfirmedTx struct {
+	*sql.Tx
+	committed bool
+}
+
+func (tx *imageUnconfirmedTx) Commit() error {
+	var err error
+	if tx.committed {
+		err = tx.Tx.Commit()
+	} else {
+		err = tx.Tx.Rollback()
+	}
+	if err != nil {
+		return err
+	}
+	return errors.New("commit reply lost")
+}
+
+func TestImageReservationRefundAfterCommitReplyLoss(t *testing.T) {
+	for _, subscription := range []bool{false, true} {
+		for _, committed := range []bool{false, true} {
+			t.Run(fmt.Sprintf("subscription=%t/committed=%t", subscription, committed), func(t *testing.T) {
+				c, info, task := setupImageReservationRace(t, subscription)
+				waitForRelayTaskTestWorkers(t)
+				server := miniredis.RunT(t)
+				oldRedis := common.RDB
+				client := redis.NewClient(&redis.Options{Addr: server.Addr()})
+				common.RDB, common.RedisEnabled = client, true
+				t.Cleanup(func() {
+					waitForRelayTaskTestWorkers(t)
+					common.RDB, common.RedisEnabled = oldRedis, false
+					_ = client.Close()
+				})
+				_, err := model.GetUserCache(info.UserId)
+				require.NoError(t, err)
+				_, err = model.GetTokenByKey(info.TokenKey, true)
+				require.NoError(t, err)
+				sqlDB, err := model.DB.DB()
+				require.NoError(t, err)
+				apiErr := func() *kittypes.NewAPIError {
+					original := model.DB.Statement.ConnPool
+					model.DB.Statement.ConnPool = &imageCommitReplyLoss{DB: sqlDB, committed: committed}
+					defer func() { model.DB.Statement.ConnPool = original }()
+					return prepareOutboundImageCount(c, info, &dto.ImageRequest{}, &gemini.Adaptor{}, []byte(`{"instances":[{}],"parameters":{"sampleCount":3}}`))
+				}()
+				require.NotNil(t, apiErr)
+				require.ErrorContains(t, apiErr, "commit reply lost")
+				require.Equal(t, 10000, info.Billing.GetPreConsumedQuota())
+
+				var saved model.Task
+				require.NoError(t, model.DB.First(&saved, task.ID).Error)
+				wantReserved := 10000
+				if committed {
+					wantReserved = 30000
+				}
+				require.Equal(t, wantReserved, saved.Quota)
+				stale := saved
+				finishLocalImageAsyncTask(c, info, &saved, nil, apiErr)
+				finishLocalImageAsyncTask(c, info, &stale, nil, apiErr)
+				info.Billing.Refund(c)
+				waitForRelayTaskTestWorkers(t)
+
+				require.NoError(t, model.DB.First(&saved, task.ID).Error)
+				require.Equal(t, model.TaskStatus(model.TaskStatusFailure), saved.Status)
+				var user model.User
+				var token model.Token
+				require.NoError(t, model.DB.First(&user, 721).Error)
+				require.NoError(t, model.DB.First(&token, 722).Error)
+				require.Equal(t, 100000, user.Quota)
+				require.Equal(t, 100000, token.RemainQuota)
+				require.Zero(t, token.UsedQuota)
+				cachedWallet, err := model.GetUserQuota(info.UserId, false)
+				require.NoError(t, err)
+				cachedToken, err := model.GetTokenByKey(info.TokenKey, false)
+				require.NoError(t, err)
+				require.Equal(t, user.Quota, cachedWallet)
+				require.Equal(t, token.RemainQuota, cachedToken.RemainQuota)
+				if subscription {
+					var sub model.UserSubscription
+					var record model.SubscriptionPreConsumeRecord
+					require.NoError(t, model.DB.First(&sub, 725).Error)
+					require.Zero(t, sub.AmountUsed)
+					require.NoError(t, model.DB.Where("request_id = ?", info.RequestId).First(&record).Error)
+					require.Equal(t, "refunded", record.Status)
+				}
+			})
+		}
+	}
+}
 
 // Interleave the timeout immediately before the atomic reservation handoff.
 // No sleeps or scheduler timing are needed to exercise either CAS winner.
